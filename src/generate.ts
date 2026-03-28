@@ -5,10 +5,11 @@ import { generateInstructions } from './generators/instructions.js';
 import { generateMcpJson } from './generators/mcp.js';
 import { generateContextDocs } from './generators/context-docs.js';
 import { generateAgents } from './generators/agents.js';
-import { generateSkills } from './generators/skills.js';
+import { generateSkills, deployBundledSkills } from './generators/skills.js';
 import { generatePrompts } from './generators/prompts.js';
+import { checkUpdateStatus, printUpdateBanner } from './updater.js';
 
-type GenerateMode = 'safe' | 'refresh-existing';
+type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 
 function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode } {
   const args = process.argv.slice(2);
@@ -28,6 +29,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode } {
       dryRun = true;
     } else if (args[i] === '--refresh-existing') {
       mode = 'refresh-existing';
+    } else if (args[i] === '--update') {
+      mode = 'update';
     }
   }
 
@@ -49,6 +52,7 @@ function printSummary(
   agents: string[],
   skills: string[],
   promptsAdded: number,
+  bundledSkills: string[],
 ): void {
   const fw = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
   console.log(`  📦 Project:    ${stack.projectName}`);
@@ -60,7 +64,7 @@ function printSummary(
   console.log('  Generated files:');
   console.log(`  ✅ .github/copilot-instructions.md`);
   console.log(`  ✅ .github/copilot/mcp.json (${5 + 5} tools)`);
-  console.log(`  ✅ .ai-os/context/ (stack, architecture, conventions, existing-ai-context)`);
+  console.log(`  ✅ .ai-os/context/ (stack, architecture, conventions, existing-ai-context, dependency-graph)`);
 
   if (agents.length > 0) {
     console.log(`  ✅ .github/agents/ → ${agents.length} new agent(s):`);
@@ -82,6 +86,13 @@ function printSummary(
     console.log(`  ℹ️  .github/copilot/prompts.json — all prompts already exist, skipped`);
   }
 
+  if (bundledSkills.length > 0) {
+    console.log(`  ✅ .agents/skills/ → ${bundledSkills.length} bundled skill(s) deployed:`);
+    for (const s of bundledSkills) console.log(`       • ${s}`);
+  } else {
+    console.log(`  ℹ️  .agents/skills/skill-creator — already installed, skipped`);
+  }
+
   console.log('');
   console.log('  🚀 AI OS installed! Open this repo in VS Code with GitHub Copilot enabled.');
   console.log(`  💡 Try @workspace, /new-page, /new-trpc-procedure, or any agent from Chat.`);
@@ -91,10 +102,26 @@ function printSummary(
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode } = parseArgs();
+  const { cwd, dryRun, mode: rawMode } = parseArgs();
+  let mode: GenerateMode = rawMode;
   console.log(`  📂 Scanning: ${cwd}`);
   console.log(`  🔧 Mode: ${mode}`);
   console.log('');
+
+  // Version check — notify if installed artifacts are older than this tool
+  const updateStatus = checkUpdateStatus(cwd);
+  if (mode === 'update') {
+    if (updateStatus.isFirstInstall) {
+      console.log('  ℹ️  No existing AI OS installation found. Running fresh install...');
+    } else if (updateStatus.updateAvailable) {
+      console.log(`  🔄 Updating from v${updateStatus.installedVersion ?? '?'} → v${updateStatus.toolVersion}`);
+    } else {
+      console.log(`  ✅ Already up-to-date (v${updateStatus.toolVersion}). Re-generating to refresh context...`);
+    }
+    mode = 'refresh-existing';
+  } else if (!updateStatus.isFirstInstall) {
+    printUpdateBanner(updateStatus);
+  }
 
   const stack = analyze(cwd);
 
@@ -113,8 +140,9 @@ async function main(): Promise<void> {
   const agents = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const skills = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const promptsAdded = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const bundledSkills = await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
 
-  printSummary(stack, cwd, agents, skills, promptsAdded);
+  printSummary(stack, cwd, agents, skills, promptsAdded, bundledSkills);
 }
 
 main().catch(err => {

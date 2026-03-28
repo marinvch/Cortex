@@ -21,6 +21,9 @@ import {
   getApiRoutes,
   getEnvVars,
   getPackageInfo,
+  getImpactOfChange,
+  getDependencyChain,
+  checkForUpdates,
 } from './utils.js';
 
 interface ToolInput {
@@ -172,6 +175,48 @@ async function main(): Promise<void> {
           return { content: [{ type: 'text', text: info }] };
         },
       },
+      {
+        name: 'get_impact_of_change',
+        description: 'Shows what files are affected when a given file changes. Returns direct importers and all transitively affected files. Use before editing any file to understand blast radius.',
+        inputSchema: {
+          type: 'object' as const,
+          properties: {
+            filePath: { type: 'string', description: 'File path relative to project root (e.g. "src/types.ts")' },
+          },
+          required: ['filePath'],
+        },
+        call: async (input: ToolInput) => {
+          const impact = getImpactOfChange(input.filePath ?? '');
+          return { content: [{ type: 'text', text: impact }] };
+        },
+      },
+      {
+        name: 'get_dependency_chain',
+        description: 'Shows the full dependency chain for a file: what it imports and what imports it, with export names. Use to understand how a module fits into the codebase.',
+        inputSchema: {
+          type: 'object' as const,
+          properties: {
+            filePath: { type: 'string', description: 'File path relative to project root (e.g. "src/utils/auth.ts")' },
+          },
+          required: ['filePath'],
+        },
+        call: async (input: ToolInput) => {
+          const chain = getDependencyChain(input.filePath ?? '');
+          return { content: [{ type: 'text', text: chain }] };
+        },
+      },
+      {
+        name: 'check_for_updates',
+        description: 'Checks if the AI OS artifacts installed in this repo are out of date. Returns update instructions when a newer version of AI OS is available.',
+        inputSchema: {
+          type: 'object' as const,
+          properties: {},
+        },
+        call: async (_input: ToolInput) => {
+          const status = checkForUpdates();
+          return { content: [{ type: 'text', text: status }] };
+        },
+      },
     ],
     onPermissionRequest: (_req) => ({ kind: 'approved' as const }),
   });
@@ -234,6 +279,9 @@ function handleJsonRpcMessage(raw: string): void {
         { name: 'get_api_routes', description: 'List all API routes' },
         { name: 'get_env_vars', description: 'List required env vars (no values)' },
         { name: 'get_package_info', description: 'Get package versions' },
+        { name: 'get_impact_of_change', description: 'Show files affected when a file changes' },
+        { name: 'get_dependency_chain', description: 'Show full import/export chain for a file' },
+        { name: 'check_for_updates', description: 'Check if AI OS artifacts are out of date and need regenerating' },
       ],
     });
     return;
@@ -278,6 +326,15 @@ function handleJsonRpcMessage(raw: string): void {
         break;
       case 'get_package_info':
         result = getPackageInfo(input.packageName);
+        break;
+      case 'get_impact_of_change':
+        result = getImpactOfChange(input.filePath ?? '');
+        break;
+      case 'get_dependency_chain':
+        result = getDependencyChain(input.filePath ?? '');
+        break;
+      case 'check_for_updates':
+        result = checkForUpdates();
         break;
       default:
         sendError(id, -32601, `Unknown tool: ${toolName}`);

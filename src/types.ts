@@ -40,3 +40,20 @@ export interface DetectedStack {
   /** All dependency keys from package.json / pyproject.toml / Cargo.toml etc. */
   allDependencies: string[];
 }
+
+export interface FileNode {
+  /** Relative path from project root (forward slashes) */
+  path: string;
+  /** Files this file imports (relative paths) */
+  imports: string[];
+  /** Files that import this file (reverse edges) */
+  importedBy: string[];
+  /** Named exports declared in this file */
+  exports: string[];
+}
+
+export interface DependencyGraph {
+  nodes: Record<string, FileNode>;
+  generatedAt: string;
+  fileCount: number;
+}

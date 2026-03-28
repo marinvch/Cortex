@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { DetectedStack } from '../types.js';
 
 const SKILLS_DIR = '.github/copilot/skills';
+const AGENTS_SKILLS_DIR = '.agents/skills';
 
 interface SkillSpec {
   templateFile: string;
@@ -145,4 +146,45 @@ export async function generateSkills(
   options?: GenerateSkillsOptions,
 ): Promise<string[]> {
   return generateSkillsWithOptions(stack, cwd, { refreshExisting: options?.refreshExisting ?? false });
+}
+
+// ── Bundled agent skills (skill-creator, etc.) ───────────────────────────────
+
+const BUNDLED_SKILLS: Array<{ dirName: string; label: string }> = [
+  { dirName: 'skill-creator', label: 'skill-creator' },
+];
+
+function getBundledSkillSourceDir(dirName: string): string {
+  // From src/generators/, go up two levels to the repo root, then into the skill folder.
+  return new URL(`../../${dirName}`, import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+}
+
+export interface DeployBundledSkillsOptions {
+  refreshExisting?: boolean;
+}
+
+export async function deployBundledSkills(
+  cwd: string,
+  options?: DeployBundledSkillsOptions,
+): Promise<string[]> {
+  const deployed: string[] = [];
+
+  for (const skill of BUNDLED_SKILLS) {
+    const sourceDir = getBundledSkillSourceDir(skill.dirName);
+    const targetDir = path.join(cwd, AGENTS_SKILLS_DIR, skill.dirName);
+
+    if (!fs.existsSync(sourceDir)) {
+      continue; // source not found — skip silently
+    }
+
+    if (fs.existsSync(targetDir) && !options?.refreshExisting) {
+      continue; // already installed, skip in safe mode
+    }
+
+    fs.mkdirSync(path.join(cwd, AGENTS_SKILLS_DIR), { recursive: true });
+    fs.cpSync(sourceDir, targetDir, { recursive: true, force: true });
+    deployed.push(skill.label);
+  }
+
+  return deployed;
 }

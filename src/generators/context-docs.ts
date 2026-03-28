@@ -1,6 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { DetectedStack } from '../types.js';
+import { buildDependencyGraph } from '../detectors/graph.js';
+import { getToolVersion } from '../updater.js';
 
 interface ExistingArtifact {
   path: string;
@@ -279,9 +281,17 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): vo
   fs.writeFileSync(path.join(contextDir, 'conventions.md'), generateConventionsDoc(stack), 'utf-8');
   fs.writeFileSync(path.join(contextDir, 'existing-ai-context.md'), generateExistingAiContextDoc(stack, existingContext), 'utf-8');
 
+  // Build and persist dependency graph for AI impact analysis
+  const graph = buildDependencyGraph(outputDir);
+  fs.writeFileSync(
+    path.join(contextDir, 'dependency-graph.json'),
+    JSON.stringify(graph, null, 2),
+    'utf-8',
+  );
+
   // Write config.json
   const config = {
-    version: '0.1.0',
+    version: getToolVersion(),
     installedAt: new Date().toISOString(),
     projectName: stack.projectName,
     primaryLanguage: stack.primaryLanguage.name,

@@ -18,6 +18,406 @@ export function readAiOsFile(relPath: string): string {
   }
 }
 
+interface RepoMemoryEntry {
+  id: string;
+  createdAt: string;
+  updatedAt?: string;
+  title: string;
+  content: string;
+  category: string;
+  tags: string[];
+  fingerprint?: string;
+  status?: 'active' | 'stale';
+  staleReason?: string;
+  supersedesId?: string;
+  conflictWithId?: string;
+}
+
+interface MemoryReadResult {
+  entries: RepoMemoryEntry[];
+  malformedCount: number;
+}
+
+const MEMORY_STALE_DAYS = 180;
+const MEMORY_LOCK_WAIT_MS = 2000;
+const MEMORY_LOCK_RETRY_MS = 50;
+
+function getMemoryFilePath(): string {
+  return path.join(ROOT, '.ai-os', 'memory', 'memory.jsonl');
+}
+
+function getMemoryDirPath(): string {
+  return path.join(ROOT, '.ai-os', 'memory');
+}
+
+function getMemoryLockFilePath(): string {
+  return path.join(getMemoryDirPath(), '.memory.lock');
+}
+
+function ensureMemoryStore(): void {
+  const memoryDir = getMemoryDirPath();
+  if (!fs.existsSync(memoryDir)) {
+    fs.mkdirSync(memoryDir, { recursive: true });
+  }
+
+  const memoryFile = getMemoryFilePath();
+  if (!fs.existsSync(memoryFile)) {
+    fs.writeFileSync(memoryFile, '', 'utf-8');
+  }
+}
+
+function sleepSync(ms: number): void {
+  const shared = new SharedArrayBuffer(4);
+  const int32 = new Int32Array(shared);
+  Atomics.wait(int32, 0, 0, ms);
+}
+
+function withMemoryLock<T>(fn: () => T): T {
+  ensureMemoryStore();
+  const lockPath = getMemoryLockFilePath();
+  const startedAt = Date.now();
+  let lockFd: number | null = null;
+
+  while (Date.now() - startedAt < MEMORY_LOCK_WAIT_MS) {
+    try {
+      lockFd = fs.openSync(lockPath, 'wx');
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw err;
+      }
+      sleepSync(MEMORY_LOCK_RETRY_MS);
+    }
+  }
+
+  if (lockFd === null) {
+    throw new Error('Timed out waiting for repository memory lock.');
+  }
+
+  try {
+    return fn();
+  } finally {
+    try {
+      fs.closeSync(lockFd);
+    } catch {
+      // Best-effort cleanup.
+    }
+
+    try {
+      fs.unlinkSync(lockPath);
+    } catch {
+      // Best-effort cleanup.
+    }
+  }
+}
+
+function normalizeWhitespace(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function normalizeMemoryText(value: string): string {
+  return normalizeWhitespace(value).toLowerCase();
+}
+
+function normalizeTags(tags: string[]): string[] {
+  return [...new Set(tags.map((tag) => normalizeMemoryText(tag)).filter(Boolean))].sort();
+}
+
+function buildMemoryKey(entry: Pick<RepoMemoryEntry, 'title' | 'category'>): string {
+  return `${normalizeMemoryText(entry.category)}::${normalizeMemoryText(entry.title)}`;
+}
+
+function buildFingerprint(entry: Pick<RepoMemoryEntry, 'title' | 'category' | 'content'>): string {
+  return `${buildMemoryKey(entry)}::${normalizeMemoryText(entry.content)}`;
+}
+
+function toIsoDate(dateValue?: string): string {
+  const parsed = dateValue ? new Date(dateValue) : new Date();
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+
+function ageInDays(isoDate: string): number {
+  const dt = new Date(isoDate);
+  if (Number.isNaN(dt.getTime())) return 0;
+  return Math.floor((Date.now() - dt.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function canonicalizeEntry(raw: Partial<RepoMemoryEntry>): RepoMemoryEntry | null {
+  const title = typeof raw.title === 'string' ? normalizeWhitespace(raw.title) : '';
+  const content = typeof raw.content === 'string' ? normalizeWhitespace(raw.content) : '';
+  if (!title || !content) return null;
+
+  const category = typeof raw.category === 'string' && raw.category.trim()
+    ? normalizeMemoryText(raw.category)
+    : 'general';
+
+  const createdAt = toIsoDate(raw.createdAt);
+  const updatedAt = raw.updatedAt ? toIsoDate(raw.updatedAt) : undefined;
+  const id = typeof raw.id === 'string' && raw.id.trim()
+    ? raw.id.trim()
+    : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const tags = normalizeTags(Array.isArray(raw.tags) ? raw.tags.filter((tag): tag is string => typeof tag === 'string') : []);
+  const status = raw.status === 'stale' ? 'stale' : 'active';
+  const fingerprint = buildFingerprint({ title, content, category });
+
+  return {
+    id,
+    createdAt,
+    updatedAt,
+    title,
+    content,
+    category,
+    tags,
+    fingerprint,
+    status,
+    staleReason: typeof raw.staleReason === 'string' ? raw.staleReason : undefined,
+    supersedesId: typeof raw.supersedesId === 'string' ? raw.supersedesId : undefined,
+    conflictWithId: typeof raw.conflictWithId === 'string' ? raw.conflictWithId : undefined,
+  };
+}
+
+function sortByRecencyDesc(a: RepoMemoryEntry, b: RepoMemoryEntry): number {
+  const aTime = new Date(a.updatedAt ?? a.createdAt).getTime();
+  const bTime = new Date(b.updatedAt ?? b.createdAt).getTime();
+  return bTime - aTime;
+}
+
+function applyStalePolicy(entries: RepoMemoryEntry[]): RepoMemoryEntry[] {
+  const byKey = new Map<string, RepoMemoryEntry[]>();
+  for (const entry of entries) {
+    const key = buildMemoryKey(entry);
+    const list = byKey.get(key) ?? [];
+    list.push(entry);
+    byKey.set(key, list);
+  }
+
+  for (const [, list] of byKey) {
+    list.sort(sortByRecencyDesc);
+    let activeSeen = false;
+    for (const entry of list) {
+      if (entry.status === 'stale') continue;
+
+      if (!activeSeen) {
+        activeSeen = true;
+        continue;
+      }
+
+      entry.status = 'stale';
+      entry.staleReason = entry.staleReason ?? 'superseded-by-newer-entry';
+      entry.updatedAt = toIsoDate(entry.updatedAt);
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.status === 'stale') continue;
+    if (ageInDays(entry.updatedAt ?? entry.createdAt) > MEMORY_STALE_DAYS) {
+      entry.status = 'stale';
+      entry.staleReason = entry.staleReason ?? `auto-stale-${MEMORY_STALE_DAYS}d`;
+      entry.updatedAt = toIsoDate(entry.updatedAt);
+    }
+  }
+
+  return entries;
+}
+
+function dedupeEntries(entries: RepoMemoryEntry[]): RepoMemoryEntry[] {
+  const seen = new Map<string, RepoMemoryEntry>();
+  const ordered = [...entries].sort(sortByRecencyDesc);
+
+  for (const entry of ordered) {
+    const dedupeKey = `${entry.fingerprint ?? buildFingerprint(entry)}::${entry.status ?? 'active'}`;
+    if (!seen.has(dedupeKey)) {
+      seen.set(dedupeKey, entry);
+      continue;
+    }
+
+    const kept = seen.get(dedupeKey)!;
+    kept.tags = normalizeTags([...kept.tags, ...entry.tags]);
+  }
+
+  return [...seen.values()].sort(sortByRecencyDesc);
+}
+
+function serializeEntries(entries: RepoMemoryEntry[]): string {
+  return entries.map((entry) => JSON.stringify(entry)).join('\n') + (entries.length > 0 ? '\n' : '');
+}
+
+function writeMemoryEntriesAtomic(entries: RepoMemoryEntry[]): void {
+  const memoryPath = getMemoryFilePath();
+  const tempPath = `${memoryPath}.tmp-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(tempPath, serializeEntries(entries), 'utf-8');
+  fs.renameSync(tempPath, memoryPath);
+}
+
+function readMemoryEntries(): MemoryReadResult {
+  ensureMemoryStore();
+  const file = getMemoryFilePath();
+  const content = fs.readFileSync(file, 'utf-8');
+  const lines = content.split('\n').map((line) => line.trim()).filter(Boolean);
+  const entries: RepoMemoryEntry[] = [];
+  let malformedCount = 0;
+
+  for (const line of lines) {
+    try {
+      const parsed = JSON.parse(line) as Partial<RepoMemoryEntry>;
+      const canonical = canonicalizeEntry(parsed);
+      if (canonical) entries.push(canonical);
+      else malformedCount += 1;
+    } catch {
+      malformedCount += 1;
+    }
+  }
+
+  return {
+    entries: applyStalePolicy(dedupeEntries(entries)),
+    malformedCount,
+  };
+}
+
+function recoverMalformedMemoryIfNeeded(result: MemoryReadResult): void {
+  if (result.malformedCount <= 0) return;
+  writeMemoryEntriesAtomic(result.entries);
+}
+
+export function getMemoryGuidelines(): string {
+  const guidelines = readAiOsFile('context/memory.md');
+  return guidelines || 'No memory guidelines found. Re-run AI OS generation to create .ai-os/context/memory.md.';
+}
+
+export function getRepoMemory(query?: string, category?: string, limit?: number): string {
+  const { entries, malformedCount } = readMemoryEntries();
+  const q = (query ?? '').trim().toLowerCase();
+  const c = (category ?? '').trim().toLowerCase();
+  const cap = Math.max(1, Math.min(limit ?? 10, 50));
+
+  const filtered = entries
+    .filter((entry) => {
+      if (c && entry.category.toLowerCase() !== c) return false;
+      if (!q) return true;
+
+      const haystack = [entry.title, entry.content, entry.category, ...entry.tags]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    })
+    .slice(-cap)
+    .reverse();
+
+  if (filtered.length === 0) {
+    return 'No repository memory entries found for the provided filters.';
+  }
+
+  const activeCount = entries.filter((entry) => entry.status !== 'stale').length;
+  const staleCount = entries.length - activeCount;
+
+  const lines: string[] = [
+    '## Repository Memory',
+    '',
+    `- Total entries: ${entries.length}`,
+    `- Active: ${activeCount}`,
+    `- Stale: ${staleCount}`,
+  ];
+
+  if (malformedCount > 0) {
+    lines.push(`- Malformed lines skipped: ${malformedCount} (recovery is applied on next write)`);
+  }
+
+  for (const entry of filtered) {
+    lines.push('');
+    const state = entry.status === 'stale' ? 'stale' : 'active';
+    lines.push(`- **${entry.title}** [${entry.category}] (${state})`);
+    lines.push(`  - Created: ${entry.createdAt}`);
+    lines.push(`  - Updated: ${entry.updatedAt ?? entry.createdAt}`);
+    if (entry.tags.length > 0) {
+      lines.push(`  - Tags: ${entry.tags.join(', ')}`);
+    }
+    if (entry.staleReason) {
+      lines.push(`  - Stale reason: ${entry.staleReason}`);
+    }
+    if (entry.conflictWithId) {
+      lines.push(`  - Conflict marker: supersedes ${entry.conflictWithId}`);
+    }
+    lines.push(`  - ${entry.content}`);
+  }
+
+  return lines.join('\n');
+}
+
+export function rememberRepoFact(title: string, content: string, category?: string, tags?: string): string {
+  const trimmedTitle = title.trim();
+  const trimmedContent = content.trim();
+  if (!trimmedTitle || !trimmedContent) {
+    return 'Both title and content are required to store memory.';
+  }
+
+  try {
+    return withMemoryLock(() => {
+      const now = new Date().toISOString();
+      const incoming = canonicalizeEntry({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: now,
+        updatedAt: now,
+        title: trimmedTitle,
+        content: trimmedContent,
+        category: category?.trim() || 'general',
+        tags: (tags ?? '').split(',').map((tag) => tag.trim()),
+        status: 'active',
+      });
+
+      if (!incoming) {
+        return 'Invalid memory payload. Title and content are required.';
+      }
+
+      const parsed = readMemoryEntries();
+      const entries = parsed.entries;
+      recoverMalformedMemoryIfNeeded(parsed);
+
+      const key = buildMemoryKey(incoming);
+      const sameKey = entries
+        .filter((entry) => buildMemoryKey(entry) === key)
+        .sort(sortByRecencyDesc);
+
+      const sameFingerprint = sameKey.find((entry) => (entry.fingerprint ?? buildFingerprint(entry)) === incoming.fingerprint);
+      if (sameFingerprint) {
+        const mergedTags = normalizeTags([...sameFingerprint.tags, ...incoming.tags]);
+        const tagsChanged = mergedTags.length !== sameFingerprint.tags.length;
+
+        if (tagsChanged) {
+          sameFingerprint.tags = mergedTags;
+          sameFingerprint.updatedAt = now;
+          writeMemoryEntriesAtomic(dedupeEntries(applyStalePolicy(entries)));
+          return `Updated memory tags for existing fact: ${sameFingerprint.title} (${sameFingerprint.category})`;
+        }
+
+        return `Skipped duplicate memory fact: ${sameFingerprint.title} (${sameFingerprint.category})`;
+      }
+
+      const currentActive = sameKey.find((entry) => entry.status !== 'stale');
+      if (currentActive) {
+        currentActive.status = 'stale';
+        currentActive.staleReason = 'superseded-by-conflicting-update';
+        currentActive.updatedAt = now;
+        incoming.supersedesId = currentActive.id;
+        incoming.conflictWithId = currentActive.id;
+      }
+
+      entries.push(incoming);
+
+      const normalized = dedupeEntries(applyStalePolicy(entries));
+      writeMemoryEntriesAtomic(normalized);
+
+      if (currentActive) {
+        return `Stored memory entry with conflict marker: ${incoming.title} (${incoming.category})`;
+      }
+
+      return `Stored memory entry: ${incoming.title} (${incoming.category})`;
+    });
+  } catch (err) {
+    return `Failed to store memory entry: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
 export function searchFiles(query: string, filePattern?: string, caseSensitive = false): string {
   try {
     const flags = caseSensitive ? '' : '-i';
@@ -96,46 +496,125 @@ export function getTrpcProcedures(): string {
 }
 
 export function getApiRoutes(filter?: string): string {
-  const apiDir = path.join(ROOT, 'src/app/api');
-  if (!fs.existsSync(apiDir)) {
-    // Try Express-style routes directory
-    const routesDir = path.join(ROOT, 'src/routes');
-    if (!fs.existsSync(routesDir)) return 'No API routes directory found';
+  const routes = new Set<string>();
+
+  function addRoute(route: string): void {
+    const trimmed = route.trim();
+    if (!trimmed) return;
+    routes.add(trimmed);
   }
 
-  const routes: string[] = [];
-
-  function scanDir(dir: string, prefix = '') {
+  // Next.js app router route handlers
+  const apiDir = path.join(ROOT, 'src/app/api');
+  function scanNextApiDir(dir: string, prefix = ''): void {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isDirectory()) {
-          scanDir(path.join(dir, entry.name), `${prefix}/${entry.name}`);
-        } else if (entry.name === 'route.ts' || entry.name === 'route.js') {
-          const content = fs.readFileSync(path.join(dir, entry.name), 'utf-8');
-          const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].filter(m =>
-            new RegExp(`export\\s+(?:async\\s+)?function\\s+${m}`).test(content)
-          );
-          const route = prefix.replace(/\/\[([^\]]+)\]/g, '/:$1');
-          if (methods.length > 0) {
-            routes.push(`${methods.join(', ')} ${route}`);
+          scanNextApiDir(path.join(dir, entry.name), `${prefix}/${entry.name}`);
+          continue;
+        }
+        if (entry.name !== 'route.ts' && entry.name !== 'route.js') continue;
+
+        const content = fs.readFileSync(path.join(dir, entry.name), 'utf-8');
+        const methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].filter((m) =>
+          new RegExp(`export\\s+(?:async\\s+)?function\\s+${m}`).test(content),
+        );
+        if (methods.length === 0) continue;
+        const route = prefix.replace(/\/\[([^\]]+)\]/g, '/:$1');
+        addRoute(`${methods.join(', ')} ${route}`);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  if (fs.existsSync(apiDir)) {
+    scanNextApiDir(apiDir, '/api');
+  }
+
+  // Generic regex scan for Python/Java/Go/Rust routing constructs
+  const scanPatterns: Array<{ glob: string; patterns: RegExp[] }> = [
+    {
+      glob: '*.py',
+      patterns: [
+        /@(app|router)\.(get|post|put|patch|delete)\(['"]([^'"]+)['"]/g,
+        /path\(['"]([^'"]+)['"],/g,
+      ],
+    },
+    {
+      glob: '*.java',
+      patterns: [
+        /@(?:Get|Post|Put|Patch|Delete|Request)Mapping\(([^)]*)\)/g,
+      ],
+    },
+    {
+      glob: '*.go',
+      patterns: [
+        /\.(GET|POST|PUT|PATCH|DELETE)\("([^"]+)"/g,
+        /HandleFunc\("([^"]+)"/g,
+      ],
+    },
+    {
+      glob: '*.rs',
+      patterns: [
+        /#\[(get|post|put|patch|delete)\("([^"]+)"\)\]/g,
+        /route\("([^"]+)",\s*(get|post|put|patch|delete)/g,
+      ],
+    },
+    {
+      glob: '*.{ts,js}',
+      patterns: [
+        /router\.(get|post|put|patch|delete)\(['"]([^'"]+)['"]/g,
+        /app\.(get|post|put|patch|delete)\(['"]([^'"]+)['"]/g,
+      ],
+    },
+  ];
+
+  for (const scan of scanPatterns) {
+    try {
+      const cmd = `npx --yes ripgrep --files -g "${scan.glob}" "${ROOT}"`;
+      const files = execSync(cmd, { maxBuffer: 1024 * 1024, timeout: 12000 }).toString().split('\n').filter(Boolean);
+
+      for (const file of files.slice(0, 300)) {
+        let content = '';
+        try {
+          content = fs.readFileSync(file, 'utf-8');
+        } catch {
+          continue;
+        }
+
+        for (const pattern of scan.patterns) {
+          const matches = content.matchAll(pattern);
+          for (const match of matches) {
+            if (scan.glob === '*.java') {
+              const mappingArgs = match[1] ?? '';
+              const methodMatch = mappingArgs.match(/RequestMethod\.(GET|POST|PUT|PATCH|DELETE)/);
+              const method = methodMatch?.[1] ?? (match[0].includes('GetMapping') ? 'GET' : match[0].includes('PostMapping') ? 'POST' : match[0].includes('PutMapping') ? 'PUT' : match[0].includes('PatchMapping') ? 'PATCH' : match[0].includes('DeleteMapping') ? 'DELETE' : 'REQUEST');
+              const pathMatch = mappingArgs.match(/['"]([^'"]+)['"]/);
+              if (pathMatch) addRoute(`${method} ${pathMatch[1]}`);
+              continue;
+            }
+
+            const method = (match[2] ?? match[1] ?? '').toString().toUpperCase();
+            const routePath = (match[3] ?? match[2] ?? match[1] ?? '').toString();
+            if (!routePath.startsWith('/')) continue;
+
+            if (['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+              addRoute(`${method} ${routePath}`);
+            } else {
+              addRoute(`ROUTE ${routePath}`);
+            }
           }
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      // ignore scan errors
+    }
   }
 
-  if (fs.existsSync(apiDir)) {
-    scanDir(apiDir, '/api');
-  }
-
-  const result = filter
-    ? routes.filter(r => r.toLowerCase().includes(filter.toLowerCase()))
-    : routes;
-
-  return result.length > 0
-    ? `**API Routes:**\n${result.join('\n')}`
-    : 'No API routes found';
+  const result = [...routes].sort();
+  const filtered = filter ? result.filter((route) => route.toLowerCase().includes(filter.toLowerCase())) : result;
+  return filtered.length > 0 ? `**API Routes:**\n${filtered.join('\n')}` : 'No API routes found';
 }
 
 export function getEnvVars(): string {
@@ -149,18 +628,37 @@ export function getEnvVars(): string {
     }
   }
 
-  // Also scan code for process.env references
+  // Also scan code for env references across supported runtimes
   const codeEnvVars = new Set<string>();
-  try {
-    const result = execSync(
-      `grep -r "process\\.env\\." "${ROOT}/src" --include="*.ts" --include="*.js" -oh`,
-      { maxBuffer: 256 * 1024, timeout: 5000 }
-    ).toString();
-    result.split('\n').forEach(line => {
-      const m = line.match(/process\.env\.(\w+)/);
-      if (m) codeEnvVars.add(m[1]);
-    });
-  } catch { /* grep may fail, that's ok */ }
+  const extractors: Array<{ regex: RegExp; fileGlob: string }> = [
+    { regex: /process\.env\.(\w+)/g, fileGlob: '*.{ts,tsx,js,jsx,mjs,cjs}' },
+    { regex: /os\.getenv\(['"]([A-Z0-9_]+)['"]/g, fileGlob: '*.py' },
+    { regex: /os\.environ\[['"]([A-Z0-9_]+)['"]\]/g, fileGlob: '*.py' },
+    { regex: /System\.getenv\(['"]([A-Z0-9_]+)['"]\)/g, fileGlob: '*.java' },
+    { regex: /os\.Getenv\(['"]([A-Z0-9_]+)['"]\)/g, fileGlob: '*.go' },
+    { regex: /std::env::var\(['"]([A-Z0-9_]+)['"]\)/g, fileGlob: '*.rs' },
+  ];
+
+  for (const extractor of extractors) {
+    try {
+      const cmd = `npx --yes ripgrep --files -g "${extractor.fileGlob}" "${ROOT}"`;
+      const files = execSync(cmd, { maxBuffer: 1024 * 1024, timeout: 10000 }).toString().split('\n').filter(Boolean);
+      for (const file of files.slice(0, 400)) {
+        let content = '';
+        try {
+          content = fs.readFileSync(file, 'utf-8');
+        } catch {
+          continue;
+        }
+
+        for (const match of content.matchAll(extractor.regex)) {
+          if (match[1]) codeEnvVars.add(match[1]);
+        }
+      }
+    } catch {
+      // best-effort extraction
+    }
+  }
 
   const lines: string[] = ['**Required Environment Variables:**', ''];
 
@@ -181,31 +679,80 @@ export function getEnvVars(): string {
 }
 
 export function getPackageInfo(packageName?: string): string {
+  const lines: string[] = [];
+
+  // Node
   const pkgPath = path.join(ROOT, 'package.json');
-  if (!fs.existsSync(pkgPath)) return 'No package.json found';
+  if (fs.existsSync(pkgPath)) {
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as {
+      name?: string;
+      version?: string;
+      engines?: { node?: string };
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
 
-  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
-  const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+    if (packageName && allDeps[packageName]) {
+      return `**${packageName}:** ${allDeps[packageName]}`;
+    }
 
-  if (packageName) {
-    const version = allDeps[packageName];
-    return version
-      ? `**${packageName}:** ${version}`
-      : `Package ${packageName} not found in package.json`;
+    lines.push(`**Node Package:** ${pkg.name ?? 'unknown'}@${pkg.version ?? '0.0.0'}`);
+    lines.push(`**Node Engine:** ${pkg.engines?.node ?? 'not specified'}`);
+    const depPairs = Object.entries(pkg.dependencies ?? {}).slice(0, 40).map(([k, v]) => `  ${k}: ${v}`);
+    if (depPairs.length > 0) {
+      lines.push('', '**Node Dependencies:**', ...depPairs);
+    }
   }
 
-  const lines: string[] = [
-    `**Package:** ${pkg.name ?? 'unknown'}@${pkg.version ?? '0.0.0'}`,
-    `**Node:** ${pkg.engines?.node ?? 'not specified'}`,
-    '',
-    '**Dependencies:**',
-    ...Object.entries(pkg.dependencies ?? {}).map(([k, v]) => `  ${k}: ${v}`),
-    '',
-    '**Dev Dependencies:**',
-    ...Object.entries(pkg.devDependencies ?? {}).map(([k, v]) => `  ${k}: ${v}`),
-  ];
+  // Python
+  const requirementsPath = path.join(ROOT, 'requirements.txt');
+  if (fs.existsSync(requirementsPath)) {
+    const reqLines = fs.readFileSync(requirementsPath, 'utf-8').split('\n').map((line) => line.trim()).filter(Boolean).filter((line) => !line.startsWith('#'));
+    if (packageName) {
+      const found = reqLines.find((line) => line.toLowerCase().startsWith(packageName.toLowerCase()));
+      if (found) return `**${packageName}:** ${found}`;
+    }
+    lines.push('', `**Python Requirements:** ${reqLines.length} entries`);
+    lines.push(...reqLines.slice(0, 40).map((line) => `  ${line}`));
+  }
 
-  return lines.join('\n');
+  // Java
+  const pomPath = path.join(ROOT, 'pom.xml');
+  if (fs.existsSync(pomPath)) {
+    const pom = fs.readFileSync(pomPath, 'utf-8');
+    const artifact = pom.match(/<artifactId>([^<]+)<\/artifactId>/)?.[1] ?? 'unknown';
+    const version = pom.match(/<version>([^<]+)<\/version>/)?.[1] ?? 'unknown';
+    lines.push('', `**Maven Project:** ${artifact}@${version}`);
+  }
+  const gradlePath = path.join(ROOT, 'build.gradle');
+  const gradleKtsPath = path.join(ROOT, 'build.gradle.kts');
+  if (fs.existsSync(gradlePath) || fs.existsSync(gradleKtsPath)) {
+    lines.push('', '**Gradle Build:** detected');
+  }
+
+  // Go
+  const goModPath = path.join(ROOT, 'go.mod');
+  if (fs.existsSync(goModPath)) {
+    const goMod = fs.readFileSync(goModPath, 'utf-8');
+    const moduleName = goMod.match(/^module\s+(\S+)/m)?.[1] ?? 'unknown';
+    lines.push('', `**Go Module:** ${moduleName}`);
+  }
+
+  // Rust
+  const cargoPath = path.join(ROOT, 'Cargo.toml');
+  if (fs.existsSync(cargoPath)) {
+    const cargo = fs.readFileSync(cargoPath, 'utf-8');
+    const name = cargo.match(/^name\s*=\s*"([^"]+)"/m)?.[1] ?? 'unknown';
+    const version = cargo.match(/^version\s*=\s*"([^"]+)"/m)?.[1] ?? 'unknown';
+    lines.push('', `**Rust Crate:** ${name}@${version}`);
+  }
+
+  if (lines.length === 0) {
+    return 'No supported package/build manifest found (package.json, requirements.txt, pom.xml/build.gradle, go.mod, Cargo.toml).';
+  }
+
+  return lines.join('\n').trim();
 }
 
 export function getFileSummary(filePath: string): string {

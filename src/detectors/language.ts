@@ -42,6 +42,7 @@ const IGNORE_DIRS = new Set([
   'target', 'vendor', '.gradle', '.mvn',
   'coverage', '.nyc_output', '.cache', '.parcel-cache',
   'bin', 'obj', '.vs', 'packages',
+  '.github', // GitHub config/Actions/AI OS artifacts — not project source code
 ]);
 
 function walkDir(dir: string, depth = 0, maxDepth = 6): string[] {
@@ -49,7 +50,7 @@ function walkDir(dir: string, depth = 0, maxDepth = 6): string[] {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   const files: string[] = [];
   for (const entry of entries) {
-    if (entry.name.startsWith('.') && entry.name !== '.github') continue;
+    if (entry.name.startsWith('.')) continue;
     if (IGNORE_DIRS.has(entry.name)) continue;
     const fullPath = path.join(dir, entry.name);
     if (entry.isDirectory()) {

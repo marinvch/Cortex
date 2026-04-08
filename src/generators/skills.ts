@@ -16,6 +16,8 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
   const projectName = path.basename(cwd);
   const frameworks = stack.frameworks.map(f => f.name.toLowerCase());
   const packages = stack.allDependencies;
+  const hasExpressLike = frameworks.some(f => ['express', 'fastify', 'hono', 'koa', 'nest'].some(x => f.includes(x)));
+  const hasJavaSpringLike = frameworks.some(f => ['spring', 'quarkus', 'micronaut', 'java'].some(x => f.includes(x)));
 
   const templateDir = new URL('../templates/skills', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
 
@@ -86,19 +88,24 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
     add('rag-pgvector.md', 'ai-os-rag-pipeline.md');
   }
 
-  // Express
-  if (frameworks.some(f => f.includes('express'))) {
+  // Express/Nest/Fastify/Koa/Hono
+  if (hasExpressLike) {
     add('express.md', 'ai-os-express-api.md');
   }
 
   // FastAPI / Django
-  if (frameworks.some(f => f.includes('fastapi'))) {
+  if (frameworks.some(f => f.includes('fastapi') || f.includes('django'))) {
     add('python-fastapi.md', 'ai-os-fastapi-patterns.md');
   }
 
   // Go
-  if (Object.keys(stack.languages).some(l => l.toLowerCase() === 'go')) {
+  if (stack.languages.some(l => l.name.toLowerCase() === 'go')) {
     add('go.md', 'ai-os-go-patterns.md');
+  }
+
+  // Java / Spring Boot
+  if (hasJavaSpringLike) {
+    add('java-spring.md', 'ai-os-java-spring-patterns.md');
   }
 
   return specs;

@@ -7,15 +7,19 @@ import { generateContextDocs } from './generators/context-docs.js';
 import { generateAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
 import { generatePrompts } from './generators/prompts.js';
+import { getMcpToolsForStack } from './mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner } from './updater.js';
+import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
+type GenerateAction = 'apply' | 'plan' | 'preview';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
   let mode: GenerateMode = 'safe';
+  let action: GenerateAction = 'apply';
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -31,10 +35,16 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode } {
       mode = 'refresh-existing';
     } else if (args[i] === '--update') {
       mode = 'update';
+    } else if (args[i] === '--plan') {
+      action = 'plan';
+    } else if (args[i] === '--preview') {
+      action = 'preview';
+    } else if (args[i] === '--apply') {
+      action = 'apply';
     }
   }
 
-  return { cwd, dryRun, mode };
+  return { cwd, dryRun, mode, action };
 }
 
 function printBanner(): void {
@@ -54,6 +64,7 @@ function printSummary(
   promptsAdded: number,
   bundledSkills: string[],
 ): void {
+  const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
   console.log(`  📦 Project:    ${stack.projectName}`);
   console.log(`  🔤 Language:   ${stack.primaryLanguage.name} (${stack.primaryLanguage.percentage}%)`);
@@ -63,7 +74,7 @@ function printSummary(
   console.log('');
   console.log('  Generated files:');
   console.log(`  ✅ .github/copilot-instructions.md`);
-  console.log(`  ✅ .github/copilot/mcp.json (${5 + 5} tools)`);
+  console.log(`  ✅ .github/copilot/mcp.json (${mcpToolCount} tools)`);
   console.log(`  ✅ .ai-os/context/ (stack, architecture, conventions, existing-ai-context, dependency-graph)`);
 
   if (agents.length > 0) {
@@ -102,14 +113,18 @@ function printSummary(
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode: rawMode } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action } = parseArgs();
   let mode: GenerateMode = rawMode;
   console.log(`  📂 Scanning: ${cwd}`);
   console.log(`  🔧 Mode: ${mode}`);
+  console.log(`  ▶️  Action: ${action}`);
   console.log('');
 
   // Version check — notify if installed artifacts are older than this tool
   const updateStatus = checkUpdateStatus(cwd);
+  const installedVersionLabel = updateStatus.installedVersion ?? 'none';
+  console.log(`  🩺 Diagnostics: tool=v${updateStatus.toolVersion}, installed=v${installedVersionLabel}, firstInstall=${updateStatus.isFirstInstall ? 'yes' : 'no'}, updateAvailable=${updateStatus.updateAvailable ? 'yes' : 'no'}`);
+
   if (mode === 'update') {
     if (updateStatus.isFirstInstall) {
       console.log('  ℹ️  No existing AI OS installation found. Running fresh install...');
@@ -124,6 +139,19 @@ async function main(): Promise<void> {
   }
 
   const stack = analyze(cwd);
+  const onboardingPlan = buildOnboardingPlan(cwd, mode);
+
+  if (action === 'plan') {
+    console.log(formatOnboardingPlan(onboardingPlan));
+    return;
+  }
+
+  if (action === 'preview') {
+    console.log(formatOnboardingPlan(onboardingPlan));
+    console.log('  🔍 Preview only: no files were written. Run with --apply to execute.');
+    console.log('');
+    return;
+  }
 
   if (dryRun) {
     console.log('  [DRY RUN] Detected stack:');

@@ -39,6 +39,17 @@ export interface DetectedStack {
   rootDir: string;
   /** All dependency keys from package.json / pyproject.toml / Cargo.toml etc. */
   allDependencies: string[];
+  packageProfiles?: PackageProfile[];
+}
+
+export interface PackageProfile {
+  name: string;
+  path: string;
+  languages: DetectedLanguage[];
+  frameworks: DetectedFramework[];
+  patterns: DetectedPatterns;
+  keyFiles: string[];
+  allDependencies: string[];
 }
 
 export interface FileNode {

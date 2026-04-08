@@ -16,6 +16,7 @@
     "generate:dry": "tsx src/generate.ts --dry-run",
     "generate:refresh": "tsx src/generate.ts --refresh-existing",
     "update": "tsx src/generate.ts --update",
+    "validate": "tsx src/validation/regression.ts",
     "install:skill-creator": "npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y",
     "install:find-skills": "npx -y skills add https://github.com/vercel-labs/skills --skill find-skills -g -a github-copilot -y",
     "install:skills": "npm run install:skill-creator && npm run install:find-skills"

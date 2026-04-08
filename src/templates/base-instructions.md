@@ -60,6 +60,45 @@ Use these tools to fetch project-specific context on demand:
 - `get_conventions` — this project's coding conventions
 - `get_stack_info` — full dependency/tech stack details
 - `get_file_summary` — key exports and purpose of a specific file
+- `get_memory_guidelines` — repository memory protocol
+- `get_repo_memory` — retrieve durable project memory
+- `remember_repo_fact` — persist verified project facts
+
+---
+
+## Memory Workflow
+
+- MUST before implementation, retrieve relevant memory with `get_repo_memory`
+- Follow `.ai-os/context/memory.md` for memory safety and quality rules
+- MUST after completing a substantial task, store only verified durable findings with `remember_repo_fact`
+- Prefer memory-backed decisions over assumptions to reduce drift in long sessions
+- Never store speculative, duplicate, or transient status notes in repo memory
+
+---
+
+## Strict Behavior Guardrails
+
+- MUST ask clarifying questions first when the request is ambiguous, underspecified, or conflicts with existing instructions
+- MUST NOT improvise requirements, API contracts, or migration scope beyond what is explicitly requested
+- If a requested change is outside the described scope, pause and confirm the boundary before editing code
+
+### Allowed Actions
+
+- Read relevant project context and memory before implementation
+- Make the smallest in-scope change that satisfies the request
+- Run non-destructive validation commands (build/test/lint) to verify correctness
+
+### Forbidden Actions
+
+- Silent fallback that hides core runtime failures
+- Destructive operations (hard reset, force delete, irreversible rewrites) without explicit approval
+- Broad refactors, dependency swaps, or architecture changes without user confirmation
+
+### Escalation Flow (When Ambiguous)
+
+1. State what is unclear and list assumptions that would change behavior.
+2. Ask focused clarifying question(s) and propose bounded options.
+3. Continue only after clarification; if unavailable, take the safest minimal action and document limits.
 
 ---
 

@@ -10,6 +10,7 @@
  */
 import { CopilotClient } from '@github/copilot-sdk';
 import path from 'node:path';
+import { getAllMcpTools, type McpToolDefinition } from './tool-definitions.js';
 import {
   getProjectRoot,
   readAiOsFile,
@@ -24,6 +25,9 @@ import {
   getImpactOfChange,
   getDependencyChain,
   checkForUpdates,
+  getMemoryGuidelines,
+  getRepoMemory,
+  rememberRepoFact,
 } from './utils.js';
 
 interface ToolInput {
@@ -35,189 +39,133 @@ interface ToolInput {
   filePath?: string;
   filter?: string;
   packageName?: string;
+  category?: string;
+  limit?: number;
+  title?: string;
+  content?: string;
+  tags?: string;
+}
+
+function logDiagnostic(message: string): void {
+  if (process.env['AI_OS_MCP_DEBUG'] === '1') {
+    console.error(`[ai-os:mcp] ${message}`);
+  }
+}
+
+function validateRuntimeEnvironment(): { ok: boolean; messages: string[] } {
+  const messages: string[] = [];
+
+  const root = getProjectRoot();
+  if (!root) {
+    messages.push('AI_OS_ROOT resolved to an empty path.');
+  }
+
+  const tools = getAllMcpTools();
+  if (tools.length === 0) {
+    messages.push('No MCP tools were registered at runtime.');
+  }
+
+  if (process.env['AI_OS_MCP_DEBUG'] === '1') {
+    messages.push(`Resolved AI_OS_ROOT: ${root}`);
+    messages.push(`Registered tools: ${tools.length}`);
+  }
+
+  return { ok: messages.filter((msg) => !msg.startsWith('Resolved ') && !msg.startsWith('Registered ')).length === 0, messages };
+}
+
+function executeTool(toolName: string, input: ToolInput): string {
+  switch (toolName) {
+    case 'search_codebase':
+      return searchFiles(input.query ?? '', input.filePattern, input.caseSensitive ?? false);
+    case 'get_project_structure': {
+      const startDir = input.path
+        ? path.join(getProjectRoot(), input.path)
+        : getProjectRoot();
+      return buildFileTree(startDir, 0, input.depth ?? 4).join('\n');
+    }
+    case 'get_conventions':
+      return readAiOsFile('context/conventions.md') || 'No conventions file found.';
+    case 'get_stack_info':
+      return readAiOsFile('context/stack.md') || 'No stack file found.';
+    case 'get_file_summary':
+      return getFileSummary(input.filePath ?? '');
+    case 'get_prisma_schema':
+      return getPrismaSchema();
+    case 'get_trpc_procedures':
+      return getTrpcProcedures();
+    case 'get_api_routes':
+      return getApiRoutes(input.filter);
+    case 'get_env_vars':
+      return getEnvVars();
+    case 'get_package_info':
+      return getPackageInfo(input.packageName);
+    case 'get_impact_of_change':
+      return getImpactOfChange(input.filePath ?? '');
+    case 'get_dependency_chain':
+      return getDependencyChain(input.filePath ?? '');
+    case 'check_for_updates':
+      return checkForUpdates();
+    case 'get_memory_guidelines':
+      return getMemoryGuidelines();
+    case 'get_repo_memory':
+      return getRepoMemory(input.query, input.category, input.limit);
+    case 'remember_repo_fact':
+      return rememberRepoFact(input.title ?? '', input.content ?? '', input.category, input.tags);
+    default:
+      return `Unknown tool: ${toolName}`;
+  }
 }
 
 async function main(): Promise<void> {
+  if (process.argv.includes('--healthcheck')) {
+    const health = validateRuntimeEnvironment();
+    if (!health.ok) {
+      for (const message of health.messages) {
+        console.error(`[ai-os:mcp:healthcheck] ${message}`);
+      }
+      process.exit(1);
+    }
+
+    console.error('[ai-os:mcp:healthcheck] OK');
+    process.exit(0);
+  }
+
+  // Default mode: standalone JSON-RPC stdio (VS Code Copilot MCP integration).
+  // Pass --copilot to use the Copilot SDK client integration instead.
+  if (!process.argv.includes('--copilot')) {
+    logDiagnostic('Starting in standalone JSON-RPC stdio mode');
+    runStandaloneMcp();
+    return;
+  }
+
+  const health = validateRuntimeEnvironment();
+  for (const message of health.messages) {
+    logDiagnostic(message);
+  }
+
+  if (!health.ok) {
+    throw new Error(`MCP runtime validation failed: ${health.messages.join(' | ')}`);
+  }
+
   const client = new CopilotClient();
 
   try {
     await client.start();
   } catch (err) {
-    // If Copilot CLI is not available, fall back to standalone stdio MCP mode
-    console.error('Copilot CLI not found — running in standalone mode');
-    runStandaloneMcp();
-    return;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[ai-os:mcp] Copilot SDK client failed to start: ${msg}`);
+    console.error('[ai-os:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standalone mode.');
+    process.exit(1);
   }
 
   const session = await client.createSession({
     model: 'gpt-4.1',
-    tools: [
-      {
-        name: 'search_codebase',
-        description: 'Search for patterns, symbols, or text across the project codebase. Returns matching file paths and snippets.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {
-            query: { type: 'string', description: 'Pattern or text to search for' },
-            filePattern: { type: 'string', description: 'Optional glob pattern (e.g. "*.ts")' },
-            caseSensitive: { type: 'boolean', description: 'Case-sensitive search (default: false)' },
-          },
-          required: ['query'],
-        },
-        call: async (input: ToolInput) => {
-          const result = searchFiles(
-            input.query ?? '',
-            input.filePattern,
-            input.caseSensitive ?? false
-          );
-          return { content: [{ type: 'text', text: result }] };
-        },
-      },
-      {
-        name: 'get_project_structure',
-        description: 'Returns an annotated file tree of the project. Skips node_modules/build/dist.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {
-            depth: { type: 'number', description: 'Max depth (default: 4)' },
-            path: { type: 'string', description: 'Subdirectory to start from' },
-          },
-        },
-        call: async (input: ToolInput) => {
-          const startDir = input.path
-            ? path.join(getProjectRoot(), input.path)
-            : getProjectRoot();
-          const tree = buildFileTree(startDir, 0, input.depth ?? 4);
-          return { content: [{ type: 'text', text: tree.join('\n') }] };
-        },
-      },
-      {
-        name: 'get_conventions',
-        description: 'Returns the detected coding conventions for this project: naming rules, file structure, testing patterns.',
-        inputSchema: { type: 'object' as const, properties: {} },
-        call: async (_input: ToolInput) => {
-          const conventions = readAiOsFile('context/conventions.md') || 'No conventions file found. Run ai-os install first.';
-          return { content: [{ type: 'text', text: conventions }] };
-        },
-      },
-      {
-        name: 'get_stack_info',
-        description: 'Returns the complete tech stack: languages, frameworks, key dependencies, build tools.',
-        inputSchema: { type: 'object' as const, properties: {} },
-        call: async (_input: ToolInput) => {
-          const stack = readAiOsFile('context/stack.md') || 'No stack file found. Run ai-os install first.';
-          return { content: [{ type: 'text', text: stack }] };
-        },
-      },
-      {
-        name: 'get_file_summary',
-        description: 'Returns a token-efficient summary of a file: exports, imports, and first 30 lines.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {
-            filePath: { type: 'string', description: 'File path relative to project root' },
-          },
-          required: ['filePath'],
-        },
-        call: async (input: ToolInput) => {
-          const summary = getFileSummary(input.filePath ?? '');
-          return { content: [{ type: 'text', text: summary }] };
-        },
-      },
-      {
-        name: 'get_prisma_schema',
-        description: 'Returns the full Prisma schema. Read this before any DB model changes.',
-        inputSchema: { type: 'object' as const, properties: {} },
-        call: async (_input: ToolInput) => {
-          const schema = getPrismaSchema();
-          return { content: [{ type: 'text', text: schema }] };
-        },
-      },
-      {
-        name: 'get_trpc_procedures',
-        description: 'Returns a summary of all tRPC procedures (name, type: public/private).',
-        inputSchema: { type: 'object' as const, properties: {} },
-        call: async (_input: ToolInput) => {
-          const procedures = getTrpcProcedures();
-          return { content: [{ type: 'text', text: procedures }] };
-        },
-      },
-      {
-        name: 'get_api_routes',
-        description: 'Returns all API routes with HTTP methods and file paths.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: { filter: { type: 'string', description: 'Filter string (e.g. "auth")' } },
-        },
-        call: async (input: ToolInput) => {
-          const routes = getApiRoutes(input.filter);
-          return { content: [{ type: 'text', text: routes }] };
-        },
-      },
-      {
-        name: 'get_env_vars',
-        description: 'Returns required environment variable names (never values). Shows which are set vs. missing.',
-        inputSchema: { type: 'object' as const, properties: {} },
-        call: async (_input: ToolInput) => {
-          const vars = getEnvVars();
-          return { content: [{ type: 'text', text: vars }] };
-        },
-      },
-      {
-        name: 'get_package_info',
-        description: 'Returns installed package versions. Use before suggesting library usage to avoid API version mismatch.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: { packageName: { type: 'string', description: 'Specific package name (optional)' } },
-        },
-        call: async (input: ToolInput) => {
-          const info = getPackageInfo(input.packageName);
-          return { content: [{ type: 'text', text: info }] };
-        },
-      },
-      {
-        name: 'get_impact_of_change',
-        description: 'Shows what files are affected when a given file changes. Returns direct importers and all transitively affected files. Use before editing any file to understand blast radius.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {
-            filePath: { type: 'string', description: 'File path relative to project root (e.g. "src/types.ts")' },
-          },
-          required: ['filePath'],
-        },
-        call: async (input: ToolInput) => {
-          const impact = getImpactOfChange(input.filePath ?? '');
-          return { content: [{ type: 'text', text: impact }] };
-        },
-      },
-      {
-        name: 'get_dependency_chain',
-        description: 'Shows the full dependency chain for a file: what it imports and what imports it, with export names. Use to understand how a module fits into the codebase.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {
-            filePath: { type: 'string', description: 'File path relative to project root (e.g. "src/utils/auth.ts")' },
-          },
-          required: ['filePath'],
-        },
-        call: async (input: ToolInput) => {
-          const chain = getDependencyChain(input.filePath ?? '');
-          return { content: [{ type: 'text', text: chain }] };
-        },
-      },
-      {
-        name: 'check_for_updates',
-        description: 'Checks if the AI OS artifacts installed in this repo are out of date. Returns update instructions when a newer version of AI OS is available.',
-        inputSchema: {
-          type: 'object' as const,
-          properties: {},
-        },
-        call: async (_input: ToolInput) => {
-          const status = checkForUpdates();
-          return { content: [{ type: 'text', text: status }] };
-        },
-      },
-    ],
+    tools: getAllMcpTools().map((tool: McpToolDefinition) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema as unknown as Record<string, unknown>,
+      handler: async (input: ToolInput) => executeTool(tool.name, input),
+    })),
     onPermissionRequest: (_req) => ({ kind: 'approved' as const }),
   });
 
@@ -268,21 +216,11 @@ function handleJsonRpcMessage(raw: string): void {
 
   if (method === 'tools/list') {
     sendResponse(id, {
-      tools: [
-        { name: 'search_codebase', description: 'Search codebase for patterns' },
-        { name: 'get_project_structure', description: 'Get file tree' },
-        { name: 'get_conventions', description: 'Get coding conventions' },
-        { name: 'get_stack_info', description: 'Get tech stack' },
-        { name: 'get_file_summary', description: 'Summarize a file' },
-        { name: 'get_prisma_schema', description: 'Get Prisma schema' },
-        { name: 'get_trpc_procedures', description: 'List tRPC procedures' },
-        { name: 'get_api_routes', description: 'List all API routes' },
-        { name: 'get_env_vars', description: 'List required env vars (no values)' },
-        { name: 'get_package_info', description: 'Get package versions' },
-        { name: 'get_impact_of_change', description: 'Show files affected when a file changes' },
-        { name: 'get_dependency_chain', description: 'Show full import/export chain for a file' },
-        { name: 'check_for_updates', description: 'Check if AI OS artifacts are out of date and need regenerating' },
-      ],
+      tools: getAllMcpTools().map((tool: McpToolDefinition) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+      })),
     });
     return;
   }
@@ -291,55 +229,13 @@ function handleJsonRpcMessage(raw: string): void {
     const toolName = (params?.name as string) ?? '';
     const input = (params?.arguments ?? {}) as ToolInput;
 
-    let result = '';
-    switch (toolName) {
-      case 'search_codebase':
-        result = searchFiles(input.query ?? '', input.filePattern, input.caseSensitive ?? false);
-        break;
-      case 'get_project_structure': {
-        const startDir = input.path
-          ? path.join(getProjectRoot(), input.path)
-          : getProjectRoot();
-        result = buildFileTree(startDir, 0, input.depth ?? 4).join('\n');
-        break;
-      }
-      case 'get_conventions':
-        result = readAiOsFile('context/conventions.md') || 'No conventions file found.';
-        break;
-      case 'get_stack_info':
-        result = readAiOsFile('context/stack.md') || 'No stack file found.';
-        break;
-      case 'get_file_summary':
-        result = getFileSummary(input.filePath ?? '');
-        break;
-      case 'get_prisma_schema':
-        result = getPrismaSchema();
-        break;
-      case 'get_trpc_procedures':
-        result = getTrpcProcedures();
-        break;
-      case 'get_api_routes':
-        result = getApiRoutes(input.filter);
-        break;
-      case 'get_env_vars':
-        result = getEnvVars();
-        break;
-      case 'get_package_info':
-        result = getPackageInfo(input.packageName);
-        break;
-      case 'get_impact_of_change':
-        result = getImpactOfChange(input.filePath ?? '');
-        break;
-      case 'get_dependency_chain':
-        result = getDependencyChain(input.filePath ?? '');
-        break;
-      case 'check_for_updates':
-        result = checkForUpdates();
-        break;
-      default:
-        sendError(id, -32601, `Unknown tool: ${toolName}`);
-        return;
+    const toolExists = getAllMcpTools().some((tool: McpToolDefinition) => tool.name === toolName);
+    if (!toolExists) {
+      sendError(id, -32601, `Unknown tool: ${toolName}`);
+      return;
     }
+
+    const result = executeTool(toolName, input);
 
     sendResponse(id, { content: [{ type: 'text', text: result }] });
     return;
@@ -366,7 +262,7 @@ function sendError(id: string | number | undefined, code: number, message: strin
 }
 
 main().catch(err => {
-  console.error('MCP server error:', err);
-  // Don't exit — fallback to standalone mode
-  runStandaloneMcp();
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[ai-os:mcp] Fatal error: ${msg}`);
+  process.exit(1);
 });

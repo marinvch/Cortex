@@ -11,10 +11,11 @@
 
 ## Tech Stack
 
-- **Markdown** (63% of codebase, 36 files)
-- **TypeScript** (25% of codebase, 14 files)
-- **JSON** (11% of codebase, 6 files)
-- **Shell** (2% of codebase, 1 files)
+- **Markdown** (58% of codebase, 52 files)
+- **TypeScript** (21% of codebase, 19 files)
+- **Shell** (12% of codebase, 11 files)
+- **JSON** (7% of codebase, 6 files)
+- **HTML** (2% of codebase, 2 files)
 
 ---
 
@@ -65,6 +66,18 @@ Use these tools to fetch project-specific context on demand:
 - `get_conventions` — this project's coding conventions
 - `get_stack_info` — full dependency/tech stack details
 - `get_file_summary` — key exports and purpose of a specific file
+- `get_memory_guidelines` — repository memory protocol
+- `get_repo_memory` — retrieve durable project memory
+- `remember_repo_fact` — persist verified project facts
+
+---
+
+## Memory Workflow
+
+- Before implementation, retrieve relevant memory with `get_repo_memory`
+- Follow `.ai-os/context/memory.md` for memory safety and quality rules
+- After completing a substantial task, store durable findings with `remember_repo_fact`
+- Prefer memory-backed decisions over assumptions to reduce drift in long sessions
 
 ---
 

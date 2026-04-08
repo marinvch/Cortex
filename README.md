@@ -15,6 +15,11 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
 
+AI OS now also initializes a persistent repository memory store at `.ai-os/memory/` so agents can retain verified facts and decisions across long sessions.
+Detection is package-aware for monorepos/mixed stacks, and MCP context tools provide parity coverage for Node, Java/Spring, Python, Go, and Rust projects.
+
+Generated instructions also enforce strict behavior guardrails: ambiguity-first clarification (no improvisation), explicit allowed/forbidden action boundaries, and an escalation flow for underspecified requests.
+
 ## Requirements
 
 - Node.js ≥ 20
@@ -95,6 +100,9 @@ Notes:
 | `get_api_routes`        | All API routes with methods            |
 | `get_env_vars`          | Required env vars (never values)       |
 | `get_package_info`      | Installed package versions             |
+| `get_memory_guidelines` | Repository memory protocol             |
+| `get_repo_memory`       | Retrieve durable project memory        |
+| `remember_repo_fact`    | Persist verified memory entries        |
 
 ## Re-running (idempotent)
 
@@ -103,11 +111,16 @@ Safe to run multiple times:
 - Existing **agents** and **skills** are never overwritten
 - Existing **prompts** are kept; only new IDs are added
 - `copilot-instructions.md` is backed up to `.bak` before overwrite
+- MCP runtime writes `.ai-os/mcp-server/runtime-manifest.json` and is health-checked after install
 
 To also update existing generated agents, skills, prompts, and MCP config from latest templates:
 
 - `bash install.sh --refresh-existing`
 - `npm run generate:refresh -- --cwd /path/to/target-repo`
+
+If MCP runtime diagnostics are needed:
+
+- `AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck`
 
 Generated skill files are AI OS-specific and now follow `ai-os-*.md` naming.
 
@@ -119,11 +132,70 @@ npm install
 npm run generate -- --cwd /path/to/target-repo
 # Dry run (shows detected stack, no files written)
 npm run generate:dry -- --cwd /path/to/target-repo
+# Onboarding plan only (no writes)
+npm run generate -- --cwd /path/to/target-repo --plan
+# Preview actions (no writes)
+npm run generate -- --cwd /path/to/target-repo --preview
+# Apply changes explicitly
+npm run generate -- --cwd /path/to/target-repo --apply
+# Run regression suite (fixture matrix for all supported stacks)
+npm run validate
+```
+
+## MCP server modes
+
+The MCP server (`src/mcp-server/index.ts`) supports two explicit modes:
+
+| Mode                      | How to invoke        | Use case                        |
+| ------------------------- | -------------------- | ------------------------------- |
+| Standalone JSON-RPC stdio | default (no flag)    | VS Code Copilot MCP integration |
+| Copilot SDK client        | `--copilot` flag     | Copilot CLI integration         |
+| Health check              | `--healthcheck` flag | Post-install validation         |
+
+The standalone mode is the default for VS Code. Passing `--copilot` is required to use the Copilot SDK client. If `--copilot` is passed and the Copilot CLI is unavailable, the server exits with an explicit diagnostic — it never silently falls back to a different mode.
+
+## Rollout guide
+
+### Applying to a new repo
+
+```bash
+# Bootstrap from anywhere (in target repo):
+curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash
+```
+
+### Updating an existing AI OS installation
+
+```bash
+bash install.sh --refresh-existing
+# or:
+npm run generate:refresh -- --cwd /path/to/repo
+```
+
+### Rollback
+
+If an install or refresh causes issues:
+
+1. The previous `copilot-instructions.md` is backed up as `.github/copilot-instructions.md.bak` — restore it with `cp .github/copilot-instructions.md.bak .github/copilot-instructions.md`.
+2. To remove all AI OS artifacts: `rm -rf .ai-os .github/copilot .github/agents .github/copilot-instructions.md`.
+3. The `.ai-os/memory/` directory contains your repository memory — back it up before removal if needed.
+
+### Verifying an install
+
+```bash
+# Health check the MCP server:
+AI_OS_ROOT=. node .ai-os/mcp-server/server.cjs --healthcheck
+
+# Full regression suite (ai-os dev repo only):
+npm run validate
 ```
 
 ## Supported framework skill templates
 
-`nextjs` · `react` · `trpc` · `prisma` · `stripe` · `auth-nextauth` · `rag-pgvector` · `supabase` · `go` · `express` · `python-fastapi`
+`nextjs` · `react` · `trpc` · `prisma` · `stripe` · `auth-nextauth` · `rag-pgvector` · `supabase` · `go` · `express` · `python-fastapi` · `java-spring`
+
+## Supported framework instruction templates
+
+`nextjs` · `react` · `nuxt` · `vue` · `svelte` · `angular` · `astro` · `express` · `nestjs` · `trpc` · `prisma` · `drizzle` · `python-fastapi` · `python-django` · `java-spring` · `dotnet` · `php-laravel` · `ruby-rails` · `go` · `rust` · `react-native` · `expo`
 
 ## License
 

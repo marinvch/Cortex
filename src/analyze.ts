@@ -3,7 +3,7 @@ import path from 'node:path';
 import { detectLanguages } from './detectors/language.js';
 import { detectFrameworks } from './detectors/framework.js';
 import { detectPatterns } from './detectors/patterns.js';
-import type { DetectedStack } from './types.js';
+import type { DetectedStack, PackageProfile, DetectedLanguage, DetectedFramework } from './types.js';
 
 function getProjectName(rootDir: string): string {
   try {
@@ -30,7 +30,7 @@ function getKeyFiles(rootDir: string): string[] {
   const candidates = [
     'README.md', 'package.json', 'go.mod', 'Cargo.toml', 'pyproject.toml',
     'requirements.txt', 'pom.xml', 'build.gradle', 'composer.json', 'Gemfile',
-    '.github/copilot-instructions.md', 'prisma/schema.prisma',
+    'prisma/schema.prisma',
     'src/index.ts', 'src/main.ts', 'src/app.ts',
     'src/index.js', 'src/main.js', 'src/app.js',
     'main.go', 'main.py', 'main.rs', 'app.py', 'index.py',
@@ -80,11 +80,132 @@ function getAllDependencies(rootDir: string): string[] {
   return [...deps];
 }
 
+function hasManifest(dir: string): boolean {
+  const manifests = [
+    'package.json',
+    'pyproject.toml',
+    'requirements.txt',
+    'go.mod',
+    'Cargo.toml',
+    'pom.xml',
+    'build.gradle',
+    'build.gradle.kts',
+  ];
+  return manifests.some((manifest) => fs.existsSync(path.join(dir, manifest)));
+}
+
+function discoverPackageRoots(rootDir: string): string[] {
+  const packageRoots = new Set<string>([rootDir]);
+
+  const rootPkgPath = path.join(rootDir, 'package.json');
+  try {
+    const pkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf-8')) as {
+      workspaces?: string[] | { packages?: string[] };
+    };
+
+    const workspaceGlobs = Array.isArray(pkg.workspaces)
+      ? pkg.workspaces
+      : Array.isArray(pkg.workspaces?.packages)
+        ? pkg.workspaces.packages
+        : [];
+
+    for (const glob of workspaceGlobs) {
+      const normalized = glob.replace(/\\/g, '/').replace(/\/*\*$/, '');
+      const base = normalized.endsWith('/*') ? normalized.slice(0, -2) : normalized;
+      const absBase = path.join(rootDir, base);
+      if (!fs.existsSync(absBase) || !fs.statSync(absBase).isDirectory()) continue;
+
+      for (const entry of fs.readdirSync(absBase, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        const candidate = path.join(absBase, entry.name);
+        if (hasManifest(candidate)) packageRoots.add(candidate);
+      }
+    }
+  } catch {
+    // Best-effort workspace detection.
+  }
+
+  const conventionalRoots = ['apps', 'packages', 'services'];
+  for (const rel of conventionalRoots) {
+    const abs = path.join(rootDir, rel);
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) continue;
+
+    for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const candidate = path.join(abs, entry.name);
+      if (hasManifest(candidate)) packageRoots.add(candidate);
+    }
+  }
+
+  return [...packageRoots];
+}
+
+function mergeLanguages(profiles: PackageProfile[]): DetectedLanguage[] {
+  const acc = new Map<string, { fileCount: number; extensions: Set<string> }>();
+
+  for (const profile of profiles) {
+    for (const lang of profile.languages) {
+      const existing = acc.get(lang.name) ?? { fileCount: 0, extensions: new Set<string>() };
+      existing.fileCount += lang.fileCount;
+      for (const ext of lang.extensions) existing.extensions.add(ext);
+      acc.set(lang.name, existing);
+    }
+  }
+
+  const total = [...acc.values()].reduce((sum, val) => sum + val.fileCount, 0) || 1;
+  return [...acc.entries()]
+    .map(([name, value]) => ({
+      name,
+      fileCount: value.fileCount,
+      percentage: Math.round((value.fileCount / total) * 100),
+      extensions: [...value.extensions],
+    }))
+    .sort((a, b) => b.fileCount - a.fileCount);
+}
+
+function mergeFrameworks(profiles: PackageProfile[]): DetectedFramework[] {
+  const seen = new Set<string>();
+  const frameworks: DetectedFramework[] = [];
+
+  for (const profile of profiles) {
+    for (const framework of profile.frameworks) {
+      const key = framework.name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      frameworks.push(framework);
+    }
+  }
+
+  return frameworks;
+}
+
+function mergeDependencies(profiles: PackageProfile[]): string[] {
+  const deps = new Set<string>();
+  for (const profile of profiles) {
+    for (const dep of profile.allDependencies) deps.add(dep.toLowerCase());
+  }
+  return [...deps];
+}
+
 export function analyze(rootDir: string): DetectedStack {
   const absRoot = path.resolve(rootDir);
-  const languages = detectLanguages(absRoot);
-  const frameworks = detectFrameworks(absRoot);
-  const patterns = detectPatterns(absRoot);
+  const packageRoots = discoverPackageRoots(absRoot);
+  const packageProfiles: PackageProfile[] = packageRoots.map((pkgRoot) => ({
+    name: getProjectName(pkgRoot),
+    path: path.relative(absRoot, pkgRoot) || '.',
+    languages: detectLanguages(pkgRoot),
+    frameworks: detectFrameworks(pkgRoot),
+    patterns: detectPatterns(pkgRoot),
+    keyFiles: getKeyFiles(pkgRoot),
+    allDependencies: getAllDependencies(pkgRoot),
+  }));
+
+  const languages = mergeLanguages(packageProfiles);
+  const frameworks = mergeFrameworks(packageProfiles);
+  const rootPatterns = detectPatterns(absRoot);
+  const isMonorepo = packageProfiles.length > 1;
 
   return {
     projectName: getProjectName(absRoot),
@@ -92,9 +213,13 @@ export function analyze(rootDir: string): DetectedStack {
     languages,
     primaryFramework: frameworks[0],
     frameworks,
-    patterns,
+    patterns: {
+      ...rootPatterns,
+      monorepo: rootPatterns.monorepo || isMonorepo,
+    },
     keyFiles: getKeyFiles(absRoot),
     rootDir: absRoot,
-    allDependencies: getAllDependencies(absRoot),
+    allDependencies: mergeDependencies(packageProfiles),
+    packageProfiles,
   };
 }

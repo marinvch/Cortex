@@ -21,6 +21,17 @@ function buildPrompts(stack: DetectedStack, cwd: string): PromptEntry[] {
   const frameworks = stack.frameworks.map(f => f.name.toLowerCase());
   const packages = stack.allDependencies;
   const hasNext = frameworks.some(f => f.includes('next'));
+  const hasNuxt = frameworks.some(f => f.includes('nuxt'));
+  const hasVue = frameworks.some(f => f.includes('vue'));
+  const hasAngular = frameworks.some(f => f.includes('angular'));
+  const hasAstro = frameworks.some(f => f.includes('astro'));
+  const hasNest = frameworks.some(f => f.includes('nest'));
+  const hasExpressLike = frameworks.some(f => ['express', 'fastify', 'hono', 'koa'].some(x => f.includes(x)));
+  const hasFastApi = frameworks.some(f => f.includes('fastapi'));
+  const hasDjango = frameworks.some(f => f.includes('django'));
+  const hasLaravel = frameworks.some(f => f.includes('laravel'));
+  const hasSpring = frameworks.some(f => f.includes('spring'));
+  const hasDotnet = frameworks.some(f => f.includes('.net') || f.includes('asp.net'));
   const hasTrpc = packages.includes('@trpc/server') || packages.includes('trpc');
   const hasPrisma = packages.includes('prisma') || packages.includes('@prisma/client');
   const hasStripe = packages.includes('stripe');
@@ -53,6 +64,135 @@ Requirements:
 - Return structured JSON responses
 - Use try/catch and return appropriate HTTP status codes
 - Do NOT create an API route for data that can be a tRPC procedure`,
+    });
+  }
+
+  if (hasNuxt || hasVue) {
+    prompts.push({
+      id: '/new-vue-page',
+      title: 'New Vue/Nuxt Page',
+      description: 'Create a new Vue or Nuxt page/component with typed props and data flow',
+      prompt: `Create a new ${hasNuxt ? 'Nuxt page' : 'Vue page/component'} at the path I specify.
+Requirements:
+- Use script setup with TypeScript
+- Keep page-level data fetching in a composable/service, not in deeply nested components
+- Validate route params and external data shapes
+- Keep component state minimal and derive where possible
+- Follow the conventions in .ai-os/context/conventions.md`,
+    });
+  }
+
+  if (hasAngular) {
+    prompts.push({
+      id: '/new-angular-feature',
+      title: 'New Angular Feature',
+      description: 'Create a feature module/standalone component with typed service integration',
+      prompt: `Create a new Angular feature (standalone component + service) at the path I specify.
+Requirements:
+- Use strict TypeScript typing and typed HttpClient responses
+- Put business logic in services, keep components focused on presentation
+- Use reactive forms for non-trivial form inputs
+- Add guard/interceptor wiring if auth is required
+- Follow naming and structure conventions from .ai-os/context/conventions.md`,
+    });
+  }
+
+  if (hasAstro) {
+    prompts.push({
+      id: '/new-astro-page',
+      title: 'New Astro Page',
+      description: 'Create a new Astro page with islands only where interactivity is required',
+      prompt: `Create a new Astro page at the path I specify.
+Requirements:
+- Keep content/server rendering first; only hydrate islands where necessary
+- Use typed frontmatter and validate external inputs
+- Extract reusable UI into components and data loaders into utility modules
+- Ensure route and file naming follow project conventions`,
+    });
+  }
+
+  if (hasNest || hasExpressLike) {
+    prompts.push({
+      id: '/new-backend-endpoint',
+      title: 'New Backend Endpoint',
+      description: 'Create a typed backend endpoint with validation, auth boundary checks, and service layer',
+      prompt: `Create a new backend endpoint at the path I specify.
+Requirements:
+- Validate input payload and params with Zod or framework-native validation
+- Keep controller/route handlers thin and delegate business logic to services
+- Enforce auth/authorization at the boundary
+- Return consistent error response shapes and status codes
+- Add unit/integration test scaffolding for happy path + validation failure`,
+    });
+  }
+
+  if (hasFastApi) {
+    prompts.push({
+      id: '/new-fastapi-route',
+      title: 'New FastAPI Route',
+      description: 'Create an async FastAPI route with Pydantic models and service delegation',
+      prompt: `Create a new FastAPI route in the module I specify.
+Requirements:
+- Use async handlers and Pydantic request/response schemas
+- Keep endpoint logic thin; move business rules into services
+- Add explicit HTTPException handling for expected error paths
+- Include pytest test skeleton with AsyncClient`,
+    });
+  }
+
+  if (hasDjango) {
+    prompts.push({
+      id: '/new-django-api',
+      title: 'New Django API Endpoint',
+      description: 'Create a Django endpoint with serializer/form validation and scoped query logic',
+      prompt: `Create a new Django API endpoint at the location I specify.
+Requirements:
+- Validate request data with serializers/forms
+- Keep DB access scoped to the authenticated user when applicable
+- Keep business logic out of views and in services/managers
+- Add tests for authorization, validation, and success responses`,
+    });
+  }
+
+  if (hasLaravel) {
+    prompts.push({
+      id: '/new-laravel-endpoint',
+      title: 'New Laravel Endpoint',
+      description: 'Create a new Laravel API endpoint with Form Request validation and service-layer logic',
+      prompt: `Create a new Laravel API endpoint and wire it in routes/api.php.
+Requirements:
+- Use Form Request classes for validation
+- Keep controller actions thin and move domain logic to services
+- Enforce auth/policy checks before data mutation
+- Add feature tests for success and validation errors`,
+    });
+  }
+
+  if (hasSpring) {
+    prompts.push({
+      id: '/new-spring-endpoint',
+      title: 'New Spring Endpoint',
+      description: 'Create a Spring REST endpoint with DTO validation and service abstraction',
+      prompt: `Create a new Spring Boot REST endpoint.
+Requirements:
+- Use DTOs with bean validation annotations
+- Keep controller thin and delegate to service classes
+- Map domain exceptions to appropriate HTTP status responses
+- Add a unit test (service) and web layer test (controller) skeleton`,
+    });
+  }
+
+  if (hasDotnet) {
+    prompts.push({
+      id: '/new-dotnet-endpoint',
+      title: 'New .NET Endpoint',
+      description: 'Create an ASP.NET Core endpoint with validation and service-layer boundaries',
+      prompt: `Create a new ASP.NET Core endpoint.
+Requirements:
+- Use request/response DTOs and model validation
+- Keep endpoint/controller minimal; push business logic into services
+- Enforce authorization attributes/policies where required
+- Add test skeletons for validation and successful execution`,
     });
   }
 

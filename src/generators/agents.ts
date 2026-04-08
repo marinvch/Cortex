@@ -38,7 +38,7 @@ function buildFrameworkRules(stack: DetectedStack): string {
   }
 
   if (rules.length === 0) {
-    rules.push('- Follow conventions from `.ai-os/context/conventions.md` for naming, structure, and safety checks');
+    rules.push('- Follow conventions from `.github/ai-os/context/conventions.md` for naming, structure, and safety checks');
   }
 
   return rules.join('\n');
@@ -90,11 +90,11 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
       '{{PROJECT_NAME}}': projectName,
       '{{FRAMEWORK}}': frameworkLabel,
       '{{FRAMEWORK_LIST}}': frameworkList,
-      '{{CONVENTIONS_FILE}}': '.ai-os/context/conventions.md',
-      '{{STACK_FILE}}': '.ai-os/context/stack.md',
-      '{{ARCHITECTURE_FILE}}': '.ai-os/context/architecture.md',
+      '{{CONVENTIONS_FILE}}': '.github/ai-os/context/conventions.md',
+      '{{STACK_FILE}}': '.github/ai-os/context/stack.md',
+      '{{ARCHITECTURE_FILE}}': '.github/ai-os/context/architecture.md',
       '{{CONVENTIONS_SUMMARY}}': toBulletList([
-        'Treat `.ai-os/context/conventions.md` as source of truth for naming and structure',
+        'Treat `.github/ai-os/context/conventions.md` as source of truth for naming and structure',
         'Prefer safe, incremental edits with clear rollback points',
         'Refresh AI artifacts after architecture or workflow changes',
       ]),
@@ -113,9 +113,9 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
       '{{FRAMEWORK}}': frameworkLabel,
       '{{STACK_SUMMARY}}': toBulletList(stackSummary),
       '{{KEY_FILES_LIST}}': keyFilesList,
-      '{{CONVENTIONS_FILE}}': '.ai-os/context/conventions.md',
-      '{{ARCHITECTURE_FILE}}': '.ai-os/context/architecture.md',
-      '{{STACK_FILE}}': '.ai-os/context/stack.md',
+      '{{CONVENTIONS_FILE}}': '.github/ai-os/context/conventions.md',
+      '{{ARCHITECTURE_FILE}}': '.github/ai-os/context/architecture.md',
+      '{{STACK_FILE}}': '.github/ai-os/context/stack.md',
       '{{BUILD_COMMAND}}': stack.patterns.packageManager === 'npm' ? 'npm run build' : `${stack.patterns.packageManager} build`,
       '{{FRAMEWORK_RULES}}': buildFrameworkRules(stack),
     },

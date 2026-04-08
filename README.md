@@ -9,13 +9,13 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | Artifact             | Location                                          | What it is                                                                         |
 | -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Copilot instructions | `.github/copilot-instructions.md`                 | System prompt optimized for your stack                                             |
-| Context docs         | `.ai-os/context/`                                 | Token-efficient stack, architecture, conventions docs                              |
+| Context docs         | `.github/ai-os/context/`                          | Token-efficient stack, architecture, conventions docs                              |
 | MCP tools            | `.github/copilot/mcp.json` + `.ai-os/mcp-server/` | 10 tools for code search, schema reading, route listing                            |
 | Agents               | `.github/agents/*.agent.md`                       | Stack-specific chat agents (framework expert, DB expert, auth, payments, explorer) |
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
 
-AI OS now also initializes a persistent repository memory store at `.ai-os/memory/` so agents can retain verified facts and decisions across long sessions.
+AI OS now also initializes a persistent repository memory store at `.github/ai-os/memory/` so agents can retain verified facts and decisions across long sessions.
 Detection is package-aware for monorepos/mixed stacks, and MCP context tools provide parity coverage for Node, Java/Spring, Python, Go, and Rust projects.
 
 Generated instructions also enforce strict behavior guardrails: ambiguity-first clarification (no improvisation), explicit allowed/forbidden action boundaries, and an escalation flow for underspecified requests.
@@ -176,14 +176,14 @@ npm run generate:refresh -- --cwd /path/to/repo
 If an install or refresh causes issues:
 
 1. The previous `copilot-instructions.md` is backed up as `.github/copilot-instructions.md.bak` — restore it with `cp .github/copilot-instructions.md.bak .github/copilot-instructions.md`.
-2. To remove all AI OS artifacts: `rm -rf .ai-os .github/copilot .github/agents .github/copilot-instructions.md`.
-3. The `.ai-os/memory/` directory contains your repository memory — back it up before removal if needed.
+2. To remove all AI OS artifacts: `rm -rf .github/ai-os .github/copilot .github/agents .github/copilot-instructions.md`.
+3. The `.github/ai-os/memory/` directory contains your repository memory — back it up before removal if needed.
 
 ### Verifying an install
 
 ```bash
 # Health check the MCP server:
-AI_OS_ROOT=. node .ai-os/mcp-server/server.cjs --healthcheck
+AI_OS_ROOT=. node .ai-os/mcp-server/index.js --healthcheck
 
 # Full regression suite (ai-os dev repo only):
 npm run validate

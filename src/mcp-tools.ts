@@ -160,13 +160,13 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'get_memory_guidelines',
-    description: 'Returns repository memory rules and memory usage protocol from .ai-os/context/memory.md.',
+    description: 'Returns repository memory rules and memory usage protocol from .github/ai-os/context/memory.md.',
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },
   {
     name: 'get_repo_memory',
-    description: 'Retrieves persisted repository memory entries from .ai-os/memory/memory.jsonl, optionally filtered by query/category.',
+    description: 'Retrieves persisted repository memory entries from .github/ai-os/memory/memory.jsonl, optionally filtered by query/category.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -179,7 +179,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'remember_repo_fact',
-    description: 'Stores a durable repository memory entry in .ai-os/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).',
+    description: 'Stores a durable repository memory entry in .github/ai-os/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).',
     inputSchema: {
       type: 'object',
       properties: {

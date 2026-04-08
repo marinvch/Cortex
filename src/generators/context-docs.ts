@@ -57,9 +57,13 @@ function detectExistingAiContext(rootDir: string): ExistingAiContextSummary {
   const agentsCount = countMarkdownFiles(agentsDir);
   if (agentsCount > 0) add(`.github/agents/ (${agentsCount} files)`, 'agents');
 
-  if (exists(rootDir, '.ai-os/context/stack.md')) add('.ai-os/context/stack.md', 'docs');
-  if (exists(rootDir, '.ai-os/context/architecture.md')) add('.ai-os/context/architecture.md', 'docs');
-  if (exists(rootDir, '.ai-os/context/conventions.md')) add('.ai-os/context/conventions.md', 'docs');
+  if (exists(rootDir, '.github/ai-os/context/stack.md')) add('.github/ai-os/context/stack.md', 'docs');
+  if (exists(rootDir, '.github/ai-os/context/architecture.md')) add('.github/ai-os/context/architecture.md', 'docs');
+  if (exists(rootDir, '.github/ai-os/context/conventions.md')) add('.github/ai-os/context/conventions.md', 'docs');
+  // Legacy paths — backward compat detection
+  if (!exists(rootDir, '.github/ai-os/context/stack.md') && exists(rootDir, '.ai-os/context/stack.md')) add('.ai-os/context/stack.md (legacy)', 'docs');
+  if (!exists(rootDir, '.github/ai-os/context/architecture.md') && exists(rootDir, '.ai-os/context/architecture.md')) add('.ai-os/context/architecture.md (legacy)', 'docs');
+  if (!exists(rootDir, '.github/ai-os/context/conventions.md') && exists(rootDir, '.ai-os/context/conventions.md')) add('.ai-os/context/conventions.md (legacy)', 'docs');
   if (exists(rootDir, 'docs/ai/session_memory.md')) add('docs/ai/session_memory.md', 'docs');
 
   if (exists(rootDir, 'AGENTS.md')) add('AGENTS.md', 'other');
@@ -109,7 +113,7 @@ function generateExistingAiContextDoc(stack: DetectedStack, summary: ExistingAiC
   lines.push('bash install.sh --cwd "$PWD" --refresh-existing');
   lines.push('```');
   lines.push('3. Keep Copilot as the single active target for generated instructions, prompts, and skills.');
-  lines.push('4. Treat `.ai-os/context/*.md` files as source-of-truth and update them after architectural changes.');
+  lines.push('4. Treat `.github/ai-os/context/*.md` files as source-of-truth and update them after architectural changes.');
 
   lines.push('', '## Notes', '');
   lines.push('- This workflow is shell-driven (Git Bash + Node.js) and does not require Python runtime scripts.');
@@ -310,8 +314,8 @@ function generateMemoryDoc(stack: DetectedStack): string {
     '',
     '## Memory Files',
     '',
-    '- `.ai-os/memory/memory.jsonl` — append-only durable memory entries',
-    '- `.ai-os/memory/README.md` — memory categories and usage rules',
+    '- `.github/ai-os/memory/memory.jsonl` — append-only durable memory entries',
+    '- `.github/ai-os/memory/README.md` — memory categories and usage rules',
     '',
     '## Agent Workflow',
     '',
@@ -338,17 +342,62 @@ function generateMemoryDoc(stack: DetectedStack): string {
   return lines.join('\n');
 }
 
+function mergeSections(existing: string, updated: string): string {
+  if (!existing.trim()) return updated;
+  const parseSections = (content: string): Map<string, string> => {
+    const sections = new Map<string, string>();
+    let currentHeading = '__preamble__';
+    let currentLines: string[] = [];
+    for (const line of content.split('\n')) {
+      if (line.startsWith('## ')) {
+        sections.set(currentHeading, currentLines.join('\n'));
+        currentHeading = line.slice(3).trim();
+        currentLines = [line];
+      } else {
+        currentLines.push(line);
+      }
+    }
+    sections.set(currentHeading, currentLines.join('\n'));
+    return sections;
+  };
+  const existingSections = parseSections(existing);
+  const updatedSections = parseSections(updated);
+  const result: string[] = [updatedSections.get('__preamble__') ?? ''];
+  for (const [heading, content] of updatedSections) {
+    if (heading !== '__preamble__') result.push(content);
+  }
+  for (const [heading, content] of existingSections) {
+    if (heading !== '__preamble__' && !updatedSections.has(heading)) result.push(content);
+  }
+  return result.join('\n');
+}
+
 export function generateContextDocs(stack: DetectedStack, outputDir: string): void {
-  const contextDir = path.join(outputDir, '.ai-os', 'context');
+  const contextDir = path.join(outputDir, '.github', 'ai-os', 'context');
   fs.mkdirSync(contextDir, { recursive: true });
-  const memoryDir = path.join(outputDir, '.ai-os', 'memory');
+  const memoryDir = path.join(outputDir, '.github', 'ai-os', 'memory');
   fs.mkdirSync(memoryDir, { recursive: true });
 
   const existingContext = detectExistingAiContext(outputDir);
 
+  // Migrate legacy memory.jsonl from .ai-os/ if needed
+  const legacyMemory = path.join(outputDir, '.ai-os', 'memory', 'memory.jsonl');
+  const newMemory = path.join(memoryDir, 'memory.jsonl');
+  if (fs.existsSync(legacyMemory) && !fs.existsSync(newMemory)) {
+    fs.copyFileSync(legacyMemory, newMemory);
+  }
+
   fs.writeFileSync(path.join(contextDir, 'stack.md'), generateStackDoc(stack), 'utf-8');
-  fs.writeFileSync(path.join(contextDir, 'architecture.md'), generateArchitectureDoc(stack), 'utf-8');
-  fs.writeFileSync(path.join(contextDir, 'conventions.md'), generateConventionsDoc(stack), 'utf-8');
+
+  // architecture.md and conventions.md: section-level merge to preserve manual edits
+  const archPath = path.join(contextDir, 'architecture.md');
+  const archGenerated = generateArchitectureDoc(stack);
+  fs.writeFileSync(archPath, fs.existsSync(archPath) ? mergeSections(fs.readFileSync(archPath, 'utf-8'), archGenerated) : archGenerated, 'utf-8');
+
+  const convsPath = path.join(contextDir, 'conventions.md');
+  const convsGenerated = generateConventionsDoc(stack);
+  fs.writeFileSync(convsPath, fs.existsSync(convsPath) ? mergeSections(fs.readFileSync(convsPath, 'utf-8'), convsGenerated) : convsGenerated, 'utf-8');
+
   fs.writeFileSync(path.join(contextDir, 'memory.md'), generateMemoryDoc(stack), 'utf-8');
   fs.writeFileSync(path.join(contextDir, 'existing-ai-context.md'), generateExistingAiContextDoc(stack, existingContext), 'utf-8');
 
@@ -392,6 +441,6 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): vo
     hasTypeScript: stack.patterns.hasTypeScript,
   };
 
-  const aiOsDir = path.join(outputDir, '.ai-os');
+  const aiOsDir = path.join(outputDir, '.github', 'ai-os');
   fs.writeFileSync(path.join(aiOsDir, 'config.json'), JSON.stringify(config, null, 2), 'utf-8');
 }

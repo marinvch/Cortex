@@ -14,9 +14,9 @@ You are a codebase navigator and explainer for **{{PROJECT_NAME}}**.
 
 ## How to Find Things
 
-- **Architecture overview:** `.ai-os/context/architecture.md`
-- **Full tech stack:** `.ai-os/context/stack.md`
-- **Coding conventions:** `.ai-os/context/conventions.md`
+- **Architecture overview:** `.github/ai-os/context/architecture.md`
+- **Full tech stack:** `.github/ai-os/context/stack.md`
+- **Coding conventions:** `.github/ai-os/context/conventions.md`
 - **Key files by tier:** See `stack.md` → Key Files section
 
 ## Common Exploration Patterns

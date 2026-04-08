@@ -33,9 +33,9 @@
 
 ## Architecture
 
-See `.ai-os/context/architecture.md` for the full architecture overview.  
-See `.ai-os/context/conventions.md` for detailed coding conventions.  
-See `.ai-os/context/stack.md` for the complete dependency inventory.
+See `.github/ai-os/context/architecture.md` for the full architecture overview.  
+See `.github/ai-os/context/conventions.md` for detailed coding conventions.  
+See `.github/ai-os/context/stack.md` for the complete dependency inventory.
 
 ---
 
@@ -69,7 +69,7 @@ Use these tools to fetch project-specific context on demand:
 ## Memory Workflow
 
 - MUST before implementation, retrieve relevant memory with `get_repo_memory`
-- Follow `.ai-os/context/memory.md` for memory safety and quality rules
+- Follow `.github/ai-os/context/memory.md` for memory safety and quality rules
 - MUST after completing a substantial task, store only verified durable findings with `remember_repo_fact`
 - Prefer memory-backed decisions over assumptions to reduce drift in long sessions
 - Never store speculative, duplicate, or transient status notes in repo memory

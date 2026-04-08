@@ -49,7 +49,7 @@ Requirements:
 - Guard with getServerSession() → redirect to /auth/signin if no session
 - Pass any data to a Client Component child only if interactivity is needed
 - Use TypeScript strict types
-- Follow the project conventions in .ai-os/context/conventions.md`,
+- Follow the project conventions in .github/ai-os/context/conventions.md`,
     });
 
     prompts.push({
@@ -78,7 +78,7 @@ Requirements:
 - Keep page-level data fetching in a composable/service, not in deeply nested components
 - Validate route params and external data shapes
 - Keep component state minimal and derive where possible
-- Follow the conventions in .ai-os/context/conventions.md`,
+- Follow the conventions in .github/ai-os/context/conventions.md`,
     });
   }
 
@@ -93,7 +93,7 @@ Requirements:
 - Put business logic in services, keep components focused on presentation
 - Use reactive forms for non-trivial form inputs
 - Add guard/interceptor wiring if auth is required
-- Follow naming and structure conventions from .ai-os/context/conventions.md`,
+- Follow naming and structure conventions from .github/ai-os/context/conventions.md`,
     });
   }
 
@@ -286,7 +286,7 @@ Include:
 - Any important side effects or dependencies
 - How it connects to other parts of the system
 - Any gotchas or non-obvious behavior
-Reference the project architecture in .ai-os/context/architecture.md as context.`,
+Reference the project architecture in .github/ai-os/context/architecture.md as context.`,
   });
 
   prompts.push({
@@ -299,7 +299,7 @@ Before touching anything:
 2. List all imports and consumers (grep for the component name)
 3. Identify props, tRPC hooks, and state
 Then:
-- Apply the naming conventions from .ai-os/context/conventions.md
+- Apply the naming conventions from .github/ai-os/context/conventions.md
 - Extract business logic to lib/ if present in the component
 - Ensure TypeScript strict compliance (no any)
 - Verify all callers still compile after the refactor`,

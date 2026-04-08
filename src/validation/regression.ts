@@ -211,9 +211,9 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
   const expectedFiles = [
     '.github/copilot-instructions.md',
     '.github/copilot/mcp.json',
-    '.ai-os/context/stack.md',
-    '.ai-os/context/architecture.md',
-    '.ai-os/context/conventions.md',
+    '.github/ai-os/context/stack.md',
+    '.github/ai-os/context/architecture.md',
+    '.github/ai-os/context/conventions.md',
   ];
   for (const f of expectedFiles) {
     results.push({
@@ -281,7 +281,7 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
 
 function checkMemoryQuality(dir: string, fixtureName: string, results: CheckResult[]): void {
   // Write a fact via the generate action's planner — or directly inject JSONL and check recovery
-  const memDir = path.join(dir, '.ai-os/memory');
+  const memDir = path.join(dir, '.github/ai-os/memory');
   fs.mkdirSync(memDir, { recursive: true });
   const memFile = path.join(memDir, 'memory.jsonl');
 

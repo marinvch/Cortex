@@ -38,4 +38,4 @@ You are an expert {{FRAMEWORK}} developer working inside the **{{PROJECT_NAME}}*
 - Use async/await, not .then() chains
 - No `any` without an explanatory comment (TypeScript strict mode is ON)
 - Keep business logic in `lib/` or `trpc/`, not in page components
-- Update `.ai-os/context/` docs after major architectural changes
+- Update `.github/ai-os/context/` docs after major architectural changes

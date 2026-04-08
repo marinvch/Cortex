@@ -7,7 +7,8 @@ argument-hint: A task to implement, a context file to update, or an artifact to 
 This agent operates on the **{{PROJECT_NAME}}** codebase ({{FRAMEWORK_LIST}}).
 
 It maintains the AI OS artifacts:
-- `.ai-os/context/` — Architecture, stack, and conventions docs
+
+- `.github/ai-os/context/` — Architecture, stack, and conventions docs
 - `.github/copilot/skills/` — Skill playbooks
 - `.github/copilot/prompts.json` — Prompt templates
 - `.github/agents/` — Specialized agents
@@ -27,6 +28,7 @@ It maintains the AI OS artifacts:
 ## After Every Significant Task
 
 Update `docs/ai/session_memory.md`:
+
 ```markdown
 ## Session Entry — YYYY-MM-DD (Short title)
 **What changed:** ...
@@ -34,7 +36,8 @@ Update `docs/ai/session_memory.md`:
 **Follow-ups / Risks:** ...
 ```
 
-Refresh `.ai-os/context/` if the architecture changed:
+Refresh `.github/ai-os/context/` if the architecture changed:
+
 ```bash
 bash scripts/ai-os/install.sh
 ```
@@ -42,11 +45,13 @@ bash scripts/ai-os/install.sh
 ## Ask Only When Critical
 
 Do not ask for clarification on:
+
 - Code style (follow conventions from `.ai-os/context/conventions.md`)
 - File placement (follow the folder structure rules)
 - Naming (follow the naming table in conventions.md)
 
 Ask when:
+
 - A destructive/irreversible change is about to happen
 - The scope is genuinely ambiguous between two valid approaches
 - A schema migration requires knowing the backfill strategy

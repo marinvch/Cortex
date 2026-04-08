@@ -303,6 +303,9 @@ if [[ -f "$GITIGNORE" ]]; then
     echo ".ai-os/mcp-server/node_modules" >> "$GITIGNORE"
     echo -e "  ${GREEN}✓ Updated .gitignore${RESET}"
   fi
+  if ! grep -q "^\.github/ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
+    echo ".github/ai-os/mcp-server/node_modules" >> "$GITIGNORE"
+  fi
 fi
 
 # ── Done ────────────────────────────────────────────────────────────────────

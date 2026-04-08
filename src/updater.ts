@@ -29,7 +29,10 @@ export interface InstalledConfig {
 
 /** Read the ai-os config installed in a target repo */
 export function readInstalledConfig(targetDir: string): InstalledConfig | null {
-  const configPath = path.join(targetDir, '.ai-os', 'config.json');
+  // Check new location first, then fall back to legacy .ai-os/ for migration compat
+  const newConfigPath = path.join(targetDir, '.github', 'ai-os', 'config.json');
+  const legacyConfigPath = path.join(targetDir, '.ai-os', 'config.json');
+  const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   try {
     return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as InstalledConfig;
   } catch {

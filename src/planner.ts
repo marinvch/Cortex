@@ -22,7 +22,7 @@ function exists(root: string, relPath: string): boolean {
 }
 
 function detectRepoType(targetDir: string): OnboardingPlan['detectedRepoType'] {
-  if (exists(targetDir, '.ai-os/config.json')) return 'existing-ai-os';
+  if (exists(targetDir, '.github/ai-os/config.json') || exists(targetDir, '.ai-os/config.json')) return 'existing-ai-os';
   if (exists(targetDir, '.github/copilot-instructions.md') || exists(targetDir, '.github/copilot/prompts.json')) {
     return 'existing-non-ai-os';
   }
@@ -77,17 +77,17 @@ export function buildOnboardingPlan(
   actions.push(decideAction(targetDir, '.github/copilot-instructions.md', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/instructions/ai-os.instructions.md', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/copilot/mcp.json', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/tools.json', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.github/ai-os/tools.json', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.ai-os/mcp-server/runtime-manifest.json', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/context/stack.md', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/context/architecture.md', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/context/conventions.md', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/context/memory.md', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/context/existing-ai-context.md', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/context/dependency-graph.json', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/config.json', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.ai-os/memory/README.md', mode, 'safe-merge'));
-  actions.push(decideAction(targetDir, '.ai-os/memory/memory.jsonl', mode, 'safe-merge'));
+  actions.push(decideAction(targetDir, '.github/ai-os/context/stack.md', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.github/ai-os/context/architecture.md', mode, 'safe-merge'));
+  actions.push(decideAction(targetDir, '.github/ai-os/context/conventions.md', mode, 'safe-merge'));
+  actions.push(decideAction(targetDir, '.github/ai-os/context/memory.md', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.github/ai-os/context/existing-ai-context.md', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.github/ai-os/context/dependency-graph.json', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.github/ai-os/config.json', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.github/ai-os/memory/README.md', mode, 'safe-merge'));
+  actions.push(decideAction(targetDir, '.github/ai-os/memory/memory.jsonl', mode, 'safe-merge'));
 
   // Generated collections
   actions.push(decideAction(targetDir, '.github/agents/', mode, 'safe-merge'));

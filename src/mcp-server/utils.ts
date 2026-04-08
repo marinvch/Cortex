@@ -12,6 +12,9 @@ export function getProjectRoot(): string {
 
 export function readAiOsFile(relPath: string): string {
   try {
+    const newPath = path.join(ROOT, '.github', 'ai-os', relPath);
+    if (fs.existsSync(newPath)) return fs.readFileSync(newPath, 'utf-8');
+    // Legacy fallback
     return fs.readFileSync(path.join(ROOT, '.ai-os', relPath), 'utf-8');
   } catch {
     return '';
@@ -43,11 +46,15 @@ const MEMORY_LOCK_WAIT_MS = 2000;
 const MEMORY_LOCK_RETRY_MS = 50;
 
 function getMemoryFilePath(): string {
-  return path.join(ROOT, '.ai-os', 'memory', 'memory.jsonl');
+  const newPath = path.join(ROOT, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  const legacyPath = path.join(ROOT, '.ai-os', 'memory', 'memory.jsonl');
+  return fs.existsSync(newPath) || !fs.existsSync(legacyPath) ? newPath : legacyPath;
 }
 
 function getMemoryDirPath(): string {
-  return path.join(ROOT, '.ai-os', 'memory');
+  const newPath = path.join(ROOT, '.github', 'ai-os', 'memory');
+  const legacyPath = path.join(ROOT, '.ai-os', 'memory');
+  return fs.existsSync(newPath) || !fs.existsSync(legacyPath) ? newPath : legacyPath;
 }
 
 function getMemoryLockFilePath(): string {
@@ -282,7 +289,7 @@ function recoverMalformedMemoryIfNeeded(result: MemoryReadResult): void {
 
 export function getMemoryGuidelines(): string {
   const guidelines = readAiOsFile('context/memory.md');
-  return guidelines || 'No memory guidelines found. Re-run AI OS generation to create .ai-os/context/memory.md.';
+  return guidelines || 'No memory guidelines found. Re-run AI OS generation to create .github/ai-os/context/memory.md.';
 }
 
 export function getRepoMemory(query?: string, category?: string, limit?: number): string {
@@ -816,7 +823,9 @@ export function getFileSummary(filePath: string): string {
 }
 
 export function getImpactOfChange(filePath: string): string {
-  const graphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
+  const newGraphPath = path.join(ROOT, '.github', 'ai-os', 'context', 'dependency-graph.json');
+  const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
+  const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
     return 'Dependency graph not found. Run `npm run generate` to build it.';
   }
@@ -877,7 +886,9 @@ export function getImpactOfChange(filePath: string): string {
 }
 
 export function getDependencyChain(filePath: string): string {
-  const graphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
+  const newGraphPath = path.join(ROOT, '.github', 'ai-os', 'context', 'dependency-graph.json');
+  const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
+  const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
     return 'Dependency graph not found. Run `npm run generate` to build it.';
   }
@@ -928,7 +939,9 @@ export function getDependencyChain(filePath: string): string {
 }
 
 export function checkForUpdates(): string {
-  const configPath = path.join(ROOT, '.ai-os', 'config.json');
+  const newConfigPath = path.join(ROOT, '.github', 'ai-os', 'config.json');
+  const legacyConfigPath = path.join(ROOT, '.ai-os', 'config.json');
+  const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs.existsSync(configPath)) {
     return 'AI OS is not installed in this repository. Run `npm run generate` to install.';
   }
@@ -943,7 +956,7 @@ export function checkForUpdates(): string {
     installedVersion = config.version ?? '0.0.0';
     installedAt = config.installedAt ?? 'unknown';
   } catch {
-    return 'Could not read .ai-os/config.json';
+    return 'Could not read .github/ai-os/config.json';
   }
 
   let toolVersion = '0.0.0';

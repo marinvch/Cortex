@@ -24,7 +24,7 @@ metadata: { pageNumber, chunkIndex, charStart, charEnd, snippet }
 ```typescript
 // Always scope by fileId to prevent cross-user leakage
 const results = await prisma.$queryRaw<ChunkRow[]>`
-  SELECT id, content, metadata, 
+  SELECT id, content, metadata,
          1 - (embedding <-> ${queryEmbedding}::vector) AS similarity
   FROM document_chunks
   WHERE "fileId" = ${fileId}
@@ -62,7 +62,7 @@ POST /api/chat
 1. Update `vector-store.ts` to use the new model
 2. **Re-embed all existing files** — old embeddings are incompatible
 3. Update dimension in pgvector column: `ALTER TABLE document_chunks ALTER COLUMN embedding TYPE vector(NEW_DIM)`
-4. Update `config.json` in `.ai-os/`
+4. Update `config.json` in `.github/ai-os/`
 
 ## OCR Fallback
 

@@ -50,7 +50,7 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
 function printBanner(): void {
   console.log('');
   console.log('  ╔═══════════════════════════════════╗');
-  console.log('  ║          AI OS  v0.2.0            ║');
+  console.log('  ║          AI OS  v0.3.0            ║');
   console.log('  ║  Portable Copilot Context Engine  ║');
   console.log('  ╚═══════════════════════════════════╝');
   console.log('');
@@ -75,7 +75,7 @@ function printSummary(
   console.log('  Generated files:');
   console.log(`  ✅ .github/copilot-instructions.md`);
   console.log(`  ✅ .github/copilot/mcp.json (${mcpToolCount} tools)`);
-  console.log(`  ✅ .ai-os/context/ (stack, architecture, conventions, existing-ai-context, dependency-graph)`);
+  console.log(`  ✅ .github/ai-os/context/ (stack, architecture, conventions, existing-ai-context, dependency-graph)`);
 
   if (agents.length > 0) {
     console.log(`  ✅ .github/agents/ → ${agents.length} new agent(s):`);

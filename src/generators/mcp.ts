@@ -49,7 +49,7 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, _option
   );
 
   // Also write tool definitions for reference
-  const aiOsDir = path.join(outputDir, '.ai-os');
+  const aiOsDir = path.join(outputDir, '.github', 'ai-os');
   fs.mkdirSync(aiOsDir, { recursive: true });
   fs.writeFileSync(
     path.join(aiOsDir, 'tools.json'),

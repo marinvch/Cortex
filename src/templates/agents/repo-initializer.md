@@ -46,7 +46,7 @@ bash scripts/ai-os/install.sh
 
 Do not ask for clarification on:
 
-- Code style (follow conventions from `.ai-os/context/conventions.md`)
+- Code style (follow conventions from `{{CONVENTIONS_FILE}}`)
 - File placement (follow the folder structure rules)
 - Naming (follow the naming table in conventions.md)
 

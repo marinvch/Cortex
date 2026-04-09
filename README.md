@@ -14,6 +14,7 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | Agents               | `.github/agents/*.agent.md`                       | Stack-specific chat agents (framework expert, DB expert, auth, payments, explorer) |
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
+| Manifest             | `.github/ai-os/manifest.json`                     | Tracks every file AI OS owns — used for pruning stale artifacts on refresh         |
 
 AI OS now also initializes a persistent repository memory store at `.github/ai-os/memory/` so agents can retain verified facts and decisions across long sessions.
 Detection is package-aware for monorepos/mixed stacks, and MCP context tools provide parity coverage for Node, Java/Spring, Python, Go, and Rust projects.
@@ -108,9 +109,11 @@ Notes:
 
 Safe to run multiple times:
 
-- Existing **agents** and **skills** are never overwritten
+- Existing **agents** and **skills** are never overwritten in safe mode
 - Existing **prompts** are kept; only new IDs are added
-- `copilot-instructions.md` is backed up to `.bak` before overwrite
+- **write-if-changed**: every generator compares content before writing — files with identical content are skipped, so re-runs produce zero git noise
+- **manifest tracking**: `.github/ai-os/manifest.json` records every file AI OS owns after each run
+- **pruning**: in `--refresh-existing` mode, files in the previous manifest that are no longer generated (e.g. a skill for a framework you removed) are deleted automatically
 - MCP runtime writes `.ai-os/mcp-server/runtime-manifest.json` and is health-checked after install
 
 To also update existing generated agents, skills, prompts, and MCP config from latest templates:
@@ -118,11 +121,19 @@ To also update existing generated agents, skills, prompts, and MCP config from l
 - `bash install.sh --refresh-existing`
 - `npm run generate:refresh -- --cwd /path/to/target-repo`
 
+To force pruning even without a full refresh:
+
+- `npm run generate -- --cwd /path/to/target-repo --prune`
+
+To completely remove all AI OS artifacts tracked in the manifest:
+
+- `bash install.sh --uninstall`
+
 If MCP runtime diagnostics are needed:
 
 - `AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck`
 
-Generated skill files are AI OS-specific and now follow `ai-os-*.md` naming.
+Generated skill files use `ai-os-*.md` naming and stale ones are auto-pruned on refresh.
 
 ## Development
 
@@ -138,6 +149,10 @@ npm run generate -- --cwd /path/to/target-repo --plan
 npm run generate -- --cwd /path/to/target-repo --preview
 # Apply changes explicitly
 npm run generate -- --cwd /path/to/target-repo --apply
+# Refresh mode — update existing artifacts + prune stale files
+npm run generate:refresh -- --cwd /path/to/target-repo
+# Prune stale artifacts without full refresh
+npm run generate -- --cwd /path/to/target-repo --prune
 # Run regression suite (fixture matrix for all supported stacks)
 npm run validate
 ```
@@ -175,8 +190,8 @@ npm run generate:refresh -- --cwd /path/to/repo
 
 If an install or refresh causes issues:
 
-1. The previous `copilot-instructions.md` is backed up as `.github/copilot-instructions.md.bak` — restore it with `cp .github/copilot-instructions.md.bak .github/copilot-instructions.md`.
-2. To remove all AI OS artifacts: `rm -rf .github/ai-os .github/copilot .github/agents .github/copilot-instructions.md`.
+1. Use `--uninstall` for a clean guided removal: `bash install.sh --uninstall` reads the manifest, shows all files to remove, prompts for confirmation, and cleans AI OS entries from `.gitignore`.
+2. To remove all AI OS artifacts manually: `rm -rf .github/ai-os .github/copilot .github/agents .github/copilot-instructions.md`.
 3. The `.github/ai-os/memory/` directory contains your repository memory — back it up before removal if needed.
 
 ### Verifying an install

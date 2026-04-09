@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'node:fs';
 import path from 'node:path';
 import { analyze } from './analyze.js';
 import { generateInstructions } from './generators/instructions.js';
@@ -8,18 +9,20 @@ import { generateAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
 import { generatePrompts } from './generators/prompts.js';
 import { getMcpToolsForStack } from './mcp-tools.js';
-import { checkUpdateStatus, printUpdateBanner } from './updater.js';
+import { checkUpdateStatus, printUpdateBanner, getToolVersion } from './updater.js';
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
+import { readManifest, writeManifest, getManifestPath } from './generators/utils.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 type GenerateAction = 'apply' | 'plan' | 'preview';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
   let mode: GenerateMode = 'safe';
   let action: GenerateAction = 'apply';
+  let prune = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -41,10 +44,12 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'preview';
     } else if (args[i] === '--apply') {
       action = 'apply';
+    } else if (args[i] === '--prune') {
+      prune = true;
     }
   }
 
-  return { cwd, dryRun, mode, action };
+  return { cwd, dryRun, mode, action, prune };
 }
 
 function printBanner(): void {
@@ -59,10 +64,10 @@ function printBanner(): void {
 function printSummary(
   stack: ReturnType<typeof analyze>,
   outputDir: string,
+  written: string[],
+  skipped: string[],
+  pruned: string[],
   agents: string[],
-  skills: string[],
-  promptsAdded: number,
-  bundledSkills: string[],
 ): void {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
@@ -72,38 +77,18 @@ function printSummary(
   console.log(`  📦 Pkg Mgr:   ${stack.patterns.packageManager}`);
   console.log(`  🔷 TypeScript: ${stack.patterns.hasTypeScript ? 'Yes' : 'No'}`);
   console.log('');
-  console.log('  Generated files:');
-  console.log(`  ✅ .github/copilot-instructions.md`);
-  console.log(`  ✅ .github/copilot/mcp.json (${mcpToolCount} tools)`);
-  console.log(`  ✅ .github/ai-os/context/ (stack, architecture, conventions, existing-ai-context, dependency-graph)`);
-
+  console.log('  Diff summary:');
+  console.log(`  ✅ Written (new or changed):  ${written.length}`);
+  console.log(`  ⏭️  Unchanged (skipped):        ${skipped.length}`);
+  if (pruned.length > 0) {
+    console.log(`  🗑️  Pruned (stale):              ${pruned.length}`);
+    for (const p of pruned) console.log(`       • ${path.relative(outputDir, p).replace(/\\/g, '/')}`);
+  }
   if (agents.length > 0) {
-    console.log(`  ✅ .github/agents/ → ${agents.length} new agent(s):`);
-    for (const a of agents) console.log(`       • ${a}`);
-  } else {
-    console.log(`  ℹ️  .github/agents/ — all agents already exist, skipped`);
+    console.log(`  🤖 Agents generated: ${agents.length}`);
   }
-
-  if (skills.length > 0) {
-    console.log(`  ✅ .github/copilot/skills/ → ${skills.length} new skill(s):`);
-    for (const s of skills) console.log(`       • ${s}`);
-  } else {
-    console.log(`  ℹ️  .github/copilot/skills/ — all skills already exist, skipped`);
-  }
-
-  if (promptsAdded > 0) {
-    console.log(`  ✅ .github/copilot/prompts.json → +${promptsAdded} new prompt(s)`);
-  } else {
-    console.log(`  ℹ️  .github/copilot/prompts.json — all prompts already exist, skipped`);
-  }
-
-  if (bundledSkills.length > 0) {
-    console.log(`  ✅ .agents/skills/ → ${bundledSkills.length} bundled skill(s) deployed:`);
-    for (const s of bundledSkills) console.log(`       • ${s}`);
-  } else {
-    console.log(`  ℹ️  .agents/skills/skill-creator — already installed, skipped`);
-  }
-
+  console.log(`  🔧 MCP tools registered: ${mcpToolCount}`);
+  console.log(`  🗳️  Manifest: ${path.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, '/')}`);
   console.log('');
   console.log('  🚀 AI OS installed! Open this repo in VS Code with GitHub Copilot enabled.');
   console.log(`  💡 Try @workspace, /new-page, /new-trpc-procedure, or any agent from Chat.`);
@@ -113,7 +98,7 @@ function printSummary(
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode: rawMode, action } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag } = parseArgs();
   let mode: GenerateMode = rawMode;
   console.log(`  📂 Scanning: ${cwd}`);
   console.log(`  🔧 Mode: ${mode}`);
@@ -159,18 +144,72 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Read previous manifest to allow pruning stale files (#7 / #8).
+  const previousManifest = readManifest(cwd);
+  const previousFiles = new Set(previousManifest?.files ?? []);
+
   // Phase 1: Core context files
-  generateContextDocs(stack, cwd);
-  generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
-  generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const contextFiles = generateContextDocs(stack, cwd);
+  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
 
   // Phase 2: Agents, Skills, Prompts
-  const agents = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
-  const skills = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
-  const promptsAdded = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
-  const bundledSkills = await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
+  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
 
-  printSummary(stack, cwd, agents, skills, promptsAdded, bundledSkills);
+  // Collect all managed absolute paths and convert to repo-relative forward-slash keys.
+  const allManagedAbs = [
+    ...contextFiles,
+    ...instructionFiles,
+    ...mcpFiles,
+    ...agentFiles,
+    ...skillFiles,
+    ...promptFiles,
+  ];
+  const toRel = (p: string) => path.relative(cwd, p).replace(/\\/g, '/');
+  const currentRelFiles = allManagedAbs.map(toRel);
+
+  // Also track the manifest itself.
+  const manifestRel = toRel(getManifestPath(cwd));
+  currentRelFiles.push(manifestRel);
+
+  // #7 / #8 — Prune stale files (files in previous manifest but not in current run).
+  //            Pruning only happens in refresh/update mode, or when --prune is explicit.
+  const shouldPrune = pruneFlag || mode === 'refresh-existing';
+  const prunedAbs: string[] = [];
+
+  if (shouldPrune && previousFiles.size > 0) {
+    const currentSet = new Set(currentRelFiles);
+    for (const rel of previousFiles) {
+      if (!currentSet.has(rel)) {
+        const abs = path.join(cwd, rel);
+        if (fs.existsSync(abs)) {
+          try {
+            fs.rmSync(abs);
+            prunedAbs.push(abs);
+            console.log(`  🗑️  Pruned stale artifact: ${rel}`);
+          } catch {
+            console.warn(`  ⚠ Could not prune: ${rel}`);
+          }
+        }
+      }
+    }
+  }
+
+  // Write updated manifest (#8 / #11).
+  writeManifest(cwd, getToolVersion(), currentRelFiles);
+
+  // Diff counts for summary (#11).
+  // A file is "written" when it exists but may have changed; we track via comparing
+  // against previous manifest (new entry = written) plus the fact that writeIfChanged
+  // inside generators only wrote when content differed. We use a simple heuristic:
+  // files not in the previous manifest are "new" (written); the rest may be skipped or updated.
+  const newFiles = currentRelFiles.filter(r => r !== manifestRel && !previousFiles.has(r));
+  const existingFiles = currentRelFiles.filter(r => r !== manifestRel && previousFiles.has(r));
+
+  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
 }
 
 main().catch(err => {

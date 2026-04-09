@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack } from '../types.js';
+import { writeIfChanged } from './utils.js';
 
 const PROMPTS_FILE = '.github/copilot/prompts.json';
 
@@ -312,7 +313,11 @@ interface GeneratePromptsOptions {
   refreshExisting?: boolean;
 }
 
-export async function generatePrompts(stack: DetectedStack, cwd: string, options?: GeneratePromptsOptions): Promise<number> {
+/**
+ * Returns [promptsPath] when something was written, [] when nothing changed.
+ * Callers should include the returned paths in the manifest regardless.
+ */
+export async function generatePrompts(stack: DetectedStack, cwd: string, options?: GeneratePromptsOptions): Promise<string[]> {
   const promptsPath = path.join(cwd, PROMPTS_FILE);
   fs.mkdirSync(path.dirname(promptsPath), { recursive: true });
 
@@ -348,13 +353,13 @@ export async function generatePrompts(stack: DetectedStack, cwd: string, options
   } else {
     const existingIds = new Set(existing.prompts.map(p => p.id));
     const newPrompts = generatedPrompts.filter(p => !existingIds.has(p.id));
-    if (newPrompts.length === 0) return 0;
+    if (newPrompts.length === 0) return [];
     existing.prompts = [...existing.prompts, ...newPrompts];
     changed = newPrompts.length;
   }
 
-  if (changed === 0) return 0;
+  if (changed === 0) return [];
 
-  fs.writeFileSync(promptsPath, JSON.stringify(existing, null, 2), 'utf-8');
-  return changed;
+  writeIfChanged(promptsPath, JSON.stringify(existing, null, 2));
+  return [promptsPath];
 }

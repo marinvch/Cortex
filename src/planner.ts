@@ -45,7 +45,7 @@ function decideAction(
     return {
       path: relPath,
       action: 'update',
-      reason: 'Generator rewrites this artifact each run (instructions are backed up to .bak)',
+      reason: 'Generator rewrites this artifact each run (write-if-changed prevents no-op diffs)',
       risk: relPath.includes('copilot-instructions.md') ? 'medium' : 'low',
     };
   }
@@ -86,6 +86,7 @@ export function buildOnboardingPlan(
   actions.push(decideAction(targetDir, '.github/ai-os/context/existing-ai-context.md', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/ai-os/context/dependency-graph.json', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/ai-os/config.json', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.github/ai-os/manifest.json', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/ai-os/memory/README.md', mode, 'safe-merge'));
   actions.push(decideAction(targetDir, '.github/ai-os/memory/memory.jsonl', mode, 'safe-merge'));
 

@@ -32,6 +32,7 @@ INSTALL_SKILL_CREATOR=false
 INSTALL_FIND_SKILLS=false
 REFRESH_EXISTING=false
 CLEAN_UPDATE=false
+UNINSTALL=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -60,6 +61,10 @@ while [[ $# -gt 0 ]]; do
       REFRESH_EXISTING=true
       shift
       ;;
+    --uninstall)
+      UNINSTALL=true
+      shift
+      ;;
     *)
       shift
       ;;
@@ -76,6 +81,70 @@ TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 
 echo -e "  ${BOLD}Target repository:${RESET} $TARGET_DIR"
 echo ""
+
+# ── Uninstall mode (#12) ─────────────────────────────────────────────────────
+if [[ "$UNINSTALL" == "true" ]]; then
+  MANIFEST="$TARGET_DIR/.github/ai-os/manifest.json"
+  if [[ ! -f "$MANIFEST" ]]; then
+    echo -e "  ${YELLOW}⚠ No AI OS manifest found at $MANIFEST${RESET}"
+    echo -e "  ${YELLOW}  Nothing to uninstall (or files were removed manually).${RESET}"
+    exit 0
+  fi
+
+  echo -e "  ${YELLOW}${BOLD}AI OS Uninstall${RESET}"
+  echo -e "  This will remove all files tracked in the AI OS manifest:"
+  echo -e "  ${CYAN}$MANIFEST${RESET}"
+  echo ""
+
+  # Read manifest file list with node (guaranteed to be available at this point)
+  FILES=$(node -e "
+    const m = JSON.parse(require('fs').readFileSync('$MANIFEST', 'utf8'));
+    console.log(m.files.join('\\n'));
+  " 2>/dev/null || true)
+
+  if [[ -z "$FILES" ]]; then
+    echo -e "  ${YELLOW}  Manifest is empty or unreadable — nothing to remove.${RESET}"
+    exit 0
+  fi
+
+  echo -e "  ${BOLD}Files to remove:${RESET}"
+  echo "$FILES" | while IFS= read -r f; do
+    [[ -n "$f" ]] && echo -e "    - $f"
+  done
+  echo ""
+
+  read -rp "  Confirm removal? [y/N] " CONFIRM
+  if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+    echo -e "  ${YELLOW}Aborted. No files were removed.${RESET}"
+    exit 0
+  fi
+
+  REMOVED=0
+  echo "$FILES" | while IFS= read -r f; do
+    if [[ -n "$f" ]]; then
+      FULL="$TARGET_DIR/$f"
+      if [[ -f "$FULL" ]]; then
+        rm -f "$FULL"
+        echo -e "  ${GREEN}✓ Removed:${RESET} $f"
+        REMOVED=$((REMOVED + 1))
+      fi
+    fi
+  done
+
+  # Remove .memory.lock gitignore entry if present
+  GITIGNORE="$TARGET_DIR/.gitignore"
+  if [[ -f "$GITIGNORE" ]]; then
+    # Remove AI OS gitignore lines using sed (cross-platform)
+    sed -i.bak '/^# AI OS/d; /^\.ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/memory\/.memory\.lock$/d' "$GITIGNORE"
+    rm -f "$GITIGNORE.bak"
+    echo -e "  ${GREEN}✓ Cleaned AI OS entries from .gitignore${RESET}"
+  fi
+
+  echo ""
+  echo -e "  ${GREEN}${BOLD}AI OS uninstalled.${RESET} MCP runtime (.ai-os/mcp-server/) was not removed."
+  echo -e "  ${YELLOW}Tip:${RESET} Remove .ai-os/mcp-server/ manually if no longer needed."
+  exit 0
+fi
 
 # ── Verify it's a git repo ────────────────────────────────────────────────────
 if ! git -C "$TARGET_DIR" rev-parse --is-inside-work-tree &>/dev/null; then
@@ -347,6 +416,10 @@ if [[ -f "$GITIGNORE" ]]; then
   fi
   if ! grep -q "^\.github/ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/mcp-server/node_modules" >> "$GITIGNORE"
+  fi
+  # #10 — ignore the memory lock file so it never appears as an untracked change
+  if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
+    echo ".github/ai-os/memory/.memory.lock" >> "$GITIGNORE"
   fi
 fi
 

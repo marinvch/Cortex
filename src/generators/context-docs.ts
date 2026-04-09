@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { DetectedStack } from '../types.js';
 import { buildDependencyGraph } from '../detectors/graph.js';
 import { getToolVersion } from '../updater.js';
+import { writeIfChanged } from './utils.js';
 
 interface ExistingArtifact {
   path: string;
@@ -372,11 +373,15 @@ function mergeSections(existing: string, updated: string): string {
   return result.join('\n');
 }
 
-export function generateContextDocs(stack: DetectedStack, outputDir: string): void {
+/** Returns absolute paths of all managed files. */
+export function generateContextDocs(stack: DetectedStack, outputDir: string): string[] {
   const contextDir = path.join(outputDir, '.github', 'ai-os', 'context');
   fs.mkdirSync(contextDir, { recursive: true });
   const memoryDir = path.join(outputDir, '.github', 'ai-os', 'memory');
   fs.mkdirSync(memoryDir, { recursive: true });
+
+  const managed: string[] = [];
+  const track = (p: string) => { managed.push(p); return p; };
 
   const existingContext = detectExistingAiContext(outputDir);
 
@@ -387,23 +392,23 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): vo
     fs.copyFileSync(legacyMemory, newMemory);
   }
 
-  fs.writeFileSync(path.join(contextDir, 'stack.md'), generateStackDoc(stack), 'utf-8');
+  writeIfChanged(track(path.join(contextDir, 'stack.md')), generateStackDoc(stack));
 
   // architecture.md and conventions.md: section-level merge to preserve manual edits
-  const archPath = path.join(contextDir, 'architecture.md');
+  const archPath = track(path.join(contextDir, 'architecture.md'));
   const archGenerated = generateArchitectureDoc(stack);
-  fs.writeFileSync(archPath, fs.existsSync(archPath) ? mergeSections(fs.readFileSync(archPath, 'utf-8'), archGenerated) : archGenerated, 'utf-8');
+  writeIfChanged(archPath, fs.existsSync(archPath) ? mergeSections(fs.readFileSync(archPath, 'utf-8'), archGenerated) : archGenerated);
 
-  const convsPath = path.join(contextDir, 'conventions.md');
+  const convsPath = track(path.join(contextDir, 'conventions.md'));
   const convsGenerated = generateConventionsDoc(stack);
-  fs.writeFileSync(convsPath, fs.existsSync(convsPath) ? mergeSections(fs.readFileSync(convsPath, 'utf-8'), convsGenerated) : convsGenerated, 'utf-8');
+  writeIfChanged(convsPath, fs.existsSync(convsPath) ? mergeSections(fs.readFileSync(convsPath, 'utf-8'), convsGenerated) : convsGenerated);
 
-  fs.writeFileSync(path.join(contextDir, 'memory.md'), generateMemoryDoc(stack), 'utf-8');
-  fs.writeFileSync(path.join(contextDir, 'existing-ai-context.md'), generateExistingAiContextDoc(stack, existingContext), 'utf-8');
+  writeIfChanged(track(path.join(contextDir, 'memory.md')), generateMemoryDoc(stack));
+  writeIfChanged(track(path.join(contextDir, 'existing-ai-context.md')), generateExistingAiContextDoc(stack, existingContext));
 
-  const memoryReadmePath = path.join(memoryDir, 'README.md');
+  const memoryReadmePath = track(path.join(memoryDir, 'README.md'));
   if (!fs.existsSync(memoryReadmePath)) {
-    fs.writeFileSync(
+    writeIfChanged(
       memoryReadmePath,
       [
         '# AI OS Repository Memory',
@@ -412,22 +417,17 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): vo
         '- Use categories: architecture, conventions, build, testing, security, pitfalls, decisions.',
         '- Keep entries concise, factual, and evidence-based.',
       ].join('\n'),
-      'utf-8',
     );
   }
 
-  const memoryFilePath = path.join(memoryDir, 'memory.jsonl');
+  const memoryFilePath = track(path.join(memoryDir, 'memory.jsonl'));
   if (!fs.existsSync(memoryFilePath)) {
     fs.writeFileSync(memoryFilePath, '', 'utf-8');
   }
 
   // Build and persist dependency graph for AI impact analysis
   const graph = buildDependencyGraph(outputDir);
-  fs.writeFileSync(
-    path.join(contextDir, 'dependency-graph.json'),
-    JSON.stringify(graph, null, 2),
-    'utf-8',
-  );
+  writeIfChanged(track(path.join(contextDir, 'dependency-graph.json')), JSON.stringify(graph, null, 2));
 
   // Write config.json
   const config = {
@@ -442,5 +442,7 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): vo
   };
 
   const aiOsDir = path.join(outputDir, '.github', 'ai-os');
-  fs.writeFileSync(path.join(aiOsDir, 'config.json'), JSON.stringify(config, null, 2), 'utf-8');
+  writeIfChanged(track(path.join(aiOsDir, 'config.json')), JSON.stringify(config, null, 2));
+
+  return managed;
 }

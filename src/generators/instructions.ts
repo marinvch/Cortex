@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DetectedStack } from '../types.js';
+import { writeIfChanged } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
@@ -57,7 +58,8 @@ interface GenerateInstructionsOptions {
   refreshExisting?: boolean;
 }
 
-export function generateInstructions(stack: DetectedStack, outputDir: string, _options?: GenerateInstructionsOptions): void {
+/** Returns absolute paths of all managed files. */
+export function generateInstructions(stack: DetectedStack, outputDir: string, _options?: GenerateInstructionsOptions): string[] {
   const base = readTemplate('base-instructions.md');
   if (!base) throw new Error('Base instructions template not found');
 
@@ -72,22 +74,14 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, _o
   const content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`);
 
   const githubDir = path.join(outputDir, '.github');
-  fs.mkdirSync(githubDir, { recursive: true });
 
   const outputPath = path.join(githubDir, 'copilot-instructions.md');
-
-  // Backup existing file before overwriting
-  if (fs.existsSync(outputPath)) {
-    fs.copyFileSync(outputPath, outputPath + '.bak');
-  }
-
-  fs.writeFileSync(outputPath, content, 'utf-8');
+  writeIfChanged(outputPath, content);
 
   // Generate .github/instructions/ai-os.instructions.md
   // This file with applyTo:"**" causes Copilot's default agent to auto-load these
   // instructions on every request, enabling MCP tools without manual activation.
   const instructionsDir = path.join(githubDir, 'instructions');
-  fs.mkdirSync(instructionsDir, { recursive: true });
 
   const autoActivationContent = [
     '---',
@@ -154,5 +148,7 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, _o
   ].join('\n');
 
   const autoActivationPath = path.join(instructionsDir, 'ai-os.instructions.md');
-  fs.writeFileSync(autoActivationPath, autoActivationContent, 'utf-8');
+  writeIfChanged(autoActivationPath, autoActivationContent);
+
+  return [outputPath, autoActivationPath];
 }

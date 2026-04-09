@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack } from '../types.js';
+import { writeIfChanged, applyFallbacks } from './utils.js';
 
 const AGENTS_DIR = '.github/agents';
 
@@ -279,13 +280,16 @@ async function generateAgentsWithOptions(
     // Inject template placeholders
     content = injectReplacements(content, spec.replacements);
 
-    const unresolved = content.match(/{{[^}]+}}/g);
+    // #9 — strip any unresolved {{PLACEHOLDER}} fragments rather than leaking
+    //      raw template syntax into the output file.
+    const unresolved = content.match(/\{\{[^}]+\}\}/g);
     if (unresolved && unresolved.length > 0) {
-      console.warn(`  ⚠ Unresolved placeholders in ${spec.outputFile}: ${Array.from(new Set(unresolved)).join(', ')}`);
+      console.warn(`  ⚠ Unresolved placeholders in ${spec.outputFile}: ${Array.from(new Set(unresolved)).join(', ')} — removing`);
+      content = applyFallbacks(content);
     }
 
-    fs.writeFileSync(outputPath, content, 'utf-8');
-    generated.push(spec.outputFile);
+    writeIfChanged(outputPath, content);
+    generated.push(outputPath);
   }
 
   return generated;

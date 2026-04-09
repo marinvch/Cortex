@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack } from '../types.js';
+import { writeIfChanged } from './utils.js';
 
 const SKILLS_DIR = '.github/copilot/skills';
 const AGENTS_SKILLS_DIR = '.agents/skills';
@@ -124,13 +125,14 @@ async function generateSkillsWithOptions(
   fs.mkdirSync(skillsDir, { recursive: true });
 
   const specs = buildSkillSpecs(stack, cwd);
-  const generated: string[] = [];
+  const generatedPaths: string[] = [];
 
   for (const spec of specs) {
     const outputPath = path.join(skillsDir, spec.outputFile);
 
     // In safe mode, never overwrite existing skills.
     if (fs.existsSync(outputPath) && !options.refreshExisting) {
+      generatedPaths.push(outputPath);
       continue;
     }
 
@@ -140,11 +142,24 @@ async function generateSkillsWithOptions(
       content = content.replaceAll(key, value);
     }
 
-    fs.writeFileSync(outputPath, content, 'utf-8');
-    generated.push(spec.outputFile);
+    writeIfChanged(outputPath, content);
+    generatedPaths.push(outputPath);
   }
 
-  return generated;
+  // #7 — prune stale ai-os- prefixed skill files that are no longer generated
+  //      for this stack (e.g. a framework was removed).
+  if (options.refreshExisting && fs.existsSync(skillsDir)) {
+    const currentSet = new Set(generatedPaths.map(p => path.basename(p)));
+    const onDisk = fs.readdirSync(skillsDir).filter(f => f.startsWith('ai-os-') && f.endsWith('.md'));
+    for (const stale of onDisk) {
+      if (!currentSet.has(stale)) {
+        fs.rmSync(path.join(skillsDir, stale));
+        console.log(`  🗑️  Pruned stale skill: ${stale}`);
+      }
+    }
+  }
+
+  return generatedPaths;
 }
 
 export async function generateSkills(

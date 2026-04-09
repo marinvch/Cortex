@@ -31,6 +31,7 @@ TARGET_DIR=""
 INSTALL_SKILL_CREATOR=false
 INSTALL_FIND_SKILLS=false
 REFRESH_EXISTING=false
+CLEAN_UPDATE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -51,6 +52,11 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --refresh-existing)
+      REFRESH_EXISTING=true
+      shift
+      ;;
+    --clean-update)
+      CLEAN_UPDATE=true
       REFRESH_EXISTING=true
       shift
       ;;
@@ -294,6 +300,42 @@ else
 fi
 echo ""
 
+# ── Clean up legacy v0.2.0 artifacts (--clean-update) ────────────────────────
+if [[ "$CLEAN_UPDATE" == "true" ]]; then
+  LEGACY_CONFIG="$TARGET_DIR/.ai-os/config.json"
+  LEGACY_TOOLS="$TARGET_DIR/.ai-os/tools.json"
+  LEGACY_CONTEXT_DIR="$TARGET_DIR/.ai-os/context"
+  LEGACY_MEMORY_DIR="$TARGET_DIR/.ai-os/memory"
+
+  LEGACY_FOUND=false
+  for artifact in "$LEGACY_CONFIG" "$LEGACY_TOOLS" "$LEGACY_CONTEXT_DIR" "$LEGACY_MEMORY_DIR"; do
+    if [[ -e "$artifact" ]]; then
+      LEGACY_FOUND=true
+      break
+    fi
+  done
+
+  if [[ "$LEGACY_FOUND" == "true" ]]; then
+    echo -e "  ${CYAN}→ Removing legacy v0.2.0 .ai-os/ artifacts...${RESET}"
+    for artifact in "$LEGACY_CONFIG" "$LEGACY_TOOLS"; do
+      if [[ -f "$artifact" ]]; then
+        rm -f "$artifact"
+        echo -e "  ${GREEN}✓ Removed:${RESET} ${artifact#"$TARGET_DIR/"}"
+      fi
+    done
+    for dir in "$LEGACY_CONTEXT_DIR" "$LEGACY_MEMORY_DIR"; do
+      if [[ -d "$dir" ]]; then
+        rm -rf "$dir"
+        echo -e "  ${GREEN}✓ Removed:${RESET} ${dir#"$TARGET_DIR/"}/"
+      fi
+    done
+    echo -e "  ${GREEN}✓ Legacy cleanup complete. Canonical context is now at .github/ai-os/${RESET}"
+  else
+    echo -e "  ${GREEN}✓ No legacy v0.2.0 artifacts found — already clean${RESET}"
+  fi
+  echo ""
+fi
+
 # ── Add .ai-os to .gitignore (optional) ───────────────────────────────────────
 GITIGNORE="$TARGET_DIR/.gitignore"
 if [[ -f "$GITIGNORE" ]]; then
@@ -316,7 +358,7 @@ echo -e "  ${BOLD}Next steps:${RESET}"
 echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
 echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
 echo -e "  3. MCP tools are registered in ${CYAN}.github/copilot/mcp.json${RESET}"
-echo -e "  4. Project context is in ${CYAN}.ai-os/context/${RESET}"
+  echo -e "  4. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
 echo -e "  5. AI OS skills are generated in ${CYAN}.github/copilot/skills/${RESET} with ai-os-* naming"
 echo ""
 echo -e "  ${YELLOW}Tip:${RESET} Re-run install.sh anytime to refresh context after major refactors."

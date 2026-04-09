@@ -13,7 +13,6 @@ interface McpServerConfig {
 interface McpJson {
   version: number;
   servers: Record<string, McpServerConfig>;
-  tools?: ReturnType<typeof getMcpToolsForStack>;
 }
 
 interface GenerateMcpOptions {
@@ -37,7 +36,6 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, _option
         },
       },
     },
-    tools: allTools,
   };
 
   const copilotDir = path.join(outputDir, '.github', 'copilot');

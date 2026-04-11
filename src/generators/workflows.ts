@@ -93,7 +93,7 @@ jobs:
                 '- Latest: v' + latest,
                 '',
                 'To update, run:',
-                'bash install.sh --refresh-existing',
+                'npx -y github:marinvch/ai-os --refresh-existing',
               ].join('\n'),
             });
 `;

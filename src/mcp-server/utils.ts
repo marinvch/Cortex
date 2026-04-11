@@ -850,7 +850,7 @@ export function getImpactOfChange(filePath: string): string {
   const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
-    return 'Dependency graph not found. Re-run the AI OS installer: `bash install.sh --refresh-existing` (or the bootstrap one-liner from the README).';
+    return 'Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).';
   }
 
   let graph: { nodes: Record<string, { imports: string[]; importedBy: string[]; exports: string[] }> };
@@ -913,7 +913,7 @@ export function getDependencyChain(filePath: string): string {
   const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
-    return 'Dependency graph not found. Re-run the AI OS installer: `bash install.sh --refresh-existing` (or the bootstrap one-liner from the README).';
+    return 'Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).';
   }
 
   let graph: { nodes: Record<string, { imports: string[]; importedBy: string[]; exports: string[] }> };
@@ -1068,12 +1068,12 @@ export function suggestImprovements(): string {
 
   // Check for missing COPILOT_CONTEXT.md
   if (!fs.existsSync(path.join(ROOT, '.github', 'COPILOT_CONTEXT.md'))) {
-    suggestions.push('**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to generate the session context card for better session continuity.');
+    suggestions.push('**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate the session context card for better session continuity.');
   }
 
   // Check for missing recommendations.md
   if (!fs.existsSync(path.join(ROOT, '.github', 'ai-os', 'recommendations.md'))) {
-    suggestions.push('**Missing `recommendations.md`**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to generate stack-specific tool recommendations.');
+    suggestions.push('**Missing `recommendations.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate stack-specific tool recommendations.');
   }
 
   // Check memory freshness
@@ -1090,7 +1090,7 @@ export function suggestImprovements(): string {
   // Check for architecture doc
   const archPath = path.join(ROOT, '.github', 'ai-os', 'context', 'architecture.md');
   if (!fs.existsSync(archPath)) {
-    suggestions.push('**Missing architecture doc**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to rebuild `.github/ai-os/context/architecture.md`.');
+    suggestions.push('**Missing architecture doc**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to rebuild `.github/ai-os/context/architecture.md`.');
   }
 
   // Config-based suggestions

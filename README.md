@@ -1,6 +1,6 @@
 # AI OS
 
-> **Portable GitHub Copilot context engine v0.6.12** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
+> **Portable GitHub Copilot context engine** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
 
 ## What it does
 
@@ -10,7 +10,7 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Copilot instructions | `.github/copilot-instructions.md`                 | System prompt optimized for your stack                                             |
 | Context docs         | `.github/ai-os/context/`                          | Token-efficient stack, architecture, conventions docs                              |
-| MCP tools            | `.github/copilot/mcp.json` + `.ai-os/mcp-server/` | 16 tools for code search, schema reading, route listing                            |
+| MCP tools            | `.github/copilot/mcp.json` + `.ai-os/mcp-server/` | 19 tools for code search, schema reading, route listing, memory, and more          |
 | Agents               | `.github/agents/*.agent.md`                       | Stack-specific chat agents (framework expert, DB expert, auth, payments, explorer) |
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
@@ -34,17 +34,17 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 ### Install from a specific release tag (recommended for testing)
 
 ```bash
-# Example: install from v0.6.2 into the current repo
-npx -y github:marinvch/ai-os#v0.6.2
+# Example: install from a specific tag into the current repo
+npx -y github:marinvch/ai-os#v0.6.26
 
 # Refresh an existing AI OS install from a tag
-npx -y github:marinvch/ai-os#v0.6.2 --refresh-existing
+npx -y github:marinvch/ai-os#v0.6.26 --refresh-existing
 ```
 
 If your environment blocks `npx github:...`, use the tagged bootstrap script:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/v0.6.2/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/v0.6.26/bootstrap.sh | bash
 ```
 
 ### Fast bootstrap (paste in any target repo terminal)
@@ -138,24 +138,27 @@ bash ~/ai-os/install.sh --cwd /path/to/your/repo
 
 ## Generated MCP tools
 
-| Tool                    | Purpose                                |
-| ----------------------- | -------------------------------------- |
-| `search_codebase`       | Ripgrep across project                 |
-| `get_project_structure` | Annotated file tree                    |
-| `get_conventions`       | Naming + architecture rules            |
-| `get_stack_info`        | Full tech stack inventory              |
-| `get_file_summary`      | Token-efficient file summary           |
-| `get_prisma_schema`     | Full schema (if Prisma detected)       |
-| `get_trpc_procedures`   | All tRPC procedures (if tRPC detected) |
-| `get_api_routes`        | All API routes with methods            |
-| `get_env_vars`          | Required env vars (never values)       |
-| `get_package_info`      | Installed package versions             |
-| `get_impact_of_change`  | Blast radius of changing a file        |
-| `get_dependency_chain`  | How a module connects to the rest      |
-| `get_memory_guidelines` | Repository memory protocol             |
-| `get_repo_memory`       | Retrieve durable project memory        |
-| `remember_repo_fact`    | Persist verified memory entries        |
-| `check_for_updates`     | Check if AI OS artifacts are stale     |
+| Tool                   | Purpose                                  |
+| ---------------------- | ---------------------------------------- |
+| `search_codebase`      | Ripgrep across project                   |
+| `get_project_structure`| Annotated file tree                      |
+| `get_conventions`      | Naming + architecture rules              |
+| `get_stack_info`       | Full tech stack inventory                |
+| `get_file_summary`     | Token-efficient file summary             |
+| `get_prisma_schema`    | Full schema (if Prisma detected)         |
+| `get_trpc_procedures`  | All tRPC procedures (if tRPC detected)   |
+| `get_api_routes`       | All API routes with methods              |
+| `get_env_vars`         | Required env vars (never values)         |
+| `get_package_info`     | Installed package versions               |
+| `get_impact_of_change` | Blast radius of changing a file          |
+| `get_dependency_chain` | How a module connects to the rest        |
+| `get_memory_guidelines`| Repository memory protocol               |
+| `get_repo_memory`      | Retrieve durable project memory          |
+| `remember_repo_fact`   | Persist verified memory entries          |
+| `check_for_updates`    | Check if AI OS artifacts are stale       |
+| `get_session_context`  | Reload MUST-ALWAYS rules and key context |
+| `get_recommendations`  | Stack-appropriate tool and extension recs|
+| `suggest_improvements` | Surface architectural and tooling gaps   |
 
 ## Re-running (idempotent)
 
@@ -209,22 +212,26 @@ npm run generate -- --cwd /path/to/target-repo --verbose
 npm run generate:refresh -- --cwd /path/to/target-repo
 # Prune stale artifacts without full refresh
 npm run generate -- --cwd /path/to/target-repo --prune
+# Check hygiene (detect stale node_modules, missing manifests, etc.)
+npm run check-hygiene
 # Run unit tests
 npm test
+# Fast validation (build + unit tests only)
+npm run validate:fast
+# Full validation (build + unit tests + regression suite)
+npm run validate:full
 # Run regression suite (fixture matrix for all supported stacks — exits non-zero on failure)
 npm run validate
 ```
 
 ## Automated Releases
 
-AI OS uses `.github/workflows/release-automation.yml` to automate release tagging and GitHub releases on pushes to `dev`.
+AI OS uses `.github/workflows/release-automation.yml` to automate release tagging and GitHub releases.
 
-- **Versioning policy:** Conventional Commits
-  - `feat:` → minor bump
-  - `fix:`, `chore:`, `refactor:`, `docs:`, `test:` → patch bump
-  - `BREAKING CHANGE` or `type!:` → major bump
-- **PR dry run:** Pull requests to `dev` run a release dry-run and print the planned next tag.
-- **Safe no-op:** If no new commits since the last tag, the workflow skips release creation.
+- **Versioning policy:** The release tag is derived directly from the `version` field in `package.json`. Bump the version in your PR to master to control the release tag.
+- **Trigger:** Releases are created after the `AI OS Validate` workflow succeeds on `master` (not on every push).
+- **Safe no-op:** If a tag for the current `package.json` version already exists, the workflow skips release creation.
+- **Post-release:** CI opens a PR to `dev` bumping `package.json` to the next patch version for future development.
 - **Release notes:** Generated via GitHub release notes plus a commit-SHA summary section.
 
 ### View what changed in a release tag
@@ -233,23 +240,23 @@ Use these commands when a release page looks empty and you want to inspect the d
 
 ```bash
 # Show commits included in a tag (replace versions as needed)
-git log --oneline v0.6.1..v0.6.2
+git log --oneline v0.6.25..v0.6.26
 
 # Show changed files between two tags
-git diff --name-status v0.6.1..v0.6.2
+git diff --name-status v0.6.25..v0.6.26
 
 # Open GitHub compare page in browser format:
-# https://github.com/marinvch/ai-os/compare/v0.6.1...v0.6.2
+# https://github.com/marinvch/ai-os/compare/v0.6.25...v0.6.26
 ```
 
 If you use GitHub CLI, these are useful too:
 
 ```bash
 # View release details
-gh release view v0.6.2
+gh release view v0.6.26
 
 # Generate and print release notes body
-gh api repos/marinvch/ai-os/releases/generate-notes -f tag_name=v0.6.2 --jq .body
+gh api repos/marinvch/ai-os/releases/generate-notes -f tag_name=v0.6.26 --jq .body
 ```
 
 ### --verbose flag
@@ -315,11 +322,11 @@ npm run validate
 
 ## Supported framework skill templates
 
-`nextjs` · `react` · `trpc` · `prisma` · `stripe` · `auth-nextauth` · `rag-pgvector` · `supabase` · `go` · `express` · `python-fastapi` · `java-spring`
+`nextjs` · `react` · `trpc` · `prisma` · `stripe` · `auth-nextauth` · `rag-pgvector` · `supabase` · `go` · `express` · `python-fastapi` · `java-spring` · `bun` · `deno` · `solid` · `remix`
 
 ## Supported framework instruction templates
 
-`nextjs` · `react` · `nuxt` · `vue` · `svelte` · `angular` · `astro` · `express` · `nestjs` · `trpc` · `prisma` · `drizzle` · `python-fastapi` · `python-django` · `java-spring` · `dotnet` · `php-laravel` · `ruby-rails` · `go` · `rust` · `react-native` · `expo`
+`nextjs` · `react` · `nuxt` · `vue` · `svelte` · `angular` · `astro` · `express` · `nestjs` · `trpc` · `prisma` · `drizzle` · `python-fastapi` · `python-django` · `java-spring` · `dotnet` · `php-laravel` · `ruby-rails` · `go` · `rust` · `react-native` · `expo` · `bun` · `deno` · `solid` · `vite` · `remix`
 
 ## License
 

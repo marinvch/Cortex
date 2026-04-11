@@ -886,10 +886,22 @@ function writeManifest(outputDir, version, files) {
   fs5.writeFileSync(tmpPath, JSON.stringify(manifest, null, 2), "utf-8");
   fs5.renameSync(tmpPath, manifestPath);
 }
+function resolveTemplatesDir(runtimeDir) {
+  const candidates = [
+    path5.join(runtimeDir, "..", "templates"),
+    path5.join(runtimeDir, "..", "src", "templates")
+  ];
+  for (const candidate of candidates) {
+    if (fs5.existsSync(candidate) && fs5.statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+  }
+  return candidates[0];
+}
 
 // src/generators/instructions.ts
 var __dirname = path6.dirname(fileURLToPath(import.meta.url));
-var TEMPLATES_DIR = path6.join(__dirname, "..", "templates");
+var TEMPLATES_DIR = resolveTemplatesDir(__dirname);
 function readTemplate(name) {
   try {
     return fs6.readFileSync(path6.join(TEMPLATES_DIR, name), "utf-8");
@@ -1708,6 +1720,15 @@ function readAiOsConfig(outputDir) {
     return null;
   }
 }
+function formatNodeLabel(value) {
+  return value.replace(/"/g, '\\"').replace(/\n/g, " ").trim();
+}
+function joinOrNone(values, max = 4) {
+  if (values.length === 0) return "none";
+  const shown = values.slice(0, max);
+  const suffix = values.length > max ? ` +${values.length - max} more` : "";
+  return `${shown.join(", ")}${suffix}`;
+}
 function exists2(root, relativePath) {
   return fs9.existsSync(path10.join(root, relativePath));
 }
@@ -1798,6 +1819,23 @@ function generateExistingAiContextDoc(stack, summary) {
   lines.push("", "## Notes", "");
   lines.push("- This workflow is shell-driven (Git Bash + Node.js) and does not require Python runtime scripts.");
   lines.push("- Existing files are preserved in safe mode and updated intentionally in refresh mode.");
+  const chartTotal = Math.max(1, totalArtifacts);
+  lines.push("", "## Visual Artifact Breakdown", "");
+  lines.push("```mermaid");
+  lines.push("pie showData");
+  lines.push("  title Existing AI Context Artifacts");
+  lines.push(`  "instructions" : ${summary.counts.instructions}`);
+  lines.push(`  "skills" : ${summary.counts.skills}`);
+  lines.push(`  "prompts" : ${summary.counts.prompts}`);
+  lines.push(`  "agents" : ${summary.counts.agents}`);
+  lines.push(`  "docs" : ${summary.counts.docs}`);
+  lines.push(`  "other" : ${summary.counts.other}`);
+  if (chartTotal === 0) {
+    lines.push('  "none" : 1');
+  }
+  lines.push("```");
+  lines.push("");
+  lines.push("_Open this file in VS Code Markdown Preview to view the diagram._");
   return lines.join("\n");
 }
 function generateStackDoc(stack) {
@@ -1852,6 +1890,21 @@ function generateStackDoc(stack) {
     lines.push(`- Detected language families for parity checks: ${detectedParity.join(", ")}`);
     lines.push("- Route discovery, package/build introspection, and env-convention scanning are enabled per detected stack.");
   }
+  lines.push("", "## Visual Stack Map", "");
+  lines.push("```mermaid");
+  lines.push("flowchart LR");
+  lines.push(`  Project["${formatNodeLabel(`Project: ${stack.projectName}`)}"]`);
+  lines.push(`  Lang["${formatNodeLabel(`Languages: ${joinOrNone(stack.languages.map((lang) => lang.name))}`)}"]`);
+  lines.push(`  Fw["${formatNodeLabel(`Frameworks: ${joinOrNone(stack.frameworks.map((fw) => fw.name))}`)}"]`);
+  lines.push(`  Tooling["${formatNodeLabel(`Tooling: ${stack.patterns.packageManager}${stack.patterns.testFramework ? `, ${stack.patterns.testFramework}` : ""}`)}"]`);
+  lines.push(`  Files["${formatNodeLabel(`Key files: ${Math.min(stack.keyFiles.length, 6)} shown in table`)}"]`);
+  lines.push("  Project --> Lang");
+  lines.push("  Project --> Fw");
+  lines.push("  Project --> Tooling");
+  lines.push("  Project --> Files");
+  lines.push("```");
+  lines.push("");
+  lines.push("_Open this file in VS Code Markdown Preview to view the diagram._");
   return lines.join("\n");
 }
 function generateArchitectureDoc(stack) {
@@ -1900,6 +1953,23 @@ function generateArchitectureDoc(stack) {
   }
   lines.push("", "## Integration Points", "");
   lines.push("_List external services, APIs, and third-party integrations here._");
+  lines.push("", "## Visual Architecture Overview", "");
+  lines.push("```mermaid");
+  lines.push("flowchart TD");
+  lines.push(`  Repo["${formatNodeLabel(`Repository: ${stack.projectName}`)}"] --> Detect["Detect stack & patterns"]`);
+  lines.push(`  Detect --> Lang["${formatNodeLabel(`Languages: ${joinOrNone(stack.languages.map((lang) => lang.name))}`)}"]`);
+  lines.push(`  Detect --> Fw["${formatNodeLabel(`Frameworks: ${joinOrNone(stack.frameworks.map((fw2) => fw2.name))}`)}"]`);
+  lines.push('  Detect --> Ctx["Scan existing AI context"]');
+  lines.push('  Detect --> Graph["Build dependency graph"]');
+  lines.push('  Detect --> Generate["Generate AI OS artifacts"]');
+  lines.push('  Generate --> Docs[".github/ai-os/context/*.md"]');
+  lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
+  lines.push('  Generate --> MCP[".github/copilot/mcp.json + .ai-os/mcp-server/"]');
+  lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
+  lines.push('  Generate --> Skills[".github/copilot/skills/*.md"]');
+  lines.push("```");
+  lines.push("");
+  lines.push("_Open this file in VS Code Markdown Preview to view the diagram._");
   return lines.join("\n");
 }
 function generateConventionsDoc(stack) {
@@ -2222,7 +2292,8 @@ function buildAgentSpecs(stack, cwd) {
   ].filter((f) => fs10.existsSync(path11.join(cwd, f)));
   const keyFilesList = toBulletList(keyFiles.map((file) => `\`${file}\``));
   const keyEntryPoints = toBulletList((keyFiles.slice(0, 4).length > 0 ? keyFiles.slice(0, 4) : ["src/"]).map((file) => `\`${file}\``));
-  const templateDir = new URL("../templates/agents", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
+  const runtimeDir = path11.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
+  const templateDir = path11.join(resolveTemplatesDir(runtimeDir), "agents");
   specs.push({
     templateFile: path11.join(templateDir, "repo-initializer.md"),
     outputFile: `${projectName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}-initializer.agent.md`,
@@ -2366,7 +2437,8 @@ function buildSequentialAgentSpecs(stack, cwd) {
   const primaryLang = stack.languages[0]?.name ?? "TypeScript";
   const frameworkLabel = frameworks[0] ?? primaryLang;
   const frameworkList = frameworks.length > 0 ? frameworks.join(", ") : primaryLang;
-  const templateDir = new URL("../templates/agents", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
+  const runtimeDir = path11.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
+  const templateDir = path11.join(resolveTemplatesDir(runtimeDir), "agents");
   const stackSummary = [
     `Primary language: ${primaryLang}`,
     `Frameworks: ${frameworkList}`,
@@ -2485,7 +2557,7 @@ function buildSkillSpecs(stack, cwd) {
   const packages = stack.allDependencies;
   const hasExpressLike = frameworks.some((f) => ["express", "fastify", "hono", "koa", "nest"].some((x) => f.includes(x)));
   const hasJavaSpringLike = frameworks.some((f) => ["spring", "quarkus", "micronaut", "java"].some((x) => f.includes(x)));
-  const templateDir = new URL("../templates/skills", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
+  const templateDir = path12.join(resolveTemplatesDir(path12.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"))), "skills");
   const add = (template, output, replacements = {}) => {
     const templatePath = path12.join(templateDir, template);
     if (fs11.existsSync(templatePath)) {
@@ -3491,9 +3563,11 @@ function parseArgs() {
   return { cwd, dryRun, mode, action, prune, verbose };
 }
 function printBanner() {
+  const version = `v${getToolVersion()}`;
+  const versionCell = `AI OS  ${version}`.padEnd(25, " ");
   console.log("");
   console.log("  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
-  console.log("  \u2551          AI OS  v0.5.0            \u2551");
+  console.log(`  \u2551          ${versionCell}\u2551`);
   console.log("  \u2551  Portable Copilot Context Engine  \u2551");
   console.log("  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
   console.log("");

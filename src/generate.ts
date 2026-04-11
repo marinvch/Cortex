@@ -60,9 +60,11 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
 }
 
 function printBanner(): void {
+  const version = `v${getToolVersion()}`;
+  const versionCell = `AI OS  ${version}`.padEnd(25, ' ');
   console.log('');
   console.log('  ╔═══════════════════════════════════╗');
-  console.log('  ║          AI OS  v0.5.0            ║');
+  console.log(`  ║          ${versionCell}║`);
   console.log('  ║  Portable Copilot Context Engine  ║');
   console.log('  ╚═══════════════════════════════════╝');
   console.log('');

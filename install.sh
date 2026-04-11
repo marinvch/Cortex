@@ -7,6 +7,15 @@
 
 set -euo pipefail
 
+# ── Determine this script's location ─────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Read version without requiring Node.js so the banner is always accurate.
+AIOS_BANNER_VERSION="$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' "$SCRIPT_DIR/package.json" | head -n 1)"
+if [[ -z "$AIOS_BANNER_VERSION" ]]; then
+  AIOS_BANNER_VERSION="0.0.0"
+fi
+
 # ── Colors ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -18,13 +27,10 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.6.12           ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v${AIOS_BANNER_VERSION}           ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
-
-# ── Determine this script's location ─────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Determine target repo root ────────────────────────────────────────────────
 TARGET_DIR=""
@@ -286,6 +292,17 @@ fi
 
 AIOS_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];const pkg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(pkg.version||'0.0.0');" "$AIOS_SRC/package.json")"
 
+# Resolve a concrete Node executable path (avoid shell aliases such as "node='winpty node.exe'").
+resolve_node_path() {
+  if command -v node.exe &>/dev/null; then
+    command -v node.exe
+    return 0
+  fi
+  command -v node
+}
+
+NODE_ABS_PATH="$(resolve_node_path)"
+
 # Check new config path first (.github/ai-os/config.json), fall back to legacy (.ai-os/config.json)
 _CORE_CONFIG_PATH="$TARGET_DIR/.github/ai-os/config.json"
 if [[ ! -f "$_CORE_CONFIG_PATH" ]]; then
@@ -324,10 +341,7 @@ if [[ "$REFRESH_EXISTING" == "true" ]]; then
   GEN_ARGS+=(--refresh-existing)
 fi
 
-# Detect absolute node path so mcp.json uses a stable path (fixes nvm/fnm/asdf on Windows/macOS)
-NODE_ABS_PATH="$(command -v node)"
-
-(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
 
 # ── Copy MCP server to target repo ──────────────────────────────────────────
 MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
@@ -434,7 +448,7 @@ EOF
 }
 EOF
 
-  if AI_OS_ROOT="$TARGET_DIR" node "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
+  if AI_OS_ROOT="$TARGET_DIR" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓ MCP server installed and healthy${RESET}"
   else
     echo -e "  ${RED}✗ MCP server healthcheck failed after install.${RESET}"
@@ -445,6 +459,29 @@ else
   echo -e "  ${GREEN}✓ MCP server already up-to-date (v${AIOS_VERSION})${RESET}"
   echo -e "  ${CYAN}  Skip reason:${RESET} ${MCP_SKIP_REASON}"
 fi
+
+# Write local MCP config so Copilot can launch the local ai-os runtime.
+MCP_LOCAL_CONFIG="$TARGET_DIR/.github/copilot/mcp.local.json"
+mkdir -p "$TARGET_DIR/.github/copilot"
+cat > "$MCP_LOCAL_CONFIG" << EOF
+{
+  "version": 1,
+  "servers": {
+    "ai-os": {
+      "type": "stdio",
+      "command": "$NODE_ABS_PATH",
+      "args": [
+        "$MCP_SERVER_DEST/index.js"
+      ],
+      "env": {
+        "AI_OS_ROOT": "$TARGET_DIR"
+      }
+    }
+  }
+}
+EOF
+echo -e "  ${GREEN}✓ Wrote local MCP config: .github/copilot/mcp.local.json${RESET}"
+
 echo ""
 
 # ── Clean up legacy v0.2.0 artifacts ─────────────────────────────────────────
@@ -515,6 +552,9 @@ if [[ -f "$GITIGNORE" ]]; then
   fi
   if ! grep -q "^\.github/ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/mcp-server/node_modules" >> "$GITIGNORE"
+  fi
+  if ! grep -q "^\.github/copilot/mcp.local.json$" "$GITIGNORE" 2>/dev/null; then
+    echo ".github/copilot/mcp.local.json" >> "$GITIGNORE"
   fi
   # #10 — ignore the memory lock file so it never appears as an untracked change
   if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then

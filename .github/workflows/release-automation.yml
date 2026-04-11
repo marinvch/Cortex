@@ -11,7 +11,7 @@ on:
 
 permissions:
   contents: write
-  pull-requests: read
+  pull-requests: write
 
 jobs:
   noop-on-push:
@@ -141,13 +141,14 @@ jobs:
           set -euo pipefail
           NEXT_VERSION="${{ steps.plan.outputs.next_tag }}"
           NEXT_VERSION="${NEXT_VERSION#v}"
+          BUMP_BRANCH="version-bump-v${NEXT_VERSION}"
 
           git checkout master
           git pull origin master
 
-          # Fetch dev and reset to it for the version bump commit
+          # Respect branch protections: commit on a dedicated branch and open a PR to dev.
           git fetch origin dev
-          git checkout -b version-bump-branch origin/dev
+          git checkout -B "$BUMP_BRANCH" origin/dev
 
           node -e "
             const fs = require('fs');
@@ -163,7 +164,26 @@ jobs:
 
           git add package.json
           git commit -m "chore: bump version to ${{ steps.plan.outputs.next_tag }} [skip ci]"
-          git push origin version-bump-branch:dev
+          git push -u origin "$BUMP_BRANCH"
+
+          # Create PR only if one does not already exist for this head branch.
+          EXISTING_PR=$(gh pr list \
+            --base dev \
+            --head "$BUMP_BRANCH" \
+            --json number \
+            --jq '.[0].number // empty')
+
+          if [[ -n "$EXISTING_PR" ]]; then
+            echo "Version bump PR already exists: #$EXISTING_PR"
+            exit 0
+          fi
+
+          gh pr create \
+            --base dev \
+            --head "$BUMP_BRANCH" \
+            --title "chore: bump version to ${{ steps.plan.outputs.next_tag }}" \
+            --body "Automated version bump after release ${{ steps.plan.outputs.next_tag }}.\n\nThis PR updates package.json on dev to keep source version aligned with the released tag." \
+            --label automation
 
       - name: No release needed
         if: steps.plan.outputs.release_needed != 'true'

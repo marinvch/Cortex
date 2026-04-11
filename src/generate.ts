@@ -155,7 +155,7 @@ function printAgentFlowStatus(cwd: string, mode: 'create' | 'hook' | 'skip' | nu
   const activeMode = mode ?? 'create';
 
   console.log('  🤖 Agent flow status:');
-  console.log(`     mode: ${activeMode}`);
+  console.log(`     agent flow mode: ${activeMode}`);
   console.log(`     flow agents present: ${present.length}/3`);
   if (present.length > 0) {
     console.log(`     detected: ${present.join(', ')}`);

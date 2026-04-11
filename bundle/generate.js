@@ -1210,7 +1210,7 @@ No specific framework template found. Follow the general rules above.`);
     "",
     "If `check_for_updates` returns an available update, run:",
     "```bash",
-    "npm run update",
+    "npx -y github:marinvch/ai-os --refresh-existing",
     "```",
     "This refreshes all context docs, agent files, skills, and MCP tools in-place."
   ].join("\n");
@@ -1656,14 +1656,16 @@ function checkUpdateStatus(targetDir) {
 }
 function printUpdateBanner(status) {
   if (!status.updateAvailable) return;
+  const updateCmd = `npx -y github:marinvch/ai-os#v${status.toolVersion} --refresh-existing`;
   console.log("");
   console.log("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
   console.log(`  \u2502  \u{1F514} AI OS Update Available                          \u2502`);
   console.log(`  \u2502     Installed: v${status.installedVersion?.padEnd(10) ?? "unknown   "}  \u2192  Latest: v${status.toolVersion.padEnd(10)}\u2502`);
   console.log(`  \u2502                                                     \u2502`);
-  console.log(`  \u2502  Run:  npm run update  (or --update flag)           \u2502`);
-  console.log(`  \u2502  to refresh all context, tools, and agent files.    \u2502`);
+  console.log(`  \u2502  Re-run AI OS with --refresh-existing (or --update) \u2502`);
+  console.log(`  \u2502  to refresh context, tools, agents, and MCP files.  \u2502`);
   console.log("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
+  console.log(`  ${updateCmd}`);
   console.log("");
 }
 function pruneLegacyArtifacts(targetDir, options) {
@@ -3121,7 +3123,7 @@ jobs:
                 '- Latest: v' + latest,
                 '',
                 'To update, run:',
-                'bash install.sh --refresh-existing',
+                'npx -y github:marinvch/ai-os --refresh-existing',
               ].join('
 '),
             });
@@ -3676,7 +3678,7 @@ function printAgentFlowStatus(cwd, mode) {
   const present = flowFiles.filter((f) => scan.aiOsGenerated.includes(f) || scan.userDefined.includes(f));
   const activeMode = mode ?? "create";
   console.log("  \u{1F916} Agent flow status:");
-  console.log(`     mode: ${activeMode}`);
+  console.log(`     agent flow mode: ${activeMode}`);
   console.log(`     flow agents present: ${present.length}/3`);
   if (present.length > 0) {
     console.log(`     detected: ${present.join(", ")}`);

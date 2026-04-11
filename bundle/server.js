@@ -1,7 +1,6 @@
-#!/usr/bin/env node
+// AI OS MCP Server — bundled single-file deployment
 
 // src/mcp-server/index.ts
-import { CopilotClient } from "@github/copilot-sdk";
 import path2 from "node:path";
 
 // src/mcp-server/tool-definitions.ts
@@ -214,6 +213,17 @@ function sleepSync(ms) {
   const int32 = new Int32Array(shared);
   Atomics.wait(int32, 0, 0, ms);
 }
+var _activeLockPath = null;
+function _releaseLockOnExit() {
+  if (_activeLockPath) {
+    try {
+      fs.unlinkSync(_activeLockPath);
+    } catch {
+    }
+    _activeLockPath = null;
+  }
+}
+process.on("exit", _releaseLockOnExit);
 function withMemoryLock(fn) {
   ensureMemoryStore();
   const lockPath = getMemoryLockFilePath();
@@ -233,9 +243,11 @@ function withMemoryLock(fn) {
   if (lockFd === null) {
     throw new Error("Timed out waiting for repository memory lock.");
   }
+  _activeLockPath = lockPath;
   try {
     return fn();
   } finally {
+    _activeLockPath = null;
     try {
       fs.closeSync(lockFd);
     } catch {
@@ -847,7 +859,7 @@ function getImpactOfChange(filePath) {
   const legacyGraphPath = path.join(ROOT, ".ai-os", "context", "dependency-graph.json");
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
-    return "Dependency graph not found. Re-run the AI OS installer: `bash install.sh --refresh-existing` (or the bootstrap one-liner from the README).";
+    return "Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).";
   }
   let graph;
   try {
@@ -900,7 +912,7 @@ function getDependencyChain(filePath) {
   const legacyGraphPath = path.join(ROOT, ".ai-os", "context", "dependency-graph.json");
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
-    return "Dependency graph not found. Re-run the AI OS installer: `bash install.sh --refresh-existing` (or the bootstrap one-liner from the README).";
+    return "Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).";
   }
   let graph;
   try {
@@ -977,7 +989,7 @@ function checkForUpdates() {
       ``,
       `Run the following to update all AI OS artifacts in-place:`,
       `\`\`\`bash`,
-      `bash install.sh --refresh-existing`,
+      `npx -y github:marinvch/ai-os#v${toolVersion} --refresh-existing`,
       `\`\`\``,
       `Or use the bootstrap one-liner: \`curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash\``,
       `This refreshes context docs, agents, skills, MCP tools, and the dependency graph without deleting your existing files.`
@@ -1022,10 +1034,10 @@ function suggestImprovements() {
     suggestions.push("**Missing `.env.example`**: Document required environment variables so `get_env_vars` can surface them.");
   }
   if (!fs.existsSync(path.join(ROOT, ".github", "COPILOT_CONTEXT.md"))) {
-    suggestions.push("**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to generate the session context card for better session continuity.");
+    suggestions.push("**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate the session context card for better session continuity.");
   }
   if (!fs.existsSync(path.join(ROOT, ".github", "ai-os", "recommendations.md"))) {
-    suggestions.push("**Missing `recommendations.md`**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to generate stack-specific tool recommendations.");
+    suggestions.push("**Missing `recommendations.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate stack-specific tool recommendations.");
   }
   const memoryPath = path.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
   if (!fs.existsSync(memoryPath)) {
@@ -1038,7 +1050,7 @@ function suggestImprovements() {
   }
   const archPath = path.join(ROOT, ".github", "ai-os", "context", "architecture.md");
   if (!fs.existsSync(archPath)) {
-    suggestions.push("**Missing architecture doc**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to rebuild `.github/ai-os/context/architecture.md`.");
+    suggestions.push("**Missing architecture doc**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to rebuild `.github/ai-os/context/architecture.md`.");
   }
   const configPath = path.join(ROOT, ".github", "ai-os", "config.json");
   if (fs.existsSync(configPath)) {
@@ -1155,6 +1167,15 @@ async function main() {
   if (!health.ok) {
     throw new Error(`MCP runtime validation failed: ${health.messages.join(" | ")}`);
   }
+  let CopilotClient;
+  try {
+    const sdk = await import("@github/copilot-sdk");
+    CopilotClient = sdk.CopilotClient;
+  } catch {
+    console.error("[ai-os:mcp] @github/copilot-sdk is required for --copilot mode but was not found.");
+    console.error("[ai-os:mcp] Install it or omit --copilot to use standalone JSON-RPC mode.");
+    process.exit(1);
+  }
   const client = new CopilotClient();
   try {
     await client.start();
@@ -1186,6 +1207,8 @@ async function main() {
   });
 }
 function runStandaloneMcp() {
+  process.on("SIGTERM", () => process.exit(0));
+  process.on("SIGINT", () => process.exit(0));
   let buffer = "";
   process.stdin.setEncoding("utf-8");
   process.stdin.on("data", (chunk) => {

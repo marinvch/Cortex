@@ -311,9 +311,9 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
 
 function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]): void {
   // The MCP server runtime (index.js) is deployed by install.sh, not by `generate`.
-  // The regression suite only runs `generate`, so we verify mcp.json content instead.
-  // Since v0.4.1, the committed mcp.json intentionally has NO servers block —
-  // the server entry lives in the gitignored mcp.local.json (written by install.sh).
+  // The regression suite only runs `generate`, so we verify committed MCP metadata.
+  // Since v0.4.1+, committed mcp.json intentionally has NO servers block.
+  // Tool definitions are written to .github/ai-os/tools.json.
   const mcpJsonPath = path.join(dir, '.github/copilot/mcp.json');
   if (!fs.existsSync(mcpJsonPath)) {
     results.push({
@@ -326,7 +326,7 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   }
   results.push({ fixture: fixtureName, check: 'mcp.json present', passed: true });
 
-  let mcpConfig: { version?: number; servers?: Record<string, { command?: string; args?: string[] }>; tools?: unknown[] };
+  let mcpConfig: { version?: number; servers?: Record<string, { command?: string; args?: string[] }> };
   try {
     mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')) as typeof mcpConfig;
   } catch {
@@ -343,27 +343,56 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
     detail: typeof mcpConfig.version !== 'number' ? `version field is ${JSON.stringify(mcpConfig.version)}` : undefined,
   });
 
-  // The `generate` command writes a servers block with the ai-os MCP server entry.
-  // Check that entry is present and references the MCP server index.js.
+  // Committed mcp.json should not include local-runtime servers entries.
   const serverEntry = mcpConfig.servers?.['ai-os'];
   if (serverEntry !== undefined) {
     const argsIncludeIndexJs = serverEntry.args?.some(a => a.includes('index.js')) ?? false;
     results.push({
       fixture: fixtureName,
-      check: 'mcp.json ai-os server references index.js',
-      passed: argsIncludeIndexJs,
-      detail: argsIncludeIndexJs
-        ? undefined
-        : `Expected args to include 'index.js', got: ${JSON.stringify(serverEntry.args)}`,
+      check: 'mcp.json does not include local ai-os server entry',
+      passed: false,
+      detail: `Unexpected servers['ai-os'] in committed mcp.json: ${JSON.stringify(serverEntry)}`,
     });
   } else {
-    // No servers block — this is only acceptable for the committed ai-os repo mcp.json
-    // which uses a tools-only format. For generated fixture directories this is a failure.
+    // Expected committed shape.
     results.push({
       fixture: fixtureName,
-      check: 'mcp.json ai-os server references index.js',
-      passed: false,
-      detail: 'No servers[\'ai-os\'] entry found in generated mcp.json',
+      check: 'mcp.json does not include local ai-os server entry',
+      passed: true,
+    });
+
+    const toolsJsonPath = path.join(dir, '.github/ai-os/tools.json');
+    if (!fs.existsSync(toolsJsonPath)) {
+      results.push({
+        fixture: fixtureName,
+        check: 'tools.json present for MCP tool definitions',
+        passed: false,
+        detail: '.github/ai-os/tools.json not found after apply',
+      });
+      return;
+    }
+
+    let toolsConfig: unknown;
+    try {
+      toolsConfig = JSON.parse(fs.readFileSync(toolsJsonPath, 'utf-8'));
+    } catch {
+      results.push({
+        fixture: fixtureName,
+        check: 'tools.json is valid JSON',
+        passed: false,
+        detail: 'JSON.parse failed',
+      });
+      return;
+    }
+
+    results.push({ fixture: fixtureName, check: 'tools.json is valid JSON', passed: true });
+    results.push({
+      fixture: fixtureName,
+      check: 'tools.json contains MCP tool definitions',
+      passed: Array.isArray(toolsConfig) && toolsConfig.length > 0,
+      detail: Array.isArray(toolsConfig)
+        ? (toolsConfig.length > 0 ? undefined : 'tools.json is an empty array')
+        : 'tools.json is not an array',
     });
   }
 }

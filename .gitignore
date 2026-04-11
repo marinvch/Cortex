@@ -1,5 +1,8 @@
 node_modules/
 # dist/ is excluded EXCEPT the pre-built MCP server bundle that ships with AI OS
+dist/**
+!dist/server.js
+!dist/bundle-manifest.json
 dist/*.js.map
 dist/generate.js
 dist/generate.d.ts

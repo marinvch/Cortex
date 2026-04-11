@@ -3,6 +3,8 @@
 // src/generate.ts
 import fs15 from "node:fs";
 import path17 from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // src/analyze.ts
 import fs4 from "node:fs";
@@ -3716,6 +3718,87 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents) {
   console.log(`  \u{1F4A1} Try @workspace, /new-page, /new-trpc-procedure, or any agent from Chat.`);
   console.log("");
 }
+function ensureGitignoreEntry(cwd, entry) {
+  const gitignorePath = path17.join(cwd, ".gitignore");
+  if (!fs15.existsSync(gitignorePath)) return;
+  const current = fs15.readFileSync(gitignorePath, "utf-8");
+  const lines = current.split(/\r?\n/);
+  if (lines.includes(entry)) return;
+  const next = `${current.replace(/\s*$/, "")}
+${entry}
+`;
+  fs15.writeFileSync(gitignorePath, next, "utf-8");
+}
+function resolveBundledServerSource() {
+  const runtimeDir = path17.dirname(fileURLToPath3(import.meta.url));
+  const candidates = [
+    path17.join(runtimeDir, "server.js"),
+    path17.join(runtimeDir, "..", "bundle", "server.js"),
+    path17.join(runtimeDir, "..", "dist", "server.js")
+  ];
+  for (const candidate of candidates) {
+    if (fs15.existsSync(candidate) && fs15.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+function installLocalMcpRuntime(cwd, verbose) {
+  const bundledServerSource = resolveBundledServerSource();
+  if (!bundledServerSource) {
+    console.warn("  \u26A0 Could not locate bundled MCP server; local ai-os tools may be unavailable.");
+    return;
+  }
+  const runtimeDir = path17.join(cwd, ".ai-os", "mcp-server");
+  const runtimeEntry = path17.join(runtimeDir, "index.js");
+  const runtimeManifest = path17.join(runtimeDir, "runtime-manifest.json");
+  const localMcpConfig = path17.join(cwd, ".github", "copilot", "mcp.local.json");
+  const nodePath = process.execPath;
+  fs15.mkdirSync(runtimeDir, { recursive: true });
+  fs15.mkdirSync(path17.dirname(localMcpConfig), { recursive: true });
+  fs15.copyFileSync(bundledServerSource, runtimeEntry);
+  fs15.chmodSync(runtimeEntry, 493);
+  fs15.writeFileSync(runtimeManifest, JSON.stringify({
+    name: "ai-os-mcp-server",
+    runtime: "bundled",
+    sourceVersion: getToolVersion(),
+    installedAt: (/* @__PURE__ */ new Date()).toISOString()
+  }, null, 2), "utf-8");
+  fs15.writeFileSync(localMcpConfig, JSON.stringify({
+    version: 1,
+    servers: {
+      "ai-os": {
+        type: "stdio",
+        command: nodePath,
+        args: [runtimeEntry],
+        env: {
+          AI_OS_ROOT: cwd
+        }
+      }
+    }
+  }, null, 2), "utf-8");
+  ensureGitignoreEntry(cwd, ".github/copilot/mcp.local.json");
+  ensureGitignoreEntry(cwd, ".ai-os/mcp-server/node_modules");
+  ensureGitignoreEntry(cwd, ".github/ai-os/memory/.memory.lock");
+  const healthcheck = spawnSync(nodePath, [runtimeEntry, "--healthcheck"], {
+    cwd,
+    env: { ...process.env, AI_OS_ROOT: cwd },
+    encoding: "utf-8",
+    stdio: "pipe"
+  });
+  if (healthcheck.status !== 0) {
+    const details = [healthcheck.stdout, healthcheck.stderr].filter(Boolean).join("\n").trim();
+    throw new Error(`MCP runtime healthcheck failed after install${details ? `: ${details}` : ""}`);
+  }
+  if (verbose) {
+    console.log(`  \u270F\uFE0F  write   ${runtimeEntry}`);
+    console.log(`  \u270F\uFE0F  write   ${runtimeManifest}`);
+    console.log(`  \u270F\uFE0F  write   ${localMcpConfig}`);
+  } else {
+    console.log("  \u2713 MCP runtime installed to .ai-os/mcp-server");
+    console.log("  \u2713 Local MCP config written to .github/copilot/mcp.local.json");
+  }
+}
 async function main() {
   printBanner();
   const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate } = parseArgs();
@@ -3831,6 +3914,7 @@ ${gapReport}
   writeManifest(cwd, getToolVersion(), currentRelFiles);
   const newFiles = currentRelFiles.filter((r) => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter((r) => r !== manifestRel && previousFiles.has(r));
+  installLocalMcpRuntime(cwd, verbose);
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
   const agentFlowMode = config?.agentFlowMode;
   const isFirstInstall = updateStatus.isFirstInstall;

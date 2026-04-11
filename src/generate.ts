@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { analyze } from './analyze.js';
 import { generateInstructions } from './generators/instructions.js';
 import { generateMcpJson } from './generators/mcp.js';
@@ -202,6 +204,101 @@ function printSummary(
   console.log('');
 }
 
+function ensureGitignoreEntry(cwd: string, entry: string): void {
+  const gitignorePath = path.join(cwd, '.gitignore');
+  if (!fs.existsSync(gitignorePath)) return;
+
+  const current = fs.readFileSync(gitignorePath, 'utf-8');
+  const lines = current.split(/\r?\n/);
+  if (lines.includes(entry)) return;
+
+  const next = `${current.replace(/\s*$/, '')}\n${entry}\n`;
+  fs.writeFileSync(gitignorePath, next, 'utf-8');
+}
+
+function resolveBundledServerSource(): string | null {
+  const runtimeDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(runtimeDir, 'server.js'),
+    path.join(runtimeDir, '..', 'bundle', 'server.js'),
+    path.join(runtimeDir, '..', 'dist', 'server.js'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
+  const bundledServerSource = resolveBundledServerSource();
+  if (!bundledServerSource) {
+    console.warn('  ⚠ Could not locate bundled MCP server; local ai-os tools may be unavailable.');
+    return;
+  }
+
+  const runtimeDir = path.join(cwd, '.ai-os', 'mcp-server');
+  const runtimeEntry = path.join(runtimeDir, 'index.js');
+  const runtimeManifest = path.join(runtimeDir, 'runtime-manifest.json');
+  const localMcpConfig = path.join(cwd, '.github', 'copilot', 'mcp.local.json');
+  const nodePath = process.execPath;
+
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  fs.mkdirSync(path.dirname(localMcpConfig), { recursive: true });
+
+  fs.copyFileSync(bundledServerSource, runtimeEntry);
+  fs.chmodSync(runtimeEntry, 0o755);
+
+  fs.writeFileSync(runtimeManifest, JSON.stringify({
+    name: 'ai-os-mcp-server',
+    runtime: 'bundled',
+    sourceVersion: getToolVersion(),
+    installedAt: new Date().toISOString(),
+  }, null, 2), 'utf-8');
+
+  fs.writeFileSync(localMcpConfig, JSON.stringify({
+    version: 1,
+    servers: {
+      'ai-os': {
+        type: 'stdio',
+        command: nodePath,
+        args: [runtimeEntry],
+        env: {
+          AI_OS_ROOT: cwd,
+        },
+      },
+    },
+  }, null, 2), 'utf-8');
+
+  ensureGitignoreEntry(cwd, '.github/copilot/mcp.local.json');
+  ensureGitignoreEntry(cwd, '.ai-os/mcp-server/node_modules');
+  ensureGitignoreEntry(cwd, '.github/ai-os/memory/.memory.lock');
+
+  const healthcheck = spawnSync(nodePath, [runtimeEntry, '--healthcheck'], {
+    cwd,
+    env: { ...process.env, AI_OS_ROOT: cwd },
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+
+  if (healthcheck.status !== 0) {
+    const details = [healthcheck.stdout, healthcheck.stderr].filter(Boolean).join('\n').trim();
+    throw new Error(`MCP runtime healthcheck failed after install${details ? `: ${details}` : ''}`);
+  }
+
+  if (verbose) {
+    console.log(`  ✏️  write   ${runtimeEntry}`);
+    console.log(`  ✏️  write   ${runtimeManifest}`);
+    console.log(`  ✏️  write   ${localMcpConfig}`);
+  } else {
+    console.log('  ✓ MCP runtime installed to .ai-os/mcp-server');
+    console.log('  ✓ Local MCP config written to .github/copilot/mcp.local.json');
+  }
+}
+
 async function main(): Promise<void> {
   printBanner();
 
@@ -357,6 +454,8 @@ async function main(): Promise<void> {
   // files not in the previous manifest are "new" (written); the rest may be skipped or updated.
   const newFiles = currentRelFiles.filter(r => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter(r => r !== manifestRel && previousFiles.has(r));
+
+  installLocalMcpRuntime(cwd, verbose);
 
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
 

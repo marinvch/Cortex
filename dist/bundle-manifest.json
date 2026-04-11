@@ -1,6 +1,6 @@
 {
-  "bundledAt": "2026-04-11T17:42:35.220Z",
-  "sourceVersion": "0.6.28",
+  "bundledAt": "2026-04-11T17:56:18.598Z",
+  "sourceVersion": "0.6.29",
   "entryPoint": "server.js",
   "sha256": "428c30685713766717da29664d566b00fde556ed49460ac9204b0860205429c9",
   "node": ">=20"

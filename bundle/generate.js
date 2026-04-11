@@ -3746,8 +3746,41 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents) {
   console.log(`  \u{1F527} MCP tools registered: ${mcpToolCount}`);
   console.log(`  \u{1F5F3}\uFE0F  Manifest: ${path17.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, "/")}`);
   console.log("");
-  console.log("  \u{1F680} AI OS installed! Open this repo in VS Code with GitHub Copilot enabled.");
-  console.log(`  \u{1F4A1} Try @workspace, /new-page, /new-trpc-procedure, or any agent from Chat.`);
+}
+function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommendationsEnabled) {
+  const refreshCmd = `npx -y github:marinvch/ai-os#v${updateStatus.toolVersion} --refresh-existing`;
+  const recommendationsPath = ".github/ai-os/recommendations.md";
+  const printRecommendationsHint = () => {
+    if (recommendationsEnabled) {
+      console.log(`  \u{1F4D8} Recommendations saved to ${recommendationsPath}`);
+    }
+  };
+  if (mode === "safe" && updateStatus.updateAvailable && !updateStatus.isFirstInstall) {
+    console.log("  \u{1F9ED} Recommended next step:");
+    console.log(`  ${refreshCmd}`);
+    console.log("  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.");
+    console.log("  After refresh, ask Copilot:");
+    console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
+    printRecommendationsHint();
+    console.log("");
+    return;
+  }
+  if (mode === "refresh-existing" || mode === "update") {
+    console.log("  \u2705 Ready to use with Copilot.");
+    console.log("  If the tools do not appear immediately, run: MCP: Restart Servers");
+    console.log("  Suggested first prompt:");
+    console.log('     "Use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    printRecommendationsHint();
+    console.log("");
+    return;
+  }
+  const firstPrompt = onboardingPlan.detectedRepoType === "existing-non-ai-os" ? "Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files." : "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.";
+  console.log("  \u{1F9ED} Next steps:");
+  console.log("  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.");
+  console.log("  2. If the tools do not appear immediately, run: MCP: Restart Servers");
+  console.log("  3. Suggested first prompt:");
+  console.log(`     "${firstPrompt}"`);
+  printRecommendationsHint();
   console.log("");
 }
 function ensureGitignoreEntry(cwd, entry) {
@@ -3946,6 +3979,7 @@ ${gapReport}
   const existingFiles = currentRelFiles.filter((r) => r !== manifestRel && previousFiles.has(r));
   installLocalMcpRuntime(cwd, verbose);
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
+  printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
   const agentFlowMode = config?.agentFlowMode;
   const isFirstInstall = updateStatus.isFirstInstall;
   if (isFirstInstall || agentFlowMode === void 0) {

@@ -65,6 +65,7 @@ function gitInit(dir: string): void {
 
 const AI_OS_ROOT = path.resolve(import.meta.dirname, '../..');
 const GENERATE_CMD = `node --import tsx/esm "${path.join(AI_OS_ROOT, 'src/generate.ts')}"`;
+const TOOL_VERSION = JSON.parse(fs.readFileSync(path.join(AI_OS_ROOT, 'package.json'), 'utf-8')) as { version: string };
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -286,6 +287,20 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
       detail: sessionCardContent.length > 2000 ? `Actual: ${sessionCardContent.length} chars` : undefined,
     });
   }
+
+  results.push({
+    fixture: fixtureName,
+    check: 'apply output includes suggested first prompt guidance',
+    passed: r.stdout.includes('Suggested first prompt:'),
+    detail: r.stdout.includes('Suggested first prompt:') ? undefined : 'Missing suggested first prompt block in apply output',
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'apply output mentions recommendations path',
+    passed: r.stdout.includes('.github/ai-os/recommendations.md'),
+    detail: r.stdout.includes('.github/ai-os/recommendations.md') ? undefined : 'Missing recommendations path hint in apply output',
+  });
 }
 
 function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResult[]): void {
@@ -306,6 +321,42 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
     check: 'refresh does not drift copilot-instructions.md',
     passed: instructionsBefore === instructionsAfter,
     detail: instructionsBefore !== instructionsAfter ? 'Content changed on second apply run' : undefined,
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'refresh-existing output includes ready guidance',
+    passed: r.stdout.includes('Ready to use with Copilot.'),
+    detail: r.stdout.includes('Ready to use with Copilot.') ? undefined : 'Missing ready guidance in refresh-existing output',
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'refresh-existing output does not repeat update banner',
+    passed: !r.stdout.includes('AI OS Update Available'),
+    detail: !r.stdout.includes('AI OS Update Available') ? undefined : 'Update banner was printed during refresh-existing run',
+  });
+
+  const configPath = path.join(dir, '.github/ai-os/config.json');
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { version: string };
+  config.version = '0.0.1';
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+  const safeRerun = run(`${GENERATE_CMD} --cwd "${dir}"`, AI_OS_ROOT);
+  const refreshCmd = `npx -y github:marinvch/ai-os#v${TOOL_VERSION.version} --refresh-existing`;
+
+  results.push({
+    fixture: fixtureName,
+    check: 'safe mode with stale install prints refresh command',
+    passed: safeRerun.stdout.includes(refreshCmd),
+    detail: safeRerun.stdout.includes(refreshCmd) ? undefined : `Missing refresh command: ${refreshCmd}`,
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'safe mode with stale install explains limited refresh',
+    passed: safeRerun.stdout.includes('Safe mode updated local MCP/runtime wiring'),
+    detail: safeRerun.stdout.includes('Safe mode updated local MCP/runtime wiring') ? undefined : 'Missing safe mode explanation for stale installs',
   });
 }
 

@@ -2,9 +2,7 @@
 # =============================================================================
 #  AI OS Installer — Portable Copilot Context Engine
 #  Install on any repository with: bash install.sh
-#  Node.js >= 20 is required for the generator and MCP server.
-#  If Node.js is unavailable, Docker is used as a fallback for generation
-#  (MCP server will not be installed without a host Node.js binary).
+#  Requires: git bash, Node.js >= 20
 # =============================================================================
 
 set -euo pipefail
@@ -20,23 +18,10 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.5.0            ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v0.4.1            ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
-
-# ── Git Bash / MSYS / MINGW detection on Windows ─────────────────────────────
-if [[ "${OSTYPE:-}" == "msys" || "${OSTYPE:-}" == "cygwin" || -n "${MSYSTEM:-}" ]]; then
-  if [[ "${MSYSTEM:-}" == "MINGW64" || "${MSYSTEM:-}" == "MINGW32" ]]; then
-    # Git Bash sets MSYSTEM to MINGW64/MINGW32 — this is the expected environment
-    echo -e "  ${GREEN}✓ Git Bash detected (${MSYSTEM})${RESET}"
-  else
-    # Running under MSYS2/Cygwin but not a standard Git Bash session — warn about path issues
-    echo -e "  ${YELLOW}⚠  Windows detected: running outside Git Bash may cause path issues.${RESET}"
-    echo -e "  ${YELLOW}   Open 'Git Bash' from the Start menu and re-run this script there.${RESET}"
-    echo ""
-  fi
-fi
 
 # ── Determine this script's location ─────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -97,27 +82,6 @@ TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 echo -e "  ${BOLD}Target repository:${RESET} $TARGET_DIR"
 echo ""
 
-# ── Detect available JavaScript runtime (early, used by uninstall too) ───────
-RUNTIME_CMD=""
-RUNTIME_NAME=""
-USE_BUN=false
-
-if command -v node &>/dev/null; then
-  _NODE_VER=$(node --version 2>/dev/null | sed 's/v//')
-  _NODE_MAJOR=$(echo "$_NODE_VER" | cut -d. -f1)
-  if [[ "$_NODE_MAJOR" -ge 20 ]]; then
-    RUNTIME_CMD="node"
-    RUNTIME_NAME="Node.js v$_NODE_VER"
-  fi
-fi
-
-if [[ -z "$RUNTIME_CMD" ]] && command -v bun &>/dev/null; then
-  _BUN_VER=$(bun --version 2>/dev/null || echo "unknown")
-  RUNTIME_CMD="bun"
-  RUNTIME_NAME="Bun v$_BUN_VER"
-  USE_BUN=true
-fi
-
 # ── Uninstall mode (#12) ─────────────────────────────────────────────────────
 if [[ "$UNINSTALL" == "true" ]]; then
   MANIFEST="$TARGET_DIR/.github/ai-os/manifest.json"
@@ -132,16 +96,11 @@ if [[ "$UNINSTALL" == "true" ]]; then
   echo -e "  ${CYAN}$MANIFEST${RESET}"
   echo ""
 
-  # Read manifest file list with available runtime
-  FILES=""
-  if [[ -n "$RUNTIME_CMD" ]]; then
-    FILES=$($RUNTIME_CMD -e "
-      const m = JSON.parse(require('fs').readFileSync('$MANIFEST', 'utf8'));
-      console.log(m.files.join('\\n'));
-    " 2>/dev/null || true)
-  elif command -v python3 &>/dev/null; then
-    FILES=$(python3 -c "import json; m=json.load(open('$MANIFEST')); print('\n'.join(m.get('files', [])))" 2>/dev/null || true)
-  fi
+  # Read manifest file list with node (guaranteed to be available at this point)
+  FILES=$(node -e "
+    const m = JSON.parse(require('fs').readFileSync('$MANIFEST', 'utf8'));
+    console.log(m.files.join('\\n'));
+  " 2>/dev/null || true)
 
   if [[ -z "$FILES" ]]; then
     echo -e "  ${YELLOW}  Manifest is empty or unreadable — nothing to remove.${RESET}"
@@ -176,7 +135,7 @@ if [[ "$UNINSTALL" == "true" ]]; then
   GITIGNORE="$TARGET_DIR/.gitignore"
   if [[ -f "$GITIGNORE" ]]; then
     # Remove AI OS gitignore lines using sed (cross-platform)
-    sed -i.bak '/^# AI OS/d; /^\.ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/memory\/.memory\.lock$/d; /^\.github\/copilot\/mcp\.local\.json$/d' "$GITIGNORE"
+    sed -i.bak '/^# AI OS/d; /^\.ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/memory\/.memory\.lock$/d' "$GITIGNORE"
     rm -f "$GITIGNORE.bak"
     echo -e "  ${GREEN}✓ Cleaned AI OS entries from .gitignore${RESET}"
   fi
@@ -197,20 +156,101 @@ fi
 echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 
 # ── Check Node.js version ────────────────────────────────────────────────────
-# Track whether we are running in Docker-fallback mode (no host Node.js).
-USE_DOCKER_FALLBACK=false
-
 if ! command -v node &>/dev/null; then
-  echo -e "  ${RED}✗ Node.js not found.${RESET}"
-  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for its generator and MCP server.${RESET}"
-  echo -e "  ${YELLOW}  Your project does NOT need Node.js — it is only needed to run AI OS itself.${RESET}"
-  echo -e ""
-  echo -e "  ${YELLOW}  Option 1 (recommended): Use bootstrap.sh — it auto-installs Node.js via nvm:${RESET}"
-  echo -e "  ${CYAN}    curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash${RESET}"
-  echo -e ""
-  echo -e "  ${YELLOW}  Option 2: Install Node.js manually: https://nodejs.org${RESET}"
+  echo -e "  ${YELLOW}⚠ Node.js not found. Attempting auto-install...${RESET}"
+  echo -e "  ${YELLOW}  (AI OS needs Node.js >= 20 — your project does NOT need it.)${RESET}"
+  echo ""
+
+  _NODE_INSTALLED=false
+
+  # Try nvm (most common on macOS/Linux/WSL)
+  if [[ -f "$HOME/.nvm/nvm.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "$HOME/.nvm/nvm.sh"
+    if nvm install --lts 2>/dev/null && nvm use --lts 2>/dev/null; then
+      _NODE_INSTALLED=true
+    fi
+  fi
+
+  # Try fnm
+  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v fnm &>/dev/null; then
+    if fnm install --lts 2>/dev/null && fnm use lts-latest 2>/dev/null; then
+      _NODE_INSTALLED=true
+    fi
+  fi
+
+  # Try volta
+  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v volta &>/dev/null; then
+    if volta install node 2>/dev/null; then
+      _NODE_INSTALLED=true
+    fi
+  fi
+
+  # Try Homebrew (macOS)
+  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v brew &>/dev/null; then
+    echo -e "  ${CYAN}→ Installing Node.js via Homebrew...${RESET}"
+    if brew install node 2>/dev/null; then
+      _NODE_INSTALLED=true
+    fi
+  fi
+
+  # Try apt-get (Ubuntu/Debian/WSL)
+  # Note: download setup script first, then execute — output is shown so the user can review it.
+  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v apt-get &>/dev/null; then
+    echo -e "  ${CYAN}→ Installing Node.js via apt-get (NodeSource LTS)...${RESET}"
+    echo -e "  ${YELLOW}  Downloading NodeSource setup script from https://deb.nodesource.com/setup_lts.x${RESET}"
+    _NODESOURCE_SCRIPT="$(mktemp /tmp/nodesource-setup-XXXXXX.sh)"
+    if curl -fsSL https://deb.nodesource.com/setup_lts.x -o "$_NODESOURCE_SCRIPT" \
+        && sudo -E bash "$_NODESOURCE_SCRIPT" \
+        && sudo apt-get install -y nodejs; then
+      _NODE_INSTALLED=true
+    fi
+    rm -f "$_NODESOURCE_SCRIPT"
+  fi
+
+  # Try winget (Windows Git Bash / MSYS2)
+  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v winget &>/dev/null; then
+    echo -e "  ${CYAN}→ Installing Node.js via winget...${RESET}"
+    if winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements 2>/dev/null; then
+      _NODE_INSTALLED=true
+    fi
+  fi
+
+  if [[ "$_NODE_INSTALLED" == "false" ]] || ! command -v node &>/dev/null; then
+    echo -e "  ${RED}✗ Node.js auto-install failed.${RESET}"
+    echo -e "  ${YELLOW}  AI OS requires Node.js >= 20. Install it, then re-run install.sh.${RESET}"
+    echo -e "  ${YELLOW}  Quick install options:${RESET}"
+    echo -e "  ${YELLOW}    macOS (Homebrew): brew install node${RESET}"
+    echo -e "  ${YELLOW}    Ubuntu/Debian:    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs${RESET}"
+    echo -e "  ${YELLOW}    Windows (winget): winget install OpenJS.NodeJS.LTS${RESET}"
+    echo -e "  ${YELLOW}    nvm (any):        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash && nvm install --lts${RESET}"
+    echo -e "  ${YELLOW}    Any platform:     https://nodejs.org${RESET}"
+    echo ""
+    exit 1
+  fi
+
+  echo -e "  ${GREEN}✓ Node.js installed via auto-install${RESET}"
+fi
+
+NODE_VERSION=$(node --version | sed 's/v//')
+NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+
+if [[ "$NODE_MAJOR" -lt 20 ]]; then
+  echo -e "  ${RED}✗ Node.js $NODE_VERSION is too old. Need >= 20.${RESET}"
+  echo -e "  ${YELLOW}  AI OS uses Node.js for its generator and MCP server (not your project).${RESET}"
+  echo -e "  ${YELLOW}  Update: https://nodejs.org${RESET}"
   exit 1
 fi
+
+echo -e "  ${GREEN}✓ Node.js v$NODE_VERSION${RESET}"
+
+# ── Check npm ────────────────────────────────────────────────────────────────
+if ! command -v npm &>/dev/null; then
+  echo -e "  ${RED}✗ npm not found. Install Node.js from https://nodejs.org${RESET}"
+  exit 1
+fi
+
+echo -e "  ${GREEN}✓ npm $(npm --version)${RESET}"
 echo ""
 
 # ── Optional: install anthropics skill-creator via Skills CLI ───────────────
@@ -254,37 +294,14 @@ if [[ ! -f "$AIOS_SRC/package.json" ]]; then
   exit 1
 fi
 
-# Helper: read the top-level "version" field from a JSON file without node.
-# Tries python3/python as a more reliable parser; falls back to grep+sed.
-_read_json_version() {
-  local file="$1"
-  local default="${2:-}"
-  if command -v python3 &>/dev/null; then
-    python3 -c "import json,sys; d=json.load(open('$file')); print(d.get('version',''))" 2>/dev/null || true
-  elif command -v python &>/dev/null; then
-    python -c "import json; d=json.load(open('$file')); print(d.get('version',''))" 2>/dev/null || true
-  else
-    grep -m1 '"version"' "$file" 2>/dev/null | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || true
-  fi
-}
-
-# Read version: use node if available, otherwise use the portable helper above
-if [[ "$USE_DOCKER_FALLBACK" == "true" ]]; then
-  AIOS_VERSION="$(_read_json_version "$AIOS_SRC/package.json" "0.0.0")"
-else
-  AIOS_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];const pkg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(pkg.version||'0.0.0');" "$AIOS_SRC/package.json")"
-fi
+AIOS_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];const pkg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(pkg.version||'0.0.0');" "$AIOS_SRC/package.json")"
 
 # Check new config path first (.github/ai-os/config.json), fall back to legacy (.ai-os/config.json)
 _CORE_CONFIG_PATH="$TARGET_DIR/.github/ai-os/config.json"
 if [[ ! -f "$_CORE_CONFIG_PATH" ]]; then
   _CORE_CONFIG_PATH="$TARGET_DIR/.ai-os/config.json"
 fi
-if [[ "$USE_DOCKER_FALLBACK" == "true" ]]; then
-  INSTALLED_CORE_VERSION="$(_read_json_version "$_CORE_CONFIG_PATH" "")"
-else
-  INSTALLED_CORE_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const cfg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(cfg.version||''));}catch{process.stdout.write('');}" "$_CORE_CONFIG_PATH")"
-fi
+INSTALLED_CORE_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const cfg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(cfg.version||''));}catch{process.stdout.write('');}" "$_CORE_CONFIG_PATH")"
 
 echo -e "  ${CYAN}→ Startup diagnostics:${RESET}"
 echo -e "  ${CYAN}  AI OS source version:${RESET} v${AIOS_VERSION}"
@@ -293,6 +310,12 @@ if [[ -n "$INSTALLED_CORE_VERSION" ]]; then
 else
   echo -e "  ${CYAN}  Installed target version:${RESET} none (first install or missing config.json)"
 fi
+echo ""
+
+# ── Install ai-os dependencies (into scripts/ai-os/node_modules) ─────────────
+echo -e "  ${CYAN}→ Installing dependencies...${RESET}"
+(cd "$AIOS_SRC" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
+echo -e "  ${GREEN}✓ Dependencies ready${RESET}"
 echo ""
 
 # ── Compile TypeScript (if dist/ is stale or missing) ────────────────────────
@@ -306,67 +329,17 @@ fi
 echo -e "  ${CYAN}→ Scanning codebase and generating context...${RESET}"
 echo ""
 
-if [[ "$USE_DOCKER_FALLBACK" == "true" ]]; then
-  # Build the generator args explicitly for Docker (target repo is mounted at /target)
-  DOCKER_GEN_ARGS=(--cwd /target)
-  if [[ "$REFRESH_EXISTING" == "true" ]]; then
-    DOCKER_GEN_ARGS+=(--refresh-existing)
-  fi
-  # ── Install ai-os dependencies inside Docker ───────────────────────────────
-  echo -e "  ${CYAN}→ Running generator via Docker (no host Node.js)...${RESET}"
-  docker run --rm \
-    -v "$AIOS_SRC:/ai-os:ro" \
-    -v "$TARGET_DIR:/target" \
-    -e "HOME=/tmp" \
-    node:20-alpine \
-    sh -c "cd /ai-os && npm install --prefer-offline --no-audit --no-fund -s && node --import tsx/esm src/generate.ts $(printf '%q ' "${DOCKER_GEN_ARGS[@]}")"
-  echo -e "  ${YELLOW}⚠ MCP server not installed — Node.js required on the host.${RESET}"
-  echo -e "  ${YELLOW}  Install Node.js >= 20 and re-run install.sh to enable MCP tools.${RESET}"
-else
-  GEN_ARGS=(--cwd "$TARGET_DIR")
-  if [[ "$REFRESH_EXISTING" == "true" ]]; then
-    GEN_ARGS+=(--refresh-existing)
-  fi
-
-  # ── Install ai-os dependencies (into scripts/ai-os/node_modules) ────────────
-  echo -e "  ${CYAN}→ Installing dependencies...${RESET}"
-  (cd "$AIOS_SRC" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
-  echo -e "  ${GREEN}✓ Dependencies ready${RESET}"
-  echo ""
-
-  # Detect absolute node path so mcp.local.json uses a stable path (fixes nvm/fnm/asdf on Windows/macOS)
-  NODE_ABS_PATH="$(command -v node)"
-
-  (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
-
-  # ── Write local-only MCP server config (.github/copilot/mcp.local.json) ───
-  # This file is gitignored and contains the machine-specific node path so VS
-  # Code's Copilot extension can spawn the MCP server.  The committed
-  # mcp.json intentionally has no servers block (see src/generators/mcp.ts).
-  MCP_LOCAL_DIR="$TARGET_DIR/.github/copilot"
-  MCP_LOCAL_PATH="$MCP_LOCAL_DIR/mcp.local.json"
-  mkdir -p "$MCP_LOCAL_DIR"
-  cat > "$MCP_LOCAL_PATH" << EOF
-{
-  "version": 1,
-  "servers": {
-    "ai-os": {
-      "type": "stdio",
-      "command": "$NODE_ABS_PATH",
-      "args": [".ai-os/mcp-server/index.js"],
-      "env": {
-        "AI_OS_ROOT": "."
-      }
-    }
-  }
-}
-EOF
-  echo -e "  ${GREEN}✓ Local MCP config written (.github/copilot/mcp.local.json)${RESET}"
+GEN_ARGS=(--cwd "$TARGET_DIR")
+if [[ "$REFRESH_EXISTING" == "true" ]]; then
+  GEN_ARGS+=(--refresh-existing)
 fi
 
+# Detect absolute node path so mcp.json uses a stable path (fixes nvm/fnm/asdf on Windows/macOS)
+NODE_ABS_PATH="$(command -v node)"
+
+(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+
 # ── Copy MCP server to target repo ──────────────────────────────────────────
-# Skipped when running via Docker fallback (no host Node.js to run the server).
-if [[ "$USE_DOCKER_FALLBACK" == "false" ]]; then
 MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
 MCP_SERVER_DEST="$TARGET_DIR/.ai-os/mcp-server"
 MCP_RUNTIME_MANIFEST="$MCP_SERVER_DEST/runtime-manifest.json"
@@ -376,7 +349,7 @@ INSTALLED_MCP_VERSION=""
 MCP_SKIP_REASON=""
 
 if [[ -f "$MCP_RUNTIME_MANIFEST" ]]; then
-  INSTALLED_MCP_VERSION="$($RUNTIME_CMD -e "const fs=require('fs');const p=process.argv[1];try{const m=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(m.sourceVersion||''));}catch{process.stdout.write('');}" "$MCP_RUNTIME_MANIFEST")"
+  INSTALLED_MCP_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const m=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(m.sourceVersion||''));}catch{process.stdout.write('');}" "$MCP_RUNTIME_MANIFEST")"
 
   if [[ "$INSTALLED_MCP_VERSION" == "$AIOS_VERSION" && "$REFRESH_EXISTING" != "true" && -f "$MCP_SERVER_DEST/index.js" ]]; then
     MCP_INSTALL_REQUIRED=false
@@ -432,11 +405,7 @@ if [[ "$MCP_INSTALL_REQUIRED" == "true" ]]; then
 EOF
 
     # Install MCP server dependencies
-    if [[ "$USE_BUN" == "true" ]]; then
-      (cd "$MCP_SERVER_DEST" && bun install 2>&1 | tail -3)
-    else
-      (cd "$MCP_SERVER_DEST" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
-    fi
+    (cd "$MCP_SERVER_DEST" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
 
     # Create a portable runtime launcher
     cat > "$MCP_SERVER_DEST/index.js" << 'EOF'
@@ -475,18 +444,17 @@ EOF
 }
 EOF
 
-  if AI_OS_ROOT="$TARGET_DIR" $RUNTIME_CMD "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
+  if AI_OS_ROOT="$TARGET_DIR" node "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓ MCP server installed and healthy${RESET}"
   else
     echo -e "  ${RED}✗ MCP server healthcheck failed after install.${RESET}"
-    echo -e "  ${YELLOW}  Run with diagnostics:${RESET} AI_OS_MCP_DEBUG=1 $RUNTIME_CMD .ai-os/mcp-server/index.js --healthcheck"
+    echo -e "  ${YELLOW}  Run with diagnostics:${RESET} AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck"
     exit 1
   fi
 else
   echo -e "  ${GREEN}✓ MCP server already up-to-date (v${AIOS_VERSION})${RESET}"
   echo -e "  ${CYAN}  Skip reason:${RESET} ${MCP_SKIP_REASON}"
 fi
-fi # end USE_DOCKER_FALLBACK == false
 echo ""
 
 # ── Clean up legacy v0.2.0 artifacts (--clean-update) ────────────────────────
@@ -530,7 +498,7 @@ GITIGNORE="$TARGET_DIR/.gitignore"
 if [[ -f "$GITIGNORE" ]]; then
   if ! grep -q "^\.ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo "" >> "$GITIGNORE"
-    echo "# AI OS (generated — safe to commit except node_modules and local MCP config)" >> "$GITIGNORE"
+    echo "# AI OS (generated — safe to commit except node_modules)" >> "$GITIGNORE"
     echo ".ai-os/mcp-server/node_modules" >> "$GITIGNORE"
     echo -e "  ${GREEN}✓ Updated .gitignore${RESET}"
   fi
@@ -541,10 +509,6 @@ if [[ -f "$GITIGNORE" ]]; then
   if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/memory/.memory.lock" >> "$GITIGNORE"
   fi
-  # mcp.local.json contains a machine-specific node path — must not be committed
-  if ! grep -q "^\.github/copilot/mcp\.local\.json$" "$GITIGNORE" 2>/dev/null; then
-    echo ".github/copilot/mcp.local.json" >> "$GITIGNORE"
-  fi
 fi
 
 # ── Done ────────────────────────────────────────────────────────────────────
@@ -554,12 +518,8 @@ echo ""
 echo -e "  ${BOLD}Next steps:${RESET}"
 echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
 echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
-if [[ "$USE_DOCKER_FALLBACK" == "true" ]]; then
-  echo -e "  3. ${YELLOW}MCP tools unavailable${RESET} — install Node.js >= 20 and re-run install.sh"
-else
-  echo -e "  3. MCP tools are active via ${CYAN}.github/copilot/mcp.local.json${RESET} (local, gitignored)"
-fi
-echo -e "  4. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
+echo -e "  3. MCP tools are registered in ${CYAN}.github/copilot/mcp.json${RESET}"
+  echo -e "  4. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
 echo -e "  5. AI OS skills are generated in ${CYAN}.github/copilot/skills/${RESET} with ai-os-* naming"
 echo ""
 echo -e "  ${YELLOW}Tip:${RESET} Re-run install.sh anytime to refresh context after major refactors."

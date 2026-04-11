@@ -79,6 +79,25 @@ function sleepSync(ms: number): void {
   Atomics.wait(int32, 0, 0, ms);
 }
 
+// ── Lock cleanup on process exit / signal ────────────────────────────────────
+// Track the currently held lock path so exit/signal handlers can release it
+// even when the process is terminated before the finally block executes.
+let _activeLockPath: string | null = null;
+
+function _releaseLockOnExit(): void {
+  if (_activeLockPath) {
+    try {
+      fs.unlinkSync(_activeLockPath);
+    } catch {
+      // Best-effort cleanup — file may already be gone.
+    }
+    _activeLockPath = null;
+  }
+}
+
+// Runs when process.exit() is called (covers normal exits, healthcheck, errors).
+process.on('exit', _releaseLockOnExit);
+
 function withMemoryLock<T>(fn: () => T): T {
   ensureMemoryStore();
   const lockPath = getMemoryLockFilePath();
@@ -101,9 +120,13 @@ function withMemoryLock<T>(fn: () => T): T {
     throw new Error('Timed out waiting for repository memory lock.');
   }
 
+  _activeLockPath = lockPath; // Register for signal-handler cleanup.
+
   try {
     return fn();
   } finally {
+    _activeLockPath = null; // Unregister before explicit cleanup.
+
     try {
       fs.closeSync(lockFd);
     } catch {

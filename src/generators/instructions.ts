@@ -225,20 +225,53 @@ function generatePathSpecificInstructions(stack: DetectedStack, githubDir: strin
 /** Build the persistent rules section for copilot-instructions.md */
 function buildPersistentRulesSection(persistentRules: string[], stack: DetectedStack): string {
   const detectedRules: string[] = [];
+  const root = stack.rootDir;
 
   // Add auto-detected structural rules
-  const root = stack.rootDir;
   if (fs.existsSync(path.join(root, 'src', 'components', 'ui'))) {
     detectedRules.push('ALWAYS use shared components from `src/components/ui` before creating new UI components');
   } else if (fs.existsSync(path.join(root, 'components', 'ui'))) {
     detectedRules.push('ALWAYS use shared components from `components/ui` before creating new UI components');
+  } else if (fs.existsSync(path.join(root, 'src', 'components'))) {
+    detectedRules.push('ALWAYS check `src/components` for existing components before creating new ones');
+  } else if (fs.existsSync(path.join(root, 'components'))) {
+    detectedRules.push('ALWAYS check `components/` for existing components before creating new ones');
   }
+
   const utilsPaths = ['src/lib', 'src/utils', 'lib', 'utils'];
   for (const up of utilsPaths) {
     if (fs.existsSync(path.join(root, up))) {
       detectedRules.push(`NEVER create utility functions outside \`${up}/\` — add them there instead`);
       break;
     }
+  }
+
+  // API / server routes
+  const apiPaths = ['src/api', 'src/routes', 'api', 'routes', 'server/routes'];
+  for (const ap of apiPaths) {
+    if (fs.existsSync(path.join(root, ap))) {
+      detectedRules.push(`ALWAYS add new API routes inside \`${ap}/\` following the existing file structure`);
+      break;
+    }
+  }
+
+  // Type definitions
+  const typePaths = ['src/types', 'src/interfaces', 'types', 'interfaces'];
+  for (const tp of typePaths) {
+    if (fs.existsSync(path.join(root, tp))) {
+      detectedRules.push(`ALWAYS define shared types and interfaces in \`${tp}/\` — do not redeclare them inline`);
+      break;
+    }
+  }
+
+  // Test directory
+  if (stack.patterns.testDirectory) {
+    detectedRules.push(`ALWAYS place new test files in \`${stack.patterns.testDirectory}/\` or co-located with their source file`);
+  }
+
+  // TypeScript strict rule
+  if (stack.patterns.hasTypeScript) {
+    detectedRules.push('NEVER use `any` as a type — use proper TypeScript types or `unknown`');
   }
 
   const allRules = [...persistentRules, ...detectedRules];

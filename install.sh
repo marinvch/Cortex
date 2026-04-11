@@ -3,7 +3,6 @@
 #  AI OS Installer — Portable Copilot Context Engine
 #  Install on any repository with: bash install.sh
 #  Requires: git bash, Node.js >= 20
-#  No Node.js? Use: bash install.sh --github-actions
 # =============================================================================
 
 set -euo pipefail
@@ -34,7 +33,6 @@ INSTALL_FIND_SKILLS=false
 REFRESH_EXISTING=false
 CLEAN_UPDATE=false
 UNINSTALL=false
-GITHUB_ACTIONS_MODE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -67,10 +65,6 @@ while [[ $# -gt 0 ]]; do
       UNINSTALL=true
       shift
       ;;
-    --github-actions)
-      GITHUB_ACTIONS_MODE=true
-      shift
-      ;;
     *)
       shift
       ;;
@@ -88,86 +82,7 @@ TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 echo -e "  ${BOLD}Target repository:${RESET} $TARGET_DIR"
 echo ""
 
-# ── GitHub Actions mode (no Node.js required) ────────────────────────────────
-if [[ "$GITHUB_ACTIONS_MODE" == "true" ]]; then
-  WORKFLOW_DIR="$TARGET_DIR/.github/workflows"
-  WORKFLOW_FILE="$WORKFLOW_DIR/ai-os-install.yml"
-  mkdir -p "$WORKFLOW_DIR"
-
-  cat > "$WORKFLOW_FILE" << 'WORKFLOW_EOF'
-# AI OS — GitHub Actions installer
-# Runs AI OS generator in CI — no local Node.js required.
-# Trigger: push to default branch, or manually via workflow_dispatch.
-# The generated context files will be committed back to the repository.
-name: AI OS — Generate Context
-
-on:
-  workflow_dispatch:
-    inputs:
-      refresh:
-        description: 'Refresh existing AI OS artifacts'
-        required: false
-        default: 'false'
-        type: boolean
-  push:
-    branches: [main, master]
-    paths:
-      - 'package.json'
-      - 'requirements.txt'
-      - 'pyproject.toml'
-      - 'go.mod'
-      - 'Cargo.toml'
-      - 'pom.xml'
-
-jobs:
-  ai-os:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Clone AI OS
-        run: git clone --depth 1 https://github.com/marinvch/ai-os.git /tmp/ai-os
-
-      - name: Install AI OS dependencies
-        run: cd /tmp/ai-os && npm install --prefer-offline --no-audit --no-fund
-
-      - name: Run AI OS generator
-        run: |
-          ARGS="--cwd ${{ github.workspace }}"
-          if [[ "${{ github.event.inputs.refresh }}" == "true" ]]; then
-            ARGS="$ARGS --refresh-existing"
-          fi
-          cd /tmp/ai-os && node --import tsx/esm src/generate.ts $ARGS
-
-      - name: Commit generated context
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/
-          git diff --staged --quiet || git commit -m "chore: update AI OS context artifacts [skip ci]"
-          git push
-WORKFLOW_EOF
-
-  echo -e "  ${GREEN}✓ GitHub Actions workflow created: .github/workflows/ai-os-install.yml${RESET}"
-  echo ""
-  echo -e "  ${BOLD}Next steps:${RESET}"
-  echo -e "  1. Commit and push: ${CYAN}git add .github/workflows/ai-os-install.yml && git commit -m 'chore: add AI OS workflow' && git push${RESET}"
-  echo -e "  2. Go to GitHub → Actions → 'AI OS — Generate Context' → Run workflow"
-  echo -e "  3. AI OS will run in GitHub Actions and commit the generated context back to your repo"
-  echo ""
-  echo -e "  ${YELLOW}Tip:${RESET} You can also trigger automatically on push to main/master when package.json or other manifests change."
-  echo ""
-  exit 0
-fi
-
-
+# ── Uninstall mode (#12) ─────────────────────────────────────────────────────
 if [[ "$UNINSTALL" == "true" ]]; then
   MANIFEST="$TARGET_DIR/.github/ai-os/manifest.json"
   if [[ ! -f "$MANIFEST" ]]; then
@@ -243,15 +158,98 @@ echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 # ── Check Node.js version ────────────────────────────────────────────────────
 if ! command -v node &>/dev/null; then
   echo -e "  ${YELLOW}⚠ Node.js not found.${RESET}"
-  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for local install.${RESET}"
-  echo -e "  ${YELLOW}  Your project does NOT need Node.js — AI OS is the only dependency.${RESET}"
+  echo -e "  ${YELLOW}  AI OS uses Node.js >= 20 for its generator and MCP server.${RESET}"
+  echo -e "  ${YELLOW}  Your project does NOT need Node.js — this is only an AI OS prerequisite.${RESET}"
   echo ""
-  echo -e "  ${BOLD}Option 1:${RESET} Install Node.js from ${CYAN}https://nodejs.org${RESET} then re-run this script."
-  echo -e "  ${BOLD}Option 2 (no Node.js required):${RESET} Use the GitHub Actions installer:"
-  echo -e "    ${CYAN}bash install.sh --github-actions${RESET}"
-  echo -e "    Then commit and push the generated workflow, and trigger it from GitHub Actions."
-  echo ""
-  exit 1
+
+  # ── Docker fallback ──────────────────────────────────────────────────────
+  if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
+    echo -e "  ${CYAN}→ Docker detected — running AI OS generator via Docker...${RESET}"
+    echo ""
+
+    DOCKER_IMAGE="node:20-alpine"
+    AIOS_ABS="$(cd "$AIOS_SRC" && pwd)"
+
+    # Run the generator inside a Docker container, mounting both the AI OS source
+    # and the target repo into the container. Pass through args unchanged.
+    DOCKER_GEN_ARGS=("--cwd" "/target")
+    if [[ "$REFRESH_EXISTING" == "true" ]]; then
+      DOCKER_GEN_ARGS+=("--refresh-existing")
+    fi
+
+    docker run --rm \
+      -v "$AIOS_ABS:/ai-os:ro" \
+      -v "$TARGET_DIR:/target" \
+      -w /ai-os \
+      "$DOCKER_IMAGE" \
+      sh -c "npm install --prefer-offline --no-audit --no-fund --silent 2>/dev/null; \
+             node --import tsx/esm src/generate.ts ${DOCKER_GEN_ARGS[*]}"
+
+    # For the MCP server, install a Docker-based launcher so users without Node.js
+    # can still run the MCP server through Docker.
+    MCP_SERVER_DEST="$TARGET_DIR/.ai-os/mcp-server"
+    mkdir -p "$MCP_SERVER_DEST"
+
+    AIOS_VERSION_RAW="$(grep '"version"' "$AIOS_SRC/package.json" | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')"
+
+    cat > "$MCP_SERVER_DEST/index.js" << EOFMCP
+#!/usr/bin/env node
+// AI OS MCP Server — Docker launcher
+// Generated when Node.js was unavailable at install time.
+// This script always delegates to Docker to run the MCP server.
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const root = process.env.AI_OS_ROOT ?? process.cwd();
+// Pass args as separate array elements to avoid shell injection via argument concatenation
+const serverArgs = ['--import', 'tsx/esm', 'index.ts', ...process.argv.slice(2)];
+const result = spawnSync('docker', [
+  'run', '--rm', '-i',
+  '-v', root + ':/repo',
+  '-v', currentDir + ':/mcp-server:ro',
+  '-e', 'AI_OS_ROOT=/repo',
+  '-w', '/mcp-server',
+  'node:20-alpine',
+  'sh', '-c',
+  'npm install --prefer-offline --no-audit --no-fund --silent 2>/dev/null && exec node ' + serverArgs.map(a => JSON.stringify(a)).join(' '),
+], { stdio: 'inherit' });
+process.exit(result.status ?? 1);
+EOFMCP
+    chmod +x "$MCP_SERVER_DEST/index.js"
+
+    # Copy MCP server source files to the destination
+    MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
+    cp -r "$MCP_SERVER_SRC"/* "$MCP_SERVER_DEST/"
+
+    cat > "$MCP_SERVER_DEST/runtime-manifest.json" << EOF
+{
+  "name": "ai-os-mcp-server",
+  "runtime": "docker",
+  "sourceVersion": "$AIOS_VERSION_RAW",
+  "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+
+    echo ""
+    echo -e "  ${GREEN}${BOLD}✅ AI OS installed via Docker!${RESET}"
+    echo ""
+    echo -e "  ${BOLD}Note:${RESET} The MCP server will start via Docker on each Copilot request."
+    echo -e "  ${BOLD}Tip:${RESET}  Install Node.js >= 20 for faster MCP server startup: https://nodejs.org"
+    echo ""
+    echo -e "  ${BOLD}Next steps:${RESET}"
+    echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
+    echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
+    echo -e "  3. MCP tools are registered in ${CYAN}.github/copilot/mcp.json${RESET}"
+    echo -e "  4. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
+    echo ""
+    exit 0
+  else
+    echo -e "  ${RED}✗ Neither Node.js nor Docker found.${RESET}"
+    echo -e "  ${YELLOW}  Option 1 (recommended): Install Node.js >= 20: https://nodejs.org${RESET}"
+    echo -e "  ${YELLOW}  Option 2: Install Docker and re-run: https://docs.docker.com/get-docker/${RESET}"
+    exit 1
+  fi
 fi
 
 NODE_VERSION=$(node --version | sed 's/v//')

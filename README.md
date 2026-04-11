@@ -15,16 +15,16 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
 | Manifest             | `.github/ai-os/manifest.json`                     | Tracks every file AI OS owns — used for pruning stale artifacts on refresh         |
+| Session context card | `.github/COPILOT_CONTEXT.md`                      | Compact ≤500-token quick-start card with MUST-ALWAYS rules and build commands      |
 
-AI OS now also initializes a persistent repository memory store at `.github/ai-os/memory/` so agents can retain verified facts and decisions across long sessions.
-Detection is package-aware for monorepos/mixed stacks, and MCP context tools provide parity coverage for Node, Java/Spring, Python, Go, and Rust projects.
+AI OS initializes a persistent repository memory store at `.github/ai-os/memory/` so agents can retain verified facts and decisions across long sessions. The memory file is pre-seeded with high-priority session preamble entries that anchor the agent's workflow on every new conversation.
 
-Generated instructions also enforce strict behavior guardrails: ambiguity-first clarification (no improvisation), explicit allowed/forbidden action boundaries, and an escalation flow for underspecified requests.
+Generated instructions include a **Session Restart Protocol** and **Persistent Rules** block that survive context window resets, eliminating the most common Copilot drift complaint in large codebases.
 
 ## Requirements
 
-- Node.js ≥ 20 (for local install only — your project does NOT need Node.js)
 - Git
+- **Node.js ≥ 20** *or* **Docker** (AI OS prerequisite — your project does not need Node.js)
 - GitHub Copilot (VS Code extension)
 - Node.js ≥ 20 *(auto-installed by `bootstrap.sh` if missing — your project does not need Node.js)*
 
@@ -46,31 +46,21 @@ With options:
 curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash -s -- --refresh-existing --install-skill-creator --install-find-skills
 ```
 
-### GitHub Actions install (no Node.js required)
+### Docker install (no Node.js required)
 
-If you don't have Node.js locally, AI OS can install itself via GitHub Actions:
-
-```bash
-# 1. Clone AI OS (only to get install.sh — or use the bootstrap URL below)
-git clone --depth 1 https://github.com/marinvch/ai-os.git /tmp/ai-os
-
-# 2. Generate the GitHub Actions workflow (pure bash — no Node.js needed)
-bash /tmp/ai-os/install.sh --github-actions --cwd /path/to/your/repo
-
-# 3. Commit and push the workflow
-cd /path/to/your/repo
-git add .github/workflows/ai-os-install.yml
-git commit -m "chore: add AI OS generator workflow"
-git push
-
-# 4. Go to GitHub → Actions → "AI OS — Generate Context" → Run workflow
-```
-
-Or with the bootstrap URL (fully remote, no clone required):
+If Node.js is not installed on your machine, AI OS can run entirely via Docker:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash -s -- --github-actions
+# The installer auto-detects Docker when Node.js is absent.
+# Or build and run directly:
+docker build -t ai-os https://github.com/marinvch/ai-os.git
+docker run --rm -v "$(pwd):/repo" ai-os
+
+# With refresh:
+docker run --rm -v "$(pwd):/repo" ai-os --refresh-existing
 ```
+
+The generated MCP server will also use a Docker-based launcher so Copilot tools work without a local Node.js installation. Install Node.js ≥ 20 for faster MCP server startup.
 
 ### Local clone workflow
 
@@ -132,6 +122,43 @@ Notes:
 - This install path is Git Bash-friendly and does not require Python.
 - The install command above targets GitHub Copilot only.
 - Some advanced `skill-creator` benchmarking workflows use Python scripts, but core skill usage/install does not.
+
+## Session continuity (Phase C)
+
+AI OS v0.5.0 adds first-class support for surviving context window resets:
+
+### Session Restart Protocol
+
+Every generated `copilot-instructions.md` now includes a **Session Restart Protocol** that explicitly directs Copilot to:
+
+1. Call `get_session_context` at the start of every new conversation → reloads MUST-ALWAYS rules, build commands, and key file locations
+2. Call `get_repo_memory` → reloads durable architectural decisions
+3. Call `get_conventions` → reloads coding rules
+
+### Persistent Rules block
+
+A **Persistent Rules** section is auto-generated in `copilot-instructions.md` from detected repo structure:
+- Shared component paths → `ALWAYS use components from <path>`
+- Utility directories → `NEVER create utilities outside <path>`
+- API/route directories → `ALWAYS add routes inside <path>`
+- Type definition directories → `ALWAYS define shared types in <path>`
+- TypeScript detected → `NEVER use any as a type`
+- Test framework detected → `ALWAYS place tests in <testDir>`
+
+User-authored rules survive refreshes — edit `persistentRules` in `.github/ai-os/config.json`:
+
+```json
+{
+  "persistentRules": [
+    "ALWAYS use the design system tokens from src/tokens.ts",
+    "NEVER call external APIs directly from React components — use hooks in src/hooks/"
+  ]
+}
+```
+
+### Session preamble in memory
+
+`memory.jsonl` is pre-seeded with high-priority session preamble entries so every new agent session is anchored with the workflow protocol, even before any user-authored memories exist.
 
 ## What gets detected
 

@@ -59,18 +59,35 @@ See `.github/ai-os/context/stack.md` for the complete dependency inventory.
 
 ---
 
+## Session Restart Protocol
+
+**Start every new conversation by calling `get_session_context` before any task.**
+
+When starting a new conversation or after a context window reset:
+1. Call `get_session_context` → reloads MUST-ALWAYS rules, build commands, and key file locations
+2. Call `get_repo_memory` → reloads durable architectural decisions and constraints
+3. Call `get_conventions` → reloads coding rules and naming conventions
+
+---
+
 ## MCP Tools Available
 
 Use these tools to fetch project-specific context on demand:
 
-- `search_codebase` — semantic search over project files
-- `get_project_structure` — annotated file tree
-- `get_conventions` — this project's coding conventions
-- `get_stack_info` — full dependency/tech stack details
-- `get_file_summary` — key exports and purpose of a specific file
-- `get_memory_guidelines` — repository memory protocol
-- `get_repo_memory` — retrieve durable project memory
-- `remember_repo_fact` — persist verified project facts
+| Tool | When to call |
+|---|---|
+| `get_session_context` | **At the start of every new conversation** — reloads MUST-ALWAYS rules and key context |
+| `search_codebase` | To find symbols, patterns, or usage examples |
+| `get_project_structure` | Before exploring unfamiliar directories |
+| `get_conventions` | Before writing new code in this repo |
+| `get_stack_info` | Before suggesting any library or tooling changes |
+| `get_file_summary` | To understand a file without reading it fully |
+| `get_impact_of_change` | **Before editing any file** — shows blast radius |
+| `get_dependency_chain` | To trace how a module connects to the rest of the code |
+| `get_env_vars` | Before referencing environment variables |
+| `get_memory_guidelines` | At task start to load memory safety protocol |
+| `get_repo_memory` | Before coding to recover durable repo decisions and constraints |
+| `remember_repo_fact` | After substantial tasks to persist verified learnings |
 
 ---
 

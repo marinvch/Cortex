@@ -441,7 +441,35 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): st
 
   const memoryFilePath = track(path.join(memoryDir, 'memory.jsonl'));
   if (!fs.existsSync(memoryFilePath)) {
-    fs.writeFileSync(memoryFilePath, '', 'utf-8');
+    // C3 — Write high-priority session preamble entries so every new agent session
+    // is anchored with the core workflow even before any user-authored memories exist.
+    const preambleEntries = [
+      {
+        id: 'session-preamble-start-protocol',
+        title: 'Session Start Protocol',
+        content: 'On every new conversation, call get_session_context first to reload MUST-ALWAYS rules, build commands, and key file locations. Then call get_repo_memory and get_conventions before starting any task.',
+        category: 'conventions',
+        tags: 'session,always,startup',
+        priority: 'high',
+        createdAt: new Date().toISOString(),
+        source: 'ai-os-installer',
+      },
+      {
+        id: 'session-preamble-memory-workflow',
+        title: 'Memory Workflow — Always-On',
+        content: 'Before implementation: call get_repo_memory with a relevant query. After a substantial task: call remember_repo_fact only for verified durable findings. Never store speculative, duplicate, or transient notes.',
+        category: 'conventions',
+        tags: 'memory,always,session',
+        priority: 'high',
+        createdAt: new Date().toISOString(),
+        source: 'ai-os-installer',
+      },
+    ];
+    fs.writeFileSync(
+      memoryFilePath,
+      preambleEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
+      'utf-8',
+    );
   }
 
   // Build and persist dependency graph for AI impact analysis

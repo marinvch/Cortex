@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
-import { writeIfChanged, applyFallbacks } from './utils.js';
+import { writeIfChanged, applyFallbacks, resolveTemplatesDir } from './utils.js';
 
 const AGENTS_DIR = '.github/agents';
 
@@ -78,7 +78,8 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
   const keyFilesList = toBulletList(keyFiles.map(file => `\`${file}\``));
   const keyEntryPoints = toBulletList((keyFiles.slice(0, 4).length > 0 ? keyFiles.slice(0, 4) : ['src/']).map(file => `\`${file}\``));
 
-  const templateDir = new URL('../templates/agents', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+  const runtimeDir = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'));
+  const templateDir = path.join(resolveTemplatesDir(runtimeDir), 'agents');
 
   // 1. Repo initializer — always
   specs.push({
@@ -264,7 +265,8 @@ function buildSequentialAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec
   const frameworkLabel = frameworks[0] ?? primaryLang;
   const frameworkList = frameworks.length > 0 ? frameworks.join(', ') : primaryLang;
 
-  const templateDir = new URL('../templates/agents', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+  const runtimeDir = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'));
+  const templateDir = path.join(resolveTemplatesDir(runtimeDir), 'agents');
 
   const stackSummary = [
     `Primary language: ${primaryLang}`,

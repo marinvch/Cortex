@@ -138,3 +138,25 @@ export function toRepoRelative(absPath: string, outputDir: string): string {
 export function sha256(content: string): string {
   return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
+
+// ── Template resolution (source vs bundled runtime) ─────────────────────────
+
+/**
+ * Resolve the templates root directory for both source (`src/generators/*`)
+ * and bundled (`bundle/generate.js`) runtime layouts.
+ */
+export function resolveTemplatesDir(runtimeDir: string): string {
+  const candidates = [
+    path.join(runtimeDir, '..', 'templates'),
+    path.join(runtimeDir, '..', 'src', 'templates'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+  }
+
+  // Return the primary candidate so callers can produce deterministic errors.
+  return candidates[0];
+}

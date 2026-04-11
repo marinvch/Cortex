@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack } from '../types.js';
-import { writeIfChanged } from './utils.js';
+import { writeIfChanged, resolveTemplatesDir } from './utils.js';
 
 const SKILLS_DIR = '.github/copilot/skills';
 const AGENTS_SKILLS_DIR = '.agents/skills';
@@ -20,7 +20,7 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
   const hasExpressLike = frameworks.some(f => ['express', 'fastify', 'hono', 'koa', 'nest'].some(x => f.includes(x)));
   const hasJavaSpringLike = frameworks.some(f => ['spring', 'quarkus', 'micronaut', 'java'].some(x => f.includes(x)));
 
-  const templateDir = new URL('../templates/skills', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+  const templateDir = path.join(resolveTemplatesDir(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'))), 'skills');
 
   const add = (template: string, output: string, replacements: Record<string, string> = {}) => {
     const templatePath = path.join(templateDir, template);

@@ -2,10 +2,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DetectedStack, AiOsConfig } from '../types.js';
-import { writeIfChanged } from './utils.js';
+import { writeIfChanged, resolveTemplatesDir } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const TEMPLATES_DIR = path.join(__dirname, '..', 'templates');
+const TEMPLATES_DIR = resolveTemplatesDir(__dirname);
 
 function readTemplate(name: string): string {
   try {

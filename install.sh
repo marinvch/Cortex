@@ -18,7 +18,7 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.6.11           ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v0.6.12           ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""

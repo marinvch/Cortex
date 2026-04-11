@@ -1,6 +1,6 @@
 # AI OS
 
-> **Portable GitHub Copilot context engine v0.6.11** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
+> **Portable GitHub Copilot context engine v0.6.12** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
 
 ## What it does
 
@@ -20,6 +20,19 @@ AI OS now also initializes a persistent repository memory store at `.github/ai-o
 Detection is package-aware for monorepos/mixed stacks, and MCP context tools provide parity coverage for Node, Java/Spring, Python, Go, and Rust projects.
 
 Generated instructions also enforce strict behavior guardrails: ambiguity-first clarification (no improvisation), explicit allowed/forbidden action boundaries, and an escalation flow for underspecified requests.
+
+## Support this project
+
+If AI OS helps your workflow and you want to support development, you can sponsor via Revolut:
+
+- [Support with 1 EUR](https://revolut.me/YOUR_REVOLUT_TAG)
+- [Support with 10 EUR](https://revolut.me/YOUR_REVOLUT_TAG)
+- [Support with 100 EUR](https://revolut.me/YOUR_REVOLUT_TAG)
+
+Setup once:
+
+1. Replace `YOUR_REVOLUT_TAG` in `.github/FUNDING.yml` and this section with your real Revolut tag.
+2. Commit and push — GitHub will show a **Sponsor** button on the repository.
 
 ## Requirements
 
@@ -324,4 +337,3 @@ npm run validate
 ## License
 
 MIT
-

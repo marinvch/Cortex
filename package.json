@@ -19,6 +19,8 @@
     "update": "tsx src/generate.ts --update",
     "check-hygiene": "tsx src/generate.ts --check-hygiene",
     "validate": "tsx src/validation/regression.ts",
+    "validate:fast": "npm run build && npm run test",
+    "validate:full": "npm run build && npm run test && npm run validate",
     "test": "vitest run",
     "test:watch": "vitest",
     "install:skill-creator": "npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y",

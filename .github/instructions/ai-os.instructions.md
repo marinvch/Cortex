@@ -39,6 +39,21 @@ The following MCP tools are available — use them proactively:
 3. MUST persist only verified durable facts and decisions at the end of the task.
 4. Do not store speculative, duplicate, or transient status notes in repo memory.
 
+## Token Budget Optimization
+
+1. Prefer targeted context retrieval before full-file reads:
+	- use `get_file_summary`, `search_codebase`, `get_project_structure`, and `get_dependency_chain` first
+	- read full files only when implementation requires exact edits
+2. Keep tool output compact:
+	- avoid broad scans when a path-scoped query can answer the task
+	- prefer focused commands and narrow globs to reduce noise
+3. Minimize repeated context:
+	- do not restate unchanged plans or previously reported findings
+	- report deltas only after each action batch
+4. Use staged validation to reduce wasted cycles:
+	- run fast checks first (`build`/unit tests)
+	- run full regression only when code paths or release-critical files changed
+
 ## Strict Behavior Guardrails
 
 1. MUST ask clarifying questions first when a request is ambiguous, underspecified, or outside described scope.

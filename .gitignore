@@ -1,5 +1,8 @@
 node_modules/
-dist/
+# dist/ is excluded EXCEPT the pre-built MCP server bundle that ships with AI OS
+dist/*.js.map
+dist/generate.js
+dist/generate.d.ts
 *.js.map
 *.d.ts
 tsconfig.tsbuildinfo
@@ -7,6 +10,3 @@ tsconfig.tsbuildinfo
 # Test output — generated files written to target repos
 .ai-os/
 .github/copilot-instructions.md.bak
-
-# AI OS (generated — safe to commit except node_modules)
-.ai-os/mcp-server/node_modules

@@ -9,6 +9,7 @@
  *
  * Protocol: JSON-RPC over stdio (Copilot SDK protocol v3)
  * Requirements: Node.js >= 20
+ * Note: @github/copilot-sdk is only required when passing --copilot flag
  */
 import path from 'node:path';
 import { getAllMcpTools, type McpToolDefinition } from './tool-definitions.js';
@@ -158,14 +159,22 @@ async function main(): Promise<void> {
     throw new Error(`MCP runtime validation failed: ${health.messages.join(' | ')}`);
   }
 
-  // Dynamically import @github/copilot-sdk — only required in --copilot mode.
-  // The standalone mode (default) works with Node.js only — no npm deps needed.
-  let CopilotClient: typeof import('@github/copilot-sdk').CopilotClient;
+  let CopilotClient: new () => {
+    start(): Promise<void>;
+    stop(): Promise<void>;
+    createSession(opts: {
+      model: string;
+      tools: Array<{ name: string; description: string; parameters: Record<string, unknown>; handler: (input: ToolInput) => Promise<string> }>;
+      onPermissionRequest: (_req: unknown) => { kind: 'approved' };
+    }): Promise<{ disconnect(): Promise<void> }>;
+  };
+
   try {
-    ({ CopilotClient } = await import('@github/copilot-sdk'));
+    const sdk = await import('@github/copilot-sdk');
+    CopilotClient = sdk.CopilotClient;
   } catch {
-    console.error('[ai-os:mcp] @github/copilot-sdk is not available.');
-    console.error('[ai-os:mcp] Omit --copilot to use standalone JSON-RPC mode (no extra dependencies needed).');
+    console.error('[ai-os:mcp] @github/copilot-sdk is required for --copilot mode but was not found.');
+    console.error('[ai-os:mcp] Install it or omit --copilot to use standalone JSON-RPC mode.');
     process.exit(1);
   }
 

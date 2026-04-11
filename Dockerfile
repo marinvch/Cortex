@@ -1,32 +1,42 @@
-# AI OS Generator — Docker image
-# Allows running AI OS on repositories without Node.js installed on the host.
+# =============================================================================
+#  AI OS — Docker image for running the generator without a local Node.js install
 #
-# Build:
-#   docker build -t ai-os .
+#  Usage (from inside the target repository):
+#    docker build -t ai-os https://github.com/marinvch/ai-os.git#master
+#    docker run --rm -v "$(pwd):/repo" ai-os --cwd /repo
 #
-# Run (from inside the target repository):
-#   docker run --rm -v "$(pwd):/repo" ai-os
-#
-# Run with refresh:
-#   docker run --rm -v "$(pwd):/repo" ai-os --refresh-existing
+#  Or via bootstrap.sh (detects Docker automatically when Node.js is absent).
+# =============================================================================
 
-FROM node:20-alpine
+FROM node:20-slim AS builder
 
-LABEL org.opencontainers.image.title="AI OS"
-LABEL org.opencontainers.image.description="Portable GitHub Copilot context engine — scan any repo and generate optimized AI context"
-LABEL org.opencontainers.image.source="https://github.com/marinvch/ai-os"
-LABEL org.opencontainers.image.version="0.5.0"
+WORKDIR /app
 
-WORKDIR /ai-os
+# Copy package files and install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci --prefer-offline --no-audit --no-fund
 
-# Copy source and install dependencies
-COPY package*.json ./
-RUN npm install --prefer-offline --no-audit --no-fund --silent
-
+# Copy source
 COPY . .
 
-# The target repository is expected to be mounted at /repo
+# Build TypeScript and create the bundled MCP server
+RUN npm run build && node scripts/bundle.mjs
+
+# ── Runtime image ────────────────────────────────────────────────────────────
+FROM node:20-slim
+
+WORKDIR /app
+
+# Copy built artifacts and runtime dependencies only
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/scripts ./scripts
+
+# /repo is mounted by the caller (the target repository)
 VOLUME ["/repo"]
 
-ENTRYPOINT ["node", "--import", "tsx/esm", "src/generate.ts", "--cwd", "/repo"]
-CMD []
+ENTRYPOINT ["node", "--import", "tsx/esm", "src/generate.ts"]
+CMD ["--cwd", "/repo"]

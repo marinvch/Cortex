@@ -53,5 +53,5 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, _option
   const toolsJsonPath = path.join(outputDir, '.github', 'ai-os', 'tools.json');
   writeIfChanged(toolsJsonPath, JSON.stringify(allTools, null, 2));
 
-  return [mcpJsonPath, mcpLocalJsonPath, toolsJsonPath];
+  return [mcpJsonPath, toolsJsonPath];
 }

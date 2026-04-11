@@ -161,7 +161,7 @@ async function main(): Promise<void> {
 
   let CopilotClient: new () => {
     start(): Promise<void>;
-    stop(): Promise<void>;
+    stop(): Promise<unknown>;
     createSession(opts: {
       model: string;
       tools: Array<{ name: string; description: string; parameters: Record<string, unknown>; handler: (input: ToolInput) => Promise<string> }>;

@@ -109,6 +109,26 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
     add('java-spring.md', 'ai-os-java-spring-patterns.md');
   }
 
+  // Remix
+  if (frameworks.some(f => f.includes('remix'))) {
+    add('remix.md', 'ai-os-remix-patterns.md');
+  }
+
+  // SolidJS
+  if (frameworks.some(f => f.includes('solid'))) {
+    add('solid.md', 'ai-os-solid-patterns.md');
+  }
+
+  // Bun
+  if (frameworks.some(f => f === 'bun') || packages.includes('bun')) {
+    add('bun.md', 'ai-os-bun-patterns.md');
+  }
+
+  // Deno
+  if (frameworks.some(f => f === 'deno')) {
+    add('deno.md', 'ai-os-deno-patterns.md');
+  }
+
   return specs;
 }
 

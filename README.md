@@ -25,8 +25,7 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Requirements
 
-**To install AI OS on a repo (one-time setup):**
-- Node.js ≥ 20 (needed only by the installer and local MCP server)
+- Node.js ≥ 20 **or** Bun ≥ 1.0 (AI OS installer only — your project does not need either)
 - Git
 - GitHub Copilot (VS Code extension)
 
@@ -104,7 +103,8 @@ Notes:
 ## What gets detected
 
 - **Languages:** TypeScript, JavaScript, Python, Go, Rust, Java, C#, PHP, Ruby, Swift, Kotlin, and 30+ more
-- **Frameworks:** Next.js, React, Vue, Angular, Svelte, Express, FastAPI, Django, Spring Boot, .NET, Laravel, Rails, Nuxt, Astro, Remix, tRPC, Prisma, and more
+- **Frameworks:** Next.js, React, Vue, Angular, Svelte, Express, FastAPI, Django, Spring Boot, .NET, Laravel, Rails, Nuxt, Astro, Remix, SolidJS, tRPC, Prisma, and more
+- **Runtimes:** Bun (`bun.lockb` or `packageManager: bun@…`), Deno (`deno.json` / `deno.jsonc` / `deno.lock`)
 - **Tools:** ESLint, Prettier, Vitest, Jest, Playwright, Docker, GitHub Actions, package managers
 
 ## Generated MCP tools

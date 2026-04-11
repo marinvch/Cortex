@@ -2,7 +2,7 @@
 # =============================================================================
 #  AI OS Installer — Portable Copilot Context Engine
 #  Install on any repository with: bash install.sh
-#  Requires: git bash, Node.js >= 20
+#  Requires: git bash, Node.js >= 20 or Bun >= 1.0
 # =============================================================================
 
 set -euo pipefail
@@ -19,7 +19,7 @@ RESET='\033[0m'
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
 echo -e "${CYAN}${BOLD}  ║          AI OS  v0.4.1            ║${RESET}"
-echo -e "${CYAN}${BOLD}  ║  Requires: Git Bash + Node.js ≥20 ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
 
@@ -95,6 +95,27 @@ TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 echo -e "  ${BOLD}Target repository:${RESET} $TARGET_DIR"
 echo ""
 
+# ── Detect available JavaScript runtime (early, used by uninstall too) ───────
+RUNTIME_CMD=""
+RUNTIME_NAME=""
+USE_BUN=false
+
+if command -v node &>/dev/null; then
+  _NODE_VER=$(node --version 2>/dev/null | sed 's/v//')
+  _NODE_MAJOR=$(echo "$_NODE_VER" | cut -d. -f1)
+  if [[ "$_NODE_MAJOR" -ge 20 ]]; then
+    RUNTIME_CMD="node"
+    RUNTIME_NAME="Node.js v$_NODE_VER"
+  fi
+fi
+
+if [[ -z "$RUNTIME_CMD" ]] && command -v bun &>/dev/null; then
+  _BUN_VER=$(bun --version 2>/dev/null || echo "unknown")
+  RUNTIME_CMD="bun"
+  RUNTIME_NAME="Bun v$_BUN_VER"
+  USE_BUN=true
+fi
+
 # ── Uninstall mode (#12) ─────────────────────────────────────────────────────
 if [[ "$UNINSTALL" == "true" ]]; then
   MANIFEST="$TARGET_DIR/.github/ai-os/manifest.json"
@@ -109,11 +130,16 @@ if [[ "$UNINSTALL" == "true" ]]; then
   echo -e "  ${CYAN}$MANIFEST${RESET}"
   echo ""
 
-  # Read manifest file list with node (guaranteed to be available at this point)
-  FILES=$(node -e "
-    const m = JSON.parse(require('fs').readFileSync('$MANIFEST', 'utf8'));
-    console.log(m.files.join('\\n'));
-  " 2>/dev/null || true)
+  # Read manifest file list with available runtime
+  FILES=""
+  if [[ -n "$RUNTIME_CMD" ]]; then
+    FILES=$($RUNTIME_CMD -e "
+      const m = JSON.parse(require('fs').readFileSync('$MANIFEST', 'utf8'));
+      console.log(m.files.join('\\n'));
+    " 2>/dev/null || true)
+  elif command -v python3 &>/dev/null; then
+    FILES=$(python3 -c "import json; m=json.load(open('$MANIFEST')); print('\n'.join(m.get('files', [])))" 2>/dev/null || true)
+  fi
 
   if [[ -z "$FILES" ]]; then
     echo -e "  ${YELLOW}  Manifest is empty or unreadable — nothing to remove.${RESET}"
@@ -168,35 +194,39 @@ fi
 
 echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 
-# ── Check Node.js version ────────────────────────────────────────────────────
-if ! command -v node &>/dev/null; then
-  echo -e "  ${RED}✗ Node.js not found.${RESET}"
-  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for its generator and MCP server.${RESET}"
-  echo -e "  ${YELLOW}  This is an AI OS requirement, not your project dependency.${RESET}"
-  echo -e "  ${YELLOW}  After AI OS is set up you can remove Node.js if not needed.${RESET}"
-  echo -e "  ${YELLOW}  Install: https://nodejs.org${RESET}"
+# ── Verify runtime is available ───────────────────────────────────────────────
+if [[ -z "$RUNTIME_CMD" ]]; then
+  # Check for old Node.js and give specific message
+  if command -v node &>/dev/null; then
+    NODE_VERSION=$(node --version | sed 's/v//')
+    echo -e "  ${RED}✗ Node.js $NODE_VERSION is too old. Need >= 20.${RESET}"
+    echo -e "  ${YELLOW}  AI OS uses Node.js for its generator and MCP server (not your project).${RESET}"
+    echo -e "  ${YELLOW}  Update Node.js: https://nodejs.org${RESET}"
+    echo -e "  ${YELLOW}  Or install Bun:  https://bun.sh${RESET}"
+  else
+    echo -e "  ${RED}✗ No supported JavaScript runtime found.${RESET}"
+    echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 or Bun to run its generator and MCP server.${RESET}"
+    echo -e "  ${YELLOW}  Your project does NOT need either — only the AI OS installer does.${RESET}"
+    echo -e "  ${YELLOW}  Install Node.js: https://nodejs.org${RESET}"
+    echo -e "  ${YELLOW}  Install Bun:     https://bun.sh${RESET}"
+  fi
   exit 1
 fi
 
-NODE_VERSION=$(node --version | sed 's/v//')
-NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+echo -e "  ${GREEN}✓ Runtime: $RUNTIME_NAME${RESET}"
 
-if [[ "$NODE_MAJOR" -lt 20 ]]; then
-  echo -e "  ${RED}✗ Node.js $NODE_VERSION is too old. Need >= 20.${RESET}"
-  echo -e "  ${YELLOW}  AI OS uses Node.js for its generator and MCP server (not your project).${RESET}"
-  echo -e "  ${YELLOW}  Update: https://nodejs.org${RESET}"
-  exit 1
-fi
-
-echo -e "  ${GREEN}✓ Node.js v$NODE_VERSION${RESET}"
-
-# ── Check npm ────────────────────────────────────────────────────────────────
-if ! command -v npm &>/dev/null; then
+# ── Check package manager ────────────────────────────────────────────────────
+PKG_CMD=""
+if [[ "$USE_BUN" == "true" ]]; then
+  PKG_CMD="bun"
+  echo -e "  ${GREEN}✓ Package manager: bun${RESET}"
+elif command -v npm &>/dev/null; then
+  PKG_CMD="npm"
+  echo -e "  ${GREEN}✓ npm $(npm --version)${RESET}"
+else
   echo -e "  ${RED}✗ npm not found. Install Node.js from https://nodejs.org${RESET}"
   exit 1
 fi
-
-echo -e "  ${GREEN}✓ npm $(npm --version)${RESET}"
 echo ""
 
 # ── Optional: install anthropics skill-creator via Skills CLI ───────────────
@@ -240,14 +270,14 @@ if [[ ! -f "$AIOS_SRC/package.json" ]]; then
   exit 1
 fi
 
-AIOS_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];const pkg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(pkg.version||'0.0.0');" "$AIOS_SRC/package.json")"
+AIOS_VERSION="$($RUNTIME_CMD -e "const fs=require('fs');const p=process.argv[1];const pkg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(pkg.version||'0.0.0');" "$AIOS_SRC/package.json")"
 
 # Check new config path first (.github/ai-os/config.json), fall back to legacy (.ai-os/config.json)
 _CORE_CONFIG_PATH="$TARGET_DIR/.github/ai-os/config.json"
 if [[ ! -f "$_CORE_CONFIG_PATH" ]]; then
   _CORE_CONFIG_PATH="$TARGET_DIR/.ai-os/config.json"
 fi
-INSTALLED_CORE_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const cfg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(cfg.version||''));}catch{process.stdout.write('');}" "$_CORE_CONFIG_PATH")"
+INSTALLED_CORE_VERSION="$($RUNTIME_CMD -e "const fs=require('fs');const p=process.argv[1];try{const cfg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(cfg.version||''));}catch{process.stdout.write('');}" "$_CORE_CONFIG_PATH")"
 
 echo -e "  ${CYAN}→ Startup diagnostics:${RESET}"
 echo -e "  ${CYAN}  AI OS source version:${RESET} v${AIOS_VERSION}"
@@ -260,7 +290,14 @@ echo ""
 
 # ── Install ai-os dependencies (into scripts/ai-os/node_modules) ─────────────
 echo -e "  ${CYAN}→ Installing dependencies...${RESET}"
-(cd "$AIOS_SRC" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
+if [[ "$USE_BUN" == "true" ]]; then
+  if ! (cd "$AIOS_SRC" && bun install --frozen-lockfile 2>&1 | tail -3); then
+    echo -e "  ${YELLOW}⚠ bun install --frozen-lockfile failed (lockfile may be outdated). Retrying without frozen lockfile...${RESET}"
+    (cd "$AIOS_SRC" && bun install 2>&1 | tail -3)
+  fi
+else
+  (cd "$AIOS_SRC" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
+fi
 echo -e "  ${GREEN}✓ Dependencies ready${RESET}"
 echo ""
 
@@ -280,10 +317,14 @@ if [[ "$REFRESH_EXISTING" == "true" ]]; then
   GEN_ARGS+=(--refresh-existing)
 fi
 
-# Detect absolute node path so mcp.json uses a stable path (fixes nvm/fnm/asdf on Windows/macOS)
-NODE_ABS_PATH="$(command -v node)"
+# Detect absolute runtime path so mcp.json uses a stable path (fixes nvm/fnm/asdf on Windows/macOS)
+NODE_ABS_PATH="$(command -v $RUNTIME_CMD)"
 
-(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+if [[ "$USE_BUN" == "true" ]]; then
+  (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" bun run src/generate.ts "${GEN_ARGS[@]}")
+else
+  (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+fi
 
 # ── Copy MCP server to target repo ──────────────────────────────────────────
 MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
@@ -295,7 +336,7 @@ INSTALLED_MCP_VERSION=""
 MCP_SKIP_REASON=""
 
 if [[ -f "$MCP_RUNTIME_MANIFEST" ]]; then
-  INSTALLED_MCP_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const m=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(m.sourceVersion||''));}catch{process.stdout.write('');}" "$MCP_RUNTIME_MANIFEST")"
+  INSTALLED_MCP_VERSION="$($RUNTIME_CMD -e "const fs=require('fs');const p=process.argv[1];try{const m=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(m.sourceVersion||''));}catch{process.stdout.write('');}" "$MCP_RUNTIME_MANIFEST")"
 
   if [[ "$INSTALLED_MCP_VERSION" == "$AIOS_VERSION" && "$REFRESH_EXISTING" != "true" && -f "$MCP_SERVER_DEST/index.js" ]]; then
     MCP_INSTALL_REQUIRED=false
@@ -351,7 +392,11 @@ if [[ "$MCP_INSTALL_REQUIRED" == "true" ]]; then
 EOF
 
     # Install MCP server dependencies
-    (cd "$MCP_SERVER_DEST" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
+    if [[ "$USE_BUN" == "true" ]]; then
+      (cd "$MCP_SERVER_DEST" && bun install 2>&1 | tail -3)
+    else
+      (cd "$MCP_SERVER_DEST" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
+    fi
 
     # Create a portable runtime launcher
     cat > "$MCP_SERVER_DEST/index.js" << 'EOF'
@@ -390,11 +435,11 @@ EOF
 }
 EOF
 
-  if AI_OS_ROOT="$TARGET_DIR" node "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
+  if AI_OS_ROOT="$TARGET_DIR" $RUNTIME_CMD "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓ MCP server installed and healthy${RESET}"
   else
     echo -e "  ${RED}✗ MCP server healthcheck failed after install.${RESET}"
-    echo -e "  ${YELLOW}  Run with diagnostics:${RESET} AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck"
+    echo -e "  ${YELLOW}  Run with diagnostics:${RESET} AI_OS_MCP_DEBUG=1 $RUNTIME_CMD .ai-os/mcp-server/index.js --healthcheck"
     exit 1
   fi
 else

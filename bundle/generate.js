@@ -1422,7 +1422,7 @@ function getMcpToolsForStack(stack) {
 }
 
 // src/generators/mcp.ts
-function writeMcpServerConfig(outputDir) {
+function writeMcpServerConfig(outputDir, options) {
   const mcpJsonPath = path7.join(outputDir, ".vscode", "mcp.json");
   let existing = {};
   if (fs7.existsSync(mcpJsonPath)) {
@@ -1434,9 +1434,9 @@ function writeMcpServerConfig(outputDir) {
   const servers = existing.servers ?? {};
   servers["ai-os"] = {
     type: "stdio",
-    command: "node",
-    args: ["${workspaceFolder}/.ai-os/mcp-server/index.js"],
-    env: {
+    command: options?.command ?? "node",
+    args: options?.args ?? ["${workspaceFolder}/.ai-os/mcp-server/index.js"],
+    env: options?.env ?? {
       AI_OS_ROOT: "${workspaceFolder}"
     }
   };
@@ -3794,7 +3794,13 @@ function installLocalMcpRuntime(cwd, verbose) {
     sourceVersion: getToolVersion(),
     installedAt: (/* @__PURE__ */ new Date()).toISOString()
   }, null, 2), "utf-8");
-  writeMcpServerConfig(cwd);
+  writeMcpServerConfig(cwd, {
+    command: nodePath,
+    args: [runtimeEntry],
+    env: {
+      AI_OS_ROOT: cwd
+    }
+  });
   ensureGitignoreEntry(cwd, ".ai-os/mcp-server/node_modules");
   ensureGitignoreEntry(cwd, ".github/ai-os/memory/.memory.lock");
   const legacyLocalMcp = path17.join(cwd, ".github", "copilot", "mcp.local.json");

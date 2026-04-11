@@ -343,7 +343,7 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
     detail: mcpConfig.servers === undefined ? 'missing "servers" top-level key' : undefined,
   });
 
-  // The ai-os server entry should be present with ${workspaceFolder} variables
+  // The ai-os server entry should be present with a concrete runtime launch.
   const serverEntry = mcpConfig.servers?.['ai-os'];
   results.push({
     fixture: fixtureName,
@@ -355,9 +355,19 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   if (serverEntry) {
     results.push({
       fixture: fixtureName,
-      check: 'ai-os server uses portable command',
-      passed: serverEntry.command === 'node',
-      detail: serverEntry.command !== 'node' ? `command should be "node", got "${serverEntry.command}"` : undefined,
+      check: 'ai-os server has launch command',
+      passed: typeof serverEntry.command === 'string' && serverEntry.command.length > 0,
+      detail: !serverEntry.command ? 'command is missing' : undefined,
+    });
+    results.push({
+      fixture: fixtureName,
+      check: 'ai-os server args point to runtime entry',
+      passed: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js')),
+      detail: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js'))
+        ? undefined
+        : Array.isArray(serverEntry.args)
+          ? `args do not include .ai-os runtime entry: ${JSON.stringify(serverEntry.args)}`
+          : 'args are missing',
     });
   }
 

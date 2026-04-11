@@ -461,8 +461,9 @@ else
 fi
 
 # Write VS Code MCP config so Copilot can launch the local ai-os runtime.
-# Uses the official .vscode/mcp.json format with "servers" top-level key
-# and ${workspaceFolder} variable for portability across machines.
+# Uses the official .vscode/mcp.json format with "servers" top-level key.
+# We write the resolved Node executable path to avoid PATH/alias issues when
+# VS Code launches the MCP server directly.
 VSCODE_MCP_CONFIG="$TARGET_DIR/.vscode/mcp.json"
 mkdir -p "$TARGET_DIR/.vscode"
 
@@ -475,12 +476,12 @@ mkdir -p "$TARGET_DIR/.vscode"
   if (!cfg.servers) cfg.servers = {};
   cfg.servers['ai-os'] = {
     type: 'stdio',
-    command: 'node',
-    args: ['\${workspaceFolder}/.ai-os/mcp-server/index.js'],
-    env: { AI_OS_ROOT: '\${workspaceFolder}' }
+    command: process.argv[2],
+    args: [process.argv[3]],
+    env: { AI_OS_ROOT: process.argv[4] }
   };
   fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
-" "$VSCODE_MCP_CONFIG"
+" "$VSCODE_MCP_CONFIG" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" "$TARGET_DIR"
 echo -e "  ${GREEN}✓ Wrote MCP config: .vscode/mcp.json${RESET}"
 
 # Clean up legacy .github/copilot/mcp.local.json if present

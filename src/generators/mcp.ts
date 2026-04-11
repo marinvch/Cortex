@@ -11,6 +11,12 @@ interface McpServerConfig {
   env?: Record<string, string>;
 }
 
+interface WriteMcpServerConfigOptions {
+  command?: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+
 interface GenerateMcpOptions {
   refreshExisting?: boolean;
 }
@@ -20,7 +26,7 @@ interface GenerateMcpOptions {
  * Preserves any other servers the user may have configured.
  * Uses the official VS Code MCP config format: `"servers"` top-level key.
  */
-export function writeMcpServerConfig(outputDir: string): string {
+export function writeMcpServerConfig(outputDir: string, options?: WriteMcpServerConfigOptions): string {
   const mcpJsonPath = path.join(outputDir, '.vscode', 'mcp.json');
   let existing: Record<string, unknown> = {};
   if (fs.existsSync(mcpJsonPath)) {
@@ -32,9 +38,9 @@ export function writeMcpServerConfig(outputDir: string): string {
   const servers = (existing.servers ?? {}) as Record<string, McpServerConfig>;
   servers['ai-os'] = {
     type: 'stdio',
-    command: 'node',
-    args: ['${workspaceFolder}/.ai-os/mcp-server/index.js'],
-    env: {
+    command: options?.command ?? 'node',
+    args: options?.args ?? ['${workspaceFolder}/.ai-os/mcp-server/index.js'],
+    env: options?.env ?? {
       AI_OS_ROOT: '${workspaceFolder}',
     },
   };
@@ -50,8 +56,8 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, _option
   const allTools = getMcpToolsForStack(stack);
 
   // Write the official VS Code MCP config (.vscode/mcp.json) with the ai-os
-  // server entry. Uses "servers" top-level key and ${workspaceFolder} variable
-  // so the config is portable and committable to VCS.
+  // server entry. installLocalMcpRuntime() rewrites this entry with the resolved
+  // local Node executable path for reliable startup, especially on Windows.
   writeMcpServerConfig(outputDir);
 
   // Write tool definitions for reference

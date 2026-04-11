@@ -257,10 +257,16 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     installedAt: new Date().toISOString(),
   }, null, 2), 'utf-8');
 
-  // Write the official VS Code MCP config (.vscode/mcp.json) using the
-  // "servers" top-level key and ${workspaceFolder} variable for portability.
-  // This merge-writes so user-added MCP servers are preserved.
-  writeMcpServerConfig(cwd);
+  // Write the official VS Code MCP config (.vscode/mcp.json) with the resolved
+  // Node executable path. This avoids shell alias/PATH issues when VS Code
+  // launches the MCP server directly, especially on Windows.
+  writeMcpServerConfig(cwd, {
+    command: nodePath,
+    args: [runtimeEntry],
+    env: {
+      AI_OS_ROOT: cwd,
+    },
+  });
 
   ensureGitignoreEntry(cwd, '.ai-os/mcp-server/node_modules');
   ensureGitignoreEntry(cwd, '.github/ai-os/memory/.memory.lock');

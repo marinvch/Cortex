@@ -199,11 +199,23 @@ npm test
 npm run validate
 ```
 
+## Automated Releases
+
+AI OS uses `.github/workflows/release-automation.yml` to automate release tagging and GitHub releases on pushes to `dev`.
+
+- **Versioning policy:** Conventional Commits
+  - `feat:` → minor bump
+  - `fix:`, `chore:`, `refactor:`, `docs:`, `test:` → patch bump
+  - `BREAKING CHANGE` or `type!:` → major bump
+- **PR dry run:** Pull requests to `dev` run a release dry-run and print the planned next tag.
+- **Safe no-op:** If no new commits since the last tag, the workflow skips release creation.
+- **Release notes:** Generated via GitHub release notes plus a commit-SHA summary section.
+
 ### --verbose flag
 
 Pass `--verbose` (or `-v`) to see per-file decisions during generation:
 
-```
+```text
   ✏️  write   /repo/.github/copilot-instructions.md
   ⏭️  skip    /repo/.github/ai-os/context/stack.md  (unchanged)
   🗑️  prune   .github/copilot/skills/ai-os-old-skill.md  (stale — not in current generation)

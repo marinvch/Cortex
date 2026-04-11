@@ -100,6 +100,8 @@ export interface AiOsConfig {
   recommendations: boolean;
   /** Generate COPILOT_CONTEXT.md session context card (default: true) */
   sessionContextCard: boolean;
+  /** Generate weekly update-check workflow in target repos (default: true) */
+  updateCheckEnabled: boolean;
   /**
    * Persistent rules injected verbatim into copilot-instructions.md and
    * preserved through refreshes. Edit here to survive regeneration.

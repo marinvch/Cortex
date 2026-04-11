@@ -10,6 +10,7 @@ const DEFAULT_AI_OS_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projec
   pathSpecificInstructions: true,
   recommendations: true,
   sessionContextCard: true,
+  updateCheckEnabled: true,
   persistentRules: [],
   exclude: ['node_modules', 'dist', '.next', '.nuxt', 'build', 'out'],
 };
@@ -493,6 +494,7 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): st
     pathSpecificInstructions: existingConfig?.pathSpecificInstructions ?? DEFAULT_AI_OS_CONFIG.pathSpecificInstructions,
     recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
     sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,
+    updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_AI_OS_CONFIG.updateCheckEnabled,
     persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude,
   };

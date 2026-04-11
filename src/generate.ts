@@ -8,6 +8,7 @@ import { generateContextDocs, readAiOsConfig } from './generators/context-docs.j
 import { generateAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
 import { generatePrompts } from './generators/prompts.js';
+import { generateWorkflows } from './generators/workflows.js';
 import { getMcpToolsForStack } from './mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from './updater.js';
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
@@ -185,6 +186,7 @@ async function main(): Promise<void> {
   const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const workflowFiles = generateWorkflows(cwd, { config: config ?? undefined });
   await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
 
   // Phase 3: Recommendations (if enabled in config, default: true)
@@ -206,6 +208,7 @@ async function main(): Promise<void> {
     ...agentFiles,
     ...skillFiles,
     ...promptFiles,
+    ...workflowFiles,
     ...recommendationFiles,
   ];
   const toRel = (p: string) => path.relative(cwd, p).replace(/\\/g, '/');

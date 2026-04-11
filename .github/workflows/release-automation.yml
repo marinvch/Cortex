@@ -1,25 +1,35 @@
 name: Automated Release
 
 on:
-  pull_request:
-    branches: [dev]
   push:
-    branches: [dev]
+    branches: [master]
+  workflow_run:
+    workflows: ["AI OS Validate"]
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: read
-  checks: read
 
 jobs:
-  release:
+  noop-on-push:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Skip direct push release
+        run: echo "Release is gated by AI OS Validate workflow_run; push event is a no-op."
+
+  release:
+    if: github.event_name != 'push' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Determine release plan
         id: plan
@@ -28,10 +38,13 @@ jobs:
           set -euo pipefail
           git fetch --tags --force
 
+          TARGET_SHA="${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}"
+          echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
+
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "last_tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
 
-          RANGE="$LAST_TAG..HEAD"
+          RANGE="$LAST_TAG..$TARGET_SHA"
           COMMITS=$(git rev-list --count "$RANGE" 2>/dev/null || echo "0")
           echo "commit_count=$COMMITS" >> "$GITHUB_OUTPUT"
 
@@ -66,104 +79,54 @@ jobs:
           echo "next_tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
           echo "release_needed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Dry run (PR validation)
-        if: github.event_name == 'pull_request'
+      - name: Show plan
         run: |
-          echo "Release dry run"
+          echo "Release plan"
+          echo "Target SHA: ${{ steps.plan.outputs.target_sha }}"
           echo "Last tag: ${{ steps.plan.outputs.last_tag }}"
           echo "Commits since last tag: ${{ steps.plan.outputs.commit_count }}"
           echo "Bump: ${{ steps.plan.outputs.bump }}"
           echo "Next tag: ${{ steps.plan.outputs.next_tag }}"
-          if [[ "${{ steps.plan.outputs.release_needed }}" != "true" ]]; then
-            echo "No releasable changes detected."
-          fi
-
-      - name: Setup Node.js (release gate)
-        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies (release gate)
-        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
-        run: npm ci
-
-      - name: Validate build and tests (release gate)
-        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
-        run: npm run validate:fast
-
-      - name: Require AI OS Validate success (release gate)
-        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          TARGET_CHECK="validate-full"
-          MAX_ATTEMPTS=40
-          SLEEP_SECONDS=15
-
-          echo "Waiting for check run '$TARGET_CHECK' on commit ${{ github.sha }}"
-
-          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-            RESULT=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
-              --jq '.check_runs[] | select(.name == "'"$TARGET_CHECK"'") | "\(.status) \(.conclusion // \"null\")"' || true)
-
-            if [[ -z "$RESULT" ]]; then
-              echo "Attempt $attempt/$MAX_ATTEMPTS: check run '$TARGET_CHECK' not found yet."
-            else
-              STATUS=$(echo "$RESULT" | awk '{print $1}')
-              CONCLUSION=$(echo "$RESULT" | awk '{print $2}')
-              echo "Attempt $attempt/$MAX_ATTEMPTS: status=$STATUS conclusion=$CONCLUSION"
-
-              if [[ "$STATUS" == "completed" && "$CONCLUSION" == "success" ]]; then
-                echo "Required validation check passed."
-                exit 0
-              fi
-
-              if [[ "$STATUS" == "completed" && "$CONCLUSION" != "success" ]]; then
-                echo "Required validation check failed with conclusion '$CONCLUSION'. Blocking release."
-                exit 1
-              fi
-            fi
-
-            sleep "$SLEEP_SECONDS"
-          done
-
-          echo "Timed out waiting for '$TARGET_CHECK' to complete successfully. Blocking release."
-          exit 1
 
       - name: Create tag and GitHub release
-        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
+        if: steps.plan.outputs.release_needed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           NEXT_TAG="${{ steps.plan.outputs.next_tag }}"
+          TARGET_SHA="${{ steps.plan.outputs.target_sha }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
             echo "Tag $NEXT_TAG already exists. Skipping release."
             exit 0
           fi
 
-          git tag -a "$NEXT_TAG" -m "Release $NEXT_TAG"
+          git tag -a "$NEXT_TAG" "$TARGET_SHA" -m "Release $NEXT_TAG"
           git push origin "$NEXT_TAG"
 
-          NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes -f tag_name="$NEXT_TAG" -f target_commitish="${{ github.sha }}" --jq .body)
-          COMMITS=$(git log --format='- %h %s' "${{ steps.plan.outputs.last_tag }}..HEAD")
+          NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes -f tag_name="$NEXT_TAG" -f target_commitish="$TARGET_SHA" --jq .body)
+          COMMITS=$(git log --format='- %h %s' "${{ steps.plan.outputs.last_tag }}..$TARGET_SHA")
+
+          RELEASE_NOTES_FILE=$(mktemp)
+          {
+            echo "$NOTES"
+            echo
+            echo "---"
+            echo
+            echo "## Commits in this release"
+            echo "$COMMITS"
+          } > "$RELEASE_NOTES_FILE"
 
           gh release create "$NEXT_TAG" \
             --title "$NEXT_TAG" \
-            --notes "$NOTES
-
----
-
-## Commits in this release
-$COMMITS"
+            --notes-file "$RELEASE_NOTES_FILE"
 
       - name: No release needed
-        if: github.event_name == 'push' && steps.plan.outputs.release_needed != 'true'
+        if: steps.plan.outputs.release_needed != 'true'
         run: echo "No releasable changes detected; skipping release."
+

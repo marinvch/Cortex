@@ -466,7 +466,7 @@ mkdir -p "$TARGET_DIR/.github/copilot"
 cat > "$MCP_LOCAL_CONFIG" << EOF
 {
   "version": 1,
-  "servers": {
+  "mcpServers": {
     "ai-os": {
       "type": "stdio",
       "command": "$NODE_ABS_PATH",

@@ -12,14 +12,14 @@ interface McpServerConfig {
 
 /**
  * Shape of the committed `.github/copilot/mcp.json` file.
- * The `servers` field is intentionally absent — machine-specific node paths
+ * The `mcpServers` field is intentionally empty — machine-specific node paths
  * must not be committed to VCS (they break the Copilot cloud agent and differ
  * across developer machines / nvm-managed installs).
  * The local server entry is written to `mcp.local.json` by install.sh.
  */
 interface CommittedMcpJson {
   version: number;
-  servers?: Record<string, McpServerConfig>;
+  mcpServers: Record<string, McpServerConfig>;
 }
 
 /**
@@ -29,9 +29,9 @@ interface CommittedMcpJson {
  */
 interface LocalMcpJson {
   version: number;
-  /** servers is intentionally omitted from the committed mcp.json — it lives only
+  /** mcpServers is intentionally omitted from the committed mcp.json — it lives only
    *  in the gitignored mcp.local.json so the Copilot cloud agent is never broken. */
-  servers?: Record<string, McpServerConfig>;
+  mcpServers?: Record<string, McpServerConfig>;
 }
 
 interface GenerateMcpOptions {
@@ -42,10 +42,10 @@ interface GenerateMcpOptions {
 export function generateMcpJson(stack: DetectedStack, outputDir: string, _options?: GenerateMcpOptions): string[] {
   const allTools = getMcpToolsForStack(stack);
 
-  // Committed file — no servers block so VCS-hosted copies and the Copilot cloud agent
+  // Committed file — empty mcpServers block so VCS-hosted copies and the Copilot cloud agent
   // never try to spawn a stdio process that relies on local runtime artifacts.
   // The local server entry is written separately by install.sh into mcp.local.json.
-  const committedConfig: CommittedMcpJson = { version: 1 };
+  const committedConfig: CommittedMcpJson = { version: 1, mcpServers: {} };
   const mcpJsonPath = path.join(outputDir, '.github', 'copilot', 'mcp.json');
   writeIfChanged(mcpJsonPath, JSON.stringify(committedConfig, null, 2));
 

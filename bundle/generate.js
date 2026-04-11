@@ -1423,7 +1423,7 @@ function getMcpToolsForStack(stack) {
 // src/generators/mcp.ts
 function generateMcpJson(stack, outputDir, _options) {
   const allTools = getMcpToolsForStack(stack);
-  const committedConfig = { version: 1 };
+  const committedConfig = { version: 1, mcpServers: {} };
   const mcpJsonPath = path7.join(outputDir, ".github", "copilot", "mcp.json");
   writeIfChanged(mcpJsonPath, JSON.stringify(committedConfig, null, 2));
   const toolsJsonPath = path7.join(outputDir, ".github", "ai-os", "tools.json");
@@ -3766,7 +3766,7 @@ function installLocalMcpRuntime(cwd, verbose) {
   }, null, 2), "utf-8");
   fs15.writeFileSync(localMcpConfig, JSON.stringify({
     version: 1,
-    servers: {
+    mcpServers: {
       "ai-os": {
         type: "stdio",
         command: nodePath,

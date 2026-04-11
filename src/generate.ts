@@ -261,7 +261,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
 
   fs.writeFileSync(localMcpConfig, JSON.stringify({
     version: 1,
-    servers: {
+    mcpServers: {
       'ai-os': {
         type: 'stdio',
         command: nodePath,

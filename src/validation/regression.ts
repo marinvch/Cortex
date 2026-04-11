@@ -312,7 +312,7 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
 function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]): void {
   // The MCP server runtime (index.js) is deployed by install.sh, not by `generate`.
   // The regression suite only runs `generate`, so we verify committed MCP metadata.
-  // Since v0.4.1+, committed mcp.json intentionally has NO servers block.
+  // Since v0.4.1+, committed mcp.json intentionally has NO local ai-os server entry.
   // Tool definitions are written to .github/ai-os/tools.json.
   const mcpJsonPath = path.join(dir, '.github/copilot/mcp.json');
   if (!fs.existsSync(mcpJsonPath)) {
@@ -326,7 +326,7 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   }
   results.push({ fixture: fixtureName, check: 'mcp.json present', passed: true });
 
-  let mcpConfig: { version?: number; servers?: Record<string, { command?: string; args?: string[] }> };
+  let mcpConfig: { version?: number; mcpServers?: Record<string, { command?: string; args?: string[] }> };
   try {
     mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')) as typeof mcpConfig;
   } catch {
@@ -344,14 +344,13 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   });
 
   // Committed mcp.json should not include local-runtime servers entries.
-  const serverEntry = mcpConfig.servers?.['ai-os'];
+  const serverEntry = mcpConfig.mcpServers?.['ai-os'];
   if (serverEntry !== undefined) {
-    const argsIncludeIndexJs = serverEntry.args?.some(a => a.includes('index.js')) ?? false;
     results.push({
       fixture: fixtureName,
       check: 'mcp.json does not include local ai-os server entry',
       passed: false,
-      detail: `Unexpected servers['ai-os'] in committed mcp.json: ${JSON.stringify(serverEntry)}`,
+      detail: `Unexpected mcpServers['ai-os'] in committed mcp.json: ${JSON.stringify(serverEntry)}`,
     });
   } else {
     // Expected committed shape.

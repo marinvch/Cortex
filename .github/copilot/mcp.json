@@ -1,17 +1,5 @@
 {
   "version": 1,
-  "servers": {
-    "ai-os": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        ".ai-os/mcp-server/index.js"
-      ],
-      "env": {
-        "AI_OS_ROOT": "."
-      }
-    }
-  },
   "tools": [
     {
       "name": "search_codebase",
@@ -32,9 +20,7 @@
             "description": "Whether search is case-sensitive (default: false)"
           }
         },
-        "required": [
-          "query"
-        ]
+        "required": ["query"]
       }
     },
     {
@@ -81,9 +67,7 @@
             "description": "Path to the file relative to project root"
           }
         },
-        "required": [
-          "filePath"
-        ]
+        "required": ["filePath"]
       }
     },
     {
@@ -118,9 +102,7 @@
             "description": "File path relative to project root (e.g. \"src/types.ts\")"
           }
         },
-        "required": [
-          "filePath"
-        ]
+        "required": ["filePath"]
       }
     },
     {
@@ -134,9 +116,7 @@
             "description": "File path relative to project root (e.g. \"src/utils/auth.ts\")"
           }
         },
-        "required": [
-          "filePath"
-        ]
+        "required": ["filePath"]
       }
     },
     {
@@ -199,10 +179,7 @@
             "description": "Optional comma-separated tags"
           }
         },
-        "required": [
-          "title",
-          "content"
-        ]
+        "required": ["title", "content"]
       }
     }
   ]

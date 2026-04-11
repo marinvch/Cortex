@@ -157,79 +157,11 @@ echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 
 # ── Check Node.js version ────────────────────────────────────────────────────
 if ! command -v node &>/dev/null; then
-  echo -e "  ${YELLOW}⚠ Node.js not found. Attempting auto-install...${RESET}"
-  echo -e "  ${YELLOW}  (AI OS needs Node.js >= 20 — your project does NOT need it.)${RESET}"
-  echo ""
-
-  _NODE_INSTALLED=false
-
-  # Try nvm (most common on macOS/Linux/WSL)
-  if [[ -f "$HOME/.nvm/nvm.sh" ]]; then
-    # shellcheck disable=SC1090
-    source "$HOME/.nvm/nvm.sh"
-    if nvm install --lts 2>/dev/null && nvm use --lts 2>/dev/null; then
-      _NODE_INSTALLED=true
-    fi
-  fi
-
-  # Try fnm
-  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v fnm &>/dev/null; then
-    if fnm install --lts 2>/dev/null && fnm use lts-latest 2>/dev/null; then
-      _NODE_INSTALLED=true
-    fi
-  fi
-
-  # Try volta
-  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v volta &>/dev/null; then
-    if volta install node 2>/dev/null; then
-      _NODE_INSTALLED=true
-    fi
-  fi
-
-  # Try Homebrew (macOS)
-  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v brew &>/dev/null; then
-    echo -e "  ${CYAN}→ Installing Node.js via Homebrew...${RESET}"
-    if brew install node 2>/dev/null; then
-      _NODE_INSTALLED=true
-    fi
-  fi
-
-  # Try apt-get (Ubuntu/Debian/WSL)
-  # Note: download setup script first, then execute — output is shown so the user can review it.
-  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v apt-get &>/dev/null; then
-    echo -e "  ${CYAN}→ Installing Node.js via apt-get (NodeSource LTS)...${RESET}"
-    echo -e "  ${YELLOW}  Downloading NodeSource setup script from https://deb.nodesource.com/setup_lts.x${RESET}"
-    _NODESOURCE_SCRIPT="$(mktemp /tmp/nodesource-setup-XXXXXX.sh)"
-    if curl -fsSL https://deb.nodesource.com/setup_lts.x -o "$_NODESOURCE_SCRIPT" \
-        && sudo -E bash "$_NODESOURCE_SCRIPT" \
-        && sudo apt-get install -y nodejs; then
-      _NODE_INSTALLED=true
-    fi
-    rm -f "$_NODESOURCE_SCRIPT"
-  fi
-
-  # Try winget (Windows Git Bash / MSYS2)
-  if [[ "$_NODE_INSTALLED" == "false" ]] && command -v winget &>/dev/null; then
-    echo -e "  ${CYAN}→ Installing Node.js via winget...${RESET}"
-    if winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements 2>/dev/null; then
-      _NODE_INSTALLED=true
-    fi
-  fi
-
-  if [[ "$_NODE_INSTALLED" == "false" ]] || ! command -v node &>/dev/null; then
-    echo -e "  ${RED}✗ Node.js auto-install failed.${RESET}"
-    echo -e "  ${YELLOW}  AI OS requires Node.js >= 20. Install it, then re-run install.sh.${RESET}"
-    echo -e "  ${YELLOW}  Quick install options:${RESET}"
-    echo -e "  ${YELLOW}    macOS (Homebrew): brew install node${RESET}"
-    echo -e "  ${YELLOW}    Ubuntu/Debian:    curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs${RESET}"
-    echo -e "  ${YELLOW}    Windows (winget): winget install OpenJS.NodeJS.LTS${RESET}"
-    echo -e "  ${YELLOW}    nvm (any):        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.0/install.sh | bash && nvm install --lts${RESET}"
-    echo -e "  ${YELLOW}    Any platform:     https://nodejs.org${RESET}"
-    echo ""
-    exit 1
-  fi
-
-  echo -e "  ${GREEN}✓ Node.js installed via auto-install${RESET}"
+  echo -e "  ${RED}✗ Node.js not found.${RESET}"
+  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for its generator and MCP server.${RESET}"
+  echo -e "  ${YELLOW}  This is an AI OS prerequisite — your project does NOT need Node.js.${RESET}"
+  echo -e "  ${YELLOW}  Install: https://nodejs.org${RESET}"
+  exit 1
 fi
 
 NODE_VERSION=$(node --version | sed 's/v//')
@@ -312,11 +244,26 @@ else
 fi
 echo ""
 
-# ── Install ai-os dependencies (into scripts/ai-os/node_modules) ─────────────
+# ── Install ai-os dependencies ────────────────────────────────────────────────
 echo -e "  ${CYAN}→ Installing dependencies...${RESET}"
 (cd "$AIOS_SRC" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
 echo -e "  ${GREEN}✓ Dependencies ready${RESET}"
 echo ""
+
+# ── Bundle MCP server (if dist/server.js is missing or stale) ─────────────────
+# The bundled single-file server deploys to target repos without any node_modules.
+BUNDLED_SERVER="$AIOS_SRC/dist/server.js"
+if [[ ! -f "$BUNDLED_SERVER" ]]; then
+  echo -e "  ${CYAN}→ Building bundled MCP server (one-time step)...${RESET}"
+  (cd "$AIOS_SRC" && node scripts/bundle.mjs 2>&1)
+  if [[ ! -f "$BUNDLED_SERVER" ]]; then
+    echo -e "  ${RED}✗ Bundle build failed — dist/server.js not produced.${RESET}"
+    echo -e "  ${YELLOW}  Run manually: cd ${AIOS_SRC} && npm run bundle${RESET}"
+    exit 1
+  fi
+  echo -e "  ${GREEN}✓ Bundled MCP server ready${RESET}"
+  echo ""
+fi
 
 # ── Compile TypeScript (if dist/ is stale or missing) ────────────────────────
 GENERATE_SCRIPT="$AIOS_SRC/src/generate.ts"
@@ -380,65 +327,15 @@ if [[ "$MCP_INSTALL_REQUIRED" == "true" ]]; then
     echo -e "  ${CYAN}  Runtime install:${RESET} v${AIOS_VERSION}"
   fi
 
-  # Prefer bundled single-file server (Phase F) if available; fall back to source+tsx launcher
-  BUNDLED_SERVER="$AIOS_SRC/dist/server.js"
-  if [[ -f "$BUNDLED_SERVER" ]]; then
-    echo -e "  ${CYAN}  Using pre-bundled server (no node_modules required)${RESET}"
-    cp "$BUNDLED_SERVER" "$MCP_SERVER_DEST/index.js"
-    chmod +x "$MCP_SERVER_DEST/index.js"
-  else
-    # Fall back: copy MCP server source files + install deps
-    cp -r "$MCP_SERVER_SRC"/* "$MCP_SERVER_DEST/"
-
-    # Create a runtime package.json for the MCP server in the target repo
-    cat > "$MCP_SERVER_DEST/package.json" << 'EOF'
-{
-  "name": "ai-os-mcp-server",
-  "version": "0.1.0",
-  "type": "module",
-  "main": "index.js",
-  "dependencies": {
-    "@github/copilot-sdk": "^0.1.8",
-    "tsx": "^4.19.0"
-  }
-}
-EOF
-
-    # Install MCP server dependencies
-    (cd "$MCP_SERVER_DEST" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
-
-    # Create a portable runtime launcher
-    cat > "$MCP_SERVER_DEST/index.js" << 'EOF'
-#!/usr/bin/env node
-// AI OS MCP Server — auto-generated entry point
-// This file is generated by ai-os install. Do not edit manually.
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
-
-const currentFile = fileURLToPath(import.meta.url);
-const currentDir = path.dirname(currentFile);
-const indexTs = path.join(currentDir, 'index.ts');
-
-const result = spawnSync(process.execPath, ['--import', 'tsx/esm', indexTs, ...process.argv.slice(2)], {
-  cwd: currentDir,
-  stdio: 'inherit',
-  env: { ...process.env, AI_OS_ROOT: process.env.AI_OS_ROOT ?? process.cwd() },
-});
-
-if (result.error) {
-  console.error('[ai-os:mcp] Failed to launch TypeScript runtime:', result.error.message);
-  process.exit(1);
-}
-
-process.exit(result.status ?? 1);
-EOF
-  fi
+  # Deploy the pre-built bundled single-file server — no node_modules in the target repo.
+  echo -e "  ${CYAN}  Deploying bundled server (no node_modules required)${RESET}"
+  cp "$BUNDLED_SERVER" "$MCP_SERVER_DEST/index.js"
+  chmod +x "$MCP_SERVER_DEST/index.js"
 
   cat > "$MCP_RUNTIME_MANIFEST" << EOF
 {
   "name": "ai-os-mcp-server",
-  "runtime": "$([ -f "$BUNDLED_SERVER" ] && echo "bundled" || echo "tsx")",
+  "runtime": "bundled",
   "sourceVersion": "$AIOS_VERSION",
   "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
@@ -493,19 +390,21 @@ if [[ "$CLEAN_UPDATE" == "true" ]]; then
   echo ""
 fi
 
-# ── Add .ai-os to .gitignore (optional) ───────────────────────────────────────
+# ── Add .ai-os to .gitignore ──────────────────────────────────────────────────
 GITIGNORE="$TARGET_DIR/.gitignore"
 if [[ -f "$GITIGNORE" ]]; then
+  # Keep legacy node_modules entries for backward compat (older installs may have them).
+  # New installs use the bundled server and never produce node_modules in the target repo.
   if ! grep -q "^\.ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo "" >> "$GITIGNORE"
-    echo "# AI OS (generated — safe to commit except node_modules)" >> "$GITIGNORE"
+    echo "# AI OS (generated — safe to commit)" >> "$GITIGNORE"
     echo ".ai-os/mcp-server/node_modules" >> "$GITIGNORE"
     echo -e "  ${GREEN}✓ Updated .gitignore${RESET}"
   fi
   if ! grep -q "^\.github/ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/mcp-server/node_modules" >> "$GITIGNORE"
   fi
-  # #10 — ignore the memory lock file so it never appears as an untracked change
+  # ignore the memory lock file so it never appears as an untracked change
   if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/memory/.memory.lock" >> "$GITIGNORE"
   fi

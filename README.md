@@ -23,7 +23,7 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Requirements
 
-- Node.js ≥ 20 *(auto-installed by `install.sh` if absent — see below)*
+- Node.js ≥ 20 (only needed on the machine running the installer — your target project does **not** need to be a Node.js project)
 - Git
 - GitHub Copilot (VS Code extension)
 - Node.js ≥ 20 *(auto-installed by `bootstrap.sh` if missing — your project does not need Node.js)*
@@ -155,6 +155,7 @@ Safe to run multiple times:
 - **manifest tracking**: `.github/ai-os/manifest.json` records every file AI OS owns after each run
 - **pruning**: in `--refresh-existing` mode, files in the previous manifest that are no longer generated (e.g. a skill for a framework you removed) are deleted automatically
 - MCP runtime writes `.ai-os/mcp-server/runtime-manifest.json` and is health-checked after install
+- MCP server is deployed as a **bundled single-file** (`dist/server.js`) — no `node_modules` are installed in the target repo
 
 To also update existing generated agents, skills, prompts, and MCP config from latest templates:
 
@@ -168,6 +169,11 @@ To force pruning even without a full refresh:
 To completely remove all AI OS artifacts tracked in the manifest:
 
 - `bash install.sh --uninstall`
+
+To check for orphaned or stale artifacts without modifying anything:
+
+- `npm run check-hygiene -- --cwd /path/to/target-repo`
+- `node .ai-os/mcp-server/index.js --healthcheck`
 
 If MCP runtime diagnostics are needed:
 
@@ -193,6 +199,10 @@ npm run generate -- --cwd /path/to/target-repo --apply
 npm run generate:refresh -- --cwd /path/to/target-repo
 # Prune stale artifacts without full refresh
 npm run generate -- --cwd /path/to/target-repo --prune
+# Scan for orphaned files or dump artifacts (no writes)
+npm run check-hygiene -- --cwd /path/to/target-repo
+# Build the bundled MCP server (dist/server.js)
+npm run bundle
 # Run regression suite (fixture matrix for all supported stacks)
 npm run validate
 ```

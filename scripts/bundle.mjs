@@ -21,9 +21,10 @@ await build({
   format: 'esm',
   outfile: path.join(root, 'dist', 'server.js'),
   banner: { js: '#!/usr/bin/env node\n// AI OS MCP Server — bundled single-file deployment' },
+  // @github/copilot-sdk is loaded dynamically only when --copilot flag is used;
+  // mark it external so it does not bloat the bundle. The server works without it
+  // in the default standalone JSON-RPC mode.
   external: ['@github/copilot-sdk'],
-  // Mark built-in Node.js modules as external
-  packages: 'external',
   minify: false,
   sourcemap: false,
   logLevel: 'info',

@@ -1,14 +1,15 @@
-#!/usr/bin/env node
 /**
  * AI OS MCP Server — powered by GitHub Copilot SDK
  *
  * This server runs as a subprocess when GitHub Copilot calls any registered tool.
  * It provides project-specific context tools to minimize token usage and hallucinations.
  *
+ * Default mode: standalone JSON-RPC over stdio (no npm dependencies required).
+ * Pass --copilot to use the Copilot SDK client integration (requires @github/copilot-sdk).
+ *
  * Protocol: JSON-RPC over stdio (Copilot SDK protocol v3)
- * Requirements: Node.js >= 20, @github/copilot-sdk
+ * Requirements: Node.js >= 20
  */
-import { CopilotClient } from '@github/copilot-sdk';
 import path from 'node:path';
 import { getAllMcpTools, type McpToolDefinition } from './tool-definitions.js';
 import {
@@ -147,6 +148,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  // ── Copilot SDK mode (--copilot flag) ─────────────────────────────────────
   const health = validateRuntimeEnvironment();
   for (const message of health.messages) {
     logDiagnostic(message);
@@ -154,6 +156,17 @@ async function main(): Promise<void> {
 
   if (!health.ok) {
     throw new Error(`MCP runtime validation failed: ${health.messages.join(' | ')}`);
+  }
+
+  // Dynamically import @github/copilot-sdk — only required in --copilot mode.
+  // The standalone mode (default) works with Node.js only — no npm deps needed.
+  let CopilotClient: typeof import('@github/copilot-sdk').CopilotClient;
+  try {
+    ({ CopilotClient } = await import('@github/copilot-sdk'));
+  } catch {
+    console.error('[ai-os:mcp] @github/copilot-sdk is not available.');
+    console.error('[ai-os:mcp] Omit --copilot to use standalone JSON-RPC mode (no extra dependencies needed).');
+    process.exit(1);
   }
 
   const client = new CopilotClient();

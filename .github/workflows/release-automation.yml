@@ -97,6 +97,9 @@ jobs:
           NEXT_TAG="${{ steps.plan.outputs.next_tag }}"
           TARGET_SHA="${{ steps.plan.outputs.target_sha }}"
 
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
             echo "Tag $NEXT_TAG already exists. Skipping release."
             exit 0

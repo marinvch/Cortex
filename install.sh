@@ -20,7 +20,7 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.4.1            ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v0.5.0            ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
@@ -201,41 +201,15 @@ echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 USE_DOCKER_FALLBACK=false
 
 if ! command -v node &>/dev/null; then
-  echo -e "  ${YELLOW}⚠ Node.js not found on this machine.${RESET}"
-  echo -e "  ${YELLOW}  AI OS uses Node.js for its generator and MCP server.${RESET}"
-  echo -e "  ${YELLOW}  Your project does NOT need to be a Node.js project.${RESET}"
-
-  if command -v docker &>/dev/null; then
-    echo -e "  ${CYAN}→ Docker detected — will use Docker to run the AI OS generator.${RESET}"
-    echo -e "  ${YELLOW}  Note: MCP server will NOT be installed (requires a host Node.js binary).${RESET}"
-    echo -e "  ${YELLOW}  Install Node.js >= 20 later to enable MCP tools: https://nodejs.org${RESET}"
-    USE_DOCKER_FALLBACK=true
-  else
-    echo -e "  ${RED}✗ Neither Node.js nor Docker found.${RESET}"
-    echo -e "  ${YELLOW}  Install Node.js >= 20: https://nodejs.org${RESET}"
-    echo -e "  ${YELLOW}  Or install Docker:    https://docs.docker.com/get-docker/${RESET}"
-    exit 1
-  fi
-else
-  NODE_VERSION=$(node --version | sed 's/v//')
-  NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
-
-  if [[ "$NODE_MAJOR" -lt 20 ]]; then
-    echo -e "  ${RED}✗ Node.js $NODE_VERSION is too old. Need >= 20.${RESET}"
-    echo -e "  ${YELLOW}  AI OS uses Node.js for its generator and MCP server (not your project).${RESET}"
-    echo -e "  ${YELLOW}  Update: https://nodejs.org${RESET}"
-    exit 1
-  fi
-
-  echo -e "  ${GREEN}✓ Node.js v$NODE_VERSION${RESET}"
-
-  # ── Check npm ──────────────────────────────────────────────────────────────
-  if ! command -v npm &>/dev/null; then
-    echo -e "  ${RED}✗ npm not found. Install Node.js from https://nodejs.org${RESET}"
-    exit 1
-  fi
-
-  echo -e "  ${GREEN}✓ npm $(npm --version)${RESET}"
+  echo -e "  ${RED}✗ Node.js not found.${RESET}"
+  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for its generator and MCP server.${RESET}"
+  echo -e "  ${YELLOW}  Your project does NOT need Node.js — it is only needed to run AI OS itself.${RESET}"
+  echo -e ""
+  echo -e "  ${YELLOW}  Option 1 (recommended): Use bootstrap.sh — it auto-installs Node.js via nvm:${RESET}"
+  echo -e "  ${CYAN}    curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash${RESET}"
+  echo -e ""
+  echo -e "  ${YELLOW}  Option 2: Install Node.js manually: https://nodejs.org${RESET}"
+  exit 1
 fi
 echo ""
 

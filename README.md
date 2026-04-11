@@ -23,22 +23,9 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Requirements
 
-AI OS does **not** require your project to use Node.js. It works with any language stack (Python, Go, Rust, Java, Ruby, PHP, …).
-
-To run the installer you need **one** of:
-
-| Runtime | When to use |
-|---|---|
-| **Node.js ≥ 20** | Recommended — full install including MCP server |
-| **Docker** | Fallback when Node.js is unavailable — generates all static artifacts; MCP server not installed |
-
-- **Git** is always required.
-- **GitHub Copilot** (VS Code extension) is required to use the generated artifacts.
-
-> **Note on MCP tools:** The MCP server requires Node.js to be present on the developer's machine. When install.sh is run with a host Node.js binary, it writes a machine-specific `.github/copilot/mcp.local.json` (gitignored) that VS Code uses to start the MCP server. The committed `.github/copilot/mcp.json` intentionally has no `servers` block so VCS-hosted copies and the Copilot cloud agent never attempt to spawn a local process.
-
-**To use AI OS after it's installed (Copilot cloud agent, no local tools needed):**
-- GitHub Copilot — no Node.js required; the committed `.github/copilot/mcp.json` has no `servers` block and is safe for all environments
+- Git
+- GitHub Copilot (VS Code extension)
+- Node.js ≥ 20 *(auto-installed by `bootstrap.sh` if missing — your project does not need Node.js)*
 
 ## Install on any repo
 
@@ -47,6 +34,8 @@ To run the installer you need **one** of:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash
 ```
+
+> **No Node.js?** No problem. `bootstrap.sh` detects a missing Node.js and automatically installs the latest LTS via [nvm](https://github.com/nvm-sh/nvm) before running the installer. Your project does not need Node.js.
 
 With options:
 

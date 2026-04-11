@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { DetectedStack } from '../types.js';
+import type { DetectedStack, AiOsConfig } from '../types.js';
 import { writeIfChanged, applyFallbacks } from './utils.js';
 
 const AGENTS_DIR = '.github/agents';
@@ -216,6 +216,141 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
   return specs;
 }
 
+// ---------------------------------------------------------------------------
+// Sequential agent flow (Enhancement Advisor → Idea Validator → Implementation)
+// ---------------------------------------------------------------------------
+
+export interface ExistingAgentScan {
+  /** All .md files found under .github/agents/ that are NOT ai-os generated */
+  userDefined: string[];
+  /** All .md files that are ai-os generated (contain the ai-os agent header) */
+  aiOsGenerated: string[];
+}
+
+/**
+ * Scan `.github/agents/` for existing agent files, classifying each as
+ * ai-os-generated or user-defined. Used to present the agent-flow setup
+ * prompt during install.
+ */
+export function scanExistingAgents(cwd: string): ExistingAgentScan {
+  const agentsDir = path.join(cwd, AGENTS_DIR);
+  if (!fs.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] };
+
+  const files = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md') || f.endsWith('.agent.md'));
+  const userDefined: string[] = [];
+  const aiOsGenerated: string[] = [];
+
+  for (const file of files) {
+    const content = fs.readFileSync(path.join(agentsDir, file), 'utf-8');
+    // ai-os generated agents always contain one of the known template marker patterns
+    const isAiOs = content.includes('ai-os/context/architecture.md') ||
+      content.includes('ai-os/context/conventions.md') ||
+      content.includes('ai-os/context/stack.md');
+    if (isAiOs) {
+      aiOsGenerated.push(file);
+    } else {
+      userDefined.push(file);
+    }
+  }
+
+  return { userDefined, aiOsGenerated };
+}
+
+function buildSequentialAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
+  const specs: AgentSpec[] = [];
+  const projectName = path.basename(cwd);
+  const frameworks = stack.frameworks.map(f => f.name);
+  const primaryLang = stack.languages[0]?.name ?? 'TypeScript';
+  const frameworkLabel = frameworks[0] ?? primaryLang;
+  const frameworkList = frameworks.length > 0 ? frameworks.join(', ') : primaryLang;
+
+  const templateDir = new URL('../templates/agents', import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1');
+
+  const stackSummary = [
+    `Primary language: ${primaryLang}`,
+    `Frameworks: ${frameworkList}`,
+    `Package manager: ${stack.patterns.packageManager}`,
+    `TypeScript: ${stack.patterns.hasTypeScript ? 'Yes' : 'No'}`,
+  ];
+
+  const keyFiles = [
+    'src/trpc/index.ts',
+    'src/lib/vector-store.ts',
+    'src/app/api/chat/route.ts',
+    'prisma/schema.prisma',
+  ].filter(f => fs.existsSync(path.join(cwd, f)));
+  const keyFilesList = keyFiles.length > 0
+    ? keyFiles.map(f => `- \`${f}\``).join('\n')
+    : '- _No key files detected yet_';
+
+  const buildCmd = stack.patterns.packageManager === 'npm' ? 'npm run build'
+    : stack.patterns.packageManager === 'pnpm' ? 'pnpm build'
+      : stack.patterns.packageManager === 'yarn' ? 'yarn build'
+        : stack.patterns.packageManager === 'bun' ? 'bun run build'
+          : stack.patterns.packageManager === 'maven' ? 'mvn compile'
+            : stack.patterns.packageManager === 'gradle' ? 'gradle build'
+              : stack.patterns.packageManager === 'go' ? 'go build ./...'
+                : stack.patterns.packageManager === 'cargo' ? 'cargo build'
+                  : 'npm run build';
+
+  const testCmd = stack.buildCommands?.test ?? (
+    stack.patterns.packageManager === 'npm' ? 'npm test'
+      : stack.patterns.packageManager === 'pnpm' ? 'pnpm test'
+        : stack.patterns.packageManager === 'yarn' ? 'yarn test'
+          : stack.patterns.packageManager === 'bun' ? 'bun test'
+            : stack.patterns.packageManager === 'maven' ? 'mvn test'
+              : stack.patterns.packageManager === 'gradle' ? 'gradle test'
+                : stack.patterns.packageManager === 'go' ? 'go test ./...'
+                  : stack.patterns.packageManager === 'cargo' ? 'cargo test'
+                    : 'npm test'
+  );
+
+  const regenerateCmd = stack.patterns.packageManager === 'npm' ? 'npx ai-os'
+    : stack.patterns.packageManager === 'pnpm' ? 'pnpm dlx ai-os'
+      : stack.patterns.packageManager === 'bun' ? 'bunx ai-os'
+        : 'npx ai-os';
+
+  const commonReplacements = {
+    '{{PROJECT_NAME}}': projectName,
+    '{{FRAMEWORK}}': frameworkLabel,
+    '{{STACK_SUMMARY}}': stackSummary.map(s => `- ${s}`).join('\n'),
+    '{{KEY_FILES_LIST}}': keyFilesList,
+    '{{FRAMEWORK_RULES}}': buildFrameworkRules(stack),
+    '{{BUILD_COMMAND}}': buildCmd,
+    '{{TEST_COMMAND}}': testCmd,
+    '{{REGENERATE_COMMAND}}': regenerateCmd,
+  };
+
+  specs.push({
+    templateFile: path.join(templateDir, 'enhancement-advisor.md'),
+    outputFile: 'feature-enhancement-advisor.agent.md',
+    name: `${projectName} — Feature Enhancement Advisor`,
+    description: `Scan ${projectName} for improvement opportunities and expansion ideas. Use when you want prioritized enhancements, gap analysis, roadmap proposals, and concrete implementation recommendations for this repository only.`,
+    argumentHint: 'Describe scope (e.g. reliability, DX, CI/CD, security, performance) and depth (quick/medium/deep).',
+    replacements: commonReplacements,
+  });
+
+  specs.push({
+    templateFile: path.join(templateDir, 'idea-validator.md'),
+    outputFile: 'idea-validator.agent.md',
+    name: `${projectName} — Idea Validator`,
+    description: `Validates enhancement recommendations from the Feature Enhancement Advisor against actual codebase reality. Use after the Enhancement Advisor produces a report — before any implementation begins.`,
+    argumentHint: 'Paste the Enhancement Advisor numbered report here, or describe the finding(s) to validate.',
+    replacements: commonReplacements,
+  });
+
+  specs.push({
+    templateFile: path.join(templateDir, 'implementation-agent.md'),
+    outputFile: 'implementation-agent.agent.md',
+    name: `${projectName} — Implementation Agent`,
+    description: `Executes the Approved Work Order produced by the Idea Validator. Implements changes in dependency-safe sequence. Use only after the Idea Validator has produced a verified Approved Work Order.`,
+    argumentHint: 'Paste the Approved Work Order from the Idea Validator, or name a specific item to implement.',
+    replacements: commonReplacements,
+  });
+
+  return specs;
+}
+
 function injectReplacements(template: string, replacements: Record<string, string>): string {
   let result = template;
   for (const [key, value] of Object.entries(replacements)) {
@@ -226,6 +361,7 @@ function injectReplacements(template: string, replacements: Record<string, strin
 
 interface GenerateAgentsOptions {
   refreshExisting?: boolean;
+  config?: AiOsConfig | null;
 }
 
 async function generateAgentsWithOptions(
@@ -245,7 +381,13 @@ async function generateAgentsWithOptions(
     return existingFiles.some((f: string) => keywords.some((k: string) => f.includes(k)));
   }
 
-  const specs = buildAgentSpecs(stack, cwd);
+  // Determine which agent suites to generate
+  const agentFlowMode = options.config?.agentFlowMode ?? 'create';
+
+  const specs = [
+    ...buildAgentSpecs(stack, cwd),
+    ...(agentFlowMode === 'create' ? buildSequentialAgentSpecs(stack, cwd) : []),
+  ];
   const generated: string[] = [];
 
   for (const spec of specs) {
@@ -300,5 +442,8 @@ export async function generateAgents(
   cwd: string,
   options?: GenerateAgentsOptions,
 ): Promise<string[]> {
-  return generateAgentsWithOptions(stack, cwd, { refreshExisting: options?.refreshExisting ?? false });
+  return generateAgentsWithOptions(stack, cwd, {
+    refreshExisting: options?.refreshExisting ?? false,
+    config: options?.config,
+  });
 }

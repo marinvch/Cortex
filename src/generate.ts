@@ -5,7 +5,7 @@ import { analyze } from './analyze.js';
 import { generateInstructions } from './generators/instructions.js';
 import { generateMcpJson } from './generators/mcp.js';
 import { generateContextDocs, readAiOsConfig } from './generators/context-docs.js';
-import { generateAgents } from './generators/agents.js';
+import { generateAgents, scanExistingAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
 import { generatePrompts } from './generators/prompts.js';
 import { generateWorkflows } from './generators/workflows.js';
@@ -65,6 +65,75 @@ function printBanner(): void {
   console.log('  ║          AI OS  v0.5.0            ║');
   console.log('  ║  Portable Copilot Context Engine  ║');
   console.log('  ╚═══════════════════════════════════╝');
+  console.log('');
+}
+
+/**
+ * Print the one-time agent-flow setup prompt.
+ *
+ * If userDefined agents exist we offer three choices:
+ *   create  — generate the three sequential agents alongside existing ones
+ *   hook    — print instructions for referencing the new agents from existing ones
+ *   skip    — do nothing
+ *
+ * The user records their choice in .github/ai-os/config.json `agentFlowMode`
+ * to suppress the prompt on subsequent runs.
+ */
+function printAgentFlowSetupPrompt(cwd: string, currentMode: 'create' | 'hook' | 'skip' | null): void {
+  const scan = scanExistingAgents(cwd);
+  const hasUserAgents = scan.userDefined.length > 0;
+
+  // Skip prompt if the user already set a mode (other than first-run undefined)
+  if (currentMode !== null) return;
+
+  console.log('  ┌─────────────────────────────────────────────────────────────┐');
+  console.log('  │  🤖 Sequential Agent Flow — Setup                           │');
+  console.log('  │                                                             │');
+  console.log('  │  AI OS can generate a 3-agent sequential improvement flow:  │');
+  console.log('  │                                                             │');
+  console.log('  │   1. Feature Enhancement Advisor  (finds improvements)     │');
+  console.log('  │      ↓                                                      │');
+  console.log('  │   2. Idea Validator               (confirms before coding)  │');
+  console.log('  │      ↓                                                      │');
+  console.log('  │   3. Implementation Agent         (executes validated plan)  │');
+  console.log('  │                                                             │');
+  if (hasUserAgents) {
+    console.log(`  │  Existing agents detected: ${scan.userDefined.join(', ').slice(0, 38).padEnd(38)} │`);
+    console.log('  │                                                             │');
+    console.log('  │  Choose an option in .github/ai-os/config.json:            │');
+    console.log('  │    "agentFlowMode": "create"  — add the 3 agents (default) │');
+    console.log('  │    "agentFlowMode": "hook"    — guide to link to existing   │');
+    console.log('  │    "agentFlowMode": "skip"    — do not generate agents      │');
+  } else {
+    console.log('  │  No existing agents found — the 3 agents will be created.  │');
+    console.log('  │  Set "agentFlowMode": "skip" in config.json to opt out.    │');
+  }
+  console.log('  │                                                             │');
+  console.log('  │  Already created: .github/agents/feature-enhancement-advisor.agent.md │');
+  console.log('  │                   .github/agents/idea-validator.agent.md    │');
+  console.log('  │                   .github/agents/implementation-agent.agent.md │');
+  console.log('  └─────────────────────────────────────────────────────────────┘');
+  console.log('');
+
+  if (currentMode === 'hook' && hasUserAgents) {
+    printAgentHookGuide(scan.userDefined);
+  }
+}
+
+function printAgentHookGuide(userDefinedAgents: string[]): void {
+  console.log('  📎 Hook Guide — connecting your existing agents to the ai-os flow:');
+  console.log('');
+  for (const agent of userDefinedAgents) {
+    console.log(`     ${agent}`);
+    console.log('       → Add a "Handoff" section pointing to feature-enhancement-advisor.agent.md');
+    console.log('         or idea-validator.agent.md as the next step in your workflow.');
+  }
+  console.log('');
+  console.log('  Example handoff to add at the bottom of an existing agent:');
+  console.log('');
+  console.log('     ## Handoff');
+  console.log('     When analysis is complete, pass the findings to the');
+  console.log('     **Idea Validator** agent for cross-checking before implementation.');
   console.log('');
 }
 
@@ -183,7 +252,7 @@ async function main(): Promise<void> {
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
 
   // Phase 2: Agents, Skills, Prompts
-  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
   const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const workflowFiles = generateWorkflows(cwd, { config: config ?? undefined });
@@ -259,6 +328,15 @@ async function main(): Promise<void> {
   const existingFiles = currentRelFiles.filter(r => r !== manifestRel && previousFiles.has(r));
 
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
+
+  // ── Agent-flow setup prompt ──────────────────────────────────────────────
+  // On first install (no prior config) or when agentFlowMode is not explicitly
+  // set, scan for existing agents and print a one-time setup suggestion.
+  const agentFlowMode = config?.agentFlowMode;
+  const isFirstInstall = updateStatus.isFirstInstall;
+  if (isFirstInstall || agentFlowMode === undefined) {
+    printAgentFlowSetupPrompt(cwd, config?.agentFlowMode ?? null);
+  }
 }
 
 main().catch(err => {

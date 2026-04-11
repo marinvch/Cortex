@@ -109,4 +109,11 @@ export interface AiOsConfig {
   persistentRules: string[];
   /** Glob patterns to exclude from analysis (in addition to defaults) */
   exclude: string[];
+  /**
+   * How to handle the sequential agent flow (Enhancement Advisor → Idea Validator → Implementation Agent).
+   * - 'create'  : generate all three agents (default for new installs)
+   * - 'hook'    : print a guide for connecting ai-os to existing agents instead of creating new ones
+   * - 'skip'    : do not generate sequential agents
+   */
+  agentFlowMode?: 'create' | 'hook' | 'skip';
 }

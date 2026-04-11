@@ -108,14 +108,19 @@ jobs:
           NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes -f tag_name="$NEXT_TAG" -f target_commitish="$TARGET_SHA" --jq .body)
           COMMITS=$(git log --format='- %h %s' "${{ steps.plan.outputs.last_tag }}..$TARGET_SHA")
 
+          RELEASE_NOTES_FILE=$(mktemp)
+          {
+            echo "$NOTES"
+            echo
+            echo "---"
+            echo
+            echo "## Commits in this release"
+            echo "$COMMITS"
+          } > "$RELEASE_NOTES_FILE"
+
           gh release create "$NEXT_TAG" \
             --title "$NEXT_TAG" \
-            --notes "$NOTES
-
----
-
-## Commits in this release
-$COMMITS"
+            --notes-file "$RELEASE_NOTES_FILE"
 
       - name: No release needed
         if: steps.plan.outputs.release_needed != 'true'

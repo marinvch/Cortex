@@ -11,7 +11,7 @@ on:
       - "tsconfig.json"
       - ".github/workflows/**"
   push:
-    branches: [dev]
+    branches: [dev, master]
     paths:
       - "src/**"
       - "scripts/**"

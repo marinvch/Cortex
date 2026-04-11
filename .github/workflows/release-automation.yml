@@ -2,10 +2,11 @@ name: Automated Release
 
 on:
   push:
-    branches: [dev]
+    branches: [master]
   workflow_run:
     workflows: ["AI OS Validate"]
     types: [completed]
+    branches: [master]
   workflow_dispatch:
 
 permissions:

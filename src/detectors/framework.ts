@@ -62,6 +62,11 @@ function detectFromPackageJson(rootDir: string): DetectedFramework[] {
     frameworks.push({ name: 'Angular', category: 'frontend', version: deps['@angular/core'], template: 'angular' });
   } else if (deps['astro']) {
     frameworks.push({ name: 'Astro', category: 'fullstack', version: deps['astro'], template: 'astro' });
+  } else if (deps['@remix-run/react'] || deps['@remix-run/node']) {
+    const version = deps['@remix-run/react'] ?? deps['@remix-run/node'];
+    frameworks.push({ name: 'Remix', category: 'fullstack', version, template: 'remix' });
+  } else if (deps['solid-js']) {
+    frameworks.push({ name: 'SolidJS', category: 'frontend', version: deps['solid-js'], template: 'solid' });
   }
 
   if (deps['@nestjs/core']) {
@@ -201,6 +206,18 @@ function detectFromRuby(rootDir: string): DetectedFramework[] {
   return [{ name: 'Ruby', category: 'backend', template: 'ruby-rails' }];
 }
 
+function detectFromBun(rootDir: string): DetectedFramework[] {
+  if (!fs.existsSync(path.join(rootDir, 'bun.lockb'))) return [];
+  return [{ name: 'Bun', category: 'backend', template: 'bun' }];
+}
+
+function detectFromDeno(rootDir: string): DetectedFramework[] {
+  const hasDenoJson = fs.existsSync(path.join(rootDir, 'deno.json'))
+    || fs.existsSync(path.join(rootDir, 'deno.jsonc'));
+  if (!hasDenoJson) return [];
+  return [{ name: 'Deno', category: 'backend', template: 'deno' }];
+}
+
 function detectFromPhp(rootDir: string): DetectedFramework[] {
   const composer = readJson<{ require?: Record<string, string> }>(path.join(rootDir, 'composer.json'));
   if (!composer) return [];
@@ -246,6 +263,8 @@ function detectDeno(rootDir: string): DetectedFramework[] {
 export function detectFrameworks(rootDir: string): DetectedFramework[] {
   const frameworks: DetectedFramework[] = [
     ...detectFromPackageJson(rootDir),
+    ...detectFromBun(rootDir),
+    ...detectFromDeno(rootDir),
     ...detectFromPython(rootDir),
     ...detectFromGo(rootDir),
     ...detectFromRust(rootDir),

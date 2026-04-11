@@ -158,96 +158,43 @@ echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 # ── Check Node.js version ────────────────────────────────────────────────────
 if ! command -v node &>/dev/null; then
   echo -e "  ${YELLOW}⚠ Node.js not found.${RESET}"
-  echo -e "  ${YELLOW}  AI OS uses Node.js >= 20 for its generator and MCP server.${RESET}"
-  echo -e "  ${YELLOW}  Your project does NOT need Node.js — this is only an AI OS prerequisite.${RESET}"
+  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 to run its generator and MCP server.${RESET}"
+  echo -e "  ${YELLOW}  Your project does NOT need Node.js — AI OS is just an installer tool.${RESET}"
   echo ""
 
-  # ── Docker fallback ──────────────────────────────────────────────────────
-  if command -v docker &>/dev/null && docker info &>/dev/null 2>&1; then
-    echo -e "  ${CYAN}→ Docker detected — running AI OS generator via Docker...${RESET}"
-    echo ""
+  # Try to auto-install Node.js 20 LTS via nvm (if nvm is available or can be fetched)
+  NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 
-    DOCKER_IMAGE="node:20-alpine"
-    AIOS_ABS="$(cd "$AIOS_SRC" && pwd)"
+  # Source nvm if already installed but not loaded in this shell
+  if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "$NVM_DIR/nvm.sh"
+  fi
 
-    # Run the generator inside a Docker container, mounting both the AI OS source
-    # and the target repo into the container. Pass through args unchanged.
-    DOCKER_GEN_ARGS=("--cwd" "/target")
-    if [[ "$REFRESH_EXISTING" == "true" ]]; then
-      DOCKER_GEN_ARGS+=("--refresh-existing")
+  if command -v nvm &>/dev/null; then
+    echo -e "  ${CYAN}→ nvm detected. Installing Node.js 20 LTS...${RESET}"
+    nvm install 20 && nvm use 20
+    echo -e "  ${GREEN}✓ Node.js $(node --version) installed via nvm${RESET}"
+  elif command -v curl &>/dev/null; then
+    echo -e "  ${CYAN}→ Attempting to install nvm + Node.js 20 LTS automatically...${RESET}"
+    curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+    # Load the freshly installed nvm
+    export NVM_DIR="$HOME/.nvm"
+    # shellcheck source=/dev/null
+    [[ -s "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
+    if command -v nvm &>/dev/null; then
+      nvm install 20 && nvm use 20
+      echo -e "  ${GREEN}✓ Node.js $(node --version) installed via nvm${RESET}"
+    else
+      echo -e "  ${RED}✗ nvm install succeeded but 'nvm' command is still unavailable.${RESET}"
+      echo -e "  ${YELLOW}  Restart your shell, then re-run this script.${RESET}"
+      echo -e "  ${YELLOW}  Or install Node.js manually: https://nodejs.org${RESET}"
+      exit 1
     fi
-
-    docker run --rm \
-      -v "$AIOS_ABS:/ai-os:ro" \
-      -v "$TARGET_DIR:/target" \
-      -w /ai-os \
-      "$DOCKER_IMAGE" \
-      sh -c "npm install --prefer-offline --no-audit --no-fund --silent 2>/dev/null; \
-             node --import tsx/esm src/generate.ts ${DOCKER_GEN_ARGS[*]}"
-
-    # For the MCP server, install a Docker-based launcher so users without Node.js
-    # can still run the MCP server through Docker.
-    MCP_SERVER_DEST="$TARGET_DIR/.ai-os/mcp-server"
-    mkdir -p "$MCP_SERVER_DEST"
-
-    AIOS_VERSION_RAW="$(grep '"version"' "$AIOS_SRC/package.json" | head -1 | sed 's/.*"version": "\(.*\)".*/\1/')"
-
-    cat > "$MCP_SERVER_DEST/index.js" << EOFMCP
-#!/usr/bin/env node
-// AI OS MCP Server — Docker launcher
-// Generated when Node.js was unavailable at install time.
-// This script always delegates to Docker to run the MCP server.
-import { spawnSync } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-const currentDir = path.dirname(fileURLToPath(import.meta.url));
-const root = process.env.AI_OS_ROOT ?? process.cwd();
-// Pass args as separate array elements to avoid shell injection via argument concatenation
-const serverArgs = ['--import', 'tsx/esm', 'index.ts', ...process.argv.slice(2)];
-const result = spawnSync('docker', [
-  'run', '--rm', '-i',
-  '-v', root + ':/repo',
-  '-v', currentDir + ':/mcp-server:ro',
-  '-e', 'AI_OS_ROOT=/repo',
-  '-w', '/mcp-server',
-  'node:20-alpine',
-  'sh', '-c',
-  'npm install --prefer-offline --no-audit --no-fund --silent 2>/dev/null && exec node ' + serverArgs.map(a => JSON.stringify(a)).join(' '),
-], { stdio: 'inherit' });
-process.exit(result.status ?? 1);
-EOFMCP
-    chmod +x "$MCP_SERVER_DEST/index.js"
-
-    # Copy MCP server source files to the destination
-    MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
-    cp -r "$MCP_SERVER_SRC"/* "$MCP_SERVER_DEST/"
-
-    cat > "$MCP_SERVER_DEST/runtime-manifest.json" << EOF
-{
-  "name": "ai-os-mcp-server",
-  "runtime": "docker",
-  "sourceVersion": "$AIOS_VERSION_RAW",
-  "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-}
-EOF
-
-    echo ""
-    echo -e "  ${GREEN}${BOLD}✅ AI OS installed via Docker!${RESET}"
-    echo ""
-    echo -e "  ${BOLD}Note:${RESET} The MCP server will start via Docker on each Copilot request."
-    echo -e "  ${BOLD}Tip:${RESET}  Install Node.js >= 20 for faster MCP server startup: https://nodejs.org"
-    echo ""
-    echo -e "  ${BOLD}Next steps:${RESET}"
-    echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
-    echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
-    echo -e "  3. MCP tools are registered in ${CYAN}.github/copilot/mcp.json${RESET}"
-    echo -e "  4. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
-    echo ""
-    exit 0
   else
-    echo -e "  ${RED}✗ Neither Node.js nor Docker found.${RESET}"
-    echo -e "  ${YELLOW}  Option 1 (recommended): Install Node.js >= 20: https://nodejs.org${RESET}"
-    echo -e "  ${YELLOW}  Option 2: Install Docker and re-run: https://docs.docker.com/get-docker/${RESET}"
+    echo -e "  ${RED}✗ Cannot auto-install Node.js (no curl found).${RESET}"
+    echo -e "  ${YELLOW}  Install Node.js >= 20 from: https://nodejs.org${RESET}"
+    echo -e "  ${YELLOW}  Or install nvm: https://github.com/nvm-sh/nvm${RESET}"
     exit 1
   fi
 fi
@@ -258,7 +205,8 @@ NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
 if [[ "$NODE_MAJOR" -lt 20 ]]; then
   echo -e "  ${RED}✗ Node.js $NODE_VERSION is too old. Need >= 20.${RESET}"
   echo -e "  ${YELLOW}  AI OS uses Node.js for its generator and MCP server (not your project).${RESET}"
-  echo -e "  ${YELLOW}  Update: https://nodejs.org${RESET}"
+  echo -e "  ${YELLOW}  Update via nvm: nvm install 20 && nvm use 20${RESET}"
+  echo -e "  ${YELLOW}  Or update manually: https://nodejs.org${RESET}"
   exit 1
 fi
 
@@ -333,9 +281,14 @@ fi
 echo ""
 
 # ── Install ai-os dependencies (into scripts/ai-os/node_modules) ─────────────
-echo -e "  ${CYAN}→ Installing dependencies...${RESET}"
-(cd "$AIOS_SRC" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
-echo -e "  ${GREEN}✓ Dependencies ready${RESET}"
+BUNDLED_GENERATOR="$AIOS_SRC/bundle/generate.js"
+if [[ -f "$BUNDLED_GENERATOR" ]]; then
+  echo -e "  ${GREEN}✓ Using pre-bundled generator (no npm install needed)${RESET}"
+else
+  echo -e "  ${CYAN}→ Installing dependencies...${RESET}"
+  (cd "$AIOS_SRC" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
+  echo -e "  ${GREEN}✓ Dependencies ready${RESET}"
+fi
 echo ""
 
 # ── Compile TypeScript (if dist/ is stale or missing) ────────────────────────
@@ -357,7 +310,13 @@ fi
 # Detect absolute node path so mcp.json uses a stable path (fixes nvm/fnm/asdf on Windows/macOS)
 NODE_ABS_PATH="$(command -v node)"
 
-(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+# Use pre-bundled generator when available (no tsx / npm install required)
+BUNDLED_GENERATOR="$AIOS_SRC/bundle/generate.js"
+if [[ -f "$BUNDLED_GENERATOR" ]]; then
+  (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node bundle/generate.js "${GEN_ARGS[@]}")
+else
+  (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+fi
 
 # ── Copy MCP server to target repo ──────────────────────────────────────────
 MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
@@ -400,8 +359,8 @@ if [[ "$MCP_INSTALL_REQUIRED" == "true" ]]; then
     echo -e "  ${CYAN}  Runtime install:${RESET} v${AIOS_VERSION}"
   fi
 
-  # Prefer bundled single-file server (Phase F) if available; fall back to source+tsx launcher
-  BUNDLED_SERVER="$AIOS_SRC/dist/server.js"
+  # Prefer bundled single-file server if available; fall back to source+tsx launcher
+  BUNDLED_SERVER="$AIOS_SRC/bundle/server.js"
   if [[ -f "$BUNDLED_SERVER" ]]; then
     echo -e "  ${CYAN}  Using pre-bundled server (no node_modules required)${RESET}"
     cp "$BUNDLED_SERVER" "$MCP_SERVER_DEST/index.js"

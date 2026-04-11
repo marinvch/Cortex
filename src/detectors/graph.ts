@@ -60,6 +60,18 @@ function parseImports(content: string, filePath: string): string[] {
     }
   }
 
+  if (ext === 'java') {
+    const javaImportRe = /^import\s+(?:static\s+)?([\w.]+)\s*;/gm;
+    let m: RegExpExecArray | null;
+    while ((m = javaImportRe.exec(content)) !== null) {
+      const fqn = m[1];
+      if (!fqn) continue;
+      // Convert fully-qualified class name to a relative file path candidate
+      const relPath = fqn.replace(/\./g, '/') + '.java';
+      imports.push(relPath);
+    }
+  }
+
   return [...new Set(imports)];
 }
 
@@ -104,6 +116,15 @@ function resolveImportPath(importSpec: string, allFiles: string[]): string | und
     const base = importSpec.slice(0, -3);
     for (const ext of ['ts', 'tsx']) {
       const candidate = `${base}.${ext}`;
+      if (allFiles.includes(candidate)) return candidate;
+    }
+  }
+
+  // Java: try matching FQN path against source roots (src/main/java/, src/)
+  if (importSpec.endsWith('.java')) {
+    const javaSourceRoots = ['src/main/java/', 'src/'];
+    for (const root of javaSourceRoots) {
+      const candidate = root + importSpec;
       if (allFiles.includes(candidate)) return candidate;
     }
   }

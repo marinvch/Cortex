@@ -1,0 +1,9 @@
+{
+  "bundledAt": "2026-04-11T06:33:03.074Z",
+  "sourceVersion": "0.5.0",
+  "entryPoints": {
+    "server": "server.js",
+    "generator": "generate.js"
+  },
+  "node": ">=20"
+}

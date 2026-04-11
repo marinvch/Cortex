@@ -126,84 +126,85 @@ function parsePnpmWorkspaceYaml(yaml: string): string[] {
     }
   }
 
-  return globs;
-}
-
-/**
- * Expand a single workspace glob pattern into concrete package root paths
- * and add them to the provided Set.
- */
-function expandWorkspaceGlob(rootDir: string, glob: string, out: Set<string>): void {
-  // Skip negation patterns
-  if (glob.startsWith('!')) return;
-
-  const normalized = glob.replace(/\\/g, '/').replace(/\/\*\*$/, '').replace(/\/*\*$/, '');
-  const base = normalized.endsWith('/*') ? normalized.slice(0, -2) : normalized;
-  const absBase = path.join(rootDir, base);
-
-  if (!fs.existsSync(absBase) || !fs.statSync(absBase).isDirectory()) return;
-
-  for (const entry of fs.readdirSync(absBase, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
-    const candidate = path.join(absBase, entry.name);
-    if (hasManifest(candidate)) out.add(candidate);
-  }
-}
-
-function discoverPackageRoots(rootDir: string): string[] {
-  const packageRoots = new Set<string>([rootDir]);
-  const workspaceGlobs: string[] = [];
-
-  // 1. package.json#workspaces (npm workspaces / Yarn Classic)
+  // pnpm-workspace.yaml
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf-8')) as {
-      workspaces?: string[] | { packages?: string[] };
+    const pnpmWs = fs.readFileSync(path.join(rootDir, 'pnpm-workspace.yaml'), 'utf-8');
+    // Parse the `packages:` list with a minimal line-based parser (no yaml dep).
+    const inPackages = { active: false };
+    for (const raw of pnpmWs.split('\n')) {
+      const line = raw.trimEnd();
+      if (/^packages\s*:/.test(line)) { inPackages.active = true; continue; }
+      if (inPackages.active) {
+        // Stop when a new top-level key begins
+        if (/^[a-zA-Z]/.test(line) && !line.startsWith(' ') && !line.startsWith('-')) {
+          inPackages.active = false; continue;
+        }
+        const m = line.match(/^\s*-\s*['"]?([^'"]+?)['"]?\s*$/);
+        if (!m) continue;
+        const glob = m[1].trim();
+        const normalized = glob.replace(/\\/g, '/').replace(/\/\*\*$/, '').replace(/\/\*$/, '');
+        const absBase = path.join(rootDir, normalized);
+        if (!fs.existsSync(absBase) || !fs.statSync(absBase).isDirectory()) continue;
+        for (const entry of fs.readdirSync(absBase, { withFileTypes: true })) {
+          if (!entry.isDirectory()) continue;
+          if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+          const candidate = path.join(absBase, entry.name);
+          if (hasManifest(candidate)) packageRoots.add(candidate);
+        }
+      }
+    }
+  } catch {
+    // pnpm-workspace.yaml not present or unreadable.
+  }
+
+  // lerna.json
+  try {
+    const lerna = JSON.parse(fs.readFileSync(path.join(rootDir, 'lerna.json'), 'utf-8')) as {
+      packages?: string[];
     };
-    const globs = Array.isArray(pkg.workspaces)
-      ? pkg.workspaces
-      : Array.isArray(pkg.workspaces?.packages)
-        ? (pkg.workspaces as { packages: string[] }).packages
-        : [];
-    workspaceGlobs.push(...globs);
-  } catch { /* best-effort */ }
-
-  // 2. pnpm-workspace.yaml
-  try {
-    const yamlPath = path.join(rootDir, 'pnpm-workspace.yaml');
-    if (fs.existsSync(yamlPath)) {
-      workspaceGlobs.push(...parsePnpmWorkspaceYaml(fs.readFileSync(yamlPath, 'utf-8')));
+    for (const glob of lerna.packages ?? []) {
+      const normalized = glob.replace(/\\/g, '/').replace(/\/\*\*$/, '').replace(/\/\*$/, '');
+      const absBase = path.join(rootDir, normalized);
+      if (!fs.existsSync(absBase) || !fs.statSync(absBase).isDirectory()) continue;
+      for (const entry of fs.readdirSync(absBase, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        const candidate = path.join(absBase, entry.name);
+        if (hasManifest(candidate)) packageRoots.add(candidate);
+      }
     }
-  } catch { /* best-effort */ }
-
-  // 3. lerna.json
-  try {
-    const lernaPath = path.join(rootDir, 'lerna.json');
-    if (fs.existsSync(lernaPath)) {
-      const lerna = JSON.parse(fs.readFileSync(lernaPath, 'utf-8')) as { packages?: string[] };
-      if (Array.isArray(lerna.packages)) workspaceGlobs.push(...lerna.packages);
-    }
-  } catch { /* best-effort */ }
-
-  // 4. nx.json — workspaceLayout defines conventional app/lib dirs
-  try {
-    const nxPath = path.join(rootDir, 'nx.json');
-    if (fs.existsSync(nxPath)) {
-      const nx = JSON.parse(fs.readFileSync(nxPath, 'utf-8')) as {
-        workspaceLayout?: { appsDir?: string; libsDir?: string };
-      };
-      if (nx.workspaceLayout?.appsDir) workspaceGlobs.push(`${nx.workspaceLayout.appsDir}/*`);
-      if (nx.workspaceLayout?.libsDir) workspaceGlobs.push(`${nx.workspaceLayout.libsDir}/*`);
-    }
-  } catch { /* best-effort */ }
-
-  // Expand all collected globs into concrete package roots
-  for (const glob of workspaceGlobs) {
-    expandWorkspaceGlob(rootDir, glob, packageRoots);
+  } catch {
+    // lerna.json not present or unreadable.
   }
 
-  // Conventional fallback (apps/, packages/, services/) — catches turbo.json repos
-  // and any monorepo whose config is not explicitly parsed above.
+  // nx.json — scan apps/ and libs/
+  if (fs.existsSync(path.join(rootDir, 'nx.json'))) {
+    for (const rel of ['apps', 'libs']) {
+      const abs = path.join(rootDir, rel);
+      if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) continue;
+      for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        const candidate = path.join(abs, entry.name);
+        if (hasManifest(candidate)) packageRoots.add(candidate);
+      }
+    }
+  }
+
+  // turbo.json — use conventional dirs (apps/, packages/)
+  if (fs.existsSync(path.join(rootDir, 'turbo.json'))) {
+    for (const rel of ['apps', 'packages']) {
+      const abs = path.join(rootDir, rel);
+      if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) continue;
+      for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+        const candidate = path.join(abs, entry.name);
+        if (hasManifest(candidate)) packageRoots.add(candidate);
+      }
+    }
+  }
+
   const conventionalRoots = ['apps', 'packages', 'services'];
   for (const rel of conventionalRoots) {
     const abs = path.join(rootDir, rel);

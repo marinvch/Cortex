@@ -239,7 +239,7 @@ async function main(): Promise<void> {
       console.log(`  ✅ Already up-to-date (v${updateStatus.toolVersion}). Re-generating to refresh context...`);
     }
     mode = 'refresh-existing';
-  } else if (!updateStatus.isFirstInstall) {
+  } else if (mode === 'safe' && !updateStatus.isFirstInstall) {
     printUpdateBanner(updateStatus);
   }
 

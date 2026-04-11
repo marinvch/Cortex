@@ -7,7 +7,7 @@
     "node": ">=20.0.0"
   },
   "bin": {
-    "ai-os": "./dist/generate.js"
+    "ai-os": "./bundle/generate.js"
   },
   "scripts": {
     "build": "tsc",

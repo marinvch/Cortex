@@ -11,6 +11,7 @@ const DEFAULT_AI_OS_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projec
   recommendations: true,
   sessionContextCard: true,
   updateCheckEnabled: true,
+  agentFlowMode: 'create',
   persistentRules: [],
   exclude: ['node_modules', 'dist', '.next', '.nuxt', 'build', 'out'],
 };
@@ -558,6 +559,7 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): st
     recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
     sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,
     updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_AI_OS_CONFIG.updateCheckEnabled,
+    agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_AI_OS_CONFIG.agentFlowMode,
     persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude,
   };

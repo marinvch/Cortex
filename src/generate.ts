@@ -139,6 +139,30 @@ function printAgentHookGuide(userDefinedAgents: string[]): void {
   console.log('');
 }
 
+function printAgentFlowStatus(cwd: string, mode: 'create' | 'hook' | 'skip' | null): void {
+  const scan = scanExistingAgents(cwd);
+  const flowFiles = [
+    'feature-enhancement-advisor.agent.md',
+    'idea-validator.agent.md',
+    'implementation-agent.agent.md',
+  ];
+  const present = flowFiles.filter((f) => scan.aiOsGenerated.includes(f) || scan.userDefined.includes(f));
+  const activeMode = mode ?? 'create';
+
+  console.log('  🤖 Agent flow status:');
+  console.log(`     mode: ${activeMode}`);
+  console.log(`     flow agents present: ${present.length}/3`);
+  if (present.length > 0) {
+    console.log(`     detected: ${present.join(', ')}`);
+  }
+  if (activeMode === 'hook') {
+    console.log('     hook mode enabled — AI OS will keep your existing agents and print handoff guidance.');
+  } else if (activeMode === 'skip') {
+    console.log('     skip mode enabled — set agentFlowMode to "create" in .github/ai-os/config.json to enable flow agents.');
+  }
+  console.log('');
+}
+
 function printSummary(
   stack: ReturnType<typeof analyze>,
   outputDir: string,
@@ -339,6 +363,7 @@ async function main(): Promise<void> {
   if (isFirstInstall || agentFlowMode === undefined) {
     printAgentFlowSetupPrompt(cwd, config?.agentFlowMode ?? null);
   }
+  printAgentFlowStatus(cwd, config?.agentFlowMode ?? null);
 }
 
 main().catch(err => {

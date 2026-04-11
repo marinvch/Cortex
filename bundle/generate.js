@@ -1709,6 +1709,7 @@ var DEFAULT_AI_OS_CONFIG = {
   recommendations: true,
   sessionContextCard: true,
   updateCheckEnabled: true,
+  agentFlowMode: "create",
   persistentRules: [],
   exclude: ["node_modules", "dist", ".next", ".nuxt", "build", "out"]
 };
@@ -2178,6 +2179,7 @@ function generateContextDocs(stack, outputDir) {
     recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
     sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,
     updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_AI_OS_CONFIG.updateCheckEnabled,
+    agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_AI_OS_CONFIG.agentFlowMode,
     persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude
   };
@@ -3624,6 +3626,28 @@ function printAgentHookGuide(userDefinedAgents) {
   console.log("     **Idea Validator** agent for cross-checking before implementation.");
   console.log("");
 }
+function printAgentFlowStatus(cwd, mode) {
+  const scan = scanExistingAgents(cwd);
+  const flowFiles = [
+    "feature-enhancement-advisor.agent.md",
+    "idea-validator.agent.md",
+    "implementation-agent.agent.md"
+  ];
+  const present = flowFiles.filter((f) => scan.aiOsGenerated.includes(f) || scan.userDefined.includes(f));
+  const activeMode = mode ?? "create";
+  console.log("  \u{1F916} Agent flow status:");
+  console.log(`     mode: ${activeMode}`);
+  console.log(`     flow agents present: ${present.length}/3`);
+  if (present.length > 0) {
+    console.log(`     detected: ${present.join(", ")}`);
+  }
+  if (activeMode === "hook") {
+    console.log("     hook mode enabled \u2014 AI OS will keep your existing agents and print handoff guidance.");
+  } else if (activeMode === "skip") {
+    console.log('     skip mode enabled \u2014 set agentFlowMode to "create" in .github/ai-os/config.json to enable flow agents.');
+  }
+  console.log("");
+}
 function printSummary(stack, outputDir, written, skipped, pruned, agents) {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
@@ -3771,6 +3795,7 @@ ${gapReport}
   if (isFirstInstall || agentFlowMode === void 0) {
     printAgentFlowSetupPrompt(cwd, config?.agentFlowMode ?? null);
   }
+  printAgentFlowStatus(cwd, config?.agentFlowMode ?? null);
 }
 main().catch((err) => {
   console.error("  \u274C Error:", err instanceof Error ? err.message : String(err));

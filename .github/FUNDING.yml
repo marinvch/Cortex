@@ -1,5 +1,0 @@
-# GitHub funding configuration
-# Replace YOUR_REVOLUT_TAG with your real Revolut tag, for example:
-# https://revolut.me/marinvch
-custom:
-  - "https://revolut.me/YOUR_REVOLUT_TAG"

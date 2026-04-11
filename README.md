@@ -21,19 +21,6 @@ Detection is package-aware for monorepos/mixed stacks, and MCP context tools pro
 
 Generated instructions also enforce strict behavior guardrails: ambiguity-first clarification (no improvisation), explicit allowed/forbidden action boundaries, and an escalation flow for underspecified requests.
 
-## Support this project
-
-If AI OS helps your workflow and you want to support development, you can sponsor via Revolut:
-
-- [Support with 1 EUR](https://revolut.me/YOUR_REVOLUT_TAG)
-- [Support with 10 EUR](https://revolut.me/YOUR_REVOLUT_TAG)
-- [Support with 100 EUR](https://revolut.me/YOUR_REVOLUT_TAG)
-
-Setup once:
-
-1. Replace `YOUR_REVOLUT_TAG` in `.github/FUNDING.yml` and this section with your real Revolut tag.
-2. Commit and push — GitHub will show a **Sponsor** button on the repository.
-
 ## Requirements
 
 - Node.js ≥ 20 **or** Docker (Node.js-free fallback)

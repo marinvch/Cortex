@@ -10,6 +10,7 @@ on:
 permissions:
   contents: write
   pull-requests: read
+  checks: read
 
 jobs:
   release:
@@ -91,6 +92,48 @@ jobs:
       - name: Validate build and tests (release gate)
         if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
         run: npm run validate:fast
+
+      - name: Require AI OS Validate success (release gate)
+        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TARGET_CHECK="validate-full"
+          MAX_ATTEMPTS=40
+          SLEEP_SECONDS=15
+
+          echo "Waiting for check run '$TARGET_CHECK' on commit ${{ github.sha }}"
+
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            RESULT=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs" \
+              --jq '.check_runs[] | select(.name == "'"$TARGET_CHECK"'") | "\(.status) \(.conclusion // \"null\")"' || true)
+
+            if [[ -z "$RESULT" ]]; then
+              echo "Attempt $attempt/$MAX_ATTEMPTS: check run '$TARGET_CHECK' not found yet."
+            else
+              STATUS=$(echo "$RESULT" | awk '{print $1}')
+              CONCLUSION=$(echo "$RESULT" | awk '{print $2}')
+              echo "Attempt $attempt/$MAX_ATTEMPTS: status=$STATUS conclusion=$CONCLUSION"
+
+              if [[ "$STATUS" == "completed" && "$CONCLUSION" == "success" ]]; then
+                echo "Required validation check passed."
+                exit 0
+              fi
+
+              if [[ "$STATUS" == "completed" && "$CONCLUSION" != "success" ]]; then
+                echo "Required validation check failed with conclusion '$CONCLUSION'. Blocking release."
+                exit 1
+              fi
+            fi
+
+            sleep "$SLEEP_SECONDS"
+          done
+
+          echo "Timed out waiting for '$TARGET_CHECK' to complete successfully. Blocking release."
+          exit 1
 
       - name: Create tag and GitHub release
         if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'

@@ -1007,7 +1007,7 @@ export function checkForUpdates(): string {
       ``,
       `Run the following to update all AI OS artifacts in-place:`,
       `\`\`\`bash`,
-      `bash install.sh --refresh-existing`,
+      `npx -y github:marinvch/ai-os#v${toolVersion} --refresh-existing`,
       `\`\`\``,
       `Or use the bootstrap one-liner: \`curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash\``,
       `This refreshes context docs, agents, skills, MCP tools, and the dependency graph without deleting your existing files.`,

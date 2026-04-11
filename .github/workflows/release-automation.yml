@@ -1,6 +1,8 @@
 name: Automated Release
 
 on:
+  push:
+    branches: [dev]
   workflow_run:
     workflows: ["AI OS Validate"]
     types: [completed]
@@ -11,15 +13,15 @@ permissions:
   pull-requests: read
 
 jobs:
+  noop-on-push:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip direct push release
+        run: echo "Release is gated by AI OS Validate workflow_run; push event is a no-op."
+
   release:
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event_name == 'workflow_run' &&
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.head_branch == 'dev'
-      )
+    if: github.event_name != 'push' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout target commit

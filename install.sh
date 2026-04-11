@@ -19,9 +19,22 @@ RESET='\033[0m'
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
 echo -e "${CYAN}${BOLD}  ║          AI OS  v0.4.0            ║${RESET}"
-echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║  Requires: Git Bash + Node.js ≥20 ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
+
+# ── Git Bash / MSYS / MINGW detection on Windows ─────────────────────────────
+if [[ "${OSTYPE:-}" == "msys" || "${OSTYPE:-}" == "cygwin" || -n "${MSYSTEM:-}" ]]; then
+  if [[ "${MSYSTEM:-}" == "MINGW64" || "${MSYSTEM:-}" == "MINGW32" ]]; then
+    # Git Bash sets MSYSTEM to MINGW64/MINGW32 — this is the expected environment
+    echo -e "  ${GREEN}✓ Git Bash detected (${MSYSTEM})${RESET}"
+  else
+    # Running under MSYS2/Cygwin but not a standard Git Bash session — warn about path issues
+    echo -e "  ${YELLOW}⚠  Windows detected: running outside Git Bash may cause path issues.${RESET}"
+    echo -e "  ${YELLOW}   Open 'Git Bash' from the Start menu and re-run this script there.${RESET}"
+    echo ""
+  fi
+fi
 
 # ── Determine this script's location ─────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -159,7 +172,8 @@ echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 if ! command -v node &>/dev/null; then
   echo -e "  ${RED}✗ Node.js not found.${RESET}"
   echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for its generator and MCP server.${RESET}"
-  echo -e "  ${YELLOW}  This is an AI OS prerequisite — your project does NOT need Node.js.${RESET}"
+  echo -e "  ${YELLOW}  This is an AI OS requirement, not your project dependency.${RESET}"
+  echo -e "  ${YELLOW}  After AI OS is set up you can remove Node.js if not needed.${RESET}"
   echo -e "  ${YELLOW}  Install: https://nodejs.org${RESET}"
   exit 1
 fi

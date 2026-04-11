@@ -66,6 +66,20 @@ bash ~/ai-os/install.sh --install-skill-creator --install-find-skills
 bash ~/ai-os/install.sh --refresh-existing
 ```
 
+## Quickstart for Java / Python / Go developers
+
+You need **Git Bash** and **Node.js ≥ 20** (Node is used by AI OS itself, not your project).
+
+```bash
+# From Git Bash, inside your repo:
+curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash
+```
+
+Node.js is only needed to run the AI OS generator and MCP server — it has no impact on your Java/Maven/Gradle (or Python/Go) build.  
+After AI OS is set up you can remove Node.js if it is not needed for your project.
+
+> **Windows tip:** Open **Git Bash** from the Start menu, `cd` to your project's root directory, and then run the command above. Do not use CMD or PowerShell — AI OS requires a POSIX shell.
+
 ## Optional skill installs
 
 AI OS can install the official `skill-creator` and `find-skills` skills.

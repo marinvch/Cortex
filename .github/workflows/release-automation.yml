@@ -131,6 +131,35 @@ jobs:
             --title "$NEXT_TAG" \
             --notes-file "$RELEASE_NOTES_FILE"
 
+      - name: Bump version in package.json
+        if: steps.plan.outputs.release_needed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEXT_VERSION="${{ steps.plan.outputs.next_tag }}"
+          NEXT_VERSION="${NEXT_VERSION#v}"
+
+          git checkout master
+          git pull origin master
+
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${NEXT_VERSION}';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          if git diff --quiet package.json; then
+            echo "package.json already at ${NEXT_VERSION} — no commit needed."
+            exit 0
+          fi
+
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.plan.outputs.next_tag }} [skip ci]"
+          git push origin master
+
       - name: No release needed
         if: steps.plan.outputs.release_needed != 'true'
         run: echo "No releasable changes detected; skipping release."

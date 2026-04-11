@@ -2,7 +2,7 @@
 
 // src/generate.ts
 import fs15 from "node:fs";
-import path16 from "node:path";
+import path17 from "node:path";
 
 // src/analyze.ts
 import fs4 from "node:fs";
@@ -167,6 +167,9 @@ function detectFromPackageJson(rootDir) {
   const frameworks = [];
   if (deps["next"]) {
     frameworks.push({ name: "Next.js", category: "fullstack", version: deps["next"], template: "nextjs" });
+  } else if (deps["@remix-run/react"] || deps["@remix-run/node"]) {
+    const version = deps["@remix-run/react"] ?? deps["@remix-run/node"];
+    frameworks.push({ name: "Remix", category: "fullstack", version, template: "remix" });
   } else if (deps["@nuxt/core"] || deps["nuxt"]) {
     frameworks.push({ name: "Nuxt.js", category: "fullstack", version: deps["nuxt"], template: "nuxt" });
   } else if (deps["react"]) {
@@ -175,6 +178,8 @@ function detectFromPackageJson(rootDir) {
     } else {
       frameworks.push({ name: "React", category: "frontend", version: deps["react"], template: "react" });
     }
+  } else if (deps["solid-js"]) {
+    frameworks.push({ name: "SolidJS", category: "frontend", version: deps["solid-js"], template: "solid" });
   } else if (deps["vue"]) {
     frameworks.push({ name: "Vue.js", category: "frontend", version: deps["vue"], template: "vue" });
   } else if (deps["svelte"]) {
@@ -322,6 +327,23 @@ function detectFromPhp(rootDir) {
   }
   return [{ name: "PHP", category: "backend", template: "php-laravel" }];
 }
+function detectBun(rootDir) {
+  if (fs2.existsSync(path2.join(rootDir, "bun.lockb"))) {
+    return [{ name: "Bun", category: "backend", template: "bun" }];
+  }
+  const pkg = readJson(path2.join(rootDir, "package.json"));
+  if (pkg?.packageManager?.startsWith("bun")) {
+    return [{ name: "Bun", category: "backend", template: "bun" }];
+  }
+  return [];
+}
+function detectDeno(rootDir) {
+  const denoFiles = ["deno.json", "deno.jsonc", "deno.lock", "import_map.json"];
+  if (denoFiles.some((f) => fs2.existsSync(path2.join(rootDir, f)))) {
+    return [{ name: "Deno", category: "backend", template: "deno" }];
+  }
+  return [];
+}
 function detectFrameworks(rootDir) {
   const frameworks = [
     ...detectFromPackageJson(rootDir),
@@ -333,7 +355,9 @@ function detectFrameworks(rootDir) {
     ...detectFromJava(rootDir),
     ...detectFromDotnet(rootDir),
     ...detectFromRuby(rootDir),
-    ...detectFromPhp(rootDir)
+    ...detectFromPhp(rootDir),
+    ...detectBun(rootDir),
+    ...detectDeno(rootDir)
   ];
   const seen = /* @__PURE__ */ new Set();
   return frameworks.filter((f) => {
@@ -561,53 +585,51 @@ function hasManifest(dir) {
   ];
   return manifests.some((manifest) => fs4.existsSync(path4.join(dir, manifest)));
 }
-function discoverPackageRoots(rootDir) {
-  const packageRoots = /* @__PURE__ */ new Set([rootDir]);
-  const rootPkgPath = path4.join(rootDir, "package.json");
-  try {
-    const pkg = JSON.parse(fs4.readFileSync(rootPkgPath, "utf-8"));
-    const workspaceGlobs = Array.isArray(pkg.workspaces) ? pkg.workspaces : Array.isArray(pkg.workspaces?.packages) ? pkg.workspaces.packages : [];
-    for (const glob of workspaceGlobs) {
-      const normalized = glob.replace(/\\/g, "/").replace(/\/*\*$/, "");
-      const base = normalized.endsWith("/*") ? normalized.slice(0, -2) : normalized;
-      const absBase = path4.join(rootDir, base);
-      if (!fs4.existsSync(absBase) || !fs4.statSync(absBase).isDirectory()) continue;
-      for (const entry of fs4.readdirSync(absBase, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-        const candidate = path4.join(absBase, entry.name);
-        if (hasManifest(candidate)) packageRoots.add(candidate);
+function parsePnpmWorkspaceYaml(yaml) {
+  const globs = [];
+  let inPackages = false;
+  for (const line of yaml.split("\n")) {
+    const trimmed = line.trim();
+    if (/^packages\s*:/.test(trimmed)) {
+      inPackages = true;
+      continue;
+    }
+    if (inPackages) {
+      if (trimmed && !line.startsWith(" ") && !line.startsWith("	")) {
+        break;
+      }
+      if (trimmed.startsWith("-")) {
+        let pattern = trimmed.slice(1).trim();
+        if (pattern.startsWith("'") && pattern.endsWith("'") || pattern.startsWith('"') && pattern.endsWith('"')) {
+          pattern = pattern.slice(1, -1);
+        }
+        if (pattern) globs.push(pattern);
       }
     }
-  } catch {
+  }
+  return globs;
+}
+function addWorkspaceChildren(absBase, packageRoots) {
+  if (!fs4.existsSync(absBase) || !fs4.statSync(absBase).isDirectory()) return;
+  for (const entry of fs4.readdirSync(absBase, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
+    const candidate = path4.join(absBase, entry.name);
+    if (hasManifest(candidate)) packageRoots.add(candidate);
+  }
+}
+function discoverPackageRoots(rootDir) {
+  const packageRoots = /* @__PURE__ */ new Set();
+  if (hasManifest(rootDir)) {
+    packageRoots.add(rootDir);
   }
   try {
     const pnpmWs = fs4.readFileSync(path4.join(rootDir, "pnpm-workspace.yaml"), "utf-8");
-    const inPackages = { active: false };
-    for (const raw of pnpmWs.split("\n")) {
-      const line = raw.trimEnd();
-      if (/^packages\s*:/.test(line)) {
-        inPackages.active = true;
-        continue;
-      }
-      if (inPackages.active) {
-        if (/^[a-zA-Z]/.test(line) && !line.startsWith(" ") && !line.startsWith("-")) {
-          inPackages.active = false;
-          continue;
-        }
-        const m = line.match(/^\s*-\s*['"]?([^'"]+?)['"]?\s*$/);
-        if (!m) continue;
-        const glob = m[1].trim();
-        const normalized = glob.replace(/\\/g, "/").replace(/\/\*\*$/, "").replace(/\/\*$/, "");
-        const absBase = path4.join(rootDir, normalized);
-        if (!fs4.existsSync(absBase) || !fs4.statSync(absBase).isDirectory()) continue;
-        for (const entry of fs4.readdirSync(absBase, { withFileTypes: true })) {
-          if (!entry.isDirectory()) continue;
-          if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-          const candidate = path4.join(absBase, entry.name);
-          if (hasManifest(candidate)) packageRoots.add(candidate);
-        }
-      }
+    for (const glob of parsePnpmWorkspaceYaml(pnpmWs)) {
+      const normalized = glob.replace(/\\/g, "/").replace(/\/\*\*$/, "").replace(/\/\*$/, "");
+      const absBase = path4.join(rootDir, normalized);
+      if (hasManifest(absBase)) packageRoots.add(absBase);
+      addWorkspaceChildren(absBase, packageRoots);
     }
   } catch {
   }
@@ -616,50 +638,23 @@ function discoverPackageRoots(rootDir) {
     for (const glob of lerna.packages ?? []) {
       const normalized = glob.replace(/\\/g, "/").replace(/\/\*\*$/, "").replace(/\/\*$/, "");
       const absBase = path4.join(rootDir, normalized);
-      if (!fs4.existsSync(absBase) || !fs4.statSync(absBase).isDirectory()) continue;
-      for (const entry of fs4.readdirSync(absBase, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-        const candidate = path4.join(absBase, entry.name);
-        if (hasManifest(candidate)) packageRoots.add(candidate);
-      }
+      if (hasManifest(absBase)) packageRoots.add(absBase);
+      addWorkspaceChildren(absBase, packageRoots);
     }
   } catch {
   }
   if (fs4.existsSync(path4.join(rootDir, "nx.json"))) {
     for (const rel of ["apps", "libs"]) {
-      const abs = path4.join(rootDir, rel);
-      if (!fs4.existsSync(abs) || !fs4.statSync(abs).isDirectory()) continue;
-      for (const entry of fs4.readdirSync(abs, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-        const candidate = path4.join(abs, entry.name);
-        if (hasManifest(candidate)) packageRoots.add(candidate);
-      }
+      addWorkspaceChildren(path4.join(rootDir, rel), packageRoots);
     }
   }
   if (fs4.existsSync(path4.join(rootDir, "turbo.json"))) {
     for (const rel of ["apps", "packages"]) {
-      const abs = path4.join(rootDir, rel);
-      if (!fs4.existsSync(abs) || !fs4.statSync(abs).isDirectory()) continue;
-      for (const entry of fs4.readdirSync(abs, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-        const candidate = path4.join(abs, entry.name);
-        if (hasManifest(candidate)) packageRoots.add(candidate);
-      }
+      addWorkspaceChildren(path4.join(rootDir, rel), packageRoots);
     }
   }
-  const conventionalRoots = ["apps", "packages", "services"];
-  for (const rel of conventionalRoots) {
-    const abs = path4.join(rootDir, rel);
-    if (!fs4.existsSync(abs) || !fs4.statSync(abs).isDirectory()) continue;
-    for (const entry of fs4.readdirSync(abs, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-      const candidate = path4.join(abs, entry.name);
-      if (hasManifest(candidate)) packageRoots.add(candidate);
-    }
+  for (const rel of ["apps", "packages", "services"]) {
+    addWorkspaceChildren(path4.join(rootDir, rel), packageRoots);
   }
   return [...packageRoots];
 }
@@ -701,6 +696,107 @@ function mergeDependencies(profiles) {
   }
   return [...deps];
 }
+function detectBuildCommands(rootDir) {
+  const commands = {};
+  try {
+    const pkg = JSON.parse(fs4.readFileSync(path4.join(rootDir, "package.json"), "utf-8"));
+    const scripts = pkg.scripts ?? {};
+    const buildAliases = ["build", "compile", "tsc"];
+    const testAliases = ["test", "test:run", "jest", "vitest"];
+    const devAliases = ["dev", "start:dev", "develop"];
+    const lintAliases = ["lint", "lint:fix", "eslint"];
+    const startAliases = ["start", "serve", "preview"];
+    for (const k of buildAliases) {
+      if (scripts[k]) {
+        commands.build = `npm run ${k}`;
+        break;
+      }
+    }
+    for (const k of testAliases) {
+      if (scripts[k]) {
+        commands.test = `npm run ${k}`;
+        break;
+      }
+    }
+    for (const k of devAliases) {
+      if (scripts[k]) {
+        commands.dev = `npm run ${k}`;
+        break;
+      }
+    }
+    for (const k of lintAliases) {
+      if (scripts[k]) {
+        commands.lint = `npm run ${k}`;
+        break;
+      }
+    }
+    for (const k of startAliases) {
+      if (scripts[k]) {
+        commands.start = `npm run ${k}`;
+        break;
+      }
+    }
+  } catch {
+  }
+  if (!commands.test || !commands.build) {
+    try {
+      const toml = fs4.readFileSync(path4.join(rootDir, "pyproject.toml"), "utf-8");
+      const scriptSection = toml.match(/\[tool\.poetry\.scripts\]([\s\S]*?)(\[|\s*$)/)?.[1] ?? "";
+      const scriptEntries = [...scriptSection.matchAll(/^(\w[\w-]*)\s*=\s*"([^"]+)"/mg)];
+      for (const [, name] of scriptEntries) {
+        if (!commands.start && /^(start|serve|run)/.test(name)) commands.start = `poetry run ${name}`;
+        if (!commands.test && /^(test|pytest)/.test(name)) commands.test = `poetry run ${name}`;
+      }
+      if (!commands.test) {
+        if (toml.includes("pytest")) commands.test = "pytest";
+        else if (toml.includes("unittest")) commands.test = "python -m unittest";
+      }
+      if (!commands.dev && (toml.includes("fastapi") || toml.includes("uvicorn"))) {
+        commands.dev = "uvicorn main:app --reload";
+      }
+      if (!commands.dev && toml.includes("django")) {
+        commands.dev = "python manage.py runserver";
+      }
+    } catch {
+    }
+  }
+  if (!commands.test) {
+    try {
+      const req = fs4.readFileSync(path4.join(rootDir, "requirements.txt"), "utf-8");
+      if (req.includes("pytest")) commands.test = "pytest";
+      if (!commands.dev && req.includes("fastapi")) commands.dev = "uvicorn main:app --reload";
+      if (!commands.dev && req.includes("django")) commands.dev = "python manage.py runserver";
+    } catch {
+    }
+  }
+  try {
+    const makefile = fs4.readFileSync(path4.join(rootDir, "Makefile"), "utf-8");
+    const targets = [...makefile.matchAll(/^([a-zA-Z][\w-]*):/mg)].map((m) => m[1]);
+    if (!commands.build && targets.includes("build")) commands.build = "make build";
+    if (!commands.test && targets.includes("test")) commands.test = "make test";
+    if (!commands.dev && targets.includes("dev")) commands.dev = "make dev";
+    if (!commands.dev && targets.includes("run")) commands.dev = "make run";
+    if (!commands.lint && targets.includes("lint")) commands.lint = "make lint";
+  } catch {
+  }
+  if (!commands.build && fs4.existsSync(path4.join(rootDir, "go.mod"))) {
+    commands.build = "go build ./...";
+    if (!commands.test) commands.test = "go test ./...";
+  }
+  if (!commands.build && fs4.existsSync(path4.join(rootDir, "Cargo.toml"))) {
+    commands.build = "cargo build";
+    if (!commands.test) commands.test = "cargo test";
+  }
+  if (!commands.build && fs4.existsSync(path4.join(rootDir, "pom.xml"))) {
+    commands.build = "mvn compile";
+    if (!commands.test) commands.test = "mvn test";
+  }
+  if (!commands.build && (fs4.existsSync(path4.join(rootDir, "build.gradle")) || fs4.existsSync(path4.join(rootDir, "build.gradle.kts")))) {
+    commands.build = "./gradlew build";
+    if (!commands.test) commands.test = "./gradlew test";
+  }
+  return commands;
+}
 function analyze(rootDir) {
   const absRoot = path4.resolve(rootDir);
   const packageRoots = discoverPackageRoots(absRoot);
@@ -730,7 +826,8 @@ function analyze(rootDir) {
     keyFiles: getKeyFiles(absRoot),
     rootDir: absRoot,
     allDependencies: mergeDependencies(packageProfiles),
-    packageProfiles
+    packageProfiles,
+    buildCommands: detectBuildCommands(absRoot)
   };
 }
 
@@ -742,13 +839,21 @@ import { fileURLToPath } from "node:url";
 // src/generators/utils.ts
 import fs5 from "node:fs";
 import path5 from "node:path";
+var _verbose = false;
+function setVerboseMode(enabled) {
+  _verbose = enabled;
+}
 function writeIfChanged(filePath, content) {
   fs5.mkdirSync(path5.dirname(filePath), { recursive: true });
   if (fs5.existsSync(filePath)) {
     const existing = fs5.readFileSync(filePath, "utf-8");
-    if (existing === content) return "skipped";
+    if (existing === content) {
+      if (_verbose) console.log(`  \u23ED\uFE0F  skip    ${filePath}  (unchanged)`);
+      return "skipped";
+    }
   }
   fs5.writeFileSync(filePath, content, "utf-8");
+  if (_verbose) console.log(`  \u270F\uFE0F  write   ${filePath}`);
   return "written";
 }
 var PLACEHOLDER_RE = /\{\{[^}]+\}\}/g;
@@ -805,13 +910,38 @@ function buildStackSummary(stack) {
 function buildKeyFilesList(stack) {
   return stack.keyFiles.map((f) => `- \`${f}\``).join("\n");
 }
+function buildBuildCommandsSection(stack) {
+  const cmds = stack.buildCommands;
+  if (!cmds || Object.keys(cmds).filter((k) => cmds[k]).length === 0) return "";
+  const lines = [];
+  const orderedCommands = [];
+  const slots = ["build", "test", "dev", "lint", "start"];
+  for (const slot of slots) {
+    if (cmds[slot]) orderedCommands.push([slot.charAt(0).toUpperCase() + slot.slice(1), cmds[slot]]);
+  }
+  for (const [k, v] of Object.entries(cmds)) {
+    if (!slots.includes(k) && v) {
+      orderedCommands.push([k.charAt(0).toUpperCase() + k.slice(1), v]);
+    }
+  }
+  for (const [label, cmd] of orderedCommands) {
+    lines.push(`- **${label}:** \`${cmd}\``);
+  }
+  return lines.join("\n");
+}
+function buildPersonaDirective(stack) {
+  const fw = stack.primaryFramework?.name;
+  if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${stack.primaryLanguage.name} and the full ${fw} ecosystem.`;
+  return `Act as a Senior ${stack.primaryLanguage.name} developer.`;
+}
 function fillTemplate(template, stack, frameworkOverlay) {
   const frameworks = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
   const linter = stack.patterns.linter ?? "none detected";
   const formatter = stack.patterns.formatter ?? "none detected";
   const testFramework = stack.patterns.testFramework ?? "none detected";
   const testDir = stack.patterns.testDirectory ?? "none detected";
-  return template.replace(/{{PROJECT_NAME}}/g, stack.projectName).replace(/{{PRIMARY_LANGUAGE}}/g, stack.primaryLanguage.name).replace(/{{FRAMEWORKS}}/g, frameworks).replace(/{{PACKAGE_MANAGER}}/g, stack.patterns.packageManager).replace(/{{HAS_TYPESCRIPT}}/g, stack.patterns.hasTypeScript ? "Yes" : "No").replace(/{{STACK_SUMMARY}}/g, buildStackSummary(stack)).replace(/{{NAMING_CONVENTION}}/g, stack.patterns.namingConvention).replace(/{{LINTER}}/g, linter).replace(/{{FORMATTER}}/g, formatter).replace(/{{TEST_FRAMEWORK}}/g, testFramework).replace(/{{TEST_DIRECTORY}}/g, testDir).replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack)).replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
+  const buildCommandsSection = buildBuildCommandsSection(stack);
+  return template.replace(/{{PROJECT_NAME}}/g, stack.projectName).replace(/{{PRIMARY_LANGUAGE}}/g, stack.primaryLanguage.name).replace(/{{FRAMEWORKS}}/g, frameworks).replace(/{{PACKAGE_MANAGER}}/g, stack.patterns.packageManager).replace(/{{HAS_TYPESCRIPT}}/g, stack.patterns.hasTypeScript ? "Yes" : "No").replace(/{{STACK_SUMMARY}}/g, buildStackSummary(stack)).replace(/{{NAMING_CONVENTION}}/g, stack.patterns.namingConvention).replace(/{{LINTER}}/g, linter).replace(/{{FORMATTER}}/g, formatter).replace(/{{TEST_FRAMEWORK}}/g, testFramework).replace(/{{TEST_DIRECTORY}}/g, testDir).replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack)).replace(/{{BUILD_COMMANDS}}/g, buildCommandsSection).replace(/{{PERSONA_DIRECTIVE}}/g, buildPersonaDirective(stack)).replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
 }
 function enforceSizeCap(content, maxBytes = 8192) {
   const encoded = Buffer.byteLength(content, "utf-8");
@@ -934,6 +1064,10 @@ function buildPersistentRulesSection(persistentRules, stack) {
     detectedRules.push("ALWAYS use shared components from `src/components/ui` before creating new UI components");
   } else if (fs6.existsSync(path6.join(root, "components", "ui"))) {
     detectedRules.push("ALWAYS use shared components from `components/ui` before creating new UI components");
+  } else if (fs6.existsSync(path6.join(root, "src", "components"))) {
+    detectedRules.push("ALWAYS check `src/components` for existing components before creating new ones");
+  } else if (fs6.existsSync(path6.join(root, "components"))) {
+    detectedRules.push("ALWAYS check `components/` for existing components before creating new ones");
   }
   const utilsPaths = ["src/lib", "src/utils", "lib", "utils"];
   for (const up of utilsPaths) {
@@ -941,6 +1075,26 @@ function buildPersistentRulesSection(persistentRules, stack) {
       detectedRules.push(`NEVER create utility functions outside \`${up}/\` \u2014 add them there instead`);
       break;
     }
+  }
+  const apiPaths = ["src/api", "src/routes", "api", "routes", "server/routes"];
+  for (const ap of apiPaths) {
+    if (fs6.existsSync(path6.join(root, ap))) {
+      detectedRules.push(`ALWAYS add new API routes inside \`${ap}/\` following the existing file structure`);
+      break;
+    }
+  }
+  const typePaths = ["src/types", "src/interfaces", "types", "interfaces"];
+  for (const tp of typePaths) {
+    if (fs6.existsSync(path6.join(root, tp))) {
+      detectedRules.push(`ALWAYS define shared types and interfaces in \`${tp}/\` \u2014 do not redeclare them inline`);
+      break;
+    }
+  }
+  if (stack.patterns.testDirectory) {
+    detectedRules.push(`ALWAYS place new test files in \`${stack.patterns.testDirectory}/\` or co-located with their source file`);
+  }
+  if (stack.patterns.hasTypeScript) {
+    detectedRules.push("NEVER use `any` as a type \u2014 use proper TypeScript types or `unknown`");
   }
   const allRules = [...persistentRules, ...detectedRules];
   if (allRules.length === 0) return "";
@@ -1254,24 +1408,10 @@ function getMcpToolsForStack(stack) {
 
 // src/generators/mcp.ts
 function generateMcpJson(stack, outputDir, _options) {
-  const mcpServerPath = path7.join(".ai-os", "mcp-server", "index.js").replace(/\\/g, "/");
   const allTools = getMcpToolsForStack(stack);
-  const nodeCommand = process.env["AI_OS_NODE_PATH"] ?? "node";
-  const config = {
-    version: 1,
-    servers: {
-      "ai-os": {
-        type: "stdio",
-        command: nodeCommand,
-        args: [mcpServerPath],
-        env: {
-          AI_OS_ROOT: "."
-        }
-      }
-    }
-  };
+  const committedConfig = { version: 1 };
   const mcpJsonPath = path7.join(outputDir, ".github", "copilot", "mcp.json");
-  writeIfChanged(mcpJsonPath, JSON.stringify(config, null, 2));
+  writeIfChanged(mcpJsonPath, JSON.stringify(committedConfig, null, 2));
   const toolsJsonPath = path7.join(outputDir, ".github", "ai-os", "tools.json");
   writeIfChanged(toolsJsonPath, JSON.stringify(allTools, null, 2));
   return [mcpJsonPath, toolsJsonPath];
@@ -1556,6 +1696,7 @@ var DEFAULT_AI_OS_CONFIG = {
   pathSpecificInstructions: true,
   recommendations: true,
   sessionContextCard: true,
+  updateCheckEnabled: true,
   persistentRules: [],
   exclude: ["node_modules", "dist", ".next", ".nuxt", "build", "out"]
 };
@@ -1920,7 +2061,33 @@ function generateContextDocs(stack, outputDir) {
   }
   const memoryFilePath = track(path10.join(memoryDir, "memory.jsonl"));
   if (!fs9.existsSync(memoryFilePath)) {
-    fs9.writeFileSync(memoryFilePath, "", "utf-8");
+    const preambleEntries = [
+      {
+        id: "session-preamble-start-protocol",
+        title: "Session Start Protocol",
+        content: "On every new conversation, call get_session_context first to reload MUST-ALWAYS rules, build commands, and key file locations. Then call get_repo_memory and get_conventions before starting any task.",
+        category: "conventions",
+        tags: "session,always,startup",
+        priority: "high",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        source: "ai-os-installer"
+      },
+      {
+        id: "session-preamble-memory-workflow",
+        title: "Memory Workflow \u2014 Always-On",
+        content: "Before implementation: call get_repo_memory with a relevant query. After a substantial task: call remember_repo_fact only for verified durable findings. Never store speculative, duplicate, or transient notes.",
+        category: "conventions",
+        tags: "memory,always,session",
+        priority: "high",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        source: "ai-os-installer"
+      }
+    ];
+    fs9.writeFileSync(
+      memoryFilePath,
+      preambleEntries.map((e) => JSON.stringify(e)).join("\n") + "\n",
+      "utf-8"
+    );
   }
   const graph = buildDependencyGraph(outputDir);
   writeIfChanged(track(path10.join(contextDir, "dependency-graph.json")), JSON.stringify(graph, null, 2));
@@ -1940,6 +2107,7 @@ function generateContextDocs(stack, outputDir) {
     pathSpecificInstructions: existingConfig?.pathSpecificInstructions ?? DEFAULT_AI_OS_CONFIG.pathSpecificInstructions,
     recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
     sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,
+    updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_AI_OS_CONFIG.updateCheckEnabled,
     persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude
   };
@@ -2174,6 +2342,83 @@ function buildAgentSpecs(stack, cwd) {
   }
   return specs;
 }
+function scanExistingAgents(cwd) {
+  const agentsDir = path11.join(cwd, AGENTS_DIR);
+  if (!fs10.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] };
+  const files = fs10.readdirSync(agentsDir).filter((f) => f.endsWith(".md") || f.endsWith(".agent.md"));
+  const userDefined = [];
+  const aiOsGenerated = [];
+  for (const file of files) {
+    const content = fs10.readFileSync(path11.join(agentsDir, file), "utf-8");
+    const isAiOs = content.includes("ai-os/context/architecture.md") || content.includes("ai-os/context/conventions.md") || content.includes("ai-os/context/stack.md");
+    if (isAiOs) {
+      aiOsGenerated.push(file);
+    } else {
+      userDefined.push(file);
+    }
+  }
+  return { userDefined, aiOsGenerated };
+}
+function buildSequentialAgentSpecs(stack, cwd) {
+  const specs = [];
+  const projectName = path11.basename(cwd);
+  const frameworks = stack.frameworks.map((f) => f.name);
+  const primaryLang = stack.languages[0]?.name ?? "TypeScript";
+  const frameworkLabel = frameworks[0] ?? primaryLang;
+  const frameworkList = frameworks.length > 0 ? frameworks.join(", ") : primaryLang;
+  const templateDir = new URL("../templates/agents", import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1");
+  const stackSummary = [
+    `Primary language: ${primaryLang}`,
+    `Frameworks: ${frameworkList}`,
+    `Package manager: ${stack.patterns.packageManager}`,
+    `TypeScript: ${stack.patterns.hasTypeScript ? "Yes" : "No"}`
+  ];
+  const keyFiles = [
+    "src/trpc/index.ts",
+    "src/lib/vector-store.ts",
+    "src/app/api/chat/route.ts",
+    "prisma/schema.prisma"
+  ].filter((f) => fs10.existsSync(path11.join(cwd, f)));
+  const keyFilesList = keyFiles.length > 0 ? keyFiles.map((f) => `- \`${f}\``).join("\n") : "- _No key files detected yet_";
+  const buildCmd = stack.patterns.packageManager === "npm" ? "npm run build" : stack.patterns.packageManager === "pnpm" ? "pnpm build" : stack.patterns.packageManager === "yarn" ? "yarn build" : stack.patterns.packageManager === "bun" ? "bun run build" : stack.patterns.packageManager === "maven" ? "mvn compile" : stack.patterns.packageManager === "gradle" ? "gradle build" : stack.patterns.packageManager === "go" ? "go build ./..." : stack.patterns.packageManager === "cargo" ? "cargo build" : "npm run build";
+  const testCmd = stack.buildCommands?.test ?? (stack.patterns.packageManager === "npm" ? "npm test" : stack.patterns.packageManager === "pnpm" ? "pnpm test" : stack.patterns.packageManager === "yarn" ? "yarn test" : stack.patterns.packageManager === "bun" ? "bun test" : stack.patterns.packageManager === "maven" ? "mvn test" : stack.patterns.packageManager === "gradle" ? "gradle test" : stack.patterns.packageManager === "go" ? "go test ./..." : stack.patterns.packageManager === "cargo" ? "cargo test" : "npm test");
+  const regenerateCmd = stack.patterns.packageManager === "npm" ? "npx ai-os" : stack.patterns.packageManager === "pnpm" ? "pnpm dlx ai-os" : stack.patterns.packageManager === "bun" ? "bunx ai-os" : "npx ai-os";
+  const commonReplacements = {
+    "{{PROJECT_NAME}}": projectName,
+    "{{FRAMEWORK}}": frameworkLabel,
+    "{{STACK_SUMMARY}}": stackSummary.map((s) => `- ${s}`).join("\n"),
+    "{{KEY_FILES_LIST}}": keyFilesList,
+    "{{FRAMEWORK_RULES}}": buildFrameworkRules(stack),
+    "{{BUILD_COMMAND}}": buildCmd,
+    "{{TEST_COMMAND}}": testCmd,
+    "{{REGENERATE_COMMAND}}": regenerateCmd
+  };
+  specs.push({
+    templateFile: path11.join(templateDir, "enhancement-advisor.md"),
+    outputFile: "feature-enhancement-advisor.agent.md",
+    name: `${projectName} \u2014 Feature Enhancement Advisor`,
+    description: `Scan ${projectName} for improvement opportunities and expansion ideas. Use when you want prioritized enhancements, gap analysis, roadmap proposals, and concrete implementation recommendations for this repository only.`,
+    argumentHint: "Describe scope (e.g. reliability, DX, CI/CD, security, performance) and depth (quick/medium/deep).",
+    replacements: commonReplacements
+  });
+  specs.push({
+    templateFile: path11.join(templateDir, "idea-validator.md"),
+    outputFile: "idea-validator.agent.md",
+    name: `${projectName} \u2014 Idea Validator`,
+    description: `Validates enhancement recommendations from the Feature Enhancement Advisor against actual codebase reality. Use after the Enhancement Advisor produces a report \u2014 before any implementation begins.`,
+    argumentHint: "Paste the Enhancement Advisor numbered report here, or describe the finding(s) to validate.",
+    replacements: commonReplacements
+  });
+  specs.push({
+    templateFile: path11.join(templateDir, "implementation-agent.md"),
+    outputFile: "implementation-agent.agent.md",
+    name: `${projectName} \u2014 Implementation Agent`,
+    description: `Executes the Approved Work Order produced by the Idea Validator. Implements changes in dependency-safe sequence. Use only after the Idea Validator has produced a verified Approved Work Order.`,
+    argumentHint: "Paste the Approved Work Order from the Idea Validator, or name a specific item to implement.",
+    replacements: commonReplacements
+  });
+  return specs;
+}
 function injectReplacements(template, replacements) {
   let result = template;
   for (const [key, value] of Object.entries(replacements)) {
@@ -2188,7 +2433,11 @@ async function generateAgentsWithOptions(stack, cwd, options) {
   function conceptCovered(keywords) {
     return existingFiles.some((f) => keywords.some((k) => f.includes(k)));
   }
-  const specs = buildAgentSpecs(stack, cwd);
+  const agentFlowMode = options.config?.agentFlowMode ?? "create";
+  const specs = [
+    ...buildAgentSpecs(stack, cwd),
+    ...agentFlowMode === "create" ? buildSequentialAgentSpecs(stack, cwd) : []
+  ];
   const generated = [];
   for (const spec of specs) {
     const outputPath = path11.join(agentsDir, spec.outputFile);
@@ -2218,7 +2467,10 @@ async function generateAgentsWithOptions(stack, cwd, options) {
   return generated;
 }
 async function generateAgents(stack, cwd, options) {
-  return generateAgentsWithOptions(stack, cwd, { refreshExisting: options?.refreshExisting ?? false });
+  return generateAgentsWithOptions(stack, cwd, {
+    refreshExisting: options?.refreshExisting ?? false,
+    config: options?.config
+  });
 }
 
 // src/generators/skills.ts
@@ -2287,6 +2539,18 @@ function buildSkillSpecs(stack, cwd) {
   }
   if (hasJavaSpringLike) {
     add("java-spring.md", "ai-os-java-spring-patterns.md");
+  }
+  if (frameworks.some((f) => f.includes("remix"))) {
+    add("remix.md", "ai-os-remix-patterns.md");
+  }
+  if (frameworks.some((f) => f.includes("solid"))) {
+    add("solid.md", "ai-os-solid-patterns.md");
+  }
+  if (frameworks.some((f) => f === "bun") || packages.includes("bun")) {
+    add("bun.md", "ai-os-bun-patterns.md");
+  }
+  if (frameworks.some((f) => f === "deno")) {
+    add("deno.md", "ai-os-deno-patterns.md");
   }
   return specs;
 }
@@ -2661,11 +2925,104 @@ async function generatePrompts(stack, cwd, options) {
   return [promptsPath];
 }
 
+// src/generators/workflows.ts
+import path14 from "node:path";
+function generateWorkflows(outputDir, options) {
+  const managed = [];
+  const track = (p) => {
+    managed.push(p);
+    return p;
+  };
+  if (options?.config?.updateCheckEnabled !== false) {
+    const workflowPath = track(path14.join(outputDir, ".github", "workflows", "ai-os-update-check.yml"));
+    writeIfChanged(workflowPath, getUpdateCheckWorkflowContent());
+  }
+  return managed;
+}
+function getUpdateCheckWorkflowContent() {
+  return `name: AI OS Update Check
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-for-ai-os-updates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read installed and latest versions
+        id: versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ENABLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/ai-os/config.json','utf8')); process.stdout.write(String(c.updateCheckEnabled !== false)); } catch { process.stdout.write('true'); }")
+          echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
+
+          INSTALLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/ai-os/config.json','utf8')); process.stdout.write(c.version || '0.0.0'); } catch { process.stdout.write('0.0.0'); }")
+          echo "installed=$INSTALLED" >> "$GITHUB_OUTPUT"
+
+          LATEST=$(curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/dev/package.json | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{const j=JSON.parse(d); process.stdout.write(j.version||'0.0.0');});")
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+          NEEDS_UPDATE=$(node -e "const a=process.argv[1].split('.').map(n=>parseInt(n,10)||0); const b=process.argv[2].split('.').map(n=>parseInt(n,10)||0); const lt=(x,y)=>x[0]<y[0]||x[0]===y[0]&&(x[1]<y[1]||x[1]===y[1]&&x[2]<y[2]); process.stdout.write(lt(a,b)?'true':'false');" "$INSTALLED" "$LATEST")
+          echo "needs_update=$NEEDS_UPDATE" >> "$GITHUB_OUTPUT"
+
+      - name: Create issue if update is available
+        if: steps.versions.outputs.enabled == 'true' && steps.versions.outputs.needs_update == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: \${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const latest = '\${{ steps.versions.outputs.latest }}';
+            const installed = '\${{ steps.versions.outputs.installed }}';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const title = 'AI OS update available: v' + latest;
+
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+
+            if (open.some((i) => i.title === title)) {
+              core.info('Update issue already exists; skipping.');
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title,
+              body: [
+                'A newer AI OS version is available.',
+                '',
+                '- Installed: v' + installed,
+                '- Latest: v' + latest,
+                '',
+                'To update, run:',
+                'bash install.sh --refresh-existing',
+              ].join('
+'),
+            });
+`;
+}
+
 // src/planner.ts
 import fs13 from "node:fs";
-import path14 from "node:path";
+import path15 from "node:path";
 function exists3(root, relPath) {
-  return fs13.existsSync(path14.join(root, relPath));
+  return fs13.existsSync(path15.join(root, relPath));
 }
 function detectRepoType(targetDir) {
   if (exists3(targetDir, ".github/ai-os/config.json") || exists3(targetDir, ".ai-os/config.json")) return "existing-ai-os";
@@ -2759,7 +3116,7 @@ function formatOnboardingPlan(plan) {
 
 // src/recommendations/index.ts
 import fs14 from "node:fs";
-import path15 from "node:path";
+import path16 from "node:path";
 
 // src/recommendations/registry.ts
 var DEPENDENCY_RECOMMENDATIONS = {
@@ -3071,7 +3428,11 @@ function getSkillsGapReport(stack, skillsLockPath) {
   let installed = [];
   try {
     const lock = JSON.parse(fs14.readFileSync(skillsLockPath, "utf-8"));
-    installed = lock.skills ?? [];
+    if (Array.isArray(lock.skills)) {
+      installed = lock.skills;
+    } else if (lock.skills && typeof lock.skills === "object") {
+      installed = Object.keys(lock.skills);
+    }
   } catch {
   }
   const installedSet = new Set(installed.map((s) => s.toLowerCase()));
@@ -3085,7 +3446,7 @@ ${cmds.split("\n").map((l) => `    ${l}`).join("\n")}`;
 function generateRecommendations(stack, outputDir) {
   const collected = collectRecommendations(stack);
   const content = generateRecommendationsDoc(stack, collected);
-  const outPath = path15.join(outputDir, ".github", "ai-os", "recommendations.md");
+  const outPath = path16.join(outputDir, ".github", "ai-os", "recommendations.md");
   writeIfChanged(outPath, content);
   return outPath;
 }
@@ -3098,14 +3459,15 @@ function parseArgs() {
   let mode = "safe";
   let action = "apply";
   let prune = false;
+  let verbose = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--cwd" && args[i + 1]) {
-      cwd = path16.resolve(args[i + 1]);
+      cwd = path17.resolve(args[i + 1]);
       i++;
     } else if (args[i] === "--cwd" && !args[i + 1]) {
       throw new Error("--cwd requires a path value");
     } else if (args[i]?.startsWith("--cwd=")) {
-      cwd = path16.resolve(args[i].slice("--cwd=".length));
+      cwd = path17.resolve(args[i].slice("--cwd=".length));
     } else if (args[i] === "--dry-run") {
       dryRun = true;
     } else if (args[i] === "--refresh-existing") {
@@ -3122,16 +3484,70 @@ function parseArgs() {
       prune = true;
     } else if (args[i] === "--check-hygiene") {
       action = "check-hygiene";
+    } else if (args[i] === "--verbose" || args[i] === "-v") {
+      verbose = true;
     }
   }
-  return { cwd, dryRun, mode, action, prune };
+  return { cwd, dryRun, mode, action, prune, verbose };
 }
 function printBanner() {
   console.log("");
   console.log("  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
-  console.log("  \u2551          AI OS  v0.3.0            \u2551");
+  console.log("  \u2551          AI OS  v0.5.0            \u2551");
   console.log("  \u2551  Portable Copilot Context Engine  \u2551");
   console.log("  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
+  console.log("");
+}
+function printAgentFlowSetupPrompt(cwd, currentMode) {
+  const scan = scanExistingAgents(cwd);
+  const hasUserAgents = scan.userDefined.length > 0;
+  if (currentMode !== null) return;
+  console.log("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
+  console.log("  \u2502  \u{1F916} Sequential Agent Flow \u2014 Setup                           \u2502");
+  console.log("  \u2502                                                             \u2502");
+  console.log("  \u2502  AI OS can generate a 3-agent sequential improvement flow:  \u2502");
+  console.log("  \u2502                                                             \u2502");
+  console.log("  \u2502   1. Feature Enhancement Advisor  (finds improvements)     \u2502");
+  console.log("  \u2502      \u2193                                                      \u2502");
+  console.log("  \u2502   2. Idea Validator               (confirms before coding)  \u2502");
+  console.log("  \u2502      \u2193                                                      \u2502");
+  console.log("  \u2502   3. Implementation Agent         (executes validated plan)  \u2502");
+  console.log("  \u2502                                                             \u2502");
+  if (hasUserAgents) {
+    console.log(`  \u2502  Existing agents detected: ${scan.userDefined.join(", ").slice(0, 38).padEnd(38)} \u2502`);
+    console.log("  \u2502                                                             \u2502");
+    console.log("  \u2502  Choose an option in .github/ai-os/config.json:            \u2502");
+    console.log('  \u2502    "agentFlowMode": "create"  \u2014 add the 3 agents (default) \u2502');
+    console.log('  \u2502    "agentFlowMode": "hook"    \u2014 guide to link to existing   \u2502');
+    console.log('  \u2502    "agentFlowMode": "skip"    \u2014 do not generate agents      \u2502');
+  } else {
+    console.log("  \u2502  No existing agents found \u2014 the 3 agents will be created.  \u2502");
+    console.log('  \u2502  Set "agentFlowMode": "skip" in config.json to opt out.    \u2502');
+  }
+  console.log("  \u2502                                                             \u2502");
+  console.log("  \u2502  Already created: .github/agents/feature-enhancement-advisor.agent.md \u2502");
+  console.log("  \u2502                   .github/agents/idea-validator.agent.md    \u2502");
+  console.log("  \u2502                   .github/agents/implementation-agent.agent.md \u2502");
+  console.log("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
+  console.log("");
+  if (currentMode === "hook" && hasUserAgents) {
+    printAgentHookGuide(scan.userDefined);
+  }
+}
+function printAgentHookGuide(userDefinedAgents) {
+  console.log("  \u{1F4CE} Hook Guide \u2014 connecting your existing agents to the ai-os flow:");
+  console.log("");
+  for (const agent of userDefinedAgents) {
+    console.log(`     ${agent}`);
+    console.log('       \u2192 Add a "Handoff" section pointing to feature-enhancement-advisor.agent.md');
+    console.log("         or idea-validator.agent.md as the next step in your workflow.");
+  }
+  console.log("");
+  console.log("  Example handoff to add at the bottom of an existing agent:");
+  console.log("");
+  console.log("     ## Handoff");
+  console.log("     When analysis is complete, pass the findings to the");
+  console.log("     **Idea Validator** agent for cross-checking before implementation.");
   console.log("");
 }
 function printSummary(stack, outputDir, written, skipped, pruned, agents) {
@@ -3148,13 +3564,13 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents) {
   console.log(`  \u23ED\uFE0F  Unchanged (skipped):        ${skipped.length}`);
   if (pruned.length > 0) {
     console.log(`  \u{1F5D1}\uFE0F  Pruned (stale):              ${pruned.length}`);
-    for (const p of pruned) console.log(`       \u2022 ${path16.relative(outputDir, p).replace(/\\/g, "/")}`);
+    for (const p of pruned) console.log(`       \u2022 ${path17.relative(outputDir, p).replace(/\\/g, "/")}`);
   }
   if (agents.length > 0) {
     console.log(`  \u{1F916} Agents generated: ${agents.length}`);
   }
   console.log(`  \u{1F527} MCP tools registered: ${mcpToolCount}`);
-  console.log(`  \u{1F5F3}\uFE0F  Manifest: ${path16.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, "/")}`);
+  console.log(`  \u{1F5F3}\uFE0F  Manifest: ${path17.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, "/")}`);
   console.log("");
   console.log("  \u{1F680} AI OS installed! Open this repo in VS Code with GitHub Copilot enabled.");
   console.log(`  \u{1F4A1} Try @workspace, /new-page, /new-trpc-procedure, or any agent from Chat.`);
@@ -3162,8 +3578,12 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents) {
 }
 async function main() {
   printBanner();
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose } = parseArgs();
   let mode = rawMode;
+  if (verbose) {
+    setVerboseMode(true);
+    console.log("  \u{1F50D} Verbose mode enabled \u2014 per-file write/skip/prune reasons will be shown.\n");
+  }
   if (action === "check-hygiene") {
     runHygieneCheck(cwd);
     return;
@@ -3214,15 +3634,16 @@ async function main() {
   const config = readAiOsConfig(cwd) ?? existingConfig;
   const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === "refresh-existing", config: config ?? void 0 });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === "refresh-existing" });
-  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === "refresh-existing" });
+  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === "refresh-existing", config: config ?? void 0 });
   const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === "refresh-existing" });
   const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === "refresh-existing" });
+  const workflowFiles = generateWorkflows(cwd, { config: config ?? void 0 });
   await deployBundledSkills(cwd, { refreshExisting: mode === "refresh-existing" });
   const recommendationFiles = [];
   if (config?.recommendations !== false) {
     const recPath = generateRecommendations(stack, cwd);
     recommendationFiles.push(recPath);
-    const skillsLockPath = path16.join(path16.dirname(new URL(import.meta.url).pathname), "..", "skills-lock.json");
+    const skillsLockPath = path17.join(path17.dirname(new URL(import.meta.url).pathname), "..", "skills-lock.json");
     const gapReport = getSkillsGapReport(stack, skillsLockPath);
     if (gapReport) console.log(`
 ${gapReport}
@@ -3235,9 +3656,10 @@ ${gapReport}
     ...agentFiles,
     ...skillFiles,
     ...promptFiles,
+    ...workflowFiles,
     ...recommendationFiles
   ];
-  const toRel = (p) => path16.relative(cwd, p).replace(/\\/g, "/");
+  const toRel = (p) => path17.relative(cwd, p).replace(/\\/g, "/");
   const currentRelFiles = allManagedAbs.map(toRel);
   const manifestRel = toRel(getManifestPath(cwd));
   currentRelFiles.push(manifestRel);
@@ -3247,15 +3669,21 @@ ${gapReport}
     const currentSet = new Set(currentRelFiles);
     for (const rel of previousFiles) {
       if (!currentSet.has(rel)) {
-        const abs = path16.join(cwd, rel);
+        const abs = path17.join(cwd, rel);
         if (fs15.existsSync(abs)) {
           try {
             fs15.rmSync(abs);
             prunedAbs.push(abs);
-            console.log(`  \u{1F5D1}\uFE0F  Pruned stale artifact: ${rel}`);
+            if (verbose) {
+              console.log(`  \u{1F5D1}\uFE0F  prune   ${rel}  (stale \u2014 not in current generation)`);
+            } else {
+              console.log(`  \u{1F5D1}\uFE0F  Pruned stale artifact: ${rel}`);
+            }
           } catch {
             console.warn(`  \u26A0 Could not prune: ${rel}`);
           }
+        } else if (verbose) {
+          console.log(`  \u{1F5D1}\uFE0F  prune   ${rel}  (already missing, skipping delete)`);
         }
       }
     }
@@ -3264,6 +3692,11 @@ ${gapReport}
   const newFiles = currentRelFiles.filter((r) => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter((r) => r !== manifestRel && previousFiles.has(r));
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
+  const agentFlowMode = config?.agentFlowMode;
+  const isFirstInstall = updateStatus.isFirstInstall;
+  if (isFirstInstall || agentFlowMode === void 0) {
+    printAgentFlowSetupPrompt(cwd, config?.agentFlowMode ?? null);
+  }
 }
 main().catch((err) => {
   console.error("  \u274C Error:", err instanceof Error ? err.message : String(err));
@@ -3273,7 +3706,7 @@ function runHygieneCheck(cwd) {
   console.log(`  \u{1F9F9} Hygiene check: ${cwd}`);
   console.log("");
   const issues = [];
-  const legacyContextDir = path16.join(cwd, ".ai-os", "context");
+  const legacyContextDir = path17.join(cwd, ".ai-os", "context");
   if (fs15.existsSync(legacyContextDir)) {
     const legacyFiles = fs15.readdirSync(legacyContextDir);
     if (legacyFiles.length > 0) {
@@ -3281,32 +3714,32 @@ function runHygieneCheck(cwd) {
     }
   }
   const lockPaths = [
-    path16.join(cwd, ".github", "ai-os", "memory", ".memory.lock"),
-    path16.join(cwd, ".ai-os", "memory", ".memory.lock")
+    path17.join(cwd, ".github", "ai-os", "memory", ".memory.lock"),
+    path17.join(cwd, ".ai-os", "memory", ".memory.lock")
   ];
   for (const lockPath of lockPaths) {
     if (fs15.existsSync(lockPath)) {
-      issues.push(`  \u26A0  Stale lock file found: ${path16.relative(cwd, lockPath)} \u2014 safe to delete`);
+      issues.push(`  \u26A0  Stale lock file found: ${path17.relative(cwd, lockPath)} \u2014 safe to delete`);
     }
   }
-  const mcpNodeModules = path16.join(cwd, ".ai-os", "mcp-server", "node_modules");
+  const mcpNodeModules = path17.join(cwd, ".ai-os", "mcp-server", "node_modules");
   if (fs15.existsSync(mcpNodeModules)) {
     issues.push(`  \u26A0  node_modules present in .ai-os/mcp-server/ \u2014 Phase F (bundle deploy) will eliminate this`);
   }
   const aiOsDirs = [
-    path16.join(cwd, ".github", "ai-os"),
-    path16.join(cwd, ".ai-os")
+    path17.join(cwd, ".github", "ai-os"),
+    path17.join(cwd, ".ai-os")
   ];
   for (const dir of aiOsDirs) {
     if (!fs15.existsSync(dir)) continue;
     const tmpFiles = findFilesRecursive(dir, (f) => f.endsWith(".tmp"));
     for (const f of tmpFiles) {
-      issues.push(`  \u26A0  Orphaned temp file: ${path16.relative(cwd, f)}`);
+      issues.push(`  \u26A0  Orphaned temp file: ${path17.relative(cwd, f)}`);
     }
   }
   const manifest = readManifest(cwd);
   if (manifest) {
-    const missingFiles = manifest.files.filter((f) => !fs15.existsSync(path16.join(cwd, f)));
+    const missingFiles = manifest.files.filter((f) => !fs15.existsSync(path17.join(cwd, f)));
     if (missingFiles.length > 0) {
       issues.push(`  \u26A0  ${missingFiles.length} manifest entries point to missing files \u2014 run --refresh-existing`);
     }
@@ -3328,7 +3761,7 @@ function findFilesRecursive(dir, predicate) {
   const results = [];
   try {
     for (const entry of fs15.readdirSync(dir, { withFileTypes: true })) {
-      const full = path16.join(dir, entry.name);
+      const full = path17.join(dir, entry.name);
       if (entry.isDirectory()) {
         results.push(...findFilesRecursive(full, predicate));
       } else if (entry.isFile() && predicate(entry.name)) {

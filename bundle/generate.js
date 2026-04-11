@@ -2512,13 +2512,21 @@ async function generateAgentsWithOptions(stack, cwd, options) {
     ...buildAgentSpecs(stack, cwd),
     ...agentFlowMode === "create" ? buildSequentialAgentSpecs(stack, cwd) : []
   ];
+  const sequentialFlowFiles = /* @__PURE__ */ new Set([
+    "feature-enhancement-advisor.agent.md",
+    "idea-validator.agent.md",
+    "implementation-agent.agent.md"
+  ]);
   const generated = [];
   for (const spec of specs) {
     const outputPath = path11.join(agentsDir, spec.outputFile);
     if (fs10.existsSync(outputPath) && !options.refreshExisting) continue;
     if (!options.refreshExisting) {
-      const baseKeywords = spec.outputFile.replace(".agent.md", "").split("-").filter((w) => w.length > 3);
-      if (conceptCovered(baseKeywords)) continue;
+      if (sequentialFlowFiles.has(spec.outputFile)) {
+      } else {
+        const baseKeywords = spec.outputFile.replace(".agent.md", "").split("-").filter((w) => w.length > 3);
+        if (conceptCovered(baseKeywords)) continue;
+      }
     }
     if (!fs10.existsSync(spec.templateFile)) {
       console.warn(`  \u26A0 Agent template not found: ${spec.templateFile}`);

@@ -390,6 +390,11 @@ async function generateAgentsWithOptions(
     ...buildAgentSpecs(stack, cwd),
     ...(agentFlowMode === 'create' ? buildSequentialAgentSpecs(stack, cwd) : []),
   ];
+  const sequentialFlowFiles = new Set([
+    'feature-enhancement-advisor.agent.md',
+    'idea-validator.agent.md',
+    'implementation-agent.agent.md',
+  ]);
   const generated: string[] = [];
 
   for (const spec of specs) {
@@ -400,8 +405,14 @@ async function generateAgentsWithOptions(
 
     // In safe mode, skip conceptually equivalent existing agents.
     if (!options.refreshExisting) {
+      // Flow agents are a strict trio. Only skip on exact file existence above;
+      // do not skip these via fuzzy keyword matching.
+      if (sequentialFlowFiles.has(spec.outputFile)) {
+        // no-op
+      } else {
       const baseKeywords = spec.outputFile.replace('.agent.md', '').split('-').filter(w => w.length > 3);
       if (conceptCovered(baseKeywords)) continue;
+      }
     }
 
     if (!fs.existsSync(spec.templateFile)) {

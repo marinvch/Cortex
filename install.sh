@@ -18,7 +18,7 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.4.1            ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v0.5.0            ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
@@ -157,11 +157,59 @@ echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 
 # ── Check Node.js version ────────────────────────────────────────────────────
 if ! command -v node &>/dev/null; then
-  echo -e "  ${RED}✗ Node.js not found.${RESET}"
-  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for its generator and MCP server.${RESET}"
-  echo -e "  ${YELLOW}  This is an AI OS prerequisite — your project does NOT need Node.js.${RESET}"
-  echo -e "  ${YELLOW}  Install: https://nodejs.org${RESET}"
-  exit 1
+  echo -e "  ${YELLOW}⚠ Node.js not found. Checking for Docker fallback...${RESET}"
+
+  if ! command -v docker &>/dev/null; then
+    echo -e "  ${RED}✗ Neither Node.js nor Docker found.${RESET}"
+    echo -e "  ${YELLOW}  Option A — Install Node.js >= 20: https://nodejs.org${RESET}"
+    echo -e "  ${YELLOW}  Option B — Install Docker:        https://docs.docker.com/get-docker/${RESET}"
+    exit 1
+  fi
+
+  echo -e "  ${GREEN}✓ Docker found — running AI OS generator via Docker${RESET}"
+  echo -e "  ${YELLOW}  Note: Node.js is only needed by AI OS itself, not by your project.${RESET}"
+  echo ""
+
+  # ── Locate ai-os source (needed here for Docker build context) ──────────────
+  AIOS_SRC_DOCKER="$SCRIPT_DIR"
+  if [[ ! -f "$AIOS_SRC_DOCKER/package.json" ]]; then
+    echo -e "  ${RED}✗ Cannot find ai-os package at: $AIOS_SRC_DOCKER${RESET}"
+    exit 1
+  fi
+
+  echo -e "  ${CYAN}→ Building AI OS Docker image (first run may take a minute)...${RESET}"
+  if ! docker build -t ai-os:local "$AIOS_SRC_DOCKER"; then
+    echo -e "  ${RED}✗ Docker build failed.${RESET}"
+    exit 1
+  fi
+  echo -e "  ${GREEN}✓ Docker image built${RESET}"
+  echo ""
+
+  echo -e "  ${CYAN}→ Scanning codebase and generating context via Docker...${RESET}"
+  echo ""
+
+  DOCKER_GEN_ARGS=(--cwd /repo)
+  if [[ "$REFRESH_EXISTING" == "true" ]]; then
+    DOCKER_GEN_ARGS+=(--refresh-existing)
+  fi
+
+  if ! docker run --rm -v "$TARGET_DIR:/repo" ai-os:local "${DOCKER_GEN_ARGS[@]}"; then
+    echo -e "  ${RED}✗ AI OS generator failed inside Docker.${RESET}"
+    exit 1
+  fi
+
+  echo ""
+  echo -e "  ${GREEN}${BOLD}✅ AI OS installed successfully via Docker!${RESET}"
+  echo ""
+  echo -e "  ${BOLD}Next steps:${RESET}"
+  echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
+  echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
+  echo -e "  3. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
+  echo ""
+  echo -e "  ${YELLOW}Tip:${RESET} Install Node.js >= 20 to also enable the local MCP server."
+  echo -e "  ${YELLOW}      https://nodejs.org${RESET}"
+  echo ""
+  exit 0
 fi
 
 NODE_VERSION=$(node --version | sed 's/v//')

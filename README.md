@@ -23,7 +23,14 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Requirements
 
-- Node.js ≥ 20 (only needed on the machine running the installer — your target project does **not** need to be a Node.js project)
+AI OS itself needs one of the following runtimes. **Your project does not need Node.js.**
+
+| Runtime | Notes |
+| ------- | ----- |
+| Node.js ≥ 20 | Recommended — enables both the generator and the local MCP server |
+| Docker | Fallback — `install.sh` auto-detects it; runs the generator in a container; MCP server requires Node.js separately |
+
+Other requirements:
 - Git
 - GitHub Copilot (VS Code extension)
 - Node.js ≥ 20 *(auto-installed by `bootstrap.sh` if missing — your project does not need Node.js)*
@@ -69,19 +76,26 @@ bash ~/ai-os/install.sh --install-skill-creator --install-find-skills
 bash ~/ai-os/install.sh --refresh-existing
 ```
 
-## Quickstart for Java / Python / Go developers
+### Docker-only install (no Node.js required)
 
-You need **Git Bash** and **Node.js ≥ 20** (Node is used by AI OS itself, not your project).
+If Node.js is not installed, `install.sh` automatically falls back to Docker:
 
 ```bash
-# From Git Bash, inside your repo:
-curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash
+# Docker must be running; Node.js is NOT required on the host
+bash ~/ai-os/install.sh --cwd /path/to/your/repo
 ```
 
-Node.js is only needed to run the AI OS generator and MCP server — it has no impact on your Java/Maven/Gradle (or Python/Go) build.  
-After AI OS is set up you can remove Node.js if it is not needed for your project.
+Or build and run the image manually:
 
-> **Windows tip:** Open **Git Bash** from the Start menu, `cd` to your project's root directory, and then run the command above. Do not use CMD or PowerShell — AI OS requires a POSIX shell.
+```bash
+# Build once from the ai-os directory
+docker build -t ai-os:local ~/ai-os
+
+# Run against any repo (files are written directly into the repo)
+docker run --rm -v /path/to/your/repo:/repo ai-os:local --cwd /repo
+```
+
+> **Note:** The Docker path generates all context files and instructions but skips the local MCP server installation. Install Node.js ≥ 20 to also enable the MCP server.
 
 ## Optional skill installs
 

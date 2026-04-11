@@ -89,6 +89,8 @@ export function buildOnboardingPlan(
   actions.push(decideAction(targetDir, '.github/ai-os/manifest.json', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/ai-os/memory/README.md', mode, 'safe-merge'));
   actions.push(decideAction(targetDir, '.github/ai-os/memory/memory.jsonl', mode, 'safe-merge'));
+  actions.push(decideAction(targetDir, '.github/COPILOT_CONTEXT.md', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.github/ai-os/recommendations.md', mode, 'always-overwrite'));
 
   // Generated collections
   actions.push(decideAction(targetDir, '.github/agents/', mode, 'safe-merge'));

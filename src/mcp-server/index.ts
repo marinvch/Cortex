@@ -28,6 +28,9 @@ import {
   getMemoryGuidelines,
   getRepoMemory,
   rememberRepoFact,
+  getSessionContext,
+  getRecommendations,
+  suggestImprovements,
 } from './utils.js';
 
 interface ToolInput {
@@ -111,6 +114,12 @@ function executeTool(toolName: string, input: ToolInput): string {
       return getRepoMemory(input.query, input.category, input.limit);
     case 'remember_repo_fact':
       return rememberRepoFact(input.title ?? '', input.content ?? '', input.category, input.tags);
+    case 'get_session_context':
+      return getSessionContext();
+    case 'get_recommendations':
+      return getRecommendations();
+    case 'suggest_improvements':
+      return suggestImprovements();
     default:
       return `Unknown tool: ${toolName}`;
   }

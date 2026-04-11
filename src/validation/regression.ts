@@ -222,6 +222,28 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
       passed: fileExists(dir, f),
     });
   }
+
+  // Size cap assertions
+  const instructionsContent = readText(dir, '.github/copilot-instructions.md');
+  if (instructionsContent) {
+    const instructionsBytes = Buffer.byteLength(instructionsContent, 'utf-8');
+    results.push({
+      fixture: fixtureName,
+      check: 'copilot-instructions.md ≤ 8192 bytes',
+      passed: instructionsBytes <= 8192,
+      detail: instructionsBytes > 8192 ? `Actual: ${instructionsBytes} bytes` : undefined,
+    });
+  }
+
+  const sessionCardContent = readText(dir, '.github/COPILOT_CONTEXT.md');
+  if (sessionCardContent) {
+    results.push({
+      fixture: fixtureName,
+      check: 'COPILOT_CONTEXT.md ≤ 2000 chars (~500 tokens)',
+      passed: sessionCardContent.length <= 2000,
+      detail: sessionCardContent.length > 2000 ? `Actual: ${sessionCardContent.length} chars` : undefined,
+    });
+  }
 }
 
 function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResult[]): void {

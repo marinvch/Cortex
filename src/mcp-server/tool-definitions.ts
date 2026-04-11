@@ -149,6 +149,21 @@ const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
       required: ['title', 'content'],
     },
   },
+  {
+    name: 'get_session_context',
+    description: 'Returns the compact session context card with MUST-ALWAYS rules, build/test commands, and key file locations. CALL THIS at the start of every new conversation to reload critical context after a session reset.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'get_recommendations',
+    description: 'Returns stack-appropriate recommendations: MCP servers, VS Code extensions, agent skills, and GitHub Copilot Extensions.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'suggest_improvements',
+    description: 'Analyzes project structure and memory entries to return architectural and tooling optimization suggestions.',
+    inputSchema: { type: 'object', properties: {} },
+  },
 ];
 
 export function getAllMcpTools(): McpToolDefinition[] {

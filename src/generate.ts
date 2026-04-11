@@ -4,17 +4,18 @@ import path from 'node:path';
 import { analyze } from './analyze.js';
 import { generateInstructions } from './generators/instructions.js';
 import { generateMcpJson } from './generators/mcp.js';
-import { generateContextDocs } from './generators/context-docs.js';
+import { generateContextDocs, readAiOsConfig } from './generators/context-docs.js';
 import { generateAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
 import { generatePrompts } from './generators/prompts.js';
 import { getMcpToolsForStack } from './mcp-tools.js';
-import { checkUpdateStatus, printUpdateBanner, getToolVersion } from './updater.js';
+import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from './updater.js';
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
 import { readManifest, writeManifest, getManifestPath } from './generators/utils.js';
+import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-type GenerateAction = 'apply' | 'plan' | 'preview';
+type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
 
 function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean } {
   const args = process.argv.slice(2);
@@ -46,6 +47,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'apply';
     } else if (args[i] === '--prune') {
       prune = true;
+    } else if (args[i] === '--check-hygiene') {
+      action = 'check-hygiene';
     }
   }
 
@@ -100,6 +103,13 @@ async function main(): Promise<void> {
 
   const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag } = parseArgs();
   let mode: GenerateMode = rawMode;
+
+  // ── --check-hygiene action (runs before scan, no generation needed) ────────
+  if (action === 'check-hygiene') {
+    runHygieneCheck(cwd);
+    return;
+  }
+
   console.log(`  📂 Scanning: ${cwd}`);
   console.log(`  🔧 Mode: ${mode}`);
   console.log(`  ▶️  Action: ${action}`);
@@ -123,7 +133,14 @@ async function main(): Promise<void> {
     printUpdateBanner(updateStatus);
   }
 
+  // Prune legacy artifacts on every refresh/update run
+  if (mode === 'refresh-existing') {
+    pruneLegacyArtifacts(cwd);
+  }
+
   const stack = analyze(cwd);
+  // Read existing config before generation to preserve user-editable fields
+  const existingConfig = readAiOsConfig(cwd);
   const onboardingPlan = buildOnboardingPlan(cwd, mode);
 
   if (action === 'plan') {
@@ -148,9 +165,11 @@ async function main(): Promise<void> {
   const previousManifest = readManifest(cwd);
   const previousFiles = new Set(previousManifest?.files ?? []);
 
-  // Phase 1: Core context files
+  // Phase 1: Core context files (config.json is written here, with user fields preserved)
   const contextFiles = generateContextDocs(stack, cwd);
-  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  // Read the freshly-written config to get feature flags for remaining generators
+  const config = readAiOsConfig(cwd) ?? existingConfig;
+  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
 
   // Phase 2: Agents, Skills, Prompts
@@ -158,6 +177,17 @@ async function main(): Promise<void> {
   const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
+
+  // Phase 3: Recommendations (if enabled in config, default: true)
+  const recommendationFiles: string[] = [];
+  if (config?.recommendations !== false) {
+    const recPath = generateRecommendations(stack, cwd);
+    recommendationFiles.push(recPath);
+    // Skills gap report (stdout only, not written to disk)
+    const skillsLockPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'skills-lock.json');
+    const gapReport = getSkillsGapReport(stack, skillsLockPath);
+    if (gapReport) console.log(`\n${gapReport}\n`);
+  }
 
   // Collect all managed absolute paths and convert to repo-relative forward-slash keys.
   const allManagedAbs = [
@@ -167,6 +197,7 @@ async function main(): Promise<void> {
     ...agentFiles,
     ...skillFiles,
     ...promptFiles,
+    ...recommendationFiles,
   ];
   const toRel = (p: string) => path.relative(cwd, p).replace(/\\/g, '/');
   const currentRelFiles = allManagedAbs.map(toRel);
@@ -216,3 +247,89 @@ main().catch(err => {
   console.error('  ❌ Error:', err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
+
+// ── --check-hygiene ───────────────────────────────────────────────────────────
+
+function runHygieneCheck(cwd: string): void {
+  console.log(`  🧹 Hygiene check: ${cwd}`);
+  console.log('');
+  const issues: string[] = [];
+
+  // Check for legacy .ai-os/context/ artifacts (pre-v0.3.0 paths)
+  const legacyContextDir = path.join(cwd, '.ai-os', 'context');
+  if (fs.existsSync(legacyContextDir)) {
+    const legacyFiles = fs.readdirSync(legacyContextDir);
+    if (legacyFiles.length > 0) {
+      issues.push(`  ⚠  Legacy .ai-os/context/ found with ${legacyFiles.length} file(s) — run --refresh-existing to migrate and prune`);
+    }
+  }
+
+  // Check for leftover .memory.lock files (crash artifact)
+  const lockPaths = [
+    path.join(cwd, '.github', 'ai-os', 'memory', '.memory.lock'),
+    path.join(cwd, '.ai-os', 'memory', '.memory.lock'),
+  ];
+  for (const lockPath of lockPaths) {
+    if (fs.existsSync(lockPath)) {
+      issues.push(`  ⚠  Stale lock file found: ${path.relative(cwd, lockPath)} — safe to delete`);
+    }
+  }
+
+  // Check for node_modules inside .ai-os/mcp-server/ (Phase F not yet applied)
+  const mcpNodeModules = path.join(cwd, '.ai-os', 'mcp-server', 'node_modules');
+  if (fs.existsSync(mcpNodeModules)) {
+    issues.push(`  ⚠  node_modules present in .ai-os/mcp-server/ — Phase F (bundle deploy) will eliminate this`);
+  }
+
+  // Check for *.tmp files in ai-os dirs
+  const aiOsDirs = [
+    path.join(cwd, '.github', 'ai-os'),
+    path.join(cwd, '.ai-os'),
+  ];
+  for (const dir of aiOsDirs) {
+    if (!fs.existsSync(dir)) continue;
+    const tmpFiles = findFilesRecursive(dir, f => f.endsWith('.tmp'));
+    for (const f of tmpFiles) {
+      issues.push(`  ⚠  Orphaned temp file: ${path.relative(cwd, f)}`);
+    }
+  }
+
+  // Check manifest consistency
+  const manifest = readManifest(cwd);
+  if (manifest) {
+    const missingFiles = manifest.files.filter(f => !fs.existsSync(path.join(cwd, f)));
+    if (missingFiles.length > 0) {
+      issues.push(`  ⚠  ${missingFiles.length} manifest entries point to missing files — run --refresh-existing`);
+    }
+  } else {
+    issues.push(`  ⚠  No manifest.json found — run AI OS generation to create one`);
+  }
+
+  if (issues.length === 0) {
+    console.log('  ✅ Hygiene check passed — no orphaned files or dump artifacts found.');
+  } else {
+    console.log('  Issues found:');
+    for (const issue of issues) console.log(issue);
+    console.log('');
+    console.log(`  Total issues: ${issues.length}`);
+    process.exit(1);
+  }
+  console.log('');
+}
+
+function findFilesRecursive(dir: string, predicate: (name: string) => boolean): string[] {
+  const results: string[] = [];
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...findFilesRecursive(full, predicate));
+      } else if (entry.isFile() && predicate(entry.name)) {
+        results.push(full);
+      }
+    }
+  } catch {
+    // ignore permission errors
+  }
+  return results;
+}

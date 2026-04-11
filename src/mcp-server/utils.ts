@@ -827,7 +827,7 @@ export function getImpactOfChange(filePath: string): string {
   const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
-    return 'Dependency graph not found. Run `npm run generate` to build it.';
+    return 'Dependency graph not found. Re-run the AI OS installer: `bash install.sh --refresh-existing` (or the bootstrap one-liner from the README).';
   }
 
   let graph: { nodes: Record<string, { imports: string[]; importedBy: string[]; exports: string[] }> };
@@ -890,7 +890,7 @@ export function getDependencyChain(filePath: string): string {
   const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
-    return 'Dependency graph not found. Run `npm run generate` to build it.';
+    return 'Dependency graph not found. Re-run the AI OS installer: `bash install.sh --refresh-existing` (or the bootstrap one-liner from the README).';
   }
 
   let graph: { nodes: Record<string, { imports: string[]; importedBy: string[]; exports: string[] }> };
@@ -943,7 +943,7 @@ export function checkForUpdates(): string {
   const legacyConfigPath = path.join(ROOT, '.ai-os', 'config.json');
   const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs.existsSync(configPath)) {
-    return 'AI OS is not installed in this repository. Run `npm run generate` to install.';
+    return 'AI OS is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`';
   }
 
   let installedVersion = '0.0.0';
@@ -984,8 +984,9 @@ export function checkForUpdates(): string {
       ``,
       `Run the following to update all AI OS artifacts in-place:`,
       `\`\`\`bash`,
-      `npm run update`,
+      `bash install.sh --refresh-existing`,
       `\`\`\``,
+      `Or use the bootstrap one-liner: \`curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash\``,
       `This refreshes context docs, agents, skills, MCP tools, and the dependency graph without deleting your existing files.`,
     ].join('\n');
   }
@@ -993,3 +994,108 @@ export function checkForUpdates(): string {
   return `AI OS is up-to-date (v${installedVersion}). Last generated: ${installedAt}`;
 }
 
+// ── Tool #19: Session Context ─────────────────────────────────────────────────
+
+export function getSessionContext(): string {
+  const contextCardPath = path.join(ROOT, '.github', 'COPILOT_CONTEXT.md');
+  if (fs.existsSync(contextCardPath)) {
+    return fs.readFileSync(contextCardPath, 'utf-8');
+  }
+  // Fallback: build a minimal context from available files
+  const lines: string[] = [
+    '# Session Context',
+    '',
+    '> COPILOT_CONTEXT.md not found. Run AI OS generation to create it.',
+    '',
+    '## Quick Context',
+    '',
+  ];
+  const conventions = readAiOsFile('context/conventions.md');
+  if (conventions) {
+    // Extract just the first section
+    const firstSection = conventions.split('\n##')[0];
+    lines.push(firstSection.split('\n').slice(0, 15).join('\n'));
+  }
+  lines.push('');
+  lines.push('Call `get_conventions` and `get_repo_memory` for full context.');
+  return lines.join('\n');
+}
+
+// ── Tool #20: Recommendations ─────────────────────────────────────────────────
+
+export function getRecommendations(): string {
+  const recommendationsPath = path.join(ROOT, '.github', 'ai-os', 'recommendations.md');
+  if (fs.existsSync(recommendationsPath)) {
+    return fs.readFileSync(recommendationsPath, 'utf-8');
+  }
+  return 'No recommendations file found. Run AI OS generation with recommendations enabled to create .github/ai-os/recommendations.md.';
+}
+
+// ── Tool #21: Suggest Improvements ───────────────────────────────────────────
+
+export function suggestImprovements(): string {
+  const suggestions: string[] = [];
+
+  // Check for missing env var documentation
+  const envExamplePaths = ['.env.example', '.env.local.example', '.env.sample'];
+  const hasEnvExample = envExamplePaths.some(p => fs.existsSync(path.join(ROOT, p)));
+  if (!hasEnvExample) {
+    suggestions.push('**Missing `.env.example`**: Document required environment variables so `get_env_vars` can surface them.');
+  }
+
+  // Check for missing COPILOT_CONTEXT.md
+  if (!fs.existsSync(path.join(ROOT, '.github', 'COPILOT_CONTEXT.md'))) {
+    suggestions.push('**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to generate the session context card for better session continuity.');
+  }
+
+  // Check for missing recommendations.md
+  if (!fs.existsSync(path.join(ROOT, '.github', 'ai-os', 'recommendations.md'))) {
+    suggestions.push('**Missing `recommendations.md`**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to generate stack-specific tool recommendations.');
+  }
+
+  // Check memory freshness
+  const memoryPath = path.join(ROOT, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  if (!fs.existsSync(memoryPath)) {
+    suggestions.push('**No repository memory found**: Use `remember_repo_fact` to capture key architectural decisions.');
+  } else {
+    const content = fs.readFileSync(memoryPath, 'utf-8').trim();
+    if (!content) {
+      suggestions.push('**Empty repository memory**: Use `remember_repo_fact` to capture key architectural decisions and conventions.');
+    }
+  }
+
+  // Check for architecture doc
+  const archPath = path.join(ROOT, '.github', 'ai-os', 'context', 'architecture.md');
+  if (!fs.existsSync(archPath)) {
+    suggestions.push('**Missing architecture doc**: Re-run the AI OS installer (`bash install.sh --refresh-existing`) to rebuild `.github/ai-os/context/architecture.md`.');
+  }
+
+  // Config-based suggestions
+  const configPath = path.join(ROOT, '.github', 'ai-os', 'config.json');
+  if (fs.existsSync(configPath)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as {
+        persistentRules?: string[];
+        recommendations?: boolean;
+      };
+      if (!config.persistentRules || config.persistentRules.length === 0) {
+        suggestions.push('**No persistent rules defined**: Add `persistentRules` in `.github/ai-os/config.json` for rules that survive context window resets (e.g. "use shared components from components/ui").');
+      }
+      if (config.recommendations === false) {
+        suggestions.push('**Recommendations disabled**: Set `"recommendations": true` in `.github/ai-os/config.json` to enable stack-specific tool suggestions.');
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (suggestions.length === 0) {
+    return '## Improvement Suggestions\n\nNo actionable improvements found. Your AI OS setup looks healthy!\n\nConsider:\n- Adding more persistent rules in `config.json` for frequently forgotten conventions\n- Calling `remember_repo_fact` after major architectural decisions';
+  }
+
+  return [
+    '## Improvement Suggestions',
+    '',
+    ...suggestions.map(s => `- ${s}`),
+  ].join('\n');
+}

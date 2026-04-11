@@ -1,9 +1,28 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { DetectedStack } from '../types.js';
+import type { DetectedStack, AiOsConfig } from '../types.js';
 import { buildDependencyGraph } from '../detectors/graph.js';
 import { getToolVersion } from '../updater.js';
 import { writeIfChanged } from './utils.js';
+
+const DEFAULT_AI_OS_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projectName' | 'primaryLanguage' | 'primaryFramework' | 'frameworks' | 'packageManager' | 'hasTypeScript'> = {
+  agentsMd: false,
+  pathSpecificInstructions: true,
+  recommendations: true,
+  sessionContextCard: true,
+  persistentRules: [],
+  exclude: ['node_modules', 'dist', '.next', '.nuxt', 'build', 'out'],
+};
+
+/** Read and return the existing AI OS config, or null. */
+export function readAiOsConfig(outputDir: string): AiOsConfig | null {
+  const configPath = path.join(outputDir, '.github', 'ai-os', 'config.json');
+  try {
+    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as AiOsConfig;
+  } catch {
+    return null;
+  }
+}
 
 interface ExistingArtifact {
   path: string;
@@ -429,20 +448,91 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): st
   const graph = buildDependencyGraph(outputDir);
   writeIfChanged(track(path.join(contextDir, 'dependency-graph.json')), JSON.stringify(graph, null, 2));
 
-  // Write config.json
-  const config = {
+  // Write config.json — preserve user-editable fields across refreshes
+  const existingConfig = readAiOsConfig(outputDir);
+  const config: AiOsConfig = {
+  // Auto-detected fields (always refreshed)
     version: getToolVersion(),
-    installedAt: new Date().toISOString(),
+    installedAt: existingConfig?.installedAt ?? new Date().toISOString(),
     projectName: stack.projectName,
     primaryLanguage: stack.primaryLanguage.name,
     primaryFramework: stack.primaryFramework?.name ?? null,
     frameworks: stack.frameworks.map(f => f.name),
     packageManager: stack.patterns.packageManager,
     hasTypeScript: stack.patterns.hasTypeScript,
+    // User-editable fields (preserved from existing config, fall back to defaults)
+    agentsMd: existingConfig?.agentsMd ?? DEFAULT_AI_OS_CONFIG.agentsMd,
+    pathSpecificInstructions: existingConfig?.pathSpecificInstructions ?? DEFAULT_AI_OS_CONFIG.pathSpecificInstructions,
+    recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
+    sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,
+    persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
+    exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude,
   };
 
   const aiOsDir = path.join(outputDir, '.github', 'ai-os');
   writeIfChanged(track(path.join(aiOsDir, 'config.json')), JSON.stringify(config, null, 2));
 
+  // Generate session context card if enabled
+  if (config.sessionContextCard) {
+    const sessionCardPath = track(path.join(outputDir, '.github', 'COPILOT_CONTEXT.md'));
+    writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
+  }
+
   return managed;
+}
+
+/** Generate a compact session context card (≤ 500 tokens). */
+function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig): string {
+  const fw = stack.primaryFramework?.name ?? stack.primaryLanguage.name;
+  const pm = stack.patterns.packageManager;
+  const isNode = ['npm', 'yarn', 'pnpm', 'bun'].includes(pm);
+
+  // Build/test commands based on detected stack
+  const buildCmd = isNode ? `${pm} run build` : pm === 'go' ? 'go build ./...' : pm === 'cargo' ? 'cargo build' : pm === 'maven' ? 'mvn package' : pm === 'gradle' ? './gradlew build' : 'build';
+  const testCmd = isNode ? `${pm} run test` : pm === 'go' ? 'go test ./...' : pm === 'cargo' ? 'cargo test' : pm === 'maven' ? 'mvn test' : pm === 'gradle' ? './gradlew test' : 'test';
+  const lintCmd = stack.patterns.linter ? (isNode ? `${pm} run lint` : stack.patterns.linter) : null;
+
+  const rules: string[] = [
+    `Use ${fw} conventions for all new code`,
+    `Primary language: ${stack.primaryLanguage.name}${stack.patterns.hasTypeScript ? ' with TypeScript' : ''}`,
+    `Package manager: ${pm} — do not mix with others`,
+    'Call get_repo_memory before starting any non-trivial task',
+    'Call get_conventions before writing new code',
+    'Call get_impact_of_change before editing any shared file',
+  ];
+
+  // Add user-defined persistent rules at the top
+  const allRules = [...config.persistentRules, ...rules].slice(0, 10);
+
+  const keyFilesTable = stack.keyFiles.slice(0, 6).map(f => `| \`${f}\` | key file |`).join('\n');
+
+  return [
+    '# Copilot Context — Quick Start',
+    '',
+    '> **If starting a new conversation**: call `get_session_context` before any task to reload all critical context.',
+    '',
+    '## MUST-ALWAYS Rules',
+    '',
+    ...allRules.map(r => `- ${r}`),
+    '',
+    '## Build & Test',
+    '',
+    '```bash',
+    `${buildCmd}   # build`,
+    `${testCmd}   # test`,
+    ...(lintCmd ? [`${lintCmd}   # lint`] : []),
+    '```',
+    '',
+    '## Key Files',
+    '',
+    '| File | Role |',
+    '|------|------|',
+    keyFilesTable,
+    '',
+    '## Session Restart Protocol',
+    '',
+    '1. Call `get_session_context` → reloads this card',
+    '2. Call `get_repo_memory` → reloads durable decisions',
+    '3. Call `get_conventions` → reloads coding rules',
+  ].join('\n');
 }

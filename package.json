@@ -1,6 +1,6 @@
 {
   "name": "ai-os",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Portable AI OS — scans any repo and generates optimized GitHub Copilot context, agents, skills, MCP tools, and slash-command prompts",
   "type": "module",
   "engines": {
@@ -11,12 +11,16 @@
   },
   "scripts": {
     "build": "tsc",
+    "bundle": "node scripts/bundle.mjs",
     "dev": "tsx src/generate.ts",
     "generate": "tsx src/generate.ts",
     "generate:dry": "tsx src/generate.ts --dry-run",
     "generate:refresh": "tsx src/generate.ts --refresh-existing",
     "update": "tsx src/generate.ts --update",
+    "check-hygiene": "tsx src/generate.ts --check-hygiene",
     "validate": "tsx src/validation/regression.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "install:skill-creator": "npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y",
     "install:find-skills": "npx -y skills add https://github.com/vercel-labs/skills --skill find-skills -g -a github-copilot -y",
     "install:skills": "npm run install:skill-creator && npm run install:find-skills"
@@ -26,7 +30,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.9"
   }
 }

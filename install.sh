@@ -18,7 +18,7 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.2.0            ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v0.4.0            ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
@@ -158,7 +158,9 @@ echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 # ── Check Node.js version ────────────────────────────────────────────────────
 if ! command -v node &>/dev/null; then
   echo -e "  ${RED}✗ Node.js not found.${RESET}"
-  echo -e "  ${YELLOW}  Please install Node.js >= 20 from https://nodejs.org${RESET}"
+  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for its generator and MCP server.${RESET}"
+  echo -e "  ${YELLOW}  This is an AI OS prerequisite — your project does NOT need Node.js.${RESET}"
+  echo -e "  ${YELLOW}  Install: https://nodejs.org${RESET}"
   exit 1
 fi
 
@@ -167,7 +169,8 @@ NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
 
 if [[ "$NODE_MAJOR" -lt 20 ]]; then
   echo -e "  ${RED}✗ Node.js $NODE_VERSION is too old. Need >= 20.${RESET}"
-  echo -e "  ${YELLOW}  Update Node.js at https://nodejs.org${RESET}"
+  echo -e "  ${YELLOW}  AI OS uses Node.js for its generator and MCP server (not your project).${RESET}"
+  echo -e "  ${YELLOW}  Update: https://nodejs.org${RESET}"
   exit 1
 fi
 
@@ -224,14 +227,20 @@ if [[ ! -f "$AIOS_SRC/package.json" ]]; then
 fi
 
 AIOS_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];const pkg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(pkg.version||'0.0.0');" "$AIOS_SRC/package.json")"
-INSTALLED_CORE_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const cfg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(cfg.version||''));}catch{process.stdout.write('');}" "$TARGET_DIR/.ai-os/config.json")"
+
+# Check new config path first (.github/ai-os/config.json), fall back to legacy (.ai-os/config.json)
+_CORE_CONFIG_PATH="$TARGET_DIR/.github/ai-os/config.json"
+if [[ ! -f "$_CORE_CONFIG_PATH" ]]; then
+  _CORE_CONFIG_PATH="$TARGET_DIR/.ai-os/config.json"
+fi
+INSTALLED_CORE_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const cfg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(cfg.version||''));}catch{process.stdout.write('');}" "$_CORE_CONFIG_PATH")"
 
 echo -e "  ${CYAN}→ Startup diagnostics:${RESET}"
 echo -e "  ${CYAN}  AI OS source version:${RESET} v${AIOS_VERSION}"
 if [[ -n "$INSTALLED_CORE_VERSION" ]]; then
   echo -e "  ${CYAN}  Installed target version:${RESET} v${INSTALLED_CORE_VERSION}"
 else
-  echo -e "  ${CYAN}  Installed target version:${RESET} none (first install or missing .ai-os/config.json)"
+  echo -e "  ${CYAN}  Installed target version:${RESET} none (first install or missing config.json)"
 fi
 echo ""
 
@@ -257,7 +266,10 @@ if [[ "$REFRESH_EXISTING" == "true" ]]; then
   GEN_ARGS+=(--refresh-existing)
 fi
 
-(cd "$AIOS_SRC" && node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+# Detect absolute node path so mcp.json uses a stable path (fixes nvm/fnm/asdf on Windows/macOS)
+NODE_ABS_PATH="$(command -v node)"
+
+(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
 
 # ── Copy MCP server to target repo ──────────────────────────────────────────
 MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
@@ -271,9 +283,9 @@ MCP_SKIP_REASON=""
 if [[ -f "$MCP_RUNTIME_MANIFEST" ]]; then
   INSTALLED_MCP_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const m=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(m.sourceVersion||''));}catch{process.stdout.write('');}" "$MCP_RUNTIME_MANIFEST")"
 
-  if [[ "$INSTALLED_MCP_VERSION" == "$AIOS_VERSION" && "$REFRESH_EXISTING" != "true" && -f "$MCP_SERVER_DEST/index.ts" && -f "$MCP_SERVER_DEST/package.json" ]]; then
+  if [[ "$INSTALLED_MCP_VERSION" == "$AIOS_VERSION" && "$REFRESH_EXISTING" != "true" && -f "$MCP_SERVER_DEST/index.js" ]]; then
     MCP_INSTALL_REQUIRED=false
-    MCP_SKIP_REASON="runtime-manifest.json matches source version and required files are present"
+    MCP_SKIP_REASON="runtime-manifest.json matches source version and index.js is present"
   fi
 fi
 
@@ -300,11 +312,18 @@ if [[ "$MCP_INSTALL_REQUIRED" == "true" ]]; then
     echo -e "  ${CYAN}  Runtime install:${RESET} v${AIOS_VERSION}"
   fi
 
-  # Copy MCP server source files
-  cp -r "$MCP_SERVER_SRC"/* "$MCP_SERVER_DEST/"
+  # Prefer bundled single-file server (Phase F) if available; fall back to source+tsx launcher
+  BUNDLED_SERVER="$AIOS_SRC/dist/server.js"
+  if [[ -f "$BUNDLED_SERVER" ]]; then
+    echo -e "  ${CYAN}  Using pre-bundled server (no node_modules required)${RESET}"
+    cp "$BUNDLED_SERVER" "$MCP_SERVER_DEST/index.js"
+    chmod +x "$MCP_SERVER_DEST/index.js"
+  else
+    # Fall back: copy MCP server source files + install deps
+    cp -r "$MCP_SERVER_SRC"/* "$MCP_SERVER_DEST/"
 
-  # Create a runtime package.json for the MCP server in the target repo
-  cat > "$MCP_SERVER_DEST/package.json" << 'EOF'
+    # Create a runtime package.json for the MCP server in the target repo
+    cat > "$MCP_SERVER_DEST/package.json" << 'EOF'
 {
   "name": "ai-os-mcp-server",
   "version": "0.1.0",
@@ -317,11 +336,11 @@ if [[ "$MCP_INSTALL_REQUIRED" == "true" ]]; then
 }
 EOF
 
-  # Install MCP server dependencies
-  (cd "$MCP_SERVER_DEST" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
+    # Install MCP server dependencies
+    (cd "$MCP_SERVER_DEST" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
 
-  # Create a portable runtime launcher
-  cat > "$MCP_SERVER_DEST/index.js" << 'EOF'
+    # Create a portable runtime launcher
+    cat > "$MCP_SERVER_DEST/index.js" << 'EOF'
 #!/usr/bin/env node
 // AI OS MCP Server — auto-generated entry point
 // This file is generated by ai-os install. Do not edit manually.
@@ -346,11 +365,12 @@ if (result.error) {
 
 process.exit(result.status ?? 1);
 EOF
+  fi
 
   cat > "$MCP_RUNTIME_MANIFEST" << EOF
 {
   "name": "ai-os-mcp-server",
-  "runtime": "tsx",
+  "runtime": "$([ -f "$BUNDLED_SERVER" ] && echo "bundled" || echo "tsx")",
   "sourceVersion": "$AIOS_VERSION",
   "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }

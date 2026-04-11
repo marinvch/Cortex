@@ -68,3 +68,32 @@ export interface DependencyGraph {
   generatedAt: string;
   fileCount: number;
 }
+
+/** User-editable + auto-detected config written to .github/ai-os/config.json */
+export interface AiOsConfig {
+  /** AI OS version that wrote this config */
+  version: string;
+  installedAt: string;
+  projectName: string;
+  primaryLanguage: string;
+  primaryFramework: string | null;
+  frameworks: string[];
+  packageManager: string;
+  hasTypeScript: boolean;
+  // ── User-editable feature flags ──────────────────────────────────────────
+  /** Generate AGENTS.md (opt-in, default: false) */
+  agentsMd: boolean;
+  /** Generate path-specific .instructions.md files (default: true) */
+  pathSpecificInstructions: boolean;
+  /** Generate recommendations.md (default: true) */
+  recommendations: boolean;
+  /** Generate COPILOT_CONTEXT.md session context card (default: true) */
+  sessionContextCard: boolean;
+  /**
+   * Persistent rules injected verbatim into copilot-instructions.md and
+   * preserved through refreshes. Edit here to survive regeneration.
+   */
+  persistentRules: string[];
+  /** Glob patterns to exclude from analysis (in addition to defaults) */
+  exclude: string[];
+}

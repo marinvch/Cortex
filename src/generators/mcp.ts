@@ -25,12 +25,16 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, _option
 
   const allTools = getMcpToolsForStack(stack);
 
+  // Use the absolute node path detected at install time (env var set by install.sh) so
+  // the MCP server can be spawned by VS Code even when node is managed by nvm/fnm/asdf.
+  const nodeCommand = process.env['AI_OS_NODE_PATH'] ?? 'node';
+
   const config: McpJson = {
     version: 1,
     servers: {
       'ai-os': {
         type: 'stdio',
-        command: 'node',
+        command: nodeCommand,
         args: [mcpServerPath],
         env: {
           AI_OS_ROOT: '.',

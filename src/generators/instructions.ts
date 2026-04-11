@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { DetectedStack } from '../types.js';
+import type { DetectedStack, AiOsConfig } from '../types.js';
 import { writeIfChanged } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -56,12 +56,176 @@ function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: 
 
 interface GenerateInstructionsOptions {
   refreshExisting?: boolean;
+  config?: AiOsConfig;
+}
+
+/** Enforce an 8 KB cap on copilot-instructions.md. Truncates framework overlay if needed. */
+function enforceSizeCap(content: string, maxBytes = 8192): string {
+  const encoded = Buffer.byteLength(content, 'utf-8');
+  if (encoded <= maxBytes) return content;
+
+  // Find the FRAMEWORK_OVERLAY boundary and trim from there
+  const cutIdx = content.lastIndexOf('\n---\n', Math.floor(content.length * (maxBytes / encoded)));
+  if (cutIdx > 0) {
+    const truncated = content.slice(0, cutIdx) + '\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n';
+    if (Buffer.byteLength(truncated, 'utf-8') <= maxBytes) return truncated;
+  }
+
+  // Hard truncate as last resort
+  const bytes = Buffer.from(content, 'utf-8').slice(0, maxBytes - 100);
+  return bytes.toString('utf-8') + '\n\n<!-- [AI OS] truncated to 8 KB Copilot budget -->\n';
+}
+
+/** Generate path-specific instruction files based on detected stack paths. */
+function generatePathSpecificInstructions(stack: DetectedStack, githubDir: string): string[] {
+  const files: string[] = [];
+  const root = path.dirname(githubDir); // outputDir
+  const instructionsDir = path.join(githubDir, 'instructions');
+  const fw = stack.primaryFramework?.name ?? '';
+  const primaryLang = stack.primaryLanguage.name;
+
+  // frontend.instructions.md
+  const frontendPaths = ['src/app', 'src/pages', 'components', 'pages', 'app', 'src/components'];
+  const hasFrontend = frontendPaths.some(p => fs.existsSync(path.join(root, p)));
+  if (hasFrontend) {
+    const applyPaths = frontendPaths.filter(p => fs.existsSync(path.join(root, p)));
+    const applyTo = applyPaths.map(p => `${p}/**`).join(', ');
+    const content = [
+      '---',
+      `applyTo: "${applyTo}"`,
+      '---',
+      '',
+      `# Frontend Rules — ${stack.projectName}`,
+      '',
+      `- Use ${fw || primaryLang} conventions for all UI components`,
+      '- Prefer shared components in the detected components directory over new one-offs',
+      stack.patterns.hasTypeScript ? '- All component props must be typed (no `any`)' : '',
+      stack.patterns.namingConvention === 'PascalCase' ? '- Component files: PascalCase (e.g. `MyButton.tsx`)' : `- Component files: ${stack.patterns.namingConvention}`,
+      stack.patterns.testFramework ? `- Co-locate component tests (*.test.tsx / *.spec.tsx) using ${stack.patterns.testFramework}` : '',
+    ].filter(Boolean).join('\n');
+    const p = path.join(instructionsDir, 'frontend.instructions.md');
+    writeIfChanged(p, content);
+    files.push(p);
+  }
+
+  // backend.instructions.md
+  const backendPaths = ['src/api', 'server', 'routes', 'src/routes', 'api', 'src/server'];
+  const hasBackend = backendPaths.some(p => fs.existsSync(path.join(root, p)));
+  if (hasBackend) {
+    const applyPaths = backendPaths.filter(p => fs.existsSync(path.join(root, p)));
+    const applyTo = applyPaths.map(p => `${p}/**`).join(', ');
+    const content = [
+      '---',
+      `applyTo: "${applyTo}"`,
+      '---',
+      '',
+      `# Backend Rules — ${stack.projectName}`,
+      '',
+      '- Validate all external inputs at API boundaries',
+      '- Never return raw error messages to clients — use structured error responses',
+      '- Scope all database queries by the authenticated user/owner',
+      stack.patterns.hasTypeScript ? '- Type all request/response payloads (no implicit `any`)' : '',
+      '- Use async/await over callback chains',
+    ].filter(Boolean).join('\n');
+    const p = path.join(instructionsDir, 'backend.instructions.md');
+    writeIfChanged(p, content);
+    files.push(p);
+  }
+
+  // tests.instructions.md
+  const testExts = ['test.ts', 'test.tsx', 'spec.ts', 'spec.tsx', 'test.js', 'spec.js'];
+  const hasTestFiles = testExts.some(ext => {
+    try {
+      const out = fs.readdirSync(root).some(f => f.endsWith(`.${ext}`));
+      return out;
+    } catch { return false; }
+  });
+  const hasTestDir = stack.patterns.testDirectory ? fs.existsSync(path.join(root, stack.patterns.testDirectory)) : false;
+  if (hasTestDir || stack.patterns.testFramework) {
+    const applyTo = '**/*.test.ts, **/*.test.tsx, **/*.spec.ts, **/*.spec.tsx, **/*.test.js, **/*.spec.js';
+    const content = [
+      '---',
+      `applyTo: "${applyTo}"`,
+      '---',
+      '',
+      `# Test Rules — ${stack.projectName}`,
+      '',
+      stack.patterns.testFramework ? `- Use ${stack.patterns.testFramework} as the test framework` : '- Use the existing test framework consistently',
+      stack.patterns.testDirectory ? `- Tests live in \`${stack.patterns.testDirectory}/\` or co-located (\`*.test.ts\`)` : '',
+      '- One assertion concept per test (avoid multiple unrelated assertions)',
+      '- Test descriptions must be descriptive: `it("returns 401 when token is missing")`',
+      '- Mock external services and databases in unit tests',
+      '- Do not import from `dist/` or `build/` in tests',
+    ].filter(Boolean).join('\n');
+    const p = path.join(instructionsDir, 'tests.instructions.md');
+    writeIfChanged(p, content);
+    files.push(p);
+  }
+
+  // schema.instructions.md (Prisma or SQL migrations)
+  const schemaPaths = ['prisma', 'migrations', 'db/migrations', 'src/db'];
+  const hasSchema = schemaPaths.some(p => fs.existsSync(path.join(root, p)));
+  if (hasSchema || stack.allDependencies.includes('prisma') || stack.allDependencies.includes('@prisma/client')) {
+    const applyPaths = schemaPaths.filter(p => fs.existsSync(path.join(root, p)));
+    const applyTo = applyPaths.length > 0 ? applyPaths.map(p => `${p}/**`).join(', ') : 'prisma/**, migrations/**';
+    const content = [
+      '---',
+      `applyTo: "${applyTo}"`,
+      '---',
+      '',
+      `# Schema & Migration Rules — ${stack.projectName}`,
+      '',
+      '- Call `get_prisma_schema` before any model changes',
+      '- Never delete columns in a single migration — deprecate then remove in the next release',
+      '- Add database indexes for all foreign keys and frequently queried fields',
+      '- Schema changes require a migration file — do not edit the schema without running migrate',
+    ].join('\n');
+    const p = path.join(instructionsDir, 'schema.instructions.md');
+    writeIfChanged(p, content);
+    files.push(p);
+  }
+
+  return files;
+}
+
+/** Build the persistent rules section for copilot-instructions.md */
+function buildPersistentRulesSection(persistentRules: string[], stack: DetectedStack): string {
+  const detectedRules: string[] = [];
+
+  // Add auto-detected structural rules
+  const root = stack.rootDir;
+  if (fs.existsSync(path.join(root, 'src', 'components', 'ui'))) {
+    detectedRules.push('ALWAYS use shared components from `src/components/ui` before creating new UI components');
+  } else if (fs.existsSync(path.join(root, 'components', 'ui'))) {
+    detectedRules.push('ALWAYS use shared components from `components/ui` before creating new UI components');
+  }
+  const utilsPaths = ['src/lib', 'src/utils', 'lib', 'utils'];
+  for (const up of utilsPaths) {
+    if (fs.existsSync(path.join(root, up))) {
+      detectedRules.push(`NEVER create utility functions outside \`${up}/\` — add them there instead`);
+      break;
+    }
+  }
+
+  const allRules = [...persistentRules, ...detectedRules];
+  if (allRules.length === 0) return '';
+
+  return [
+    '',
+    '## Persistent Rules',
+    '',
+    '> These rules survive context window resets. They are enforced on every request.',
+    '',
+    ...allRules.map(r => `- ${r}`),
+  ].join('\n');
 }
 
 /** Returns absolute paths of all managed files. */
-export function generateInstructions(stack: DetectedStack, outputDir: string, _options?: GenerateInstructionsOptions): string[] {
+export function generateInstructions(stack: DetectedStack, outputDir: string, options?: GenerateInstructionsOptions): string[] {
   const base = readTemplate('base-instructions.md');
   if (!base) throw new Error('Base instructions template not found');
+
+  const config = options?.config;
 
   // Load primary framework template + any additional ones
   const templateKeys = new Set<string>();
@@ -71,7 +235,17 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, _o
   // Deduplicated overlays
   const overlays = [...templateKeys].map(k => readFrameworkTemplate(k)).filter(Boolean).join('\n\n---\n\n');
 
-  const content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`);
+  let content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`);
+
+  // Inject persistent rules section
+  const persistentRules = config?.persistentRules ?? [];
+  const persistentSection = buildPersistentRulesSection(persistentRules, stack);
+  if (persistentSection) {
+    content = content + persistentSection;
+  }
+
+  // Enforce 8 KB cap
+  content = enforceSizeCap(content);
 
   const githubDir = path.join(outputDir, '.github');
 
@@ -95,6 +269,7 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, _o
     '',
     '| Tool | When to call |',
     '|---|---|',
+    '| `get_session_context` | **At session start** — reloads MUST-ALWAYS rules and key context |',
     '| `get_project_structure` | Before exploring unfamiliar directories |',
     '| `get_stack_info` | Before suggesting any library or tooling changes |',
     '| `get_conventions` | Before writing new code in this repo |',
@@ -107,6 +282,15 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, _o
     '| `get_memory_guidelines` | At task start to load memory safety protocol |',
     '| `get_repo_memory` | Before coding to recover durable repo decisions and constraints |',
     '| `remember_repo_fact` | After substantial tasks to persist verified learnings |',
+    '| `get_recommendations` | To see stack-appropriate tools, extensions, and skills |',
+    '| `suggest_improvements` | To surface architectural and tooling gaps |',
+    '',
+    '## Session Restart Protocol',
+    '',
+    '**When starting a new conversation or after a context window reset:**',
+    '1. Call `get_session_context` → reloads MUST-ALWAYS rules, build commands, key files',
+    '2. Call `get_repo_memory` → reloads durable architectural decisions',
+    '3. Call `get_conventions` → reloads coding rules',
     '',
     '## Memory Protocol',
     '',
@@ -150,5 +334,13 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, _o
   const autoActivationPath = path.join(instructionsDir, 'ai-os.instructions.md');
   writeIfChanged(autoActivationPath, autoActivationContent);
 
-  return [outputPath, autoActivationPath];
+  const outputFiles = [outputPath, autoActivationPath];
+
+  // Generate path-specific instruction files if enabled
+  if (config?.pathSpecificInstructions !== false) {
+    const pathSpecificFiles = generatePathSpecificInstructions(stack, githubDir);
+    outputFiles.push(...pathSpecificFiles);
+  }
+
+  return outputFiles;
 }

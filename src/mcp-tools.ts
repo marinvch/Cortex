@@ -192,6 +192,27 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  // ── Tool #19: Session Continuity ─────────────────────────────────────────
+  {
+    name: 'get_session_context',
+    description: 'Returns the compact session context card with MUST-ALWAYS rules, build/test commands, and key file locations. CALL THIS at the start of every new conversation to reload critical context after a session reset.',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
+  // ── Tool #20: Recommendation Engine ──────────────────────────────────────
+  {
+    name: 'get_recommendations',
+    description: 'Returns stack-appropriate recommendations: MCP servers, VS Code extensions, agent skills, and GitHub Copilot Extensions. Useful for setting up a new developer environment.',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
+  // ── Tool #21: Improvement Suggestions ────────────────────────────────────
+  {
+    name: 'suggest_improvements',
+    description: 'Analyzes project structure and memory entries to return architectural and tooling optimization suggestions (e.g. missing env var documentation, undocumented key paths, skills gaps).',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

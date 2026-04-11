@@ -460,27 +460,35 @@ else
   echo -e "  ${CYAN}  Skip reason:${RESET} ${MCP_SKIP_REASON}"
 fi
 
-# Write local MCP config so Copilot can launch the local ai-os runtime.
-MCP_LOCAL_CONFIG="$TARGET_DIR/.github/copilot/mcp.local.json"
-mkdir -p "$TARGET_DIR/.github/copilot"
-cat > "$MCP_LOCAL_CONFIG" << EOF
-{
-  "version": 1,
-  "mcpServers": {
-    "ai-os": {
-      "type": "stdio",
-      "command": "$NODE_ABS_PATH",
-      "args": [
-        "$MCP_SERVER_DEST/index.js"
-      ],
-      "env": {
-        "AI_OS_ROOT": "$TARGET_DIR"
-      }
-    }
-  }
-}
-EOF
-echo -e "  ${GREEN}✓ Wrote local MCP config: .github/copilot/mcp.local.json${RESET}"
+# Write VS Code MCP config so Copilot can launch the local ai-os runtime.
+# Uses the official .vscode/mcp.json format with "servers" top-level key
+# and ${workspaceFolder} variable for portability across machines.
+VSCODE_MCP_CONFIG="$TARGET_DIR/.vscode/mcp.json"
+mkdir -p "$TARGET_DIR/.vscode"
+
+# Merge ai-os server entry into existing .vscode/mcp.json (preserve user servers)
+"$NODE_ABS_PATH" -e "
+  const fs = require('fs');
+  const p = process.argv[1];
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch {}
+  if (!cfg.servers) cfg.servers = {};
+  cfg.servers['ai-os'] = {
+    type: 'stdio',
+    command: 'node',
+    args: ['\${workspaceFolder}/.ai-os/mcp-server/index.js'],
+    env: { AI_OS_ROOT: '\${workspaceFolder}' }
+  };
+  fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
+" "$VSCODE_MCP_CONFIG"
+echo -e "  ${GREEN}✓ Wrote MCP config: .vscode/mcp.json${RESET}"
+
+# Clean up legacy .github/copilot/mcp.local.json if present
+LEGACY_MCP_LOCAL="$TARGET_DIR/.github/copilot/mcp.local.json"
+if [[ -f "$LEGACY_MCP_LOCAL" ]]; then
+  rm -f "$LEGACY_MCP_LOCAL"
+  echo -e "  ${CYAN}✓ Removed legacy .github/copilot/mcp.local.json${RESET}"
+fi
 
 echo ""
 
@@ -552,9 +560,6 @@ if [[ -f "$GITIGNORE" ]]; then
   fi
   if ! grep -q "^\.github/ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/mcp-server/node_modules" >> "$GITIGNORE"
-  fi
-  if ! grep -q "^\.github/copilot/mcp.local.json$" "$GITIGNORE" 2>/dev/null; then
-    echo ".github/copilot/mcp.local.json" >> "$GITIGNORE"
   fi
   # #10 — ignore the memory lock file so it never appears as an untracked change
   if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then

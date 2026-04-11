@@ -252,7 +252,7 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
 
   const expectedFiles = [
     '.github/copilot-instructions.md',
-    '.github/copilot/mcp.json',
+    '.vscode/mcp.json',
     '.github/ai-os/context/stack.md',
     '.github/ai-os/context/architecture.md',
     '.github/ai-os/context/conventions.md',
@@ -311,22 +311,22 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
 
 function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]): void {
   // The MCP server runtime (index.js) is deployed by install.sh, not by `generate`.
-  // The regression suite only runs `generate`, so we verify committed MCP metadata.
-  // Since v0.4.1+, committed mcp.json intentionally has NO local ai-os server entry.
+  // The regression suite only runs `generate`, so we verify the VS Code MCP config.
+  // Since v0.6.27, the MCP config is written to .vscode/mcp.json with "servers" key.
   // Tool definitions are written to .github/ai-os/tools.json.
-  const mcpJsonPath = path.join(dir, '.github/copilot/mcp.json');
+  const mcpJsonPath = path.join(dir, '.vscode/mcp.json');
   if (!fs.existsSync(mcpJsonPath)) {
     results.push({
       fixture: fixtureName,
       check: 'mcp.json present',
       passed: false,
-      detail: '.github/copilot/mcp.json not found after apply',
+      detail: '.vscode/mcp.json not found after apply',
     });
     return;
   }
   results.push({ fixture: fixtureName, check: 'mcp.json present', passed: true });
 
-  let mcpConfig: { version?: number; mcpServers?: Record<string, { command?: string; args?: string[] }> };
+  let mcpConfig: { servers?: Record<string, { type?: string; command?: string; args?: string[] }> };
   try {
     mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')) as typeof mcpConfig;
   } catch {
@@ -335,65 +335,65 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   }
   results.push({ fixture: fixtureName, check: 'mcp.json is valid JSON', passed: true });
 
-  // Version field must be present
+  // Must use official "servers" key (not legacy "mcpServers")
   results.push({
     fixture: fixtureName,
-    check: 'mcp.json has version field',
-    passed: typeof mcpConfig.version === 'number',
-    detail: typeof mcpConfig.version !== 'number' ? `version field is ${JSON.stringify(mcpConfig.version)}` : undefined,
+    check: 'mcp.json uses "servers" key',
+    passed: mcpConfig.servers !== undefined,
+    detail: mcpConfig.servers === undefined ? 'missing "servers" top-level key' : undefined,
   });
 
-  // Committed mcp.json should not include local-runtime servers entries.
-  const serverEntry = mcpConfig.mcpServers?.['ai-os'];
-  if (serverEntry !== undefined) {
+  // The ai-os server entry should be present with ${workspaceFolder} variables
+  const serverEntry = mcpConfig.servers?.['ai-os'];
+  results.push({
+    fixture: fixtureName,
+    check: 'mcp.json has ai-os server entry',
+    passed: serverEntry !== undefined,
+    detail: serverEntry === undefined ? 'ai-os server not found in servers' : undefined,
+  });
+
+  if (serverEntry) {
     results.push({
       fixture: fixtureName,
-      check: 'mcp.json does not include local ai-os server entry',
-      passed: false,
-      detail: `Unexpected mcpServers['ai-os'] in committed mcp.json: ${JSON.stringify(serverEntry)}`,
-    });
-  } else {
-    // Expected committed shape.
-    results.push({
-      fixture: fixtureName,
-      check: 'mcp.json does not include local ai-os server entry',
-      passed: true,
-    });
-
-    const toolsJsonPath = path.join(dir, '.github/ai-os/tools.json');
-    if (!fs.existsSync(toolsJsonPath)) {
-      results.push({
-        fixture: fixtureName,
-        check: 'tools.json present for MCP tool definitions',
-        passed: false,
-        detail: '.github/ai-os/tools.json not found after apply',
-      });
-      return;
-    }
-
-    let toolsConfig: unknown;
-    try {
-      toolsConfig = JSON.parse(fs.readFileSync(toolsJsonPath, 'utf-8'));
-    } catch {
-      results.push({
-        fixture: fixtureName,
-        check: 'tools.json is valid JSON',
-        passed: false,
-        detail: 'JSON.parse failed',
-      });
-      return;
-    }
-
-    results.push({ fixture: fixtureName, check: 'tools.json is valid JSON', passed: true });
-    results.push({
-      fixture: fixtureName,
-      check: 'tools.json contains MCP tool definitions',
-      passed: Array.isArray(toolsConfig) && toolsConfig.length > 0,
-      detail: Array.isArray(toolsConfig)
-        ? (toolsConfig.length > 0 ? undefined : 'tools.json is an empty array')
-        : 'tools.json is not an array',
+      check: 'ai-os server uses portable command',
+      passed: serverEntry.command === 'node',
+      detail: serverEntry.command !== 'node' ? `command should be "node", got "${serverEntry.command}"` : undefined,
     });
   }
+
+  const toolsJsonPath = path.join(dir, '.github/ai-os/tools.json');
+  if (!fs.existsSync(toolsJsonPath)) {
+    results.push({
+      fixture: fixtureName,
+      check: 'tools.json present for MCP tool definitions',
+      passed: false,
+      detail: '.github/ai-os/tools.json not found after apply',
+    });
+    return;
+  }
+
+  let toolsConfig: unknown;
+  try {
+    toolsConfig = JSON.parse(fs.readFileSync(toolsJsonPath, 'utf-8'));
+  } catch {
+    results.push({
+      fixture: fixtureName,
+      check: 'tools.json is valid JSON',
+      passed: false,
+      detail: 'JSON.parse failed',
+    });
+    return;
+  }
+
+  results.push({ fixture: fixtureName, check: 'tools.json is valid JSON', passed: true });
+  results.push({
+    fixture: fixtureName,
+    check: 'tools.json contains MCP tool definitions',
+    passed: Array.isArray(toolsConfig) && toolsConfig.length > 0,
+    detail: Array.isArray(toolsConfig)
+      ? (toolsConfig.length > 0 ? undefined : 'tools.json is an empty array')
+      : 'tools.json is not an array',
+  });
 }
 
 function checkMemoryQuality(dir: string, fixtureName: string, results: CheckResult[]): void {

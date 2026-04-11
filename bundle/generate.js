@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // src/generate.ts
-import fs15 from "node:fs";
+import fs16 from "node:fs";
 import path17 from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
@@ -1227,6 +1227,7 @@ No specific framework template found. Follow the general rules above.`);
 }
 
 // src/generators/mcp.ts
+import fs7 from "node:fs";
 import path7 from "node:path";
 
 // src/mcp-tools.ts
@@ -1421,22 +1422,43 @@ function getMcpToolsForStack(stack) {
 }
 
 // src/generators/mcp.ts
+function writeMcpServerConfig(outputDir) {
+  const mcpJsonPath = path7.join(outputDir, ".vscode", "mcp.json");
+  let existing = {};
+  if (fs7.existsSync(mcpJsonPath)) {
+    try {
+      existing = JSON.parse(fs7.readFileSync(mcpJsonPath, "utf-8"));
+    } catch {
+    }
+  }
+  const servers = existing.servers ?? {};
+  servers["ai-os"] = {
+    type: "stdio",
+    command: "node",
+    args: ["${workspaceFolder}/.ai-os/mcp-server/index.js"],
+    env: {
+      AI_OS_ROOT: "${workspaceFolder}"
+    }
+  };
+  existing.servers = servers;
+  fs7.mkdirSync(path7.dirname(mcpJsonPath), { recursive: true });
+  fs7.writeFileSync(mcpJsonPath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
+  return mcpJsonPath;
+}
 function generateMcpJson(stack, outputDir, _options) {
   const allTools = getMcpToolsForStack(stack);
-  const committedConfig = { version: 1, mcpServers: {} };
-  const mcpJsonPath = path7.join(outputDir, ".github", "copilot", "mcp.json");
-  writeIfChanged(mcpJsonPath, JSON.stringify(committedConfig, null, 2));
+  writeMcpServerConfig(outputDir);
   const toolsJsonPath = path7.join(outputDir, ".github", "ai-os", "tools.json");
   writeIfChanged(toolsJsonPath, JSON.stringify(allTools, null, 2));
-  return [mcpJsonPath, toolsJsonPath];
+  return [toolsJsonPath];
 }
 
 // src/generators/context-docs.ts
-import fs9 from "node:fs";
+import fs10 from "node:fs";
 import path10 from "node:path";
 
 // src/detectors/graph.ts
-import fs7 from "node:fs";
+import fs8 from "node:fs";
 import path8 from "node:path";
 var IGNORE_DIRS2 = /* @__PURE__ */ new Set([
   "node_modules",
@@ -1478,7 +1500,7 @@ var SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([
 function collectSourceFiles(dir, rootDir) {
   const files = [];
   try {
-    const entries = fs7.readdirSync(dir, { withFileTypes: true });
+    const entries = fs8.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.name.startsWith(".")) continue;
       if (IGNORE_DIRS2.has(entry.name)) continue;
@@ -1582,7 +1604,7 @@ function buildDependencyGraph(rootDir) {
   }
   for (const file of allFiles) {
     try {
-      const content = fs7.readFileSync(path8.join(rootDir, file), "utf-8");
+      const content = fs8.readFileSync(path8.join(rootDir, file), "utf-8");
       const ext = file.split(".").pop()?.toLowerCase() ?? "";
       nodes[file].exports = parseExports(content, ext);
       const rawImports = parseImports(content, file);
@@ -1610,14 +1632,14 @@ function buildDependencyGraph(rootDir) {
 }
 
 // src/updater.ts
-import fs8 from "node:fs";
+import fs9 from "node:fs";
 import path9 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var __dirname2 = path9.dirname(fileURLToPath2(import.meta.url));
 function getToolVersion() {
   try {
     const pkg = JSON.parse(
-      fs8.readFileSync(path9.join(__dirname2, "..", "package.json"), "utf-8")
+      fs9.readFileSync(path9.join(__dirname2, "..", "package.json"), "utf-8")
     );
     return pkg.version ?? "0.0.0";
   } catch {
@@ -1627,9 +1649,9 @@ function getToolVersion() {
 function readInstalledConfig(targetDir) {
   const newConfigPath = path9.join(targetDir, ".github", "ai-os", "config.json");
   const legacyConfigPath = path9.join(targetDir, ".ai-os", "config.json");
-  const configPath = fs8.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
+  const configPath = fs9.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   try {
-    return JSON.parse(fs8.readFileSync(configPath, "utf-8"));
+    return JSON.parse(fs9.readFileSync(configPath, "utf-8"));
   } catch {
     return null;
   }
@@ -1677,23 +1699,25 @@ function pruneLegacyArtifacts(targetDir, options) {
   const legacyTools = path9.join(targetDir, ".ai-os", "tools.json");
   const legacyMemoryDir = path9.join(targetDir, ".ai-os", "memory");
   const legacyAiOsDir = path9.join(targetDir, ".ai-os");
+  const legacyMcpJson = path9.join(targetDir, ".github", "copilot", "mcp.json");
+  const legacyMcpLocal = path9.join(targetDir, ".github", "copilot", "mcp.local.json");
   if (fullCleanup) {
     let removed2 = 0;
     try {
-      for (const file of [legacyConfig, legacyTools]) {
-        if (fs8.existsSync(file)) {
-          fs8.rmSync(file);
+      for (const file of [legacyConfig, legacyTools, legacyMcpJson, legacyMcpLocal]) {
+        if (fs9.existsSync(file)) {
+          fs9.rmSync(file);
           removed2 += 1;
         }
       }
       for (const dir of [legacyContextDir, legacyMemoryDir]) {
-        if (fs8.existsSync(dir)) {
-          fs8.rmSync(dir, { recursive: true, force: true });
+        if (fs9.existsSync(dir)) {
+          fs9.rmSync(dir, { recursive: true, force: true });
           removed2 += 1;
         }
       }
-      if (fs8.existsSync(legacyAiOsDir) && fs8.readdirSync(legacyAiOsDir).length === 0) {
-        fs8.rmdirSync(legacyAiOsDir);
+      if (fs9.existsSync(legacyAiOsDir) && fs9.readdirSync(legacyAiOsDir).length === 0) {
+        fs9.rmdirSync(legacyAiOsDir);
       }
     } catch {
     }
@@ -1702,29 +1726,37 @@ function pruneLegacyArtifacts(targetDir, options) {
     }
     return;
   }
-  if (!fs8.existsSync(legacyContextDir)) return;
+  for (const file of [legacyMcpJson, legacyMcpLocal]) {
+    if (fs9.existsSync(file)) {
+      try {
+        fs9.rmSync(file);
+      } catch {
+      }
+    }
+  }
+  if (!fs9.existsSync(legacyContextDir)) return;
   const MANAGED_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".json"]);
   let removed = 0;
   try {
-    const entries = fs8.readdirSync(legacyContextDir, { withFileTypes: true });
+    const entries = fs9.readdirSync(legacyContextDir, { withFileTypes: true });
     for (const entry of entries) {
       if (!entry.isFile()) continue;
       const ext = path9.extname(entry.name).toLowerCase();
       if (!MANAGED_EXTENSIONS.has(ext)) continue;
       try {
-        fs8.rmSync(path9.join(legacyContextDir, entry.name));
+        fs9.rmSync(path9.join(legacyContextDir, entry.name));
         removed += 1;
       } catch {
       }
     }
-    const remaining = fs8.readdirSync(legacyContextDir);
+    const remaining = fs9.readdirSync(legacyContextDir);
     if (remaining.length === 0) {
-      fs8.rmdirSync(legacyContextDir);
-      if (fs8.existsSync(legacyMemoryDir) && fs8.readdirSync(legacyMemoryDir).length === 0) {
-        fs8.rmdirSync(legacyMemoryDir);
+      fs9.rmdirSync(legacyContextDir);
+      if (fs9.existsSync(legacyMemoryDir) && fs9.readdirSync(legacyMemoryDir).length === 0) {
+        fs9.rmdirSync(legacyMemoryDir);
       }
-      if (fs8.existsSync(legacyAiOsDir) && fs8.readdirSync(legacyAiOsDir).length === 0) {
-        fs8.rmdirSync(legacyAiOsDir);
+      if (fs9.existsSync(legacyAiOsDir) && fs9.readdirSync(legacyAiOsDir).length === 0) {
+        fs9.rmdirSync(legacyAiOsDir);
       }
     }
   } catch {
@@ -1748,7 +1780,7 @@ var DEFAULT_AI_OS_CONFIG = {
 function readAiOsConfig(outputDir) {
   const configPath = path10.join(outputDir, ".github", "ai-os", "config.json");
   try {
-    return JSON.parse(fs9.readFileSync(configPath, "utf-8"));
+    return JSON.parse(fs10.readFileSync(configPath, "utf-8"));
   } catch {
     return null;
   }
@@ -1763,11 +1795,11 @@ function joinOrNone(values, max = 4) {
   return `${shown.join(", ")}${suffix}`;
 }
 function exists2(root, relativePath) {
-  return fs9.existsSync(path10.join(root, relativePath));
+  return fs10.existsSync(path10.join(root, relativePath));
 }
 function countMarkdownFiles(dir) {
-  if (!fs9.existsSync(dir)) return 0;
-  const entries = fs9.readdirSync(dir, { withFileTypes: true });
+  if (!fs10.existsSync(dir)) return 0;
+  const entries = fs10.readdirSync(dir, { withFileTypes: true });
   let total = 0;
   for (const entry of entries) {
     const fullPath = path10.join(dir, entry.name);
@@ -1958,9 +1990,9 @@ function generateArchitectureDoc(stack) {
   lines.push("", "## Directory Structure", "");
   lines.push("```");
   try {
-    const entries = fs9.readdirSync(stack.rootDir).filter((e) => !e.startsWith(".") && e !== "node_modules");
+    const entries = fs10.readdirSync(stack.rootDir).filter((e) => !e.startsWith(".") && e !== "node_modules");
     for (const entry of entries.slice(0, 20)) {
-      const stat = fs9.statSync(path10.join(stack.rootDir, entry));
+      const stat = fs10.statSync(path10.join(stack.rootDir, entry));
       lines.push(stat.isDirectory() ? `${entry}/` : entry);
     }
   } catch {
@@ -1997,7 +2029,7 @@ function generateArchitectureDoc(stack) {
   lines.push('  Detect --> Generate["Generate AI OS artifacts"]');
   lines.push('  Generate --> Docs[".github/ai-os/context/*.md"]');
   lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
-  lines.push('  Generate --> MCP[".github/copilot/mcp.json + .ai-os/mcp-server/"]');
+  lines.push('  Generate --> MCP[".vscode/mcp.json + .ai-os/mcp-server/"]');
   lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
   lines.push('  Generate --> Skills[".github/copilot/skills/*.md"]');
   lines.push("```");
@@ -2126,9 +2158,9 @@ function mergeSections(existing, updated) {
 }
 function generateContextDocs(stack, outputDir) {
   const contextDir = path10.join(outputDir, ".github", "ai-os", "context");
-  fs9.mkdirSync(contextDir, { recursive: true });
+  fs10.mkdirSync(contextDir, { recursive: true });
   const memoryDir = path10.join(outputDir, ".github", "ai-os", "memory");
-  fs9.mkdirSync(memoryDir, { recursive: true });
+  fs10.mkdirSync(memoryDir, { recursive: true });
   const managed = [];
   const track = (p) => {
     managed.push(p);
@@ -2137,20 +2169,20 @@ function generateContextDocs(stack, outputDir) {
   const existingContext = detectExistingAiContext(outputDir);
   const legacyMemory = path10.join(outputDir, ".ai-os", "memory", "memory.jsonl");
   const newMemory = path10.join(memoryDir, "memory.jsonl");
-  if (fs9.existsSync(legacyMemory) && !fs9.existsSync(newMemory)) {
-    fs9.copyFileSync(legacyMemory, newMemory);
+  if (fs10.existsSync(legacyMemory) && !fs10.existsSync(newMemory)) {
+    fs10.copyFileSync(legacyMemory, newMemory);
   }
   writeIfChanged(track(path10.join(contextDir, "stack.md")), generateStackDoc(stack));
   const archPath = track(path10.join(contextDir, "architecture.md"));
   const archGenerated = generateArchitectureDoc(stack);
-  writeIfChanged(archPath, fs9.existsSync(archPath) ? mergeSections(fs9.readFileSync(archPath, "utf-8"), archGenerated) : archGenerated);
+  writeIfChanged(archPath, fs10.existsSync(archPath) ? mergeSections(fs10.readFileSync(archPath, "utf-8"), archGenerated) : archGenerated);
   const convsPath = track(path10.join(contextDir, "conventions.md"));
   const convsGenerated = generateConventionsDoc(stack);
-  writeIfChanged(convsPath, fs9.existsSync(convsPath) ? mergeSections(fs9.readFileSync(convsPath, "utf-8"), convsGenerated) : convsGenerated);
+  writeIfChanged(convsPath, fs10.existsSync(convsPath) ? mergeSections(fs10.readFileSync(convsPath, "utf-8"), convsGenerated) : convsGenerated);
   writeIfChanged(track(path10.join(contextDir, "memory.md")), generateMemoryDoc(stack));
   writeIfChanged(track(path10.join(contextDir, "existing-ai-context.md")), generateExistingAiContextDoc(stack, existingContext));
   const memoryReadmePath = track(path10.join(memoryDir, "README.md"));
-  if (!fs9.existsSync(memoryReadmePath)) {
+  if (!fs10.existsSync(memoryReadmePath)) {
     writeIfChanged(
       memoryReadmePath,
       [
@@ -2163,7 +2195,7 @@ function generateContextDocs(stack, outputDir) {
     );
   }
   const memoryFilePath = track(path10.join(memoryDir, "memory.jsonl"));
-  if (!fs9.existsSync(memoryFilePath)) {
+  if (!fs10.existsSync(memoryFilePath)) {
     const preambleEntries = [
       {
         id: "session-preamble-start-protocol",
@@ -2186,7 +2218,7 @@ function generateContextDocs(stack, outputDir) {
         source: "ai-os-installer"
       }
     ];
-    fs9.writeFileSync(
+    fs10.writeFileSync(
       memoryFilePath,
       preambleEntries.map((e) => JSON.stringify(e)).join("\n") + "\n",
       "utf-8"
@@ -2272,7 +2304,7 @@ function generateSessionContextCard(stack, config) {
 }
 
 // src/generators/agents.ts
-import * as fs10 from "fs";
+import * as fs11 from "fs";
 import * as path11 from "path";
 var AGENTS_DIR = ".github/agents";
 function toBulletList(items) {
@@ -2323,7 +2355,7 @@ function buildAgentSpecs(stack, cwd) {
     "src/app/api/chat/route.ts",
     "src/components/ChatInterface.tsx",
     "prisma/schema.prisma"
-  ].filter((f) => fs10.existsSync(path11.join(cwd, f)));
+  ].filter((f) => fs11.existsSync(path11.join(cwd, f)));
   const keyFilesList = toBulletList(keyFiles.map((file) => `\`${file}\``));
   const keyEntryPoints = toBulletList((keyFiles.slice(0, 4).length > 0 ? keyFiles.slice(0, 4) : ["src/"]).map((file) => `\`${file}\``));
   const runtimeDir = path11.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
@@ -2379,7 +2411,7 @@ function buildAgentSpecs(stack, cwd) {
     }
   });
   if (hasPrisma) {
-    const schemaFile = fs10.existsSync(path11.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
+    const schemaFile = fs11.existsSync(path11.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
     specs.push({
       templateFile: path11.join(templateDir, "db-expert.md"),
       outputFile: "expert-database.agent.md",
@@ -2423,7 +2455,7 @@ function buildAgentSpecs(stack, cwd) {
     });
   }
   if (hasStripe) {
-    const plansFile = fs10.existsSync(path11.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
+    const plansFile = fs11.existsSync(path11.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
     specs.push({
       templateFile: path11.join(templateDir, "payments-expert.md"),
       outputFile: "expert-payments.agent.md",
@@ -2449,12 +2481,12 @@ function buildAgentSpecs(stack, cwd) {
 }
 function scanExistingAgents(cwd) {
   const agentsDir = path11.join(cwd, AGENTS_DIR);
-  if (!fs10.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] };
-  const files = fs10.readdirSync(agentsDir).filter((f) => f.endsWith(".md") || f.endsWith(".agent.md"));
+  if (!fs11.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] };
+  const files = fs11.readdirSync(agentsDir).filter((f) => f.endsWith(".md") || f.endsWith(".agent.md"));
   const userDefined = [];
   const aiOsGenerated = [];
   for (const file of files) {
-    const content = fs10.readFileSync(path11.join(agentsDir, file), "utf-8");
+    const content = fs11.readFileSync(path11.join(agentsDir, file), "utf-8");
     const isAiOs = content.includes("ai-os/context/architecture.md") || content.includes("ai-os/context/conventions.md") || content.includes("ai-os/context/stack.md");
     if (isAiOs) {
       aiOsGenerated.push(file);
@@ -2484,7 +2516,7 @@ function buildSequentialAgentSpecs(stack, cwd) {
     "src/lib/vector-store.ts",
     "src/app/api/chat/route.ts",
     "prisma/schema.prisma"
-  ].filter((f) => fs10.existsSync(path11.join(cwd, f)));
+  ].filter((f) => fs11.existsSync(path11.join(cwd, f)));
   const keyFilesList = keyFiles.length > 0 ? keyFiles.map((f) => `- \`${f}\``).join("\n") : "- _No key files detected yet_";
   const buildCmd = stack.patterns.packageManager === "npm" ? "npm run build" : stack.patterns.packageManager === "pnpm" ? "pnpm build" : stack.patterns.packageManager === "yarn" ? "yarn build" : stack.patterns.packageManager === "bun" ? "bun run build" : stack.patterns.packageManager === "maven" ? "mvn compile" : stack.patterns.packageManager === "gradle" ? "gradle build" : stack.patterns.packageManager === "go" ? "go build ./..." : stack.patterns.packageManager === "cargo" ? "cargo build" : "npm run build";
   const testCmd = stack.buildCommands?.test ?? (stack.patterns.packageManager === "npm" ? "npm test" : stack.patterns.packageManager === "pnpm" ? "pnpm test" : stack.patterns.packageManager === "yarn" ? "yarn test" : stack.patterns.packageManager === "bun" ? "bun test" : stack.patterns.packageManager === "maven" ? "mvn test" : stack.patterns.packageManager === "gradle" ? "gradle test" : stack.patterns.packageManager === "go" ? "go test ./..." : stack.patterns.packageManager === "cargo" ? "cargo test" : "npm test");
@@ -2534,8 +2566,8 @@ function injectReplacements(template, replacements) {
 }
 async function generateAgentsWithOptions(stack, cwd, options) {
   const agentsDir = path11.join(cwd, AGENTS_DIR);
-  fs10.mkdirSync(agentsDir, { recursive: true });
-  const existingFiles = fs10.existsSync(agentsDir) ? fs10.readdirSync(agentsDir).map((f) => f.toLowerCase()) : [];
+  fs11.mkdirSync(agentsDir, { recursive: true });
+  const existingFiles = fs11.existsSync(agentsDir) ? fs11.readdirSync(agentsDir).map((f) => f.toLowerCase()) : [];
   function conceptCovered(keywords) {
     return existingFiles.some((f) => keywords.some((k) => f.includes(k)));
   }
@@ -2552,7 +2584,7 @@ async function generateAgentsWithOptions(stack, cwd, options) {
   const generated = [];
   for (const spec of specs) {
     const outputPath = path11.join(agentsDir, spec.outputFile);
-    if (fs10.existsSync(outputPath) && !options.refreshExisting) continue;
+    if (fs11.existsSync(outputPath) && !options.refreshExisting) continue;
     if (!options.refreshExisting) {
       if (sequentialFlowFiles.has(spec.outputFile)) {
       } else {
@@ -2560,11 +2592,11 @@ async function generateAgentsWithOptions(stack, cwd, options) {
         if (conceptCovered(baseKeywords)) continue;
       }
     }
-    if (!fs10.existsSync(spec.templateFile)) {
+    if (!fs11.existsSync(spec.templateFile)) {
       console.warn(`  \u26A0 Agent template not found: ${spec.templateFile}`);
       continue;
     }
-    let content = fs10.readFileSync(spec.templateFile, "utf-8");
+    let content = fs11.readFileSync(spec.templateFile, "utf-8");
     content = content.replace(/^name:.*$/m, `name: ${spec.name}`).replace(/^description:.*$/m, `description: ${spec.description}`).replace(/^argument-hint:.*$/m, `argument-hint: "${spec.argumentHint}"`);
     if (spec.model) {
       content = content.replace(/^model:.*$/m, `model: ${spec.model}`);
@@ -2588,7 +2620,7 @@ async function generateAgents(stack, cwd, options) {
 }
 
 // src/generators/skills.ts
-import * as fs11 from "fs";
+import * as fs12 from "fs";
 import * as path12 from "path";
 var SKILLS_DIR = ".github/copilot/skills";
 var AGENTS_SKILLS_DIR = ".agents/skills";
@@ -2602,7 +2634,7 @@ function buildSkillSpecs(stack, cwd) {
   const templateDir = path12.join(resolveTemplatesDir(path12.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"))), "skills");
   const add = (template, output, replacements = {}) => {
     const templatePath = path12.join(templateDir, template);
-    if (fs11.existsSync(templatePath)) {
+    if (fs12.existsSync(templatePath)) {
       specs.push({
         templateFile: templatePath,
         outputFile: output,
@@ -2617,23 +2649,23 @@ function buildSkillSpecs(stack, cwd) {
     add("react.md", "ai-os-react-patterns.md");
   }
   if (packages.includes("@trpc/server") || packages.includes("trpc")) {
-    const trpcRouterFile = fs11.existsSync(path12.join(cwd, "src/trpc/index.ts")) ? "src/trpc/index.ts" : "src/server/trpc.ts";
+    const trpcRouterFile = fs12.existsSync(path12.join(cwd, "src/trpc/index.ts")) ? "src/trpc/index.ts" : "src/server/trpc.ts";
     add("trpc.md", "ai-os-trpc-patterns.md", { "{{TRPC_ROUTER_FILE}}": trpcRouterFile });
   }
   if (packages.includes("prisma") || packages.includes("@prisma/client")) {
-    const schemaFile = fs11.existsSync(path12.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
+    const schemaFile = fs12.existsSync(path12.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
     add("prisma.md", "ai-os-prisma-patterns.md", { "{{SCHEMA_FILE}}": schemaFile });
   }
   if (packages.includes("stripe")) {
-    const plansFile = fs11.existsSync(path12.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
+    const plansFile = fs12.existsSync(path12.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
     add("stripe.md", "ai-os-billing-stripe.md", {
       "{{PLANS_FILE}}": plansFile,
-      "{{STRIPE_LIB_FILE}}": fs11.existsSync(path12.join(cwd, "src/lib/stripe.ts")) ? "src/lib/stripe.ts" : plansFile,
+      "{{STRIPE_LIB_FILE}}": fs12.existsSync(path12.join(cwd, "src/lib/stripe.ts")) ? "src/lib/stripe.ts" : plansFile,
       "{{WEBHOOK_FILE}}": "src/app/api/webhooks/stripe/route.ts"
     });
   }
   if (packages.includes("next-auth") || packages.includes("nextauth")) {
-    const authFile = fs11.existsSync(path12.join(cwd, "src/app/api/auth/[...nextauth]/authOptions.ts")) ? "src/app/api/auth/[...nextauth]/authOptions.ts" : "src/lib/auth.ts";
+    const authFile = fs12.existsSync(path12.join(cwd, "src/app/api/auth/[...nextauth]/authOptions.ts")) ? "src/app/api/auth/[...nextauth]/authOptions.ts" : "src/lib/auth.ts";
     add("auth-nextauth.md", "ai-os-auth-flow.md", { "{{AUTH_CONFIG_FILE}}": authFile });
   }
   if (packages.includes("@supabase/supabase-js")) {
@@ -2670,28 +2702,28 @@ function buildSkillSpecs(stack, cwd) {
 }
 async function generateSkillsWithOptions(stack, cwd, options) {
   const skillsDir = path12.join(cwd, SKILLS_DIR);
-  fs11.mkdirSync(skillsDir, { recursive: true });
+  fs12.mkdirSync(skillsDir, { recursive: true });
   const specs = buildSkillSpecs(stack, cwd);
   const generatedPaths = [];
   for (const spec of specs) {
     const outputPath = path12.join(skillsDir, spec.outputFile);
-    if (fs11.existsSync(outputPath) && !options.refreshExisting) {
+    if (fs12.existsSync(outputPath) && !options.refreshExisting) {
       generatedPaths.push(outputPath);
       continue;
     }
-    let content = fs11.readFileSync(spec.templateFile, "utf-8");
+    let content = fs12.readFileSync(spec.templateFile, "utf-8");
     for (const [key, value] of Object.entries(spec.replacements)) {
       content = content.replaceAll(key, value);
     }
     writeIfChanged(outputPath, content);
     generatedPaths.push(outputPath);
   }
-  if (options.refreshExisting && fs11.existsSync(skillsDir)) {
+  if (options.refreshExisting && fs12.existsSync(skillsDir)) {
     const currentSet = new Set(generatedPaths.map((p) => path12.basename(p)));
-    const onDisk = fs11.readdirSync(skillsDir).filter((f) => f.startsWith("ai-os-") && f.endsWith(".md"));
+    const onDisk = fs12.readdirSync(skillsDir).filter((f) => f.startsWith("ai-os-") && f.endsWith(".md"));
     for (const stale of onDisk) {
       if (!currentSet.has(stale)) {
-        fs11.rmSync(path12.join(skillsDir, stale));
+        fs12.rmSync(path12.join(skillsDir, stale));
         console.log(`  \u{1F5D1}\uFE0F  Pruned stale skill: ${stale}`);
       }
     }
@@ -2712,21 +2744,21 @@ async function deployBundledSkills(cwd, options) {
   for (const skill of BUNDLED_SKILLS) {
     const sourceDir = getBundledSkillSourceDir(skill.dirName);
     const targetDir = path12.join(cwd, AGENTS_SKILLS_DIR, skill.dirName);
-    if (!fs11.existsSync(sourceDir)) {
+    if (!fs12.existsSync(sourceDir)) {
       continue;
     }
-    if (fs11.existsSync(targetDir) && !options?.refreshExisting) {
+    if (fs12.existsSync(targetDir) && !options?.refreshExisting) {
       continue;
     }
-    fs11.mkdirSync(path12.join(cwd, AGENTS_SKILLS_DIR), { recursive: true });
-    fs11.cpSync(sourceDir, targetDir, { recursive: true, force: true });
+    fs12.mkdirSync(path12.join(cwd, AGENTS_SKILLS_DIR), { recursive: true });
+    fs12.cpSync(sourceDir, targetDir, { recursive: true, force: true });
     deployed.push(skill.label);
   }
   return deployed;
 }
 
 // src/generators/prompts.ts
-import * as fs12 from "fs";
+import * as fs13 from "fs";
 import * as path13 from "path";
 var PROMPTS_FILE = ".github/copilot/prompts.json";
 function buildPrompts(stack, cwd) {
@@ -3002,11 +3034,11 @@ Then:
 }
 async function generatePrompts(stack, cwd, options) {
   const promptsPath = path13.join(cwd, PROMPTS_FILE);
-  fs12.mkdirSync(path13.dirname(promptsPath), { recursive: true });
+  fs13.mkdirSync(path13.dirname(promptsPath), { recursive: true });
   let existing = { version: 1, prompts: [] };
-  if (fs12.existsSync(promptsPath)) {
+  if (fs13.existsSync(promptsPath)) {
     try {
-      existing = JSON.parse(fs12.readFileSync(promptsPath, "utf-8"));
+      existing = JSON.parse(fs13.readFileSync(promptsPath, "utf-8"));
     } catch {
     }
   }
@@ -3133,10 +3165,10 @@ jobs:
 }
 
 // src/planner.ts
-import fs13 from "node:fs";
+import fs14 from "node:fs";
 import path15 from "node:path";
 function exists3(root, relPath) {
-  return fs13.existsSync(path15.join(root, relPath));
+  return fs14.existsSync(path15.join(root, relPath));
 }
 function detectRepoType(targetDir) {
   if (exists3(targetDir, ".github/ai-os/config.json") || exists3(targetDir, ".ai-os/config.json")) return "existing-ai-os";
@@ -3177,7 +3209,7 @@ function buildOnboardingPlan(targetDir, mode) {
   const actions = [];
   actions.push(decideAction(targetDir, ".github/copilot-instructions.md", mode, "always-overwrite"));
   actions.push(decideAction(targetDir, ".github/instructions/ai-os.instructions.md", mode, "always-overwrite"));
-  actions.push(decideAction(targetDir, ".github/copilot/mcp.json", mode, "always-overwrite"));
+  actions.push(decideAction(targetDir, ".vscode/mcp.json", mode, "always-overwrite"));
   actions.push(decideAction(targetDir, ".github/ai-os/tools.json", mode, "always-overwrite"));
   actions.push(decideAction(targetDir, ".ai-os/mcp-server/runtime-manifest.json", mode, "always-overwrite"));
   actions.push(decideAction(targetDir, ".github/ai-os/context/stack.md", mode, "always-overwrite"));
@@ -3229,7 +3261,7 @@ function formatOnboardingPlan(plan) {
 }
 
 // src/recommendations/index.ts
-import fs14 from "node:fs";
+import fs15 from "node:fs";
 import path16 from "node:path";
 
 // src/recommendations/registry.ts
@@ -3486,7 +3518,7 @@ function generateRecommendationsDoc(stack, collected) {
       lines.push("");
       lines.push(item.description);
       lines.push("");
-      lines.push("**Install in `.github/copilot/mcp.json`:**");
+      lines.push("**Install in `.vscode/mcp.json`:**");
       lines.push("```json");
       lines.push(`"${item.package.replace("/", "-")}": {`);
       lines.push('  "type": "stdio",');
@@ -3541,7 +3573,7 @@ function getSkillsGapReport(stack, skillsLockPath) {
   const recommendedSkills = new Set(collected.skills.map((s) => s.name));
   let installed = [];
   try {
-    const lock = JSON.parse(fs14.readFileSync(skillsLockPath, "utf-8"));
+    const lock = JSON.parse(fs15.readFileSync(skillsLockPath, "utf-8"));
     if (Array.isArray(lock.skills)) {
       installed = lock.skills;
     } else if (lock.skills && typeof lock.skills === "object") {
@@ -3720,14 +3752,14 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents) {
 }
 function ensureGitignoreEntry(cwd, entry) {
   const gitignorePath = path17.join(cwd, ".gitignore");
-  if (!fs15.existsSync(gitignorePath)) return;
-  const current = fs15.readFileSync(gitignorePath, "utf-8");
+  if (!fs16.existsSync(gitignorePath)) return;
+  const current = fs16.readFileSync(gitignorePath, "utf-8");
   const lines = current.split(/\r?\n/);
   if (lines.includes(entry)) return;
   const next = `${current.replace(/\s*$/, "")}
 ${entry}
 `;
-  fs15.writeFileSync(gitignorePath, next, "utf-8");
+  fs16.writeFileSync(gitignorePath, next, "utf-8");
 }
 function resolveBundledServerSource() {
   const runtimeDir = path17.dirname(fileURLToPath3(import.meta.url));
@@ -3737,7 +3769,7 @@ function resolveBundledServerSource() {
     path17.join(runtimeDir, "..", "dist", "server.js")
   ];
   for (const candidate of candidates) {
-    if (fs15.existsSync(candidate) && fs15.statSync(candidate).isFile()) {
+    if (fs16.existsSync(candidate) && fs16.statSync(candidate).isFile()) {
       return candidate;
     }
   }
@@ -3752,34 +3784,26 @@ function installLocalMcpRuntime(cwd, verbose) {
   const runtimeDir = path17.join(cwd, ".ai-os", "mcp-server");
   const runtimeEntry = path17.join(runtimeDir, "index.js");
   const runtimeManifest = path17.join(runtimeDir, "runtime-manifest.json");
-  const localMcpConfig = path17.join(cwd, ".github", "copilot", "mcp.local.json");
   const nodePath = process.execPath;
-  fs15.mkdirSync(runtimeDir, { recursive: true });
-  fs15.mkdirSync(path17.dirname(localMcpConfig), { recursive: true });
-  fs15.copyFileSync(bundledServerSource, runtimeEntry);
-  fs15.chmodSync(runtimeEntry, 493);
-  fs15.writeFileSync(runtimeManifest, JSON.stringify({
+  fs16.mkdirSync(runtimeDir, { recursive: true });
+  fs16.copyFileSync(bundledServerSource, runtimeEntry);
+  fs16.chmodSync(runtimeEntry, 493);
+  fs16.writeFileSync(runtimeManifest, JSON.stringify({
     name: "ai-os-mcp-server",
     runtime: "bundled",
     sourceVersion: getToolVersion(),
     installedAt: (/* @__PURE__ */ new Date()).toISOString()
   }, null, 2), "utf-8");
-  fs15.writeFileSync(localMcpConfig, JSON.stringify({
-    version: 1,
-    mcpServers: {
-      "ai-os": {
-        type: "stdio",
-        command: nodePath,
-        args: [runtimeEntry],
-        env: {
-          AI_OS_ROOT: cwd
-        }
-      }
-    }
-  }, null, 2), "utf-8");
-  ensureGitignoreEntry(cwd, ".github/copilot/mcp.local.json");
+  writeMcpServerConfig(cwd);
   ensureGitignoreEntry(cwd, ".ai-os/mcp-server/node_modules");
   ensureGitignoreEntry(cwd, ".github/ai-os/memory/.memory.lock");
+  const legacyLocalMcp = path17.join(cwd, ".github", "copilot", "mcp.local.json");
+  if (fs16.existsSync(legacyLocalMcp)) {
+    try {
+      fs16.rmSync(legacyLocalMcp);
+    } catch {
+    }
+  }
   const healthcheck = spawnSync(nodePath, [runtimeEntry, "--healthcheck"], {
     cwd,
     env: { ...process.env, AI_OS_ROOT: cwd },
@@ -3793,10 +3817,10 @@ function installLocalMcpRuntime(cwd, verbose) {
   if (verbose) {
     console.log(`  \u270F\uFE0F  write   ${runtimeEntry}`);
     console.log(`  \u270F\uFE0F  write   ${runtimeManifest}`);
-    console.log(`  \u270F\uFE0F  write   ${localMcpConfig}`);
+    console.log(`  \u270F\uFE0F  write   .vscode/mcp.json`);
   } else {
     console.log("  \u2713 MCP runtime installed to .ai-os/mcp-server");
-    console.log("  \u2713 Local MCP config written to .github/copilot/mcp.local.json");
+    console.log("  \u2713 MCP config written to .vscode/mcp.json");
   }
 }
 async function main() {
@@ -3893,9 +3917,9 @@ ${gapReport}
     for (const rel of previousFiles) {
       if (!currentSet.has(rel)) {
         const abs = path17.join(cwd, rel);
-        if (fs15.existsSync(abs)) {
+        if (fs16.existsSync(abs)) {
           try {
-            fs15.rmSync(abs);
+            fs16.rmSync(abs);
             prunedAbs.push(abs);
             if (verbose) {
               console.log(`  \u{1F5D1}\uFE0F  prune   ${rel}  (stale \u2014 not in current generation)`);
@@ -3932,8 +3956,8 @@ function runHygieneCheck(cwd) {
   console.log("");
   const issues = [];
   const legacyContextDir = path17.join(cwd, ".ai-os", "context");
-  if (fs15.existsSync(legacyContextDir)) {
-    const legacyFiles = fs15.readdirSync(legacyContextDir);
+  if (fs16.existsSync(legacyContextDir)) {
+    const legacyFiles = fs16.readdirSync(legacyContextDir);
     if (legacyFiles.length > 0) {
       issues.push(`  \u26A0  Legacy .ai-os/context/ found with ${legacyFiles.length} file(s) \u2014 run --refresh-existing to migrate and prune`);
     }
@@ -3943,12 +3967,12 @@ function runHygieneCheck(cwd) {
     path17.join(cwd, ".ai-os", "memory", ".memory.lock")
   ];
   for (const lockPath of lockPaths) {
-    if (fs15.existsSync(lockPath)) {
+    if (fs16.existsSync(lockPath)) {
       issues.push(`  \u26A0  Stale lock file found: ${path17.relative(cwd, lockPath)} \u2014 safe to delete`);
     }
   }
   const mcpNodeModules = path17.join(cwd, ".ai-os", "mcp-server", "node_modules");
-  if (fs15.existsSync(mcpNodeModules)) {
+  if (fs16.existsSync(mcpNodeModules)) {
     issues.push(`  \u26A0  node_modules present in .ai-os/mcp-server/ \u2014 Phase F (bundle deploy) will eliminate this`);
   }
   const aiOsDirs = [
@@ -3956,7 +3980,7 @@ function runHygieneCheck(cwd) {
     path17.join(cwd, ".ai-os")
   ];
   for (const dir of aiOsDirs) {
-    if (!fs15.existsSync(dir)) continue;
+    if (!fs16.existsSync(dir)) continue;
     const tmpFiles = findFilesRecursive(dir, (f) => f.endsWith(".tmp"));
     for (const f of tmpFiles) {
       issues.push(`  \u26A0  Orphaned temp file: ${path17.relative(cwd, f)}`);
@@ -3964,7 +3988,7 @@ function runHygieneCheck(cwd) {
   }
   const manifest = readManifest(cwd);
   if (manifest) {
-    const missingFiles = manifest.files.filter((f) => !fs15.existsSync(path17.join(cwd, f)));
+    const missingFiles = manifest.files.filter((f) => !fs16.existsSync(path17.join(cwd, f)));
     if (missingFiles.length > 0) {
       issues.push(`  \u26A0  ${missingFiles.length} manifest entries point to missing files \u2014 run --refresh-existing`);
     }
@@ -3985,7 +4009,7 @@ function runHygieneCheck(cwd) {
 function findFilesRecursive(dir, predicate) {
   const results = [];
   try {
-    for (const entry of fs15.readdirSync(dir, { withFileTypes: true })) {
+    for (const entry of fs16.readdirSync(dir, { withFileTypes: true })) {
       const full = path17.join(dir, entry.name);
       if (entry.isDirectory()) {
         results.push(...findFilesRecursive(full, predicate));

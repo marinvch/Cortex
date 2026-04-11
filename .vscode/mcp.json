@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "ai-os": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        ".ai-os/mcp-server/index.js"
+      ],
+      "env": {
+        "AI_OS_ROOT": "${workspaceFolder}"
+      }
+    }
+  }
+}

@@ -89,7 +89,7 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
       lines.push('');
       lines.push(item.description);
       lines.push('');
-      lines.push('**Install in `.github/copilot/mcp.json`:**');
+      lines.push('**Install in `.vscode/mcp.json`:**');
       lines.push('```json');
       lines.push(`"${item.package.replace('/', '-')}": {`);
       lines.push('  "type": "stdio",');

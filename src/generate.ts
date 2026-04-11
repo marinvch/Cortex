@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { analyze } from './analyze.js';
 import { generateInstructions } from './generators/instructions.js';
-import { generateMcpJson } from './generators/mcp.js';
+import { generateMcpJson, writeMcpServerConfig } from './generators/mcp.js';
 import { generateContextDocs, readAiOsConfig } from './generators/context-docs.js';
 import { generateAgents, scanExistingAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
@@ -243,11 +243,9 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   const runtimeDir = path.join(cwd, '.ai-os', 'mcp-server');
   const runtimeEntry = path.join(runtimeDir, 'index.js');
   const runtimeManifest = path.join(runtimeDir, 'runtime-manifest.json');
-  const localMcpConfig = path.join(cwd, '.github', 'copilot', 'mcp.local.json');
   const nodePath = process.execPath;
 
   fs.mkdirSync(runtimeDir, { recursive: true });
-  fs.mkdirSync(path.dirname(localMcpConfig), { recursive: true });
 
   fs.copyFileSync(bundledServerSource, runtimeEntry);
   fs.chmodSync(runtimeEntry, 0o755);
@@ -259,23 +257,19 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     installedAt: new Date().toISOString(),
   }, null, 2), 'utf-8');
 
-  fs.writeFileSync(localMcpConfig, JSON.stringify({
-    version: 1,
-    mcpServers: {
-      'ai-os': {
-        type: 'stdio',
-        command: nodePath,
-        args: [runtimeEntry],
-        env: {
-          AI_OS_ROOT: cwd,
-        },
-      },
-    },
-  }, null, 2), 'utf-8');
+  // Write the official VS Code MCP config (.vscode/mcp.json) using the
+  // "servers" top-level key and ${workspaceFolder} variable for portability.
+  // This merge-writes so user-added MCP servers are preserved.
+  writeMcpServerConfig(cwd);
 
-  ensureGitignoreEntry(cwd, '.github/copilot/mcp.local.json');
   ensureGitignoreEntry(cwd, '.ai-os/mcp-server/node_modules');
   ensureGitignoreEntry(cwd, '.github/ai-os/memory/.memory.lock');
+
+  // Clean up legacy .github/copilot/mcp.local.json if present
+  const legacyLocalMcp = path.join(cwd, '.github', 'copilot', 'mcp.local.json');
+  if (fs.existsSync(legacyLocalMcp)) {
+    try { fs.rmSync(legacyLocalMcp); } catch { /* ignore */ }
+  }
 
   const healthcheck = spawnSync(nodePath, [runtimeEntry, '--healthcheck'], {
     cwd,
@@ -292,10 +286,10 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   if (verbose) {
     console.log(`  ✏️  write   ${runtimeEntry}`);
     console.log(`  ✏️  write   ${runtimeManifest}`);
-    console.log(`  ✏️  write   ${localMcpConfig}`);
+    console.log(`  ✏️  write   .vscode/mcp.json`);
   } else {
     console.log('  ✓ MCP runtime installed to .ai-os/mcp-server');
-    console.log('  ✓ Local MCP config written to .github/copilot/mcp.local.json');
+    console.log('  ✓ MCP config written to .vscode/mcp.json');
   }
 }
 

@@ -76,7 +76,7 @@ export function buildOnboardingPlan(
   // Core artifacts
   actions.push(decideAction(targetDir, '.github/copilot-instructions.md', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/instructions/ai-os.instructions.md', mode, 'always-overwrite'));
-  actions.push(decideAction(targetDir, '.github/copilot/mcp.json', mode, 'always-overwrite'));
+  actions.push(decideAction(targetDir, '.vscode/mcp.json', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/ai-os/tools.json', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.ai-os/mcp-server/runtime-manifest.json', mode, 'always-overwrite'));
   actions.push(decideAction(targetDir, '.github/ai-os/context/stack.md', mode, 'always-overwrite'));

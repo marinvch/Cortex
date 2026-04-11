@@ -18,7 +18,7 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.6.8            ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v0.6.9            ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
@@ -447,39 +447,60 @@ else
 fi
 echo ""
 
-# ── Clean up legacy v0.2.0 artifacts (--clean-update) ────────────────────────
-if [[ "$CLEAN_UPDATE" == "true" ]]; then
-  LEGACY_CONFIG="$TARGET_DIR/.ai-os/config.json"
-  LEGACY_TOOLS="$TARGET_DIR/.ai-os/tools.json"
-  LEGACY_CONTEXT_DIR="$TARGET_DIR/.ai-os/context"
-  LEGACY_MEMORY_DIR="$TARGET_DIR/.ai-os/memory"
+# ── Clean up legacy v0.2.0 artifacts ─────────────────────────────────────────
+LEGACY_CONFIG="$TARGET_DIR/.ai-os/config.json"
+LEGACY_TOOLS="$TARGET_DIR/.ai-os/tools.json"
+LEGACY_CONTEXT_DIR="$TARGET_DIR/.ai-os/context"
+LEGACY_MEMORY_DIR="$TARGET_DIR/.ai-os/memory"
 
-  LEGACY_FOUND=false
-  for artifact in "$LEGACY_CONFIG" "$LEGACY_TOOLS" "$LEGACY_CONTEXT_DIR" "$LEGACY_MEMORY_DIR"; do
-    if [[ -e "$artifact" ]]; then
-      LEGACY_FOUND=true
-      break
+cleanup_legacy_artifacts() {
+  echo -e "  ${CYAN}→ Removing legacy v0.2.0 .ai-os/ artifacts...${RESET}"
+  for artifact in "$LEGACY_CONFIG" "$LEGACY_TOOLS"; do
+    if [[ -f "$artifact" ]]; then
+      rm -f "$artifact"
+      echo -e "  ${GREEN}✓ Removed:${RESET} ${artifact#"$TARGET_DIR/"}"
     fi
   done
+  for dir in "$LEGACY_CONTEXT_DIR" "$LEGACY_MEMORY_DIR"; do
+    if [[ -d "$dir" ]]; then
+      rm -rf "$dir"
+      echo -e "  ${GREEN}✓ Removed:${RESET} ${dir#"$TARGET_DIR/"}/"
+    fi
+  done
+  echo -e "  ${GREEN}✓ Legacy cleanup complete. Canonical context is now at .github/ai-os/${RESET}"
+  echo ""
+}
 
-  if [[ "$LEGACY_FOUND" == "true" ]]; then
-    echo -e "  ${CYAN}→ Removing legacy v0.2.0 .ai-os/ artifacts...${RESET}"
-    for artifact in "$LEGACY_CONFIG" "$LEGACY_TOOLS"; do
-      if [[ -f "$artifact" ]]; then
-        rm -f "$artifact"
-        echo -e "  ${GREEN}✓ Removed:${RESET} ${artifact#"$TARGET_DIR/"}"
-      fi
-    done
-    for dir in "$LEGACY_CONTEXT_DIR" "$LEGACY_MEMORY_DIR"; do
-      if [[ -d "$dir" ]]; then
-        rm -rf "$dir"
-        echo -e "  ${GREEN}✓ Removed:${RESET} ${dir#"$TARGET_DIR/"}/"
-      fi
-    done
-    echo -e "  ${GREEN}✓ Legacy cleanup complete. Canonical context is now at .github/ai-os/${RESET}"
-  else
-    echo -e "  ${GREEN}✓ No legacy v0.2.0 artifacts found — already clean${RESET}"
+LEGACY_FOUND=false
+for artifact in "$LEGACY_CONFIG" "$LEGACY_TOOLS" "$LEGACY_CONTEXT_DIR" "$LEGACY_MEMORY_DIR"; do
+  if [[ -e "$artifact" ]]; then
+    LEGACY_FOUND=true
+    break
   fi
+done
+
+if [[ "$LEGACY_FOUND" == "true" ]]; then
+  if [[ "$CLEAN_UPDATE" == "true" ]]; then
+    cleanup_legacy_artifacts
+  elif [[ "$REFRESH_EXISTING" == "true" ]]; then
+    echo -e "  ${YELLOW}⚠ Legacy AI OS fragments detected under .ai-os/${RESET}"
+    echo -e "  ${YELLOW}  New architecture uses .github/ai-os/.${RESET}"
+    if [[ -t 0 ]]; then
+      read -rp "  Remove legacy fragments now? [Y/n] " _CLEAN_CONFIRM
+      if [[ -z "${_CLEAN_CONFIRM:-}" || "${_CLEAN_CONFIRM}" == "y" || "${_CLEAN_CONFIRM}" == "Y" ]]; then
+        cleanup_legacy_artifacts
+      else
+        echo -e "  ${YELLOW}  Skipped legacy cleanup. Run again with --clean-update to remove later.${RESET}"
+        echo ""
+      fi
+    else
+      echo -e "  ${YELLOW}  Non-interactive run: skipping prompt.${RESET}"
+      echo -e "  ${YELLOW}  Re-run with --clean-update to remove legacy fragments automatically.${RESET}"
+      echo ""
+    fi
+  fi
+elif [[ "$CLEAN_UPDATE" == "true" ]]; then
+  echo -e "  ${GREEN}✓ No legacy v0.2.0 artifacts found — already clean${RESET}"
   echo ""
 fi
 

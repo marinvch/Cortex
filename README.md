@@ -1,6 +1,6 @@
 # AI OS
 
-> **Portable GitHub Copilot context engine v0.6.8** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
+> **Portable GitHub Copilot context engine v0.6.9** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
 
 ## What it does
 

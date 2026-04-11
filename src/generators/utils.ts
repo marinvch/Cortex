@@ -2,6 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 
+// ── Verbose mode (H2) ────────────────────────────────────────────────────────
+
+let _verbose = false;
+
+/** Enable or disable verbose per-file logging for writeIfChanged. */
+export function setVerboseMode(enabled: boolean): void {
+  _verbose = enabled;
+}
+
 // ── Write-if-changed (#13) ────────────────────────────────────────────────────
 
 export type WriteResult = 'written' | 'skipped';
@@ -10,16 +19,21 @@ export type WriteResult = 'written' | 'skipped';
  * Write `content` to `filePath` only when the content differs from the existing
  * file. Returns 'written' when a write occurred, 'skipped' when the content was
  * already identical. Ensures the parent directory exists before writing.
+ * When verbose mode is enabled, logs the write/skip decision to stdout.
  */
 export function writeIfChanged(filePath: string, content: string): WriteResult {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
   if (fs.existsSync(filePath)) {
     const existing = fs.readFileSync(filePath, 'utf-8');
-    if (existing === content) return 'skipped';
+    if (existing === content) {
+      if (_verbose) console.log(`  ⏭️  skip    ${filePath}  (unchanged)`);
+      return 'skipped';
+    }
   }
 
   fs.writeFileSync(filePath, content, 'utf-8');
+  if (_verbose) console.log(`  ✏️  write   ${filePath}`);
   return 'written';
 }
 

@@ -1,6 +1,6 @@
 # AI OS
 
-> **Portable GitHub Copilot context engine** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
+> **Portable GitHub Copilot context engine v0.5.0** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
 
 ## What it does
 
@@ -23,8 +23,7 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Requirements
 
-**To run the installer:**
-- Node.js ≥ 20 **or** Docker (auto-detected as fallback when Node.js is absent)
+- **Node.js ≥ 20** (recommended) _or_ **Docker** (automatic fallback when Node.js is absent — see [No Node.js?](#no-nodejs) below)
 - Git
 - GitHub Copilot (VS Code extension)
 
@@ -101,6 +100,20 @@ Notes:
 - The install command above targets GitHub Copilot only.
 - Some advanced `skill-creator` benchmarking workflows use Python scripts, but core skill usage/install does not.
 
+## No Node.js?
+
+AI OS works even if Node.js is not installed on your machine. When `install.sh` detects that Node.js is absent but Docker is available, it automatically:
+
+1. Builds a local Docker image from the AI OS source (`Dockerfile` at repo root)
+2. Runs the context generator inside the container with your target repo mounted
+
+```bash
+# This works with or without Node.js — Docker is used automatically if needed
+bash ~/ai-os/install.sh --cwd /path/to/your/repo
+```
+
+> **Note:** The MCP server runtime requires Node.js to run locally. If you use the Docker fallback, install Node.js ≥ 20 afterward and re-run `install.sh` to also deploy the MCP tools.
+
 ## What gets detected
 
 - **Languages:** TypeScript, JavaScript, Python, Go, Rust, Java, C#, PHP, Ruby, Swift, Kotlin, and 30+ more
@@ -174,13 +187,29 @@ npm run generate -- --cwd /path/to/target-repo --plan
 npm run generate -- --cwd /path/to/target-repo --preview
 # Apply changes explicitly
 npm run generate -- --cwd /path/to/target-repo --apply
+# Verbose mode — show per-file write/skip/prune reasons
+npm run generate -- --cwd /path/to/target-repo --verbose
 # Refresh mode — update existing artifacts + prune stale files
 npm run generate:refresh -- --cwd /path/to/target-repo
 # Prune stale artifacts without full refresh
 npm run generate -- --cwd /path/to/target-repo --prune
-# Run regression suite (fixture matrix for all supported stacks)
+# Run unit tests
+npm test
+# Run regression suite (fixture matrix for all supported stacks — exits non-zero on failure)
 npm run validate
 ```
+
+### --verbose flag
+
+Pass `--verbose` (or `-v`) to see per-file decisions during generation:
+
+```
+  ✏️  write   /repo/.github/copilot-instructions.md
+  ⏭️  skip    /repo/.github/ai-os/context/stack.md  (unchanged)
+  🗑️  prune   .github/copilot/skills/ai-os-old-skill.md  (stale — not in current generation)
+```
+
+This is useful for debugging why a file was or was not updated.
 
 ## MCP server modes
 

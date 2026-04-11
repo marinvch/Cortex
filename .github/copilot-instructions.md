@@ -11,10 +11,10 @@
 
 ## Tech Stack
 
-- **Markdown** (58% of codebase, 52 files)
-- **TypeScript** (21% of codebase, 19 files)
+- **Markdown** (55% of codebase, 52 files)
+- **TypeScript** (26% of codebase, 25 files)
 - **Shell** (12% of codebase, 11 files)
-- **JSON** (7% of codebase, 6 files)
+- **JSON** (4% of codebase, 4 files)
 - **HTML** (2% of codebase, 2 files)
 
 ---
@@ -24,7 +24,7 @@
 - **Naming:** kebab-case for files and identifiers
 - **Linter:** none detected
 - **Formatter:** none detected
-- **Test Framework:** none detected
+- **Test Framework:** Vitest
 - **Test Directory:** none detected
 
 ---
@@ -33,15 +33,15 @@
 
 - `README.md`
 - `package.json`
-- `.github\copilot-instructions.md`
+- `Dockerfile`
 
 ---
 
 ## Architecture
 
-See `.ai-os/context/architecture.md` for the full architecture overview.  
-See `.ai-os/context/conventions.md` for detailed coding conventions.  
-See `.ai-os/context/stack.md` for the complete dependency inventory.
+See `.github/ai-os/context/architecture.md` for the full architecture overview.  
+See `.github/ai-os/context/conventions.md` for detailed coding conventions.  
+See `.github/ai-os/context/stack.md` for the complete dependency inventory.
 
 ---
 
@@ -74,10 +74,37 @@ Use these tools to fetch project-specific context on demand:
 
 ## Memory Workflow
 
-- Before implementation, retrieve relevant memory with `get_repo_memory`
-- Follow `.ai-os/context/memory.md` for memory safety and quality rules
-- After completing a substantial task, store durable findings with `remember_repo_fact`
+- MUST before implementation, retrieve relevant memory with `get_repo_memory`
+- Follow `.github/ai-os/context/memory.md` for memory safety and quality rules
+- MUST after completing a substantial task, store only verified durable findings with `remember_repo_fact`
 - Prefer memory-backed decisions over assumptions to reduce drift in long sessions
+- Never store speculative, duplicate, or transient status notes in repo memory
+
+---
+
+## Strict Behavior Guardrails
+
+- MUST ask clarifying questions first when the request is ambiguous, underspecified, or conflicts with existing instructions
+- MUST NOT improvise requirements, API contracts, or migration scope beyond what is explicitly requested
+- If a requested change is outside the described scope, pause and confirm the boundary before editing code
+
+### Allowed Actions
+
+- Read relevant project context and memory before implementation
+- Make the smallest in-scope change that satisfies the request
+- Run non-destructive validation commands (build/test/lint) to verify correctness
+
+### Forbidden Actions
+
+- Silent fallback that hides core runtime failures
+- Destructive operations (hard reset, force delete, irreversible rewrites) without explicit approval
+- Broad refactors, dependency swaps, or architecture changes without user confirmation
+
+### Escalation Flow (When Ambiguous)
+
+1. State what is unclear and list assumptions that would change behavior.
+2. Ask focused clarifying question(s) and propose bounded options.
+3. Continue only after clarification; if unavailable, take the safest minimal action and document limits.
 
 ---
 

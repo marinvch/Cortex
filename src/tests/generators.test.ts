@@ -59,10 +59,11 @@ describe('instructions size cap', () => {
     generateInstructions(stack, tmpDir, { refreshExisting: false });
 
     const instructionsPath = path.join(githubDir, 'copilot-instructions.md');
-    if (fs.existsSync(instructionsPath)) {
-      const bytes = Buffer.byteLength(fs.readFileSync(instructionsPath, 'utf-8'), 'utf-8');
-      expect(bytes).toBeLessThanOrEqual(8192);
-    }
+    // The file must exist — if it doesn't, the generator has a bug
+    expect(fs.existsSync(instructionsPath), 'copilot-instructions.md must be generated').toBe(true);
+    const bytes = Buffer.byteLength(fs.readFileSync(instructionsPath, 'utf-8'), 'utf-8');
+    // GitHub Copilot context limit: 8 KB
+    expect(bytes, `copilot-instructions.md is ${bytes} bytes — exceeds 8 KB GitHub context limit`).toBeLessThanOrEqual(8192);
 
     // Cleanup
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -86,10 +87,14 @@ describe('session context card', () => {
     generateContextDocs(stack, tmpDir);
 
     const sessionCardPath = path.join(tmpDir, '.github', 'COPILOT_CONTEXT.md');
-    if (fs.existsSync(sessionCardPath)) {
-      const content = fs.readFileSync(sessionCardPath, 'utf-8');
-      expect(content.length).toBeLessThanOrEqual(2000);
-    }
+    // The session card must exist — if it doesn't, the generator has a bug
+    expect(fs.existsSync(sessionCardPath), 'COPILOT_CONTEXT.md must be generated').toBe(true);
+    const content = fs.readFileSync(sessionCardPath, 'utf-8');
+    // GitHub Copilot session card token limit: ~500 tokens ≈ 2000 chars
+    expect(
+      content.length,
+      `COPILOT_CONTEXT.md is ${content.length} chars — exceeds 2000-char (~500 token) limit`,
+    ).toBeLessThanOrEqual(2000);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

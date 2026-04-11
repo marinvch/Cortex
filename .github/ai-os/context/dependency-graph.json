@@ -1,0 +1,393 @@
+{
+  "nodes": {
+    "scripts/bundle.mjs": {
+      "path": "scripts/bundle.mjs",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/analyze.ts": {
+      "path": "src/analyze.ts",
+      "imports": [
+        "src/detectors/language.ts",
+        "src/detectors/framework.ts",
+        "src/detectors/patterns.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "analyze"
+      ]
+    },
+    "src/detectors/framework.ts": {
+      "path": "src/detectors/framework.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/analyze.ts"
+      ],
+      "exports": [
+        "detectFrameworks"
+      ]
+    },
+    "src/detectors/graph.ts": {
+      "path": "src/detectors/graph.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/generators/context-docs.ts"
+      ],
+      "exports": [
+        "buildDependencyGraph",
+        "getTransitiveDependents"
+      ]
+    },
+    "src/detectors/language.ts": {
+      "path": "src/detectors/language.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/analyze.ts"
+      ],
+      "exports": [
+        "detectLanguages"
+      ]
+    },
+    "src/detectors/patterns.ts": {
+      "path": "src/detectors/patterns.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/analyze.ts"
+      ],
+      "exports": [
+        "detectPatterns"
+      ]
+    },
+    "src/generate.ts": {
+      "path": "src/generate.ts",
+      "imports": [
+        "src/analyze.ts",
+        "src/generators/instructions.ts",
+        "src/generators/mcp.ts",
+        "src/generators/context-docs.ts",
+        "src/generators/agents.ts",
+        "src/generators/skills.ts",
+        "src/generators/prompts.ts",
+        "src/mcp-tools.ts",
+        "src/updater.ts",
+        "src/planner.ts",
+        "src/generators/utils.ts",
+        "src/recommendations/index.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/generators/agents.ts": {
+      "path": "src/generators/agents.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "generateAgents"
+      ]
+    },
+    "src/generators/context-docs.ts": {
+      "path": "src/generators/context-docs.ts",
+      "imports": [
+        "src/types.ts",
+        "src/detectors/graph.ts",
+        "src/updater.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "readAiOsConfig",
+        "generateContextDocs"
+      ]
+    },
+    "src/generators/instructions.ts": {
+      "path": "src/generators/instructions.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "generateInstructions"
+      ]
+    },
+    "src/generators/mcp.ts": {
+      "path": "src/generators/mcp.ts",
+      "imports": [
+        "src/types.ts",
+        "src/mcp-tools.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "generateMcpJson"
+      ]
+    },
+    "src/generators/prompts.ts": {
+      "path": "src/generators/prompts.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "generatePrompts"
+      ]
+    },
+    "src/generators/skills.ts": {
+      "path": "src/generators/skills.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "generateSkills",
+        "DeployBundledSkillsOptions",
+        "deployBundledSkills"
+      ]
+    },
+    "src/generators/utils.ts": {
+      "path": "src/generators/utils.ts",
+      "imports": [],
+      "importedBy": [
+        "src/generate.ts",
+        "src/generators/agents.ts",
+        "src/generators/context-docs.ts",
+        "src/generators/instructions.ts",
+        "src/generators/mcp.ts",
+        "src/generators/prompts.ts",
+        "src/generators/skills.ts",
+        "src/recommendations/index.ts"
+      ],
+      "exports": [
+        "setVerboseMode",
+        "WriteResult",
+        "writeIfChanged",
+        "findUnresolvedPlaceholders",
+        "applyFallbacks",
+        "AiOsManifest",
+        "getManifestPath",
+        "readManifest",
+        "writeManifest",
+        "FileDiff",
+        "makeFileDiff",
+        "recordResult",
+        "toRepoRelative",
+        "sha256"
+      ]
+    },
+    "src/mcp-server/index.ts": {
+      "path": "src/mcp-server/index.ts",
+      "imports": [
+        "src/mcp-server/tool-definitions.ts",
+        "src/mcp-server/utils.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/mcp-server/tool-definitions.ts": {
+      "path": "src/mcp-server/tool-definitions.ts",
+      "imports": [],
+      "importedBy": [
+        "src/mcp-server/index.ts"
+      ],
+      "exports": [
+        "McpToolSchema",
+        "McpToolDefinition",
+        "getAllMcpTools"
+      ]
+    },
+    "src/mcp-server/utils.ts": {
+      "path": "src/mcp-server/utils.ts",
+      "imports": [],
+      "importedBy": [
+        "src/mcp-server/index.ts"
+      ],
+      "exports": [
+        "getProjectRoot",
+        "readAiOsFile",
+        "getMemoryGuidelines",
+        "getRepoMemory",
+        "rememberRepoFact",
+        "searchFiles",
+        "buildFileTree",
+        "getPrismaSchema",
+        "getTrpcProcedures",
+        "getApiRoutes",
+        "getEnvVars",
+        "getPackageInfo",
+        "getFileSummary",
+        "getImpactOfChange",
+        "getDependencyChain",
+        "checkForUpdates",
+        "getSessionContext",
+        "getRecommendations",
+        "suggestImprovements"
+      ]
+    },
+    "src/mcp-tools.ts": {
+      "path": "src/mcp-tools.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts",
+        "src/generators/mcp.ts"
+      ],
+      "exports": [
+        "McpToolSchema",
+        "McpToolDefinition",
+        "MCP_TOOL_DEFINITIONS",
+        "getMcpToolsForStack",
+        "getAllMcpTools"
+      ]
+    },
+    "src/planner.ts": {
+      "path": "src/planner.ts",
+      "imports": [],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "PlannedActionType",
+        "PlannedAction",
+        "OnboardingPlan",
+        "buildOnboardingPlan",
+        "formatOnboardingPlan"
+      ]
+    },
+    "src/recommendations/index.ts": {
+      "path": "src/recommendations/index.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts",
+        "src/recommendations/registry.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts",
+        "src/tests/generators.test.ts"
+      ],
+      "exports": [
+        "collectRecommendations",
+        "getSkillsGapReport",
+        "generateRecommendations",
+        "buildRecommendationsText"
+      ]
+    },
+    "src/recommendations/registry.ts": {
+      "path": "src/recommendations/registry.ts",
+      "imports": [],
+      "importedBy": [
+        "src/recommendations/index.ts"
+      ],
+      "exports": [
+        "StackRecommendation",
+        "DEPENDENCY_RECOMMENDATIONS",
+        "FRAMEWORK_RECOMMENDATIONS",
+        "LANGUAGE_RECOMMENDATIONS",
+        "UNIVERSAL_RECOMMENDATIONS"
+      ]
+    },
+    "src/tests/generators.test.ts": {
+      "path": "src/tests/generators.test.ts",
+      "imports": [
+        "src/recommendations/index.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/types.ts": {
+      "path": "src/types.ts",
+      "imports": [],
+      "importedBy": [
+        "src/analyze.ts",
+        "src/detectors/framework.ts",
+        "src/detectors/graph.ts",
+        "src/detectors/language.ts",
+        "src/detectors/patterns.ts",
+        "src/generators/agents.ts",
+        "src/generators/context-docs.ts",
+        "src/generators/instructions.ts",
+        "src/generators/mcp.ts",
+        "src/generators/prompts.ts",
+        "src/generators/skills.ts",
+        "src/mcp-tools.ts",
+        "src/recommendations/index.ts",
+        "src/tests/generators.test.ts"
+      ],
+      "exports": [
+        "DetectedLanguage",
+        "DetectedFramework",
+        "DetectedPatterns",
+        "DetectedStack",
+        "PackageProfile",
+        "FileNode",
+        "DependencyGraph",
+        "AiOsConfig"
+      ]
+    },
+    "src/updater.ts": {
+      "path": "src/updater.ts",
+      "imports": [],
+      "importedBy": [
+        "src/generate.ts",
+        "src/generators/context-docs.ts"
+      ],
+      "exports": [
+        "getToolVersion",
+        "InstalledConfig",
+        "readInstalledConfig",
+        "UpdateStatus",
+        "checkUpdateStatus",
+        "printUpdateBanner",
+        "pruneLegacyArtifacts"
+      ]
+    },
+    "src/validation/regression.ts": {
+      "path": "src/validation/regression.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": [
+        "App",
+        "Page",
+        "GET"
+      ]
+    },
+    "vitest.config.ts": {
+      "path": "vitest.config.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    }
+  },
+  "generatedAt": "2026-04-11T06:41:27.086Z",
+  "fileCount": 26
+}

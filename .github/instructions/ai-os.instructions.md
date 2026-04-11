@@ -9,6 +9,7 @@ The following MCP tools are available — use them proactively:
 
 | Tool | When to call |
 |---|---|
+| `get_session_context` | **At session start** — reloads MUST-ALWAYS rules and key context |
 | `get_project_structure` | Before exploring unfamiliar directories |
 | `get_stack_info` | Before suggesting any library or tooling changes |
 | `get_conventions` | Before writing new code in this repo |
@@ -21,12 +22,45 @@ The following MCP tools are available — use them proactively:
 | `get_memory_guidelines` | At task start to load memory safety protocol |
 | `get_repo_memory` | Before coding to recover durable repo decisions and constraints |
 | `remember_repo_fact` | After substantial tasks to persist verified learnings |
+| `get_recommendations` | To see stack-appropriate tools, extensions, and skills |
+| `suggest_improvements` | To surface architectural and tooling gaps |
+
+## Session Restart Protocol
+
+**When starting a new conversation or after a context window reset:**
+1. Call `get_session_context` → reloads MUST-ALWAYS rules, build commands, key files
+2. Call `get_repo_memory` → reloads durable architectural decisions
+3. Call `get_conventions` → reloads coding rules
 
 ## Memory Protocol
 
-1. Start each non-trivial task by checking relevant repository memory.
+1. MUST start each non-trivial task by checking relevant repository memory.
 2. Prioritize memory-backed constraints over assumptions.
-3. Persist durable facts and decisions at the end of the task.
+3. MUST persist only verified durable facts and decisions at the end of the task.
+4. Do not store speculative, duplicate, or transient status notes in repo memory.
+
+## Strict Behavior Guardrails
+
+1. MUST ask clarifying questions first when a request is ambiguous, underspecified, or outside described scope.
+2. MUST NOT improvise requirements, API contracts, or migration scope beyond explicit instructions.
+3. MUST avoid silent fallback for core runtime failures; return explicit diagnostics instead.
+
+### Allowed Actions
+
+- Read relevant context and repository memory before implementation.
+- Apply minimal in-scope edits and validate with non-destructive checks.
+
+### Forbidden Actions
+
+- Destructive operations without explicit approval.
+- Broad refactors or architecture changes without confirmation.
+- Writing speculative or transient notes into repo memory.
+
+### Escalation Flow (When Ambiguous)
+
+1. State what is unclear and what assumptions would change behavior.
+2. Ask focused clarifying question(s) with bounded options.
+3. Continue after clarification; if unavailable, take safest minimal action and document limits.
 
 ## Update AI OS
 

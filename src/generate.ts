@@ -11,19 +11,20 @@ import { generatePrompts } from './generators/prompts.js';
 import { getMcpToolsForStack } from './mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from './updater.js';
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
-import { readManifest, writeManifest, getManifestPath } from './generators/utils.js';
+import { readManifest, writeManifest, getManifestPath, setVerboseMode } from './generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
   let mode: GenerateMode = 'safe';
   let action: GenerateAction = 'apply';
   let prune = false;
+  let verbose = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -49,19 +50,18 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       prune = true;
     } else if (args[i] === '--check-hygiene') {
       action = 'check-hygiene';
+    } else if (args[i] === '--verbose' || args[i] === '-v') {
+      verbose = true;
     }
   }
 
-  return { cwd, dryRun, mode, action, prune };
+  return { cwd, dryRun, mode, action, prune, verbose };
 }
 
 function printBanner(): void {
-  const version = getToolVersion();
-  // Pad version to consistent width (right-pad with spaces to 5 chars)
-  const vLabel = `v${version}`.padEnd(5, ' ');
   console.log('');
   console.log('  ╔═══════════════════════════════════╗');
-  console.log(`  ║          AI OS  ${vLabel}            ║`);
+  console.log('  ║          AI OS  v0.5.0            ║');
   console.log('  ║  Portable Copilot Context Engine  ║');
   console.log('  ╚═══════════════════════════════════╝');
   console.log('');
@@ -104,8 +104,14 @@ function printSummary(
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose } = parseArgs();
   let mode: GenerateMode = rawMode;
+
+  // Enable verbose per-file logging when --verbose / -v is passed
+  if (verbose) {
+    setVerboseMode(true);
+    console.log('  🔍 Verbose mode enabled — per-file write/skip/prune reasons will be shown.\n');
+  }
 
   // ── --check-hygiene action (runs before scan, no generation needed) ────────
   if (action === 'check-hygiene') {
@@ -223,10 +229,16 @@ async function main(): Promise<void> {
           try {
             fs.rmSync(abs);
             prunedAbs.push(abs);
-            console.log(`  🗑️  Pruned stale artifact: ${rel}`);
+            if (verbose) {
+              console.log(`  🗑️  prune   ${rel}  (stale — not in current generation)`);
+            } else {
+              console.log(`  🗑️  Pruned stale artifact: ${rel}`);
+            }
           } catch {
             console.warn(`  ⚠ Could not prune: ${rel}`);
           }
+        } else if (verbose) {
+          console.log(`  🗑️  prune   ${rel}  (already missing, skipping delete)`);
         }
       }
     }
@@ -278,10 +290,10 @@ function runHygieneCheck(cwd: string): void {
     }
   }
 
-  // Check for node_modules inside .ai-os/mcp-server/ (leftover from pre-v0.4.1 installs)
+  // Check for node_modules inside .ai-os/mcp-server/ (Phase F not yet applied)
   const mcpNodeModules = path.join(cwd, '.ai-os', 'mcp-server', 'node_modules');
   if (fs.existsSync(mcpNodeModules)) {
-    issues.push(`  ⚠  node_modules present in .ai-os/mcp-server/ — run --refresh-existing to replace with the bundled server`);
+    issues.push(`  ⚠  node_modules present in .ai-os/mcp-server/ — Phase F (bundle deploy) will eliminate this`);
   }
 
   // Check for *.tmp files in ai-os dirs

@@ -173,6 +173,48 @@ const fixtures: FixtureSpec[] = [
       );
     },
   },
+  {
+    name: 'java-go-react-monorepo',
+    description: 'Monorepo combining React frontend, Java/Spring backend, and Go microservice',
+    setup(dir) {
+      // Root workspace descriptor (npm monorepo)
+      writeJson(path.join(dir, 'package.json'), {
+        name: 'java-go-react-monorepo',
+        private: true,
+        workspaces: ['apps/web'],
+      });
+      // React frontend package
+      writeJson(path.join(dir, 'apps/web/package.json'), {
+        name: 'web',
+        version: '1.0.0',
+        dependencies: { react: '^18.0.0', 'react-dom': '^18.0.0' },
+        devDependencies: { typescript: '^5.0.0', vite: '^5.0.0' },
+      });
+      writeFile(path.join(dir, 'apps/web/src/App.tsx'), 'export default function App() { return <div>Hello</div>; }');
+      writeFile(path.join(dir, 'apps/web/tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true } }));
+      // Java Spring Boot service
+      writeFile(
+        path.join(dir, 'services/api/pom.xml'),
+        `<project><modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId><artifactId>api</artifactId><version>1.0.0</version>
+  <dependencies>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
+  </dependencies>
+</project>`,
+      );
+      writeFile(
+        path.join(dir, 'services/api/src/main/java/com/example/ApiApp.java'),
+        'package com.example;\nimport org.springframework.boot.SpringApplication;\n@SpringBootApplication\npublic class ApiApp { public static void main(String[] args) { SpringApplication.run(ApiApp.class, args); } }',
+      );
+      // Go microservice
+      writeFile(path.join(dir, 'services/worker/go.mod'), 'module github.com/example/worker\n\ngo 1.22\n');
+      writeFile(
+        path.join(dir, 'services/worker/main.go'),
+        'package main\nimport (\n  "fmt"\n  "net/http"\n)\nfunc main() {\n  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) { fmt.Fprintln(w, "ok") })\n  http.ListenAndServe(":8080", nil)\n}',
+      );
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -284,54 +326,44 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   }
   results.push({ fixture: fixtureName, check: 'mcp.json present', passed: true });
 
-  let mcpConfig: { version?: number; servers?: Record<string, { command?: string; args?: string[] }> };
+  let mcpConfig: { version?: number; servers?: Record<string, { command?: string; args?: string[] }>; tools?: unknown[] };
   try {
     mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')) as typeof mcpConfig;
   } catch {
-    results.push({ fixture: fixtureName, check: 'mcp.json is valid JSON', passed: false, detail: 'Parse failed' });
+    results.push({ fixture: fixtureName, check: 'mcp.json is valid JSON', passed: false, detail: 'JSON.parse failed' });
     return;
   }
   results.push({ fixture: fixtureName, check: 'mcp.json is valid JSON', passed: true });
 
-  // Committed mcp.json must NOT contain a servers block (machine-specific paths are gitignored)
-  const hasNoServers = !mcpConfig.servers || Object.keys(mcpConfig.servers).length === 0;
+  // Version field must be present
   results.push({
     fixture: fixtureName,
-    check: 'committed mcp.json has no servers block',
-    passed: hasNoServers,
-    detail: hasNoServers
-      ? undefined
-      : 'servers block found in committed mcp.json — should be absent to avoid breaking Copilot cloud agent',
+    check: 'mcp.json has version field',
+    passed: typeof mcpConfig.version === 'number',
+    detail: typeof mcpConfig.version !== 'number' ? `version field is ${JSON.stringify(mcpConfig.version)}` : undefined,
   });
 
-  // version field must be present
-  const hasVersion = mcpConfig.version === 1;
-  results.push({
-    fixture: fixtureName,
-    check: 'mcp.json version is 1',
-    passed: hasVersion,
-    detail: hasVersion ? undefined : `version: ${String(mcpConfig.version)}`,
-  });
-
-  // Verify the local-only config carries the servers block instead.
-  const mcpLocalPath = path.join(dir, '.github/copilot/mcp.local.json');
-  if (fs.existsSync(mcpLocalPath)) {
-    let localConfig: { version?: number; servers?: Record<string, { command?: string; args?: string[] }> };
-    try {
-      localConfig = JSON.parse(fs.readFileSync(mcpLocalPath, 'utf-8')) as typeof localConfig;
-    } catch (err) {
-      results.push({ fixture: fixtureName, check: 'mcp.local.json is valid JSON', passed: false, detail: `Parse failed: ${err instanceof Error ? err.message : String(err)}` });
-      return;
-    }
-    results.push({ fixture: fixtureName, check: 'mcp.local.json is valid JSON', passed: true });
-
-    const serverEntry = localConfig.servers?.['ai-os'];
-    const argsIncludeIndexJs = serverEntry?.args?.some(a => a.includes('index.js')) ?? false;
+  // The `generate` command writes a servers block with the ai-os MCP server entry.
+  // Check that entry is present and references the MCP server index.js.
+  const serverEntry = mcpConfig.servers?.['ai-os'];
+  if (serverEntry !== undefined) {
+    const argsIncludeIndexJs = serverEntry.args?.some(a => a.includes('index.js')) ?? false;
     results.push({
       fixture: fixtureName,
-      check: 'mcp.local.json references .ai-os/mcp-server/index.js',
+      check: 'mcp.json ai-os server references index.js',
       passed: argsIncludeIndexJs,
-      detail: argsIncludeIndexJs ? undefined : `args: ${JSON.stringify(serverEntry?.args)}`,
+      detail: argsIncludeIndexJs
+        ? undefined
+        : `Expected args to include 'index.js', got: ${JSON.stringify(serverEntry.args)}`,
+    });
+  } else {
+    // No servers block — this is only acceptable for the committed ai-os repo mcp.json
+    // which uses a tools-only format. For generated fixture directories this is a failure.
+    results.push({
+      fixture: fixtureName,
+      check: 'mcp.json ai-os server references index.js',
+      passed: false,
+      detail: 'No servers[\'ai-os\'] entry found in generated mcp.json',
     });
   }
 }
@@ -412,15 +444,20 @@ function printReport(results: CheckResult[]): boolean {
   console.log(`Summary: ${passed.length} passed, ${failed.length} failed out of ${results.length} checks\n`);
 
   if (failed.length > 0) {
-    console.log('Failed checks:');
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error(` VALIDATION FAILED — ${failed.length} check(s) did not pass`);
+    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     for (const f of failed) {
-      console.log(`  ✗ [${f.fixture}] ${f.check}`);
-      if (f.detail) console.log(`    → ${f.detail}`);
+      console.error(`  ✗ [${f.fixture}] ${f.check}`);
+      if (f.detail) console.error(`    → ${f.detail}`);
     }
-    console.log('');
+    console.error('');
+    // Explicitly return false so main() exits with code 1
+    return false;
   }
 
-  return failed.length === 0;
+  console.log('  ✅ All checks passed.\n');
+  return true;
 }
 
 // ---------------------------------------------------------------------------

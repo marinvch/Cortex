@@ -1,42 +1,28 @@
-# =============================================================================
-#  AI OS — Docker image for running the generator without a local Node.js install
+# AI OS — Docker image for Node.js-free installs
+# Allows `install.sh` to generate Copilot context files without requiring
+# Node.js to be installed on the host machine.
 #
-#  Usage (from inside the target repository):
-#    docker build -t ai-os https://github.com/marinvch/ai-os.git#master
-#    docker run --rm -v "$(pwd):/repo" ai-os --cwd /repo
+# Usage (via install.sh — automatic):
+#   bash install.sh --cwd /path/to/your/repo
 #
-#  Or via bootstrap.sh (detects Docker automatically when Node.js is absent).
-# =============================================================================
+# Manual usage:
+#   docker build -t ai-os-local .
+#   docker run --rm -v "$(pwd):/repo" ai-os-local --cwd /repo
+#
+# To refresh existing artifacts:
+#   docker run --rm -v "$(pwd):/repo" ai-os-local --cwd /repo --refresh-existing
 
-FROM node:20-slim AS builder
+FROM node:20-alpine
 
-WORKDIR /app
+WORKDIR /ai-os
 
-# Copy package files and install dependencies
-COPY package.json package-lock.json ./
-RUN npm ci --prefer-offline --no-audit --no-fund
+# Install dependencies first (layer cache)
+COPY package*.json ./
+RUN npm install --prefer-offline --no-audit --no-fund
 
-# Copy source
+# Copy source and build
 COPY . .
+RUN npm run build
 
-# Build TypeScript and create the bundled MCP server
-RUN npm run build && node scripts/bundle.mjs
-
-# ── Runtime image ────────────────────────────────────────────────────────────
-FROM node:20-slim
-
-WORKDIR /app
-
-# Copy built artifacts and runtime dependencies only
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/tsconfig.json ./
-COPY --from=builder /app/scripts ./scripts
-
-# /repo is mounted by the caller (the target repository)
-VOLUME ["/repo"]
-
-ENTRYPOINT ["node", "--import", "tsx/esm", "src/generate.ts"]
-CMD ["--cwd", "/repo"]
+# Default entry point: the compiled generator
+ENTRYPOINT ["node", "dist/generate.js"]

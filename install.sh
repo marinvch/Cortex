@@ -155,79 +155,93 @@ fi
 
 echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 
-# ── Check Node.js version (with Docker fallback for no-Node.js environments) ─
+# ── Check Node.js version ────────────────────────────────────────────────────
+USE_DOCKER=false
+
 if ! command -v node &>/dev/null; then
   echo -e "  ${YELLOW}⚠ Node.js not found.${RESET}"
-  echo -e "  ${YELLOW}  AI OS uses Node.js >= 20 for its generator and MCP server (your project does NOT need Node.js).${RESET}"
-  echo ""
+  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 (or Docker as a fallback).${RESET}"
 
-  # ── Docker fallback ──────────────────────────────────────────────────────
   if command -v docker &>/dev/null; then
-    echo -e "  ${CYAN}→ Docker detected — attempting Docker-based context generation...${RESET}"
-    echo ""
-
-    AIOS_DOCKER_SRC="$SCRIPT_DIR"
-    DOCKER_IMAGE_TAG="ai-os-local:latest"
-
-    # Build the image from the ai-os source directory
-    echo -e "  ${CYAN}  Building Docker image (this may take a minute on first run)...${RESET}"
-    if docker build -t "$DOCKER_IMAGE_TAG" "$AIOS_DOCKER_SRC" >/dev/null 2>&1; then
-      echo -e "  ${GREEN}  ✓ Docker image ready${RESET}"
-    else
-      echo -e "  ${RED}  ✗ Docker build failed. Install Node.js >= 20 and retry.${RESET}"
-      echo -e "  ${YELLOW}    Install Node.js: https://nodejs.org${RESET}"
-      exit 1
-    fi
-
-    DOCKER_GEN_ARGS=(--cwd /repo)
-    if [[ "$REFRESH_EXISTING" == "true" ]]; then
-      DOCKER_GEN_ARGS+=(--refresh-existing)
-    fi
-
-    echo -e "  ${CYAN}  Running AI OS generator in Docker container...${RESET}"
-    if docker run --rm \
-        -v "$TARGET_DIR:/repo" \
-        "$DOCKER_IMAGE_TAG" "${DOCKER_GEN_ARGS[@]}"; then
-      echo ""
-      echo -e "  ${GREEN}${BOLD}✅ AI OS context generated via Docker!${RESET}"
-      echo ""
-      echo -e "  ${YELLOW}Note:${RESET} MCP server runtime requires Node.js >= 20 to run locally."
-      echo -e "  ${YELLOW}       Install Node.js (https://nodejs.org) and re-run install.sh to enable MCP tools.${RESET}"
-      echo ""
-      exit 0
-    else
-      echo -e "  ${RED}✗ Docker-based generation failed.${RESET}"
-      echo -e "  ${YELLOW}  Install Node.js >= 20 and retry: https://nodejs.org${RESET}"
-      exit 1
-    fi
+    echo -e "  ${CYAN}→ Docker detected — using Docker as Node.js runtime fallback.${RESET}"
+    USE_DOCKER=true
+  else
+    echo -e "  ${RED}✗ Neither Node.js nor Docker found.${RESET}"
+    echo -e "  ${YELLOW}  Install Node.js >= 20: https://nodejs.org${RESET}"
+    echo -e "  ${YELLOW}  Or install Docker:     https://docs.docker.com/get-docker/${RESET}"
+    echo -e "  ${YELLOW}  Your project does NOT need Node.js — only AI OS tooling does.${RESET}"
+    exit 1
   fi
+else
+  NODE_VERSION=$(node --version | sed 's/v//')
+  NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
 
-  echo -e "  ${RED}✗ Node.js not found and Docker is not available.${RESET}"
-  echo -e "  ${YELLOW}  Option 1 — Install Node.js (recommended):  https://nodejs.org${RESET}"
-  echo -e "  ${YELLOW}  Option 2 — Install Docker and retry:       https://docker.com${RESET}"
-  exit 1
+  if [[ "$NODE_MAJOR" -lt 20 ]]; then
+    echo -e "  ${YELLOW}⚠ Node.js $NODE_VERSION is too old. Need >= 20.${RESET}"
+
+    if command -v docker &>/dev/null; then
+      echo -e "  ${CYAN}→ Docker detected — using Docker as Node.js runtime fallback.${RESET}"
+      USE_DOCKER=true
+    else
+      echo -e "  ${RED}✗ Node.js $NODE_VERSION is too old (need >= 20) and Docker is not available.${RESET}"
+      echo -e "  ${YELLOW}  Update Node.js: https://nodejs.org${RESET}"
+      echo -e "  ${YELLOW}  Or install Docker: https://docs.docker.com/get-docker/${RESET}"
+      exit 1
+    fi
+  else
+    echo -e "  ${GREEN}✓ Node.js v$NODE_VERSION${RESET}"
+  fi
 fi
-
-NODE_VERSION=$(node --version | sed 's/v//')
-NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
-
-if [[ "$NODE_MAJOR" -lt 20 ]]; then
-  echo -e "  ${RED}✗ Node.js $NODE_VERSION is too old. Need >= 20.${RESET}"
-  echo -e "  ${YELLOW}  AI OS uses Node.js for its generator and MCP server (not your project).${RESET}"
-  echo -e "  ${YELLOW}  Update: https://nodejs.org${RESET}"
-  exit 1
-fi
-
-echo -e "  ${GREEN}✓ Node.js v$NODE_VERSION${RESET}"
 
 # ── Check npm ────────────────────────────────────────────────────────────────
-if ! command -v npm &>/dev/null; then
-  echo -e "  ${RED}✗ npm not found. Install Node.js from https://nodejs.org${RESET}"
-  exit 1
+if [[ "$USE_DOCKER" == "false" ]]; then
+  if ! command -v npm &>/dev/null; then
+    echo -e "  ${RED}✗ npm not found. Install Node.js from https://nodejs.org${RESET}"
+    exit 1
+  fi
+  echo -e "  ${GREEN}✓ npm $(npm --version)${RESET}"
 fi
-
-echo -e "  ${GREEN}✓ npm $(npm --version)${RESET}"
 echo ""
+
+# ── Docker-based install (fallback when Node.js is unavailable/old) ───────────
+if [[ "$USE_DOCKER" == "true" ]]; then
+  echo -e "  ${CYAN}→ Building AI OS Docker image...${RESET}"
+  DOCKER_IMAGE="ai-os-installer-$(date +%s)-$$"
+  if ! docker build -t "$DOCKER_IMAGE" "$SCRIPT_DIR" -f "$SCRIPT_DIR/Dockerfile" 2>&1; then
+    echo -e "  ${RED}✗ Docker build failed. See output above for details.${RESET}"
+    exit 1
+  fi
+  echo -e "  ${GREEN}✓ Docker image built${RESET}"
+  echo ""
+
+  echo -e "  ${CYAN}→ Running AI OS generator via Docker...${RESET}"
+  DOCKER_GEN_ARGS=(--cwd /repo)
+  if [[ "$REFRESH_EXISTING" == "true" ]]; then
+    DOCKER_GEN_ARGS+=(--refresh-existing)
+  fi
+
+  if ! docker run --rm -v "$TARGET_DIR:/repo" "$DOCKER_IMAGE" "${DOCKER_GEN_ARGS[@]}"; then
+    docker rmi "$DOCKER_IMAGE" >/dev/null 2>&1 || true
+    echo -e "  ${RED}✗ Docker-based generation failed.${RESET}"
+    exit 1
+  fi
+
+  # Clean up the temporary image
+  docker rmi "$DOCKER_IMAGE" >/dev/null 2>&1 || true
+
+  echo ""
+  echo -e "  ${GREEN}${BOLD}✅ AI OS installed successfully via Docker!${RESET}"
+  echo ""
+  echo -e "  ${BOLD}Note:${RESET} The MCP server requires Node.js >= 20 to run."
+  echo -e "  ${YELLOW}Tip:${RESET} Install Node.js to enable the MCP server: https://nodejs.org"
+  echo ""
+  echo -e "  ${BOLD}Next steps:${RESET}"
+  echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
+  echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
+  echo -e "  3. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
+  echo ""
+  exit 0
+fi
 
 # ── Optional: install anthropics skill-creator via Skills CLI ───────────────
 if [[ "$INSTALL_SKILL_CREATOR" == "true" ]]; then

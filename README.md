@@ -23,7 +23,7 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Requirements
 
-- **Node.js ≥ 20** (recommended) _or_ **Docker** (automatic fallback when Node.js is absent — see [No Node.js?](#no-nodejs) below)
+- Node.js ≥ 20 **or** Docker (Node.js-free fallback)
 - Git
 - GitHub Copilot (VS Code extension)
 
@@ -68,22 +68,22 @@ bash ~/ai-os/install.sh --install-skill-creator --install-find-skills
 bash ~/ai-os/install.sh --refresh-existing
 ```
 
-### No Node.js? Use Docker
+### Docker (no Node.js required)
 
-If Node.js ≥ 20 is not available, `install.sh` automatically falls back to Docker:
-
-```bash
-# Docker must be running — install.sh detects it automatically
-bash ~/ai-os/install.sh --cwd /path/to/your/repo
-```
-
-Or run directly with Docker:
+If Node.js is not available locally, AI OS automatically falls back to Docker when it is present. You can also run the Docker image directly:
 
 ```bash
-docker run --rm -v "$(pwd):/repo" ghcr.io/marinvch/ai-os
+# Build the image once from the cloned ai-os repo
+docker build -t ai-os ~/ai-os
+
+# Run AI OS against any target repo (mounts the current directory)
+docker run --rm -v "$(pwd):/repo" ai-os
+
+# With options (e.g., refresh existing artifacts)
+docker run --rm -v "$(pwd):/repo" ai-os --cwd /repo --refresh-existing
 ```
 
-**After install**, the deployed MCP server (`.ai-os/mcp-server/index.js`) is a single self-contained file — **no `node_modules` in the target repo**. The MCP server only requires `node >= 20` on PATH to run.
+> **Note:** When installing via Docker the generated context files are written to your repo, but the MCP server runtime still requires Node.js ≥ 20 to run on your machine.
 
 ## Optional skill installs
 

@@ -1,16 +1,8 @@
-# AI OS — Docker image for Node.js-free installs
-# Allows `install.sh` to generate Copilot context files without requiring
-# Node.js to be installed on the host machine.
-#
-# Usage (via install.sh — automatic):
-#   bash install.sh --cwd /path/to/your/repo
-#
-# Manual usage:
-#   docker build -t ai-os-local .
-#   docker run --rm -v "$(pwd):/repo" ai-os-local --cwd /repo
-#
-# To refresh existing artifacts:
-#   docker run --rm -v "$(pwd):/repo" ai-os-local --cwd /repo --refresh-existing
+# AI OS — Docker image for Node.js-free installation
+# Usage: docker run --rm -v "$(pwd):/repo" ghcr.io/marinvch/ai-os
+# Or build locally:
+#   docker build -t ai-os .
+#   docker run --rm -v "$(pwd):/repo" ai-os
 
 FROM node:20-alpine
 
@@ -18,11 +10,13 @@ WORKDIR /ai-os
 
 # Install dependencies first (layer cache)
 COPY package*.json ./
-RUN npm install --prefer-offline --no-audit --no-fund
+RUN npm ci --prefer-offline --no-audit --no-fund
 
-# Copy source and build
+# Copy source
 COPY . .
-RUN npm run build
 
-# Default entry point: the compiled generator
-ENTRYPOINT ["node", "dist/generate.js"]
+# Default working directory for mounted target repo
+WORKDIR /repo
+
+ENTRYPOINT ["node", "--import", "tsx/esm", "/ai-os/src/generate.ts"]
+CMD ["--cwd", "/repo"]

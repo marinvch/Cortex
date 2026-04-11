@@ -31,6 +31,22 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Install on any repo
 
+### Install from a specific release tag (recommended for testing)
+
+```bash
+# Example: install from v0.6.2 into the current repo
+npx -y github:marinvch/ai-os#v0.6.2
+
+# Refresh an existing AI OS install from a tag
+npx -y github:marinvch/ai-os#v0.6.2 --refresh-existing
+```
+
+If your environment blocks `npx github:...`, use the tagged bootstrap script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/v0.6.2/bootstrap.sh | bash
+```
+
 ### Fast bootstrap (paste in any target repo terminal)
 
 ```bash
@@ -210,6 +226,31 @@ AI OS uses `.github/workflows/release-automation.yml` to automate release taggin
 - **PR dry run:** Pull requests to `dev` run a release dry-run and print the planned next tag.
 - **Safe no-op:** If no new commits since the last tag, the workflow skips release creation.
 - **Release notes:** Generated via GitHub release notes plus a commit-SHA summary section.
+
+### View what changed in a release tag
+
+Use these commands when a release page looks empty and you want to inspect the diff directly.
+
+```bash
+# Show commits included in a tag (replace versions as needed)
+git log --oneline v0.6.1..v0.6.2
+
+# Show changed files between two tags
+git diff --name-status v0.6.1..v0.6.2
+
+# Open GitHub compare page in browser format:
+# https://github.com/marinvch/ai-os/compare/v0.6.1...v0.6.2
+```
+
+If you use GitHub CLI, these are useful too:
+
+```bash
+# View release details
+gh release view v0.6.2
+
+# Generate and print release notes body
+gh api repos/marinvch/ai-os/releases/generate-notes -f tag_name=v0.6.2 --jq .body
+```
 
 ### --verbose flag
 

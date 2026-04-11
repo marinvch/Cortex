@@ -22,7 +22,12 @@ jobs:
         run: echo "Release is gated by AI OS Validate workflow_run; push event is a no-op."
 
   release:
-    if: github.event_name != 'push' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success')
+    # Only release when: manual dispatch OR validate succeeded AND ran on the master branch
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'master')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout target commit
@@ -125,6 +130,35 @@ jobs:
           gh release create "$NEXT_TAG" \
             --title "$NEXT_TAG" \
             --notes-file "$RELEASE_NOTES_FILE"
+
+      - name: Bump version in package.json
+        if: steps.plan.outputs.release_needed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          NEXT_VERSION="${{ steps.plan.outputs.next_tag }}"
+          NEXT_VERSION="${NEXT_VERSION#v}"
+
+          git checkout master
+          git pull origin master
+
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${NEXT_VERSION}';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          if git diff --quiet package.json; then
+            echo "package.json already at ${NEXT_VERSION} — no commit needed."
+            exit 0
+          fi
+
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.plan.outputs.next_tag }} [skip ci]"
+          git push origin master
 
       - name: No release needed
         if: steps.plan.outputs.release_needed != 'true'

@@ -132,6 +132,7 @@ jobs:
             --notes-file "$RELEASE_NOTES_FILE"
 
       - name: Bump version in package.json
+          continue-on-error: true
         if: steps.plan.outputs.release_needed == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

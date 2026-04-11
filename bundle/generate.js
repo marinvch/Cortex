@@ -1666,8 +1666,38 @@ function printUpdateBanner(status) {
   console.log("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
   console.log("");
 }
-function pruneLegacyArtifacts(targetDir) {
+function pruneLegacyArtifacts(targetDir, options) {
+  const fullCleanup = options?.fullCleanup === true;
   const legacyContextDir = path9.join(targetDir, ".ai-os", "context");
+  const legacyConfig = path9.join(targetDir, ".ai-os", "config.json");
+  const legacyTools = path9.join(targetDir, ".ai-os", "tools.json");
+  const legacyMemoryDir = path9.join(targetDir, ".ai-os", "memory");
+  const legacyAiOsDir = path9.join(targetDir, ".ai-os");
+  if (fullCleanup) {
+    let removed2 = 0;
+    try {
+      for (const file of [legacyConfig, legacyTools]) {
+        if (fs8.existsSync(file)) {
+          fs8.rmSync(file);
+          removed2 += 1;
+        }
+      }
+      for (const dir of [legacyContextDir, legacyMemoryDir]) {
+        if (fs8.existsSync(dir)) {
+          fs8.rmSync(dir, { recursive: true, force: true });
+          removed2 += 1;
+        }
+      }
+      if (fs8.existsSync(legacyAiOsDir) && fs8.readdirSync(legacyAiOsDir).length === 0) {
+        fs8.rmdirSync(legacyAiOsDir);
+      }
+    } catch {
+    }
+    if (removed2 > 0) {
+      console.log(`  \u{1F9F9} Clean-update removed ${removed2} legacy .ai-os artifact(s) (config/tools/context/memory)`);
+    }
+    return;
+  }
   if (!fs8.existsSync(legacyContextDir)) return;
   const MANAGED_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".json"]);
   let removed = 0;
@@ -1686,11 +1716,9 @@ function pruneLegacyArtifacts(targetDir) {
     const remaining = fs8.readdirSync(legacyContextDir);
     if (remaining.length === 0) {
       fs8.rmdirSync(legacyContextDir);
-      const legacyMemoryDir = path9.join(targetDir, ".ai-os", "memory");
       if (fs8.existsSync(legacyMemoryDir) && fs8.readdirSync(legacyMemoryDir).length === 0) {
         fs8.rmdirSync(legacyMemoryDir);
       }
-      const legacyAiOsDir = path9.join(targetDir, ".ai-os");
       if (fs8.existsSync(legacyAiOsDir) && fs8.readdirSync(legacyAiOsDir).length === 0) {
         fs8.rmdirSync(legacyAiOsDir);
       }
@@ -3542,6 +3570,7 @@ function parseArgs() {
   let action = "apply";
   let prune = false;
   let verbose = false;
+  let cleanUpdate = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--cwd" && args[i + 1]) {
       cwd = path17.resolve(args[i + 1]);
@@ -3564,13 +3593,16 @@ function parseArgs() {
       action = "apply";
     } else if (args[i] === "--prune") {
       prune = true;
+    } else if (args[i]?.startsWith("--clean-update")) {
+      cleanUpdate = true;
+      mode = "refresh-existing";
     } else if (args[i] === "--check-hygiene") {
       action = "check-hygiene";
     } else if (args[i] === "--verbose" || args[i] === "-v") {
       verbose = true;
     }
   }
-  return { cwd, dryRun, mode, action, prune, verbose };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate };
 }
 function printBanner() {
   const version = `v${getToolVersion()}`;
@@ -3684,7 +3716,7 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents) {
 }
 async function main() {
   printBanner();
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate } = parseArgs();
   let mode = rawMode;
   if (verbose) {
     setVerboseMode(true);
@@ -3714,7 +3746,7 @@ async function main() {
     printUpdateBanner(updateStatus);
   }
   if (mode === "refresh-existing") {
-    pruneLegacyArtifacts(cwd);
+    pruneLegacyArtifacts(cwd, { fullCleanup: cleanUpdate });
   }
   const stack = analyze(cwd);
   const existingConfig = readAiOsConfig(cwd);

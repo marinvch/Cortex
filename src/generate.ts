@@ -18,7 +18,7 @@ import { generateRecommendations, getSkillsGapReport } from './recommendations/i
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
@@ -26,6 +26,7 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
   let action: GenerateAction = 'apply';
   let prune = false;
   let verbose = false;
+  let cleanUpdate = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -49,6 +50,10 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'apply';
     } else if (args[i] === '--prune') {
       prune = true;
+    } else if (args[i]?.startsWith('--clean-update')) {
+      // Accept --clean-update and forgiving variants like --clean-update~ from shell typos.
+      cleanUpdate = true;
+      mode = 'refresh-existing';
     } else if (args[i] === '--check-hygiene') {
       action = 'check-hygiene';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
@@ -56,7 +61,7 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate };
 }
 
 function printBanner(): void {
@@ -200,7 +205,7 @@ function printSummary(
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate } = parseArgs();
   let mode: GenerateMode = rawMode;
 
   // Enable verbose per-file logging when --verbose / -v is passed
@@ -240,7 +245,7 @@ async function main(): Promise<void> {
 
   // Prune legacy artifacts on every refresh/update run
   if (mode === 'refresh-existing') {
-    pruneLegacyArtifacts(cwd);
+    pruneLegacyArtifacts(cwd, { fullCleanup: cleanUpdate });
   }
 
   const stack = analyze(cwd);

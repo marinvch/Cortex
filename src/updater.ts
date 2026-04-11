@@ -77,14 +77,17 @@ export function checkUpdateStatus(targetDir: string): UpdateStatus {
 export function printUpdateBanner(status: UpdateStatus): void {
   if (!status.updateAvailable) return;
 
+  const updateCmd = `npx -y github:marinvch/ai-os#v${status.toolVersion} --refresh-existing`;
+
   console.log('');
   console.log('  ┌─────────────────────────────────────────────────────┐');
   console.log(`  │  🔔 AI OS Update Available                          │`);
   console.log(`  │     Installed: v${status.installedVersion?.padEnd(10) ?? 'unknown   '}  →  Latest: v${status.toolVersion.padEnd(10)}│`);
   console.log(`  │                                                     │`);
-  console.log(`  │  Run:  npm run update  (or --update flag)           │`);
-  console.log(`  │  to refresh all context, tools, and agent files.    │`);
+  console.log(`  │  Re-run AI OS with --refresh-existing (or --update) │`);
+  console.log(`  │  to refresh context, tools, agents, and MCP files.  │`);
   console.log('  └─────────────────────────────────────────────────────┘');
+  console.log(`  ${updateCmd}`);
   console.log('');
 }
 

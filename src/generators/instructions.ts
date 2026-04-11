@@ -393,7 +393,7 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     '',
     'If `check_for_updates` returns an available update, run:',
     '```bash',
-    'npm run update',
+    'npx -y github:marinvch/ai-os --refresh-existing',
     '```',
     'This refreshes all context docs, agent files, skills, and MCP tools in-place.',
   ].join('\n');

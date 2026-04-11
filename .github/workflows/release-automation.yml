@@ -46,6 +46,18 @@ jobs:
           TARGET_SHA="${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}"
           echo "target_sha=$TARGET_SHA" >> "$GITHUB_OUTPUT"
 
+          # Read version from package.json — this is the source of truth.
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          NEXT_TAG="v${PKG_VERSION}"
+          echo "next_tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
+
+          # If this tag already exists, nothing to release.
+          if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "Tag $NEXT_TAG already exists — no release needed."
+            echo "release_needed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "last_tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
 
@@ -53,35 +65,6 @@ jobs:
           COMMITS=$(git rev-list --count "$RANGE" 2>/dev/null || echo "0")
           echo "commit_count=$COMMITS" >> "$GITHUB_OUTPUT"
 
-          if [[ "$COMMITS" == "0" ]]; then
-            echo "release_needed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          LOG=$(git log --format=%B "$RANGE")
-          BUMP="patch"
-          if echo "$LOG" | grep -Eq "BREAKING CHANGE|^[a-zA-Z]+\(!\):"; then
-            BUMP="major"
-          elif echo "$LOG" | grep -Eq "^feat(\(.+\))?:"; then
-            BUMP="minor"
-          fi
-          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
-
-          LAST_VERSION=${LAST_TAG#v}
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$LAST_VERSION"
-          MAJOR=${MAJOR:-0}; MINOR=${MINOR:-0}; PATCH=${PATCH:-0}
-
-          case "$BUMP" in
-            major)
-              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
-            minor)
-              MINOR=$((MINOR + 1)); PATCH=0 ;;
-            patch)
-              PATCH=$((PATCH + 1)) ;;
-          esac
-
-          NEXT_TAG="v${MAJOR}.${MINOR}.${PATCH}"
-          echo "next_tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
           echo "release_needed=true" >> "$GITHUB_OUTPUT"
 
       - name: Show plan
@@ -90,8 +73,8 @@ jobs:
           echo "Target SHA: ${{ steps.plan.outputs.target_sha }}"
           echo "Last tag: ${{ steps.plan.outputs.last_tag }}"
           echo "Commits since last tag: ${{ steps.plan.outputs.commit_count }}"
-          echo "Bump: ${{ steps.plan.outputs.bump }}"
           echo "Next tag: ${{ steps.plan.outputs.next_tag }}"
+          echo "Release needed: ${{ steps.plan.outputs.release_needed }}"
 
       - name: Create tag and GitHub release
         if: steps.plan.outputs.release_needed == 'true'
@@ -139,9 +122,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          NEXT_VERSION="${{ steps.plan.outputs.next_tag }}"
-          NEXT_VERSION="${NEXT_VERSION#v}"
-          BUMP_BRANCH="version-bump-v${NEXT_VERSION}"
+          RELEASED_VERSION="${{ steps.plan.outputs.next_tag }}"
+          RELEASED_VERSION="${RELEASED_VERSION#v}"
+
+          # Compute next patch version for dev
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$RELEASED_VERSION"
+          PATCH=$((PATCH + 1))
+          NEXT_DEV_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          BUMP_BRANCH="version-bump-v${NEXT_DEV_VERSION}"
 
           git checkout master
           git pull origin master
@@ -153,17 +141,17 @@ jobs:
           node -e "
             const fs = require('fs');
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '${NEXT_VERSION}';
+            pkg.version = '${NEXT_DEV_VERSION}';
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
           "
 
           if git diff --quiet package.json; then
-            echo "package.json already at ${NEXT_VERSION} — no commit needed."
+            echo "package.json already at ${NEXT_DEV_VERSION} — no commit needed."
             exit 0
           fi
 
           git add package.json
-          git commit -m "chore: bump version to ${{ steps.plan.outputs.next_tag }} [skip ci]"
+          git commit -m "chore: bump version to v${NEXT_DEV_VERSION} [skip ci]"
           git push -u origin "$BUMP_BRANCH"
 
           # Create PR only if one does not already exist for this head branch.
@@ -181,8 +169,8 @@ jobs:
           gh pr create \
             --base dev \
             --head "$BUMP_BRANCH" \
-            --title "chore: bump version to ${{ steps.plan.outputs.next_tag }}" \
-            --body "Automated version bump after release ${{ steps.plan.outputs.next_tag }}.\n\nThis PR updates package.json on dev to keep source version aligned with the released tag." \
+            --title "chore: bump version to v${NEXT_DEV_VERSION}" \
+            --body "Automated version bump after release ${{ steps.plan.outputs.next_tag }}.\n\nThis PR updates package.json on dev to the next patch version for future development." \
             --label automation
 
       - name: No release needed

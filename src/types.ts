@@ -28,6 +28,15 @@ export interface DetectedPatterns {
   testDirectory?: string;
 }
 
+export interface BuildCommands {
+  build?: string;
+  test?: string;
+  dev?: string;
+  lint?: string;
+  start?: string;
+  [key: string]: string | undefined;
+}
+
 export interface DetectedStack {
   projectName: string;
   primaryLanguage: DetectedLanguage;
@@ -40,6 +49,8 @@ export interface DetectedStack {
   /** All dependency keys from package.json / pyproject.toml / Cargo.toml etc. */
   allDependencies: string[];
   packageProfiles?: PackageProfile[];
+  /** Detected build/test commands from package.json, Makefile, pyproject.toml, etc. */
+  buildCommands?: BuildCommands;
 }
 
 export interface PackageProfile {

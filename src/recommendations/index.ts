@@ -152,8 +152,13 @@ export function getSkillsGapReport(stack: DetectedStack, skillsLockPath: string)
 
   let installed: string[] = [];
   try {
-    const lock = JSON.parse(fs.readFileSync(skillsLockPath, 'utf-8')) as { skills?: string[] };
-    installed = lock.skills ?? [];
+    const lock = JSON.parse(fs.readFileSync(skillsLockPath, 'utf-8')) as { skills?: string[] | Record<string, unknown> };
+    const rawSkills = lock.skills;
+    if (Array.isArray(rawSkills)) {
+      installed = rawSkills;
+    } else if (rawSkills && typeof rawSkills === 'object') {
+      installed = Object.keys(rawSkills);
+    }
   } catch {
     // skills-lock.json not present — treat all as missing
   }

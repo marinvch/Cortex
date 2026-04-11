@@ -8,6 +8,7 @@
  * - collectRecommendations: deduplication across signal sources
  */
 import { describe, it, expect } from 'vitest';
+import os from 'node:os';
 import { buildRecommendationsText, collectRecommendations } from '../recommendations/index.js';
 import type { DetectedStack, DetectedPatterns } from '../types.js';
 
@@ -51,7 +52,7 @@ describe('instructions size cap', () => {
 
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const tmpDir = path.join('/tmp', 'ai-os-test-' + Date.now());
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-test-' + Date.now());
     const githubDir = path.join(tmpDir, '.github');
     fs.mkdirSync(githubDir, { recursive: true });
 
@@ -79,7 +80,7 @@ describe('session context card', () => {
     const { generateContextDocs } = await import('../generators/context-docs.js');
 
     const stack = makeStack();
-    const tmpDir = path.join('/tmp', 'ai-os-ctx-test-' + Date.now());
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-ctx-test-' + Date.now());
     fs.mkdirSync(tmpDir, { recursive: true });
 
     generateContextDocs(stack, tmpDir);
@@ -155,3 +156,115 @@ describe('buildRecommendationsText', () => {
     expect(typeof text).toBe('string');
   });
 });
+
+// ---------------------------------------------------------------------------
+// B-i: Build commands in generated instructions
+// ---------------------------------------------------------------------------
+
+describe('build commands in copilot-instructions.md', () => {
+  it('includes build commands section when stack has buildCommands', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({
+      buildCommands: {
+        build: 'npm run build',
+        test: 'npm test',
+        dev: 'npm run dev',
+        lint: 'npm run lint',
+      },
+    });
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-cmds-test-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    generateInstructions(stack, tmpDir, { refreshExisting: false });
+
+    const instructionsPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
+    if (fs.existsSync(instructionsPath)) {
+      const content = fs.readFileSync(instructionsPath, 'utf-8');
+      expect(content).toContain('## Build Commands');
+      expect(content).toContain('`npm run build`');
+      expect(content).toContain('`npm test`');
+    }
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does not include empty build commands section when no commands detected', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({ buildCommands: {} });
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-nocmds-test-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    generateInstructions(stack, tmpDir, { refreshExisting: false });
+
+    const instructionsPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
+    if (fs.existsSync(instructionsPath)) {
+      const content = fs.readFileSync(instructionsPath, 'utf-8');
+      // Build Commands section should be empty / not list any commands
+      expect(content).not.toContain('- **Build:**');
+    }
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// B-iii: Persona directive in generated instructions
+// ---------------------------------------------------------------------------
+
+describe('persona directive in copilot-instructions.md', () => {
+  it('includes framework-specific persona for Next.js stack', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({
+      primaryFramework: { name: 'Next.js', category: 'fullstack', version: '14.0.0', template: 'nextjs' },
+      frameworks: [{ name: 'Next.js', category: 'fullstack', version: '14.0.0', template: 'nextjs' }],
+    });
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-persona-test-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    generateInstructions(stack, tmpDir, { refreshExisting: false });
+
+    const instructionsPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
+    if (fs.existsSync(instructionsPath)) {
+      const content = fs.readFileSync(instructionsPath, 'utf-8');
+      expect(content).toContain('**Persona:**');
+      expect(content).toContain('Senior Next.js developer');
+    }
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('falls back to language-based persona when no framework detected', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-persona-lang-test-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    generateInstructions(stack, tmpDir, { refreshExisting: false });
+
+    const instructionsPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
+    if (fs.existsSync(instructionsPath)) {
+      const content = fs.readFileSync(instructionsPath, 'utf-8');
+      expect(content).toContain('**Persona:**');
+      expect(content).toContain('Senior TypeScript developer');
+    }
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+

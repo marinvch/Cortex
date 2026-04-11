@@ -60,7 +60,7 @@ function printBanner(): void {
   const vLabel = `AI OS  v${version}`.padEnd(33);
   console.log('');
   console.log('  ╔═══════════════════════════════════╗');
-  console.log(`  ║  ${vLabel}║`);
+  console.log('  ║          AI OS  v0.5.0            ║');
   console.log('  ║  Portable Copilot Context Engine  ║');
   console.log('  ╚═══════════════════════════════════╝');
   console.log('');

@@ -3,6 +3,7 @@
 #  AI OS Installer — Portable Copilot Context Engine
 #  Install on any repository with: bash install.sh
 #  Requires: git bash, Node.js >= 20
+#  No Node.js? Use: bash install.sh --github-actions
 # =============================================================================
 
 set -euo pipefail
@@ -33,6 +34,7 @@ INSTALL_FIND_SKILLS=false
 REFRESH_EXISTING=false
 CLEAN_UPDATE=false
 UNINSTALL=false
+GITHUB_ACTIONS_MODE=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -65,6 +67,10 @@ while [[ $# -gt 0 ]]; do
       UNINSTALL=true
       shift
       ;;
+    --github-actions)
+      GITHUB_ACTIONS_MODE=true
+      shift
+      ;;
     *)
       shift
       ;;
@@ -82,7 +88,86 @@ TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 echo -e "  ${BOLD}Target repository:${RESET} $TARGET_DIR"
 echo ""
 
-# ── Uninstall mode (#12) ─────────────────────────────────────────────────────
+# ── GitHub Actions mode (no Node.js required) ────────────────────────────────
+if [[ "$GITHUB_ACTIONS_MODE" == "true" ]]; then
+  WORKFLOW_DIR="$TARGET_DIR/.github/workflows"
+  WORKFLOW_FILE="$WORKFLOW_DIR/ai-os-install.yml"
+  mkdir -p "$WORKFLOW_DIR"
+
+  cat > "$WORKFLOW_FILE" << 'WORKFLOW_EOF'
+# AI OS — GitHub Actions installer
+# Runs AI OS generator in CI — no local Node.js required.
+# Trigger: push to default branch, or manually via workflow_dispatch.
+# The generated context files will be committed back to the repository.
+name: AI OS — Generate Context
+
+on:
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: 'Refresh existing AI OS artifacts'
+        required: false
+        default: 'false'
+        type: boolean
+  push:
+    branches: [main, master]
+    paths:
+      - 'package.json'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+      - 'go.mod'
+      - 'Cargo.toml'
+      - 'pom.xml'
+
+jobs:
+  ai-os:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Clone AI OS
+        run: git clone --depth 1 https://github.com/marinvch/ai-os.git /tmp/ai-os
+
+      - name: Install AI OS dependencies
+        run: cd /tmp/ai-os && npm install --prefer-offline --no-audit --no-fund
+
+      - name: Run AI OS generator
+        run: |
+          ARGS="--cwd ${{ github.workspace }}"
+          if [[ "${{ github.event.inputs.refresh }}" == "true" ]]; then
+            ARGS="$ARGS --refresh-existing"
+          fi
+          cd /tmp/ai-os && node --import tsx/esm src/generate.ts $ARGS
+
+      - name: Commit generated context
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/
+          git diff --staged --quiet || git commit -m "chore: update AI OS context artifacts [skip ci]"
+          git push
+WORKFLOW_EOF
+
+  echo -e "  ${GREEN}✓ GitHub Actions workflow created: .github/workflows/ai-os-install.yml${RESET}"
+  echo ""
+  echo -e "  ${BOLD}Next steps:${RESET}"
+  echo -e "  1. Commit and push: ${CYAN}git add .github/workflows/ai-os-install.yml && git commit -m 'chore: add AI OS workflow' && git push${RESET}"
+  echo -e "  2. Go to GitHub → Actions → 'AI OS — Generate Context' → Run workflow"
+  echo -e "  3. AI OS will run in GitHub Actions and commit the generated context back to your repo"
+  echo ""
+  echo -e "  ${YELLOW}Tip:${RESET} You can also trigger automatically on push to main/master when package.json or other manifests change."
+  echo ""
+  exit 0
+fi
+
+
 if [[ "$UNINSTALL" == "true" ]]; then
   MANIFEST="$TARGET_DIR/.github/ai-os/manifest.json"
   if [[ ! -f "$MANIFEST" ]]; then
@@ -157,59 +242,16 @@ echo -e "  ${GREEN}✓ Git repository detected${RESET}"
 
 # ── Check Node.js version ────────────────────────────────────────────────────
 if ! command -v node &>/dev/null; then
-  echo -e "  ${YELLOW}⚠ Node.js not found. Checking for Docker fallback...${RESET}"
-
-  if ! command -v docker &>/dev/null; then
-    echo -e "  ${RED}✗ Neither Node.js nor Docker found.${RESET}"
-    echo -e "  ${YELLOW}  Option A — Install Node.js >= 20: https://nodejs.org${RESET}"
-    echo -e "  ${YELLOW}  Option B — Install Docker:        https://docs.docker.com/get-docker/${RESET}"
-    exit 1
-  fi
-
-  echo -e "  ${GREEN}✓ Docker found — running AI OS generator via Docker${RESET}"
-  echo -e "  ${YELLOW}  Note: Node.js is only needed by AI OS itself, not by your project.${RESET}"
+  echo -e "  ${YELLOW}⚠ Node.js not found.${RESET}"
+  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 for local install.${RESET}"
+  echo -e "  ${YELLOW}  Your project does NOT need Node.js — AI OS is the only dependency.${RESET}"
   echo ""
-
-  # ── Locate ai-os source (needed here for Docker build context) ──────────────
-  AIOS_SRC_DOCKER="$SCRIPT_DIR"
-  if [[ ! -f "$AIOS_SRC_DOCKER/package.json" ]]; then
-    echo -e "  ${RED}✗ Cannot find ai-os package at: $AIOS_SRC_DOCKER${RESET}"
-    exit 1
-  fi
-
-  echo -e "  ${CYAN}→ Building AI OS Docker image (first run may take a minute)...${RESET}"
-  if ! docker build -t ai-os:local "$AIOS_SRC_DOCKER"; then
-    echo -e "  ${RED}✗ Docker build failed.${RESET}"
-    exit 1
-  fi
-  echo -e "  ${GREEN}✓ Docker image built${RESET}"
+  echo -e "  ${BOLD}Option 1:${RESET} Install Node.js from ${CYAN}https://nodejs.org${RESET} then re-run this script."
+  echo -e "  ${BOLD}Option 2 (no Node.js required):${RESET} Use the GitHub Actions installer:"
+  echo -e "    ${CYAN}bash install.sh --github-actions${RESET}"
+  echo -e "    Then commit and push the generated workflow, and trigger it from GitHub Actions."
   echo ""
-
-  echo -e "  ${CYAN}→ Scanning codebase and generating context via Docker...${RESET}"
-  echo ""
-
-  DOCKER_GEN_ARGS=(--cwd /repo)
-  if [[ "$REFRESH_EXISTING" == "true" ]]; then
-    DOCKER_GEN_ARGS+=(--refresh-existing)
-  fi
-
-  if ! docker run --rm -v "$TARGET_DIR:/repo" ai-os:local "${DOCKER_GEN_ARGS[@]}"; then
-    echo -e "  ${RED}✗ AI OS generator failed inside Docker.${RESET}"
-    exit 1
-  fi
-
-  echo ""
-  echo -e "  ${GREEN}${BOLD}✅ AI OS installed successfully via Docker!${RESET}"
-  echo ""
-  echo -e "  ${BOLD}Next steps:${RESET}"
-  echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
-  echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
-  echo -e "  3. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
-  echo ""
-  echo -e "  ${YELLOW}Tip:${RESET} Install Node.js >= 20 to also enable the local MCP server."
-  echo -e "  ${YELLOW}      https://nodejs.org${RESET}"
-  echo ""
-  exit 0
+  exit 1
 fi
 
 NODE_VERSION=$(node --version | sed 's/v//')
@@ -292,26 +334,11 @@ else
 fi
 echo ""
 
-# ── Install ai-os dependencies ────────────────────────────────────────────────
+# ── Install ai-os dependencies (into scripts/ai-os/node_modules) ─────────────
 echo -e "  ${CYAN}→ Installing dependencies...${RESET}"
 (cd "$AIOS_SRC" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
 echo -e "  ${GREEN}✓ Dependencies ready${RESET}"
 echo ""
-
-# ── Bundle MCP server (if dist/server.js is missing or stale) ─────────────────
-# The bundled single-file server deploys to target repos without any node_modules.
-BUNDLED_SERVER="$AIOS_SRC/dist/server.js"
-if [[ ! -f "$BUNDLED_SERVER" ]]; then
-  echo -e "  ${CYAN}→ Building bundled MCP server (one-time step)...${RESET}"
-  (cd "$AIOS_SRC" && node scripts/bundle.mjs 2>&1)
-  if [[ ! -f "$BUNDLED_SERVER" ]]; then
-    echo -e "  ${RED}✗ Bundle build failed — dist/server.js not produced.${RESET}"
-    echo -e "  ${YELLOW}  Run manually: cd ${AIOS_SRC} && npm run bundle${RESET}"
-    exit 1
-  fi
-  echo -e "  ${GREEN}✓ Bundled MCP server ready${RESET}"
-  echo ""
-fi
 
 # ── Compile TypeScript (if dist/ is stale or missing) ────────────────────────
 GENERATE_SCRIPT="$AIOS_SRC/src/generate.ts"
@@ -375,15 +402,65 @@ if [[ "$MCP_INSTALL_REQUIRED" == "true" ]]; then
     echo -e "  ${CYAN}  Runtime install:${RESET} v${AIOS_VERSION}"
   fi
 
-  # Deploy the pre-built bundled single-file server — no node_modules in the target repo.
-  echo -e "  ${CYAN}  Deploying bundled server (no node_modules required)${RESET}"
-  cp "$BUNDLED_SERVER" "$MCP_SERVER_DEST/index.js"
-  chmod +x "$MCP_SERVER_DEST/index.js"
+  # Prefer bundled single-file server (Phase F) if available; fall back to source+tsx launcher
+  BUNDLED_SERVER="$AIOS_SRC/dist/server.js"
+  if [[ -f "$BUNDLED_SERVER" ]]; then
+    echo -e "  ${CYAN}  Using pre-bundled server (no node_modules required)${RESET}"
+    cp "$BUNDLED_SERVER" "$MCP_SERVER_DEST/index.js"
+    chmod +x "$MCP_SERVER_DEST/index.js"
+  else
+    # Fall back: copy MCP server source files + install deps
+    cp -r "$MCP_SERVER_SRC"/* "$MCP_SERVER_DEST/"
+
+    # Create a runtime package.json for the MCP server in the target repo
+    cat > "$MCP_SERVER_DEST/package.json" << 'EOF'
+{
+  "name": "ai-os-mcp-server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "@github/copilot-sdk": "^0.1.8",
+    "tsx": "^4.19.0"
+  }
+}
+EOF
+
+    # Install MCP server dependencies
+    (cd "$MCP_SERVER_DEST" && npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -3)
+
+    # Create a portable runtime launcher
+    cat > "$MCP_SERVER_DEST/index.js" << 'EOF'
+#!/usr/bin/env node
+// AI OS MCP Server — auto-generated entry point
+// This file is generated by ai-os install. Do not edit manually.
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
+
+const currentFile = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFile);
+const indexTs = path.join(currentDir, 'index.ts');
+
+const result = spawnSync(process.execPath, ['--import', 'tsx/esm', indexTs, ...process.argv.slice(2)], {
+  cwd: currentDir,
+  stdio: 'inherit',
+  env: { ...process.env, AI_OS_ROOT: process.env.AI_OS_ROOT ?? process.cwd() },
+});
+
+if (result.error) {
+  console.error('[ai-os:mcp] Failed to launch TypeScript runtime:', result.error.message);
+  process.exit(1);
+}
+
+process.exit(result.status ?? 1);
+EOF
+  fi
 
   cat > "$MCP_RUNTIME_MANIFEST" << EOF
 {
   "name": "ai-os-mcp-server",
-  "runtime": "bundled",
+  "runtime": "$([ -f "$BUNDLED_SERVER" ] && echo "bundled" || echo "tsx")",
   "sourceVersion": "$AIOS_VERSION",
   "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
@@ -438,21 +515,19 @@ if [[ "$CLEAN_UPDATE" == "true" ]]; then
   echo ""
 fi
 
-# ── Add .ai-os to .gitignore ──────────────────────────────────────────────────
+# ── Add .ai-os to .gitignore (optional) ───────────────────────────────────────
 GITIGNORE="$TARGET_DIR/.gitignore"
 if [[ -f "$GITIGNORE" ]]; then
-  # Keep legacy node_modules entries for backward compat (older installs may have them).
-  # New installs use the bundled server and never produce node_modules in the target repo.
   if ! grep -q "^\.ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo "" >> "$GITIGNORE"
-    echo "# AI OS (generated — safe to commit)" >> "$GITIGNORE"
+    echo "# AI OS (generated — safe to commit except node_modules)" >> "$GITIGNORE"
     echo ".ai-os/mcp-server/node_modules" >> "$GITIGNORE"
     echo -e "  ${GREEN}✓ Updated .gitignore${RESET}"
   fi
   if ! grep -q "^\.github/ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/mcp-server/node_modules" >> "$GITIGNORE"
   fi
-  # ignore the memory lock file so it never appears as an untracked change
+  # #10 — ignore the memory lock file so it never appears as an untracked change
   if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/memory/.memory.lock" >> "$GITIGNORE"
   fi

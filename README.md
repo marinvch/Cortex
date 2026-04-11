@@ -23,17 +23,12 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Requirements
 
-AI OS itself needs one of the following runtimes. **Your project does not need Node.js.**
-
-| Runtime | Notes |
-| ------- | ----- |
-| Node.js ≥ 20 | Recommended — enables both the generator and the local MCP server |
-| Docker | Fallback — `install.sh` auto-detects it; runs the generator in a container; MCP server requires Node.js separately |
-
-Other requirements:
+- Node.js ≥ 20 (for local install only — your project does NOT need Node.js)
 - Git
 - GitHub Copilot (VS Code extension)
 - Node.js ≥ 20 *(auto-installed by `bootstrap.sh` if missing — your project does not need Node.js)*
+
+**No Node.js?** Use the GitHub Actions installer — no local tools required. See below.
 
 ## Install on any repo
 
@@ -49,6 +44,32 @@ With options:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash -s -- --refresh-existing --install-skill-creator --install-find-skills
+```
+
+### GitHub Actions install (no Node.js required)
+
+If you don't have Node.js locally, AI OS can install itself via GitHub Actions:
+
+```bash
+# 1. Clone AI OS (only to get install.sh — or use the bootstrap URL below)
+git clone --depth 1 https://github.com/marinvch/ai-os.git /tmp/ai-os
+
+# 2. Generate the GitHub Actions workflow (pure bash — no Node.js needed)
+bash /tmp/ai-os/install.sh --github-actions --cwd /path/to/your/repo
+
+# 3. Commit and push the workflow
+cd /path/to/your/repo
+git add .github/workflows/ai-os-install.yml
+git commit -m "chore: add AI OS generator workflow"
+git push
+
+# 4. Go to GitHub → Actions → "AI OS — Generate Context" → Run workflow
+```
+
+Or with the bootstrap URL (fully remote, no clone required):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash -s -- --github-actions
 ```
 
 ### Local clone workflow
@@ -118,6 +139,7 @@ Notes:
 - **Frameworks:** Next.js, React, Vue, Angular, Svelte, Express, FastAPI, Django, Spring Boot, .NET, Laravel, Rails, Nuxt, Astro, Remix, SolidJS, tRPC, Prisma, and more
 - **Runtimes:** Bun (`bun.lockb` or `packageManager: bun@…`), Deno (`deno.json` / `deno.jsonc` / `deno.lock`)
 - **Tools:** ESLint, Prettier, Vitest, Jest, Playwright, Docker, GitHub Actions, package managers
+- **Build commands:** Extracted from `package.json` scripts, `Makefile`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `pom.xml`, and `build.gradle` — surfaced in `copilot-instructions.md` so Copilot always knows how to build and test your project
 
 ## Generated MCP tools
 

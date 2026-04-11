@@ -31,12 +31,44 @@ function buildKeyFilesList(stack: DetectedStack): string {
   return stack.keyFiles.map(f => `- \`${f}\``).join('\n');
 }
 
+function buildBuildCommandsSection(stack: DetectedStack): string {
+  const cmds = stack.buildCommands;
+  if (!cmds || Object.keys(cmds).filter(k => cmds[k]).length === 0) return '';
+
+  const lines: string[] = [];
+  const orderedCommands: Array<[string, string]> = [];
+
+  // Ordered by importance
+  const slots = ['build', 'test', 'dev', 'lint', 'start'] as const;
+  for (const slot of slots) {
+    if (cmds[slot]) orderedCommands.push([slot.charAt(0).toUpperCase() + slot.slice(1), cmds[slot]!]);
+  }
+  // Any extra keys beyond the standard slots
+  for (const [k, v] of Object.entries(cmds)) {
+    if (!slots.includes(k as (typeof slots)[number]) && v) {
+      orderedCommands.push([k.charAt(0).toUpperCase() + k.slice(1), v]);
+    }
+  }
+
+  for (const [label, cmd] of orderedCommands) {
+    lines.push(`- **${label}:** \`${cmd}\``);
+  }
+  return lines.join('\n');
+}
+
+function buildPersonaDirective(stack: DetectedStack): string {
+  const fw = stack.primaryFramework?.name;
+  if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${stack.primaryLanguage.name} and the full ${fw} ecosystem.`;
+  return `Act as a Senior ${stack.primaryLanguage.name} developer.`;
+}
+
 function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: string): string {
   const frameworks = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
   const linter = stack.patterns.linter ?? 'none detected';
   const formatter = stack.patterns.formatter ?? 'none detected';
   const testFramework = stack.patterns.testFramework ?? 'none detected';
   const testDir = stack.patterns.testDirectory ?? 'none detected';
+  const buildCommandsSection = buildBuildCommandsSection(stack);
 
   return template
     .replace(/{{PROJECT_NAME}}/g, stack.projectName)
@@ -51,6 +83,8 @@ function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: 
     .replace(/{{TEST_FRAMEWORK}}/g, testFramework)
     .replace(/{{TEST_DIRECTORY}}/g, testDir)
     .replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack))
+    .replace(/{{BUILD_COMMANDS}}/g, buildCommandsSection)
+    .replace(/{{PERSONA_DIRECTIVE}}/g, buildPersonaDirective(stack))
     .replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
 }
 

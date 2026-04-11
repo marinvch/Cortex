@@ -1,5 +1,7 @@
 # AI Coding Assistant — Project Instructions
 
+> **Persona:** {{PERSONA_DIRECTIVE}}
+
 ## Project: {{PROJECT_NAME}}
 
 **Primary Language:** {{PRIMARY_LANGUAGE}}  
@@ -12,6 +14,12 @@
 ## Tech Stack
 
 {{STACK_SUMMARY}}
+
+---
+
+## Build Commands
+
+{{BUILD_COMMANDS}}
 
 ---
 

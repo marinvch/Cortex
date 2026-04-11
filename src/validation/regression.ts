@@ -291,14 +291,37 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   }
   results.push({ fixture: fixtureName, check: 'mcp.json is valid JSON', passed: true });
 
-  const serverEntry = mcpConfig.servers?.['ai-os'];
-  const argsIncludeIndexJs = serverEntry?.args?.some(a => a.includes('index.js')) ?? false;
+  // The committed mcp.json must NOT contain a `servers` block — it breaks the Copilot
+  // cloud agent.  The `servers` entry lives only in the gitignored mcp.local.json.
+  const hasServers = mcpConfig.servers !== undefined;
   results.push({
     fixture: fixtureName,
-    check: 'mcp.json references .ai-os/mcp-server/index.js',
-    passed: argsIncludeIndexJs,
-    detail: argsIncludeIndexJs ? undefined : `args: ${JSON.stringify(serverEntry?.args)}`,
+    check: 'mcp.json has no servers block (cloud-agent safe)',
+    passed: !hasServers,
+    detail: hasServers ? 'servers block must be removed from committed mcp.json' : undefined,
   });
+
+  // Verify the local-only config carries the servers block instead.
+  const mcpLocalPath = path.join(dir, '.github/copilot/mcp.local.json');
+  if (fs.existsSync(mcpLocalPath)) {
+    let localConfig: { version?: number; servers?: Record<string, { command?: string; args?: string[] }> };
+    try {
+      localConfig = JSON.parse(fs.readFileSync(mcpLocalPath, 'utf-8')) as typeof localConfig;
+    } catch (err) {
+      results.push({ fixture: fixtureName, check: 'mcp.local.json is valid JSON', passed: false, detail: `Parse failed: ${err instanceof Error ? err.message : String(err)}` });
+      return;
+    }
+    results.push({ fixture: fixtureName, check: 'mcp.local.json is valid JSON', passed: true });
+
+    const serverEntry = localConfig.servers?.['ai-os'];
+    const argsIncludeIndexJs = serverEntry?.args?.some(a => a.includes('index.js')) ?? false;
+    results.push({
+      fixture: fixtureName,
+      check: 'mcp.local.json references .ai-os/mcp-server/index.js',
+      passed: argsIncludeIndexJs,
+      detail: argsIncludeIndexJs ? undefined : `args: ${JSON.stringify(serverEntry?.args)}`,
+    });
+  }
 }
 
 function checkMemoryQuality(dir: string, fixtureName: string, results: CheckResult[]): void {

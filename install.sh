@@ -18,7 +18,7 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.4.0            ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v0.4.1            ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Requires: Git Bash + Node.js ≥20 ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
@@ -148,7 +148,7 @@ if [[ "$UNINSTALL" == "true" ]]; then
   GITIGNORE="$TARGET_DIR/.gitignore"
   if [[ -f "$GITIGNORE" ]]; then
     # Remove AI OS gitignore lines using sed (cross-platform)
-    sed -i.bak '/^# AI OS/d; /^\.ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/memory\/.memory\.lock$/d' "$GITIGNORE"
+    sed -i.bak '/^# AI OS/d; /^\.ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/memory\/.memory\.lock$/d; /^\.github\/copilot\/mcp\.local\.json$/d' "$GITIGNORE"
     rm -f "$GITIGNORE.bak"
     echo -e "  ${GREEN}✓ Cleaned AI OS entries from .gitignore${RESET}"
   fi
@@ -455,6 +455,11 @@ if [[ -f "$GITIGNORE" ]]; then
   if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
     echo ".github/ai-os/memory/.memory.lock" >> "$GITIGNORE"
   fi
+  # mcp.local.json carries the `servers` block for local VS Code use and must never
+  # be committed (it would break the Copilot cloud agent on other machines).
+  if ! grep -q "^\.github/copilot/mcp\.local\.json$" "$GITIGNORE" 2>/dev/null; then
+    echo ".github/copilot/mcp.local.json" >> "$GITIGNORE"
+  fi
 fi
 
 # ── Done ────────────────────────────────────────────────────────────────────
@@ -464,7 +469,8 @@ echo ""
 echo -e "  ${BOLD}Next steps:${RESET}"
 echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
 echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
-echo -e "  3. MCP tools are registered in ${CYAN}.github/copilot/mcp.json${RESET}"
+echo -e "  3. MCP tool definitions are committed in ${CYAN}.github/copilot/mcp.json${RESET} (no servers block)"
+echo -e "     Local VS Code: configure ${CYAN}.github/copilot/mcp.local.json${RESET} (gitignored, has servers)"
   echo -e "  4. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
 echo -e "  5. AI OS skills are generated in ${CYAN}.github/copilot/skills/${RESET} with ai-os-* naming"
 echo ""

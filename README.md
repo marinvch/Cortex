@@ -10,7 +10,9 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Copilot instructions | `.github/copilot-instructions.md`                 | System prompt optimized for your stack                                             |
 | Context docs         | `.github/ai-os/context/`                          | Token-efficient stack, architecture, conventions docs                              |
-| MCP tools            | `.github/copilot/mcp.json` + `.ai-os/mcp-server/` | 10 tools for code search, schema reading, route listing                            |
+| MCP config           | `.github/copilot/mcp.json` (committed, no servers) | Tool definitions — safe for Copilot cloud agent (no Node.js required)             |
+| MCP local config     | `.github/copilot/mcp.local.json` (gitignored)     | Local VS Code `servers` block — spawns the MCP server subprocess when Node.js ≥ 20 is available |
+| MCP runtime          | `.ai-os/mcp-server/`                              | 10 context tools for code search, schema reading, route listing (local use only)   |
 | Agents               | `.github/agents/*.agent.md`                       | Stack-specific chat agents (framework expert, DB expert, auth, payments, explorer) |
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
@@ -23,9 +25,13 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ## Requirements
 
-- Node.js ≥ 20
+**To install AI OS on a repo (one-time setup):**
+- Node.js ≥ 20 (needed only by the installer and local MCP server)
 - Git
 - GitHub Copilot (VS Code extension)
+
+**To use AI OS after it's installed (Copilot cloud agent, no local tools needed):**
+- GitHub Copilot — no Node.js required; the committed `.github/copilot/mcp.json` has no `servers` block and is safe for all environments
 
 ## Install on any repo
 
@@ -102,6 +108,13 @@ Notes:
 - **Tools:** ESLint, Prettier, Vitest, Jest, Playwright, Docker, GitHub Actions, package managers
 
 ## Generated MCP tools
+
+AI OS generates two MCP config files:
+
+| File | Committed? | Purpose |
+| ---- | ---------- | ------- |
+| `.github/copilot/mcp.json` | ✅ Yes | Tool definitions only — **no `servers` block**, safe for Copilot cloud agent and users without Node.js |
+| `.github/copilot/mcp.local.json` | ❌ No (gitignored) | Local `servers` block — tells VS Code how to spawn the MCP subprocess when Node.js ≥ 20 is available |
 
 | Tool                    | Purpose                                |
 | ----------------------- | -------------------------------------- |

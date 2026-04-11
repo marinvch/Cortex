@@ -77,6 +77,21 @@ jobs:
             echo "No releasable changes detected."
           fi
 
+      - name: Setup Node.js (release gate)
+        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies (release gate)
+        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
+        run: npm ci
+
+      - name: Validate build and tests (release gate)
+        if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
+        run: npm run validate:fast
+
       - name: Create tag and GitHub release
         if: github.event_name == 'push' && steps.plan.outputs.release_needed == 'true'
         env:

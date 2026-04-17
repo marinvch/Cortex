@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { analyze } from './analyze.js';
 import { generateInstructions } from './generators/instructions.js';
-import { generateMcpJson } from './generators/mcp.js';
+import { generateMcpJson, writeMcpServerConfig } from './generators/mcp.js';
 import { generateContextDocs, readAiOsConfig } from './generators/context-docs.js';
 import { generateAgents, scanExistingAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
@@ -14,6 +16,8 @@ import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifa
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
 import { readManifest, writeManifest, getManifestPath, setVerboseMode } from './generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
+import type { OnboardingPlan } from './planner.js';
+import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
@@ -197,9 +201,150 @@ function printSummary(
   console.log(`  🔧 MCP tools registered: ${mcpToolCount}`);
   console.log(`  🗳️  Manifest: ${path.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, '/')}`);
   console.log('');
-  console.log('  🚀 AI OS installed! Open this repo in VS Code with GitHub Copilot enabled.');
-  console.log(`  💡 Try @workspace, /new-page, /new-trpc-procedure, or any agent from Chat.`);
+}
+
+function printContextualNextSteps(
+  mode: GenerateMode,
+  onboardingPlan: OnboardingPlan,
+  updateStatus: UpdateStatus,
+  recommendationsEnabled: boolean,
+): void {
+  const refreshCmd = `npx -y github:marinvch/ai-os#v${updateStatus.toolVersion} --refresh-existing`;
+  const recommendationsPath = '.github/ai-os/recommendations.md';
+
+  const printRecommendationsHint = (): void => {
+    if (recommendationsEnabled) {
+      console.log(`  📘 Recommendations saved to ${recommendationsPath}`);
+    }
+  };
+
+  if (mode === 'safe' && updateStatus.updateAvailable && !updateStatus.isFirstInstall) {
+    console.log('  🧭 Recommended next step:');
+    console.log(`  ${refreshCmd}`);
+    console.log('  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.');
+    console.log('  After refresh, ask Copilot:');
+    console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
+    printRecommendationsHint();
+    console.log('');
+    return;
+  }
+
+  if (mode === 'refresh-existing' || mode === 'update') {
+    console.log('  ✅ Ready to use with Copilot.');
+    console.log('  If the tools do not appear immediately, run: MCP: Restart Servers');
+    console.log('  Suggested first prompt:');
+    console.log('     "Use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    printRecommendationsHint();
+    console.log('');
+    return;
+  }
+
+  const firstPrompt = onboardingPlan.detectedRepoType === 'existing-non-ai-os'
+    ? 'Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files.'
+    : 'Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.';
+
+  console.log('  🧭 Next steps:');
+  console.log('  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.');
+  console.log('  2. If the tools do not appear immediately, run: MCP: Restart Servers');
+  console.log('  3. Suggested first prompt:');
+  console.log(`     "${firstPrompt}"`);
+  printRecommendationsHint();
   console.log('');
+}
+
+function ensureGitignoreEntry(cwd: string, entry: string): void {
+  const gitignorePath = path.join(cwd, '.gitignore');
+  if (!fs.existsSync(gitignorePath)) return;
+
+  const current = fs.readFileSync(gitignorePath, 'utf-8');
+  const lines = current.split(/\r?\n/);
+  if (lines.includes(entry)) return;
+
+  const next = `${current.replace(/\s*$/, '')}\n${entry}\n`;
+  fs.writeFileSync(gitignorePath, next, 'utf-8');
+}
+
+function resolveBundledServerSource(): string | null {
+  const runtimeDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(runtimeDir, 'server.js'),
+    path.join(runtimeDir, '..', 'bundle', 'server.js'),
+    path.join(runtimeDir, '..', 'dist', 'server.js'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
+  const bundledServerSource = resolveBundledServerSource();
+  if (!bundledServerSource) {
+    console.warn('  ⚠ Could not locate bundled MCP server; local ai-os tools may be unavailable.');
+    return;
+  }
+
+  const runtimeDir = path.join(cwd, '.ai-os', 'mcp-server');
+  const runtimeEntry = path.join(runtimeDir, 'index.js');
+  const runtimeManifest = path.join(runtimeDir, 'runtime-manifest.json');
+  const nodePath = process.execPath;
+
+  fs.mkdirSync(runtimeDir, { recursive: true });
+
+  fs.copyFileSync(bundledServerSource, runtimeEntry);
+  fs.chmodSync(runtimeEntry, 0o755);
+
+  fs.writeFileSync(runtimeManifest, JSON.stringify({
+    name: 'ai-os-mcp-server',
+    runtime: 'bundled',
+    sourceVersion: getToolVersion(),
+    installedAt: new Date().toISOString(),
+  }, null, 2), 'utf-8');
+
+  // Write the official VS Code MCP config (.vscode/mcp.json) with the resolved
+  // Node executable path. This avoids shell alias/PATH issues when VS Code
+  // launches the MCP server directly, especially on Windows.
+  writeMcpServerConfig(cwd, {
+    command: nodePath,
+    args: [runtimeEntry],
+    env: {
+      AI_OS_ROOT: cwd,
+    },
+  });
+
+  ensureGitignoreEntry(cwd, '.ai-os/mcp-server/node_modules');
+  ensureGitignoreEntry(cwd, '.github/ai-os/memory/.memory.lock');
+
+  // Clean up legacy .github/copilot/mcp.local.json if present
+  const legacyLocalMcp = path.join(cwd, '.github', 'copilot', 'mcp.local.json');
+  if (fs.existsSync(legacyLocalMcp)) {
+    try { fs.rmSync(legacyLocalMcp); } catch { /* ignore */ }
+  }
+
+  const healthcheck = spawnSync(nodePath, [runtimeEntry, '--healthcheck'], {
+    cwd,
+    env: { ...process.env, AI_OS_ROOT: cwd },
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+
+  if (healthcheck.status !== 0) {
+    const details = [healthcheck.stdout, healthcheck.stderr].filter(Boolean).join('\n').trim();
+    throw new Error(`MCP runtime healthcheck failed after install${details ? `: ${details}` : ''}`);
+  }
+
+  if (verbose) {
+    console.log(`  ✏️  write   ${runtimeEntry}`);
+    console.log(`  ✏️  write   ${runtimeManifest}`);
+    console.log(`  ✏️  write   .vscode/mcp.json`);
+  } else {
+    console.log('  ✓ MCP runtime installed to .ai-os/mcp-server');
+    console.log('  ✓ MCP config written to .vscode/mcp.json');
+  }
 }
 
 async function main(): Promise<void> {
@@ -239,7 +384,7 @@ async function main(): Promise<void> {
       console.log(`  ✅ Already up-to-date (v${updateStatus.toolVersion}). Re-generating to refresh context...`);
     }
     mode = 'refresh-existing';
-  } else if (!updateStatus.isFirstInstall) {
+  } else if (mode === 'safe' && !updateStatus.isFirstInstall) {
     printUpdateBanner(updateStatus);
   }
 
@@ -358,7 +503,10 @@ async function main(): Promise<void> {
   const newFiles = currentRelFiles.filter(r => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter(r => r !== manifestRel && previousFiles.has(r));
 
+  installLocalMcpRuntime(cwd, verbose);
+
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
+  printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
 
   // ── Agent-flow setup prompt ──────────────────────────────────────────────
   // On first install (no prior config) or when agentFlowMode is not explicitly

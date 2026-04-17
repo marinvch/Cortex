@@ -318,7 +318,7 @@ function generateArchitectureDoc(stack: DetectedStack): string {
   lines.push('  Detect --> Generate["Generate AI OS artifacts"]');
   lines.push('  Generate --> Docs[".github/ai-os/context/*.md"]');
   lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
-  lines.push('  Generate --> MCP[".github/copilot/mcp.json + .ai-os/mcp-server/"]');
+  lines.push('  Generate --> MCP[".vscode/mcp.json + .ai-os/mcp-server/"]');
   lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
   lines.push('  Generate --> Skills[".github/copilot/skills/*.md"]');
   lines.push('```');

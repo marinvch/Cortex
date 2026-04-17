@@ -7,6 +7,15 @@
 
 set -euo pipefail
 
+# ── Determine this script's location ─────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Read version without requiring Node.js so the banner is always accurate.
+AIOS_BANNER_VERSION="$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' "$SCRIPT_DIR/package.json" | head -n 1)"
+if [[ -z "$AIOS_BANNER_VERSION" ]]; then
+  AIOS_BANNER_VERSION="0.0.0"
+fi
+
 # ── Colors ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -18,13 +27,10 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v0.7.0            ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          AI OS  v${AIOS_BANNER_VERSION}           ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
-
-# ── Determine this script's location ─────────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # ── Determine target repo root ────────────────────────────────────────────────
 TARGET_DIR=""
@@ -286,6 +292,17 @@ fi
 
 AIOS_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];const pkg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(pkg.version||'0.0.0');" "$AIOS_SRC/package.json")"
 
+# Resolve a concrete Node executable path (avoid shell aliases such as "node='winpty node.exe'").
+resolve_node_path() {
+  if command -v node.exe &>/dev/null; then
+    command -v node.exe
+    return 0
+  fi
+  command -v node
+}
+
+NODE_ABS_PATH="$(resolve_node_path)"
+
 # Check new config path first (.github/ai-os/config.json), fall back to legacy (.ai-os/config.json)
 _CORE_CONFIG_PATH="$TARGET_DIR/.github/ai-os/config.json"
 if [[ ! -f "$_CORE_CONFIG_PATH" ]]; then
@@ -324,10 +341,7 @@ if [[ "$REFRESH_EXISTING" == "true" ]]; then
   GEN_ARGS+=(--refresh-existing)
 fi
 
-# Detect absolute node path so mcp.json uses a stable path (fixes nvm/fnm/asdf on Windows/macOS)
-NODE_ABS_PATH="$(command -v node)"
-
-(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" node --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
 
 # ── Copy MCP server to target repo ──────────────────────────────────────────
 MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
@@ -434,7 +448,7 @@ EOF
 }
 EOF
 
-  if AI_OS_ROOT="$TARGET_DIR" node "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
+  if AI_OS_ROOT="$TARGET_DIR" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓ MCP server installed and healthy${RESET}"
   else
     echo -e "  ${RED}✗ MCP server healthcheck failed after install.${RESET}"
@@ -445,6 +459,38 @@ else
   echo -e "  ${GREEN}✓ MCP server already up-to-date (v${AIOS_VERSION})${RESET}"
   echo -e "  ${CYAN}  Skip reason:${RESET} ${MCP_SKIP_REASON}"
 fi
+
+# Write VS Code MCP config so Copilot can launch the local ai-os runtime.
+# Uses the official .vscode/mcp.json format with "servers" top-level key.
+# We write the resolved Node executable path to avoid PATH/alias issues when
+# VS Code launches the MCP server directly.
+VSCODE_MCP_CONFIG="$TARGET_DIR/.vscode/mcp.json"
+mkdir -p "$TARGET_DIR/.vscode"
+
+# Merge ai-os server entry into existing .vscode/mcp.json (preserve user servers)
+"$NODE_ABS_PATH" -e "
+  const fs = require('fs');
+  const p = process.argv[1];
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch {}
+  if (!cfg.servers) cfg.servers = {};
+  cfg.servers['ai-os'] = {
+    type: 'stdio',
+    command: process.argv[2],
+    args: [process.argv[3]],
+    env: { AI_OS_ROOT: process.argv[4] }
+  };
+  fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
+" "$VSCODE_MCP_CONFIG" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" "$TARGET_DIR"
+echo -e "  ${GREEN}✓ Wrote MCP config: .vscode/mcp.json${RESET}"
+
+# Clean up legacy .github/copilot/mcp.local.json if present
+LEGACY_MCP_LOCAL="$TARGET_DIR/.github/copilot/mcp.local.json"
+if [[ -f "$LEGACY_MCP_LOCAL" ]]; then
+  rm -f "$LEGACY_MCP_LOCAL"
+  echo -e "  ${CYAN}✓ Removed legacy .github/copilot/mcp.local.json${RESET}"
+fi
+
 echo ""
 
 # ── Clean up legacy v0.2.0 artifacts ─────────────────────────────────────────
@@ -526,13 +572,6 @@ fi
 echo ""
 echo -e "  ${GREEN}${BOLD}✅ AI OS installed successfully!${RESET}"
 echo ""
-echo -e "  ${BOLD}Next steps:${RESET}"
-echo -e "  ${CYAN}1.${RESET} Open this repo in ${BOLD}VS Code${RESET} with the ${BOLD}GitHub Copilot${RESET} extension installed"
-echo -e "  ${CYAN}2.${RESET} Press ${BOLD}Ctrl+Shift+P${RESET} → ${BOLD}\"Developer: Reload Window\"${RESET} so Copilot picks up the new config"
-echo -e "  ${CYAN}3.${RESET} Open ${BOLD}Copilot Chat${RESET} and switch to ${BOLD}Agent mode${RESET} (click the ▼ next to the chat input)"
-echo -e "  ${CYAN}4.${RESET} Verify setup — ask Copilot: ${YELLOW}\"Which AI OS tools do you have available?\"${RESET}"
-echo -e "  ${CYAN}5.${RESET} Customize ${CYAN}.github/ai-os/context/${RESET} files to describe your project architecture"
-echo ""
-echo -e "  ${YELLOW}Tip:${RESET} Re-run this command anytime to refresh context after major code changes:"
-echo -e "  ${CYAN}  npx -y github:marinvch/ai-os --refresh-existing${RESET}"
+echo -e "  ${CYAN}Detailed next-step guidance is printed by AI OS above.${RESET}"
+echo -e "  ${CYAN}If Copilot tools do not appear immediately in VS Code, run:${RESET} ${BOLD}MCP: Restart Servers${RESET}"
 echo ""

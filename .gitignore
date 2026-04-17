@@ -12,4 +12,5 @@ tsconfig.tsbuildinfo
 
 # Test output — generated files written to target repos
 .ai-os/
+.vscode/mcp.json
 .github/copilot-instructions.md.bak

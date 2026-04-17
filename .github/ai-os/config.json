@@ -11,13 +11,12 @@
   "pathSpecificInstructions": true,
   "recommendations": true,
   "sessionContextCard": true,
-  "persistentRules": [],
-  "exclude": [
-    "node_modules",
-    "dist",
-    ".next",
-    ".nuxt",
-    "build",
-    "out"
-  ]
+  "persistentRules": [
+    "Call get_repo_memory before non-trivial implementation tasks.",
+    "Call get_conventions before writing new code.",
+    "Call get_impact_of_change before editing shared source files.",
+    "Prefer minimal, in-scope edits and avoid broad refactors unless requested.",
+    "Run npm run build and npm run test after substantial code changes."
+  ],
+  "exclude": ["node_modules", "dist", ".next", ".nuxt", "build", "out"]
 }

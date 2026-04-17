@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-17T04:32:00.092Z",
+  "weeks": [
+    {
+      "weekStart": "2026-04-14",
+      "firstPassSuccessRate": 0.82,
+      "toolCallSuccessRate": 0.95,
+      "reworkRate": 0.18,
+      "avgTimeToFixMinutes": 30,
+      "contextHitRate": 0.7,
+      "notes": "baseline after context-vault rollout",
+      "updatedAt": "2026-04-17T04:32:00.092Z"
+    }
+  ]
+}

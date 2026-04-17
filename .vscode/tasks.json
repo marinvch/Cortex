@@ -1,0 +1,43 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ai-os: test",
+      "type": "shell",
+      "command": "npm",
+      "args": ["test"],
+      "group": "test"
+    },
+    {
+      "label": "ai-os: build",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "build"],
+      "group": "build"
+    },
+    {
+      "label": "ai-os: validate",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "validate"]
+    },
+    {
+      "label": "ai-os: smoke",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "validate:smoke"]
+    },
+    {
+      "label": "ai-os: scorecard-check",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "scorecard:check"]
+    },
+    {
+      "label": "ai-os: quality-check",
+      "dependsOn": ["ai-os: test", "ai-os: build", "ai-os: scorecard-check"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    }
+  ]
+}

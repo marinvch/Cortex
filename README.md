@@ -1,6 +1,6 @@
 # AI OS
 
-> **Portable GitHub Copilot context engine v0.6.12** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
+> **Portable GitHub Copilot context engine v0.7.0** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
 
 ## What it does
 
@@ -214,6 +214,81 @@ npm test
 # Run regression suite (fixture matrix for all supported stacks — exits non-zero on failure)
 npm run validate
 ```
+
+## Session Bootstrap Checklist
+
+Use this at the start of every new Copilot conversation in a target repo using AI OS.
+
+1. `get_session_context` to reload must-always rules and key commands.
+2. `get_repo_memory` to recover durable project decisions.
+3. `get_conventions` to enforce local coding style.
+4. `get_impact_of_change` for each shared source file before edits.
+5. Build/test after substantial implementation changes.
+
+## Knowledge Vault Workflow
+
+AI OS now includes an Obsidian-style documentation workflow for durable, linked context.
+
+- Workflow guide: `.github/ai-os/context/knowledge-vault.md`
+- Reusable templates: `.github/ai-os/context/templates/`
+
+Use these files to capture decision notes, prompt patterns, failure patterns, tool recipes, and task-scoped context packs.
+
+## VS Code Tasks
+
+For faster local validation, run these tasks from the VS Code task runner:
+
+- `ai-os: test`
+- `ai-os: build`
+- `ai-os: validate`
+- `ai-os: smoke`
+- `ai-os: scorecard-check`
+- `ai-os: quality-check`
+
+## Weekly Quality Scorecard
+
+Track weekly AI OS quality signals in `.github/ai-os/metrics/scorecard.json`.
+
+Create or update a weekly entry:
+
+```bash
+npm run scorecard:update -- --week=2026-04-14 --first-pass=82 --tool-success=95 --rework=18 --time-to-fix=30 --context-hit=70 --notes="baseline after context-vault rollout"
+```
+
+Show the latest weekly entry:
+
+```bash
+npm run scorecard:show
+```
+
+Check that the latest weekly entry is fresh enough for ops gates (default: 14 days):
+
+```bash
+npm run scorecard:check
+```
+
+Use a custom age threshold:
+
+```bash
+npm run scorecard:check -- --max-age-days=10
+```
+
+Rate fields accept either 0-1 or 0-100 values.
+
+## Smoke Test
+
+Run a quick end-to-end smoke test for recent AI OS enhancements:
+
+```bash
+npm run validate:smoke
+```
+
+This validates core files, persistent rules, scorecard freshness, and generator `--plan`/`--preview` flows.
+
+CI integration:
+
+- `.github/workflows/ai-os-validate.yml` now runs `validate:ops` and `validate:smoke` for pull requests.
+- Push validation also runs `validate:full` followed by `validate:smoke`.
 
 ## Automated Releases
 

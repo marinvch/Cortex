@@ -101,6 +101,25 @@ Use these tools to fetch project-specific context on demand:
 
 ---
 
+## Context Budget Policy
+
+Load context in priority order — stop when you have enough to act:
+
+1. `get_session_context` (≤ 500 tokens) — always first
+2. `get_repo_memory` — durable decisions; load at task start
+3. `get_conventions` — before writing new code
+4. `get_file_summary` — before reading full files (token-efficient)
+5. Full file reads — only when edits require exact content
+6. `search_codebase` — targeted lookup over broad scans
+
+**Avoid context flooding:** do not load entire directories or re-read files already in context.
+**Avoid context starvation:** do not skip steps 1–3 before non-trivial tasks.
+**After a context reset:** reload steps 1–3 explicitly before resuming — never assume prior context is intact.
+
+See `.github/ai-os/context/context-budget.md` for the full policy.
+
+---
+
 ## Strict Behavior Guardrails
 
 - MUST ask clarifying questions first when the request is ambiguous, underspecified, or conflicts with existing instructions

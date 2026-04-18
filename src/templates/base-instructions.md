@@ -120,6 +120,32 @@ See `.github/ai-os/context/context-budget.md` for the full policy.
 
 ---
 
+## Protected Block Conventions
+
+Certain code regions may be marked as protected using inline comment markers.
+**MUST NOT modify, delete, simplify, or refactor content inside a protected block.**
+
+Marker syntax (language-agnostic comment style):
+
+```text
+// @ai-os:protect reason="<why this is protected>"
+... protected code ...
+// @ai-os:protect-end
+```
+
+Rules:
+
+- If a protected block is found inside a file you are editing, preserve its content exactly
+- Do not remove, reorder, or summarize the lines between the markers
+- If the task requires changing a protected region, stop and ask the user for explicit permission
+- Protected blocks are opt-in; absence of markers means no protection is in effect
+
+Recovery: to unprotect a region, remove the `@ai-os:protect` and `@ai-os:protect-end` comment lines.
+
+See `.github/ai-os/context/protected-blocks.md` for the full design and recovery behavior.
+
+---
+
 ## Strict Behavior Guardrails
 
 - MUST ask clarifying questions first when the request is ambiguous, underspecified, or conflicts with existing instructions

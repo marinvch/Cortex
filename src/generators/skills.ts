@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack } from '../types.js';
 import { writeIfChanged, resolveTemplatesDir } from './utils.js';
+import { enforceSkillContract } from '../validation/skill-contract.js';
 
 const SKILLS_DIR = '.github/copilot/skills';
 const AGENTS_SKILLS_DIR = '.agents/skills';
@@ -161,6 +162,9 @@ async function generateSkillsWithOptions(
     for (const [key, value] of Object.entries(spec.replacements)) {
       content = content.replaceAll(key, value);
     }
+
+    // Ensure every generated skill includes the contract sections required by validation.
+    content = enforceSkillContract(content, { skillName: spec.outputFile });
 
     writeIfChanged(outputPath, content);
     generatedPaths.push(outputPath);

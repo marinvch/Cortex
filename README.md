@@ -292,7 +292,7 @@ Run a quick end-to-end smoke test for recent AI OS enhancements:
 npm run validate:smoke
 ```
 
-This validates core files, persistent rules, scorecard freshness, and generator `--plan`/`--preview` flows.
+This validates core files, persistent rules, scorecard freshness, generated skill contract sections, and generator `--plan`/`--preview` flows.
 
 CI integration:
 

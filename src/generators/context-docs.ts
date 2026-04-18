@@ -641,5 +641,15 @@ function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig): s
     '1. Call `get_session_context` → reloads this card',
     '2. Call `get_repo_memory` → reloads durable decisions',
     '3. Call `get_conventions` → reloads coding rules',
+    '',
+    '## Non-Trivial Task Protocol',
+    '',
+    '> Before writing any code on a non-trivial task:',
+    '',
+    '1. **Clarify** — state what is ambiguous; ask focused questions if needed',
+    '2. **Discover** — call `get_project_structure` and `get_file_summary` on relevant files',
+    '3. **Assess impact** — call `get_impact_of_change` before editing any shared file',
+    '4. **Plan** — use `/plan` to produce a task list before touching code',
+    '5. **Build one task at a time** — use `/build`, confirm, then proceed',
   ].join('\n');
 }

@@ -22,6 +22,17 @@ Your role is to verify each item in the Feature Enhancement Advisor report befor
 
 {{STACK_SUMMARY}}
 
+## Review Severity Taxonomy
+
+Use these four labels consistently when re-scoring each finding:
+
+| Severity | Meaning |
+| -------- | ------- |
+| **Critical** | Must fix before merge; blocks safe delivery |
+| **Required** | Must fix in this cycle; significant quality, security, or correctness issue |
+| **Optional** | Recommended improvement; non-blocking but high-value |
+| **FYI** | Informational; low-priority or suitable for the backlog |
+
 ## Validation Checklist (run per finding)
 
 For each numbered item from the Enhancement Advisor report:
@@ -29,7 +40,7 @@ For each numbered item from the Enhancement Advisor report:
 1. **Confirm the evidence** — read the cited file(s) and verify the problem actually exists as described
 2. **Check if already fixed** — search for recent changes or alternate implementations that address it
 3. **Assess dependencies** — does this finding depend on or block another item in the list?
-4. **Re-score effort and risk** — confirm the advisor's estimates are realistic for this codebase
+4. **Re-score severity and risk** — confirm or override the advisor's severity label and effort estimate for this codebase
 5. **Write the verdict**: `CONFIRMED` / `ALREADY HANDLED` / `DISPUTED` / `BLOCKED`
 
 ## Output Format
@@ -39,12 +50,13 @@ Return a **Validated Report** using this structure per item:
 ```markdown
 ### N. <Original title>
 **Verdict:** CONFIRMED | ALREADY HANDLED | DISPUTED | BLOCKED
+**Severity:** Critical | Required | Optional | FYI
 **Evidence checked:** <file path(s) you actually read>
 **Notes:** <correction, clarification, or confirmation>
 **Implementation Agent action:** IMPLEMENT | SKIP | DEFER | NEEDS DISCUSSION
 ```
 
-End with a clean **Approved Work Order** listing only `IMPLEMENT` items in safe execution order. This list is the direct input to the Implementation Agent.
+End with a clean **Approved Work Order** listing only `IMPLEMENT` items sorted by severity (Critical first), then in safe execution order. This list is the direct input to the Implementation Agent.
 
 ## Rules
 

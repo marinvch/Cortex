@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { enforceSkillContract, validateSkillContract } from './skill-contract.js';
 import { enforceAgentContract, validateAgentContract } from './agent-contract.js';
+import { SEVERITY_LEVELS } from './review-severity.js';
 
 interface SmokeCheck {
   name: string;
@@ -151,6 +152,35 @@ function checkAgentTemplateContracts(): SmokeCheck {
   };
 }
 
+function checkReviewSeverityTaxonomy(): SmokeCheck {
+  const reviewTemplates = [
+    'src/templates/agents/enhancement-advisor.md',
+    'src/templates/agents/idea-validator.md',
+  ];
+
+  const missing: string[] = [];
+  for (const relPath of reviewTemplates) {
+    const fullPath = path.join(REPO_ROOT, relPath);
+    if (!fs.existsSync(fullPath)) {
+      missing.push(`${relPath} (file not found)`);
+      continue;
+    }
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const missingLabels = SEVERITY_LEVELS.filter(
+      (level) => !content.includes(`**${level}**`) && !content.includes(level),
+    );
+    if (missingLabels.length > 0) {
+      missing.push(`${relPath} missing labels: ${missingLabels.join(', ')}`);
+    }
+  }
+
+  return {
+    name: 'review severity taxonomy present in review templates',
+    passed: missing.length === 0,
+    detail: missing.length === 0 ? undefined : missing.join(' | '),
+  };
+}
+
 function run(): void {
   const checks: SmokeCheck[] = [];
 
@@ -163,6 +193,7 @@ function run(): void {
   checks.push(checkScorecardHasEntries());
   checks.push(checkSkillTemplateContracts());
   checks.push(checkAgentTemplateContracts());
+  checks.push(checkReviewSeverityTaxonomy());
 
   const scorecardCheck = runCommand('npm run scorecard:check', REPO_ROOT);
   checks.push({

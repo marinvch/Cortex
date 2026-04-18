@@ -81,6 +81,21 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
     '',
   ];
 
+  lines.push('## Lifecycle Orchestration (Define → Plan → Build → Verify → Review → Ship)', '');
+  lines.push('AI OS embeds slash-command prompts for each lifecycle phase. Use them in order:');
+  lines.push('');
+  lines.push('| Phase | Prompt | Purpose |');
+  lines.push('| ----- | ------ | ------- |');
+  lines.push('| Define | `/define` | Structure feature intent, scope, constraints, and success criteria |');
+  lines.push('| Plan | `/plan` | Break the feature into ordered, dependency-aware implementation tasks |');
+  lines.push('| Build | `/build` | Execute one task at a time with minimal, convention-compliant changes |');
+  lines.push('| Verify | `/verify` | Check implementation against success criteria and run tests |');
+  lines.push('| Review | `/review` | Severity-tagged code review (Critical → Required → Optional → FYI) |');
+  lines.push('| Ship | `/ship` | Pre-ship checklist — tests, secrets scan, changelog, version bump |');
+  lines.push('');
+  lines.push('> These prompts are available as VS Code Copilot slash commands via `.github/copilot/prompts.json`.');
+  lines.push('');
+
   if (collected.mcp.length > 0) {
     lines.push('## Recommended MCP Servers', '');
     for (const item of collected.mcp) {

@@ -275,6 +275,101 @@ Requirements:
     });
   }
 
+  // Always add lifecycle orchestration prompts (Define → Plan → Build → Verify → Review → Ship)
+  prompts.push({
+    id: '/define',
+    title: 'Define Feature',
+    description: 'Structure a new feature proposal with intent, scope, and success criteria',
+    prompt: `Before any code is written, define this feature clearly.
+Produce a structured feature brief:
+- **Intent**: What problem does this solve and for whom?
+- **Scope**: What is explicitly in/out of scope?
+- **Constraints**: Tech, time, compatibility, or security limits
+- **Success Criteria**: Measurable conditions that confirm the feature is complete
+- **Risks**: Known unknowns and mitigation ideas
+Reference the architecture in .github/ai-os/context/architecture.md and conventions in .github/ai-os/context/conventions.md to identify integration points.`,
+  });
+
+  prompts.push({
+    id: '/plan',
+    title: 'Plan Implementation',
+    description: 'Break a defined feature into discrete, ordered implementation tasks',
+    prompt: `Given the feature brief produced by /define, create an implementation plan.
+Output a numbered task list where each task:
+- Has a clear, actionable title (≤ 10 words)
+- Lists the files to create or modify
+- Notes dependencies on other tasks
+- Flags any task that requires a schema migration, API contract change, or external service
+Order tasks so each can be validated independently before the next begins.
+Do NOT write any code yet — planning only.`,
+  });
+
+  prompts.push({
+    id: '/build',
+    title: 'Execute Build Task',
+    description: 'Implement one specific task from the plan with minimal, focused changes',
+    prompt: `Implement the specific task I identify from the plan.
+Rules:
+- Touch only the files listed in that task
+- Follow all conventions in .github/ai-os/context/conventions.md
+- Keep the change minimal — do not refactor or improve adjacent code
+- Add or update tests for the changed logic
+- After writing, list any follow-up tasks the plan must account for
+Do not proceed to the next task — stop and await confirmation.`,
+  });
+
+  prompts.push({
+    id: '/verify',
+    title: 'Verify Implementation',
+    description: 'Check the current implementation against the feature spec and run validation',
+    prompt: `Verify the current implementation against the feature brief from /define.
+Steps:
+1. Re-read the success criteria
+2. For each criterion, state: PASS / FAIL / PARTIAL with evidence
+3. Identify any untested code paths or missing edge cases
+4. Run the test suite and paste the result summary
+5. Check for security issues in new inputs (OWASP Top 10 basics)
+6. List any items that must be fixed before moving to /review`,
+  });
+
+  prompts.push({
+    id: '/review',
+    title: 'Severity-Tagged Code Review',
+    description: 'Review staged changes with Critical / Required / Optional / FYI severity labels',
+    prompt: `Review the staged or specified changes using the review severity taxonomy.
+For each finding, output:
+\`\`\`markdown
+**File:** <path>
+**Line(s):** <range>
+**Severity:** Critical | Required | Optional | FYI
+**Finding:** <one-line summary>
+**Detail:** <explanation and suggested fix>
+\`\`\`
+Severity guide:
+- **Critical** — must fix before merge (security, data loss, incorrect behavior)
+- **Required** — must fix before merge (missing tests, convention violations, broken contracts)
+- **Optional** — improve if time allows (readability, minor duplication)
+- **FYI** — informational, no action needed
+End with a summary table sorted Critical first.`,
+  });
+
+  prompts.push({
+    id: '/ship',
+    title: 'Pre-Ship Checklist',
+    description: 'Run the pre-ship checklist before merging or deploying',
+    prompt: `Run through the pre-ship checklist for this change.
+Check each item and mark PASS / FAIL:
+- [ ] All /verify criteria pass
+- [ ] All Critical and Required /review findings resolved
+- [ ] Tests pass (paste summary)
+- [ ] No hardcoded secrets, keys, or credentials in diff
+- [ ] Environment variables documented (README or .env.example)
+- [ ] CHANGELOG or PR description updated
+- [ ] Version bumped if this is a releasable change
+- [ ] Any migration or deployment steps documented
+If all items pass, state: READY TO SHIP. Otherwise, list blocking items.`,
+  });
+
   // Always add these utility prompts
   prompts.push({
     id: '/explain-file',

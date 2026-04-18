@@ -363,6 +363,8 @@ function injectReplacements(template: string, replacements: Record<string, strin
 
 interface GenerateAgentsOptions {
   refreshExisting?: boolean;
+  /** When true, skip overwriting agent files that already exist (safe refresh default). */
+  preserveExistingAgents?: boolean;
   config?: AiOsConfig | null;
 }
 
@@ -400,8 +402,8 @@ async function generateAgentsWithOptions(
   for (const spec of specs) {
     const outputPath = path.join(agentsDir, spec.outputFile);
 
-    // In safe mode, skip existing files.
-    if (fs.existsSync(outputPath) && !options.refreshExisting) continue;
+    // Skip existing files in safe mode OR when preserveExistingAgents is true (safe refresh).
+    if (fs.existsSync(outputPath) && (!options.refreshExisting || options.preserveExistingAgents)) continue;
 
     // In safe mode, skip conceptually equivalent existing agents.
     if (!options.refreshExisting) {
@@ -457,6 +459,7 @@ export async function generateAgents(
 ): Promise<string[]> {
   return generateAgentsWithOptions(stack, cwd, {
     refreshExisting: options?.refreshExisting ?? false,
+    preserveExistingAgents: options?.preserveExistingAgents ?? false,
     config: options?.config,
   });
 }

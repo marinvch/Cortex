@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { analyze } from './analyze.js';
 import { generateInstructions } from './generators/instructions.js';
-import { generateMcpJson } from './generators/mcp.js';
+import { generateMcpJson, writeMcpServerConfig } from './generators/mcp.js';
 import { generateContextDocs, readAiOsConfig } from './generators/context-docs.js';
 import { generateAgents, scanExistingAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
@@ -14,11 +16,13 @@ import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifa
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
 import { readManifest, writeManifest, getManifestPath, setVerboseMode } from './generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
+import type { OnboardingPlan } from './planner.js';
+import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
@@ -27,6 +31,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
   let prune = false;
   let verbose = false;
   let cleanUpdate = false;
+  let regenerateContext = false;
+  let pruneCustomArtifacts = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -58,10 +64,14 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'check-hygiene';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
+    } else if (args[i] === '--regenerate-context') {
+      regenerateContext = true;
+    } else if (args[i] === '--prune-custom-artifacts') {
+      pruneCustomArtifacts = true;
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts };
 }
 
 function printBanner(): void {
@@ -175,6 +185,7 @@ function printSummary(
   skipped: string[],
   pruned: string[],
   agents: string[],
+  preserved: string[],
 ): void {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
@@ -187,6 +198,10 @@ function printSummary(
   console.log('  Diff summary:');
   console.log(`  ✅ Written (new or changed):  ${written.length}`);
   console.log(`  ⏭️  Unchanged (skipped):        ${skipped.length}`);
+  if (preserved.length > 0) {
+    console.log(`  🔒 Preserved (curated):        ${preserved.length}`);
+    for (const p of preserved) console.log(`       • ${path.relative(outputDir, p).replace(/\\/g, '/')}`);
+  }
   if (pruned.length > 0) {
     console.log(`  🗑️  Pruned (stale):              ${pruned.length}`);
     for (const p of pruned) console.log(`       • ${path.relative(outputDir, p).replace(/\\/g, '/')}`);
@@ -197,15 +212,198 @@ function printSummary(
   console.log(`  🔧 MCP tools registered: ${mcpToolCount}`);
   console.log(`  🗳️  Manifest: ${path.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, '/')}`);
   console.log('');
-  console.log('  🚀 AI OS installed! Open this repo in VS Code with GitHub Copilot enabled.');
-  console.log(`  💡 Try @workspace, /new-page, /new-trpc-procedure, or any agent from Chat.`);
+}
+
+function printContextualNextSteps(
+  mode: GenerateMode,
+  onboardingPlan: OnboardingPlan,
+  updateStatus: UpdateStatus,
+  recommendationsEnabled: boolean,
+): void {
+  const refreshCmd = `npx -y github:marinvch/ai-os#v${updateStatus.toolVersion} --refresh-existing`;
+  const recommendationsPath = '.github/ai-os/recommendations.md';
+
+  const printRecommendationsHint = (): void => {
+    if (recommendationsEnabled) {
+      console.log(`  📘 Recommendations saved to ${recommendationsPath}`);
+    }
+  };
+
+  if (mode === 'safe' && updateStatus.updateAvailable && !updateStatus.isFirstInstall) {
+    console.log('  🧭 Recommended next step:');
+    console.log(`  ${refreshCmd}`);
+    console.log('  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.');
+    console.log('  After refresh, ask Copilot:');
+    console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
+    printRecommendationsHint();
+    console.log('');
+    return;
+  }
+
+  if (mode === 'refresh-existing' || mode === 'update') {
+    console.log('  ✅ Ready to use with Copilot.');
+    console.log('  If the tools do not appear immediately, run: MCP: Restart Servers');
+    console.log('  Suggested first prompt:');
+    console.log('     "Use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    printRecommendationsHint();
+    console.log('');
+    return;
+  }
+
+  const firstPrompt = onboardingPlan.detectedRepoType === 'existing-non-ai-os'
+    ? 'Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files.'
+    : 'Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.';
+
+  console.log('  🧭 Next steps:');
+  console.log('  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.');
+  console.log('  2. If the tools do not appear immediately, run: MCP: Restart Servers');
+  console.log('  3. Suggested first prompt:');
+  console.log(`     "${firstPrompt}"`);
+  printRecommendationsHint();
   console.log('');
+}
+
+/**
+ * Load the optional `.github/ai-os/protect.json` file.
+ * Returns a Set of repo-relative forward-slash paths that should never be
+ * overwritten or pruned during a refresh run.
+ *
+ * Example protect.json:
+ * ```json
+ * {
+ *   "protected": [
+ *     ".github/agents/my-custom-agent.md",
+ *     ".github/ai-os/context/conventions.md"
+ *   ]
+ * }
+ * ```
+ */
+function loadProtectConfig(cwd: string): Set<string> {
+  const protectPath = path.join(cwd, '.github', 'ai-os', 'protect.json');
+  if (!fs.existsSync(protectPath)) return new Set();
+  try {
+    const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as { protected?: unknown };
+    if (!Array.isArray(raw.protected)) return new Set();
+    return new Set(
+      (raw.protected as unknown[])
+        .filter((p): p is string => typeof p === 'string')
+        .map(p => p.replace(/\\/g, '/')),
+    );
+  } catch {
+    console.warn('  ⚠ Could not parse .github/ai-os/protect.json — ignoring protection config');
+    return new Set();
+  }
+}
+
+/**
+ * Directories whose contents are considered "custom artifacts" (user-created or user-edited).
+ * Files under these paths are NOT pruned during refresh unless --prune-custom-artifacts is passed.
+ */
+const CUSTOM_ARTIFACT_DIRS = ['.github/agents/', '.agents/skills/'];
+
+function isCustomArtifact(relPath: string): boolean {
+  return CUSTOM_ARTIFACT_DIRS.some(dir => relPath.startsWith(dir));
+}
+
+function ensureGitignoreEntry(cwd: string, entry: string): void {
+  const gitignorePath = path.join(cwd, '.gitignore');
+  if (!fs.existsSync(gitignorePath)) return;
+
+  const current = fs.readFileSync(gitignorePath, 'utf-8');
+  const lines = current.split(/\r?\n/);
+  if (lines.includes(entry)) return;
+
+  const next = `${current.replace(/\s*$/, '')}\n${entry}\n`;
+  fs.writeFileSync(gitignorePath, next, 'utf-8');
+}
+
+function resolveBundledServerSource(): string | null {
+  const runtimeDir = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(runtimeDir, 'server.js'),
+    path.join(runtimeDir, '..', 'bundle', 'server.js'),
+    path.join(runtimeDir, '..', 'dist', 'server.js'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
+  const bundledServerSource = resolveBundledServerSource();
+  if (!bundledServerSource) {
+    console.warn('  ⚠ Could not locate bundled MCP server; local ai-os tools may be unavailable.');
+    return;
+  }
+
+  const runtimeDir = path.join(cwd, '.ai-os', 'mcp-server');
+  const runtimeEntry = path.join(runtimeDir, 'index.js');
+  const runtimeManifest = path.join(runtimeDir, 'runtime-manifest.json');
+  const nodePath = process.execPath;
+
+  fs.mkdirSync(runtimeDir, { recursive: true });
+
+  fs.copyFileSync(bundledServerSource, runtimeEntry);
+  fs.chmodSync(runtimeEntry, 0o755);
+
+  fs.writeFileSync(runtimeManifest, JSON.stringify({
+    name: 'ai-os-mcp-server',
+    runtime: 'bundled',
+    sourceVersion: getToolVersion(),
+    installedAt: new Date().toISOString(),
+  }, null, 2), 'utf-8');
+
+  // Write the official VS Code MCP config (.vscode/mcp.json) with the resolved
+  // Node executable path. This avoids shell alias/PATH issues when VS Code
+  // launches the MCP server directly, especially on Windows.
+  writeMcpServerConfig(cwd, {
+    command: nodePath,
+    args: [runtimeEntry],
+    env: {
+      AI_OS_ROOT: cwd,
+    },
+  });
+
+  ensureGitignoreEntry(cwd, '.ai-os/mcp-server/node_modules');
+  ensureGitignoreEntry(cwd, '.github/ai-os/memory/.memory.lock');
+
+  // Clean up legacy .github/copilot/mcp.local.json if present
+  const legacyLocalMcp = path.join(cwd, '.github', 'copilot', 'mcp.local.json');
+  if (fs.existsSync(legacyLocalMcp)) {
+    try { fs.rmSync(legacyLocalMcp); } catch { /* ignore */ }
+  }
+
+  const healthcheck = spawnSync(nodePath, [runtimeEntry, '--healthcheck'], {
+    cwd,
+    env: { ...process.env, AI_OS_ROOT: cwd },
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+
+  if (healthcheck.status !== 0) {
+    const details = [healthcheck.stdout, healthcheck.stderr].filter(Boolean).join('\n').trim();
+    throw new Error(`MCP runtime healthcheck failed after install${details ? `: ${details}` : ''}`);
+  }
+
+  if (verbose) {
+    console.log(`  ✏️  write   ${runtimeEntry}`);
+    console.log(`  ✏️  write   ${runtimeManifest}`);
+    console.log(`  ✏️  write   .vscode/mcp.json`);
+  } else {
+    console.log('  ✓ MCP runtime installed to .ai-os/mcp-server');
+    console.log('  ✓ MCP config written to .vscode/mcp.json');
+  }
 }
 
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts } = parseArgs();
   let mode: GenerateMode = rawMode;
 
   // Enable verbose per-file logging when --verbose / -v is passed
@@ -239,8 +437,19 @@ async function main(): Promise<void> {
       console.log(`  ✅ Already up-to-date (v${updateStatus.toolVersion}). Re-generating to refresh context...`);
     }
     mode = 'refresh-existing';
-  } else if (!updateStatus.isFirstInstall) {
+  } else if (mode === 'safe' && !updateStatus.isFirstInstall) {
     printUpdateBanner(updateStatus);
+  }
+
+  // In refresh mode, curated context/instruction files are preserved by default.
+  // Pass --regenerate-context to allow full rewrite of those files.
+  const isRefresh = mode === 'refresh-existing';
+  const preserveContextFiles = isRefresh && !regenerateContext;
+
+  if (isRefresh && preserveContextFiles) {
+    console.log('  🔒 Safe refresh: curated context/instruction files will be preserved.');
+    console.log('     Pass --regenerate-context to allow full rewrite of those files.');
+    console.log('');
   }
 
   // Prune legacy artifacts on every refresh/update run
@@ -248,10 +457,13 @@ async function main(): Promise<void> {
     pruneLegacyArtifacts(cwd, { fullCleanup: cleanUpdate });
   }
 
+  // Load optional protection config for files that must never be overwritten/pruned.
+  const protectedPaths = loadProtectConfig(cwd);
+
   const stack = analyze(cwd);
   // Read existing config before generation to preserve user-editable fields
   const existingConfig = readAiOsConfig(cwd);
-  const onboardingPlan = buildOnboardingPlan(cwd, mode);
+  const onboardingPlan = buildOnboardingPlan(cwd, mode, { regenerateContext });
 
   if (action === 'plan') {
     console.log(formatOnboardingPlan(onboardingPlan));
@@ -276,14 +488,14 @@ async function main(): Promise<void> {
   const previousFiles = new Set(previousManifest?.files ?? []);
 
   // Phase 1: Core context files (config.json is written here, with user fields preserved)
-  const contextFiles = generateContextDocs(stack, cwd);
+  const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
   // Read the freshly-written config to get feature flags for remaining generators
   const config = readAiOsConfig(cwd) ?? existingConfig;
-  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
+  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
 
   // Phase 2: Agents, Skills, Prompts
-  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
+  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveExistingAgents: preserveContextFiles, config: config ?? undefined });
   const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const workflowFiles = generateWorkflows(cwd, { config: config ?? undefined });
@@ -320,13 +532,30 @@ async function main(): Promise<void> {
 
   // #7 / #8 — Prune stale files (files in previous manifest but not in current run).
   //            Pruning only happens in refresh/update mode, or when --prune is explicit.
+  //            Custom artifact directories (.github/agents/, .agents/skills/) are spared
+  //            unless --prune-custom-artifacts is passed or the file is not a custom artifact.
   const shouldPrune = pruneFlag || mode === 'refresh-existing';
   const prunedAbs: string[] = [];
+  const preservedAbs: string[] = [];
 
   if (shouldPrune && previousFiles.size > 0) {
     const currentSet = new Set(currentRelFiles);
     for (const rel of previousFiles) {
       if (!currentSet.has(rel)) {
+        // Skip files protected by protect.json
+        if (protectedPaths.has(rel)) {
+          if (verbose) console.log(`  🔒 protect  ${rel}  (in protect.json)`);
+          preservedAbs.push(path.join(cwd, rel));
+          continue;
+        }
+        // Skip custom artifacts unless --prune-custom-artifacts is passed
+        if (!pruneCustomArtifacts && isCustomArtifact(rel)) {
+          if (verbose) {
+            console.log(`  🔒 preserve ${rel}  (custom artifact — pass --prune-custom-artifacts to remove)`);
+          }
+          preservedAbs.push(path.join(cwd, rel));
+          continue;
+        }
         const abs = path.join(cwd, rel);
         if (fs.existsSync(abs)) {
           try {
@@ -358,7 +587,10 @@ async function main(): Promise<void> {
   const newFiles = currentRelFiles.filter(r => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter(r => r !== manifestRel && previousFiles.has(r));
 
-  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
+  installLocalMcpRuntime(cwd, verbose);
+
+  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs);
+  printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
 
   // ── Agent-flow setup prompt ──────────────────────────────────────────────
   // On first install (no prior config) or when agentFlowMode is not explicitly

@@ -90,6 +90,8 @@ function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: 
 
 interface GenerateInstructionsOptions {
   refreshExisting?: boolean;
+  /** When true, skip overwriting copilot-instructions.md if it already exists. */
+  preserveContextFiles?: boolean;
   config?: AiOsConfig;
 }
 
@@ -317,7 +319,11 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
   const githubDir = path.join(outputDir, '.github');
 
   const outputPath = path.join(githubDir, 'copilot-instructions.md');
-  writeIfChanged(outputPath, content);
+  // In safe refresh mode, preserve existing copilot-instructions.md to avoid
+  // downgrading curated project rules to generic defaults.
+  if (!(options?.preserveContextFiles && fs.existsSync(outputPath))) {
+    writeIfChanged(outputPath, content);
+  }
 
   // Generate .github/instructions/ai-os.instructions.md
   // This file with applyTo:"**" causes Copilot's default agent to auto-load these

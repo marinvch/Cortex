@@ -318,7 +318,7 @@ function generateArchitectureDoc(stack: DetectedStack): string {
   lines.push('  Detect --> Generate["Generate AI OS artifacts"]');
   lines.push('  Generate --> Docs[".github/ai-os/context/*.md"]');
   lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
-  lines.push('  Generate --> MCP[".github/copilot/mcp.json + .ai-os/mcp-server/"]');
+  lines.push('  Generate --> MCP[".vscode/mcp.json + .ai-os/mcp-server/"]');
   lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
   lines.push('  Generate --> Skills[".github/copilot/skills/*.md"]');
   lines.push('```');
@@ -457,8 +457,14 @@ function mergeSections(existing: string, updated: string): string {
   return result.join('\n');
 }
 
+interface GenerateContextDocsOptions {
+  /** When true, skip overwriting curated context files that already exist (architecture.md, conventions.md). */
+  preserveContextFiles?: boolean;
+}
+
 /** Returns absolute paths of all managed files. */
-export function generateContextDocs(stack: DetectedStack, outputDir: string): string[] {
+export function generateContextDocs(stack: DetectedStack, outputDir: string, options?: GenerateContextDocsOptions): string[] {
+  const preserveContextFiles = options?.preserveContextFiles ?? false;
   const contextDir = path.join(outputDir, '.github', 'ai-os', 'context');
   fs.mkdirSync(contextDir, { recursive: true });
   const memoryDir = path.join(outputDir, '.github', 'ai-os', 'memory');
@@ -478,14 +484,20 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string): st
 
   writeIfChanged(track(path.join(contextDir, 'stack.md')), generateStackDoc(stack));
 
-  // architecture.md and conventions.md: section-level merge to preserve manual edits
+  // architecture.md and conventions.md: section-level merge to preserve manual edits.
+  // When preserveContextFiles is true (safe refresh mode), skip writing if the file already
+  // exists so that curated content is never downgraded to generic defaults.
   const archPath = track(path.join(contextDir, 'architecture.md'));
-  const archGenerated = generateArchitectureDoc(stack);
-  writeIfChanged(archPath, fs.existsSync(archPath) ? mergeSections(fs.readFileSync(archPath, 'utf-8'), archGenerated) : archGenerated);
+  if (!(preserveContextFiles && fs.existsSync(archPath))) {
+    const archGenerated = generateArchitectureDoc(stack);
+    writeIfChanged(archPath, fs.existsSync(archPath) ? mergeSections(fs.readFileSync(archPath, 'utf-8'), archGenerated) : archGenerated);
+  }
 
   const convsPath = track(path.join(contextDir, 'conventions.md'));
-  const convsGenerated = generateConventionsDoc(stack);
-  writeIfChanged(convsPath, fs.existsSync(convsPath) ? mergeSections(fs.readFileSync(convsPath, 'utf-8'), convsGenerated) : convsGenerated);
+  if (!(preserveContextFiles && fs.existsSync(convsPath))) {
+    const convsGenerated = generateConventionsDoc(stack);
+    writeIfChanged(convsPath, fs.existsSync(convsPath) ? mergeSections(fs.readFileSync(convsPath, 'utf-8'), convsGenerated) : convsGenerated);
+  }
 
   writeIfChanged(track(path.join(contextDir, 'memory.md')), generateMemoryDoc(stack));
   writeIfChanged(track(path.join(contextDir, 'existing-ai-context.md')), generateExistingAiContextDoc(stack, existingContext));

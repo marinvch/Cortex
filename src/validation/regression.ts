@@ -65,6 +65,7 @@ function gitInit(dir: string): void {
 
 const AI_OS_ROOT = path.resolve(import.meta.dirname, '../..');
 const GENERATE_CMD = `node --import tsx/esm "${path.join(AI_OS_ROOT, 'src/generate.ts')}"`;
+const TOOL_VERSION = JSON.parse(fs.readFileSync(path.join(AI_OS_ROOT, 'package.json'), 'utf-8')) as { version: string };
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -252,7 +253,7 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
 
   const expectedFiles = [
     '.github/copilot-instructions.md',
-    '.github/copilot/mcp.json',
+    '.vscode/mcp.json',
     '.github/ai-os/context/stack.md',
     '.github/ai-os/context/architecture.md',
     '.github/ai-os/context/conventions.md',
@@ -286,6 +287,20 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
       detail: sessionCardContent.length > 2000 ? `Actual: ${sessionCardContent.length} chars` : undefined,
     });
   }
+
+  results.push({
+    fixture: fixtureName,
+    check: 'apply output includes suggested first prompt guidance',
+    passed: r.stdout.includes('Suggested first prompt:'),
+    detail: r.stdout.includes('Suggested first prompt:') ? undefined : 'Missing suggested first prompt block in apply output',
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'apply output mentions recommendations path',
+    passed: r.stdout.includes('.github/ai-os/recommendations.md'),
+    detail: r.stdout.includes('.github/ai-os/recommendations.md') ? undefined : 'Missing recommendations path hint in apply output',
+  });
 }
 
 function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResult[]): void {
@@ -307,26 +322,62 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
     passed: instructionsBefore === instructionsAfter,
     detail: instructionsBefore !== instructionsAfter ? 'Content changed on second apply run' : undefined,
   });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'refresh-existing output includes ready guidance',
+    passed: r.stdout.includes('Ready to use with Copilot.'),
+    detail: r.stdout.includes('Ready to use with Copilot.') ? undefined : 'Missing ready guidance in refresh-existing output',
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'refresh-existing output does not repeat update banner',
+    passed: !r.stdout.includes('AI OS Update Available'),
+    detail: !r.stdout.includes('AI OS Update Available') ? undefined : 'Update banner was printed during refresh-existing run',
+  });
+
+  const configPath = path.join(dir, '.github/ai-os/config.json');
+  const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { version: string };
+  config.version = '0.0.1';
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+  const safeRerun = run(`${GENERATE_CMD} --cwd "${dir}"`, AI_OS_ROOT);
+  const refreshCmd = `npx -y github:marinvch/ai-os#v${TOOL_VERSION.version} --refresh-existing`;
+
+  results.push({
+    fixture: fixtureName,
+    check: 'safe mode with stale install prints refresh command',
+    passed: safeRerun.stdout.includes(refreshCmd),
+    detail: safeRerun.stdout.includes(refreshCmd) ? undefined : `Missing refresh command: ${refreshCmd}`,
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'safe mode with stale install explains limited refresh',
+    passed: safeRerun.stdout.includes('Safe mode updated local MCP/runtime wiring'),
+    detail: safeRerun.stdout.includes('Safe mode updated local MCP/runtime wiring') ? undefined : 'Missing safe mode explanation for stale installs',
+  });
 }
 
 function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]): void {
   // The MCP server runtime (index.js) is deployed by install.sh, not by `generate`.
-  // The regression suite only runs `generate`, so we verify committed MCP metadata.
-  // Since v0.4.1+, committed mcp.json intentionally has NO servers block.
+  // The regression suite only runs `generate`, so we verify the VS Code MCP config.
+  // Since v0.6.27, the MCP config is written to .vscode/mcp.json with "servers" key.
   // Tool definitions are written to .github/ai-os/tools.json.
-  const mcpJsonPath = path.join(dir, '.github/copilot/mcp.json');
+  const mcpJsonPath = path.join(dir, '.vscode/mcp.json');
   if (!fs.existsSync(mcpJsonPath)) {
     results.push({
       fixture: fixtureName,
       check: 'mcp.json present',
       passed: false,
-      detail: '.github/copilot/mcp.json not found after apply',
+      detail: '.vscode/mcp.json not found after apply',
     });
     return;
   }
   results.push({ fixture: fixtureName, check: 'mcp.json present', passed: true });
 
-  let mcpConfig: { version?: number; servers?: Record<string, { command?: string; args?: string[] }> };
+  let mcpConfig: { servers?: Record<string, { type?: string; command?: string; args?: string[] }> };
   try {
     mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')) as typeof mcpConfig;
   } catch {
@@ -335,66 +386,75 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   }
   results.push({ fixture: fixtureName, check: 'mcp.json is valid JSON', passed: true });
 
-  // Version field must be present
+  // Must use official "servers" key (not legacy "mcpServers")
   results.push({
     fixture: fixtureName,
-    check: 'mcp.json has version field',
-    passed: typeof mcpConfig.version === 'number',
-    detail: typeof mcpConfig.version !== 'number' ? `version field is ${JSON.stringify(mcpConfig.version)}` : undefined,
+    check: 'mcp.json uses "servers" key',
+    passed: mcpConfig.servers !== undefined,
+    detail: mcpConfig.servers === undefined ? 'missing "servers" top-level key' : undefined,
   });
 
-  // Committed mcp.json should not include local-runtime servers entries.
+  // The ai-os server entry should be present with a concrete runtime launch.
   const serverEntry = mcpConfig.servers?.['ai-os'];
-  if (serverEntry !== undefined) {
-    const argsIncludeIndexJs = serverEntry.args?.some(a => a.includes('index.js')) ?? false;
+  results.push({
+    fixture: fixtureName,
+    check: 'mcp.json has ai-os server entry',
+    passed: serverEntry !== undefined,
+    detail: serverEntry === undefined ? 'ai-os server not found in servers' : undefined,
+  });
+
+  if (serverEntry) {
     results.push({
       fixture: fixtureName,
-      check: 'mcp.json does not include local ai-os server entry',
-      passed: false,
-      detail: `Unexpected servers['ai-os'] in committed mcp.json: ${JSON.stringify(serverEntry)}`,
+      check: 'ai-os server has launch command',
+      passed: typeof serverEntry.command === 'string' && serverEntry.command.length > 0,
+      detail: !serverEntry.command ? 'command is missing' : undefined,
     });
-  } else {
-    // Expected committed shape.
     results.push({
       fixture: fixtureName,
-      check: 'mcp.json does not include local ai-os server entry',
-      passed: true,
-    });
-
-    const toolsJsonPath = path.join(dir, '.github/ai-os/tools.json');
-    if (!fs.existsSync(toolsJsonPath)) {
-      results.push({
-        fixture: fixtureName,
-        check: 'tools.json present for MCP tool definitions',
-        passed: false,
-        detail: '.github/ai-os/tools.json not found after apply',
-      });
-      return;
-    }
-
-    let toolsConfig: unknown;
-    try {
-      toolsConfig = JSON.parse(fs.readFileSync(toolsJsonPath, 'utf-8'));
-    } catch {
-      results.push({
-        fixture: fixtureName,
-        check: 'tools.json is valid JSON',
-        passed: false,
-        detail: 'JSON.parse failed',
-      });
-      return;
-    }
-
-    results.push({ fixture: fixtureName, check: 'tools.json is valid JSON', passed: true });
-    results.push({
-      fixture: fixtureName,
-      check: 'tools.json contains MCP tool definitions',
-      passed: Array.isArray(toolsConfig) && toolsConfig.length > 0,
-      detail: Array.isArray(toolsConfig)
-        ? (toolsConfig.length > 0 ? undefined : 'tools.json is an empty array')
-        : 'tools.json is not an array',
+      check: 'ai-os server args point to runtime entry',
+      passed: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js')),
+      detail: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js'))
+        ? undefined
+        : Array.isArray(serverEntry.args)
+          ? `args do not include .ai-os runtime entry: ${JSON.stringify(serverEntry.args)}`
+          : 'args are missing',
     });
   }
+
+  const toolsJsonPath = path.join(dir, '.github/ai-os/tools.json');
+  if (!fs.existsSync(toolsJsonPath)) {
+    results.push({
+      fixture: fixtureName,
+      check: 'tools.json present for MCP tool definitions',
+      passed: false,
+      detail: '.github/ai-os/tools.json not found after apply',
+    });
+    return;
+  }
+
+  let toolsConfig: unknown;
+  try {
+    toolsConfig = JSON.parse(fs.readFileSync(toolsJsonPath, 'utf-8'));
+  } catch {
+    results.push({
+      fixture: fixtureName,
+      check: 'tools.json is valid JSON',
+      passed: false,
+      detail: 'JSON.parse failed',
+    });
+    return;
+  }
+
+  results.push({ fixture: fixtureName, check: 'tools.json is valid JSON', passed: true });
+  results.push({
+    fixture: fixtureName,
+    check: 'tools.json contains MCP tool definitions',
+    passed: Array.isArray(toolsConfig) && toolsConfig.length > 0,
+    detail: Array.isArray(toolsConfig)
+      ? (toolsConfig.length > 0 ? undefined : 'tools.json is an empty array')
+      : 'tools.json is not an array',
+  });
 }
 
 function checkMemoryQuality(dir: string, fixtureName: string, results: CheckResult[]): void {

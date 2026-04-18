@@ -44,8 +44,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Fast validation (build + unit tests)
-        run: npm run validate:fast
+      - name: Fast ops validation (build + unit tests + scorecard freshness)
+        run: npm run validate:ops
+
+      - name: Smoke validation (feature health checks)
+        run: npm run validate:smoke
 
   validate-full:
     if: github.event_name != 'pull_request'
@@ -67,3 +70,6 @@ jobs:
 
       - name: Full validation (build + unit tests + regression)
         run: npm run validate:full
+
+      - name: Smoke validation (feature health checks)
+        run: npm run validate:smoke

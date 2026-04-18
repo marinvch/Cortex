@@ -11,6 +11,7 @@ import { execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { validateSkillContract } from './skill-contract.js';
 
 interface FixtureSpec {
   name: string;
@@ -500,6 +501,45 @@ function checkMemoryQuality(dir: string, fixtureName: string, results: CheckResu
   });
 }
 
+function checkGeneratedSkillContracts(dir: string, fixtureName: string, results: CheckResult[]): void {
+  const skillsDir = path.join(dir, '.github/copilot/skills');
+  if (!fs.existsSync(skillsDir)) {
+    results.push({
+      fixture: fixtureName,
+      check: 'generated skills contract validation skipped (no generated skills)',
+      passed: true,
+    });
+    return;
+  }
+
+  const skillFiles = fs.readdirSync(skillsDir)
+    .filter((name) => name.startsWith('ai-os-') && name.endsWith('.md'));
+
+  if (skillFiles.length === 0) {
+    results.push({
+      fixture: fixtureName,
+      check: 'generated skills contract validation skipped (no ai-os skills)',
+      passed: true,
+    });
+    return;
+  }
+
+  for (const skillFile of skillFiles) {
+    const fullPath = path.join(skillsDir, skillFile);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const validation = validateSkillContract(content);
+
+    results.push({
+      fixture: fixtureName,
+      check: `skill contract sections present: ${skillFile}`,
+      passed: validation.valid,
+      detail: validation.valid
+        ? undefined
+        : `Missing sections: ${validation.missingSections.join(', ')}`,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reporting
 // ---------------------------------------------------------------------------
@@ -580,6 +620,7 @@ async function main(): Promise<void> {
       checkRefreshSafety(fixtureDir, fixture.name, results);
       checkMcpHealth(fixtureDir, fixture.name, results);
       checkMemoryQuality(fixtureDir, fixture.name, results);
+      checkGeneratedSkillContracts(fixtureDir, fixture.name, results);
     }
   } finally {
     // Clean up temp fixtures

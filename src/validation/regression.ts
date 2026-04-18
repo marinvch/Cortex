@@ -360,6 +360,37 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
     passed: safeRerun.stdout.includes('Safe mode updated local MCP/runtime wiring'),
     detail: safeRerun.stdout.includes('Safe mode updated local MCP/runtime wiring') ? undefined : 'Missing safe mode explanation for stale installs',
   });
+
+  // protect.json write-path protection: a file listed in protect.json must not be
+  // overwritten by --refresh-existing even if it overlaps with a managed path.
+  const protectTarget = '.github/copilot-instructions.md';
+  const uniqueContent = '<!-- PROTECTED CUSTOM CONTENT — must survive refresh -->';
+  writeFile(path.join(dir, protectTarget), uniqueContent);
+  writeJson(path.join(dir, '.github/ai-os/protect.json'), { protected: [protectTarget] });
+
+  const protectRefresh = run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, AI_OS_ROOT);
+  const contentAfterProtect = readText(dir, protectTarget);
+
+  results.push({
+    fixture: fixtureName,
+    check: 'protect.json shields file from overwrite during refresh',
+    passed: protectRefresh.ok && contentAfterProtect === uniqueContent,
+    detail: !protectRefresh.ok
+      ? `refresh failed: ${protectRefresh.stderr.slice(0, 200)}`
+      : contentAfterProtect !== uniqueContent
+        ? 'protected file was overwritten by refresh-existing'
+        : undefined,
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'protect.json refresh output includes shielded-count message',
+    passed: protectRefresh.stdout.includes('shielded against overwrite'),
+    detail: protectRefresh.stdout.includes('shielded against overwrite') ? undefined : 'Missing shield announcement in refresh output',
+  });
+
+  // Clean up protect.json so subsequent checks are not affected
+  fs.rmSync(path.join(dir, '.github/ai-os/protect.json'));
 }
 
 function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]): void {

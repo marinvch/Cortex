@@ -10,6 +10,10 @@ interface WeekMetrics {
   reworkRate: number;
   avgTimeToFixMinutes: number;
   contextHitRate: number;
+  // Robustness KPIs (optional — populated when validation is run)
+  skillContractPassRate?: number;
+  startupProtocolCompliance?: number;
+  severityReviewAdoption?: number;
   notes?: string;
   updatedAt: string;
 }
@@ -106,6 +110,15 @@ function showScorecard(scorecard: ScorecardFile): void {
   console.log(`- reworkRate: ${(latest.reworkRate * 100).toFixed(1)}%`);
   console.log(`- avgTimeToFixMinutes: ${latest.avgTimeToFixMinutes}`);
   console.log(`- contextHitRate: ${(latest.contextHitRate * 100).toFixed(1)}%`);
+  if (latest.skillContractPassRate !== undefined) {
+    console.log(`- skillContractPassRate: ${(latest.skillContractPassRate * 100).toFixed(1)}%`);
+  }
+  if (latest.startupProtocolCompliance !== undefined) {
+    console.log(`- startupProtocolCompliance: ${(latest.startupProtocolCompliance * 100).toFixed(1)}%`);
+  }
+  if (latest.severityReviewAdoption !== undefined) {
+    console.log(`- severityReviewAdoption: ${(latest.severityReviewAdoption * 100).toFixed(1)}%`);
+  }
   if (latest.notes) {
     console.log(`- notes: ${latest.notes}`);
   }
@@ -121,6 +134,9 @@ function upsertWeek(scorecard: ScorecardFile): void {
     avgTimeToFixMinutes: parsePositive(getArg('--time-to-fix'), '--time-to-fix'),
     contextHitRate: parsePercent(getArg('--context-hit'), '--context-hit'),
     notes: getArg('--notes'),
+    ...(getArg('--skill-contract') !== undefined ? { skillContractPassRate: parsePercent(getArg('--skill-contract'), '--skill-contract') } : {}),
+    ...(getArg('--startup-protocol') !== undefined ? { startupProtocolCompliance: parsePercent(getArg('--startup-protocol'), '--startup-protocol') } : {}),
+    ...(getArg('--severity-review') !== undefined ? { severityReviewAdoption: parsePercent(getArg('--severity-review'), '--severity-review') } : {}),
     updatedAt: new Date().toISOString(),
   };
 

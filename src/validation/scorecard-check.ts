@@ -5,6 +5,9 @@ import path from 'node:path';
 
 interface WeekMetrics {
   weekStart: string;
+  skillContractPassRate?: number;
+  startupProtocolCompliance?: number;
+  severityReviewAdoption?: number;
 }
 
 interface ScorecardFile {
@@ -12,6 +15,13 @@ interface ScorecardFile {
 }
 
 const SCORECARD_PATH = path.resolve(import.meta.dirname, '../../.github/ai-os/metrics/scorecard.json');
+
+// Minimum thresholds for robustness KPIs (when present in the scorecard entry)
+const ROBUSTNESS_THRESHOLDS: Record<keyof Omit<WeekMetrics, 'weekStart'>, number> = {
+  skillContractPassRate: 0.9,
+  startupProtocolCompliance: 0.8,
+  severityReviewAdoption: 0.7,
+};
 
 function getArgValue(flag: string): string | undefined {
   return process.argv.find((arg) => arg.startsWith(`${flag}=`))?.slice(flag.length + 1);
@@ -44,6 +54,28 @@ function readScorecard(): ScorecardFile {
   }
 
   return { weeks: parsed.weeks };
+}
+
+function checkRobustnessKpis(latest: WeekMetrics): void {
+  const kpiKeys = Object.keys(ROBUSTNESS_THRESHOLDS) as Array<keyof typeof ROBUSTNESS_THRESHOLDS>;
+  const failures: string[] = [];
+
+  for (const key of kpiKeys) {
+    const value = latest[key];
+    if (value === undefined) continue; // KPI not yet tracked — skip without failing
+    const threshold = ROBUSTNESS_THRESHOLDS[key];
+    const pct = (value * 100).toFixed(1);
+    const thresholdPct = (threshold * 100).toFixed(1);
+    if (value < threshold) {
+      failures.push(`${key}: ${pct}% is below threshold ${thresholdPct}%`);
+    } else {
+      console.log(`  Robustness KPI ${key}: ${pct}% ✓ (threshold ${thresholdPct}%)`);
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new Error(`Robustness KPI threshold failures:\n${failures.map(f => `  - ${f}`).join('\n')}`);
+  }
 }
 
 function daysSince(isoDate: string): number {
@@ -84,6 +116,11 @@ function run(): void {
   console.log(
     `Scorecard freshness check passed: latest week ${latestWeekStart} is ${ageDays} days old (max ${maxAgeDays}).`
   );
+
+  const latest = scorecard.weeks.find(w => w.weekStart === latestWeekStart);
+  if (latest) {
+    checkRobustnessKpis(latest);
+  }
 }
 
 try {

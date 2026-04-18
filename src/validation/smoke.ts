@@ -3,6 +3,9 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { enforceSkillContract, validateSkillContract } from './skill-contract.js';
+import { enforceAgentContract, validateAgentContract } from './agent-contract.js';
+import { SEVERITY_LEVELS } from './review-severity.js';
 
 interface SmokeCheck {
   name: string;
@@ -87,6 +90,97 @@ function checkScorecardHasEntries(): SmokeCheck {
   };
 }
 
+function checkSkillTemplateContracts(): SmokeCheck {
+  const templatesDir = path.join(REPO_ROOT, 'src/templates/skills');
+  if (!fs.existsSync(templatesDir)) {
+    return {
+      name: 'skill templates satisfy contract sections',
+      passed: false,
+      detail: `Missing templates directory: ${templatesDir}`,
+    };
+  }
+
+  const templateFiles = fs.readdirSync(templatesDir)
+    .filter((name) => name.endsWith('.md'));
+
+  const invalid: string[] = [];
+  for (const templateFile of templateFiles) {
+    const fullPath = path.join(templatesDir, templateFile);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const enforced = enforceSkillContract(content, { skillName: templateFile });
+    const validation = validateSkillContract(enforced);
+    if (!validation.valid) {
+      invalid.push(`${templateFile} -> missing: ${validation.missingSections.join(', ')}`);
+    }
+  }
+
+  return {
+    name: 'skill templates satisfy contract sections',
+    passed: invalid.length === 0,
+    detail: invalid.length === 0 ? undefined : invalid.join(' | '),
+  };
+}
+
+function checkAgentTemplateContracts(): SmokeCheck {
+  const templatesDir = path.join(REPO_ROOT, 'src/templates/agents');
+  if (!fs.existsSync(templatesDir)) {
+    return {
+      name: 'agent templates satisfy contract sections',
+      passed: false,
+      detail: `Missing templates directory: ${templatesDir}`,
+    };
+  }
+
+  const templateFiles = fs.readdirSync(templatesDir)
+    .filter((name) => name.endsWith('.md'));
+
+  const invalid: string[] = [];
+  for (const templateFile of templateFiles) {
+    const fullPath = path.join(templatesDir, templateFile);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const enforced = enforceAgentContract(content, { agentName: templateFile });
+    const validation = validateAgentContract(enforced);
+    if (!validation.valid) {
+      invalid.push(`${templateFile} -> missing: ${validation.missingSections.join(', ')}`);
+    }
+  }
+
+  return {
+    name: 'agent templates satisfy contract sections',
+    passed: invalid.length === 0,
+    detail: invalid.length === 0 ? undefined : invalid.join(' | '),
+  };
+}
+
+function checkReviewSeverityTaxonomy(): SmokeCheck {
+  const reviewTemplates = [
+    'src/templates/agents/enhancement-advisor.md',
+    'src/templates/agents/idea-validator.md',
+  ];
+
+  const missing: string[] = [];
+  for (const relPath of reviewTemplates) {
+    const fullPath = path.join(REPO_ROOT, relPath);
+    if (!fs.existsSync(fullPath)) {
+      missing.push(`${relPath} (file not found)`);
+      continue;
+    }
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const missingLabels = SEVERITY_LEVELS.filter(
+      (level) => !content.includes(`**${level}**`) && !content.includes(level),
+    );
+    if (missingLabels.length > 0) {
+      missing.push(`${relPath} missing labels: ${missingLabels.join(', ')}`);
+    }
+  }
+
+  return {
+    name: 'review severity taxonomy present in review templates',
+    passed: missing.length === 0,
+    detail: missing.length === 0 ? undefined : missing.join(' | '),
+  };
+}
+
 function run(): void {
   const checks: SmokeCheck[] = [];
 
@@ -97,6 +191,9 @@ function run(): void {
   checks.push(checkFileExists('src/validation/scorecard-check.ts'));
   checks.push(checkPersistentRules());
   checks.push(checkScorecardHasEntries());
+  checks.push(checkSkillTemplateContracts());
+  checks.push(checkAgentTemplateContracts());
+  checks.push(checkReviewSeverityTaxonomy());
 
   const scorecardCheck = runCommand('npm run scorecard:check', REPO_ROOT);
   checks.push({

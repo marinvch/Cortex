@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { writeIfChanged, applyFallbacks, resolveTemplatesDir } from './utils.js';
+import { enforceAgentContract } from '../validation/agent-contract.js';
 
 const AGENTS_DIR = '.github/agents';
 
@@ -363,6 +364,8 @@ function injectReplacements(template: string, replacements: Record<string, strin
 
 interface GenerateAgentsOptions {
   refreshExisting?: boolean;
+  /** When true, skip overwriting agent files that already exist (safe refresh default). */
+  preserveExistingAgents?: boolean;
   config?: AiOsConfig | null;
 }
 
@@ -400,8 +403,8 @@ async function generateAgentsWithOptions(
   for (const spec of specs) {
     const outputPath = path.join(agentsDir, spec.outputFile);
 
-    // In safe mode, skip existing files.
-    if (fs.existsSync(outputPath) && !options.refreshExisting) continue;
+    // Skip existing files in safe mode OR when preserveExistingAgents is true (safe refresh).
+    if (fs.existsSync(outputPath) && (!options.refreshExisting || options.preserveExistingAgents)) continue;
 
     // In safe mode, skip conceptually equivalent existing agents.
     if (!options.refreshExisting) {
@@ -443,6 +446,9 @@ async function generateAgentsWithOptions(
       content = applyFallbacks(content);
     }
 
+    // Ensure generated agents include anti-rationalization guardrail sections.
+    content = enforceAgentContract(content, { agentName: spec.outputFile });
+
     writeIfChanged(outputPath, content);
     generated.push(outputPath);
   }
@@ -457,6 +463,7 @@ export async function generateAgents(
 ): Promise<string[]> {
   return generateAgentsWithOptions(stack, cwd, {
     refreshExisting: options?.refreshExisting ?? false,
+    preserveExistingAgents: options?.preserveExistingAgents ?? false,
     config: options?.config,
   });
 }

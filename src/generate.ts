@@ -22,7 +22,7 @@ import type { UpdateStatus } from './updater.js';
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
@@ -31,6 +31,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
   let prune = false;
   let verbose = false;
   let cleanUpdate = false;
+  let regenerateContext = false;
+  let pruneCustomArtifacts = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -62,10 +64,14 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'check-hygiene';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
+    } else if (args[i] === '--regenerate-context') {
+      regenerateContext = true;
+    } else if (args[i] === '--prune-custom-artifacts') {
+      pruneCustomArtifacts = true;
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts };
 }
 
 function printBanner(): void {
@@ -179,6 +185,7 @@ function printSummary(
   skipped: string[],
   pruned: string[],
   agents: string[],
+  preserved: string[],
 ): void {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
@@ -191,6 +198,10 @@ function printSummary(
   console.log('  Diff summary:');
   console.log(`  ✅ Written (new or changed):  ${written.length}`);
   console.log(`  ⏭️  Unchanged (skipped):        ${skipped.length}`);
+  if (preserved.length > 0) {
+    console.log(`  🔒 Preserved (curated):        ${preserved.length}`);
+    for (const p of preserved) console.log(`       • ${path.relative(outputDir, p).replace(/\\/g, '/')}`);
+  }
   if (pruned.length > 0) {
     console.log(`  🗑️  Pruned (stale):              ${pruned.length}`);
     for (const p of pruned) console.log(`       • ${path.relative(outputDir, p).replace(/\\/g, '/')}`);
@@ -250,6 +261,48 @@ function printContextualNextSteps(
   console.log(`     "${firstPrompt}"`);
   printRecommendationsHint();
   console.log('');
+}
+
+/**
+ * Load the optional `.github/ai-os/protect.json` file.
+ * Returns a Set of repo-relative forward-slash paths that should never be
+ * overwritten or pruned during a refresh run.
+ *
+ * Example protect.json:
+ * ```json
+ * {
+ *   "protected": [
+ *     ".github/agents/my-custom-agent.md",
+ *     ".github/ai-os/context/conventions.md"
+ *   ]
+ * }
+ * ```
+ */
+function loadProtectConfig(cwd: string): Set<string> {
+  const protectPath = path.join(cwd, '.github', 'ai-os', 'protect.json');
+  if (!fs.existsSync(protectPath)) return new Set();
+  try {
+    const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as { protected?: unknown };
+    if (!Array.isArray(raw.protected)) return new Set();
+    return new Set(
+      (raw.protected as unknown[])
+        .filter((p): p is string => typeof p === 'string')
+        .map(p => p.replace(/\\/g, '/')),
+    );
+  } catch {
+    console.warn('  ⚠ Could not parse .github/ai-os/protect.json — ignoring protection config');
+    return new Set();
+  }
+}
+
+/**
+ * Directories whose contents are considered "custom artifacts" (user-created or user-edited).
+ * Files under these paths are NOT pruned during refresh unless --prune-custom-artifacts is passed.
+ */
+const CUSTOM_ARTIFACT_DIRS = ['.github/agents/', '.agents/skills/'];
+
+function isCustomArtifact(relPath: string): boolean {
+  return CUSTOM_ARTIFACT_DIRS.some(dir => relPath.startsWith(dir));
 }
 
 function ensureGitignoreEntry(cwd: string, entry: string): void {
@@ -350,7 +403,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts } = parseArgs();
   let mode: GenerateMode = rawMode;
 
   // Enable verbose per-file logging when --verbose / -v is passed
@@ -388,15 +441,43 @@ async function main(): Promise<void> {
     printUpdateBanner(updateStatus);
   }
 
+  // In refresh mode, curated context/instruction files are preserved by default.
+  // Pass --regenerate-context to allow full rewrite of those files.
+  const isRefresh = mode === 'refresh-existing';
+  const preserveContextFiles = isRefresh && !regenerateContext;
+
+  if (isRefresh && preserveContextFiles) {
+    console.log('  🔒 Safe refresh: curated context/instruction files will be preserved.');
+    console.log('     Pass --regenerate-context to allow full rewrite of those files.');
+    console.log('');
+  }
+
   // Prune legacy artifacts on every refresh/update run
   if (mode === 'refresh-existing') {
     pruneLegacyArtifacts(cwd, { fullCleanup: cleanUpdate });
   }
 
+  // Load optional protection config for files that must never be overwritten/pruned.
+  const protectedPaths = loadProtectConfig(cwd);
+
+  // Snapshot content of protect.json-listed files BEFORE generation so we can
+  // restore them afterwards if a generator accidentally overwrites them.
+  const protectedSnapshots = new Map<string, string>();
+  for (const rel of protectedPaths) {
+    const abs = path.join(cwd, rel);
+    if (fs.existsSync(abs)) {
+      protectedSnapshots.set(abs, fs.readFileSync(abs, 'utf-8'));
+    }
+  }
+  if (isRefresh && protectedSnapshots.size > 0) {
+    console.log(`  🔒 protect.json: ${protectedSnapshots.size} file(s) shielded against overwrite.`);
+    console.log('');
+  }
+
   const stack = analyze(cwd);
   // Read existing config before generation to preserve user-editable fields
   const existingConfig = readAiOsConfig(cwd);
-  const onboardingPlan = buildOnboardingPlan(cwd, mode);
+  const onboardingPlan = buildOnboardingPlan(cwd, mode, { regenerateContext });
 
   if (action === 'plan') {
     console.log(formatOnboardingPlan(onboardingPlan));
@@ -421,14 +502,14 @@ async function main(): Promise<void> {
   const previousFiles = new Set(previousManifest?.files ?? []);
 
   // Phase 1: Core context files (config.json is written here, with user fields preserved)
-  const contextFiles = generateContextDocs(stack, cwd);
+  const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
   // Read the freshly-written config to get feature flags for remaining generators
   const config = readAiOsConfig(cwd) ?? existingConfig;
-  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
+  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
 
   // Phase 2: Agents, Skills, Prompts
-  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
+  const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveExistingAgents: preserveContextFiles, config: config ?? undefined });
   const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const workflowFiles = generateWorkflows(cwd, { config: config ?? undefined });
@@ -465,13 +546,30 @@ async function main(): Promise<void> {
 
   // #7 / #8 — Prune stale files (files in previous manifest but not in current run).
   //            Pruning only happens in refresh/update mode, or when --prune is explicit.
+  //            Custom artifact directories (.github/agents/, .agents/skills/) are spared
+  //            unless --prune-custom-artifacts is passed or the file is not a custom artifact.
   const shouldPrune = pruneFlag || mode === 'refresh-existing';
   const prunedAbs: string[] = [];
+  const preservedAbs: string[] = [];
 
   if (shouldPrune && previousFiles.size > 0) {
     const currentSet = new Set(currentRelFiles);
     for (const rel of previousFiles) {
       if (!currentSet.has(rel)) {
+        // Skip files protected by protect.json
+        if (protectedPaths.has(rel)) {
+          if (verbose) console.log(`  🔒 protect  ${rel}  (in protect.json)`);
+          preservedAbs.push(path.join(cwd, rel));
+          continue;
+        }
+        // Skip custom artifacts unless --prune-custom-artifacts is passed
+        if (!pruneCustomArtifacts && isCustomArtifact(rel)) {
+          if (verbose) {
+            console.log(`  🔒 preserve ${rel}  (custom artifact — pass --prune-custom-artifacts to remove)`);
+          }
+          preservedAbs.push(path.join(cwd, rel));
+          continue;
+        }
         const abs = path.join(cwd, rel);
         if (fs.existsSync(abs)) {
           try {
@@ -492,6 +590,19 @@ async function main(): Promise<void> {
     }
   }
 
+  // Restore any files that were overwritten during generation despite being in protect.json.
+  // This ensures protect.json guards both prune and write paths.
+  for (const [abs, originalContent] of protectedSnapshots) {
+    if (!fs.existsSync(abs)) continue;
+    const currentContent = fs.readFileSync(abs, 'utf-8');
+    if (currentContent !== originalContent) {
+      fs.writeFileSync(abs, originalContent, 'utf-8');
+      const rel = path.relative(cwd, abs).replace(/\\/g, '/');
+      if (verbose) console.log(`  🔒 restored ${rel}  (protect.json: overwrite reverted)`);
+      if (!preservedAbs.some(p => p === abs)) preservedAbs.push(abs);
+    }
+  }
+
   // Write updated manifest (#8 / #11).
   writeManifest(cwd, getToolVersion(), currentRelFiles);
 
@@ -505,7 +616,7 @@ async function main(): Promise<void> {
 
   installLocalMcpRuntime(cwd, verbose);
 
-  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles);
+  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
 
   // ── Agent-flow setup prompt ──────────────────────────────────────────────

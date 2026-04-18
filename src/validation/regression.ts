@@ -11,6 +11,8 @@ import { execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { validateSkillContract } from './skill-contract.js';
+import { validateAgentContract } from './agent-contract.js';
 
 interface FixtureSpec {
   name: string;
@@ -358,6 +360,37 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
     passed: safeRerun.stdout.includes('Safe mode updated local MCP/runtime wiring'),
     detail: safeRerun.stdout.includes('Safe mode updated local MCP/runtime wiring') ? undefined : 'Missing safe mode explanation for stale installs',
   });
+
+  // protect.json write-path protection: a file listed in protect.json must not be
+  // overwritten by --refresh-existing even if it overlaps with a managed path.
+  const protectTarget = '.github/copilot-instructions.md';
+  const uniqueContent = '<!-- PROTECTED CUSTOM CONTENT — must survive refresh -->';
+  writeFile(path.join(dir, protectTarget), uniqueContent);
+  writeJson(path.join(dir, '.github/ai-os/protect.json'), { protected: [protectTarget] });
+
+  const protectRefresh = run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, AI_OS_ROOT);
+  const contentAfterProtect = readText(dir, protectTarget);
+
+  results.push({
+    fixture: fixtureName,
+    check: 'protect.json shields file from overwrite during refresh',
+    passed: protectRefresh.ok && contentAfterProtect === uniqueContent,
+    detail: !protectRefresh.ok
+      ? `refresh failed: ${protectRefresh.stderr.slice(0, 200)}`
+      : contentAfterProtect !== uniqueContent
+        ? 'protected file was overwritten by refresh-existing'
+        : undefined,
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'protect.json refresh output includes shielded-count message',
+    passed: protectRefresh.stdout.includes('shielded against overwrite'),
+    detail: protectRefresh.stdout.includes('shielded against overwrite') ? undefined : 'Missing shield announcement in refresh output',
+  });
+
+  // Clean up protect.json so subsequent checks are not affected
+  fs.rmSync(path.join(dir, '.github/ai-os/protect.json'));
 }
 
 function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]): void {
@@ -500,6 +533,84 @@ function checkMemoryQuality(dir: string, fixtureName: string, results: CheckResu
   });
 }
 
+function checkGeneratedSkillContracts(dir: string, fixtureName: string, results: CheckResult[]): void {
+  const skillsDir = path.join(dir, '.github/copilot/skills');
+  if (!fs.existsSync(skillsDir)) {
+    results.push({
+      fixture: fixtureName,
+      check: 'generated skills contract validation skipped (no generated skills)',
+      passed: true,
+    });
+    return;
+  }
+
+  const skillFiles = fs.readdirSync(skillsDir)
+    .filter((name) => name.startsWith('ai-os-') && name.endsWith('.md'));
+
+  if (skillFiles.length === 0) {
+    results.push({
+      fixture: fixtureName,
+      check: 'generated skills contract validation skipped (no ai-os skills)',
+      passed: true,
+    });
+    return;
+  }
+
+  for (const skillFile of skillFiles) {
+    const fullPath = path.join(skillsDir, skillFile);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const validation = validateSkillContract(content);
+
+    results.push({
+      fixture: fixtureName,
+      check: `skill contract sections present: ${skillFile}`,
+      passed: validation.valid,
+      detail: validation.valid
+        ? undefined
+        : `Missing sections: ${validation.missingSections.join(', ')}`,
+    });
+  }
+}
+
+function checkGeneratedAgentContracts(dir: string, fixtureName: string, results: CheckResult[]): void {
+  const agentsDir = path.join(dir, '.github/agents');
+  if (!fs.existsSync(agentsDir)) {
+    results.push({
+      fixture: fixtureName,
+      check: 'generated agents contract validation skipped (no generated agents)',
+      passed: true,
+    });
+    return;
+  }
+
+  const agentFiles = fs.readdirSync(agentsDir)
+    .filter((name) => name.endsWith('.agent.md'));
+
+  if (agentFiles.length === 0) {
+    results.push({
+      fixture: fixtureName,
+      check: 'generated agents contract validation skipped (no .agent.md files)',
+      passed: true,
+    });
+    return;
+  }
+
+  for (const agentFile of agentFiles) {
+    const fullPath = path.join(agentsDir, agentFile);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const validation = validateAgentContract(content);
+
+    results.push({
+      fixture: fixtureName,
+      check: `agent contract sections present: ${agentFile}`,
+      passed: validation.valid,
+      detail: validation.valid
+        ? undefined
+        : `Missing sections: ${validation.missingSections.join(', ')}`,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reporting
 // ---------------------------------------------------------------------------
@@ -580,6 +691,8 @@ async function main(): Promise<void> {
       checkRefreshSafety(fixtureDir, fixture.name, results);
       checkMcpHealth(fixtureDir, fixture.name, results);
       checkMemoryQuality(fixtureDir, fixture.name, results);
+      checkGeneratedSkillContracts(fixtureDir, fixture.name, results);
+      checkGeneratedAgentContracts(fixtureDir, fixture.name, results);
     }
   } finally {
     // Clean up temp fixtures

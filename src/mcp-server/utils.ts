@@ -1020,9 +1020,32 @@ export function checkForUpdates(): string {
 // ── Tool #19: Session Context ─────────────────────────────────────────────────
 
 export function getSessionContext(): string {
+  const SESSION_BOOTSTRAP = [
+    '',
+    '---',
+    '',
+    '## Session Start Bootstrap',
+    '',
+    '**At the start of every session, run in order:**',
+    '',
+    '1. `get_session_context` ← you are here',
+    '2. `get_repo_memory` — reload durable architectural decisions',
+    '3. `get_conventions` — reload coding rules before writing any code',
+    '',
+    '**Before any non-trivial change:**',
+    '',
+    '- `get_project_structure` — explore unfamiliar directories',
+    '- `get_file_summary` — understand a file without reading it fully',
+    '- `get_impact_of_change` — assess blast radius before editing shared files',
+    '- Use `/define` → `/plan` lifecycle prompts before writing code',
+    '',
+    '> If the request is ambiguous or underspecified, ask clarifying questions first.',
+    '> Do not improvise requirements or make architectural changes without confirmation.',
+  ].join('\n');
+
   const contextCardPath = path.join(ROOT, '.github', 'COPILOT_CONTEXT.md');
   if (fs.existsSync(contextCardPath)) {
-    return fs.readFileSync(contextCardPath, 'utf-8');
+    return fs.readFileSync(contextCardPath, 'utf-8') + SESSION_BOOTSTRAP;
   }
   // Fallback: build a minimal context from available files
   const lines: string[] = [
@@ -1041,7 +1064,7 @@ export function getSessionContext(): string {
   }
   lines.push('');
   lines.push('Call `get_conventions` and `get_repo_memory` for full context.');
-  return lines.join('\n');
+  return lines.join('\n') + SESSION_BOOTSTRAP;
 }
 
 // ── Tool #20: Recommendations ─────────────────────────────────────────────────

@@ -273,3 +273,181 @@ describe('persona directive in copilot-instructions.md', () => {
   });
 });
 
+
+// ---------------------------------------------------------------------------
+// Safe refresh mode — preserveContextFiles
+// ---------------------------------------------------------------------------
+
+describe('preserveContextFiles option', () => {
+  it('does NOT overwrite copilot-instructions.md when preserveContextFiles is true and file exists', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-instr-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    const instrPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
+    const customContent = '# Custom Instructions\n\nThis is my curated content.\n';
+    fs.writeFileSync(instrPath, customContent, 'utf-8');
+
+    generateInstructions(stack, tmpDir, { refreshExisting: true, preserveContextFiles: true });
+
+    const after = fs.readFileSync(instrPath, 'utf-8');
+    expect(after).toBe(customContent);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('DOES overwrite copilot-instructions.md when preserveContextFiles is false', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-overwrite-instr-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    const instrPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
+    const customContent = '# Custom Instructions\n\nThis is my curated content.\n';
+    fs.writeFileSync(instrPath, customContent, 'utf-8');
+
+    generateInstructions(stack, tmpDir, { refreshExisting: true, preserveContextFiles: false });
+
+    const after = fs.readFileSync(instrPath, 'utf-8');
+    expect(after).not.toBe(customContent);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does NOT overwrite architecture.md when preserveContextFiles is true and file exists', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-arch-' + Date.now());
+    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    fs.mkdirSync(contextDir, { recursive: true });
+
+    const archPath = path.join(contextDir, 'architecture.md');
+    const customContent = '# Custom Architecture\n\nThis is my curated architecture doc.\n';
+    fs.writeFileSync(archPath, customContent, 'utf-8');
+
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: true });
+
+    const after = fs.readFileSync(archPath, 'utf-8');
+    expect(after).toBe(customContent);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does NOT overwrite conventions.md when preserveContextFiles is true and file exists', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-convs-' + Date.now());
+    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    fs.mkdirSync(contextDir, { recursive: true });
+
+    const convsPath = path.join(contextDir, 'conventions.md');
+    const customContent = '# Custom Conventions\n\nTeam-specific conventions here.\n';
+    fs.writeFileSync(convsPath, customContent, 'utf-8');
+
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: true });
+
+    const after = fs.readFileSync(convsPath, 'utf-8');
+    expect(after).toBe(customContent);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('creates architecture.md when it does not exist even with preserveContextFiles true', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-create-arch-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: true });
+
+    const archPath = path.join(tmpDir, '.github', 'ai-os', 'context', 'architecture.md');
+    expect(fs.existsSync(archPath), 'architecture.md should be created when missing').toBe(true);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildOnboardingPlan — preserve action in plan
+// ---------------------------------------------------------------------------
+
+describe('buildOnboardingPlan with regenerateContext=false', () => {
+  it('shows preserve action for architecture.md in refresh mode when file exists', async () => {
+    const { buildOnboardingPlan } = await import('../planner.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-plan-preserve-' + Date.now());
+    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    fs.mkdirSync(contextDir, { recursive: true });
+    fs.writeFileSync(path.join(contextDir, 'architecture.md'), '# Arch\n', 'utf-8');
+
+    const plan = buildOnboardingPlan(tmpDir, 'refresh-existing', { regenerateContext: false });
+    const archAction = plan.actions.find(a => a.path === '.github/ai-os/context/architecture.md');
+    expect(archAction?.action).toBe('preserve');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('shows update action for architecture.md in refresh mode with regenerateContext=true', async () => {
+    const { buildOnboardingPlan } = await import('../planner.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-plan-regen-' + Date.now());
+    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    fs.mkdirSync(contextDir, { recursive: true });
+    fs.writeFileSync(path.join(contextDir, 'architecture.md'), '# Arch\n', 'utf-8');
+
+    const plan = buildOnboardingPlan(tmpDir, 'refresh-existing', { regenerateContext: true });
+    const archAction = plan.actions.find(a => a.path === '.github/ai-os/context/architecture.md');
+    expect(archAction?.action).toBe('update');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Agent preservation in safe refresh mode
+// ---------------------------------------------------------------------------
+
+describe('agent preservation with preserveExistingAgents', () => {
+  it('does NOT overwrite existing agent file when preserveExistingAgents is true', async () => {
+    const { generateAgents } = await import('../generators/agents.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-agents-' + Date.now());
+    const agentsDir = path.join(tmpDir, '.github', 'agents');
+    fs.mkdirSync(agentsDir, { recursive: true });
+
+    // Create a pre-existing agent file with custom content
+    const agentFile = path.join(agentsDir, 'test-project-initializer.agent.md');
+    const customContent = 'name: Custom Agent\ndescription: My custom agent\n\nThis is my curated agent content.\n';
+    fs.writeFileSync(agentFile, customContent, 'utf-8');
+
+    await generateAgents(stack, tmpDir, { refreshExisting: true, preserveExistingAgents: true });
+
+    const after = fs.readFileSync(agentFile, 'utf-8');
+    expect(after).toBe(customContent);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});

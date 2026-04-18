@@ -998,9 +998,31 @@ function checkForUpdates() {
   return `AI OS is up-to-date (v${installedVersion}). Last generated: ${installedAt}`;
 }
 function getSessionContext() {
+  const SESSION_BOOTSTRAP = [
+    "",
+    "---",
+    "",
+    "## Session Start Bootstrap",
+    "",
+    "**At the start of every session, run in order:**",
+    "",
+    "1. `get_session_context` \u2190 you are here",
+    "2. `get_repo_memory` \u2014 reload durable architectural decisions",
+    "3. `get_conventions` \u2014 reload coding rules before writing any code",
+    "",
+    "**Before any non-trivial change:**",
+    "",
+    "- `get_project_structure` \u2014 explore unfamiliar directories",
+    "- `get_file_summary` \u2014 understand a file without reading it fully",
+    "- `get_impact_of_change` \u2014 assess blast radius before editing shared files",
+    "- Use `/define` \u2192 `/plan` lifecycle prompts before writing code",
+    "",
+    "> If the request is ambiguous or underspecified, ask clarifying questions first.",
+    "> Do not improvise requirements or make architectural changes without confirmation."
+  ].join("\n");
   const contextCardPath = path.join(ROOT, ".github", "COPILOT_CONTEXT.md");
   if (fs.existsSync(contextCardPath)) {
-    return fs.readFileSync(contextCardPath, "utf-8");
+    return fs.readFileSync(contextCardPath, "utf-8") + SESSION_BOOTSTRAP;
   }
   const lines = [
     "# Session Context",
@@ -1017,7 +1039,7 @@ function getSessionContext() {
   }
   lines.push("");
   lines.push("Call `get_conventions` and `get_repo_memory` for full context.");
-  return lines.join("\n");
+  return lines.join("\n") + SESSION_BOOTSTRAP;
 }
 function getRecommendations() {
   const recommendationsPath = path.join(ROOT, ".github", "ai-os", "recommendations.md");

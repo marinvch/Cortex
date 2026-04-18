@@ -460,6 +460,20 @@ async function main(): Promise<void> {
   // Load optional protection config for files that must never be overwritten/pruned.
   const protectedPaths = loadProtectConfig(cwd);
 
+  // Snapshot content of protect.json-listed files BEFORE generation so we can
+  // restore them afterwards if a generator accidentally overwrites them.
+  const protectedSnapshots = new Map<string, string>();
+  for (const rel of protectedPaths) {
+    const abs = path.join(cwd, rel);
+    if (fs.existsSync(abs)) {
+      protectedSnapshots.set(abs, fs.readFileSync(abs, 'utf-8'));
+    }
+  }
+  if (isRefresh && protectedSnapshots.size > 0) {
+    console.log(`  🔒 protect.json: ${protectedSnapshots.size} file(s) shielded against overwrite.`);
+    console.log('');
+  }
+
   const stack = analyze(cwd);
   // Read existing config before generation to preserve user-editable fields
   const existingConfig = readAiOsConfig(cwd);
@@ -573,6 +587,19 @@ async function main(): Promise<void> {
           console.log(`  🗑️  prune   ${rel}  (already missing, skipping delete)`);
         }
       }
+    }
+  }
+
+  // Restore any files that were overwritten during generation despite being in protect.json.
+  // This ensures protect.json guards both prune and write paths.
+  for (const [abs, originalContent] of protectedSnapshots) {
+    if (!fs.existsSync(abs)) continue;
+    const currentContent = fs.readFileSync(abs, 'utf-8');
+    if (currentContent !== originalContent) {
+      fs.writeFileSync(abs, originalContent, 'utf-8');
+      const rel = path.relative(cwd, abs).replace(/\\/g, '/');
+      if (verbose) console.log(`  🔒 restored ${rel}  (protect.json: overwrite reverted)`);
+      if (!preservedAbs.some(p => p === abs)) preservedAbs.push(abs);
     }
   }
 

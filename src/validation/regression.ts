@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { validateSkillContract } from './skill-contract.js';
+import { validateAgentContract } from './agent-contract.js';
 
 interface FixtureSpec {
   name: string;
@@ -540,6 +541,45 @@ function checkGeneratedSkillContracts(dir: string, fixtureName: string, results:
   }
 }
 
+function checkGeneratedAgentContracts(dir: string, fixtureName: string, results: CheckResult[]): void {
+  const agentsDir = path.join(dir, '.github/agents');
+  if (!fs.existsSync(agentsDir)) {
+    results.push({
+      fixture: fixtureName,
+      check: 'generated agents contract validation skipped (no generated agents)',
+      passed: true,
+    });
+    return;
+  }
+
+  const agentFiles = fs.readdirSync(agentsDir)
+    .filter((name) => name.endsWith('.agent.md'));
+
+  if (agentFiles.length === 0) {
+    results.push({
+      fixture: fixtureName,
+      check: 'generated agents contract validation skipped (no .agent.md files)',
+      passed: true,
+    });
+    return;
+  }
+
+  for (const agentFile of agentFiles) {
+    const fullPath = path.join(agentsDir, agentFile);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const validation = validateAgentContract(content);
+
+    results.push({
+      fixture: fixtureName,
+      check: `agent contract sections present: ${agentFile}`,
+      passed: validation.valid,
+      detail: validation.valid
+        ? undefined
+        : `Missing sections: ${validation.missingSections.join(', ')}`,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Reporting
 // ---------------------------------------------------------------------------
@@ -621,6 +661,7 @@ async function main(): Promise<void> {
       checkMcpHealth(fixtureDir, fixture.name, results);
       checkMemoryQuality(fixtureDir, fixture.name, results);
       checkGeneratedSkillContracts(fixtureDir, fixture.name, results);
+      checkGeneratedAgentContracts(fixtureDir, fixture.name, results);
     }
   } finally {
     // Clean up temp fixtures

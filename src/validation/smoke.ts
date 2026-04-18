@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { enforceSkillContract, validateSkillContract } from './skill-contract.js';
+import { enforceAgentContract, validateAgentContract } from './agent-contract.js';
 
 interface SmokeCheck {
   name: string;
@@ -119,6 +120,37 @@ function checkSkillTemplateContracts(): SmokeCheck {
   };
 }
 
+function checkAgentTemplateContracts(): SmokeCheck {
+  const templatesDir = path.join(REPO_ROOT, 'src/templates/agents');
+  if (!fs.existsSync(templatesDir)) {
+    return {
+      name: 'agent templates satisfy contract sections',
+      passed: false,
+      detail: `Missing templates directory: ${templatesDir}`,
+    };
+  }
+
+  const templateFiles = fs.readdirSync(templatesDir)
+    .filter((name) => name.endsWith('.md'));
+
+  const invalid: string[] = [];
+  for (const templateFile of templateFiles) {
+    const fullPath = path.join(templatesDir, templateFile);
+    const content = fs.readFileSync(fullPath, 'utf-8');
+    const enforced = enforceAgentContract(content, { agentName: templateFile });
+    const validation = validateAgentContract(enforced);
+    if (!validation.valid) {
+      invalid.push(`${templateFile} -> missing: ${validation.missingSections.join(', ')}`);
+    }
+  }
+
+  return {
+    name: 'agent templates satisfy contract sections',
+    passed: invalid.length === 0,
+    detail: invalid.length === 0 ? undefined : invalid.join(' | '),
+  };
+}
+
 function run(): void {
   const checks: SmokeCheck[] = [];
 
@@ -130,6 +162,7 @@ function run(): void {
   checks.push(checkPersistentRules());
   checks.push(checkScorecardHasEntries());
   checks.push(checkSkillTemplateContracts());
+  checks.push(checkAgentTemplateContracts());
 
   const scorecardCheck = runCommand('npm run scorecard:check', REPO_ROOT);
   checks.push({

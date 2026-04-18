@@ -3,6 +3,7 @@ export const REQUIRED_SKILL_SECTIONS = [
   'When to Use',
   'Process',
   'Common Rationalizations',
+  'Rationalization Rebuttals',
   'Red Flags',
   'Verification',
 ] as const;
@@ -76,10 +77,21 @@ export function enforceSkillContract(content: string, context: SkillContractCont
       sectionsToAppend.push(
         '## Common Rationalizations',
         '',
-        '| Rationalization | Reality |',
+        '| Rationalization | Rebuttal |',
         '|---|---|',
         '| "This is small, I can skip the pattern." | Small changes still create long-term drift when patterns are skipped. |',
         '| "I will validate later." | Delayed validation increases rework and hides regressions. |',
+      );
+      continue;
+    }
+
+    if (section === 'Rationalization Rebuttals') {
+      sectionsToAppend.push(
+        '## Rationalization Rebuttals',
+        '',
+        '- Follow existing project patterns even for small edits to prevent drift.',
+        '- Run verification in the same change to catch regressions early.',
+        '- Treat deadline pressure as a reason to reduce scope, not quality checks.',
       );
       continue;
     }

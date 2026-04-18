@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { writeIfChanged, applyFallbacks, resolveTemplatesDir } from './utils.js';
+import { enforceAgentContract } from '../validation/agent-contract.js';
 
 const AGENTS_DIR = '.github/agents';
 
@@ -444,6 +445,9 @@ async function generateAgentsWithOptions(
       console.warn(`  ⚠ Unresolved placeholders in ${spec.outputFile}: ${Array.from(new Set(unresolved)).join(', ')} — removing`);
       content = applyFallbacks(content);
     }
+
+    // Ensure generated agents include anti-rationalization guardrail sections.
+    content = enforceAgentContract(content, { agentName: spec.outputFile });
 
     writeIfChanged(outputPath, content);
     generated.push(outputPath);

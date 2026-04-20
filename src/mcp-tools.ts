@@ -192,6 +192,80 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  {
+    name: 'get_active_plan',
+    description: 'Returns the persisted active session plan from .github/ai-os/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
+  {
+    name: 'upsert_active_plan',
+    description: 'Creates or updates the persisted active plan (objective, criteria, current/next step, blockers). This provides durable task state across context resets.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        objective: { type: 'string', description: 'Primary goal for the current task' },
+        acceptanceCriteria: { type: 'string', description: 'Success criteria for task completion' },
+        status: { type: 'string', description: 'Plan status: active, paused, or completed' },
+        currentStep: { type: 'string', description: 'Current execution step' },
+        nextStep: { type: 'string', description: 'Next planned action' },
+        blockers: { type: 'string', description: 'Optional blockers, comma-separated or newline-separated' },
+      },
+      required: ['objective', 'acceptanceCriteria'],
+    },
+    condition: always,
+  },
+  {
+    name: 'append_checkpoint',
+    description: 'Appends a progress checkpoint to .github/ai-os/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Checkpoint title' },
+        status: { type: 'string', description: 'Checkpoint status: open or closed (default: open)' },
+        notes: { type: 'string', description: 'Optional checkpoint notes' },
+        toolCallCount: { type: 'number', description: 'Optional tool call count snapshot at checkpoint time' },
+      },
+      required: ['title'],
+    },
+    condition: always,
+  },
+  {
+    name: 'close_checkpoint',
+    description: 'Closes an existing checkpoint by id in .github/ai-os/memory/session/checkpoints.jsonl.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        checkpointId: { type: 'string', description: 'Checkpoint id returned by append_checkpoint' },
+        notes: { type: 'string', description: 'Optional closing notes to append' },
+      },
+      required: ['checkpointId'],
+    },
+    condition: always,
+  },
+  {
+    name: 'record_failure_pattern',
+    description: 'Records or updates a failure pattern in .github/ai-os/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tool: { type: 'string', description: 'Tool or subsystem where failure occurred' },
+        errorSignature: { type: 'string', description: 'Short normalized error signature' },
+        rootCause: { type: 'string', description: 'Suspected or confirmed root cause' },
+        attemptedFix: { type: 'string', description: 'Fix that was attempted' },
+        outcome: { type: 'string', description: 'Result of the fix: unresolved, partial, or resolved' },
+        confidence: { type: 'number', description: 'Confidence in diagnosis from 0.0 to 1.0' },
+      },
+      required: ['tool', 'errorSignature', 'rootCause', 'attemptedFix'],
+    },
+    condition: always,
+  },
+  {
+    name: 'compact_session_context',
+    description: 'Creates a compact session summary from active plan, open checkpoints, and recent failure patterns to reduce context stuffing and preserve continuity.',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
   // ── Tool #19: Session Continuity ─────────────────────────────────────────
   {
     name: 'get_session_context',
@@ -211,6 +285,19 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     name: 'suggest_improvements',
     description: 'Analyzes project structure and memory entries to return architectural and tooling optimization suggestions (e.g. missing env var documentation, undocumented key paths, skills gaps).',
     inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
+  // ── Tool #22: Watchdog Configuration ─────────────────────────────────────
+  {
+    name: 'set_watchdog_threshold',
+    description: 'Configures the automatic watchdog checkpoint interval for the current session (default: 8 tool calls). Increase for complex multi-step tasks; decrease for shorter focused work. Range: 1–100.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        threshold: { type: 'number', description: 'Number of tool calls between automatic watchdog checkpoints (1–100)' },
+      },
+      required: ['threshold'],
+    },
     condition: always,
   },
 ];

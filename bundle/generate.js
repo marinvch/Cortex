@@ -1187,6 +1187,21 @@ No specific framework template found. Follow the general rules above.`);
     "3. MUST persist only verified durable facts and decisions at the end of the task.",
     "4. Do not store speculative, duplicate, or transient status notes in repo memory.",
     "",
+    "## Project-State Strategy",
+    "",
+    "Always start by reviewing `.github/copilot-instructions.md` and aligning it to the current repository state before implementation.",
+    "",
+    "1. **New Project Strategy:** Create a lightweight baseline first (stack, conventions, build/test commands, key paths). Keep instructions concise and expand only when new codepaths appear.",
+    "2. **Existing or Large Project Strategy:** Audit instruction drift first. If context is missing, fill architecture/build/pitfall gaps before coding so Copilot can reason with fewer retries and less token waste.",
+    "",
+    "## AI OS Value Mode",
+    "",
+    "Use AI OS to expand Copilot capabilities beyond default behavior:",
+    "",
+    "1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.",
+    "2. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.",
+    "3. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.",
+    "",
     "## Strict Behavior Guardrails",
     "",
     "1. MUST ask clarifying questions first when a request is ambiguous, underspecified, or outside described scope.",
@@ -1397,6 +1412,80 @@ var MCP_TOOL_DEFINITIONS = [
     },
     condition: always
   },
+  {
+    name: "get_active_plan",
+    description: "Returns the persisted active session plan from .github/ai-os/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.",
+    inputSchema: { type: "object", properties: {} },
+    condition: always
+  },
+  {
+    name: "upsert_active_plan",
+    description: "Creates or updates the persisted active plan (objective, criteria, current/next step, blockers). This provides durable task state across context resets.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        objective: { type: "string", description: "Primary goal for the current task" },
+        acceptanceCriteria: { type: "string", description: "Success criteria for task completion" },
+        status: { type: "string", description: "Plan status: active, paused, or completed" },
+        currentStep: { type: "string", description: "Current execution step" },
+        nextStep: { type: "string", description: "Next planned action" },
+        blockers: { type: "string", description: "Optional blockers, comma-separated or newline-separated" }
+      },
+      required: ["objective", "acceptanceCriteria"]
+    },
+    condition: always
+  },
+  {
+    name: "append_checkpoint",
+    description: "Appends a progress checkpoint to .github/ai-os/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Checkpoint title" },
+        status: { type: "string", description: "Checkpoint status: open or closed (default: open)" },
+        notes: { type: "string", description: "Optional checkpoint notes" },
+        toolCallCount: { type: "number", description: "Optional tool call count snapshot at checkpoint time" }
+      },
+      required: ["title"]
+    },
+    condition: always
+  },
+  {
+    name: "close_checkpoint",
+    description: "Closes an existing checkpoint by id in .github/ai-os/memory/session/checkpoints.jsonl.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        checkpointId: { type: "string", description: "Checkpoint id returned by append_checkpoint" },
+        notes: { type: "string", description: "Optional closing notes to append" }
+      },
+      required: ["checkpointId"]
+    },
+    condition: always
+  },
+  {
+    name: "record_failure_pattern",
+    description: "Records or updates a failure pattern in .github/ai-os/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        tool: { type: "string", description: "Tool or subsystem where failure occurred" },
+        errorSignature: { type: "string", description: "Short normalized error signature" },
+        rootCause: { type: "string", description: "Suspected or confirmed root cause" },
+        attemptedFix: { type: "string", description: "Fix that was attempted" },
+        outcome: { type: "string", description: "Result of the fix: unresolved, partial, or resolved" },
+        confidence: { type: "number", description: "Confidence in diagnosis from 0.0 to 1.0" }
+      },
+      required: ["tool", "errorSignature", "rootCause", "attemptedFix"]
+    },
+    condition: always
+  },
+  {
+    name: "compact_session_context",
+    description: "Creates a compact session summary from active plan, open checkpoints, and recent failure patterns to reduce context stuffing and preserve continuity.",
+    inputSchema: { type: "object", properties: {} },
+    condition: always
+  },
   // ── Tool #19: Session Continuity ─────────────────────────────────────────
   {
     name: "get_session_context",
@@ -1416,6 +1505,19 @@ var MCP_TOOL_DEFINITIONS = [
     name: "suggest_improvements",
     description: "Analyzes project structure and memory entries to return architectural and tooling optimization suggestions (e.g. missing env var documentation, undocumented key paths, skills gaps).",
     inputSchema: { type: "object", properties: {} },
+    condition: always
+  },
+  // ── Tool #22: Watchdog Configuration ─────────────────────────────────────
+  {
+    name: "set_watchdog_threshold",
+    description: "Configures the automatic watchdog checkpoint interval for the current session (default: 8 tool calls). Increase for complex multi-step tasks; decrease for shorter focused work. Range: 1\u2013100.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        threshold: { type: "number", description: "Number of tool calls between automatic watchdog checkpoints (1\u2013100)" }
+      },
+      required: ["threshold"]
+    },
     condition: always
   }
 ];
@@ -4190,6 +4292,19 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents, preser
 function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommendationsEnabled) {
   const refreshCmd = `npx -y github:marinvch/ai-os#v${updateStatus.toolVersion} --refresh-existing`;
   const recommendationsPath = ".github/ai-os/recommendations.md";
+  const printInstructionStrategy = () => {
+    console.log("  \u{1F4CC} First action after install/refresh:");
+    console.log("     Review and optimize .github/copilot-instructions.md before asking Copilot to implement changes.");
+    if (onboardingPlan.detectedRepoType === "new") {
+      console.log("  \u{1F195} Strategy for new project:");
+      console.log("     Build a baseline context first (stack, conventions, architecture), then keep instructions concise and task-agnostic.");
+      console.log("     Use AI OS MCP tools to fill context as the codebase grows.");
+      return;
+    }
+    console.log("  \u{1F3D7}\uFE0F  Strategy for existing/large project:");
+    console.log("     Compare current instructions against real project state and patch missing context before feature work.");
+    console.log("     Prioritize architecture, build/test flow, and known pitfalls to reduce tool failures and rework.");
+  };
   const printRecommendationsHint = () => {
     if (recommendationsEnabled) {
       console.log(`  \u{1F4D8} Recommendations saved to ${recommendationsPath}`);
@@ -4199,6 +4314,7 @@ function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommenda
     console.log("  \u{1F9ED} Recommended next step:");
     console.log(`  ${refreshCmd}`);
     console.log("  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.");
+    printInstructionStrategy();
     console.log("  After refresh, ask Copilot:");
     console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
     printRecommendationsHint();
@@ -4207,9 +4323,10 @@ function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommenda
   }
   if (mode === "refresh-existing" || mode === "update") {
     console.log("  \u2705 Ready to use with Copilot.");
+    printInstructionStrategy();
     console.log("  If the tools do not appear immediately, run: MCP: Restart Servers");
     console.log("  Suggested first prompt:");
-    console.log('     "Use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
     printRecommendationsHint();
     console.log("");
     return;
@@ -4217,8 +4334,14 @@ function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommenda
   const firstPrompt = onboardingPlan.detectedRepoType === "existing-non-ai-os" ? "Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files." : "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.";
   console.log("  \u{1F9ED} Next steps:");
   console.log("  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.");
-  console.log("  2. If the tools do not appear immediately, run: MCP: Restart Servers");
-  console.log("  3. Suggested first prompt:");
+  console.log("  2. Review and optimize .github/copilot-instructions.md for the current project state.");
+  if (onboardingPlan.detectedRepoType === "new") {
+    console.log("     New project strategy: bootstrap minimal context first, then expand instructions as the codebase evolves.");
+  } else {
+    console.log("     Existing/large project strategy: fill missing context first (architecture, build/test flow, pitfalls), then proceed with implementation.");
+  }
+  console.log("  3. If the tools do not appear immediately, run: MCP: Restart Servers");
+  console.log("  4. Suggested first prompt:");
   console.log(`     "${firstPrompt}"`);
   printRecommendationsHint();
   console.log("");

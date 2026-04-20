@@ -1,5 +1,17 @@
 {
   "nodes": {
+    "bundle/generate.js": {
+      "path": "bundle/generate.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "bundle/server.js": {
+      "path": "bundle/server.js",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
     "scripts/bundle.mjs": {
       "path": "scripts/bundle.mjs",
       "imports": [],
@@ -80,6 +92,7 @@
         "src/generators/agents.ts",
         "src/generators/skills.ts",
         "src/generators/prompts.ts",
+        "src/generators/workflows.ts",
         "src/mcp-tools.ts",
         "src/updater.ts",
         "src/planner.ts",
@@ -93,12 +106,15 @@
       "path": "src/generators/agents.ts",
       "imports": [
         "src/types.ts",
-        "src/generators/utils.ts"
+        "src/generators/utils.ts",
+        "src/validation/agent-contract.ts"
       ],
       "importedBy": [
         "src/generate.ts"
       ],
       "exports": [
+        "ExistingAgentScan",
+        "scanExistingAgents",
         "generateAgents"
       ]
     },
@@ -142,6 +158,7 @@
         "src/generate.ts"
       ],
       "exports": [
+        "writeMcpServerConfig",
         "generateMcpJson"
       ]
     },
@@ -162,7 +179,8 @@
       "path": "src/generators/skills.ts",
       "imports": [
         "src/types.ts",
-        "src/generators/utils.ts"
+        "src/generators/utils.ts",
+        "src/validation/skill-contract.ts"
       ],
       "importedBy": [
         "src/generate.ts"
@@ -184,6 +202,7 @@
         "src/generators/mcp.ts",
         "src/generators/prompts.ts",
         "src/generators/skills.ts",
+        "src/generators/workflows.ts",
         "src/recommendations/index.ts"
       ],
       "exports": [
@@ -200,7 +219,21 @@
         "makeFileDiff",
         "recordResult",
         "toRepoRelative",
-        "sha256"
+        "sha256",
+        "resolveTemplatesDir"
+      ]
+    },
+    "src/generators/workflows.ts": {
+      "path": "src/generators/workflows.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "generateWorkflows"
       ]
     },
     "src/mcp-server/index.ts": {
@@ -278,6 +311,7 @@
       "exports": [
         "PlannedActionType",
         "PlannedAction",
+        "FileCategory",
         "OnboardingPlan",
         "buildOnboardingPlan",
         "formatOnboardingPlan"
@@ -315,11 +349,41 @@
         "UNIVERSAL_RECOMMENDATIONS"
       ]
     },
+    "src/tests/agent-contract.test.ts": {
+      "path": "src/tests/agent-contract.test.ts",
+      "imports": [
+        "src/validation/agent-contract.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/generators.test.ts": {
       "path": "src/tests/generators.test.ts",
       "imports": [
         "src/recommendations/index.ts",
         "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/memory-retrieval.test.ts": {
+      "path": "src/tests/memory-retrieval.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/review-severity.test.ts": {
+      "path": "src/tests/review-severity.test.ts",
+      "imports": [
+        "src/validation/review-severity.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/skill-contract.test.ts": {
+      "path": "src/tests/skill-contract.test.ts",
+      "imports": [
+        "src/validation/skill-contract.ts"
       ],
       "importedBy": [],
       "exports": []
@@ -339,6 +403,7 @@
         "src/generators/mcp.ts",
         "src/generators/prompts.ts",
         "src/generators/skills.ts",
+        "src/generators/workflows.ts",
         "src/mcp-tools.ts",
         "src/recommendations/index.ts",
         "src/tests/generators.test.ts"
@@ -347,6 +412,7 @@
         "DetectedLanguage",
         "DetectedFramework",
         "DetectedPatterns",
+        "BuildCommands",
         "DetectedStack",
         "PackageProfile",
         "FileNode",
@@ -368,18 +434,92 @@
         "UpdateStatus",
         "checkUpdateStatus",
         "printUpdateBanner",
+        "LegacyPruneOptions",
         "pruneLegacyArtifacts"
+      ]
+    },
+    "src/validation/agent-contract.ts": {
+      "path": "src/validation/agent-contract.ts",
+      "imports": [],
+      "importedBy": [
+        "src/generators/agents.ts",
+        "src/tests/agent-contract.test.ts",
+        "src/validation/regression.ts",
+        "src/validation/smoke.ts"
+      ],
+      "exports": [
+        "REQUIRED_AGENT_SECTIONS",
+        "AgentContractValidationResult",
+        "validateAgentContract",
+        "enforceAgentContract"
       ]
     },
     "src/validation/regression.ts": {
       "path": "src/validation/regression.ts",
-      "imports": [],
+      "imports": [
+        "src/validation/skill-contract.ts",
+        "src/validation/agent-contract.ts"
+      ],
       "importedBy": [],
       "exports": [
         "App",
         "Page",
         "GET"
       ]
+    },
+    "src/validation/review-severity.ts": {
+      "path": "src/validation/review-severity.ts",
+      "imports": [],
+      "importedBy": [
+        "src/tests/review-severity.test.ts",
+        "src/validation/smoke.ts"
+      ],
+      "exports": [
+        "SEVERITY_LEVELS",
+        "SeverityLevel",
+        "ReviewFinding",
+        "formatSeverityBadge",
+        "isValidSeverityLevel",
+        "getSeverityLevelsOrdered"
+      ]
+    },
+    "src/validation/scorecard-check.ts": {
+      "path": "src/validation/scorecard-check.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/validation/scorecard.ts": {
+      "path": "src/validation/scorecard.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/validation/skill-contract.ts": {
+      "path": "src/validation/skill-contract.ts",
+      "imports": [],
+      "importedBy": [
+        "src/generators/skills.ts",
+        "src/tests/skill-contract.test.ts",
+        "src/validation/regression.ts",
+        "src/validation/smoke.ts"
+      ],
+      "exports": [
+        "REQUIRED_SKILL_SECTIONS",
+        "SkillContractValidationResult",
+        "validateSkillContract",
+        "enforceSkillContract"
+      ]
+    },
+    "src/validation/smoke.ts": {
+      "path": "src/validation/smoke.ts",
+      "imports": [
+        "src/validation/skill-contract.ts",
+        "src/validation/agent-contract.ts",
+        "src/validation/review-severity.ts"
+      ],
+      "importedBy": [],
+      "exports": []
     },
     "vitest.config.ts": {
       "path": "vitest.config.ts",
@@ -388,6 +528,6 @@
       "exports": []
     }
   },
-  "generatedAt": "2026-04-11T06:41:27.086Z",
-  "fileCount": 26
+  "generatedAt": "2026-04-20T03:49:59.843Z",
+  "fileCount": 39
 }

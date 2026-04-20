@@ -223,6 +223,22 @@ function printContextualNextSteps(
   const refreshCmd = `npx -y github:marinvch/ai-os#v${updateStatus.toolVersion} --refresh-existing`;
   const recommendationsPath = '.github/ai-os/recommendations.md';
 
+  const printInstructionStrategy = (): void => {
+    console.log('  📌 First action after install/refresh:');
+    console.log('     Review and optimize .github/copilot-instructions.md before asking Copilot to implement changes.');
+
+    if (onboardingPlan.detectedRepoType === 'new') {
+      console.log('  🆕 Strategy for new project:');
+      console.log('     Build a baseline context first (stack, conventions, architecture), then keep instructions concise and task-agnostic.');
+      console.log('     Use AI OS MCP tools to fill context as the codebase grows.');
+      return;
+    }
+
+    console.log('  🏗️  Strategy for existing/large project:');
+    console.log('     Compare current instructions against real project state and patch missing context before feature work.');
+    console.log('     Prioritize architecture, build/test flow, and known pitfalls to reduce tool failures and rework.');
+  };
+
   const printRecommendationsHint = (): void => {
     if (recommendationsEnabled) {
       console.log(`  📘 Recommendations saved to ${recommendationsPath}`);
@@ -233,6 +249,7 @@ function printContextualNextSteps(
     console.log('  🧭 Recommended next step:');
     console.log(`  ${refreshCmd}`);
     console.log('  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.');
+    printInstructionStrategy();
     console.log('  After refresh, ask Copilot:');
     console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
     printRecommendationsHint();
@@ -242,9 +259,10 @@ function printContextualNextSteps(
 
   if (mode === 'refresh-existing' || mode === 'update') {
     console.log('  ✅ Ready to use with Copilot.');
+    printInstructionStrategy();
     console.log('  If the tools do not appear immediately, run: MCP: Restart Servers');
     console.log('  Suggested first prompt:');
-    console.log('     "Use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
     printRecommendationsHint();
     console.log('');
     return;
@@ -256,8 +274,14 @@ function printContextualNextSteps(
 
   console.log('  🧭 Next steps:');
   console.log('  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.');
-  console.log('  2. If the tools do not appear immediately, run: MCP: Restart Servers');
-  console.log('  3. Suggested first prompt:');
+  console.log('  2. Review and optimize .github/copilot-instructions.md for the current project state.');
+  if (onboardingPlan.detectedRepoType === 'new') {
+    console.log('     New project strategy: bootstrap minimal context first, then expand instructions as the codebase evolves.');
+  } else {
+    console.log('     Existing/large project strategy: fill missing context first (architecture, build/test flow, pitfalls), then proceed with implementation.');
+  }
+  console.log('  3. If the tools do not appear immediately, run: MCP: Restart Servers');
+  console.log('  4. Suggested first prompt:');
   console.log(`     "${firstPrompt}"`);
   printRecommendationsHint();
   console.log('');

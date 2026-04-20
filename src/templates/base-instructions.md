@@ -70,12 +70,24 @@ When starting a new conversation or after a context window reset:
 
 ---
 
+## Project-State Strategy
+
+Always start by reviewing `.github/copilot-instructions.md` and aligning it to the current repository state before implementation.
+
+1. **New Project Strategy:**
+Create a lightweight baseline first (stack, conventions, build/test commands, key paths). Keep instructions concise and expand only when new codepaths appear.
+
+1. **Existing or Large Project Strategy:**
+Audit instruction drift first. If context is missing, fill architecture/build/pitfall gaps before coding so Copilot can reason with fewer retries and less token waste.
+
+---
+
 ## MCP Tools Available
 
 Use these tools to fetch project-specific context on demand:
 
 | Tool | When to call |
-|---|---|
+| --- | --- |
 | `get_session_context` | **At the start of every new conversation** — reloads MUST-ALWAYS rules and key context |
 | `search_codebase` | To find symbols, patterns, or usage examples |
 | `get_project_structure` | Before exploring unfamiliar directories |
@@ -117,6 +129,16 @@ Load context in priority order — stop when you have enough to act:
 **After a context reset:** reload steps 1–3 explicitly before resuming — never assume prior context is intact.
 
 See `.github/ai-os/context/context-budget.md` for the full policy.
+
+---
+
+## AI OS Value Mode
+
+Use AI OS to make Copilot more effective than default behavior:
+
+1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.
+1. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse already loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.
+1. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.
 
 ---
 

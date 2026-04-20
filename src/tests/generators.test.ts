@@ -273,6 +273,76 @@ describe('persona directive in copilot-instructions.md', () => {
   });
 });
 
+describe('AI OS value mode guidance', () => {
+  it('includes value mode section in copilot-instructions.md', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack();
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-value-mode-copilot-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    generateInstructions(stack, tmpDir, { refreshExisting: false });
+
+    const instructionsPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
+    const content = fs.readFileSync(instructionsPath, 'utf-8');
+
+    expect(content).toContain('## AI OS Value Mode');
+    expect(content).toContain('Problem Understanding First');
+    expect(content).toContain('Token Spending Discipline');
+    expect(content).toContain('User-Value Delivery');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('includes value mode section in ai-os.instructions.md', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack();
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-value-mode-auto-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    generateInstructions(stack, tmpDir, { refreshExisting: false });
+
+    const instructionsPath = path.join(tmpDir, '.github', 'instructions', 'ai-os.instructions.md');
+    const content = fs.readFileSync(instructionsPath, 'utf-8');
+
+    expect(content).toContain('## AI OS Value Mode');
+    expect(content).toContain('Problem Understanding First');
+    expect(content).toContain('Token Spending Discipline');
+    expect(content).toContain('User-Value Delivery');
+    expect(content).toContain('## Project-State Strategy');
+    expect(content).toContain('New Project Strategy');
+    expect(content).toContain('Existing or Large Project Strategy');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('includes project-state strategy in copilot-instructions.md', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack();
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-project-state-copilot-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    generateInstructions(stack, tmpDir, { refreshExisting: false });
+
+    const instructionsPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
+    const content = fs.readFileSync(instructionsPath, 'utf-8');
+
+    expect(content).toContain('## Project-State Strategy');
+    expect(content).toContain('New Project Strategy');
+    expect(content).toContain('Existing or Large Project Strategy');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
 
 // ---------------------------------------------------------------------------
 // Safe refresh mode — preserveContextFiles

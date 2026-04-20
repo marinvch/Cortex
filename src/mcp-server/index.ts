@@ -30,6 +30,14 @@ import {
   getMemoryGuidelines,
   getRepoMemory,
   rememberRepoFact,
+  getActivePlan,
+  upsertActivePlan,
+  appendCheckpoint,
+  closeCheckpoint,
+  recordFailurePattern,
+  compactSessionContext,
+  recordToolCallAndRunWatchdog,
+  setWatchdogThreshold,
   getSessionContext,
   getRecommendations,
   suggestImprovements,
@@ -49,6 +57,22 @@ interface ToolInput {
   title?: string;
   content?: string;
   tags?: string;
+  objective?: string;
+  acceptanceCriteria?: string;
+  status?: string;
+  currentStep?: string;
+  nextStep?: string;
+  blockers?: string;
+  checkpointId?: string;
+  notes?: string;
+  tool?: string;
+  errorSignature?: string;
+  rootCause?: string;
+  attemptedFix?: string;
+  outcome?: string;
+  confidence?: number;
+  toolCallCount?: number;
+  threshold?: number;
 }
 
 function logDiagnostic(message: string): void {
@@ -79,52 +103,116 @@ function validateRuntimeEnvironment(): { ok: boolean; messages: string[] } {
 }
 
 function executeTool(toolName: string, input: ToolInput): string {
+  const watchdogMessage = recordToolCallAndRunWatchdog(toolName);
+
+  let result: string;
   switch (toolName) {
     case 'search_codebase':
-      return searchFiles(input.query ?? '', input.filePattern, input.caseSensitive ?? false);
+      result = searchFiles(input.query ?? '', input.filePattern, input.caseSensitive ?? false);
+      break;
     case 'get_project_structure': {
       const startDir = input.path
         ? path.join(getProjectRoot(), input.path)
         : getProjectRoot();
-      return buildFileTree(startDir, 0, input.depth ?? 4).join('\n');
+      result = buildFileTree(startDir, 0, input.depth ?? 4).join('\n');
+      break;
     }
     case 'get_conventions':
-      return readAiOsFile('context/conventions.md') || 'No conventions file found.';
+      result = readAiOsFile('context/conventions.md') || 'No conventions file found.';
+      break;
     case 'get_stack_info':
-      return readAiOsFile('context/stack.md') || 'No stack file found.';
+      result = readAiOsFile('context/stack.md') || 'No stack file found.';
+      break;
     case 'get_file_summary':
-      return getFileSummary(input.filePath ?? '');
+      result = getFileSummary(input.filePath ?? '');
+      break;
     case 'get_prisma_schema':
-      return getPrismaSchema();
+      result = getPrismaSchema();
+      break;
     case 'get_trpc_procedures':
-      return getTrpcProcedures();
+      result = getTrpcProcedures();
+      break;
     case 'get_api_routes':
-      return getApiRoutes(input.filter);
+      result = getApiRoutes(input.filter);
+      break;
     case 'get_env_vars':
-      return getEnvVars();
+      result = getEnvVars();
+      break;
     case 'get_package_info':
-      return getPackageInfo(input.packageName);
+      result = getPackageInfo(input.packageName);
+      break;
     case 'get_impact_of_change':
-      return getImpactOfChange(input.filePath ?? '');
+      result = getImpactOfChange(input.filePath ?? '');
+      break;
     case 'get_dependency_chain':
-      return getDependencyChain(input.filePath ?? '');
+      result = getDependencyChain(input.filePath ?? '');
+      break;
     case 'check_for_updates':
-      return checkForUpdates();
+      result = checkForUpdates();
+      break;
     case 'get_memory_guidelines':
-      return getMemoryGuidelines();
+      result = getMemoryGuidelines();
+      break;
     case 'get_repo_memory':
-      return getRepoMemory(input.query, input.category, input.limit);
+      result = getRepoMemory(input.query, input.category, input.limit);
+      break;
     case 'remember_repo_fact':
-      return rememberRepoFact(input.title ?? '', input.content ?? '', input.category, input.tags);
+      result = rememberRepoFact(input.title ?? '', input.content ?? '', input.category, input.tags);
+      break;
+    case 'get_active_plan':
+      result = getActivePlan();
+      break;
+    case 'upsert_active_plan':
+      result = upsertActivePlan(
+        input.objective ?? '',
+        input.acceptanceCriteria ?? '',
+        input.status,
+        input.currentStep,
+        input.nextStep,
+        input.blockers,
+      );
+      break;
+    case 'append_checkpoint':
+      result = appendCheckpoint(input.title ?? '', input.status, input.notes, input.toolCallCount);
+      break;
+    case 'close_checkpoint':
+      result = closeCheckpoint(input.checkpointId ?? '', input.notes);
+      break;
+    case 'record_failure_pattern':
+      result = recordFailurePattern(
+        input.tool ?? '',
+        input.errorSignature ?? '',
+        input.rootCause ?? '',
+        input.attemptedFix ?? '',
+        input.outcome,
+        input.confidence,
+      );
+      break;
+    case 'compact_session_context':
+      result = compactSessionContext();
+      break;
+    case 'set_watchdog_threshold':
+      result = setWatchdogThreshold(typeof input.threshold === 'number' ? input.threshold : 8);
+      break;
     case 'get_session_context':
-      return getSessionContext();
+      result = getSessionContext();
+      break;
     case 'get_recommendations':
-      return getRecommendations();
+      result = getRecommendations();
+      break;
     case 'suggest_improvements':
-      return suggestImprovements();
+      result = suggestImprovements();
+      break;
     default:
-      return `Unknown tool: ${toolName}`;
+      result = `Unknown tool: ${toolName}`;
+      break;
   }
+
+  if (!watchdogMessage) {
+    return result;
+  }
+
+  return `${result}\n\n[Watchdog] ${watchdogMessage}`;
 }
 
 async function main(): Promise<void> {

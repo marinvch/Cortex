@@ -36,6 +36,47 @@ interface RepoMemoryEntry {
   conflictWithId?: string;
 }
 
+interface ActivePlan {
+  objective: string;
+  acceptanceCriteria: string;
+  status: 'active' | 'paused' | 'completed';
+  currentStep?: string;
+  nextStep?: string;
+  blockers: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CheckpointEntry {
+  id: string;
+  title: string;
+  status: 'open' | 'closed';
+  notes?: string;
+  toolCallCount?: number;
+  createdAt: string;
+  closedAt?: string;
+}
+
+interface FailurePatternEntry {
+  id: string;
+  tool: string;
+  errorSignature: string;
+  rootCause: string;
+  attemptedFix: string;
+  outcome: 'unresolved' | 'partial' | 'resolved';
+  confidence: number;
+  occurrences: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+}
+
+interface RuntimeState {
+  toolCallCount: number;
+  lastWatchdogCheckpointCount: number;
+  threshold: number;
+  updatedAt: string;
+}
+
 interface MemoryReadResult {
   entries: RepoMemoryEntry[];
   malformedCount: number;
@@ -44,6 +85,12 @@ interface MemoryReadResult {
 const MEMORY_STALE_DAYS = 180;
 const MEMORY_LOCK_WAIT_MS = 2000;
 const MEMORY_LOCK_RETRY_MS = 50;
+const MEMORY_LOCK_STALE_MS = 15000;
+const DEFAULT_WATCHDOG_THRESHOLD = 8;
+const SESSION_LOCK_WAIT_MS = 1000;
+const SESSION_LOCK_RETRY_MS = 30;
+const SESSION_CHECKPOINTS_CAP = 100;
+const SESSION_FAILURES_CAP = 50;
 
 function getMemoryFilePath(): string {
   const newPath = path.join(ROOT, '.github', 'ai-os', 'memory', 'memory.jsonl');
@@ -61,6 +108,34 @@ function getMemoryLockFilePath(): string {
   return path.join(getMemoryDirPath(), '.memory.lock');
 }
 
+function getSessionMemoryDirPath(): string {
+  return path.join(getMemoryDirPath(), 'session');
+}
+
+function getSessionLockFilePath(): string {
+  return path.join(getSessionMemoryDirPath(), '.session.lock');
+}
+
+function getActivePlanPath(): string {
+  return path.join(getSessionMemoryDirPath(), 'active-plan.json');
+}
+
+function getCheckpointLogPath(): string {
+  return path.join(getSessionMemoryDirPath(), 'checkpoints.jsonl');
+}
+
+function getFailureLedgerPath(): string {
+  return path.join(getSessionMemoryDirPath(), 'failure-ledger.jsonl');
+}
+
+function getCompactContextPath(): string {
+  return path.join(getSessionMemoryDirPath(), 'compact-context.md');
+}
+
+function getRuntimeStatePath(): string {
+  return path.join(getSessionMemoryDirPath(), 'runtime-state.json');
+}
+
 function ensureMemoryStore(): void {
   const memoryDir = getMemoryDirPath();
   if (!fs.existsSync(memoryDir)) {
@@ -71,6 +146,84 @@ function ensureMemoryStore(): void {
   if (!fs.existsSync(memoryFile)) {
     fs.writeFileSync(memoryFile, '', 'utf-8');
   }
+}
+
+function ensureSessionMemoryStore(): void {
+  ensureMemoryStore();
+  const sessionDir = getSessionMemoryDirPath();
+  if (!fs.existsSync(sessionDir)) {
+    fs.mkdirSync(sessionDir, { recursive: true });
+  }
+
+  const checkpointsPath = getCheckpointLogPath();
+  if (!fs.existsSync(checkpointsPath)) {
+    fs.writeFileSync(checkpointsPath, '', 'utf-8');
+  }
+
+  const failurePath = getFailureLedgerPath();
+  if (!fs.existsSync(failurePath)) {
+    fs.writeFileSync(failurePath, '', 'utf-8');
+  }
+}
+
+function writeTextAtomic(filePath: string, content: string): void {
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  fs.writeFileSync(tempPath, content, 'utf-8');
+  fs.renameSync(tempPath, filePath);
+}
+
+function readJsonlFile<T>(filePath: string): T[] {
+  if (!fs.existsSync(filePath)) return [];
+  const lines = fs.readFileSync(filePath, 'utf-8').split('\n').map((line) => line.trim()).filter(Boolean);
+  const rows: T[] = [];
+  for (const line of lines) {
+    try {
+      rows.push(JSON.parse(line) as T);
+    } catch {
+      // Ignore malformed lines in session artifacts.
+    }
+  }
+  return rows;
+}
+
+function readRuntimeState(): RuntimeState {
+  const filePath = getRuntimeStatePath();
+  const fallback: RuntimeState = {
+    toolCallCount: 0,
+    lastWatchdogCheckpointCount: 0,
+    threshold: DEFAULT_WATCHDOG_THRESHOLD,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (!fs.existsSync(filePath)) return fallback;
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Partial<RuntimeState>;
+    const threshold = typeof raw.threshold === 'number' && raw.threshold >= 1
+      ? Math.floor(raw.threshold)
+      : DEFAULT_WATCHDOG_THRESHOLD;
+
+    return {
+      toolCallCount: typeof raw.toolCallCount === 'number' ? Math.max(0, Math.floor(raw.toolCallCount)) : 0,
+      lastWatchdogCheckpointCount: typeof raw.lastWatchdogCheckpointCount === 'number'
+        ? Math.max(0, Math.floor(raw.lastWatchdogCheckpointCount))
+        : 0,
+      threshold,
+      updatedAt: typeof raw.updatedAt === 'string' && raw.updatedAt.trim()
+        ? raw.updatedAt
+        : new Date().toISOString(),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+function writeRuntimeState(state: RuntimeState): void {
+  writeTextAtomic(getRuntimeStatePath(), JSON.stringify(state, null, 2));
+}
+
+function normalizeFailureText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function sleepSync(ms: number): void {
@@ -98,6 +251,63 @@ function _releaseLockOnExit(): void {
 // Runs when process.exit() is called (covers normal exits, healthcheck, errors).
 process.on('exit', _releaseLockOnExit);
 
+// ── Session lock — separate lighter-weight lock for session-only files ────────
+// Session files (.github/ai-os/memory/session/*) are distinct from the durable
+// repo memory store (memory.jsonl). Using a dedicated lock prevents session ops
+// (which run on every tool call) from blocking durable memory reads/writes.
+let _activeSessionLockPath: string | null = null;
+
+function _releaseSessionLockOnExit(): void {
+  if (_activeSessionLockPath) {
+    try { fs.unlinkSync(_activeSessionLockPath); } catch { /* Best-effort cleanup. */ }
+    _activeSessionLockPath = null;
+  }
+}
+
+process.on('exit', _releaseSessionLockOnExit);
+
+function withSessionLock<T>(fn: () => T): T {
+  ensureSessionMemoryStore();
+  const lockPath = getSessionLockFilePath();
+  const startedAt = Date.now();
+  let lockFd: number | null = null;
+
+  while (Date.now() - startedAt < SESSION_LOCK_WAIT_MS) {
+    try {
+      lockFd = fs.openSync(lockPath, 'wx');
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+
+      try {
+        const lockStat = fs.statSync(lockPath);
+        if (Date.now() - lockStat.mtimeMs > MEMORY_LOCK_STALE_MS) {
+          fs.unlinkSync(lockPath);
+          continue;
+        }
+      } catch { /* Best effort only. */ }
+
+      sleepSync(SESSION_LOCK_RETRY_MS);
+    }
+  }
+
+  if (lockFd === null) {
+    // Session lock timed out — proceed without lock as degraded fallback.
+    // Session files are non-critical; a missed write is preferable to blocking a tool call.
+    return fn();
+  }
+
+  _activeSessionLockPath = lockPath;
+
+  try {
+    return fn();
+  } finally {
+    _activeSessionLockPath = null;
+    try { fs.closeSync(lockFd); } catch { /* Best-effort cleanup. */ }
+    try { fs.unlinkSync(lockPath); } catch { /* Best-effort cleanup. */ }
+  }
+}
+
 function withMemoryLock<T>(fn: () => T): T {
   ensureMemoryStore();
   const lockPath = getMemoryLockFilePath();
@@ -112,6 +322,19 @@ function withMemoryLock<T>(fn: () => T): T {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw err;
       }
+
+      // Recover stale lock files left behind by abrupt process termination.
+      // This reduces lock-contention failures without relaxing normal locking behavior.
+      try {
+        const lockStat = fs.statSync(lockPath);
+        if (Date.now() - lockStat.mtimeMs > MEMORY_LOCK_STALE_MS) {
+          fs.unlinkSync(lockPath);
+          continue;
+        }
+      } catch {
+        // Best effort only; if stat/unlink fails, keep waiting until timeout.
+      }
+
       sleepSync(MEMORY_LOCK_RETRY_MS);
     }
   }
@@ -280,6 +503,17 @@ function writeMemoryEntriesAtomic(entries: RepoMemoryEntry[]): void {
   fs.renameSync(tempPath, memoryPath);
 }
 
+/**
+ * Trim a JSONL file to the most recent `cap` lines (by append order).
+ * No-op if the file has fewer entries than `cap`.
+ */
+function trimJsonlFileToCap(filePath: string, cap: number): void {
+  if (!fs.existsSync(filePath)) return;
+  const lines = fs.readFileSync(filePath, 'utf-8').split('\n').filter(Boolean);
+  if (lines.length <= cap) return;
+  writeTextAtomic(filePath, lines.slice(lines.length - cap).join('\n') + '\n');
+}
+
 function readMemoryEntries(): MemoryReadResult {
   ensureMemoryStore();
   const file = getMemoryFilePath();
@@ -331,8 +565,7 @@ export function getRepoMemory(query?: string, category?: string, limit?: number)
         .toLowerCase();
       return haystack.includes(q);
     })
-    .slice(-cap)
-    .reverse();
+    .slice(0, cap);
 
   if (filtered.length === 0) {
     return 'No repository memory entries found for the provided filters.';
@@ -445,6 +678,380 @@ export function rememberRepoFact(title: string, content: string, category?: stri
     });
   } catch (err) {
     return `Failed to store memory entry: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+export function getActivePlan(): string {
+  ensureSessionMemoryStore();
+  const filePath = getActivePlanPath();
+
+  if (!fs.existsSync(filePath)) {
+    return 'No active session plan found. Create one with `upsert_active_plan`.';
+  }
+
+  try {
+    const plan = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as ActivePlan;
+    const lines: string[] = [
+      '## Active Plan',
+      '',
+      `- Objective: ${plan.objective}`,
+      `- Acceptance Criteria: ${plan.acceptanceCriteria}`,
+      `- Status: ${plan.status}`,
+      `- Created: ${plan.createdAt}`,
+      `- Updated: ${plan.updatedAt}`,
+    ];
+
+    if (plan.currentStep) lines.push(`- Current Step: ${plan.currentStep}`);
+    if (plan.nextStep) lines.push(`- Next Step: ${plan.nextStep}`);
+
+    lines.push('- Blockers:');
+    if (plan.blockers.length === 0) {
+      lines.push('  - none');
+    } else {
+      for (const blocker of plan.blockers) {
+        lines.push(`  - ${blocker}`);
+      }
+    }
+
+    return lines.join('\n');
+  } catch {
+    return 'Failed to read active plan. Recreate it with `upsert_active_plan`.';
+  }
+}
+
+export function upsertActivePlan(
+  objective: string,
+  acceptanceCriteria: string,
+  status?: string,
+  currentStep?: string,
+  nextStep?: string,
+  blockers?: string,
+): string {
+  const trimmedObjective = objective.trim();
+  const trimmedCriteria = acceptanceCriteria.trim();
+
+  if (!trimmedObjective || !trimmedCriteria) {
+    return 'Both objective and acceptanceCriteria are required to upsert active plan.';
+  }
+
+  const now = new Date().toISOString();
+  const normalizedStatus = status === 'paused' || status === 'completed' ? status : 'active';
+  const blockerList = (blockers ?? '')
+    .split(/[,\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+      const filePath = getActivePlanPath();
+      const existing: Partial<ActivePlan> = fs.existsSync(filePath)
+        ? JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Partial<ActivePlan>
+        : {};
+
+      const plan: ActivePlan = {
+        objective: trimmedObjective,
+        acceptanceCriteria: trimmedCriteria,
+        status: normalizedStatus,
+        currentStep: currentStep?.trim() || existing.currentStep,
+        nextStep: nextStep?.trim() || existing.nextStep,
+        blockers: blockerList.length > 0 ? blockerList : (existing.blockers ?? []),
+        createdAt: existing.createdAt ?? now,
+        updatedAt: now,
+      };
+
+      writeTextAtomic(filePath, JSON.stringify(plan, null, 2));
+      return `Active plan upserted (${plan.status}).`;
+    });
+  } catch (err) {
+    return `Failed to upsert active plan: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+export function appendCheckpoint(title: string, status?: string, notes?: string, toolCallCount?: number): string {
+  const trimmedTitle = title.trim();
+  if (!trimmedTitle) {
+    return 'Checkpoint title is required.';
+  }
+
+  const now = new Date().toISOString();
+  const normalizedStatus = status === 'closed' ? 'closed' : 'open';
+  const entry: CheckpointEntry = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    title: trimmedTitle,
+    status: normalizedStatus,
+    notes: notes?.trim() || undefined,
+    toolCallCount: typeof toolCallCount === 'number' ? toolCallCount : undefined,
+    createdAt: now,
+    closedAt: normalizedStatus === 'closed' ? now : undefined,
+  };
+
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+      const filePath = getCheckpointLogPath();
+      fs.appendFileSync(filePath, `${JSON.stringify(entry)}\n`, 'utf-8');
+      trimJsonlFileToCap(filePath, SESSION_CHECKPOINTS_CAP);
+      return `Checkpoint appended: ${entry.id}`;
+    });
+  } catch (err) {
+    return `Failed to append checkpoint: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+export function closeCheckpoint(checkpointId: string, notes?: string): string {
+  const id = checkpointId.trim();
+  if (!id) {
+    return 'checkpointId is required.';
+  }
+
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+      const filePath = getCheckpointLogPath();
+      const entries = readJsonlFile<CheckpointEntry>(filePath);
+      const index = entries.findIndex((entry) => entry.id === id);
+
+      if (index < 0) {
+        return `Checkpoint not found: ${id}`;
+      }
+
+      const now = new Date().toISOString();
+      const existingNotes = entries[index].notes?.trim();
+      const closingNotes = notes?.trim();
+      const mergedNotes = [existingNotes, closingNotes].filter(Boolean).join(' | ');
+
+      entries[index] = {
+        ...entries[index],
+        status: 'closed',
+        notes: mergedNotes || undefined,
+        closedAt: now,
+      };
+
+      writeTextAtomic(filePath, entries.map((entry) => JSON.stringify(entry)).join('\n') + (entries.length ? '\n' : ''));
+      return `Checkpoint closed: ${id}`;
+    });
+  } catch (err) {
+    return `Failed to close checkpoint: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+export function recordFailurePattern(
+  tool: string,
+  errorSignature: string,
+  rootCause: string,
+  attemptedFix: string,
+  outcome?: string,
+  confidence?: number,
+): string {
+  const trimmedTool = tool.trim();
+  const trimmedSignature = errorSignature.trim();
+  const trimmedRootCause = rootCause.trim();
+  const trimmedFix = attemptedFix.trim();
+
+  if (!trimmedTool || !trimmedSignature || !trimmedRootCause || !trimmedFix) {
+    return 'tool, errorSignature, rootCause, and attemptedFix are required to record failure pattern.';
+  }
+
+  const normalizedOutcome = outcome === 'resolved' || outcome === 'partial' ? outcome : 'unresolved';
+  const normalizedConfidence = typeof confidence === 'number' ? Math.max(0, Math.min(1, confidence)) : 0.5;
+  const now = new Date().toISOString();
+
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+      const filePath = getFailureLedgerPath();
+      const rows = readJsonlFile<FailurePatternEntry>(filePath);
+
+      const key = [
+        normalizeFailureText(trimmedTool),
+        normalizeFailureText(trimmedSignature),
+        normalizeFailureText(trimmedRootCause),
+        normalizeFailureText(trimmedFix),
+      ].join('::');
+
+      const existing = rows.find((entry) => [
+        normalizeFailureText(entry.tool),
+        normalizeFailureText(entry.errorSignature),
+        normalizeFailureText(entry.rootCause),
+        normalizeFailureText(entry.attemptedFix),
+      ].join('::') === key);
+
+      if (existing) {
+        existing.occurrences += 1;
+        existing.lastSeenAt = now;
+        existing.outcome = normalizedOutcome;
+        existing.confidence = normalizedConfidence;
+        writeTextAtomic(filePath, rows.map((entry) => JSON.stringify(entry)).join('\n') + (rows.length ? '\n' : ''));
+        return `Failure pattern updated: ${existing.id} (occurrences=${existing.occurrences})`;
+      }
+
+      const entry: FailurePatternEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        tool: trimmedTool,
+        errorSignature: trimmedSignature,
+        rootCause: trimmedRootCause,
+        attemptedFix: trimmedFix,
+        outcome: normalizedOutcome,
+        confidence: normalizedConfidence,
+        occurrences: 1,
+        firstSeenAt: now,
+        lastSeenAt: now,
+      };
+
+      rows.push(entry);
+      trimJsonlFileToCap(filePath, SESSION_FAILURES_CAP);
+      writeTextAtomic(filePath, rows.map((item) => JSON.stringify(item)).join('\n') + '\n');
+      return `Failure pattern recorded: ${entry.id}`;
+    });
+  } catch (err) {
+    return `Failed to record failure pattern: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+export function compactSessionContext(): string {
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+
+      const activePlanPath = getActivePlanPath();
+      const checkpointsPath = getCheckpointLogPath();
+      const failurePath = getFailureLedgerPath();
+      const outputPath = getCompactContextPath();
+
+      const plan = fs.existsSync(activePlanPath)
+        ? JSON.parse(fs.readFileSync(activePlanPath, 'utf-8')) as ActivePlan
+        : null;
+
+      const checkpoints = readJsonlFile<CheckpointEntry>(checkpointsPath)
+        .slice(-12)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      const failures = readJsonlFile<FailurePatternEntry>(failurePath)
+        .slice(-12)
+        .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime());
+
+      const lines: string[] = [
+        '# Compact Session Context',
+        '',
+        `Generated: ${new Date().toISOString()}`,
+        '',
+        '## Active Goal',
+      ];
+
+      if (!plan) {
+        lines.push('- No active plan yet.');
+      } else {
+        lines.push(`- Objective: ${plan.objective}`);
+        lines.push(`- Acceptance Criteria: ${plan.acceptanceCriteria}`);
+        lines.push(`- Status: ${plan.status}`);
+        if (plan.currentStep) lines.push(`- Current Step: ${plan.currentStep}`);
+        if (plan.nextStep) lines.push(`- Next Step: ${plan.nextStep}`);
+        lines.push('- Blockers:');
+        if (plan.blockers.length === 0) {
+          lines.push('  - none');
+        } else {
+          for (const blocker of plan.blockers) lines.push(`  - ${blocker}`);
+        }
+      }
+
+      lines.push('', '## Open Checkpoints');
+      const openCheckpoints = checkpoints.filter((entry) => entry.status === 'open');
+      if (openCheckpoints.length === 0) {
+        lines.push('- none');
+      } else {
+        for (const item of openCheckpoints) {
+          lines.push(`- ${item.id}: ${item.title}`);
+          if (item.notes) lines.push(`  - notes: ${item.notes}`);
+          if (typeof item.toolCallCount === 'number') lines.push(`  - tool calls: ${item.toolCallCount}`);
+        }
+      }
+
+      lines.push('', '## Recent Failure Patterns');
+      if (failures.length === 0) {
+        lines.push('- none');
+      } else {
+        for (const item of failures.slice(0, 8)) {
+          lines.push(`- ${item.tool}: ${item.errorSignature} (occurrences=${item.occurrences}, outcome=${item.outcome})`);
+          lines.push(`  - root cause: ${item.rootCause}`);
+          lines.push(`  - attempted fix: ${item.attemptedFix}`);
+        }
+      }
+
+      lines.push('', '## Next Action Hint');
+      if (plan?.nextStep) {
+        lines.push(`- Resume from: ${plan.nextStep}`);
+      } else {
+        lines.push('- Define next step with `upsert_active_plan` to avoid goal drift.');
+      }
+
+      writeTextAtomic(outputPath, lines.join('\n') + '\n');
+      return `Compact context written to .github/ai-os/memory/session/compact-context.md\n\n${lines.join('\n')}`;
+    });
+  } catch (err) {
+    return `Failed to compact session context: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+export function recordToolCallAndRunWatchdog(toolName: string): string | null {
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+
+      const state = readRuntimeState();
+      const now = new Date().toISOString();
+      state.toolCallCount += 1;
+      state.updatedAt = now;
+
+      const thresholdReached =
+        state.toolCallCount - state.lastWatchdogCheckpointCount >= state.threshold;
+
+      if (!thresholdReached) {
+        writeRuntimeState(state);
+        return null;
+      }
+
+      const checkpoint: CheckpointEntry = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title: `Goal watchdog checkpoint @${state.toolCallCount} calls`,
+        status: 'open',
+        notes: `Auto-checkpoint after ${state.threshold} tool calls. Re-read active plan and confirm alignment. Trigger tool: ${toolName}`,
+        toolCallCount: state.toolCallCount,
+        createdAt: now,
+      };
+
+      const checkpointsPath = getCheckpointLogPath();
+      fs.appendFileSync(checkpointsPath, `${JSON.stringify(checkpoint)}\n`, 'utf-8');
+      trimJsonlFileToCap(checkpointsPath, SESSION_CHECKPOINTS_CAP);
+
+      state.lastWatchdogCheckpointCount = state.toolCallCount;
+      writeRuntimeState(state);
+
+      return `Watchdog checkpoint created (${checkpoint.id}) after ${state.toolCallCount} tool calls.`;
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Update the automatic watchdog checkpoint interval.
+ * The new threshold persists in runtime-state.json for the remainder of the session.
+ * Accepts values 1–100; values outside this range are clamped.
+ */
+export function setWatchdogThreshold(threshold: number): string {
+  const normalized = Math.max(1, Math.min(100, Math.floor(threshold)));
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+      const state = readRuntimeState();
+      state.threshold = normalized;
+      state.updatedAt = new Date().toISOString();
+      writeRuntimeState(state);
+      return `Watchdog threshold updated to ${normalized} tool calls.`;
+    });
+  } catch (err) {
+    return `Failed to set watchdog threshold: ${err instanceof Error ? err.message : String(err)}`;
   }
 }
 

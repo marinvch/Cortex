@@ -1,6 +1,6 @@
 {
   "name": "ai-os",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Portable AI OS — scans any repo and generates optimized GitHub Copilot context, agents, skills, MCP tools, and slash-command prompts",
   "type": "module",
   "engines": {
@@ -17,6 +17,7 @@
     "generate:dry": "tsx src/generate.ts --dry-run",
     "generate:refresh": "tsx src/generate.ts --refresh-existing",
     "update": "tsx src/generate.ts --update",
+    "update:projects": "bash scripts/update-projects.sh",
     "check-hygiene": "tsx src/generate.ts --check-hygiene",
     "validate": "tsx src/validation/regression.ts",
     "validate:smoke": "tsx src/validation/smoke.ts",

@@ -13,11 +13,6 @@
 - `.github/ai-os/memory/memory.jsonl` — append-only durable memory entries
 - `.github/ai-os/memory/README.md` — memory categories and usage rules
 
-Companion docs:
-
-- `.github/ai-os/context/knowledge-vault.md` — linked-note workflow
-- `.github/ai-os/context/templates/` — reusable note templates
-
 ## Agent Workflow
 
 1. MUST at task start: call `get_repo_memory` with relevant query/category before coding

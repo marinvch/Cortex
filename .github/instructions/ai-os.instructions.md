@@ -39,20 +39,20 @@ The following MCP tools are available — use them proactively:
 3. MUST persist only verified durable facts and decisions at the end of the task.
 4. Do not store speculative, duplicate, or transient status notes in repo memory.
 
-## Token Budget Optimization
+## Project-State Strategy
 
-1. Prefer targeted context retrieval before full-file reads:
-	- use `get_file_summary`, `search_codebase`, `get_project_structure`, and `get_dependency_chain` first
-	- read full files only when implementation requires exact edits
-2. Keep tool output compact:
-	- avoid broad scans when a path-scoped query can answer the task
-	- prefer focused commands and narrow globs to reduce noise
-3. Minimize repeated context:
-	- do not restate unchanged plans or previously reported findings
-	- report deltas only after each action batch
-4. Use staged validation to reduce wasted cycles:
-	- run fast checks first (`build`/unit tests)
-	- run full regression only when code paths or release-critical files changed
+Always start by reviewing `.github/copilot-instructions.md` and aligning it to the current repository state before implementation.
+
+1. **New Project Strategy:** Create a lightweight baseline first (stack, conventions, build/test commands, key paths). Keep instructions concise and expand only when new codepaths appear.
+2. **Existing or Large Project Strategy:** Audit instruction drift first. If context is missing, fill architecture/build/pitfall gaps before coding so Copilot can reason with fewer retries and less token waste.
+
+## AI OS Value Mode
+
+Use AI OS to expand Copilot capabilities beyond default behavior:
+
+1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.
+2. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.
+3. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.
 
 ## Strict Behavior Guardrails
 

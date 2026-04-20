@@ -10,7 +10,7 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Copilot instructions | `.github/copilot-instructions.md`                 | System prompt optimized for your stack                                             |
 | Context docs         | `.github/ai-os/context/`                          | Token-efficient stack, architecture, conventions docs                              |
-| MCP tools            | `.vscode/mcp.json` + `.ai-os/mcp-server/`         | 19 tools for code search, schema reading, route listing, memory, and more          |
+| MCP tools            | `.vscode/mcp.json` + `.ai-os/mcp-server/`         | 22 tools for code search, memory, session continuity, and more                     |
 | Agents               | `.github/agents/*.agent.md`                       | Stack-specific chat agents (framework expert, DB expert, auth, payments, explorer) |
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
@@ -159,6 +159,13 @@ bash ~/ai-os/install.sh --cwd /path/to/your/repo
 | `get_session_context`  | Reload MUST-ALWAYS rules and key context |
 | `get_recommendations`  | Stack-appropriate tool and extension recs|
 | `suggest_improvements` | Surface architectural and tooling gaps   |
+| `get_active_plan`      | Read the current session goal and status |
+| `upsert_active_plan`   | Create or update the active session plan |
+| `append_checkpoint`    | Append a progress checkpoint             |
+| `close_checkpoint`     | Mark a checkpoint as completed           |
+| `record_failure_pattern`  | Track tool failures to avoid repeating   |
+| `compact_session_context` | Summarize session state for continuity   |
+| `set_watchdog_threshold`  | Configure auto-checkpoint interval       |
 
 ## Re-running (idempotent)
 
@@ -222,6 +229,74 @@ npm run validate:fast
 npm run validate:full
 # Run regression suite (fixture matrix for all supported stacks — exits non-zero on failure)
 npm run validate
+```
+
+## Session Continuity
+
+AI OS ships a full session continuity model so agents can maintain goal alignment across long multi-tool interactions.
+
+### How it works
+
+1. **Active plan** — Use `upsert_active_plan` at session start to declare objective, acceptance criteria, and current step. Read it back any time with `get_active_plan`.
+2. **Checkpoints** — Use `append_checkpoint` after each major completed step. Close them with `close_checkpoint`. Checkpoints cap at 100 entries and auto-trim oldest on overflow.
+3. **Failure ledger** — Use `record_failure_pattern` to capture failed approaches so the agent avoids repeating them. Capped at 50 entries.
+4. **Compact context** — Run `compact_session_context` any time context gets long. Writes a single recovery artifact (`compact-context.md`) with current goal, open checkpoints, and recent failures.
+5. **Watchdog** — Every N tool calls (default: 8), AI OS automatically appends a checkpoint prompting re-alignment with the active plan. Adjust with `set_watchdog_threshold`.
+
+### Session memory files
+
+All session files live under `.github/ai-os/memory/session/`:
+
+| File                  | Purpose                              |
+| --------------------- | ------------------------------------ |
+| `active-plan.json`    | Current objective and progress       |
+| `checkpoints.jsonl`   | Progress log (capped at 100 entries) |
+| `failure-ledger.jsonl`| Known failure patterns (capped at 50)|
+| `compact-context.md`  | Latest recovery summary              |
+| `runtime-state.json`  | Watchdog counter and threshold       |
+
+> **Tip:** Add `.github/ai-os/memory/session/` to `.gitignore` to prevent session state from being committed.
+
+## Keeping projects up to date
+
+When a new AI OS release ships, update your projects with one of the following approaches.
+
+### Update a single project
+
+```bash
+# From inside the target repo
+npx -y github:marinvch/ai-os --update
+
+# Or from outside
+npx -y github:marinvch/ai-os --update --cwd /path/to/your-repo
+```
+
+The `--update` flag is equivalent to `--refresh-existing` but also prints an explicit version bump message.
+
+### Update all projects at once
+
+Use the bundled `update-projects.sh` script (requires Node.js ≥ 20 and `npx`):
+
+```bash
+# Update a specific project
+bash scripts/update-projects.sh /path/to/my-project
+
+# Find and update all AI OS repos under ~/Projects
+bash scripts/update-projects.sh --search-dir ~/Projects
+
+# Preview without making changes
+bash scripts/update-projects.sh --search-dir ~/Projects --dry-run
+
+# Limit search depth (default: 5)
+bash scripts/update-projects.sh --search-dir ~/Projects --depth 3
+```
+
+The script finds every directory with `.github/ai-os/manifest.json` and runs `npx -y github:marinvch/ai-os --update --cwd <repo>` on each one. Non-zero exit code if any update fails.
+
+### Pin to a specific release
+
+```bash
+npx -y github:marinvch/ai-os#v0.9.0 --update --cwd /path/to/your-repo
 ```
 
 ## Session Bootstrap Checklist

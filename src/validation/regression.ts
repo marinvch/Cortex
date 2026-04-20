@@ -299,6 +299,15 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
 
   results.push({
     fixture: fixtureName,
+    check: 'apply output includes copilot-instructions first-action guidance',
+    passed: r.stdout.includes('Review and optimize .github/copilot-instructions.md'),
+    detail: r.stdout.includes('Review and optimize .github/copilot-instructions.md')
+      ? undefined
+      : 'Missing first-action guidance for copilot-instructions optimization in apply output',
+  });
+
+  results.push({
+    fixture: fixtureName,
     check: 'apply output mentions recommendations path',
     passed: r.stdout.includes('.github/ai-os/recommendations.md'),
     detail: r.stdout.includes('.github/ai-os/recommendations.md') ? undefined : 'Missing recommendations path hint in apply output',
@@ -330,6 +339,15 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
     check: 'refresh-existing output includes ready guidance',
     passed: r.stdout.includes('Ready to use with Copilot.'),
     detail: r.stdout.includes('Ready to use with Copilot.') ? undefined : 'Missing ready guidance in refresh-existing output',
+  });
+
+  results.push({
+    fixture: fixtureName,
+    check: 'refresh-existing output includes copilot-instructions first-action guidance',
+    passed: r.stdout.includes('Review and optimize .github/copilot-instructions.md'),
+    detail: r.stdout.includes('Review and optimize .github/copilot-instructions.md')
+      ? undefined
+      : 'Missing first-action guidance for copilot-instructions optimization in refresh output',
   });
 
   results.push({

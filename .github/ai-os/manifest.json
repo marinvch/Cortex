@@ -1,0 +1,28 @@
+{
+  "version": "0.9.0",
+  "generatedAt": "2026-04-20T03:49:59.877Z",
+  "files": [
+    ".github/COPILOT_CONTEXT.md",
+    ".github/agents/idea-validator.agent.md",
+    ".github/agents/implementation-agent.agent.md",
+    ".github/ai-os/config.json",
+    ".github/ai-os/context/architecture.md",
+    ".github/ai-os/context/context-budget.md",
+    ".github/ai-os/context/conventions.md",
+    ".github/ai-os/context/dependency-graph.json",
+    ".github/ai-os/context/existing-ai-context.md",
+    ".github/ai-os/context/memory.md",
+    ".github/ai-os/context/protected-blocks.md",
+    ".github/ai-os/context/stack.md",
+    ".github/ai-os/manifest.json",
+    ".github/ai-os/memory/README.md",
+    ".github/ai-os/memory/memory.jsonl",
+    ".github/ai-os/recommendations.md",
+    ".github/ai-os/tools.json",
+    ".github/copilot-instructions.md",
+    ".github/copilot/prompts.json",
+    ".github/instructions/ai-os.instructions.md",
+    ".github/instructions/tests.instructions.md",
+    ".github/workflows/ai-os-update-check.yml"
+  ]
+}

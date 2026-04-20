@@ -5,13 +5,49 @@
       "id": "/explain-file",
       "title": "Explain File",
       "description": "Get a detailed explanation of a file in the codebase",
-      "prompt": "Explain the file I specify in detail.\nInclude:\n- Its purpose and responsibility in the architecture\n- Key exports and their signatures\n- Any important side effects or dependencies\n- How it connects to other parts of the system\n- Any gotchas or non-obvious behavior\nReference the project architecture in .ai-os/context/architecture.md as context."
+      "prompt": "Explain the file I specify in detail.\nInclude:\n- Its purpose and responsibility in the architecture\n- Key exports and their signatures\n- Any important side effects or dependencies\n- How it connects to other parts of the system\n- Any gotchas or non-obvious behavior\nReference the project architecture in .github/ai-os/context/architecture.md as context."
     },
     {
       "id": "/refactor-component",
       "title": "Refactor Component",
       "description": "Refactor a component following project conventions",
-      "prompt": "Refactor the component I specify following the project conventions.\nBefore touching anything:\n1. Read the component file completely\n2. List all imports and consumers (grep for the component name)\n3. Identify props, tRPC hooks, and state\nThen:\n- Apply the naming conventions from .ai-os/context/conventions.md\n- Extract business logic to lib/ if present in the component\n- Ensure TypeScript strict compliance (no any)\n- Verify all callers still compile after the refactor"
+      "prompt": "Refactor the component I specify following the project conventions.\nBefore touching anything:\n1. Read the component file completely\n2. List all imports and consumers (grep for the component name)\n3. Identify props, tRPC hooks, and state\nThen:\n- Apply the naming conventions from .github/ai-os/context/conventions.md\n- Extract business logic to lib/ if present in the component\n- Ensure TypeScript strict compliance (no any)\n- Verify all callers still compile after the refactor"
+    },
+    {
+      "id": "/define",
+      "title": "Define Feature",
+      "description": "Structure a new feature proposal with intent, scope, and success criteria",
+      "prompt": "Before any code is written, define this feature clearly.\nProduce a structured feature brief:\n- **Intent**: What problem does this solve and for whom?\n- **Scope**: What is explicitly in/out of scope?\n- **Constraints**: Tech, time, compatibility, or security limits\n- **Success Criteria**: Measurable conditions that confirm the feature is complete\n- **Risks**: Known unknowns and mitigation ideas\nReference the architecture in .github/ai-os/context/architecture.md and conventions in .github/ai-os/context/conventions.md to identify integration points."
+    },
+    {
+      "id": "/plan",
+      "title": "Plan Implementation",
+      "description": "Break a defined feature into discrete, ordered implementation tasks",
+      "prompt": "Given the feature brief produced by /define, create an implementation plan.\nOutput a numbered task list where each task:\n- Has a clear, actionable title (≤ 10 words)\n- Lists the files to create or modify\n- Notes dependencies on other tasks\n- Flags any task that requires a schema migration, API contract change, or external service\nOrder tasks so each can be validated independently before the next begins.\nDo NOT write any code yet — planning only."
+    },
+    {
+      "id": "/build",
+      "title": "Execute Build Task",
+      "description": "Implement one specific task from the plan with minimal, focused changes",
+      "prompt": "Implement the specific task I identify from the plan.\nRules:\n- Touch only the files listed in that task\n- Follow all conventions in .github/ai-os/context/conventions.md\n- Keep the change minimal — do not refactor or improve adjacent code\n- Add or update tests for the changed logic\n- After writing, list any follow-up tasks the plan must account for\nDo not proceed to the next task — stop and await confirmation."
+    },
+    {
+      "id": "/verify",
+      "title": "Verify Implementation",
+      "description": "Check the current implementation against the feature spec and run validation",
+      "prompt": "Verify the current implementation against the feature brief from /define.\nSteps:\n1. Re-read the success criteria\n2. For each criterion, state: PASS / FAIL / PARTIAL with evidence\n3. Identify any untested code paths or missing edge cases\n4. Run the test suite and paste the result summary\n5. Check for security issues in new inputs (OWASP Top 10 basics)\n6. List any items that must be fixed before moving to /review"
+    },
+    {
+      "id": "/review",
+      "title": "Severity-Tagged Code Review",
+      "description": "Review staged changes with Critical / Required / Optional / FYI severity labels",
+      "prompt": "Review the staged or specified changes using the review severity taxonomy.\nFor each finding, output:\n```markdown\n**File:** <path>\n**Line(s):** <range>\n**Severity:** Critical | Required | Optional | FYI\n**Finding:** <one-line summary>\n**Detail:** <explanation and suggested fix>\n```\nSeverity guide:\n- **Critical** — must fix before merge (security, data loss, incorrect behavior)\n- **Required** — must fix before merge (missing tests, convention violations, broken contracts)\n- **Optional** — improve if time allows (readability, minor duplication)\n- **FYI** — informational, no action needed\nEnd with a summary table sorted Critical first."
+    },
+    {
+      "id": "/ship",
+      "title": "Pre-Ship Checklist",
+      "description": "Run the pre-ship checklist before merging or deploying",
+      "prompt": "Run through the pre-ship checklist for this change.\nCheck each item and mark PASS / FAIL:\n- [ ] All /verify criteria pass\n- [ ] All Critical and Required /review findings resolved\n- [ ] Tests pass (paste summary)\n- [ ] No hardcoded secrets, keys, or credentials in diff\n- [ ] Environment variables documented (README or .env.example)\n- [ ] CHANGELOG or PR description updated\n- [ ] Version bumped if this is a releasable change\n- [ ] Any migration or deployment steps documented\nIf all items pass, state: READY TO SHIP. Otherwise, list blocking items."
     }
   ]
 }

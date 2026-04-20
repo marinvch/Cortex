@@ -4,12 +4,12 @@
 
 ## Detection Summary
 
-- Total detected AI artifacts: **4**
+- Total detected AI artifacts: **7**
 - Copilot instructions: **2**
 - Copilot skills: **0**
 - Prompt registries: **1**
 - Agent files: **1**
-- AI docs/context files: **0**
+- AI docs/context files: **3**
 - Other assistant configs: **0**
 
 ## Detected Artifacts
@@ -17,7 +17,10 @@
 - [instructions] `.github/copilot-instructions.md`
 - [instructions] `.github/instructions/`
 - [prompts] `.github/copilot/prompts.json`
-- [agents] `.github/agents/ (3 files)`
+- [agents] `.github/agents/ (4 files)`
+- [docs] `.github/ai-os/context/stack.md`
+- [docs] `.github/ai-os/context/architecture.md`
+- [docs] `.github/ai-os/context/conventions.md`
 
 ## Optimization Plan (Git Bash-First)
 
@@ -36,3 +39,18 @@ bash install.sh --cwd "$PWD" --refresh-existing
 
 - This workflow is shell-driven (Git Bash + Node.js) and does not require Python runtime scripts.
 - Existing files are preserved in safe mode and updated intentionally in refresh mode.
+
+## Visual Artifact Breakdown
+
+```mermaid
+pie showData
+  title Existing AI Context Artifacts
+  "instructions" : 2
+  "skills" : 0
+  "prompts" : 1
+  "agents" : 1
+  "docs" : 3
+  "other" : 0
+```
+
+_Open this file in VS Code Markdown Preview to view the diagram._

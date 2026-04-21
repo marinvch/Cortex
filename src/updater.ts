@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -41,17 +42,72 @@ export function readInstalledConfig(targetDir: string): InstalledConfig | null {
 }
 
 /** Compare semver strings — returns true if `candidate` is newer than `installed` */
+function parseSemver(v: string): [number, number, number] {
+  const [maj = 0, min = 0, pat = 0] = v.replace(/^v/, '').split('.').map(Number);
+  return [maj, min, pat];
+}
+
+function compareSemver(a: string, b: string): number {
+  const [aMaj = 0, aMin = 0, aPat = 0] = parseSemver(a);
+  const [bMaj = 0, bMin = 0, bPat = 0] = parseSemver(b);
+
+  if (aMaj !== bMaj) return aMaj > bMaj ? 1 : -1;
+  if (aMin !== bMin) return aMin > bMin ? 1 : -1;
+  if (aPat !== bPat) return aPat > bPat ? 1 : -1;
+  return 0;
+}
+
+/** Compare semver strings — returns true if `candidate` is newer than `installed` */
 function isNewer(candidate: string, installed: string): boolean {
-  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number);
-  const [cMaj = 0, cMin = 0, cPat = 0] = parse(candidate);
-  const [iMaj = 0, iMin = 0, iPat = 0] = parse(installed);
+  const [cMaj = 0, cMin = 0, cPat = 0] = parseSemver(candidate);
+  const [iMaj = 0, iMin = 0, iPat = 0] = parseSemver(installed);
   if (cMaj !== iMaj) return cMaj > iMaj;
   if (cMin !== iMin) return cMin > iMin;
   return cPat > iPat;
 }
 
+function getLatestPublishedTagVersion(): string | null {
+  try {
+    const result = spawnSync(
+      'git',
+      ['ls-remote', '--tags', '--refs', 'https://github.com/marinvch/ai-os.git', 'v*'],
+      {
+        encoding: 'utf-8',
+        timeout: 5000,
+      },
+    );
+
+    if (result.status !== 0 || !result.stdout) return null;
+
+    const versions = result.stdout
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const match = line.match(/refs\/tags\/(v\d+\.\d+\.\d+)$/);
+        return match?.[1] ?? null;
+      })
+      .filter((v): v is string => v !== null);
+
+    if (versions.length === 0) return null;
+
+    return versions.reduce((latest, current) =>
+      compareSemver(current, latest) > 0 ? current : latest,
+    );
+  } catch {
+    return null;
+  }
+}
+
+export function getLatestResolvableVersion(toolVersion: string): string {
+  const published = getLatestPublishedTagVersion();
+  if (!published) return toolVersion;
+  return published;
+}
+
 export interface UpdateStatus {
   toolVersion: string;
+  latestVersion: string;
   installedVersion: string | null;
   updateAvailable: boolean;
   isFirstInstall: boolean;
@@ -59,17 +115,25 @@ export interface UpdateStatus {
 
 export function checkUpdateStatus(targetDir: string): UpdateStatus {
   const toolVersion = getToolVersion();
+  const latestVersion = getLatestResolvableVersion(toolVersion);
   const config = readInstalledConfig(targetDir);
 
   if (!config) {
-    return { toolVersion, installedVersion: null, updateAvailable: false, isFirstInstall: true };
+    return {
+      toolVersion,
+      latestVersion,
+      installedVersion: null,
+      updateAvailable: false,
+      isFirstInstall: true,
+    };
   }
 
   const installedVersion = config.version;
   return {
     toolVersion,
+    latestVersion,
     installedVersion,
-    updateAvailable: isNewer(toolVersion, installedVersion),
+    updateAvailable: isNewer(latestVersion, installedVersion),
     isFirstInstall: false,
   };
 }
@@ -77,12 +141,12 @@ export function checkUpdateStatus(targetDir: string): UpdateStatus {
 export function printUpdateBanner(status: UpdateStatus): void {
   if (!status.updateAvailable) return;
 
-  const updateCmd = `npx -y github:marinvch/ai-os#v${status.toolVersion} --refresh-existing`;
+  const updateCmd = `npx -y "github:marinvch/ai-os#v${status.latestVersion}" --refresh-existing`;
 
   console.log('');
   console.log('  ┌─────────────────────────────────────────────────────┐');
   console.log(`  │  🔔 AI OS Update Available                          │`);
-  console.log(`  │     Installed: v${status.installedVersion?.padEnd(10) ?? 'unknown   '}  →  Latest: v${status.toolVersion.padEnd(10)}│`);
+  console.log(`  │     Installed: v${status.installedVersion?.padEnd(10) ?? 'unknown   '}  →  Latest: v${status.latestVersion.padEnd(10)}│`);
   console.log(`  │                                                     │`);
   console.log(`  │  Re-run AI OS with --refresh-existing (or --update) │`);
   console.log(`  │  to refresh context, tools, agents, and MCP files.  │`);

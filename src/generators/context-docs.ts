@@ -605,6 +605,7 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
 
   const managed: string[] = [];
   const track = (p: string) => { managed.push(p); return p; };
+  const shouldPreserve = (absPath: string): boolean => preserveContextFiles && fs.existsSync(absPath);
 
   const existingContext = detectExistingAiContext(outputDir);
 
@@ -615,7 +616,10 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
     fs.copyFileSync(legacyMemory, newMemory);
   }
 
-  writeIfChanged(track(path.join(contextDir, 'stack.md')), generateStackDoc(stack));
+  const stackPath = track(path.join(contextDir, 'stack.md'));
+  if (!shouldPreserve(stackPath)) {
+    writeIfChanged(stackPath, generateStackDoc(stack));
+  }
 
   // architecture.md and conventions.md: section-level merge to preserve manual edits.
   // When preserveContextFiles is true (safe refresh mode), skip writing if the file already
@@ -633,9 +637,21 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
   }
 
   writeIfChanged(track(path.join(contextDir, 'memory.md')), generateMemoryDoc(stack));
-  writeIfChanged(track(path.join(contextDir, 'existing-ai-context.md')), generateExistingAiContextDoc(stack, existingContext));
-  writeIfChanged(track(path.join(contextDir, 'context-budget.md')), generateContextBudgetDoc(stack));
-  writeIfChanged(track(path.join(contextDir, 'protected-blocks.md')), generateProtectedBlocksDoc());
+
+  const existingAiContextPath = track(path.join(contextDir, 'existing-ai-context.md'));
+  if (!shouldPreserve(existingAiContextPath)) {
+    writeIfChanged(existingAiContextPath, generateExistingAiContextDoc(stack, existingContext));
+  }
+
+  const contextBudgetPath = track(path.join(contextDir, 'context-budget.md'));
+  if (!shouldPreserve(contextBudgetPath)) {
+    writeIfChanged(contextBudgetPath, generateContextBudgetDoc(stack));
+  }
+
+  const protectedBlocksPath = track(path.join(contextDir, 'protected-blocks.md'));
+  if (!shouldPreserve(protectedBlocksPath)) {
+    writeIfChanged(protectedBlocksPath, generateProtectedBlocksDoc());
+  }
 
   const memoryReadmePath = track(path.join(memoryDir, 'README.md'));
   if (!fs.existsSync(memoryReadmePath)) {
@@ -693,7 +709,7 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
   const config: AiOsConfig = {
   // Auto-detected fields (always refreshed)
     version: getToolVersion(),
-    installedAt: existingConfig?.installedAt ?? new Date().toISOString(),
+    installedAt: new Date().toISOString(),
     projectName: stack.projectName,
     primaryLanguage: stack.primaryLanguage.name,
     primaryFramework: stack.primaryFramework?.name ?? null,
@@ -717,7 +733,9 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
   // Generate session context card if enabled
   if (config.sessionContextCard) {
     const sessionCardPath = track(path.join(outputDir, '.github', 'COPILOT_CONTEXT.md'));
-    writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
+    if (!shouldPreserve(sessionCardPath)) {
+      writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
+    }
   }
 
   return managed;

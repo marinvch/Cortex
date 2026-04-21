@@ -34,6 +34,7 @@ function buildPrompts(stack: DetectedStack, cwd: string): PromptEntry[] {
   const hasSpring = frameworks.some(f => f.includes('spring'));
   const hasDotnet = frameworks.some(f => f.includes('.net') || f.includes('asp.net'));
   const hasTrpc = packages.includes('@trpc/server') || packages.includes('trpc');
+  const hasRtkQuery = packages.includes('@reduxjs/toolkit');
   const hasPrisma = packages.includes('prisma') || packages.includes('@prisma/client');
   const hasStripe = packages.includes('stripe');
   const hasAuth = packages.includes('next-auth') || packages.includes('nextauth');
@@ -393,10 +394,10 @@ Reference the project architecture in .github/ai-os/context/architecture.md as c
 Before touching anything:
 1. Read the component file completely
 2. List all imports and consumers (grep for the component name)
-3. Identify props, tRPC hooks, and state
+3. Identify props, ${hasTrpc ? 'tRPC hooks' : hasRtkQuery ? 'RTK Query hooks' : 'data hooks (custom/fetching)'}, and state
 Then:
 - Apply the naming conventions from .github/ai-os/context/conventions.md
-- Extract business logic to lib/ if present in the component
+- Extract business logic to the existing shared module pattern used by this repo (for example lib/, services/, or hooks/)
 - Ensure TypeScript strict compliance (no any)
 - Verify all callers still compile after the refactor`,
   });

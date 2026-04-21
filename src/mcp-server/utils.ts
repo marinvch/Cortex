@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getLatestResolvableVersion } from '../updater.js';
 
 const ROOT = process.env['AI_OS_ROOT'] ?? process.cwd();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1597,8 +1598,10 @@ export function checkForUpdates(): string {
     toolVersion = toolPkg.version ?? '0.0.0';
   } catch { /* tool package.json not found */ }
 
+  const latestVersion = getLatestResolvableVersion(toolVersion);
+
   const parse = (v: string): number[] => v.replace(/^v/, '').split('.').map(Number);
-  const [cMaj = 0, cMin = 0, cPat = 0] = parse(toolVersion);
+  const [cMaj = 0, cMin = 0, cPat = 0] = parse(latestVersion);
   const [iMaj = 0, iMin = 0, iPat = 0] = parse(installedVersion);
   const updateAvailable =
     cMaj > iMaj ||
@@ -1610,11 +1613,11 @@ export function checkForUpdates(): string {
       `## AI OS Update Available`,
       ``,
       `- **Installed:** v${installedVersion} (generated ${installedAt})`,
-      `- **Latest:**    v${toolVersion}`,
+      `- **Latest:**    v${latestVersion}`,
       ``,
       `Run the following to update all AI OS artifacts in-place:`,
       `\`\`\`bash`,
-      `npx -y github:marinvch/ai-os#v${toolVersion} --refresh-existing`,
+      `npx -y "github:marinvch/ai-os#v${latestVersion}" --refresh-existing`,
       `\`\`\``,
       `Or use the bootstrap one-liner: \`curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash\``,
       `This refreshes context docs, agents, skills, MCP tools, and the dependency graph without deleting your existing files.`,

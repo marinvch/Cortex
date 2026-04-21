@@ -35,10 +35,10 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 ```bash
 # Example: install from a specific tag into the current repo
-npx -y github:marinvch/ai-os#v0.6.26
+npx -y "github:marinvch/ai-os#v0.6.26"
 
 # Refresh an existing AI OS install from a tag
-npx -y github:marinvch/ai-os#v0.6.26 --refresh-existing
+npx -y "github:marinvch/ai-os#v0.6.26" --refresh-existing
 ```
 
 If your environment blocks `npx github:...`, use the tagged bootstrap script:
@@ -296,7 +296,7 @@ The script finds every directory with `.github/ai-os/manifest.json` and runs `np
 ### Pin to a specific release
 
 ```bash
-npx -y github:marinvch/ai-os#v0.9.0 --update --cwd /path/to/your-repo
+npx -y "github:marinvch/ai-os#v0.9.0" --update --cwd /path/to/your-repo
 ```
 
 ## Session Bootstrap Checklist

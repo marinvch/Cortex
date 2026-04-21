@@ -1,7 +1,7 @@
 // AI OS MCP Server — bundled single-file deployment
 
 // src/mcp-server/index.ts
-import path2 from "node:path";
+import path3 from "node:path";
 
 // src/mcp-tools.ts
 var always = () => true;
@@ -293,18 +293,66 @@ function getAllMcpTools2() {
 // src/mcp-server/utils.ts
 import { execSync } from "node:child_process";
 import fs from "node:fs";
+import path2 from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+
+// src/updater.ts
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-var ROOT = process.env["AI_OS_ROOT"] ?? process.cwd();
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
+function parseSemver(v) {
+  const [maj = 0, min = 0, pat = 0] = v.replace(/^v/, "").split(".").map(Number);
+  return [maj, min, pat];
+}
+function compareSemver(a, b) {
+  const [aMaj = 0, aMin = 0, aPat = 0] = parseSemver(a);
+  const [bMaj = 0, bMin = 0, bPat = 0] = parseSemver(b);
+  if (aMaj !== bMaj) return aMaj > bMaj ? 1 : -1;
+  if (aMin !== bMin) return aMin > bMin ? 1 : -1;
+  if (aPat !== bPat) return aPat > bPat ? 1 : -1;
+  return 0;
+}
+function getLatestPublishedTagVersion() {
+  try {
+    const result = spawnSync(
+      "git",
+      ["ls-remote", "--tags", "--refs", "https://github.com/marinvch/ai-os.git", "v*"],
+      {
+        encoding: "utf-8",
+        timeout: 5e3
+      }
+    );
+    if (result.status !== 0 || !result.stdout) return null;
+    const versions = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+      const match = line.match(/refs\/tags\/(v\d+\.\d+\.\d+)$/);
+      return match?.[1] ?? null;
+    }).filter((v) => v !== null);
+    if (versions.length === 0) return null;
+    return versions.reduce(
+      (latest, current) => compareSemver(current, latest) > 0 ? current : latest
+    );
+  } catch {
+    return null;
+  }
+}
+function getLatestResolvableVersion(toolVersion) {
+  const published = getLatestPublishedTagVersion();
+  if (!published) return toolVersion;
+  return published;
+}
+
+// src/mcp-server/utils.ts
+var ROOT = process.env["AI_OS_ROOT"] ?? process.cwd();
+var __dirname2 = path2.dirname(fileURLToPath2(import.meta.url));
 function getProjectRoot() {
-  return path.resolve(ROOT);
+  return path2.resolve(ROOT);
 }
 function readAiOsFile(relPath) {
   try {
-    const newPath = path.join(ROOT, ".github", "ai-os", relPath);
+    const newPath = path2.join(ROOT, ".github", "ai-os", relPath);
     if (fs.existsSync(newPath)) return fs.readFileSync(newPath, "utf-8");
-    return fs.readFileSync(path.join(ROOT, ".ai-os", relPath), "utf-8");
+    return fs.readFileSync(path2.join(ROOT, ".ai-os", relPath), "utf-8");
   } catch {
     return "";
   }
@@ -319,38 +367,38 @@ var SESSION_LOCK_RETRY_MS = 30;
 var SESSION_CHECKPOINTS_CAP = 100;
 var SESSION_FAILURES_CAP = 50;
 function getMemoryFilePath() {
-  const newPath = path.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
-  const legacyPath = path.join(ROOT, ".ai-os", "memory", "memory.jsonl");
+  const newPath = path2.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
+  const legacyPath = path2.join(ROOT, ".ai-os", "memory", "memory.jsonl");
   return fs.existsSync(newPath) || !fs.existsSync(legacyPath) ? newPath : legacyPath;
 }
 function getMemoryDirPath() {
-  const newPath = path.join(ROOT, ".github", "ai-os", "memory");
-  const legacyPath = path.join(ROOT, ".ai-os", "memory");
+  const newPath = path2.join(ROOT, ".github", "ai-os", "memory");
+  const legacyPath = path2.join(ROOT, ".ai-os", "memory");
   return fs.existsSync(newPath) || !fs.existsSync(legacyPath) ? newPath : legacyPath;
 }
 function getMemoryLockFilePath() {
-  return path.join(getMemoryDirPath(), ".memory.lock");
+  return path2.join(getMemoryDirPath(), ".memory.lock");
 }
 function getSessionMemoryDirPath() {
-  return path.join(getMemoryDirPath(), "session");
+  return path2.join(getMemoryDirPath(), "session");
 }
 function getSessionLockFilePath() {
-  return path.join(getSessionMemoryDirPath(), ".session.lock");
+  return path2.join(getSessionMemoryDirPath(), ".session.lock");
 }
 function getActivePlanPath() {
-  return path.join(getSessionMemoryDirPath(), "active-plan.json");
+  return path2.join(getSessionMemoryDirPath(), "active-plan.json");
 }
 function getCheckpointLogPath() {
-  return path.join(getSessionMemoryDirPath(), "checkpoints.jsonl");
+  return path2.join(getSessionMemoryDirPath(), "checkpoints.jsonl");
 }
 function getFailureLedgerPath() {
-  return path.join(getSessionMemoryDirPath(), "failure-ledger.jsonl");
+  return path2.join(getSessionMemoryDirPath(), "failure-ledger.jsonl");
 }
 function getCompactContextPath() {
-  return path.join(getSessionMemoryDirPath(), "compact-context.md");
+  return path2.join(getSessionMemoryDirPath(), "compact-context.md");
 }
 function getRuntimeStatePath() {
-  return path.join(getSessionMemoryDirPath(), "runtime-state.json");
+  return path2.join(getSessionMemoryDirPath(), "runtime-state.json");
 }
 function ensureMemoryStore() {
   const memoryDir = getMemoryDirPath();
@@ -1125,7 +1173,7 @@ function buildFileTree(dir, depth = 0, maxDepth = 4) {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         lines.push(`${prefix}${entry.name}/`);
-        lines.push(...buildFileTree(path.join(dir, entry.name), depth + 1, maxDepth));
+        lines.push(...buildFileTree(path2.join(dir, entry.name), depth + 1, maxDepth));
       } else {
         lines.push(`${prefix}${entry.name}`);
       }
@@ -1137,7 +1185,7 @@ function buildFileTree(dir, depth = 0, maxDepth = 4) {
 function getPrismaSchema() {
   const candidates = ["prisma/schema.prisma", "schema.prisma", "db/schema.prisma"];
   for (const rel of candidates) {
-    const abs = path.join(ROOT, rel);
+    const abs = path2.join(ROOT, rel);
     if (fs.existsSync(abs)) {
       return fs.readFileSync(abs, "utf-8");
     }
@@ -1147,7 +1195,7 @@ function getPrismaSchema() {
 function getTrpcProcedures() {
   const candidates = ["src/trpc/index.ts", "src/server/trpc.ts", "server/trpc.ts"];
   for (const rel of candidates) {
-    const abs = path.join(ROOT, rel);
+    const abs = path2.join(ROOT, rel);
     if (!fs.existsSync(abs)) continue;
     const content = fs.readFileSync(abs, "utf-8");
     const lines = content.split("\n");
@@ -1174,17 +1222,17 @@ function getApiRoutes(filter) {
     if (!trimmed) return;
     routes.add(trimmed);
   }
-  const apiDir = path.join(ROOT, "src/app/api");
+  const apiDir = path2.join(ROOT, "src/app/api");
   function scanNextApiDir(dir, prefix = "") {
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isDirectory()) {
-          scanNextApiDir(path.join(dir, entry.name), `${prefix}/${entry.name}`);
+          scanNextApiDir(path2.join(dir, entry.name), `${prefix}/${entry.name}`);
           continue;
         }
         if (entry.name !== "route.ts" && entry.name !== "route.js") continue;
-        const content = fs.readFileSync(path.join(dir, entry.name), "utf-8");
+        const content = fs.readFileSync(path2.join(dir, entry.name), "utf-8");
         const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"].filter(
           (m) => new RegExp(`export\\s+(?:async\\s+)?function\\s+${m}`).test(content)
         );
@@ -1279,8 +1327,8 @@ function getEnvVars() {
   const envExamplePaths = [".env.example", ".env.local.example", ".env.sample", ".env.template"];
   let envContent = "";
   for (const p of envExamplePaths) {
-    if (fs.existsSync(path.join(ROOT, p))) {
-      envContent = fs.readFileSync(path.join(ROOT, p), "utf-8");
+    if (fs.existsSync(path2.join(ROOT, p))) {
+      envContent = fs.readFileSync(path2.join(ROOT, p), "utf-8");
       break;
     }
   }
@@ -1327,7 +1375,7 @@ function getEnvVars() {
 }
 function getPackageInfo(packageName) {
   const lines = [];
-  const pkgPath = path.join(ROOT, "package.json");
+  const pkgPath = path2.join(ROOT, "package.json");
   if (fs.existsSync(pkgPath)) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
     const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
@@ -1341,7 +1389,7 @@ function getPackageInfo(packageName) {
       lines.push("", "**Node Dependencies:**", ...depPairs);
     }
   }
-  const requirementsPath = path.join(ROOT, "requirements.txt");
+  const requirementsPath = path2.join(ROOT, "requirements.txt");
   if (fs.existsSync(requirementsPath)) {
     const reqLines = fs.readFileSync(requirementsPath, "utf-8").split("\n").map((line) => line.trim()).filter(Boolean).filter((line) => !line.startsWith("#"));
     if (packageName) {
@@ -1351,25 +1399,25 @@ function getPackageInfo(packageName) {
     lines.push("", `**Python Requirements:** ${reqLines.length} entries`);
     lines.push(...reqLines.slice(0, 40).map((line) => `  ${line}`));
   }
-  const pomPath = path.join(ROOT, "pom.xml");
+  const pomPath = path2.join(ROOT, "pom.xml");
   if (fs.existsSync(pomPath)) {
     const pom = fs.readFileSync(pomPath, "utf-8");
     const artifact = pom.match(/<artifactId>([^<]+)<\/artifactId>/)?.[1] ?? "unknown";
     const version = pom.match(/<version>([^<]+)<\/version>/)?.[1] ?? "unknown";
     lines.push("", `**Maven Project:** ${artifact}@${version}`);
   }
-  const gradlePath = path.join(ROOT, "build.gradle");
-  const gradleKtsPath = path.join(ROOT, "build.gradle.kts");
+  const gradlePath = path2.join(ROOT, "build.gradle");
+  const gradleKtsPath = path2.join(ROOT, "build.gradle.kts");
   if (fs.existsSync(gradlePath) || fs.existsSync(gradleKtsPath)) {
     lines.push("", "**Gradle Build:** detected");
   }
-  const goModPath = path.join(ROOT, "go.mod");
+  const goModPath = path2.join(ROOT, "go.mod");
   if (fs.existsSync(goModPath)) {
     const goMod = fs.readFileSync(goModPath, "utf-8");
     const moduleName = goMod.match(/^module\s+(\S+)/m)?.[1] ?? "unknown";
     lines.push("", `**Go Module:** ${moduleName}`);
   }
-  const cargoPath = path.join(ROOT, "Cargo.toml");
+  const cargoPath = path2.join(ROOT, "Cargo.toml");
   if (fs.existsSync(cargoPath)) {
     const cargo = fs.readFileSync(cargoPath, "utf-8");
     const name = cargo.match(/^name\s*=\s*"([^"]+)"/m)?.[1] ?? "unknown";
@@ -1382,11 +1430,11 @@ function getPackageInfo(packageName) {
   return lines.join("\n").trim();
 }
 function getFileSummary(filePath) {
-  const absPath = path.isAbsolute(filePath) ? filePath : path.join(ROOT, filePath);
+  const absPath = path2.isAbsolute(filePath) ? filePath : path2.join(ROOT, filePath);
   try {
     const content = fs.readFileSync(absPath, "utf-8");
     const lines = content.split("\n");
-    const ext = path.extname(filePath).toLowerCase();
+    const ext = path2.extname(filePath).toLowerCase();
     const exports = [];
     const imports = [];
     for (const line of lines.slice(0, 200)) {
@@ -1431,8 +1479,8 @@ function getFileSummary(filePath) {
   }
 }
 function getImpactOfChange(filePath) {
-  const newGraphPath = path.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
-  const legacyGraphPath = path.join(ROOT, ".ai-os", "context", "dependency-graph.json");
+  const newGraphPath = path2.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
+  const legacyGraphPath = path2.join(ROOT, ".ai-os", "context", "dependency-graph.json");
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
     return "Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).";
@@ -1484,8 +1532,8 @@ ${candidates.map((c) => `- ${c}`).join("\n")}`;
   return lines.join("\n");
 }
 function getDependencyChain(filePath) {
-  const newGraphPath = path.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
-  const legacyGraphPath = path.join(ROOT, ".ai-os", "context", "dependency-graph.json");
+  const newGraphPath = path2.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
+  const legacyGraphPath = path2.join(ROOT, ".ai-os", "context", "dependency-graph.json");
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
     return "Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).";
@@ -1529,8 +1577,8 @@ function getDependencyChain(filePath) {
   return lines.join("\n");
 }
 function checkForUpdates() {
-  const newConfigPath = path.join(ROOT, ".github", "ai-os", "config.json");
-  const legacyConfigPath = path.join(ROOT, ".ai-os", "config.json");
+  const newConfigPath = path2.join(ROOT, ".github", "ai-os", "config.json");
+  const legacyConfigPath = path2.join(ROOT, ".ai-os", "config.json");
   const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs.existsSync(configPath)) {
     return "AI OS is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`";
@@ -1547,13 +1595,14 @@ function checkForUpdates() {
   let toolVersion = "0.0.0";
   try {
     const toolPkg = JSON.parse(
-      fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf-8")
+      fs.readFileSync(path2.join(__dirname2, "..", "..", "package.json"), "utf-8")
     );
     toolVersion = toolPkg.version ?? "0.0.0";
   } catch {
   }
+  const latestVersion = getLatestResolvableVersion(toolVersion);
   const parse = (v) => v.replace(/^v/, "").split(".").map(Number);
-  const [cMaj = 0, cMin = 0, cPat = 0] = parse(toolVersion);
+  const [cMaj = 0, cMin = 0, cPat = 0] = parse(latestVersion);
   const [iMaj = 0, iMin = 0, iPat = 0] = parse(installedVersion);
   const updateAvailable = cMaj > iMaj || cMaj === iMaj && cMin > iMin || cMaj === iMaj && cMin === iMin && cPat > iPat;
   if (updateAvailable) {
@@ -1561,11 +1610,11 @@ function checkForUpdates() {
       `## AI OS Update Available`,
       ``,
       `- **Installed:** v${installedVersion} (generated ${installedAt})`,
-      `- **Latest:**    v${toolVersion}`,
+      `- **Latest:**    v${latestVersion}`,
       ``,
       `Run the following to update all AI OS artifacts in-place:`,
       `\`\`\`bash`,
-      `npx -y github:marinvch/ai-os#v${toolVersion} --refresh-existing`,
+      `npx -y "github:marinvch/ai-os#v${latestVersion}" --refresh-existing`,
       `\`\`\``,
       `Or use the bootstrap one-liner: \`curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash\``,
       `This refreshes context docs, agents, skills, MCP tools, and the dependency graph without deleting your existing files.`
@@ -1596,7 +1645,7 @@ function getSessionContext() {
     "> If the request is ambiguous or underspecified, ask clarifying questions first.",
     "> Do not improvise requirements or make architectural changes without confirmation."
   ].join("\n");
-  const contextCardPath = path.join(ROOT, ".github", "COPILOT_CONTEXT.md");
+  const contextCardPath = path2.join(ROOT, ".github", "COPILOT_CONTEXT.md");
   if (fs.existsSync(contextCardPath)) {
     return fs.readFileSync(contextCardPath, "utf-8") + SESSION_BOOTSTRAP;
   }
@@ -1618,7 +1667,7 @@ function getSessionContext() {
   return lines.join("\n") + SESSION_BOOTSTRAP;
 }
 function getRecommendations() {
-  const recommendationsPath = path.join(ROOT, ".github", "ai-os", "recommendations.md");
+  const recommendationsPath = path2.join(ROOT, ".github", "ai-os", "recommendations.md");
   if (fs.existsSync(recommendationsPath)) {
     return fs.readFileSync(recommendationsPath, "utf-8");
   }
@@ -1627,17 +1676,17 @@ function getRecommendations() {
 function suggestImprovements() {
   const suggestions = [];
   const envExamplePaths = [".env.example", ".env.local.example", ".env.sample"];
-  const hasEnvExample = envExamplePaths.some((p) => fs.existsSync(path.join(ROOT, p)));
+  const hasEnvExample = envExamplePaths.some((p) => fs.existsSync(path2.join(ROOT, p)));
   if (!hasEnvExample) {
     suggestions.push("**Missing `.env.example`**: Document required environment variables so `get_env_vars` can surface them.");
   }
-  if (!fs.existsSync(path.join(ROOT, ".github", "COPILOT_CONTEXT.md"))) {
+  if (!fs.existsSync(path2.join(ROOT, ".github", "COPILOT_CONTEXT.md"))) {
     suggestions.push("**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate the session context card for better session continuity.");
   }
-  if (!fs.existsSync(path.join(ROOT, ".github", "ai-os", "recommendations.md"))) {
+  if (!fs.existsSync(path2.join(ROOT, ".github", "ai-os", "recommendations.md"))) {
     suggestions.push("**Missing `recommendations.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate stack-specific tool recommendations.");
   }
-  const memoryPath = path.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
+  const memoryPath = path2.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
   if (!fs.existsSync(memoryPath)) {
     suggestions.push("**No repository memory found**: Use `remember_repo_fact` to capture key architectural decisions.");
   } else {
@@ -1646,11 +1695,11 @@ function suggestImprovements() {
       suggestions.push("**Empty repository memory**: Use `remember_repo_fact` to capture key architectural decisions and conventions.");
     }
   }
-  const archPath = path.join(ROOT, ".github", "ai-os", "context", "architecture.md");
+  const archPath = path2.join(ROOT, ".github", "ai-os", "context", "architecture.md");
   if (!fs.existsSync(archPath)) {
     suggestions.push("**Missing architecture doc**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to rebuild `.github/ai-os/context/architecture.md`.");
   }
-  const configPath = path.join(ROOT, ".github", "ai-os", "config.json");
+  const configPath = path2.join(ROOT, ".github", "ai-os", "config.json");
   if (fs.existsSync(configPath)) {
     try {
       const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
@@ -1703,7 +1752,7 @@ function executeTool(toolName, input) {
       result = searchFiles(input.query ?? "", input.filePattern, input.caseSensitive ?? false);
       break;
     case "get_project_structure": {
-      const startDir = input.path ? path2.join(getProjectRoot(), input.path) : getProjectRoot();
+      const startDir = input.path ? path3.join(getProjectRoot(), input.path) : getProjectRoot();
       result = buildFileTree(startDir, 0, input.depth ?? 4).join("\n");
       break;
     }

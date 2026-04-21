@@ -7,7 +7,7 @@
  * - buildRecommendationsText: must return non-empty output for known stacks
  * - collectRecommendations: deduplication across signal sources
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import os from 'node:os';
 import { buildRecommendationsText, collectRecommendations } from '../recommendations/index.js';
 import type { DetectedStack, DetectedPatterns } from '../types.js';
@@ -435,6 +435,72 @@ describe('preserveContextFiles option', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  it('does NOT overwrite stack.md when preserveContextFiles is true and file exists', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-stack-' + Date.now());
+    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    fs.mkdirSync(contextDir, { recursive: true });
+
+    const stackPath = path.join(contextDir, 'stack.md');
+    const customContent = '# Custom Stack\n\nRepo-specific stack notes.\n';
+    fs.writeFileSync(stackPath, customContent, 'utf-8');
+
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: true });
+
+    const after = fs.readFileSync(stackPath, 'utf-8');
+    expect(after).toBe(customContent);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does NOT overwrite existing-ai-context.md when preserveContextFiles is true and file exists', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-existing-context-' + Date.now());
+    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    fs.mkdirSync(contextDir, { recursive: true });
+
+    const existingContextPath = path.join(contextDir, 'existing-ai-context.md');
+    const customContent = '# Existing Context\n\nCurated migration notes.\n';
+    fs.writeFileSync(existingContextPath, customContent, 'utf-8');
+
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: true });
+
+    const after = fs.readFileSync(existingContextPath, 'utf-8');
+    expect(after).toBe(customContent);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does NOT overwrite COPILOT_CONTEXT.md when preserveContextFiles is true and file exists', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-session-card-' + Date.now());
+    const githubDir = path.join(tmpDir, '.github');
+    fs.mkdirSync(githubDir, { recursive: true });
+
+    const sessionCardPath = path.join(githubDir, 'COPILOT_CONTEXT.md');
+    const customContent = '# Custom Session Card\n\nKeep this repo-specific summary.\n';
+    fs.writeFileSync(sessionCardPath, customContent, 'utf-8');
+
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: true });
+
+    const after = fs.readFileSync(sessionCardPath, 'utf-8');
+    expect(after).toBe(customContent);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
   it('creates architecture.md when it does not exist even with preserveContextFiles true', async () => {
     const { generateContextDocs } = await import('../generators/context-docs.js');
     const fs = await import('node:fs');
@@ -448,6 +514,58 @@ describe('preserveContextFiles option', () => {
 
     const archPath = path.join(tmpDir, '.github', 'ai-os', 'context', 'architecture.md');
     expect(fs.existsSync(archPath), 'architecture.md should be created when missing').toBe(true);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('updates installedAt on refresh generation runs', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-installed-at-refresh-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-21T00:00:00.000Z'));
+
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: false });
+    const configPath = path.join(tmpDir, '.github', 'ai-os', 'config.json');
+    const firstConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { installedAt: string };
+
+    vi.setSystemTime(new Date('2026-04-21T00:00:10.000Z'));
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: false });
+
+    const secondConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { installedAt: string };
+    expect(secondConfig.installedAt > firstConfig.installedAt).toBe(true);
+
+    vi.useRealTimers();
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
+describe('prompt generation', () => {
+  it('uses RTK Query wording in /refactor-component when tRPC is not detected', async () => {
+    const { generatePrompts } = await import('../generators/prompts.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({
+      allDependencies: ['@reduxjs/toolkit'],
+    });
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-prompts-rtk-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    await generatePrompts(stack, tmpDir, { refreshExisting: true });
+
+    const promptsPath = path.join(tmpDir, '.github', 'copilot', 'prompts.json');
+    const promptsFile = JSON.parse(fs.readFileSync(promptsPath, 'utf-8')) as { prompts: Array<{ id: string; prompt: string }> };
+    const refactorPrompt = promptsFile.prompts.find((p) => p.id === '/refactor-component');
+
+    expect(refactorPrompt?.prompt.includes('RTK Query hooks')).toBe(true);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

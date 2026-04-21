@@ -3,7 +3,7 @@
 // src/generate.ts
 import fs16 from "node:fs";
 import path17 from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync as spawnSync2 } from "node:child_process";
 import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // src/analyze.ts
@@ -1738,6 +1738,7 @@ function buildDependencyGraph(rootDir) {
 // src/updater.ts
 import fs9 from "node:fs";
 import path9 from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 var __dirname2 = path9.dirname(fileURLToPath2(import.meta.url));
 function getToolVersion() {
@@ -1760,35 +1761,82 @@ function readInstalledConfig(targetDir) {
     return null;
   }
 }
+function parseSemver(v) {
+  const [maj = 0, min = 0, pat = 0] = v.replace(/^v/, "").split(".").map(Number);
+  return [maj, min, pat];
+}
+function compareSemver(a, b) {
+  const [aMaj = 0, aMin = 0, aPat = 0] = parseSemver(a);
+  const [bMaj = 0, bMin = 0, bPat = 0] = parseSemver(b);
+  if (aMaj !== bMaj) return aMaj > bMaj ? 1 : -1;
+  if (aMin !== bMin) return aMin > bMin ? 1 : -1;
+  if (aPat !== bPat) return aPat > bPat ? 1 : -1;
+  return 0;
+}
 function isNewer(candidate, installed) {
-  const parse = (v) => v.replace(/^v/, "").split(".").map(Number);
-  const [cMaj = 0, cMin = 0, cPat = 0] = parse(candidate);
-  const [iMaj = 0, iMin = 0, iPat = 0] = parse(installed);
+  const [cMaj = 0, cMin = 0, cPat = 0] = parseSemver(candidate);
+  const [iMaj = 0, iMin = 0, iPat = 0] = parseSemver(installed);
   if (cMaj !== iMaj) return cMaj > iMaj;
   if (cMin !== iMin) return cMin > iMin;
   return cPat > iPat;
 }
+function getLatestPublishedTagVersion() {
+  try {
+    const result = spawnSync(
+      "git",
+      ["ls-remote", "--tags", "--refs", "https://github.com/marinvch/ai-os.git", "v*"],
+      {
+        encoding: "utf-8",
+        timeout: 5e3
+      }
+    );
+    if (result.status !== 0 || !result.stdout) return null;
+    const versions = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+      const match = line.match(/refs\/tags\/(v\d+\.\d+\.\d+)$/);
+      return match?.[1] ?? null;
+    }).filter((v) => v !== null);
+    if (versions.length === 0) return null;
+    return versions.reduce(
+      (latest, current) => compareSemver(current, latest) > 0 ? current : latest
+    );
+  } catch {
+    return null;
+  }
+}
+function getLatestResolvableVersion(toolVersion) {
+  const published = getLatestPublishedTagVersion();
+  if (!published) return toolVersion;
+  return published;
+}
 function checkUpdateStatus(targetDir) {
   const toolVersion = getToolVersion();
+  const latestVersion = getLatestResolvableVersion(toolVersion);
   const config = readInstalledConfig(targetDir);
   if (!config) {
-    return { toolVersion, installedVersion: null, updateAvailable: false, isFirstInstall: true };
+    return {
+      toolVersion,
+      latestVersion,
+      installedVersion: null,
+      updateAvailable: false,
+      isFirstInstall: true
+    };
   }
   const installedVersion = config.version;
   return {
     toolVersion,
+    latestVersion,
     installedVersion,
-    updateAvailable: isNewer(toolVersion, installedVersion),
+    updateAvailable: isNewer(latestVersion, installedVersion),
     isFirstInstall: false
   };
 }
 function printUpdateBanner(status) {
   if (!status.updateAvailable) return;
-  const updateCmd = `npx -y github:marinvch/ai-os#v${status.toolVersion} --refresh-existing`;
+  const updateCmd = `npx -y "github:marinvch/ai-os#v${status.latestVersion}" --refresh-existing`;
   console.log("");
   console.log("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
   console.log(`  \u2502  \u{1F514} AI OS Update Available                          \u2502`);
-  console.log(`  \u2502     Installed: v${status.installedVersion?.padEnd(10) ?? "unknown   "}  \u2192  Latest: v${status.toolVersion.padEnd(10)}\u2502`);
+  console.log(`  \u2502     Installed: v${status.installedVersion?.padEnd(10) ?? "unknown   "}  \u2192  Latest: v${status.latestVersion.padEnd(10)}\u2502`);
   console.log(`  \u2502                                                     \u2502`);
   console.log(`  \u2502  Re-run AI OS with --refresh-existing (or --update) \u2502`);
   console.log(`  \u2502  to refresh context, tools, agents, and MCP files.  \u2502`);
@@ -2400,13 +2448,17 @@ function generateContextDocs(stack, outputDir, options) {
     managed.push(p);
     return p;
   };
+  const shouldPreserve = (absPath) => preserveContextFiles && fs10.existsSync(absPath);
   const existingContext = detectExistingAiContext(outputDir);
   const legacyMemory = path10.join(outputDir, ".ai-os", "memory", "memory.jsonl");
   const newMemory = path10.join(memoryDir, "memory.jsonl");
   if (fs10.existsSync(legacyMemory) && !fs10.existsSync(newMemory)) {
     fs10.copyFileSync(legacyMemory, newMemory);
   }
-  writeIfChanged(track(path10.join(contextDir, "stack.md")), generateStackDoc(stack));
+  const stackPath = track(path10.join(contextDir, "stack.md"));
+  if (!shouldPreserve(stackPath)) {
+    writeIfChanged(stackPath, generateStackDoc(stack));
+  }
   const archPath = track(path10.join(contextDir, "architecture.md"));
   if (!(preserveContextFiles && fs10.existsSync(archPath))) {
     const archGenerated = generateArchitectureDoc(stack);
@@ -2418,9 +2470,18 @@ function generateContextDocs(stack, outputDir, options) {
     writeIfChanged(convsPath, fs10.existsSync(convsPath) ? mergeSections(fs10.readFileSync(convsPath, "utf-8"), convsGenerated) : convsGenerated);
   }
   writeIfChanged(track(path10.join(contextDir, "memory.md")), generateMemoryDoc(stack));
-  writeIfChanged(track(path10.join(contextDir, "existing-ai-context.md")), generateExistingAiContextDoc(stack, existingContext));
-  writeIfChanged(track(path10.join(contextDir, "context-budget.md")), generateContextBudgetDoc(stack));
-  writeIfChanged(track(path10.join(contextDir, "protected-blocks.md")), generateProtectedBlocksDoc());
+  const existingAiContextPath = track(path10.join(contextDir, "existing-ai-context.md"));
+  if (!shouldPreserve(existingAiContextPath)) {
+    writeIfChanged(existingAiContextPath, generateExistingAiContextDoc(stack, existingContext));
+  }
+  const contextBudgetPath = track(path10.join(contextDir, "context-budget.md"));
+  if (!shouldPreserve(contextBudgetPath)) {
+    writeIfChanged(contextBudgetPath, generateContextBudgetDoc(stack));
+  }
+  const protectedBlocksPath = track(path10.join(contextDir, "protected-blocks.md"));
+  if (!shouldPreserve(protectedBlocksPath)) {
+    writeIfChanged(protectedBlocksPath, generateProtectedBlocksDoc());
+  }
   const memoryReadmePath = track(path10.join(memoryDir, "README.md"));
   if (!fs10.existsSync(memoryReadmePath)) {
     writeIfChanged(
@@ -2470,7 +2531,7 @@ function generateContextDocs(stack, outputDir, options) {
   const config = {
     // Auto-detected fields (always refreshed)
     version: getToolVersion(),
-    installedAt: existingConfig?.installedAt ?? (/* @__PURE__ */ new Date()).toISOString(),
+    installedAt: (/* @__PURE__ */ new Date()).toISOString(),
     projectName: stack.projectName,
     primaryLanguage: stack.primaryLanguage.name,
     primaryFramework: stack.primaryFramework?.name ?? null,
@@ -2491,7 +2552,9 @@ function generateContextDocs(stack, outputDir, options) {
   writeIfChanged(track(path10.join(aiOsDir, "config.json")), JSON.stringify(config, null, 2));
   if (config.sessionContextCard) {
     const sessionCardPath = track(path10.join(outputDir, ".github", "COPILOT_CONTEXT.md"));
-    writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
+    if (!shouldPreserve(sessionCardPath)) {
+      writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
+    }
   }
   return managed;
 }
@@ -3193,6 +3256,7 @@ function buildPrompts(stack, cwd) {
   const hasSpring = frameworks.some((f) => f.includes("spring"));
   const hasDotnet = frameworks.some((f) => f.includes(".net") || f.includes("asp.net"));
   const hasTrpc = packages.includes("@trpc/server") || packages.includes("trpc");
+  const hasRtkQuery = packages.includes("@reduxjs/toolkit");
   const hasPrisma = packages.includes("prisma") || packages.includes("@prisma/client");
   const hasStripe = packages.includes("stripe");
   const hasAuth = packages.includes("next-auth") || packages.includes("nextauth");
@@ -3526,10 +3590,10 @@ Reference the project architecture in .github/ai-os/context/architecture.md as c
 Before touching anything:
 1. Read the component file completely
 2. List all imports and consumers (grep for the component name)
-3. Identify props, tRPC hooks, and state
+3. Identify props, ${hasTrpc ? "tRPC hooks" : hasRtkQuery ? "RTK Query hooks" : "data hooks (custom/fetching)"}, and state
 Then:
 - Apply the naming conventions from .github/ai-os/context/conventions.md
-- Extract business logic to lib/ if present in the component
+- Extract business logic to the existing shared module pattern used by this repo (for example lib/, services/, or hooks/)
 - Ensure TypeScript strict compliance (no any)
 - Verify all callers still compile after the refactor`
   });
@@ -4424,7 +4488,7 @@ function installLocalMcpRuntime(cwd, verbose) {
     } catch {
     }
   }
-  const healthcheck = spawnSync(nodePath, [runtimeEntry, "--healthcheck"], {
+  const healthcheck = spawnSync2(nodePath, [runtimeEntry, "--healthcheck"], {
     cwd,
     env: { ...process.env, AI_OS_ROOT: cwd },
     encoding: "utf-8",

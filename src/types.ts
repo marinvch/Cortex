@@ -103,6 +103,12 @@ export interface AiOsConfig {
   /** Generate weekly update-check workflow in target repos (default: true) */
   updateCheckEnabled: boolean;
   /**
+   * Skill generation strategy:
+   * - 'creator-only'      : deploy only bundled skill-creator (default)
+   * - 'predefined+creator': also generate stack-based predefined skills in .github/copilot/skills
+   */
+  skillsStrategy?: 'creator-only' | 'predefined+creator';
+  /**
    * Persistent rules injected verbatim into copilot-instructions.md and
    * preserved through refreshes. Edit here to survive regeneration.
    */

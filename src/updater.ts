@@ -84,7 +84,7 @@ function getLatestPublishedTagVersion(): string | null {
       .map(line => line.trim())
       .filter(Boolean)
       .map((line) => {
-        const match = line.match(/refs\/tags\/(v\d+\.\d+\.\d+)$/);
+        const match = line.match(/refs\/tags\/v(\d+\.\d+\.\d+)$/);
         return match?.[1] ?? null;
       })
       .filter((v): v is string => v !== null);

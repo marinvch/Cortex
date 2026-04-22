@@ -135,6 +135,7 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
 
 interface GenerateSkillsOptions {
   refreshExisting?: boolean;
+  strategy?: 'creator-only' | 'predefined+creator';
 }
 
 async function generateSkillsWithOptions(
@@ -144,6 +145,19 @@ async function generateSkillsWithOptions(
 ): Promise<string[]> {
   const skillsDir = path.join(cwd, SKILLS_DIR);
   fs.mkdirSync(skillsDir, { recursive: true });
+
+  if (options.strategy === 'creator-only') {
+    // In creator-only mode we intentionally avoid generating stack-based predefined
+    // skills. During refresh we prune existing ai-os-* predefined skills.
+    if (options.refreshExisting && fs.existsSync(skillsDir)) {
+      const onDisk = fs.readdirSync(skillsDir).filter(f => f.startsWith('ai-os-') && f.endsWith('.md'));
+      for (const stale of onDisk) {
+        fs.rmSync(path.join(skillsDir, stale));
+        console.log(`  🗑️  Pruned predefined skill (creator-only mode): ${stale}`);
+      }
+    }
+    return [];
+  }
 
   const specs = buildSkillSpecs(stack, cwd);
   const generatedPaths: string[] = [];
@@ -191,7 +205,10 @@ export async function generateSkills(
   cwd: string,
   options?: GenerateSkillsOptions,
 ): Promise<string[]> {
-  return generateSkillsWithOptions(stack, cwd, { refreshExisting: options?.refreshExisting ?? false });
+  return generateSkillsWithOptions(stack, cwd, {
+    refreshExisting: options?.refreshExisting ?? false,
+    strategy: options?.strategy ?? 'creator-only',
+  });
 }
 
 // ── Bundled agent skills (skill-creator, etc.) ───────────────────────────────

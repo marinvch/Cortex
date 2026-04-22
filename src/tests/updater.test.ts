@@ -23,7 +23,7 @@ describe('updater version resolution', () => {
 
     const { getLatestResolvableVersion } = await import('../updater.js');
 
-    expect(getLatestResolvableVersion('1.0.0')).toBe('v0.9.0');
+    expect(getLatestResolvableVersion('1.0.0')).toBe('0.9.0');
   });
 
   it('emits a shell-safe quoted update command in the banner', async () => {

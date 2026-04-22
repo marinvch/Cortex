@@ -363,7 +363,7 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
   const safeRerun = run(`${GENERATE_CMD} --cwd "${dir}"`, AI_OS_ROOT);
-  const refreshCmd = `npx -y github:marinvch/ai-os#v${TOOL_VERSION.version} --refresh-existing`;
+  const refreshCmd = `npx -y "github:marinvch/ai-os#v${TOOL_VERSION.version}" --refresh-existing`;
 
   results.push({
     fixture: fixtureName,

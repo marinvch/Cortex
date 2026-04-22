@@ -639,3 +639,77 @@ describe('agent preservation with preserveExistingAgents', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 });
+
+describe('skills strategy', () => {
+  it('defaults config skillsStrategy to creator-only', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack();
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-strategy-default-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    generateContextDocs(stack, tmpDir, { preserveContextFiles: false });
+
+    const configPath = path.join(tmpDir, '.github', 'ai-os', 'config.json');
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { skillsStrategy?: string };
+    expect(config.skillsStrategy).toBe('creator-only');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does not generate predefined skills in creator-only mode', async () => {
+    const { generateSkills } = await import('../generators/skills.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({
+      frameworks: [{ name: 'Next.js', category: 'fullstack', version: '14.0.0', template: 'nextjs' }],
+      allDependencies: ['next', 'react'],
+    });
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-creator-only-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    const generated = await generateSkills(stack, tmpDir, {
+      refreshExisting: false,
+      strategy: 'creator-only',
+    });
+
+    expect(generated.length).toBe(0);
+
+    const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
+    const onDisk = fs.existsSync(skillsDir)
+      ? fs.readdirSync(skillsDir).filter(f => f.startsWith('ai-os-') && f.endsWith('.md'))
+      : [];
+    expect(onDisk.length).toBe(0);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('prunes existing predefined skills on refresh in creator-only mode', async () => {
+    const { generateSkills } = await import('../generators/skills.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({
+      frameworks: [{ name: 'Next.js', category: 'fullstack', version: '14.0.0', template: 'nextjs' }],
+      allDependencies: ['next', 'react'],
+    });
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-prune-creator-only-' + Date.now());
+    const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
+    fs.mkdirSync(skillsDir, { recursive: true });
+    fs.writeFileSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'), '# old skill\n', 'utf-8');
+
+    await generateSkills(stack, tmpDir, {
+      refreshExisting: true,
+      strategy: 'creator-only',
+    });
+
+    expect(fs.existsSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'))).toBe(false);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});

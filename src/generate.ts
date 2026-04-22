@@ -220,7 +220,7 @@ function printContextualNextSteps(
   updateStatus: UpdateStatus,
   recommendationsEnabled: boolean,
 ): void {
-  const refreshCmd = `npx -y github:marinvch/ai-os#v${updateStatus.toolVersion} --refresh-existing`;
+  const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
   const recommendationsPath = '.github/ai-os/recommendations.md';
 
   const printInstructionStrategy = (): void => {
@@ -529,15 +529,21 @@ async function main(): Promise<void> {
   const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
   // Read the freshly-written config to get feature flags for remaining generators
   const config = readAiOsConfig(cwd) ?? existingConfig;
+  const skillsStrategy = config?.skillsStrategy ?? 'creator-only';
   const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
 
   // Phase 2: Agents, Skills, Prompts
   const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveExistingAgents: preserveContextFiles, config: config ?? undefined });
-  const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const skillFiles = await generateSkills(stack, cwd, {
+    refreshExisting: mode === 'refresh-existing',
+    strategy: skillsStrategy,
+  });
   const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
   const workflowFiles = generateWorkflows(cwd, { config: config ?? undefined });
   await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
+
+  console.log(`  🧠 Skills strategy: ${skillsStrategy}`);
 
   // Phase 3: Recommendations (if enabled in config, default: true)
   const recommendationFiles: string[] = [];

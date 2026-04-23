@@ -328,6 +328,10 @@ npm run generate -- --cwd /path/to/target-repo --profile standard
 npm run generate:refresh -- --cwd /path/to/target-repo
 # Prune stale artifacts without full refresh
 npm run generate -- --cwd /path/to/target-repo --prune
+# Codebase-aware bootstrap (generates all AI OS files + auto-installs skills)
+npm run bootstrap -- --cwd /path/to/target-repo
+# Bootstrap dry-run — preview what would be applied, nothing changes
+npm run bootstrap:dry -- --cwd /path/to/target-repo
 # Check hygiene (detect stale node_modules, missing manifests, etc.)
 npm run check-hygiene
 # Validate post-install health and emit actionable fix commands
@@ -531,6 +535,60 @@ Pass `--verbose` (or `-v`) to see per-file decisions during generation:
 ```
 
 This is useful for debugging why a file was or was not updated.
+
+### --bootstrap flag — Codebase-Aware Bootstrap
+
+Pass `--bootstrap` to run a **full baseline setup in one command**:
+
+1. Analyzes the repo (language / framework / package manager)
+2. Generates all AI OS context files, agents, skills, MCP wiring, and prompts
+3. Auto-installs stack-relevant agent skills via the skills CLI (requires `npx` + internet)
+4. Prints an **apply report** showing every action taken and why it was triggered
+
+```bash
+# Full bootstrap — generates + installs skills
+npx -y "github:marinvch/ai-os" --bootstrap
+
+# Dry-run — shows what would happen, nothing is written or installed
+npx -y "github:marinvch/ai-os" --bootstrap --dry-run
+```
+
+Example dry-run output:
+
+```text
+  ╔════════════════════════════════════════╗
+  ║  Bootstrap Plan (DRY RUN) — my-app     ║
+  ╚════════════════════════════════════════╝
+
+  Detected Stack:
+    Language:    TypeScript
+    Frameworks:  Next.js, React
+    Pkg Manager: npm
+    TypeScript:  Yes
+
+  Bootstrap Plan:
+
+  🔲 [skill]    nextjs                 ← triggered by: Next.js
+       Install: npx -y skills add vercel-labs/agent-skills@nextjs -g -a github-copilot
+  🔲 [skill]    vercel-react-best-prac ← triggered by: Next.js
+       Install: npx -y skills add vercel-labs/agent-skills@vercel-react-best-practices -g -a github-copilot
+  🔲 [skill]    context7               ← universal — recommended for every project
+       Install: npx -y skills add intellectronica/agent-skills@context7 -g -a github-copilot
+  🔲 [vscode]   bradlc.vscode-tailwindcss ← triggered by: Next.js
+       Install: code --install-extension bradlc.vscode-tailwindcss
+
+  Summary: 4 action(s) planned (dry-run — nothing applied)
+```
+
+**Apply report icons:**
+| Icon | Meaning |
+| ---- | ------- |
+| ✅  | Skill installed via skills CLI |
+| 📋  | Informational — manual action required (MCP servers, VS Code extensions) |
+| ❌  | Install attempted but failed (check error message) |
+| 🔲  | Planned action (dry-run only) |
+
+Skills with a **known source** are auto-installed. Skills without a registered source are shown as `📋 skipped` with the install command for manual use. MCP servers and VS Code extensions are always informational — see `recommendations.md` for the full list.
 
 ## MCP server modes
 

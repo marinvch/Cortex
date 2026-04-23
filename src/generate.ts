@@ -20,11 +20,12 @@ import { applyProfile, describeProfile, parseProfile } from './profile.js';
 import type { InstallProfile } from './types.js';
 import { runDoctor, printDoctorReport } from './doctor.js';
 import { mergeUserBlocks } from './user-blocks.js';
+import { runBootstrap, formatBootstrapReport } from './bootstrap.js';
 import type { OnboardingPlan } from './planner.js';
 import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor';
+type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap';
 
 function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null } {
   const args = process.argv.slice(2);
@@ -69,6 +70,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'check-hygiene';
     } else if (args[i] === '--doctor') {
       action = 'doctor';
+    } else if (args[i] === '--bootstrap') {
+      action = 'bootstrap';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
     } else if (args[i] === '--regenerate-context') {
@@ -597,6 +600,11 @@ async function main(): Promise<void> {
   }
 
   if (dryRun) {
+    if (action === 'bootstrap') {
+      const report = runBootstrap(stack, { dryRun: true });
+      console.log(formatBootstrapReport(report));
+      return;
+    }
     console.log('  [DRY RUN] Detected stack:');
     console.log(JSON.stringify(stack, null, 2));
     return;
@@ -790,6 +798,15 @@ async function main(): Promise<void> {
 
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? undefined);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
+
+  // ── Bootstrap action: auto-install skills after full generation ──────────
+  if (action === 'bootstrap') {
+    console.log('  🚀 Running codebase-aware bootstrap...');
+    console.log('');
+    const bootstrapReport = runBootstrap(stack, { dryRun: false });
+    console.log(formatBootstrapReport(bootstrapReport));
+    return;
+  }
 
   // ── Agent-flow setup prompt ──────────────────────────────────────────────
   // On first install (no prior config) or when agentFlowMode is not explicitly

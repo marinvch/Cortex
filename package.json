@@ -16,6 +16,8 @@
     "generate": "tsx src/generate.ts",
     "generate:dry": "tsx src/generate.ts --dry-run",
     "generate:refresh": "tsx src/generate.ts --refresh-existing",
+    "bootstrap": "tsx src/generate.ts --bootstrap",
+    "bootstrap:dry": "tsx src/generate.ts --bootstrap --dry-run",
     "update": "tsx src/generate.ts --update",
     "update:projects": "bash scripts/update-projects.sh",
     "check-hygiene": "tsx src/generate.ts --check-hygiene",

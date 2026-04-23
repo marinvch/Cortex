@@ -28,7 +28,7 @@ jobs:
           INSTALLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/ai-os/config.json','utf8')); process.stdout.write(c.version || '0.0.0'); } catch { process.stdout.write('0.0.0'); }")
           echo "installed=$INSTALLED" >> "$GITHUB_OUTPUT"
 
-          LATEST=$(curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/dev/package.json | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{const j=JSON.parse(d); process.stdout.write(j.version||'0.0.0');});")
+          LATEST=$(curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/package.json | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{const j=JSON.parse(d); process.stdout.write(j.version||'0.0.0');});")
           echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
 
           NEEDS_UPDATE=$(node -e "const a=process.argv[1].split('.').map(n=>parseInt(n,10)||0); const b=process.argv[2].split('.').map(n=>parseInt(n,10)||0); const lt=(x,y)=>x[0]<y[0]||x[0]===y[0]&&(x[1]<y[1]||x[1]===y[1]&&x[2]<y[2]); process.stdout.write(lt(a,b)?'true':'false');" "$INSTALLED" "$LATEST")
@@ -70,6 +70,5 @@ jobs:
                 '',
                 'To update, run:',
                 'npx -y github:marinvch/ai-os --refresh-existing',
-              ].join('
-'),
+              ].join('\n'),
             });

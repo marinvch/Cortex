@@ -239,6 +239,7 @@ export const UNIVERSAL_RECOMMENDATIONS: StackRecommendation[] = [
     trigger: 'universal',
     skills: ['find-skills', 'context7'],
     skillSources: {
+      'find-skills': 'vercel-labs/skills',
       'context7': 'intellectronica/agent-skills',
     },
   },

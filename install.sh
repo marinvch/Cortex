@@ -272,12 +272,12 @@ if [[ "$INSTALL_SKILL_CREATOR" == "true" ]]; then
 
   if ! command -v npx &>/dev/null; then
     echo -e "  ${YELLOW}⚠ npx not found. Skipping skill installation.${RESET}"
-    echo -e "  ${YELLOW}  You can run later:${RESET} npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y"
-  elif npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y; then
+    echo -e "  ${YELLOW}  You can run later:${RESET} npx -y skills add anthropics/skills@skill-creator -g -a github-copilot"
+  elif npx -y skills add anthropics/skills@skill-creator -g -a github-copilot; then
     echo -e "  ${GREEN}✓ skill-creator installed globally${RESET}"
   else
     echo -e "  ${YELLOW}⚠ skill-creator install failed. Continuing AI OS install.${RESET}"
-    echo -e "  ${YELLOW}  Retry later:${RESET} npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y"
+    echo -e "  ${YELLOW}  Retry later:${RESET} npx -y skills add anthropics/skills@skill-creator -g -a github-copilot"
   fi
 
   echo ""
@@ -289,12 +289,12 @@ if [[ "$INSTALL_FIND_SKILLS" == "true" ]]; then
 
   if ! command -v npx &>/dev/null; then
     echo -e "  ${YELLOW}⚠ npx not found. Skipping skill installation.${RESET}"
-    echo -e "  ${YELLOW}  You can run later:${RESET} npx -y skills add https://github.com/vercel-labs/skills --skill find-skills -g -a github-copilot -y"
-  elif npx -y skills add https://github.com/vercel-labs/skills --skill find-skills -g -a github-copilot -y; then
+    echo -e "  ${YELLOW}  You can run later:${RESET} npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot"
+  elif npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot; then
     echo -e "  ${GREEN}✓ find-skills installed globally${RESET}"
   else
     echo -e "  ${YELLOW}⚠ find-skills install failed. Continuing AI OS install.${RESET}"
-    echo -e "  ${YELLOW}  Retry later:${RESET} npx -y skills add https://github.com/vercel-labs/skills --skill find-skills -g -a github-copilot -y"
+    echo -e "  ${YELLOW}  Retry later:${RESET} npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot"
   fi
 
   echo ""

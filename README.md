@@ -106,8 +106,8 @@ docker run --rm -v "$(pwd):/repo" ai-os --cwd /repo --refresh-existing
 AI OS can install the official `skill-creator` and `find-skills` skills.
 
 ```bash
-npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y
-npx -y skills add https://github.com/vercel-labs/skills --skill find-skills -g -a github-copilot -y
+npx -y skills add anthropics/skills@skill-creator -g -a github-copilot
+npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot
 ```
 
 Notes:

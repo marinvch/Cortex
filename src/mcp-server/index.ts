@@ -38,6 +38,8 @@ import {
   compactSessionContext,
   recordToolCallAndRunWatchdog,
   setWatchdogThreshold,
+  resetSessionState,
+  syncHostedMemory,
   getSessionContext,
   getRecommendations,
   suggestImprovements,
@@ -193,6 +195,12 @@ function executeTool(toolName: string, input: ToolInput): string {
       break;
     case 'set_watchdog_threshold':
       result = setWatchdogThreshold(typeof input.threshold === 'number' ? input.threshold : 8);
+      break;
+    case 'reset_session_state':
+      result = resetSessionState();
+      break;
+    case 'sync_hosted_memory':
+      result = syncHostedMemory();
       break;
     case 'get_session_context':
       result = getSessionContext();

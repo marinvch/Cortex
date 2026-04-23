@@ -300,6 +300,20 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  // ── Tool #23: Session State Reset ─────────────────────────────────────────
+  {
+    name: 'reset_session_state',
+    description: 'Clears all session state files (active-plan.json, checkpoints.jsonl, failure-ledger.jsonl, runtime-state.json, compact-context.md) so a new branch or task starts from a clean slate. Durable repo memory (memory.jsonl) is never modified.',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
+  // ── Tool #24: Sync Hosted Memory ──────────────────────────────────────────
+  {
+    name: 'sync_hosted_memory',
+    description: 'Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

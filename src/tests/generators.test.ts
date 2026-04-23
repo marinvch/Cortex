@@ -756,4 +756,63 @@ describe('skills strategy', () => {
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
+
+  it('removes empty skills directory after prune in creator-only mode', async () => {
+    const { generateSkills } = await import('../generators/skills.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({
+      frameworks: [{ name: 'Next.js', category: 'fullstack', version: '14.0.0', template: 'nextjs' }],
+      allDependencies: ['next', 'react'],
+    });
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-empty-dir-' + Date.now());
+    const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
+    fs.mkdirSync(skillsDir, { recursive: true });
+    // Place only ai-os-* skills so they all get pruned leaving an empty dir
+    fs.writeFileSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'), '# old\n', 'utf-8');
+
+    await generateSkills(stack, tmpDir, {
+      refreshExisting: true,
+      strategy: 'creator-only',
+    });
+
+    // The directory itself must be gone after an all-skills prune
+    expect(fs.existsSync(skillsDir)).toBe(false);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('does not emit "No Redux" guidance when Redux Toolkit is detected', async () => {
+    const { generateSkills } = await import('../generators/skills.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({
+      frameworks: [{ name: 'React', category: 'frontend', version: '18.0.0', template: 'react' }],
+      allDependencies: ['react', '@reduxjs/toolkit', 'react-redux'],
+    });
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-redux-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    await generateSkills(stack, tmpDir, {
+      refreshExisting: false,
+      strategy: 'predefined+creator',
+    });
+
+    const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
+    const reactSkillPath = path.join(skillsDir, 'ai-os-react-patterns.md');
+
+    if (fs.existsSync(reactSkillPath)) {
+      const content = fs.readFileSync(reactSkillPath, 'utf-8');
+      // Should NOT contain the conflicting "No Redux" comment
+      expect(content).not.toContain('No Redux, no Zustand');
+      // Should contain Redux guidance instead
+      expect(content).toContain('Redux');
+    }
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 });

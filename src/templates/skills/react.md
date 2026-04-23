@@ -24,8 +24,7 @@ const [isOpen, setIsOpen] = useState(false);
 // Derived state — compute from props/state, don't sync
 const filteredItems = items.filter(i => i.active); // NOT useState
 
-// Shared state — lift to parent or use tRPC cache
-// No Redux, no Zustand — tRPC covers server state
+// Shared state — lift to parent or use {{STATE_MANAGEMENT_COMMENT}}
 ```
 
 ## Custom Hooks

@@ -170,4 +170,48 @@ describe('session continuity memory tools', () => {
     const lines = fs.readFileSync(checkpointsPath, 'utf-8').split('\n').filter(Boolean);
     expect(lines.length).toBeLessThanOrEqual(100);
   });
+
+  it('reset_session_state clears all session files and leaves memory.jsonl intact', async () => {
+    const { upsertActivePlan, appendCheckpoint, resetSessionState } = await import('../mcp-server/utils.js');
+
+    // Populate session state
+    upsertActivePlan('Test objective', 'Test criteria', 'active');
+    appendCheckpoint('Some checkpoint', 'open');
+
+    const planPath = path.join(tempRoot, '.github', 'ai-os', 'memory', 'session', 'active-plan.json');
+    const checkpointsPath = path.join(tempRoot, '.github', 'ai-os', 'memory', 'session', 'checkpoints.jsonl');
+    expect(fs.existsSync(planPath)).toBe(true);
+    expect(fs.readFileSync(checkpointsPath, 'utf-8').trim().length).toBeGreaterThan(0);
+
+    const result = resetSessionState();
+    expect(result).toContain('Session state reset');
+    expect(result).toContain('active-plan.json');
+    expect(result).toContain('checkpoints.jsonl');
+
+    // active-plan.json should be gone
+    expect(fs.existsSync(planPath)).toBe(false);
+    // checkpoints.jsonl should be empty (truncated, not deleted)
+    expect(fs.readFileSync(checkpointsPath, 'utf-8').trim()).toBe('');
+
+    // Durable memory must be untouched
+    const memoryPath = path.join(tempRoot, '.github', 'ai-os', 'memory', 'memory.jsonl');
+    expect(fs.existsSync(memoryPath)).toBe(true);
+  });
+
+  it('reset_session_state reports nothing to reset when already clean', async () => {
+    const { resetSessionState } = await import('../mcp-server/utils.js');
+    const result = resetSessionState();
+    // First call should find no session files (freshly created temp dir has empty session)
+    // Either "already empty" or "reset" message is acceptable; the key is no error thrown
+    expect(typeof result).toBe('string');
+    expect(result.length).toBeGreaterThan(0);
+  });
+
+  it('sync_hosted_memory returns a non-empty guidance string', async () => {
+    const { syncHostedMemory } = await import('../mcp-server/utils.js');
+    const result = syncHostedMemory();
+    expect(result).toContain('Sync Hosted Memory');
+    expect(result).toContain('remember_repo_fact');
+    expect(typeof result).toBe('string');
+  });
 });

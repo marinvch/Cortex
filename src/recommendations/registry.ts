@@ -13,6 +13,12 @@ export interface StackRecommendation {
   vscode?: string[];
   /** AI OS skills to install */
   skills?: string[];
+  /**
+   * Source repository for each recommended skill, keyed by skill name.
+   * When present the skills CLI source-based form is used:
+   * `npx -y skills add <source>@<skill> -g -a github-copilot`
+   */
+  skillSources?: Record<string, string>;
   /** GitHub Copilot Extension */
   copilotExtension?: { name: string; url: string };
 }
@@ -48,16 +54,28 @@ export const DEPENDENCY_RECOMMENDATIONS: Record<string, StackRecommendation> = {
   next: {
     trigger: 'next',
     skills: ['nextjs', 'vercel-react-best-practices', 'context7'],
+    skillSources: {
+      'vercel-react-best-practices': 'vercel-labs/agent-skills',
+      'context7': 'intellectronica/agent-skills',
+    },
     vscode: ['bradlc.vscode-tailwindcss'],
   },
   'next.js': {
     trigger: 'next.js',
     skills: ['nextjs', 'vercel-react-best-practices', 'context7'],
+    skillSources: {
+      'vercel-react-best-practices': 'vercel-labs/agent-skills',
+      'context7': 'intellectronica/agent-skills',
+    },
     vscode: ['bradlc.vscode-tailwindcss'],
   },
   react: {
     trigger: 'react',
     skills: ['react', 'vercel-react-best-practices', 'context7'],
+    skillSources: {
+      'vercel-react-best-practices': 'vercel-labs/agent-skills',
+      'context7': 'intellectronica/agent-skills',
+    },
     vscode: ['dsznajder.es7-react-js-snippets', 'burkeholland.simple-react-snippets'],
   },
   nuxt: {
@@ -110,11 +128,19 @@ export const FRAMEWORK_RECOMMENDATIONS: Record<string, StackRecommendation> = {
   'Next.js': {
     trigger: 'Next.js',
     skills: ['nextjs', 'vercel-react-best-practices', 'context7'],
+    skillSources: {
+      'vercel-react-best-practices': 'vercel-labs/agent-skills',
+      'context7': 'intellectronica/agent-skills',
+    },
     vscode: ['dsznajder.es7-react-js-snippets', 'bradlc.vscode-tailwindcss'],
   },
   'React': {
     trigger: 'React',
     skills: ['react', 'vercel-react-best-practices', 'context7'],
+    skillSources: {
+      'vercel-react-best-practices': 'vercel-labs/agent-skills',
+      'context7': 'intellectronica/agent-skills',
+    },
     vscode: ['dsznajder.es7-react-js-snippets'],
   },
   'Express': {
@@ -212,5 +238,8 @@ export const UNIVERSAL_RECOMMENDATIONS: StackRecommendation[] = [
   {
     trigger: 'universal',
     skills: ['find-skills', 'context7'],
+    skillSources: {
+      'context7': 'intellectronica/agent-skills',
+    },
   },
 ];

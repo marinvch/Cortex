@@ -13,10 +13,7 @@ export function getProjectRoot(): string {
 
 export function readAiOsFile(relPath: string): string {
   try {
-    const newPath = path.join(ROOT, '.github', 'ai-os', relPath);
-    if (fs.existsSync(newPath)) return fs.readFileSync(newPath, 'utf-8');
-    // Legacy fallback
-    return fs.readFileSync(path.join(ROOT, '.ai-os', relPath), 'utf-8');
+    return fs.readFileSync(path.join(ROOT, '.github', 'ai-os', relPath), 'utf-8');
   } catch {
     return '';
   }
@@ -94,15 +91,11 @@ const SESSION_CHECKPOINTS_CAP = 100;
 const SESSION_FAILURES_CAP = 50;
 
 function getMemoryFilePath(): string {
-  const newPath = path.join(ROOT, '.github', 'ai-os', 'memory', 'memory.jsonl');
-  const legacyPath = path.join(ROOT, '.ai-os', 'memory', 'memory.jsonl');
-  return fs.existsSync(newPath) || !fs.existsSync(legacyPath) ? newPath : legacyPath;
+  return path.join(ROOT, '.github', 'ai-os', 'memory', 'memory.jsonl');
 }
 
 function getMemoryDirPath(): string {
-  const newPath = path.join(ROOT, '.github', 'ai-os', 'memory');
-  const legacyPath = path.join(ROOT, '.ai-os', 'memory');
-  return fs.existsSync(newPath) || !fs.existsSync(legacyPath) ? newPath : legacyPath;
+  return path.join(ROOT, '.github', 'ai-os', 'memory');
 }
 
 function getMemoryLockFilePath(): string {
@@ -1056,9 +1049,109 @@ export function setWatchdogThreshold(threshold: number): string {
   }
 }
 
+/**
+ * Reset all session state files so a new branch/task starts from a clean slate.
+ * Clears: active-plan.json, checkpoints.jsonl, failure-ledger.jsonl,
+ * runtime-state.json, and compact-context.md.
+ * Durable repo memory (memory.jsonl) is never touched.
+ */
+export function resetSessionState(): string {
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+      const removed: string[] = [];
+
+      const planPath = getActivePlanPath();
+      if (fs.existsSync(planPath)) {
+        fs.unlinkSync(planPath);
+        removed.push('active-plan.json');
+      }
+
+      const checkpointsPath = getCheckpointLogPath();
+      if (fs.existsSync(checkpointsPath)) {
+        writeTextAtomic(checkpointsPath, '');
+        removed.push('checkpoints.jsonl (truncated)');
+      }
+
+      const failurePath = getFailureLedgerPath();
+      if (fs.existsSync(failurePath)) {
+        writeTextAtomic(failurePath, '');
+        removed.push('failure-ledger.jsonl (truncated)');
+      }
+
+      const runtimePath = getRuntimeStatePath();
+      if (fs.existsSync(runtimePath)) {
+        fs.unlinkSync(runtimePath);
+        removed.push('runtime-state.json');
+      }
+
+      const compactPath = getCompactContextPath();
+      if (fs.existsSync(compactPath)) {
+        fs.unlinkSync(compactPath);
+        removed.push('compact-context.md');
+      }
+
+      if (removed.length === 0) {
+        return 'Session state was already empty — nothing to reset.';
+      }
+
+      return `Session state reset. Cleared: ${removed.join(', ')}. Durable repo memory (memory.jsonl) was not modified.`;
+    });
+  } catch (err) {
+    return `Failed to reset session state: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+/**
+ * Prompt the agent to mirror its hosted/in-context memory facts into memory.jsonl.
+ * Since Copilot's hosted memory is not accessible from this server, this tool
+ * returns a prompt template the agent should follow to sync facts manually.
+ */
+export function syncHostedMemory(): string {
+  const { entries } = readMemoryEntries();
+  const activeEntries = entries.filter((e) => e.status !== 'stale');
+
+  const lines: string[] = [
+    '## Sync Hosted Memory → memory.jsonl',
+    '',
+    'This tool cannot access Copilot\'s hosted memory directly.',
+    'Follow these steps to mirror durable facts into `.github/ai-os/memory/memory.jsonl`:',
+    '',
+    '1. Review your current hosted/in-context memory for facts about this project.',
+    '2. For each fact not already in `memory.jsonl` (listed below), call `remember_repo_fact`.',
+    '3. Use categories: architecture, conventions, build, testing, security, pitfalls, decisions.',
+    '',
+    `**Currently in memory.jsonl:** ${activeEntries.length} active entries`,
+  ];
+
+  if (activeEntries.length > 0) {
+    lines.push('');
+    lines.push('**Existing active entries (do not duplicate):');
+    for (const entry of activeEntries.slice(0, 20)) {
+      lines.push(`- [${entry.category}] ${entry.title}`);
+    }
+    if (activeEntries.length > 20) {
+      lines.push(`- … and ${activeEntries.length - 20} more`);
+    }
+  }
+
+  lines.push('');
+  lines.push('**Example call to add a missing fact:**');
+  lines.push('```');
+  lines.push('remember_repo_fact(');
+  lines.push('  title: "Your fact title",');
+  lines.push('  content: "Detailed description of the fact or decision",');
+  lines.push('  category: "conventions",');
+  lines.push('  tags: "tag1,tag2"');
+  lines.push(')');
+  lines.push('```');
+
+  return lines.join('\n');
+}
+
 export function searchFiles(query: string, filePattern?: string, caseSensitive = false): string {
   try {
-    const flags = caseSensitive ? '' : '-i';
+    const flags = caseSensitive ? '' : '--ignore-case';
     const globArg = filePattern ? `-g "${filePattern}"` : '';
     const cmd = `npx --yes ripgrep ${flags} ${globArg} --line-number --max-count=5 "${query}" "${ROOT}"`;
     const result = execSync(cmd, { maxBuffer: 512 * 1024, timeout: 10000 }).toString();

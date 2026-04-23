@@ -13,7 +13,7 @@ import {
 interface CollectedRecommendations {
   mcp: Array<{ trigger: string; package: string; description: string }>;
   vscode: Array<{ trigger: string; id: string }>;
-  skills: Array<{ trigger: string; name: string }>;
+  skills: Array<{ trigger: string; name: string; source?: string }>;
   copilotExtensions: Array<{ trigger: string; name: string; url: string }>;
   /** Whether this entry came from a universal (always-on) recommendation */
   universalSkills: Array<{ trigger: string; name: string }>;
@@ -43,7 +43,8 @@ export function collectRecommendations(stack: DetectedStack): CollectedRecommend
         if (isUniversal) {
           collected.universalSkills.push({ trigger: rec.trigger, name: skill });
         } else {
-          collected.skills.push({ trigger: rec.trigger, name: skill });
+          const source = rec.skillSources?.[skill];
+          collected.skills.push({ trigger: rec.trigger, name: skill, source });
         }
       }
     }
@@ -144,12 +145,18 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
       lines.push(`- **${item.name}** — for \`${item.trigger}\``);
     }
     lines.push('');
-    lines.push('**Install via skills CLI:**');
+    lines.push('**Install via skills CLI** (source-based form `<source>@<skill>`):');
     lines.push('```bash');
     for (const item of collected.skills) {
-      lines.push(`npx -y skills add --skill ${item.name} -g -a github-copilot`);
+      const spec = item.source ? `${item.source}@${item.name}` : `<source>@${item.name}`;
+      lines.push(`npx -y skills add ${spec} -g -a github-copilot`);
     }
     lines.push('```');
+    const unknownSources = collected.skills.filter(s => !s.source);
+    if (unknownSources.length > 0) {
+      lines.push('');
+      lines.push(`> ⚠️  Skills without a known source (${unknownSources.map(s => `\`${s.name}\``).join(', ')}): find the GitHub repo hosting the skill and replace \`<source>\` before running.`);
+    }
     lines.push('');
   }
 
@@ -210,12 +217,15 @@ export function getSkillsGapReport(stack: DetectedStack, skillsLockPath: string)
   }
 
   const installedSet = new Set(installed.map(s => s.toLowerCase()));
-  const missing = [...recommendedSkills].filter(s => !installedSet.has(s.toLowerCase()));
+  const missingItems = collected.skills.filter(s => !installedSet.has(s.name.toLowerCase()));
 
-  if (missing.length === 0) return '';
+  if (missingItems.length === 0) return '';
 
-  const cmds = missing.map(s => `npx -y skills add --skill ${s} -g -a github-copilot`).join('\n');
-  return `  📦 Skills gap detected — Missing: [${missing.join(', ')}]\n  Run:\n${cmds.split('\n').map(l => `    ${l}`).join('\n')}`;
+  const cmds = missingItems.map(s => {
+    const spec = s.source ? `${s.source}@${s.name}` : `<source>@${s.name}`;
+    return `npx -y skills add ${spec} -g -a github-copilot`;
+  }).join('\n');
+  return `  📦 Skills gap detected — Missing: [${missingItems.map(s => s.name).join(', ')}]\n  Run:\n${cmds.split('\n').map(l => `    ${l}`).join('\n')}`;
 }
 
 /** Generate recommendations.md and return its absolute path. */

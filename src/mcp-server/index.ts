@@ -40,9 +40,11 @@ import {
   setWatchdogThreshold,
   resetSessionState,
   syncHostedMemory,
+  pruneMemory,
   getSessionContext,
   getRecommendations,
   suggestImprovements,
+  getContextFreshness,
 } from './utils.js';
 
 interface ToolInput {
@@ -202,6 +204,9 @@ function executeTool(toolName: string, input: ToolInput): string {
     case 'sync_hosted_memory':
       result = syncHostedMemory();
       break;
+    case 'prune_memory':
+      result = pruneMemory();
+      break;
     case 'get_session_context':
       result = getSessionContext();
       break;
@@ -210,6 +215,9 @@ function executeTool(toolName: string, input: ToolInput): string {
       break;
     case 'suggest_improvements':
       result = suggestImprovements();
+      break;
+    case 'get_context_freshness':
+      result = getContextFreshness();
       break;
     default:
       result = `Unknown tool: ${toolName}`;

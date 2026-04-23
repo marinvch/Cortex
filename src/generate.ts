@@ -16,13 +16,20 @@ import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifa
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
 import { readManifest, writeManifest, getManifestPath, setVerboseMode } from './generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
+import { applyProfile, describeProfile, parseProfile } from './profile.js';
+import type { InstallProfile } from './types.js';
+import { runDoctor, printDoctorReport } from './doctor.js';
+import { mergeUserBlocks } from './user-blocks.js';
+import { runBootstrap, formatBootstrapReport } from './bootstrap.js';
+import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport, formatFreshnessReport } from './detectors/freshness.js';
+import { runMemoryMaintenance, pruneMemory } from './mcp-server/utils.js';
 import type { OnboardingPlan } from './planner.js';
 import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
+type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
@@ -33,6 +40,7 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
   let cleanUpdate = false;
   let regenerateContext = false;
   let pruneCustomArtifacts = false;
+  let profile: InstallProfile | null = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -62,16 +70,34 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       mode = 'refresh-existing';
     } else if (args[i] === '--check-hygiene') {
       action = 'check-hygiene';
+    } else if (args[i] === '--doctor') {
+      action = 'doctor';
+    } else if (args[i] === '--bootstrap') {
+      action = 'bootstrap';
+    } else if (args[i] === '--check-freshness') {
+      action = 'check-freshness';
+    } else if (args[i] === '--compact-memory') {
+      action = 'compact-memory';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
     } else if (args[i] === '--regenerate-context') {
       regenerateContext = true;
     } else if (args[i] === '--prune-custom-artifacts') {
       pruneCustomArtifacts = true;
+    } else if (args[i] === '--profile' && args[i + 1]) {
+      const parsed = parseProfile(args[i + 1]);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${args[i + 1]}")`);
+      profile = parsed;
+      i++;
+    } else if (args[i]?.startsWith('--profile=')) {
+      const raw = args[i].slice('--profile='.length);
+      const parsed = parseProfile(raw);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${raw}")`);
+      profile = parsed;
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile };
 }
 
 function printBanner(): void {
@@ -186,6 +212,7 @@ function printSummary(
   pruned: string[],
   agents: string[],
   preserved: string[],
+  activeProfile?: string,
 ): void {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
@@ -194,6 +221,9 @@ function printSummary(
   console.log(`  🏗️  Framework:  ${fw}`);
   console.log(`  📦 Pkg Mgr:   ${stack.patterns.packageManager}`);
   console.log(`  🔷 TypeScript: ${stack.patterns.hasTypeScript ? 'Yes' : 'No'}`);
+  if (activeProfile) {
+    console.log(`  🎛️  Profile:    ${activeProfile}`);
+  }
   console.log('');
   console.log('  Diff summary:');
   console.log(`  ✅ Written (new or changed):  ${written.length}`);
@@ -211,6 +241,22 @@ function printSummary(
   }
   console.log(`  🔧 MCP tools registered: ${mcpToolCount}`);
   console.log(`  🗳️  Manifest: ${path.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, '/')}`);
+  // Print previous freshness score (before this run's snapshot is written) to show drift
+  try {
+    const prevReport = computeFreshnessReport(outputDir);
+    if (prevReport.status !== 'unknown') {
+      const scorePercent = Math.round(prevReport.score * 100);
+      const statusEmoji: Record<string, string> = { fresh: '✅', drifted: '⚠️', stale: '❌' };
+      const emoji = statusEmoji[prevReport.status] ?? '❓';
+      console.log(`  ${emoji} Context freshness (pre-run): ${scorePercent}/100 (${prevReport.status})`);
+      if (prevReport.staleArtifacts.length > 0) {
+        console.log(`     Stale artifacts: ${prevReport.staleArtifacts.join(', ')}`);
+      }
+      if (prevReport.changedSourceFiles.length > 0) {
+        console.log(`     Changed sources: ${prevReport.changedSourceFiles.join(', ')}`);
+      }
+    }
+  } catch { /* non-fatal */ }
   console.log('');
 }
 
@@ -288,34 +334,68 @@ function printContextualNextSteps(
 }
 
 /**
+ * Parsed result of `.github/ai-os/protect.json`.
+ *
+ * - `protected` — whole-file shield: file is never overwritten or pruned.
+ * - `hybrid`    — block-level merge: file is regenerated but
+ *                 `<!-- AI-OS:USER_BLOCK:START id="..." -->` sections authored
+ *                 by the user are preserved and re-inserted after generation.
+ */
+interface ProtectConfig {
+  protected: Set<string>;
+  hybrid: Set<string>;
+}
+
+/**
  * Load the optional `.github/ai-os/protect.json` file.
- * Returns a Set of repo-relative forward-slash paths that should never be
- * overwritten or pruned during a refresh run.
+ *
+ * Supports two modes per file:
+ *  - `protected` — whole-file shield (existing behaviour)
+ *  - `hybrid`    — block-level user-section preservation (new)
  *
  * Example protect.json:
  * ```json
  * {
  *   "protected": [
- *     ".github/agents/my-custom-agent.md",
+ *     ".github/agents/my-custom-agent.md"
+ *   ],
+ *   "hybrid": [
+ *     ".github/copilot-instructions.md",
  *     ".github/ai-os/context/conventions.md"
  *   ]
  * }
  * ```
  */
-function loadProtectConfig(cwd: string): Set<string> {
+/**
+ * Convert an unknown JSON array value into a Set of normalised forward-slash paths.
+ * Non-array values and non-string elements are silently ignored.
+ */
+function toPathSet(value: unknown): Set<string> {
+  if (!Array.isArray(value)) return new Set();
+  return new Set(
+    (value as unknown[])
+      .filter((p): p is string => typeof p === 'string')
+      .map(p => p.replace(/\\/g, '/')),
+  );
+}
+
+function loadProtectConfig(cwd: string): ProtectConfig {
+  const empty: ProtectConfig = { protected: new Set(), hybrid: new Set() };
   const protectPath = path.join(cwd, '.github', 'ai-os', 'protect.json');
-  if (!fs.existsSync(protectPath)) return new Set();
+  if (!fs.existsSync(protectPath)) return empty;
   try {
-    const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as { protected?: unknown };
-    if (!Array.isArray(raw.protected)) return new Set();
-    return new Set(
-      (raw.protected as unknown[])
-        .filter((p): p is string => typeof p === 'string')
-        .map(p => p.replace(/\\/g, '/')),
-    );
+    const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as {
+      protected?: unknown;
+      hybrid?: unknown;
+    };
+
+    return {
+      protected: toPathSet(raw.protected),
+      hybrid: toPathSet(raw.hybrid),
+    };
   } catch {
     console.warn('  ⚠ Could not parse .github/ai-os/protect.json — ignoring protection config');
-    return new Set();
+    return empty;
   }
 }
 
@@ -427,7 +507,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = parseArgs();
   let mode: GenerateMode = rawMode;
 
   // Enable verbose per-file logging when --verbose / -v is passed
@@ -439,6 +519,26 @@ async function main(): Promise<void> {
   // ── --check-hygiene action (runs before scan, no generation needed) ────────
   if (action === 'check-hygiene') {
     runHygieneCheck(cwd);
+    return;
+  }
+
+  // ── --doctor action (post-install health validation) ──────────────────────
+  if (action === 'doctor') {
+    const doctorResult = runDoctor(cwd);
+    const exitCode = printDoctorReport(doctorResult);
+    if (exitCode !== 0) process.exit(exitCode);
+    return;
+  }
+
+  // ── --check-freshness action (runs before scan, no generation needed) ──────
+  if (action === 'check-freshness') {
+    runFreshnessCheck(cwd);
+    return;
+  }
+
+  // ── --compact-memory action (runs before scan, no generation needed) ───────
+  if (action === 'compact-memory') {
+    runCompactMemory(cwd);
     return;
   }
 
@@ -482,7 +582,9 @@ async function main(): Promise<void> {
   }
 
   // Load optional protection config for files that must never be overwritten/pruned.
-  const protectedPaths = loadProtectConfig(cwd);
+  const protectConfig = loadProtectConfig(cwd);
+  const protectedPaths = protectConfig.protected;
+  const hybridPaths    = protectConfig.hybrid;
 
   // Snapshot content of protect.json-listed files BEFORE generation so we can
   // restore them afterwards if a generator accidentally overwrites them.
@@ -496,6 +598,22 @@ async function main(): Promise<void> {
   if (isRefresh && protectedSnapshots.size > 0) {
     console.log(`  🔒 protect.json: ${protectedSnapshots.size} file(s) shielded against overwrite.`);
     console.log('');
+  }
+
+  // Snapshot content of hybrid-mode files BEFORE generation so we can
+  // re-insert user-authored blocks after the generator rewrites them.
+  const hybridSnapshots = new Map<string, string>();
+  if (isRefresh) {
+    for (const rel of hybridPaths) {
+      const abs = path.join(cwd, rel);
+      if (fs.existsSync(abs)) {
+        hybridSnapshots.set(abs, fs.readFileSync(abs, 'utf-8'));
+      }
+    }
+    if (hybridSnapshots.size > 0) {
+      console.log(`  🔀 protect.json: ${hybridSnapshots.size} file(s) in hybrid mode (user blocks will be preserved).`);
+      console.log('');
+    }
   }
 
   const stack = analyze(cwd);
@@ -516,6 +634,11 @@ async function main(): Promise<void> {
   }
 
   if (dryRun) {
+    if (action === 'bootstrap') {
+      const report = runBootstrap(stack, { dryRun: true });
+      console.log(formatBootstrapReport(report));
+      return;
+    }
     console.log('  [DRY RUN] Detected stack:');
     console.log(JSON.stringify(stack, null, 2));
     return;
@@ -527,8 +650,27 @@ async function main(): Promise<void> {
 
   // Phase 1: Core context files (config.json is written here, with user fields preserved)
   const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
-  // Read the freshly-written config to get feature flags for remaining generators
-  const config = readAiOsConfig(cwd) ?? existingConfig;
+  // Read the freshly-written config to get feature flags for remaining generators.
+  // If a --profile flag was passed, apply it now (it overrides individual flags but is
+  // written back into config.json so subsequent refreshes inherit the same density level).
+  let config = readAiOsConfig(cwd) ?? existingConfig;
+
+  // Resolve the effective profile: CLI flag > persisted config > none
+  const effectiveProfile = cliProfile ?? config?.profile ?? null;
+  if (effectiveProfile) {
+    if (cliProfile) {
+      console.log(`\n  🎛️  Applying profile: ${cliProfile}`);
+      console.log(describeProfile(cliProfile));
+      console.log('');
+    }
+    if (config) {
+      config = applyProfile(config, effectiveProfile);
+      // Persist the profile-applied config back to disk.
+      const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    }
+  }
+
   const skillsStrategy = config?.skillsStrategy ?? 'creator-only';
   const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
@@ -586,9 +728,15 @@ async function main(): Promise<void> {
     const currentSet = new Set(currentRelFiles);
     for (const rel of previousFiles) {
       if (!currentSet.has(rel)) {
-        // Skip files protected by protect.json
+        // Skip files protected by protect.json (full shield)
         if (protectedPaths.has(rel)) {
           if (verbose) console.log(`  🔒 protect  ${rel}  (in protect.json)`);
+          preservedAbs.push(path.join(cwd, rel));
+          continue;
+        }
+        // Skip files in hybrid mode — they are managed but user blocks survive
+        if (hybridPaths.has(rel)) {
+          if (verbose) console.log(`  🔀 hybrid   ${rel}  (in protect.json hybrid — user blocks preserved)`);
           preservedAbs.push(path.join(cwd, rel));
           continue;
         }
@@ -633,8 +781,57 @@ async function main(): Promise<void> {
     }
   }
 
+  // Apply hybrid-mode user-block merge: for each file in the hybrid list, merge
+  // user blocks from the pre-generation snapshot back into the newly written content.
+  // Emit a conflict report for any block that could not be re-inserted safely.
+  const allConflicts: Array<{ file: string; blockId: string; reason: string; detail: string }> = [];
+  for (const [abs, snapshot] of hybridSnapshots) {
+    if (!fs.existsSync(abs)) continue;
+    const generated = fs.readFileSync(abs, 'utf-8');
+    const { content: merged, preserved: mergedIds, conflicts } = mergeUserBlocks(generated, snapshot);
+    if (mergedIds.length > 0 || conflicts.length > 0) {
+      const rel = path.relative(cwd, abs).replace(/\\/g, '/');
+      // Only write when the merge actually changed the content
+      if (merged !== generated) {
+        fs.writeFileSync(abs, merged, 'utf-8');
+      }
+      if (mergedIds.length > 0) {
+        if (verbose) {
+          console.log(`  🔀 merged   ${rel}  (${mergedIds.length} user block(s) preserved: ${mergedIds.join(', ')})`);
+        } else {
+          console.log(`  🔀 Hybrid merge: ${mergedIds.length} user block(s) preserved in ${rel}`);
+        }
+      }
+      for (const conflict of conflicts) {
+        allConflicts.push({ file: rel, ...conflict });
+        console.warn(`  ⚠ Hybrid conflict in ${rel}: block "${conflict.blockId}" — ${conflict.detail}`);
+      }
+    }
+  }
+
+  if (allConflicts.length > 0) {
+    console.log('');
+    console.log(`  ⚠ ${allConflicts.length} user block conflict(s) require manual reconciliation.`);
+    console.log('     Each block has been appended to its file wrapped in <!-- AI-OS:CONFLICT --> markers.');
+    console.log('     Review and move them to the correct location, then remove the conflict markers.');
+    console.log('');
+  }
+
   // Write updated manifest (#8 / #11).
   writeManifest(cwd, getToolVersion(), currentRelFiles);
+
+  // ── Capture context freshness snapshot ──────────────────────────────────
+  // After a successful generation run, record a new baseline snapshot so that
+  // future `--check-freshness` / `get_context_freshness` calls can detect drift.
+  try {
+    const snapshot = captureContextSnapshot(cwd, getToolVersion());
+    writeContextSnapshot(cwd, snapshot);
+    if (verbose) {
+      console.log('  ✏️  write   .github/ai-os/context-snapshot.json  (freshness baseline)');
+    }
+  } catch {
+    // Non-fatal: freshness snapshot is best-effort
+  }
 
   // Diff counts for summary (#11).
   // A file is "written" when it exists but may have changed; we track via comparing
@@ -646,8 +843,22 @@ async function main(): Promise<void> {
 
   installLocalMcpRuntime(cwd, verbose);
 
-  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs);
+  // ── Memory maintenance summary (refresh/update mode only) ────────────────
+  if (isRefresh) {
+    printMemoryMaintenanceSummary(cwd);
+  }
+
+  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? undefined);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
+
+  // ── Bootstrap action: auto-install skills after full generation ──────────
+  if (action === 'bootstrap') {
+    console.log('  🚀 Running codebase-aware bootstrap...');
+    console.log('');
+    const bootstrapReport = runBootstrap(stack, { dryRun: false });
+    console.log(formatBootstrapReport(bootstrapReport));
+    return;
+  }
 
   // ── Agent-flow setup prompt ──────────────────────────────────────────────
   // On first install (no prior config) or when agentFlowMode is not explicitly
@@ -749,4 +960,90 @@ function findFilesRecursive(dir: string, predicate: (name: string) => boolean): 
     // ignore permission errors
   }
   return results;
+}
+
+// ── --check-freshness ─────────────────────────────────────────────────────────
+
+function runFreshnessCheck(cwd: string): void {
+  console.log(`  🔍 Context freshness check: ${cwd}`);
+  console.log('');
+
+  const report = computeFreshnessReport(cwd);
+  console.log(formatFreshnessReport(report));
+
+  const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true';
+
+  if (report.status === 'stale') {
+    console.log('  ❌ Context is stale. Run `--refresh-existing` to rebuild context artifacts.');
+    if (isCi) process.exit(1);
+  } else if (report.status === 'drifted') {
+    console.log('  ⚠️  Context has drifted. Consider running `--refresh-existing` to resync.');
+  } else if (report.status === 'unknown') {
+    console.log('  ❓ No snapshot found — run AI OS generation first to establish a baseline.');
+  } else {
+    console.log('  ✅ Context is fresh.');
+  }
+  console.log('');
+}
+
+// ── Memory maintenance helpers ────────────────────────────────────────────────
+
+/**
+ * Print a memory maintenance summary during refresh/update runs.
+ * This is a non-destructive read-only hygiene report (does not modify the file).
+ */
+function printMemoryMaintenanceSummary(cwd: string): void {
+  const memoryFile = path.join(cwd, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  if (!fs.existsSync(memoryFile)) return;
+
+  try {
+    process.env['AI_OS_ROOT'] = cwd;
+    const summary = runMemoryMaintenance();
+
+    if (summary.totalBefore === 0) return;
+
+    console.log('  🧠 Memory maintenance:');
+    console.log(`     Active entries:       ${summary.activeAfter}`);
+    if (summary.staleMarked > 0) {
+      console.log(`     Stale entries found:  ${summary.staleMarked} (run --compact-memory to remove)`);
+    }
+    if (summary.nearDuplicatesMarked > 0) {
+      console.log(`     Near-duplicates:      ${summary.nearDuplicatesMarked}`);
+    }
+    if (summary.malformedSkipped > 0) {
+      console.log(`     Malformed lines:      ${summary.malformedSkipped} (will be removed on next write)`);
+    }
+    console.log('');
+  } catch {
+    // Best-effort — never fail a refresh run due to memory reporting.
+  }
+}
+
+/**
+ * Handle the --compact-memory CLI action: run full memory hygiene and
+ * physically remove stale entries from memory.jsonl.
+ */
+function runCompactMemory(cwd: string): void {
+  console.log(`  🧹 Compact memory: ${cwd}`);
+  console.log('');
+
+  const memoryFile = path.join(cwd, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  if (!fs.existsSync(memoryFile)) {
+    console.log('  ℹ️  No memory.jsonl file found — nothing to compact.');
+    console.log('');
+    return;
+  }
+
+  try {
+    process.env['AI_OS_ROOT'] = cwd;
+    const result = pruneMemory();
+    const lines = result.split('\n');
+    for (const line of lines) {
+      console.log(`  ${line}`);
+    }
+  } catch (err) {
+    console.error(`  ❌ Memory compact failed: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+  console.log('');
 }

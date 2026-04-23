@@ -1,6 +1,6 @@
 {
   "name": "ai-os",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Portable AI OS — scans any repo and generates optimized GitHub Copilot context, agents, skills, MCP tools, and slash-command prompts",
   "type": "module",
   "engines": {
@@ -16,9 +16,14 @@
     "generate": "tsx src/generate.ts",
     "generate:dry": "tsx src/generate.ts --dry-run",
     "generate:refresh": "tsx src/generate.ts --refresh-existing",
+    "bootstrap": "tsx src/generate.ts --bootstrap",
+    "bootstrap:dry": "tsx src/generate.ts --bootstrap --dry-run",
     "update": "tsx src/generate.ts --update",
     "update:projects": "bash scripts/update-projects.sh",
     "check-hygiene": "tsx src/generate.ts --check-hygiene",
+    "doctor": "tsx src/generate.ts --doctor",
+    "check-freshness": "tsx src/generate.ts --check-freshness",
+    "compact-memory": "tsx src/generate.ts --compact-memory",
     "validate": "tsx src/validation/regression.ts",
     "validate:smoke": "tsx src/validation/smoke.ts",
     "scorecard:update": "tsx src/validation/scorecard.ts",
@@ -29,8 +34,8 @@
     "validate:full": "npm run build && npm run test && npm run validate",
     "test": "vitest run",
     "test:watch": "vitest",
-    "install:skill-creator": "npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y",
-    "install:find-skills": "npx -y skills add https://github.com/vercel-labs/skills --skill find-skills -g -a github-copilot -y",
+    "install:skill-creator": "npx -y skills add anthropics/skills@skill-creator -g -a github-copilot",
+    "install:find-skills": "npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot",
     "install:skills": "npm run install:skill-creator && npm run install:find-skills"
   },
   "dependencies": {

@@ -80,6 +80,14 @@ export interface DependencyGraph {
   fileCount: number;
 }
 
+/**
+ * Installation profile controlling context density.
+ * - minimal  : only essential instructions + MCP wiring (no agents, recommendations, or workflows)
+ * - standard : balanced default (recommended for most projects)
+ * - full     : all stack-relevant integrations enabled
+ */
+export type InstallProfile = 'minimal' | 'standard' | 'full';
+
 /** User-editable + auto-detected config written to .github/ai-os/config.json */
 export interface AiOsConfig {
   /** AI OS version that wrote this config */
@@ -130,4 +138,23 @@ export interface AiOsConfig {
    * Set to false to revert to a flat, unfiltered tool catalog.
    */
   strictStackFiltering?: boolean;
+  /**
+   * Installation profile used when the repo was first set up (or last refreshed
+   * with an explicit --profile flag).  Persisted so that subsequent refreshes
+   * without a flag maintain the same density level.
+   */
+  profile?: InstallProfile;
+  /**
+   * Memory entry TTL in days. Entries older than this threshold are marked stale
+   * and will be removed on the next prune/compact run.
+   * Default: 180 days.
+   */
+  memoryTtlDays?: number;
+  /**
+   * Jaccard similarity threshold for near-duplicate detection.
+   * Entries with the same title+category and content similarity above this value
+   * are treated as near-duplicates; the older one is marked stale.
+   * Range: 0.5–1.0. Default: 0.85.
+   */
+  memoryNearDuplicateThreshold?: number;
 }

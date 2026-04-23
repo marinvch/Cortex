@@ -10,13 +10,13 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Copilot instructions | `.github/copilot-instructions.md`                 | System prompt optimized for your stack                                             |
 | Context docs         | `.github/ai-os/context/`                          | Token-efficient stack, architecture, conventions docs                              |
-| MCP tools            | `.vscode/mcp.json` + `.ai-os/mcp-server/`         | 22 tools for code search, memory, session continuity, and more                     |
+| MCP tools            | `.vscode/mcp.json` + `.ai-os/mcp-server/`         | 29 tools for code search, memory, session continuity, and more                     |
 | Agents               | `.github/agents/*.agent.md`                       | Stack-specific chat agents (framework expert, DB expert, auth, payments, explorer) |
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
 | Manifest             | `.github/ai-os/manifest.json`                     | Tracks every file AI OS owns — used for pruning stale artifacts on refresh         |
 
-AI OS now also initializes a persistent repository memory store at `.github/ai-os/memory/` so agents can retain verified facts and decisions across long sessions.
+AI OS now also initializes a persistent repository memory store at `.github/ai-os/memory/` so agents can retain verified facts and decisions across long sessions. Memory entries are automatically deduplicated (including near-duplicates via Jaccard similarity), marked stale when superseded or TTL-expired, and can be compacted with `--compact-memory` or the `prune_memory` MCP tool.
 Detection is package-aware for monorepos/mixed stacks, and MCP context tools provide parity coverage for Node, Java/Spring, Python, Go, and Rust projects.
 
 Generated instructions also enforce strict behavior guardrails: ambiguity-first clarification (no improvisation), explicit allowed/forbidden action boundaries, and an escalation flow for underspecified requests.
@@ -106,8 +106,8 @@ docker run --rm -v "$(pwd):/repo" ai-os --cwd /repo --refresh-existing
 AI OS can install the official `skill-creator` and `find-skills` skills.
 
 ```bash
-npx -y skills add https://github.com/anthropics/skills --skill skill-creator -g -a github-copilot -y
-npx -y skills add https://github.com/vercel-labs/skills --skill find-skills -g -a github-copilot -y
+npx -y skills add anthropics/skills@skill-creator -g -a github-copilot
+npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot
 ```
 
 Notes:
@@ -155,6 +155,7 @@ bash ~/ai-os/install.sh --cwd /path/to/your/repo
 | `get_memory_guidelines`| Repository memory protocol               |
 | `get_repo_memory`      | Retrieve durable project memory          |
 | `remember_repo_fact`   | Persist verified memory entries          |
+| `prune_memory`         | Compact memory: dedupe, TTL-expire, remove stale entries |
 | `check_for_updates`    | Check if AI OS artifacts are stale       |
 | `get_session_context`  | Reload MUST-ALWAYS rules and key context |
 | `get_recommendations`  | Stack-appropriate tool and extension recs|
@@ -166,6 +167,37 @@ bash ~/ai-os/install.sh --cwd /path/to/your/repo
 | `record_failure_pattern`  | Track tool failures to avoid repeating   |
 | `compact_session_context` | Summarize session state for continuity   |
 | `set_watchdog_threshold`  | Configure auto-checkpoint interval       |
+| `reset_session_state`     | Clear session files for a fresh start    |
+| `sync_hosted_memory`      | Prompt to mirror hosted memory into JSONL|
+
+## Install Profiles
+
+AI OS ships three install profiles to control context density:
+
+| Profile | Description |
+|---------|-------------|
+| `minimal` | Essentials only — instructions + MCP wiring. No agents, recommendations, session context card, or update-check workflow. |
+| `standard` | Balanced default — most features on, predefined skills off. Recommended for the majority of projects. |
+| `full` | All stack-relevant integrations — generates agents, recommendations, session context card, update-check workflow, and predefined skills. |
+
+To install with a profile:
+
+```bash
+# Fresh install with a profile
+bash install.sh --profile minimal
+bash install.sh --profile standard
+bash install.sh --profile full
+
+# Or via npx
+npx -y "github:marinvch/ai-os" --profile minimal
+
+# Refresh with a different profile
+bash install.sh --refresh-existing --profile full
+```
+
+The chosen profile is persisted in `.github/ai-os/config.json` under the `"profile"` key and re-applied on subsequent refreshes (unless overridden by a new `--profile` flag). The active profile is shown in the install summary.
+
+To override individual flags after install, edit the feature toggles in `.github/ai-os/config.json` directly and run `--refresh-existing` — manual overrides are preserved through refreshes unless a new `--profile` flag is passed.
 
 ## Re-running (idempotent)
 
@@ -195,9 +227,87 @@ If MCP runtime diagnostics are needed:
 
 - `AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck`
 
+To validate post-install health and get actionable fix commands:
+
+- `npm run doctor`
+- `npm run generate -- --cwd /path/to/target-repo --doctor`
+
+The doctor checks:
+- MCP runtime binary exists and passes healthcheck
+- `.vscode/mcp.json` present with correct `servers["ai-os"]` entry
+- MCP server command path resolves on disk
+- `.github/ai-os/config.json` and `tools.json` present and valid
+- AI OS skills deployed
+
+Critical failures exit non-zero; warnings exit 0.
+
 Generated skill files use `ai-os-*.md` naming and stale ones are auto-pruned on refresh.
 
-## Development
+## Protecting custom edits from refresh
+
+AI OS stores protection rules in `.github/ai-os/protect.json`.  Two modes are supported:
+
+### Whole-file protection (`protected`)
+
+Files in the `protected` list are **never overwritten or pruned** — even if they overlap with a managed path:
+
+```json
+{
+  "protected": [
+    ".github/agents/my-custom-agent.md",
+    ".github/copilot-instructions.md"
+  ]
+}
+```
+
+### Block-level hybrid mode (`hybrid`) — _new in v0.10.1_
+
+Files in the `hybrid` list are refreshed normally, but user-authored sections marked with special comment delimiters are re-inserted after each regeneration:
+
+```markdown
+# Generated content above
+
+<!-- AI-OS:USER_BLOCK:START id="my-rules" -->
+## My Custom Rules
+- Always use tabs
+- Never silence errors
+<!-- AI-OS:USER_BLOCK:END id="my-rules" -->
+
+# More generated content below
+```
+
+Configure which files use hybrid mode in `protect.json`:
+
+```json
+{
+  "hybrid": [
+    ".github/copilot-instructions.md",
+    ".github/ai-os/context/conventions.md"
+  ]
+}
+```
+
+**Merge strategy (in priority order):**
+
+1. **ID-match** — If the newly generated file still contains the same `START`/`END` markers, the user's block content replaces the default content in-place.
+2. **Anchor-based** — If the generated file no longer has the markers but the line _immediately before_ the block in the old file still exists, the block is re-inserted after that anchor line.
+3. **Conflict** — If neither strategy succeeds, the block is appended at the bottom of the file inside `<!-- AI-OS:CONFLICT -->` wrappers and a warning is printed.  Manually move the block to the correct location and remove the conflict markers.
+
+**Conflict resolution:**
+
+When a conflict is reported, the file looks like this:
+
+```markdown
+<!-- AI-OS:CONFLICT block="my-rules" — anchor lost; please reconcile manually -->
+<!-- AI-OS:USER_BLOCK:START id="my-rules" -->
+...your content...
+<!-- AI-OS:USER_BLOCK:END id="my-rules" -->
+<!-- AI-OS:CONFLICT:END -->
+```
+
+Move the user block to the correct location and delete both `AI-OS:CONFLICT` wrappers.
+
+
 
 ```bash
 npm install
@@ -215,12 +325,22 @@ npm run generate -- --cwd /path/to/target-repo --preview
 npm run generate -- --cwd /path/to/target-repo --apply
 # Verbose mode — show per-file write/skip/prune reasons
 npm run generate -- --cwd /path/to/target-repo --verbose
+# Install with a profile (minimal | standard | full)
+npm run generate -- --cwd /path/to/target-repo --profile standard
 # Refresh mode — update existing artifacts + prune stale files
 npm run generate:refresh -- --cwd /path/to/target-repo
 # Prune stale artifacts without full refresh
 npm run generate -- --cwd /path/to/target-repo --prune
+# Codebase-aware bootstrap (generates all AI OS files + auto-installs skills)
+npm run bootstrap -- --cwd /path/to/target-repo
+# Bootstrap dry-run — preview what would be applied, nothing changes
+npm run bootstrap:dry -- --cwd /path/to/target-repo
 # Check hygiene (detect stale node_modules, missing manifests, etc.)
 npm run check-hygiene
+# Validate post-install health and emit actionable fix commands
+npm run doctor
+# Check context freshness (detect drift between source changes and context artifacts)
+npm run check-freshness
 # Run unit tests
 npm test
 # Fast validation (build + unit tests only)
@@ -256,6 +376,46 @@ All session files live under `.github/ai-os/memory/session/`:
 | `runtime-state.json`  | Watchdog counter and threshold       |
 
 > **Tip:** Add `.github/ai-os/memory/session/` to `.gitignore` to prevent session state from being committed.
+
+## Memory Hygiene Engine
+
+AI OS v0.10.1 ships a policy-based memory lifecycle engine that keeps `memory.jsonl` healthy as it grows:
+
+| Policy             | Behavior                                                                                           |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| **Exact dedupe**   | Entries with identical title+category+content fingerprint are merged (tags are unioned).           |
+| **Near-duplicate** | Entries with the same title+category and content Jaccard similarity ≥ threshold are deduplicated. |
+| **Superseded**     | When a new entry has the same title+category, the older one is marked `stale: superseded`.        |
+| **TTL expiry**     | Entries older than `memoryTtlDays` days (default: 180) are automatically marked stale.            |
+| **Compact/prune**  | `prune_memory` MCP tool or `--compact-memory` CLI flag physically removes all stale entries.      |
+
+### Configuring TTL and near-duplicate threshold
+
+Add to `.github/ai-os/config.json`:
+
+```json
+{
+  "memoryTtlDays": 90,
+  "memoryNearDuplicateThreshold": 0.80
+}
+```
+
+- `memoryTtlDays`: Integer days before an entry is auto-expired. Default: `180`.
+- `memoryNearDuplicateThreshold`: Jaccard similarity in `[0.5, 1.0]`. Default: `0.85`.
+
+### Compacting the memory file
+
+```bash
+# CLI: remove all stale entries and print a maintenance summary
+npm run compact-memory
+# or:
+npx -y github:marinvch/ai-os --compact-memory --cwd /path/to/repo
+
+# MCP tool (use from Copilot chat):
+prune_memory()
+```
+
+A non-destructive maintenance summary is also printed automatically during every `--refresh-existing` run, showing active entry count and how many stale entries are waiting to be pruned.
 
 ## Keeping projects up to date
 
@@ -308,6 +468,67 @@ Use this at the start of every new Copilot conversation in a target repo using A
 3. `get_conventions` to enforce local coding style.
 4. `get_impact_of_change` for each shared source file before edits.
 5. Build/test after substantial implementation changes.
+
+## Context Freshness Scoring
+
+AI OS tracks context drift after structural code changes. After each generation run a
+snapshot of artifact file hashes is written to `.github/ai-os/context-snapshot.json`.
+
+### Check freshness from the CLI
+
+```bash
+# One-shot freshness check (exits non-zero when stale, safe on CI)
+npm run check-freshness
+
+# Or pass --check-freshness directly
+npx -y github:marinvch/ai-os --check-freshness
+```
+
+Output example:
+
+```
+## Context Freshness Report
+
+⚠️ **Status:** DRIFTED  |  **Score:** 72/100
+
+- **Snapshot captured:** 2025-01-20T14:00:00.000Z
+- **Last AI OS run:** 2025-01-20T14:00:00.000Z
+
+### Stale Context Artifacts
+- `.github/ai-os/context/conventions.md`
+
+### Changed Source / Config Files
+- `package.json`
+
+### Recommendations
+- Source changes detected in: package.json. Re-run `npx -y github:marinvch/ai-os --refresh-existing` to rebuild context artifacts.
+```
+
+### Check freshness via MCP tool
+
+Use the `get_context_freshness` MCP tool in any Copilot session to instantly inspect
+drift without leaving the editor:
+
+```
+get_context_freshness
+```
+
+### How scores are computed
+
+| Score   | Status    | Meaning                                        |
+|---------|-----------|------------------------------------------------|
+| 90–100  | `fresh`   | Context artifacts match the last generation snapshot |
+| 60–89   | `drifted` | Some source files or artifacts have changed    |
+| 0–59    | `stale`   | Significant drift — re-run `--refresh-existing` |
+| n/a     | `unknown` | No baseline snapshot found yet                 |
+
+The score is `(unchanged_sources + intact_artifacts) / (total_tracked_files)`.
+
+### CI integration
+
+Set `CI=true` (or run in GitHub Actions where `GITHUB_ACTIONS=true`) — the
+`--check-freshness` flag will exit with code 1 when the context is `stale`,
+allowing you to gate deployments or PRs on context health.
 
 ## Knowledge Vault Workflow
 
@@ -420,6 +641,60 @@ Pass `--verbose` (or `-v`) to see per-file decisions during generation:
 ```
 
 This is useful for debugging why a file was or was not updated.
+
+### --bootstrap flag — Codebase-Aware Bootstrap
+
+Pass `--bootstrap` to run a **full baseline setup in one command**:
+
+1. Analyzes the repo (language / framework / package manager)
+2. Generates all AI OS context files, agents, skills, MCP wiring, and prompts
+3. Auto-installs stack-relevant agent skills via the skills CLI (requires `npx` + internet)
+4. Prints an **apply report** showing every action taken and why it was triggered
+
+```bash
+# Full bootstrap — generates + installs skills
+npx -y "github:marinvch/ai-os" --bootstrap
+
+# Dry-run — shows what would happen, nothing is written or installed
+npx -y "github:marinvch/ai-os" --bootstrap --dry-run
+```
+
+Example dry-run output:
+
+```text
+  ╔════════════════════════════════════════╗
+  ║  Bootstrap Plan (DRY RUN) — my-app     ║
+  ╚════════════════════════════════════════╝
+
+  Detected Stack:
+    Language:    TypeScript
+    Frameworks:  Next.js, React
+    Pkg Manager: npm
+    TypeScript:  Yes
+
+  Bootstrap Plan:
+
+  🔲 [skill]    nextjs                 ← triggered by: Next.js
+       Install: npx -y skills add vercel-labs/agent-skills@nextjs -g -a github-copilot
+  🔲 [skill]    vercel-react-best-prac ← triggered by: Next.js
+       Install: npx -y skills add vercel-labs/agent-skills@vercel-react-best-practices -g -a github-copilot
+  🔲 [skill]    context7               ← universal — recommended for every project
+       Install: npx -y skills add intellectronica/agent-skills@context7 -g -a github-copilot
+  🔲 [vscode]   bradlc.vscode-tailwindcss ← triggered by: Next.js
+       Install: code --install-extension bradlc.vscode-tailwindcss
+
+  Summary: 4 action(s) planned (dry-run — nothing applied)
+```
+
+**Apply report icons:**
+| Icon | Meaning |
+| ---- | ------- |
+| ✅  | Skill installed via skills CLI |
+| 📋  | Informational — manual action required (MCP servers, VS Code extensions) |
+| ❌  | Install attempted but failed (check error message) |
+| 🔲  | Planned action (dry-run only) |
+
+Skills with a **known source** are auto-installed. Skills without a registered source are shown as `📋 skipped` with the install command for manual use. MCP servers and VS Code extensions are always informational — see `recommendations.md` for the full list.
 
 ## MCP server modes
 

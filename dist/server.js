@@ -279,6 +279,20 @@ var MCP_TOOL_DEFINITIONS = [
       required: ["threshold"]
     },
     condition: always
+  },
+  // ── Tool #23: Session State Reset ─────────────────────────────────────────
+  {
+    name: "reset_session_state",
+    description: "Clears all session state files (active-plan.json, checkpoints.jsonl, failure-ledger.jsonl, runtime-state.json, compact-context.md) so a new branch or task starts from a clean slate. Durable repo memory (memory.jsonl) is never modified.",
+    inputSchema: { type: "object", properties: {} },
+    condition: always
+  },
+  // ── Tool #24: Sync Hosted Memory ──────────────────────────────────────────
+  {
+    name: "sync_hosted_memory",
+    description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.",
+    inputSchema: { type: "object", properties: {} },
+    condition: always
   }
 ];
 function getAllMcpTools() {
@@ -384,9 +398,7 @@ function getProjectRoot() {
 }
 function readAiOsFile(relPath) {
   try {
-    const newPath = path3.join(ROOT, ".github", "ai-os", relPath);
-    if (fs2.existsSync(newPath)) return fs2.readFileSync(newPath, "utf-8");
-    return fs2.readFileSync(path3.join(ROOT, ".ai-os", relPath), "utf-8");
+    return fs2.readFileSync(path3.join(ROOT, ".github", "ai-os", relPath), "utf-8");
   } catch {
     return "";
   }
@@ -401,14 +413,10 @@ var SESSION_LOCK_RETRY_MS = 30;
 var SESSION_CHECKPOINTS_CAP = 100;
 var SESSION_FAILURES_CAP = 50;
 function getMemoryFilePath() {
-  const newPath = path3.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
-  const legacyPath = path3.join(ROOT, ".ai-os", "memory", "memory.jsonl");
-  return fs2.existsSync(newPath) || !fs2.existsSync(legacyPath) ? newPath : legacyPath;
+  return path3.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
 }
 function getMemoryDirPath() {
-  const newPath = path3.join(ROOT, ".github", "ai-os", "memory");
-  const legacyPath = path3.join(ROOT, ".ai-os", "memory");
-  return fs2.existsSync(newPath) || !fs2.existsSync(legacyPath) ? newPath : legacyPath;
+  return path3.join(ROOT, ".github", "ai-os", "memory");
 }
 function getMemoryLockFilePath() {
   return path3.join(getMemoryDirPath(), ".memory.lock");
@@ -1160,9 +1168,85 @@ function setWatchdogThreshold(threshold) {
     return `Failed to set watchdog threshold: ${err instanceof Error ? err.message : String(err)}`;
   }
 }
+function resetSessionState() {
+  try {
+    return withSessionLock(() => {
+      ensureSessionMemoryStore();
+      const removed = [];
+      const planPath = getActivePlanPath();
+      if (fs2.existsSync(planPath)) {
+        fs2.unlinkSync(planPath);
+        removed.push("active-plan.json");
+      }
+      const checkpointsPath = getCheckpointLogPath();
+      if (fs2.existsSync(checkpointsPath)) {
+        writeTextAtomic(checkpointsPath, "");
+        removed.push("checkpoints.jsonl (truncated)");
+      }
+      const failurePath = getFailureLedgerPath();
+      if (fs2.existsSync(failurePath)) {
+        writeTextAtomic(failurePath, "");
+        removed.push("failure-ledger.jsonl (truncated)");
+      }
+      const runtimePath = getRuntimeStatePath();
+      if (fs2.existsSync(runtimePath)) {
+        fs2.unlinkSync(runtimePath);
+        removed.push("runtime-state.json");
+      }
+      const compactPath = getCompactContextPath();
+      if (fs2.existsSync(compactPath)) {
+        fs2.unlinkSync(compactPath);
+        removed.push("compact-context.md");
+      }
+      if (removed.length === 0) {
+        return "Session state was already empty \u2014 nothing to reset.";
+      }
+      return `Session state reset. Cleared: ${removed.join(", ")}. Durable repo memory (memory.jsonl) was not modified.`;
+    });
+  } catch (err) {
+    return `Failed to reset session state: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+function syncHostedMemory() {
+  const { entries } = readMemoryEntries();
+  const activeEntries = entries.filter((e) => e.status !== "stale");
+  const lines = [
+    "## Sync Hosted Memory \u2192 memory.jsonl",
+    "",
+    "This tool cannot access Copilot's hosted memory directly.",
+    "Follow these steps to mirror durable facts into `.github/ai-os/memory/memory.jsonl`:",
+    "",
+    "1. Review your current hosted/in-context memory for facts about this project.",
+    "2. For each fact not already in `memory.jsonl` (listed below), call `remember_repo_fact`.",
+    "3. Use categories: architecture, conventions, build, testing, security, pitfalls, decisions.",
+    "",
+    `**Currently in memory.jsonl:** ${activeEntries.length} active entries`
+  ];
+  if (activeEntries.length > 0) {
+    lines.push("");
+    lines.push("**Existing active entries (do not duplicate):");
+    for (const entry of activeEntries.slice(0, 20)) {
+      lines.push(`- [${entry.category}] ${entry.title}`);
+    }
+    if (activeEntries.length > 20) {
+      lines.push(`- \u2026 and ${activeEntries.length - 20} more`);
+    }
+  }
+  lines.push("");
+  lines.push("**Example call to add a missing fact:**");
+  lines.push("```");
+  lines.push("remember_repo_fact(");
+  lines.push('  title: "Your fact title",');
+  lines.push('  content: "Detailed description of the fact or decision",');
+  lines.push('  category: "conventions",');
+  lines.push('  tags: "tag1,tag2"');
+  lines.push(")");
+  lines.push("```");
+  return lines.join("\n");
+}
 function searchFiles(query, filePattern, caseSensitive = false) {
   try {
-    const flags = caseSensitive ? "" : "-i";
+    const flags = caseSensitive ? "" : "--ignore-case";
     const globArg = filePattern ? `-g "${filePattern}"` : "";
     const cmd = `npx --yes ripgrep ${flags} ${globArg} --line-number --max-count=5 "${query}" "${ROOT}"`;
     const result = execSync(cmd, { maxBuffer: 512 * 1024, timeout: 1e4 }).toString();
@@ -1866,6 +1950,12 @@ function executeTool(toolName, input) {
       break;
     case "set_watchdog_threshold":
       result = setWatchdogThreshold(typeof input.threshold === "number" ? input.threshold : 8);
+      break;
+    case "reset_session_state":
+      result = resetSessionState();
+      break;
+    case "sync_hosted_memory":
+      result = syncHostedMemory();
       break;
     case "get_session_context":
       result = getSessionContext();

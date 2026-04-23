@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getLatestResolvableVersion } from '../updater.js';
+import { computeFreshnessReport, formatFreshnessReport } from '../detectors/freshness.js';
 
 const ROOT = process.env['AI_OS_ROOT'] ?? process.cwd();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -80,7 +81,17 @@ interface MemoryReadResult {
   malformedCount: number;
 }
 
+interface MemoryHygieneSummary {
+  totalBefore: number;
+  activeAfter: number;
+  staleMarked: number;
+  nearDuplicatesMarked: number;
+  pruned: number;
+  malformedSkipped: number;
+}
+
 const MEMORY_STALE_DAYS = 180;
+const NEAR_DUPLICATE_THRESHOLD = 0.85;
 const MEMORY_LOCK_WAIT_MS = 2000;
 const MEMORY_LOCK_RETRY_MS = 50;
 const MEMORY_LOCK_STALE_MS = 15000;
@@ -366,6 +377,47 @@ function normalizeMemoryText(value: string): string {
   return normalizeWhitespace(value).toLowerCase();
 }
 
+/**
+ * Read memory-related config values (TTL, near-duplicate threshold) from
+ * .github/ai-os/config.json. Falls back to safe defaults if the file is
+ * absent or the values are invalid.
+ */
+function readMemoryConfig(): { ttlDays: number; nearDuplicateThreshold: number } {
+  const configPath = path.join(ROOT, '.github', 'ai-os', 'config.json');
+  try {
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    const ttlDays =
+      typeof raw['memoryTtlDays'] === 'number' && raw['memoryTtlDays'] > 0
+        ? Math.floor(raw['memoryTtlDays'])
+        : MEMORY_STALE_DAYS;
+    const nearDuplicateThreshold =
+      typeof raw['memoryNearDuplicateThreshold'] === 'number'
+        ? Math.max(0.5, Math.min(1.0, raw['memoryNearDuplicateThreshold']))
+        : NEAR_DUPLICATE_THRESHOLD;
+    return { ttlDays, nearDuplicateThreshold };
+  } catch {
+    return { ttlDays: MEMORY_STALE_DAYS, nearDuplicateThreshold: NEAR_DUPLICATE_THRESHOLD };
+  }
+}
+
+/**
+ * Compute Jaccard similarity between two strings based on their word-sets.
+ * Returns a value in [0, 1] where 1 means identical word sets.
+ * Returns 0 when either string produces an empty word set (empty/whitespace-only
+ * inputs should never be treated as duplicates of each other).
+ */
+function jaccardSimilarity(a: string, b: string): number {
+  const wordsA = new Set(a.toLowerCase().split(/\W+/).filter(Boolean));
+  const wordsB = new Set(b.toLowerCase().split(/\W+/).filter(Boolean));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  let intersection = 0;
+  for (const word of wordsA) {
+    if (wordsB.has(word)) intersection += 1;
+  }
+  const union = wordsA.size + wordsB.size - intersection;
+  return intersection / union;
+}
+
 function normalizeTags(tags: string[]): string[] {
   return [...new Set(tags.map((tag) => normalizeMemoryText(tag)).filter(Boolean))].sort();
 }
@@ -430,7 +482,8 @@ function sortByRecencyDesc(a: RepoMemoryEntry, b: RepoMemoryEntry): number {
   return bTime - aTime;
 }
 
-function applyStalePolicy(entries: RepoMemoryEntry[]): RepoMemoryEntry[] {
+function applyStalePolicy(entries: RepoMemoryEntry[], ttlDays?: number): RepoMemoryEntry[] {
+  const effectiveTtl = ttlDays ?? MEMORY_STALE_DAYS;
   const byKey = new Map<string, RepoMemoryEntry[]>();
   for (const entry of entries) {
     const key = buildMemoryKey(entry);
@@ -458,14 +511,57 @@ function applyStalePolicy(entries: RepoMemoryEntry[]): RepoMemoryEntry[] {
 
   for (const entry of entries) {
     if (entry.status === 'stale') continue;
-    if (ageInDays(entry.updatedAt ?? entry.createdAt) > MEMORY_STALE_DAYS) {
+    if (ageInDays(entry.updatedAt ?? entry.createdAt) > effectiveTtl) {
       entry.status = 'stale';
-      entry.staleReason = entry.staleReason ?? `auto-stale-${MEMORY_STALE_DAYS}d`;
+      entry.staleReason = entry.staleReason ?? `auto-stale-${effectiveTtl}d`;
       entry.updatedAt = toIsoDate(entry.updatedAt);
     }
   }
 
   return entries;
+}
+
+/**
+ * Detect near-duplicate entries: same title+category key, different fingerprint,
+ * but content similarity above the configured threshold. The older entry is
+ * marked stale with reason 'near-duplicate'.
+ *
+ * Returns the number of entries newly marked as near-duplicates.
+ */
+function markNearDuplicates(entries: RepoMemoryEntry[], threshold: number): number {
+  const byKey = new Map<string, RepoMemoryEntry[]>();
+  for (const entry of entries) {
+    const key = buildMemoryKey(entry);
+    const list = byKey.get(key) ?? [];
+    list.push(entry);
+    byKey.set(key, list);
+  }
+
+  let marked = 0;
+  for (const [, list] of byKey) {
+    const active = list
+      .filter((e) => e.status !== 'stale')
+      .sort(sortByRecencyDesc);
+
+    for (let i = 0; i < active.length; i++) {
+      for (let j = i + 1; j < active.length; j++) {
+        const newer = active[i];
+        const older = active[j];
+        if (
+          (newer.fingerprint ?? buildFingerprint(newer)) !==
+          (older.fingerprint ?? buildFingerprint(older)) &&
+          jaccardSimilarity(newer.content, older.content) >= threshold
+        ) {
+          older.status = 'stale';
+          older.staleReason = 'near-duplicate';
+          older.updatedAt = toIsoDate(older.updatedAt);
+          marked += 1;
+        }
+      }
+    }
+  }
+
+  return marked;
 }
 
 function dedupeEntries(entries: RepoMemoryEntry[]): RepoMemoryEntry[] {
@@ -527,8 +623,12 @@ function readMemoryEntries(): MemoryReadResult {
     }
   }
 
+  const { ttlDays, nearDuplicateThreshold } = readMemoryConfig();
+  const deduped = dedupeEntries(entries);
+  markNearDuplicates(deduped, nearDuplicateThreshold);
+
   return {
-    entries: applyStalePolicy(dedupeEntries(entries)),
+    entries: applyStalePolicy(deduped, ttlDays),
     malformedCount,
   };
 }
@@ -1148,6 +1248,122 @@ export function syncHostedMemory(): string {
 
   return lines.join('\n');
 }
+
+/**
+ * Compact the memory file by physically removing all stale entries.
+ * Runs full hygiene (dedupe, near-duplicate detection, TTL enforcement) first,
+ * then rewrites the file with only active entries.
+ * Returns a human-readable maintenance summary.
+ */
+export function pruneMemory(): string {
+  try {
+    return withMemoryLock(() => {
+      ensureMemoryStore();
+      const file = getMemoryFilePath();
+      const content = fs.readFileSync(file, 'utf-8');
+      const rawLines = content.split('\n').map((line) => line.trim()).filter(Boolean);
+
+      const rawEntries: RepoMemoryEntry[] = [];
+      let malformedCount = 0;
+      for (const line of rawLines) {
+        try {
+          const parsed = JSON.parse(line) as Partial<RepoMemoryEntry>;
+          const canonical = canonicalizeEntry(parsed);
+          if (canonical) rawEntries.push(canonical);
+          else malformedCount += 1;
+        } catch {
+          malformedCount += 1;
+        }
+      }
+
+      const totalBefore = rawEntries.length;
+      const { ttlDays, nearDuplicateThreshold } = readMemoryConfig();
+
+      const deduped = dedupeEntries(rawEntries);
+      const nearDuplicatesMarked = markNearDuplicates(deduped, nearDuplicateThreshold);
+      const withStalePolicy = applyStalePolicy(deduped, ttlDays);
+
+      const staleCount = withStalePolicy.filter((e) => e.status === 'stale').length;
+      const activeEntries = withStalePolicy.filter((e) => e.status !== 'stale');
+
+      writeMemoryEntriesAtomic(activeEntries);
+
+      const summary: MemoryHygieneSummary = {
+        totalBefore,
+        activeAfter: activeEntries.length,
+        staleMarked: staleCount,
+        nearDuplicatesMarked,
+        pruned: totalBefore - activeEntries.length,
+        malformedSkipped: malformedCount,
+      };
+
+      const lines = [
+        '## Memory Prune Complete',
+        '',
+        `- Entries before prune: ${summary.totalBefore}`,
+        `- Active entries kept:  ${summary.activeAfter}`,
+        `- Stale entries removed: ${summary.pruned}`,
+        `  - Near-duplicates removed: ${summary.nearDuplicatesMarked}`,
+        `  - TTL-expired / superseded: ${summary.staleMarked - summary.nearDuplicatesMarked}`,
+      ];
+
+      if (summary.malformedSkipped > 0) {
+        lines.push(`- Malformed lines skipped: ${summary.malformedSkipped}`);
+      }
+
+      lines.push('', `TTL policy: ${ttlDays} days | Near-duplicate threshold: ${nearDuplicateThreshold}`);
+
+      return lines.join('\n');
+    });
+  } catch (err) {
+    return `Failed to prune memory: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+
+/**
+ * Run a non-destructive memory hygiene pass and return a summary without
+ * modifying the memory file. Useful for maintenance reports during refresh runs.
+ */
+export function runMemoryMaintenance(): MemoryHygieneSummary {
+  ensureMemoryStore();
+  const file = getMemoryFilePath();
+  const content = fs.readFileSync(file, 'utf-8');
+  const rawLines = content.split('\n').map((line) => line.trim()).filter(Boolean);
+
+  const rawEntries: RepoMemoryEntry[] = [];
+  let malformedCount = 0;
+  for (const line of rawLines) {
+    try {
+      const parsed = JSON.parse(line) as Partial<RepoMemoryEntry>;
+      const canonical = canonicalizeEntry(parsed);
+      if (canonical) rawEntries.push(canonical);
+      else malformedCount += 1;
+    } catch {
+      malformedCount += 1;
+    }
+  }
+
+  const totalBefore = rawEntries.length;
+  const { ttlDays, nearDuplicateThreshold } = readMemoryConfig();
+
+  const deduped = dedupeEntries(rawEntries);
+  const nearDuplicatesMarked = markNearDuplicates(deduped, nearDuplicateThreshold);
+  const withStalePolicy = applyStalePolicy(deduped, ttlDays);
+
+  const staleCount = withStalePolicy.filter((e) => e.status === 'stale').length;
+  const activeCount = withStalePolicy.filter((e) => e.status !== 'stale').length;
+
+  return {
+    totalBefore,
+    activeAfter: activeCount,
+    staleMarked: staleCount,
+    nearDuplicatesMarked,
+    pruned: 0,
+    malformedSkipped: malformedCount,
+  };
+}
+
+export type { MemoryHygieneSummary };
 
 export function searchFiles(query: string, filePattern?: string, caseSensitive = false): string {
   try {
@@ -1847,4 +2063,11 @@ export function suggestImprovements(): string {
     '',
     ...suggestions.map(s => `- ${s}`),
   ].join('\n');
+}
+
+// ── Tool #25: Context Freshness ───────────────────────────────────────────────
+
+export function getContextFreshness(): string {
+  const report = computeFreshnessReport(ROOT);
+  return formatFreshnessReport(report);
 }

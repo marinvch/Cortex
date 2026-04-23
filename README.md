@@ -240,7 +240,71 @@ Critical failures exit non-zero; warnings exit 0.
 
 Generated skill files use `ai-os-*.md` naming and stale ones are auto-pruned on refresh.
 
-## Development
+## Protecting custom edits from refresh
+
+AI OS stores protection rules in `.github/ai-os/protect.json`.  Two modes are supported:
+
+### Whole-file protection (`protected`)
+
+Files in the `protected` list are **never overwritten or pruned** — even if they overlap with a managed path:
+
+```json
+{
+  "protected": [
+    ".github/agents/my-custom-agent.md",
+    ".github/copilot-instructions.md"
+  ]
+}
+```
+
+### Block-level hybrid mode (`hybrid`) — _new in v0.10.1_
+
+Files in the `hybrid` list are refreshed normally, but user-authored sections marked with special comment delimiters are re-inserted after each regeneration:
+
+```markdown
+# Generated content above
+
+<!-- AI-OS:USER_BLOCK:START id="my-rules" -->
+## My Custom Rules
+- Always use tabs
+- Never silence errors
+<!-- AI-OS:USER_BLOCK:END id="my-rules" -->
+
+# More generated content below
+```
+
+Configure which files use hybrid mode in `protect.json`:
+
+```json
+{
+  "hybrid": [
+    ".github/copilot-instructions.md",
+    ".github/ai-os/context/conventions.md"
+  ]
+}
+```
+
+**Merge strategy (in priority order):**
+
+1. **ID-match** — If the newly generated file still contains the same `START`/`END` markers, the user's block content replaces the default content in-place.
+2. **Anchor-based** — If the generated file no longer has the markers but the line _immediately before_ the block in the old file still exists, the block is re-inserted after that anchor line.
+3. **Conflict** — If neither strategy succeeds, the block is appended at the bottom of the file inside `<!-- AI-OS:CONFLICT -->` wrappers and a warning is printed.  Manually move the block to the correct location and remove the conflict markers.
+
+**Conflict resolution:**
+
+When a conflict is reported, the file looks like this:
+
+```markdown
+<!-- AI-OS:CONFLICT block="my-rules" — anchor lost; please reconcile manually -->
+<!-- AI-OS:USER_BLOCK:START id="my-rules" -->
+...your content...
+<!-- AI-OS:USER_BLOCK:END id="my-rules" -->
+<!-- AI-OS:CONFLICT:END -->
+```
+
+Move the user block to the correct location and delete both `AI-OS:CONFLICT` wrappers.
+
+
 
 ```bash
 npm install

@@ -19,6 +19,7 @@ import { generateRecommendations, getSkillsGapReport } from './recommendations/i
 import { applyProfile, describeProfile, parseProfile } from './profile.js';
 import type { InstallProfile } from './types.js';
 import { runDoctor, printDoctorReport } from './doctor.js';
+import { mergeUserBlocks } from './user-blocks.js';
 import type { OnboardingPlan } from './planner.js';
 import type { UpdateStatus } from './updater.js';
 
@@ -308,34 +309,68 @@ function printContextualNextSteps(
 }
 
 /**
+ * Parsed result of `.github/ai-os/protect.json`.
+ *
+ * - `protected` — whole-file shield: file is never overwritten or pruned.
+ * - `hybrid`    — block-level merge: file is regenerated but
+ *                 `<!-- AI-OS:USER_BLOCK:START id="..." -->` sections authored
+ *                 by the user are preserved and re-inserted after generation.
+ */
+interface ProtectConfig {
+  protected: Set<string>;
+  hybrid: Set<string>;
+}
+
+/**
  * Load the optional `.github/ai-os/protect.json` file.
- * Returns a Set of repo-relative forward-slash paths that should never be
- * overwritten or pruned during a refresh run.
+ *
+ * Supports two modes per file:
+ *  - `protected` — whole-file shield (existing behaviour)
+ *  - `hybrid`    — block-level user-section preservation (new)
  *
  * Example protect.json:
  * ```json
  * {
  *   "protected": [
- *     ".github/agents/my-custom-agent.md",
+ *     ".github/agents/my-custom-agent.md"
+ *   ],
+ *   "hybrid": [
+ *     ".github/copilot-instructions.md",
  *     ".github/ai-os/context/conventions.md"
  *   ]
  * }
  * ```
  */
-function loadProtectConfig(cwd: string): Set<string> {
+/**
+ * Convert an unknown JSON array value into a Set of normalised forward-slash paths.
+ * Non-array values and non-string elements are silently ignored.
+ */
+function toPathSet(value: unknown): Set<string> {
+  if (!Array.isArray(value)) return new Set();
+  return new Set(
+    (value as unknown[])
+      .filter((p): p is string => typeof p === 'string')
+      .map(p => p.replace(/\\/g, '/')),
+  );
+}
+
+function loadProtectConfig(cwd: string): ProtectConfig {
+  const empty: ProtectConfig = { protected: new Set(), hybrid: new Set() };
   const protectPath = path.join(cwd, '.github', 'ai-os', 'protect.json');
-  if (!fs.existsSync(protectPath)) return new Set();
+  if (!fs.existsSync(protectPath)) return empty;
   try {
-    const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as { protected?: unknown };
-    if (!Array.isArray(raw.protected)) return new Set();
-    return new Set(
-      (raw.protected as unknown[])
-        .filter((p): p is string => typeof p === 'string')
-        .map(p => p.replace(/\\/g, '/')),
-    );
+    const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as {
+      protected?: unknown;
+      hybrid?: unknown;
+    };
+
+    return {
+      protected: toPathSet(raw.protected),
+      hybrid: toPathSet(raw.hybrid),
+    };
   } catch {
     console.warn('  ⚠ Could not parse .github/ai-os/protect.json — ignoring protection config');
-    return new Set();
+    return empty;
   }
 }
 
@@ -510,7 +545,9 @@ async function main(): Promise<void> {
   }
 
   // Load optional protection config for files that must never be overwritten/pruned.
-  const protectedPaths = loadProtectConfig(cwd);
+  const protectConfig = loadProtectConfig(cwd);
+  const protectedPaths = protectConfig.protected;
+  const hybridPaths    = protectConfig.hybrid;
 
   // Snapshot content of protect.json-listed files BEFORE generation so we can
   // restore them afterwards if a generator accidentally overwrites them.
@@ -524,6 +561,22 @@ async function main(): Promise<void> {
   if (isRefresh && protectedSnapshots.size > 0) {
     console.log(`  🔒 protect.json: ${protectedSnapshots.size} file(s) shielded against overwrite.`);
     console.log('');
+  }
+
+  // Snapshot content of hybrid-mode files BEFORE generation so we can
+  // re-insert user-authored blocks after the generator rewrites them.
+  const hybridSnapshots = new Map<string, string>();
+  if (isRefresh) {
+    for (const rel of hybridPaths) {
+      const abs = path.join(cwd, rel);
+      if (fs.existsSync(abs)) {
+        hybridSnapshots.set(abs, fs.readFileSync(abs, 'utf-8'));
+      }
+    }
+    if (hybridSnapshots.size > 0) {
+      console.log(`  🔀 protect.json: ${hybridSnapshots.size} file(s) in hybrid mode (user blocks will be preserved).`);
+      console.log('');
+    }
   }
 
   const stack = analyze(cwd);
@@ -633,9 +686,15 @@ async function main(): Promise<void> {
     const currentSet = new Set(currentRelFiles);
     for (const rel of previousFiles) {
       if (!currentSet.has(rel)) {
-        // Skip files protected by protect.json
+        // Skip files protected by protect.json (full shield)
         if (protectedPaths.has(rel)) {
           if (verbose) console.log(`  🔒 protect  ${rel}  (in protect.json)`);
+          preservedAbs.push(path.join(cwd, rel));
+          continue;
+        }
+        // Skip files in hybrid mode — they are managed but user blocks survive
+        if (hybridPaths.has(rel)) {
+          if (verbose) console.log(`  🔀 hybrid   ${rel}  (in protect.json hybrid — user blocks preserved)`);
           preservedAbs.push(path.join(cwd, rel));
           continue;
         }
@@ -678,6 +737,42 @@ async function main(): Promise<void> {
       if (verbose) console.log(`  🔒 restored ${rel}  (protect.json: overwrite reverted)`);
       if (!preservedAbs.some(p => p === abs)) preservedAbs.push(abs);
     }
+  }
+
+  // Apply hybrid-mode user-block merge: for each file in the hybrid list, merge
+  // user blocks from the pre-generation snapshot back into the newly written content.
+  // Emit a conflict report for any block that could not be re-inserted safely.
+  const allConflicts: Array<{ file: string; blockId: string; reason: string; detail: string }> = [];
+  for (const [abs, snapshot] of hybridSnapshots) {
+    if (!fs.existsSync(abs)) continue;
+    const generated = fs.readFileSync(abs, 'utf-8');
+    const { content: merged, preserved: mergedIds, conflicts } = mergeUserBlocks(generated, snapshot);
+    if (mergedIds.length > 0 || conflicts.length > 0) {
+      const rel = path.relative(cwd, abs).replace(/\\/g, '/');
+      // Only write when the merge actually changed the content
+      if (merged !== generated) {
+        fs.writeFileSync(abs, merged, 'utf-8');
+      }
+      if (mergedIds.length > 0) {
+        if (verbose) {
+          console.log(`  🔀 merged   ${rel}  (${mergedIds.length} user block(s) preserved: ${mergedIds.join(', ')})`);
+        } else {
+          console.log(`  🔀 Hybrid merge: ${mergedIds.length} user block(s) preserved in ${rel}`);
+        }
+      }
+      for (const conflict of conflicts) {
+        allConflicts.push({ file: rel, ...conflict });
+        console.warn(`  ⚠ Hybrid conflict in ${rel}: block "${conflict.blockId}" — ${conflict.detail}`);
+      }
+    }
+  }
+
+  if (allConflicts.length > 0) {
+    console.log('');
+    console.log(`  ⚠ ${allConflicts.length} user block conflict(s) require manual reconciliation.`);
+    console.log('     Each block has been appended to its file wrapped in <!-- AI-OS:CONFLICT --> markers.');
+    console.log('     Review and move them to the correct location, then remove the conflict markers.');
+    console.log('');
   }
 
   // Write updated manifest (#8 / #11).

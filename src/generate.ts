@@ -18,11 +18,12 @@ import { readManifest, writeManifest, getManifestPath, setVerboseMode } from './
 import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
 import { applyProfile, describeProfile, parseProfile } from './profile.js';
 import type { InstallProfile } from './types.js';
+import { runDoctor, printDoctorReport } from './doctor.js';
 import type { OnboardingPlan } from './planner.js';
 import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
+type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor';
 
 function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null } {
   const args = process.argv.slice(2);
@@ -65,6 +66,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       mode = 'refresh-existing';
     } else if (args[i] === '--check-hygiene') {
       action = 'check-hygiene';
+    } else if (args[i] === '--doctor') {
+      action = 'doctor';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
     } else if (args[i] === '--regenerate-context') {
@@ -456,6 +459,14 @@ async function main(): Promise<void> {
   // ── --check-hygiene action (runs before scan, no generation needed) ────────
   if (action === 'check-hygiene') {
     runHygieneCheck(cwd);
+    return;
+  }
+
+  // ── --doctor action (post-install health validation) ──────────────────────
+  if (action === 'doctor') {
+    const doctorResult = runDoctor(cwd);
+    const exitCode = printDoctorReport(doctorResult);
+    if (exitCode !== 0) process.exit(exitCode);
     return;
   }
 

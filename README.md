@@ -224,6 +224,20 @@ If MCP runtime diagnostics are needed:
 
 - `AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck`
 
+To validate post-install health and get actionable fix commands:
+
+- `npm run doctor`
+- `npm run generate -- --cwd /path/to/target-repo --doctor`
+
+The doctor checks:
+- MCP runtime binary exists and passes healthcheck
+- `.vscode/mcp.json` present with correct `servers["ai-os"]` entry
+- MCP server command path resolves on disk
+- `.github/ai-os/config.json` and `tools.json` present and valid
+- AI OS skills deployed
+
+Critical failures exit non-zero; warnings exit 0.
+
 Generated skill files use `ai-os-*.md` naming and stale ones are auto-pruned on refresh.
 
 ## Development
@@ -252,6 +266,8 @@ npm run generate:refresh -- --cwd /path/to/target-repo
 npm run generate -- --cwd /path/to/target-repo --prune
 # Check hygiene (detect stale node_modules, missing manifests, etc.)
 npm run check-hygiene
+# Validate post-install health and emit actionable fix commands
+npm run doctor
 # Run unit tests
 npm test
 # Fast validation (build + unit tests only)

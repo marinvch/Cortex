@@ -1524,6 +1524,18 @@ var MCP_TOOL_DEFINITIONS = [
 function getMcpToolsForStack(stack) {
   return MCP_TOOL_DEFINITIONS.filter((tool) => tool.condition ? tool.condition(stack) : true).map(({ condition: _condition, ...tool }) => tool);
 }
+function getToolsWithStackSplit(stack) {
+  const activeTools = [];
+  const availableButInactive = [];
+  for (const { condition, ...tool } of MCP_TOOL_DEFINITIONS) {
+    if (!condition || condition(stack)) {
+      activeTools.push(tool);
+    } else {
+      availableButInactive.push(tool);
+    }
+  }
+  return { activeTools, availableButInactive };
+}
 
 // src/generators/mcp.ts
 function writeMcpServerConfig(outputDir, options) {
@@ -1549,11 +1561,17 @@ function writeMcpServerConfig(outputDir, options) {
   fs7.writeFileSync(mcpJsonPath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
   return mcpJsonPath;
 }
-function generateMcpJson(stack, outputDir, _options) {
-  const allTools = getMcpToolsForStack(stack);
+function generateMcpJson(stack, outputDir, options) {
+  const strictFiltering = options?.config?.strictStackFiltering !== false;
   writeMcpServerConfig(outputDir);
   const toolsJsonPath = path7.join(outputDir, ".github", "ai-os", "tools.json");
-  writeIfChanged(toolsJsonPath, JSON.stringify(allTools, null, 2));
+  if (strictFiltering) {
+    const split = getToolsWithStackSplit(stack);
+    writeIfChanged(toolsJsonPath, JSON.stringify(split, null, 2));
+  } else {
+    const allTools = getMcpToolsForStack(stack);
+    writeIfChanged(toolsJsonPath, JSON.stringify(allTools, null, 2));
+  }
   return [toolsJsonPath];
 }
 
@@ -1792,7 +1810,7 @@ function getLatestPublishedTagVersion() {
     );
     if (result.status !== 0 || !result.stdout) return null;
     const versions = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
-      const match = line.match(/refs\/tags\/(v\d+\.\d+\.\d+)$/);
+      const match = line.match(/refs\/tags\/v(\d+\.\d+\.\d+)$/);
       return match?.[1] ?? null;
     }).filter((v) => v !== null);
     if (versions.length === 0) return null;
@@ -1925,7 +1943,9 @@ var DEFAULT_AI_OS_CONFIG = {
   recommendations: true,
   sessionContextCard: true,
   updateCheckEnabled: true,
+  skillsStrategy: "creator-only",
   agentFlowMode: "create",
+  strictStackFiltering: true,
   persistentRules: [],
   exclude: ["node_modules", "dist", ".next", ".nuxt", "build", "out"]
 };
@@ -2544,6 +2564,7 @@ function generateContextDocs(stack, outputDir, options) {
     recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
     sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,
     updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_AI_OS_CONFIG.updateCheckEnabled,
+    skillsStrategy: existingConfig?.skillsStrategy ?? DEFAULT_AI_OS_CONFIG.skillsStrategy,
     agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_AI_OS_CONFIG.agentFlowMode,
     persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude
@@ -3180,6 +3201,16 @@ function buildSkillSpecs(stack, cwd) {
 async function generateSkillsWithOptions(stack, cwd, options) {
   const skillsDir = path12.join(cwd, SKILLS_DIR);
   fs12.mkdirSync(skillsDir, { recursive: true });
+  if (options.strategy === "creator-only") {
+    if (options.refreshExisting && fs12.existsSync(skillsDir)) {
+      const onDisk = fs12.readdirSync(skillsDir).filter((f) => f.startsWith("ai-os-") && f.endsWith(".md"));
+      for (const stale of onDisk) {
+        fs12.rmSync(path12.join(skillsDir, stale));
+        console.log(`  \u{1F5D1}\uFE0F  Pruned predefined skill (creator-only mode): ${stale}`);
+      }
+    }
+    return [];
+  }
   const specs = buildSkillSpecs(stack, cwd);
   const generatedPaths = [];
   for (const spec of specs) {
@@ -3209,7 +3240,10 @@ async function generateSkillsWithOptions(stack, cwd, options) {
   return generatedPaths;
 }
 async function generateSkills(stack, cwd, options) {
-  return generateSkillsWithOptions(stack, cwd, { refreshExisting: options?.refreshExisting ?? false });
+  return generateSkillsWithOptions(stack, cwd, {
+    refreshExisting: options?.refreshExisting ?? false,
+    strategy: options?.strategy ?? "creator-only"
+  });
 }
 var BUNDLED_SKILLS = [
   { dirName: "skill-creator", label: "skill-creator" }
@@ -4041,12 +4075,12 @@ var UNIVERSAL_RECOMMENDATIONS = [
 
 // src/recommendations/index.ts
 function collectRecommendations(stack) {
-  const collected = { mcp: [], vscode: [], skills: [], copilotExtensions: [] };
+  const collected = { mcp: [], vscode: [], skills: [], copilotExtensions: [], universalSkills: [] };
   const seenMcp = /* @__PURE__ */ new Set();
   const seenVscode = /* @__PURE__ */ new Set();
   const seenSkills = /* @__PURE__ */ new Set();
   const seenExt = /* @__PURE__ */ new Set();
-  function applyRec(rec) {
+  function applyRec(rec, isUniversal = false) {
     if (rec.mcp && !seenMcp.has(rec.mcp.package)) {
       seenMcp.add(rec.mcp.package);
       collected.mcp.push({ trigger: rec.trigger, package: rec.mcp.package, description: rec.mcp.description });
@@ -4060,7 +4094,11 @@ function collectRecommendations(stack) {
     for (const skill of rec.skills ?? []) {
       if (!seenSkills.has(skill)) {
         seenSkills.add(skill);
-        collected.skills.push({ trigger: rec.trigger, name: skill });
+        if (isUniversal) {
+          collected.universalSkills.push({ trigger: rec.trigger, name: skill });
+        } else {
+          collected.skills.push({ trigger: rec.trigger, name: skill });
+        }
       }
     }
     if (rec.copilotExtension && !seenExt.has(rec.copilotExtension.name)) {
@@ -4081,7 +4119,7 @@ function collectRecommendations(stack) {
     if (rec) applyRec(rec);
   }
   for (const rec of UNIVERSAL_RECOMMENDATIONS) {
-    applyRec(rec);
+    applyRec(rec, true);
   }
   return collected;
 }
@@ -4160,13 +4198,32 @@ function generateRecommendationsDoc(stack, collected) {
     }
     lines.push("");
   }
+  if (collected.universalSkills.length > 0) {
+    lines.push("## Universal Skills (Optional)", "");
+    lines.push("> These skills are useful for any project and are not specific to the detected stack.");
+    lines.push("");
+    for (const item of collected.universalSkills) {
+      lines.push(`- **${item.name}** \u2014 general purpose`);
+    }
+    lines.push("");
+    lines.push("**Install via skills CLI:**");
+    lines.push("```bash");
+    for (const item of collected.universalSkills) {
+      lines.push(`npx -y skills add --skill ${item.name} -g -a github-copilot`);
+    }
+    lines.push("```");
+    lines.push("");
+  }
   lines.push("---");
   lines.push(`*Generated at ${(/* @__PURE__ */ new Date()).toISOString()} by AI OS*`);
   return lines.join("\n");
 }
 function getSkillsGapReport(stack, skillsLockPath) {
   const collected = collectRecommendations(stack);
-  const recommendedSkills = new Set(collected.skills.map((s) => s.name));
+  const recommendedSkills = /* @__PURE__ */ new Set([
+    ...collected.skills.map((s) => s.name),
+    ...collected.universalSkills.map((s) => s.name)
+  ]);
   let installed = [];
   try {
     const lock = JSON.parse(fs15.readFileSync(skillsLockPath, "utf-8"));
@@ -4354,7 +4411,7 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents, preser
   console.log("");
 }
 function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommendationsEnabled) {
-  const refreshCmd = `npx -y github:marinvch/ai-os#v${updateStatus.toolVersion} --refresh-existing`;
+  const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
   const recommendationsPath = ".github/ai-os/recommendations.md";
   const printInstructionStrategy = () => {
     console.log("  \u{1F4CC} First action after install/refresh:");
@@ -4582,13 +4639,18 @@ async function main() {
   const previousFiles = new Set(previousManifest?.files ?? []);
   const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
   const config = readAiOsConfig(cwd) ?? existingConfig;
+  const skillsStrategy = config?.skillsStrategy ?? "creator-only";
   const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === "refresh-existing", preserveContextFiles, config: config ?? void 0 });
-  const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === "refresh-existing" });
+  const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === "refresh-existing", config: config ?? void 0 });
   const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === "refresh-existing", preserveExistingAgents: preserveContextFiles, config: config ?? void 0 });
-  const skillFiles = await generateSkills(stack, cwd, { refreshExisting: mode === "refresh-existing" });
+  const skillFiles = await generateSkills(stack, cwd, {
+    refreshExisting: mode === "refresh-existing",
+    strategy: skillsStrategy
+  });
   const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === "refresh-existing" });
   const workflowFiles = generateWorkflows(cwd, { config: config ?? void 0 });
   await deployBundledSkills(cwd, { refreshExisting: mode === "refresh-existing" });
+  console.log(`  \u{1F9E0} Skills strategy: ${skillsStrategy}`);
   const recommendationFiles = [];
   if (config?.recommendations !== false) {
     const recPath = generateRecommendations(stack, cwd);

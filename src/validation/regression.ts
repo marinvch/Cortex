@@ -498,14 +498,50 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
   }
 
   results.push({ fixture: fixtureName, check: 'tools.json is valid JSON', passed: true });
+
+  // New format: { activeTools: [...], availableButInactive: [...] }
+  // Legacy format: flat array
+  const isNewFormat =
+    toolsConfig !== null &&
+    typeof toolsConfig === 'object' &&
+    !Array.isArray(toolsConfig) &&
+    Array.isArray((toolsConfig as Record<string, unknown>)['activeTools']);
+  const isLegacyFormat = Array.isArray(toolsConfig);
+
   results.push({
     fixture: fixtureName,
     check: 'tools.json contains MCP tool definitions',
-    passed: Array.isArray(toolsConfig) && toolsConfig.length > 0,
-    detail: Array.isArray(toolsConfig)
-      ? (toolsConfig.length > 0 ? undefined : 'tools.json is an empty array')
-      : 'tools.json is not an array',
+    passed: isNewFormat || isLegacyFormat,
+    detail: (!isNewFormat && !isLegacyFormat)
+      ? 'tools.json is neither a { activeTools, availableButInactive } object nor a flat array'
+      : undefined,
   });
+
+  if (isNewFormat) {
+    const obj = toolsConfig as Record<string, unknown>;
+    const activeTools = obj['activeTools'] as unknown[];
+    const inactiveTools = obj['availableButInactive'];
+    results.push({
+      fixture: fixtureName,
+      check: 'tools.json activeTools is non-empty',
+      passed: activeTools.length > 0,
+      detail: activeTools.length === 0 ? 'activeTools array is empty' : undefined,
+    });
+    results.push({
+      fixture: fixtureName,
+      check: 'tools.json has availableButInactive array',
+      passed: Array.isArray(inactiveTools),
+      detail: !Array.isArray(inactiveTools) ? 'availableButInactive is missing or not an array' : undefined,
+    });
+  } else if (isLegacyFormat) {
+    const arr = toolsConfig as unknown[];
+    results.push({
+      fixture: fixtureName,
+      check: 'tools.json (legacy flat array) is non-empty',
+      passed: arr.length > 0,
+      detail: arr.length === 0 ? 'tools.json is an empty array' : undefined,
+    });
+  }
 }
 
 function checkMemoryQuality(dir: string, fixtureName: string, results: CheckResult[]): void {

@@ -531,7 +531,7 @@ async function main(): Promise<void> {
   const config = readAiOsConfig(cwd) ?? existingConfig;
   const skillsStrategy = config?.skillsStrategy ?? 'creator-only';
   const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined });
-  const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
 
   // Phase 2: Agents, Skills, Prompts
   const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveExistingAgents: preserveContextFiles, config: config ?? undefined });

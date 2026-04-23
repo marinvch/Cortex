@@ -41,7 +41,16 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
 
   // React (non-Next.js to avoid duplicate)
   if (frameworks.some(f => f.includes('react')) && !frameworks.some(f => f.includes('next'))) {
-    add('react.md', 'ai-os-react-patterns.md');
+    // Stack-conflict check: when Redux Toolkit is present, do not emit "No Redux" guidance.
+    const hasRedux = packages.some(p =>
+      ['redux', '@reduxjs/toolkit', 'react-redux'].includes(p.toLowerCase()),
+    );
+    const stateManagementComment = hasRedux
+      ? 'Redux store (useSelector / useDispatch) for global state; RTK Query for server state'
+      : 'tRPC cache\n// No Redux, no Zustand — tRPC covers server state';
+    add('react.md', 'ai-os-react-patterns.md', {
+      '{{STATE_MANAGEMENT_COMMENT}}': stateManagementComment,
+    });
   }
 
   // tRPC
@@ -155,6 +164,11 @@ async function generateSkillsWithOptions(
         fs.rmSync(path.join(skillsDir, stale));
         console.log(`  🗑️  Pruned predefined skill (creator-only mode): ${stale}`);
       }
+      // Remove directory if it is now empty so no ghost folder is left behind.
+      if (fs.readdirSync(skillsDir).length === 0) {
+        fs.rmdirSync(skillsDir);
+        console.log(`  🗑️  Removed empty skills directory: ${skillsDir}`);
+      }
     }
     return [];
   }
@@ -194,6 +208,11 @@ async function generateSkillsWithOptions(
         fs.rmSync(path.join(skillsDir, stale));
         console.log(`  🗑️  Pruned stale skill: ${stale}`);
       }
+    }
+    // Remove directory if it is now empty so no ghost folder is left behind.
+    if (generatedPaths.length === 0 && fs.readdirSync(skillsDir).length === 0) {
+      fs.rmdirSync(skillsDir);
+      console.log(`  🗑️  Removed empty skills directory: ${skillsDir}`);
     }
   }
 

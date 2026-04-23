@@ -16,13 +16,15 @@ import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifa
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
 import { readManifest, writeManifest, getManifestPath, setVerboseMode } from './generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
+import { applyProfile, describeProfile, parseProfile } from './profile.js';
+import type { InstallProfile } from './types.js';
 import type { OnboardingPlan } from './planner.js';
 import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
@@ -33,6 +35,7 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
   let cleanUpdate = false;
   let regenerateContext = false;
   let pruneCustomArtifacts = false;
+  let profile: InstallProfile | null = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -68,10 +71,20 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       regenerateContext = true;
     } else if (args[i] === '--prune-custom-artifacts') {
       pruneCustomArtifacts = true;
+    } else if (args[i] === '--profile' && args[i + 1]) {
+      const parsed = parseProfile(args[i + 1]);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${args[i + 1]}")`);
+      profile = parsed;
+      i++;
+    } else if (args[i]?.startsWith('--profile=')) {
+      const raw = args[i].slice('--profile='.length);
+      const parsed = parseProfile(raw);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${raw}")`);
+      profile = parsed;
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile };
 }
 
 function printBanner(): void {
@@ -186,6 +199,7 @@ function printSummary(
   pruned: string[],
   agents: string[],
   preserved: string[],
+  activeProfile?: string,
 ): void {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
@@ -194,6 +208,9 @@ function printSummary(
   console.log(`  🏗️  Framework:  ${fw}`);
   console.log(`  📦 Pkg Mgr:   ${stack.patterns.packageManager}`);
   console.log(`  🔷 TypeScript: ${stack.patterns.hasTypeScript ? 'Yes' : 'No'}`);
+  if (activeProfile) {
+    console.log(`  🎛️  Profile:    ${activeProfile}`);
+  }
   console.log('');
   console.log('  Diff summary:');
   console.log(`  ✅ Written (new or changed):  ${written.length}`);
@@ -427,7 +444,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
 async function main(): Promise<void> {
   printBanner();
 
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = parseArgs();
   let mode: GenerateMode = rawMode;
 
   // Enable verbose per-file logging when --verbose / -v is passed
@@ -527,8 +544,27 @@ async function main(): Promise<void> {
 
   // Phase 1: Core context files (config.json is written here, with user fields preserved)
   const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
-  // Read the freshly-written config to get feature flags for remaining generators
-  const config = readAiOsConfig(cwd) ?? existingConfig;
+  // Read the freshly-written config to get feature flags for remaining generators.
+  // If a --profile flag was passed, apply it now (it overrides individual flags but is
+  // written back into config.json so subsequent refreshes inherit the same density level).
+  let config = readAiOsConfig(cwd) ?? existingConfig;
+
+  // Resolve the effective profile: CLI flag > persisted config > none
+  const effectiveProfile = cliProfile ?? config?.profile ?? null;
+  if (effectiveProfile) {
+    if (cliProfile) {
+      console.log(`\n  🎛️  Applying profile: ${cliProfile}`);
+      console.log(describeProfile(cliProfile));
+      console.log('');
+    }
+    if (config) {
+      config = applyProfile(config, effectiveProfile);
+      // Persist the profile-applied config back to disk.
+      const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
+      fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    }
+  }
+
   const skillsStrategy = config?.skillsStrategy ?? 'creator-only';
   const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
@@ -646,7 +682,7 @@ async function main(): Promise<void> {
 
   installLocalMcpRuntime(cwd, verbose);
 
-  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs);
+  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? undefined);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
 
   // ── Agent-flow setup prompt ──────────────────────────────────────────────

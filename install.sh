@@ -39,6 +39,7 @@ INSTALL_FIND_SKILLS=false
 REFRESH_EXISTING=false
 CLEAN_UPDATE=false
 UNINSTALL=false
+PROFILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,6 +70,22 @@ while [[ $# -gt 0 ]]; do
       ;;
     --uninstall)
       UNINSTALL=true
+      shift
+      ;;
+    --profile)
+      PROFILE="${2:-}"
+      if [[ "$PROFILE" != "minimal" && "$PROFILE" != "standard" && "$PROFILE" != "full" ]]; then
+        echo -e "  ${RED}Error: --profile must be one of: minimal, standard, full (got \"$PROFILE\")${RESET}"
+        exit 1
+      fi
+      shift 2
+      ;;
+    --profile=*)
+      PROFILE="${1#--profile=}"
+      if [[ "$PROFILE" != "minimal" && "$PROFILE" != "standard" && "$PROFILE" != "full" ]]; then
+        echo -e "  ${RED}Error: --profile must be one of: minimal, standard, full (got \"$PROFILE\")${RESET}"
+        exit 1
+      fi
       shift
       ;;
     *)
@@ -339,6 +356,9 @@ echo ""
 GEN_ARGS=(--cwd "$TARGET_DIR")
 if [[ "$REFRESH_EXISTING" == "true" ]]; then
   GEN_ARGS+=(--refresh-existing)
+fi
+if [[ -n "$PROFILE" ]]; then
+  GEN_ARGS+=(--profile "$PROFILE")
 fi
 
 (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")

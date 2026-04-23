@@ -1519,6 +1519,20 @@ var MCP_TOOL_DEFINITIONS = [
       required: ["threshold"]
     },
     condition: always
+  },
+  // ── Tool #23: Session State Reset ─────────────────────────────────────────
+  {
+    name: "reset_session_state",
+    description: "Clears all session state files (active-plan.json, checkpoints.jsonl, failure-ledger.jsonl, runtime-state.json, compact-context.md) so a new branch or task starts from a clean slate. Durable repo memory (memory.jsonl) is never modified.",
+    inputSchema: { type: "object", properties: {} },
+    condition: always
+  },
+  // ── Tool #24: Sync Hosted Memory ──────────────────────────────────────────
+  {
+    name: "sync_hosted_memory",
+    description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.",
+    inputSchema: { type: "object", properties: {} },
+    condition: always
   }
 ];
 function getMcpToolsForStack(stack) {
@@ -3144,7 +3158,13 @@ function buildSkillSpecs(stack, cwd) {
     add("nextjs.md", "ai-os-nextjs-patterns.md");
   }
   if (frameworks.some((f) => f.includes("react")) && !frameworks.some((f) => f.includes("next"))) {
-    add("react.md", "ai-os-react-patterns.md");
+    const hasRedux = packages.some(
+      (p) => ["redux", "@reduxjs/toolkit", "react-redux"].includes(p.toLowerCase())
+    );
+    const stateManagementComment = hasRedux ? "Redux store (useSelector / useDispatch) for global state; RTK Query for server state" : "tRPC cache\n// No Redux, no Zustand \u2014 tRPC covers server state";
+    add("react.md", "ai-os-react-patterns.md", {
+      "{{STATE_MANAGEMENT_COMMENT}}": stateManagementComment
+    });
   }
   if (packages.includes("@trpc/server") || packages.includes("trpc")) {
     const trpcRouterFile = fs12.existsSync(path12.join(cwd, "src/trpc/index.ts")) ? "src/trpc/index.ts" : "src/server/trpc.ts";
@@ -3208,6 +3228,10 @@ async function generateSkillsWithOptions(stack, cwd, options) {
         fs12.rmSync(path12.join(skillsDir, stale));
         console.log(`  \u{1F5D1}\uFE0F  Pruned predefined skill (creator-only mode): ${stale}`);
       }
+      if (fs12.readdirSync(skillsDir).length === 0) {
+        fs12.rmdirSync(skillsDir);
+        console.log(`  \u{1F5D1}\uFE0F  Removed empty skills directory: ${skillsDir}`);
+      }
     }
     return [];
   }
@@ -3235,6 +3259,10 @@ async function generateSkillsWithOptions(stack, cwd, options) {
         fs12.rmSync(path12.join(skillsDir, stale));
         console.log(`  \u{1F5D1}\uFE0F  Pruned stale skill: ${stale}`);
       }
+    }
+    if (generatedPaths.length === 0 && fs12.readdirSync(skillsDir).length === 0) {
+      fs12.rmdirSync(skillsDir);
+      console.log(`  \u{1F5D1}\uFE0F  Removed empty skills directory: ${skillsDir}`);
     }
   }
   return generatedPaths;
@@ -3911,16 +3939,28 @@ var DEPENDENCY_RECOMMENDATIONS = {
   next: {
     trigger: "next",
     skills: ["nextjs", "vercel-react-best-practices", "context7"],
+    skillSources: {
+      "vercel-react-best-practices": "vercel-labs/agent-skills",
+      "context7": "intellectronica/agent-skills"
+    },
     vscode: ["bradlc.vscode-tailwindcss"]
   },
   "next.js": {
     trigger: "next.js",
     skills: ["nextjs", "vercel-react-best-practices", "context7"],
+    skillSources: {
+      "vercel-react-best-practices": "vercel-labs/agent-skills",
+      "context7": "intellectronica/agent-skills"
+    },
     vscode: ["bradlc.vscode-tailwindcss"]
   },
   react: {
     trigger: "react",
     skills: ["react", "vercel-react-best-practices", "context7"],
+    skillSources: {
+      "vercel-react-best-practices": "vercel-labs/agent-skills",
+      "context7": "intellectronica/agent-skills"
+    },
     vscode: ["dsznajder.es7-react-js-snippets", "burkeholland.simple-react-snippets"]
   },
   nuxt: {
@@ -3972,11 +4012,19 @@ var FRAMEWORK_RECOMMENDATIONS = {
   "Next.js": {
     trigger: "Next.js",
     skills: ["nextjs", "vercel-react-best-practices", "context7"],
+    skillSources: {
+      "vercel-react-best-practices": "vercel-labs/agent-skills",
+      "context7": "intellectronica/agent-skills"
+    },
     vscode: ["dsznajder.es7-react-js-snippets", "bradlc.vscode-tailwindcss"]
   },
   "React": {
     trigger: "React",
     skills: ["react", "vercel-react-best-practices", "context7"],
+    skillSources: {
+      "vercel-react-best-practices": "vercel-labs/agent-skills",
+      "context7": "intellectronica/agent-skills"
+    },
     vscode: ["dsznajder.es7-react-js-snippets"]
   },
   "Express": {
@@ -4069,7 +4117,10 @@ var LANGUAGE_RECOMMENDATIONS = {
 var UNIVERSAL_RECOMMENDATIONS = [
   {
     trigger: "universal",
-    skills: ["find-skills", "context7"]
+    skills: ["find-skills", "context7"],
+    skillSources: {
+      "context7": "intellectronica/agent-skills"
+    }
   }
 ];
 
@@ -4097,7 +4148,8 @@ function collectRecommendations(stack) {
         if (isUniversal) {
           collected.universalSkills.push({ trigger: rec.trigger, name: skill });
         } else {
-          collected.skills.push({ trigger: rec.trigger, name: skill });
+          const source = rec.skillSources?.[skill];
+          collected.skills.push({ trigger: rec.trigger, name: skill, source });
         }
       }
     }
@@ -4183,12 +4235,18 @@ function generateRecommendationsDoc(stack, collected) {
       lines.push(`- **${item.name}** \u2014 for \`${item.trigger}\``);
     }
     lines.push("");
-    lines.push("**Install via skills CLI:**");
+    lines.push("**Install via skills CLI** (source-based form `<source>@<skill>`):");
     lines.push("```bash");
     for (const item of collected.skills) {
-      lines.push(`npx -y skills add --skill ${item.name} -g -a github-copilot`);
+      const spec = item.source ? `${item.source}@${item.name}` : `<source>@${item.name}`;
+      lines.push(`npx -y skills add ${spec} -g -a github-copilot`);
     }
     lines.push("```");
+    const unknownSources = collected.skills.filter((s) => !s.source);
+    if (unknownSources.length > 0) {
+      lines.push("");
+      lines.push(`> \u26A0\uFE0F  Skills without a known source (${unknownSources.map((s) => `\`${s.name}\``).join(", ")}): find the GitHub repo hosting the skill and replace \`<source>\` before running.`);
+    }
     lines.push("");
   }
   if (collected.copilotExtensions.length > 0) {
@@ -4235,10 +4293,13 @@ function getSkillsGapReport(stack, skillsLockPath) {
   } catch {
   }
   const installedSet = new Set(installed.map((s) => s.toLowerCase()));
-  const missing = [...recommendedSkills].filter((s) => !installedSet.has(s.toLowerCase()));
-  if (missing.length === 0) return "";
-  const cmds = missing.map((s) => `npx -y skills add --skill ${s} -g -a github-copilot`).join("\n");
-  return `  \u{1F4E6} Skills gap detected \u2014 Missing: [${missing.join(", ")}]
+  const missingItems = collected.skills.filter((s) => !installedSet.has(s.name.toLowerCase()));
+  if (missingItems.length === 0) return "";
+  const cmds = missingItems.map((s) => {
+    const spec = s.source ? `${s.source}@${s.name}` : `<source>@${s.name}`;
+    return `npx -y skills add ${spec} -g -a github-copilot`;
+  }).join("\n");
+  return `  \u{1F4E6} Skills gap detected \u2014 Missing: [${missingItems.map((s) => s.name).join(", ")}]
   Run:
 ${cmds.split("\n").map((l) => `    ${l}`).join("\n")}`;
 }
@@ -4248,6 +4309,60 @@ function generateRecommendations(stack, outputDir) {
   const outPath = path16.join(outputDir, ".github", "ai-os", "recommendations.md");
   writeIfChanged(outPath, content);
   return outPath;
+}
+
+// src/profile.ts
+var PROFILE_PRESETS = {
+  /** Essentials only — instructions + MCP wiring.  No agents, no recommendations. */
+  minimal: {
+    agentsMd: false,
+    pathSpecificInstructions: false,
+    recommendations: false,
+    sessionContextCard: false,
+    updateCheckEnabled: false,
+    skillsStrategy: "creator-only",
+    agentFlowMode: "skip"
+  },
+  /** Balanced default — most features on, predefined skills off. */
+  standard: {
+    agentsMd: false,
+    pathSpecificInstructions: true,
+    recommendations: true,
+    sessionContextCard: true,
+    updateCheckEnabled: true,
+    skillsStrategy: "creator-only",
+    agentFlowMode: "create"
+  },
+  /** All stack-relevant integrations enabled. */
+  full: {
+    agentsMd: true,
+    pathSpecificInstructions: true,
+    recommendations: true,
+    sessionContextCard: true,
+    updateCheckEnabled: true,
+    skillsStrategy: "predefined+creator",
+    agentFlowMode: "create"
+  }
+};
+function applyProfile(config, profile) {
+  const flags = PROFILE_PRESETS[profile];
+  return { ...config, ...flags, profile };
+}
+function describeProfile(profile) {
+  const flags = PROFILE_PRESETS[profile];
+  const lines = [`  Profile: ${profile}`];
+  lines.push(`    agents.md:              ${flags.agentsMd ? "enabled" : "disabled"}`);
+  lines.push(`    path instructions:      ${flags.pathSpecificInstructions ? "enabled" : "disabled"}`);
+  lines.push(`    recommendations:        ${flags.recommendations ? "enabled" : "disabled"}`);
+  lines.push(`    session context card:   ${flags.sessionContextCard ? "enabled" : "disabled"}`);
+  lines.push(`    update-check workflow:  ${flags.updateCheckEnabled ? "enabled" : "disabled"}`);
+  lines.push(`    skills strategy:        ${flags.skillsStrategy}`);
+  lines.push(`    agent flow:             ${flags.agentFlowMode}`);
+  return lines.join("\n");
+}
+function parseProfile(raw) {
+  if (raw === "minimal" || raw === "standard" || raw === "full") return raw;
+  return null;
 }
 
 // src/generate.ts
@@ -4262,6 +4377,7 @@ function parseArgs() {
   let cleanUpdate = false;
   let regenerateContext = false;
   let pruneCustomArtifacts = false;
+  let profile = null;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--cwd" && args[i + 1]) {
       cwd = path17.resolve(args[i + 1]);
@@ -4295,9 +4411,19 @@ function parseArgs() {
       regenerateContext = true;
     } else if (args[i] === "--prune-custom-artifacts") {
       pruneCustomArtifacts = true;
+    } else if (args[i] === "--profile" && args[i + 1]) {
+      const parsed = parseProfile(args[i + 1]);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${args[i + 1]}")`);
+      profile = parsed;
+      i++;
+    } else if (args[i]?.startsWith("--profile=")) {
+      const raw = args[i].slice("--profile=".length);
+      const parsed = parseProfile(raw);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${raw}")`);
+      profile = parsed;
     }
   }
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile };
 }
 function printBanner() {
   const version = `v${getToolVersion()}`;
@@ -4383,7 +4509,7 @@ function printAgentFlowStatus(cwd, mode) {
   }
   console.log("");
 }
-function printSummary(stack, outputDir, written, skipped, pruned, agents, preserved) {
+function printSummary(stack, outputDir, written, skipped, pruned, agents, preserved, activeProfile) {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
   console.log(`  \u{1F4E6} Project:    ${stack.projectName}`);
@@ -4391,6 +4517,9 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents, preser
   console.log(`  \u{1F3D7}\uFE0F  Framework:  ${fw}`);
   console.log(`  \u{1F4E6} Pkg Mgr:   ${stack.patterns.packageManager}`);
   console.log(`  \u{1F537} TypeScript: ${stack.patterns.hasTypeScript ? "Yes" : "No"}`);
+  if (activeProfile) {
+    console.log(`  \u{1F39B}\uFE0F  Profile:    ${activeProfile}`);
+  }
   console.log("");
   console.log("  Diff summary:");
   console.log(`  \u2705 Written (new or changed):  ${written.length}`);
@@ -4566,7 +4695,7 @@ function installLocalMcpRuntime(cwd, verbose) {
 }
 async function main() {
   printBanner();
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = parseArgs();
   let mode = rawMode;
   if (verbose) {
     setVerboseMode(true);
@@ -4638,7 +4767,21 @@ async function main() {
   const previousManifest = readManifest(cwd);
   const previousFiles = new Set(previousManifest?.files ?? []);
   const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
-  const config = readAiOsConfig(cwd) ?? existingConfig;
+  let config = readAiOsConfig(cwd) ?? existingConfig;
+  const effectiveProfile = cliProfile ?? config?.profile ?? null;
+  if (effectiveProfile) {
+    if (cliProfile) {
+      console.log(`
+  \u{1F39B}\uFE0F  Applying profile: ${cliProfile}`);
+      console.log(describeProfile(cliProfile));
+      console.log("");
+    }
+    if (config) {
+      config = applyProfile(config, effectiveProfile);
+      const configPath = path17.join(cwd, ".github", "ai-os", "config.json");
+      fs16.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
+    }
+  }
   const skillsStrategy = config?.skillsStrategy ?? "creator-only";
   const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === "refresh-existing", preserveContextFiles, config: config ?? void 0 });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === "refresh-existing", config: config ?? void 0 });
@@ -4727,7 +4870,7 @@ ${gapReport}
   const newFiles = currentRelFiles.filter((r) => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter((r) => r !== manifestRel && previousFiles.has(r));
   installLocalMcpRuntime(cwd, verbose);
-  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs);
+  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? void 0);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
   const agentFlowMode = config?.agentFlowMode;
   const isFirstInstall = updateStatus.isFirstInstall;

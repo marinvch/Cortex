@@ -167,6 +167,35 @@ bash ~/ai-os/install.sh --cwd /path/to/your/repo
 | `compact_session_context` | Summarize session state for continuity   |
 | `set_watchdog_threshold`  | Configure auto-checkpoint interval       |
 
+## Install Profiles
+
+AI OS ships three install profiles to control context density:
+
+| Profile | Description |
+|---------|-------------|
+| `minimal` | Essentials only — instructions + MCP wiring. No agents, recommendations, session context card, or update-check workflow. |
+| `standard` | Balanced default — most features on, predefined skills off. Recommended for the majority of projects. |
+| `full` | All stack-relevant integrations — generates agents, recommendations, session context card, update-check workflow, and predefined skills. |
+
+To install with a profile:
+
+```bash
+# Fresh install with a profile
+bash install.sh --profile minimal
+bash install.sh --profile standard
+bash install.sh --profile full
+
+# Or via npx
+npx -y "github:marinvch/ai-os" --profile minimal
+
+# Refresh with a different profile
+bash install.sh --refresh-existing --profile full
+```
+
+The chosen profile is persisted in `.github/ai-os/config.json` under the `"profile"` key and re-applied on subsequent refreshes (unless overridden by a new `--profile` flag). The active profile is shown in the install summary.
+
+To override individual flags after install, edit the feature toggles in `.github/ai-os/config.json` directly and run `--refresh-existing` — manual overrides are preserved through refreshes unless a new `--profile` flag is passed.
+
 ## Re-running (idempotent)
 
 Safe to run multiple times:
@@ -215,6 +244,8 @@ npm run generate -- --cwd /path/to/target-repo --preview
 npm run generate -- --cwd /path/to/target-repo --apply
 # Verbose mode — show per-file write/skip/prune reasons
 npm run generate -- --cwd /path/to/target-repo --verbose
+# Install with a profile (minimal | standard | full)
+npm run generate -- --cwd /path/to/target-repo --profile standard
 # Refresh mode — update existing artifacts + prune stale files
 npm run generate:refresh -- --cwd /path/to/target-repo
 # Prune stale artifacts without full refresh

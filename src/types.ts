@@ -80,6 +80,14 @@ export interface DependencyGraph {
   fileCount: number;
 }
 
+/**
+ * Installation profile controlling context density.
+ * - minimal  : only essential instructions + MCP wiring (no agents, recommendations, or workflows)
+ * - standard : balanced default (recommended for most projects)
+ * - full     : all stack-relevant integrations enabled
+ */
+export type InstallProfile = 'minimal' | 'standard' | 'full';
+
 /** User-editable + auto-detected config written to .github/ai-os/config.json */
 export interface AiOsConfig {
   /** AI OS version that wrote this config */
@@ -130,4 +138,10 @@ export interface AiOsConfig {
    * Set to false to revert to a flat, unfiltered tool catalog.
    */
   strictStackFiltering?: boolean;
+  /**
+   * Installation profile used when the repo was first set up (or last refreshed
+   * with an explicit --profile flag).  Persisted so that subsequent refreshes
+   * without a flag maintain the same density level.
+   */
+  profile?: InstallProfile;
 }

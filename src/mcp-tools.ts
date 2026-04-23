@@ -314,10 +314,17 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },
-  // ── Tool #25: Context Freshness ───────────────────────────────────────────
+  // ── Tool #25: Context Freshness ─────────────────────────────────
   {
     name: 'get_context_freshness',
     description: 'Computes a freshness score (0–100) for AI OS context artifacts by comparing them against the stored context snapshot. Returns a list of stale artifacts, changed source files, and targeted sync recommendations. Run after structural code changes to detect context drift.',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
+  // ── Tool #26: Memory Prune (Compact) ─────────────────────────────
+  {
+    name: 'prune_memory',
+    description: 'Compacts the repository memory file by running full hygiene (near-duplicate detection, TTL enforcement, superseded entry removal) and physically deleting all stale entries. Returns a maintenance summary with counts of removed vs. kept entries.',
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },

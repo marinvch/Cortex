@@ -23,6 +23,7 @@
     "check-hygiene": "tsx src/generate.ts --check-hygiene",
     "doctor": "tsx src/generate.ts --doctor",
     "check-freshness": "tsx src/generate.ts --check-freshness",
+    "compact-memory": "tsx src/generate.ts --compact-memory",
     "validate": "tsx src/validation/regression.ts",
     "validate:smoke": "tsx src/validation/smoke.ts",
     "scorecard:update": "tsx src/validation/scorecard.ts",

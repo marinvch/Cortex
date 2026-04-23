@@ -22,11 +22,12 @@ import { runDoctor, printDoctorReport } from './doctor.js';
 import { mergeUserBlocks } from './user-blocks.js';
 import { runBootstrap, formatBootstrapReport } from './bootstrap.js';
 import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport, formatFreshnessReport } from './detectors/freshness.js';
+import { runMemoryMaintenance, pruneMemory } from './mcp-server/utils.js';
 import type { OnboardingPlan } from './planner.js';
 import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness';
+type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory';
 
 function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null } {
   const args = process.argv.slice(2);
@@ -75,6 +76,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'bootstrap';
     } else if (args[i] === '--check-freshness') {
       action = 'check-freshness';
+    } else if (args[i] === '--compact-memory') {
+      action = 'compact-memory';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
     } else if (args[i] === '--regenerate-context') {
@@ -533,6 +536,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  // ── --compact-memory action (runs before scan, no generation needed) ───────
+  if (action === 'compact-memory') {
+    runCompactMemory(cwd);
+    return;
+  }
+
   console.log(`  📂 Scanning: ${cwd}`);
   console.log(`  🔧 Mode: ${mode}`);
   console.log(`  ▶️  Action: ${action}`);
@@ -834,6 +843,11 @@ async function main(): Promise<void> {
 
   installLocalMcpRuntime(cwd, verbose);
 
+  // ── Memory maintenance summary (refresh/update mode only) ────────────────
+  if (isRefresh) {
+    printMemoryMaintenanceSummary(cwd);
+  }
+
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? undefined);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
 
@@ -968,6 +982,68 @@ function runFreshnessCheck(cwd: string): void {
     console.log('  ❓ No snapshot found — run AI OS generation first to establish a baseline.');
   } else {
     console.log('  ✅ Context is fresh.');
+  }
+  console.log('');
+}
+
+// ── Memory maintenance helpers ────────────────────────────────────────────────
+
+/**
+ * Print a memory maintenance summary during refresh/update runs.
+ * This is a non-destructive read-only hygiene report (does not modify the file).
+ */
+function printMemoryMaintenanceSummary(cwd: string): void {
+  const memoryFile = path.join(cwd, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  if (!fs.existsSync(memoryFile)) return;
+
+  try {
+    process.env['AI_OS_ROOT'] = cwd;
+    const summary = runMemoryMaintenance();
+
+    if (summary.totalBefore === 0) return;
+
+    console.log('  🧠 Memory maintenance:');
+    console.log(`     Active entries:       ${summary.activeAfter}`);
+    if (summary.staleMarked > 0) {
+      console.log(`     Stale entries found:  ${summary.staleMarked} (run --compact-memory to remove)`);
+    }
+    if (summary.nearDuplicatesMarked > 0) {
+      console.log(`     Near-duplicates:      ${summary.nearDuplicatesMarked}`);
+    }
+    if (summary.malformedSkipped > 0) {
+      console.log(`     Malformed lines:      ${summary.malformedSkipped} (will be removed on next write)`);
+    }
+    console.log('');
+  } catch {
+    // Best-effort — never fail a refresh run due to memory reporting.
+  }
+}
+
+/**
+ * Handle the --compact-memory CLI action: run full memory hygiene and
+ * physically remove stale entries from memory.jsonl.
+ */
+function runCompactMemory(cwd: string): void {
+  console.log(`  🧹 Compact memory: ${cwd}`);
+  console.log('');
+
+  const memoryFile = path.join(cwd, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  if (!fs.existsSync(memoryFile)) {
+    console.log('  ℹ️  No memory.jsonl file found — nothing to compact.');
+    console.log('');
+    return;
+  }
+
+  try {
+    process.env['AI_OS_ROOT'] = cwd;
+    const result = pruneMemory();
+    const lines = result.split('\n');
+    for (const line of lines) {
+      console.log(`  ${line}`);
+    }
+  } catch (err) {
+    console.error(`  ❌ Memory compact failed: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
   }
   console.log('');
 }

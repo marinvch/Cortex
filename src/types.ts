@@ -144,4 +144,17 @@ export interface AiOsConfig {
    * without a flag maintain the same density level.
    */
   profile?: InstallProfile;
+  /**
+   * Memory entry TTL in days. Entries older than this threshold are marked stale
+   * and will be removed on the next prune/compact run.
+   * Default: 180 days.
+   */
+  memoryTtlDays?: number;
+  /**
+   * Jaccard similarity threshold for near-duplicate detection.
+   * Entries with the same title+category and content similarity above this value
+   * are treated as near-duplicates; the older one is marked stale.
+   * Range: 0.5–1.0. Default: 0.85.
+   */
+  memoryNearDuplicateThreshold?: number;
 }

@@ -10,13 +10,13 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Copilot instructions | `.github/copilot-instructions.md`                 | System prompt optimized for your stack                                             |
 | Context docs         | `.github/ai-os/context/`                          | Token-efficient stack, architecture, conventions docs                              |
-| MCP tools            | `.vscode/mcp.json` + `.ai-os/mcp-server/`         | 22 tools for code search, memory, session continuity, and more                     |
+| MCP tools            | `.vscode/mcp.json` + `.ai-os/mcp-server/`         | 29 tools for code search, memory, session continuity, and more                     |
 | Agents               | `.github/agents/*.agent.md`                       | Stack-specific chat agents (framework expert, DB expert, auth, payments, explorer) |
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
 | Manifest             | `.github/ai-os/manifest.json`                     | Tracks every file AI OS owns — used for pruning stale artifacts on refresh         |
 
-AI OS now also initializes a persistent repository memory store at `.github/ai-os/memory/` so agents can retain verified facts and decisions across long sessions.
+AI OS now also initializes a persistent repository memory store at `.github/ai-os/memory/` so agents can retain verified facts and decisions across long sessions. Memory entries are automatically deduplicated (including near-duplicates via Jaccard similarity), marked stale when superseded or TTL-expired, and can be compacted with `--compact-memory` or the `prune_memory` MCP tool.
 Detection is package-aware for monorepos/mixed stacks, and MCP context tools provide parity coverage for Node, Java/Spring, Python, Go, and Rust projects.
 
 Generated instructions also enforce strict behavior guardrails: ambiguity-first clarification (no improvisation), explicit allowed/forbidden action boundaries, and an escalation flow for underspecified requests.
@@ -155,6 +155,7 @@ bash ~/ai-os/install.sh --cwd /path/to/your/repo
 | `get_memory_guidelines`| Repository memory protocol               |
 | `get_repo_memory`      | Retrieve durable project memory          |
 | `remember_repo_fact`   | Persist verified memory entries          |
+| `prune_memory`         | Compact memory: dedupe, TTL-expire, remove stale entries |
 | `check_for_updates`    | Check if AI OS artifacts are stale       |
 | `get_session_context`  | Reload MUST-ALWAYS rules and key context |
 | `get_recommendations`  | Stack-appropriate tool and extension recs|
@@ -166,6 +167,8 @@ bash ~/ai-os/install.sh --cwd /path/to/your/repo
 | `record_failure_pattern`  | Track tool failures to avoid repeating   |
 | `compact_session_context` | Summarize session state for continuity   |
 | `set_watchdog_threshold`  | Configure auto-checkpoint interval       |
+| `reset_session_state`     | Clear session files for a fresh start    |
+| `sync_hosted_memory`      | Prompt to mirror hosted memory into JSONL|
 
 ## Install Profiles
 
@@ -373,6 +376,46 @@ All session files live under `.github/ai-os/memory/session/`:
 | `runtime-state.json`  | Watchdog counter and threshold       |
 
 > **Tip:** Add `.github/ai-os/memory/session/` to `.gitignore` to prevent session state from being committed.
+
+## Memory Hygiene Engine
+
+AI OS v0.10.1 ships a policy-based memory lifecycle engine that keeps `memory.jsonl` healthy as it grows:
+
+| Policy             | Behavior                                                                                           |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| **Exact dedupe**   | Entries with identical title+category+content fingerprint are merged (tags are unioned).           |
+| **Near-duplicate** | Entries with the same title+category and content Jaccard similarity ≥ threshold are deduplicated. |
+| **Superseded**     | When a new entry has the same title+category, the older one is marked `stale: superseded`.        |
+| **TTL expiry**     | Entries older than `memoryTtlDays` days (default: 180) are automatically marked stale.            |
+| **Compact/prune**  | `prune_memory` MCP tool or `--compact-memory` CLI flag physically removes all stale entries.      |
+
+### Configuring TTL and near-duplicate threshold
+
+Add to `.github/ai-os/config.json`:
+
+```json
+{
+  "memoryTtlDays": 90,
+  "memoryNearDuplicateThreshold": 0.80
+}
+```
+
+- `memoryTtlDays`: Integer days before an entry is auto-expired. Default: `180`.
+- `memoryNearDuplicateThreshold`: Jaccard similarity in `[0.5, 1.0]`. Default: `0.85`.
+
+### Compacting the memory file
+
+```bash
+# CLI: remove all stale entries and print a maintenance summary
+npm run compact-memory
+# or:
+npx -y github:marinvch/ai-os --compact-memory --cwd /path/to/repo
+
+# MCP tool (use from Copilot chat):
+prune_memory()
+```
+
+A non-destructive maintenance summary is also printed automatically during every `--refresh-existing` run, showing active entry count and how many stale entries are waiting to be pruned.
 
 ## Keeping projects up to date
 

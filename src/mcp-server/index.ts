@@ -40,6 +40,7 @@ import {
   setWatchdogThreshold,
   resetSessionState,
   syncHostedMemory,
+  pruneMemory,
   getSessionContext,
   getRecommendations,
   suggestImprovements,
@@ -202,6 +203,9 @@ function executeTool(toolName: string, input: ToolInput): string {
       break;
     case 'sync_hosted_memory':
       result = syncHostedMemory();
+      break;
+    case 'prune_memory':
+      result = pruneMemory();
       break;
     case 'get_session_context':
       result = getSessionContext();

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import type { DetectedStack } from '../types.js';
-import { getMcpToolsForStack } from '../mcp-tools.js';
+import type { DetectedStack, AiOsConfig } from '../types.js';
+import { getMcpToolsForStack, getToolsWithStackSplit } from '../mcp-tools.js';
 import { writeIfChanged } from './utils.js';
 
 interface McpServerConfig {
@@ -19,6 +19,7 @@ interface WriteMcpServerConfigOptions {
 
 interface GenerateMcpOptions {
   refreshExisting?: boolean;
+  config?: AiOsConfig;
 }
 
 /**
@@ -52,8 +53,9 @@ export function writeMcpServerConfig(outputDir: string, options?: WriteMcpServer
 }
 
 /** Returns absolute paths of all managed files (manifest-tracked). */
-export function generateMcpJson(stack: DetectedStack, outputDir: string, _options?: GenerateMcpOptions): string[] {
-  const allTools = getMcpToolsForStack(stack);
+export function generateMcpJson(stack: DetectedStack, outputDir: string, options?: GenerateMcpOptions): string[] {
+  // Default: strict stack filtering is ON unless explicitly disabled in config
+  const strictFiltering = options?.config?.strictStackFiltering !== false;
 
   // Write the official VS Code MCP config (.vscode/mcp.json) with the ai-os
   // server entry. installLocalMcpRuntime() rewrites this entry with the resolved
@@ -62,7 +64,16 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, _option
 
   // Write tool definitions for reference
   const toolsJsonPath = path.join(outputDir, '.github', 'ai-os', 'tools.json');
-  writeIfChanged(toolsJsonPath, JSON.stringify(allTools, null, 2));
+
+  if (strictFiltering) {
+    // Strict mode: split tools into activeTools (stack-eligible) and availableButInactive
+    const split = getToolsWithStackSplit(stack);
+    writeIfChanged(toolsJsonPath, JSON.stringify(split, null, 2));
+  } else {
+    // Legacy flat array: all tools without filtering
+    const allTools = getMcpToolsForStack(stack);
+    writeIfChanged(toolsJsonPath, JSON.stringify(allTools, null, 2));
+  }
 
   // .vscode/mcp.json is intentionally NOT tracked in the AI OS manifest because
   // it is a shared config file that may contain user-added servers.

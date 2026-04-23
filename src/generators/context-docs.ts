@@ -13,6 +13,7 @@ const DEFAULT_AI_OS_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projec
   updateCheckEnabled: true,
   skillsStrategy: 'creator-only',
   agentFlowMode: 'create',
+  strictStackFiltering: true,
   persistentRules: [],
   exclude: ['node_modules', 'dist', '.next', '.nuxt', 'build', 'out'],
 };

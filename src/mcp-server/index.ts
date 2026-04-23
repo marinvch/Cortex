@@ -12,7 +12,7 @@
  * Note: @github/copilot-sdk is only required when passing --copilot flag
  */
 import path from 'node:path';
-import { getAllMcpTools, type McpToolDefinition } from './tool-definitions.js';
+import { getAllMcpTools, getActiveToolsForProject, type McpToolDefinition } from './tool-definitions.js';
 import {
   getProjectRoot,
   readAiOsFile,
@@ -89,7 +89,7 @@ function validateRuntimeEnvironment(): { ok: boolean; messages: string[] } {
     messages.push('AI_OS_ROOT resolved to an empty path.');
   }
 
-  const tools = getAllMcpTools();
+  const tools = getActiveToolsForProject(root);
   if (tools.length === 0) {
     messages.push('No MCP tools were registered at runtime.');
   }
@@ -279,7 +279,7 @@ async function main(): Promise<void> {
 
   const session = await client.createSession({
     model: 'gpt-4.1',
-    tools: getAllMcpTools().map((tool: McpToolDefinition) => ({
+    tools: getActiveToolsForProject(getProjectRoot()).map((tool: McpToolDefinition) => ({
       name: tool.name,
       description: tool.description,
       parameters: tool.inputSchema as unknown as Record<string, unknown>,
@@ -342,7 +342,7 @@ function handleJsonRpcMessage(raw: string): void {
 
   if (method === 'tools/list') {
     sendResponse(id, {
-      tools: getAllMcpTools().map((tool: McpToolDefinition) => ({
+      tools: getActiveToolsForProject(getProjectRoot()).map((tool: McpToolDefinition) => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema,
@@ -355,7 +355,7 @@ function handleJsonRpcMessage(raw: string): void {
     const toolName = (params?.name as string) ?? '';
     const input = (params?.arguments ?? {}) as ToolInput;
 
-    const toolExists = getAllMcpTools().some((tool: McpToolDefinition) => tool.name === toolName);
+    const toolExists = getActiveToolsForProject(getProjectRoot()).some((tool: McpToolDefinition) => tool.name === toolName);
     if (!toolExists) {
       sendError(id, -32601, `Unknown tool: ${toolName}`);
       return;

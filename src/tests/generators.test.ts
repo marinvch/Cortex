@@ -139,6 +139,34 @@ describe('collectRecommendations', () => {
     const hasNextSkill = recs.skills.some(s => s.name.toLowerCase().includes('next'));
     expect(hasNextSkill).toBe(true);
   });
+
+  it('separates universal skills into universalSkills (not skills array)', () => {
+    const stack = makeStack();
+    const recs = collectRecommendations(stack);
+    // Universal skills (find-skills, context7 from UNIVERSAL_RECOMMENDATIONS) go to universalSkills
+    expect(Array.isArray(recs.universalSkills)).toBe(true);
+    expect(recs.universalSkills.length).toBeGreaterThan(0);
+  });
+
+  it('does not include universal skills in the stack-specific skills array', () => {
+    const stack = makeStack();
+    const recs = collectRecommendations(stack);
+    const universalNames = new Set(recs.universalSkills.map(s => s.name));
+    // None of the universal-only skill names should appear in the main skills array
+    for (const skill of recs.skills) {
+      expect(universalNames.has(skill.name)).toBe(false);
+    }
+  });
+
+  it('prisma skill is NOT in universalSkills for a prisma project', () => {
+    const stack = makeStack({ allDependencies: ['prisma'] });
+    const recs = collectRecommendations(stack);
+    const hasPrismaInUniversal = recs.universalSkills.some(s => s.name === 'prisma');
+    expect(hasPrismaInUniversal).toBe(false);
+    // It should be in the stack-specific skills array
+    const hasPrismaInStack = recs.skills.some(s => s.name === 'prisma');
+    expect(hasPrismaInStack).toBe(true);
+  });
 });
 
 describe('buildRecommendationsText', () => {
@@ -159,6 +187,22 @@ describe('buildRecommendationsText', () => {
     const stack = makeStack();
     const text = buildRecommendationsText(stack);
     expect(typeof text).toBe('string');
+  });
+
+  it('includes Universal Skills (Optional) section for any stack', () => {
+    const stack = makeStack();
+    const text = buildRecommendationsText(stack);
+    expect(text).toContain('Universal Skills (Optional)');
+  });
+
+  it('does NOT show prisma or trpc in recommendations for a React-only stack', () => {
+    const stack = makeStack({
+      allDependencies: ['react', 'react-dom'],
+      frameworks: [{ name: 'React', category: 'frontend', version: '18.0.0', template: 'react' }],
+    });
+    const text = buildRecommendationsText(stack);
+    expect(text).not.toContain('prisma');
+    expect(text).not.toContain('trpc');
   });
 });
 

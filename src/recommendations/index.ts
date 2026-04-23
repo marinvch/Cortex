@@ -15,16 +15,18 @@ interface CollectedRecommendations {
   vscode: Array<{ trigger: string; id: string }>;
   skills: Array<{ trigger: string; name: string }>;
   copilotExtensions: Array<{ trigger: string; name: string; url: string }>;
+  /** Whether this entry came from a universal (always-on) recommendation */
+  universalSkills: Array<{ trigger: string; name: string }>;
 }
 
 export function collectRecommendations(stack: DetectedStack): CollectedRecommendations {
-  const collected: CollectedRecommendations = { mcp: [], vscode: [], skills: [], copilotExtensions: [] };
+  const collected: CollectedRecommendations = { mcp: [], vscode: [], skills: [], copilotExtensions: [], universalSkills: [] };
   const seenMcp = new Set<string>();
   const seenVscode = new Set<string>();
   const seenSkills = new Set<string>();
   const seenExt = new Set<string>();
 
-  function applyRec(rec: StackRecommendation): void {
+  function applyRec(rec: StackRecommendation, isUniversal = false): void {
     if (rec.mcp && !seenMcp.has(rec.mcp.package)) {
       seenMcp.add(rec.mcp.package);
       collected.mcp.push({ trigger: rec.trigger, package: rec.mcp.package, description: rec.mcp.description });
@@ -38,7 +40,11 @@ export function collectRecommendations(stack: DetectedStack): CollectedRecommend
     for (const skill of rec.skills ?? []) {
       if (!seenSkills.has(skill)) {
         seenSkills.add(skill);
-        collected.skills.push({ trigger: rec.trigger, name: skill });
+        if (isUniversal) {
+          collected.universalSkills.push({ trigger: rec.trigger, name: skill });
+        } else {
+          collected.skills.push({ trigger: rec.trigger, name: skill });
+        }
       }
     }
     if (rec.copilotExtension && !seenExt.has(rec.copilotExtension.name)) {
@@ -65,9 +71,9 @@ export function collectRecommendations(stack: DetectedStack): CollectedRecommend
     if (rec) applyRec(rec);
   }
 
-  // Always apply universal recommendations
+  // Always apply universal recommendations (tracked separately to allow optional section)
   for (const rec of UNIVERSAL_RECOMMENDATIONS) {
-    applyRec(rec);
+    applyRec(rec, true);
   }
 
   return collected;
@@ -131,6 +137,7 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
     lines.push('');
   }
 
+  // Stack-specific skills first
   if (collected.skills.length > 0) {
     lines.push('## Agent Skills to Install', '');
     for (const item of collected.skills) {
@@ -154,6 +161,24 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
     lines.push('');
   }
 
+  // Universal/optional skills in a separate section
+  if (collected.universalSkills.length > 0) {
+    lines.push('## Universal Skills (Optional)', '');
+    lines.push('> These skills are useful for any project and are not specific to the detected stack.');
+    lines.push('');
+    for (const item of collected.universalSkills) {
+      lines.push(`- **${item.name}** — general purpose`);
+    }
+    lines.push('');
+    lines.push('**Install via skills CLI:**');
+    lines.push('```bash');
+    for (const item of collected.universalSkills) {
+      lines.push(`npx -y skills add --skill ${item.name} -g -a github-copilot`);
+    }
+    lines.push('```');
+    lines.push('');
+  }
+
   lines.push('---');
   lines.push(`*Generated at ${new Date().toISOString()} by AI OS*`);
 
@@ -163,7 +188,11 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
 /** Generate the skills gap report (stdout message only). */
 export function getSkillsGapReport(stack: DetectedStack, skillsLockPath: string): string {
   const collected = collectRecommendations(stack);
-  const recommendedSkills = new Set(collected.skills.map(s => s.name));
+  // Include both stack-specific and universal skills in gap report
+  const recommendedSkills = new Set([
+    ...collected.skills.map(s => s.name),
+    ...collected.universalSkills.map(s => s.name),
+  ]);
 
   let installed: string[] = [];
   try {

@@ -122,4 +122,12 @@ export interface AiOsConfig {
    * - 'skip'    : do not generate sequential agents
    */
   agentFlowMode?: 'create' | 'hook' | 'skip';
+  /**
+   * Strict stack filtering for generated MCP tool catalog and recommendations.
+   * When true (default), tools.json is split into activeTools (stack-eligible) and
+   * availableButInactive (conditions not met). Recommendations also separate
+   * stack-specific items from universal/optional ones.
+   * Set to false to revert to a flat, unfiltered tool catalog.
+   */
+  strictStackFiltering?: boolean;
 }

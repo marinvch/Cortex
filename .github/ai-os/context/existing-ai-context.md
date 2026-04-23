@@ -17,7 +17,7 @@
 - [instructions] `.github/copilot-instructions.md`
 - [instructions] `.github/instructions/`
 - [prompts] `.github/copilot/prompts.json`
-- [agents] `.github/agents/ (4 files)`
+- [agents] `.github/agents/ (6 files)`
 - [docs] `.github/ai-os/context/stack.md`
 - [docs] `.github/ai-os/context/architecture.md`
 - [docs] `.github/ai-os/context/conventions.md`

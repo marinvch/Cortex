@@ -1,6 +1,6 @@
 {
-  "version": "0.9.0",
-  "installedAt": "2026-04-11T06:41:27.086Z",
+  "version": "0.11.0",
+  "installedAt": "2026-04-23T07:57:21.156Z",
   "projectName": "ai-os",
   "primaryLanguage": "Markdown",
   "primaryFramework": null,
@@ -12,6 +12,7 @@
   "recommendations": true,
   "sessionContextCard": true,
   "updateCheckEnabled": true,
+  "skillsStrategy": "creator-only",
   "agentFlowMode": "create",
   "persistentRules": [
     "Call get_repo_memory before non-trivial implementation tasks.",
@@ -20,5 +21,12 @@
     "Prefer minimal, in-scope edits and avoid broad refactors unless requested.",
     "Run npm run build and npm run test after substantial code changes."
   ],
-  "exclude": ["node_modules", "dist", ".next", ".nuxt", "build", "out"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next",
+    ".nuxt",
+    "build",
+    "out"
+  ]
 }

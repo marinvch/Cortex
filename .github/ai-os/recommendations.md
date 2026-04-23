@@ -26,10 +26,12 @@ AI OS embeds slash-command prompts for each lifecycle phase. Use them in order:
 code --install-extension ms-vscode.vscode-typescript-next
 ```
 
-## Agent Skills to Install
+## Universal Skills (Optional)
 
-- **find-skills** — for `universal`
-- **context7** — for `universal`
+> These skills are useful for any project and are not specific to the detected stack.
+
+- **find-skills** — general purpose
+- **context7** — general purpose
 
 **Install via skills CLI:**
 ```bash
@@ -38,4 +40,4 @@ npx -y skills add --skill context7 -g -a github-copilot
 ```
 
 ---
-*Generated at 2026-04-20T03:49:59.876Z by AI OS*
+*Generated at 2026-04-23T07:57:21.163Z by AI OS*

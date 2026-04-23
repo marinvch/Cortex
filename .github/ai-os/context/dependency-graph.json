@@ -33,6 +33,26 @@
         "analyze"
       ]
     },
+    "src/bootstrap.ts": {
+      "path": "src/bootstrap.ts",
+      "imports": [
+        "src/types.ts",
+        "src/recommendations/index.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts",
+        "src/tests/bootstrap.test.ts"
+      ],
+      "exports": [
+        "BootstrapItemCategory",
+        "BootstrapItemStatus",
+        "BootstrapPlanItem",
+        "BootstrapReport",
+        "BootstrapOptions",
+        "runBootstrap",
+        "formatBootstrapReport"
+      ]
+    },
     "src/detectors/framework.ts": {
       "path": "src/detectors/framework.ts",
       "imports": [
@@ -43,6 +63,24 @@
       ],
       "exports": [
         "detectFrameworks"
+      ]
+    },
+    "src/detectors/freshness.ts": {
+      "path": "src/detectors/freshness.ts",
+      "imports": [],
+      "importedBy": [
+        "src/generate.ts",
+        "src/mcp-server/utils.ts",
+        "src/tests/freshness.test.ts"
+      ],
+      "exports": [
+        "ContextSnapshot",
+        "FreshnessReport",
+        "captureContextSnapshot",
+        "loadContextSnapshot",
+        "writeContextSnapshot",
+        "computeFreshnessReport",
+        "formatFreshnessReport"
       ]
     },
     "src/detectors/graph.ts": {
@@ -82,6 +120,21 @@
         "detectPatterns"
       ]
     },
+    "src/doctor.ts": {
+      "path": "src/doctor.ts",
+      "imports": [
+        "src/updater.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "DoctorCheck",
+        "DoctorResult",
+        "runDoctor",
+        "printDoctorReport"
+      ]
+    },
     "src/generate.ts": {
       "path": "src/generate.ts",
       "imports": [
@@ -97,7 +150,14 @@
         "src/updater.ts",
         "src/planner.ts",
         "src/generators/utils.ts",
-        "src/recommendations/index.ts"
+        "src/recommendations/index.ts",
+        "src/profile.ts",
+        "src/types.ts",
+        "src/doctor.ts",
+        "src/user-blocks.ts",
+        "src/bootstrap.ts",
+        "src/detectors/freshness.ts",
+        "src/mcp-server/utils.ts"
       ],
       "importedBy": [],
       "exports": []
@@ -247,20 +307,28 @@
     },
     "src/mcp-server/tool-definitions.ts": {
       "path": "src/mcp-server/tool-definitions.ts",
-      "imports": [],
+      "imports": [
+        "src/mcp-tools.ts"
+      ],
       "importedBy": [
-        "src/mcp-server/index.ts"
+        "src/mcp-server/index.ts",
+        "src/tests/mcp-tool-definitions.test.ts"
       ],
       "exports": [
         "McpToolSchema",
         "McpToolDefinition",
-        "getAllMcpTools"
+        "getAllMcpTools",
+        "getActiveToolsForProject"
       ]
     },
     "src/mcp-server/utils.ts": {
       "path": "src/mcp-server/utils.ts",
-      "imports": [],
+      "imports": [
+        "src/updater.ts",
+        "src/detectors/freshness.ts"
+      ],
       "importedBy": [
+        "src/generate.ts",
         "src/mcp-server/index.ts"
       ],
       "exports": [
@@ -269,6 +337,18 @@
         "getMemoryGuidelines",
         "getRepoMemory",
         "rememberRepoFact",
+        "getActivePlan",
+        "upsertActivePlan",
+        "appendCheckpoint",
+        "closeCheckpoint",
+        "recordFailurePattern",
+        "compactSessionContext",
+        "recordToolCallAndRunWatchdog",
+        "setWatchdogThreshold",
+        "resetSessionState",
+        "syncHostedMemory",
+        "pruneMemory",
+        "runMemoryMaintenance",
         "searchFiles",
         "buildFileTree",
         "getPrismaSchema",
@@ -282,7 +362,8 @@
         "checkForUpdates",
         "getSessionContext",
         "getRecommendations",
-        "suggestImprovements"
+        "suggestImprovements",
+        "getContextFreshness"
       ]
     },
     "src/mcp-tools.ts": {
@@ -292,14 +373,18 @@
       ],
       "importedBy": [
         "src/generate.ts",
-        "src/generators/mcp.ts"
+        "src/generators/mcp.ts",
+        "src/mcp-server/tool-definitions.ts",
+        "src/tests/mcp-tool-definitions.test.ts"
       ],
       "exports": [
         "McpToolSchema",
         "McpToolDefinition",
         "MCP_TOOL_DEFINITIONS",
         "getMcpToolsForStack",
-        "getAllMcpTools"
+        "getAllMcpTools",
+        "StackSplitTools",
+        "getToolsWithStackSplit"
       ]
     },
     "src/planner.ts": {
@@ -317,16 +402,50 @@
         "formatOnboardingPlan"
       ]
     },
+    "src/profile.ts": {
+      "path": "src/profile.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts",
+        "src/tests/profile.test.ts"
+      ],
+      "exports": [
+        "ProfileFlags",
+        "PROFILE_PRESETS",
+        "applyProfile",
+        "describeProfile",
+        "parseProfile"
+      ]
+    },
+    "src/recommendations/cli-compat.ts": {
+      "path": "src/recommendations/cli-compat.ts",
+      "imports": [],
+      "importedBy": [
+        "src/recommendations/index.ts",
+        "src/tests/skills-cli-compat.test.ts"
+      ],
+      "exports": [
+        "SkillsCliMode",
+        "detectSkillsCliMode",
+        "buildSkillsInstallCommand",
+        "isLegacySkillCommand"
+      ]
+    },
     "src/recommendations/index.ts": {
       "path": "src/recommendations/index.ts",
       "imports": [
         "src/types.ts",
         "src/generators/utils.ts",
-        "src/recommendations/registry.ts"
+        "src/recommendations/registry.ts",
+        "src/recommendations/cli-compat.ts"
       ],
       "importedBy": [
+        "src/bootstrap.ts",
         "src/generate.ts",
-        "src/tests/generators.test.ts"
+        "src/tests/generators.test.ts",
+        "src/tests/skills-cli-compat.test.ts"
       ],
       "exports": [
         "collectRecommendations",
@@ -357,6 +476,29 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/bootstrap.test.ts": {
+      "path": "src/tests/bootstrap.test.ts",
+      "imports": [
+        "src/bootstrap.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/doctor.test.ts": {
+      "path": "src/tests/doctor.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/freshness.test.ts": {
+      "path": "src/tests/freshness.test.ts",
+      "imports": [
+        "src/detectors/freshness.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/generators.test.ts": {
       "path": "src/tests/generators.test.ts",
       "imports": [
@@ -366,9 +508,34 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/mcp-tool-definitions.test.ts": {
+      "path": "src/tests/mcp-tool-definitions.test.ts",
+      "imports": [
+        "src/mcp-tools.ts",
+        "src/mcp-server/tool-definitions.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/memory-hygiene.test.ts": {
+      "path": "src/tests/memory-hygiene.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/memory-retrieval.test.ts": {
       "path": "src/tests/memory-retrieval.test.ts",
       "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/profile.test.ts": {
+      "path": "src/tests/profile.test.ts",
+      "imports": [
+        "src/profile.ts",
+        "src/types.ts"
+      ],
       "importedBy": [],
       "exports": []
     },
@@ -380,10 +547,40 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/session-continuity.test.ts": {
+      "path": "src/tests/session-continuity.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/skill-contract.test.ts": {
       "path": "src/tests/skill-contract.test.ts",
       "imports": [
         "src/validation/skill-contract.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/skills-cli-compat.test.ts": {
+      "path": "src/tests/skills-cli-compat.test.ts",
+      "imports": [
+        "src/recommendations/cli-compat.ts",
+        "src/recommendations/index.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/updater.test.ts": {
+      "path": "src/tests/updater.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/user-blocks.test.ts": {
+      "path": "src/tests/user-blocks.test.ts",
+      "imports": [
+        "src/user-blocks.ts"
       ],
       "importedBy": [],
       "exports": []
@@ -393,10 +590,12 @@
       "imports": [],
       "importedBy": [
         "src/analyze.ts",
+        "src/bootstrap.ts",
         "src/detectors/framework.ts",
         "src/detectors/graph.ts",
         "src/detectors/language.ts",
         "src/detectors/patterns.ts",
+        "src/generate.ts",
         "src/generators/agents.ts",
         "src/generators/context-docs.ts",
         "src/generators/instructions.ts",
@@ -405,8 +604,13 @@
         "src/generators/skills.ts",
         "src/generators/workflows.ts",
         "src/mcp-tools.ts",
+        "src/profile.ts",
         "src/recommendations/index.ts",
-        "src/tests/generators.test.ts"
+        "src/tests/bootstrap.test.ts",
+        "src/tests/generators.test.ts",
+        "src/tests/mcp-tool-definitions.test.ts",
+        "src/tests/profile.test.ts",
+        "src/tests/skills-cli-compat.test.ts"
       ],
       "exports": [
         "DetectedLanguage",
@@ -417,6 +621,7 @@
         "PackageProfile",
         "FileNode",
         "DependencyGraph",
+        "InstallProfile",
         "AiOsConfig"
       ]
     },
@@ -424,18 +629,38 @@
       "path": "src/updater.ts",
       "imports": [],
       "importedBy": [
+        "src/doctor.ts",
         "src/generate.ts",
-        "src/generators/context-docs.ts"
+        "src/generators/context-docs.ts",
+        "src/mcp-server/utils.ts"
       ],
       "exports": [
         "getToolVersion",
         "InstalledConfig",
         "readInstalledConfig",
+        "getLatestResolvableVersion",
         "UpdateStatus",
         "checkUpdateStatus",
         "printUpdateBanner",
         "LegacyPruneOptions",
         "pruneLegacyArtifacts"
+      ]
+    },
+    "src/user-blocks.ts": {
+      "path": "src/user-blocks.ts",
+      "imports": [],
+      "importedBy": [
+        "src/generate.ts",
+        "src/tests/user-blocks.test.ts"
+      ],
+      "exports": [
+        "USER_BLOCK_START_PREFIX",
+        "USER_BLOCK_END_PREFIX",
+        "UserBlock",
+        "ConflictReport",
+        "MergeResult",
+        "extractUserBlocks",
+        "mergeUserBlocks"
       ]
     },
     "src/validation/agent-contract.ts": {
@@ -528,6 +753,6 @@
       "exports": []
     }
   },
-  "generatedAt": "2026-04-20T03:49:59.843Z",
-  "fileCount": 39
+  "generatedAt": "2026-04-23T07:57:21.155Z",
+  "fileCount": 55
 }

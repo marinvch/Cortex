@@ -9,13 +9,14 @@
 ## Directory Structure
 
 ```
-Dockerfile
-README.md
 bootstrap.sh
+bundle/
 dist/
+Dockerfile
 install.sh
 package-lock.json
 package.json
+README.md
 scripts/
 skill-creator/
 skills-lock.json
@@ -31,3 +32,22 @@ _Update this section with your actual data flow._
 ## Integration Points
 
 _List external services, APIs, and third-party integrations here._
+
+## Visual Architecture Overview
+
+```mermaid
+flowchart TD
+  Repo["Repository: ai-os"] --> Detect["Detect stack & patterns"]
+  Detect --> Lang["Languages: Markdown, TypeScript, Shell, JSON +2 more"]
+  Detect --> Fw["Frameworks: none"]
+  Detect --> Ctx["Scan existing AI context"]
+  Detect --> Graph["Build dependency graph"]
+  Detect --> Generate["Generate AI OS artifacts"]
+  Generate --> Docs[".github/ai-os/context/*.md"]
+  Generate --> Instr[".github/copilot-instructions.md"]
+  Generate --> MCP[".vscode/mcp.json + .ai-os/mcp-server/"]
+  Generate --> Agents[".github/agents/*.agent.md"]
+  Generate --> Skills[".github/copilot/skills/*.md"]
+```
+
+_Open this file in VS Code Markdown Preview to view the diagram._

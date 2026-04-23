@@ -43,6 +43,7 @@ import {
   getSessionContext,
   getRecommendations,
   suggestImprovements,
+  getContextFreshness,
 } from './utils.js';
 
 interface ToolInput {
@@ -210,6 +211,9 @@ function executeTool(toolName: string, input: ToolInput): string {
       break;
     case 'suggest_improvements':
       result = suggestImprovements();
+      break;
+    case 'get_context_freshness':
+      result = getContextFreshness();
       break;
     default:
       result = `Unknown tool: ${toolName}`;

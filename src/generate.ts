@@ -21,11 +21,12 @@ import type { InstallProfile } from './types.js';
 import { runDoctor, printDoctorReport } from './doctor.js';
 import { mergeUserBlocks } from './user-blocks.js';
 import { runBootstrap, formatBootstrapReport } from './bootstrap.js';
+import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport, formatFreshnessReport } from './detectors/freshness.js';
 import type { OnboardingPlan } from './planner.js';
 import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap';
+type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness';
 
 function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null } {
   const args = process.argv.slice(2);
@@ -72,6 +73,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'doctor';
     } else if (args[i] === '--bootstrap') {
       action = 'bootstrap';
+    } else if (args[i] === '--check-freshness') {
+      action = 'check-freshness';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
     } else if (args[i] === '--regenerate-context') {
@@ -235,6 +238,22 @@ function printSummary(
   }
   console.log(`  🔧 MCP tools registered: ${mcpToolCount}`);
   console.log(`  🗳️  Manifest: ${path.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, '/')}`);
+  // Print previous freshness score (before this run's snapshot is written) to show drift
+  try {
+    const prevReport = computeFreshnessReport(outputDir);
+    if (prevReport.status !== 'unknown') {
+      const scorePercent = Math.round(prevReport.score * 100);
+      const statusEmoji: Record<string, string> = { fresh: '✅', drifted: '⚠️', stale: '❌' };
+      const emoji = statusEmoji[prevReport.status] ?? '❓';
+      console.log(`  ${emoji} Context freshness (pre-run): ${scorePercent}/100 (${prevReport.status})`);
+      if (prevReport.staleArtifacts.length > 0) {
+        console.log(`     Stale artifacts: ${prevReport.staleArtifacts.join(', ')}`);
+      }
+      if (prevReport.changedSourceFiles.length > 0) {
+        console.log(`     Changed sources: ${prevReport.changedSourceFiles.join(', ')}`);
+      }
+    }
+  } catch { /* non-fatal */ }
   console.log('');
 }
 
@@ -505,6 +524,12 @@ async function main(): Promise<void> {
     const doctorResult = runDoctor(cwd);
     const exitCode = printDoctorReport(doctorResult);
     if (exitCode !== 0) process.exit(exitCode);
+    return;
+  }
+
+  // ── --check-freshness action (runs before scan, no generation needed) ──────
+  if (action === 'check-freshness') {
+    runFreshnessCheck(cwd);
     return;
   }
 
@@ -786,6 +811,19 @@ async function main(): Promise<void> {
   // Write updated manifest (#8 / #11).
   writeManifest(cwd, getToolVersion(), currentRelFiles);
 
+  // ── Capture context freshness snapshot ──────────────────────────────────
+  // After a successful generation run, record a new baseline snapshot so that
+  // future `--check-freshness` / `get_context_freshness` calls can detect drift.
+  try {
+    const snapshot = captureContextSnapshot(cwd, getToolVersion());
+    writeContextSnapshot(cwd, snapshot);
+    if (verbose) {
+      console.log('  ✏️  write   .github/ai-os/context-snapshot.json  (freshness baseline)');
+    }
+  } catch {
+    // Non-fatal: freshness snapshot is best-effort
+  }
+
   // Diff counts for summary (#11).
   // A file is "written" when it exists but may have changed; we track via comparing
   // against previous manifest (new entry = written) plus the fact that writeIfChanged
@@ -908,4 +946,28 @@ function findFilesRecursive(dir: string, predicate: (name: string) => boolean): 
     // ignore permission errors
   }
   return results;
+}
+
+// ── --check-freshness ─────────────────────────────────────────────────────────
+
+function runFreshnessCheck(cwd: string): void {
+  console.log(`  🔍 Context freshness check: ${cwd}`);
+  console.log('');
+
+  const report = computeFreshnessReport(cwd);
+  console.log(formatFreshnessReport(report));
+
+  const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true';
+
+  if (report.status === 'stale') {
+    console.log('  ❌ Context is stale. Run `--refresh-existing` to rebuild context artifacts.');
+    if (isCi) process.exit(1);
+  } else if (report.status === 'drifted') {
+    console.log('  ⚠️  Context has drifted. Consider running `--refresh-existing` to resync.');
+  } else if (report.status === 'unknown') {
+    console.log('  ❓ No snapshot found — run AI OS generation first to establish a baseline.');
+  } else {
+    console.log('  ✅ Context is fresh.');
+  }
+  console.log('');
 }

@@ -314,6 +314,13 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },
+  // ── Tool #25: Context Freshness ───────────────────────────────────────────
+  {
+    name: 'get_context_freshness',
+    description: 'Computes a freshness score (0–100) for AI OS context artifacts by comparing them against the stored context snapshot. Returns a list of stale artifacts, changed source files, and targeted sync recommendations. Run after structural code changes to detect context drift.',
+    inputSchema: { type: 'object', properties: {} },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

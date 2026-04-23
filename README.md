@@ -336,6 +336,8 @@ npm run bootstrap:dry -- --cwd /path/to/target-repo
 npm run check-hygiene
 # Validate post-install health and emit actionable fix commands
 npm run doctor
+# Check context freshness (detect drift between source changes and context artifacts)
+npm run check-freshness
 # Run unit tests
 npm test
 # Fast validation (build + unit tests only)
@@ -423,6 +425,67 @@ Use this at the start of every new Copilot conversation in a target repo using A
 3. `get_conventions` to enforce local coding style.
 4. `get_impact_of_change` for each shared source file before edits.
 5. Build/test after substantial implementation changes.
+
+## Context Freshness Scoring
+
+AI OS tracks context drift after structural code changes. After each generation run a
+snapshot of artifact file hashes is written to `.github/ai-os/context-snapshot.json`.
+
+### Check freshness from the CLI
+
+```bash
+# One-shot freshness check (exits non-zero when stale, safe on CI)
+npm run check-freshness
+
+# Or pass --check-freshness directly
+npx -y github:marinvch/ai-os --check-freshness
+```
+
+Output example:
+
+```
+## Context Freshness Report
+
+⚠️ **Status:** DRIFTED  |  **Score:** 72/100
+
+- **Snapshot captured:** 2025-01-20T14:00:00.000Z
+- **Last AI OS run:** 2025-01-20T14:00:00.000Z
+
+### Stale Context Artifacts
+- `.github/ai-os/context/conventions.md`
+
+### Changed Source / Config Files
+- `package.json`
+
+### Recommendations
+- Source changes detected in: package.json. Re-run `npx -y github:marinvch/ai-os --refresh-existing` to rebuild context artifacts.
+```
+
+### Check freshness via MCP tool
+
+Use the `get_context_freshness` MCP tool in any Copilot session to instantly inspect
+drift without leaving the editor:
+
+```
+get_context_freshness
+```
+
+### How scores are computed
+
+| Score   | Status    | Meaning                                        |
+|---------|-----------|------------------------------------------------|
+| 90–100  | `fresh`   | Context artifacts match the last generation snapshot |
+| 60–89   | `drifted` | Some source files or artifacts have changed    |
+| 0–59    | `stale`   | Significant drift — re-run `--refresh-existing` |
+| n/a     | `unknown` | No baseline snapshot found yet                 |
+
+The score is `(unchanged_sources + intact_artifacts) / (total_tracked_files)`.
+
+### CI integration
+
+Set `CI=true` (or run in GitHub Actions where `GITHUB_ACTIONS=true`) — the
+`--check-freshness` flag will exit with code 1 when the context is `stale`,
+allowing you to gate deployments or PRs on context health.
 
 ## Knowledge Vault Workflow
 

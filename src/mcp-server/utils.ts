@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getLatestResolvableVersion } from '../updater.js';
+import { computeFreshnessReport, formatFreshnessReport } from '../detectors/freshness.js';
 
 const ROOT = process.env['AI_OS_ROOT'] ?? process.cwd();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1847,4 +1848,11 @@ export function suggestImprovements(): string {
     '',
     ...suggestions.map(s => `- ${s}`),
   ].join('\n');
+}
+
+// ── Tool #25: Context Freshness ───────────────────────────────────────────────
+
+export function getContextFreshness(): string {
+  const report = computeFreshnessReport(ROOT);
+  return formatFreshnessReport(report);
 }

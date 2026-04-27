@@ -45,7 +45,7 @@ flowchart TD
   Detect --> Generate["Generate AI OS artifacts"]
   Generate --> Docs[".github/ai-os/context/*.md"]
   Generate --> Instr[".github/copilot-instructions.md"]
-  Generate --> MCP[".vscode/mcp.json + .ai-os/mcp-server/"]
+  Generate --> MCP[".mcp.json + .vscode/mcp.json + .ai-os/mcp-server/"]
   Generate --> Agents[".github/agents/*.agent.md"]
   Generate --> Skills[".github/copilot/skills/*.md"]
 ```

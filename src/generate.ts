@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { analyze } from './analyze.js';
 import { generateInstructions } from './generators/instructions.js';
-import { generateMcpJson, writeMcpServerConfig } from './generators/mcp.js';
+import { generateMcpJson, writeMcpServerConfigs } from './generators/mcp.js';
 import { generateContextDocs, readAiOsConfig } from './generators/context-docs.js';
 import { generateAgents, scanExistingAgents } from './generators/agents.js';
 import { generateSkills, deployBundledSkills } from './generators/skills.js';
@@ -266,7 +266,7 @@ function printContextualNextSteps(
   updateStatus: UpdateStatus,
   recommendationsEnabled: boolean,
 ): void {
-  const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
+  const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.toolVersion}" --refresh-existing`;
   const recommendationsPath = '.github/ai-os/recommendations.md';
 
   const printInstructionStrategy = (): void => {
@@ -462,10 +462,10 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     installedAt: new Date().toISOString(),
   }, null, 2), 'utf-8');
 
-  // Write the official VS Code MCP config (.vscode/mcp.json) with the resolved
-  // Node executable path. This avoids shell alias/PATH issues when VS Code
-  // launches the MCP server directly, especially on Windows.
-  writeMcpServerConfig(cwd, {
+  // Write both CLI and VS Code MCP configs with the resolved Node executable
+  // path. This avoids shell alias/PATH issues when Copilot launches the local
+  // MCP runtime directly, especially on Windows.
+  writeMcpServerConfigs(cwd, {
     command: nodePath,
     args: [runtimeEntry],
     env: {
@@ -497,10 +497,11 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   if (verbose) {
     console.log(`  ✏️  write   ${runtimeEntry}`);
     console.log(`  ✏️  write   ${runtimeManifest}`);
+    console.log(`  ✏️  write   .mcp.json`);
     console.log(`  ✏️  write   .vscode/mcp.json`);
   } else {
     console.log('  ✓ MCP runtime installed to .ai-os/mcp-server');
-    console.log('  ✓ MCP config written to .vscode/mcp.json');
+    console.log('  ✓ MCP configs written to .mcp.json and .vscode/mcp.json');
   }
 }
 

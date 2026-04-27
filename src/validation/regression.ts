@@ -255,6 +255,7 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
 
   const expectedFiles = [
     '.github/copilot-instructions.md',
+    '.mcp.json',
     '.vscode/mcp.json',
     '.github/ai-os/context/stack.md',
     '.github/ai-os/context/architecture.md',
@@ -452,64 +453,85 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
 
 function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]): void {
   // The MCP server runtime (index.js) is deployed by install.sh, not by `generate`.
-  // The regression suite only runs `generate`, so we verify the VS Code MCP config.
-  // Since v0.6.27, the MCP config is written to .vscode/mcp.json with "servers" key.
+  // The regression suite only runs `generate`, so we verify both generated MCP
+  // configs rather than the installed runtime launch path itself.
   // Tool definitions are written to .github/ai-os/tools.json.
-  const mcpJsonPath = path.join(dir, '.vscode/mcp.json');
-  if (!fs.existsSync(mcpJsonPath)) {
+  const configs = [
+    {
+      relativePath: '.mcp.json',
+      rootKey: 'mcpServers',
+      label: 'Copilot CLI',
+    },
+    {
+      relativePath: path.join('.vscode', 'mcp.json'),
+      rootKey: 'servers',
+      label: 'VS Code',
+    },
+  ] as const;
+
+  for (const configInfo of configs) {
+    const configPath = path.join(dir, configInfo.relativePath);
+    if (!fs.existsSync(configPath)) {
+      results.push({
+        fixture: fixtureName,
+        check: `${configInfo.label} MCP config present`,
+        passed: false,
+        detail: `${configInfo.relativePath} not found after apply`,
+      });
+      continue;
+    }
+
+    results.push({ fixture: fixtureName, check: `${configInfo.label} MCP config present`, passed: true });
+
+    let mcpConfig: Record<string, unknown>;
+    try {
+      mcpConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+    } catch {
+      results.push({
+        fixture: fixtureName,
+        check: `${configInfo.label} MCP config is valid JSON`,
+        passed: false,
+        detail: 'JSON.parse failed',
+      });
+      continue;
+    }
+
+    results.push({ fixture: fixtureName, check: `${configInfo.label} MCP config is valid JSON`, passed: true });
+
+    const serverMap = mcpConfig[configInfo.rootKey] as Record<string, { type?: string; command?: string; args?: string[] }> | undefined;
     results.push({
       fixture: fixtureName,
-      check: 'mcp.json present',
-      passed: false,
-      detail: '.vscode/mcp.json not found after apply',
+      check: `${configInfo.label} MCP config uses "${configInfo.rootKey}" key`,
+      passed: serverMap !== undefined,
+      detail: serverMap === undefined ? `missing "${configInfo.rootKey}" top-level key` : undefined,
     });
-    return;
-  }
-  results.push({ fixture: fixtureName, check: 'mcp.json present', passed: true });
 
-  let mcpConfig: { servers?: Record<string, { type?: string; command?: string; args?: string[] }> };
-  try {
-    mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, 'utf-8')) as typeof mcpConfig;
-  } catch {
-    results.push({ fixture: fixtureName, check: 'mcp.json is valid JSON', passed: false, detail: 'JSON.parse failed' });
-    return;
-  }
-  results.push({ fixture: fixtureName, check: 'mcp.json is valid JSON', passed: true });
-
-  // Must use official "servers" key (not legacy "mcpServers")
-  results.push({
-    fixture: fixtureName,
-    check: 'mcp.json uses "servers" key',
-    passed: mcpConfig.servers !== undefined,
-    detail: mcpConfig.servers === undefined ? 'missing "servers" top-level key' : undefined,
-  });
-
-  // The ai-os server entry should be present with a concrete runtime launch.
-  const serverEntry = mcpConfig.servers?.['ai-os'];
-  results.push({
-    fixture: fixtureName,
-    check: 'mcp.json has ai-os server entry',
-    passed: serverEntry !== undefined,
-    detail: serverEntry === undefined ? 'ai-os server not found in servers' : undefined,
-  });
-
-  if (serverEntry) {
+    const serverEntry = serverMap?.['ai-os'];
     results.push({
       fixture: fixtureName,
-      check: 'ai-os server has launch command',
-      passed: typeof serverEntry.command === 'string' && serverEntry.command.length > 0,
-      detail: !serverEntry.command ? 'command is missing' : undefined,
+      check: `${configInfo.label} MCP config has ai-os server entry`,
+      passed: serverEntry !== undefined,
+      detail: serverEntry === undefined ? `ai-os server not found in ${configInfo.rootKey}` : undefined,
     });
-    results.push({
-      fixture: fixtureName,
-      check: 'ai-os server args point to runtime entry',
-      passed: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js')),
-      detail: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js'))
-        ? undefined
-        : Array.isArray(serverEntry.args)
-          ? `args do not include .ai-os runtime entry: ${JSON.stringify(serverEntry.args)}`
-          : 'args are missing',
-    });
+
+    if (serverEntry) {
+      results.push({
+        fixture: fixtureName,
+        check: `${configInfo.label} ai-os server has launch command`,
+        passed: typeof serverEntry.command === 'string' && serverEntry.command.length > 0,
+        detail: !serverEntry.command ? 'command is missing' : undefined,
+      });
+      results.push({
+        fixture: fixtureName,
+        check: `${configInfo.label} ai-os server args point to runtime entry`,
+        passed: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js')),
+        detail: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js'))
+          ? undefined
+          : Array.isArray(serverEntry.args)
+            ? `args do not include .ai-os runtime entry: ${JSON.stringify(serverEntry.args)}`
+            : 'args are missing',
+      });
+    }
   }
 
   const toolsJsonPath = path.join(dir, '.github/ai-os/tools.json');

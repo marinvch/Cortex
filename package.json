@@ -1,6 +1,6 @@
 {
   "name": "ai-os",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Portable AI OS — scans any repo and generates optimized GitHub Copilot context, agents, skills, MCP tools, and slash-command prompts",
   "type": "module",
   "engines": {

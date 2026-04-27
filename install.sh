@@ -480,29 +480,60 @@ else
   echo -e "  ${CYAN}  Skip reason:${RESET} ${MCP_SKIP_REASON}"
 fi
 
-# Write VS Code MCP config so Copilot can launch the local ai-os runtime.
-# Uses the official .vscode/mcp.json format with "servers" top-level key.
-# We write the resolved Node executable path to avoid PATH/alias issues when
-# VS Code launches the MCP server directly.
+# Write both Copilot CLI and VS Code MCP configs so the local ai-os runtime
+# works in terminal Copilot and the chat/IDE interface. We write the resolved
+# Node executable path to avoid PATH/alias issues when Copilot launches the
+# MCP server directly.
+CLI_MCP_CONFIG="$TARGET_DIR/.mcp.json"
 VSCODE_MCP_CONFIG="$TARGET_DIR/.vscode/mcp.json"
 mkdir -p "$TARGET_DIR/.vscode"
 
-# Merge ai-os server entry into existing .vscode/mcp.json (preserve user servers)
+# Merge ai-os server entry into both MCP configs (preserve user servers)
 "$NODE_ABS_PATH" -e "
   const fs = require('fs');
-  const p = process.argv[1];
-  let cfg = {};
-  try { cfg = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch {}
-  if (!cfg.servers) cfg.servers = {};
-  cfg.servers['ai-os'] = {
-    type: 'stdio',
-    command: process.argv[2],
-    args: [process.argv[3]],
-    env: { AI_OS_ROOT: process.argv[4] }
+  const path = require('path');
+  const cliPath = process.argv[1];
+  const vscodePath = process.argv[2];
+  const command = process.argv[3];
+  const scriptPath = process.argv[4];
+  const root = process.argv[5];
+
+  const readJson = (filePath) => {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+      return {};
+    }
   };
-  fs.writeFileSync(p, JSON.stringify(cfg, null, 2) + '\n', 'utf-8');
-" "$VSCODE_MCP_CONFIG" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" "$TARGET_DIR"
-echo -e "  ${GREEN}✓ Wrote MCP config: .vscode/mcp.json${RESET}"
+
+  const writeJson = (filePath, content) => {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n', 'utf-8');
+  };
+
+  const cliConfig = readJson(cliPath);
+  if (!cliConfig.mcpServers || typeof cliConfig.mcpServers !== 'object' || Array.isArray(cliConfig.mcpServers)) cliConfig.mcpServers = {};
+  cliConfig.mcpServers['ai-os'] = {
+    type: 'stdio',
+    command,
+    args: [scriptPath],
+    env: { AI_OS_ROOT: root }
+  };
+
+  const vscodeConfig = readJson(vscodePath);
+  if (!vscodeConfig.servers || typeof vscodeConfig.servers !== 'object' || Array.isArray(vscodeConfig.servers)) vscodeConfig.servers = {};
+  vscodeConfig.servers['ai-os'] = {
+    type: 'stdio',
+    command,
+    args: [scriptPath],
+    env: { AI_OS_ROOT: root }
+  };
+
+  writeJson(cliPath, cliConfig);
+  writeJson(vscodePath, vscodeConfig);
+" "$CLI_MCP_CONFIG" "$VSCODE_MCP_CONFIG" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" "$TARGET_DIR"
+echo -e "  ${GREEN}✓ Wrote MCP configs: .mcp.json and .vscode/mcp.json${RESET}"
 
 # Clean up legacy .github/copilot/mcp.local.json if present
 LEGACY_MCP_LOCAL="$TARGET_DIR/.github/copilot/mcp.local.json"

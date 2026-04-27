@@ -144,7 +144,7 @@ export function runBootstrap(stack: DetectedStack, options: BootstrapOptions = {
       category: 'mcp',
       name: mcp.package,
       reason: `triggered by: ${mcp.trigger} — ${mcp.description}`,
-      installCmd: `# add to .vscode/mcp.json: "${mcp.package.replace('/', '-')}": { "type": "stdio", "command": "npx", "args": ["-y", "${mcp.package}"] }`,
+      installCmd: `# add under .mcp.json:mcpServers or .vscode/mcp.json:servers: "${mcp.package.replace('/', '-')}": { "type": "stdio", "command": "npx", "args": ["-y", "${mcp.package}"] }`,
       status: dryRun ? 'pending' : 'skipped', // MCP wiring is handled by the generation step
     });
   }
@@ -263,7 +263,7 @@ export function formatBootstrapReport(report: BootstrapReport): string {
     if (report.skippedCount > 0) {
       lines.push('');
       lines.push('  📋 Informational items (manual action required):');
-      lines.push('     - MCP servers: add to .vscode/mcp.json (see .github/ai-os/recommendations.md)');
+      lines.push('     - MCP servers: add to .mcp.json (Copilot CLI) or .vscode/mcp.json (VS Code/Copilot Chat)');
       lines.push('     - VS Code extensions: install via VS Code Marketplace or code --install-extension <id>');
       lines.push('     - Skills with unknown source: find the hosting repo and run the install command');
     }

@@ -176,7 +176,7 @@ export function pruneLegacyArtifacts(targetDir: string, options?: LegacyPruneOpt
   const legacyTools = path.join(targetDir, '.ai-os', 'tools.json');
   const legacyMemoryDir = path.join(targetDir, '.ai-os', 'memory');
   const legacyAiOsDir = path.join(targetDir, '.ai-os');
-  // Legacy MCP configs from pre-v0.6.27 (now .vscode/mcp.json)
+  // Legacy MCP configs from pre-v0.6.27 (now emitted as .mcp.json and .vscode/mcp.json)
   const legacyMcpJson = path.join(targetDir, '.github', 'copilot', 'mcp.json');
   const legacyMcpLocal = path.join(targetDir, '.github', 'copilot', 'mcp.local.json');
 
@@ -211,7 +211,7 @@ export function pruneLegacyArtifacts(targetDir: string, options?: LegacyPruneOpt
     return;
   }
 
-  // Always clean up legacy MCP configs on refresh (they moved to .vscode/mcp.json)
+  // Always clean up legacy MCP configs on refresh (they moved to .mcp.json / .vscode/mcp.json)
   for (const file of [legacyMcpJson, legacyMcpLocal]) {
     if (fs.existsSync(file)) {
       try { fs.rmSync(file); } catch { /* best-effort */ }

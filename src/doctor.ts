@@ -6,12 +6,15 @@
  * Checks:
  *  1. MCP runtime binary present  (.ai-os/mcp-server/index.js)
  *  2. MCP runtime healthcheck      (node index.js --healthcheck)
- *  3. VS Code MCP config present   (.vscode/mcp.json)
- *  4. ai-os server entry present   (.vscode/mcp.json → servers.ai-os)
- *  5. MCP server command resolves  (the command path in servers.ai-os exists)
- *  6. AI OS config present         (.github/ai-os/config.json)
- *  7. Tools file present           (.github/ai-os/tools.json)
- *  8. Skills deployed              (.agents/skills/ai-os-skill-creator/ OR .github/copilot/skills/)
+ *  3. Copilot CLI MCP config present           (.mcp.json)
+ *  4. ai-os CLI server entry present           (.mcp.json → mcpServers.ai-os)
+ *  5. Copilot CLI MCP command resolves         (command/args for mcpServers.ai-os)
+ *  6. VS Code MCP config present               (.vscode/mcp.json)
+ *  7. ai-os VS Code server entry present       (.vscode/mcp.json → servers.ai-os)
+ *  8. VS Code MCP command resolves             (command/args for servers.ai-os)
+ *  9. AI OS config present                     (.github/ai-os/config.json)
+ * 10. Tools file present                       (.github/ai-os/tools.json)
+ * 11. Skills deployed                          (.agents/skills/ai-os-skill-creator/ OR .github/copilot/skills/)
  *
  * Critical failures → exit code 1.
  * Warnings only     → exit code 0.
@@ -96,11 +99,26 @@ function checkMcpRuntimeHealthcheck(cwd: string): DoctorCheck {
   };
 }
 
-function checkMcpConfigPresent(cwd: string): DoctorCheck {
-  const configPath = path.join(cwd, '.vscode', 'mcp.json');
+type McpTopLevelKey = 'mcpServers' | 'servers';
+
+interface McpCheckDefinition {
+  configPath: string;
+  displayName: string;
+  topLevelKey: McpTopLevelKey;
+  entryName: string;
+  commandName: string;
+}
+
+interface McpConfig {
+  mcpServers?: Record<string, { command?: string; args?: string[] }>;
+  servers?: Record<string, { command?: string; args?: string[] }>;
+}
+
+function checkMcpConfigPresent(cwd: string, definition: McpCheckDefinition): DoctorCheck {
+  const configPath = path.join(cwd, definition.configPath);
   const passed = fs.existsSync(configPath);
   return {
-    name: 'VS Code MCP config present (.vscode/mcp.json)',
+    name: definition.displayName,
     critical: true,
     passed,
     detail: passed ? configPath : `Expected at ${configPath}`,
@@ -110,55 +128,58 @@ function checkMcpConfigPresent(cwd: string): DoctorCheck {
   };
 }
 
-interface McpConfig {
-  servers?: Record<string, { command?: string; args?: string[] }>;
-}
-
-function parseMcpConfig(cwd: string): McpConfig | null {
-  const configPath = path.join(cwd, '.vscode', 'mcp.json');
-  if (!fs.existsSync(configPath)) return null;
+function parseMcpConfig(cwd: string, configPath: string): McpConfig | null {
+  const fullPath = path.join(cwd, configPath);
+  if (!fs.existsSync(fullPath)) return null;
   try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as McpConfig;
+    return JSON.parse(fs.readFileSync(fullPath, 'utf-8')) as McpConfig;
   } catch {
     return null;
   }
 }
 
-function checkMcpAiOsEntry(cwd: string): DoctorCheck {
-  const config = parseMcpConfig(cwd);
+function getServerEntry(config: McpConfig | null, topLevelKey: McpTopLevelKey): { command?: string; args?: string[] } | undefined {
+  if (!config) return undefined;
+  const servers = config[topLevelKey];
+  return servers?.['ai-os'];
+}
+
+function checkMcpAiOsEntry(cwd: string, definition: McpCheckDefinition): DoctorCheck {
+  const config = parseMcpConfig(cwd, definition.configPath);
   if (!config) {
     return {
-      name: 'ai-os server entry in MCP config',
+      name: definition.entryName,
       critical: true,
       passed: false,
-      detail: '.vscode/mcp.json missing or unparseable',
+      detail: `${definition.configPath} missing or unparseable`,
       fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`,
     };
   }
-  const passed = typeof config.servers?.['ai-os'] === 'object';
+  const entry = getServerEntry(config, definition.topLevelKey);
+  const passed = typeof entry === 'object';
   return {
-    name: 'ai-os server entry in MCP config',
+    name: definition.entryName,
     critical: true,
     passed,
     detail: passed
-      ? 'servers["ai-os"] entry found'
-      : 'No servers["ai-os"] entry in .vscode/mcp.json',
+      ? `${definition.topLevelKey}["ai-os"] entry found`
+      : `No ${definition.topLevelKey}["ai-os"] entry in ${definition.configPath}`,
     fixCommand: passed
       ? undefined
       : `npx -y "github:marinvch/ai-os" --refresh-existing`,
   };
 }
 
-function checkMcpCommandResolves(cwd: string): DoctorCheck {
-  const config = parseMcpConfig(cwd);
-  const entry = config?.servers?.['ai-os'];
+function checkMcpCommandResolves(cwd: string, definition: McpCheckDefinition): DoctorCheck {
+  const config = parseMcpConfig(cwd, definition.configPath);
+  const entry = getServerEntry(config, definition.topLevelKey);
 
   if (!entry) {
     return {
-      name: 'MCP server command resolves',
+      name: definition.commandName,
       critical: true,
       passed: false,
-      detail: 'servers["ai-os"] entry missing — cannot verify command path.',
+      detail: `${definition.topLevelKey}["ai-os"] entry missing — cannot verify command path.`,
       fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`,
     };
   }
@@ -166,22 +187,26 @@ function checkMcpCommandResolves(cwd: string): DoctorCheck {
   const command = entry.command ?? 'node';
   const args = entry.args ?? [];
 
-  // Expand ${workspaceFolder} placeholder using cwd
+  // Expand VS Code placeholder and then resolve relative CLI paths from repo root.
   const resolvedArgs = args.map(a =>
     a.replace(/\$\{workspaceFolder\}/g, cwd),
   );
 
   // The first arg (if any) is the script file; check it exists when command is 'node'
   const scriptArg = resolvedArgs[0];
-  if ((command === 'node' || command === process.execPath) && scriptArg) {
-    const passed = fs.existsSync(scriptArg) && fs.statSync(scriptArg).isFile();
+  const resolvedScriptArg = scriptArg && !path.isAbsolute(scriptArg)
+    ? path.resolve(cwd, scriptArg)
+    : scriptArg;
+  const normalizedCommand = path.basename(command).toLowerCase();
+  if ((command === 'node' || command === process.execPath || normalizedCommand === 'node' || normalizedCommand === 'node.exe') && scriptArg) {
+    const passed = resolvedScriptArg !== undefined && fs.existsSync(resolvedScriptArg) && fs.statSync(resolvedScriptArg).isFile();
     return {
-      name: 'MCP server command resolves',
+      name: definition.commandName,
       critical: true,
       passed,
       detail: passed
-        ? `Script exists: ${scriptArg}`
-        : `Script not found: ${scriptArg}`,
+        ? `Script exists: ${resolvedScriptArg}`
+        : `Script not found: ${resolvedScriptArg}`,
       fixCommand: passed
         ? undefined
         : `npx -y "github:marinvch/ai-os" --refresh-existing`,
@@ -190,7 +215,7 @@ function checkMcpCommandResolves(cwd: string): DoctorCheck {
 
   // For non-node commands, just report the command string without filesystem check
   return {
-    name: 'MCP server command resolves',
+    name: definition.commandName,
     critical: false,
     passed: true,
     detail: `Command: ${command} ${resolvedArgs.join(' ')} (non-node command, path not verified)`,
@@ -290,12 +315,31 @@ function checkSkillsDeployed(cwd: string): DoctorCheck {
 
 /** Run all doctor checks and return a structured result. */
 export function runDoctor(cwd: string): DoctorResult {
+  const cliConfig: McpCheckDefinition = {
+    configPath: '.mcp.json',
+    displayName: 'Copilot CLI MCP config present (.mcp.json)',
+    topLevelKey: 'mcpServers',
+    entryName: 'ai-os CLI server entry in MCP config',
+    commandName: 'Copilot CLI MCP command resolves',
+  };
+
+  const vsCodeConfig: McpCheckDefinition = {
+    configPath: path.join('.vscode', 'mcp.json'),
+    displayName: 'VS Code MCP config present (.vscode/mcp.json)',
+    topLevelKey: 'servers',
+    entryName: 'ai-os VS Code server entry in MCP config',
+    commandName: 'VS Code MCP command resolves',
+  };
+
   const checks: DoctorCheck[] = [
     checkMcpRuntimeExists(cwd),
     checkMcpRuntimeHealthcheck(cwd),
-    checkMcpConfigPresent(cwd),
-    checkMcpAiOsEntry(cwd),
-    checkMcpCommandResolves(cwd),
+    checkMcpConfigPresent(cwd, cliConfig),
+    checkMcpAiOsEntry(cwd, cliConfig),
+    checkMcpCommandResolves(cwd, cliConfig),
+    checkMcpConfigPresent(cwd, vsCodeConfig),
+    checkMcpAiOsEntry(cwd, vsCodeConfig),
+    checkMcpCommandResolves(cwd, vsCodeConfig),
     checkAiOsConfigPresent(cwd),
     checkToolsFilePresent(cwd),
     checkSkillsDeployed(cwd),

@@ -1590,32 +1590,69 @@ function getToolsWithStackSplit(stack) {
 }
 
 // src/generators/mcp.ts
-function writeMcpServerConfig(outputDir, options) {
-  const mcpJsonPath = path7.join(outputDir, ".vscode", "mcp.json");
-  let existing = {};
-  if (fs7.existsSync(mcpJsonPath)) {
-    try {
-      existing = JSON.parse(fs7.readFileSync(mcpJsonPath, "utf-8"));
-    } catch {
+function readJsonObject(filePath) {
+  if (!fs7.existsSync(filePath)) return {};
+  try {
+    const parsed = JSON.parse(fs7.readFileSync(filePath, "utf-8"));
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed;
     }
+  } catch {
   }
-  const servers = existing.servers ?? {};
-  servers["ai-os"] = {
+  return {};
+}
+function writeJsonObject(filePath, data) {
+  fs7.mkdirSync(path7.dirname(filePath), { recursive: true });
+  fs7.writeFileSync(filePath, JSON.stringify(data, null, 2) + "\n", "utf-8");
+  return filePath;
+}
+function getServerMap(value) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  return {};
+}
+function getServerEntry(defaultArgs, defaultEnv, options) {
+  return {
     type: "stdio",
     command: options?.command ?? "node",
-    args: options?.args ?? ["${workspaceFolder}/.ai-os/mcp-server/index.js"],
-    env: options?.env ?? {
-      AI_OS_ROOT: "${workspaceFolder}"
-    }
+    args: options?.args ?? defaultArgs,
+    env: options?.env ?? defaultEnv
   };
+}
+function writeCopilotCliMcpConfig(outputDir, options) {
+  const mcpJsonPath = path7.join(outputDir, ".mcp.json");
+  const existing = readJsonObject(mcpJsonPath);
+  const mcpServers = getServerMap(existing.mcpServers);
+  mcpServers["ai-os"] = getServerEntry(
+    [".ai-os/mcp-server/index.js"],
+    { AI_OS_ROOT: "." },
+    options
+  );
+  existing.mcpServers = mcpServers;
+  return writeJsonObject(mcpJsonPath, existing);
+}
+function writeVsCodeMcpConfig(outputDir, options) {
+  const mcpJsonPath = path7.join(outputDir, ".vscode", "mcp.json");
+  const existing = readJsonObject(mcpJsonPath);
+  const servers = getServerMap(existing.servers);
+  servers["ai-os"] = getServerEntry(
+    ["${workspaceFolder}/.ai-os/mcp-server/index.js"],
+    { AI_OS_ROOT: "${workspaceFolder}" },
+    options
+  );
   existing.servers = servers;
-  fs7.mkdirSync(path7.dirname(mcpJsonPath), { recursive: true });
-  fs7.writeFileSync(mcpJsonPath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
-  return mcpJsonPath;
+  return writeJsonObject(mcpJsonPath, existing);
+}
+function writeMcpServerConfigs(outputDir, options) {
+  return [
+    writeCopilotCliMcpConfig(outputDir, options),
+    writeVsCodeMcpConfig(outputDir, options)
+  ];
 }
 function generateMcpJson(stack, outputDir, options) {
   const strictFiltering = options?.config?.strictStackFiltering !== false;
-  writeMcpServerConfig(outputDir);
+  writeMcpServerConfigs(outputDir);
   const toolsJsonPath = path7.join(outputDir, ".github", "ai-os", "tools.json");
   if (strictFiltering) {
     const split = getToolsWithStackSplit(stack);
@@ -2253,7 +2290,7 @@ function generateArchitectureDoc(stack) {
   lines.push('  Detect --> Generate["Generate AI OS artifacts"]');
   lines.push('  Generate --> Docs[".github/ai-os/context/*.md"]');
   lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
-  lines.push('  Generate --> MCP[".vscode/mcp.json + .ai-os/mcp-server/"]');
+  lines.push('  Generate --> MCP[".mcp.json + .vscode/mcp.json + .ai-os/mcp-server/"]');
   lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
   lines.push('  Generate --> Skills[".github/copilot/skills/*.md"]');
   lines.push("```");
@@ -3890,6 +3927,7 @@ function buildOnboardingPlan(targetDir, mode, opts = {}) {
   const actions = [];
   actions.push(decideAction(targetDir, ".github/copilot-instructions.md", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/instructions/ai-os.instructions.md", mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, ".mcp.json", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".vscode/mcp.json", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/ai-os/tools.json", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".ai-os/mcp-server/runtime-manifest.json", mode, "always-overwrite", preserveContextFiles));
@@ -4253,7 +4291,16 @@ function generateRecommendationsDoc(stack, collected) {
       lines.push("");
       lines.push(item.description);
       lines.push("");
-      lines.push("**Install in `.vscode/mcp.json`:**");
+      lines.push("**Install in Copilot CLI `.mcp.json` under `mcpServers`:**");
+      lines.push("```json");
+      lines.push(`"${item.package.replace("/", "-")}": {`);
+      lines.push('  "type": "stdio",');
+      lines.push(`  "command": "npx",`);
+      lines.push(`  "args": ["-y", "${item.package}"]`);
+      lines.push("}");
+      lines.push("```");
+      lines.push("");
+      lines.push("**Install in VS Code `.vscode/mcp.json` under `servers`:**");
       lines.push("```json");
       lines.push(`"${item.package.replace("/", "-")}": {`);
       lines.push('  "type": "stdio",');
@@ -4461,55 +4508,61 @@ function checkMcpRuntimeHealthcheck(cwd) {
     fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
   };
 }
-function checkMcpConfigPresent(cwd) {
-  const configPath = path17.join(cwd, ".vscode", "mcp.json");
+function checkMcpConfigPresent(cwd, definition) {
+  const configPath = path17.join(cwd, definition.configPath);
   const passed = fs16.existsSync(configPath);
   return {
-    name: "VS Code MCP config present (.vscode/mcp.json)",
+    name: definition.displayName,
     critical: true,
     passed,
     detail: passed ? configPath : `Expected at ${configPath}`,
     fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
   };
 }
-function parseMcpConfig(cwd) {
-  const configPath = path17.join(cwd, ".vscode", "mcp.json");
-  if (!fs16.existsSync(configPath)) return null;
+function parseMcpConfig(cwd, configPath) {
+  const fullPath = path17.join(cwd, configPath);
+  if (!fs16.existsSync(fullPath)) return null;
   try {
-    return JSON.parse(fs16.readFileSync(configPath, "utf-8"));
+    return JSON.parse(fs16.readFileSync(fullPath, "utf-8"));
   } catch {
     return null;
   }
 }
-function checkMcpAiOsEntry(cwd) {
-  const config = parseMcpConfig(cwd);
+function getServerEntry2(config, topLevelKey) {
+  if (!config) return void 0;
+  const servers = config[topLevelKey];
+  return servers?.["ai-os"];
+}
+function checkMcpAiOsEntry(cwd, definition) {
+  const config = parseMcpConfig(cwd, definition.configPath);
   if (!config) {
     return {
-      name: "ai-os server entry in MCP config",
+      name: definition.entryName,
       critical: true,
       passed: false,
-      detail: ".vscode/mcp.json missing or unparseable",
+      detail: `${definition.configPath} missing or unparseable`,
       fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
     };
   }
-  const passed = typeof config.servers?.["ai-os"] === "object";
+  const entry = getServerEntry2(config, definition.topLevelKey);
+  const passed = typeof entry === "object";
   return {
-    name: "ai-os server entry in MCP config",
+    name: definition.entryName,
     critical: true,
     passed,
-    detail: passed ? 'servers["ai-os"] entry found' : 'No servers["ai-os"] entry in .vscode/mcp.json',
+    detail: passed ? `${definition.topLevelKey}["ai-os"] entry found` : `No ${definition.topLevelKey}["ai-os"] entry in ${definition.configPath}`,
     fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
   };
 }
-function checkMcpCommandResolves(cwd) {
-  const config = parseMcpConfig(cwd);
-  const entry = config?.servers?.["ai-os"];
+function checkMcpCommandResolves(cwd, definition) {
+  const config = parseMcpConfig(cwd, definition.configPath);
+  const entry = getServerEntry2(config, definition.topLevelKey);
   if (!entry) {
     return {
-      name: "MCP server command resolves",
+      name: definition.commandName,
       critical: true,
       passed: false,
-      detail: 'servers["ai-os"] entry missing \u2014 cannot verify command path.',
+      detail: `${definition.topLevelKey}["ai-os"] entry missing \u2014 cannot verify command path.`,
       fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
     };
   }
@@ -4519,18 +4572,20 @@ function checkMcpCommandResolves(cwd) {
     (a) => a.replace(/\$\{workspaceFolder\}/g, cwd)
   );
   const scriptArg = resolvedArgs[0];
-  if ((command === "node" || command === process.execPath) && scriptArg) {
-    const passed = fs16.existsSync(scriptArg) && fs16.statSync(scriptArg).isFile();
+  const resolvedScriptArg = scriptArg && !path17.isAbsolute(scriptArg) ? path17.resolve(cwd, scriptArg) : scriptArg;
+  const normalizedCommand = path17.basename(command).toLowerCase();
+  if ((command === "node" || command === process.execPath || normalizedCommand === "node" || normalizedCommand === "node.exe") && scriptArg) {
+    const passed = resolvedScriptArg !== void 0 && fs16.existsSync(resolvedScriptArg) && fs16.statSync(resolvedScriptArg).isFile();
     return {
-      name: "MCP server command resolves",
+      name: definition.commandName,
       critical: true,
       passed,
-      detail: passed ? `Script exists: ${scriptArg}` : `Script not found: ${scriptArg}`,
+      detail: passed ? `Script exists: ${resolvedScriptArg}` : `Script not found: ${resolvedScriptArg}`,
       fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
     };
   }
   return {
-    name: "MCP server command resolves",
+    name: definition.commandName,
     critical: false,
     passed: true,
     detail: `Command: ${command} ${resolvedArgs.join(" ")} (non-node command, path not verified)`
@@ -4618,12 +4673,29 @@ function checkSkillsDeployed(cwd) {
   };
 }
 function runDoctor(cwd) {
+  const cliConfig = {
+    configPath: ".mcp.json",
+    displayName: "Copilot CLI MCP config present (.mcp.json)",
+    topLevelKey: "mcpServers",
+    entryName: "ai-os CLI server entry in MCP config",
+    commandName: "Copilot CLI MCP command resolves"
+  };
+  const vsCodeConfig = {
+    configPath: path17.join(".vscode", "mcp.json"),
+    displayName: "VS Code MCP config present (.vscode/mcp.json)",
+    topLevelKey: "servers",
+    entryName: "ai-os VS Code server entry in MCP config",
+    commandName: "VS Code MCP command resolves"
+  };
   const checks = [
     checkMcpRuntimeExists(cwd),
     checkMcpRuntimeHealthcheck(cwd),
-    checkMcpConfigPresent(cwd),
-    checkMcpAiOsEntry(cwd),
-    checkMcpCommandResolves(cwd),
+    checkMcpConfigPresent(cwd, cliConfig),
+    checkMcpAiOsEntry(cwd, cliConfig),
+    checkMcpCommandResolves(cwd, cliConfig),
+    checkMcpConfigPresent(cwd, vsCodeConfig),
+    checkMcpAiOsEntry(cwd, vsCodeConfig),
+    checkMcpCommandResolves(cwd, vsCodeConfig),
     checkAiOsConfigPresent(cwd),
     checkToolsFilePresent(cwd),
     checkSkillsDeployed(cwd)
@@ -4807,7 +4879,7 @@ function runBootstrap(stack, options = {}) {
       category: "mcp",
       name: mcp.package,
       reason: `triggered by: ${mcp.trigger} \u2014 ${mcp.description}`,
-      installCmd: `# add to .vscode/mcp.json: "${mcp.package.replace("/", "-")}": { "type": "stdio", "command": "npx", "args": ["-y", "${mcp.package}"] }`,
+      installCmd: `# add under .mcp.json:mcpServers or .vscode/mcp.json:servers: "${mcp.package.replace("/", "-")}": { "type": "stdio", "command": "npx", "args": ["-y", "${mcp.package}"] }`,
       status: dryRun ? "pending" : "skipped"
       // MCP wiring is handled by the generation step
     });
@@ -4902,7 +4974,7 @@ function formatBootstrapReport(report) {
     if (report.skippedCount > 0) {
       lines.push("");
       lines.push("  \u{1F4CB} Informational items (manual action required):");
-      lines.push("     - MCP servers: add to .vscode/mcp.json (see .github/ai-os/recommendations.md)");
+      lines.push("     - MCP servers: add to .mcp.json (Copilot CLI) or .vscode/mcp.json (VS Code/Copilot Chat)");
       lines.push("     - VS Code extensions: install via VS Code Marketplace or code --install-extension <id>");
       lines.push("     - Skills with unknown source: find the hosting repo and run the install command");
     }
@@ -5710,7 +5782,7 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents, preser
   console.log("");
 }
 function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommendationsEnabled) {
-  const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
+  const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.toolVersion}" --refresh-existing`;
   const recommendationsPath = ".github/ai-os/recommendations.md";
   const printInstructionStrategy = () => {
     console.log("  \u{1F4CC} First action after install/refresh:");
@@ -5835,7 +5907,7 @@ function installLocalMcpRuntime(cwd, verbose) {
     sourceVersion: getToolVersion(),
     installedAt: (/* @__PURE__ */ new Date()).toISOString()
   }, null, 2), "utf-8");
-  writeMcpServerConfig(cwd, {
+  writeMcpServerConfigs(cwd, {
     command: nodePath,
     args: [runtimeEntry],
     env: {
@@ -5864,10 +5936,11 @@ function installLocalMcpRuntime(cwd, verbose) {
   if (verbose) {
     console.log(`  \u270F\uFE0F  write   ${runtimeEntry}`);
     console.log(`  \u270F\uFE0F  write   ${runtimeManifest}`);
+    console.log(`  \u270F\uFE0F  write   .mcp.json`);
     console.log(`  \u270F\uFE0F  write   .vscode/mcp.json`);
   } else {
     console.log("  \u2713 MCP runtime installed to .ai-os/mcp-server");
-    console.log("  \u2713 MCP config written to .vscode/mcp.json");
+    console.log("  \u2713 MCP configs written to .mcp.json and .vscode/mcp.json");
   }
 }
 async function main() {

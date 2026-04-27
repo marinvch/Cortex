@@ -10,7 +10,7 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | -------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Copilot instructions | `.github/copilot-instructions.md`                 | System prompt optimized for your stack                                             |
 | Context docs         | `.github/ai-os/context/`                          | Token-efficient stack, architecture, conventions docs                              |
-| MCP tools            | `.vscode/mcp.json` + `.ai-os/mcp-server/`         | 29 tools for code search, memory, session continuity, and more                     |
+| MCP tools            | `.mcp.json` + `.vscode/mcp.json` + `.ai-os/mcp-server/` | 29 tools for code search, memory, session continuity, and more                |
 | Agents               | `.github/agents/*.agent.md`                       | Stack-specific chat agents (framework expert, DB expert, auth, payments, explorer) |
 | Skills               | `.github/copilot/skills/ai-os-*.md`               | AI OS-named per-library playbooks (Next.js, tRPC, Prisma, Stripe, etc.)            |
 | Slash commands       | `.github/copilot/prompts.json`                    | `/new-page`, `/new-trpc-procedure`, `/new-model`, `/rag-query`, etc.               |
@@ -25,7 +25,7 @@ Generated instructions also enforce strict behavior guardrails: ambiguity-first 
 
 - Node.js ≥ 20 **or** Docker (Node.js-free fallback)
 - Git
-- GitHub Copilot (VS Code extension)
+- GitHub Copilot CLI and/or GitHub Copilot in VS Code
 
 **Target repositories do not need Node.js** — the MCP server is a pre-built, self-contained bundle (`dist/server.js`) with no npm dependencies.
 
@@ -215,6 +215,8 @@ To also update existing generated agents, skills, prompts, and MCP config from l
 - `bash install.sh --refresh-existing`
 - `npm run generate:refresh -- --cwd /path/to/target-repo`
 
+Refresh now rewrites both `.mcp.json` for Copilot CLI and `.vscode/mcp.json` for VS Code / Copilot Chat.
+
 To force pruning even without a full refresh:
 
 - `npm run generate -- --cwd /path/to/target-repo --prune`
@@ -234,8 +236,9 @@ To validate post-install health and get actionable fix commands:
 
 The doctor checks:
 - MCP runtime binary exists and passes healthcheck
+- `.mcp.json` present with correct `mcpServers["ai-os"]` entry
 - `.vscode/mcp.json` present with correct `servers["ai-os"]` entry
-- MCP server command path resolves on disk
+- Both MCP server command paths resolve on disk
 - `.github/ai-os/config.json` and `tools.json` present and valid
 - AI OS skills deployed
 

@@ -14,7 +14,7 @@ import { generateWorkflows } from './generators/workflows.js';
 import { getMcpToolsForStack } from './mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from './updater.js';
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
-import { readManifest, writeManifest, getManifestPath, setVerboseMode } from './generators/utils.js';
+import { readManifest, writeManifest, getManifestPath, setVerboseMode, hashFile } from './generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
 import { applyProfile, describeProfile, parseProfile } from './profile.js';
 import type { InstallProfile } from './types.js';
@@ -817,8 +817,16 @@ async function main(): Promise<void> {
     console.log('');
   }
 
-  // Write updated manifest (#8 / #11).
-  writeManifest(cwd, getToolVersion(), currentRelFiles);
+  // Write updated manifest (#8 / #11 / #115).
+  // Compute SHA-256 hashes for all managed files so future refresh runs
+  // can detect which files have drifted from the generated baseline.
+  const contentHashes: Record<string, string> = {};
+  for (const rel of currentRelFiles) {
+    if (rel === manifestRel) continue;
+    const hash = hashFile(path.join(cwd, rel));
+    if (hash) contentHashes[rel] = hash;
+  }
+  writeManifest(cwd, getToolVersion(), currentRelFiles, contentHashes);
 
   // ── Capture context freshness snapshot ──────────────────────────────────
   // After a successful generation run, record a new baseline snapshot so that

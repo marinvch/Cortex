@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DetectedStack, AiOsConfig } from '../types.js';
-import { writeIfChanged, resolveTemplatesDir } from './utils.js';
+import { writeIfChanged, resolveTemplatesDir, sanitizeForInstructions } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = resolveTemplatesDir(__dirname);
@@ -22,7 +22,7 @@ function readFrameworkTemplate(templateKey: string): string {
 function buildStackSummary(stack: DetectedStack): string {
   const lines: string[] = [];
   for (const lang of stack.languages.slice(0, 5)) {
-    lines.push(`- **${lang.name}** (${lang.percentage}% of codebase, ${lang.fileCount} files)`);
+    lines.push(`- **${sanitizeForInstructions(lang.name)}** (${lang.percentage}% of codebase, ${lang.fileCount} files)`);
   }
   return lines.join('\n');
 }
@@ -57,27 +57,29 @@ function buildBuildCommandsSection(stack: DetectedStack): string {
 }
 
 function buildPersonaDirective(stack: DetectedStack): string {
-  const fw = stack.primaryFramework?.name;
-  if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${stack.primaryLanguage.name} and the full ${fw} ecosystem.`;
-  return `Act as a Senior ${stack.primaryLanguage.name} developer.`;
+  const fw = stack.primaryFramework ? sanitizeForInstructions(stack.primaryFramework.name) : null;
+  const lang = sanitizeForInstructions(stack.primaryLanguage.name);
+  if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${lang} and the full ${fw} ecosystem.`;
+  return `Act as a Senior ${lang} developer.`;
 }
 
 function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: string): string {
-  const frameworks = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
-  const linter = stack.patterns.linter ?? 'none detected';
-  const formatter = stack.patterns.formatter ?? 'none detected';
-  const testFramework = stack.patterns.testFramework ?? 'none detected';
-  const testDir = stack.patterns.testDirectory ?? 'none detected';
+  const s = sanitizeForInstructions;
+  const frameworks = stack.frameworks.map(f => s(f.name)).join(', ') || s(stack.primaryLanguage.name);
+  const linter = s(stack.patterns.linter ?? 'none detected');
+  const formatter = s(stack.patterns.formatter ?? 'none detected');
+  const testFramework = s(stack.patterns.testFramework ?? 'none detected');
+  const testDir = s(stack.patterns.testDirectory ?? 'none detected');
   const buildCommandsSection = buildBuildCommandsSection(stack);
 
   return template
-    .replace(/{{PROJECT_NAME}}/g, stack.projectName)
-    .replace(/{{PRIMARY_LANGUAGE}}/g, stack.primaryLanguage.name)
+    .replace(/{{PROJECT_NAME}}/g, s(stack.projectName))
+    .replace(/{{PRIMARY_LANGUAGE}}/g, s(stack.primaryLanguage.name))
     .replace(/{{FRAMEWORKS}}/g, frameworks)
-    .replace(/{{PACKAGE_MANAGER}}/g, stack.patterns.packageManager)
+    .replace(/{{PACKAGE_MANAGER}}/g, s(stack.patterns.packageManager))
     .replace(/{{HAS_TYPESCRIPT}}/g, stack.patterns.hasTypeScript ? 'Yes' : 'No')
     .replace(/{{STACK_SUMMARY}}/g, buildStackSummary(stack))
-    .replace(/{{NAMING_CONVENTION}}/g, stack.patterns.namingConvention)
+    .replace(/{{NAMING_CONVENTION}}/g, s(stack.patterns.namingConvention))
     .replace(/{{LINTER}}/g, linter)
     .replace(/{{FORMATTER}}/g, formatter)
     .replace(/{{TEST_FRAMEWORK}}/g, testFramework)

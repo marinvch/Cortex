@@ -7,6 +7,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { writeFileAtomic } from '../generators/utils.js';
 
 // ── Interfaces ─────────────────────────────────────────────────────────────
 
@@ -178,8 +179,7 @@ export function loadContextSnapshot(rootDir: string): ContextSnapshot | null {
 /** Write the context snapshot to `.github/ai-os/context-snapshot.json`. */
 export function writeContextSnapshot(rootDir: string, snapshot: ContextSnapshot): void {
   const snapshotPath = path.join(rootDir, SNAPSHOT_PATH);
-  fs.mkdirSync(path.dirname(snapshotPath), { recursive: true });
-  fs.writeFileSync(snapshotPath, JSON.stringify(snapshot, null, 2), 'utf-8');
+  writeFileAtomic(snapshotPath, JSON.stringify(snapshot, null, 2));
 }
 
 /**

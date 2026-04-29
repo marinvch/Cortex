@@ -16,6 +16,24 @@ export function setVerboseMode(enabled: boolean): void {
 export type WriteResult = 'written' | 'skipped';
 
 /**
+ * Write `content` to `filePath` atomically using a sibling temp-file + rename.
+ * Ensures the parent directory exists before writing.
+ * On POSIX the rename is atomic; on Windows it is best-effort (rename replaces
+ * atomically on NTFS when source and target are on the same volume).
+ */
+export function writeFileAtomic(filePath: string, content: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs.writeFileSync(tmpPath, content, 'utf-8');
+    fs.renameSync(tmpPath, filePath);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup errors */ }
+    throw err;
+  }
+}
+
+/**
  * Write `content` to `filePath` only when the content differs from the existing
  * file. Returns 'written' when a write occurred, 'skipped' when the content was
  * already identical. Ensures the parent directory exists before writing.
@@ -32,7 +50,7 @@ export function writeIfChanged(filePath: string, content: string): WriteResult {
     }
   }
 
-  fs.writeFileSync(filePath, content, 'utf-8');
+  writeFileAtomic(filePath, content);
   if (_verbose) console.log(`  ✏️  write   ${filePath}`);
   return 'written';
 }
@@ -98,10 +116,7 @@ export function writeManifest(outputDir: string, version: string, files: string[
   };
 
   const manifestPath = getManifestPath(outputDir);
-  const tmpPath = manifestPath + '.tmp';
-  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  fs.writeFileSync(tmpPath, JSON.stringify(manifest, null, 2), 'utf-8');
-  fs.renameSync(tmpPath, manifestPath);
+  writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
 // ── Diff tracking (#11) ───────────────────────────────────────────────────────

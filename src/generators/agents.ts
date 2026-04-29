@@ -215,6 +215,19 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
     });
   }
 
+  // 7. Architecture migration agent — always
+  specs.push({
+    templateFile: path.join(templateDir, 'architecture-migration.md'),
+    outputFile: 'architecture-migration.agent.md',
+    name: 'Architecture Migration',
+    description: `Three-phase guide for ${projectName} architecture migrations: audit legacy AI guidance, gate on phased migration status, and drive post-change context replacement.`,
+    argumentHint: 'Describe the migration: "from X to Y" (e.g., "from session auth to JWT", "from REST to tRPC")',
+    replacements: {
+      '{{PROJECT_NAME}}': projectName,
+      '{{STACK_SUMMARY}}': toBulletList(stackSummary),
+    },
+  });
+
   return specs;
 }
 

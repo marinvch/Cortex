@@ -619,6 +619,17 @@ if [[ -f "$GITIGNORE" ]]; then
   fi
 fi
 
+# ── Post-install health check (--doctor) ─────────────────────────────────────
+echo -e "  ${CYAN}→ Running post-install health check...${RESET}"
+if (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts --doctor --cwd "$TARGET_DIR"); then
+  echo -e "  ${GREEN}✓ Health check passed${RESET}"
+else
+  echo ""
+  echo -e "  ${YELLOW}⚠ Health check found issues (see above). AI OS is installed but may need attention.${RESET}"
+  echo -e "  ${YELLOW}  Re-run diagnostics:${RESET} npx -y github:marinvch/ai-os --doctor --cwd ."
+fi
+echo ""
+
 # ── Done ────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "  ${GREEN}${BOLD}✅ AI OS installed successfully!${RESET}"

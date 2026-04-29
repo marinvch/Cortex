@@ -7,7 +7,7 @@
  *
  * Usage:  npm run validate
  */
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -60,9 +60,9 @@ function readText(dir: string, rel: string): string {
 }
 
 function gitInit(dir: string): void {
-  execSync('git init', { cwd: dir, stdio: 'ignore' });
-  execSync('git config user.email "test@ai-os.local"', { cwd: dir, stdio: 'ignore' });
-  execSync('git config user.name "AI OS Test"', { cwd: dir, stdio: 'ignore' });
+  spawnSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
+  spawnSync('git', ['config', 'user.email', 'test@ai-os.local'], { cwd: dir, stdio: 'ignore' });
+  spawnSync('git', ['config', 'user.name', 'AI OS Test'], { cwd: dir, stdio: 'ignore' });
 }
 
 const AI_OS_ROOT = path.resolve(import.meta.dirname, '../..');

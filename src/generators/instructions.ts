@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DetectedStack, AiOsConfig } from '../types.js';
-import { writeIfChanged, resolveTemplatesDir } from './utils.js';
+import { writeIfChanged, resolveTemplatesDir, sanitizeForInstructions } from './utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = resolveTemplatesDir(__dirname);
@@ -22,7 +22,7 @@ function readFrameworkTemplate(templateKey: string): string {
 function buildStackSummary(stack: DetectedStack): string {
   const lines: string[] = [];
   for (const lang of stack.languages.slice(0, 5)) {
-    lines.push(`- **${lang.name}** (${lang.percentage}% of codebase, ${lang.fileCount} files)`);
+    lines.push(`- **${sanitizeForInstructions(lang.name)}** (${lang.percentage}% of codebase, ${lang.fileCount} files)`);
   }
   return lines.join('\n');
 }
@@ -57,27 +57,29 @@ function buildBuildCommandsSection(stack: DetectedStack): string {
 }
 
 function buildPersonaDirective(stack: DetectedStack): string {
-  const fw = stack.primaryFramework?.name;
-  if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${stack.primaryLanguage.name} and the full ${fw} ecosystem.`;
-  return `Act as a Senior ${stack.primaryLanguage.name} developer.`;
+  const fw = stack.primaryFramework ? sanitizeForInstructions(stack.primaryFramework.name) : null;
+  const lang = sanitizeForInstructions(stack.primaryLanguage.name);
+  if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${lang} and the full ${fw} ecosystem.`;
+  return `Act as a Senior ${lang} developer.`;
 }
 
 function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: string): string {
-  const frameworks = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
-  const linter = stack.patterns.linter ?? 'none detected';
-  const formatter = stack.patterns.formatter ?? 'none detected';
-  const testFramework = stack.patterns.testFramework ?? 'none detected';
-  const testDir = stack.patterns.testDirectory ?? 'none detected';
+  const s = sanitizeForInstructions;
+  const frameworks = stack.frameworks.map(f => s(f.name)).join(', ') || s(stack.primaryLanguage.name);
+  const linter = s(stack.patterns.linter ?? 'none detected');
+  const formatter = s(stack.patterns.formatter ?? 'none detected');
+  const testFramework = s(stack.patterns.testFramework ?? 'none detected');
+  const testDir = s(stack.patterns.testDirectory ?? 'none detected');
   const buildCommandsSection = buildBuildCommandsSection(stack);
 
   return template
-    .replace(/{{PROJECT_NAME}}/g, stack.projectName)
-    .replace(/{{PRIMARY_LANGUAGE}}/g, stack.primaryLanguage.name)
+    .replace(/{{PROJECT_NAME}}/g, s(stack.projectName))
+    .replace(/{{PRIMARY_LANGUAGE}}/g, s(stack.primaryLanguage.name))
     .replace(/{{FRAMEWORKS}}/g, frameworks)
-    .replace(/{{PACKAGE_MANAGER}}/g, stack.patterns.packageManager)
+    .replace(/{{PACKAGE_MANAGER}}/g, s(stack.patterns.packageManager))
     .replace(/{{HAS_TYPESCRIPT}}/g, stack.patterns.hasTypeScript ? 'Yes' : 'No')
     .replace(/{{STACK_SUMMARY}}/g, buildStackSummary(stack))
-    .replace(/{{NAMING_CONVENTION}}/g, stack.patterns.namingConvention)
+    .replace(/{{NAMING_CONVENTION}}/g, s(stack.patterns.namingConvention))
     .replace(/{{LINTER}}/g, linter)
     .replace(/{{FORMATTER}}/g, formatter)
     .replace(/{{TEST_FRAMEWORK}}/g, testFramework)
@@ -454,5 +456,146 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     outputFiles.push(...pathSpecificFiles);
   }
 
+  // Generate Prompt Quality Pack unless explicitly disabled
+  if (config?.promptQualityPack !== false) {
+    const pqpPath = generatePromptQualityPack(stack, outputDir, githubDir);
+    if (pqpPath) outputFiles.push(pqpPath);
+  }
+
   return outputFiles;
+}
+
+function generatePromptQualityPack(stack: DetectedStack, outputDir: string, githubDir: string): string | null {
+  const agentsDir = path.join(outputDir, '.github', 'agents');
+  const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
+
+  // Discover installed agents
+  const agentRows: string[] = [];
+  if (fs.existsSync(agentsDir)) {
+    for (const file of fs.readdirSync(agentsDir)) {
+      if (!file.endsWith('.agent.md')) continue;
+      try {
+        const raw = fs.readFileSync(path.join(agentsDir, file), 'utf-8');
+        const nameMatch = raw.match(/^name:\s*(.+)$/m);
+        const argHintMatch = raw.match(/^argument-hint:\s*"?(.+?)"?$/m);
+        const descMatch = raw.match(/^description:\s*(.+)$/m);
+        const name = nameMatch?.[1]?.trim() ?? file.replace('.agent.md', '');
+        const argHint = argHintMatch?.[1]?.trim() ?? '';
+        const desc = descMatch?.[1]?.trim() ?? '';
+        agentRows.push(`| \`${name}\` | ${desc} | ${argHint} |`);
+      } catch {
+        // skip unreadable agent files
+      }
+    }
+  }
+
+  // Discover installed skills
+  const skillRows: string[] = [];
+  if (fs.existsSync(skillsDir)) {
+    for (const file of fs.readdirSync(skillsDir)) {
+      if (!file.endsWith('.md')) continue;
+      try {
+        const raw = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
+        const nameMatch = raw.match(/^name:\s*(.+)$/m);
+        const triggerMatch = raw.match(/^description:\s*(.+)$/m);
+        const name = nameMatch?.[1]?.trim() ?? file.replace('.md', '');
+        const trigger = triggerMatch?.[1]?.trim() ?? '';
+        skillRows.push(`| \`${name}\` | ${trigger} |`);
+      } catch {
+        // skip unreadable skill files
+      }
+    }
+  }
+
+  const agentTable = agentRows.length > 0
+    ? ['| Agent | Description | When to use |', '|---|---|---|', ...agentRows].join('\n')
+    : '_No agents installed yet._';
+
+  const skillTable = skillRows.length > 0
+    ? ['| Skill | Trigger phrase / description |', '|---|---|', ...skillRows].join('\n')
+    : '_No skills installed yet._';
+
+  const frameworks = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
+  const buildCmd = stack.buildCommands?.build ?? 'npm run build';
+  const testCmd = stack.buildCommands?.test ?? 'npm test';
+  const contextSyncCmd = 'npx -y github:marinvch/ai-os --refresh-existing';
+
+  const content = [
+    '---',
+    'applyTo: "**"',
+    '---',
+    '',
+    `# Prompt Quality Pack — ${stack.projectName}`,
+    '',
+    `> Stack: **${frameworks}** · Language: **${stack.primaryLanguage.name}** · Package manager: **${stack.patterns.packageManager}**`,
+    '',
+    '## 1. Prompt Template',
+    '',
+    'Use this structure for best results:',
+    '',
+    '```',
+    'Goal: <one sentence — what should be accomplished>',
+    'Scope: #file:<path> or describe the affected area',
+    'Constraints: <framework rules, must-nots, or size limits>',
+    'Agent: <agent name if a specialist is needed>',
+    'Skill: <skill keyword if domain-specific guidance is needed>',
+    'Done-when: <acceptance criteria — how will we know it worked?>',
+    '```',
+    '',
+    '## 2. Agent Routing Table',
+    '',
+    'Use `@<agent-name>` to invoke a specialist agent:',
+    '',
+    agentTable,
+    '',
+    '## 3. Skill Trigger Keywords',
+    '',
+    'Skills load automatically when your prompt matches their description:',
+    '',
+    skillTable,
+    '',
+    '## 4. MCP Health Check',
+    '',
+    'Verify the MCP server is connected before starting a session.',
+    'If `get_session_context` or `get_repo_memory` returns no output, the server is not running.',
+    'Restart it via the VS Code MCP panel or re-run the install.',
+    '',
+    '## 5. Plan-Mode Trigger',
+    '',
+    'Switch to **Plan mode** first when:',
+    '- The task has 3 or more sequential steps',
+    '- The change is irreversible (delete, drop, migrate, deploy)',
+    '- Multiple files or systems are affected',
+    '',
+    '## 6. Post-Change Context Refresh',
+    '',
+    'After structural changes (new dependencies, new files, architecture moves), refresh AI OS context:',
+    '',
+    '```bash',
+    contextSyncCmd,
+    '```',
+    '',
+    '## 7. Anti-Patterns',
+    '',
+    '- **Mixing concerns** — one prompt should do one thing',
+    `- **Vague \`#codebase\`** when a specific file path is known — use \`#file:<path>\``,
+    '- **Accepting unsourced claims** — verify with `get_repo_memory` or `search_codebase`',
+    '- **Skipping Plan mode** for irreversible changes',
+    '- **Ignoring stale context** — run `check_for_updates` if output quality drops',
+    '',
+    '## Build & Test Commands',
+    '',
+    `| Action | Command |`,
+    `|---|---|`,
+    `| Build | \`${buildCmd}\` |`,
+    `| Test | \`${testCmd}\` |`,
+  ].join('\n');
+
+  const instructionsDir = path.join(githubDir, 'instructions');
+  if (!fs.existsSync(instructionsDir)) {
+    fs.mkdirSync(instructionsDir, { recursive: true });
+  }
+  const outputPath = path.join(instructionsDir, 'prompt-quality.instructions.md');
+  writeIfChanged(outputPath, content);
+  return outputPath;
 }

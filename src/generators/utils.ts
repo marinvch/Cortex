@@ -11,9 +11,50 @@ export function setVerboseMode(enabled: boolean): void {
   _verbose = enabled;
 }
 
+// ── Content hashing (#115) ────────────────────────────────────────────────────
+
+/**
+ * Compute a SHA-256 hex digest of `content`.
+ * Used to populate manifest.hashes so refresh runs can detect unchanged files.
+ */
+export function hashContent(content: string): string {
+  return createHash('sha256').update(content, 'utf-8').digest('hex');
+}
+
+/**
+ * Read a file from disk and compute its SHA-256 hex digest.
+ * Returns `null` when the file does not exist.
+ */
+export function hashFile(filePath: string): string | null {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return hashContent(content);
+  } catch {
+    return null;
+  }
+}
+
 // ── Write-if-changed (#13) ────────────────────────────────────────────────────
 
 export type WriteResult = 'written' | 'skipped';
+
+/**
+ * Write `content` to `filePath` atomically using a sibling temp-file + rename.
+ * Ensures the parent directory exists before writing.
+ * On POSIX the rename is atomic; on Windows it is best-effort (rename replaces
+ * atomically on NTFS when source and target are on the same volume).
+ */
+export function writeFileAtomic(filePath: string, content: string): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs.writeFileSync(tmpPath, content, 'utf-8');
+    fs.renameSync(tmpPath, filePath);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup errors */ }
+    throw err;
+  }
+}
 
 /**
  * Write `content` to `filePath` only when the content differs from the existing
@@ -32,7 +73,7 @@ export function writeIfChanged(filePath: string, content: string): WriteResult {
     }
   }
 
-  fs.writeFileSync(filePath, content, 'utf-8');
+  writeFileAtomic(filePath, content);
   if (_verbose) console.log(`  ✏️  write   ${filePath}`);
   return 'written';
 }
@@ -69,6 +110,8 @@ export interface AiOsManifest {
   generatedAt: string;
   /** Repo-relative paths of all files written by AI OS in this run */
   files: string[];
+  /** SHA-256 content hashes keyed by repo-relative file path */
+  hashes?: Record<string, string>;
 }
 
 const MANIFEST_FILENAME = 'manifest.json';
@@ -77,10 +120,27 @@ export function getManifestPath(outputDir: string): string {
   return path.join(outputDir, '.github', 'ai-os', MANIFEST_FILENAME);
 }
 
+/** Runtime type guard for AiOsManifest JSON artifacts. */
+export function isAiOsManifest(obj: unknown): obj is AiOsManifest {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return (
+    typeof o['version'] === 'string' &&
+    typeof o['generatedAt'] === 'string' &&
+    Array.isArray(o['files']) &&
+    (o['files'] as unknown[]).every((f) => typeof f === 'string')
+  );
+}
+
 export function readManifest(outputDir: string): AiOsManifest | null {
   const manifestPath = getManifestPath(outputDir);
   try {
-    return JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as AiOsManifest;
+    const parsed: unknown = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    if (!isAiOsManifest(parsed)) {
+      console.warn(`⚠️  manifest.json at ${manifestPath} failed schema validation — ignoring.`);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -89,19 +149,23 @@ export function readManifest(outputDir: string): AiOsManifest | null {
 /**
  * Write the manifest atomically: write to a temp file then rename.
  * `files` should be repo-relative paths (forward slashes).
+ * `hashes` is an optional map of repo-relative path → SHA-256 hex content hash.
  */
-export function writeManifest(outputDir: string, version: string, files: string[]): void {
+export function writeManifest(
+  outputDir: string,
+  version: string,
+  files: string[],
+  hashes?: Record<string, string>,
+): void {
   const manifest: AiOsManifest = {
     version,
     generatedAt: new Date().toISOString(),
     files: [...files].sort(),
+    ...(hashes && Object.keys(hashes).length > 0 ? { hashes } : {}),
   };
 
   const manifestPath = getManifestPath(outputDir);
-  const tmpPath = manifestPath + '.tmp';
-  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
-  fs.writeFileSync(tmpPath, JSON.stringify(manifest, null, 2), 'utf-8');
-  fs.renameSync(tmpPath, manifestPath);
+  writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
 // ── Diff tracking (#11) ───────────────────────────────────────────────────────
@@ -139,7 +203,34 @@ export function sha256(content: string): string {
   return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
 
-// ── Template resolution (source vs bundled runtime) ─────────────────────────
+// ── Prompt-injection sanitizer (#107) ────────────────────────────────────────
+
+/**
+ * Sanitize an untrusted string (e.g. from package.json `name`, dependency names,
+ * or filesystem paths) for safe inline interpolation into Copilot instruction
+ * and agent files.
+ *
+ * Defenses applied:
+ *  1. Strip C0/C1 control characters and Unicode invisible / zero-width chars.
+ *  2. Collapse newlines, carriage returns, and tabs to a single space — inline
+ *     fields must not span lines to prevent heading/block injection.
+ *  3. Collapse consecutive spaces to one.
+ *  4. Cap to `maxLength` characters (default 128) to prevent token-flooding.
+ */
+export function sanitizeForInstructions(value: string, maxLength = 128): string {
+  return value
+    // Strip C0 control chars (except 0x09 tab, 0x0A LF, 0x0D CR handled below),
+    // C1 control chars, and Unicode invisible/zero-width characters.
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u200B-\u200D\u2028\u2029\uFEFF]/g, '')
+    // Collapse newlines / CR / tabs → single space (no line breaks in inline fields).
+    .replace(/[\r\n\t]+/g, ' ')
+    // Collapse consecutive spaces.
+    .replace(/ {2,}/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+// ── Templates dir resolution ──────────────────────────────────────────────────
 
 /**
  * Resolve the templates root directory for both source (`src/generators/*`)

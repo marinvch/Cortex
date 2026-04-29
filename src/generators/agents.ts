@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
-import { writeIfChanged, applyFallbacks, resolveTemplatesDir } from './utils.js';
+import { writeIfChanged, applyFallbacks, resolveTemplatesDir, sanitizeForInstructions } from './utils.js';
 import { enforceAgentContract } from '../validation/agent-contract.js';
 
 const AGENTS_DIR = '.github/agents';
@@ -48,18 +48,18 @@ function buildFrameworkRules(stack: DetectedStack): string {
 
 function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
   const specs: AgentSpec[] = [];
-  const projectName = path.basename(cwd);
+  const projectName = sanitizeForInstructions(path.basename(cwd));
   const frameworks = stack.frameworks.map(f => f.name);
   const packages = stack.allDependencies;
-  const primaryLang = stack.languages[0]?.name ?? 'TypeScript';
+  const primaryLang = sanitizeForInstructions(stack.languages[0]?.name ?? 'TypeScript');
   const hasPrisma = packages.some(p => p.includes('prisma'));
   const hasAuth = packages.some(p => ['next-auth', 'nextauth', 'passport', 'django.contrib.auth', 'flask-login'].some(a => p.toLowerCase().includes(a)));
   const hasStripe = packages.some(p => p.toLowerCase().includes('stripe'));
   const hasNextjs = frameworks.some(f => f.toLowerCase().includes('next'));
   const hasReact = frameworks.some(f => ['react', 'next', 'remix', 'gatsby'].some(k => f.toLowerCase().includes(k)));
-  const primaryFramework = frameworks[0] ?? primaryLang;
+  const primaryFramework = sanitizeForInstructions(frameworks[0] ?? primaryLang);
   const frameworkLabel = hasNextjs ? 'Next.js' : primaryFramework;
-  const frameworkList = frameworks.length > 0 ? frameworks.join(', ') : primaryLang;
+  const frameworkList = frameworks.length > 0 ? frameworks.map(f => sanitizeForInstructions(f)).join(', ') : primaryLang;
 
   const stackSummary = [
     `Primary language: ${primaryLang}`,
@@ -215,6 +215,19 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
     });
   }
 
+  // 7. Architecture migration agent — always
+  specs.push({
+    templateFile: path.join(templateDir, 'architecture-migration.md'),
+    outputFile: 'architecture-migration.agent.md',
+    name: 'Architecture Migration',
+    description: `Three-phase guide for ${projectName} architecture migrations: audit legacy AI guidance, gate on phased migration status, and drive post-change context replacement.`,
+    argumentHint: 'Describe the migration: "from X to Y" (e.g., "from session auth to JWT", "from REST to tRPC")',
+    replacements: {
+      '{{PROJECT_NAME}}': projectName,
+      '{{STACK_SUMMARY}}': toBulletList(stackSummary),
+    },
+  });
+
   return specs;
 }
 
@@ -260,11 +273,11 @@ export function scanExistingAgents(cwd: string): ExistingAgentScan {
 
 function buildSequentialAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
   const specs: AgentSpec[] = [];
-  const projectName = path.basename(cwd);
+  const projectName = sanitizeForInstructions(path.basename(cwd));
   const frameworks = stack.frameworks.map(f => f.name);
-  const primaryLang = stack.languages[0]?.name ?? 'TypeScript';
-  const frameworkLabel = frameworks[0] ?? primaryLang;
-  const frameworkList = frameworks.length > 0 ? frameworks.join(', ') : primaryLang;
+  const primaryLang = sanitizeForInstructions(stack.languages[0]?.name ?? 'TypeScript');
+  const frameworkLabel = sanitizeForInstructions(frameworks[0] ?? primaryLang);
+  const frameworkList = frameworks.length > 0 ? frameworks.map(f => sanitizeForInstructions(f)).join(', ') : primaryLang;
 
   const runtimeDir = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1'));
   const templateDir = path.join(resolveTemplatesDir(runtimeDir), 'agents');

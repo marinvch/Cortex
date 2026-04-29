@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { getMcpToolsForStack, getToolsWithStackSplit } from '../mcp-tools.js';
-import { writeIfChanged } from './utils.js';
+import { writeIfChanged, writeFileAtomic } from './utils.js';
 
 interface McpServerConfig {
   type: 'stdio';

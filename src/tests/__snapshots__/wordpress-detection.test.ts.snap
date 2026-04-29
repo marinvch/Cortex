@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`examples/wordpress-site — stack detection > stack shape matches snapshot 1`] = `
+{
+  "frameworks": [
+    "WordPress",
+  ],
+  "primaryLanguage": "PHP",
+}
+`;

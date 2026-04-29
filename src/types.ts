@@ -157,4 +157,25 @@ export interface AiOsConfig {
    * Range: 0.5–1.0. Default: 0.85.
    */
   memoryNearDuplicateThreshold?: number;
+  /**
+   * When false, skip generating .github/instructions/prompt-quality.instructions.md.
+   * Default: true.
+   */
+  promptQualityPack?: boolean;
+}
+
+/** Runtime type guard for AiOsConfig JSON artifacts. */
+export function isAiOsConfig(obj: unknown): obj is AiOsConfig {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return (
+    typeof o['version'] === 'string' &&
+    typeof o['installedAt'] === 'string' &&
+    typeof o['projectName'] === 'string' &&
+    typeof o['primaryLanguage'] === 'string' &&
+    typeof o['packageManager'] === 'string' &&
+    typeof o['hasTypeScript'] === 'boolean' &&
+    Array.isArray(o['persistentRules']) &&
+    Array.isArray(o['exclude'])
+  );
 }

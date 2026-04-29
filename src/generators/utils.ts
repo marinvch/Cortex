@@ -95,10 +95,27 @@ export function getManifestPath(outputDir: string): string {
   return path.join(outputDir, '.github', 'ai-os', MANIFEST_FILENAME);
 }
 
+/** Runtime type guard for AiOsManifest JSON artifacts. */
+export function isAiOsManifest(obj: unknown): obj is AiOsManifest {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return (
+    typeof o['version'] === 'string' &&
+    typeof o['generatedAt'] === 'string' &&
+    Array.isArray(o['files']) &&
+    (o['files'] as unknown[]).every((f) => typeof f === 'string')
+  );
+}
+
 export function readManifest(outputDir: string): AiOsManifest | null {
   const manifestPath = getManifestPath(outputDir);
   try {
-    return JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as AiOsManifest;
+    const parsed: unknown = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
+    if (!isAiOsManifest(parsed)) {
+      console.warn(`⚠️  manifest.json at ${manifestPath} failed schema validation — ignoring.`);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }

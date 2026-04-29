@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
+import { isAiOsConfig } from '../types.js';
 import { buildDependencyGraph } from '../detectors/graph.js';
 import { getToolVersion } from '../updater.js';
 import { writeIfChanged, writeFileAtomic, sanitizeForInstructions } from './utils.js';
@@ -22,7 +23,12 @@ const DEFAULT_AI_OS_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projec
 export function readAiOsConfig(outputDir: string): AiOsConfig | null {
   const configPath = path.join(outputDir, '.github', 'ai-os', 'config.json');
   try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as AiOsConfig;
+    const parsed: unknown = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (!isAiOsConfig(parsed)) {
+      console.warn(`⚠️  config.json at ${configPath} failed schema validation — ignoring.`);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }

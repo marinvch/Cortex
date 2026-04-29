@@ -157,4 +157,9 @@ export interface AiOsConfig {
    * Range: 0.5–1.0. Default: 0.85.
    */
   memoryNearDuplicateThreshold?: number;
+  /**
+   * When false, skip generating .github/instructions/prompt-quality.instructions.md.
+   * Default: true.
+   */
+  promptQualityPack?: boolean;
 }

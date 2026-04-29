@@ -10,6 +10,9 @@ dist/generate.d.ts
 *.d.ts
 tsconfig.tsbuildinfo
 
+# Coverage reports
+coverage/
+
 # Test output — generated files written to target repos
 .ai-os/
 .vscode/mcp.json

@@ -11,7 +11,7 @@
       "id": "/refactor-component",
       "title": "Refactor Component",
       "description": "Refactor a component following project conventions",
-      "prompt": "Refactor the component I specify following the project conventions.\nBefore touching anything:\n1. Read the component file completely\n2. List all imports and consumers (grep for the component name)\n3. Identify props, tRPC hooks, and state\nThen:\n- Apply the naming conventions from .github/ai-os/context/conventions.md\n- Extract business logic to lib/ if present in the component\n- Ensure TypeScript strict compliance (no any)\n- Verify all callers still compile after the refactor"
+      "prompt": "Refactor the component I specify following the project conventions.\nBefore touching anything:\n1. Read the component file completely\n2. List all imports and consumers (grep for the component name)\n3. Identify props, data hooks (custom/fetching), and state\nThen:\n- Apply the naming conventions from .github/ai-os/context/conventions.md\n- Extract business logic to the existing shared module pattern used by this repo (for example lib/, services/, or hooks/)\n- Ensure TypeScript strict compliance (no any)\n- Verify all callers still compile after the refactor"
     },
     {
       "id": "/define",
@@ -48,6 +48,12 @@
       "title": "Pre-Ship Checklist",
       "description": "Run the pre-ship checklist before merging or deploying",
       "prompt": "Run through the pre-ship checklist for this change.\nCheck each item and mark PASS / FAIL:\n- [ ] All /verify criteria pass\n- [ ] All Critical and Required /review findings resolved\n- [ ] Tests pass (paste summary)\n- [ ] No hardcoded secrets, keys, or credentials in diff\n- [ ] Environment variables documented (README or .env.example)\n- [ ] CHANGELOG or PR description updated\n- [ ] Version bumped if this is a releasable change\n- [ ] Any migration or deployment steps documented\nIf all items pass, state: READY TO SHIP. Otherwise, list blocking items."
+    },
+    {
+      "id": "/architecture-migration",
+      "title": "Architecture Migration Audit",
+      "description": "Audit AI artifacts for legacy references before a major architecture change",
+      "prompt": "Run a three-phase architecture migration workflow for this project.\n\nPhase 1 — Pre-Change Audit:\n1. Ask me to declare the migration boundary: \"from X to Y\" (e.g., \"from session auth to JWT\")\n2. Scan ALL AI artifacts for legacy references:\n   - .github/copilot-instructions.md\n   - .github/ai-os/context/architecture.md\n   - .github/ai-os/context/conventions.md\n   - .github/ai-os/context/stack.md\n   - .github/copilot/skills/*.md\n   - .github/agents/*.md\n   - .github/copilot/prompts.json\n3. Output a Migration Impact Inventory table: File | Line | Stale Statement | Replacement | Risk (High/Medium/Low)\n4. Do NOT proceed to Phase 2 until I approve the inventory.\n\nPhase 2 — Change Execution Gate:\n- Track migration phase per module: dual-path / switch-over / legacy-removal / complete\n- Block marking any module complete while High/Medium risk stale references remain\n- Flag any migration shims that outlive their expected phase\n\nPhase 3 — Post-Change Replacement:\n1. Replace every stale statement (do not append-only; remove the old guidance)\n2. Add supersession comments for changed core rules: <!-- SUPERSEDED: <old> — replaced by <new> on <date> -->\n3. Re-run the Phase 1 scan to verify zero stale references remain\n4. If AI OS is installed, run: npx github:marinvch/ai-os --check-hygiene\n\nStart now: ask me for the migration boundary."
     }
   ]
 }

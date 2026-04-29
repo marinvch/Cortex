@@ -20,24 +20,41 @@ AI OS embeds slash-command prompts for each lifecycle phase. Use them in order:
 ## Recommended VS Code Extensions
 
 - [`ms-vscode.vscode-typescript-next`](https://marketplace.visualstudio.com/items?itemName=ms-vscode.vscode-typescript-next) — for `TypeScript`
+- [`bmewburn.vscode-intelephense-client`](https://marketplace.visualstudio.com/items?itemName=bmewburn.vscode-intelephense-client) — for `PHP`
+- [`golang.go`](https://marketplace.visualstudio.com/items?itemName=golang.go) — for `Go`
+- [`ms-python.python`](https://marketplace.visualstudio.com/items?itemName=ms-python.python) — for `Python`
+- [`ms-python.black-formatter`](https://marketplace.visualstudio.com/items?itemName=ms-python.black-formatter) — for `Python`
 
 **Install all at once:**
 ```bash
 code --install-extension ms-vscode.vscode-typescript-next
+code --install-extension bmewburn.vscode-intelephense-client
+code --install-extension golang.go
+code --install-extension ms-python.python
+code --install-extension ms-python.black-formatter
 ```
+
+## Agent Skills to Install
+
+- **context7** — for `Go`
+
+**Install via skills CLI** (source-based form `<source>@<skill>`):
+```bash
+npx -y skills add <source>@context7 -g -a github-copilot
+```
+
+> ⚠️  Skills without a known source (`context7`): find the GitHub repo hosting the skill and replace `<source>` before running.
 
 ## Universal Skills (Optional)
 
 > These skills are useful for any project and are not specific to the detected stack.
 
 - **find-skills** — general purpose
-- **context7** — general purpose
 
-**Install via skills CLI:**
+**Install via skills CLI** (source-based form `<source>@<skill>`):
 ```bash
-npx -y skills add --skill find-skills -g -a github-copilot
-npx -y skills add --skill context7 -g -a github-copilot
+npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot
 ```
 
 ---
-*Generated at 2026-04-23T07:57:21.163Z by AI OS*
+*Generated at 2026-04-29T07:35:19.887Z by AI OS*

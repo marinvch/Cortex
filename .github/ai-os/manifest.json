@@ -1,14 +1,17 @@
 {
-  "version": "0.11.0",
-  "generatedAt": "2026-04-23T07:57:21.164Z",
+  "version": "0.13.0",
+  "generatedAt": "2026-04-29T07:35:19.889Z",
   "files": [
     ".github/COPILOT_CONTEXT.md",
+    ".github/agents/architecture-migration.agent.md",
+    ".github/agents/expert-typescript-developer.agent.md",
     ".github/ai-os/config.json",
     ".github/ai-os/context/architecture.md",
     ".github/ai-os/context/context-budget.md",
     ".github/ai-os/context/conventions.md",
     ".github/ai-os/context/dependency-graph.json",
     ".github/ai-os/context/existing-ai-context.md",
+    ".github/ai-os/context/mcp-tools.md",
     ".github/ai-os/context/memory.md",
     ".github/ai-os/context/protected-blocks.md",
     ".github/ai-os/context/stack.md",
@@ -18,7 +21,9 @@
     ".github/ai-os/recommendations.md",
     ".github/ai-os/tools.json",
     ".github/copilot-instructions.md",
+    ".github/copilot/prompts.json",
     ".github/instructions/ai-os.instructions.md",
+    ".github/instructions/prompt-quality.instructions.md",
     ".github/instructions/tests.instructions.md",
     ".github/workflows/ai-os-update-check.yml"
   ]

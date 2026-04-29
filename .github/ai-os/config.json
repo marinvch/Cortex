@@ -1,8 +1,8 @@
 {
-  "version": "0.11.0",
-  "installedAt": "2026-04-23T07:57:21.156Z",
+  "version": "0.13.0",
+  "installedAt": "2026-04-29T07:35:19.860Z",
   "projectName": "ai-os",
-  "primaryLanguage": "Markdown",
+  "primaryLanguage": "TypeScript",
   "primaryFramework": null,
   "frameworks": [],
   "packageManager": "npm",

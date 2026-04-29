@@ -32,6 +32,8 @@
     "validate:fast": "npm run build && npm run test",
     "validate:ops": "npm run validate:fast && npm run scorecard:check",
     "validate:full": "npm run build && npm run test && npm run validate",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "test": "vitest run",
     "test:watch": "vitest",
     "install:skill-creator": "npx -y skills add anthropics/skills@skill-creator -g -a github-copilot",
@@ -43,9 +45,13 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.1",
+    "@typescript-eslint/parser": "^8.59.1",
     "esbuild": "^0.24.0",
+    "eslint": "^10.2.1",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.59.1",
     "vitest": "^2.1.9"
   }
 }

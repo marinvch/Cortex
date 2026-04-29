@@ -144,3 +144,9 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, options
   // added servers.
   return [toolsJsonPath];
 }
+
+/** @deprecated Use writeMcpServerConfigs */
+export function writeMcpServerConfig(outputDir: string, options?: WriteMcpServerConfigOptions): string {
+  writeMcpServerConfigs(outputDir, options);
+  return path.join(outputDir, '.vscode', 'mcp.json');
+}

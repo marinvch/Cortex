@@ -12,11 +12,167 @@
       "importedBy": [],
       "exports": []
     },
+    "eslint.config.mjs": {
+      "path": "eslint.config.mjs",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "examples/go-service/main.go": {
+      "path": "examples/go-service/main.go",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "examples/nextjs-trpc-prisma/src/server/trpc.ts": {
+      "path": "examples/nextjs-trpc-prisma/src/server/trpc.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": [
+        "router",
+        "publicProcedure"
+      ]
+    },
+    "examples/python-fastapi/main.py": {
+      "path": "examples/python-fastapi/main.py",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "examples/wordpress-site/wp-config.php": {
+      "path": "examples/wordpress-site/wp-config.php",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "examples/wordpress-site/wp-content/plugins/mysite-custom/mysite-custom.php": {
+      "path": "examples/wordpress-site/wp-content/plugins/mysite-custom/mysite-custom.php",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
     "scripts/bundle.mjs": {
       "path": "scripts/bundle.mjs",
       "imports": [],
       "importedBy": [],
       "exports": []
+    },
+    "src/actions/apply.ts": {
+      "path": "src/actions/apply.ts",
+      "imports": [
+        "src/analyze.ts",
+        "src/generators/instructions.ts",
+        "src/generators/mcp.ts",
+        "src/generators/context-docs.ts",
+        "src/generators/agents.ts",
+        "src/generators/skills.ts",
+        "src/generators/prompts.ts",
+        "src/generators/workflows.ts",
+        "src/mcp-tools.ts",
+        "src/updater.ts",
+        "src/planner.ts",
+        "src/generators/utils.ts",
+        "src/recommendations/index.ts",
+        "src/profile.ts",
+        "src/user-blocks.ts",
+        "src/detectors/freshness.ts",
+        "src/mcp-server/utils.ts",
+        "src/actions/bootstrap.ts",
+        "src/actions/plan.ts",
+        "src/actions/preview.ts",
+        "src/cli/args.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts"
+      ],
+      "exports": [
+        "runApply"
+      ]
+    },
+    "src/actions/bootstrap.ts": {
+      "path": "src/actions/bootstrap.ts",
+      "imports": [
+        "src/bootstrap.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts"
+      ],
+      "exports": [
+        "runBootstrapAction"
+      ]
+    },
+    "src/actions/check-freshness.ts": {
+      "path": "src/actions/check-freshness.ts",
+      "imports": [
+        "src/detectors/freshness.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts"
+      ],
+      "exports": [
+        "runCheckFreshnessAction"
+      ]
+    },
+    "src/actions/check-hygiene.ts": {
+      "path": "src/actions/check-hygiene.ts",
+      "imports": [
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts"
+      ],
+      "exports": [
+        "runCheckHygieneAction"
+      ]
+    },
+    "src/actions/compact-memory.ts": {
+      "path": "src/actions/compact-memory.ts",
+      "imports": [
+        "src/mcp-server/utils.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts"
+      ],
+      "exports": [
+        "runCompactMemoryAction"
+      ]
+    },
+    "src/actions/doctor.ts": {
+      "path": "src/actions/doctor.ts",
+      "imports": [
+        "src/doctor.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts"
+      ],
+      "exports": [
+        "runDoctorAction"
+      ]
+    },
+    "src/actions/plan.ts": {
+      "path": "src/actions/plan.ts",
+      "imports": [
+        "src/planner.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts"
+      ],
+      "exports": [
+        "runPlanAction"
+      ]
+    },
+    "src/actions/preview.ts": {
+      "path": "src/actions/preview.ts",
+      "imports": [
+        "src/planner.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts"
+      ],
+      "exports": [
+        "runPreviewAction"
+      ]
     },
     "src/analyze.ts": {
       "path": "src/analyze.ts",
@@ -27,10 +183,69 @@
         "src/types.ts"
       ],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts",
+        "src/tests/examples.test.ts",
+        "src/tests/wordpress-detection.test.ts"
       ],
       "exports": [
         "analyze"
+      ]
+    },
+    "src/bootstrap.ts": {
+      "path": "src/bootstrap.ts",
+      "imports": [
+        "src/types.ts",
+        "src/recommendations/index.ts"
+      ],
+      "importedBy": [
+        "src/actions/bootstrap.ts",
+        "src/tests/bootstrap.test.ts"
+      ],
+      "exports": [
+        "BootstrapItemCategory",
+        "BootstrapItemStatus",
+        "BootstrapPlanItem",
+        "BootstrapReport",
+        "BootstrapOptions",
+        "runBootstrap",
+        "formatBootstrapReport"
+      ]
+    },
+    "src/cli/args.ts": {
+      "path": "src/cli/args.ts",
+      "imports": [
+        "src/profile.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts",
+        "src/cli/dispatch.ts",
+        "src/tests/cli-args.test.ts"
+      ],
+      "exports": [
+        "GenerateMode",
+        "GenerateAction",
+        "ParsedArgs",
+        "parseArgs"
+      ]
+    },
+    "src/cli/dispatch.ts": {
+      "path": "src/cli/dispatch.ts",
+      "imports": [
+        "src/updater.ts",
+        "src/cli/args.ts",
+        "src/actions/check-hygiene.ts",
+        "src/actions/doctor.ts",
+        "src/actions/check-freshness.ts",
+        "src/actions/compact-memory.ts",
+        "src/actions/apply.ts",
+        "src/uninstall.ts"
+      ],
+      "importedBy": [
+        "src/generate.ts"
+      ],
+      "exports": [
+        "main"
       ]
     },
     "src/detectors/framework.ts": {
@@ -43,6 +258,27 @@
       ],
       "exports": [
         "detectFrameworks"
+      ]
+    },
+    "src/detectors/freshness.ts": {
+      "path": "src/detectors/freshness.ts",
+      "imports": [
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts",
+        "src/actions/check-freshness.ts",
+        "src/mcp-server/freshness-bridge.ts",
+        "src/tests/freshness.test.ts"
+      ],
+      "exports": [
+        "ContextSnapshot",
+        "FreshnessReport",
+        "captureContextSnapshot",
+        "loadContextSnapshot",
+        "writeContextSnapshot",
+        "computeFreshnessReport",
+        "formatFreshnessReport"
       ]
     },
     "src/detectors/graph.ts": {
@@ -82,22 +318,25 @@
         "detectPatterns"
       ]
     },
+    "src/doctor.ts": {
+      "path": "src/doctor.ts",
+      "imports": [
+        "src/updater.ts"
+      ],
+      "importedBy": [
+        "src/actions/doctor.ts"
+      ],
+      "exports": [
+        "DoctorCheck",
+        "DoctorResult",
+        "runDoctor",
+        "printDoctorReport"
+      ]
+    },
     "src/generate.ts": {
       "path": "src/generate.ts",
       "imports": [
-        "src/analyze.ts",
-        "src/generators/instructions.ts",
-        "src/generators/mcp.ts",
-        "src/generators/context-docs.ts",
-        "src/generators/agents.ts",
-        "src/generators/skills.ts",
-        "src/generators/prompts.ts",
-        "src/generators/workflows.ts",
-        "src/mcp-tools.ts",
-        "src/updater.ts",
-        "src/planner.ts",
-        "src/generators/utils.ts",
-        "src/recommendations/index.ts"
+        "src/cli/dispatch.ts"
       ],
       "importedBy": [],
       "exports": []
@@ -110,7 +349,7 @@
         "src/validation/agent-contract.ts"
       ],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts"
       ],
       "exports": [
         "ExistingAgentScan",
@@ -124,13 +363,15 @@
         "src/types.ts",
         "src/detectors/graph.ts",
         "src/updater.ts",
-        "src/generators/utils.ts"
+        "src/generators/utils.ts",
+        "src/mcp-tools.ts"
       ],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts"
       ],
       "exports": [
         "readAiOsConfig",
+        "generateMcpToolRefDoc",
         "generateContextDocs"
       ]
     },
@@ -141,7 +382,7 @@
         "src/generators/utils.ts"
       ],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts"
       ],
       "exports": [
         "generateInstructions"
@@ -155,7 +396,7 @@
         "src/generators/utils.ts"
       ],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts"
       ],
       "exports": [
         "writeMcpServerConfig",
@@ -169,7 +410,7 @@
         "src/generators/utils.ts"
       ],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts"
       ],
       "exports": [
         "generatePrompts"
@@ -183,7 +424,7 @@
         "src/validation/skill-contract.ts"
       ],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts"
       ],
       "exports": [
         "generateSkills",
@@ -195,7 +436,9 @@
       "path": "src/generators/utils.ts",
       "imports": [],
       "importedBy": [
-        "src/generate.ts",
+        "src/actions/apply.ts",
+        "src/actions/check-hygiene.ts",
+        "src/detectors/freshness.ts",
         "src/generators/agents.ts",
         "src/generators/context-docs.ts",
         "src/generators/instructions.ts",
@@ -203,16 +446,23 @@
         "src/generators/prompts.ts",
         "src/generators/skills.ts",
         "src/generators/workflows.ts",
-        "src/recommendations/index.ts"
+        "src/recommendations/index.ts",
+        "src/tests/sanitize-instructions.test.ts",
+        "src/tests/schema-validate.test.ts",
+        "src/uninstall.ts"
       ],
       "exports": [
         "setVerboseMode",
+        "hashContent",
+        "hashFile",
         "WriteResult",
+        "writeFileAtomic",
         "writeIfChanged",
         "findUnresolvedPlaceholders",
         "applyFallbacks",
         "AiOsManifest",
         "getManifestPath",
+        "isAiOsManifest",
         "readManifest",
         "writeManifest",
         "FileDiff",
@@ -220,6 +470,7 @@
         "recordResult",
         "toRepoRelative",
         "sha256",
+        "sanitizeForInstructions",
         "resolveTemplatesDir"
       ]
     },
@@ -230,10 +481,24 @@
         "src/generators/utils.ts"
       ],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts"
       ],
       "exports": [
         "generateWorkflows"
+      ]
+    },
+    "src/mcp-server/freshness-bridge.ts": {
+      "path": "src/mcp-server/freshness-bridge.ts",
+      "imports": [
+        "src/detectors/freshness.ts",
+        "src/mcp-server/shared.ts"
+      ],
+      "importedBy": [
+        "src/mcp-server/utils.ts",
+        "src/tests/mcp-server-modules.test.ts"
+      ],
+      "exports": [
+        "getContextFreshness"
       ]
     },
     "src/mcp-server/index.ts": {
@@ -245,32 +510,35 @@
       "importedBy": [],
       "exports": []
     },
-    "src/mcp-server/tool-definitions.ts": {
-      "path": "src/mcp-server/tool-definitions.ts",
-      "imports": [],
+    "src/mcp-server/memory.ts": {
+      "path": "src/mcp-server/memory.ts",
+      "imports": [
+        "src/mcp-server/shared.ts"
+      ],
       "importedBy": [
-        "src/mcp-server/index.ts"
+        "src/mcp-server/utils.ts",
+        "src/tests/mcp-server-modules.test.ts"
       ],
       "exports": [
-        "McpToolSchema",
-        "McpToolDefinition",
-        "getAllMcpTools"
-      ]
-    },
-    "src/mcp-server/utils.ts": {
-      "path": "src/mcp-server/utils.ts",
-      "imports": [],
-      "importedBy": [
-        "src/mcp-server/index.ts"
-      ],
-      "exports": [
-        "getProjectRoot",
-        "readAiOsFile",
+        "MemoryHygieneSummary",
         "getMemoryGuidelines",
         "getRepoMemory",
         "rememberRepoFact",
-        "searchFiles",
-        "buildFileTree",
+        "syncHostedMemory",
+        "pruneMemory",
+        "runMemoryMaintenance"
+      ]
+    },
+    "src/mcp-server/project-introspection.ts": {
+      "path": "src/mcp-server/project-introspection.ts",
+      "imports": [
+        "src/mcp-server/shared.ts"
+      ],
+      "importedBy": [
+        "src/mcp-server/utils.ts",
+        "src/tests/mcp-server-modules.test.ts"
+      ],
+      "exports": [
         "getPrismaSchema",
         "getTrpcProcedures",
         "getApiRoutes",
@@ -278,11 +546,131 @@
         "getPackageInfo",
         "getFileSummary",
         "getImpactOfChange",
-        "getDependencyChain",
-        "checkForUpdates",
-        "getSessionContext",
+        "getDependencyChain"
+      ]
+    },
+    "src/mcp-server/recommendations-bridge.ts": {
+      "path": "src/mcp-server/recommendations-bridge.ts",
+      "imports": [
+        "src/mcp-server/shared.ts"
+      ],
+      "importedBy": [
+        "src/mcp-server/utils.ts",
+        "src/tests/mcp-server-modules.test.ts"
+      ],
+      "exports": [
         "getRecommendations",
         "suggestImprovements"
+      ]
+    },
+    "src/mcp-server/search.ts": {
+      "path": "src/mcp-server/search.ts",
+      "imports": [
+        "src/mcp-server/shared.ts"
+      ],
+      "importedBy": [
+        "src/mcp-server/utils.ts",
+        "src/tests/mcp-server-modules.test.ts"
+      ],
+      "exports": [
+        "searchFiles",
+        "buildFileTree"
+      ]
+    },
+    "src/mcp-server/session.ts": {
+      "path": "src/mcp-server/session.ts",
+      "imports": [
+        "src/mcp-server/shared.ts"
+      ],
+      "importedBy": [
+        "src/mcp-server/utils.ts",
+        "src/tests/mcp-server-modules.test.ts"
+      ],
+      "exports": [
+        "getActivePlan",
+        "upsertActivePlan",
+        "appendCheckpoint",
+        "closeCheckpoint",
+        "recordFailurePattern",
+        "compactSessionContext",
+        "recordToolCallAndRunWatchdog",
+        "setWatchdogThreshold",
+        "resetSessionState"
+      ]
+    },
+    "src/mcp-server/shared.ts": {
+      "path": "src/mcp-server/shared.ts",
+      "imports": [],
+      "importedBy": [
+        "src/mcp-server/freshness-bridge.ts",
+        "src/mcp-server/memory.ts",
+        "src/mcp-server/project-introspection.ts",
+        "src/mcp-server/recommendations-bridge.ts",
+        "src/mcp-server/search.ts",
+        "src/mcp-server/session.ts",
+        "src/mcp-server/utils.ts"
+      ],
+      "exports": [
+        "ROOT",
+        "readAiOsFile",
+        "getMemoryFilePath",
+        "getMemoryDirPath",
+        "getMemoryLockFilePath",
+        "getSessionMemoryDirPath",
+        "getSessionLockFilePath",
+        "getActivePlanPath",
+        "getCheckpointLogPath",
+        "getFailureLedgerPath",
+        "getCompactContextPath",
+        "getRuntimeStatePath",
+        "ensureMemoryStore",
+        "ensureSessionMemoryStore",
+        "writeTextAtomic",
+        "readJsonlFile",
+        "sleepSync",
+        "trimJsonlFileToCap",
+        "withSessionLock",
+        "withMemoryLock"
+      ]
+    },
+    "src/mcp-server/tool-definitions.ts": {
+      "path": "src/mcp-server/tool-definitions.ts",
+      "imports": [
+        "src/mcp-tools.ts"
+      ],
+      "importedBy": [
+        "src/mcp-server/index.ts",
+        "src/tests/mcp-tool-definitions.test.ts"
+      ],
+      "exports": [
+        "McpToolSchema",
+        "McpToolDefinition",
+        "getAllMcpTools",
+        "getActiveToolsForProject"
+      ]
+    },
+    "src/mcp-server/utils.ts": {
+      "path": "src/mcp-server/utils.ts",
+      "imports": [
+        "src/updater.ts",
+        "src/mcp-server/shared.ts",
+        "src/mcp-server/memory.ts",
+        "src/mcp-server/session.ts",
+        "src/mcp-server/search.ts",
+        "src/mcp-server/project-introspection.ts",
+        "src/mcp-server/freshness-bridge.ts",
+        "src/mcp-server/recommendations-bridge.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts",
+        "src/actions/compact-memory.ts",
+        "src/mcp-server/index.ts"
+      ],
+      "exports": [
+        "getProjectRoot",
+        "getSessionContext",
+        "checkForUpdates",
+        "readAiOsFile"
       ]
     },
     "src/mcp-tools.ts": {
@@ -291,22 +679,29 @@
         "src/types.ts"
       ],
       "importedBy": [
-        "src/generate.ts",
-        "src/generators/mcp.ts"
+        "src/actions/apply.ts",
+        "src/generators/context-docs.ts",
+        "src/generators/mcp.ts",
+        "src/mcp-server/tool-definitions.ts",
+        "src/tests/mcp-tool-definitions.test.ts"
       ],
       "exports": [
         "McpToolSchema",
         "McpToolDefinition",
         "MCP_TOOL_DEFINITIONS",
         "getMcpToolsForStack",
-        "getAllMcpTools"
+        "getAllMcpTools",
+        "StackSplitTools",
+        "getToolsWithStackSplit"
       ]
     },
     "src/planner.ts": {
       "path": "src/planner.ts",
       "imports": [],
       "importedBy": [
-        "src/generate.ts"
+        "src/actions/apply.ts",
+        "src/actions/plan.ts",
+        "src/actions/preview.ts"
       ],
       "exports": [
         "PlannedActionType",
@@ -317,16 +712,51 @@
         "formatOnboardingPlan"
       ]
     },
+    "src/profile.ts": {
+      "path": "src/profile.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts",
+        "src/cli/args.ts",
+        "src/tests/profile.test.ts"
+      ],
+      "exports": [
+        "ProfileFlags",
+        "PROFILE_PRESETS",
+        "applyProfile",
+        "describeProfile",
+        "parseProfile"
+      ]
+    },
+    "src/recommendations/cli-compat.ts": {
+      "path": "src/recommendations/cli-compat.ts",
+      "imports": [],
+      "importedBy": [
+        "src/recommendations/index.ts",
+        "src/tests/skills-cli-compat.test.ts"
+      ],
+      "exports": [
+        "SkillsCliMode",
+        "detectSkillsCliMode",
+        "buildSkillsInstallCommand",
+        "isLegacySkillCommand"
+      ]
+    },
     "src/recommendations/index.ts": {
       "path": "src/recommendations/index.ts",
       "imports": [
         "src/types.ts",
         "src/generators/utils.ts",
-        "src/recommendations/registry.ts"
+        "src/recommendations/registry.ts",
+        "src/recommendations/cli-compat.ts"
       ],
       "importedBy": [
-        "src/generate.ts",
-        "src/tests/generators.test.ts"
+        "src/actions/apply.ts",
+        "src/bootstrap.ts",
+        "src/tests/generators.test.ts",
+        "src/tests/skills-cli-compat.test.ts"
       ],
       "exports": [
         "collectRecommendations",
@@ -357,6 +787,73 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/analyze.test.ts": {
+      "path": "src/tests/analyze.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": [
+        "app",
+        "s",
+        "u",
+        "T"
+      ]
+    },
+    "src/tests/bootstrap.test.ts": {
+      "path": "src/tests/bootstrap.test.ts",
+      "imports": [
+        "src/bootstrap.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/cli-args.test.ts": {
+      "path": "src/tests/cli-args.test.ts",
+      "imports": [
+        "src/cli/args.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/detectors.test.ts": {
+      "path": "src/tests/detectors.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": [
+        "x",
+        "y"
+      ]
+    },
+    "src/tests/doctor.test.ts": {
+      "path": "src/tests/doctor.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/examples.test.ts": {
+      "path": "src/tests/examples.test.ts",
+      "imports": [
+        "src/analyze.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/freshness.test.ts": {
+      "path": "src/tests/freshness.test.ts",
+      "imports": [
+        "src/detectors/freshness.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/generators-extended.test.ts": {
+      "path": "src/tests/generators-extended.test.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/generators.test.ts": {
       "path": "src/tests/generators.test.ts",
       "imports": [
@@ -366,9 +863,47 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/mcp-server-modules.test.ts": {
+      "path": "src/tests/mcp-server-modules.test.ts",
+      "imports": [
+        "src/mcp-server/memory.ts",
+        "src/mcp-server/session.ts",
+        "src/mcp-server/project-introspection.ts",
+        "src/mcp-server/search.ts",
+        "src/mcp-server/freshness-bridge.ts",
+        "src/mcp-server/recommendations-bridge.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/mcp-tool-definitions.test.ts": {
+      "path": "src/tests/mcp-tool-definitions.test.ts",
+      "imports": [
+        "src/mcp-tools.ts",
+        "src/mcp-server/tool-definitions.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/memory-hygiene.test.ts": {
+      "path": "src/tests/memory-hygiene.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/memory-retrieval.test.ts": {
       "path": "src/tests/memory-retrieval.test.ts",
       "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/profile.test.ts": {
+      "path": "src/tests/profile.test.ts",
+      "imports": [
+        "src/profile.ts",
+        "src/types.ts"
+      ],
       "importedBy": [],
       "exports": []
     },
@@ -380,6 +915,35 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/sanitize-instructions.test.ts": {
+      "path": "src/tests/sanitize-instructions.test.ts",
+      "imports": [
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/schema-validate.test.ts": {
+      "path": "src/tests/schema-validate.test.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/search-files-security.test.ts": {
+      "path": "src/tests/search-files-security.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/session-continuity.test.ts": {
+      "path": "src/tests/session-continuity.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/skill-contract.test.ts": {
       "path": "src/tests/skill-contract.test.ts",
       "imports": [
@@ -388,11 +952,54 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/skills-cli-compat.test.ts": {
+      "path": "src/tests/skills-cli-compat.test.ts",
+      "imports": [
+        "src/recommendations/cli-compat.ts",
+        "src/recommendations/index.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/uninstall.test.ts": {
+      "path": "src/tests/uninstall.test.ts",
+      "imports": [
+        "src/uninstall.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/updater.test.ts": {
+      "path": "src/tests/updater.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/user-blocks.test.ts": {
+      "path": "src/tests/user-blocks.test.ts",
+      "imports": [
+        "src/user-blocks.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/wordpress-detection.test.ts": {
+      "path": "src/tests/wordpress-detection.test.ts",
+      "imports": [
+        "src/analyze.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/types.ts": {
       "path": "src/types.ts",
       "imports": [],
       "importedBy": [
+        "src/actions/bootstrap.ts",
         "src/analyze.ts",
+        "src/bootstrap.ts",
+        "src/cli/args.ts",
         "src/detectors/framework.ts",
         "src/detectors/graph.ts",
         "src/detectors/language.ts",
@@ -405,8 +1012,15 @@
         "src/generators/skills.ts",
         "src/generators/workflows.ts",
         "src/mcp-tools.ts",
+        "src/profile.ts",
         "src/recommendations/index.ts",
-        "src/tests/generators.test.ts"
+        "src/tests/bootstrap.test.ts",
+        "src/tests/generators-extended.test.ts",
+        "src/tests/generators.test.ts",
+        "src/tests/mcp-tool-definitions.test.ts",
+        "src/tests/profile.test.ts",
+        "src/tests/schema-validate.test.ts",
+        "src/tests/skills-cli-compat.test.ts"
       ],
       "exports": [
         "DetectedLanguage",
@@ -417,25 +1031,65 @@
         "PackageProfile",
         "FileNode",
         "DependencyGraph",
-        "AiOsConfig"
+        "InstallProfile",
+        "AiOsConfig",
+        "isAiOsConfig"
+      ]
+    },
+    "src/uninstall.ts": {
+      "path": "src/uninstall.ts",
+      "imports": [
+        "src/generators/utils.ts",
+        "src/user-blocks.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts",
+        "src/tests/uninstall.test.ts"
+      ],
+      "exports": [
+        "UninstallReport",
+        "runUninstall",
+        "formatUninstallReport"
       ]
     },
     "src/updater.ts": {
       "path": "src/updater.ts",
       "imports": [],
       "importedBy": [
-        "src/generate.ts",
-        "src/generators/context-docs.ts"
+        "src/actions/apply.ts",
+        "src/cli/dispatch.ts",
+        "src/doctor.ts",
+        "src/generators/context-docs.ts",
+        "src/mcp-server/utils.ts"
       ],
       "exports": [
         "getToolVersion",
         "InstalledConfig",
         "readInstalledConfig",
+        "getLatestResolvableVersion",
         "UpdateStatus",
         "checkUpdateStatus",
         "printUpdateBanner",
         "LegacyPruneOptions",
         "pruneLegacyArtifacts"
+      ]
+    },
+    "src/user-blocks.ts": {
+      "path": "src/user-blocks.ts",
+      "imports": [],
+      "importedBy": [
+        "src/actions/apply.ts",
+        "src/tests/user-blocks.test.ts",
+        "src/uninstall.ts"
+      ],
+      "exports": [
+        "USER_BLOCK_START_PREFIX",
+        "USER_BLOCK_END_PREFIX",
+        "UserBlock",
+        "ConflictReport",
+        "MergeResult",
+        "extractUserBlocks",
+        "mergeUserBlocks"
       ]
     },
     "src/validation/agent-contract.ts": {
@@ -528,6 +1182,6 @@
       "exports": []
     }
   },
-  "generatedAt": "2026-04-20T03:49:59.843Z",
-  "fileCount": 39
+  "generatedAt": "2026-04-29T07:35:19.858Z",
+  "fileCount": 90
 }

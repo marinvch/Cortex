@@ -1,18 +1,1413 @@
 #!/usr/bin/env node
 
-// src/generate.ts
-import fs16 from "node:fs";
-import path17 from "node:path";
-import { spawnSync as spawnSync2 } from "node:child_process";
-import { fileURLToPath as fileURLToPath3 } from "node:url";
-
-// src/analyze.ts
-import fs4 from "node:fs";
-import path4 from "node:path";
-
-// src/detectors/language.ts
+// src/updater.ts
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+var __dirname = path.dirname(fileURLToPath(import.meta.url));
+function getToolVersion() {
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf-8")
+    );
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+function readInstalledConfig(targetDir) {
+  const newConfigPath = path.join(targetDir, ".github", "ai-os", "config.json");
+  const legacyConfigPath = path.join(targetDir, ".ai-os", "config.json");
+  const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
+  try {
+    return JSON.parse(fs.readFileSync(configPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+function parseSemver(v) {
+  const [maj = 0, min = 0, pat = 0] = v.replace(/^v/, "").split(".").map(Number);
+  return [maj, min, pat];
+}
+function compareSemver(a, b) {
+  const [aMaj = 0, aMin = 0, aPat = 0] = parseSemver(a);
+  const [bMaj = 0, bMin = 0, bPat = 0] = parseSemver(b);
+  if (aMaj !== bMaj) return aMaj > bMaj ? 1 : -1;
+  if (aMin !== bMin) return aMin > bMin ? 1 : -1;
+  if (aPat !== bPat) return aPat > bPat ? 1 : -1;
+  return 0;
+}
+function isNewer(candidate, installed) {
+  const [cMaj = 0, cMin = 0, cPat = 0] = parseSemver(candidate);
+  const [iMaj = 0, iMin = 0, iPat = 0] = parseSemver(installed);
+  if (cMaj !== iMaj) return cMaj > iMaj;
+  if (cMin !== iMin) return cMin > iMin;
+  return cPat > iPat;
+}
+function getLatestPublishedTagVersion() {
+  try {
+    const result = spawnSync(
+      "git",
+      ["ls-remote", "--tags", "--refs", "https://github.com/marinvch/ai-os.git", "v*"],
+      {
+        encoding: "utf-8",
+        timeout: 5e3
+      }
+    );
+    if (result.status !== 0 || !result.stdout) return null;
+    const versions = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+      const match = line.match(/refs\/tags\/v(\d+\.\d+\.\d+)$/);
+      return match?.[1] ?? null;
+    }).filter((v) => v !== null);
+    if (versions.length === 0) return null;
+    return versions.reduce(
+      (latest, current) => compareSemver(current, latest) > 0 ? current : latest
+    );
+  } catch {
+    return null;
+  }
+}
+function getLatestResolvableVersion(toolVersion) {
+  const published = getLatestPublishedTagVersion();
+  if (!published) return toolVersion;
+  return published;
+}
+function checkUpdateStatus(targetDir) {
+  const toolVersion = getToolVersion();
+  const latestVersion = getLatestResolvableVersion(toolVersion);
+  const config = readInstalledConfig(targetDir);
+  if (!config) {
+    return {
+      toolVersion,
+      latestVersion,
+      installedVersion: null,
+      updateAvailable: false,
+      isFirstInstall: true
+    };
+  }
+  const installedVersion = config.version;
+  return {
+    toolVersion,
+    latestVersion,
+    installedVersion,
+    updateAvailable: isNewer(latestVersion, installedVersion),
+    isFirstInstall: false
+  };
+}
+function printUpdateBanner(status) {
+  if (!status.updateAvailable) return;
+  const updateCmd = `npx -y "github:marinvch/ai-os#v${status.latestVersion}" --refresh-existing`;
+  console.log("");
+  console.log("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
+  console.log(`  \u2502  \u{1F514} AI OS Update Available                          \u2502`);
+  console.log(`  \u2502     Installed: v${status.installedVersion?.padEnd(10) ?? "unknown   "}  \u2192  Latest: v${status.latestVersion.padEnd(10)}\u2502`);
+  console.log(`  \u2502                                                     \u2502`);
+  console.log(`  \u2502  Re-run AI OS with --refresh-existing (or --update) \u2502`);
+  console.log(`  \u2502  to refresh context, tools, agents, and MCP files.  \u2502`);
+  console.log("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
+  console.log(`  ${updateCmd}`);
+  console.log("");
+}
+function pruneLegacyArtifacts(targetDir, options) {
+  const fullCleanup = options?.fullCleanup === true;
+  const legacyContextDir = path.join(targetDir, ".ai-os", "context");
+  const legacyConfig = path.join(targetDir, ".ai-os", "config.json");
+  const legacyTools = path.join(targetDir, ".ai-os", "tools.json");
+  const legacyMemoryDir = path.join(targetDir, ".ai-os", "memory");
+  const legacyAiOsDir = path.join(targetDir, ".ai-os");
+  const legacyMcpJson = path.join(targetDir, ".github", "copilot", "mcp.json");
+  const legacyMcpLocal = path.join(targetDir, ".github", "copilot", "mcp.local.json");
+  if (fullCleanup) {
+    let removed2 = 0;
+    try {
+      for (const file of [legacyConfig, legacyTools, legacyMcpJson, legacyMcpLocal]) {
+        if (fs.existsSync(file)) {
+          fs.rmSync(file);
+          removed2 += 1;
+        }
+      }
+      for (const dir of [legacyContextDir, legacyMemoryDir]) {
+        if (fs.existsSync(dir)) {
+          fs.rmSync(dir, { recursive: true, force: true });
+          removed2 += 1;
+        }
+      }
+      if (fs.existsSync(legacyAiOsDir) && fs.readdirSync(legacyAiOsDir).length === 0) {
+        fs.rmdirSync(legacyAiOsDir);
+      }
+    } catch {
+    }
+    if (removed2 > 0) {
+      console.log(`  \u{1F9F9} Clean-update removed ${removed2} legacy .ai-os artifact(s) (config/tools/context/memory)`);
+    }
+    return;
+  }
+  for (const file of [legacyMcpJson, legacyMcpLocal]) {
+    if (fs.existsSync(file)) {
+      try {
+        fs.rmSync(file);
+      } catch {
+      }
+    }
+  }
+  if (!fs.existsSync(legacyContextDir)) return;
+  const MANAGED_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".json"]);
+  let removed = 0;
+  try {
+    const entries = fs.readdirSync(legacyContextDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const ext = path.extname(entry.name).toLowerCase();
+      if (!MANAGED_EXTENSIONS.has(ext)) continue;
+      try {
+        fs.rmSync(path.join(legacyContextDir, entry.name));
+        removed += 1;
+      } catch {
+      }
+    }
+    const remaining = fs.readdirSync(legacyContextDir);
+    if (remaining.length === 0) {
+      fs.rmdirSync(legacyContextDir);
+      if (fs.existsSync(legacyMemoryDir) && fs.readdirSync(legacyMemoryDir).length === 0) {
+        fs.rmdirSync(legacyMemoryDir);
+      }
+      if (fs.existsSync(legacyAiOsDir) && fs.readdirSync(legacyAiOsDir).length === 0) {
+        fs.rmdirSync(legacyAiOsDir);
+      }
+    }
+  } catch {
+  }
+  if (removed > 0) {
+    console.log(`  \u{1F9F9} Pruned ${removed} legacy .ai-os/context/ artifact(s) (pre-v0.3.0 migration)`);
+  }
+}
+
+// src/cli/args.ts
+import path2 from "node:path";
+
+// src/profile.ts
+var PROFILE_PRESETS = {
+  /** Essentials only — instructions + MCP wiring.  No agents, no recommendations. */
+  minimal: {
+    agentsMd: false,
+    pathSpecificInstructions: false,
+    recommendations: false,
+    sessionContextCard: false,
+    updateCheckEnabled: false,
+    skillsStrategy: "creator-only",
+    agentFlowMode: "skip"
+  },
+  /** Balanced default — most features on, predefined skills off. */
+  standard: {
+    agentsMd: false,
+    pathSpecificInstructions: true,
+    recommendations: true,
+    sessionContextCard: true,
+    updateCheckEnabled: true,
+    skillsStrategy: "creator-only",
+    agentFlowMode: "create"
+  },
+  /** All stack-relevant integrations enabled. */
+  full: {
+    agentsMd: true,
+    pathSpecificInstructions: true,
+    recommendations: true,
+    sessionContextCard: true,
+    updateCheckEnabled: true,
+    skillsStrategy: "predefined+creator",
+    agentFlowMode: "create"
+  }
+};
+function applyProfile(config, profile) {
+  const flags = PROFILE_PRESETS[profile];
+  return { ...config, ...flags, profile };
+}
+function describeProfile(profile) {
+  const flags = PROFILE_PRESETS[profile];
+  const lines = [`  Profile: ${profile}`];
+  lines.push(`    agents.md:              ${flags.agentsMd ? "enabled" : "disabled"}`);
+  lines.push(`    path instructions:      ${flags.pathSpecificInstructions ? "enabled" : "disabled"}`);
+  lines.push(`    recommendations:        ${flags.recommendations ? "enabled" : "disabled"}`);
+  lines.push(`    session context card:   ${flags.sessionContextCard ? "enabled" : "disabled"}`);
+  lines.push(`    update-check workflow:  ${flags.updateCheckEnabled ? "enabled" : "disabled"}`);
+  lines.push(`    skills strategy:        ${flags.skillsStrategy}`);
+  lines.push(`    agent flow:             ${flags.agentFlowMode}`);
+  return lines.join("\n");
+}
+function parseProfile(raw) {
+  if (raw === "minimal" || raw === "standard" || raw === "full") return raw;
+  return null;
+}
+
+// src/cli/args.ts
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let cwd = process.cwd();
+  let dryRun = false;
+  let mode = "safe";
+  let action = "apply";
+  let prune = false;
+  let verbose = false;
+  let cleanUpdate = false;
+  let regenerateContext = false;
+  let pruneCustomArtifacts = false;
+  let profile = null;
+  let json = false;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--cwd" && args[i + 1]) {
+      cwd = path2.resolve(args[i + 1]);
+      i++;
+    } else if (args[i] === "--cwd" && !args[i + 1]) {
+      throw new Error("--cwd requires a path value");
+    } else if (args[i]?.startsWith("--cwd=")) {
+      cwd = path2.resolve(args[i].slice("--cwd=".length));
+    } else if (args[i] === "--dry-run") {
+      dryRun = true;
+    } else if (args[i] === "--refresh-existing") {
+      mode = "refresh-existing";
+    } else if (args[i] === "--update") {
+      mode = "update";
+    } else if (args[i] === "--plan") {
+      action = "plan";
+    } else if (args[i] === "--preview") {
+      action = "preview";
+    } else if (args[i] === "--apply") {
+      action = "apply";
+    } else if (args[i] === "--prune") {
+      prune = true;
+    } else if (args[i]?.startsWith("--clean-update")) {
+      cleanUpdate = true;
+      mode = "refresh-existing";
+    } else if (args[i] === "--check-hygiene") {
+      action = "check-hygiene";
+    } else if (args[i] === "--doctor") {
+      action = "doctor";
+    } else if (args[i] === "--bootstrap") {
+      action = "bootstrap";
+    } else if (args[i] === "--check-freshness") {
+      action = "check-freshness";
+    } else if (args[i] === "--compact-memory") {
+      action = "compact-memory";
+    } else if (args[i] === "--uninstall") {
+      action = "uninstall";
+    } else if (args[i] === "--json") {
+      json = true;
+    } else if (args[i] === "--verbose" || args[i] === "-v") {
+      verbose = true;
+    } else if (args[i] === "--regenerate-context") {
+      regenerateContext = true;
+    } else if (args[i] === "--prune-custom-artifacts") {
+      pruneCustomArtifacts = true;
+    } else if (args[i] === "--profile" && args[i + 1]) {
+      const parsed = parseProfile(args[i + 1]);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${args[i + 1]}")`);
+      profile = parsed;
+      i++;
+    } else if (args[i]?.startsWith("--profile=")) {
+      const raw = args[i].slice("--profile=".length);
+      const parsed = parseProfile(raw);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${raw}")`);
+      profile = parsed;
+    }
+  }
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json };
+}
+
+// src/actions/check-hygiene.ts
+import fs3 from "node:fs";
+import path4 from "node:path";
+
+// src/generators/utils.ts
+import fs2 from "node:fs";
+import path3 from "node:path";
+var _verbose = false;
+function setVerboseMode(enabled) {
+  _verbose = enabled;
+}
+function writeFileAtomic(filePath, content) {
+  fs2.mkdirSync(path3.dirname(filePath), { recursive: true });
+  const tmpPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  try {
+    fs2.writeFileSync(tmpPath, content, "utf-8");
+    fs2.renameSync(tmpPath, filePath);
+  } catch (err) {
+    try {
+      fs2.unlinkSync(tmpPath);
+    } catch {
+    }
+    throw err;
+  }
+}
+function writeIfChanged(filePath, content) {
+  fs2.mkdirSync(path3.dirname(filePath), { recursive: true });
+  if (fs2.existsSync(filePath)) {
+    const existing = fs2.readFileSync(filePath, "utf-8");
+    if (existing === content) {
+      if (_verbose) console.log(`  \u23ED\uFE0F  skip    ${filePath}  (unchanged)`);
+      return "skipped";
+    }
+  }
+  writeFileAtomic(filePath, content);
+  if (_verbose) console.log(`  \u270F\uFE0F  write   ${filePath}`);
+  return "written";
+}
+var PLACEHOLDER_RE = /\{\{[^}]+\}\}/g;
+function applyFallbacks(content, fallbacks = {}) {
+  return content.replace(PLACEHOLDER_RE, (match) => {
+    return fallbacks[match] ?? "";
+  });
+}
+var MANIFEST_FILENAME = "manifest.json";
+function getManifestPath(outputDir) {
+  return path3.join(outputDir, ".github", "ai-os", MANIFEST_FILENAME);
+}
+function isAiOsManifest(obj) {
+  if (typeof obj !== "object" || obj === null) return false;
+  const o = obj;
+  return typeof o["version"] === "string" && typeof o["generatedAt"] === "string" && Array.isArray(o["files"]) && o["files"].every((f) => typeof f === "string");
+}
+function readManifest(outputDir) {
+  const manifestPath = getManifestPath(outputDir);
+  try {
+    const parsed = JSON.parse(fs2.readFileSync(manifestPath, "utf-8"));
+    if (!isAiOsManifest(parsed)) {
+      console.warn(`\u26A0\uFE0F  manifest.json at ${manifestPath} failed schema validation \u2014 ignoring.`);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+function writeManifest(outputDir, version, files, hashes) {
+  const manifest = {
+    version,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    files: [...files].sort(),
+    ...hashes && Object.keys(hashes).length > 0 ? { hashes } : {}
+  };
+  const manifestPath = getManifestPath(outputDir);
+  writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2));
+}
+function sanitizeForInstructions(value, maxLength = 128) {
+  return value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u200B-\u200D\u2028\u2029\uFEFF]/g, "").replace(/[\r\n\t]+/g, " ").replace(/ {2,}/g, " ").trim().slice(0, maxLength);
+}
+function resolveTemplatesDir(runtimeDir) {
+  const candidates = [
+    path3.join(runtimeDir, "..", "templates"),
+    path3.join(runtimeDir, "..", "src", "templates")
+  ];
+  for (const candidate of candidates) {
+    if (fs2.existsSync(candidate) && fs2.statSync(candidate).isDirectory()) {
+      return candidate;
+    }
+  }
+  return candidates[0];
+}
+
+// src/actions/check-hygiene.ts
+function findFilesRecursive(dir, predicate) {
+  const results = [];
+  try {
+    for (const entry of fs3.readdirSync(dir, { withFileTypes: true })) {
+      const full = path4.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...findFilesRecursive(full, predicate));
+      } else if (entry.isFile() && predicate(entry.name)) {
+        results.push(full);
+      }
+    }
+  } catch {
+  }
+  return results;
+}
+function runCheckHygieneAction(cwd) {
+  console.log(`  \u{1F9F9} Hygiene check: ${cwd}`);
+  console.log("");
+  const issues = [];
+  const legacyContextDir = path4.join(cwd, ".ai-os", "context");
+  if (fs3.existsSync(legacyContextDir)) {
+    const legacyFiles = fs3.readdirSync(legacyContextDir);
+    if (legacyFiles.length > 0) {
+      issues.push(`  \u26A0  Legacy .ai-os/context/ found with ${legacyFiles.length} file(s) \u2014 run --refresh-existing to migrate and prune`);
+    }
+  }
+  const lockPaths = [
+    path4.join(cwd, ".github", "ai-os", "memory", ".memory.lock"),
+    path4.join(cwd, ".ai-os", "memory", ".memory.lock")
+  ];
+  for (const lockPath of lockPaths) {
+    if (fs3.existsSync(lockPath)) {
+      issues.push(`  \u26A0  Stale lock file found: ${path4.relative(cwd, lockPath)} \u2014 safe to delete`);
+    }
+  }
+  const mcpNodeModules = path4.join(cwd, ".ai-os", "mcp-server", "node_modules");
+  if (fs3.existsSync(mcpNodeModules)) {
+    issues.push(`  \u26A0  node_modules present in .ai-os/mcp-server/ \u2014 Phase F (bundle deploy) will eliminate this`);
+  }
+  const aiOsDirs = [
+    path4.join(cwd, ".github", "ai-os"),
+    path4.join(cwd, ".ai-os")
+  ];
+  for (const dir of aiOsDirs) {
+    if (!fs3.existsSync(dir)) continue;
+    const tmpFiles = findFilesRecursive(dir, (f) => f.endsWith(".tmp"));
+    for (const f of tmpFiles) {
+      issues.push(`  \u26A0  Orphaned temp file: ${path4.relative(cwd, f)}`);
+    }
+  }
+  const manifest = readManifest(cwd);
+  if (manifest) {
+    const missingFiles = manifest.files.filter((f) => !fs3.existsSync(path4.join(cwd, f)));
+    if (missingFiles.length > 0) {
+      issues.push(`  \u26A0  ${missingFiles.length} manifest entries point to missing files \u2014 run --refresh-existing`);
+    }
+  } else {
+    issues.push(`  \u26A0  No manifest.json found \u2014 run AI OS generation to create one`);
+  }
+  if (issues.length === 0) {
+    console.log("  \u2705 Hygiene check passed \u2014 no orphaned files or dump artifacts found.");
+  } else {
+    console.log("  Issues found:");
+    for (const issue of issues) console.log(issue);
+    console.log("");
+    console.log(`  Total issues: ${issues.length}`);
+    process.exit(1);
+  }
+  console.log("");
+}
+
+// src/doctor.ts
+import fs4 from "node:fs";
+import path5 from "node:path";
+import { spawnSync as spawnSync2 } from "node:child_process";
+function checkMcpRuntimeExists(cwd) {
+  const runtimePath = path5.join(cwd, ".ai-os", "mcp-server", "index.js");
+  const passed = fs4.existsSync(runtimePath) && fs4.statSync(runtimePath).isFile();
+  return {
+    name: "MCP runtime binary present (.ai-os/mcp-server/index.js)",
+    critical: true,
+    passed,
+    detail: passed ? runtimePath : `Expected runtime at ${runtimePath}`,
+    fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
+  };
+}
+function checkMcpRuntimeHealthcheck(cwd) {
+  const runtimePath = path5.join(cwd, ".ai-os", "mcp-server", "index.js");
+  const nodePath = process.execPath;
+  if (!fs4.existsSync(runtimePath)) {
+    return {
+      name: "MCP runtime healthcheck",
+      critical: true,
+      passed: false,
+      detail: "Runtime binary not found \u2014 skipping healthcheck.",
+      fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
+    };
+  }
+  const result = spawnSync2(nodePath, [runtimePath, "--healthcheck"], {
+    cwd,
+    env: { ...process.env, AI_OS_ROOT: cwd },
+    encoding: "utf-8",
+    timeout: 1e4
+  });
+  const passed = result.status === 0;
+  const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim();
+  return {
+    name: "MCP runtime healthcheck",
+    critical: true,
+    passed,
+    detail: passed ? "Healthcheck passed" : `Exit code ${result.status ?? "null"}${output ? `: ${output}` : ""}`,
+    fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
+  };
+}
+function checkMcpConfigPresent(cwd) {
+  const configPath = path5.join(cwd, ".vscode", "mcp.json");
+  const passed = fs4.existsSync(configPath);
+  return {
+    name: "VS Code MCP config present (.vscode/mcp.json)",
+    critical: true,
+    passed,
+    detail: passed ? configPath : `Expected at ${configPath}`,
+    fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
+  };
+}
+function parseMcpConfig(cwd) {
+  const configPath = path5.join(cwd, ".vscode", "mcp.json");
+  if (!fs4.existsSync(configPath)) return null;
+  try {
+    return JSON.parse(fs4.readFileSync(configPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+function checkMcpAiOsEntry(cwd) {
+  const config = parseMcpConfig(cwd);
+  if (!config) {
+    return {
+      name: "ai-os server entry in MCP config",
+      critical: true,
+      passed: false,
+      detail: ".vscode/mcp.json missing or unparseable",
+      fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
+    };
+  }
+  const passed = typeof config.servers?.["ai-os"] === "object";
+  return {
+    name: "ai-os server entry in MCP config",
+    critical: true,
+    passed,
+    detail: passed ? 'servers["ai-os"] entry found' : 'No servers["ai-os"] entry in .vscode/mcp.json',
+    fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
+  };
+}
+function checkMcpCommandResolves(cwd) {
+  const config = parseMcpConfig(cwd);
+  const entry = config?.servers?.["ai-os"];
+  if (!entry) {
+    return {
+      name: "MCP server command resolves",
+      critical: true,
+      passed: false,
+      detail: 'servers["ai-os"] entry missing \u2014 cannot verify command path.',
+      fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
+    };
+  }
+  const command = entry.command ?? "node";
+  const args = entry.args ?? [];
+  const resolvedArgs = args.map(
+    (a) => a.replace(/\$\{workspaceFolder\}/g, cwd)
+  );
+  const scriptArg = resolvedArgs[0];
+  if ((command === "node" || command === process.execPath) && scriptArg) {
+    const passed = fs4.existsSync(scriptArg) && fs4.statSync(scriptArg).isFile();
+    return {
+      name: "MCP server command resolves",
+      critical: true,
+      passed,
+      detail: passed ? `Script exists: ${scriptArg}` : `Script not found: ${scriptArg}`,
+      fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
+    };
+  }
+  return {
+    name: "MCP server command resolves",
+    critical: false,
+    passed: true,
+    detail: `Command: ${command} ${resolvedArgs.join(" ")} (non-node command, path not verified)`
+  };
+}
+function checkAiOsConfigPresent(cwd) {
+  const configPath = path5.join(cwd, ".github", "ai-os", "config.json");
+  if (!fs4.existsSync(configPath)) {
+    return {
+      name: "AI OS config present (.github/ai-os/config.json)",
+      critical: false,
+      passed: false,
+      detail: `Expected at ${configPath}`,
+      fixCommand: `npx -y "github:marinvch/ai-os"`
+    };
+  }
+  try {
+    JSON.parse(fs4.readFileSync(configPath, "utf-8"));
+    return {
+      name: "AI OS config present (.github/ai-os/config.json)",
+      critical: false,
+      passed: true,
+      detail: configPath
+    };
+  } catch {
+    return {
+      name: "AI OS config present (.github/ai-os/config.json)",
+      critical: false,
+      passed: false,
+      detail: "config.json exists but is not valid JSON",
+      fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
+    };
+  }
+}
+function checkToolsFilePresent(cwd) {
+  const toolsPath = path5.join(cwd, ".github", "ai-os", "tools.json");
+  if (!fs4.existsSync(toolsPath)) {
+    return {
+      name: "MCP tools catalog present (.github/ai-os/tools.json)",
+      critical: false,
+      passed: false,
+      detail: `Expected at ${toolsPath}`,
+      fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
+    };
+  }
+  try {
+    JSON.parse(fs4.readFileSync(toolsPath, "utf-8"));
+    return {
+      name: "MCP tools catalog present (.github/ai-os/tools.json)",
+      critical: false,
+      passed: true,
+      detail: toolsPath
+    };
+  } catch {
+    return {
+      name: "MCP tools catalog present (.github/ai-os/tools.json)",
+      critical: false,
+      passed: false,
+      detail: "tools.json exists but is not valid JSON",
+      fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
+    };
+  }
+}
+function checkSkillsDeployed(cwd) {
+  const candidates = [
+    path5.join(cwd, ".agents", "skills", "ai-os-skill-creator"),
+    path5.join(cwd, ".github", "copilot", "skills")
+  ];
+  for (const candidate of candidates) {
+    if (fs4.existsSync(candidate)) {
+      return {
+        name: "AI OS skills deployed",
+        critical: false,
+        passed: true,
+        detail: `Found: ${path5.relative(cwd, candidate)}`
+      };
+    }
+  }
+  return {
+    name: "AI OS skills deployed",
+    critical: false,
+    passed: false,
+    detail: "No ai-os skill directory found under .agents/skills/ or .github/copilot/skills/",
+    fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
+  };
+}
+function runDoctor(cwd) {
+  const checks = [
+    checkMcpRuntimeExists(cwd),
+    checkMcpRuntimeHealthcheck(cwd),
+    checkMcpConfigPresent(cwd),
+    checkMcpAiOsEntry(cwd),
+    checkMcpCommandResolves(cwd),
+    checkAiOsConfigPresent(cwd),
+    checkToolsFilePresent(cwd),
+    checkSkillsDeployed(cwd)
+  ];
+  const criticalFailures = checks.filter((c) => c.critical && !c.passed).length;
+  const warnings = checks.filter((c) => !c.critical && !c.passed).length;
+  return {
+    cwd,
+    toolVersion: getToolVersion(),
+    checks,
+    criticalFailures,
+    warnings
+  };
+}
+function printDoctorReport(result) {
+  const { checks, criticalFailures, warnings, toolVersion, cwd } = result;
+  console.log(`  \u{1FA7A} AI OS Doctor  v${toolVersion}`);
+  console.log(`  \u{1F4C2} Target: ${cwd}`);
+  console.log("");
+  for (const check of checks) {
+    const icon = check.passed ? "\u2705" : check.critical ? "\u274C" : "\u26A0\uFE0F ";
+    const label = check.critical && !check.passed ? " [CRITICAL]" : "";
+    console.log(`  ${icon} ${check.name}${label}`);
+    if (check.detail) {
+      console.log(`       ${check.detail}`);
+    }
+    if (!check.passed && check.fixCommand) {
+      console.log(`       Fix: ${check.fixCommand}`);
+    }
+  }
+  console.log("");
+  const total = checks.length;
+  const passed = checks.filter((c) => c.passed).length;
+  if (criticalFailures === 0 && warnings === 0) {
+    console.log(`  \u2705 All ${total} checks passed \u2014 AI OS is healthy.`);
+  } else if (criticalFailures > 0) {
+    console.log(`  \u274C ${criticalFailures} critical failure(s), ${warnings} warning(s) \u2014 ${passed}/${total} checks passed.`);
+    console.log("     Address critical failures before using AI OS tools.");
+  } else {
+    console.log(`  \u26A0\uFE0F  ${warnings} warning(s) \u2014 ${passed}/${total} checks passed.`);
+    console.log("     Core MCP runtime is healthy; optional components may need attention.");
+  }
+  console.log("");
+  return criticalFailures > 0 ? 1 : 0;
+}
+
+// src/actions/doctor.ts
+function runDoctorAction(cwd) {
+  const doctorResult = runDoctor(cwd);
+  const exitCode = printDoctorReport(doctorResult);
+  if (exitCode !== 0) process.exit(exitCode);
+}
+
+// src/detectors/freshness.ts
+import crypto from "node:crypto";
+import fs5 from "node:fs";
+import path6 from "node:path";
+var ARTIFACT_PATHS = [
+  ".github/ai-os/context/conventions.md",
+  ".github/ai-os/context/architecture.md",
+  ".github/ai-os/context/stack.md",
+  ".github/copilot-instructions.md",
+  ".github/ai-os/config.json",
+  ".github/ai-os/tools.json"
+];
+var SOURCE_PROBE_PATHS = [
+  "package.json",
+  "package-lock.json",
+  "pyproject.toml",
+  "Cargo.toml",
+  "pom.xml",
+  "build.gradle",
+  "go.mod",
+  "tsconfig.json",
+  ".eslintrc.json",
+  ".eslintrc.js",
+  ".eslintrc.cjs",
+  "eslint.config.js",
+  "eslint.config.mjs",
+  "eslint.config.cjs",
+  "vitest.config.ts",
+  "jest.config.ts",
+  "jest.config.js",
+  "Dockerfile"
+];
+var SNAPSHOT_PATH = ".github/ai-os/context-snapshot.json";
+function hashFile(filePath) {
+  try {
+    const content = fs5.readFileSync(filePath);
+    return crypto.createHash("sha256").update(content).digest("hex");
+  } catch {
+    return "MISSING";
+  }
+}
+function hashDirectory(dirPath) {
+  const hashes = [];
+  let count = 0;
+  function walk(dir) {
+    let entries;
+    try {
+      entries = fs5.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      const full = path6.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (["node_modules", ".git", "dist", "build", "coverage", ".ai-os"].includes(entry.name)) continue;
+        walk(full);
+      } else if (entry.isFile()) {
+        hashes.push(`${full}:${hashFile(full)}`);
+        count++;
+      }
+    }
+  }
+  walk(dirPath);
+  const combined = crypto.createHash("sha256").update(hashes.join("\n")).digest("hex");
+  return { count, hash: combined };
+}
+function captureContextSnapshot(rootDir, aiOsVersion) {
+  const artifactHashes = {};
+  for (const rel of ARTIFACT_PATHS) {
+    artifactHashes[rel] = hashFile(path6.join(rootDir, rel));
+  }
+  const sourceHashes = {};
+  for (const rel of SOURCE_PROBE_PATHS) {
+    const abs = path6.join(rootDir, rel);
+    if (fs5.existsSync(abs)) {
+      sourceHashes[rel] = hashFile(abs);
+    }
+  }
+  let trackedFileCount = Object.keys(sourceHashes).length;
+  const srcDir = path6.join(rootDir, "src");
+  if (fs5.existsSync(srcDir)) {
+    const { count, hash } = hashDirectory(srcDir);
+    sourceHashes["src/"] = hash;
+    trackedFileCount = count;
+  }
+  return {
+    capturedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    aiOsVersion,
+    artifactHashes,
+    sourceHashes,
+    trackedFileCount
+  };
+}
+function loadContextSnapshot(rootDir) {
+  const snapshotPath = path6.join(rootDir, SNAPSHOT_PATH);
+  if (!fs5.existsSync(snapshotPath)) return null;
+  try {
+    return JSON.parse(fs5.readFileSync(snapshotPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+function writeContextSnapshot(rootDir, snapshot) {
+  const snapshotPath = path6.join(rootDir, SNAPSHOT_PATH);
+  writeFileAtomic(snapshotPath, JSON.stringify(snapshot, null, 2));
+}
+function computeFreshnessReport(rootDir) {
+  const snapshot = loadContextSnapshot(rootDir);
+  let lastGeneratedAt = null;
+  try {
+    const configPath = path6.join(rootDir, ".github", "ai-os", "config.json");
+    if (fs5.existsSync(configPath)) {
+      const config = JSON.parse(fs5.readFileSync(configPath, "utf-8"));
+      lastGeneratedAt = config.installedAt ?? null;
+    }
+  } catch {
+  }
+  if (!snapshot) {
+    return {
+      score: 0,
+      status: "unknown",
+      staleArtifacts: [],
+      changedSourceFiles: [],
+      recommendations: [
+        "No context snapshot found. Run `npx -y github:marinvch/ai-os --refresh-existing` to generate a baseline snapshot."
+      ],
+      snapshotCapturedAt: null,
+      lastGeneratedAt
+    };
+  }
+  const staleArtifacts = [];
+  let artifactTotal = 0;
+  let artifactFresh = 0;
+  for (const [rel, storedHash] of Object.entries(snapshot.artifactHashes)) {
+    artifactTotal++;
+    const currentHash = hashFile(path6.join(rootDir, rel));
+    if (currentHash === storedHash) {
+      artifactFresh++;
+    } else {
+      staleArtifacts.push(rel);
+    }
+  }
+  const changedSourceFiles = [];
+  let sourceTotal = 0;
+  let sourceFresh = 0;
+  for (const [rel, storedHash] of Object.entries(snapshot.sourceHashes)) {
+    sourceTotal++;
+    const abs = rel === "src/" ? path6.join(rootDir, "src") : path6.join(rootDir, rel);
+    let currentHash;
+    if (rel === "src/" && fs5.existsSync(abs)) {
+      currentHash = hashDirectory(abs).hash;
+    } else {
+      currentHash = hashFile(abs);
+    }
+    if (currentHash === storedHash) {
+      sourceFresh++;
+    } else {
+      changedSourceFiles.push(rel);
+    }
+  }
+  const totalTracked = artifactTotal + sourceTotal;
+  const totalFresh = artifactFresh + sourceFresh;
+  const score = totalTracked > 0 ? totalFresh / totalTracked : 1;
+  let status;
+  if (score >= 0.9) {
+    status = "fresh";
+  } else if (score >= 0.6) {
+    status = "drifted";
+  } else {
+    status = "stale";
+  }
+  const recommendations = [];
+  const refreshCmd = "npx -y github:marinvch/ai-os --refresh-existing";
+  if (staleArtifacts.length > 0 && changedSourceFiles.length > 0) {
+    recommendations.push(
+      `Source changes detected in: ${changedSourceFiles.join(", ")}. Re-run \`${refreshCmd}\` to rebuild context artifacts.`
+    );
+  } else if (staleArtifacts.length > 0) {
+    recommendations.push(
+      `Context artifacts have drifted from the last generation snapshot. Run \`${refreshCmd}\` to synchronize them.`
+    );
+  } else if (changedSourceFiles.length > 0) {
+    recommendations.push(
+      `Source files changed (${changedSourceFiles.join(", ")}) but context artifacts are intact. Verify that conventions and architecture docs still reflect the updated code, then run \`${refreshCmd} --regenerate-context\` if needed.`
+    );
+  }
+  if (staleArtifacts.some((a) => a.includes("conventions"))) {
+    recommendations.push("`conventions.md` is stale \u2014 run `get_conventions` and verify coding rules are still accurate.");
+  }
+  if (staleArtifacts.some((a) => a.includes("architecture"))) {
+    recommendations.push("`architecture.md` is stale \u2014 review system design docs and re-run generation.");
+  }
+  if (staleArtifacts.some((a) => a.includes("copilot-instructions"))) {
+    recommendations.push("`copilot-instructions.md` has changed \u2014 check persistent rules in `config.json` are still aligned.");
+  }
+  if (status === "fresh" && recommendations.length === 0) {
+    recommendations.push("Context is fresh. No action needed.");
+  }
+  return {
+    score,
+    status,
+    staleArtifacts,
+    changedSourceFiles,
+    recommendations,
+    snapshotCapturedAt: snapshot.capturedAt,
+    lastGeneratedAt
+  };
+}
+function formatFreshnessReport(report) {
+  const scorePercent = Math.round(report.score * 100);
+  const statusEmoji = {
+    fresh: "\u2705",
+    drifted: "\u26A0\uFE0F",
+    stale: "\u274C",
+    unknown: "\u2753"
+  }[report.status];
+  const lines = [
+    `## Context Freshness Report`,
+    ``,
+    `${statusEmoji} **Status:** ${report.status.toUpperCase()}  |  **Score:** ${scorePercent}/100`,
+    ``
+  ];
+  if (report.snapshotCapturedAt) {
+    lines.push(`- **Snapshot captured:** ${report.snapshotCapturedAt}`);
+  }
+  if (report.lastGeneratedAt) {
+    lines.push(`- **Last AI OS run:** ${report.lastGeneratedAt}`);
+  }
+  lines.push("");
+  if (report.staleArtifacts.length > 0) {
+    lines.push("### Stale Context Artifacts");
+    for (const a of report.staleArtifacts) {
+      lines.push(`- \`${a}\``);
+    }
+    lines.push("");
+  }
+  if (report.changedSourceFiles.length > 0) {
+    lines.push("### Changed Source / Config Files");
+    for (const f of report.changedSourceFiles) {
+      lines.push(`- \`${f}\``);
+    }
+    lines.push("");
+  }
+  if (report.recommendations.length > 0) {
+    lines.push("### Recommendations");
+    for (const r of report.recommendations) {
+      lines.push(`- ${r}`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+// src/actions/check-freshness.ts
+function runCheckFreshnessAction(cwd) {
+  console.log(`  \u{1F50D} Context freshness check: ${cwd}`);
+  console.log("");
+  const report = computeFreshnessReport(cwd);
+  console.log(formatFreshnessReport(report));
+  const isCi = process.env["CI"] === "true" || process.env["GITHUB_ACTIONS"] === "true";
+  if (report.status === "stale") {
+    console.log("  \u274C Context is stale. Run `--refresh-existing` to rebuild context artifacts.");
+    if (isCi) process.exit(1);
+  } else if (report.status === "drifted") {
+    console.log("  \u26A0\uFE0F  Context has drifted. Consider running `--refresh-existing` to resync.");
+  } else if (report.status === "unknown") {
+    console.log("  \u2753 No snapshot found \u2014 run AI OS generation first to establish a baseline.");
+  } else {
+    console.log("  \u2705 Context is fresh.");
+  }
+  console.log("");
+}
+
+// src/actions/compact-memory.ts
+import fs8 from "node:fs";
+import path10 from "node:path";
+
+// src/mcp-server/utils.ts
+import path9 from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
+
+// src/mcp-server/shared.ts
+import fs6 from "node:fs";
+import path7 from "node:path";
+var ROOT = process.env["AI_OS_ROOT"] ?? process.cwd();
+function getMemoryFilePath() {
+  return path7.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
+}
+function getMemoryDirPath() {
+  return path7.join(ROOT, ".github", "ai-os", "memory");
+}
+function getMemoryLockFilePath() {
+  return path7.join(getMemoryDirPath(), ".memory.lock");
+}
+function ensureMemoryStore() {
+  const memoryDir = getMemoryDirPath();
+  if (!fs6.existsSync(memoryDir)) {
+    fs6.mkdirSync(memoryDir, { recursive: true });
+  }
+  const memoryFile = getMemoryFilePath();
+  if (!fs6.existsSync(memoryFile)) {
+    fs6.writeFileSync(memoryFile, "", "utf-8");
+  }
+}
+function writeTextAtomic(filePath, content) {
+  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  fs6.writeFileSync(tempPath, content, "utf-8");
+  fs6.renameSync(tempPath, filePath);
+}
+function sleepSync(ms) {
+  const shared = new SharedArrayBuffer(4);
+  const int32 = new Int32Array(shared);
+  Atomics.wait(int32, 0, 0, ms);
+}
+var MEMORY_LOCK_WAIT_MS = 2e3;
+var MEMORY_LOCK_RETRY_MS = 50;
+var MEMORY_LOCK_STALE_MS = 15e3;
+var _activeLockPath = null;
+function _releaseLockOnExit() {
+  if (_activeLockPath) {
+    try {
+      fs6.unlinkSync(_activeLockPath);
+    } catch {
+    }
+    _activeLockPath = null;
+  }
+}
+process.on("exit", _releaseLockOnExit);
+var _activeSessionLockPath = null;
+function _releaseSessionLockOnExit() {
+  if (_activeSessionLockPath) {
+    try {
+      fs6.unlinkSync(_activeSessionLockPath);
+    } catch {
+    }
+    _activeSessionLockPath = null;
+  }
+}
+process.on("exit", _releaseSessionLockOnExit);
+function withMemoryLock(fn) {
+  ensureMemoryStore();
+  const lockPath = getMemoryLockFilePath();
+  const startedAt = Date.now();
+  let lockFd = null;
+  while (Date.now() - startedAt < MEMORY_LOCK_WAIT_MS) {
+    try {
+      lockFd = fs6.openSync(lockPath, "wx");
+      break;
+    } catch (err) {
+      if (err.code !== "EEXIST") {
+        throw err;
+      }
+      try {
+        const lockStat = fs6.statSync(lockPath);
+        if (Date.now() - lockStat.mtimeMs > MEMORY_LOCK_STALE_MS) {
+          fs6.unlinkSync(lockPath);
+          continue;
+        }
+      } catch {
+      }
+      sleepSync(MEMORY_LOCK_RETRY_MS);
+    }
+  }
+  if (lockFd === null) {
+    throw new Error("Timed out waiting for repository memory lock.");
+  }
+  _activeLockPath = lockPath;
+  try {
+    return fn();
+  } finally {
+    _activeLockPath = null;
+    try {
+      fs6.closeSync(lockFd);
+    } catch {
+    }
+    try {
+      fs6.unlinkSync(lockPath);
+    } catch {
+    }
+  }
+}
+
+// src/mcp-server/memory.ts
+import fs7 from "node:fs";
+import path8 from "node:path";
+var MEMORY_STALE_DAYS = 180;
+var NEAR_DUPLICATE_THRESHOLD = 0.85;
+function normalizeWhitespace(value) {
+  return value.trim().replace(/\s+/g, " ");
+}
+function normalizeMemoryText(value) {
+  return normalizeWhitespace(value).toLowerCase();
+}
+function readMemoryConfig() {
+  const configPath = path8.join(ROOT, ".github", "ai-os", "config.json");
+  try {
+    const raw = JSON.parse(fs7.readFileSync(configPath, "utf-8"));
+    const ttlDays = typeof raw["memoryTtlDays"] === "number" && raw["memoryTtlDays"] > 0 ? Math.floor(raw["memoryTtlDays"]) : MEMORY_STALE_DAYS;
+    const nearDuplicateThreshold = typeof raw["memoryNearDuplicateThreshold"] === "number" ? Math.max(0.5, Math.min(1, raw["memoryNearDuplicateThreshold"])) : NEAR_DUPLICATE_THRESHOLD;
+    return { ttlDays, nearDuplicateThreshold };
+  } catch {
+    return { ttlDays: MEMORY_STALE_DAYS, nearDuplicateThreshold: NEAR_DUPLICATE_THRESHOLD };
+  }
+}
+function jaccardSimilarity(a, b) {
+  const wordsA = new Set(a.toLowerCase().split(/\W+/).filter(Boolean));
+  const wordsB = new Set(b.toLowerCase().split(/\W+/).filter(Boolean));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  let intersection = 0;
+  for (const word of wordsA) {
+    if (wordsB.has(word)) intersection += 1;
+  }
+  const union = wordsA.size + wordsB.size - intersection;
+  return intersection / union;
+}
+function normalizeTags(tags) {
+  return [...new Set(tags.map((tag) => normalizeMemoryText(tag)).filter(Boolean))].sort();
+}
+function buildMemoryKey(entry) {
+  return `${normalizeMemoryText(entry.category)}::${normalizeMemoryText(entry.title)}`;
+}
+function buildFingerprint(entry) {
+  return `${buildMemoryKey(entry)}::${normalizeMemoryText(entry.content)}`;
+}
+function toIsoDate(dateValue) {
+  const parsed = dateValue ? new Date(dateValue) : /* @__PURE__ */ new Date();
+  return Number.isNaN(parsed.getTime()) ? (/* @__PURE__ */ new Date()).toISOString() : parsed.toISOString();
+}
+function ageInDays(isoDate) {
+  const dt = new Date(isoDate);
+  if (Number.isNaN(dt.getTime())) return 0;
+  return Math.floor((Date.now() - dt.getTime()) / (1e3 * 60 * 60 * 24));
+}
+function canonicalizeEntry(raw) {
+  const title = typeof raw.title === "string" ? normalizeWhitespace(raw.title) : "";
+  const content = typeof raw.content === "string" ? normalizeWhitespace(raw.content) : "";
+  if (!title || !content) return null;
+  const category = typeof raw.category === "string" && raw.category.trim() ? normalizeMemoryText(raw.category) : "general";
+  const createdAt = toIsoDate(raw.createdAt);
+  const updatedAt = raw.updatedAt ? toIsoDate(raw.updatedAt) : void 0;
+  const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tags = normalizeTags(Array.isArray(raw.tags) ? raw.tags.filter((tag) => typeof tag === "string") : []);
+  const status = raw.status === "stale" ? "stale" : "active";
+  const fingerprint = buildFingerprint({ title, content, category });
+  return {
+    id,
+    createdAt,
+    updatedAt,
+    title,
+    content,
+    category,
+    tags,
+    fingerprint,
+    status,
+    staleReason: typeof raw.staleReason === "string" ? raw.staleReason : void 0,
+    supersedesId: typeof raw.supersedesId === "string" ? raw.supersedesId : void 0,
+    conflictWithId: typeof raw.conflictWithId === "string" ? raw.conflictWithId : void 0
+  };
+}
+function sortByRecencyDesc(a, b) {
+  const aTime = new Date(a.updatedAt ?? a.createdAt).getTime();
+  const bTime = new Date(b.updatedAt ?? b.createdAt).getTime();
+  return bTime - aTime;
+}
+function applyStalePolicy(entries, ttlDays) {
+  const effectiveTtl = ttlDays ?? MEMORY_STALE_DAYS;
+  const byKey = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const key = buildMemoryKey(entry);
+    const list = byKey.get(key) ?? [];
+    list.push(entry);
+    byKey.set(key, list);
+  }
+  for (const [, list] of byKey) {
+    list.sort(sortByRecencyDesc);
+    let activeSeen = false;
+    for (const entry of list) {
+      if (entry.status === "stale") continue;
+      if (!activeSeen) {
+        activeSeen = true;
+        continue;
+      }
+      entry.status = "stale";
+      entry.staleReason = entry.staleReason ?? "superseded-by-newer-entry";
+      entry.updatedAt = toIsoDate(entry.updatedAt);
+    }
+  }
+  for (const entry of entries) {
+    if (entry.status === "stale") continue;
+    if (ageInDays(entry.updatedAt ?? entry.createdAt) > effectiveTtl) {
+      entry.status = "stale";
+      entry.staleReason = entry.staleReason ?? `auto-stale-${effectiveTtl}d`;
+      entry.updatedAt = toIsoDate(entry.updatedAt);
+    }
+  }
+  return entries;
+}
+function markNearDuplicates(entries, threshold) {
+  const byKey = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    const key = buildMemoryKey(entry);
+    const list = byKey.get(key) ?? [];
+    list.push(entry);
+    byKey.set(key, list);
+  }
+  let marked = 0;
+  for (const [, list] of byKey) {
+    const active = list.filter((e) => e.status !== "stale").sort(sortByRecencyDesc);
+    for (let i = 0; i < active.length; i++) {
+      for (let j = i + 1; j < active.length; j++) {
+        const newer = active[i];
+        const older = active[j];
+        if ((newer.fingerprint ?? buildFingerprint(newer)) !== (older.fingerprint ?? buildFingerprint(older)) && jaccardSimilarity(newer.content, older.content) >= threshold) {
+          older.status = "stale";
+          older.staleReason = "near-duplicate";
+          older.updatedAt = toIsoDate(older.updatedAt);
+          marked += 1;
+        }
+      }
+    }
+  }
+  return marked;
+}
+function dedupeEntries(entries) {
+  const seen = /* @__PURE__ */ new Map();
+  const ordered = [...entries].sort(sortByRecencyDesc);
+  for (const entry of ordered) {
+    const dedupeKey = `${entry.fingerprint ?? buildFingerprint(entry)}::${entry.status ?? "active"}`;
+    if (!seen.has(dedupeKey)) {
+      seen.set(dedupeKey, entry);
+      continue;
+    }
+    const kept = seen.get(dedupeKey);
+    kept.tags = normalizeTags([...kept.tags, ...entry.tags]);
+  }
+  return [...seen.values()].sort(sortByRecencyDesc);
+}
+function serializeEntries(entries) {
+  return entries.map((entry) => JSON.stringify(entry)).join("\n") + (entries.length > 0 ? "\n" : "");
+}
+function writeMemoryEntriesAtomic(entries) {
+  writeTextAtomic(getMemoryFilePath(), serializeEntries(entries));
+}
+function pruneMemory() {
+  try {
+    return withMemoryLock(() => {
+      ensureMemoryStore();
+      const file = getMemoryFilePath();
+      const content = fs7.readFileSync(file, "utf-8");
+      const rawLines = content.split("\n").map((line) => line.trim()).filter(Boolean);
+      const rawEntries = [];
+      let malformedCount = 0;
+      for (const line of rawLines) {
+        try {
+          const parsed = JSON.parse(line);
+          const canonical = canonicalizeEntry(parsed);
+          if (canonical) rawEntries.push(canonical);
+          else malformedCount += 1;
+        } catch {
+          malformedCount += 1;
+        }
+      }
+      const totalBefore = rawEntries.length;
+      const { ttlDays, nearDuplicateThreshold } = readMemoryConfig();
+      const deduped = dedupeEntries(rawEntries);
+      const nearDuplicatesMarked = markNearDuplicates(deduped, nearDuplicateThreshold);
+      const withStalePolicy = applyStalePolicy(deduped, ttlDays);
+      const staleCount = withStalePolicy.filter((e) => e.status === "stale").length;
+      const activeEntries = withStalePolicy.filter((e) => e.status !== "stale");
+      writeMemoryEntriesAtomic(activeEntries);
+      const summary = {
+        totalBefore,
+        activeAfter: activeEntries.length,
+        staleMarked: staleCount,
+        nearDuplicatesMarked,
+        pruned: totalBefore - activeEntries.length,
+        malformedSkipped: malformedCount
+      };
+      const lines = [
+        "## Memory Prune Complete",
+        "",
+        `- Entries before prune: ${summary.totalBefore}`,
+        `- Active entries kept:  ${summary.activeAfter}`,
+        `- Stale entries removed: ${summary.pruned}`,
+        `  - Near-duplicates removed: ${summary.nearDuplicatesMarked}`,
+        `  - TTL-expired / superseded: ${summary.staleMarked - summary.nearDuplicatesMarked}`
+      ];
+      if (summary.malformedSkipped > 0) {
+        lines.push(`- Malformed lines skipped: ${summary.malformedSkipped}`);
+      }
+      lines.push("", `TTL policy: ${ttlDays} days | Near-duplicate threshold: ${nearDuplicateThreshold}`);
+      return lines.join("\n");
+    });
+  } catch (err) {
+    return `Failed to prune memory: ${err instanceof Error ? err.message : String(err)}`;
+  }
+}
+function runMemoryMaintenance() {
+  ensureMemoryStore();
+  const file = getMemoryFilePath();
+  const content = fs7.readFileSync(file, "utf-8");
+  const rawLines = content.split("\n").map((line) => line.trim()).filter(Boolean);
+  const rawEntries = [];
+  let malformedCount = 0;
+  for (const line of rawLines) {
+    try {
+      const parsed = JSON.parse(line);
+      const canonical = canonicalizeEntry(parsed);
+      if (canonical) rawEntries.push(canonical);
+      else malformedCount += 1;
+    } catch {
+      malformedCount += 1;
+    }
+  }
+  const totalBefore = rawEntries.length;
+  const { ttlDays, nearDuplicateThreshold } = readMemoryConfig();
+  const deduped = dedupeEntries(rawEntries);
+  const nearDuplicatesMarked = markNearDuplicates(deduped, nearDuplicateThreshold);
+  const withStalePolicy = applyStalePolicy(deduped, ttlDays);
+  const staleCount = withStalePolicy.filter((e) => e.status === "stale").length;
+  const activeCount = withStalePolicy.filter((e) => e.status !== "stale").length;
+  return {
+    totalBefore,
+    activeAfter: activeCount,
+    staleMarked: staleCount,
+    nearDuplicatesMarked,
+    pruned: 0,
+    malformedSkipped: malformedCount
+  };
+}
+
+// src/mcp-server/utils.ts
+var __dirname2 = path9.dirname(fileURLToPath2(import.meta.url));
+
+// src/actions/compact-memory.ts
+function runCompactMemoryAction(cwd) {
+  console.log(`  \u{1F9F9} Compact memory: ${cwd}`);
+  console.log("");
+  const memoryFile = path10.join(cwd, ".github", "ai-os", "memory", "memory.jsonl");
+  if (!fs8.existsSync(memoryFile)) {
+    console.log("  \u2139\uFE0F  No memory.jsonl file found \u2014 nothing to compact.");
+    console.log("");
+    return;
+  }
+  try {
+    process.env["AI_OS_ROOT"] = cwd;
+    const result = pruneMemory();
+    const lines = result.split("\n");
+    for (const line of lines) {
+      console.log(`  ${line}`);
+    }
+  } catch (err) {
+    console.error(`  \u274C Memory compact failed: ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  }
+  console.log("");
+}
+
+// src/actions/apply.ts
+import fs22 from "node:fs";
+import path25 from "node:path";
+import { spawnSync as spawnSync4 } from "node:child_process";
+import { fileURLToPath as fileURLToPath4 } from "node:url";
+
+// src/analyze.ts
+import fs12 from "node:fs";
+import path14 from "node:path";
+
+// src/detectors/language.ts
+import fs9 from "node:fs";
+import path11 from "node:path";
 var EXTENSION_MAP = {
   ts: "TypeScript",
   tsx: "TypeScript",
@@ -106,12 +1501,12 @@ var IGNORE_DIRS = /* @__PURE__ */ new Set([
 ]);
 function walkDir(dir, depth = 0, maxDepth = 6) {
   if (depth > maxDepth) return [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const entries = fs9.readdirSync(dir, { withFileTypes: true });
   const files = [];
   for (const entry of entries) {
     if (entry.name.startsWith(".")) continue;
     if (IGNORE_DIRS.has(entry.name)) continue;
-    const fullPath = path.join(dir, entry.name);
+    const fullPath = path11.join(dir, entry.name);
     if (entry.isDirectory()) {
       files.push(...walkDir(fullPath, depth + 1, maxDepth));
     } else if (entry.isFile()) {
@@ -124,7 +1519,7 @@ function detectLanguages(rootDir) {
   const files = walkDir(rootDir);
   const counts = {};
   for (const file of files) {
-    const ext = path.extname(file).slice(1).toLowerCase();
+    const ext = path11.extname(file).slice(1).toLowerCase();
     if (!ext) continue;
     const lang = EXTENSION_MAP[ext];
     if (!lang) continue;
@@ -142,18 +1537,18 @@ function detectLanguages(rootDir) {
 }
 
 // src/detectors/framework.ts
-import fs2 from "node:fs";
-import path2 from "node:path";
+import fs10 from "node:fs";
+import path12 from "node:path";
 function readJson(filePath) {
   try {
-    return JSON.parse(fs2.readFileSync(filePath, "utf-8"));
+    return JSON.parse(fs10.readFileSync(filePath, "utf-8"));
   } catch {
     return null;
   }
 }
 function readFile(filePath) {
   try {
-    return fs2.readFileSync(filePath, "utf-8");
+    return fs10.readFileSync(filePath, "utf-8");
   } catch {
     return "";
   }
@@ -162,7 +1557,7 @@ function allDeps(pkg) {
   return { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies };
 }
 function detectFromPackageJson(rootDir) {
-  const pkgPath = path2.join(rootDir, "package.json");
+  const pkgPath = path12.join(rootDir, "package.json");
   const pkg = readJson(pkgPath);
   if (!pkg) return [];
   const deps = allDeps(pkg);
@@ -225,7 +1620,7 @@ function detectFromPackageJson(rootDir) {
 }
 function detectFromPython(rootDir) {
   const files = ["requirements.txt", "pyproject.toml", "Pipfile", "setup.py", "setup.cfg"];
-  const content = files.map((f) => readFile(path2.join(rootDir, f))).join("\n").toLowerCase();
+  const content = files.map((f) => readFile(path12.join(rootDir, f))).join("\n").toLowerCase();
   if (!content) return [];
   const frameworks = [];
   if (content.includes("django")) {
@@ -240,7 +1635,7 @@ function detectFromPython(rootDir) {
   return frameworks;
 }
 function detectFromGo(rootDir) {
-  const goMod = readFile(path2.join(rootDir, "go.mod"));
+  const goMod = readFile(path12.join(rootDir, "go.mod"));
   if (!goMod) return [];
   const frameworks = [];
   if (goMod.includes("gin-gonic/gin")) {
@@ -257,7 +1652,7 @@ function detectFromGo(rootDir) {
   return frameworks;
 }
 function detectFromRust(rootDir) {
-  const cargo = readFile(path2.join(rootDir, "Cargo.toml"));
+  const cargo = readFile(path12.join(rootDir, "Cargo.toml"));
   if (!cargo) return [];
   const frameworks = [];
   if (cargo.includes("actix-web")) {
@@ -272,8 +1667,8 @@ function detectFromRust(rootDir) {
   return frameworks;
 }
 function detectFromJava(rootDir) {
-  const pomXml = readFile(path2.join(rootDir, "pom.xml"));
-  const buildGradle = readFile(path2.join(rootDir, "build.gradle")) + readFile(path2.join(rootDir, "build.gradle.kts"));
+  const pomXml = readFile(path12.join(rootDir, "pom.xml"));
+  const buildGradle = readFile(path12.join(rootDir, "build.gradle")) + readFile(path12.join(rootDir, "build.gradle.kts"));
   const content = pomXml + buildGradle;
   if (!content) return [];
   if (content.includes("spring-boot") || content.includes("spring-boot-starter")) {
@@ -287,18 +1682,18 @@ function detectFromJava(rootDir) {
   return [];
 }
 function detectFromDotnet(rootDir) {
-  const entries = fs2.readdirSync(rootDir);
+  const entries = fs10.readdirSync(rootDir);
   const csproj = entries.find((e) => e.endsWith(".csproj"));
   const sln = entries.find((e) => e.endsWith(".sln"));
   if (!csproj && !sln) return [];
-  const csprojContent = csproj ? readFile(path2.join(rootDir, csproj)).toLowerCase() : "";
+  const csprojContent = csproj ? readFile(path12.join(rootDir, csproj)).toLowerCase() : "";
   if (csprojContent.includes("aspnetcore") || csprojContent.includes("web")) {
     return [{ name: "ASP.NET Core", category: "backend", template: "dotnet" }];
   }
   return [{ name: ".NET", category: "backend", template: "dotnet" }];
 }
 function detectFromRuby(rootDir) {
-  const gemfile = readFile(path2.join(rootDir, "Gemfile")).toLowerCase();
+  const gemfile = readFile(path12.join(rootDir, "Gemfile")).toLowerCase();
   if (!gemfile) return [];
   if (gemfile.includes("rails")) {
     return [{ name: "Ruby on Rails", category: "fullstack", template: "ruby-rails" }];
@@ -308,16 +1703,24 @@ function detectFromRuby(rootDir) {
   return [{ name: "Ruby", category: "backend", template: "ruby-rails" }];
 }
 function detectFromBun(rootDir) {
-  if (!fs2.existsSync(path2.join(rootDir, "bun.lockb"))) return [];
+  if (!fs10.existsSync(path12.join(rootDir, "bun.lockb"))) return [];
   return [{ name: "Bun", category: "backend", template: "bun" }];
 }
 function detectFromDeno(rootDir) {
-  const hasDenoJson = fs2.existsSync(path2.join(rootDir, "deno.json")) || fs2.existsSync(path2.join(rootDir, "deno.jsonc"));
+  const hasDenoJson = fs10.existsSync(path12.join(rootDir, "deno.json")) || fs10.existsSync(path12.join(rootDir, "deno.jsonc"));
   if (!hasDenoJson) return [];
   return [{ name: "Deno", category: "backend", template: "deno" }];
 }
 function detectFromPhp(rootDir) {
-  const composer = readJson(path2.join(rootDir, "composer.json"));
+  const hasWpConfig = fs10.existsSync(path12.join(rootDir, "wp-config.php"));
+  const hasWpContent = fs10.existsSync(path12.join(rootDir, "wp-content"));
+  const hasWpIncludes = fs10.existsSync(path12.join(rootDir, "wp-includes"));
+  const indexPhpPath = path12.join(rootDir, "index.php");
+  const indexPhpContainsWp = fs10.existsSync(indexPhpPath) && fs10.readFileSync(indexPhpPath, "utf-8").includes("wp-blog-header.php");
+  if (hasWpConfig || hasWpContent && hasWpIncludes || indexPhpContainsWp) {
+    return [{ name: "WordPress", category: "fullstack", template: "php-wordpress" }];
+  }
+  const composer = readJson(path12.join(rootDir, "composer.json"));
   if (!composer) return [];
   const reqs = { ...composer.require };
   if (reqs["laravel/framework"]) {
@@ -330,10 +1733,10 @@ function detectFromPhp(rootDir) {
   return [{ name: "PHP", category: "backend", template: "php-laravel" }];
 }
 function detectBun(rootDir) {
-  if (fs2.existsSync(path2.join(rootDir, "bun.lockb"))) {
+  if (fs10.existsSync(path12.join(rootDir, "bun.lockb"))) {
     return [{ name: "Bun", category: "backend", template: "bun" }];
   }
-  const pkg = readJson(path2.join(rootDir, "package.json"));
+  const pkg = readJson(path12.join(rootDir, "package.json"));
   if (pkg?.packageManager?.startsWith("bun")) {
     return [{ name: "Bun", category: "backend", template: "bun" }];
   }
@@ -341,7 +1744,7 @@ function detectBun(rootDir) {
 }
 function detectDeno(rootDir) {
   const denoFiles = ["deno.json", "deno.jsonc", "deno.lock", "import_map.json"];
-  if (denoFiles.some((f) => fs2.existsSync(path2.join(rootDir, f)))) {
+  if (denoFiles.some((f) => fs10.existsSync(path12.join(rootDir, f)))) {
     return [{ name: "Deno", category: "backend", template: "deno" }];
   }
   return [];
@@ -370,36 +1773,36 @@ function detectFrameworks(rootDir) {
 }
 
 // src/detectors/patterns.ts
-import fs3 from "node:fs";
-import path3 from "node:path";
+import fs11 from "node:fs";
+import path13 from "node:path";
 function exists(p) {
-  return fs3.existsSync(p);
+  return fs11.existsSync(p);
 }
 function readJson2(filePath) {
   try {
-    return JSON.parse(fs3.readFileSync(filePath, "utf-8"));
+    return JSON.parse(fs11.readFileSync(filePath, "utf-8"));
   } catch {
     return null;
   }
 }
 function detectPackageManager(rootDir) {
-  if (exists(path3.join(rootDir, "bun.lockb"))) return "bun";
-  if (exists(path3.join(rootDir, "pnpm-lock.yaml"))) return "pnpm";
-  if (exists(path3.join(rootDir, "yarn.lock"))) return "yarn";
-  if (exists(path3.join(rootDir, "package-lock.json"))) return "npm";
-  if (exists(path3.join(rootDir, "Cargo.lock")) || exists(path3.join(rootDir, "Cargo.toml"))) return "cargo";
-  if (exists(path3.join(rootDir, "go.sum")) || exists(path3.join(rootDir, "go.mod"))) return "go";
-  if (exists(path3.join(rootDir, "Pipfile.lock"))) return "pip";
-  if (exists(path3.join(rootDir, "poetry.lock"))) return "poetry";
-  if (exists(path3.join(rootDir, "pom.xml"))) return "maven";
-  if (exists(path3.join(rootDir, "build.gradle")) || exists(path3.join(rootDir, "build.gradle.kts"))) return "gradle";
-  if (exists(path3.join(rootDir, "composer.lock"))) return "composer";
-  if (exists(path3.join(rootDir, "Gemfile.lock"))) return "bundler";
+  if (exists(path13.join(rootDir, "bun.lockb"))) return "bun";
+  if (exists(path13.join(rootDir, "pnpm-lock.yaml"))) return "pnpm";
+  if (exists(path13.join(rootDir, "yarn.lock"))) return "yarn";
+  if (exists(path13.join(rootDir, "package-lock.json"))) return "npm";
+  if (exists(path13.join(rootDir, "Cargo.lock")) || exists(path13.join(rootDir, "Cargo.toml"))) return "cargo";
+  if (exists(path13.join(rootDir, "go.sum")) || exists(path13.join(rootDir, "go.mod"))) return "go";
+  if (exists(path13.join(rootDir, "Pipfile.lock"))) return "pip";
+  if (exists(path13.join(rootDir, "poetry.lock"))) return "poetry";
+  if (exists(path13.join(rootDir, "pom.xml"))) return "maven";
+  if (exists(path13.join(rootDir, "build.gradle")) || exists(path13.join(rootDir, "build.gradle.kts"))) return "gradle";
+  if (exists(path13.join(rootDir, "composer.lock"))) return "composer";
+  if (exists(path13.join(rootDir, "Gemfile.lock"))) return "bundler";
   return "unknown";
 }
 function detectTestFramework(rootDir) {
   const pkg = readJson2(
-    path3.join(rootDir, "package.json")
+    path13.join(rootDir, "package.json")
   );
   if (pkg) {
     const deps = { ...pkg.dependencies, ...pkg.devDependencies };
@@ -410,31 +1813,31 @@ function detectTestFramework(rootDir) {
     if (deps["@playwright/test"]) return "Playwright";
     if (deps["cypress"]) return "Cypress";
   }
-  if (exists(path3.join(rootDir, "pytest.ini")) || exists(path3.join(rootDir, "conftest.py"))) return "pytest";
-  if (exists(path3.join(rootDir, "phpunit.xml")) || exists(path3.join(rootDir, "phpunit.xml.dist"))) return "PHPUnit";
-  if (exists(path3.join(rootDir, "RSpec"))) return "RSpec";
+  if (exists(path13.join(rootDir, "pytest.ini")) || exists(path13.join(rootDir, "conftest.py"))) return "pytest";
+  if (exists(path13.join(rootDir, "phpunit.xml")) || exists(path13.join(rootDir, "phpunit.xml.dist"))) return "PHPUnit";
+  if (exists(path13.join(rootDir, "RSpec"))) return "RSpec";
   return void 0;
 }
 function detectLinter(rootDir) {
-  if (exists(path3.join(rootDir, ".eslintrc.json")) || exists(path3.join(rootDir, ".eslintrc.js")) || exists(path3.join(rootDir, ".eslintrc.cjs")) || exists(path3.join(rootDir, "eslint.config.js")) || exists(path3.join(rootDir, "eslint.config.mjs"))) return "ESLint";
-  if (exists(path3.join(rootDir, ".biome.json")) || exists(path3.join(rootDir, "biome.json"))) return "Biome";
-  if (exists(path3.join(rootDir, ".oxlintrc.json"))) return "oxlint";
-  if (exists(path3.join(rootDir, "pylintrc")) || exists(path3.join(rootDir, ".pylintrc"))) return "Pylint";
-  if (exists(path3.join(rootDir, ".flake8")) || exists(path3.join(rootDir, "setup.cfg"))) return "Flake8";
-  if (exists(path3.join(rootDir, "clippy.toml")) || exists(path3.join(rootDir, ".clippy.toml"))) return "Clippy";
-  if (exists(path3.join(rootDir, ".golangci.yml")) || exists(path3.join(rootDir, ".golangci.yaml"))) return "golangci-lint";
+  if (exists(path13.join(rootDir, ".eslintrc.json")) || exists(path13.join(rootDir, ".eslintrc.js")) || exists(path13.join(rootDir, ".eslintrc.cjs")) || exists(path13.join(rootDir, "eslint.config.js")) || exists(path13.join(rootDir, "eslint.config.mjs"))) return "ESLint";
+  if (exists(path13.join(rootDir, ".biome.json")) || exists(path13.join(rootDir, "biome.json"))) return "Biome";
+  if (exists(path13.join(rootDir, ".oxlintrc.json"))) return "oxlint";
+  if (exists(path13.join(rootDir, "pylintrc")) || exists(path13.join(rootDir, ".pylintrc"))) return "Pylint";
+  if (exists(path13.join(rootDir, ".flake8")) || exists(path13.join(rootDir, "setup.cfg"))) return "Flake8";
+  if (exists(path13.join(rootDir, "clippy.toml")) || exists(path13.join(rootDir, ".clippy.toml"))) return "Clippy";
+  if (exists(path13.join(rootDir, ".golangci.yml")) || exists(path13.join(rootDir, ".golangci.yaml"))) return "golangci-lint";
   return void 0;
 }
 function detectFormatter(rootDir) {
-  if (exists(path3.join(rootDir, ".prettierrc")) || exists(path3.join(rootDir, ".prettierrc.json")) || exists(path3.join(rootDir, ".prettierrc.js")) || exists(path3.join(rootDir, "prettier.config.js"))) return "Prettier";
-  if (exists(path3.join(rootDir, ".biome.json")) || exists(path3.join(rootDir, "biome.json"))) return "Biome";
-  if (exists(path3.join(rootDir, ".editorconfig"))) return "EditorConfig";
-  if (exists(path3.join(rootDir, ".rustfmt.toml"))) return "rustfmt";
-  if (exists(path3.join(rootDir, ".gofmt"))) return "gofmt";
+  if (exists(path13.join(rootDir, ".prettierrc")) || exists(path13.join(rootDir, ".prettierrc.json")) || exists(path13.join(rootDir, ".prettierrc.js")) || exists(path13.join(rootDir, "prettier.config.js"))) return "Prettier";
+  if (exists(path13.join(rootDir, ".biome.json")) || exists(path13.join(rootDir, "biome.json"))) return "Biome";
+  if (exists(path13.join(rootDir, ".editorconfig"))) return "EditorConfig";
+  if (exists(path13.join(rootDir, ".rustfmt.toml"))) return "rustfmt";
+  if (exists(path13.join(rootDir, ".gofmt"))) return "gofmt";
   return void 0;
 }
 function detectBundler(rootDir) {
-  const pkg = readJson2(path3.join(rootDir, "package.json"));
+  const pkg = readJson2(path13.join(rootDir, "package.json"));
   if (pkg?.devDependencies) {
     const deps = pkg.devDependencies;
     if (deps["vite"]) return "Vite";
@@ -445,24 +1848,24 @@ function detectBundler(rootDir) {
     if (deps["parcel"]) return "Parcel";
     if (deps["@swc/core"]) return "SWC";
   }
-  if (exists(path3.join(rootDir, "vite.config.ts")) || exists(path3.join(rootDir, "vite.config.js"))) return "Vite";
-  if (exists(path3.join(rootDir, "webpack.config.js")) || exists(path3.join(rootDir, "webpack.config.ts"))) return "Webpack";
+  if (exists(path13.join(rootDir, "vite.config.ts")) || exists(path13.join(rootDir, "vite.config.js"))) return "Vite";
+  if (exists(path13.join(rootDir, "webpack.config.js")) || exists(path13.join(rootDir, "webpack.config.ts"))) return "Webpack";
   return void 0;
 }
 function detectCiCd(rootDir) {
-  if (exists(path3.join(rootDir, ".github", "workflows"))) return { hasCiCd: true, provider: "GitHub Actions" };
-  if (exists(path3.join(rootDir, ".gitlab-ci.yml"))) return { hasCiCd: true, provider: "GitLab CI" };
-  if (exists(path3.join(rootDir, ".circleci", "config.yml"))) return { hasCiCd: true, provider: "CircleCI" };
-  if (exists(path3.join(rootDir, "Jenkinsfile"))) return { hasCiCd: true, provider: "Jenkins" };
-  if (exists(path3.join(rootDir, ".travis.yml"))) return { hasCiCd: true, provider: "Travis CI" };
-  if (exists(path3.join(rootDir, "azure-pipelines.yml"))) return { hasCiCd: true, provider: "Azure Pipelines" };
-  if (exists(path3.join(rootDir, "bitbucket-pipelines.yml"))) return { hasCiCd: true, provider: "Bitbucket Pipelines" };
+  if (exists(path13.join(rootDir, ".github", "workflows"))) return { hasCiCd: true, provider: "GitHub Actions" };
+  if (exists(path13.join(rootDir, ".gitlab-ci.yml"))) return { hasCiCd: true, provider: "GitLab CI" };
+  if (exists(path13.join(rootDir, ".circleci", "config.yml"))) return { hasCiCd: true, provider: "CircleCI" };
+  if (exists(path13.join(rootDir, "Jenkinsfile"))) return { hasCiCd: true, provider: "Jenkins" };
+  if (exists(path13.join(rootDir, ".travis.yml"))) return { hasCiCd: true, provider: "Travis CI" };
+  if (exists(path13.join(rootDir, "azure-pipelines.yml"))) return { hasCiCd: true, provider: "Azure Pipelines" };
+  if (exists(path13.join(rootDir, "bitbucket-pipelines.yml"))) return { hasCiCd: true, provider: "Bitbucket Pipelines" };
   return { hasCiCd: false };
 }
 function detectNamingConvention(rootDir) {
-  const srcDir = exists(path3.join(rootDir, "src")) ? path3.join(rootDir, "src") : rootDir;
+  const srcDir = exists(path13.join(rootDir, "src")) ? path13.join(rootDir, "src") : rootDir;
   try {
-    const entries = fs3.readdirSync(srcDir);
+    const entries = fs11.readdirSync(srcDir);
     const tsxFiles = entries.filter((e) => e.endsWith(".tsx") || e.endsWith(".jsx"));
     const pyFiles = entries.filter((e) => e.endsWith(".py"));
     if (tsxFiles.some((f) => /^[A-Z]/.test(f))) return "PascalCase";
@@ -475,10 +1878,10 @@ function detectNamingConvention(rootDir) {
 }
 function detectPatterns(rootDir) {
   const { hasCiCd, provider: ciCdProvider } = detectCiCd(rootDir);
-  const pkg = readJson2(path3.join(rootDir, "package.json"));
-  const hasTypeScript = exists(path3.join(rootDir, "tsconfig.json")) || Object.keys(pkg?.devDependencies ?? {}).includes("typescript");
+  const pkg = readJson2(path13.join(rootDir, "package.json"));
+  const hasTypeScript = exists(path13.join(rootDir, "tsconfig.json")) || Object.keys(pkg?.devDependencies ?? {}).includes("typescript");
   const testDirs = ["__tests__", "tests", "test", "spec", "__spec__"];
-  const testDirectory = testDirs.find((d) => exists(path3.join(rootDir, d)));
+  const testDirectory = testDirs.find((d) => exists(path13.join(rootDir, d)));
   return {
     namingConvention: detectNamingConvention(rootDir),
     testFramework: detectTestFramework(rootDir),
@@ -487,11 +1890,11 @@ function detectPatterns(rootDir) {
     bundler: detectBundler(rootDir),
     packageManager: detectPackageManager(rootDir),
     hasTypeScript,
-    hasDockerfile: exists(path3.join(rootDir, "Dockerfile")) || exists(path3.join(rootDir, "docker-compose.yml")),
+    hasDockerfile: exists(path13.join(rootDir, "Dockerfile")) || exists(path13.join(rootDir, "docker-compose.yml")),
     hasCiCd,
     ciCdProvider,
-    monorepo: exists(path3.join(rootDir, "pnpm-workspace.yaml")) || exists(path3.join(rootDir, "lerna.json")) || exists(path3.join(rootDir, "nx.json")) || exists(path3.join(rootDir, "turbo.json")),
-    srcDirectory: exists(path3.join(rootDir, "src")),
+    monorepo: exists(path13.join(rootDir, "pnpm-workspace.yaml")) || exists(path13.join(rootDir, "lerna.json")) || exists(path13.join(rootDir, "nx.json")) || exists(path13.join(rootDir, "turbo.json")),
+    srcDirectory: exists(path13.join(rootDir, "src")),
     testDirectory
   };
 }
@@ -499,23 +1902,23 @@ function detectPatterns(rootDir) {
 // src/analyze.ts
 function getProjectName(rootDir) {
   try {
-    const pkg = JSON.parse(fs4.readFileSync(path4.join(rootDir, "package.json"), "utf-8"));
+    const pkg = JSON.parse(fs12.readFileSync(path14.join(rootDir, "package.json"), "utf-8"));
     if (pkg.name) return pkg.name.replace(/^@[^/]+\//, "");
   } catch {
   }
   try {
-    const goMod = fs4.readFileSync(path4.join(rootDir, "go.mod"), "utf-8");
+    const goMod = fs12.readFileSync(path14.join(rootDir, "go.mod"), "utf-8");
     const match = goMod.match(/^module\s+(\S+)/m);
-    if (match) return match[1].split("/").pop() ?? path4.basename(rootDir);
+    if (match) return match[1].split("/").pop() ?? path14.basename(rootDir);
   } catch {
   }
   try {
-    const cargo = fs4.readFileSync(path4.join(rootDir, "Cargo.toml"), "utf-8");
+    const cargo = fs12.readFileSync(path14.join(rootDir, "Cargo.toml"), "utf-8");
     const match = cargo.match(/^name\s*=\s*"([^"]+)"/m);
     if (match) return match[1];
   } catch {
   }
-  return path4.basename(rootDir);
+  return path14.basename(rootDir);
 }
 function getKeyFiles(rootDir) {
   const candidates = [
@@ -544,19 +1947,19 @@ function getKeyFiles(rootDir) {
     "docker-compose.yml",
     "Dockerfile"
   ];
-  return candidates.map((c) => path4.join(rootDir, c)).filter((p) => fs4.existsSync(p)).map((p) => path4.relative(rootDir, p));
+  return candidates.map((c) => path14.join(rootDir, c)).filter((p) => fs12.existsSync(p)).map((p) => path14.relative(rootDir, p));
 }
 function getAllDependencies(rootDir) {
   const deps = /* @__PURE__ */ new Set();
   try {
-    const pkg = JSON.parse(fs4.readFileSync(path4.join(rootDir, "package.json"), "utf-8"));
+    const pkg = JSON.parse(fs12.readFileSync(path14.join(rootDir, "package.json"), "utf-8"));
     for (const key of Object.keys({ ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies })) {
       deps.add(key.toLowerCase());
     }
   } catch {
   }
   try {
-    const req = fs4.readFileSync(path4.join(rootDir, "requirements.txt"), "utf-8");
+    const req = fs12.readFileSync(path14.join(rootDir, "requirements.txt"), "utf-8");
     req.split("\n").forEach((line) => {
       const pkg = line.split(/[>=<!;\s]/)[0]?.trim().toLowerCase();
       if (pkg) deps.add(pkg);
@@ -564,7 +1967,7 @@ function getAllDependencies(rootDir) {
   } catch {
   }
   try {
-    const cargo = fs4.readFileSync(path4.join(rootDir, "Cargo.toml"), "utf-8");
+    const cargo = fs12.readFileSync(path14.join(rootDir, "Cargo.toml"), "utf-8");
     const depSection = cargo.match(/\[dependencies\]([\s\S]*?)(\[|\Z)/)?.[1] ?? "";
     depSection.split("\n").forEach((line) => {
       const m = line.match(/^(\w[\w-]*)\s*=/);
@@ -583,9 +1986,12 @@ function hasManifest(dir) {
     "Cargo.toml",
     "pom.xml",
     "build.gradle",
-    "build.gradle.kts"
+    "build.gradle.kts",
+    "composer.json",
+    "wp-config.php",
+    "Gemfile"
   ];
-  return manifests.some((manifest) => fs4.existsSync(path4.join(dir, manifest)));
+  return manifests.some((manifest) => fs12.existsSync(path14.join(dir, manifest)));
 }
 function parsePnpmWorkspaceYaml(yaml) {
   const globs = [];
@@ -612,11 +2018,11 @@ function parsePnpmWorkspaceYaml(yaml) {
   return globs;
 }
 function addWorkspaceChildren(absBase, packageRoots) {
-  if (!fs4.existsSync(absBase) || !fs4.statSync(absBase).isDirectory()) return;
-  for (const entry of fs4.readdirSync(absBase, { withFileTypes: true })) {
+  if (!fs12.existsSync(absBase) || !fs12.statSync(absBase).isDirectory()) return;
+  for (const entry of fs12.readdirSync(absBase, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-    const candidate = path4.join(absBase, entry.name);
+    const candidate = path14.join(absBase, entry.name);
     if (hasManifest(candidate)) packageRoots.add(candidate);
   }
 }
@@ -626,37 +2032,40 @@ function discoverPackageRoots(rootDir) {
     packageRoots.add(rootDir);
   }
   try {
-    const pnpmWs = fs4.readFileSync(path4.join(rootDir, "pnpm-workspace.yaml"), "utf-8");
+    const pnpmWs = fs12.readFileSync(path14.join(rootDir, "pnpm-workspace.yaml"), "utf-8");
     for (const glob of parsePnpmWorkspaceYaml(pnpmWs)) {
       const normalized = glob.replace(/\\/g, "/").replace(/\/\*\*$/, "").replace(/\/\*$/, "");
-      const absBase = path4.join(rootDir, normalized);
+      const absBase = path14.join(rootDir, normalized);
       if (hasManifest(absBase)) packageRoots.add(absBase);
       addWorkspaceChildren(absBase, packageRoots);
     }
   } catch {
   }
   try {
-    const lerna = JSON.parse(fs4.readFileSync(path4.join(rootDir, "lerna.json"), "utf-8"));
+    const lerna = JSON.parse(fs12.readFileSync(path14.join(rootDir, "lerna.json"), "utf-8"));
     for (const glob of lerna.packages ?? []) {
       const normalized = glob.replace(/\\/g, "/").replace(/\/\*\*$/, "").replace(/\/\*$/, "");
-      const absBase = path4.join(rootDir, normalized);
+      const absBase = path14.join(rootDir, normalized);
       if (hasManifest(absBase)) packageRoots.add(absBase);
       addWorkspaceChildren(absBase, packageRoots);
     }
   } catch {
   }
-  if (fs4.existsSync(path4.join(rootDir, "nx.json"))) {
+  if (fs12.existsSync(path14.join(rootDir, "nx.json"))) {
     for (const rel of ["apps", "libs"]) {
-      addWorkspaceChildren(path4.join(rootDir, rel), packageRoots);
+      addWorkspaceChildren(path14.join(rootDir, rel), packageRoots);
     }
   }
-  if (fs4.existsSync(path4.join(rootDir, "turbo.json"))) {
+  if (fs12.existsSync(path14.join(rootDir, "turbo.json"))) {
     for (const rel of ["apps", "packages"]) {
-      addWorkspaceChildren(path4.join(rootDir, rel), packageRoots);
+      addWorkspaceChildren(path14.join(rootDir, rel), packageRoots);
     }
   }
   for (const rel of ["apps", "packages", "services"]) {
-    addWorkspaceChildren(path4.join(rootDir, rel), packageRoots);
+    addWorkspaceChildren(path14.join(rootDir, rel), packageRoots);
+  }
+  if (packageRoots.size === 0) {
+    packageRoots.add(rootDir);
   }
   return [...packageRoots];
 }
@@ -701,7 +2110,7 @@ function mergeDependencies(profiles) {
 function detectBuildCommands(rootDir) {
   const commands = {};
   try {
-    const pkg = JSON.parse(fs4.readFileSync(path4.join(rootDir, "package.json"), "utf-8"));
+    const pkg = JSON.parse(fs12.readFileSync(path14.join(rootDir, "package.json"), "utf-8"));
     const scripts = pkg.scripts ?? {};
     const buildAliases = ["build", "compile", "tsc"];
     const testAliases = ["test", "test:run", "jest", "vitest"];
@@ -742,7 +2151,7 @@ function detectBuildCommands(rootDir) {
   }
   if (!commands.test || !commands.build) {
     try {
-      const toml = fs4.readFileSync(path4.join(rootDir, "pyproject.toml"), "utf-8");
+      const toml = fs12.readFileSync(path14.join(rootDir, "pyproject.toml"), "utf-8");
       const scriptSection = toml.match(/\[tool\.poetry\.scripts\]([\s\S]*?)(\[|\s*$)/)?.[1] ?? "";
       const scriptEntries = [...scriptSection.matchAll(/^(\w[\w-]*)\s*=\s*"([^"]+)"/mg)];
       for (const [, name] of scriptEntries) {
@@ -764,7 +2173,7 @@ function detectBuildCommands(rootDir) {
   }
   if (!commands.test) {
     try {
-      const req = fs4.readFileSync(path4.join(rootDir, "requirements.txt"), "utf-8");
+      const req = fs12.readFileSync(path14.join(rootDir, "requirements.txt"), "utf-8");
       if (req.includes("pytest")) commands.test = "pytest";
       if (!commands.dev && req.includes("fastapi")) commands.dev = "uvicorn main:app --reload";
       if (!commands.dev && req.includes("django")) commands.dev = "python manage.py runserver";
@@ -772,7 +2181,7 @@ function detectBuildCommands(rootDir) {
     }
   }
   try {
-    const makefile = fs4.readFileSync(path4.join(rootDir, "Makefile"), "utf-8");
+    const makefile = fs12.readFileSync(path14.join(rootDir, "Makefile"), "utf-8");
     const targets = [...makefile.matchAll(/^([a-zA-Z][\w-]*):/mg)].map((m) => m[1]);
     if (!commands.build && targets.includes("build")) commands.build = "make build";
     if (!commands.test && targets.includes("test")) commands.test = "make test";
@@ -781,30 +2190,30 @@ function detectBuildCommands(rootDir) {
     if (!commands.lint && targets.includes("lint")) commands.lint = "make lint";
   } catch {
   }
-  if (!commands.build && fs4.existsSync(path4.join(rootDir, "go.mod"))) {
+  if (!commands.build && fs12.existsSync(path14.join(rootDir, "go.mod"))) {
     commands.build = "go build ./...";
     if (!commands.test) commands.test = "go test ./...";
   }
-  if (!commands.build && fs4.existsSync(path4.join(rootDir, "Cargo.toml"))) {
+  if (!commands.build && fs12.existsSync(path14.join(rootDir, "Cargo.toml"))) {
     commands.build = "cargo build";
     if (!commands.test) commands.test = "cargo test";
   }
-  if (!commands.build && fs4.existsSync(path4.join(rootDir, "pom.xml"))) {
+  if (!commands.build && fs12.existsSync(path14.join(rootDir, "pom.xml"))) {
     commands.build = "mvn compile";
     if (!commands.test) commands.test = "mvn test";
   }
-  if (!commands.build && (fs4.existsSync(path4.join(rootDir, "build.gradle")) || fs4.existsSync(path4.join(rootDir, "build.gradle.kts")))) {
+  if (!commands.build && (fs12.existsSync(path14.join(rootDir, "build.gradle")) || fs12.existsSync(path14.join(rootDir, "build.gradle.kts")))) {
     commands.build = "./gradlew build";
     if (!commands.test) commands.test = "./gradlew test";
   }
   return commands;
 }
 function analyze(rootDir) {
-  const absRoot = path4.resolve(rootDir);
+  const absRoot = path14.resolve(rootDir);
   const packageRoots = discoverPackageRoots(absRoot);
   const packageProfiles = packageRoots.map((pkgRoot) => ({
     name: getProjectName(pkgRoot),
-    path: path4.relative(absRoot, pkgRoot) || ".",
+    path: path14.relative(absRoot, pkgRoot) || ".",
     languages: detectLanguages(pkgRoot),
     frameworks: detectFrameworks(pkgRoot),
     patterns: detectPatterns(pkgRoot),
@@ -834,90 +2243,25 @@ function analyze(rootDir) {
 }
 
 // src/generators/instructions.ts
-import fs6 from "node:fs";
-import path6 from "node:path";
-import { fileURLToPath } from "node:url";
-
-// src/generators/utils.ts
-import fs5 from "node:fs";
-import path5 from "node:path";
-var _verbose = false;
-function setVerboseMode(enabled) {
-  _verbose = enabled;
-}
-function writeIfChanged(filePath, content) {
-  fs5.mkdirSync(path5.dirname(filePath), { recursive: true });
-  if (fs5.existsSync(filePath)) {
-    const existing = fs5.readFileSync(filePath, "utf-8");
-    if (existing === content) {
-      if (_verbose) console.log(`  \u23ED\uFE0F  skip    ${filePath}  (unchanged)`);
-      return "skipped";
-    }
-  }
-  fs5.writeFileSync(filePath, content, "utf-8");
-  if (_verbose) console.log(`  \u270F\uFE0F  write   ${filePath}`);
-  return "written";
-}
-var PLACEHOLDER_RE = /\{\{[^}]+\}\}/g;
-function applyFallbacks(content, fallbacks = {}) {
-  return content.replace(PLACEHOLDER_RE, (match) => {
-    return fallbacks[match] ?? "";
-  });
-}
-var MANIFEST_FILENAME = "manifest.json";
-function getManifestPath(outputDir) {
-  return path5.join(outputDir, ".github", "ai-os", MANIFEST_FILENAME);
-}
-function readManifest(outputDir) {
-  const manifestPath = getManifestPath(outputDir);
-  try {
-    return JSON.parse(fs5.readFileSync(manifestPath, "utf-8"));
-  } catch {
-    return null;
-  }
-}
-function writeManifest(outputDir, version, files) {
-  const manifest = {
-    version,
-    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    files: [...files].sort()
-  };
-  const manifestPath = getManifestPath(outputDir);
-  const tmpPath = manifestPath + ".tmp";
-  fs5.mkdirSync(path5.dirname(manifestPath), { recursive: true });
-  fs5.writeFileSync(tmpPath, JSON.stringify(manifest, null, 2), "utf-8");
-  fs5.renameSync(tmpPath, manifestPath);
-}
-function resolveTemplatesDir(runtimeDir) {
-  const candidates = [
-    path5.join(runtimeDir, "..", "templates"),
-    path5.join(runtimeDir, "..", "src", "templates")
-  ];
-  for (const candidate of candidates) {
-    if (fs5.existsSync(candidate) && fs5.statSync(candidate).isDirectory()) {
-      return candidate;
-    }
-  }
-  return candidates[0];
-}
-
-// src/generators/instructions.ts
-var __dirname = path6.dirname(fileURLToPath(import.meta.url));
-var TEMPLATES_DIR = resolveTemplatesDir(__dirname);
+import fs13 from "node:fs";
+import path15 from "node:path";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
+var __dirname3 = path15.dirname(fileURLToPath3(import.meta.url));
+var TEMPLATES_DIR = resolveTemplatesDir(__dirname3);
 function readTemplate(name) {
   try {
-    return fs6.readFileSync(path6.join(TEMPLATES_DIR, name), "utf-8");
+    return fs13.readFileSync(path15.join(TEMPLATES_DIR, name), "utf-8");
   } catch {
     return "";
   }
 }
 function readFrameworkTemplate(templateKey) {
-  return readTemplate(path6.join("frameworks", `${templateKey}.md`));
+  return readTemplate(path15.join("frameworks", `${templateKey}.md`));
 }
 function buildStackSummary(stack) {
   const lines = [];
   for (const lang of stack.languages.slice(0, 5)) {
-    lines.push(`- **${lang.name}** (${lang.percentage}% of codebase, ${lang.fileCount} files)`);
+    lines.push(`- **${sanitizeForInstructions(lang.name)}** (${lang.percentage}% of codebase, ${lang.fileCount} files)`);
   }
   return lines.join("\n");
 }
@@ -944,18 +2288,20 @@ function buildBuildCommandsSection(stack) {
   return lines.join("\n");
 }
 function buildPersonaDirective(stack) {
-  const fw = stack.primaryFramework?.name;
-  if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${stack.primaryLanguage.name} and the full ${fw} ecosystem.`;
-  return `Act as a Senior ${stack.primaryLanguage.name} developer.`;
+  const fw = stack.primaryFramework ? sanitizeForInstructions(stack.primaryFramework.name) : null;
+  const lang = sanitizeForInstructions(stack.primaryLanguage.name);
+  if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${lang} and the full ${fw} ecosystem.`;
+  return `Act as a Senior ${lang} developer.`;
 }
 function fillTemplate(template, stack, frameworkOverlay) {
-  const frameworks = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
-  const linter = stack.patterns.linter ?? "none detected";
-  const formatter = stack.patterns.formatter ?? "none detected";
-  const testFramework = stack.patterns.testFramework ?? "none detected";
-  const testDir = stack.patterns.testDirectory ?? "none detected";
+  const s = sanitizeForInstructions;
+  const frameworks = stack.frameworks.map((f) => s(f.name)).join(", ") || s(stack.primaryLanguage.name);
+  const linter = s(stack.patterns.linter ?? "none detected");
+  const formatter = s(stack.patterns.formatter ?? "none detected");
+  const testFramework = s(stack.patterns.testFramework ?? "none detected");
+  const testDir = s(stack.patterns.testDirectory ?? "none detected");
   const buildCommandsSection = buildBuildCommandsSection(stack);
-  return template.replace(/{{PROJECT_NAME}}/g, stack.projectName).replace(/{{PRIMARY_LANGUAGE}}/g, stack.primaryLanguage.name).replace(/{{FRAMEWORKS}}/g, frameworks).replace(/{{PACKAGE_MANAGER}}/g, stack.patterns.packageManager).replace(/{{HAS_TYPESCRIPT}}/g, stack.patterns.hasTypeScript ? "Yes" : "No").replace(/{{STACK_SUMMARY}}/g, buildStackSummary(stack)).replace(/{{NAMING_CONVENTION}}/g, stack.patterns.namingConvention).replace(/{{LINTER}}/g, linter).replace(/{{FORMATTER}}/g, formatter).replace(/{{TEST_FRAMEWORK}}/g, testFramework).replace(/{{TEST_DIRECTORY}}/g, testDir).replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack)).replace(/{{BUILD_COMMANDS}}/g, buildCommandsSection).replace(/{{PERSONA_DIRECTIVE}}/g, buildPersonaDirective(stack)).replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
+  return template.replace(/{{PROJECT_NAME}}/g, s(stack.projectName)).replace(/{{PRIMARY_LANGUAGE}}/g, s(stack.primaryLanguage.name)).replace(/{{FRAMEWORKS}}/g, frameworks).replace(/{{PACKAGE_MANAGER}}/g, s(stack.patterns.packageManager)).replace(/{{HAS_TYPESCRIPT}}/g, stack.patterns.hasTypeScript ? "Yes" : "No").replace(/{{STACK_SUMMARY}}/g, buildStackSummary(stack)).replace(/{{NAMING_CONVENTION}}/g, s(stack.patterns.namingConvention)).replace(/{{LINTER}}/g, linter).replace(/{{FORMATTER}}/g, formatter).replace(/{{TEST_FRAMEWORK}}/g, testFramework).replace(/{{TEST_DIRECTORY}}/g, testDir).replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack)).replace(/{{BUILD_COMMANDS}}/g, buildCommandsSection).replace(/{{PERSONA_DIRECTIVE}}/g, buildPersonaDirective(stack)).replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
 }
 function enforceSizeCap(content, maxBytes = 8192) {
   const encoded = Buffer.byteLength(content, "utf-8");
@@ -970,14 +2316,14 @@ function enforceSizeCap(content, maxBytes = 8192) {
 }
 function generatePathSpecificInstructions(stack, githubDir) {
   const files = [];
-  const root = path6.dirname(githubDir);
-  const instructionsDir = path6.join(githubDir, "instructions");
+  const root = path15.dirname(githubDir);
+  const instructionsDir = path15.join(githubDir, "instructions");
   const fw = stack.primaryFramework?.name ?? "";
   const primaryLang = stack.primaryLanguage.name;
   const frontendPaths = ["src/app", "src/pages", "components", "pages", "app", "src/components"];
-  const hasFrontend = frontendPaths.some((p) => fs6.existsSync(path6.join(root, p)));
+  const hasFrontend = frontendPaths.some((p) => fs13.existsSync(path15.join(root, p)));
   if (hasFrontend) {
-    const applyPaths = frontendPaths.filter((p2) => fs6.existsSync(path6.join(root, p2)));
+    const applyPaths = frontendPaths.filter((p2) => fs13.existsSync(path15.join(root, p2)));
     const applyTo = applyPaths.map((p2) => `${p2}/**`).join(", ");
     const content = [
       "---",
@@ -992,14 +2338,14 @@ function generatePathSpecificInstructions(stack, githubDir) {
       stack.patterns.namingConvention === "PascalCase" ? "- Component files: PascalCase (e.g. `MyButton.tsx`)" : `- Component files: ${stack.patterns.namingConvention}`,
       stack.patterns.testFramework ? `- Co-locate component tests (*.test.tsx / *.spec.tsx) using ${stack.patterns.testFramework}` : ""
     ].filter(Boolean).join("\n");
-    const p = path6.join(instructionsDir, "frontend.instructions.md");
+    const p = path15.join(instructionsDir, "frontend.instructions.md");
     writeIfChanged(p, content);
     files.push(p);
   }
   const backendPaths = ["src/api", "server", "routes", "src/routes", "api", "src/server"];
-  const hasBackend = backendPaths.some((p) => fs6.existsSync(path6.join(root, p)));
+  const hasBackend = backendPaths.some((p) => fs13.existsSync(path15.join(root, p)));
   if (hasBackend) {
-    const applyPaths = backendPaths.filter((p2) => fs6.existsSync(path6.join(root, p2)));
+    const applyPaths = backendPaths.filter((p2) => fs13.existsSync(path15.join(root, p2)));
     const applyTo = applyPaths.map((p2) => `${p2}/**`).join(", ");
     const content = [
       "---",
@@ -1014,20 +2360,20 @@ function generatePathSpecificInstructions(stack, githubDir) {
       stack.patterns.hasTypeScript ? "- Type all request/response payloads (no implicit `any`)" : "",
       "- Use async/await over callback chains"
     ].filter(Boolean).join("\n");
-    const p = path6.join(instructionsDir, "backend.instructions.md");
+    const p = path15.join(instructionsDir, "backend.instructions.md");
     writeIfChanged(p, content);
     files.push(p);
   }
   const testExts = ["test.ts", "test.tsx", "spec.ts", "spec.tsx", "test.js", "spec.js"];
   const hasTestFiles = testExts.some((ext) => {
     try {
-      const out = fs6.readdirSync(root).some((f) => f.endsWith(`.${ext}`));
+      const out = fs13.readdirSync(root).some((f) => f.endsWith(`.${ext}`));
       return out;
     } catch {
       return false;
     }
   });
-  const hasTestDir = stack.patterns.testDirectory ? fs6.existsSync(path6.join(root, stack.patterns.testDirectory)) : false;
+  const hasTestDir = stack.patterns.testDirectory ? fs13.existsSync(path15.join(root, stack.patterns.testDirectory)) : false;
   if (hasTestDir || stack.patterns.testFramework) {
     const applyTo = "**/*.test.ts, **/*.test.tsx, **/*.spec.ts, **/*.spec.tsx, **/*.test.js, **/*.spec.js";
     const content = [
@@ -1044,14 +2390,14 @@ function generatePathSpecificInstructions(stack, githubDir) {
       "- Mock external services and databases in unit tests",
       "- Do not import from `dist/` or `build/` in tests"
     ].filter(Boolean).join("\n");
-    const p = path6.join(instructionsDir, "tests.instructions.md");
+    const p = path15.join(instructionsDir, "tests.instructions.md");
     writeIfChanged(p, content);
     files.push(p);
   }
   const schemaPaths = ["prisma", "migrations", "db/migrations", "src/db"];
-  const hasSchema = schemaPaths.some((p) => fs6.existsSync(path6.join(root, p)));
+  const hasSchema = schemaPaths.some((p) => fs13.existsSync(path15.join(root, p)));
   if (hasSchema || stack.allDependencies.includes("prisma") || stack.allDependencies.includes("@prisma/client")) {
-    const applyPaths = schemaPaths.filter((p2) => fs6.existsSync(path6.join(root, p2)));
+    const applyPaths = schemaPaths.filter((p2) => fs13.existsSync(path15.join(root, p2)));
     const applyTo = applyPaths.length > 0 ? applyPaths.map((p2) => `${p2}/**`).join(", ") : "prisma/**, migrations/**";
     const content = [
       "---",
@@ -1065,7 +2411,7 @@ function generatePathSpecificInstructions(stack, githubDir) {
       "- Add database indexes for all foreign keys and frequently queried fields",
       "- Schema changes require a migration file \u2014 do not edit the schema without running migrate"
     ].join("\n");
-    const p = path6.join(instructionsDir, "schema.instructions.md");
+    const p = path15.join(instructionsDir, "schema.instructions.md");
     writeIfChanged(p, content);
     files.push(p);
   }
@@ -1074,32 +2420,32 @@ function generatePathSpecificInstructions(stack, githubDir) {
 function buildPersistentRulesSection(persistentRules, stack) {
   const detectedRules = [];
   const root = stack.rootDir;
-  if (fs6.existsSync(path6.join(root, "src", "components", "ui"))) {
+  if (fs13.existsSync(path15.join(root, "src", "components", "ui"))) {
     detectedRules.push("ALWAYS use shared components from `src/components/ui` before creating new UI components");
-  } else if (fs6.existsSync(path6.join(root, "components", "ui"))) {
+  } else if (fs13.existsSync(path15.join(root, "components", "ui"))) {
     detectedRules.push("ALWAYS use shared components from `components/ui` before creating new UI components");
-  } else if (fs6.existsSync(path6.join(root, "src", "components"))) {
+  } else if (fs13.existsSync(path15.join(root, "src", "components"))) {
     detectedRules.push("ALWAYS check `src/components` for existing components before creating new ones");
-  } else if (fs6.existsSync(path6.join(root, "components"))) {
+  } else if (fs13.existsSync(path15.join(root, "components"))) {
     detectedRules.push("ALWAYS check `components/` for existing components before creating new ones");
   }
   const utilsPaths = ["src/lib", "src/utils", "lib", "utils"];
   for (const up of utilsPaths) {
-    if (fs6.existsSync(path6.join(root, up))) {
+    if (fs13.existsSync(path15.join(root, up))) {
       detectedRules.push(`NEVER create utility functions outside \`${up}/\` \u2014 add them there instead`);
       break;
     }
   }
   const apiPaths = ["src/api", "src/routes", "api", "routes", "server/routes"];
   for (const ap of apiPaths) {
-    if (fs6.existsSync(path6.join(root, ap))) {
+    if (fs13.existsSync(path15.join(root, ap))) {
       detectedRules.push(`ALWAYS add new API routes inside \`${ap}/\` following the existing file structure`);
       break;
     }
   }
   const typePaths = ["src/types", "src/interfaces", "types", "interfaces"];
   for (const tp of typePaths) {
-    if (fs6.existsSync(path6.join(root, tp))) {
+    if (fs13.existsSync(path15.join(root, tp))) {
       detectedRules.push(`ALWAYS define shared types and interfaces in \`${tp}/\` \u2014 do not redeclare them inline`);
       break;
     }
@@ -1139,12 +2485,12 @@ No specific framework template found. Follow the general rules above.`);
     content = content + persistentSection;
   }
   content = enforceSizeCap(content);
-  const githubDir = path6.join(outputDir, ".github");
-  const outputPath = path6.join(githubDir, "copilot-instructions.md");
-  if (!(options?.preserveContextFiles && fs6.existsSync(outputPath))) {
+  const githubDir = path15.join(outputDir, ".github");
+  const outputPath = path15.join(githubDir, "copilot-instructions.md");
+  if (!(options?.preserveContextFiles && fs13.existsSync(outputPath))) {
     writeIfChanged(outputPath, content);
   }
-  const instructionsDir = path6.join(githubDir, "instructions");
+  const instructionsDir = path15.join(githubDir, "instructions");
   const autoActivationContent = [
     "---",
     'applyTo: "**"',
@@ -1233,19 +2579,142 @@ No specific framework template found. Follow the general rules above.`);
     "```",
     "This refreshes all context docs, agent files, skills, and MCP tools in-place."
   ].join("\n");
-  const autoActivationPath = path6.join(instructionsDir, "ai-os.instructions.md");
+  const autoActivationPath = path15.join(instructionsDir, "ai-os.instructions.md");
   writeIfChanged(autoActivationPath, autoActivationContent);
   const outputFiles = [outputPath, autoActivationPath];
   if (config?.pathSpecificInstructions !== false) {
     const pathSpecificFiles = generatePathSpecificInstructions(stack, githubDir);
     outputFiles.push(...pathSpecificFiles);
   }
+  if (config?.promptQualityPack !== false) {
+    const pqpPath = generatePromptQualityPack(stack, outputDir, githubDir);
+    if (pqpPath) outputFiles.push(pqpPath);
+  }
   return outputFiles;
+}
+function generatePromptQualityPack(stack, outputDir, githubDir) {
+  const agentsDir = path15.join(outputDir, ".github", "agents");
+  const skillsDir = path15.join(outputDir, ".github", "copilot", "skills");
+  const agentRows = [];
+  if (fs13.existsSync(agentsDir)) {
+    for (const file of fs13.readdirSync(agentsDir)) {
+      if (!file.endsWith(".agent.md")) continue;
+      try {
+        const raw = fs13.readFileSync(path15.join(agentsDir, file), "utf-8");
+        const nameMatch = raw.match(/^name:\s*(.+)$/m);
+        const argHintMatch = raw.match(/^argument-hint:\s*"?(.+?)"?$/m);
+        const descMatch = raw.match(/^description:\s*(.+)$/m);
+        const name = nameMatch?.[1]?.trim() ?? file.replace(".agent.md", "");
+        const argHint = argHintMatch?.[1]?.trim() ?? "";
+        const desc = descMatch?.[1]?.trim() ?? "";
+        agentRows.push(`| \`${name}\` | ${desc} | ${argHint} |`);
+      } catch {
+      }
+    }
+  }
+  const skillRows = [];
+  if (fs13.existsSync(skillsDir)) {
+    for (const file of fs13.readdirSync(skillsDir)) {
+      if (!file.endsWith(".md")) continue;
+      try {
+        const raw = fs13.readFileSync(path15.join(skillsDir, file), "utf-8");
+        const nameMatch = raw.match(/^name:\s*(.+)$/m);
+        const triggerMatch = raw.match(/^description:\s*(.+)$/m);
+        const name = nameMatch?.[1]?.trim() ?? file.replace(".md", "");
+        const trigger = triggerMatch?.[1]?.trim() ?? "";
+        skillRows.push(`| \`${name}\` | ${trigger} |`);
+      } catch {
+      }
+    }
+  }
+  const agentTable = agentRows.length > 0 ? ["| Agent | Description | When to use |", "|---|---|---|", ...agentRows].join("\n") : "_No agents installed yet._";
+  const skillTable = skillRows.length > 0 ? ["| Skill | Trigger phrase / description |", "|---|---|", ...skillRows].join("\n") : "_No skills installed yet._";
+  const frameworks = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
+  const buildCmd = stack.buildCommands?.build ?? "npm run build";
+  const testCmd = stack.buildCommands?.test ?? "npm test";
+  const contextSyncCmd = "npx -y github:marinvch/ai-os --refresh-existing";
+  const content = [
+    "---",
+    'applyTo: "**"',
+    "---",
+    "",
+    `# Prompt Quality Pack \u2014 ${stack.projectName}`,
+    "",
+    `> Stack: **${frameworks}** \xB7 Language: **${stack.primaryLanguage.name}** \xB7 Package manager: **${stack.patterns.packageManager}**`,
+    "",
+    "## 1. Prompt Template",
+    "",
+    "Use this structure for best results:",
+    "",
+    "```",
+    "Goal: <one sentence \u2014 what should be accomplished>",
+    "Scope: #file:<path> or describe the affected area",
+    "Constraints: <framework rules, must-nots, or size limits>",
+    "Agent: <agent name if a specialist is needed>",
+    "Skill: <skill keyword if domain-specific guidance is needed>",
+    "Done-when: <acceptance criteria \u2014 how will we know it worked?>",
+    "```",
+    "",
+    "## 2. Agent Routing Table",
+    "",
+    "Use `@<agent-name>` to invoke a specialist agent:",
+    "",
+    agentTable,
+    "",
+    "## 3. Skill Trigger Keywords",
+    "",
+    "Skills load automatically when your prompt matches their description:",
+    "",
+    skillTable,
+    "",
+    "## 4. MCP Health Check",
+    "",
+    "Verify the MCP server is connected before starting a session.",
+    "If `get_session_context` or `get_repo_memory` returns no output, the server is not running.",
+    "Restart it via the VS Code MCP panel or re-run the install.",
+    "",
+    "## 5. Plan-Mode Trigger",
+    "",
+    "Switch to **Plan mode** first when:",
+    "- The task has 3 or more sequential steps",
+    "- The change is irreversible (delete, drop, migrate, deploy)",
+    "- Multiple files or systems are affected",
+    "",
+    "## 6. Post-Change Context Refresh",
+    "",
+    "After structural changes (new dependencies, new files, architecture moves), refresh AI OS context:",
+    "",
+    "```bash",
+    contextSyncCmd,
+    "```",
+    "",
+    "## 7. Anti-Patterns",
+    "",
+    "- **Mixing concerns** \u2014 one prompt should do one thing",
+    `- **Vague \`#codebase\`** when a specific file path is known \u2014 use \`#file:<path>\``,
+    "- **Accepting unsourced claims** \u2014 verify with `get_repo_memory` or `search_codebase`",
+    "- **Skipping Plan mode** for irreversible changes",
+    "- **Ignoring stale context** \u2014 run `check_for_updates` if output quality drops",
+    "",
+    "## Build & Test Commands",
+    "",
+    `| Action | Command |`,
+    `|---|---|`,
+    `| Build | \`${buildCmd}\` |`,
+    `| Test | \`${testCmd}\` |`
+  ].join("\n");
+  const instructionsDir = path15.join(githubDir, "instructions");
+  if (!fs13.existsSync(instructionsDir)) {
+    fs13.mkdirSync(instructionsDir, { recursive: true });
+  }
+  const outputPath = path15.join(instructionsDir, "prompt-quality.instructions.md");
+  writeIfChanged(outputPath, content);
+  return outputPath;
 }
 
 // src/generators/mcp.ts
-import fs7 from "node:fs";
-import path7 from "node:path";
+import fs14 from "node:fs";
+import path16 from "node:path";
 
 // src/mcp-tools.ts
 var always = () => true;
@@ -1533,6 +3002,20 @@ var MCP_TOOL_DEFINITIONS = [
     description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.",
     inputSchema: { type: "object", properties: {} },
     condition: always
+  },
+  // ── Tool #25: Context Freshness ─────────────────────────────────
+  {
+    name: "get_context_freshness",
+    description: "Computes a freshness score (0\u2013100) for AI OS context artifacts by comparing them against the stored context snapshot. Returns a list of stale artifacts, changed source files, and targeted sync recommendations. Run after structural code changes to detect context drift.",
+    inputSchema: { type: "object", properties: {} },
+    condition: always
+  },
+  // ── Tool #26: Memory Prune (Compact) ─────────────────────────────
+  {
+    name: "prune_memory",
+    description: "Compacts the repository memory file by running full hygiene (near-duplicate detection, TTL enforcement, superseded entry removal) and physically deleting all stale entries. Returns a maintenance summary with counts of removed vs. kept entries.",
+    inputSchema: { type: "object", properties: {} },
+    condition: always
   }
 ];
 function getMcpToolsForStack(stack) {
@@ -1553,11 +3036,11 @@ function getToolsWithStackSplit(stack) {
 
 // src/generators/mcp.ts
 function writeMcpServerConfig(outputDir, options) {
-  const mcpJsonPath = path7.join(outputDir, ".vscode", "mcp.json");
+  const mcpJsonPath = path16.join(outputDir, ".vscode", "mcp.json");
   let existing = {};
-  if (fs7.existsSync(mcpJsonPath)) {
+  if (fs14.existsSync(mcpJsonPath)) {
     try {
-      existing = JSON.parse(fs7.readFileSync(mcpJsonPath, "utf-8"));
+      existing = JSON.parse(fs14.readFileSync(mcpJsonPath, "utf-8"));
     } catch {
     }
   }
@@ -1571,14 +3054,13 @@ function writeMcpServerConfig(outputDir, options) {
     }
   };
   existing.servers = servers;
-  fs7.mkdirSync(path7.dirname(mcpJsonPath), { recursive: true });
-  fs7.writeFileSync(mcpJsonPath, JSON.stringify(existing, null, 2) + "\n", "utf-8");
+  writeFileAtomic(mcpJsonPath, JSON.stringify(existing, null, 2) + "\n");
   return mcpJsonPath;
 }
 function generateMcpJson(stack, outputDir, options) {
   const strictFiltering = options?.config?.strictStackFiltering !== false;
   writeMcpServerConfig(outputDir);
-  const toolsJsonPath = path7.join(outputDir, ".github", "ai-os", "tools.json");
+  const toolsJsonPath = path16.join(outputDir, ".github", "ai-os", "tools.json");
   if (strictFiltering) {
     const split = getToolsWithStackSplit(stack);
     writeIfChanged(toolsJsonPath, JSON.stringify(split, null, 2));
@@ -1590,12 +3072,19 @@ function generateMcpJson(stack, outputDir, options) {
 }
 
 // src/generators/context-docs.ts
-import fs10 from "node:fs";
-import path10 from "node:path";
+import fs16 from "node:fs";
+import path18 from "node:path";
+
+// src/types.ts
+function isAiOsConfig(obj) {
+  if (typeof obj !== "object" || obj === null) return false;
+  const o = obj;
+  return typeof o["version"] === "string" && typeof o["installedAt"] === "string" && typeof o["projectName"] === "string" && typeof o["primaryLanguage"] === "string" && typeof o["packageManager"] === "string" && typeof o["hasTypeScript"] === "boolean" && Array.isArray(o["persistentRules"]) && Array.isArray(o["exclude"]);
+}
 
 // src/detectors/graph.ts
-import fs8 from "node:fs";
-import path8 from "node:path";
+import fs15 from "node:fs";
+import path17 from "node:path";
 var IGNORE_DIRS2 = /* @__PURE__ */ new Set([
   "node_modules",
   ".git",
@@ -1636,17 +3125,17 @@ var SOURCE_EXTENSIONS = /* @__PURE__ */ new Set([
 function collectSourceFiles(dir, rootDir) {
   const files = [];
   try {
-    const entries = fs8.readdirSync(dir, { withFileTypes: true });
+    const entries = fs15.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.name.startsWith(".")) continue;
       if (IGNORE_DIRS2.has(entry.name)) continue;
-      const full = path8.join(dir, entry.name);
+      const full = path17.join(dir, entry.name);
       if (entry.isDirectory()) {
         files.push(...collectSourceFiles(full, rootDir));
       } else if (entry.isFile()) {
         const ext = entry.name.split(".").pop()?.toLowerCase() ?? "";
         if (SOURCE_EXTENSIONS.has(ext)) {
-          files.push(path8.relative(rootDir, full).replace(/\\/g, "/"));
+          files.push(path17.relative(rootDir, full).replace(/\\/g, "/"));
         }
       }
     }
@@ -1664,8 +3153,8 @@ function parseImports(content, filePath) {
       const spec = m[1];
       if (!spec) continue;
       if (spec.startsWith(".")) {
-        const dir = path8.dirname(filePath);
-        const resolved = path8.posix.join(dir, spec);
+        const dir = path17.dirname(filePath);
+        const resolved = path17.posix.join(dir, spec);
         imports.push(resolved);
       }
     }
@@ -1740,7 +3229,7 @@ function buildDependencyGraph(rootDir) {
   }
   for (const file of allFiles) {
     try {
-      const content = fs8.readFileSync(path8.join(rootDir, file), "utf-8");
+      const content = fs15.readFileSync(path17.join(rootDir, file), "utf-8");
       const ext = file.split(".").pop()?.toLowerCase() ?? "";
       nodes[file].exports = parseExports(content, ext);
       const rawImports = parseImports(content, file);
@@ -1767,189 +3256,6 @@ function buildDependencyGraph(rootDir) {
   };
 }
 
-// src/updater.ts
-import fs9 from "node:fs";
-import path9 from "node:path";
-import { spawnSync } from "node:child_process";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
-var __dirname2 = path9.dirname(fileURLToPath2(import.meta.url));
-function getToolVersion() {
-  try {
-    const pkg = JSON.parse(
-      fs9.readFileSync(path9.join(__dirname2, "..", "package.json"), "utf-8")
-    );
-    return pkg.version ?? "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
-}
-function readInstalledConfig(targetDir) {
-  const newConfigPath = path9.join(targetDir, ".github", "ai-os", "config.json");
-  const legacyConfigPath = path9.join(targetDir, ".ai-os", "config.json");
-  const configPath = fs9.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
-  try {
-    return JSON.parse(fs9.readFileSync(configPath, "utf-8"));
-  } catch {
-    return null;
-  }
-}
-function parseSemver(v) {
-  const [maj = 0, min = 0, pat = 0] = v.replace(/^v/, "").split(".").map(Number);
-  return [maj, min, pat];
-}
-function compareSemver(a, b) {
-  const [aMaj = 0, aMin = 0, aPat = 0] = parseSemver(a);
-  const [bMaj = 0, bMin = 0, bPat = 0] = parseSemver(b);
-  if (aMaj !== bMaj) return aMaj > bMaj ? 1 : -1;
-  if (aMin !== bMin) return aMin > bMin ? 1 : -1;
-  if (aPat !== bPat) return aPat > bPat ? 1 : -1;
-  return 0;
-}
-function isNewer(candidate, installed) {
-  const [cMaj = 0, cMin = 0, cPat = 0] = parseSemver(candidate);
-  const [iMaj = 0, iMin = 0, iPat = 0] = parseSemver(installed);
-  if (cMaj !== iMaj) return cMaj > iMaj;
-  if (cMin !== iMin) return cMin > iMin;
-  return cPat > iPat;
-}
-function getLatestPublishedTagVersion() {
-  try {
-    const result = spawnSync(
-      "git",
-      ["ls-remote", "--tags", "--refs", "https://github.com/marinvch/ai-os.git", "v*"],
-      {
-        encoding: "utf-8",
-        timeout: 5e3
-      }
-    );
-    if (result.status !== 0 || !result.stdout) return null;
-    const versions = result.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
-      const match = line.match(/refs\/tags\/v(\d+\.\d+\.\d+)$/);
-      return match?.[1] ?? null;
-    }).filter((v) => v !== null);
-    if (versions.length === 0) return null;
-    return versions.reduce(
-      (latest, current) => compareSemver(current, latest) > 0 ? current : latest
-    );
-  } catch {
-    return null;
-  }
-}
-function getLatestResolvableVersion(toolVersion) {
-  const published = getLatestPublishedTagVersion();
-  if (!published) return toolVersion;
-  return published;
-}
-function checkUpdateStatus(targetDir) {
-  const toolVersion = getToolVersion();
-  const latestVersion = getLatestResolvableVersion(toolVersion);
-  const config = readInstalledConfig(targetDir);
-  if (!config) {
-    return {
-      toolVersion,
-      latestVersion,
-      installedVersion: null,
-      updateAvailable: false,
-      isFirstInstall: true
-    };
-  }
-  const installedVersion = config.version;
-  return {
-    toolVersion,
-    latestVersion,
-    installedVersion,
-    updateAvailable: isNewer(latestVersion, installedVersion),
-    isFirstInstall: false
-  };
-}
-function printUpdateBanner(status) {
-  if (!status.updateAvailable) return;
-  const updateCmd = `npx -y "github:marinvch/ai-os#v${status.latestVersion}" --refresh-existing`;
-  console.log("");
-  console.log("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
-  console.log(`  \u2502  \u{1F514} AI OS Update Available                          \u2502`);
-  console.log(`  \u2502     Installed: v${status.installedVersion?.padEnd(10) ?? "unknown   "}  \u2192  Latest: v${status.latestVersion.padEnd(10)}\u2502`);
-  console.log(`  \u2502                                                     \u2502`);
-  console.log(`  \u2502  Re-run AI OS with --refresh-existing (or --update) \u2502`);
-  console.log(`  \u2502  to refresh context, tools, agents, and MCP files.  \u2502`);
-  console.log("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
-  console.log(`  ${updateCmd}`);
-  console.log("");
-}
-function pruneLegacyArtifacts(targetDir, options) {
-  const fullCleanup = options?.fullCleanup === true;
-  const legacyContextDir = path9.join(targetDir, ".ai-os", "context");
-  const legacyConfig = path9.join(targetDir, ".ai-os", "config.json");
-  const legacyTools = path9.join(targetDir, ".ai-os", "tools.json");
-  const legacyMemoryDir = path9.join(targetDir, ".ai-os", "memory");
-  const legacyAiOsDir = path9.join(targetDir, ".ai-os");
-  const legacyMcpJson = path9.join(targetDir, ".github", "copilot", "mcp.json");
-  const legacyMcpLocal = path9.join(targetDir, ".github", "copilot", "mcp.local.json");
-  if (fullCleanup) {
-    let removed2 = 0;
-    try {
-      for (const file of [legacyConfig, legacyTools, legacyMcpJson, legacyMcpLocal]) {
-        if (fs9.existsSync(file)) {
-          fs9.rmSync(file);
-          removed2 += 1;
-        }
-      }
-      for (const dir of [legacyContextDir, legacyMemoryDir]) {
-        if (fs9.existsSync(dir)) {
-          fs9.rmSync(dir, { recursive: true, force: true });
-          removed2 += 1;
-        }
-      }
-      if (fs9.existsSync(legacyAiOsDir) && fs9.readdirSync(legacyAiOsDir).length === 0) {
-        fs9.rmdirSync(legacyAiOsDir);
-      }
-    } catch {
-    }
-    if (removed2 > 0) {
-      console.log(`  \u{1F9F9} Clean-update removed ${removed2} legacy .ai-os artifact(s) (config/tools/context/memory)`);
-    }
-    return;
-  }
-  for (const file of [legacyMcpJson, legacyMcpLocal]) {
-    if (fs9.existsSync(file)) {
-      try {
-        fs9.rmSync(file);
-      } catch {
-      }
-    }
-  }
-  if (!fs9.existsSync(legacyContextDir)) return;
-  const MANAGED_EXTENSIONS = /* @__PURE__ */ new Set([".md", ".json"]);
-  let removed = 0;
-  try {
-    const entries = fs9.readdirSync(legacyContextDir, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isFile()) continue;
-      const ext = path9.extname(entry.name).toLowerCase();
-      if (!MANAGED_EXTENSIONS.has(ext)) continue;
-      try {
-        fs9.rmSync(path9.join(legacyContextDir, entry.name));
-        removed += 1;
-      } catch {
-      }
-    }
-    const remaining = fs9.readdirSync(legacyContextDir);
-    if (remaining.length === 0) {
-      fs9.rmdirSync(legacyContextDir);
-      if (fs9.existsSync(legacyMemoryDir) && fs9.readdirSync(legacyMemoryDir).length === 0) {
-        fs9.rmdirSync(legacyMemoryDir);
-      }
-      if (fs9.existsSync(legacyAiOsDir) && fs9.readdirSync(legacyAiOsDir).length === 0) {
-        fs9.rmdirSync(legacyAiOsDir);
-      }
-    }
-  } catch {
-  }
-  if (removed > 0) {
-    console.log(`  \u{1F9F9} Pruned ${removed} legacy .ai-os/context/ artifact(s) (pre-v0.3.0 migration)`);
-  }
-}
-
 // src/generators/context-docs.ts
 var DEFAULT_AI_OS_CONFIG = {
   agentsMd: false,
@@ -1964,9 +3270,14 @@ var DEFAULT_AI_OS_CONFIG = {
   exclude: ["node_modules", "dist", ".next", ".nuxt", "build", "out"]
 };
 function readAiOsConfig(outputDir) {
-  const configPath = path10.join(outputDir, ".github", "ai-os", "config.json");
+  const configPath = path18.join(outputDir, ".github", "ai-os", "config.json");
   try {
-    return JSON.parse(fs10.readFileSync(configPath, "utf-8"));
+    const parsed = JSON.parse(fs16.readFileSync(configPath, "utf-8"));
+    if (!isAiOsConfig(parsed)) {
+      console.warn(`\u26A0\uFE0F  config.json at ${configPath} failed schema validation \u2014 ignoring.`);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -1981,14 +3292,14 @@ function joinOrNone(values, max = 4) {
   return `${shown.join(", ")}${suffix}`;
 }
 function exists2(root, relativePath) {
-  return fs10.existsSync(path10.join(root, relativePath));
+  return fs16.existsSync(path18.join(root, relativePath));
 }
 function countMarkdownFiles(dir) {
-  if (!fs10.existsSync(dir)) return 0;
-  const entries = fs10.readdirSync(dir, { withFileTypes: true });
+  if (!fs16.existsSync(dir)) return 0;
+  const entries = fs16.readdirSync(dir, { withFileTypes: true });
   let total = 0;
   for (const entry of entries) {
-    const fullPath = path10.join(dir, entry.name);
+    const fullPath = path18.join(dir, entry.name);
     if (entry.isDirectory()) {
       total += countMarkdownFiles(fullPath);
       continue;
@@ -2010,10 +3321,10 @@ function detectExistingAiContext(rootDir) {
   if (exists2(rootDir, ".github/copilot-instructions.md")) add(".github/copilot-instructions.md", "instructions");
   if (exists2(rootDir, ".github/instructions")) add(".github/instructions/", "instructions");
   if (exists2(rootDir, ".github/copilot/prompts.json")) add(".github/copilot/prompts.json", "prompts");
-  const skillsDir = path10.join(rootDir, ".github", "copilot", "skills");
+  const skillsDir = path18.join(rootDir, ".github", "copilot", "skills");
   const skillsCount = countMarkdownFiles(skillsDir);
   if (skillsCount > 0) add(`.github/copilot/skills/ (${skillsCount} files)`, "skills");
-  const agentsDir = path10.join(rootDir, ".github", "agents");
+  const agentsDir = path18.join(rootDir, ".github", "agents");
   const agentsCount = countMarkdownFiles(agentsDir);
   if (agentsCount > 0) add(`.github/agents/ (${agentsCount} files)`, "agents");
   if (exists2(rootDir, ".github/ai-os/context/stack.md")) add(".github/ai-os/context/stack.md", "docs");
@@ -2032,7 +3343,7 @@ function detectExistingAiContext(rootDir) {
 function generateExistingAiContextDoc(stack, summary) {
   const totalArtifacts = summary.artifacts.length;
   const lines = [
-    `# Existing AI Context \u2014 ${stack.projectName}`,
+    `# Existing AI Context \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
     "> Auto-generated by AI OS. This report detects existing AI guidance and suggests a Git Bash-first optimization path.",
     "",
@@ -2091,7 +3402,7 @@ function generateExistingAiContextDoc(stack, summary) {
 }
 function generateStackDoc(stack) {
   const lines = [
-    `# Tech Stack \u2014 ${stack.projectName}`,
+    `# Tech Stack \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
     "## Languages",
     ""
@@ -2144,7 +3455,7 @@ function generateStackDoc(stack) {
   lines.push("", "## Visual Stack Map", "");
   lines.push("```mermaid");
   lines.push("flowchart LR");
-  lines.push(`  Project["${formatNodeLabel(`Project: ${stack.projectName}`)}"]`);
+  lines.push(`  Project["${formatNodeLabel(`Project: ${sanitizeForInstructions(stack.projectName)}`)}"]`);
   lines.push(`  Lang["${formatNodeLabel(`Languages: ${joinOrNone(stack.languages.map((lang) => lang.name))}`)}"]`);
   lines.push(`  Fw["${formatNodeLabel(`Frameworks: ${joinOrNone(stack.frameworks.map((fw) => fw.name))}`)}"]`);
   lines.push(`  Tooling["${formatNodeLabel(`Tooling: ${stack.patterns.packageManager}${stack.patterns.testFramework ? `, ${stack.patterns.testFramework}` : ""}`)}"]`);
@@ -2160,7 +3471,7 @@ function generateStackDoc(stack) {
 }
 function generateArchitectureDoc(stack) {
   const lines = [
-    `# Architecture \u2014 ${stack.projectName}`,
+    `# Architecture \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
     "> Auto-generated by AI OS. Update this file as the architecture evolves.",
     "",
@@ -2176,9 +3487,9 @@ function generateArchitectureDoc(stack) {
   lines.push("", "## Directory Structure", "");
   lines.push("```");
   try {
-    const entries = fs10.readdirSync(stack.rootDir).filter((e) => !e.startsWith(".") && e !== "node_modules");
+    const entries = fs16.readdirSync(stack.rootDir).filter((e) => !e.startsWith(".") && e !== "node_modules");
     for (const entry of entries.slice(0, 20)) {
-      const stat = fs10.statSync(path10.join(stack.rootDir, entry));
+      const stat = fs16.statSync(path18.join(stack.rootDir, entry));
       lines.push(stat.isDirectory() ? `${entry}/` : entry);
     }
   } catch {
@@ -2207,7 +3518,7 @@ function generateArchitectureDoc(stack) {
   lines.push("", "## Visual Architecture Overview", "");
   lines.push("```mermaid");
   lines.push("flowchart TD");
-  lines.push(`  Repo["${formatNodeLabel(`Repository: ${stack.projectName}`)}"] --> Detect["Detect stack & patterns"]`);
+  lines.push(`  Repo["${formatNodeLabel(`Repository: ${sanitizeForInstructions(stack.projectName)}`)}"] --> Detect["Detect stack & patterns"]`);
   lines.push(`  Detect --> Lang["${formatNodeLabel(`Languages: ${joinOrNone(stack.languages.map((lang) => lang.name))}`)}"]`);
   lines.push(`  Detect --> Fw["${formatNodeLabel(`Frameworks: ${joinOrNone(stack.frameworks.map((fw2) => fw2.name))}`)}"]`);
   lines.push('  Detect --> Ctx["Scan existing AI context"]');
@@ -2225,7 +3536,7 @@ function generateArchitectureDoc(stack) {
 }
 function generateConventionsDoc(stack) {
   const lines = [
-    `# Coding Conventions \u2014 ${stack.projectName}`,
+    `# Coding Conventions \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
     "> Auto-generated by AI OS. Update to reflect actual team agreements.",
     "",
@@ -2275,7 +3586,7 @@ function generateConventionsDoc(stack) {
 }
 function generateContextBudgetDoc(stack) {
   const lines = [
-    `# Context Budget Policy \u2014 ${stack.projectName}`,
+    `# Context Budget Policy \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
     "> Auto-generated by AI OS. This policy defines context loading order, compaction triggers, anti-patterns, and session reset guidance.",
     "",
@@ -2404,7 +3715,7 @@ function generateProtectedBlocksDoc() {
 }
 function generateMemoryDoc(stack) {
   const lines = [
-    `# Memory Protocol \u2014 ${stack.projectName}`,
+    `# Memory Protocol \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
     "> Auto-generated by AI OS. Use this protocol to preserve stable project knowledge across long sessions.",
     "",
@@ -2471,53 +3782,84 @@ function mergeSections(existing, updated) {
   }
   return result.join("\n");
 }
+function generateMcpToolRefDoc(stack) {
+  const active = MCP_TOOL_DEFINITIONS.filter((t) => t.condition ? t.condition(stack) : true);
+  const rows = active.map((tool) => {
+    const required = tool.inputSchema.required ?? [];
+    const props = Object.entries(tool.inputSchema.properties ?? {});
+    const paramList = props.map(([name, schema]) => {
+      const isRequired = required.includes(name);
+      return `\`${name}\`${isRequired ? "*" : ""}: ${schema.description}`;
+    }).join("<br>");
+    return `| \`${tool.name}\` | ${tool.description} | ${paramList || "\u2014"} |`;
+  });
+  return [
+    "# MCP Tool Reference",
+    "",
+    "> Auto-generated by AI OS. Do not edit manually \u2014 this file is regenerated on each refresh.",
+    `> Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`,
+    "",
+    `Active tools for this project: **${active.length}** of ${MCP_TOOL_DEFINITIONS.length} total.`,
+    "",
+    "| Tool | Description | Parameters (`*` = required) |",
+    "|---|---|---|",
+    ...rows,
+    "",
+    "## Usage",
+    "",
+    "Call these tools from any Copilot agent or chat session. Tools with a `condition` are only",
+    "active when the matching stack dependency is detected in your project.",
+    "",
+    "> Tip: Call `get_session_context` first to reload MUST-ALWAYS rules before invoking other tools."
+  ].join("\n");
+}
 function generateContextDocs(stack, outputDir, options) {
   const preserveContextFiles = options?.preserveContextFiles ?? false;
-  const contextDir = path10.join(outputDir, ".github", "ai-os", "context");
-  fs10.mkdirSync(contextDir, { recursive: true });
-  const memoryDir = path10.join(outputDir, ".github", "ai-os", "memory");
-  fs10.mkdirSync(memoryDir, { recursive: true });
+  const contextDir = path18.join(outputDir, ".github", "ai-os", "context");
+  fs16.mkdirSync(contextDir, { recursive: true });
+  const memoryDir = path18.join(outputDir, ".github", "ai-os", "memory");
+  fs16.mkdirSync(memoryDir, { recursive: true });
   const managed = [];
   const track = (p) => {
     managed.push(p);
     return p;
   };
-  const shouldPreserve = (absPath) => preserveContextFiles && fs10.existsSync(absPath);
+  const shouldPreserve = (absPath) => preserveContextFiles && fs16.existsSync(absPath);
   const existingContext = detectExistingAiContext(outputDir);
-  const legacyMemory = path10.join(outputDir, ".ai-os", "memory", "memory.jsonl");
-  const newMemory = path10.join(memoryDir, "memory.jsonl");
-  if (fs10.existsSync(legacyMemory) && !fs10.existsSync(newMemory)) {
-    fs10.copyFileSync(legacyMemory, newMemory);
+  const legacyMemory = path18.join(outputDir, ".ai-os", "memory", "memory.jsonl");
+  const newMemory = path18.join(memoryDir, "memory.jsonl");
+  if (fs16.existsSync(legacyMemory) && !fs16.existsSync(newMemory)) {
+    fs16.copyFileSync(legacyMemory, newMemory);
   }
-  const stackPath = track(path10.join(contextDir, "stack.md"));
+  const stackPath = track(path18.join(contextDir, "stack.md"));
   if (!shouldPreserve(stackPath)) {
     writeIfChanged(stackPath, generateStackDoc(stack));
   }
-  const archPath = track(path10.join(contextDir, "architecture.md"));
-  if (!(preserveContextFiles && fs10.existsSync(archPath))) {
+  const archPath = track(path18.join(contextDir, "architecture.md"));
+  if (!(preserveContextFiles && fs16.existsSync(archPath))) {
     const archGenerated = generateArchitectureDoc(stack);
-    writeIfChanged(archPath, fs10.existsSync(archPath) ? mergeSections(fs10.readFileSync(archPath, "utf-8"), archGenerated) : archGenerated);
+    writeIfChanged(archPath, fs16.existsSync(archPath) ? mergeSections(fs16.readFileSync(archPath, "utf-8"), archGenerated) : archGenerated);
   }
-  const convsPath = track(path10.join(contextDir, "conventions.md"));
-  if (!(preserveContextFiles && fs10.existsSync(convsPath))) {
+  const convsPath = track(path18.join(contextDir, "conventions.md"));
+  if (!(preserveContextFiles && fs16.existsSync(convsPath))) {
     const convsGenerated = generateConventionsDoc(stack);
-    writeIfChanged(convsPath, fs10.existsSync(convsPath) ? mergeSections(fs10.readFileSync(convsPath, "utf-8"), convsGenerated) : convsGenerated);
+    writeIfChanged(convsPath, fs16.existsSync(convsPath) ? mergeSections(fs16.readFileSync(convsPath, "utf-8"), convsGenerated) : convsGenerated);
   }
-  writeIfChanged(track(path10.join(contextDir, "memory.md")), generateMemoryDoc(stack));
-  const existingAiContextPath = track(path10.join(contextDir, "existing-ai-context.md"));
+  writeIfChanged(track(path18.join(contextDir, "memory.md")), generateMemoryDoc(stack));
+  const existingAiContextPath = track(path18.join(contextDir, "existing-ai-context.md"));
   if (!shouldPreserve(existingAiContextPath)) {
     writeIfChanged(existingAiContextPath, generateExistingAiContextDoc(stack, existingContext));
   }
-  const contextBudgetPath = track(path10.join(contextDir, "context-budget.md"));
+  const contextBudgetPath = track(path18.join(contextDir, "context-budget.md"));
   if (!shouldPreserve(contextBudgetPath)) {
     writeIfChanged(contextBudgetPath, generateContextBudgetDoc(stack));
   }
-  const protectedBlocksPath = track(path10.join(contextDir, "protected-blocks.md"));
+  const protectedBlocksPath = track(path18.join(contextDir, "protected-blocks.md"));
   if (!shouldPreserve(protectedBlocksPath)) {
     writeIfChanged(protectedBlocksPath, generateProtectedBlocksDoc());
   }
-  const memoryReadmePath = track(path10.join(memoryDir, "README.md"));
-  if (!fs10.existsSync(memoryReadmePath)) {
+  const memoryReadmePath = track(path18.join(memoryDir, "README.md"));
+  if (!fs16.existsSync(memoryReadmePath)) {
     writeIfChanged(
       memoryReadmePath,
       [
@@ -2529,8 +3871,8 @@ function generateContextDocs(stack, outputDir, options) {
       ].join("\n")
     );
   }
-  const memoryFilePath = track(path10.join(memoryDir, "memory.jsonl"));
-  if (!fs10.existsSync(memoryFilePath)) {
+  const memoryFilePath = track(path18.join(memoryDir, "memory.jsonl"));
+  if (!fs16.existsSync(memoryFilePath)) {
     const preambleEntries = [
       {
         id: "session-preamble-start-protocol",
@@ -2553,20 +3895,21 @@ function generateContextDocs(stack, outputDir, options) {
         source: "ai-os-installer"
       }
     ];
-    fs10.writeFileSync(
+    writeFileAtomic(
       memoryFilePath,
-      preambleEntries.map((e) => JSON.stringify(e)).join("\n") + "\n",
-      "utf-8"
+      preambleEntries.map((e) => JSON.stringify(e)).join("\n") + "\n"
     );
   }
   const graph = buildDependencyGraph(outputDir);
-  writeIfChanged(track(path10.join(contextDir, "dependency-graph.json")), JSON.stringify(graph, null, 2));
+  writeIfChanged(track(path18.join(contextDir, "dependency-graph.json")), JSON.stringify(graph, null, 2));
+  const toolRefPath = track(path18.join(contextDir, "mcp-tools.md"));
+  writeIfChanged(toolRefPath, generateMcpToolRefDoc(stack));
   const existingConfig = readAiOsConfig(outputDir);
   const config = {
     // Auto-detected fields (always refreshed)
     version: getToolVersion(),
     installedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    projectName: stack.projectName,
+    projectName: sanitizeForInstructions(stack.projectName),
     primaryLanguage: stack.primaryLanguage.name,
     primaryFramework: stack.primaryFramework?.name ?? null,
     frameworks: stack.frameworks.map((f) => f.name),
@@ -2583,10 +3926,10 @@ function generateContextDocs(stack, outputDir, options) {
     persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude
   };
-  const aiOsDir = path10.join(outputDir, ".github", "ai-os");
-  writeIfChanged(track(path10.join(aiOsDir, "config.json")), JSON.stringify(config, null, 2));
+  const aiOsDir = path18.join(outputDir, ".github", "ai-os");
+  writeIfChanged(track(path18.join(aiOsDir, "config.json")), JSON.stringify(config, null, 2));
   if (config.sessionContextCard) {
-    const sessionCardPath = track(path10.join(outputDir, ".github", "COPILOT_CONTEXT.md"));
+    const sessionCardPath = track(path18.join(outputDir, ".github", "COPILOT_CONTEXT.md"));
     if (!shouldPreserve(sessionCardPath)) {
       writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
     }
@@ -2652,8 +3995,8 @@ function generateSessionContextCard(stack, config) {
 }
 
 // src/generators/agents.ts
-import * as fs11 from "fs";
-import * as path11 from "path";
+import * as fs17 from "fs";
+import * as path19 from "path";
 
 // src/validation/agent-contract.ts
 var REQUIRED_AGENT_SECTIONS = [
@@ -2733,18 +4076,18 @@ function buildFrameworkRules(stack) {
 }
 function buildAgentSpecs(stack, cwd) {
   const specs = [];
-  const projectName = path11.basename(cwd);
+  const projectName = sanitizeForInstructions(path19.basename(cwd));
   const frameworks = stack.frameworks.map((f) => f.name);
   const packages = stack.allDependencies;
-  const primaryLang = stack.languages[0]?.name ?? "TypeScript";
+  const primaryLang = sanitizeForInstructions(stack.languages[0]?.name ?? "TypeScript");
   const hasPrisma = packages.some((p) => p.includes("prisma"));
   const hasAuth = packages.some((p) => ["next-auth", "nextauth", "passport", "django.contrib.auth", "flask-login"].some((a) => p.toLowerCase().includes(a)));
   const hasStripe = packages.some((p) => p.toLowerCase().includes("stripe"));
   const hasNextjs = frameworks.some((f) => f.toLowerCase().includes("next"));
   const hasReact = frameworks.some((f) => ["react", "next", "remix", "gatsby"].some((k) => f.toLowerCase().includes(k)));
-  const primaryFramework = frameworks[0] ?? primaryLang;
+  const primaryFramework = sanitizeForInstructions(frameworks[0] ?? primaryLang);
   const frameworkLabel = hasNextjs ? "Next.js" : primaryFramework;
-  const frameworkList = frameworks.length > 0 ? frameworks.join(", ") : primaryLang;
+  const frameworkList = frameworks.length > 0 ? frameworks.map((f) => sanitizeForInstructions(f)).join(", ") : primaryLang;
   const stackSummary = [
     `Primary language: ${primaryLang}`,
     `Frameworks: ${frameworkList}`,
@@ -2757,13 +4100,13 @@ function buildAgentSpecs(stack, cwd) {
     "src/app/api/chat/route.ts",
     "src/components/ChatInterface.tsx",
     "prisma/schema.prisma"
-  ].filter((f) => fs11.existsSync(path11.join(cwd, f)));
+  ].filter((f) => fs17.existsSync(path19.join(cwd, f)));
   const keyFilesList = toBulletList(keyFiles.map((file) => `\`${file}\``));
   const keyEntryPoints = toBulletList((keyFiles.slice(0, 4).length > 0 ? keyFiles.slice(0, 4) : ["src/"]).map((file) => `\`${file}\``));
-  const runtimeDir = path11.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
-  const templateDir = path11.join(resolveTemplatesDir(runtimeDir), "agents");
+  const runtimeDir = path19.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
+  const templateDir = path19.join(resolveTemplatesDir(runtimeDir), "agents");
   specs.push({
-    templateFile: path11.join(templateDir, "repo-initializer.md"),
+    templateFile: path19.join(templateDir, "repo-initializer.md"),
     outputFile: `${projectName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}-initializer.agent.md`,
     name: `${projectName} Initializer`,
     description: `Maintain and evolve the AI framework artifacts for the ${projectName} repo (docs, skills, prompts) using the real ${frameworkLabel} stack.`,
@@ -2783,7 +4126,7 @@ function buildAgentSpecs(stack, cwd) {
     }
   });
   specs.push({
-    templateFile: path11.join(templateDir, "framework-expert.md"),
+    templateFile: path19.join(templateDir, "framework-expert.md"),
     outputFile: `expert-${frameworkLabel.toLowerCase().replace(/[^a-z0-9]/g, "-")}-developer.agent.md`,
     name: `Expert ${frameworkLabel} Developer`,
     description: `Expert ${frameworkLabel} developer specializing in ${primaryLang} patterns for ${projectName}.`,
@@ -2801,7 +4144,7 @@ function buildAgentSpecs(stack, cwd) {
     }
   });
   specs.push({
-    templateFile: path11.join(templateDir, "codebase-explorer.md"),
+    templateFile: path19.join(templateDir, "codebase-explorer.md"),
     outputFile: "codebase-explorer.agent.md",
     name: "Codebase Explorer",
     description: `Read-only navigator for ${projectName} \u2014 answers "how does X work?" questions.`,
@@ -2813,9 +4156,9 @@ function buildAgentSpecs(stack, cwd) {
     }
   });
   if (hasPrisma) {
-    const schemaFile = fs11.existsSync(path11.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
+    const schemaFile = fs17.existsSync(path19.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
     specs.push({
-      templateFile: path11.join(templateDir, "db-expert.md"),
+      templateFile: path19.join(templateDir, "db-expert.md"),
       outputFile: "expert-database.agent.md",
       name: "Database Expert",
       description: `Prisma ORM expert for ${projectName} \u2014 schema design, migrations, query optimization.`,
@@ -2837,7 +4180,7 @@ function buildAgentSpecs(stack, cwd) {
     const authProvider = hasAuth && packages.some((p) => p.includes("next-auth")) ? "NextAuth.js" : "Auth";
     const authFile = "src/app/api/auth/[...nextauth]/authOptions.ts";
     specs.push({
-      templateFile: path11.join(templateDir, "auth-expert.md"),
+      templateFile: path19.join(templateDir, "auth-expert.md"),
       outputFile: "expert-auth.agent.md",
       name: "Auth Expert",
       description: `${authProvider} expert for ${projectName} \u2014 providers, sessions, route protection.`,
@@ -2857,9 +4200,9 @@ function buildAgentSpecs(stack, cwd) {
     });
   }
   if (hasStripe) {
-    const plansFile = fs11.existsSync(path11.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
+    const plansFile = fs17.existsSync(path19.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
     specs.push({
-      templateFile: path11.join(templateDir, "payments-expert.md"),
+      templateFile: path19.join(templateDir, "payments-expert.md"),
       outputFile: "expert-payments.agent.md",
       name: "Payments Expert",
       description: `Stripe billing expert for ${projectName} \u2014 subscriptions, webhooks, plan enforcement.`,
@@ -2879,16 +4222,27 @@ function buildAgentSpecs(stack, cwd) {
       }
     });
   }
+  specs.push({
+    templateFile: path19.join(templateDir, "architecture-migration.md"),
+    outputFile: "architecture-migration.agent.md",
+    name: "Architecture Migration",
+    description: `Three-phase guide for ${projectName} architecture migrations: audit legacy AI guidance, gate on phased migration status, and drive post-change context replacement.`,
+    argumentHint: 'Describe the migration: "from X to Y" (e.g., "from session auth to JWT", "from REST to tRPC")',
+    replacements: {
+      "{{PROJECT_NAME}}": projectName,
+      "{{STACK_SUMMARY}}": toBulletList(stackSummary)
+    }
+  });
   return specs;
 }
 function scanExistingAgents(cwd) {
-  const agentsDir = path11.join(cwd, AGENTS_DIR);
-  if (!fs11.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] };
-  const files = fs11.readdirSync(agentsDir).filter((f) => f.endsWith(".md") || f.endsWith(".agent.md"));
+  const agentsDir = path19.join(cwd, AGENTS_DIR);
+  if (!fs17.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] };
+  const files = fs17.readdirSync(agentsDir).filter((f) => f.endsWith(".md") || f.endsWith(".agent.md"));
   const userDefined = [];
   const aiOsGenerated = [];
   for (const file of files) {
-    const content = fs11.readFileSync(path11.join(agentsDir, file), "utf-8");
+    const content = fs17.readFileSync(path19.join(agentsDir, file), "utf-8");
     const isAiOs = content.includes("ai-os/context/architecture.md") || content.includes("ai-os/context/conventions.md") || content.includes("ai-os/context/stack.md");
     if (isAiOs) {
       aiOsGenerated.push(file);
@@ -2900,13 +4254,13 @@ function scanExistingAgents(cwd) {
 }
 function buildSequentialAgentSpecs(stack, cwd) {
   const specs = [];
-  const projectName = path11.basename(cwd);
+  const projectName = sanitizeForInstructions(path19.basename(cwd));
   const frameworks = stack.frameworks.map((f) => f.name);
-  const primaryLang = stack.languages[0]?.name ?? "TypeScript";
-  const frameworkLabel = frameworks[0] ?? primaryLang;
-  const frameworkList = frameworks.length > 0 ? frameworks.join(", ") : primaryLang;
-  const runtimeDir = path11.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
-  const templateDir = path11.join(resolveTemplatesDir(runtimeDir), "agents");
+  const primaryLang = sanitizeForInstructions(stack.languages[0]?.name ?? "TypeScript");
+  const frameworkLabel = sanitizeForInstructions(frameworks[0] ?? primaryLang);
+  const frameworkList = frameworks.length > 0 ? frameworks.map((f) => sanitizeForInstructions(f)).join(", ") : primaryLang;
+  const runtimeDir = path19.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
+  const templateDir = path19.join(resolveTemplatesDir(runtimeDir), "agents");
   const stackSummary = [
     `Primary language: ${primaryLang}`,
     `Frameworks: ${frameworkList}`,
@@ -2918,7 +4272,7 @@ function buildSequentialAgentSpecs(stack, cwd) {
     "src/lib/vector-store.ts",
     "src/app/api/chat/route.ts",
     "prisma/schema.prisma"
-  ].filter((f) => fs11.existsSync(path11.join(cwd, f)));
+  ].filter((f) => fs17.existsSync(path19.join(cwd, f)));
   const keyFilesList = keyFiles.length > 0 ? keyFiles.map((f) => `- \`${f}\``).join("\n") : "- _No key files detected yet_";
   const buildCmd = stack.patterns.packageManager === "npm" ? "npm run build" : stack.patterns.packageManager === "pnpm" ? "pnpm build" : stack.patterns.packageManager === "yarn" ? "yarn build" : stack.patterns.packageManager === "bun" ? "bun run build" : stack.patterns.packageManager === "maven" ? "mvn compile" : stack.patterns.packageManager === "gradle" ? "gradle build" : stack.patterns.packageManager === "go" ? "go build ./..." : stack.patterns.packageManager === "cargo" ? "cargo build" : "npm run build";
   const testCmd = stack.buildCommands?.test ?? (stack.patterns.packageManager === "npm" ? "npm test" : stack.patterns.packageManager === "pnpm" ? "pnpm test" : stack.patterns.packageManager === "yarn" ? "yarn test" : stack.patterns.packageManager === "bun" ? "bun test" : stack.patterns.packageManager === "maven" ? "mvn test" : stack.patterns.packageManager === "gradle" ? "gradle test" : stack.patterns.packageManager === "go" ? "go test ./..." : stack.patterns.packageManager === "cargo" ? "cargo test" : "npm test");
@@ -2934,7 +4288,7 @@ function buildSequentialAgentSpecs(stack, cwd) {
     "{{REGENERATE_COMMAND}}": regenerateCmd
   };
   specs.push({
-    templateFile: path11.join(templateDir, "enhancement-advisor.md"),
+    templateFile: path19.join(templateDir, "enhancement-advisor.md"),
     outputFile: "feature-enhancement-advisor.agent.md",
     name: `${projectName} \u2014 Feature Enhancement Advisor`,
     description: `Scan ${projectName} for improvement opportunities and expansion ideas. Use when you want prioritized enhancements, gap analysis, roadmap proposals, and concrete implementation recommendations for this repository only.`,
@@ -2942,7 +4296,7 @@ function buildSequentialAgentSpecs(stack, cwd) {
     replacements: commonReplacements
   });
   specs.push({
-    templateFile: path11.join(templateDir, "idea-validator.md"),
+    templateFile: path19.join(templateDir, "idea-validator.md"),
     outputFile: "idea-validator.agent.md",
     name: `${projectName} \u2014 Idea Validator`,
     description: `Validates enhancement recommendations from the Feature Enhancement Advisor against actual codebase reality. Use after the Enhancement Advisor produces a report \u2014 before any implementation begins.`,
@@ -2950,7 +4304,7 @@ function buildSequentialAgentSpecs(stack, cwd) {
     replacements: commonReplacements
   });
   specs.push({
-    templateFile: path11.join(templateDir, "implementation-agent.md"),
+    templateFile: path19.join(templateDir, "implementation-agent.md"),
     outputFile: "implementation-agent.agent.md",
     name: `${projectName} \u2014 Implementation Agent`,
     description: `Executes the Approved Work Order produced by the Idea Validator. Implements changes in dependency-safe sequence. Use only after the Idea Validator has produced a verified Approved Work Order.`,
@@ -2967,9 +4321,9 @@ function injectReplacements(template, replacements) {
   return result;
 }
 async function generateAgentsWithOptions(stack, cwd, options) {
-  const agentsDir = path11.join(cwd, AGENTS_DIR);
-  fs11.mkdirSync(agentsDir, { recursive: true });
-  const existingFiles = fs11.existsSync(agentsDir) ? fs11.readdirSync(agentsDir).map((f) => f.toLowerCase()) : [];
+  const agentsDir = path19.join(cwd, AGENTS_DIR);
+  fs17.mkdirSync(agentsDir, { recursive: true });
+  const existingFiles = fs17.existsSync(agentsDir) ? fs17.readdirSync(agentsDir).map((f) => f.toLowerCase()) : [];
   function conceptCovered(keywords) {
     return existingFiles.some((f) => keywords.some((k) => f.includes(k)));
   }
@@ -2985,8 +4339,8 @@ async function generateAgentsWithOptions(stack, cwd, options) {
   ]);
   const generated = [];
   for (const spec of specs) {
-    const outputPath = path11.join(agentsDir, spec.outputFile);
-    if (fs11.existsSync(outputPath) && (!options.refreshExisting || options.preserveExistingAgents)) continue;
+    const outputPath = path19.join(agentsDir, spec.outputFile);
+    if (fs17.existsSync(outputPath) && (!options.refreshExisting || options.preserveExistingAgents)) continue;
     if (!options.refreshExisting) {
       if (sequentialFlowFiles.has(spec.outputFile)) {
       } else {
@@ -2994,11 +4348,11 @@ async function generateAgentsWithOptions(stack, cwd, options) {
         if (conceptCovered(baseKeywords)) continue;
       }
     }
-    if (!fs11.existsSync(spec.templateFile)) {
+    if (!fs17.existsSync(spec.templateFile)) {
       console.warn(`  \u26A0 Agent template not found: ${spec.templateFile}`);
       continue;
     }
-    let content = fs11.readFileSync(spec.templateFile, "utf-8");
+    let content = fs17.readFileSync(spec.templateFile, "utf-8");
     content = content.replace(/^name:.*$/m, `name: ${spec.name}`).replace(/^description:.*$/m, `description: ${spec.description}`).replace(/^argument-hint:.*$/m, `argument-hint: "${spec.argumentHint}"`);
     if (spec.model) {
       content = content.replace(/^model:.*$/m, `model: ${spec.model}`);
@@ -3024,8 +4378,8 @@ async function generateAgents(stack, cwd, options) {
 }
 
 // src/generators/skills.ts
-import * as fs12 from "fs";
-import * as path12 from "path";
+import * as fs18 from "fs";
+import * as path20 from "path";
 
 // src/validation/skill-contract.ts
 var REQUIRED_SKILL_SECTIONS = [
@@ -3138,15 +4492,15 @@ var SKILLS_DIR = ".github/copilot/skills";
 var AGENTS_SKILLS_DIR = ".agents/skills";
 function buildSkillSpecs(stack, cwd) {
   const specs = [];
-  const projectName = path12.basename(cwd);
+  const projectName = path20.basename(cwd);
   const frameworks = stack.frameworks.map((f) => f.name.toLowerCase());
   const packages = stack.allDependencies;
   const hasExpressLike = frameworks.some((f) => ["express", "fastify", "hono", "koa", "nest"].some((x) => f.includes(x)));
   const hasJavaSpringLike = frameworks.some((f) => ["spring", "quarkus", "micronaut", "java"].some((x) => f.includes(x)));
-  const templateDir = path12.join(resolveTemplatesDir(path12.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"))), "skills");
+  const templateDir = path20.join(resolveTemplatesDir(path20.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"))), "skills");
   const add = (template, output, replacements = {}) => {
-    const templatePath = path12.join(templateDir, template);
-    if (fs12.existsSync(templatePath)) {
+    const templatePath = path20.join(templateDir, template);
+    if (fs18.existsSync(templatePath)) {
       specs.push({
         templateFile: templatePath,
         outputFile: output,
@@ -3167,23 +4521,23 @@ function buildSkillSpecs(stack, cwd) {
     });
   }
   if (packages.includes("@trpc/server") || packages.includes("trpc")) {
-    const trpcRouterFile = fs12.existsSync(path12.join(cwd, "src/trpc/index.ts")) ? "src/trpc/index.ts" : "src/server/trpc.ts";
+    const trpcRouterFile = fs18.existsSync(path20.join(cwd, "src/trpc/index.ts")) ? "src/trpc/index.ts" : "src/server/trpc.ts";
     add("trpc.md", "ai-os-trpc-patterns.md", { "{{TRPC_ROUTER_FILE}}": trpcRouterFile });
   }
   if (packages.includes("prisma") || packages.includes("@prisma/client")) {
-    const schemaFile = fs12.existsSync(path12.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
+    const schemaFile = fs18.existsSync(path20.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
     add("prisma.md", "ai-os-prisma-patterns.md", { "{{SCHEMA_FILE}}": schemaFile });
   }
   if (packages.includes("stripe")) {
-    const plansFile = fs12.existsSync(path12.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
+    const plansFile = fs18.existsSync(path20.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
     add("stripe.md", "ai-os-billing-stripe.md", {
       "{{PLANS_FILE}}": plansFile,
-      "{{STRIPE_LIB_FILE}}": fs12.existsSync(path12.join(cwd, "src/lib/stripe.ts")) ? "src/lib/stripe.ts" : plansFile,
+      "{{STRIPE_LIB_FILE}}": fs18.existsSync(path20.join(cwd, "src/lib/stripe.ts")) ? "src/lib/stripe.ts" : plansFile,
       "{{WEBHOOK_FILE}}": "src/app/api/webhooks/stripe/route.ts"
     });
   }
   if (packages.includes("next-auth") || packages.includes("nextauth")) {
-    const authFile = fs12.existsSync(path12.join(cwd, "src/app/api/auth/[...nextauth]/authOptions.ts")) ? "src/app/api/auth/[...nextauth]/authOptions.ts" : "src/lib/auth.ts";
+    const authFile = fs18.existsSync(path20.join(cwd, "src/app/api/auth/[...nextauth]/authOptions.ts")) ? "src/app/api/auth/[...nextauth]/authOptions.ts" : "src/lib/auth.ts";
     add("auth-nextauth.md", "ai-os-auth-flow.md", { "{{AUTH_CONFIG_FILE}}": authFile });
   }
   if (packages.includes("@supabase/supabase-js")) {
@@ -3216,20 +4570,23 @@ function buildSkillSpecs(stack, cwd) {
   if (frameworks.some((f) => f === "deno")) {
     add("deno.md", "ai-os-deno-patterns.md");
   }
+  if (frameworks.some((f) => f.toLowerCase().includes("wordpress"))) {
+    add("wordpress.md", "ai-os-wordpress-patterns.md");
+  }
   return specs;
 }
 async function generateSkillsWithOptions(stack, cwd, options) {
-  const skillsDir = path12.join(cwd, SKILLS_DIR);
-  fs12.mkdirSync(skillsDir, { recursive: true });
+  const skillsDir = path20.join(cwd, SKILLS_DIR);
+  fs18.mkdirSync(skillsDir, { recursive: true });
   if (options.strategy === "creator-only") {
-    if (options.refreshExisting && fs12.existsSync(skillsDir)) {
-      const onDisk = fs12.readdirSync(skillsDir).filter((f) => f.startsWith("ai-os-") && f.endsWith(".md"));
+    if (options.refreshExisting && fs18.existsSync(skillsDir)) {
+      const onDisk = fs18.readdirSync(skillsDir).filter((f) => f.startsWith("ai-os-") && f.endsWith(".md"));
       for (const stale of onDisk) {
-        fs12.rmSync(path12.join(skillsDir, stale));
+        fs18.rmSync(path20.join(skillsDir, stale));
         console.log(`  \u{1F5D1}\uFE0F  Pruned predefined skill (creator-only mode): ${stale}`);
       }
-      if (fs12.readdirSync(skillsDir).length === 0) {
-        fs12.rmdirSync(skillsDir);
+      if (fs18.readdirSync(skillsDir).length === 0) {
+        fs18.rmdirSync(skillsDir);
         console.log(`  \u{1F5D1}\uFE0F  Removed empty skills directory: ${skillsDir}`);
       }
     }
@@ -3238,12 +4595,12 @@ async function generateSkillsWithOptions(stack, cwd, options) {
   const specs = buildSkillSpecs(stack, cwd);
   const generatedPaths = [];
   for (const spec of specs) {
-    const outputPath = path12.join(skillsDir, spec.outputFile);
-    if (fs12.existsSync(outputPath) && !options.refreshExisting) {
+    const outputPath = path20.join(skillsDir, spec.outputFile);
+    if (fs18.existsSync(outputPath) && !options.refreshExisting) {
       generatedPaths.push(outputPath);
       continue;
     }
-    let content = fs12.readFileSync(spec.templateFile, "utf-8");
+    let content = fs18.readFileSync(spec.templateFile, "utf-8");
     for (const [key, value] of Object.entries(spec.replacements)) {
       content = content.replaceAll(key, value);
     }
@@ -3251,17 +4608,17 @@ async function generateSkillsWithOptions(stack, cwd, options) {
     writeIfChanged(outputPath, content);
     generatedPaths.push(outputPath);
   }
-  if (options.refreshExisting && fs12.existsSync(skillsDir)) {
-    const currentSet = new Set(generatedPaths.map((p) => path12.basename(p)));
-    const onDisk = fs12.readdirSync(skillsDir).filter((f) => f.startsWith("ai-os-") && f.endsWith(".md"));
+  if (options.refreshExisting && fs18.existsSync(skillsDir)) {
+    const currentSet = new Set(generatedPaths.map((p) => path20.basename(p)));
+    const onDisk = fs18.readdirSync(skillsDir).filter((f) => f.startsWith("ai-os-") && f.endsWith(".md"));
     for (const stale of onDisk) {
       if (!currentSet.has(stale)) {
-        fs12.rmSync(path12.join(skillsDir, stale));
+        fs18.rmSync(path20.join(skillsDir, stale));
         console.log(`  \u{1F5D1}\uFE0F  Pruned stale skill: ${stale}`);
       }
     }
-    if (generatedPaths.length === 0 && fs12.readdirSync(skillsDir).length === 0) {
-      fs12.rmdirSync(skillsDir);
+    if (generatedPaths.length === 0 && fs18.readdirSync(skillsDir).length === 0) {
+      fs18.rmdirSync(skillsDir);
       console.log(`  \u{1F5D1}\uFE0F  Removed empty skills directory: ${skillsDir}`);
     }
   }
@@ -3283,23 +4640,23 @@ async function deployBundledSkills(cwd, options) {
   const deployed = [];
   for (const skill of BUNDLED_SKILLS) {
     const sourceDir = getBundledSkillSourceDir(skill.dirName);
-    const targetDir = path12.join(cwd, AGENTS_SKILLS_DIR, skill.dirName);
-    if (!fs12.existsSync(sourceDir)) {
+    const targetDir = path20.join(cwd, AGENTS_SKILLS_DIR, skill.dirName);
+    if (!fs18.existsSync(sourceDir)) {
       continue;
     }
-    if (fs12.existsSync(targetDir) && !options?.refreshExisting) {
+    if (fs18.existsSync(targetDir) && !options?.refreshExisting) {
       continue;
     }
-    fs12.mkdirSync(path12.join(cwd, AGENTS_SKILLS_DIR), { recursive: true });
-    fs12.cpSync(sourceDir, targetDir, { recursive: true, force: true });
+    fs18.mkdirSync(path20.join(cwd, AGENTS_SKILLS_DIR), { recursive: true });
+    fs18.cpSync(sourceDir, targetDir, { recursive: true, force: true });
     deployed.push(skill.label);
   }
   return deployed;
 }
 
 // src/generators/prompts.ts
-import * as fs13 from "fs";
-import * as path13 from "path";
+import * as fs19 from "fs";
+import * as path21 from "path";
 var PROMPTS_FILE = ".github/copilot/prompts.json";
 function buildPrompts(stack, cwd) {
   const prompts = [];
@@ -3659,15 +5016,47 @@ Then:
 - Ensure TypeScript strict compliance (no any)
 - Verify all callers still compile after the refactor`
   });
+  prompts.push({
+    id: "/architecture-migration",
+    title: "Architecture Migration Audit",
+    description: "Audit AI artifacts for legacy references before a major architecture change",
+    prompt: `Run a three-phase architecture migration workflow for this project.
+
+Phase 1 \u2014 Pre-Change Audit:
+1. Ask me to declare the migration boundary: "from X to Y" (e.g., "from session auth to JWT")
+2. Scan ALL AI artifacts for legacy references:
+   - .github/copilot-instructions.md
+   - .github/ai-os/context/architecture.md
+   - .github/ai-os/context/conventions.md
+   - .github/ai-os/context/stack.md
+   - .github/copilot/skills/*.md
+   - .github/agents/*.md
+   - .github/copilot/prompts.json
+3. Output a Migration Impact Inventory table: File | Line | Stale Statement | Replacement | Risk (High/Medium/Low)
+4. Do NOT proceed to Phase 2 until I approve the inventory.
+
+Phase 2 \u2014 Change Execution Gate:
+- Track migration phase per module: dual-path / switch-over / legacy-removal / complete
+- Block marking any module complete while High/Medium risk stale references remain
+- Flag any migration shims that outlive their expected phase
+
+Phase 3 \u2014 Post-Change Replacement:
+1. Replace every stale statement (do not append-only; remove the old guidance)
+2. Add supersession comments for changed core rules: <!-- SUPERSEDED: <old> \u2014 replaced by <new> on <date> -->
+3. Re-run the Phase 1 scan to verify zero stale references remain
+4. If AI OS is installed, run: npx github:marinvch/ai-os --check-hygiene
+
+Start now: ask me for the migration boundary.`
+  });
   return prompts;
 }
 async function generatePrompts(stack, cwd, options) {
-  const promptsPath = path13.join(cwd, PROMPTS_FILE);
-  fs13.mkdirSync(path13.dirname(promptsPath), { recursive: true });
+  const promptsPath = path21.join(cwd, PROMPTS_FILE);
+  fs19.mkdirSync(path21.dirname(promptsPath), { recursive: true });
   let existing = { version: 1, prompts: [] };
-  if (fs13.existsSync(promptsPath)) {
+  if (fs19.existsSync(promptsPath)) {
     try {
-      existing = JSON.parse(fs13.readFileSync(promptsPath, "utf-8"));
+      existing = JSON.parse(fs19.readFileSync(promptsPath, "utf-8"));
     } catch {
     }
   }
@@ -3701,7 +5090,7 @@ async function generatePrompts(stack, cwd, options) {
 }
 
 // src/generators/workflows.ts
-import path14 from "node:path";
+import path22 from "node:path";
 function generateWorkflows(outputDir, options) {
   const managed = [];
   const track = (p) => {
@@ -3709,7 +5098,7 @@ function generateWorkflows(outputDir, options) {
     return p;
   };
   if (options?.config?.updateCheckEnabled !== false) {
-    const workflowPath = track(path14.join(outputDir, ".github", "workflows", "ai-os-update-check.yml"));
+    const workflowPath = track(path22.join(outputDir, ".github", "workflows", "ai-os-update-check.yml"));
     writeIfChanged(workflowPath, getUpdateCheckWorkflowContent());
   }
   return managed;
@@ -3794,10 +5183,10 @@ jobs:
 }
 
 // src/planner.ts
-import fs14 from "node:fs";
-import path15 from "node:path";
+import fs20 from "node:fs";
+import path23 from "node:path";
 function exists3(root, relPath) {
-  return fs14.existsSync(path15.join(root, relPath));
+  return fs20.existsSync(path23.join(root, relPath));
 }
 function detectRepoType(targetDir) {
   if (exists3(targetDir, ".github/ai-os/config.json") || exists3(targetDir, ".ai-os/config.json")) return "existing-ai-os";
@@ -3905,8 +5294,8 @@ function formatOnboardingPlan(plan) {
 }
 
 // src/recommendations/index.ts
-import fs15 from "node:fs";
-import path16 from "node:path";
+import fs21 from "node:fs";
+import path24 from "node:path";
 
 // src/recommendations/registry.ts
 var DEPENDENCY_RECOMMENDATIONS = {
@@ -4078,6 +5467,23 @@ var FRAMEWORK_RECOMMENDATIONS = {
     mcp: { package: "prisma/mcp-server", description: "Official Prisma MCP server" },
     vscode: ["Prisma.prisma"],
     skills: ["prisma"]
+  },
+  "WordPress": {
+    trigger: "WordPress",
+    vscode: ["wongjn.php-sniffer", "bmewburn.vscode-intelephense-client"],
+    skills: ["wordpress", "context7"],
+    skillSources: {
+      "context7": "intellectronica/agent-skills"
+    },
+    copilotExtension: { name: "WordPress Agent Skills", url: "https://github.com/WordPress/agent-skills" }
+  },
+  "Laravel": {
+    trigger: "Laravel",
+    vscode: ["bmewburn.vscode-intelephense-client", "onecentlin.laravel5-snippets"],
+    skills: ["context7"],
+    skillSources: {
+      "context7": "intellectronica/agent-skills"
+    }
   }
 };
 var LANGUAGE_RECOMMENDATIONS = {
@@ -4119,10 +5525,20 @@ var UNIVERSAL_RECOMMENDATIONS = [
     trigger: "universal",
     skills: ["find-skills", "context7"],
     skillSources: {
+      "find-skills": "vercel-labs/skills",
       "context7": "intellectronica/agent-skills"
     }
   }
 ];
+
+// src/recommendations/cli-compat.ts
+function buildSkillsInstallCommand(skill, mode = "source-based") {
+  if (mode === "source-based") {
+    const spec = skill.source ? `${skill.source}@${skill.name}` : `<source>@${skill.name}`;
+    return `npx -y skills add ${spec} -g -a github-copilot`;
+  }
+  return `npx -y skills add --skill ${skill.name} -g -a github-copilot`;
+}
 
 // src/recommendations/index.ts
 function collectRecommendations(stack) {
@@ -4146,7 +5562,8 @@ function collectRecommendations(stack) {
       if (!seenSkills.has(skill)) {
         seenSkills.add(skill);
         if (isUniversal) {
-          collected.universalSkills.push({ trigger: rec.trigger, name: skill });
+          const source = rec.skillSources?.[skill];
+          collected.universalSkills.push({ trigger: rec.trigger, name: skill, source });
         } else {
           const source = rec.skillSources?.[skill];
           collected.skills.push({ trigger: rec.trigger, name: skill, source });
@@ -4264,12 +5681,17 @@ function generateRecommendationsDoc(stack, collected) {
       lines.push(`- **${item.name}** \u2014 general purpose`);
     }
     lines.push("");
-    lines.push("**Install via skills CLI:**");
+    lines.push("**Install via skills CLI** (source-based form `<source>@<skill>`):");
     lines.push("```bash");
     for (const item of collected.universalSkills) {
-      lines.push(`npx -y skills add --skill ${item.name} -g -a github-copilot`);
+      lines.push(buildSkillsInstallCommand(item));
     }
     lines.push("```");
+    const unknownSources = collected.universalSkills.filter((s) => !s.source);
+    if (unknownSources.length > 0) {
+      lines.push("");
+      lines.push(`> \u26A0\uFE0F  Skills without a known source (${unknownSources.map((s) => `\`${s.name}\``).join(", ")}): find the GitHub repo hosting the skill and replace \`<source>\` before running.`);
+    }
     lines.push("");
   }
   lines.push("---");
@@ -4284,7 +5706,7 @@ function getSkillsGapReport(stack, skillsLockPath) {
   ]);
   let installed = [];
   try {
-    const lock = JSON.parse(fs15.readFileSync(skillsLockPath, "utf-8"));
+    const lock = JSON.parse(fs21.readFileSync(skillsLockPath, "utf-8"));
     if (Array.isArray(lock.skills)) {
       installed = lock.skills;
     } else if (lock.skills && typeof lock.skills === "object") {
@@ -4293,12 +5715,11 @@ function getSkillsGapReport(stack, skillsLockPath) {
   } catch {
   }
   const installedSet = new Set(installed.map((s) => s.toLowerCase()));
-  const missingItems = collected.skills.filter((s) => !installedSet.has(s.name.toLowerCase()));
+  const missingStackItems = collected.skills.filter((s) => !installedSet.has(s.name.toLowerCase()));
+  const missingUniversalItems = collected.universalSkills.filter((s) => !installedSet.has(s.name.toLowerCase()));
+  const missingItems = [...missingStackItems, ...missingUniversalItems];
   if (missingItems.length === 0) return "";
-  const cmds = missingItems.map((s) => {
-    const spec = s.source ? `${s.source}@${s.name}` : `<source>@${s.name}`;
-    return `npx -y skills add ${spec} -g -a github-copilot`;
-  }).join("\n");
+  const cmds = missingItems.map((s) => buildSkillsInstallCommand(s)).join("\n");
   return `  \u{1F4E6} Skills gap detected \u2014 Missing: [${missingItems.map((s) => s.name).join(", ")}]
   Run:
 ${cmds.split("\n").map((l) => `    ${l}`).join("\n")}`;
@@ -4306,133 +5727,476 @@ ${cmds.split("\n").map((l) => `    ${l}`).join("\n")}`;
 function generateRecommendations(stack, outputDir) {
   const collected = collectRecommendations(stack);
   const content = generateRecommendationsDoc(stack, collected);
-  const outPath = path16.join(outputDir, ".github", "ai-os", "recommendations.md");
+  const outPath = path24.join(outputDir, ".github", "ai-os", "recommendations.md");
   writeIfChanged(outPath, content);
   return outPath;
 }
 
-// src/profile.ts
-var PROFILE_PRESETS = {
-  /** Essentials only — instructions + MCP wiring.  No agents, no recommendations. */
-  minimal: {
-    agentsMd: false,
-    pathSpecificInstructions: false,
-    recommendations: false,
-    sessionContextCard: false,
-    updateCheckEnabled: false,
-    skillsStrategy: "creator-only",
-    agentFlowMode: "skip"
-  },
-  /** Balanced default — most features on, predefined skills off. */
-  standard: {
-    agentsMd: false,
-    pathSpecificInstructions: true,
-    recommendations: true,
-    sessionContextCard: true,
-    updateCheckEnabled: true,
-    skillsStrategy: "creator-only",
-    agentFlowMode: "create"
-  },
-  /** All stack-relevant integrations enabled. */
-  full: {
-    agentsMd: true,
-    pathSpecificInstructions: true,
-    recommendations: true,
-    sessionContextCard: true,
-    updateCheckEnabled: true,
-    skillsStrategy: "predefined+creator",
-    agentFlowMode: "create"
+// src/user-blocks.ts
+var BLOCK_GLOBAL_RE = /<!-- AI-OS:USER_BLOCK:START id="([^"]+)" -->([\s\S]*?)<!-- AI-OS:USER_BLOCK:END id="\1" -->/g;
+function extractUserBlocks(content) {
+  const blocks = /* @__PURE__ */ new Map();
+  BLOCK_GLOBAL_RE.lastIndex = 0;
+  let match;
+  while ((match = BLOCK_GLOBAL_RE.exec(content)) !== null) {
+    const id = match[1];
+    const innerContent = match[2];
+    const fullMatch = match[0];
+    if (blocks.has(id)) continue;
+    const beforeContent = content.slice(0, match.index);
+    const anchorBefore = extractAnchorLine(beforeContent.split("\n"));
+    blocks.set(id, { id, fullMatch, innerContent, anchorBefore });
   }
-};
-function applyProfile(config, profile) {
-  const flags = PROFILE_PRESETS[profile];
-  return { ...config, ...flags, profile };
+  return blocks;
 }
-function describeProfile(profile) {
-  const flags = PROFILE_PRESETS[profile];
-  const lines = [`  Profile: ${profile}`];
-  lines.push(`    agents.md:              ${flags.agentsMd ? "enabled" : "disabled"}`);
-  lines.push(`    path instructions:      ${flags.pathSpecificInstructions ? "enabled" : "disabled"}`);
-  lines.push(`    recommendations:        ${flags.recommendations ? "enabled" : "disabled"}`);
-  lines.push(`    session context card:   ${flags.sessionContextCard ? "enabled" : "disabled"}`);
-  lines.push(`    update-check workflow:  ${flags.updateCheckEnabled ? "enabled" : "disabled"}`);
-  lines.push(`    skills strategy:        ${flags.skillsStrategy}`);
-  lines.push(`    agent flow:             ${flags.agentFlowMode}`);
-  return lines.join("\n");
+function extractAnchorLine(beforeLines) {
+  const last = beforeLines[beforeLines.length - 1] ?? "";
+  const candidate = last.trimEnd() === "" ? beforeLines[beforeLines.length - 2] ?? "" : last;
+  return candidate.trimEnd();
 }
-function parseProfile(raw) {
-  if (raw === "minimal" || raw === "standard" || raw === "full") return raw;
-  return null;
+function mergeUserBlocks(generated, previous) {
+  const userBlocks = extractUserBlocks(previous);
+  if (userBlocks.size === 0) {
+    return { content: generated, preserved: [], conflicts: [] };
+  }
+  const preserved = [];
+  const conflicts = [];
+  let result = generated;
+  for (const [id, block] of userBlocks) {
+    const startMarker = `<!-- AI-OS:USER_BLOCK:START id="${id}" -->`;
+    const endMarker = `<!-- AI-OS:USER_BLOCK:END id="${id}" -->`;
+    if (result.includes(startMarker) && result.includes(endMarker)) {
+      const blockRe = new RegExp(
+        `<!-- AI-OS:USER_BLOCK:START id="${escapeRegex(id)}" -->[\\s\\S]*?<!-- AI-OS:USER_BLOCK:END id="${escapeRegex(id)}" -->`,
+        "g"
+      );
+      result = result.replace(blockRe, block.fullMatch);
+      preserved.push(id);
+      continue;
+    }
+    if (block.anchorBefore !== "") {
+      const anchorIdx = result.indexOf(block.anchorBefore + "\n");
+      if (anchorIdx !== -1) {
+        const insertAt = anchorIdx + block.anchorBefore.length + 1;
+        result = result.slice(0, insertAt) + block.fullMatch + "\n" + result.slice(insertAt);
+        preserved.push(id);
+        continue;
+      }
+    }
+    const conflictBlock = [
+      ``,
+      `<!-- AI-OS:CONFLICT block="${id}" \u2014 anchor lost; please reconcile manually -->`,
+      block.fullMatch,
+      `<!-- AI-OS:CONFLICT:END -->`,
+      ``
+    ].join("\n");
+    result += conflictBlock;
+    conflicts.push({
+      blockId: id,
+      reason: block.anchorBefore ? "anchor-lost" : "block-id-missing",
+      detail: block.anchorBefore ? `Anchor line "${block.anchorBefore}" not found in regenerated content` : `Block "${id}" has no anchor and no matching ID in regenerated content`
+    });
+  }
+  return { content: result, preserved, conflicts };
+}
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// src/generate.ts
-function parseArgs() {
-  const args = process.argv.slice(2);
-  let cwd = process.cwd();
-  let dryRun = false;
-  let mode = "safe";
-  let action = "apply";
-  let prune = false;
-  let verbose = false;
-  let cleanUpdate = false;
-  let regenerateContext = false;
-  let pruneCustomArtifacts = false;
-  let profile = null;
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--cwd" && args[i + 1]) {
-      cwd = path17.resolve(args[i + 1]);
-      i++;
-    } else if (args[i] === "--cwd" && !args[i + 1]) {
-      throw new Error("--cwd requires a path value");
-    } else if (args[i]?.startsWith("--cwd=")) {
-      cwd = path17.resolve(args[i].slice("--cwd=".length));
-    } else if (args[i] === "--dry-run") {
-      dryRun = true;
-    } else if (args[i] === "--refresh-existing") {
-      mode = "refresh-existing";
-    } else if (args[i] === "--update") {
-      mode = "update";
-    } else if (args[i] === "--plan") {
-      action = "plan";
-    } else if (args[i] === "--preview") {
-      action = "preview";
-    } else if (args[i] === "--apply") {
-      action = "apply";
-    } else if (args[i] === "--prune") {
-      prune = true;
-    } else if (args[i]?.startsWith("--clean-update")) {
-      cleanUpdate = true;
-      mode = "refresh-existing";
-    } else if (args[i] === "--check-hygiene") {
-      action = "check-hygiene";
-    } else if (args[i] === "--verbose" || args[i] === "-v") {
-      verbose = true;
-    } else if (args[i] === "--regenerate-context") {
-      regenerateContext = true;
-    } else if (args[i] === "--prune-custom-artifacts") {
-      pruneCustomArtifacts = true;
-    } else if (args[i] === "--profile" && args[i + 1]) {
-      const parsed = parseProfile(args[i + 1]);
-      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${args[i + 1]}")`);
-      profile = parsed;
-      i++;
-    } else if (args[i]?.startsWith("--profile=")) {
-      const raw = args[i].slice("--profile=".length);
-      const parsed = parseProfile(raw);
-      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${raw}")`);
-      profile = parsed;
+// src/bootstrap.ts
+import { spawnSync as spawnSync3 } from "node:child_process";
+function buildInstallCmd(skillName, source) {
+  const spec = source ? `${source}@${skillName}` : `<source>@${skillName}`;
+  return `npx -y skills add ${spec} -g -a github-copilot`;
+}
+function installSkill(skillName, source) {
+  const args = ["skills", "add"];
+  if (source) {
+    args.push(`${source}@${skillName}`);
+  } else {
+    return { success: false, error: `No known source for skill "${skillName}" \u2014 cannot auto-install` };
+  }
+  args.push("-g", "-a", "github-copilot", "-y");
+  const result = spawnSync3("npx", ["-y", ...args], {
+    encoding: "utf-8",
+    stdio: "pipe",
+    shell: process.platform === "win32"
+  });
+  if (result.status === 0) return { success: true };
+  const stderr = result.stderr?.trim() ?? "";
+  const stdout = result.stdout?.trim() ?? "";
+  const detail = [stderr, stdout].filter(Boolean).join(" | ");
+  return {
+    success: false,
+    error: detail || `skills CLI exited with code ${result.status ?? "unknown"}`
+  };
+}
+function runBootstrap(stack, options = {}) {
+  const { dryRun = false } = options;
+  const recs = collectRecommendations(stack);
+  const items = [];
+  const allSkills = [
+    ...recs.skills.map((s) => ({ ...s, universal: false })),
+    ...recs.universalSkills.map((s) => ({ ...s, universal: true }))
+  ];
+  for (const skill of allSkills) {
+    const installCmd = buildInstallCmd(skill.name, skill.source);
+    const item = {
+      category: "skill",
+      name: skill.name,
+      reason: skill.universal ? "universal \u2014 recommended for every project" : `triggered by: ${skill.trigger}`,
+      installCmd,
+      status: "pending"
+    };
+    if (!dryRun) {
+      if (!skill.source) {
+        item.status = "skipped";
+        item.error = `No known source for skill "${skill.name}" \u2014 add manually using: ${installCmd}`;
+      } else {
+        const result = installSkill(skill.name, skill.source);
+        if (result.success) {
+          item.status = "applied";
+        } else {
+          item.status = "failed";
+          item.error = result.error;
+        }
+      }
+    }
+    items.push(item);
+  }
+  for (const mcp of recs.mcp) {
+    items.push({
+      category: "mcp",
+      name: mcp.package,
+      reason: `triggered by: ${mcp.trigger} \u2014 ${mcp.description}`,
+      installCmd: `# add to .vscode/mcp.json: "${mcp.package.replace("/", "-")}": { "type": "stdio", "command": "npx", "args": ["-y", "${mcp.package}"] }`,
+      status: dryRun ? "pending" : "skipped"
+      // MCP wiring is handled by the generation step
+    });
+  }
+  for (const ext of recs.vscode) {
+    items.push({
+      category: "vscode",
+      name: ext.id,
+      reason: `triggered by: ${ext.trigger}`,
+      installCmd: `code --install-extension ${ext.id}`,
+      status: dryRun ? "pending" : "skipped"
+      // Must be installed manually
+    });
+  }
+  for (const ext of recs.copilotExtensions) {
+    items.push({
+      category: "copilot-extension",
+      name: ext.name,
+      reason: `triggered by: ${ext.trigger}`,
+      installCmd: ext.url,
+      status: dryRun ? "pending" : "skipped"
+    });
+  }
+  const appliedCount = items.filter((i) => i.status === "applied").length;
+  const skippedCount = items.filter((i) => i.status === "skipped").length;
+  const failedCount = items.filter((i) => i.status === "failed").length;
+  const pendingCount = items.filter((i) => i.status === "pending").length;
+  return {
+    projectName: stack.projectName,
+    detectedLanguage: stack.primaryLanguage.name,
+    detectedFrameworks: stack.frameworks.map((f) => f.name),
+    packageManager: stack.patterns.packageManager,
+    hasTypeScript: stack.patterns.hasTypeScript,
+    dryRun,
+    items,
+    appliedCount,
+    skippedCount,
+    failedCount,
+    pendingCount
+  };
+}
+function formatBootstrapReport(report) {
+  const lines = [];
+  const title = report.dryRun ? `Bootstrap Plan (DRY RUN) \u2014 ${report.projectName}` : `Bootstrap Report \u2014 ${report.projectName}`;
+  const pad = (s, n) => s.slice(0, n).padEnd(n, " ");
+  lines.push("");
+  lines.push(`  \u2554${"\u2550".repeat(title.length + 4)}\u2557`);
+  lines.push(`  \u2551  ${title}  \u2551`);
+  lines.push(`  \u255A${"\u2550".repeat(title.length + 4)}\u255D`);
+  lines.push("");
+  lines.push("  Detected Stack:");
+  lines.push(`    Language:    ${report.detectedLanguage}`);
+  lines.push(`    Frameworks:  ${report.detectedFrameworks.length > 0 ? report.detectedFrameworks.join(", ") : "(none)"}`);
+  lines.push(`    Pkg Manager: ${report.packageManager}`);
+  lines.push(`    TypeScript:  ${report.hasTypeScript ? "Yes" : "No"}`);
+  lines.push("");
+  if (report.items.length === 0) {
+    lines.push("  No bootstrap actions for this stack.");
+    lines.push("");
+    return lines.join("\n");
+  }
+  const heading = report.dryRun ? "  Bootstrap Plan:" : "  Bootstrap Actions:";
+  lines.push(heading);
+  lines.push("");
+  for (const item of report.items) {
+    const icon = item.status === "applied" ? "\u2705" : item.status === "skipped" ? "\u{1F4CB}" : item.status === "failed" ? "\u274C" : "\u{1F532}";
+    const cat = pad(`[${item.category}]`, 20);
+    const name = pad(item.name, 32);
+    lines.push(`  ${icon} ${cat} ${name}  \u2190 ${item.reason}`);
+    if (item.installCmd && (item.status === "skipped" || item.status === "pending" || item.status === "failed")) {
+      lines.push(`       Install: ${item.installCmd}`);
+    }
+    if (item.error && item.status === "failed") {
+      lines.push(`       \u26A0 Error: ${item.error}`);
+    }
+    if (item.error && item.status === "skipped") {
+      lines.push(`       \u2139 ${item.error}`);
     }
   }
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile };
+  lines.push("");
+  if (report.dryRun) {
+    lines.push(`  Summary: ${report.pendingCount} action(s) planned (dry-run \u2014 nothing applied)`);
+    lines.push("");
+    lines.push("  Run without --dry-run to apply:");
+    lines.push('    npx -y "github:marinvch/ai-os" --bootstrap');
+  } else {
+    const parts = [];
+    if (report.appliedCount > 0) parts.push(`${report.appliedCount} applied`);
+    if (report.skippedCount > 0) parts.push(`${report.skippedCount} informational`);
+    if (report.failedCount > 0) parts.push(`${report.failedCount} failed`);
+    lines.push(`  Summary: ${parts.join(", ") || "0 actions"}`);
+    if (report.skippedCount > 0) {
+      lines.push("");
+      lines.push("  \u{1F4CB} Informational items (manual action required):");
+      lines.push("     - MCP servers: add to .vscode/mcp.json (see .github/ai-os/recommendations.md)");
+      lines.push("     - VS Code extensions: install via VS Code Marketplace or code --install-extension <id>");
+      lines.push("     - Skills with unknown source: find the hosting repo and run the install command");
+    }
+  }
+  lines.push("");
+  return lines.join("\n");
 }
-function printBanner() {
-  const version = `v${getToolVersion()}`;
-  const versionCell = `AI OS  ${version}`.padEnd(25, " ");
+
+// src/actions/bootstrap.ts
+function runBootstrapAction(stack, dryRun) {
+  const report = runBootstrap(stack, { dryRun });
+  console.log(formatBootstrapReport(report));
+}
+
+// src/actions/plan.ts
+function runPlanAction(onboardingPlan) {
+  console.log(formatOnboardingPlan(onboardingPlan));
+}
+
+// src/actions/preview.ts
+function runPreviewAction(onboardingPlan) {
+  console.log(formatOnboardingPlan(onboardingPlan));
+  console.log("  \u{1F50D} Preview only: no files were written. Run with --apply to execute.");
   console.log("");
-  console.log("  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
-  console.log(`  \u2551          ${versionCell}\u2551`);
-  console.log("  \u2551  Portable Copilot Context Engine  \u2551");
-  console.log("  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
+}
+
+// src/actions/apply.ts
+function toPathSet(value) {
+  if (!Array.isArray(value)) return /* @__PURE__ */ new Set();
+  return new Set(
+    value.filter((p) => typeof p === "string").map((p) => p.replace(/\\/g, "/"))
+  );
+}
+function loadProtectConfig(cwd) {
+  const empty = { protected: /* @__PURE__ */ new Set(), hybrid: /* @__PURE__ */ new Set() };
+  const protectPath = path25.join(cwd, ".github", "ai-os", "protect.json");
+  if (!fs22.existsSync(protectPath)) return empty;
+  try {
+    const raw = JSON.parse(fs22.readFileSync(protectPath, "utf-8"));
+    return {
+      protected: toPathSet(raw.protected),
+      hybrid: toPathSet(raw.hybrid)
+    };
+  } catch {
+    console.warn("  \u26A0 Could not parse .github/ai-os/protect.json \u2014 ignoring protection config");
+    return empty;
+  }
+}
+var CUSTOM_ARTIFACT_DIRS = [".github/agents/", ".agents/skills/"];
+function isCustomArtifact(relPath) {
+  return CUSTOM_ARTIFACT_DIRS.some((dir) => relPath.startsWith(dir));
+}
+function ensureGitignoreEntry(cwd, entry) {
+  const gitignorePath = path25.join(cwd, ".gitignore");
+  if (!fs22.existsSync(gitignorePath)) return;
+  const current = fs22.readFileSync(gitignorePath, "utf-8");
+  const lines = current.split(/\r?\n/);
+  if (lines.includes(entry)) return;
+  const next = `${current.replace(/\s*$/, "")}
+${entry}
+`;
+  fs22.writeFileSync(gitignorePath, next, "utf-8");
+}
+function resolveBundledServerSource() {
+  const runtimeDir = path25.dirname(fileURLToPath4(import.meta.url));
+  const candidates = [
+    path25.join(runtimeDir, "server.js"),
+    path25.join(runtimeDir, "..", "bundle", "server.js"),
+    path25.join(runtimeDir, "..", "dist", "server.js")
+  ];
+  for (const candidate of candidates) {
+    if (fs22.existsSync(candidate) && fs22.statSync(candidate).isFile()) {
+      return candidate;
+    }
+  }
+  return null;
+}
+function installLocalMcpRuntime(cwd, verbose) {
+  const bundledServerSource = resolveBundledServerSource();
+  if (!bundledServerSource) {
+    console.warn("  \u26A0 Could not locate bundled MCP server; local ai-os tools may be unavailable.");
+    return;
+  }
+  const runtimeDir = path25.join(cwd, ".ai-os", "mcp-server");
+  const runtimeEntry = path25.join(runtimeDir, "index.js");
+  const runtimeManifest = path25.join(runtimeDir, "runtime-manifest.json");
+  const nodePath = process.execPath;
+  fs22.mkdirSync(runtimeDir, { recursive: true });
+  fs22.copyFileSync(bundledServerSource, runtimeEntry);
+  fs22.chmodSync(runtimeEntry, 493);
+  fs22.writeFileSync(runtimeManifest, JSON.stringify({
+    name: "ai-os-mcp-server",
+    runtime: "bundled",
+    sourceVersion: getToolVersion(),
+    installedAt: (/* @__PURE__ */ new Date()).toISOString()
+  }, null, 2), "utf-8");
+  writeMcpServerConfig(cwd, {
+    command: nodePath,
+    args: [runtimeEntry],
+    env: {
+      AI_OS_ROOT: cwd
+    }
+  });
+  ensureGitignoreEntry(cwd, ".ai-os/mcp-server/node_modules");
+  ensureGitignoreEntry(cwd, ".github/ai-os/memory/.memory.lock");
+  const legacyLocalMcp = path25.join(cwd, ".github", "copilot", "mcp.local.json");
+  if (fs22.existsSync(legacyLocalMcp)) {
+    try {
+      fs22.rmSync(legacyLocalMcp);
+    } catch {
+    }
+  }
+  const healthcheck = spawnSync4(nodePath, [runtimeEntry, "--healthcheck"], {
+    cwd,
+    env: { ...process.env, AI_OS_ROOT: cwd },
+    encoding: "utf-8",
+    stdio: "pipe"
+  });
+  if (healthcheck.status !== 0) {
+    const details = [healthcheck.stdout, healthcheck.stderr].filter(Boolean).join("\n").trim();
+    throw new Error(`MCP runtime healthcheck failed after install${details ? `: ${details}` : ""}`);
+  }
+  if (verbose) {
+    console.log(`  \u270F\uFE0F  write   ${runtimeEntry}`);
+    console.log(`  \u270F\uFE0F  write   ${runtimeManifest}`);
+    console.log(`  \u270F\uFE0F  write   .vscode/mcp.json`);
+  } else {
+    console.log("  \u2713 MCP runtime installed to .ai-os/mcp-server");
+    console.log("  \u2713 MCP config written to .vscode/mcp.json");
+  }
+}
+function printSummary(stack, outputDir, written, skipped, pruned, agents, preserved, activeProfile) {
+  const mcpToolCount = getMcpToolsForStack(stack).length;
+  const fw = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
+  console.log(`  \u{1F4E6} Project:    ${stack.projectName}`);
+  console.log(`  \u{1F524} Language:   ${stack.primaryLanguage.name} (${stack.primaryLanguage.percentage}%)`);
+  console.log(`  \u{1F3D7}\uFE0F  Framework:  ${fw}`);
+  console.log(`  \u{1F4E6} Pkg Mgr:   ${stack.patterns.packageManager}`);
+  console.log(`  \u{1F537} TypeScript: ${stack.patterns.hasTypeScript ? "Yes" : "No"}`);
+  if (activeProfile) {
+    console.log(`  \u{1F39B}\uFE0F  Profile:    ${activeProfile}`);
+  }
+  console.log("");
+  console.log("  Diff summary:");
+  console.log(`  \u2705 Written (new or changed):  ${written.length}`);
+  console.log(`  \u23ED\uFE0F  Unchanged (skipped):        ${skipped.length}`);
+  if (preserved.length > 0) {
+    console.log(`  \u{1F512} Preserved (curated):        ${preserved.length}`);
+    for (const p of preserved) console.log(`       \u2022 ${path25.relative(outputDir, p).replace(/\\/g, "/")}`);
+  }
+  if (pruned.length > 0) {
+    console.log(`  \u{1F5D1}\uFE0F  Pruned (stale):              ${pruned.length}`);
+    for (const p of pruned) console.log(`       \u2022 ${path25.relative(outputDir, p).replace(/\\/g, "/")}`);
+  }
+  if (agents.length > 0) {
+    console.log(`  \u{1F916} Agents generated: ${agents.length}`);
+  }
+  console.log(`  \u{1F527} MCP tools registered: ${mcpToolCount}`);
+  console.log(`  \u{1F5F3}\uFE0F  Manifest: ${path25.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, "/")}`);
+  try {
+    const prevReport = computeFreshnessReport(outputDir);
+    if (prevReport.status !== "unknown") {
+      const scorePercent = Math.round(prevReport.score * 100);
+      const statusEmoji = { fresh: "\u2705", drifted: "\u26A0\uFE0F", stale: "\u274C" };
+      const emoji = statusEmoji[prevReport.status] ?? "\u2753";
+      console.log(`  ${emoji} Context freshness (pre-run): ${scorePercent}/100 (${prevReport.status})`);
+      if (prevReport.staleArtifacts.length > 0) {
+        console.log(`     Stale artifacts: ${prevReport.staleArtifacts.join(", ")}`);
+      }
+      if (prevReport.changedSourceFiles.length > 0) {
+        console.log(`     Changed sources: ${prevReport.changedSourceFiles.join(", ")}`);
+      }
+    }
+  } catch {
+  }
+  console.log("");
+}
+function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommendationsEnabled) {
+  const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
+  const recommendationsPath = ".github/ai-os/recommendations.md";
+  const printInstructionStrategy = () => {
+    console.log("  \u{1F4CC} First action after install/refresh:");
+    console.log("     Review and optimize .github/copilot-instructions.md before asking Copilot to implement changes.");
+    if (onboardingPlan.detectedRepoType === "new") {
+      console.log("  \u{1F195} Strategy for new project:");
+      console.log("     Build a baseline context first (stack, conventions, architecture), then keep instructions concise and task-agnostic.");
+      console.log("     Use AI OS MCP tools to fill context as the codebase grows.");
+      return;
+    }
+    console.log("  \u{1F3D7}\uFE0F  Strategy for existing/large project:");
+    console.log("     Compare current instructions against real project state and patch missing context before feature work.");
+    console.log("     Prioritize architecture, build/test flow, and known pitfalls to reduce tool failures and rework.");
+  };
+  const printRecommendationsHint = () => {
+    if (recommendationsEnabled) {
+      console.log(`  \u{1F4D8} Recommendations saved to ${recommendationsPath}`);
+    }
+  };
+  if (mode === "safe" && updateStatus.updateAvailable && !updateStatus.isFirstInstall) {
+    console.log("  \u{1F9ED} Recommended next step:");
+    console.log(`  ${refreshCmd}`);
+    console.log("  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.");
+    printInstructionStrategy();
+    console.log("  After refresh, ask Copilot:");
+    console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
+    printRecommendationsHint();
+    console.log("");
+    return;
+  }
+  if (mode === "refresh-existing" || mode === "update") {
+    console.log("  \u2705 Ready to use with Copilot.");
+    printInstructionStrategy();
+    console.log("  If the tools do not appear immediately, run: MCP: Restart Servers");
+    console.log("  Suggested first prompt:");
+    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    printRecommendationsHint();
+    console.log("");
+    return;
+  }
+  const firstPrompt = onboardingPlan.detectedRepoType === "existing-non-ai-os" ? "Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files." : "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.";
+  console.log("  \u{1F9ED} Next steps:");
+  console.log("  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.");
+  console.log("  2. Review and optimize .github/copilot-instructions.md for the current project state.");
+  if (onboardingPlan.detectedRepoType === "new") {
+    console.log("     New project strategy: bootstrap minimal context first, then expand instructions as the codebase evolves.");
+  } else {
+    console.log("     Existing/large project strategy: fill missing context first (architecture, build/test flow, pitfalls), then proceed with implementation.");
+  }
+  console.log("  3. If the tools do not appear immediately, run: MCP: Restart Servers");
+  console.log("  4. Suggested first prompt:");
+  console.log(`     "${firstPrompt}"`);
+  printRecommendationsHint();
   console.log("");
 }
 function printAgentFlowSetupPrompt(cwd, currentMode) {
@@ -4509,201 +6273,34 @@ function printAgentFlowStatus(cwd, mode) {
   }
   console.log("");
 }
-function printSummary(stack, outputDir, written, skipped, pruned, agents, preserved, activeProfile) {
-  const mcpToolCount = getMcpToolsForStack(stack).length;
-  const fw = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
-  console.log(`  \u{1F4E6} Project:    ${stack.projectName}`);
-  console.log(`  \u{1F524} Language:   ${stack.primaryLanguage.name} (${stack.primaryLanguage.percentage}%)`);
-  console.log(`  \u{1F3D7}\uFE0F  Framework:  ${fw}`);
-  console.log(`  \u{1F4E6} Pkg Mgr:   ${stack.patterns.packageManager}`);
-  console.log(`  \u{1F537} TypeScript: ${stack.patterns.hasTypeScript ? "Yes" : "No"}`);
-  if (activeProfile) {
-    console.log(`  \u{1F39B}\uFE0F  Profile:    ${activeProfile}`);
-  }
-  console.log("");
-  console.log("  Diff summary:");
-  console.log(`  \u2705 Written (new or changed):  ${written.length}`);
-  console.log(`  \u23ED\uFE0F  Unchanged (skipped):        ${skipped.length}`);
-  if (preserved.length > 0) {
-    console.log(`  \u{1F512} Preserved (curated):        ${preserved.length}`);
-    for (const p of preserved) console.log(`       \u2022 ${path17.relative(outputDir, p).replace(/\\/g, "/")}`);
-  }
-  if (pruned.length > 0) {
-    console.log(`  \u{1F5D1}\uFE0F  Pruned (stale):              ${pruned.length}`);
-    for (const p of pruned) console.log(`       \u2022 ${path17.relative(outputDir, p).replace(/\\/g, "/")}`);
-  }
-  if (agents.length > 0) {
-    console.log(`  \u{1F916} Agents generated: ${agents.length}`);
-  }
-  console.log(`  \u{1F527} MCP tools registered: ${mcpToolCount}`);
-  console.log(`  \u{1F5F3}\uFE0F  Manifest: ${path17.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, "/")}`);
-  console.log("");
-}
-function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommendationsEnabled) {
-  const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
-  const recommendationsPath = ".github/ai-os/recommendations.md";
-  const printInstructionStrategy = () => {
-    console.log("  \u{1F4CC} First action after install/refresh:");
-    console.log("     Review and optimize .github/copilot-instructions.md before asking Copilot to implement changes.");
-    if (onboardingPlan.detectedRepoType === "new") {
-      console.log("  \u{1F195} Strategy for new project:");
-      console.log("     Build a baseline context first (stack, conventions, architecture), then keep instructions concise and task-agnostic.");
-      console.log("     Use AI OS MCP tools to fill context as the codebase grows.");
-      return;
-    }
-    console.log("  \u{1F3D7}\uFE0F  Strategy for existing/large project:");
-    console.log("     Compare current instructions against real project state and patch missing context before feature work.");
-    console.log("     Prioritize architecture, build/test flow, and known pitfalls to reduce tool failures and rework.");
-  };
-  const printRecommendationsHint = () => {
-    if (recommendationsEnabled) {
-      console.log(`  \u{1F4D8} Recommendations saved to ${recommendationsPath}`);
-    }
-  };
-  if (mode === "safe" && updateStatus.updateAvailable && !updateStatus.isFirstInstall) {
-    console.log("  \u{1F9ED} Recommended next step:");
-    console.log(`  ${refreshCmd}`);
-    console.log("  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.");
-    printInstructionStrategy();
-    console.log("  After refresh, ask Copilot:");
-    console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
-    printRecommendationsHint();
-    console.log("");
-    return;
-  }
-  if (mode === "refresh-existing" || mode === "update") {
-    console.log("  \u2705 Ready to use with Copilot.");
-    printInstructionStrategy();
-    console.log("  If the tools do not appear immediately, run: MCP: Restart Servers");
-    console.log("  Suggested first prompt:");
-    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
-    printRecommendationsHint();
-    console.log("");
-    return;
-  }
-  const firstPrompt = onboardingPlan.detectedRepoType === "existing-non-ai-os" ? "Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files." : "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.";
-  console.log("  \u{1F9ED} Next steps:");
-  console.log("  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.");
-  console.log("  2. Review and optimize .github/copilot-instructions.md for the current project state.");
-  if (onboardingPlan.detectedRepoType === "new") {
-    console.log("     New project strategy: bootstrap minimal context first, then expand instructions as the codebase evolves.");
-  } else {
-    console.log("     Existing/large project strategy: fill missing context first (architecture, build/test flow, pitfalls), then proceed with implementation.");
-  }
-  console.log("  3. If the tools do not appear immediately, run: MCP: Restart Servers");
-  console.log("  4. Suggested first prompt:");
-  console.log(`     "${firstPrompt}"`);
-  printRecommendationsHint();
-  console.log("");
-}
-function loadProtectConfig(cwd) {
-  const protectPath = path17.join(cwd, ".github", "ai-os", "protect.json");
-  if (!fs16.existsSync(protectPath)) return /* @__PURE__ */ new Set();
+function printMemoryMaintenanceSummary(cwd) {
+  const memoryFile = path25.join(cwd, ".github", "ai-os", "memory", "memory.jsonl");
+  if (!fs22.existsSync(memoryFile)) return;
   try {
-    const raw = JSON.parse(fs16.readFileSync(protectPath, "utf-8"));
-    if (!Array.isArray(raw.protected)) return /* @__PURE__ */ new Set();
-    return new Set(
-      raw.protected.filter((p) => typeof p === "string").map((p) => p.replace(/\\/g, "/"))
-    );
+    process.env["AI_OS_ROOT"] = cwd;
+    const summary = runMemoryMaintenance();
+    if (summary.totalBefore === 0) return;
+    console.log("  \u{1F9E0} Memory maintenance:");
+    console.log(`     Active entries:       ${summary.activeAfter}`);
+    if (summary.staleMarked > 0) {
+      console.log(`     Stale entries found:  ${summary.staleMarked} (run --compact-memory to remove)`);
+    }
+    if (summary.nearDuplicatesMarked > 0) {
+      console.log(`     Near-duplicates:      ${summary.nearDuplicatesMarked}`);
+    }
+    if (summary.malformedSkipped > 0) {
+      console.log(`     Malformed lines:      ${summary.malformedSkipped} (will be removed on next write)`);
+    }
+    console.log("");
   } catch {
-    console.warn("  \u26A0 Could not parse .github/ai-os/protect.json \u2014 ignoring protection config");
-    return /* @__PURE__ */ new Set();
   }
 }
-var CUSTOM_ARTIFACT_DIRS = [".github/agents/", ".agents/skills/"];
-function isCustomArtifact(relPath) {
-  return CUSTOM_ARTIFACT_DIRS.some((dir) => relPath.startsWith(dir));
-}
-function ensureGitignoreEntry(cwd, entry) {
-  const gitignorePath = path17.join(cwd, ".gitignore");
-  if (!fs16.existsSync(gitignorePath)) return;
-  const current = fs16.readFileSync(gitignorePath, "utf-8");
-  const lines = current.split(/\r?\n/);
-  if (lines.includes(entry)) return;
-  const next = `${current.replace(/\s*$/, "")}
-${entry}
-`;
-  fs16.writeFileSync(gitignorePath, next, "utf-8");
-}
-function resolveBundledServerSource() {
-  const runtimeDir = path17.dirname(fileURLToPath3(import.meta.url));
-  const candidates = [
-    path17.join(runtimeDir, "server.js"),
-    path17.join(runtimeDir, "..", "bundle", "server.js"),
-    path17.join(runtimeDir, "..", "dist", "server.js")
-  ];
-  for (const candidate of candidates) {
-    if (fs16.existsSync(candidate) && fs16.statSync(candidate).isFile()) {
-      return candidate;
-    }
-  }
-  return null;
-}
-function installLocalMcpRuntime(cwd, verbose) {
-  const bundledServerSource = resolveBundledServerSource();
-  if (!bundledServerSource) {
-    console.warn("  \u26A0 Could not locate bundled MCP server; local ai-os tools may be unavailable.");
-    return;
-  }
-  const runtimeDir = path17.join(cwd, ".ai-os", "mcp-server");
-  const runtimeEntry = path17.join(runtimeDir, "index.js");
-  const runtimeManifest = path17.join(runtimeDir, "runtime-manifest.json");
-  const nodePath = process.execPath;
-  fs16.mkdirSync(runtimeDir, { recursive: true });
-  fs16.copyFileSync(bundledServerSource, runtimeEntry);
-  fs16.chmodSync(runtimeEntry, 493);
-  fs16.writeFileSync(runtimeManifest, JSON.stringify({
-    name: "ai-os-mcp-server",
-    runtime: "bundled",
-    sourceVersion: getToolVersion(),
-    installedAt: (/* @__PURE__ */ new Date()).toISOString()
-  }, null, 2), "utf-8");
-  writeMcpServerConfig(cwd, {
-    command: nodePath,
-    args: [runtimeEntry],
-    env: {
-      AI_OS_ROOT: cwd
-    }
-  });
-  ensureGitignoreEntry(cwd, ".ai-os/mcp-server/node_modules");
-  ensureGitignoreEntry(cwd, ".github/ai-os/memory/.memory.lock");
-  const legacyLocalMcp = path17.join(cwd, ".github", "copilot", "mcp.local.json");
-  if (fs16.existsSync(legacyLocalMcp)) {
-    try {
-      fs16.rmSync(legacyLocalMcp);
-    } catch {
-    }
-  }
-  const healthcheck = spawnSync2(nodePath, [runtimeEntry, "--healthcheck"], {
-    cwd,
-    env: { ...process.env, AI_OS_ROOT: cwd },
-    encoding: "utf-8",
-    stdio: "pipe"
-  });
-  if (healthcheck.status !== 0) {
-    const details = [healthcheck.stdout, healthcheck.stderr].filter(Boolean).join("\n").trim();
-    throw new Error(`MCP runtime healthcheck failed after install${details ? `: ${details}` : ""}`);
-  }
-  if (verbose) {
-    console.log(`  \u270F\uFE0F  write   ${runtimeEntry}`);
-    console.log(`  \u270F\uFE0F  write   ${runtimeManifest}`);
-    console.log(`  \u270F\uFE0F  write   .vscode/mcp.json`);
-  } else {
-    console.log("  \u2713 MCP runtime installed to .ai-os/mcp-server");
-    console.log("  \u2713 MCP config written to .vscode/mcp.json");
-  }
-}
-async function main() {
-  printBanner();
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = parseArgs();
+async function runApply(args) {
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = args;
   let mode = rawMode;
   if (verbose) {
     setVerboseMode(true);
     console.log("  \u{1F50D} Verbose mode enabled \u2014 per-file write/skip/prune reasons will be shown.\n");
-  }
-  if (action === "check-hygiene") {
-    runHygieneCheck(cwd);
-    return;
   }
   console.log(`  \u{1F4C2} Scanning: ${cwd}`);
   console.log(`  \u{1F527} Mode: ${mode}`);
@@ -4734,32 +6331,49 @@ async function main() {
   if (mode === "refresh-existing") {
     pruneLegacyArtifacts(cwd, { fullCleanup: cleanUpdate });
   }
-  const protectedPaths = loadProtectConfig(cwd);
+  const protectConfig = loadProtectConfig(cwd);
+  const protectedPaths = protectConfig.protected;
+  const hybridPaths = protectConfig.hybrid;
   const protectedSnapshots = /* @__PURE__ */ new Map();
   for (const rel of protectedPaths) {
-    const abs = path17.join(cwd, rel);
-    if (fs16.existsSync(abs)) {
-      protectedSnapshots.set(abs, fs16.readFileSync(abs, "utf-8"));
+    const abs = path25.join(cwd, rel);
+    if (fs22.existsSync(abs)) {
+      protectedSnapshots.set(abs, fs22.readFileSync(abs, "utf-8"));
     }
   }
   if (isRefresh && protectedSnapshots.size > 0) {
     console.log(`  \u{1F512} protect.json: ${protectedSnapshots.size} file(s) shielded against overwrite.`);
     console.log("");
   }
+  const hybridSnapshots = /* @__PURE__ */ new Map();
+  if (isRefresh) {
+    for (const rel of hybridPaths) {
+      const abs = path25.join(cwd, rel);
+      if (fs22.existsSync(abs)) {
+        hybridSnapshots.set(abs, fs22.readFileSync(abs, "utf-8"));
+      }
+    }
+    if (hybridSnapshots.size > 0) {
+      console.log(`  \u{1F500} protect.json: ${hybridSnapshots.size} file(s) in hybrid mode (user blocks will be preserved).`);
+      console.log("");
+    }
+  }
   const stack = analyze(cwd);
   const existingConfig = readAiOsConfig(cwd);
   const onboardingPlan = buildOnboardingPlan(cwd, mode, { regenerateContext });
   if (action === "plan") {
-    console.log(formatOnboardingPlan(onboardingPlan));
+    runPlanAction(onboardingPlan);
     return;
   }
   if (action === "preview") {
-    console.log(formatOnboardingPlan(onboardingPlan));
-    console.log("  \u{1F50D} Preview only: no files were written. Run with --apply to execute.");
-    console.log("");
+    runPreviewAction(onboardingPlan);
     return;
   }
   if (dryRun) {
+    if (action === "bootstrap") {
+      runBootstrapAction(stack, true);
+      return;
+    }
     console.log("  [DRY RUN] Detected stack:");
     console.log(JSON.stringify(stack, null, 2));
     return;
@@ -4778,8 +6392,8 @@ async function main() {
     }
     if (config) {
       config = applyProfile(config, effectiveProfile);
-      const configPath = path17.join(cwd, ".github", "ai-os", "config.json");
-      fs16.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
+      const configPath = path25.join(cwd, ".github", "ai-os", "config.json");
+      fs22.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf-8");
     }
   }
   const skillsStrategy = config?.skillsStrategy ?? "creator-only";
@@ -4798,7 +6412,7 @@ async function main() {
   if (config?.recommendations !== false) {
     const recPath = generateRecommendations(stack, cwd);
     recommendationFiles.push(recPath);
-    const skillsLockPath = path17.join(path17.dirname(new URL(import.meta.url).pathname), "..", "skills-lock.json");
+    const skillsLockPath = path25.join(path25.dirname(new URL(import.meta.url).pathname), "..", "skills-lock.json");
     const gapReport = getSkillsGapReport(stack, skillsLockPath);
     if (gapReport) console.log(`
 ${gapReport}
@@ -4814,7 +6428,7 @@ ${gapReport}
     ...workflowFiles,
     ...recommendationFiles
   ];
-  const toRel = (p) => path17.relative(cwd, p).replace(/\\/g, "/");
+  const toRel = (p) => path25.relative(cwd, p).replace(/\\/g, "/");
   const currentRelFiles = allManagedAbs.map(toRel);
   const manifestRel = toRel(getManifestPath(cwd));
   currentRelFiles.push(manifestRel);
@@ -4827,20 +6441,25 @@ ${gapReport}
       if (!currentSet.has(rel)) {
         if (protectedPaths.has(rel)) {
           if (verbose) console.log(`  \u{1F512} protect  ${rel}  (in protect.json)`);
-          preservedAbs.push(path17.join(cwd, rel));
+          preservedAbs.push(path25.join(cwd, rel));
+          continue;
+        }
+        if (hybridPaths.has(rel)) {
+          if (verbose) console.log(`  \u{1F500} hybrid   ${rel}  (in protect.json hybrid \u2014 user blocks preserved)`);
+          preservedAbs.push(path25.join(cwd, rel));
           continue;
         }
         if (!pruneCustomArtifacts && isCustomArtifact(rel)) {
           if (verbose) {
             console.log(`  \u{1F512} preserve ${rel}  (custom artifact \u2014 pass --prune-custom-artifacts to remove)`);
           }
-          preservedAbs.push(path17.join(cwd, rel));
+          preservedAbs.push(path25.join(cwd, rel));
           continue;
         }
-        const abs = path17.join(cwd, rel);
-        if (fs16.existsSync(abs)) {
+        const abs = path25.join(cwd, rel);
+        if (fs22.existsSync(abs)) {
           try {
-            fs16.rmSync(abs);
+            fs22.rmSync(abs);
             prunedAbs.push(abs);
             if (verbose) {
               console.log(`  \u{1F5D1}\uFE0F  prune   ${rel}  (stale \u2014 not in current generation)`);
@@ -4857,21 +6476,68 @@ ${gapReport}
     }
   }
   for (const [abs, originalContent] of protectedSnapshots) {
-    if (!fs16.existsSync(abs)) continue;
-    const currentContent = fs16.readFileSync(abs, "utf-8");
+    if (!fs22.existsSync(abs)) continue;
+    const currentContent = fs22.readFileSync(abs, "utf-8");
     if (currentContent !== originalContent) {
-      fs16.writeFileSync(abs, originalContent, "utf-8");
-      const rel = path17.relative(cwd, abs).replace(/\\/g, "/");
+      fs22.writeFileSync(abs, originalContent, "utf-8");
+      const rel = path25.relative(cwd, abs).replace(/\\/g, "/");
       if (verbose) console.log(`  \u{1F512} restored ${rel}  (protect.json: overwrite reverted)`);
       if (!preservedAbs.some((p) => p === abs)) preservedAbs.push(abs);
     }
   }
+  const allConflicts = [];
+  for (const [abs, snapshot] of hybridSnapshots) {
+    if (!fs22.existsSync(abs)) continue;
+    const generated = fs22.readFileSync(abs, "utf-8");
+    const { content: merged, preserved: mergedIds, conflicts } = mergeUserBlocks(generated, snapshot);
+    if (mergedIds.length > 0 || conflicts.length > 0) {
+      const rel = path25.relative(cwd, abs).replace(/\\/g, "/");
+      if (merged !== generated) {
+        fs22.writeFileSync(abs, merged, "utf-8");
+      }
+      if (mergedIds.length > 0) {
+        if (verbose) {
+          console.log(`  \u{1F500} merged   ${rel}  (${mergedIds.length} user block(s) preserved: ${mergedIds.join(", ")})`);
+        } else {
+          console.log(`  \u{1F500} Hybrid merge: ${mergedIds.length} user block(s) preserved in ${rel}`);
+        }
+      }
+      for (const conflict of conflicts) {
+        allConflicts.push({ file: rel, ...conflict });
+        console.warn(`  \u26A0 Hybrid conflict in ${rel}: block "${conflict.blockId}" \u2014 ${conflict.detail}`);
+      }
+    }
+  }
+  if (allConflicts.length > 0) {
+    console.log("");
+    console.log(`  \u26A0 ${allConflicts.length} user block conflict(s) require manual reconciliation.`);
+    console.log("     Each block has been appended to its file wrapped in <!-- AI-OS:CONFLICT --> markers.");
+    console.log("     Review and move them to the correct location, then remove the conflict markers.");
+    console.log("");
+  }
   writeManifest(cwd, getToolVersion(), currentRelFiles);
+  try {
+    const snapshot = captureContextSnapshot(cwd, getToolVersion());
+    writeContextSnapshot(cwd, snapshot);
+    if (verbose) {
+      console.log("  \u270F\uFE0F  write   .github/ai-os/context-snapshot.json  (freshness baseline)");
+    }
+  } catch {
+  }
   const newFiles = currentRelFiles.filter((r) => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter((r) => r !== manifestRel && previousFiles.has(r));
   installLocalMcpRuntime(cwd, verbose);
+  if (isRefresh) {
+    printMemoryMaintenanceSummary(cwd);
+  }
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? void 0);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
+  if (action === "bootstrap") {
+    console.log("  \u{1F680} Running codebase-aware bootstrap...");
+    console.log("");
+    runBootstrapAction(stack, false);
+    return;
+  }
   const agentFlowMode = config?.agentFlowMode;
   const isFirstInstall = updateStatus.isFirstInstall;
   if (isFirstInstall || agentFlowMode === void 0) {
@@ -4879,77 +6545,198 @@ ${gapReport}
   }
   printAgentFlowStatus(cwd, config?.agentFlowMode ?? null);
 }
+
+// src/uninstall.ts
+import fs23 from "node:fs";
+import path26 from "node:path";
+function readProtectedPaths(cwd) {
+  const protectPath = path26.join(cwd, ".github", "ai-os", "protect.json");
+  if (!fs23.existsSync(protectPath)) return /* @__PURE__ */ new Set();
+  try {
+    const raw = JSON.parse(fs23.readFileSync(protectPath, "utf-8"));
+    if (!raw || typeof raw !== "object") return /* @__PURE__ */ new Set();
+    const obj = raw;
+    const files = [];
+    if (Array.isArray(obj["never"])) {
+      files.push(...obj["never"]);
+    }
+    if (Array.isArray(obj["hybrid"])) {
+      files.push(...obj["hybrid"]);
+    }
+    return new Set(files.map((f) => path26.resolve(cwd, f)));
+  } catch {
+    return /* @__PURE__ */ new Set();
+  }
+}
+function hasUserBlocks(filePath) {
+  try {
+    const content = fs23.readFileSync(filePath, "utf-8");
+    const blocks = extractUserBlocks(content);
+    return blocks.size > 0;
+  } catch {
+    return false;
+  }
+}
+function removeEmptyDirs(dirs) {
+  const sorted = [...dirs].sort((a, b) => b.length - a.length);
+  for (const dir of sorted) {
+    try {
+      if (fs23.existsSync(dir) && fs23.readdirSync(dir).length === 0) {
+        fs23.rmdirSync(dir);
+      }
+    } catch {
+    }
+  }
+}
+function runUninstall(cwd, options = {}) {
+  const { dryRun = false, verbose = false } = options;
+  const report = {
+    cwd,
+    dryRun,
+    removed: [],
+    skipped: [],
+    notFound: [],
+    errors: []
+  };
+  const manifest = readManifest(cwd);
+  if (!manifest) {
+    console.log("  \u2139\uFE0F  No AI OS manifest found \u2014 nothing to uninstall.");
+    return report;
+  }
+  const protected_ = readProtectedPaths(cwd);
+  const affectedDirs = /* @__PURE__ */ new Set();
+  for (const relPath of manifest.files) {
+    const abs = path26.resolve(cwd, relPath);
+    if (!fs23.existsSync(abs)) {
+      report.notFound.push(relPath);
+      if (verbose) console.log(`  \u2753 not found  ${relPath}`);
+      continue;
+    }
+    if (protected_.has(abs)) {
+      report.skipped.push(relPath);
+      if (verbose) console.log(`  \u{1F512} skipped    ${relPath}  (protect.json)`);
+      continue;
+    }
+    if (hasUserBlocks(abs)) {
+      report.skipped.push(relPath);
+      if (verbose) console.log(`  \u{1F512} skipped    ${relPath}  (has user blocks)`);
+      continue;
+    }
+    if (dryRun) {
+      report.removed.push(relPath);
+      console.log(`  \u{1F5D1}\uFE0F  [dry-run]   ${relPath}`);
+      continue;
+    }
+    try {
+      fs23.unlinkSync(abs);
+      report.removed.push(relPath);
+      affectedDirs.add(path26.dirname(abs));
+      if (verbose) console.log(`  \u{1F5D1}\uFE0F  removed    ${relPath}`);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      report.errors.push({ file: relPath, reason });
+      console.error(`  \u2716 error       ${relPath}: ${reason}`);
+    }
+  }
+  const managedDirs = [
+    path26.join(cwd, ".ai-os", "mcp-server"),
+    path26.join(cwd, ".ai-os")
+  ];
+  const manifestPath = path26.join(cwd, ".github", "ai-os", "manifest.json");
+  if (!dryRun) {
+    for (const dir of managedDirs) {
+      try {
+        if (fs23.existsSync(dir)) {
+          fs23.rmSync(dir, { recursive: true, force: true });
+          if (verbose) console.log(`  \u{1F5D1}\uFE0F  removed    ${path26.relative(cwd, dir)}/`);
+        }
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        console.error(`  \u2716 error       ${path26.relative(cwd, dir)}: ${reason}`);
+      }
+    }
+    try {
+      if (fs23.existsSync(manifestPath)) {
+        fs23.unlinkSync(manifestPath);
+        if (verbose) console.log(`  \u{1F5D1}\uFE0F  removed    .github/ai-os/manifest.json`);
+      }
+    } catch {
+    }
+    const dirsToCheck = [
+      ...Array.from(affectedDirs),
+      path26.join(cwd, ".github", "ai-os"),
+      path26.join(cwd, ".github", "agents"),
+      path26.join(cwd, ".github", "copilot", "skills"),
+      path26.join(cwd, ".github", "copilot"),
+      path26.join(cwd, ".github", "instructions")
+    ];
+    removeEmptyDirs(dirsToCheck);
+  }
+  return report;
+}
+function formatUninstallReport(report) {
+  const lines = [];
+  const mode = report.dryRun ? " [DRY RUN]" : "";
+  lines.push(`
+  \u2705 AI OS uninstall complete${mode}`);
+  lines.push(`     Removed:   ${report.removed.length} file(s)`);
+  if (report.skipped.length > 0) lines.push(`     Skipped:   ${report.skipped.length} file(s)  (user content preserved)`);
+  if (report.notFound.length > 0) lines.push(`     Not found: ${report.notFound.length} file(s)`);
+  if (report.errors.length > 0) lines.push(`     Errors:    ${report.errors.length} file(s)`);
+  if (report.skipped.length > 0) {
+    lines.push("\n  Files skipped (contain user content):");
+    for (const f of report.skipped) lines.push(`    \u2022 ${f}`);
+  }
+  if (report.errors.length > 0) {
+    lines.push("\n  Errors:");
+    for (const e of report.errors) lines.push(`    \u2022 ${e.file}: ${e.reason}`);
+  }
+  return lines.join("\n");
+}
+
+// src/cli/dispatch.ts
+function printBanner() {
+  const version = `v${getToolVersion()}`;
+  const versionCell = `AI OS  ${version}`.padEnd(25, " ");
+  console.log("");
+  console.log("  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
+  console.log(`  \u2551          ${versionCell}\u2551`);
+  console.log("  \u2551  Portable Copilot Context Engine  \u2551");
+  console.log("  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
+  console.log("");
+}
+async function main() {
+  const args = parseArgs();
+  const { cwd, action } = args;
+  if (!args.json) {
+    printBanner();
+  }
+  if (action === "check-hygiene") {
+    runCheckHygieneAction(cwd);
+    return;
+  }
+  if (action === "doctor") {
+    runDoctorAction(cwd);
+    return;
+  }
+  if (action === "check-freshness") {
+    runCheckFreshnessAction(cwd);
+    return;
+  }
+  if (action === "compact-memory") {
+    runCompactMemoryAction(cwd);
+    return;
+  }
+  if (action === "uninstall") {
+    const report = runUninstall(cwd, { dryRun: args.dryRun, verbose: args.verbose });
+    console.log(formatUninstallReport(report));
+    return;
+  }
+  await runApply(args);
+}
+
+// src/generate.ts
 main().catch((err) => {
   console.error("  \u274C Error:", err instanceof Error ? err.message : String(err));
   process.exit(1);
 });
-function runHygieneCheck(cwd) {
-  console.log(`  \u{1F9F9} Hygiene check: ${cwd}`);
-  console.log("");
-  const issues = [];
-  const legacyContextDir = path17.join(cwd, ".ai-os", "context");
-  if (fs16.existsSync(legacyContextDir)) {
-    const legacyFiles = fs16.readdirSync(legacyContextDir);
-    if (legacyFiles.length > 0) {
-      issues.push(`  \u26A0  Legacy .ai-os/context/ found with ${legacyFiles.length} file(s) \u2014 run --refresh-existing to migrate and prune`);
-    }
-  }
-  const lockPaths = [
-    path17.join(cwd, ".github", "ai-os", "memory", ".memory.lock"),
-    path17.join(cwd, ".ai-os", "memory", ".memory.lock")
-  ];
-  for (const lockPath of lockPaths) {
-    if (fs16.existsSync(lockPath)) {
-      issues.push(`  \u26A0  Stale lock file found: ${path17.relative(cwd, lockPath)} \u2014 safe to delete`);
-    }
-  }
-  const mcpNodeModules = path17.join(cwd, ".ai-os", "mcp-server", "node_modules");
-  if (fs16.existsSync(mcpNodeModules)) {
-    issues.push(`  \u26A0  node_modules present in .ai-os/mcp-server/ \u2014 Phase F (bundle deploy) will eliminate this`);
-  }
-  const aiOsDirs = [
-    path17.join(cwd, ".github", "ai-os"),
-    path17.join(cwd, ".ai-os")
-  ];
-  for (const dir of aiOsDirs) {
-    if (!fs16.existsSync(dir)) continue;
-    const tmpFiles = findFilesRecursive(dir, (f) => f.endsWith(".tmp"));
-    for (const f of tmpFiles) {
-      issues.push(`  \u26A0  Orphaned temp file: ${path17.relative(cwd, f)}`);
-    }
-  }
-  const manifest = readManifest(cwd);
-  if (manifest) {
-    const missingFiles = manifest.files.filter((f) => !fs16.existsSync(path17.join(cwd, f)));
-    if (missingFiles.length > 0) {
-      issues.push(`  \u26A0  ${missingFiles.length} manifest entries point to missing files \u2014 run --refresh-existing`);
-    }
-  } else {
-    issues.push(`  \u26A0  No manifest.json found \u2014 run AI OS generation to create one`);
-  }
-  if (issues.length === 0) {
-    console.log("  \u2705 Hygiene check passed \u2014 no orphaned files or dump artifacts found.");
-  } else {
-    console.log("  Issues found:");
-    for (const issue of issues) console.log(issue);
-    console.log("");
-    console.log(`  Total issues: ${issues.length}`);
-    process.exit(1);
-  }
-  console.log("");
-}
-function findFilesRecursive(dir, predicate) {
-  const results = [];
-  try {
-    for (const entry of fs16.readdirSync(dir, { withFileTypes: true })) {
-      const full = path17.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        results.push(...findFilesRecursive(full, predicate));
-      } else if (entry.isFile() && predicate(entry.name)) {
-        results.push(full);
-      }
-    }
-  } catch {
-  }
-  return results;
-}

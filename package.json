@@ -34,6 +34,7 @@
     "validate:full": "npm run build && npm run test && npm run validate",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "install:skill-creator": "npx -y skills add anthropics/skills@skill-creator -g -a github-copilot",
     "install:find-skills": "npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot",
     "install:skills": "npm run install:skill-creator && npm run install:find-skills"
@@ -43,6 +44,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "esbuild": "^0.24.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",

@@ -11,7 +11,7 @@
  * Source-based is the correct, current form. Legacy mode is a fallback for
  * older CLI versions that predate the `<source>@<skill>` positional syntax.
  */
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
 /** Skills CLI syntax capability mode. */
 export type SkillsCliMode = 'source-based' | 'legacy';
@@ -32,7 +32,8 @@ export type SkillsCliMode = 'source-based' | 'legacy';
 export function detectSkillsCliMode(opts?: { timeout?: number }): SkillsCliMode {
   const timeout = opts?.timeout ?? 8_000;
   try {
-    const output = execSync('npx -y skills --version 2>&1', { timeout, encoding: 'utf-8' });
+    const result = spawnSync('npx', ['-y', 'skills', '--version'], { timeout, encoding: 'utf-8' });
+    const output = (result.stdout ?? '') + (result.stderr ?? '');
     // Any CLI version that prints a semver string supports source-based syntax.
     // Older pre-release builds (before 1.0) used `--skill` flag only and did
     // not print a standard semver — they typically print nothing or error out.

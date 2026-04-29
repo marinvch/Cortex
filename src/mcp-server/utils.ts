@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1519,8 +1519,8 @@ export function getApiRoutes(filter?: string): string {
 
   for (const scan of scanPatterns) {
     try {
-      const cmd = `npx --yes ripgrep --files -g "${scan.glob}" "${ROOT}"`;
-      const files = execSync(cmd, { maxBuffer: 1024 * 1024, timeout: 12000 }).toString().split('\n').filter(Boolean);
+      const scanResult = spawnSync('npx', ['--yes', 'ripgrep', '--files', '-g', scan.glob, ROOT], { maxBuffer: 1024 * 1024, timeout: 12000, encoding: 'utf-8' });
+      const files = (scanResult.stdout ?? '').split('\n').filter(Boolean);
 
       for (const file of files.slice(0, 300)) {
         let content = '';
@@ -1588,8 +1588,8 @@ export function getEnvVars(): string {
 
   for (const extractor of extractors) {
     try {
-      const cmd = `npx --yes ripgrep --files -g "${extractor.fileGlob}" "${ROOT}"`;
-      const files = execSync(cmd, { maxBuffer: 1024 * 1024, timeout: 10000 }).toString().split('\n').filter(Boolean);
+      const extractResult = spawnSync('npx', ['--yes', 'ripgrep', '--files', '-g', extractor.fileGlob, ROOT], { maxBuffer: 1024 * 1024, timeout: 10000, encoding: 'utf-8' });
+      const files = (extractResult.stdout ?? '').split('\n').filter(Boolean);
       for (const file of files.slice(0, 400)) {
         let content = '';
         try {

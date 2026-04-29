@@ -1,0 +1,34 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`examples/go-service — stack detection > stack shape matches snapshot 1`] = `
+{
+  "frameworks": [
+    "Gin",
+  ],
+  "packageManager": "go",
+  "primaryLanguage": "Go",
+}
+`;
+
+exports[`examples/nextjs-trpc-prisma — stack detection > stack shape matches snapshot 1`] = `
+{
+  "frameworks": [
+    "Next.js",
+    "Prisma",
+    "tRPC",
+  ],
+  "hasTypeScript": true,
+  "packageManager": "unknown",
+  "primaryLanguage": "JSON",
+}
+`;
+
+exports[`examples/python-fastapi — stack detection > stack shape matches snapshot 1`] = `
+{
+  "frameworks": [
+    "FastAPI",
+  ],
+  "packageManager": "unknown",
+  "primaryLanguage": "Python",
+}
+`;

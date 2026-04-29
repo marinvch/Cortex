@@ -139,7 +139,34 @@ export function sha256(content: string): string {
   return createHash('sha256').update(content, 'utf-8').digest('hex');
 }
 
-// ── Template resolution (source vs bundled runtime) ─────────────────────────
+// ── Prompt-injection sanitizer (#107) ────────────────────────────────────────
+
+/**
+ * Sanitize an untrusted string (e.g. from package.json `name`, dependency names,
+ * or filesystem paths) for safe inline interpolation into Copilot instruction
+ * and agent files.
+ *
+ * Defenses applied:
+ *  1. Strip C0/C1 control characters and Unicode invisible / zero-width chars.
+ *  2. Collapse newlines, carriage returns, and tabs to a single space — inline
+ *     fields must not span lines to prevent heading/block injection.
+ *  3. Collapse consecutive spaces to one.
+ *  4. Cap to `maxLength` characters (default 128) to prevent token-flooding.
+ */
+export function sanitizeForInstructions(value: string, maxLength = 128): string {
+  return value
+    // Strip C0 control chars (except 0x09 tab, 0x0A LF, 0x0D CR handled below),
+    // C1 control chars, and Unicode invisible/zero-width characters.
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u0080-\u009F\u200B-\u200D\u2028\u2029\uFEFF]/g, '')
+    // Collapse newlines / CR / tabs → single space (no line breaks in inline fields).
+    .replace(/[\r\n\t]+/g, ' ')
+    // Collapse consecutive spaces.
+    .replace(/ {2,}/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+}
+
+// ── Templates dir resolution ──────────────────────────────────────────────────
 
 /**
  * Resolve the templates root directory for both source (`src/generators/*`)

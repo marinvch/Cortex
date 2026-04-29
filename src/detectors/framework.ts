@@ -219,6 +219,19 @@ function detectFromDeno(rootDir: string): DetectedFramework[] {
 }
 
 function detectFromPhp(rootDir: string): DetectedFramework[] {
+  // WordPress detection — does not require composer.json
+  const hasWpConfig = fs.existsSync(path.join(rootDir, 'wp-config.php'));
+  const hasWpContent = fs.existsSync(path.join(rootDir, 'wp-content'));
+  const hasWpIncludes = fs.existsSync(path.join(rootDir, 'wp-includes'));
+  const indexPhpPath = path.join(rootDir, 'index.php');
+  const indexPhpContainsWp =
+    fs.existsSync(indexPhpPath) &&
+    fs.readFileSync(indexPhpPath, 'utf-8').includes('wp-blog-header.php');
+
+  if (hasWpConfig || (hasWpContent && hasWpIncludes) || indexPhpContainsWp) {
+    return [{ name: 'WordPress', category: 'fullstack', template: 'php-wordpress' }];
+  }
+
   const composer = readJson<{ require?: Record<string, string> }>(path.join(rootDir, 'composer.json'));
   if (!composer) return [];
 

@@ -90,6 +90,9 @@ function hasManifest(dir: string): boolean {
     'pom.xml',
     'build.gradle',
     'build.gradle.kts',
+    'composer.json',
+    'wp-config.php',
+    'Gemfile',
   ];
   return manifests.some((manifest) => fs.existsSync(path.join(dir, manifest)));
 }
@@ -191,6 +194,13 @@ function discoverPackageRoots(rootDir: string): string[] {
 
   for (const rel of ['apps', 'packages', 'services']) {
     addWorkspaceChildren(path.join(rootDir, rel), packageRoots);
+  }
+
+  // Always include the root directory as a fallback so bare-code projects
+  // (WordPress, plain PHP, etc.) without a manifest in known locations are
+  // still analysed.
+  if (packageRoots.size === 0) {
+    packageRoots.add(rootDir);
   }
 
   return [...packageRoots];

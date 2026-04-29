@@ -73,3 +73,33 @@ jobs:
 
       - name: Smoke validation (feature health checks)
         run: npm run validate:smoke
+
+      - name: Scorecard regression check
+        run: npm run scorecard:check
+
+  self-scorecard:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run ai-os against itself (dry-run)
+        run: node dist/generate.js --dry-run
+
+      - name: Scorecard check (self-hosted regression gate)
+        run: npm run scorecard:check

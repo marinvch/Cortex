@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1367,15 +1367,15 @@ export type { MemoryHygieneSummary };
 
 export function searchFiles(query: string, filePattern?: string, caseSensitive = false): string {
   try {
-    const flags = caseSensitive ? '' : '--ignore-case';
-    const globArg = filePattern ? `-g "${filePattern}"` : '';
-    const cmd = `npx --yes ripgrep ${flags} ${globArg} --line-number --max-count=5 "${query}" "${ROOT}"`;
-    const result = execSync(cmd, { maxBuffer: 512 * 1024, timeout: 10000 }).toString();
-    return result.slice(0, 8000); // Cap output for token efficiency
-  } catch (err) {
-    if (err instanceof Error && 'stdout' in err) {
-      return String((err as NodeJS.ErrnoException & { stdout: Buffer }).stdout ?? 'No results found');
-    }
+    const args = ['--yes', 'ripgrep'];
+    if (!caseSensitive) args.push('--ignore-case');
+    if (filePattern) args.push('-g', filePattern);
+    args.push('--line-number', '--max-count=5', query, ROOT);
+    const result = spawnSync('npx', args, { maxBuffer: 512 * 1024, timeout: 10000, encoding: 'utf-8' });
+    if (result.error) return 'No results found';
+    const output = result.stdout ?? '';
+    return output.slice(0, 8000); // Cap output for token efficiency
+  } catch {
     return 'No results found';
   }
 }

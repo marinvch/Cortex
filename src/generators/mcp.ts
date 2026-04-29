@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { getMcpToolsForStack, getToolsWithStackSplit } from '../mcp-tools.js';
-import { writeIfChanged } from './utils.js';
+import { writeIfChanged, writeFileAtomic } from './utils.js';
 
 interface McpServerConfig {
   type: 'stdio';
@@ -47,8 +47,7 @@ export function writeMcpServerConfig(outputDir: string, options?: WriteMcpServer
   };
   existing.servers = servers;
 
-  fs.mkdirSync(path.dirname(mcpJsonPath), { recursive: true });
-  fs.writeFileSync(mcpJsonPath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
+  writeFileAtomic(mcpJsonPath, JSON.stringify(existing, null, 2) + '\n');
   return mcpJsonPath;
 }
 

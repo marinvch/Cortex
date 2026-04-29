@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { buildDependencyGraph } from '../detectors/graph.js';
 import { getToolVersion } from '../updater.js';
-import { writeIfChanged } from './utils.js';
+import { writeIfChanged, writeFileAtomic } from './utils.js';
 
 const DEFAULT_AI_OS_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projectName' | 'primaryLanguage' | 'primaryFramework' | 'frameworks' | 'packageManager' | 'hasTypeScript'> = {
   agentsMd: false,
@@ -695,10 +695,9 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
         source: 'ai-os-installer',
       },
     ];
-    fs.writeFileSync(
+    writeFileAtomic(
       memoryFilePath,
       preambleEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
-      'utf-8',
     );
   }
 

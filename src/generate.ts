@@ -14,7 +14,7 @@ import { generateWorkflows } from './generators/workflows.js';
 import { getMcpToolsForStack } from './mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from './updater.js';
 import { buildOnboardingPlan, formatOnboardingPlan } from './planner.js';
-import { readManifest, writeManifest, getManifestPath, setVerboseMode } from './generators/utils.js';
+import { readManifest, writeManifest, getManifestPath, setVerboseMode, writeFileAtomic } from './generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from './recommendations/index.js';
 import { applyProfile, describeProfile, parseProfile } from './profile.js';
 import type { InstallProfile } from './types.js';
@@ -418,7 +418,7 @@ function ensureGitignoreEntry(cwd: string, entry: string): void {
   if (lines.includes(entry)) return;
 
   const next = `${current.replace(/\s*$/, '')}\n${entry}\n`;
-  fs.writeFileSync(gitignorePath, next, 'utf-8');
+  writeFileAtomic(gitignorePath, next);
 }
 
 function resolveBundledServerSource(): string | null {
@@ -455,12 +455,12 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   fs.copyFileSync(bundledServerSource, runtimeEntry);
   fs.chmodSync(runtimeEntry, 0o755);
 
-  fs.writeFileSync(runtimeManifest, JSON.stringify({
+  writeFileAtomic(runtimeManifest, JSON.stringify({
     name: 'ai-os-mcp-server',
     runtime: 'bundled',
     sourceVersion: getToolVersion(),
     installedAt: new Date().toISOString(),
-  }, null, 2), 'utf-8');
+  }, null, 2));
 
   // Write the official VS Code MCP config (.vscode/mcp.json) with the resolved
   // Node executable path. This avoids shell alias/PATH issues when VS Code
@@ -667,7 +667,7 @@ async function main(): Promise<void> {
       config = applyProfile(config, effectiveProfile);
       // Persist the profile-applied config back to disk.
       const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+      writeFileAtomic(configPath, JSON.stringify(config, null, 2) + '\n');
     }
   }
 
@@ -774,7 +774,7 @@ async function main(): Promise<void> {
     if (!fs.existsSync(abs)) continue;
     const currentContent = fs.readFileSync(abs, 'utf-8');
     if (currentContent !== originalContent) {
-      fs.writeFileSync(abs, originalContent, 'utf-8');
+      writeFileAtomic(abs, originalContent);
       const rel = path.relative(cwd, abs).replace(/\\/g, '/');
       if (verbose) console.log(`  🔒 restored ${rel}  (protect.json: overwrite reverted)`);
       if (!preservedAbs.some(p => p === abs)) preservedAbs.push(abs);
@@ -793,7 +793,7 @@ async function main(): Promise<void> {
       const rel = path.relative(cwd, abs).replace(/\\/g, '/');
       // Only write when the merge actually changed the content
       if (merged !== generated) {
-        fs.writeFileSync(abs, merged, 'utf-8');
+        writeFileAtomic(abs, merged);
       }
       if (mergedIds.length > 0) {
         if (verbose) {

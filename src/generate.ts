@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { analyze } from './analyze.js';
@@ -639,8 +640,115 @@ async function main(): Promise<void> {
       console.log(formatBootstrapReport(report));
       return;
     }
-    console.log('  [DRY RUN] Detected stack:');
-    console.log(JSON.stringify(stack, null, 2));
+
+    // ── Rich dry-run: generate into a temp dir then compare with real files ──
+    const tmpCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-os-dry-'));
+    try {
+      // Seed the tmp dir with the current ai-os config so generators see it.
+      const configSrc = path.join(cwd, '.github', 'ai-os', 'config.json');
+      const configDst = path.join(tmpCwd, '.github', 'ai-os', 'config.json');
+      if (fs.existsSync(configSrc)) {
+        fs.mkdirSync(path.dirname(configDst), { recursive: true });
+        fs.copyFileSync(configSrc, configDst);
+      }
+      // Seed protect.json so generators can read it.
+      const protectSrc = path.join(cwd, '.github', 'ai-os', 'protect.json');
+      const protectDst = path.join(tmpCwd, '.github', 'ai-os', 'protect.json');
+      if (fs.existsSync(protectSrc)) {
+        fs.mkdirSync(path.dirname(protectDst), { recursive: true });
+        fs.copyFileSync(protectSrc, protectDst);
+      }
+
+      let tmpConfig = readAiOsConfig(tmpCwd) ?? existingConfig;
+      const tmpEffectiveProfile = cliProfile ?? tmpConfig?.profile ?? null;
+      if (tmpEffectiveProfile && tmpConfig) {
+        tmpConfig = applyProfile(tmpConfig, tmpEffectiveProfile);
+      }
+      const tmpSkillsStrategy = tmpConfig?.skillsStrategy ?? 'creator-only';
+
+      // Run generators targeting tmpCwd (no real files written to cwd).
+      const tmpInstructionFiles = generateInstructions(stack, tmpCwd, {
+        refreshExisting: mode === 'refresh-existing',
+        preserveContextFiles: false,
+        config: tmpConfig ?? undefined,
+      });
+      const tmpMcpFiles = generateMcpJson(stack, tmpCwd, {
+        refreshExisting: mode === 'refresh-existing',
+        config: tmpConfig ?? undefined,
+      });
+      const tmpAgentFiles = await generateAgents(stack, tmpCwd, {
+        refreshExisting: mode === 'refresh-existing',
+        preserveExistingAgents: false,
+        config: tmpConfig ?? undefined,
+      });
+      const tmpSkillFiles = await generateSkills(stack, tmpCwd, {
+        refreshExisting: mode === 'refresh-existing',
+        strategy: tmpSkillsStrategy,
+      });
+      const tmpPromptFiles = await generatePrompts(stack, tmpCwd, {
+        refreshExisting: mode === 'refresh-existing',
+      });
+      const tmpWorkflowFiles = generateWorkflows(tmpCwd, { config: tmpConfig ?? undefined });
+
+      const allTmpAbs = [
+        ...tmpInstructionFiles,
+        ...tmpMcpFiles,
+        ...tmpAgentFiles,
+        ...tmpSkillFiles,
+        ...tmpPromptFiles,
+        ...tmpWorkflowFiles,
+      ];
+
+      const toRel = (p: string, base: string) => path.relative(base, p).replace(/\\/g, '/');
+
+      const newCount: string[] = [];
+      const modCount: string[] = [];
+      const sameCount: string[] = [];
+
+      console.log('');
+      console.log('  📋 Dry-run diff (no files written)');
+      console.log('  ─────────────────────────────────────────────────────────────');
+
+      for (const tmpAbs of allTmpAbs) {
+        const rel = toRel(tmpAbs, tmpCwd);
+        const realAbs = path.join(cwd, rel);
+        const newContent = fs.existsSync(tmpAbs) ? fs.readFileSync(tmpAbs, 'utf-8') : null;
+        if (newContent === null) continue;
+
+        if (!fs.existsSync(realAbs)) {
+          newCount.push(rel);
+          console.log(`  ${'\x1b[32m'}+ NEW     ${'\x1b[0m'} ${rel}`);
+        } else {
+          const existingContent = fs.readFileSync(realAbs, 'utf-8');
+          if (existingContent !== newContent) {
+            modCount.push(rel);
+            console.log(`  ${'\x1b[33m'}~ MODIFY  ${'\x1b[0m'} ${rel}`);
+          } else {
+            sameCount.push(rel);
+            console.log(`  ${'\x1b[90m'}= SAME    ${'\x1b[0m'} ${rel}`);
+          }
+        }
+      }
+
+      // Show files that would be pruned.
+      const prevManifest = readManifest(cwd);
+      if (prevManifest && (pruneFlag || mode === 'refresh-existing')) {
+        const currentRelSet = new Set(allTmpAbs.map((p) => toRel(p, tmpCwd)));
+        for (const rel of prevManifest.files) {
+          if (!currentRelSet.has(rel) && fs.existsSync(path.join(cwd, rel))) {
+            console.log(`  ${'\x1b[31m'}- DELETE  ${'\x1b[0m'} ${rel}`);
+          }
+        }
+      }
+
+      console.log('');
+      console.log(`  Summary:  +${newCount.length} new  ~${modCount.length} modified  =${sameCount.length} unchanged`);
+      console.log('');
+      console.log('  Run without --dry-run to apply changes.');
+      console.log('');
+    } finally {
+      fs.rmSync(tmpCwd, { recursive: true, force: true });
+    }
     return;
   }
 

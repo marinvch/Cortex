@@ -47,6 +47,17 @@ If your environment blocks `npx github:...`, use the tagged bootstrap script:
 curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/v0.6.26/bootstrap.sh | bash
 ```
 
+### Verifying bundle integrity
+
+Each [GitHub Release](https://github.com/marinvch/ai-os/releases) includes SHA-256 checksums for `bundle/generate.js` and `dist/server.js`. To verify after install:
+
+```bash
+# Download the checksums from the release notes and verify
+sha256sum bundle/generate.js dist/server.js
+```
+
+Compare the output against the **Bundle Provenance** section in the release notes for the version you installed.
+
 ### Fast bootstrap (paste in any target repo terminal)
 
 ```bash

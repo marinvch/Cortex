@@ -108,6 +108,24 @@ jobs:
             echo
             echo "## Commits in this release"
             echo "$COMMITS"
+            echo
+            echo "---"
+            echo
+            echo "## Bundle Provenance"
+            echo
+            echo "SHA-256 checksums for verifying the integrity of shipped bundles:"
+            echo
+            echo "\`\`\`"
+            sha256sum bundle/generate.js dist/server.js
+            echo "\`\`\`"
+            echo
+            echo "To verify after install:"
+            echo "\`\`\`bash"
+            echo "# Verify bundle/generate.js"
+            echo "sha256sum bundle/generate.js"
+            echo "# Verify dist/server.js"
+            echo "sha256sum dist/server.js"
+            echo "\`\`\`"
           } > "$RELEASE_NOTES_FILE"
 
           gh release create "$NEXT_TAG" \

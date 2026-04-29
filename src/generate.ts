@@ -31,7 +31,7 @@ import type { UpdateStatus } from './updater.js';
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall';
 
-function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null } {
+function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null; json: boolean } {
   const args = process.argv.slice(2);
   let cwd = process.cwd();
   let dryRun = false;
@@ -43,6 +43,7 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
   let regenerateContext = false;
   let pruneCustomArtifacts = false;
   let profile: InstallProfile | null = null;
+  let json = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -98,10 +99,12 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       const parsed = parseProfile(raw);
       if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${raw}")`);
       profile = parsed;
+    } else if (args[i] === '--json') {
+      json = true;
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json };
 }
 
 function printBanner(): void {
@@ -509,34 +512,55 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
 }
 
 async function main(): Promise<void> {
-  printBanner();
-
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = parseArgs();
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, json } = parseArgs();
   let mode: GenerateMode = rawMode;
+
+  // Suppress banner when --json is set
+  if (!json) {
+    printBanner();
+  }
 
   // Enable verbose per-file logging when --verbose / -v is passed
   if (verbose) {
     setVerboseMode(true);
-    console.log('  🔍 Verbose mode enabled — per-file write/skip/prune reasons will be shown.\n');
+    if (!json) console.log('  🔍 Verbose mode enabled — per-file write/skip/prune reasons will be shown.\n');
   }
 
   // ── --check-hygiene action (runs before scan, no generation needed) ────────
   if (action === 'check-hygiene') {
-    runHygieneCheck(cwd);
+    if (json) {
+      const hygieneResult = collectHygieneIssues(cwd);
+      process.stdout.write(JSON.stringify({ action: 'check-hygiene', ...hygieneResult }, null, 2) + '\n');
+      if (hygieneResult.issues.length > 0) process.exit(1);
+    } else {
+      runHygieneCheck(cwd);
+    }
     return;
   }
 
   // ── --doctor action (post-install health validation) ──────────────────────
   if (action === 'doctor') {
     const doctorResult = runDoctor(cwd);
-    const exitCode = printDoctorReport(doctorResult);
-    if (exitCode !== 0) process.exit(exitCode);
+    if (json) {
+      process.stdout.write(JSON.stringify({ action: 'doctor', ...doctorResult }, null, 2) + '\n');
+      if (doctorResult.criticalFailures > 0) process.exit(1);
+    } else {
+      const exitCode = printDoctorReport(doctorResult);
+      if (exitCode !== 0) process.exit(exitCode);
+    }
     return;
   }
 
   // ── --check-freshness action (runs before scan, no generation needed) ──────
   if (action === 'check-freshness') {
-    runFreshnessCheck(cwd);
+    if (json) {
+      const report = computeFreshnessReport(cwd);
+      process.stdout.write(JSON.stringify({ action: 'check-freshness', ...report }, null, 2) + '\n');
+      const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true';
+      if (report.status === 'stale' && isCi) process.exit(1);
+    } else {
+      runFreshnessCheck(cwd);
+    }
     return;
   }
 
@@ -561,18 +585,20 @@ async function main(): Promise<void> {
   // Version check — notify if installed artifacts are older than this tool
   const updateStatus = checkUpdateStatus(cwd);
   const installedVersionLabel = updateStatus.installedVersion ?? 'none';
-  console.log(`  🩺 Diagnostics: tool=v${updateStatus.toolVersion}, installed=v${installedVersionLabel}, firstInstall=${updateStatus.isFirstInstall ? 'yes' : 'no'}, updateAvailable=${updateStatus.updateAvailable ? 'yes' : 'no'}`);
+  if (!json) console.log(`  🩺 Diagnostics: tool=v${updateStatus.toolVersion}, installed=v${installedVersionLabel}, firstInstall=${updateStatus.isFirstInstall ? 'yes' : 'no'}, updateAvailable=${updateStatus.updateAvailable ? 'yes' : 'no'}`);
 
   if (mode === 'update') {
-    if (updateStatus.isFirstInstall) {
-      console.log('  ℹ️  No existing AI OS installation found. Running fresh install...');
-    } else if (updateStatus.updateAvailable) {
-      console.log(`  🔄 Updating from v${updateStatus.installedVersion ?? '?'} → v${updateStatus.toolVersion}`);
-    } else {
-      console.log(`  ✅ Already up-to-date (v${updateStatus.toolVersion}). Re-generating to refresh context...`);
+    if (!json) {
+      if (updateStatus.isFirstInstall) {
+        console.log('  ℹ️  No existing AI OS installation found. Running fresh install...');
+      } else if (updateStatus.updateAvailable) {
+        console.log(`  🔄 Updating from v${updateStatus.installedVersion ?? '?'} → v${updateStatus.toolVersion}`);
+      } else {
+        console.log(`  ✅ Already up-to-date (v${updateStatus.toolVersion}). Re-generating to refresh context...`);
+      }
     }
     mode = 'refresh-existing';
-  } else if (mode === 'safe' && !updateStatus.isFirstInstall) {
+  } else if (mode === 'safe' && !updateStatus.isFirstInstall && !json) {
     printUpdateBanner(updateStatus);
   }
 
@@ -581,7 +607,7 @@ async function main(): Promise<void> {
   const isRefresh = mode === 'refresh-existing';
   const preserveContextFiles = isRefresh && !regenerateContext;
 
-  if (isRefresh && preserveContextFiles) {
+  if (isRefresh && preserveContextFiles && !json) {
     console.log('  🔒 Safe refresh: curated context/instruction files will be preserved.');
     console.log('     Pass --regenerate-context to allow full rewrite of those files.');
     console.log('');
@@ -776,7 +802,7 @@ async function main(): Promise<void> {
   // Resolve the effective profile: CLI flag > persisted config > none
   const effectiveProfile = cliProfile ?? config?.profile ?? null;
   if (effectiveProfile) {
-    if (cliProfile) {
+    if (cliProfile && !json) {
       console.log(`\n  🎛️  Applying profile: ${cliProfile}`);
       console.log(describeProfile(cliProfile));
       console.log('');
@@ -803,7 +829,7 @@ async function main(): Promise<void> {
   const workflowFiles = generateWorkflows(cwd, { config: config ?? undefined });
   await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
 
-  console.log(`  🧠 Skills strategy: ${skillsStrategy}`);
+  if (!json) console.log(`  🧠 Skills strategy: ${skillsStrategy}`);
 
   // Phase 3: Recommendations (if enabled in config, default: true)
   const recommendationFiles: string[] = [];
@@ -813,7 +839,7 @@ async function main(): Promise<void> {
     // Skills gap report (stdout only, not written to disk)
     const skillsLockPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'skills-lock.json');
     const gapReport = getSkillsGapReport(stack, skillsLockPath);
-    if (gapReport) console.log(`\n${gapReport}\n`);
+    if (gapReport && !json) console.log(`\n${gapReport}\n`);
   }
 
   // Collect all managed absolute paths and convert to repo-relative forward-slash keys.
@@ -970,8 +996,36 @@ async function main(): Promise<void> {
   installLocalMcpRuntime(cwd, verbose);
 
   // ── Memory maintenance summary (refresh/update mode only) ────────────────
-  if (isRefresh) {
+  if (isRefresh && !json) {
     printMemoryMaintenanceSummary(cwd);
+  }
+
+  if (json) {
+    const mcpToolCount = getMcpToolsForStack(stack).length;
+    const summary = {
+      action: action === 'bootstrap' ? 'bootstrap' : 'apply',
+      cwd,
+      mode,
+      project: stack.projectName,
+      language: stack.primaryLanguage.name,
+      frameworks: stack.frameworks.map(f => f.name),
+      packageManager: stack.patterns.packageManager,
+      typescript: stack.patterns.hasTypeScript,
+      profile: effectiveProfile ?? null,
+      mcpToolCount,
+      written: newFiles.map(f => path.relative(cwd, f).replace(/\\/g, '/')),
+      skipped: existingFiles.map(f => path.relative(cwd, f).replace(/\\/g, '/')),
+      pruned: prunedAbs.map(f => path.relative(cwd, f).replace(/\\/g, '/')),
+      agents: agentFiles.map(f => path.relative(cwd, f).replace(/\\/g, '/')),
+      preserved: preservedAbs.map(f => path.relative(cwd, f).replace(/\\/g, '/')),
+    };
+    if (action === 'bootstrap') {
+      const bootstrapReport = runBootstrap(stack, { dryRun: false });
+      process.stdout.write(JSON.stringify({ ...summary, bootstrap: bootstrapReport }, null, 2) + '\n');
+    } else {
+      process.stdout.write(JSON.stringify(summary, null, 2) + '\n');
+    }
+    return;
   }
 
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? undefined);
@@ -987,14 +1041,14 @@ async function main(): Promise<void> {
   }
 
   // ── Agent-flow setup prompt ──────────────────────────────────────────────
-  // On first install (no prior config) or when agentFlowMode is not explicitly
-  // set, scan for existing agents and print a one-time setup suggestion.
   const agentFlowMode = config?.agentFlowMode;
   const isFirstInstall = updateStatus.isFirstInstall;
-  if (isFirstInstall || agentFlowMode === undefined) {
-    printAgentFlowSetupPrompt(cwd, config?.agentFlowMode ?? null);
+  if (!json) {
+    if (isFirstInstall || agentFlowMode === undefined) {
+      printAgentFlowSetupPrompt(cwd, config?.agentFlowMode ?? null);
+    }
+    printAgentFlowStatus(cwd, config?.agentFlowMode ?? null);
   }
-  printAgentFlowStatus(cwd, config?.agentFlowMode ?? null);
 }
 
 main().catch(err => {
@@ -1004,38 +1058,38 @@ main().catch(err => {
 
 // ── --check-hygiene ───────────────────────────────────────────────────────────
 
-function runHygieneCheck(cwd: string): void {
-  console.log(`  🧹 Hygiene check: ${cwd}`);
-  console.log('');
+interface HygieneResult {
+  cwd: string;
+  issues: string[];
+  passed: boolean;
+}
+
+function collectHygieneIssues(cwd: string): HygieneResult {
   const issues: string[] = [];
 
-  // Check for legacy .ai-os/context/ artifacts (pre-v0.3.0 paths)
   const legacyContextDir = path.join(cwd, '.ai-os', 'context');
   if (fs.existsSync(legacyContextDir)) {
     const legacyFiles = fs.readdirSync(legacyContextDir);
     if (legacyFiles.length > 0) {
-      issues.push(`  ⚠  Legacy .ai-os/context/ found with ${legacyFiles.length} file(s) — run --refresh-existing to migrate and prune`);
+      issues.push(`Legacy .ai-os/context/ found with ${legacyFiles.length} file(s) — run --refresh-existing to migrate and prune`);
     }
   }
 
-  // Check for leftover .memory.lock files (crash artifact)
   const lockPaths = [
     path.join(cwd, '.github', 'ai-os', 'memory', '.memory.lock'),
     path.join(cwd, '.ai-os', 'memory', '.memory.lock'),
   ];
   for (const lockPath of lockPaths) {
     if (fs.existsSync(lockPath)) {
-      issues.push(`  ⚠  Stale lock file found: ${path.relative(cwd, lockPath)} — safe to delete`);
+      issues.push(`Stale lock file found: ${path.relative(cwd, lockPath)} — safe to delete`);
     }
   }
 
-  // Check for node_modules inside .ai-os/mcp-server/ (Phase F not yet applied)
   const mcpNodeModules = path.join(cwd, '.ai-os', 'mcp-server', 'node_modules');
   if (fs.existsSync(mcpNodeModules)) {
-    issues.push(`  ⚠  node_modules present in .ai-os/mcp-server/ — Phase F (bundle deploy) will eliminate this`);
+    issues.push(`node_modules present in .ai-os/mcp-server/ — Phase F (bundle deploy) will eliminate this`);
   }
 
-  // Check for *.tmp files in ai-os dirs
   const aiOsDirs = [
     path.join(cwd, '.github', 'ai-os'),
     path.join(cwd, '.ai-os'),
@@ -1044,26 +1098,33 @@ function runHygieneCheck(cwd: string): void {
     if (!fs.existsSync(dir)) continue;
     const tmpFiles = findFilesRecursive(dir, f => f.endsWith('.tmp'));
     for (const f of tmpFiles) {
-      issues.push(`  ⚠  Orphaned temp file: ${path.relative(cwd, f)}`);
+      issues.push(`Orphaned temp file: ${path.relative(cwd, f)}`);
     }
   }
 
-  // Check manifest consistency
   const manifest = readManifest(cwd);
   if (manifest) {
     const missingFiles = manifest.files.filter(f => !fs.existsSync(path.join(cwd, f)));
     if (missingFiles.length > 0) {
-      issues.push(`  ⚠  ${missingFiles.length} manifest entries point to missing files — run --refresh-existing`);
+      issues.push(`${missingFiles.length} manifest entries point to missing files — run --refresh-existing`);
     }
   } else {
-    issues.push(`  ⚠  No manifest.json found — run AI OS generation to create one`);
+    issues.push(`No manifest.json found — run AI OS generation to create one`);
   }
 
-  if (issues.length === 0) {
+  return { cwd, issues, passed: issues.length === 0 };
+}
+
+function runHygieneCheck(cwd: string): void {
+  console.log(`  🧹 Hygiene check: ${cwd}`);
+  console.log('');
+  const { issues, passed } = collectHygieneIssues(cwd);
+
+  if (passed) {
     console.log('  ✅ Hygiene check passed — no orphaned files or dump artifacts found.');
   } else {
     console.log('  Issues found:');
-    for (const issue of issues) console.log(issue);
+    for (const issue of issues) console.log(`  ⚠  ${issue}`);
     console.log('');
     console.log(`  Total issues: ${issues.length}`);
     process.exit(1);

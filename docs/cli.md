@@ -1,96 +1,186 @@
-# AI OS — CLI Reference
+# AI OS CLI Reference
 
-## Flags and Actions
+## Actions
+
+| Flag | Action | Description |
+| --- | --- | --- |
+| _(default)_ | `apply` | Generate or refresh all AI OS context files |
+| `--refresh-existing` | `apply` | Refresh mode — update existing files, prune stale |
+| `--update` | `apply` | Same as `--refresh-existing` with version bump message |
+| `--plan` | `plan` | Print onboarding plan, no files written |
+| `--preview` | `preview` | Print plan + "no files written" notice |
+| `--dry-run` | `apply` | Show detected stack as JSON, no files written |
+| `--doctor` | `doctor` | Post-install health validation |
+| `--check-hygiene` | `check-hygiene` | Detect orphaned files, stale lock files, manifest drift |
+| `--check-freshness` | `check-freshness` | Score context freshness vs source files |
+| `--compact-memory` | `compact-memory` | Remove stale memory entries |
+| `--bootstrap` | `bootstrap` | Full generation + auto-install skills |
+| `--uninstall` | _(install.sh flag)_ | Guided removal of all AI OS artifacts |
+
+## Flags
 
 | Flag | Description |
-|---|---|
-| `--cwd <path>` | Target repository (default: current directory) |
-| `--dry-run` | Show detected stack and planned changes without writing files |
-| `--plan` | Print onboarding plan only (no writes) |
-| `--preview` | Preview planned actions (no writes) |
-| `--apply` | Explicitly apply changes |
-| `--refresh-existing` | Update existing artifacts + prune stale files |
-| `--update` | Alias for `--refresh-existing` with version bump message |
+| --- | --- |
+| `--cwd <path>` | Target repo path (default: `process.cwd()`) |
+| `--profile <minimal\|standard\|full>` | Install density profile |
+| `--dry-run` | Show detected stack as JSON, no writes |
+| `--verbose` / `-v` | Per-file write/skip/prune reasons |
 | `--prune` | Prune stale artifacts without full refresh |
-| `--uninstall` | Remove all AI OS-owned files (reads manifest) |
-| `--bootstrap` | Full baseline setup: generate + auto-install skills |
-| `--bootstrap --dry-run` | Preview bootstrap plan, nothing written |
-| `--doctor` | Post-install health validation |
-| `--check-freshness` | Check context drift (exits non-zero when stale in CI) |
-| `--compact-memory` | Remove stale memory entries and print summary |
-| `--verbose` / `-v` | Show per-file write/skip/prune reasons |
-| `--profile <level>` | Install profile: `minimal` \| `standard` \| `full` |
-| `--json` | Emit structured JSON output (CI consumers) |
-
-## Common Workflows
-
-```bash
-# Dry run — inspect detection, no writes
-npm run generate:dry -- --cwd /path/to/repo
-
-# Fresh install
-npm run generate -- --cwd /path/to/repo
-
-# Refresh existing install
-npm run generate:refresh -- --cwd /path/to/repo
-
-# Bootstrap (generate + auto-install skills)
-npm run bootstrap -- --cwd /path/to/repo
-
-# Doctor check
-npm run doctor
-
-# Context freshness check
-npm run check-freshness
-
-# Compact memory
-npm run compact-memory
-
-# Prune stale artifacts
-npm run generate -- --cwd /path/to/repo --prune
-```
+| `--regenerate-context` | Allow rewrite of curated context files during refresh |
+| `--prune-custom-artifacts` | Also prune non-AI-OS artifacts in managed dirs |
+| `--clean-update` | Aggressive refresh — equivalent to `--refresh-existing` |
+| `--json` | Suppress human output; emit structured JSON to stdout |
 
 ## Install Profiles
 
 | Profile | Description |
-|---|---|
-| `minimal` | Instructions + MCP wiring only. No agents, recommendations, or workflows. |
-| `standard` | Balanced default (recommended for most projects). |
-| `full` | All stack-relevant integrations, predefined skills, and recommendations. |
+| --- | --- |
+| `minimal` | Instructions + MCP wiring only. No agents, skills, recommendations, or session context card. |
+| `standard` | Balanced default — most features on, predefined skills off. |
+| `full` | All integrations — agents, recommendations, session context card, update-check workflow, skills. |
 
-The chosen profile is persisted to `.github/ai-os/config.json` and re-applied on subsequent refreshes unless overridden.
+Profiles are persisted to `.github/ai-os/config.json` under `"profile"` and re-applied on subsequent refreshes.
 
-## `--dry-run` Output Format
+## Common Workflows
 
+```bash
+# Fresh install
+curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash
+
+# Refresh existing install
+bash install.sh --refresh-existing
+
+# Check if anything is stale without writing
+node dist/generate.js --check-freshness --cwd /path/to/repo
+
+# Health check after install
+node dist/generate.js --doctor --cwd /path/to/repo
+
+# Hygiene check (orphaned files, manifest drift)
+node dist/generate.js --check-hygiene --cwd /path/to/repo
+
+# CI: emit structured report and exit non-zero on failure
+node dist/generate.js --doctor --json --cwd /path/to/repo
+node dist/generate.js --check-freshness --json --cwd /path/to/repo
+node dist/generate.js --check-hygiene --json --cwd /path/to/repo
 ```
-  ✏️  write   /repo/.github/copilot-instructions.md
-  ⏭️  skip    /repo/.github/ai-os/context/stack.md  (unchanged)
-  🗑️  prune   .github/copilot/skills/ai-os-old-skill.md  (stale)
+
+## --json Output Mode
+
+Pass `--json` to suppress all human-readable output and emit a single structured JSON object to stdout. Useful for CI integrations, dashboards, and programmatic consumers.
+
+The flag is supported for these actions: `apply`, `doctor`, `check-hygiene`, `check-freshness`.
+
+Exit codes follow the same rules as human mode: critical failures in `doctor` and hygiene issues both exit non-zero.
+
+### apply / bootstrap
+
+```json
+{
+  "action": "apply",
+  "cwd": "/path/to/repo",
+  "mode": "safe",
+  "project": "my-app",
+  "language": "TypeScript",
+  "frameworks": ["Next.js", "React"],
+  "packageManager": "npm",
+  "typescript": true,
+  "profile": null,
+  "mcpToolCount": 29,
+  "written": ["relative/path/to/written-file.md"],
+  "skipped": ["relative/path/to/unchanged-file.md"],
+  "pruned": ["relative/path/to/stale-file.md"],
+  "agents": ["relative/path/to/agent.agent.md"],
+  "preserved": []
+}
 ```
 
-## `--bootstrap` Output
+For `--bootstrap`, the output includes an additional `bootstrap` field with the bootstrap report.
+
+### doctor
+
+```json
+{
+  "action": "doctor",
+  "cwd": "/path/to/repo",
+  "toolVersion": "0.11.0",
+  "checks": [
+    {
+      "name": "MCP runtime binary present (.ai-os/mcp-server/index.js)",
+      "critical": true,
+      "passed": true,
+      "detail": "/path/to/repo/.ai-os/mcp-server/index.js"
+    }
+  ],
+  "criticalFailures": 0,
+  "warnings": 0
+}
+```
+
+### check-hygiene
+
+```json
+{
+  "action": "check-hygiene",
+  "cwd": "/path/to/repo",
+  "issues": [],
+  "passed": true
+}
+```
+
+### check-freshness
+
+```json
+{
+  "action": "check-freshness",
+  "status": "fresh",
+  "score": 1.0,
+  "snapshotCapturedAt": "2025-01-20T14:00:00.000Z",
+  "lastGenerationAt": "2025-01-20T14:00:00.000Z",
+  "staleArtifacts": [],
+  "changedSourceFiles": [],
+  "recommendations": []
+}
+```
+
+## Dry-run Output Format
+
+With `--dry-run`, AI OS prints the detected stack as JSON and exits:
+
+```json
+{
+  "rootDir": "/path/to/repo",
+  "projectName": "my-app",
+  "primaryLanguage": { "name": "TypeScript", "percentage": 72 },
+  "frameworks": [{ "name": "Next.js", "confidence": 0.95 }],
+  "patterns": {
+    "packageManager": "npm",
+    "hasTypeScript": true,
+    "namingConvention": "kebab-case",
+    "monorepo": false,
+    "srcDirectory": true
+  }
+}
+```
+
+## Bootstrap Output
+
+With `--bootstrap`, AI OS runs full generation then auto-installs stack-relevant skills:
 
 ```
   ╔════════════════════════════════════════╗
-  ║  Bootstrap Plan (DRY RUN) — my-app     ║
+  ║  Bootstrap Plan — my-app               ║
   ╚════════════════════════════════════════╝
-  ...
-  🔲 [skill]    nextjs  ← triggered by: Next.js
-  Summary: 4 action(s) planned (dry-run — nothing applied)
+
+  ✅ [skill]    nextjs       Install: npx -y skills add vercel-labs/agent-skills@nextjs ...
+  📋 [mcp]      context7     Manual: npx -y skills add intellectronica/agent-skills@context7 ...
 ```
-
-Apply report icons:
-
-| Icon | Meaning |
-|---|---|
-| ✅ | Skill installed via skills CLI |
-| 📋 | Manual action required (MCP servers, VS Code extensions) |
-| ❌ | Install attempted but failed |
-| 🔲 | Planned action (dry-run only) |
 
 ## Environment Variables
 
-| Variable | Effect |
-|---|---|
-| `AI_OS_MCP_DEBUG=1` | Enable MCP server debug logging |
-| `CI=true` / `GITHUB_ACTIONS=true` | `--check-freshness` exits non-zero when stale |
+| Variable | Description |
+| --- | --- |
+| `AI_OS_ROOT` | Override root directory for MCP server runtime |
+| `AI_OS_MCP_DEBUG=1` | Enable verbose MCP server logging |
+| `CI=true` | Enables CI mode — `--check-freshness` exits non-zero when stale |
+| `GITHUB_ACTIONS=true` | Same as `CI=true` |

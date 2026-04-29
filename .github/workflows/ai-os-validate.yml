@@ -50,6 +50,9 @@ jobs:
       - name: Smoke validation (feature health checks)
         run: npm run validate:smoke
 
+      - name: Audit dependencies (high severity)
+        run: npm audit --omit=dev --audit-level=high
+
   validate-full:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -73,3 +76,6 @@ jobs:
 
       - name: Smoke validation (feature health checks)
         run: npm run validate:smoke
+
+      - name: Audit dependencies (high severity)
+        run: npm audit --omit=dev --audit-level=high

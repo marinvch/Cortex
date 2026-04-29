@@ -195,6 +195,23 @@ export const FRAMEWORK_RECOMMENDATIONS: Record<string, StackRecommendation> = {
     vscode: ['Prisma.prisma'],
     skills: ['prisma'],
   },
+  'WordPress': {
+    trigger: 'WordPress',
+    vscode: ['wongjn.php-sniffer', 'bmewburn.vscode-intelephense-client'],
+    skills: ['wordpress', 'context7'],
+    skillSources: {
+      'context7': 'intellectronica/agent-skills',
+    },
+    copilotExtension: { name: 'WordPress Agent Skills', url: 'https://github.com/WordPress/agent-skills' },
+  },
+  'Laravel': {
+    trigger: 'Laravel',
+    vscode: ['bmewburn.vscode-intelephense-client', 'onecentlin.laravel5-snippets'],
+    skills: ['context7'],
+    skillSources: {
+      'context7': 'intellectronica/agent-skills',
+    },
+  },
 };
 
 /** Language name → recommendation */

@@ -139,6 +139,11 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
     add('deno.md', 'ai-os-deno-patterns.md');
   }
 
+  // WordPress
+  if (frameworks.some(f => f.toLowerCase().includes('wordpress'))) {
+    add('wordpress.md', 'ai-os-wordpress-patterns.md');
+  }
+
   return specs;
 }
 

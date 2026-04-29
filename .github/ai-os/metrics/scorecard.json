@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-17T04:32:00.092Z",
+  "updatedAt": "2026-04-29T05:36:38.503Z",
   "weeks": [
     {
       "weekStart": "2026-04-14",
@@ -11,6 +11,16 @@
       "contextHitRate": 0.7,
       "notes": "baseline after context-vault rollout",
       "updatedAt": "2026-04-17T04:32:00.092Z"
+    },
+    {
+      "weekStart": "2026-04-27",
+      "firstPassSuccessRate": 0.85,
+      "toolCallSuccessRate": 0.96,
+      "reworkRate": 0.12,
+      "avgTimeToFixMinutes": 25,
+      "contextHitRate": 0.78,
+      "notes": "2026-04-29 scorecard update — all 198 tests pass, PHP/WordPress detection added",
+      "updatedAt": "2026-04-29T05:36:38.496Z"
     }
   ]
 }

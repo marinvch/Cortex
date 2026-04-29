@@ -3,7 +3,7 @@ import { parseProfile } from '../profile.js';
 import type { InstallProfile } from '../types.js';
 
 export type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory';
+export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall';
 
 export interface ParsedArgs {
   cwd: string;
@@ -16,6 +16,7 @@ export interface ParsedArgs {
   regenerateContext: boolean;
   pruneCustomArtifacts: boolean;
   profile: InstallProfile | null;
+  json: boolean;
 }
 
 export function parseArgs(): ParsedArgs {
@@ -30,6 +31,7 @@ export function parseArgs(): ParsedArgs {
   let regenerateContext = false;
   let pruneCustomArtifacts = false;
   let profile: InstallProfile | null = null;
+  let json = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -67,6 +69,10 @@ export function parseArgs(): ParsedArgs {
       action = 'check-freshness';
     } else if (args[i] === '--compact-memory') {
       action = 'compact-memory';
+    } else if (args[i] === '--uninstall') {
+      action = 'uninstall';
+    } else if (args[i] === '--json') {
+      json = true;
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
     } else if (args[i] === '--regenerate-context') {
@@ -86,5 +92,5 @@ export function parseArgs(): ParsedArgs {
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json };
 }

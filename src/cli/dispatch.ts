@@ -5,6 +5,7 @@ import { runDoctorAction } from '../actions/doctor.js';
 import { runCheckFreshnessAction } from '../actions/check-freshness.js';
 import { runCompactMemoryAction } from '../actions/compact-memory.js';
 import { runApply } from '../actions/apply.js';
+import { runUninstall, formatUninstallReport } from '../uninstall.js';
 
 function printBanner(): void {
   const version = `v${getToolVersion()}`;
@@ -18,10 +19,13 @@ function printBanner(): void {
 }
 
 export async function main(): Promise<void> {
-  printBanner();
-
   const args = parseArgs();
   const { cwd, action } = args;
+
+  // Suppress banner in JSON mode
+  if (!args.json) {
+    printBanner();
+  }
 
   // ── Early-exit actions (no scan or generation needed) ────────────────────
   if (action === 'check-hygiene') {
@@ -41,6 +45,12 @@ export async function main(): Promise<void> {
 
   if (action === 'compact-memory') {
     runCompactMemoryAction(cwd);
+    return;
+  }
+
+  if (action === 'uninstall') {
+    const report = runUninstall(cwd, { dryRun: args.dryRun, verbose: args.verbose });
+    console.log(formatUninstallReport(report));
     return;
   }
 

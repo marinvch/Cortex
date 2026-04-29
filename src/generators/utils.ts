@@ -11,6 +11,29 @@ export function setVerboseMode(enabled: boolean): void {
   _verbose = enabled;
 }
 
+// ── Content hashing (#115) ────────────────────────────────────────────────────
+
+/**
+ * Compute a SHA-256 hex digest of `content`.
+ * Used to populate manifest.hashes so refresh runs can detect unchanged files.
+ */
+export function hashContent(content: string): string {
+  return createHash('sha256').update(content, 'utf-8').digest('hex');
+}
+
+/**
+ * Read a file from disk and compute its SHA-256 hex digest.
+ * Returns `null` when the file does not exist.
+ */
+export function hashFile(filePath: string): string | null {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    return hashContent(content);
+  } catch {
+    return null;
+  }
+}
+
 // ── Write-if-changed (#13) ────────────────────────────────────────────────────
 
 export type WriteResult = 'written' | 'skipped';
@@ -87,6 +110,8 @@ export interface AiOsManifest {
   generatedAt: string;
   /** Repo-relative paths of all files written by AI OS in this run */
   files: string[];
+  /** SHA-256 content hashes keyed by repo-relative file path */
+  hashes?: Record<string, string>;
 }
 
 const MANIFEST_FILENAME = 'manifest.json';
@@ -124,12 +149,19 @@ export function readManifest(outputDir: string): AiOsManifest | null {
 /**
  * Write the manifest atomically: write to a temp file then rename.
  * `files` should be repo-relative paths (forward slashes).
+ * `hashes` is an optional map of repo-relative path → SHA-256 hex content hash.
  */
-export function writeManifest(outputDir: string, version: string, files: string[]): void {
+export function writeManifest(
+  outputDir: string,
+  version: string,
+  files: string[],
+  hashes?: Record<string, string>,
+): void {
   const manifest: AiOsManifest = {
     version,
     generatedAt: new Date().toISOString(),
     files: [...files].sort(),
+    ...(hashes && Object.keys(hashes).length > 0 ? { hashes } : {}),
   };
 
   const manifestPath = getManifestPath(outputDir);

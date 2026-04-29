@@ -23,11 +23,12 @@ import { mergeUserBlocks } from './user-blocks.js';
 import { runBootstrap, formatBootstrapReport } from './bootstrap.js';
 import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport, formatFreshnessReport } from './detectors/freshness.js';
 import { runMemoryMaintenance, pruneMemory } from './mcp-server/utils.js';
+import { runUninstall, formatUninstallReport } from './uninstall.js';
 import type { OnboardingPlan } from './planner.js';
 import type { UpdateStatus } from './updater.js';
 
 type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory';
+type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall';
 
 function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action: GenerateAction; prune: boolean; verbose: boolean; cleanUpdate: boolean; regenerateContext: boolean; pruneCustomArtifacts: boolean; profile: InstallProfile | null } {
   const args = process.argv.slice(2);
@@ -78,6 +79,8 @@ function parseArgs(): { cwd: string; dryRun: boolean; mode: GenerateMode; action
       action = 'check-freshness';
     } else if (args[i] === '--compact-memory') {
       action = 'compact-memory';
+    } else if (args[i] === '--uninstall') {
+      action = 'uninstall';
     } else if (args[i] === '--verbose' || args[i] === '-v') {
       verbose = true;
     } else if (args[i] === '--regenerate-context') {
@@ -539,6 +542,13 @@ async function main(): Promise<void> {
   // ── --compact-memory action (runs before scan, no generation needed) ───────
   if (action === 'compact-memory') {
     runCompactMemory(cwd);
+    return;
+  }
+
+  // ── --uninstall action ────────────────────────────────────────────────────
+  if (action === 'uninstall') {
+    const report = runUninstall(cwd, { dryRun, verbose });
+    console.log(formatUninstallReport(report));
     return;
   }
 

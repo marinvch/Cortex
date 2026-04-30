@@ -40,8 +40,7 @@ function readJsonObject(filePath: string): JsonObject {
 }
 
 function writeJsonObject(filePath: string, data: JsonObject): string {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  writeFileAtomic(filePath, JSON.stringify(data, null, 2) + '\n');
   return filePath;
 }
 

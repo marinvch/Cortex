@@ -13,7 +13,7 @@ import { generateWorkflows } from '../generators/workflows.js';
 import { getMcpToolsForStack } from '../mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from '../updater.js';
 import { buildOnboardingPlan } from '../planner.js';
-import { readManifest, writeManifest, getManifestPath, setVerboseMode } from '../generators/utils.js';
+import { readManifest, writeManifest, getManifestPath, setVerboseMode, writeFileAtomic } from '../generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from '../recommendations/index.js';
 import { applyProfile, describeProfile } from '../profile.js';
 import { mergeUserBlocks } from '../user-blocks.js';
@@ -128,12 +128,12 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   fs.copyFileSync(bundledServerSource, runtimeEntry);
   fs.chmodSync(runtimeEntry, 0o755);
 
-  fs.writeFileSync(runtimeManifest, JSON.stringify({
+  writeFileAtomic(runtimeManifest, JSON.stringify({
     name: 'ai-os-mcp-server',
     runtime: 'bundled',
     sourceVersion: getToolVersion(),
     installedAt: new Date().toISOString(),
-  }, null, 2), 'utf-8');
+  }, null, 2));
 
   // Write the official VS Code MCP config (.vscode/mcp.json) with the resolved
   // Node executable path. This avoids shell alias/PATH issues when VS Code
@@ -554,7 +554,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
       config = applyProfile(config, effectiveProfile);
       // Persist the profile-applied config back to disk.
       const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+      writeFileAtomic(configPath, JSON.stringify(config, null, 2) + '\n');
     }
   }
 

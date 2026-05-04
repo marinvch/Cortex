@@ -1429,7 +1429,7 @@ function buildFileTree(dir, depth = 0, maxDepth = 4) {
 }
 
 // src/mcp-server/project-introspection.ts
-import { execSync } from "node:child_process";
+import { spawnSync as spawnSync3 } from "node:child_process";
 import fs6 from "node:fs";
 import path6 from "node:path";
 function getPrismaSchema() {
@@ -1534,8 +1534,11 @@ function getApiRoutes(filter) {
   ];
   for (const scan of scanPatterns) {
     try {
-      const cmd = `npx --yes ripgrep --files -g "${scan.glob}" "${ROOT}"`;
-      const files = execSync(cmd, { maxBuffer: 1024 * 1024, timeout: 12e3 }).toString().split("\n").filter(Boolean);
+      const result2 = spawnSync3("npx", ["--yes", "ripgrep", "--files", "-g", scan.glob, ROOT], {
+        maxBuffer: 1024 * 1024,
+        timeout: 12e3
+      });
+      const files = (result2.stdout?.toString() ?? "").split("\n").filter(Boolean);
       for (const file of files.slice(0, 300)) {
         let content = "";
         try {
@@ -1593,8 +1596,11 @@ function getEnvVars() {
   ];
   for (const extractor of extractors) {
     try {
-      const cmd = `npx --yes ripgrep --files -g "${extractor.fileGlob}" "${ROOT}"`;
-      const files = execSync(cmd, { maxBuffer: 1024 * 1024, timeout: 1e4 }).toString().split("\n").filter(Boolean);
+      const result = spawnSync3("npx", ["--yes", "ripgrep", "--files", "-g", extractor.fileGlob, ROOT], {
+        maxBuffer: 1024 * 1024,
+        timeout: 1e4
+      });
+      const files = (result.stdout?.toString() ?? "").split("\n").filter(Boolean);
       for (const file of files.slice(0, 400)) {
         let content = "";
         try {
@@ -2430,15 +2436,24 @@ function handleJsonRpcMessage(raw) {
       sendError(id, -32601, `Unknown tool: ${toolName}`);
       return;
     }
-    const result = executeTool(toolName, input);
-    sendResponse(id, { content: [{ type: "text", text: result }] });
+    try {
+      const result = executeTool(toolName, input);
+      sendResponse(id, { content: [{ type: "text", text: result }] });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      sendResponse(id, { content: [{ type: "text", text: message }], isError: true });
+    }
     return;
   }
   if (method === "initialize") {
     sendResponse(id, {
-      protocolVersion: "2024-11-05",
+      protocolVersion: "2025-11-25",
       capabilities: { tools: {} },
-      serverInfo: { name: "ai-os", version: "0.1.0" }
+      serverInfo: {
+        name: "ai-os",
+        version: "0.11.0",
+        description: "AI OS \u2014 project-specific context, memory, and session continuity tools for GitHub Copilot"
+      }
     });
     return;
   }

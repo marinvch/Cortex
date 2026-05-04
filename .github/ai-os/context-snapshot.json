@@ -1,0 +1,22 @@
+{
+  "capturedAt": "2026-04-29T07:35:19.913Z",
+  "aiOsVersion": "0.13.0",
+  "artifactHashes": {
+    ".github/ai-os/context/conventions.md": "863e0df3e1878cb7c917ae6dd894b40ed58e2bd6f2c256326c1667da72322cde",
+    ".github/ai-os/context/architecture.md": "a68abd723e529c3598608296182e5bf8dab142e1df73d23e7c0639a47a577f23",
+    ".github/ai-os/context/stack.md": "a80a71cb4dc69c33d437b8fd6e9ef98c6e8154db5eb9e6c431f6aa7c3e027ae1",
+    ".github/copilot-instructions.md": "af2fe3ac153caa6ff4995f148a1a870f4f6fcf26dde8dd82ec107f3ec2bcbef3",
+    ".github/ai-os/config.json": "34f801229966607061a4c8e42815274e8961d1d24c38e56687664a4f26f40e59",
+    ".github/ai-os/tools.json": "ba6dd555adfb1178ff8c58a9f1077aa6b5069e14f917148c68672472095b6189"
+  },
+  "sourceHashes": {
+    "package.json": "e2fc52644efec8fd367373b86035c3134396aff329049ea3992a58eb76eb7957",
+    "package-lock.json": "f68a09cb87e35ae14f9621a7165b0b89c695730fc2ea0dba0c3767572287381e",
+    "tsconfig.json": "28fb29fe9da427e8cec4eb32361132fa1d27f7add99120e4ea9dd8c534437c81",
+    "eslint.config.mjs": "721a968df2c5369d33a4263026e0966c51c5fa1fcd01014ebdcf487bb5c5079e",
+    "vitest.config.ts": "67e19844e3cd95eec15542bbd9dbe181d77f3d50ca1eda68d197caa20ffaf803",
+    "Dockerfile": "627792a22ed6d2a9507e5ecd17b448598e2a75df005b5e792fc65c9603d28992",
+    "src/": "38de5c733c702c9309f98341b8eb0ab7f5ffedbc17ec9ddc23831db40c61330b"
+  },
+  "trackedFileCount": 138
+}

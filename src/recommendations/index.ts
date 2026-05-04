@@ -113,7 +113,16 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
       lines.push('');
       lines.push(item.description);
       lines.push('');
-      lines.push('**Install in `.vscode/mcp.json`:**');
+      lines.push('**Install in Copilot CLI `.mcp.json` under `mcpServers`:**');
+      lines.push('```json');
+      lines.push(`"${item.package.replace('/', '-')}": {`);
+      lines.push('  "type": "stdio",');
+      lines.push(`  "command": "npx",`);
+      lines.push(`  "args": ["-y", "${item.package}"]`);
+      lines.push('}');
+      lines.push('```');
+      lines.push('');
+      lines.push('**Install in VS Code `.vscode/mcp.json` under `servers`:**');
       lines.push('```json');
       lines.push(`"${item.package.replace('/', '-')}": {`);
       lines.push('  "type": "stdio",');

@@ -377,17 +377,27 @@ function handleJsonRpcMessage(raw: string): void {
       return;
     }
 
-    const result = executeTool(toolName, input);
-
-    sendResponse(id, { content: [{ type: 'text', text: result }] });
+    try {
+      const result = executeTool(toolName, input);
+      sendResponse(id, { content: [{ type: 'text', text: result }] });
+    } catch (err) {
+      // Per MCP spec 2025-11-25: tool execution errors should be returned as
+      // a successful JSON-RPC response with isError:true to enable model self-correction.
+      const message = err instanceof Error ? err.message : String(err);
+      sendResponse(id, { content: [{ type: 'text', text: message }], isError: true });
+    }
     return;
   }
 
   if (method === 'initialize') {
     sendResponse(id, {
-      protocolVersion: '2024-11-05',
+      protocolVersion: '2025-11-25',
       capabilities: { tools: {} },
-      serverInfo: { name: 'ai-os', version: '0.1.0' },
+      serverInfo: {
+        name: 'ai-os',
+        version: '0.11.0',
+        description: 'AI OS — project-specific context, memory, and session continuity tools for GitHub Copilot',
+      },
     });
     return;
   }

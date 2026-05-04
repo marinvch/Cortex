@@ -23,6 +23,20 @@ function writeFile(filePath: string, content: string): void {
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
+function writeCliMcpConfig(tmpDir: string, server: Record<string, unknown>): void {
+  writeFile(
+    path.join(tmpDir, '.mcp.json'),
+    JSON.stringify({ mcpServers: { 'ai-os': server } }),
+  );
+}
+
+function writeVsCodeMcpConfig(tmpDir: string, server: Record<string, unknown>): void {
+  writeFile(
+    path.join(tmpDir, '.vscode', 'mcp.json'),
+    JSON.stringify({ servers: { 'ai-os': server } }),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // runDoctor — structural checks (no MCP runtime healthcheck)
 // ---------------------------------------------------------------------------
@@ -45,9 +59,12 @@ describe('runDoctor', () => {
     const names = result.checks.map(c => c.name);
     expect(names).toContain('MCP runtime binary present (.ai-os/mcp-server/index.js)');
     expect(names).toContain('MCP runtime healthcheck');
+    expect(names).toContain('Copilot CLI MCP config present (.mcp.json)');
+    expect(names).toContain('ai-os CLI server entry in MCP config');
+    expect(names).toContain('Copilot CLI MCP command resolves');
     expect(names).toContain('VS Code MCP config present (.vscode/mcp.json)');
-    expect(names).toContain('ai-os server entry in MCP config');
-    expect(names).toContain('MCP server command resolves');
+    expect(names).toContain('ai-os VS Code server entry in MCP config');
+    expect(names).toContain('VS Code MCP command resolves');
     expect(names).toContain('AI OS config present (.github/ai-os/config.json)');
     expect(names).toContain('MCP tools catalog present (.github/ai-os/tools.json)');
     expect(names).toContain('AI OS skills deployed');
@@ -90,16 +107,74 @@ describe('runDoctor', () => {
     expect(check?.fixCommand).toContain('--refresh-existing');
   });
 
-  it('passes MCP config check when .vscode/mcp.json exists', async () => {
+  it('passes Copilot CLI MCP config check when .mcp.json exists', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const mcpPath = path.join(tmpDir, '.vscode', 'mcp.json');
-    writeFile(mcpPath, JSON.stringify({ servers: { 'ai-os': { type: 'stdio', command: 'node', args: [] } } }));
+    writeCliMcpConfig(tmpDir, { type: 'stdio', command: 'node', args: [] });
+    const result = runDoctor(tmpDir);
+    const check = result.checks.find(c => c.name === 'Copilot CLI MCP config present (.mcp.json)');
+    expect(check?.passed).toBe(true);
+  });
+
+  it('fails Copilot CLI MCP config check when .mcp.json is absent', async () => {
+    const { runDoctor } = await import('../doctor.js');
+    const result = runDoctor(tmpDir);
+    const check = result.checks.find(c => c.name === 'Copilot CLI MCP config present (.mcp.json)');
+    expect(check?.passed).toBe(false);
+    expect(check?.critical).toBe(true);
+  });
+
+  it('detects the ai-os CLI server entry when present', async () => {
+    const { runDoctor } = await import('../doctor.js');
+    writeCliMcpConfig(tmpDir, { type: 'stdio', command: 'node', args: ['stub.js'] });
+    const result = runDoctor(tmpDir);
+    const check = result.checks.find(c => c.name === 'ai-os CLI server entry in MCP config');
+    expect(check?.passed).toBe(true);
+  });
+
+  it('fails CLI ai-os entry check when mcpServers object is empty', async () => {
+    const { runDoctor } = await import('../doctor.js');
+    writeFile(path.join(tmpDir, '.mcp.json'), JSON.stringify({ mcpServers: {} }));
+    const result = runDoctor(tmpDir);
+    const check = result.checks.find(c => c.name === 'ai-os CLI server entry in MCP config');
+    expect(check?.passed).toBe(false);
+    expect(check?.fixCommand).toBeDefined();
+  });
+
+  it('passes Copilot CLI command-resolves check when script file exists', async () => {
+    const { runDoctor } = await import('../doctor.js');
+    const scriptPath = path.join(tmpDir, '.ai-os', 'mcp-server', 'index.js');
+    writeFile(scriptPath, '// stub');
+    writeCliMcpConfig(tmpDir, {
+      type: 'stdio',
+      command: 'node',
+      args: ['.ai-os/mcp-server/index.js'],
+    });
+    const result = runDoctor(tmpDir);
+    const check = result.checks.find(c => c.name === 'Copilot CLI MCP command resolves');
+    expect(check?.passed).toBe(true);
+  });
+
+  it('fails Copilot CLI command-resolves check when script path does not exist', async () => {
+    const { runDoctor } = await import('../doctor.js');
+    writeCliMcpConfig(tmpDir, {
+      type: 'stdio',
+      command: 'node',
+      args: ['.ai-os/mcp-server/index.js'],
+    });
+    const result = runDoctor(tmpDir);
+    const check = result.checks.find(c => c.name === 'Copilot CLI MCP command resolves');
+    expect(check?.passed).toBe(false);
+  });
+
+  it('passes VS Code MCP config check when .vscode/mcp.json exists', async () => {
+    const { runDoctor } = await import('../doctor.js');
+    writeVsCodeMcpConfig(tmpDir, { type: 'stdio', command: 'node', args: [] });
     const result = runDoctor(tmpDir);
     const check = result.checks.find(c => c.name === 'VS Code MCP config present (.vscode/mcp.json)');
     expect(check?.passed).toBe(true);
   });
 
-  it('fails MCP config check when .vscode/mcp.json is absent', async () => {
+  it('fails VS Code MCP config check when .vscode/mcp.json is absent', async () => {
     const { runDoctor } = await import('../doctor.js');
     const result = runDoctor(tmpDir);
     const check = result.checks.find(c => c.name === 'VS Code MCP config present (.vscode/mcp.json)');
@@ -107,58 +182,46 @@ describe('runDoctor', () => {
     expect(check?.critical).toBe(true);
   });
 
-  it('detects the ai-os server entry when present', async () => {
+  it('detects the ai-os VS Code server entry when present', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const mcpPath = path.join(tmpDir, '.vscode', 'mcp.json');
-    writeFile(mcpPath, JSON.stringify({ servers: { 'ai-os': { type: 'stdio', command: 'node', args: ['stub.js'] } } }));
+    writeVsCodeMcpConfig(tmpDir, { type: 'stdio', command: 'node', args: ['stub.js'] });
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'ai-os server entry in MCP config');
+    const check = result.checks.find(c => c.name === 'ai-os VS Code server entry in MCP config');
     expect(check?.passed).toBe(true);
   });
 
-  it('fails ai-os entry check when servers object is empty', async () => {
+  it('fails VS Code ai-os entry check when servers object is empty', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const mcpPath = path.join(tmpDir, '.vscode', 'mcp.json');
-    writeFile(mcpPath, JSON.stringify({ servers: {} }));
+    writeFile(path.join(tmpDir, '.vscode', 'mcp.json'), JSON.stringify({ servers: {} }));
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'ai-os server entry in MCP config');
+    const check = result.checks.find(c => c.name === 'ai-os VS Code server entry in MCP config');
     expect(check?.passed).toBe(false);
     expect(check?.fixCommand).toBeDefined();
   });
 
-  it('passes command-resolves check when script file exists', async () => {
+  it('passes VS Code command-resolves check when script file exists', async () => {
     const { runDoctor } = await import('../doctor.js');
     const scriptPath = path.join(tmpDir, '.ai-os', 'mcp-server', 'index.js');
     writeFile(scriptPath, '// stub');
-    const mcpPath = path.join(tmpDir, '.vscode', 'mcp.json');
-    writeFile(mcpPath, JSON.stringify({
-      servers: {
-        'ai-os': {
-          type: 'stdio',
-          command: 'node',
-          args: [`${tmpDir}/.ai-os/mcp-server/index.js`],
-        },
-      },
-    }));
+    writeVsCodeMcpConfig(tmpDir, {
+      type: 'stdio',
+      command: 'node',
+      args: ['${workspaceFolder}/.ai-os/mcp-server/index.js'],
+    });
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'MCP server command resolves');
+    const check = result.checks.find(c => c.name === 'VS Code MCP command resolves');
     expect(check?.passed).toBe(true);
   });
 
-  it('fails command-resolves check when script path does not exist', async () => {
+  it('fails VS Code command-resolves check when script path does not exist', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const mcpPath = path.join(tmpDir, '.vscode', 'mcp.json');
-    writeFile(mcpPath, JSON.stringify({
-      servers: {
-        'ai-os': {
-          type: 'stdio',
-          command: 'node',
-          args: ['/nonexistent/path/index.js'],
-        },
-      },
-    }));
+    writeVsCodeMcpConfig(tmpDir, {
+      type: 'stdio',
+      command: 'node',
+      args: ['${workspaceFolder}/.ai-os/mcp-server/index.js'],
+    });
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'MCP server command resolves');
+    const check = result.checks.find(c => c.name === 'VS Code MCP command resolves');
     expect(check?.passed).toBe(false);
   });
 

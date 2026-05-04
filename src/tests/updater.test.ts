@@ -12,7 +12,7 @@ describe('updater version resolution', () => {
     vi.clearAllMocks();
   });
 
-  it('prefers the latest published tag over an unreleased local tool version', async () => {
+  it('prefers the tool version when it is newer than the latest published tag', async () => {
     spawnSyncMock.mockReturnValue({
       status: 0,
       stdout: [
@@ -23,7 +23,21 @@ describe('updater version resolution', () => {
 
     const { getLatestResolvableVersion } = await import('../updater.js');
 
-    expect(getLatestResolvableVersion('1.0.0')).toBe('0.9.0');
+    expect(getLatestResolvableVersion('1.0.0')).toBe('1.0.0');
+  });
+
+  it('prefers the latest published tag when it is newer than the tool version', async () => {
+    spawnSyncMock.mockReturnValue({
+      status: 0,
+      stdout: [
+        'abc123\trefs/tags/v0.8.0',
+        'def456\trefs/tags/v0.9.0',
+      ].join('\n'),
+    });
+
+    const { getLatestResolvableVersion } = await import('../updater.js');
+
+    expect(getLatestResolvableVersion('0.8.0')).toBe('0.9.0');
   });
 
   it('emits a shell-safe quoted update command in the banner', async () => {

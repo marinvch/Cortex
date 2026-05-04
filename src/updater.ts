@@ -102,7 +102,7 @@ function getLatestPublishedTagVersion(): string | null {
 export function getLatestResolvableVersion(toolVersion: string): string {
   const published = getLatestPublishedTagVersion();
   if (!published) return toolVersion;
-  return published;
+  return compareSemver(published, toolVersion) > 0 ? published : toolVersion;
 }
 
 export interface UpdateStatus {

@@ -314,6 +314,11 @@ function getAllMcpTools() {
 }
 
 // src/mcp-server/tool-definitions.ts
+function isMcpToolDefinition(obj) {
+  if (typeof obj !== "object" || obj === null) return false;
+  const o = obj;
+  return typeof o["name"] === "string" && o["name"].length > 0 && typeof o["description"] === "string" && typeof o["inputSchema"] === "object" && o["inputSchema"] !== null && o["inputSchema"]["type"] === "object";
+}
 function getAllMcpTools2() {
   return getAllMcpTools().map((tool) => ({
     name: tool.name,
@@ -335,7 +340,12 @@ function getActiveToolsForProject(projectRoot) {
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
     const obj = parsed;
     if (Array.isArray(obj["activeTools"])) {
-      return obj["activeTools"].map((tool) => ({
+      const valid = obj["activeTools"].filter((t) => {
+        if (isMcpToolDefinition(t)) return true;
+        console.warn(`\u26A0\uFE0F  tools.json: skipping invalid tool entry \u2014 missing required fields (name/description/inputSchema.type).`);
+        return false;
+      });
+      return valid.map((tool) => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema
@@ -343,7 +353,12 @@ function getActiveToolsForProject(projectRoot) {
     }
   }
   if (Array.isArray(parsed)) {
-    return parsed.map((tool) => ({
+    const valid = parsed.filter((t) => {
+      if (isMcpToolDefinition(t)) return true;
+      console.warn(`\u26A0\uFE0F  tools.json: skipping invalid tool entry \u2014 missing required fields (name/description/inputSchema.type).`);
+      return false;
+    });
+    return valid.map((tool) => ({
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema
@@ -400,7 +415,7 @@ function getLatestPublishedTagVersion() {
 function getLatestResolvableVersion(toolVersion) {
   const published = getLatestPublishedTagVersion();
   if (!published) return toolVersion;
-  return published;
+  return compareSemver(published, toolVersion) > 0 ? published : toolVersion;
 }
 
 // src/mcp-server/shared.ts
@@ -2448,13 +2463,115 @@ function handleJsonRpcMessage(raw) {
   if (method === "initialize") {
     sendResponse(id, {
       protocolVersion: "2025-11-25",
-      capabilities: { tools: {} },
+      capabilities: { tools: {}, prompts: {} },
       serverInfo: {
         name: "ai-os",
         version: "0.11.0",
         description: "AI OS \u2014 project-specific context, memory, and session continuity tools for GitHub Copilot"
       }
     });
+    return;
+  }
+  if (method === "notifications/initialized") {
+    return;
+  }
+  if (method === "prompts/list") {
+    sendResponse(id, {
+      prompts: [
+        {
+          name: "session_start",
+          description: "Bootstrap a new AI OS session \u2014 loads MUST-ALWAYS rules, repo memory, and conventions in the correct order."
+        },
+        {
+          name: "pre_commit_check",
+          description: "Pre-commit code quality gate \u2014 validates conventions, flags security issues, and assesses blast radius for changed files.",
+          arguments: [
+            { name: "files", description: "Comma-separated list of changed file paths (relative to repo root). Leave blank to check the current file.", required: false }
+          ]
+        },
+        {
+          name: "architecture_review",
+          description: "Load full architecture context for an informed architectural review or cross-cutting change."
+        }
+      ]
+    });
+    return;
+  }
+  if (method === "prompts/get") {
+    const promptName = params?.name ?? "";
+    const args = params?.arguments ?? {};
+    if (promptName === "session_start") {
+      sendResponse(id, {
+        description: "AI OS session bootstrap \u2014 reloads MUST-ALWAYS rules and key context.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: [
+                "Start a new AI OS session by running these tools in order:",
+                "1. Call `get_session_context` \u2014 reloads MUST-ALWAYS rules, build commands, and key file locations.",
+                "2. Call `get_repo_memory` \u2014 reloads durable architectural decisions and constraints.",
+                "3. Call `get_conventions` \u2014 reloads coding rules and naming conventions.",
+                "",
+                "After loading context, summarise what you found in 3\u20135 bullet points before responding to the user."
+              ].join("\n")
+            }
+          }
+        ]
+      });
+      return;
+    }
+    if (promptName === "pre_commit_check") {
+      const filesNote = args["files"] ? `Focus on these changed files: ${args["files"]}.` : "Ask the user which files have changed if not already clear from context.";
+      sendResponse(id, {
+        description: "Pre-commit gate \u2014 conventions, security, blast radius.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: [
+                "Run a pre-commit code quality check:",
+                "1. Call `get_conventions` \u2014 load coding rules and naming conventions.",
+                `2. ${filesNote}`,
+                "3. For each changed file, call `get_impact_of_change` with the file path.",
+                "4. Flag any violations of conventions or security issues (OWASP Top 10).",
+                "5. Report: (a) convention violations, (b) security findings, (c) blast-radius files that may need review.",
+                "",
+                "Do NOT modify any files \u2014 this is a read-only review."
+              ].join("\n")
+            }
+          }
+        ]
+      });
+      return;
+    }
+    if (promptName === "architecture_review") {
+      sendResponse(id, {
+        description: "Architecture review \u2014 loads full context for cross-cutting decisions.",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: [
+                "Load full architecture context for an architectural review:",
+                "1. Call `get_session_context` \u2014 MUST-ALWAYS rules.",
+                "2. Call `get_stack_info` \u2014 complete dependency inventory.",
+                "3. Call `get_project_structure` \u2014 directory layout.",
+                "4. Call `get_repo_memory` \u2014 durable architectural decisions.",
+                "",
+                "Then summarise: current architecture patterns, key dependencies, and any known constraints before making any recommendations.",
+                "Do NOT modify any files during this review."
+              ].join("\n")
+            }
+          }
+        ]
+      });
+      return;
+    }
+    sendError(id, -32602, `Unknown prompt: ${promptName}`);
     return;
   }
 }

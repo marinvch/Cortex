@@ -10,16 +10,18 @@ import { generateAgents, scanExistingAgents } from '../generators/agents.js';
 import { generateSkills, deployBundledSkills } from '../generators/skills.js';
 import { generatePrompts } from '../generators/prompts.js';
 import { generateWorkflows } from '../generators/workflows.js';
+import { generateToolsets } from '../generators/toolsets.js';
+import { generateChatModes } from '../generators/chatmodes.js';
 import { getMcpToolsForStack } from '../mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from '../updater.js';
 import { buildOnboardingPlan } from '../planner.js';
-import { readManifest, writeManifest, getManifestPath, setVerboseMode, writeFileAtomic } from '../generators/utils.js';
+import { readManifest, writeManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic, setPrevHashes, getNewHashes } from '../generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from '../recommendations/index.js';
 import { applyProfile, describeProfile } from '../profile.js';
 import { mergeUserBlocks } from '../user-blocks.js';
 import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport } from '../detectors/freshness.js';
 import { runMemoryMaintenance } from '../mcp-server/utils.js';
-import { runBootstrapAction } from './bootstrap.js';
+import { runBootstrap, formatBootstrapReport } from '../bootstrap.js';
 import { runPlanAction } from './plan.js';
 import { runPreviewAction } from './preview.js';
 import type { ParsedArgs, GenerateMode } from '../cli/args.js';
@@ -175,6 +177,107 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     console.log('  ✓ MCP runtime installed to .ai-os/mcp-server');
     console.log('  ✓ MCP config written to .vscode/mcp.json');
   }
+}
+
+// ── Dry-run unified diff printer ─────────────────────────────────────────────
+function computeLineDiff(before: string, after: string): Array<{ type: '+' | '-' | ' '; line: string }> {
+  const bLines = before.split('\n');
+  const aLines = after.split('\n');
+  const result: Array<{ type: '+' | '-' | ' '; line: string }> = [];
+
+  // Simple patience-style diff: LCS-based
+  function lcs(a: string[], b: string[]): Array<[number, number]> {
+    const m = a.length, n = b.length;
+    const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++)
+      for (let j = 1; j <= n; j++)
+        dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+    const pairs: Array<[number, number]> = [];
+    let i = m, j = n;
+    while (i > 0 && j > 0) {
+      if (a[i - 1] === b[j - 1]) { pairs.unshift([i - 1, j - 1]); i--; j--; }
+      else if (dp[i - 1][j] >= dp[i][j - 1]) i--;
+      else j--;
+    }
+    return pairs;
+  }
+
+  const common = lcs(bLines, aLines);
+  let bi = 0, ai = 0, ci = 0;
+  while (ci <= common.length) {
+    const bEnd = ci < common.length ? common[ci][0] : bLines.length;
+    const aEnd = ci < common.length ? common[ci][1] : aLines.length;
+    while (bi < bEnd) result.push({ type: '-', line: bLines[bi++] });
+    while (ai < aEnd) result.push({ type: '+', line: aLines[ai++] });
+    if (ci < common.length) {
+      result.push({ type: ' ', line: bLines[common[ci][0]] });
+      bi = common[ci][0] + 1;
+      ai = common[ci][1] + 1;
+    }
+    ci++;
+  }
+  return result;
+}
+
+function printDryRunDiff(cwd: string, captures: import('../generators/utils.js').DryRunCapture[], fullDiff: boolean): void {
+  const CONTEXT = 3;
+  const MAX_LINES = fullDiff ? Infinity : 40;
+  let totalAdded = 0, totalRemoved = 0, changedCount = 0, newCount = 0;
+
+  process.stdout.write('\n  🔍 Dry-run diff (no files written)\n\n');
+
+  for (const cap of captures) {
+    const rel = path.relative(cwd, cap.filePath).replace(/\\/g, '/');
+    if (cap.existingContent === null) {
+      newCount++;
+      const lines = cap.newContent.split('\n');
+      totalAdded += lines.length;
+      process.stdout.write(`  \x1b[32m[NEW]\x1b[0m ${rel}\n`);
+      if (fullDiff) {
+        for (const line of lines) process.stdout.write(`  \x1b[32m+${line}\x1b[0m\n`);
+      }
+    } else if (cap.existingContent === cap.newContent) {
+      // unchanged — skip
+    } else {
+      changedCount++;
+      const hunks = computeLineDiff(cap.existingContent, cap.newContent);
+      const added = hunks.filter(h => h.type === '+').length;
+      const removed = hunks.filter(h => h.type === '-').length;
+      totalAdded += added;
+      totalRemoved += removed;
+      process.stdout.write(`  \x1b[33m[CHANGED]\x1b[0m ${rel}  (+${added}/-${removed})\n`);
+
+      if (fullDiff) {
+        // Print all hunks with context
+        let linesPrinted = 0;
+        let i = 0;
+        while (i < hunks.length && linesPrinted < MAX_LINES) {
+          if (hunks[i].type !== ' ') {
+            const start = Math.max(0, i - CONTEXT);
+            const end = Math.min(hunks.length, i + CONTEXT + 1);
+            for (let j = start; j < end && linesPrinted < MAX_LINES; j++) {
+              const h = hunks[j];
+              const color = h.type === '+' ? '\x1b[32m' : h.type === '-' ? '\x1b[31m' : '';
+              process.stdout.write(`    ${color}${h.type}${h.line}\x1b[0m\n`);
+              linesPrinted++;
+            }
+            i = end;
+          } else {
+            i++;
+          }
+        }
+        if (linesPrinted >= MAX_LINES) {
+          process.stdout.write(`    ... (truncated, use --full-diff to see all)\n`);
+        }
+      }
+    }
+  }
+
+  process.stdout.write(`\n  Summary: ${newCount} new, ${changedCount} changed | +${totalAdded} lines, -${totalRemoved} lines\n`);
+  if (!fullDiff && (newCount > 0 || changedCount > 0)) {
+    process.stdout.write('  Run with --full-diff to see full diffs.\n');
+  }
+  process.stdout.write('\n');
 }
 
 function printSummary(
@@ -426,6 +529,14 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = args;
   let mode: GenerateMode = rawMode;
 
+  // In --json mode, suppress all human-readable output so only the final JSON
+  // object is written to stdout. Restore console.log before emitting it.
+  const quiet = args.json;
+  const _origConsoleLog = console.log;
+  if (quiet) {
+    console.log = () => {};
+  }
+
   // Enable verbose per-file logging when --verbose / -v is passed
   if (verbose) {
     setVerboseMode(true);
@@ -523,17 +634,25 @@ export async function runApply(args: ParsedArgs): Promise<void> {
 
   if (dryRun) {
     if (action === 'bootstrap') {
-      runBootstrapAction(stack, true);
+      const report = runBootstrap(stack, { dryRun: true });
+      console.log(formatBootstrapReport(report));
       return;
     }
+    // Activate capture mode: writeIfChanged records planned writes without touching disk.
+    setDryRunMode(true);
     console.log('  [DRY RUN] Detected stack:');
     console.log(JSON.stringify(stack, null, 2));
-    return;
+    console.log('');
+    console.log('  [DRY RUN] Computing planned changes...');
+    console.log('');
   }
 
   // Read previous manifest to allow pruning stale files (#7 / #8).
   const previousManifest = readManifest(cwd);
   const previousFiles = new Set(previousManifest?.files ?? []);
+  // #115: seed the content-hash gate with hashes from the previous run
+  // so writeIfChanged can skip disk reads for unchanged generated files.
+  setPrevHashes(previousManifest?.hashes ?? {});
 
   // Phase 1: Core context files (config.json is written here, with user fields preserved)
   const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
@@ -552,9 +671,11 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     }
     if (config) {
       config = applyProfile(config, effectiveProfile);
-      // Persist the profile-applied config back to disk.
-      const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
-      writeFileAtomic(configPath, JSON.stringify(config, null, 2) + '\n');
+      // Persist the profile-applied config back to disk (skip in dry-run).
+      if (!dryRun) {
+        const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
+        writeFileAtomic(configPath, JSON.stringify(config, null, 2) + '\n');
+      }
     }
   }
 
@@ -568,9 +689,13 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     refreshExisting: mode === 'refresh-existing',
     strategy: skillsStrategy,
   });
-  const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const promptFiles = await generatePrompts(stack, cwd);
+  const toolsetFiles = generateToolsets(stack, cwd);
+  const chatModeFiles = generateChatModes(stack, cwd);
   const workflowFiles = generateWorkflows(cwd, { config: config ?? undefined });
-  await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
+  if (!dryRun) {
+    await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
+  }
 
   console.log(`  🧠 Skills strategy: ${skillsStrategy}`);
 
@@ -593,6 +718,8 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     ...agentFiles,
     ...skillFiles,
     ...promptFiles,
+    ...toolsetFiles,
+    ...chatModeFiles,
     ...workflowFiles,
     ...recommendationFiles,
   ];
@@ -638,7 +765,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
         const abs = path.join(cwd, rel);
         if (fs.existsSync(abs)) {
           try {
-            fs.rmSync(abs);
+            if (!dryRun) fs.rmSync(abs);
             prunedAbs.push(abs);
             if (verbose) {
               console.log(`  🗑️  prune   ${rel}  (stale — not in current generation)`);
@@ -657,14 +784,16 @@ export async function runApply(args: ParsedArgs): Promise<void> {
 
   // Restore any files that were overwritten during generation despite being in protect.json.
   // This ensures protect.json guards both prune and write paths.
-  for (const [abs, originalContent] of protectedSnapshots) {
-    if (!fs.existsSync(abs)) continue;
-    const currentContent = fs.readFileSync(abs, 'utf-8');
-    if (currentContent !== originalContent) {
-      fs.writeFileSync(abs, originalContent, 'utf-8');
-      const rel = path.relative(cwd, abs).replace(/\\/g, '/');
-      if (verbose) console.log(`  🔒 restored ${rel}  (protect.json: overwrite reverted)`);
-      if (!preservedAbs.some(p => p === abs)) preservedAbs.push(abs);
+  if (!dryRun) {
+    for (const [abs, originalContent] of protectedSnapshots) {
+      if (!fs.existsSync(abs)) continue;
+      const currentContent = fs.readFileSync(abs, 'utf-8');
+      if (currentContent !== originalContent) {
+        fs.writeFileSync(abs, originalContent, 'utf-8');
+        const rel = path.relative(cwd, abs).replace(/\\/g, '/');
+        if (verbose) console.log(`  🔒 restored ${rel}  (protect.json: overwrite reverted)`);
+        if (!preservedAbs.some(p => p === abs)) preservedAbs.push(abs);
+      }
     }
   }
 
@@ -705,19 +834,21 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   }
 
   // Write updated manifest (#8 / #11).
-  writeManifest(cwd, getToolVersion(), currentRelFiles);
+  if (!dryRun) writeManifest(cwd, getToolVersion(), currentRelFiles, getNewHashes());
 
   // ── Capture context freshness snapshot ──────────────────────────────────
   // After a successful generation run, record a new baseline snapshot so that
   // future `--check-freshness` / `get_context_freshness` calls can detect drift.
-  try {
-    const snapshot = captureContextSnapshot(cwd, getToolVersion());
-    writeContextSnapshot(cwd, snapshot);
-    if (verbose) {
-      console.log('  ✏️  write   .github/ai-os/context-snapshot.json  (freshness baseline)');
+  if (!dryRun) {
+    try {
+      const snapshot = captureContextSnapshot(cwd, getToolVersion());
+      writeContextSnapshot(cwd, snapshot);
+      if (verbose) {
+        console.log('  ✏️  write   .github/ai-os/context-snapshot.json  (freshness baseline)');
+      }
+    } catch {
+      // Non-fatal: freshness snapshot is best-effort
     }
-  } catch {
-    // Non-fatal: freshness snapshot is best-effort
   }
 
   // Diff counts for summary (#11).
@@ -728,11 +859,65 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   const newFiles = currentRelFiles.filter(r => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter(r => r !== manifestRel && previousFiles.has(r));
 
-  installLocalMcpRuntime(cwd, verbose);
+  if (!dryRun) installLocalMcpRuntime(cwd, verbose);
 
-  // ── Memory maintenance summary (refresh/update mode only) ────────────────
+  // ── Dry-run diff output ───────────────────────────────────────────────────
+  if (dryRun) {
+    const captures = getDryRunCaptures();
+    printDryRunDiff(cwd, captures, args.fullDiff);
+    return;
+  }
+
   if (isRefresh) {
     printMemoryMaintenanceSummary(cwd);
+  }
+
+  if (quiet) {
+    // Restore console.log and emit a single structured JSON object
+    console.log = _origConsoleLog;
+    const mcpToolCount = getMcpToolsForStack(stack).length;
+
+    if (action === 'bootstrap') {
+      const bootstrapReport = runBootstrap(stack, { dryRun: false });
+      console.log(JSON.stringify({
+        action: 'bootstrap',
+        cwd,
+        mode,
+        project: stack.projectName,
+        language: stack.primaryLanguage.name,
+        frameworks: stack.frameworks.map(f => f.name),
+        packageManager: stack.patterns.packageManager,
+        typescript: stack.patterns.hasTypeScript,
+        profile: effectiveProfile ?? null,
+        mcpToolCount,
+        written: newFiles,
+        skipped: existingFiles,
+        pruned: prunedAbs.map(p => path.relative(cwd, p).replace(/\\/g, '/')),
+        agents: agentFiles,
+        preserved: preservedAbs.map(p => path.relative(cwd, p).replace(/\\/g, '/')),
+        bootstrap: bootstrapReport,
+      }));
+      return;
+    }
+
+    console.log(JSON.stringify({
+      action,
+      cwd,
+      mode,
+      project: stack.projectName,
+      language: stack.primaryLanguage.name,
+      frameworks: stack.frameworks.map(f => f.name),
+      packageManager: stack.patterns.packageManager,
+      typescript: stack.patterns.hasTypeScript,
+      profile: effectiveProfile ?? null,
+      mcpToolCount,
+      written: newFiles,
+      skipped: existingFiles,
+      pruned: prunedAbs.map(p => path.relative(cwd, p).replace(/\\/g, '/')),
+      agents: agentFiles,
+      preserved: preservedAbs.map(p => path.relative(cwd, p).replace(/\\/g, '/')),
+    }));
+    return;
   }
 
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? undefined);
@@ -742,7 +927,8 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   if (action === 'bootstrap') {
     console.log('  🚀 Running codebase-aware bootstrap...');
     console.log('');
-    runBootstrapAction(stack, false);
+    const bootstrapReport = runBootstrap(stack, { dryRun: false });
+    console.log(formatBootstrapReport(bootstrapReport));
     return;
   }
 

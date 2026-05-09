@@ -6,6 +6,31 @@ import { createHash } from 'node:crypto';
 
 let _verbose = false;
 
+// ── Content-hash gate (#115) ─────────────────────────────────────────────────
+// Populated from the previous manifest at the start of each refresh run.
+// writeIfChanged uses this to skip the disk read when the generated content
+// hash already matches what was recorded in the previous manifest.
+
+let _prevHashes: Record<string, string> = {};
+let _newHashes: Record<string, string> = {};
+
+/**
+ * Load the previous run's content hashes from the manifest.
+ * Call this once at the start of runApply() after readManifest().
+ */
+export function setPrevHashes(hashes: Record<string, string>): void {
+  _prevHashes = hashes;
+  _newHashes = {};
+}
+
+/**
+ * Retrieve the content hashes collected during this generation run.
+ * Pass these to writeManifest() to persist them for the next run.
+ */
+export function getNewHashes(): Record<string, string> {
+  return { ..._newHashes };
+}
+
 /** Enable or disable verbose per-file logging for writeIfChanged. */
 export function setVerboseMode(enabled: boolean): void {
   _verbose = enabled;
@@ -65,17 +90,59 @@ export function writeFileAtomic(filePath: string, content: string): void {
 export function writeIfChanged(filePath: string, content: string): WriteResult {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
+  // #115 content-hash gate: compute hash of new content and record it.
+  const contentHash = hashContent(content);
+  _newHashes[filePath] = contentHash;
+
+  // Fast-path: compare against previous manifest hash before reading disk.
+  if (_prevHashes[filePath] !== undefined && _prevHashes[filePath] === contentHash) {
+    if (_verbose) console.log(`  ⏭️  skip    ${filePath}  (hash-match)`);
+    if (_dryRun) _dryRunCaptures.push({ filePath, newContent: content, existingContent: content });
+    return 'skipped';
+  }
+
   if (fs.existsSync(filePath)) {
     const existing = fs.readFileSync(filePath, 'utf-8');
     if (existing === content) {
       if (_verbose) console.log(`  ⏭️  skip    ${filePath}  (unchanged)`);
+      // In dry-run capture mode: still record unchanged entries
+      if (_dryRun) _dryRunCaptures.push({ filePath, newContent: content, existingContent: existing });
       return 'skipped';
     }
+  }
+
+  if (_dryRun) {
+    // Capture planned write without touching disk
+    const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : null;
+    _dryRunCaptures.push({ filePath, newContent: content, existingContent: existing });
+    return 'written';
   }
 
   writeFileAtomic(filePath, content);
   if (_verbose) console.log(`  ✏️  write   ${filePath}`);
   return 'written';
+}
+
+// ── Dry-run capture mode (#116) ───────────────────────────────────────────────
+
+export interface DryRunCapture {
+  filePath: string;
+  newContent: string;
+  existingContent: string | null;
+}
+
+let _dryRun = false;
+let _dryRunCaptures: DryRunCapture[] = [];
+
+/** Enable dry-run capture mode — writeIfChanged records planned writes but does not touch disk. */
+export function setDryRunMode(enabled: boolean): void {
+  _dryRun = enabled;
+  if (enabled) _dryRunCaptures = [];
+}
+
+/** Returns all captured planned writes since dry-run mode was activated. */
+export function getDryRunCaptures(): DryRunCapture[] {
+  return _dryRunCaptures;
 }
 
 // ── Placeholder resolution (#9) ───────────────────────────────────────────────

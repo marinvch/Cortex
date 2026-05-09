@@ -1,0 +1,45 @@
+name: OpenSSF Scorecard
+
+on:
+  # Weekly scan on every Monday at 06:00 UTC
+  schedule:
+    - cron: "0 6 * * 1"
+  # Run on every push to master so the badge stays current
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  scorecard:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Required to upload SARIF results to the Security tab
+      security-events: write
+      # Required to publish results to the OpenSSF API
+      id-token: write
+      # Required to read the repo
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Run OpenSSF Scorecard
+        uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          # Publish results to https://securityscorecards.dev for the badge
+          publish_results: true
+
+      - name: Upload SARIF results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: scorecard-results.sarif
+          category: scorecard

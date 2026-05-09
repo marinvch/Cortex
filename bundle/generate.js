@@ -71,7 +71,7 @@ function getLatestPublishedTagVersion() {
 function getLatestResolvableVersion(toolVersion) {
   const published = getLatestPublishedTagVersion();
   if (!published) return toolVersion;
-  return published;
+  return compareSemver(published, toolVersion) > 0 ? published : toolVersion;
 }
 function checkUpdateStatus(targetDir) {
   const toolVersion = getToolVersion();
@@ -254,6 +254,7 @@ function parseArgs() {
   let pruneCustomArtifacts = false;
   let profile = null;
   let json = false;
+  let fullDiff = false;
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--cwd" && args[i + 1]) {
       cwd = path2.resolve(args[i + 1]);
@@ -293,6 +294,8 @@ function parseArgs() {
       action = "uninstall";
     } else if (args[i] === "--json") {
       json = true;
+    } else if (args[i] === "--full-diff") {
+      fullDiff = true;
     } else if (args[i] === "--verbose" || args[i] === "-v") {
       verbose = true;
     } else if (args[i] === "--regenerate-context") {
@@ -311,7 +314,7 @@ function parseArgs() {
       profile = parsed;
     }
   }
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff };
 }
 
 // src/actions/check-hygiene.ts
@@ -321,9 +324,22 @@ import path4 from "node:path";
 // src/generators/utils.ts
 import fs2 from "node:fs";
 import path3 from "node:path";
+import { createHash } from "node:crypto";
 var _verbose = false;
+var _prevHashes = {};
+var _newHashes = {};
+function setPrevHashes(hashes) {
+  _prevHashes = hashes;
+  _newHashes = {};
+}
+function getNewHashes() {
+  return { ..._newHashes };
+}
 function setVerboseMode(enabled) {
   _verbose = enabled;
+}
+function hashContent(content) {
+  return createHash("sha256").update(content, "utf-8").digest("hex");
 }
 function writeFileAtomic(filePath, content) {
   fs2.mkdirSync(path3.dirname(filePath), { recursive: true });
@@ -341,16 +357,38 @@ function writeFileAtomic(filePath, content) {
 }
 function writeIfChanged(filePath, content) {
   fs2.mkdirSync(path3.dirname(filePath), { recursive: true });
+  const contentHash = hashContent(content);
+  _newHashes[filePath] = contentHash;
+  if (_prevHashes[filePath] !== void 0 && _prevHashes[filePath] === contentHash) {
+    if (_verbose) console.log(`  \u23ED\uFE0F  skip    ${filePath}  (hash-match)`);
+    if (_dryRun) _dryRunCaptures.push({ filePath, newContent: content, existingContent: content });
+    return "skipped";
+  }
   if (fs2.existsSync(filePath)) {
     const existing = fs2.readFileSync(filePath, "utf-8");
     if (existing === content) {
       if (_verbose) console.log(`  \u23ED\uFE0F  skip    ${filePath}  (unchanged)`);
+      if (_dryRun) _dryRunCaptures.push({ filePath, newContent: content, existingContent: existing });
       return "skipped";
     }
+  }
+  if (_dryRun) {
+    const existing = fs2.existsSync(filePath) ? fs2.readFileSync(filePath, "utf-8") : null;
+    _dryRunCaptures.push({ filePath, newContent: content, existingContent: existing });
+    return "written";
   }
   writeFileAtomic(filePath, content);
   if (_verbose) console.log(`  \u270F\uFE0F  write   ${filePath}`);
   return "written";
+}
+var _dryRun = false;
+var _dryRunCaptures = [];
+function setDryRunMode(enabled) {
+  _dryRun = enabled;
+  if (enabled) _dryRunCaptures = [];
+}
+function getDryRunCaptures() {
+  return _dryRunCaptures;
 }
 var PLACEHOLDER_RE = /\{\{[^}]+\}\}/g;
 function applyFallbacks(content, fallbacks = {}) {
@@ -422,9 +460,11 @@ function findFilesRecursive(dir, predicate) {
   }
   return results;
 }
-function runCheckHygieneAction(cwd) {
-  console.log(`  \u{1F9F9} Hygiene check: ${cwd}`);
-  console.log("");
+function runCheckHygieneAction(cwd, json = false) {
+  if (!json) {
+    console.log(`  \u{1F9F9} Hygiene check: ${cwd}`);
+    console.log("");
+  }
   const issues = [];
   const legacyContextDir = path4.join(cwd, ".ai-os", "context");
   if (fs3.existsSync(legacyContextDir)) {
@@ -467,15 +507,23 @@ function runCheckHygieneAction(cwd) {
     issues.push(`  \u26A0  No manifest.json found \u2014 run AI OS generation to create one`);
   }
   if (issues.length === 0) {
-    console.log("  \u2705 Hygiene check passed \u2014 no orphaned files or dump artifacts found.");
+    if (json) {
+      console.log(JSON.stringify({ action: "check-hygiene", cwd, issues: [], passed: true }));
+    } else {
+      console.log("  \u2705 Hygiene check passed \u2014 no orphaned files or dump artifacts found.");
+    }
   } else {
-    console.log("  Issues found:");
-    for (const issue of issues) console.log(issue);
-    console.log("");
-    console.log(`  Total issues: ${issues.length}`);
+    if (json) {
+      console.log(JSON.stringify({ action: "check-hygiene", cwd, issues, passed: false }));
+    } else {
+      console.log("  Issues found:");
+      for (const issue of issues) console.log(issue);
+      console.log("");
+      console.log(`  Total issues: ${issues.length}`);
+    }
     process.exit(1);
   }
-  console.log("");
+  if (!json) console.log("");
 }
 
 // src/doctor.ts
@@ -756,8 +804,20 @@ function printDoctorReport(result) {
 }
 
 // src/actions/doctor.ts
-function runDoctorAction(cwd) {
+function runDoctorAction(cwd, json = false) {
   const doctorResult = runDoctor(cwd);
+  if (json) {
+    console.log(JSON.stringify({
+      action: "doctor",
+      cwd: doctorResult.cwd,
+      toolVersion: doctorResult.toolVersion,
+      checks: doctorResult.checks,
+      criticalFailures: doctorResult.criticalFailures,
+      warnings: doctorResult.warnings
+    }));
+    if (doctorResult.criticalFailures > 0) process.exit(1);
+    return;
+  }
   const exitCode = printDoctorReport(doctorResult);
   if (exitCode !== 0) process.exit(exitCode);
 }
@@ -1016,10 +1076,27 @@ function formatFreshnessReport(report) {
 }
 
 // src/actions/check-freshness.ts
-function runCheckFreshnessAction(cwd) {
-  console.log(`  \u{1F50D} Context freshness check: ${cwd}`);
-  console.log("");
+function runCheckFreshnessAction(cwd, json = false) {
+  if (!json) {
+    console.log(`  \u{1F50D} Context freshness check: ${cwd}`);
+    console.log("");
+  }
   const report = computeFreshnessReport(cwd);
+  if (json) {
+    console.log(JSON.stringify({
+      action: "check-freshness",
+      status: report.status,
+      score: report.score,
+      snapshotCapturedAt: report.snapshotCapturedAt ?? null,
+      lastGenerationAt: report.lastGeneratedAt ?? null,
+      staleArtifacts: report.staleArtifacts,
+      changedSourceFiles: report.changedSourceFiles,
+      recommendations: report.recommendations
+    }));
+    const isCi2 = process.env["CI"] === "true" || process.env["GITHUB_ACTIONS"] === "true";
+    if (report.status === "stale" && isCi2) process.exit(1);
+    return;
+  }
   console.log(formatFreshnessReport(report));
   const isCi = process.env["CI"] === "true" || process.env["GITHUB_ACTIONS"] === "true";
   if (report.status === "stale") {
@@ -1422,7 +1499,7 @@ function runCompactMemoryAction(cwd) {
 
 // src/actions/apply.ts
 import fs22 from "node:fs";
-import path25 from "node:path";
+import path27 from "node:path";
 import { spawnSync as spawnSync4 } from "node:child_process";
 import { fileURLToPath as fileURLToPath4 } from "node:url";
 
@@ -4747,7 +4824,7 @@ async function deployBundledSkills(cwd, options) {
 // src/generators/prompts.ts
 import * as fs19 from "fs";
 import * as path21 from "path";
-var PROMPTS_FILE = ".github/copilot/prompts.json";
+var PROMPTS_DIR = ".github/copilot";
 function buildPrompts(stack, cwd) {
   const prompts = [];
   const frameworks = stack.frameworks.map((f) => f.name.toLowerCase());
@@ -5121,7 +5198,7 @@ Phase 1 \u2014 Pre-Change Audit:
    - .github/ai-os/context/stack.md
    - .github/copilot/skills/*.md
    - .github/agents/*.md
-   - .github/copilot/prompts.json
+   - .github/copilot/*.prompt.md
 3. Output a Migration Impact Inventory table: File | Line | Stale Statement | Replacement | Risk (High/Medium/Low)
 4. Do NOT proceed to Phase 2 until I approve the inventory.
 
@@ -5140,43 +5217,26 @@ Start now: ask me for the migration boundary.`
   });
   return prompts;
 }
-async function generatePrompts(stack, cwd, options) {
-  const promptsPath = path21.join(cwd, PROMPTS_FILE);
-  fs19.mkdirSync(path21.dirname(promptsPath), { recursive: true });
-  let existing = { version: 1, prompts: [] };
-  if (fs19.existsSync(promptsPath)) {
-    try {
-      existing = JSON.parse(fs19.readFileSync(promptsPath, "utf-8"));
-    } catch {
-    }
+function renderPromptFile(entry) {
+  const safeDescription = entry.description.replace(/"/g, "'");
+  return `---
+description: "${safeDescription}"
+---
+${entry.prompt}
+`;
+}
+async function generatePrompts(stack, cwd) {
+  const outDir = path21.join(cwd, PROMPTS_DIR);
+  fs19.mkdirSync(outDir, { recursive: true });
+  const entries = buildPrompts(stack, cwd);
+  const written = [];
+  for (const entry of entries) {
+    const filename = `${entry.id.replace(/^\//, "")}.prompt.md`;
+    const filePath = path21.join(outDir, filename);
+    writeIfChanged(filePath, renderPromptFile(entry));
+    written.push(filePath);
   }
-  const generatedPrompts = buildPrompts(stack, cwd);
-  let changed = 0;
-  if (options?.refreshExisting) {
-    const byId = new Map(existing.prompts.map((p) => [p.id, p]));
-    for (const prompt of generatedPrompts) {
-      const prev = byId.get(prompt.id);
-      if (!prev) {
-        existing.prompts.push(prompt);
-        changed++;
-        continue;
-      }
-      if (prev.title !== prompt.title || prev.description !== prompt.description || prev.prompt !== prompt.prompt) {
-        byId.set(prompt.id, prompt);
-        changed++;
-      }
-    }
-    existing.prompts = existing.prompts.map((p) => byId.get(p.id) ?? p);
-  } else {
-    const existingIds = new Set(existing.prompts.map((p) => p.id));
-    const newPrompts = generatedPrompts.filter((p) => !existingIds.has(p.id));
-    if (newPrompts.length === 0) return [];
-    existing.prompts = [...existing.prompts, ...newPrompts];
-    changed = newPrompts.length;
-  }
-  if (changed === 0) return [];
-  writeIfChanged(promptsPath, JSON.stringify(existing, null, 2));
-  return [promptsPath];
+  return written;
 }
 
 // src/generators/workflows.ts
@@ -5272,11 +5332,228 @@ jobs:
 `;
 }
 
+// src/generators/toolsets.ts
+import path23 from "node:path";
+var CONTEXT_TOOLS = [
+  "get_session_context",
+  "get_conventions",
+  "get_repo_memory",
+  "remember_repo_fact",
+  "get_memory_guidelines",
+  "get_context_freshness"
+];
+var EXPLORE_TOOLS = [
+  "search_codebase",
+  "get_project_structure",
+  "get_file_summary",
+  "get_stack_info",
+  "get_impact_of_change",
+  "get_dependency_chain"
+];
+var PLAN_TOOLS = [
+  "get_active_plan",
+  "upsert_active_plan",
+  "append_checkpoint",
+  "close_checkpoint",
+  "compact_session_context",
+  "record_failure_pattern"
+];
+function hasBackendTools(stack) {
+  const deps = stack.allDependencies;
+  const frameworks = stack.frameworks.map((f) => f.name.toLowerCase());
+  const hasPrisma = deps.includes("prisma") || deps.includes("@prisma/client");
+  const hasTrpc = deps.includes("@trpc/server") || frameworks.includes("trpc");
+  const hasApiFramework = frameworks.some(
+    (f) => f.includes("next") || f.includes("express") || f.includes("fastapi") || f.includes("django") || f.includes("flask") || f.includes("spring") || f.includes("gin") || f.includes("actix") || f.includes("axum") || f.includes("fastify") || f.includes("hono") || f.includes("nest")
+  );
+  return hasPrisma || hasTrpc || hasApiFramework;
+}
+function buildBackendTools(stack) {
+  const deps = stack.allDependencies;
+  const frameworks = stack.frameworks.map((f) => f.name.toLowerCase());
+  const tools = [];
+  if (deps.includes("prisma") || deps.includes("@prisma/client")) {
+    tools.push("get_prisma_schema");
+  }
+  if (deps.includes("@trpc/server") || frameworks.includes("trpc")) {
+    tools.push("get_trpc_procedures");
+  }
+  tools.push("get_api_routes", "get_env_vars", "get_package_info");
+  return tools;
+}
+function generateToolsets(stack, outputDir) {
+  const managed = [];
+  const config = {
+    "ai-os-context": {
+      tools: CONTEXT_TOOLS,
+      description: "AI OS context & memory tools \u2014 conventions, repo memory, freshness"
+    },
+    "ai-os-explore": {
+      tools: EXPLORE_TOOLS,
+      description: "AI OS codebase navigation \u2014 search, structure, impact analysis"
+    },
+    "ai-os-plan": {
+      tools: PLAN_TOOLS,
+      description: "AI OS session planning \u2014 active plan, checkpoints, failure tracking"
+    }
+  };
+  if (hasBackendTools(stack)) {
+    config["ai-os-backend"] = {
+      tools: buildBackendTools(stack),
+      description: "AI OS backend tools \u2014 API routes, schema, env vars, packages"
+    };
+  }
+  const toolsetsPath = path23.join(outputDir, ".vscode", "toolsets.json");
+  writeIfChanged(toolsetsPath, JSON.stringify(config, null, 2) + "\n");
+  managed.push(toolsetsPath);
+  return managed;
+}
+
+// src/generators/chatmodes.ts
+import path24 from "node:path";
+var BUILTIN_READ_ONLY = ["codebase", "fetch", "findTestFiles", "githubRepo", "search", "usages"];
+function getPlanMode(stack) {
+  const fw = stack.primaryFramework ? sanitizeForInstructions(stack.primaryFramework.name) : sanitizeForInstructions(stack.primaryLanguage.name);
+  return {
+    filename: "ai-os-plan.chatprompt.md",
+    description: `Generate an implementation plan for ${fw} features or refactoring tasks (read-only, no edits)`,
+    tools: [
+      ...BUILTIN_READ_ONLY,
+      "get_session_context",
+      "get_conventions",
+      "get_repo_memory",
+      "get_project_structure",
+      "get_file_summary",
+      "get_stack_info",
+      "get_impact_of_change",
+      "get_dependency_chain",
+      "get_active_plan",
+      "upsert_active_plan"
+    ],
+    instructions: `# AI OS \u2014 Planning Mode
+
+You are in **planning mode**. Your task is to produce an implementation plan.
+Do **not** make any code edits \u2014 generate a plan document only.
+
+Use the AI OS context tools to load conventions and repo memory before planning.
+Always call \`get_session_context\` first to reload MUST-ALWAYS rules.
+
+## Plan format
+
+Return a Markdown document with:
+
+- **Goal** \u2014 one-sentence objective
+- **Constraints** \u2014 must-nots, framework rules, size limits
+- **Acceptance Criteria** \u2014 how we know the task is done
+- **Implementation Steps** \u2014 ordered, with file paths and function names
+- **Testing** \u2014 what tests need to pass or be added
+- **Risk / Rollback** \u2014 what could go wrong and how to undo it
+`
+  };
+}
+function getReviewMode(stack) {
+  const lang = sanitizeForInstructions(stack.primaryLanguage.name);
+  return {
+    filename: "ai-os-review.chatprompt.md",
+    description: `Code review mode for ${lang} \u2014 no edits, returns structured review with severity levels`,
+    tools: [
+      "codebase",
+      "search",
+      "usages",
+      "findTestFiles",
+      "get_session_context",
+      "get_conventions",
+      "get_repo_memory",
+      "get_file_summary",
+      "get_impact_of_change",
+      "get_dependency_chain"
+    ],
+    instructions: `# AI OS \u2014 Review Mode
+
+You are in **code review mode**. Analyse the requested code and return a
+structured review. Do **not** make any edits directly \u2014 return findings only.
+
+Always call \`get_session_context\` and \`get_conventions\` first to reload
+project-specific rules before reviewing.
+
+## Review format
+
+Return a Markdown document with findings grouped by severity:
+
+| Severity | Meaning |
+|---|---|
+| \u{1F534} Critical | Security vulnerability, data loss risk, crash |
+| \u{1F7E0} High | Logic bug, broken contract, performance hazard |
+| \u{1F7E1} Medium | Code smell, missing test, brittle pattern |
+| \u{1F535} Low | Style issue, minor clarity improvement |
+| \u2139\uFE0F FYI | Observation with no action required |
+
+For each finding include: **file:line**, **severity**, **description**, and
+**suggested fix** (no code edits, just guidance).
+`
+  };
+}
+function getExploreMode() {
+  return {
+    filename: "ai-os-explore.chatprompt.md",
+    description: 'Read-only codebase exploration \u2014 answers "how does X work?" questions without editing files',
+    tools: [
+      ...BUILTIN_READ_ONLY,
+      "get_session_context",
+      "get_project_structure",
+      "get_file_summary",
+      "get_stack_info",
+      "search_codebase",
+      "get_dependency_chain",
+      "get_impact_of_change",
+      "get_api_routes",
+      "get_env_vars"
+    ],
+    instructions: `# AI OS \u2014 Explore Mode
+
+You are in **read-only exploration mode**. Answer questions about the codebase
+without making any edits.
+
+Use AI OS navigation tools to answer "how does X work?" questions efficiently:
+- Call \`get_project_structure\` before exploring unfamiliar directories
+- Call \`get_file_summary\` instead of reading full files when possible
+- Call \`search_codebase\` to find symbols, patterns, or usage examples
+- Call \`get_dependency_chain\` to trace how a module connects to the rest
+
+Return clear, grounded answers with file paths and line references.
+`
+  };
+}
+function renderChatMode(mode) {
+  const toolList = mode.tools.map((t) => `'${t}'`).join(", ");
+  const safeDescription = mode.description.replace(/"/g, "'");
+  return `---
+description: "${safeDescription}"
+tools: [${toolList}]
+---
+${mode.instructions}`;
+}
+function generateChatModes(stack, outputDir) {
+  const managed = [];
+  const vscodePath = path24.join(outputDir, ".vscode");
+  const modes = [
+    getPlanMode(stack),
+    getReviewMode(stack),
+    getExploreMode()
+  ];
+  for (const mode of modes) {
+    const filePath = path24.join(vscodePath, mode.filename);
+    writeIfChanged(filePath, renderChatMode(mode));
+    managed.push(filePath);
+  }
+  return managed;
+}
+
 // src/planner.ts
 import fs20 from "node:fs";
-import path23 from "node:path";
+import path25 from "node:path";
 function exists3(root, relPath) {
-  return fs20.existsSync(path23.join(root, relPath));
+  return fs20.existsSync(path25.join(root, relPath));
 }
 function detectRepoType(targetDir) {
   if (exists3(targetDir, ".github/ai-os/config.json") || exists3(targetDir, ".ai-os/config.json")) return "existing-ai-os";
@@ -5386,7 +5663,7 @@ function formatOnboardingPlan(plan) {
 
 // src/recommendations/index.ts
 import fs21 from "node:fs";
-import path24 from "node:path";
+import path26 from "node:path";
 
 // src/recommendations/registry.ts
 var DEPENDENCY_RECOMMENDATIONS = {
@@ -5827,7 +6104,7 @@ ${cmds.split("\n").map((l) => `    ${l}`).join("\n")}`;
 function generateRecommendations(stack, outputDir) {
   const collected = collectRecommendations(stack);
   const content = generateRecommendationsDoc(stack, collected);
-  const outPath = path24.join(outputDir, ".github", "ai-os", "recommendations.md");
+  const outPath = path26.join(outputDir, ".github", "ai-os", "recommendations.md");
   writeIfChanged(outPath, content);
   return outPath;
 }
@@ -6073,12 +6350,6 @@ function formatBootstrapReport(report) {
   return lines.join("\n");
 }
 
-// src/actions/bootstrap.ts
-function runBootstrapAction(stack, dryRun) {
-  const report = runBootstrap(stack, { dryRun });
-  console.log(formatBootstrapReport(report));
-}
-
 // src/actions/plan.ts
 function runPlanAction(onboardingPlan) {
   console.log(formatOnboardingPlan(onboardingPlan));
@@ -6100,7 +6371,7 @@ function toPathSet(value) {
 }
 function loadProtectConfig(cwd) {
   const empty = { protected: /* @__PURE__ */ new Set(), hybrid: /* @__PURE__ */ new Set() };
-  const protectPath = path25.join(cwd, ".github", "ai-os", "protect.json");
+  const protectPath = path27.join(cwd, ".github", "ai-os", "protect.json");
   if (!fs22.existsSync(protectPath)) return empty;
   try {
     const raw = JSON.parse(fs22.readFileSync(protectPath, "utf-8"));
@@ -6118,7 +6389,7 @@ function isCustomArtifact(relPath) {
   return CUSTOM_ARTIFACT_DIRS.some((dir) => relPath.startsWith(dir));
 }
 function ensureGitignoreEntry(cwd, entry) {
-  const gitignorePath = path25.join(cwd, ".gitignore");
+  const gitignorePath = path27.join(cwd, ".gitignore");
   if (!fs22.existsSync(gitignorePath)) return;
   const current = fs22.readFileSync(gitignorePath, "utf-8");
   const lines = current.split(/\r?\n/);
@@ -6129,11 +6400,11 @@ ${entry}
   fs22.writeFileSync(gitignorePath, next, "utf-8");
 }
 function resolveBundledServerSource() {
-  const runtimeDir = path25.dirname(fileURLToPath4(import.meta.url));
+  const runtimeDir = path27.dirname(fileURLToPath4(import.meta.url));
   const candidates = [
-    path25.join(runtimeDir, "server.js"),
-    path25.join(runtimeDir, "..", "bundle", "server.js"),
-    path25.join(runtimeDir, "..", "dist", "server.js")
+    path27.join(runtimeDir, "server.js"),
+    path27.join(runtimeDir, "..", "bundle", "server.js"),
+    path27.join(runtimeDir, "..", "dist", "server.js")
   ];
   for (const candidate of candidates) {
     if (fs22.existsSync(candidate) && fs22.statSync(candidate).isFile()) {
@@ -6148,9 +6419,9 @@ function installLocalMcpRuntime(cwd, verbose) {
     console.warn("  \u26A0 Could not locate bundled MCP server; local ai-os tools may be unavailable.");
     return;
   }
-  const runtimeDir = path25.join(cwd, ".ai-os", "mcp-server");
-  const runtimeEntry = path25.join(runtimeDir, "index.js");
-  const runtimeManifest = path25.join(runtimeDir, "runtime-manifest.json");
+  const runtimeDir = path27.join(cwd, ".ai-os", "mcp-server");
+  const runtimeEntry = path27.join(runtimeDir, "index.js");
+  const runtimeManifest = path27.join(runtimeDir, "runtime-manifest.json");
   const nodePath = process.execPath;
   fs22.mkdirSync(runtimeDir, { recursive: true });
   fs22.copyFileSync(bundledServerSource, runtimeEntry);
@@ -6170,7 +6441,7 @@ function installLocalMcpRuntime(cwd, verbose) {
   });
   ensureGitignoreEntry(cwd, ".ai-os/mcp-server/node_modules");
   ensureGitignoreEntry(cwd, ".github/ai-os/memory/.memory.lock");
-  const legacyLocalMcp = path25.join(cwd, ".github", "copilot", "mcp.local.json");
+  const legacyLocalMcp = path27.join(cwd, ".github", "copilot", "mcp.local.json");
   if (fs22.existsSync(legacyLocalMcp)) {
     try {
       fs22.rmSync(legacyLocalMcp);
@@ -6196,6 +6467,105 @@ function installLocalMcpRuntime(cwd, verbose) {
     console.log("  \u2713 MCP config written to .vscode/mcp.json");
   }
 }
+function computeLineDiff(before, after) {
+  const bLines = before.split("\n");
+  const aLines = after.split("\n");
+  const result = [];
+  function lcs(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i2 = 1; i2 <= m; i2++)
+      for (let j2 = 1; j2 <= n; j2++)
+        dp[i2][j2] = a[i2 - 1] === b[j2 - 1] ? dp[i2 - 1][j2 - 1] + 1 : Math.max(dp[i2 - 1][j2], dp[i2][j2 - 1]);
+    const pairs = [];
+    let i = m, j = n;
+    while (i > 0 && j > 0) {
+      if (a[i - 1] === b[j - 1]) {
+        pairs.unshift([i - 1, j - 1]);
+        i--;
+        j--;
+      } else if (dp[i - 1][j] >= dp[i][j - 1]) i--;
+      else j--;
+    }
+    return pairs;
+  }
+  const common = lcs(bLines, aLines);
+  let bi = 0, ai = 0, ci = 0;
+  while (ci <= common.length) {
+    const bEnd = ci < common.length ? common[ci][0] : bLines.length;
+    const aEnd = ci < common.length ? common[ci][1] : aLines.length;
+    while (bi < bEnd) result.push({ type: "-", line: bLines[bi++] });
+    while (ai < aEnd) result.push({ type: "+", line: aLines[ai++] });
+    if (ci < common.length) {
+      result.push({ type: " ", line: bLines[common[ci][0]] });
+      bi = common[ci][0] + 1;
+      ai = common[ci][1] + 1;
+    }
+    ci++;
+  }
+  return result;
+}
+function printDryRunDiff(cwd, captures, fullDiff) {
+  const CONTEXT = 3;
+  const MAX_LINES = fullDiff ? Infinity : 40;
+  let totalAdded = 0, totalRemoved = 0, changedCount = 0, newCount = 0;
+  process.stdout.write("\n  \u{1F50D} Dry-run diff (no files written)\n\n");
+  for (const cap of captures) {
+    const rel = path27.relative(cwd, cap.filePath).replace(/\\/g, "/");
+    if (cap.existingContent === null) {
+      newCount++;
+      const lines = cap.newContent.split("\n");
+      totalAdded += lines.length;
+      process.stdout.write(`  \x1B[32m[NEW]\x1B[0m ${rel}
+`);
+      if (fullDiff) {
+        for (const line of lines) process.stdout.write(`  \x1B[32m+${line}\x1B[0m
+`);
+      }
+    } else if (cap.existingContent === cap.newContent) {
+    } else {
+      changedCount++;
+      const hunks = computeLineDiff(cap.existingContent, cap.newContent);
+      const added = hunks.filter((h) => h.type === "+").length;
+      const removed = hunks.filter((h) => h.type === "-").length;
+      totalAdded += added;
+      totalRemoved += removed;
+      process.stdout.write(`  \x1B[33m[CHANGED]\x1B[0m ${rel}  (+${added}/-${removed})
+`);
+      if (fullDiff) {
+        let linesPrinted = 0;
+        let i = 0;
+        while (i < hunks.length && linesPrinted < MAX_LINES) {
+          if (hunks[i].type !== " ") {
+            const start = Math.max(0, i - CONTEXT);
+            const end = Math.min(hunks.length, i + CONTEXT + 1);
+            for (let j = start; j < end && linesPrinted < MAX_LINES; j++) {
+              const h = hunks[j];
+              const color = h.type === "+" ? "\x1B[32m" : h.type === "-" ? "\x1B[31m" : "";
+              process.stdout.write(`    ${color}${h.type}${h.line}\x1B[0m
+`);
+              linesPrinted++;
+            }
+            i = end;
+          } else {
+            i++;
+          }
+        }
+        if (linesPrinted >= MAX_LINES) {
+          process.stdout.write(`    ... (truncated, use --full-diff to see all)
+`);
+        }
+      }
+    }
+  }
+  process.stdout.write(`
+  Summary: ${newCount} new, ${changedCount} changed | +${totalAdded} lines, -${totalRemoved} lines
+`);
+  if (!fullDiff && (newCount > 0 || changedCount > 0)) {
+    process.stdout.write("  Run with --full-diff to see full diffs.\n");
+  }
+  process.stdout.write("\n");
+}
 function printSummary(stack, outputDir, written, skipped, pruned, agents, preserved, activeProfile) {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
@@ -6213,17 +6583,17 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents, preser
   console.log(`  \u23ED\uFE0F  Unchanged (skipped):        ${skipped.length}`);
   if (preserved.length > 0) {
     console.log(`  \u{1F512} Preserved (curated):        ${preserved.length}`);
-    for (const p of preserved) console.log(`       \u2022 ${path25.relative(outputDir, p).replace(/\\/g, "/")}`);
+    for (const p of preserved) console.log(`       \u2022 ${path27.relative(outputDir, p).replace(/\\/g, "/")}`);
   }
   if (pruned.length > 0) {
     console.log(`  \u{1F5D1}\uFE0F  Pruned (stale):              ${pruned.length}`);
-    for (const p of pruned) console.log(`       \u2022 ${path25.relative(outputDir, p).replace(/\\/g, "/")}`);
+    for (const p of pruned) console.log(`       \u2022 ${path27.relative(outputDir, p).replace(/\\/g, "/")}`);
   }
   if (agents.length > 0) {
     console.log(`  \u{1F916} Agents generated: ${agents.length}`);
   }
   console.log(`  \u{1F527} MCP tools registered: ${mcpToolCount}`);
-  console.log(`  \u{1F5F3}\uFE0F  Manifest: ${path25.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, "/")}`);
+  console.log(`  \u{1F5F3}\uFE0F  Manifest: ${path27.relative(outputDir, getManifestPath(outputDir)).replace(/\\/g, "/")}`);
   try {
     const prevReport = computeFreshnessReport(outputDir);
     if (prevReport.status !== "unknown") {
@@ -6374,7 +6744,7 @@ function printAgentFlowStatus(cwd, mode) {
   console.log("");
 }
 function printMemoryMaintenanceSummary(cwd) {
-  const memoryFile = path25.join(cwd, ".github", "ai-os", "memory", "memory.jsonl");
+  const memoryFile = path27.join(cwd, ".github", "ai-os", "memory", "memory.jsonl");
   if (!fs22.existsSync(memoryFile)) return;
   try {
     process.env["AI_OS_ROOT"] = cwd;
@@ -6398,6 +6768,12 @@ function printMemoryMaintenanceSummary(cwd) {
 async function runApply(args) {
   const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = args;
   let mode = rawMode;
+  const quiet = args.json;
+  const _origConsoleLog = console.log;
+  if (quiet) {
+    console.log = () => {
+    };
+  }
   if (verbose) {
     setVerboseMode(true);
     console.log("  \u{1F50D} Verbose mode enabled \u2014 per-file write/skip/prune reasons will be shown.\n");
@@ -6436,7 +6812,7 @@ async function runApply(args) {
   const hybridPaths = protectConfig.hybrid;
   const protectedSnapshots = /* @__PURE__ */ new Map();
   for (const rel of protectedPaths) {
-    const abs = path25.join(cwd, rel);
+    const abs = path27.join(cwd, rel);
     if (fs22.existsSync(abs)) {
       protectedSnapshots.set(abs, fs22.readFileSync(abs, "utf-8"));
     }
@@ -6448,7 +6824,7 @@ async function runApply(args) {
   const hybridSnapshots = /* @__PURE__ */ new Map();
   if (isRefresh) {
     for (const rel of hybridPaths) {
-      const abs = path25.join(cwd, rel);
+      const abs = path27.join(cwd, rel);
       if (fs22.existsSync(abs)) {
         hybridSnapshots.set(abs, fs22.readFileSync(abs, "utf-8"));
       }
@@ -6471,15 +6847,20 @@ async function runApply(args) {
   }
   if (dryRun) {
     if (action === "bootstrap") {
-      runBootstrapAction(stack, true);
+      const report = runBootstrap(stack, { dryRun: true });
+      console.log(formatBootstrapReport(report));
       return;
     }
+    setDryRunMode(true);
     console.log("  [DRY RUN] Detected stack:");
     console.log(JSON.stringify(stack, null, 2));
-    return;
+    console.log("");
+    console.log("  [DRY RUN] Computing planned changes...");
+    console.log("");
   }
   const previousManifest = readManifest(cwd);
   const previousFiles = new Set(previousManifest?.files ?? []);
+  setPrevHashes(previousManifest?.hashes ?? {});
   const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
   let config = readAiOsConfig(cwd) ?? existingConfig;
   const effectiveProfile = cliProfile ?? config?.profile ?? null;
@@ -6492,8 +6873,10 @@ async function runApply(args) {
     }
     if (config) {
       config = applyProfile(config, effectiveProfile);
-      const configPath = path25.join(cwd, ".github", "ai-os", "config.json");
-      writeFileAtomic(configPath, JSON.stringify(config, null, 2) + "\n");
+      if (!dryRun) {
+        const configPath = path27.join(cwd, ".github", "ai-os", "config.json");
+        writeFileAtomic(configPath, JSON.stringify(config, null, 2) + "\n");
+      }
     }
   }
   const skillsStrategy = config?.skillsStrategy ?? "creator-only";
@@ -6504,15 +6887,19 @@ async function runApply(args) {
     refreshExisting: mode === "refresh-existing",
     strategy: skillsStrategy
   });
-  const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === "refresh-existing" });
+  const promptFiles = await generatePrompts(stack, cwd);
+  const toolsetFiles = generateToolsets(stack, cwd);
+  const chatModeFiles = generateChatModes(stack, cwd);
   const workflowFiles = generateWorkflows(cwd, { config: config ?? void 0 });
-  await deployBundledSkills(cwd, { refreshExisting: mode === "refresh-existing" });
+  if (!dryRun) {
+    await deployBundledSkills(cwd, { refreshExisting: mode === "refresh-existing" });
+  }
   console.log(`  \u{1F9E0} Skills strategy: ${skillsStrategy}`);
   const recommendationFiles = [];
   if (config?.recommendations !== false) {
     const recPath = generateRecommendations(stack, cwd);
     recommendationFiles.push(recPath);
-    const skillsLockPath = path25.join(path25.dirname(new URL(import.meta.url).pathname), "..", "skills-lock.json");
+    const skillsLockPath = path27.join(path27.dirname(new URL(import.meta.url).pathname), "..", "skills-lock.json");
     const gapReport = getSkillsGapReport(stack, skillsLockPath);
     if (gapReport) console.log(`
 ${gapReport}
@@ -6525,10 +6912,12 @@ ${gapReport}
     ...agentFiles,
     ...skillFiles,
     ...promptFiles,
+    ...toolsetFiles,
+    ...chatModeFiles,
     ...workflowFiles,
     ...recommendationFiles
   ];
-  const toRel = (p) => path25.relative(cwd, p).replace(/\\/g, "/");
+  const toRel = (p) => path27.relative(cwd, p).replace(/\\/g, "/");
   const currentRelFiles = allManagedAbs.map(toRel);
   const manifestRel = toRel(getManifestPath(cwd));
   currentRelFiles.push(manifestRel);
@@ -6541,25 +6930,25 @@ ${gapReport}
       if (!currentSet.has(rel)) {
         if (protectedPaths.has(rel)) {
           if (verbose) console.log(`  \u{1F512} protect  ${rel}  (in protect.json)`);
-          preservedAbs.push(path25.join(cwd, rel));
+          preservedAbs.push(path27.join(cwd, rel));
           continue;
         }
         if (hybridPaths.has(rel)) {
           if (verbose) console.log(`  \u{1F500} hybrid   ${rel}  (in protect.json hybrid \u2014 user blocks preserved)`);
-          preservedAbs.push(path25.join(cwd, rel));
+          preservedAbs.push(path27.join(cwd, rel));
           continue;
         }
         if (!pruneCustomArtifacts && isCustomArtifact(rel)) {
           if (verbose) {
             console.log(`  \u{1F512} preserve ${rel}  (custom artifact \u2014 pass --prune-custom-artifacts to remove)`);
           }
-          preservedAbs.push(path25.join(cwd, rel));
+          preservedAbs.push(path27.join(cwd, rel));
           continue;
         }
-        const abs = path25.join(cwd, rel);
+        const abs = path27.join(cwd, rel);
         if (fs22.existsSync(abs)) {
           try {
-            fs22.rmSync(abs);
+            if (!dryRun) fs22.rmSync(abs);
             prunedAbs.push(abs);
             if (verbose) {
               console.log(`  \u{1F5D1}\uFE0F  prune   ${rel}  (stale \u2014 not in current generation)`);
@@ -6575,14 +6964,16 @@ ${gapReport}
       }
     }
   }
-  for (const [abs, originalContent] of protectedSnapshots) {
-    if (!fs22.existsSync(abs)) continue;
-    const currentContent = fs22.readFileSync(abs, "utf-8");
-    if (currentContent !== originalContent) {
-      fs22.writeFileSync(abs, originalContent, "utf-8");
-      const rel = path25.relative(cwd, abs).replace(/\\/g, "/");
-      if (verbose) console.log(`  \u{1F512} restored ${rel}  (protect.json: overwrite reverted)`);
-      if (!preservedAbs.some((p) => p === abs)) preservedAbs.push(abs);
+  if (!dryRun) {
+    for (const [abs, originalContent] of protectedSnapshots) {
+      if (!fs22.existsSync(abs)) continue;
+      const currentContent = fs22.readFileSync(abs, "utf-8");
+      if (currentContent !== originalContent) {
+        fs22.writeFileSync(abs, originalContent, "utf-8");
+        const rel = path27.relative(cwd, abs).replace(/\\/g, "/");
+        if (verbose) console.log(`  \u{1F512} restored ${rel}  (protect.json: overwrite reverted)`);
+        if (!preservedAbs.some((p) => p === abs)) preservedAbs.push(abs);
+      }
     }
   }
   const allConflicts = [];
@@ -6591,7 +6982,7 @@ ${gapReport}
     const generated = fs22.readFileSync(abs, "utf-8");
     const { content: merged, preserved: mergedIds, conflicts } = mergeUserBlocks(generated, snapshot);
     if (mergedIds.length > 0 || conflicts.length > 0) {
-      const rel = path25.relative(cwd, abs).replace(/\\/g, "/");
+      const rel = path27.relative(cwd, abs).replace(/\\/g, "/");
       if (merged !== generated) {
         fs22.writeFileSync(abs, merged, "utf-8");
       }
@@ -6615,27 +7006,79 @@ ${gapReport}
     console.log("     Review and move them to the correct location, then remove the conflict markers.");
     console.log("");
   }
-  writeManifest(cwd, getToolVersion(), currentRelFiles);
-  try {
-    const snapshot = captureContextSnapshot(cwd, getToolVersion());
-    writeContextSnapshot(cwd, snapshot);
-    if (verbose) {
-      console.log("  \u270F\uFE0F  write   .github/ai-os/context-snapshot.json  (freshness baseline)");
+  if (!dryRun) writeManifest(cwd, getToolVersion(), currentRelFiles, getNewHashes());
+  if (!dryRun) {
+    try {
+      const snapshot = captureContextSnapshot(cwd, getToolVersion());
+      writeContextSnapshot(cwd, snapshot);
+      if (verbose) {
+        console.log("  \u270F\uFE0F  write   .github/ai-os/context-snapshot.json  (freshness baseline)");
+      }
+    } catch {
     }
-  } catch {
   }
   const newFiles = currentRelFiles.filter((r) => r !== manifestRel && !previousFiles.has(r));
   const existingFiles = currentRelFiles.filter((r) => r !== manifestRel && previousFiles.has(r));
-  installLocalMcpRuntime(cwd, verbose);
+  if (!dryRun) installLocalMcpRuntime(cwd, verbose);
+  if (dryRun) {
+    const captures = getDryRunCaptures();
+    printDryRunDiff(cwd, captures, args.fullDiff);
+    return;
+  }
   if (isRefresh) {
     printMemoryMaintenanceSummary(cwd);
+  }
+  if (quiet) {
+    console.log = _origConsoleLog;
+    const mcpToolCount = getMcpToolsForStack(stack).length;
+    if (action === "bootstrap") {
+      const bootstrapReport = runBootstrap(stack, { dryRun: false });
+      console.log(JSON.stringify({
+        action: "bootstrap",
+        cwd,
+        mode,
+        project: stack.projectName,
+        language: stack.primaryLanguage.name,
+        frameworks: stack.frameworks.map((f) => f.name),
+        packageManager: stack.patterns.packageManager,
+        typescript: stack.patterns.hasTypeScript,
+        profile: effectiveProfile ?? null,
+        mcpToolCount,
+        written: newFiles,
+        skipped: existingFiles,
+        pruned: prunedAbs.map((p) => path27.relative(cwd, p).replace(/\\/g, "/")),
+        agents: agentFiles,
+        preserved: preservedAbs.map((p) => path27.relative(cwd, p).replace(/\\/g, "/")),
+        bootstrap: bootstrapReport
+      }));
+      return;
+    }
+    console.log(JSON.stringify({
+      action,
+      cwd,
+      mode,
+      project: stack.projectName,
+      language: stack.primaryLanguage.name,
+      frameworks: stack.frameworks.map((f) => f.name),
+      packageManager: stack.patterns.packageManager,
+      typescript: stack.patterns.hasTypeScript,
+      profile: effectiveProfile ?? null,
+      mcpToolCount,
+      written: newFiles,
+      skipped: existingFiles,
+      pruned: prunedAbs.map((p) => path27.relative(cwd, p).replace(/\\/g, "/")),
+      agents: agentFiles,
+      preserved: preservedAbs.map((p) => path27.relative(cwd, p).replace(/\\/g, "/"))
+    }));
+    return;
   }
   printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? void 0);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
   if (action === "bootstrap") {
     console.log("  \u{1F680} Running codebase-aware bootstrap...");
     console.log("");
-    runBootstrapAction(stack, false);
+    const bootstrapReport = runBootstrap(stack, { dryRun: false });
+    console.log(formatBootstrapReport(bootstrapReport));
     return;
   }
   const agentFlowMode = config?.agentFlowMode;
@@ -6648,9 +7091,9 @@ ${gapReport}
 
 // src/uninstall.ts
 import fs23 from "node:fs";
-import path26 from "node:path";
+import path28 from "node:path";
 function readProtectedPaths(cwd) {
-  const protectPath = path26.join(cwd, ".github", "ai-os", "protect.json");
+  const protectPath = path28.join(cwd, ".github", "ai-os", "protect.json");
   if (!fs23.existsSync(protectPath)) return /* @__PURE__ */ new Set();
   try {
     const raw = JSON.parse(fs23.readFileSync(protectPath, "utf-8"));
@@ -6663,7 +7106,7 @@ function readProtectedPaths(cwd) {
     if (Array.isArray(obj["hybrid"])) {
       files.push(...obj["hybrid"]);
     }
-    return new Set(files.map((f) => path26.resolve(cwd, f)));
+    return new Set(files.map((f) => path28.resolve(cwd, f)));
   } catch {
     return /* @__PURE__ */ new Set();
   }
@@ -6706,7 +7149,7 @@ function runUninstall(cwd, options = {}) {
   const protected_ = readProtectedPaths(cwd);
   const affectedDirs = /* @__PURE__ */ new Set();
   for (const relPath of manifest.files) {
-    const abs = path26.resolve(cwd, relPath);
+    const abs = path28.resolve(cwd, relPath);
     if (!fs23.existsSync(abs)) {
       report.notFound.push(relPath);
       if (verbose) console.log(`  \u2753 not found  ${relPath}`);
@@ -6730,7 +7173,7 @@ function runUninstall(cwd, options = {}) {
     try {
       fs23.unlinkSync(abs);
       report.removed.push(relPath);
-      affectedDirs.add(path26.dirname(abs));
+      affectedDirs.add(path28.dirname(abs));
       if (verbose) console.log(`  \u{1F5D1}\uFE0F  removed    ${relPath}`);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
@@ -6739,20 +7182,20 @@ function runUninstall(cwd, options = {}) {
     }
   }
   const managedDirs = [
-    path26.join(cwd, ".ai-os", "mcp-server"),
-    path26.join(cwd, ".ai-os")
+    path28.join(cwd, ".ai-os", "mcp-server"),
+    path28.join(cwd, ".ai-os")
   ];
-  const manifestPath = path26.join(cwd, ".github", "ai-os", "manifest.json");
+  const manifestPath = path28.join(cwd, ".github", "ai-os", "manifest.json");
   if (!dryRun) {
     for (const dir of managedDirs) {
       try {
         if (fs23.existsSync(dir)) {
           fs23.rmSync(dir, { recursive: true, force: true });
-          if (verbose) console.log(`  \u{1F5D1}\uFE0F  removed    ${path26.relative(cwd, dir)}/`);
+          if (verbose) console.log(`  \u{1F5D1}\uFE0F  removed    ${path28.relative(cwd, dir)}/`);
         }
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
-        console.error(`  \u2716 error       ${path26.relative(cwd, dir)}: ${reason}`);
+        console.error(`  \u2716 error       ${path28.relative(cwd, dir)}: ${reason}`);
       }
     }
     try {
@@ -6764,11 +7207,11 @@ function runUninstall(cwd, options = {}) {
     }
     const dirsToCheck = [
       ...Array.from(affectedDirs),
-      path26.join(cwd, ".github", "ai-os"),
-      path26.join(cwd, ".github", "agents"),
-      path26.join(cwd, ".github", "copilot", "skills"),
-      path26.join(cwd, ".github", "copilot"),
-      path26.join(cwd, ".github", "instructions")
+      path28.join(cwd, ".github", "ai-os"),
+      path28.join(cwd, ".github", "agents"),
+      path28.join(cwd, ".github", "copilot", "skills"),
+      path28.join(cwd, ".github", "copilot"),
+      path28.join(cwd, ".github", "instructions")
     ];
     removeEmptyDirs(dirsToCheck);
   }
@@ -6812,15 +7255,15 @@ async function main() {
     printBanner();
   }
   if (action === "check-hygiene") {
-    runCheckHygieneAction(cwd);
+    runCheckHygieneAction(cwd, args.json);
     return;
   }
   if (action === "doctor") {
-    runDoctorAction(cwd);
+    runDoctorAction(cwd, args.json);
     return;
   }
   if (action === "check-freshness") {
-    runCheckFreshnessAction(cwd);
+    runCheckFreshnessAction(cwd, args.json);
     return;
   }
   if (action === "compact-memory") {

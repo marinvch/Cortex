@@ -29,17 +29,17 @@ export async function main(): Promise<void> {
 
   // ── Early-exit actions (no scan or generation needed) ────────────────────
   if (action === 'check-hygiene') {
-    runCheckHygieneAction(cwd);
+    runCheckHygieneAction(cwd, args.json);
     return;
   }
 
   if (action === 'doctor') {
-    runDoctorAction(cwd);
+    runDoctorAction(cwd, args.json);
     return;
   }
 
   if (action === 'check-freshness') {
-    runCheckFreshnessAction(cwd);
+    runCheckFreshnessAction(cwd, args.json);
     return;
   }
 

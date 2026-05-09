@@ -12,6 +12,8 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
+  attestations: write
 
 jobs:
   noop-on-push:
@@ -131,6 +133,14 @@ jobs:
           gh release create "$NEXT_TAG" \
             --title "$NEXT_TAG" \
             --notes-file "$RELEASE_NOTES_FILE"
+
+      - name: Attest bundle provenance (SLSA)
+        if: steps.plan.outputs.release_needed == 'true'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            bundle/generate.js
+            bundle/server.js
 
       - name: Bump version in package.json
         continue-on-error: true

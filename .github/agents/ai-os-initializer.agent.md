@@ -9,7 +9,7 @@ This agent operates on the **ai-os** codebase (Markdown).
 It maintains the AI OS artifacts:
 - `.ai-os/context/` — Architecture, stack, and conventions docs
 - `.github/copilot/skills/` — Skill playbooks
-- `.github/copilot/prompts.json` — Prompt templates
+- `.github/copilot/*.prompt.md` — Reusable prompt files (VS Code v1.100+ format)
 - `.github/agents/` — Specialized agents
 - `.github/copilot-instructions.md` — Main Copilot instructions
 - `docs/ai/session_memory.md` — Session memory log

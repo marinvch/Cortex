@@ -14,6 +14,18 @@ export interface McpToolDefinition {
   inputSchema: McpToolSchema;
 }
 
+/** Runtime type guard for a single MCP tool definition entry in tools.json. */
+export function isMcpToolDefinition(obj: unknown): obj is McpToolDefinition {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Record<string, unknown>;
+  return (
+    typeof o['name'] === 'string' && o['name'].length > 0 &&
+    typeof o['description'] === 'string' &&
+    typeof o['inputSchema'] === 'object' && o['inputSchema'] !== null &&
+    (o['inputSchema'] as Record<string, unknown>)['type'] === 'object'
+  );
+}
+
 /**
  * Runtime MCP server consumes the exact same tool catalog as generators.
  * This prevents metadata drift between generated tools.json and runtime tools/list.
@@ -49,7 +61,12 @@ export function getActiveToolsForProject(projectRoot: string): McpToolDefinition
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     const obj = parsed as Record<string, unknown>;
     if (Array.isArray(obj['activeTools'])) {
-      return (obj['activeTools'] as McpToolDefinition[]).map((tool) => ({
+      const valid = (obj['activeTools'] as unknown[]).filter((t): t is McpToolDefinition => {
+        if (isMcpToolDefinition(t)) return true;
+        console.warn(`⚠️  tools.json: skipping invalid tool entry — missing required fields (name/description/inputSchema.type).`);
+        return false;
+      });
+      return valid.map((tool) => ({
         name: tool.name,
         description: tool.description,
         inputSchema: tool.inputSchema,
@@ -57,9 +74,14 @@ export function getActiveToolsForProject(projectRoot: string): McpToolDefinition
     }
   }
 
-  // Legacy flat array format — return as-is
+  // Legacy flat array format
   if (Array.isArray(parsed)) {
-    return (parsed as McpToolDefinition[]).map((tool) => ({
+    const valid = (parsed as unknown[]).filter((t): t is McpToolDefinition => {
+      if (isMcpToolDefinition(t)) return true;
+      console.warn(`⚠️  tools.json: skipping invalid tool entry — missing required fields (name/description/inputSchema.type).`);
+      return false;
+    });
+    return valid.map((tool) => ({
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema,

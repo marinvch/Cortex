@@ -19,9 +19,11 @@ function findFilesRecursive(dir: string, predicate: (name: string) => boolean): 
   return results;
 }
 
-export function runCheckHygieneAction(cwd: string): void {
-  console.log(`  🧹 Hygiene check: ${cwd}`);
-  console.log('');
+export function runCheckHygieneAction(cwd: string, json = false): void {
+  if (!json) {
+    console.log(`  🧹 Hygiene check: ${cwd}`);
+    console.log('');
+  }
   const issues: string[] = [];
 
   // Check for legacy .ai-os/context/ artifacts (pre-v0.3.0 paths)
@@ -75,13 +77,21 @@ export function runCheckHygieneAction(cwd: string): void {
   }
 
   if (issues.length === 0) {
-    console.log('  ✅ Hygiene check passed — no orphaned files or dump artifacts found.');
+    if (json) {
+      console.log(JSON.stringify({ action: 'check-hygiene', cwd, issues: [], passed: true }));
+    } else {
+      console.log('  ✅ Hygiene check passed — no orphaned files or dump artifacts found.');
+    }
   } else {
-    console.log('  Issues found:');
-    for (const issue of issues) console.log(issue);
-    console.log('');
-    console.log(`  Total issues: ${issues.length}`);
+    if (json) {
+      console.log(JSON.stringify({ action: 'check-hygiene', cwd, issues, passed: false }));
+    } else {
+      console.log('  Issues found:');
+      for (const issue of issues) console.log(issue);
+      console.log('');
+      console.log(`  Total issues: ${issues.length}`);
+    }
     process.exit(1);
   }
-  console.log('');
+  if (!json) console.log('');
 }

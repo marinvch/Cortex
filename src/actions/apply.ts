@@ -15,7 +15,7 @@ import { generateChatModes } from '../generators/chatmodes.js';
 import { getMcpToolsForStack } from '../mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from '../updater.js';
 import { buildOnboardingPlan } from '../planner.js';
-import { readManifest, writeManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic } from '../generators/utils.js';
+import { readManifest, writeManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic, setPrevHashes, getNewHashes } from '../generators/utils.js';
 import { generateRecommendations, getSkillsGapReport } from '../recommendations/index.js';
 import { applyProfile, describeProfile } from '../profile.js';
 import { mergeUserBlocks } from '../user-blocks.js';
@@ -650,6 +650,9 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   // Read previous manifest to allow pruning stale files (#7 / #8).
   const previousManifest = readManifest(cwd);
   const previousFiles = new Set(previousManifest?.files ?? []);
+  // #115: seed the content-hash gate with hashes from the previous run
+  // so writeIfChanged can skip disk reads for unchanged generated files.
+  setPrevHashes(previousManifest?.hashes ?? {});
 
   // Phase 1: Core context files (config.json is written here, with user fields preserved)
   const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
@@ -831,7 +834,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   }
 
   // Write updated manifest (#8 / #11).
-  if (!dryRun) writeManifest(cwd, getToolVersion(), currentRelFiles);
+  if (!dryRun) writeManifest(cwd, getToolVersion(), currentRelFiles, getNewHashes());
 
   // ── Capture context freshness snapshot ──────────────────────────────────
   // After a successful generation run, record a new baseline snapshot so that

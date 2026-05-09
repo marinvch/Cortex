@@ -603,13 +603,54 @@ describe('prompt generation', () => {
     const tmpDir = path.join(os.tmpdir(), 'ai-os-prompts-rtk-' + Date.now());
     fs.mkdirSync(tmpDir, { recursive: true });
 
-    await generatePrompts(stack, tmpDir, { refreshExisting: true });
+    await generatePrompts(stack, tmpDir);
 
-    const promptsPath = path.join(tmpDir, '.github', 'copilot', 'prompts.json');
-    const promptsFile = JSON.parse(fs.readFileSync(promptsPath, 'utf-8')) as { prompts: Array<{ id: string; prompt: string }> };
-    const refactorPrompt = promptsFile.prompts.find((p) => p.id === '/refactor-component');
+    // Each prompt is now a separate .prompt.md file
+    const promptFile = path.join(tmpDir, '.github', 'copilot', 'refactor-component.prompt.md');
+    const content = fs.readFileSync(promptFile, 'utf-8');
 
-    expect(refactorPrompt?.prompt.includes('RTK Query hooks')).toBe(true);
+    expect(content.includes('RTK Query hooks')).toBe(true);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('writes individual .prompt.md files for each prompt entry', async () => {
+    const { generatePrompts } = await import('../generators/prompts.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({});
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-prompts-files-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    const files = await generatePrompts(stack, tmpDir);
+
+    // Should return multiple paths, not a single prompts.json
+    expect(files.length).toBeGreaterThan(1);
+    // All returned paths must be .prompt.md files
+    expect(files.every(f => f.endsWith('.prompt.md'))).toBe(true);
+    // The old format must NOT exist
+    expect(fs.existsSync(path.join(tmpDir, '.github', 'copilot', 'prompts.json'))).toBe(false);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('each .prompt.md file has a quoted YAML description', async () => {
+    const { generatePrompts } = await import('../generators/prompts.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const stack = makeStack({});
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-prompts-yaml-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    const files = await generatePrompts(stack, tmpDir);
+
+    for (const f of files) {
+      const content = fs.readFileSync(f, 'utf-8');
+      expect(content.startsWith('---\n')).toBe(true);
+      expect(content).toMatch(/^description: "/m);
+    }
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

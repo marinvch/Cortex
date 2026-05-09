@@ -34,7 +34,8 @@ Scan these locations for terms, patterns, and guidance tied to the old architect
 - `.github/ai-os/context/stack.md`
 - `.github/copilot/skills/*.md`
 - `.github/agents/*.md`
-- `.github/copilot/prompts.json`
+- `.github/copilot/*.prompt.md`
+- `.github/instructions/*.instructions.md`
 - Any `.github/ai-os/memory/*.md` files
 
 ### Step 3: Generate impact inventory
@@ -110,6 +111,16 @@ After all replacements are complete:
 1. Re-run the impact inventory scan from Phase 1 to verify no stale references remain
 2. If AI OS is installed, run: `npx github:marinvch/ai-os --check-hygiene`
 3. Confirm the hygiene check passes before marking migration complete
+
+### Step 4: Auto-regenerate AI OS context (if installed)
+
+If AI OS is installed in the target repo, trigger a context refresh so that all generated files (stack.md, conventions.md, instructions.md) reflect the new architecture:
+
+```bash
+npx github:marinvch/ai-os --refresh-existing
+```
+
+This rewrites only AI OS-managed files — user blocks and protected files are preserved. Run this as the final step to close the migration.
 
 ## Operating Rules
 

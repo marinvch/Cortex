@@ -3,18 +3,17 @@ import * as path from 'path';
 import type { DetectedStack } from '../types.js';
 import { writeIfChanged } from './utils.js';
 
-const PROMPTS_FILE = '.github/copilot/prompts.json';
+/**
+ * Directory where individual `.prompt.md` reusable-prompt files are written.
+ * VS Code (v1.100+) picks them up automatically from `.github/copilot/`.
+ */
+const PROMPTS_DIR = '.github/copilot';
 
 interface PromptEntry {
   id: string;
   title: string;
   description: string;
   prompt: string;
-}
-
-interface PromptsFile {
-  version: number;
-  prompts: PromptEntry[];
 }
 
 function buildPrompts(stack: DetectedStack, cwd: string): PromptEntry[] {
@@ -417,7 +416,7 @@ Phase 1 — Pre-Change Audit:
    - .github/ai-os/context/stack.md
    - .github/copilot/skills/*.md
    - .github/agents/*.md
-   - .github/copilot/prompts.json
+   - .github/copilot/*.prompt.md
 3. Output a Migration Impact Inventory table: File | Line | Stale Statement | Replacement | Risk (High/Medium/Low)
 4. Do NOT proceed to Phase 2 until I approve the inventory.
 
@@ -438,57 +437,38 @@ Start now: ask me for the migration boundary.`,
   return prompts;
 }
 
-interface GeneratePromptsOptions {
-  refreshExisting?: boolean;
+/**
+ * Renders a PromptEntry as a `.prompt.md` file (VS Code v1.100+ reusable-prompt format).
+ * The description is double-quoted so that framework names containing colons, brackets,
+ * or other YAML-special characters do not break frontmatter parsing.
+ */
+function renderPromptFile(entry: PromptEntry): string {
+  const safeDescription = entry.description.replace(/"/g, "'");
+  return `---\ndescription: "${safeDescription}"\n---\n${entry.prompt}\n`;
 }
 
 /**
- * Returns [promptsPath] when something was written, [] when nothing changed.
- * Callers should include the returned paths in the manifest regardless.
+ * Generates one `.github/copilot/<name>.prompt.md` file per prompt entry.
+ * VS Code (v1.100+) discovers these automatically from `.github/copilot/`.
+ *
+ * Returns the absolute paths of all managed prompt files (written or unchanged).
+ * Callers should include these in the manifest so stale files get pruned.
  */
-export async function generatePrompts(stack: DetectedStack, cwd: string, options?: GeneratePromptsOptions): Promise<string[]> {
-  const promptsPath = path.join(cwd, PROMPTS_FILE);
-  fs.mkdirSync(path.dirname(promptsPath), { recursive: true });
+export async function generatePrompts(stack: DetectedStack, cwd: string): Promise<string[]> {
+  const outDir = path.join(cwd, PROMPTS_DIR);
+  fs.mkdirSync(outDir, { recursive: true });
 
-  let existing: PromptsFile = { version: 1, prompts: [] };
-  if (fs.existsSync(promptsPath)) {
-    try {
-      existing = JSON.parse(fs.readFileSync(promptsPath, 'utf-8'));
-    } catch {
-      // file is malformed, start fresh
-    }
+  const entries = buildPrompts(stack, cwd);
+  const written: string[] = [];
+
+  for (const entry of entries) {
+    // Convert "/explain-file" → "explain-file.prompt.md"
+    const filename = `${entry.id.replace(/^\//, '')}.prompt.md`;
+    const filePath = path.join(outDir, filename);
+    writeIfChanged(filePath, renderPromptFile(entry));
+    written.push(filePath);
   }
 
-  const generatedPrompts = buildPrompts(stack, cwd);
-  let changed = 0;
-
-  if (options?.refreshExisting) {
-    const byId = new Map(existing.prompts.map(p => [p.id, p]));
-    for (const prompt of generatedPrompts) {
-      const prev = byId.get(prompt.id);
-      if (!prev) {
-        existing.prompts.push(prompt);
-        changed++;
-        continue;
-      }
-
-      if (prev.title !== prompt.title || prev.description !== prompt.description || prev.prompt !== prompt.prompt) {
-        byId.set(prompt.id, prompt);
-        changed++;
-      }
-    }
-
-    existing.prompts = existing.prompts.map(p => byId.get(p.id) ?? p);
-  } else {
-    const existingIds = new Set(existing.prompts.map(p => p.id));
-    const newPrompts = generatedPrompts.filter(p => !existingIds.has(p.id));
-    if (newPrompts.length === 0) return [];
-    existing.prompts = [...existing.prompts, ...newPrompts];
-    changed = newPrompts.length;
-  }
-
-  if (changed === 0) return [];
-
-  writeIfChanged(promptsPath, JSON.stringify(existing, null, 2));
-  return [promptsPath];
+  return written;
 }
+

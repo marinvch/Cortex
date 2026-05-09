@@ -392,13 +392,125 @@ function handleJsonRpcMessage(raw: string): void {
   if (method === 'initialize') {
     sendResponse(id, {
       protocolVersion: '2025-11-25',
-      capabilities: { tools: {} },
+      capabilities: { tools: {}, prompts: {} },
       serverInfo: {
         name: 'ai-os',
         version: '0.11.0',
         description: 'AI OS — project-specific context, memory, and session continuity tools for GitHub Copilot',
       },
     });
+    return;
+  }
+
+  if (method === 'notifications/initialized') {
+    // Notification — no response expected per MCP spec
+    return;
+  }
+
+  if (method === 'prompts/list') {
+    sendResponse(id, {
+      prompts: [
+        {
+          name: 'session_start',
+          description: 'Bootstrap a new AI OS session — loads MUST-ALWAYS rules, repo memory, and conventions in the correct order.',
+        },
+        {
+          name: 'pre_commit_check',
+          description: 'Pre-commit code quality gate — validates conventions, flags security issues, and assesses blast radius for changed files.',
+          arguments: [
+            { name: 'files', description: 'Comma-separated list of changed file paths (relative to repo root). Leave blank to check the current file.', required: false },
+          ],
+        },
+        {
+          name: 'architecture_review',
+          description: 'Load full architecture context for an informed architectural review or cross-cutting change.',
+        },
+      ],
+    });
+    return;
+  }
+
+  if (method === 'prompts/get') {
+    const promptName = (params?.name as string) ?? '';
+    const args = (params?.arguments ?? {}) as Record<string, string>;
+
+    if (promptName === 'session_start') {
+      sendResponse(id, {
+        description: 'AI OS session bootstrap — reloads MUST-ALWAYS rules and key context.',
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: [
+                'Start a new AI OS session by running these tools in order:',
+                '1. Call `get_session_context` — reloads MUST-ALWAYS rules, build commands, and key file locations.',
+                '2. Call `get_repo_memory` — reloads durable architectural decisions and constraints.',
+                '3. Call `get_conventions` — reloads coding rules and naming conventions.',
+                '',
+                'After loading context, summarise what you found in 3–5 bullet points before responding to the user.',
+              ].join('\n'),
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    if (promptName === 'pre_commit_check') {
+      const filesNote = args['files']
+        ? `Focus on these changed files: ${args['files']}.`
+        : 'Ask the user which files have changed if not already clear from context.';
+      sendResponse(id, {
+        description: 'Pre-commit gate — conventions, security, blast radius.',
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: [
+                'Run a pre-commit code quality check:',
+                '1. Call `get_conventions` — load coding rules and naming conventions.',
+                `2. ${filesNote}`,
+                '3. For each changed file, call `get_impact_of_change` with the file path.',
+                '4. Flag any violations of conventions or security issues (OWASP Top 10).',
+                '5. Report: (a) convention violations, (b) security findings, (c) blast-radius files that may need review.',
+                '',
+                'Do NOT modify any files — this is a read-only review.',
+              ].join('\n'),
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    if (promptName === 'architecture_review') {
+      sendResponse(id, {
+        description: 'Architecture review — loads full context for cross-cutting decisions.',
+        messages: [
+          {
+            role: 'user',
+            content: {
+              type: 'text',
+              text: [
+                'Load full architecture context for an architectural review:',
+                '1. Call `get_session_context` — MUST-ALWAYS rules.',
+                '2. Call `get_stack_info` — complete dependency inventory.',
+                '3. Call `get_project_structure` — directory layout.',
+                '4. Call `get_repo_memory` — durable architectural decisions.',
+                '',
+                'Then summarise: current architecture patterns, key dependencies, and any known constraints before making any recommendations.',
+                'Do NOT modify any files during this review.',
+              ].join('\n'),
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    sendError(id, -32602, `Unknown prompt: ${promptName}`);
     return;
   }
 }

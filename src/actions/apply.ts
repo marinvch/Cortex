@@ -10,6 +10,8 @@ import { generateAgents, scanExistingAgents } from '../generators/agents.js';
 import { generateSkills, deployBundledSkills } from '../generators/skills.js';
 import { generatePrompts } from '../generators/prompts.js';
 import { generateWorkflows } from '../generators/workflows.js';
+import { generateToolsets } from '../generators/toolsets.js';
+import { generateChatModes } from '../generators/chatmodes.js';
 import { getMcpToolsForStack } from '../mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from '../updater.js';
 import { buildOnboardingPlan } from '../planner.js';
@@ -568,7 +570,9 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     refreshExisting: mode === 'refresh-existing',
     strategy: skillsStrategy,
   });
-  const promptFiles = await generatePrompts(stack, cwd, { refreshExisting: mode === 'refresh-existing' });
+  const promptFiles = await generatePrompts(stack, cwd);
+  const toolsetFiles = generateToolsets(stack, cwd);
+  const chatModeFiles = generateChatModes(stack, cwd);
   const workflowFiles = generateWorkflows(cwd, { config: config ?? undefined });
   await deployBundledSkills(cwd, { refreshExisting: mode === 'refresh-existing' });
 
@@ -593,6 +597,8 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     ...agentFiles,
     ...skillFiles,
     ...promptFiles,
+    ...toolsetFiles,
+    ...chatModeFiles,
     ...workflowFiles,
     ...recommendationFiles,
   ];

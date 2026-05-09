@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { isAiOsConfig } from '../types.js';
 import { isAiOsManifest } from '../generators/utils.js';
+import { isMcpToolDefinition } from '../mcp-server/tool-definitions.js';
 
 describe('isAiOsManifest', () => {
   const valid = {
@@ -87,5 +88,55 @@ describe('isAiOsConfig', () => {
 
   it('rejects a plain array', () => {
     expect(isAiOsConfig([])).toBe(false);
+  });
+});
+
+describe('isMcpToolDefinition', () => {
+  const valid = {
+    name: 'get_conventions',
+    description: 'Returns coding conventions for the project.',
+    inputSchema: { type: 'object', properties: {} },
+  };
+
+  it('accepts a valid tool definition', () => {
+    expect(isMcpToolDefinition(valid)).toBe(true);
+  });
+
+  it('accepts a tool with required array in inputSchema', () => {
+    expect(isMcpToolDefinition({
+      ...valid,
+      inputSchema: { type: 'object', properties: {}, required: ['query'] },
+    })).toBe(true);
+  });
+
+  it('rejects null', () => {
+    expect(isMcpToolDefinition(null)).toBe(false);
+  });
+
+  it('rejects missing name', () => {
+    const { name: _, ...rest } = valid;
+    expect(isMcpToolDefinition(rest)).toBe(false);
+  });
+
+  it('rejects empty name string', () => {
+    expect(isMcpToolDefinition({ ...valid, name: '' })).toBe(false);
+  });
+
+  it('rejects missing description', () => {
+    const { description: _, ...rest } = valid;
+    expect(isMcpToolDefinition(rest)).toBe(false);
+  });
+
+  it('rejects missing inputSchema', () => {
+    const { inputSchema: _, ...rest } = valid;
+    expect(isMcpToolDefinition(rest)).toBe(false);
+  });
+
+  it('rejects inputSchema without type=object', () => {
+    expect(isMcpToolDefinition({ ...valid, inputSchema: { type: 'array', properties: {} } })).toBe(false);
+  });
+
+  it('rejects a plain string', () => {
+    expect(isMcpToolDefinition('get_conventions')).toBe(false);
   });
 });

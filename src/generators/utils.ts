@@ -69,13 +69,44 @@ export function writeIfChanged(filePath: string, content: string): WriteResult {
     const existing = fs.readFileSync(filePath, 'utf-8');
     if (existing === content) {
       if (_verbose) console.log(`  ⏭️  skip    ${filePath}  (unchanged)`);
+      // In dry-run capture mode: still record unchanged entries
+      if (_dryRun) _dryRunCaptures.push({ filePath, newContent: content, existingContent: existing });
       return 'skipped';
     }
+  }
+
+  if (_dryRun) {
+    // Capture planned write without touching disk
+    const existing = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : null;
+    _dryRunCaptures.push({ filePath, newContent: content, existingContent: existing });
+    return 'written';
   }
 
   writeFileAtomic(filePath, content);
   if (_verbose) console.log(`  ✏️  write   ${filePath}`);
   return 'written';
+}
+
+// ── Dry-run capture mode (#116) ───────────────────────────────────────────────
+
+export interface DryRunCapture {
+  filePath: string;
+  newContent: string;
+  existingContent: string | null;
+}
+
+let _dryRun = false;
+let _dryRunCaptures: DryRunCapture[] = [];
+
+/** Enable dry-run capture mode — writeIfChanged records planned writes but does not touch disk. */
+export function setDryRunMode(enabled: boolean): void {
+  _dryRun = enabled;
+  if (enabled) _dryRunCaptures = [];
+}
+
+/** Returns all captured planned writes since dry-run mode was activated. */
+export function getDryRunCaptures(): DryRunCapture[] {
+  return _dryRunCaptures;
 }
 
 // ── Placeholder resolution (#9) ───────────────────────────────────────────────

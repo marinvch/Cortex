@@ -12,6 +12,7 @@
   "scripts": {
     "build": "tsc",
     "bundle": "node scripts/bundle.mjs",
+    "gen-mcp-docs": "node scripts/gen-mcp-docs.mjs",
     "dev": "tsx src/generate.ts",
     "generate": "tsx src/generate.ts",
     "generate:dry": "tsx src/generate.ts --dry-run",
@@ -29,7 +30,7 @@
     "scorecard:update": "tsx src/validation/scorecard.ts",
     "scorecard:show": "tsx src/validation/scorecard.ts --show",
     "scorecard:check": "tsx src/validation/scorecard-check.ts",
-    "validate:fast": "npm run build && npm run test",
+    "validate:fast": "npm run build && npm run lint && npm run test",
     "validate:ops": "npm run validate:fast && npm run scorecard:check",
     "validate:full": "npm run build && npm run test && npm run validate",
     "lint": "eslint \"src/**/*.ts\"",

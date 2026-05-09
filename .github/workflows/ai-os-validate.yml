@@ -6,6 +6,7 @@ on:
     paths:
       - "src/**"
       - "scripts/**"
+      - "docs/mcp-tools.md"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -15,6 +16,7 @@ on:
     paths:
       - "src/**"
       - "scripts/**"
+      - "docs/mcp-tools.md"
       - "package.json"
       - "package-lock.json"
       - "tsconfig.json"
@@ -53,6 +55,11 @@ jobs:
       - name: Audit dependencies (high severity)
         run: npm audit --omit=dev --audit-level=high
 
+      - name: MCP docs freshness check
+        run: |
+          npm run gen-mcp-docs
+          git diff --exit-code docs/mcp-tools.md || (echo "docs/mcp-tools.md is stale — run npm run gen-mcp-docs and commit" && exit 1)
+
   validate-full:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
@@ -79,6 +86,11 @@ jobs:
 
       - name: Audit dependencies (high severity)
         run: npm audit --omit=dev --audit-level=high
+
+      - name: MCP docs freshness check
+        run: |
+          npm run gen-mcp-docs
+          git diff --exit-code docs/mcp-tools.md || (echo "docs/mcp-tools.md is stale — run npm run gen-mcp-docs and commit" && exit 1)
 
       - name: Scorecard regression check
         run: npm run scorecard:check

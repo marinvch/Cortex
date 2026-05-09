@@ -136,7 +136,7 @@ For `--bootstrap`, the output includes an additional `bootstrap` field with the 
   "status": "fresh",
   "score": 1.0,
   "snapshotCapturedAt": "2025-01-20T14:00:00.000Z",
-  "lastGenerationAt": "2025-01-20T14:00:00.000Z",
+  "lastGeneratedAt": "2025-01-20T14:00:00.000Z",
   "staleArtifacts": [],
   "changedSourceFiles": [],
   "recommendations": []

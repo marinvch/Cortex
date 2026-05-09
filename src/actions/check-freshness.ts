@@ -1,10 +1,30 @@
 import { computeFreshnessReport, formatFreshnessReport } from '../detectors/freshness.js';
 
-export function runCheckFreshnessAction(cwd: string): void {
-  console.log(`  🔍 Context freshness check: ${cwd}`);
-  console.log('');
+export function runCheckFreshnessAction(cwd: string, json = false): void {
+  if (!json) {
+    console.log(`  🔍 Context freshness check: ${cwd}`);
+    console.log('');
+  }
 
   const report = computeFreshnessReport(cwd);
+
+  if (json) {
+    console.log(JSON.stringify({
+      action: 'check-freshness',
+      status: report.status,
+      score: report.score,
+      snapshotCapturedAt: report.snapshotCapturedAt ?? null,
+      lastGenerationAt: report.lastGeneratedAt ?? null,
+      staleArtifacts: report.staleArtifacts,
+      changedSourceFiles: report.changedSourceFiles,
+      recommendations: report.recommendations,
+    }));
+
+    const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true';
+    if (report.status === 'stale' && isCi) process.exit(1);
+    return;
+  }
+
   console.log(formatFreshnessReport(report));
 
   const isCi = process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true';

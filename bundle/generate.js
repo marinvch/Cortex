@@ -434,7 +434,11 @@ function sanitizeForInstructions(value, maxLength = 128) {
 function resolveTemplatesDir(runtimeDir) {
   const candidates = [
     path3.join(runtimeDir, "..", "templates"),
-    path3.join(runtimeDir, "..", "src", "templates")
+    // bundle/generate.js → templates/  |  dist/generators/ → dist/templates/
+    path3.join(runtimeDir, "..", "src", "templates"),
+    // bundle/generate.js → src/templates/ ✓  |  src/generators/ → src/templates/ ✓
+    path3.join(runtimeDir, "..", "..", "src", "templates")
+    // dist/generators/ → src/templates/ ✓ (tsc compiled layout)
   ];
   for (const candidate of candidates) {
     if (fs2.existsSync(candidate) && fs2.statSync(candidate).isDirectory()) {

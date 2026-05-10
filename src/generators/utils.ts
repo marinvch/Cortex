@@ -305,8 +305,9 @@ export function sanitizeForInstructions(value: string, maxLength = 128): string 
  */
 export function resolveTemplatesDir(runtimeDir: string): string {
   const candidates = [
-    path.join(runtimeDir, '..', 'templates'),
-    path.join(runtimeDir, '..', 'src', 'templates'),
+    path.join(runtimeDir, '..', 'templates'),              // bundle/generate.js → templates/  |  dist/generators/ → dist/templates/
+    path.join(runtimeDir, '..', 'src', 'templates'),       // bundle/generate.js → src/templates/ ✓  |  src/generators/ → src/templates/ ✓
+    path.join(runtimeDir, '..', '..', 'src', 'templates'), // dist/generators/ → src/templates/ ✓ (tsc compiled layout)
   ];
 
   for (const candidate of candidates) {

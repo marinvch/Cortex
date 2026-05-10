@@ -5826,16 +5826,6 @@ var FRAMEWORK_RECOMMENDATIONS = {
     trigger: "Vue",
     vscode: ["Vue.volar"]
   },
-  "tRPC": {
-    trigger: "tRPC",
-    skills: ["trpc"]
-  },
-  "Prisma": {
-    trigger: "Prisma",
-    mcp: { package: "prisma/mcp-server", description: "Official Prisma MCP server" },
-    vscode: ["Prisma.prisma"],
-    skills: ["prisma"]
-  },
   "WordPress": {
     trigger: "WordPress",
     vscode: ["wongjn.php-sniffer", "bmewburn.vscode-intelephense-client"],
@@ -5896,6 +5886,53 @@ var UNIVERSAL_RECOMMENDATIONS = [
       "find-skills": "vercel-labs/skills",
       "context7": "intellectronica/agent-skills"
     }
+  },
+  {
+    trigger: "universal",
+    skills: [
+      "brainstorming",
+      "writing-plans",
+      "executing-plans",
+      "test-driven-development",
+      "subagent-driven-development",
+      "dispatching-parallel-agents",
+      "requesting-code-review",
+      "receiving-code-review",
+      "systematic-debugging",
+      "verification-before-completion",
+      "finishing-a-development-branch",
+      "using-git-worktrees",
+      "using-superpowers",
+      "writing-skills"
+    ],
+    skillSources: {
+      "brainstorming": "obra/superpowers",
+      "writing-plans": "obra/superpowers",
+      "executing-plans": "obra/superpowers",
+      "test-driven-development": "obra/superpowers",
+      "subagent-driven-development": "obra/superpowers",
+      "dispatching-parallel-agents": "obra/superpowers",
+      "requesting-code-review": "obra/superpowers",
+      "receiving-code-review": "obra/superpowers",
+      "systematic-debugging": "obra/superpowers",
+      "verification-before-completion": "obra/superpowers",
+      "finishing-a-development-branch": "obra/superpowers",
+      "using-git-worktrees": "obra/superpowers",
+      "using-superpowers": "obra/superpowers",
+      "writing-skills": "obra/superpowers"
+    },
+    pluginInstall: {
+      name: "Superpowers",
+      description: "Agentic software development methodology: design \u2192 plan \u2192 TDD \u2192 parallel execution \u2192 review. Works across Claude Code, GitHub Copilot CLI, Codex, Cursor, and more.",
+      skillSource: "obra/superpowers",
+      steps: [
+        { harness: "Claude Code (official marketplace)", command: "/plugin install superpowers@claude-plugins-official" },
+        { harness: "GitHub Copilot CLI \u2014 step 1 (register marketplace)", command: "copilot plugin marketplace add obra/superpowers-marketplace" },
+        { harness: "GitHub Copilot CLI \u2014 step 2 (install plugin)", command: "copilot plugin install superpowers@superpowers-marketplace" },
+        { harness: "Cursor", command: "/add-plugin superpowers" },
+        { harness: "Gemini CLI", command: "gemini extensions install https://github.com/obra/superpowers" }
+      ]
+    }
   }
 ];
 
@@ -5910,7 +5947,7 @@ function buildSkillsInstallCommand(skill, mode = "source-based") {
 
 // src/recommendations/index.ts
 function collectRecommendations(stack) {
-  const collected = { mcp: [], vscode: [], skills: [], copilotExtensions: [], universalSkills: [] };
+  const collected = { mcp: [], vscode: [], skills: [], copilotExtensions: [], universalSkills: [], pluginInstalls: [] };
   const seenMcp = /* @__PURE__ */ new Set();
   const seenVscode = /* @__PURE__ */ new Set();
   const seenSkills = /* @__PURE__ */ new Set();
@@ -5941,6 +5978,9 @@ function collectRecommendations(stack) {
     if (rec.copilotExtension && !seenExt.has(rec.copilotExtension.name)) {
       seenExt.add(rec.copilotExtension.name);
       collected.copilotExtensions.push({ trigger: rec.trigger, ...rec.copilotExtension });
+    }
+    if (rec.pluginInstall && !collected.pluginInstalls.some((p) => p.name === rec.pluginInstall.name)) {
+      collected.pluginInstalls.push({ trigger: rec.trigger, name: rec.pluginInstall.name, description: rec.pluginInstall.description, skillSource: rec.pluginInstall.skillSource, steps: rec.pluginInstall.steps });
     }
   }
   for (const dep of stack.allDependencies) {
@@ -6050,21 +6090,52 @@ function generateRecommendationsDoc(stack, collected) {
     }
     lines.push("");
   }
-  if (collected.universalSkills.length > 0) {
+  if (collected.pluginInstalls.length > 0) {
+    for (const plugin of collected.pluginInstalls) {
+      lines.push(`## ${plugin.name}`, "");
+      lines.push(`> ${plugin.description}`, "");
+      lines.push("**Install in your coding agent:**", "");
+      lines.push("```bash");
+      for (const step of plugin.steps) {
+        lines.push(`# ${step.harness}`);
+        lines.push(step.command);
+        lines.push("");
+      }
+      lines.push("```");
+      lines.push("");
+      const pluginSkills = plugin.skillSource ? collected.universalSkills.filter((s) => s.source === plugin.skillSource) : [];
+      if (pluginSkills.length > 0) {
+        lines.push("**Or install individual skills via skills CLI:**", "");
+        lines.push("```bash");
+        for (const skill of pluginSkills) {
+          lines.push(buildSkillsInstallCommand(skill));
+        }
+        lines.push("```");
+        lines.push("");
+      }
+    }
+  }
+  const pluginSkillNames = new Set(
+    collected.pluginInstalls.flatMap(
+      (plugin) => plugin.skillSource ? collected.universalSkills.filter((s) => s.source === plugin.skillSource).map((s) => s.name) : []
+    )
+  );
+  const remainingUniversalSkills = collected.universalSkills.filter((s) => !pluginSkillNames.has(s.name));
+  if (remainingUniversalSkills.length > 0) {
     lines.push("## Universal Skills (Optional)", "");
     lines.push("> These skills are useful for any project and are not specific to the detected stack.");
     lines.push("");
-    for (const item of collected.universalSkills) {
+    for (const item of remainingUniversalSkills) {
       lines.push(`- **${item.name}** \u2014 general purpose`);
     }
     lines.push("");
     lines.push("**Install via skills CLI** (source-based form `<source>@<skill>`):");
     lines.push("```bash");
-    for (const item of collected.universalSkills) {
+    for (const item of remainingUniversalSkills) {
       lines.push(buildSkillsInstallCommand(item));
     }
     lines.push("```");
-    const unknownSources = collected.universalSkills.filter((s) => !s.source);
+    const unknownSources = remainingUniversalSkills.filter((s) => !s.source);
     if (unknownSources.length > 0) {
       lines.push("");
       lines.push(`> \u26A0\uFE0F  Skills without a known source (${unknownSources.map((s) => `\`${s.name}\``).join(", ")}): find the GitHub repo hosting the skill and replace \`<source>\` before running.`);
@@ -6199,6 +6270,9 @@ function installSkill(skillName, source) {
     stdio: "pipe",
     shell: process.platform === "win32"
   });
+  if (result.error) {
+    return { success: false, error: `Failed to spawn npx: ${result.error.message}` };
+  }
   if (result.status === 0) return { success: true };
   const stderr = result.stderr?.trim() ?? "";
   const stdout = result.stdout?.trim() ?? "";
@@ -6765,6 +6839,71 @@ function printMemoryMaintenanceSummary(cwd) {
   } catch {
   }
 }
+function printSuperpowersPluginSetup() {
+  console.log("  \u{1F4CE} Superpowers plugin \u2014 activate in your agent harness:");
+  console.log("");
+  console.log("     GitHub Copilot CLI:");
+  console.log("       copilot plugin marketplace add obra/superpowers-marketplace");
+  console.log("       copilot plugin install superpowers@superpowers-marketplace");
+  console.log("");
+  console.log("     Claude Code (official marketplace):");
+  console.log("       /plugin install superpowers@claude-plugins-official");
+  console.log("");
+  console.log("     Cursor:  /add-plugin superpowers");
+  console.log("     Gemini:  gemini extensions install https://github.com/obra/superpowers");
+  console.log("");
+}
+function autoInstallSuperpowers(stack, skillsLockPath) {
+  const recs = collectRecommendations(stack);
+  const allSuperpowers = recs.universalSkills.filter((s) => s.source === "obra/superpowers");
+  if (allSuperpowers.length === 0) return;
+  let installedSet = /* @__PURE__ */ new Set();
+  try {
+    const lock = JSON.parse(fs22.readFileSync(skillsLockPath, "utf-8"));
+    const names = Array.isArray(lock.skills) ? lock.skills : Object.keys(lock.skills ?? {});
+    installedSet = new Set(names.map((n) => n.toLowerCase()));
+  } catch {
+  }
+  const toInstall = allSuperpowers.filter((s) => !installedSet.has(s.name.toLowerCase()));
+  const alreadyInstalled = allSuperpowers.length - toInstall.length;
+  if (toInstall.length === 0) {
+    console.log("  \u{1F9B8} All Superpowers skills already installed.");
+    console.log("");
+    return;
+  }
+  console.log("");
+  console.log("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
+  console.log("  \u2502  \u{1F9B8} Superpowers \u2014 Agentic Development Methodology                  \u2502");
+  console.log("  \u2502                                                                    \u2502");
+  console.log("  \u2502  Auto-installing core Superpowers skills for your coding agent...  \u2502");
+  console.log("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
+  console.log("");
+  if (alreadyInstalled > 0) {
+    console.log(`  \u2705 ${alreadyInstalled} skill(s) already installed \u2014 skipping.`);
+  }
+  const results = [];
+  for (const skill of toInstall) {
+    const result = installSkill(skill.name, skill.source);
+    results.push({ name: skill.name, ...result });
+    const icon = result.success ? "  \u2705" : "  \u26A0\uFE0F ";
+    const label = result.success ? skill.name : `${skill.name}  (${result.error ?? "install failed"})`;
+    console.log(`${icon} ${label}`);
+  }
+  console.log("");
+  const installed = results.filter((r) => r.success).length;
+  const failed = results.filter((r) => !r.success).length;
+  if (installed > 0) {
+    console.log(`  \u2705 ${installed} Superpowers skill(s) installed.`);
+  }
+  if (failed > 0) {
+    console.log(`  \u26A0\uFE0F  ${failed} skill(s) could not be auto-installed. Run manually:`);
+    for (const r of results.filter((r2) => !r2.success)) {
+      console.log(`     npx -y skills add obra/superpowers@${r.name} -g -a github-copilot`);
+    }
+  }
+  console.log("");
+  printSuperpowersPluginSetup();
+}
 async function runApply(args) {
   const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = args;
   let mode = rawMode;
@@ -7081,8 +7220,12 @@ ${gapReport}
     console.log(formatBootstrapReport(bootstrapReport));
     return;
   }
-  const agentFlowMode = config?.agentFlowMode;
   const isFirstInstall = updateStatus.isFirstInstall;
+  if (!dryRun && isFirstInstall) {
+    const spLockPath = path27.join(path27.dirname(new URL(import.meta.url).pathname), "..", "skills-lock.json");
+    autoInstallSuperpowers(stack, spLockPath);
+  }
+  const agentFlowMode = config?.agentFlowMode;
   if (isFirstInstall || agentFlowMode === void 0) {
     printAgentFlowSetupPrompt(cwd, config?.agentFlowMode ?? null);
   }

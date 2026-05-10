@@ -16,12 +16,12 @@ import { getMcpToolsForStack } from '../mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from '../updater.js';
 import { buildOnboardingPlan } from '../planner.js';
 import { readManifest, writeManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic, setPrevHashes, getNewHashes } from '../generators/utils.js';
-import { generateRecommendations, getSkillsGapReport } from '../recommendations/index.js';
+import { generateRecommendations, getSkillsGapReport, collectRecommendations } from '../recommendations/index.js';
 import { applyProfile, describeProfile } from '../profile.js';
 import { mergeUserBlocks } from '../user-blocks.js';
 import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport } from '../detectors/freshness.js';
 import { runMemoryMaintenance } from '../mcp-server/utils.js';
-import { runBootstrap, formatBootstrapReport } from '../bootstrap.js';
+import { runBootstrap, formatBootstrapReport, installSkill } from '../bootstrap.js';
 import { runPlanAction } from './plan.js';
 import { runPreviewAction } from './preview.js';
 import type { ParsedArgs, GenerateMode } from '../cli/args.js';
@@ -525,6 +525,97 @@ function printMemoryMaintenanceSummary(cwd: string): void {
   }
 }
 
+/**
+ * Print the Superpowers harness-level plugin install instructions.
+ * Shown on first install so users know how to activate the full plugin experience.
+ */
+function printSuperpowersPluginSetup(): void {
+  console.log('  📎 Superpowers plugin — activate in your agent harness:');
+  console.log('');
+  console.log('     GitHub Copilot CLI:');
+  console.log('       copilot plugin marketplace add obra/superpowers-marketplace');
+  console.log('       copilot plugin install superpowers@superpowers-marketplace');
+  console.log('');
+  console.log('     Claude Code (official marketplace):');
+  console.log('       /plugin install superpowers@claude-plugins-official');
+  console.log('');
+  console.log('     Cursor:  /add-plugin superpowers');
+  console.log('     Gemini:  gemini extensions install https://github.com/obra/superpowers');
+  console.log('');
+}
+
+/**
+ * Auto-install Superpowers skills (obra/superpowers-sourced universal skills) on first install.
+ * Idempotent: reads skills-lock.json and skips skills already installed.
+ * Gives every AI OS project the core agentic development methodology out of the box.
+ */
+function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPath: string): void {
+  const recs = collectRecommendations(stack);
+  const allSuperpowers = recs.universalSkills.filter(s => s.source === 'obra/superpowers');
+
+  if (allSuperpowers.length === 0) return;
+
+  // Read installed skills from lock file to skip already-installed ones
+  let installedSet = new Set<string>();
+  try {
+    const lock = JSON.parse(fs.readFileSync(skillsLockPath, 'utf-8')) as {
+      skills?: string[] | Record<string, unknown>;
+    };
+    const names = Array.isArray(lock.skills) ? lock.skills : Object.keys(lock.skills ?? {});
+    installedSet = new Set(names.map(n => n.toLowerCase()));
+  } catch {
+    // Lock file missing — treat all as uninstalled
+  }
+
+  const toInstall = allSuperpowers.filter(s => !installedSet.has(s.name.toLowerCase()));
+  const alreadyInstalled = allSuperpowers.length - toInstall.length;
+
+  if (toInstall.length === 0) {
+    console.log('  🦸 All Superpowers skills already installed.');
+    console.log('');
+    return;
+  }
+
+  console.log('');
+  console.log('  ┌────────────────────────────────────────────────────────────────────┐');
+  console.log('  │  🦸 Superpowers — Agentic Development Methodology                  │');
+  console.log('  │                                                                    │');
+  console.log('  │  Auto-installing core Superpowers skills for your coding agent...  │');
+  console.log('  └────────────────────────────────────────────────────────────────────┘');
+  console.log('');
+
+  if (alreadyInstalled > 0) {
+    console.log(`  ✅ ${alreadyInstalled} skill(s) already installed — skipping.`);
+  }
+
+  const results: Array<{ name: string; success: boolean; error?: string }> = [];
+  for (const skill of toInstall) {
+    const result = installSkill(skill.name, skill.source);
+    results.push({ name: skill.name, ...result });
+    const icon = result.success ? '  ✅' : '  ⚠️ ';
+    const label = result.success
+      ? skill.name
+      : `${skill.name}  (${result.error ?? 'install failed'})`;
+    console.log(`${icon} ${label}`);
+  }
+
+  console.log('');
+  const installed = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
+
+  if (installed > 0) {
+    console.log(`  ✅ ${installed} Superpowers skill(s) installed.`);
+  }
+  if (failed > 0) {
+    console.log(`  ⚠️  ${failed} skill(s) could not be auto-installed. Run manually:`);
+    for (const r of results.filter(r => !r.success)) {
+      console.log(`     npx -y skills add obra/superpowers@${r.name} -g -a github-copilot`);
+    }
+  }
+  console.log('');
+  printSuperpowersPluginSetup();
+}
+
 export async function runApply(args: ParsedArgs): Promise<void> {
   const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = args;
   let mode: GenerateMode = rawMode;
@@ -932,11 +1023,20 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     return;
   }
 
+  // ── Auto-install Superpowers skills on first install ─────────────────────
+  // On a brand-new AI OS setup, install obra/superpowers agentic-methodology
+  // skills automatically so users get the core workflow out of the box.
+  // (On subsequent refreshes users can run `--bootstrap` for a full skill sync.)
+  const isFirstInstall = updateStatus.isFirstInstall;
+  if (!dryRun && isFirstInstall) {
+    const spLockPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'skills-lock.json');
+    autoInstallSuperpowers(stack, spLockPath);
+  }
+
   // ── Agent-flow setup prompt ──────────────────────────────────────────────
   // On first install (no prior config) or when agentFlowMode is not explicitly
   // set, scan for existing agents and print a one-time setup suggestion.
   const agentFlowMode = config?.agentFlowMode;
-  const isFirstInstall = updateStatus.isFirstInstall;
   if (isFirstInstall || agentFlowMode === undefined) {
     printAgentFlowSetupPrompt(cwd, config?.agentFlowMode ?? null);
   }

@@ -21,6 +21,17 @@ export interface StackRecommendation {
   skillSources?: Record<string, string>;
   /** GitHub Copilot Extension */
   copilotExtension?: { name: string; url: string };
+  /**
+   * Plugin install steps for agent harnesses that use a plugin system
+   * (e.g. Claude Code marketplace, GitHub Copilot CLI plugin marketplace).
+   */
+  pluginInstall?: {
+    name: string;
+    description: string;
+    /** Source repo (e.g. 'obra/superpowers') — matches universalSkills to this plugin for the skills CLI section */
+    skillSource?: string;
+    steps: Array<{ harness: string; command: string }>;
+  };
 }
 
 /** Dependency key → recommendation */
@@ -185,16 +196,6 @@ export const FRAMEWORK_RECOMMENDATIONS: Record<string, StackRecommendation> = {
     trigger: 'Vue',
     vscode: ['Vue.volar'],
   },
-  'tRPC': {
-    trigger: 'tRPC',
-    skills: ['trpc'],
-  },
-  'Prisma': {
-    trigger: 'Prisma',
-    mcp: { package: 'prisma/mcp-server', description: 'Official Prisma MCP server' },
-    vscode: ['Prisma.prisma'],
-    skills: ['prisma'],
-  },
   'WordPress': {
     trigger: 'WordPress',
     vscode: ['wongjn.php-sniffer', 'bmewburn.vscode-intelephense-client'],
@@ -258,6 +259,53 @@ export const UNIVERSAL_RECOMMENDATIONS: StackRecommendation[] = [
     skillSources: {
       'find-skills': 'vercel-labs/skills',
       'context7': 'intellectronica/agent-skills',
+    },
+  },
+  {
+    trigger: 'universal',
+    skills: [
+      'brainstorming',
+      'writing-plans',
+      'executing-plans',
+      'test-driven-development',
+      'subagent-driven-development',
+      'dispatching-parallel-agents',
+      'requesting-code-review',
+      'receiving-code-review',
+      'systematic-debugging',
+      'verification-before-completion',
+      'finishing-a-development-branch',
+      'using-git-worktrees',
+      'using-superpowers',
+      'writing-skills',
+    ],
+    skillSources: {
+      'brainstorming': 'obra/superpowers',
+      'writing-plans': 'obra/superpowers',
+      'executing-plans': 'obra/superpowers',
+      'test-driven-development': 'obra/superpowers',
+      'subagent-driven-development': 'obra/superpowers',
+      'dispatching-parallel-agents': 'obra/superpowers',
+      'requesting-code-review': 'obra/superpowers',
+      'receiving-code-review': 'obra/superpowers',
+      'systematic-debugging': 'obra/superpowers',
+      'verification-before-completion': 'obra/superpowers',
+      'finishing-a-development-branch': 'obra/superpowers',
+      'using-git-worktrees': 'obra/superpowers',
+      'using-superpowers': 'obra/superpowers',
+      'writing-skills': 'obra/superpowers',
+    },
+    pluginInstall: {
+      name: 'Superpowers',
+      description: 'Agentic software development methodology: design → plan → TDD → parallel execution → review. Works across Claude Code, GitHub Copilot CLI, Codex, Cursor, and more.',
+      skillSource: 'obra/superpowers',
+      steps: [
+        { harness: 'Claude Code (official marketplace)', command: '/plugin install superpowers@claude-plugins-official' },
+        { harness: 'GitHub Copilot CLI — step 1 (register marketplace)', command: 'copilot plugin marketplace add obra/superpowers-marketplace' },
+        { harness: 'GitHub Copilot CLI — step 2 (install plugin)', command: 'copilot plugin install superpowers@superpowers-marketplace' },
+        { harness: 'Cursor', command: '/add-plugin superpowers' },
+        { harness: 'Gemini CLI', command: 'gemini extensions install https://github.com/obra/superpowers' },
+      ],
     },
   },
 ];

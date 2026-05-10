@@ -64,7 +64,7 @@ function buildInstallCmd(skillName: string, source?: string): string {
  * Attempt to install a single skill via the skills CLI.
  * Returns { success, error }.
  */
-function installSkill(skillName: string, source?: string): { success: boolean; error?: string } {
+export function installSkill(skillName: string, source?: string): { success: boolean; error?: string } {
   const args = ['skills', 'add'];
   if (source) {
     args.push(`${source}@${skillName}`);
@@ -79,6 +79,10 @@ function installSkill(skillName: string, source?: string): { success: boolean; e
     stdio: 'pipe',
     shell: process.platform === 'win32',
   });
+
+  if (result.error) {
+    return { success: false, error: `Failed to spawn npx: ${result.error.message}` };
+  }
 
   if (result.status === 0) return { success: true };
 

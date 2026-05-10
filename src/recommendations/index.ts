@@ -18,10 +18,12 @@ interface CollectedRecommendations {
   copilotExtensions: Array<{ trigger: string; name: string; url: string }>;
   /** Whether this entry came from a universal (always-on) recommendation */
   universalSkills: Array<{ trigger: string; name: string; source?: string }>;
+  /** Plugin install steps for agent harnesses (Claude Code, GitHub Copilot CLI, Cursor, etc.) */
+  pluginInstalls: Array<{ trigger: string; name: string; description: string; skillSource?: string; steps: Array<{ harness: string; command: string }> }>;
 }
 
 export function collectRecommendations(stack: DetectedStack): CollectedRecommendations {
-  const collected: CollectedRecommendations = { mcp: [], vscode: [], skills: [], copilotExtensions: [], universalSkills: [] };
+  const collected: CollectedRecommendations = { mcp: [], vscode: [], skills: [], copilotExtensions: [], universalSkills: [], pluginInstalls: [] };
   const seenMcp = new Set<string>();
   const seenVscode = new Set<string>();
   const seenSkills = new Set<string>();
@@ -53,6 +55,9 @@ export function collectRecommendations(stack: DetectedStack): CollectedRecommend
     if (rec.copilotExtension && !seenExt.has(rec.copilotExtension.name)) {
       seenExt.add(rec.copilotExtension.name);
       collected.copilotExtensions.push({ trigger: rec.trigger, ...rec.copilotExtension });
+    }
+    if (rec.pluginInstall && !collected.pluginInstalls.some(p => p.name === rec.pluginInstall!.name)) {
+      collected.pluginInstalls.push({ trigger: rec.trigger, name: rec.pluginInstall.name, description: rec.pluginInstall.description, skillSource: rec.pluginInstall.skillSource, steps: rec.pluginInstall.steps });
     }
   }
 
@@ -179,22 +184,61 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
     lines.push('');
   }
 
-  // Universal/optional skills in a separate section
-  if (collected.universalSkills.length > 0) {
+  // Plugin installs (Superpowers and any other harness-level plugin)
+  if (collected.pluginInstalls.length > 0) {
+    for (const plugin of collected.pluginInstalls) {
+      lines.push(`## ${plugin.name}`, '');
+      lines.push(`> ${plugin.description}`, '');
+      lines.push('**Install in your coding agent:**', '');
+      lines.push('```bash');
+      for (const step of plugin.steps) {
+        lines.push(`# ${step.harness}`);
+        lines.push(step.command);
+        lines.push('');
+      }
+      lines.push('```');
+      lines.push('');
+      // Also show individual skills that belong to this plugin (matched by skillSource)
+      const pluginSkills = plugin.skillSource
+        ? collected.universalSkills.filter(s => s.source === plugin.skillSource)
+        : [];
+      if (pluginSkills.length > 0) {
+        lines.push('**Or install individual skills via skills CLI:**', '');
+        lines.push('```bash');
+        for (const skill of pluginSkills) {
+          lines.push(buildSkillsInstallCommand(skill));
+        }
+        lines.push('```');
+        lines.push('');
+      }
+    }
+  }
+
+  // Universal/optional skills in a separate section (exclude skills already shown in plugin sections)
+  const pluginSkillNames = new Set(
+    collected.pluginInstalls.flatMap(plugin =>
+      plugin.skillSource
+        ? collected.universalSkills.filter(s => s.source === plugin.skillSource).map(s => s.name)
+        : []
+    )
+  );
+  const remainingUniversalSkills = collected.universalSkills.filter(s => !pluginSkillNames.has(s.name));
+
+  if (remainingUniversalSkills.length > 0) {
     lines.push('## Universal Skills (Optional)', '');
     lines.push('> These skills are useful for any project and are not specific to the detected stack.');
     lines.push('');
-    for (const item of collected.universalSkills) {
+    for (const item of remainingUniversalSkills) {
       lines.push(`- **${item.name}** — general purpose`);
     }
     lines.push('');
     lines.push('**Install via skills CLI** (source-based form `<source>@<skill>`):');
     lines.push('```bash');
-    for (const item of collected.universalSkills) {
+    for (const item of remainingUniversalSkills) {
       lines.push(buildSkillsInstallCommand(item));
     }
     lines.push('```');
-    const unknownSources = collected.universalSkills.filter(s => !s.source);
+    const unknownSources = remainingUniversalSkills.filter(s => !s.source);
     if (unknownSources.length > 0) {
       lines.push('');
       lines.push(`> ⚠️  Skills without a known source (${unknownSources.map(s => `\`${s.name}\``).join(', ')}): find the GitHub repo hosting the skill and replace \`<source>\` before running.`);

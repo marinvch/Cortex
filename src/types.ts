@@ -170,6 +170,11 @@ export interface AiOsConfig {
    * Populated by --refresh-existing. Checked by --doctor and detect_drift.
    */
   skillVersions?: Record<string, string>;
+  /**
+   * Allow run_tests, run_lint, and run_build MCP tools to execute shell commands.
+   * Default: false (must be explicitly enabled or set AI_OS_ALLOW_RUN_TOOLS=1).
+   */
+  allowRunTools?: boolean;
 }
 
 /** Runtime type guard for AiOsConfig JSON artifacts. */

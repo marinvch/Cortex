@@ -47,6 +47,7 @@ import {
   getContextFreshness,
 } from './utils.js';
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
+import { readFile, listDirectory, runTests, runLint, runBuild } from './filesystem.js';
 
 interface ToolInput {
   query?: string;
@@ -227,6 +228,21 @@ function executeTool(toolName: string, input: ToolInput): string {
       result = formatDriftReport(report, !!(input as { verbose?: boolean }).verbose);
       break;
     }
+    case 'read_file':
+      result = readFile(input.path ?? '');
+      break;
+    case 'list_directory':
+      result = listDirectory(input.path ?? '.');
+      break;
+    case 'run_tests':
+      result = runTests();
+      break;
+    case 'run_lint':
+      result = runLint();
+      break;
+    case 'run_build':
+      result = runBuild();
+      break;
     default:
       result = `Unknown tool: ${toolName}`;
       break;

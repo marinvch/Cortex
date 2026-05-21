@@ -340,6 +340,47 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  {
+    name: 'read_file',
+    description: 'Read the content of a file within the project root. Path traversal outside the project root is blocked. Files larger than 32 KB are rejected with a helpful message.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'Path to the file, relative to the project root (e.g. "src/utils.ts")' },
+      },
+      required: ['path'],
+    },
+    condition: always,
+  },
+  {
+    name: 'list_directory',
+    description: 'List the contents of a directory within the project root. Returns file names with sizes and directory names. Ignores node_modules, dist, .git, and other build artefacts.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'Directory path relative to project root (default: "." = project root)' },
+      },
+    },
+    condition: always,
+  },
+  {
+    name: 'run_tests',
+    description: 'Run the project test suite (`npm run test` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    inputSchema: { type: 'object' as const, properties: {} },
+    condition: always,
+  },
+  {
+    name: 'run_lint',
+    description: 'Run the project linter (`npm run lint` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    inputSchema: { type: 'object' as const, properties: {} },
+    condition: always,
+  },
+  {
+    name: 'run_build',
+    description: 'Run the project build (`npm run build` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    inputSchema: { type: 'object' as const, properties: {} },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

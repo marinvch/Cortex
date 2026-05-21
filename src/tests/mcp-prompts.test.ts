@@ -62,17 +62,18 @@ describe('MCP Prompts contract', () => {
   });
 
   it('MCP server index.ts declares prompts capability', async () => {
-    // Read source to verify the initialize response includes prompts capability
+    // Prompts are registered in sdk-server.ts via server.registerPrompt().
+    // index.ts delegates to runSdkMcp() which calls createSdkServer().
     const { readFileSync } = await import('fs');
     const { fileURLToPath } = await import('url');
     const { join, dirname } = await import('path');
     const __dirname = dirname(fileURLToPath(import.meta.url));
-    const serverSrc = readFileSync(join(__dirname, '..', 'mcp-server', 'index.ts'), 'utf-8');
-    // The initialize handler must declare a prompts capability
-    expect(serverSrc).toContain('prompts');
+    const sdkServerSrc = readFileSync(join(__dirname, '..', 'mcp-server', 'sdk-server.ts'), 'utf-8');
+    // The SDK server must declare a prompts capability via registerPrompt
+    expect(sdkServerSrc).toContain('registerPrompt');
     // All three prompt names must be registered
-    expect(serverSrc).toContain('session_start');
-    expect(serverSrc).toContain('pre_commit_check');
-    expect(serverSrc).toContain('architecture_review');
+    expect(sdkServerSrc).toContain('session_start');
+    expect(sdkServerSrc).toContain('pre_commit_check');
+    expect(sdkServerSrc).toContain('architecture_review');
   });
 });

@@ -5,6 +5,28 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.21.0] — 2026-05-24
+
+### Added
+- **MCP SDK migration** (#176): Migrated MCP server from custom JSON-RPC stdio parser to `@modelcontextprotocol/sdk` v1.29.0. All 37 tools now registered via `McpServer.registerTool()` with Zod input schemas in `src/mcp-server/sdk-server.ts`. All 3 prompts registered via `registerPrompt()`. `StdioServerTransport` replaces manual stdin parsing.
+- `src/mcp-server/sdk-server.ts`: New SDK-based server with `createSdkServer()` and `runSdkMcp()` exports. `wrap()` helper adds watchdog tracking and error boundary to all tool callbacks.
+- Added `zod@^3.25.0` and `@modelcontextprotocol/sdk@^1.29.0` as runtime dependencies.
+
+### Changed
+- `src/mcp-server/index.ts`: Simplified to ~160 lines. Default mode now calls `runSdkMcp()` instead of `runStandaloneMcp()`. Removed manual JSON-RPC parser, `executeTool()` switch statement, `handleJsonRpcMessage()`, `sendResponse()`, and `sendError()`. Copilot SDK mode (`--copilot`) stub retained.
+- MCP server `initialize` response version now read dynamically from `package.json` (was hardcoded `'0.11.0'`).
+
+### Fixed
+- README: Tool count corrected to 37 (was 27/29+).
+
+### Tests
+- 533 tests across 40 test files
+
+### Resolved Issues
+- #176 — Migrate MCP server to @modelcontextprotocol/sdk
+
+---
+
 ## [0.20.0] — 2026-05-23
 
 ### Added

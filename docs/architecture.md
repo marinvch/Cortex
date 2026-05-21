@@ -9,6 +9,7 @@ AI OS is a portable GitHub Copilot context engine. It scans a repository, detect
 ```
 src/
   analyze.ts          — Entry point: scans repo, builds DetectedStack
+  errors.ts           — AiOsError class + AiOsErrorCode union (structured errors with exit codes)
   generate.ts         — CLI + orchestration: reads flags, runs generators
   bootstrap.ts        — --bootstrap action: generate + auto-install skills
   doctor.ts           — --doctor action: post-install health validation
@@ -18,12 +19,19 @@ src/
   updater.ts          — --update / --refresh-existing logic
   user-blocks.ts      — USER_BLOCK hybrid content preservation
 
+  actions/
+    apply.ts          — Full generation orchestration (runs all generators, pruning, summary)
+    summary.ts        — GenerationSummary type + buildGenerationSummary/formatGenerationSummary
+    plan.ts           — --plan action (onboarding plan display)
+    preview.ts        — --preview action (onboarding preview)
+
   detectors/
     language.ts       — Language detection (30+ languages)
     framework.ts      — Framework detection (Next.js, Django, Spring, etc.)
     patterns.ts       — Package manager, linter, test framework
     graph.ts          — Dependency graph builder
     freshness.ts      — Context drift scoring
+    drift.ts          — Artifact drift detection (missing/stale/semantic-mismatch)
 
   generators/
     instructions.ts   — .github/copilot-instructions.md + instructions/
@@ -33,10 +41,10 @@ src/
     workflows.ts      — .github/workflows/ (update-check)
     context-docs.ts   — .github/ai-os/context/ docs
     prompts.ts        — .github/copilot/prompts.json
-    utils.ts          — writeIfChanged, writeManifest, hashContent
+    utils.ts          — writeIfChanged, writeManifest, hashContent, writeFileAtomic
 
   mcp-server/
-    index.ts          — MCP JSON-RPC stdio server entry point
+    index.ts          — MCP JSON-RPC stdio server entry point (includes prompts capability)
     tool-definitions.ts — Tool handlers (reads from .github/ai-os/)
     utils.ts          — Memory, session, freshness utilities
 
@@ -65,7 +73,38 @@ CLI flags + cwd
       ├──► generateWorkflows()       → .github/workflows/
       ├──► generatePrompts()         → .github/copilot/prompts.json
       └──► writeManifest()           → .github/ai-os/manifest.json
+            │
+            ▼
+      buildGenerationSummary()  ← written/skipped/pruned counts + duration
 ```
+
+## Error Handling
+
+AI OS uses `AiOsError` (from `src/errors.ts`) for all known recoverable errors:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Success |
+| `1` | Unexpected / unhandled error |
+| `2` | Known `AiOsError` — user-actionable fix hint provided |
+
+`AiOsErrorCode` values: `MISSING_CONFIG`, `INVALID_CONFIG`, `WRITE_FAILED`, `SCAN_FAILED`, `TEMPLATE_NOT_FOUND`, `MCP_RUNTIME_MISSING`, `BUNDLE_CORRUPTED`, `UNKNOWN`.
+
+## Drift Detection
+
+`detectDrift(cwd)` in `src/detectors/drift.ts` scans 7 artifact classes:
+
+1. **Required files** — `copilot-instructions.md`, `COPILOT_CONTEXT.md`, `config.json`
+2. **MCP config** — presence and server path validity
+3. **Template placeholders** — unreplaced `{{VAR}}` in instructions
+4. **Context snapshot age** — warns if older than 7 days
+5. **Agent schema** — checks for required Goal/Constraints sections
+6. **Skills sync** — installed skills not listed in instructions
+7. **Semantic drift** — `config.json` primaryFramework vs. instructions content; `agents.json` count vs. file count
+
+Returns a `DriftReport` with `errors`, `warnings`, `infos`, `healthy`, and `totalIssues`.
+
+`DriftItem.kind` values: `missing`, `stale`, `unknown-file`, `schema-mismatch`, `semantic-mismatch`.
 
 ## Manifest Contract
 

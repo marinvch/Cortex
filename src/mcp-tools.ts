@@ -381,6 +381,18 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     inputSchema: { type: 'object' as const, properties: {} },
     condition: always,
   },
+  {
+    name: 'run_workflow',
+    description: 'Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        workflow_name: { type: 'string', description: 'Workflow filename (e.g. "feature-pipeline.yml"). Omit to list all workflows.' },
+        dry_run: { type: 'boolean', description: 'Show chain without executing (default: true)' },
+      },
+    },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

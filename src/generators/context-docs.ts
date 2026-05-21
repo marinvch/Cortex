@@ -775,6 +775,20 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
   const toolRefPath = track(path.join(contextDir, 'mcp-tools.md'));
   writeIfChanged(toolRefPath, generateMcpToolRefDoc(stack));
 
+  // Deploy built-in workflow templates to .github/ai-os/workflows/ (first install only)
+  const workflowTemplatesDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'templates', 'workflows');
+  const targetWorkflowsDir = path.join(outputDir, '.github', 'ai-os', 'workflows');
+  if (fs.existsSync(workflowTemplatesDir)) {
+    fs.mkdirSync(targetWorkflowsDir, { recursive: true });
+    for (const file of fs.readdirSync(workflowTemplatesDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'))) {
+      const dest = track(path.join(targetWorkflowsDir, file));
+      if (!fs.existsSync(dest)) {
+        // Only deploy on first install — don't overwrite user customizations
+        writeIfChanged(dest, fs.readFileSync(path.join(workflowTemplatesDir, file), 'utf8'));
+      }
+    }
+  }
+
   // Write config.json — preserve user-editable fields across refreshes
   const existingConfig = readAiOsConfig(outputDir);
   const config: AiOsConfig = {

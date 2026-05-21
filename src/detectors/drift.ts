@@ -6,7 +6,7 @@ export type DriftSeverity = 'error' | 'warning' | 'info';
 
 export interface DriftItem {
   path: string;
-  kind: 'missing' | 'stale' | 'unknown-file' | 'schema-mismatch';
+  kind: 'missing' | 'stale' | 'unknown-file' | 'schema-mismatch' | 'semantic-mismatch';
   severity: DriftSeverity;
   message: string;
   fix?: string;
@@ -29,6 +29,59 @@ const REQUIRED_FILES: Array<{ path: string; description: string }> = [
 
 const SNAPSHOT_MAX_AGE_DAYS = 7;
 const FIX_CMD = 'npx -y github:marinvch/ai-os --refresh-existing';
+
+/**
+ * Check semantic consistency between config.json and generated files:
+ * 1. primaryFramework in config.json should appear in copilot-instructions.md
+ * 2. agents.json agent count should match actual .agent.md file count
+ */
+function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
+  const configPath = join(cwd, '.github/ai-os/config.json');
+  const instrPath = join(cwd, '.github/copilot-instructions.md');
+
+  if (existsSync(configPath) && existsSync(instrPath)) {
+    try {
+      const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+        primaryFramework?: string;
+        primaryLanguage?: string;
+      };
+      const instrContent = readFileSync(instrPath, 'utf8');
+
+      if (config.primaryFramework) {
+        const fw = config.primaryFramework;
+        if (!instrContent.toLowerCase().includes(fw.toLowerCase())) {
+          warnings.push({
+            path: '.github/copilot-instructions.md',
+            kind: 'semantic-mismatch',
+            severity: 'warning',
+            message: `Primary framework "${fw}" from config.json is not mentioned in copilot-instructions.md — instructions may be stale`,
+            fix: FIX_CMD,
+          });
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  const agentsRegistryPath = join(cwd, '.github/ai-os/agents.json');
+  if (existsSync(agentsRegistryPath)) {
+    try {
+      const registry = JSON.parse(readFileSync(agentsRegistryPath, 'utf8')) as unknown[];
+      const registryCount = Array.isArray(registry) ? registry.length : 0;
+      const agentFiles = globSync('.github/agents/*.agent.md', { cwd, absolute: false });
+      const fileCount = agentFiles.length;
+
+      if (registryCount !== fileCount) {
+        warnings.push({
+          path: '.github/ai-os/agents.json',
+          kind: 'semantic-mismatch',
+          severity: 'warning',
+          message: `agents.json lists ${registryCount} agent(s) but ${fileCount} .agent.md file(s) found in .github/agents/ — run refresh to sync`,
+          fix: FIX_CMD,
+        });
+      }
+    } catch { /* non-fatal */ }
+  }
+}
 
 export function detectDrift(cwd: string): DriftReport {
   const errors: DriftItem[] = [];
@@ -168,6 +221,9 @@ export function detectDrift(cwd: string): DriftReport {
     }
   }
 
+  // 7. Semantic drift: config vs instructions content consistency
+  detectSemanticDrift(cwd, warnings);
+
   const totalIssues = errors.length + warnings.length + infos.length;
   return {
     scannedAt: new Date().toISOString(),
@@ -208,12 +264,26 @@ export function formatDriftReport(report: DriftReport, verbose = false): string 
   }
 
   if (report.warnings.length > 0) {
-    lines.push(`### ⚠️ Warnings (${report.warnings.length})`);
-    for (const item of report.warnings) {
-      lines.push(`- \`${item.path}\`: ${item.message}`);
-      if (item.fix) lines.push(`  Fix: \`${item.fix}\``);
+    const semanticWarnings = report.warnings.filter(w => w.kind === 'semantic-mismatch');
+    const otherWarnings = report.warnings.filter(w => w.kind !== 'semantic-mismatch');
+
+    if (otherWarnings.length > 0) {
+      lines.push(`### ⚠️ Warnings (${otherWarnings.length})`);
+      for (const item of otherWarnings) {
+        lines.push(`- \`${item.path}\`: ${item.message}`);
+        if (item.fix) lines.push(`  Fix: \`${item.fix}\``);
+      }
+      lines.push('');
     }
-    lines.push('');
+
+    if (semanticWarnings.length > 0) {
+      lines.push(`### 🔀 Semantic Drift (${semanticWarnings.length})`);
+      for (const item of semanticWarnings) {
+        lines.push(`- \`${item.path}\`: ${item.message}`);
+        if (item.fix) lines.push(`  Fix: \`${item.fix}\``);
+      }
+      lines.push('');
+    }
   }
 
   if (report.infos.length > 0) {

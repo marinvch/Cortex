@@ -92,4 +92,61 @@ describe('detectDrift', () => {
     const output = formatDriftReport(report);
     expect(output).toContain('healthy');
   });
+
+  // ── Semantic drift tests ────────────────────────────────────────────────────
+
+  it('reports semantic mismatch when config primaryFramework does not appear in instructions', () => {
+    mkdirSync(join(tmpDir, '.github', 'ai-os'), { recursive: true });
+    mkdirSync(join(tmpDir, '.github'), { recursive: true });
+    writeFileSync(
+      join(tmpDir, '.github', 'ai-os', 'config.json'),
+      JSON.stringify({ primaryFramework: 'React', primaryLanguage: 'TypeScript' })
+    );
+    writeFileSync(
+      join(tmpDir, '.github', 'copilot-instructions.md'),
+      '# Instructions\n\nThis project uses Vue.js.\n'
+    );
+    const report = detectDrift(tmpDir);
+    expect(report.warnings.some(w => w.kind === 'semantic-mismatch' && w.message.toLowerCase().includes('react'))).toBe(true);
+  });
+
+  it('does NOT report semantic mismatch when primaryFramework appears in instructions', () => {
+    mkdirSync(join(tmpDir, '.github', 'ai-os'), { recursive: true });
+    mkdirSync(join(tmpDir, '.github'), { recursive: true });
+    writeFileSync(
+      join(tmpDir, '.github', 'ai-os', 'config.json'),
+      JSON.stringify({ primaryFramework: 'React', primaryLanguage: 'TypeScript' })
+    );
+    writeFileSync(
+      join(tmpDir, '.github', 'copilot-instructions.md'),
+      '# Instructions\n\nThis project uses React and TypeScript.\n'
+    );
+    const report = detectDrift(tmpDir);
+    expect(report.warnings.some(w => w.kind === 'semantic-mismatch')).toBe(false);
+  });
+
+  it('reports semantic mismatch when agents.json count differs from agent file count', () => {
+    mkdirSync(join(tmpDir, '.github', 'ai-os'), { recursive: true });
+    mkdirSync(join(tmpDir, '.github', 'agents'), { recursive: true });
+    // agents.json says 3 agents, but only 1 .agent.md file exists
+    writeFileSync(
+      join(tmpDir, '.github', 'ai-os', 'agents.json'),
+      JSON.stringify([{ name: 'a' }, { name: 'b' }, { name: 'c' }])
+    );
+    writeFileSync(join(tmpDir, '.github', 'agents', 'my-agent.agent.md'), '## Goal\nDo things\n## Constraints\nNone');
+    const report = detectDrift(tmpDir);
+    expect(report.warnings.some(w => w.kind === 'semantic-mismatch' && w.message.toLowerCase().includes('agent'))).toBe(true);
+  });
+
+  it('does NOT report agent count mismatch when counts match', () => {
+    mkdirSync(join(tmpDir, '.github', 'ai-os'), { recursive: true });
+    mkdirSync(join(tmpDir, '.github', 'agents'), { recursive: true });
+    writeFileSync(
+      join(tmpDir, '.github', 'ai-os', 'agents.json'),
+      JSON.stringify([{ name: 'a' }])
+    );
+    writeFileSync(join(tmpDir, '.github', 'agents', 'my-agent.agent.md'), '## Goal\nDo things\n## Constraints\nNone');
+    const report = detectDrift(tmpDir);
+    expect(report.warnings.some(w => w.kind === 'semantic-mismatch' && w.message.toLowerCase().includes('agent'))).toBe(false);
+  });
 });

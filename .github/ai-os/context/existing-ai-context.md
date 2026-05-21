@@ -4,10 +4,10 @@
 
 ## Detection Summary
 
-- Total detected AI artifacts: **7**
+- Total detected AI artifacts: **6**
 - Copilot instructions: **2**
 - Copilot skills: **0**
-- Prompt registries: **1**
+- Prompt registries: **0**
 - Agent files: **1**
 - AI docs/context files: **3**
 - Other assistant configs: **0**
@@ -16,8 +16,7 @@
 
 - [instructions] `.github/copilot-instructions.md`
 - [instructions] `.github/instructions/`
-- [prompts] `.github/copilot/prompts.json`
-- [agents] `.github/agents/ (6 files)`
+- [agents] `.github/agents/ (8 files)`
 - [docs] `.github/ai-os/context/stack.md`
 - [docs] `.github/ai-os/context/architecture.md`
 - [docs] `.github/ai-os/context/conventions.md`
@@ -47,7 +46,7 @@ pie showData
   title Existing AI Context Artifacts
   "instructions" : 2
   "skills" : 0
-  "prompts" : 1
+  "prompts" : 0
   "agents" : 1
   "docs" : 3
   "other" : 0

@@ -67,6 +67,7 @@ When starting a new conversation or after a context window reset:
 1. Call `get_session_context` → reloads MUST-ALWAYS rules, build commands, and key file locations
 2. Call `get_repo_memory` → reloads durable architectural decisions and constraints
 3. Call `get_conventions` → reloads coding rules and naming conventions
+4. Call `get_active_plan` → restores active task plan and open checkpoints (if any)
 
 ---
 
@@ -97,9 +98,12 @@ Use these tools to fetch project-specific context on demand:
 | `get_impact_of_change` | **Before editing any file** — shows blast radius |
 | `get_dependency_chain` | To trace how a module connects to the rest of the code |
 | `get_env_vars` | Before referencing environment variables |
+| `check_for_updates` | To see if AI OS artifacts are out of date |
 | `get_memory_guidelines` | At task start to load memory safety protocol |
 | `get_repo_memory` | Before coding to recover durable repo decisions and constraints |
 | `remember_repo_fact` | After substantial tasks to persist verified learnings |
+| `get_recommendations` | To see stack-appropriate tools, extensions, and skills |
+| `suggest_improvements` | To surface architectural and tooling gaps |
 
 ---
 

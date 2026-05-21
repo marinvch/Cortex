@@ -4,15 +4,20 @@
 
 ## Project Type
 
-**Markdown** project.
+**TypeScript** project.
 
 ## Directory Structure
 
 ```
+analyze/
 bootstrap.sh
 bundle/
+coverage/
 dist/
 Dockerfile
+docs/
+eslint.config.mjs
+examples/
 install.sh
 package-lock.json
 package.json
@@ -38,7 +43,7 @@ _List external services, APIs, and third-party integrations here._
 ```mermaid
 flowchart TD
   Repo["Repository: ai-os"] --> Detect["Detect stack & patterns"]
-  Detect --> Lang["Languages: Markdown, TypeScript, Shell, JSON +2 more"]
+  Detect --> Lang["Languages: TypeScript, Markdown, Shell, JSON +5 more"]
   Detect --> Fw["Frameworks: none"]
   Detect --> Ctx["Scan existing AI context"]
   Detect --> Graph["Build dependency graph"]

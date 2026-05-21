@@ -846,6 +846,7 @@ function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig): s
     '1. Call `get_session_context` → reloads this card',
     '2. Call `get_repo_memory` → reloads durable decisions',
     '3. Call `get_conventions` → reloads coding rules',
+    '4. Call `get_active_plan` → restores active task plan and open checkpoints (if any)',
     '',
     '## Non-Trivial Task Protocol',
     '',

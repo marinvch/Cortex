@@ -13,6 +13,7 @@
 ## File Structure Rules
 
 - All source code lives under `src/`
+- Linter: **ESLint** — must pass before committing
 
 ## Code Style
 

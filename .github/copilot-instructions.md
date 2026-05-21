@@ -1,11 +1,11 @@
 # AI Coding Assistant — Project Instructions
 
-> **Persona:** Act as a Senior Markdown developer.
+> **Persona:** Act as a Senior TypeScript developer.
 
 ## Project: ai-os
 
-**Primary Language:** Markdown  
-**Framework(s):** Markdown  
+**Primary Language:** TypeScript  
+**Framework(s):** TypeScript  
 **Package Manager:** npm  
 **TypeScript:** Yes
 
@@ -13,11 +13,11 @@
 
 ## Tech Stack
 
-- **Markdown** (44% of codebase, 59 files)
-- **TypeScript** (39% of codebase, 52 files)
-- **Shell** (9% of codebase, 12 files)
-- **JSON** (4% of codebase, 5 files)
-- **JavaScript** (2% of codebase, 3 files)
+- **TypeScript** (45% of codebase, 86 files)
+- **Markdown** (39% of codebase, 75 files)
+- **Shell** (6% of codebase, 12 files)
+- **JSON** (4% of codebase, 7 files)
+- **JavaScript** (3% of codebase, 5 files)
 
 ---
 
@@ -26,13 +26,14 @@
 - **Build:** `npm run build`
 - **Test:** `npm run test`
 - **Dev:** `npm run dev`
+- **Lint:** `npm run lint`
 
 ---
 
 ## Detected Conventions
 
 - **Naming:** kebab-case for files and identifiers
-- **Linter:** none detected
+- **Linter:** ESLint
 - **Formatter:** none detected
 - **Test Framework:** Vitest
 - **Test Directory:** none detected
@@ -75,6 +76,7 @@ When starting a new conversation or after a context window reset:
 1. Call `get_session_context` → reloads MUST-ALWAYS rules, build commands, and key file locations
 2. Call `get_repo_memory` → reloads durable architectural decisions and constraints
 3. Call `get_conventions` → reloads coding rules and naming conventions
+4. Call `get_active_plan` → restores active task plan and open checkpoints (if any)
 
 ---
 
@@ -105,9 +107,12 @@ Use these tools to fetch project-specific context on demand:
 | `get_impact_of_change` | **Before editing any file** — shows blast radius |
 | `get_dependency_chain` | To trace how a module connects to the rest of the code |
 | `get_env_vars` | Before referencing environment variables |
+| `check_for_updates` | To see if AI OS artifacts are out of date |
 | `get_memory_guidelines` | At task start to load memory safety protocol |
 | `get_repo_memory` | Before coding to recover durable repo decisions and constraints |
 | `remember_repo_fact` | After substantial tasks to persist verified learnings |
+| `get_recommendations` | To see stack-appropriate tools, extensions, and skills |
+| `suggest_improvements` | To surface architectural and tooling gaps |
 
 ---
 
@@ -198,16 +203,6 @@ See `.github/ai-os/context/protected-blocks.md` for the full design and recovery
 
 1. State what is unclear and list assumptions that would change behavior.
 2. Ask focused clarifying question(s) and propose bounded options.
-3. Continue only after clarification; if unavailable, take the safest minimal action and document limits.
-
----
-
-## Agentic Task Safety
-
-### Plan Mode — Multi-Step and Irreversible Actions
-
-For tasks that span **3 or more steps** or involve **irreversible actions** (file deletion, database migrations, publishing, deploying, API calls with side effects):
-
-1. **State the plan** 
+3. Continue only after clarification; if unavailable
 
 <!-- [AI OS] truncated to 8 KB Copilot budget -->

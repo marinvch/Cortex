@@ -20,8 +20,8 @@ Your role is to verify each item in the Feature Enhancement Advisor report befor
 
 ## Stack
 
-- Primary language: Markdown
-- Frameworks: Markdown
+- Primary language: TypeScript
+- Frameworks: TypeScript
 - Package manager: npm
 - TypeScript: Yes
 

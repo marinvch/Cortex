@@ -7,6 +7,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from './shared.js';
 
+/** Try system rg first, then npx ripgrep, for fast CI environments. */
+function spawnRipgrep(args: string[]): string {
+  for (const cmd of ['rg', 'ripgrep']) {
+    const r = spawnSync(cmd, args, { maxBuffer: 1024 * 1024, timeout: 8000 });
+    if (r.status === 0 || (r.error == null && r.stdout)) return r.stdout?.toString() ?? '';
+  }
+  const r = spawnSync('npx', ['--yes', 'ripgrep', ...args], { maxBuffer: 1024 * 1024, timeout: 15000 });
+  return r.stdout?.toString() ?? '';
+}
+
 export function getPrismaSchema(): string {
   const candidates = ['prisma/schema.prisma', 'schema.prisma', 'db/schema.prisma'];
   for (const rel of candidates) {
@@ -115,10 +125,8 @@ export function getApiRoutes(filter?: string): string {
 
   for (const scan of scanPatterns) {
     try {
-      const result = spawnSync('npx', ['--yes', 'ripgrep', '--files', '-g', scan.glob, ROOT], {
-        maxBuffer: 1024 * 1024, timeout: 12000,
-      });
-      const files = (result.stdout?.toString() ?? '').split('\n').filter(Boolean);
+      const result = spawnRipgrep(['--files', '-g', scan.glob, ROOT]);
+      const files = result.split('\n').filter(Boolean);
 
       for (const file of files.slice(0, 300)) {
         let content = '';
@@ -186,10 +194,8 @@ export function getEnvVars(): string {
 
   for (const extractor of extractors) {
     try {
-      const result = spawnSync('npx', ['--yes', 'ripgrep', '--files', '-g', extractor.fileGlob, ROOT], {
-        maxBuffer: 1024 * 1024, timeout: 10000,
-      });
-      const files = (result.stdout?.toString() ?? '').split('\n').filter(Boolean);
+      const result = spawnRipgrep(['--files', '-g', extractor.fileGlob, ROOT]);
+      const files = result.split('\n').filter(Boolean);
       for (const file of files.slice(0, 400)) {
         let content = '';
         try {

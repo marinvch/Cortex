@@ -83,7 +83,7 @@ describe('mcp-server sub-module basic runtime behaviour', () => {
     expect(result.length).toBeGreaterThan(0);
   });
 
-  it('getEnvVars returns a string', () => {
+  it('getEnvVars returns a string', { timeout: 30000 }, () => {
     const result = getEnvVars();
     expect(typeof result).toBe('string');
     expect(result.length).toBeGreaterThan(0);

@@ -18,15 +18,18 @@ npx -y github:marinvch/ai-os
 
 - **`copilot-instructions.md`** — tailored Copilot rules for your stack (TypeScript, Python, Java, Go, Ruby, etc.)
 - **Agent files** — specialist AI agents in `.github/agents/` for common workflows
-- **MCP server** — 27 project-intelligence tools accessible inside Copilot
+- **MCP server** — 37 project-intelligence tools accessible inside Copilot
 - **14 agent skills** — production-grade skills auto-installed: `brainstorming`, `writing-plans`, `systematic-debugging`, and more
 - **Drift detection** — `--check-drift` keeps your AI docs in sync as code evolves
+- **Multi-editor** — generate configs for VS Code, Cursor, JetBrains, Neovim with `--editor`
+- **Multi-model** — adapt instructions for Claude, Gemini, or local LLMs with `--model`
+- **Workflow chaining** — YAML agent pipelines via the `run_workflow` MCP tool
 
 ## Documentation
 
 - [Getting Started →](docs/GETTING-STARTED.md) — Install guide for any tech stack
 - [User Guide →](docs/USER-GUIDE.md) — All CLI flags, agents, skills, MCP tools
-- [MCP Tools Reference →](docs/mcp-tools.md) — All 27 Copilot tools documented
+- [MCP Tools Reference →](docs/mcp-tools.md) — All 37 Copilot tools documented
 - [Changelog →](CHANGELOG.md)
 
 ---
@@ -39,7 +42,7 @@ Run once in any repo. AI OS scans the codebase, detects your stack, and generate
 | --- | --- | --- |
 | Copilot instructions | `.github/copilot-instructions.md` | System prompt optimized for your stack |
 | Context docs | `.github/ai-os/context/` | Token-efficient stack, architecture, conventions docs |
-| MCP tools | `.vscode/mcp.json` + `.ai-os/mcp-server/` | 29+ tools for code search, memory, session continuity |
+| MCP tools | `.vscode/mcp.json` + `.ai-os/mcp-server/` | 37 tools for code search, memory, session continuity |
 | Agents | `.github/agents/*.agent.md` | Stack-specific chat agents |
 | Skills | `.github/copilot/skills/ai-os-*.md` | Per-library playbooks (Next.js, tRPC, Prisma, etc.) |
 | Slash commands | `.github/copilot/prompts.json` | `/new-page`, `/new-trpc-procedure`, `/new-model`, etc. |

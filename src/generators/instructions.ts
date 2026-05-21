@@ -274,6 +274,32 @@ function generatePathSpecificInstructions(stack: DetectedStack, githubDir: strin
 }
 
 /** Build the persistent rules section for copilot-instructions.md */
+function buildMonorepoSection(stack: DetectedStack): string {
+  const profiles = stack.packageProfiles;
+  if (!profiles || profiles.length <= 1 || !stack.patterns.monorepo) return '';
+
+  const rows = profiles
+    .filter(p => p.path !== '.')
+    .map(p => {
+      const fws = p.frameworks.map(f => sanitizeForInstructions(f.name)).join(', ') || (p.languages[0]?.name ?? 'Unknown');
+      return `| \`${p.path}\` | ${fws} |`;
+    });
+
+  if (rows.length === 0) return '';
+
+  return [
+    '',
+    '## Monorepo Packages',
+    '',
+    '| Package | Stack |',
+    '|---|---|',
+    ...rows,
+    '',
+    '> When modifying shared code, check all packages above for impact.',
+  ].join('\n');
+}
+
+/** Build the persistent rules section for copilot-instructions.md */
 function buildPersistentRulesSection(persistentRules: string[], stack: DetectedStack): string {
   const detectedRules: string[] = [];
   const root = stack.rootDir;
@@ -354,6 +380,12 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
   const overlays = [...templateKeys].map(k => readFrameworkTemplate(k)).filter(Boolean).join('\n\n---\n\n');
 
   let content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`, outputDir);
+
+  // Inject monorepo section if applicable
+  const monorepoSection = buildMonorepoSection(stack);
+  if (monorepoSection) {
+    content = content + monorepoSection;
+  }
 
   // Inject persistent rules section
   const persistentRules = config?.persistentRules ?? [];

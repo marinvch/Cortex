@@ -63,6 +63,9 @@ export interface PackageProfile {
   allDependencies: string[];
 }
 
+/** Alias for PackageProfile — represents a single workspace package in a monorepo. */
+export type WorkspacePackage = PackageProfile;
+
 export interface FileNode {
   /** Relative path from project root (forward slashes) */
   path: string;

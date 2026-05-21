@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      typescript-tooling:
+        patterns:
+          - "typescript*"
+          - "@typescript-eslint/*"
+          - "typescript-eslint"
+      testing:
+        patterns:
+          - "vitest*"
+          - "@vitest/*"
+      build-tools:
+        patterns:
+          - "esbuild"
+          - "tsx"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - github-actions

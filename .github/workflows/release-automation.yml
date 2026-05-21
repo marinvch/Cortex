@@ -136,7 +136,7 @@ jobs:
 
       - name: Attest bundle provenance (SLSA)
         if: steps.plan.outputs.release_needed == 'true'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             bundle/generate.js

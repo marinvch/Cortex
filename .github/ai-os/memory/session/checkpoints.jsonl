@@ -1,2 +1,0 @@
-{"id":"1777448054964-84r8st","title":"Goal watchdog checkpoint @8 calls","status":"open","notes":"Auto-checkpoint after 8 tool calls. Re-read active plan and confirm alignment. Trigger tool: check_for_updates","toolCallCount":8,"createdAt":"2026-04-29T07:34:14.964Z"}
-{"id":"1779340572481-nj0plc","title":"Goal watchdog checkpoint @16 calls","status":"open","notes":"Auto-checkpoint after 8 tool calls. Re-read active plan and confirm alignment. Trigger tool: get_project_structure","toolCallCount":16,"createdAt":"2026-05-21T05:16:12.481Z"}

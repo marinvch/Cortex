@@ -19,3 +19,4 @@ coverage/
 .github/copilot-instructions.md.bak
 .ai-os/mcp-server/node_modules
 .github/ai-os/memory/.memory.lock
+.github/ai-os/memory/session/

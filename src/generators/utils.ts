@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { AiOsError } from '../errors.js';
 
 // ── Verbose mode (H2) ────────────────────────────────────────────────────────
 
@@ -83,6 +84,16 @@ export function writeFileAtomic(filePath: string, content: string): void {
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
     try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup errors */ }
+    const isPermission = (err as NodeJS.ErrnoException).code === 'EACCES'
+      || (err as NodeJS.ErrnoException).code === 'EPERM';
+    if (isPermission) {
+      throw new AiOsError(
+        'WRITE_FAILED',
+        `Permission denied writing to ${filePath}`,
+        'Check file permissions or run with appropriate privileges',
+        { path: filePath, cause: (err as Error).message },
+      );
+    }
     throw err;
   }
 }

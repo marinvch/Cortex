@@ -3,7 +3,7 @@ import { parseProfile } from '../profile.js';
 import type { InstallProfile } from '../types.js';
 
 export type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall';
+export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall' | 'check-drift';
 
 export interface ParsedArgs {
   cwd: string;
@@ -71,6 +71,8 @@ export function parseArgs(): ParsedArgs {
       action = 'check-freshness';
     } else if (args[i] === '--compact-memory') {
       action = 'compact-memory';
+    } else if (args[i] === '--check-drift') {
+      action = 'check-drift';
     } else if (args[i] === '--uninstall') {
       action = 'uninstall';
     } else if (args[i] === '--json') {

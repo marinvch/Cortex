@@ -609,6 +609,7 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     `|---|---|`,
     `| Build | \`${buildCmd}\` |`,
     `| Test | \`${testCmd}\` |`,
+    `| Drift check | \`node dist/generate.js --check-drift\` |`,
   ].join('\n');
 
   const instructionsDir = path.join(githubDir, 'instructions');

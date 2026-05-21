@@ -291,3 +291,72 @@ describe('skill routing in copilot-instructions.md', () => {
     expect(content).not.toContain('{{SKILL_ROUTING}}');
   });
 });
+
+// ─── user-overridable agent templates (#183) ──────────────────────────────────
+
+describe('user-overridable agent templates (#183)', () => {
+  let tmp: string;
+  beforeEach(() => { tmp = mkTmp(); });
+  afterEach(() => rmTmp(tmp));
+
+  it('uses custom override template when present in .github/ai-os/templates/agents/', async () => {
+    const { generateAgents } = await import('../generators/agents.js');
+
+    // Place a custom override for framework-expert template
+    const overrideDir = path.join(tmp, '.github', 'ai-os', 'templates', 'agents');
+    fs.mkdirSync(overrideDir, { recursive: true });
+    fs.writeFileSync(path.join(overrideDir, 'framework-expert.md'), [
+      '---',
+      'name: placeholder',
+      'description: placeholder',
+      'argument-hint: "placeholder"',
+      '---',
+      '# Custom Override Template',
+      'CUSTOM_MARKER_FROM_OVERRIDE',
+    ].join('\n'));
+
+    await generateAgents(minimalStack({ rootDir: tmp }), tmp, { refreshExisting: true });
+
+    const agentFiles = fs.readdirSync(path.join(tmp, '.github', 'agents'));
+    const expertFile = agentFiles.find(f => f.includes('expert-') && f.endsWith('.agent.md'));
+    expect(expertFile).toBeTruthy();
+    const content = fs.readFileSync(path.join(tmp, '.github', 'agents', expertFile!), 'utf-8');
+    expect(content).toContain('CUSTOM_MARKER_FROM_OVERRIDE');
+  });
+
+  it('falls back to built-in template when no override exists', async () => {
+    const { generateAgents } = await import('../generators/agents.js');
+
+    await generateAgents(minimalStack({ rootDir: tmp }), tmp, { refreshExisting: true });
+
+    const agentFiles = fs.readdirSync(path.join(tmp, '.github', 'agents'));
+    const expertFile = agentFiles.find(f => f.includes('expert-') && f.endsWith('.agent.md'));
+    expect(expertFile).toBeTruthy();
+    const content = fs.readFileSync(path.join(tmp, '.github', 'agents', expertFile!), 'utf-8');
+    expect(content).not.toContain('CUSTOM_MARKER_FROM_OVERRIDE');
+    // Built-in template should have meaningful content
+    expect(content.length).toBeGreaterThan(100);
+  });
+
+  it('logs a message when using a custom override template', async () => {
+    const { generateAgents } = await import('../generators/agents.js');
+    const warnSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const overrideDir = path.join(tmp, '.github', 'ai-os', 'templates', 'agents');
+    fs.mkdirSync(overrideDir, { recursive: true });
+    fs.writeFileSync(path.join(overrideDir, 'framework-expert.md'), [
+      '---',
+      'name: placeholder',
+      'description: placeholder',
+      'argument-hint: "placeholder"',
+      '---',
+      '# Custom',
+    ].join('\n'));
+
+    await generateAgents(minimalStack({ rootDir: tmp }), tmp, { refreshExisting: true });
+
+    const calls = warnSpy.mock.calls.flat().join(' ');
+    expect(calls).toContain('override');
+    warnSpy.mockRestore();
+  });
+});

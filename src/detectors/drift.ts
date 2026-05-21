@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { createHash } from 'node:crypto';
 import { globSync } from 'glob';
 
 export type DriftSeverity = 'error' | 'warning' | 'info';
@@ -221,7 +222,43 @@ export function detectDrift(cwd: string): DriftReport {
     }
   }
 
-  // 7. Semantic drift: config vs instructions content consistency
+  // 7. Skill version integrity — compare hashes stored in config.json with live files
+  const configPath = join(cwd, '.github/ai-os/config.json');
+  if (existsSync(configPath)) {
+    try {
+      const cfg = JSON.parse(readFileSync(configPath, 'utf8')) as { skillVersions?: Record<string, string> };
+      if (cfg.skillVersions && Object.keys(cfg.skillVersions).length > 0) {
+        for (const [skillName, expectedHash] of Object.entries(cfg.skillVersions)) {
+          const skillFilePath = join(cwd, '.github/copilot/skills', `${skillName}.md`);
+          if (!existsSync(skillFilePath)) {
+            warnings.push({
+              path: `.github/copilot/skills/${skillName}.md`,
+              kind: 'missing',
+              severity: 'warning',
+              message: `Tracked skill "${skillName}" is missing from .github/copilot/skills/`,
+              fix: FIX_CMD,
+            });
+          } else {
+            const content = readFileSync(skillFilePath, 'utf8');
+            const actualHash = createHash('sha256').update(content).digest('hex').slice(0, 12);
+            if (actualHash !== expectedHash) {
+              warnings.push({
+                path: `.github/copilot/skills/${skillName}.md`,
+                kind: 'stale',
+                severity: 'warning',
+                message: `Skill "${skillName}" content has changed since last generation (hash mismatch)`,
+                fix: FIX_CMD,
+              });
+            } else {
+              healthy.push(`.github/copilot/skills/${skillName}.md`);
+            }
+          }
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // 8. Semantic drift: config vs instructions content consistency
   detectSemanticDrift(cwd, warnings);
 
   const totalIssues = errors.length + warnings.length + infos.length;

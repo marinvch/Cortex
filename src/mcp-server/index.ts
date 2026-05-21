@@ -47,6 +47,8 @@ import {
   getContextFreshness,
 } from './utils.js';
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
+import { readFile, listDirectory, runTests, runLint, runBuild } from './filesystem.js';
+import { listWorkflows, loadWorkflow, validateWorkflow, buildWorkflowRunPlan, formatRunPlan } from '../workflow-runner.js';
 
 interface ToolInput {
   query?: string;
@@ -225,6 +227,44 @@ function executeTool(toolName: string, input: ToolInput): string {
       const root = getProjectRoot();
       const report = detectDrift(root);
       result = formatDriftReport(report, !!(input as { verbose?: boolean }).verbose);
+      break;
+    }
+    case 'read_file':
+      result = readFile(input.path ?? '');
+      break;
+    case 'list_directory':
+      result = listDirectory(input.path ?? '.');
+      break;
+    case 'run_tests':
+      result = runTests();
+      break;
+    case 'run_lint':
+      result = runLint();
+      break;
+    case 'run_build':
+      result = runBuild();
+      break;
+    case 'run_workflow': {
+      const root = getProjectRoot();
+      const workflowName = (input as { workflow_name?: string; dry_run?: boolean }).workflow_name;
+      const dryRun = (input as { dry_run?: boolean }).dry_run !== false;
+      if (!workflowName) {
+        const workflows = listWorkflows(root);
+        if (workflows.length === 0) {
+          result = 'No workflows found in .github/ai-os/workflows/. Create a .yml file to define an agent pipeline.';
+        } else {
+          result = `Available workflows:\n${workflows.map(w => `- ${w}`).join('\n')}`;
+        }
+      } else {
+        const wf = loadWorkflow(root, workflowName);
+        const errors = validateWorkflow(wf);
+        if (errors.length > 0) {
+          result = `Workflow validation errors:\n${errors.map(e => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join('\n')}`;
+        } else {
+          const plan = buildWorkflowRunPlan(wf, dryRun);
+          result = formatRunPlan(plan);
+        }
+      }
       break;
     }
     default:

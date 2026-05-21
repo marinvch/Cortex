@@ -7,6 +7,8 @@ import { runCompactMemoryAction } from '../actions/compact-memory.js';
 import { runCheckDriftAction } from '../actions/check-drift.js';
 import { runApply } from '../actions/apply.js';
 import { runUninstall, formatUninstallReport } from '../uninstall.js';
+import { runInitWizard } from '../actions/init.js';
+import { analyze } from '../analyze.js';
 
 function printBanner(): void {
   const version = `v${getToolVersion()}`;
@@ -52,6 +54,14 @@ export async function main(): Promise<void> {
   if (action === 'check-drift') {
     await runCheckDriftAction(cwd, args.verbose);
     return;
+  }
+
+  if (action === 'init') {
+    const stack = analyze(cwd);
+    const result = await runInitWizard(stack, cwd);
+    if (!result.proceed) return;
+    args.profile = result.profile;
+    // Fall through to apply with selected profile
   }
 
   if (action === 'uninstall') {

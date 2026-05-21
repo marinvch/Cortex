@@ -63,6 +63,9 @@ export interface PackageProfile {
   allDependencies: string[];
 }
 
+/** Alias for PackageProfile — represents a single workspace package in a monorepo. */
+export type WorkspacePackage = PackageProfile;
+
 export interface FileNode {
   /** Relative path from project root (forward slashes) */
   path: string;
@@ -162,6 +165,26 @@ export interface AiOsConfig {
    * Default: true.
    */
   promptQualityPack?: boolean;
+  /**
+   * Skill version tracking: maps skill name to SHA-256 content hash.
+   * Populated by --refresh-existing. Checked by --doctor and detect_drift.
+   */
+  skillVersions?: Record<string, string>;
+  /**
+   * Allow run_tests, run_lint, and run_build MCP tools to execute shell commands.
+   * Default: false (must be explicitly enabled or set AI_OS_ALLOW_RUN_TOOLS=1).
+   */
+  allowRunTools?: boolean;
+  /**
+   * Target AI model for generated instructions.
+   * Defaults to 'copilot' (standard Markdown). Other values produce companion files.
+   */
+  model?: 'copilot' | 'claude' | 'gemini' | 'local';
+  /**
+   * Additional editor targets for generated configs.
+   * 'vscode' is always included. Others produce companion files.
+   */
+  editorTargets?: Array<'vscode' | 'cursor' | 'jetbrains' | 'neovim' | 'all'>;
 }
 
 /** Runtime type guard for AiOsConfig JSON artifacts. */

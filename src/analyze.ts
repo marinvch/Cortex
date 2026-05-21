@@ -163,6 +163,24 @@ function discoverPackageRoots(rootDir: string): string[] {
     // pnpm-workspace.yaml not present or unreadable.
   }
 
+  // package.json workspaces field (npm/Yarn workspaces)
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf-8')) as {
+      workspaces?: string[] | { packages?: string[] };
+    };
+    const wsList = Array.isArray(pkg.workspaces)
+      ? pkg.workspaces
+      : (pkg.workspaces?.packages ?? []);
+    for (const glob of wsList) {
+      const normalized = glob.replace(/\\/g, '/').replace(/\/\*\*$/, '').replace(/\/\*$/, '');
+      const absBase = path.join(rootDir, normalized);
+      if (hasManifest(absBase)) packageRoots.add(absBase);
+      addWorkspaceChildren(absBase, packageRoots);
+    }
+  } catch {
+    // package.json not present or no workspaces field.
+  }
+
   // lerna.json
   try {
     const lerna = JSON.parse(fs.readFileSync(path.join(rootDir, 'lerna.json'), 'utf-8')) as {
@@ -374,7 +392,7 @@ export function analyze(rootDir: string): DetectedStack {
   const packageRoots = discoverPackageRoots(absRoot);
   const packageProfiles: PackageProfile[] = packageRoots.map((pkgRoot) => ({
     name: getProjectName(pkgRoot),
-    path: path.relative(absRoot, pkgRoot) || '.',
+    path: path.relative(absRoot, pkgRoot).replace(/\\/g, '/') || '.',
     languages: detectLanguages(pkgRoot),
     frameworks: detectFrameworks(pkgRoot),
     patterns: detectPatterns(pkgRoot),

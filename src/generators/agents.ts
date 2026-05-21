@@ -502,7 +502,15 @@ async function generateAgentsWithOptions(
       continue;
     }
 
-    let content = fs.readFileSync(spec.templateFile, 'utf-8');
+    // #183 — user override: check .github/ai-os/templates/agents/<template-base>.md first
+    const templateBase = path.basename(spec.templateFile);
+    const userOverridePath = path.join(cwd, '.github', 'ai-os', 'templates', 'agents', templateBase);
+    const resolvedTemplate = fs.existsSync(userOverridePath) ? userOverridePath : spec.templateFile;
+    if (resolvedTemplate !== spec.templateFile) {
+      console.log(`  🔧 Using override template for ${spec.outputFile}: ${path.relative(cwd, resolvedTemplate)}`);
+    }
+
+    let content = fs.readFileSync(resolvedTemplate, 'utf-8');
 
     // Inject frontmatter values
     content = content

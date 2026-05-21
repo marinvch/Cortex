@@ -5,6 +5,38 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.20.0] — 2026-05-23
+
+### Added
+- **Filesystem MCP tools** (#177): `read_file`, `list_directory` (path-traversal protected), `run_tests`, `run_lint`, `run_build` (opt-in via `AI_OS_ALLOW_RUN_TOOLS=1` or `allowRunTools: true` in config). 11 security tests.
+- **Interactive `--init` wizard** (#175): `runWizardLogic()` with dependency-injectable `AskFn` guides first-time setup through project type, language, framework, and test framework selection.
+- **Monorepo/workspace support** (#173): npm workspaces field detection (`string[]` or `{ packages: string[] }`), normalized forward-slash paths on Windows, `buildMonorepoSection()` in generated instructions, `WorkspacePackage` type.
+- **Skill version tracking** (#181): SHA-256 content hashes stored in `config.json.skillVersions`, checked by `--doctor` and `detect_drift` (check #7) to flag modified/missing skills.
+- **User-overridable agent templates** (#183): agents first check `.github/ai-os/templates/agents/<template>.md` before falling back to built-in templates.
+- **Multi-editor support** (#189): `generateCursorRules()` → `.cursorrules`, `generateJetBrainsContext()` → `.github/ai-os/jetbrains-ai-context.md`, `generateNeovimContext()` → `.github/ai-os/nvim-context.md`. Auto-detects `.idea/` and existing `.cursorrules`. `--editor` flag: `vscode|cursor|jetbrains|neovim|all`.
+- **Multi-model output** (#190): `adaptForClaude()` (XML tags), `adaptForGemini()` (compact sections), `adaptForLocal()` (4K-8K token budget). `--model` flag: `copilot|claude|gemini|local`. Companion files in `.github/ai-os/`.
+- **Agent workflow chaining** (#184): YAML workflow schema (`name`, `description`, `steps` with `agent`/`input`/`output`), `parseWorkflowYaml()`, `validateWorkflow()`, `buildWorkflowRunPlan()`, `formatRunPlan()`. `run_workflow` MCP tool lists/executes workflows with dry-run mode. Built-in `feature-pipeline.yml` ships with AI OS. Workflows deployed to `.github/ai-os/workflows/` on install.
+
+### Changed
+- `ParsedArgs` gains `editorTargets: EditorTarget[]` and `model: ModelTarget` fields
+- `AiOsConfig` gains `model?`, `editorTargets?`, and `allowRunTools?` fields
+- MCP tool count: 32 → 37 tools
+
+### Tests
+- 533 tests across 40 test files (up from 483 / 37)
+
+### Resolved Issues
+- #177 — Filesystem and process MCP tools
+- #175 — Interactive `--init` wizard
+- #173 — Monorepo/workspace support
+- #181 — Skill version tracking and integrity checks
+- #183 — User-overridable agent templates
+- #189 — Multi-editor support (Cursor, JetBrains, Neovim)
+- #190 — Multi-model output (Claude, Gemini, local LLMs)
+- #184 — Agent workflow chaining with built-in feature pipeline
+
+---
+
 ## [0.19.0] — 2026-05-22
 
 ### Added

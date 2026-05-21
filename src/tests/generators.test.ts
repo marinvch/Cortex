@@ -61,11 +61,33 @@ describe('instructions size cap', () => {
     const instructionsPath = path.join(githubDir, 'copilot-instructions.md');
     // The file must exist — if it doesn't, the generator has a bug
     expect(fs.existsSync(instructionsPath), 'copilot-instructions.md must be generated').toBe(true);
-    const bytes = Buffer.byteLength(fs.readFileSync(instructionsPath, 'utf-8'), 'utf-8');
+    const content = fs.readFileSync(instructionsPath, 'utf-8');
+    const bytes = Buffer.byteLength(content, 'utf-8');
     // GitHub Copilot context limit: 8 KB
     expect(bytes, `copilot-instructions.md is ${bytes} bytes — exceeds 8 KB GitHub context limit`).toBeLessThanOrEqual(8192);
 
     // Cleanup
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('truncates at a section boundary, not mid-sentence', async () => {
+    const { generateInstructions } = await import('../generators/instructions.js');
+    const stack = makeStack();
+
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-trim-test-' + Date.now());
+    fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
+
+    generateInstructions(stack, tmpDir, { refreshExisting: false });
+
+    const content = fs.readFileSync(path.join(tmpDir, '.github', 'copilot-instructions.md'), 'utf-8');
+    // If truncation occurred, it must use the clean boundary marker
+    if (content.includes('<!-- [AI OS]')) {
+      expect(content).toContain('content trimmed');
+      expect(content).not.toContain('truncated to 8 KB');
+    }
+
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 });

@@ -4,8 +4,8 @@
 
 ## Detection Summary
 
-- Total detected AI artifacts: **6**
-- Copilot instructions: **2**
+- Total detected AI artifacts: **5**
+- Copilot instructions: **1**
 - Copilot skills: **0**
 - Prompt registries: **0**
 - Agent files: **1**
@@ -14,7 +14,6 @@
 
 ## Detected Artifacts
 
-- [instructions] `.github/copilot-instructions.md`
 - [instructions] `.github/instructions/`
 - [agents] `.github/agents/ (8 files)`
 - [docs] `.github/ai-os/context/stack.md`
@@ -44,7 +43,7 @@ bash install.sh --cwd "$PWD" --refresh-existing
 ```mermaid
 pie showData
   title Existing AI Context Artifacts
-  "instructions" : 2
+  "instructions" : 1
   "skills" : 0
   "prompts" : 0
   "agents" : 1

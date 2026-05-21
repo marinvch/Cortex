@@ -23,6 +23,12 @@ export function setPrevHashes(hashes: Record<string, string>): void {
   _newHashes = {};
 }
 
+/** Reset all hash state — useful in tests to prevent cross-test contamination. */
+export function resetHashes(): void {
+  _prevHashes = {};
+  _newHashes = {};
+}
+
 /**
  * Retrieve the content hashes collected during this generation run.
  * Pass these to writeManifest() to persist them for the next run.
@@ -95,7 +101,8 @@ export function writeIfChanged(filePath: string, content: string): WriteResult {
   _newHashes[filePath] = contentHash;
 
   // Fast-path: compare against previous manifest hash before reading disk.
-  if (_prevHashes[filePath] !== undefined && _prevHashes[filePath] === contentHash) {
+  // Only skip if the file actually exists — a deleted file must always be recreated.
+  if (_prevHashes[filePath] !== undefined && _prevHashes[filePath] === contentHash && fs.existsSync(filePath)) {
     if (_verbose) console.log(`  ⏭️  skip    ${filePath}  (hash-match)`);
     if (_dryRun) _dryRunCaptures.push({ filePath, newContent: content, existingContent: content });
     return 'skipped';

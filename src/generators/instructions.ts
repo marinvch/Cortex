@@ -97,19 +97,32 @@ interface GenerateInstructionsOptions {
   config?: AiOsConfig;
 }
 
-/** Enforce an 8 KB cap on copilot-instructions.md. Truncates framework overlay if needed. */
+/** Enforce an 8 KB cap on copilot-instructions.md. Truncates at the last section boundary that fits. */
 function enforceSizeCap(content: string, maxBytes = 8192): string {
   const encoded = Buffer.byteLength(content, 'utf-8');
   if (encoded <= maxBytes) return content;
 
-  // Find the FRAMEWORK_OVERLAY boundary and trim from there
-  const cutIdx = content.lastIndexOf('\n---\n', Math.floor(content.length * (maxBytes / encoded)));
-  if (cutIdx > 0) {
-    const truncated = content.slice(0, cutIdx) + '\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n';
-    if (Buffer.byteLength(truncated, 'utf-8') <= maxBytes) return truncated;
+  const TRIM_NOTICE = '\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n';
+  const noticeBytes = Buffer.byteLength(TRIM_NOTICE, 'utf-8');
+  const budget = maxBytes - noticeBytes;
+
+  // Find all section separator positions (handles both \n---\n and \r\n---\r\n)
+  const SEP_RE = /\r?\n---\r?\n/g;
+  const separators: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = SEP_RE.exec(content)) !== null) {
+    separators.push(m.index);
   }
 
-  // Hard truncate as last resort
+  // Pick the last separator whose preceding content fits within the budget
+  for (let i = separators.length - 1; i >= 0; i--) {
+    const slice = content.slice(0, separators[i]);
+    if (Buffer.byteLength(slice, 'utf-8') <= budget) {
+      return slice + TRIM_NOTICE;
+    }
+  }
+
+  // Hard truncate as last resort (no separator found within budget)
   const bytes = Buffer.from(content, 'utf-8').slice(0, maxBytes - 100);
   return bytes.toString('utf-8') + '\n\n<!-- [AI OS] truncated to 8 KB Copilot budget -->\n';
 }
@@ -485,7 +498,10 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     ? ['| Skill | Trigger phrase / description |', '|---|---|', ...skillRows].join('\n')
     : '_No skills installed yet._';
 
-  const frameworks = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
+  const frameworks = stack.frameworks.map(f => f.name).join(', ');
+  const stackMetaLine = frameworks
+    ? `> Stack: **${frameworks}** · Language: **${stack.primaryLanguage.name}** · Package manager: **${stack.patterns.packageManager}**`
+    : `> Language: **${stack.primaryLanguage.name}** · Package manager: **${stack.patterns.packageManager}**`;
   const buildCmd = stack.buildCommands?.build ?? 'npm run build';
   const testCmd = stack.buildCommands?.test ?? 'npm test';
   const contextSyncCmd = 'npx -y github:marinvch/ai-os --refresh-existing';
@@ -497,7 +513,7 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     '',
     `# Prompt Quality Pack — ${stack.projectName}`,
     '',
-    `> Stack: **${frameworks}** · Language: **${stack.primaryLanguage.name}** · Package manager: **${stack.patterns.packageManager}**`,
+    stackMetaLine,
     '',
     '## 1. Prompt Template',
     '',

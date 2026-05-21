@@ -195,3 +195,35 @@ describe('generateMcpJson', () => {
     expect(Array.isArray(content)).toBe(true);
   });
 });
+
+// ─── writeIfChanged (deleted-file recovery) ───────────────────────────────────
+
+describe('writeIfChanged deleted-file recovery', () => {
+  let tmp: string;
+  beforeEach(() => { tmp = mkTmp(); });
+  afterEach(() => rmTmp(tmp));
+
+  it('recreates a deleted file even when manifest hash matches', async () => {
+    const { writeIfChanged, resetHashes, setPrevHashes, getNewHashes } = await import('../generators/utils.js');
+    resetHashes();
+
+    const filePath = path.join(tmp, 'test-file.md');
+    const content = '# Test\n\nSome content.\n';
+
+    // First write: creates the file and records the hash in _newHashes
+    writeIfChanged(filePath, content);
+    expect(fs.existsSync(filePath)).toBe(true);
+
+    // Simulate the next run: promote newHashes → prevHashes (as generate.ts does)
+    setPrevHashes(getNewHashes());
+
+    // Simulate user deleting the file
+    fs.rmSync(filePath);
+    expect(fs.existsSync(filePath)).toBe(false);
+
+    // Second write: same content + prevHash matches — but file is gone, must recreate
+    const result = writeIfChanged(filePath, content);
+    expect(result).not.toBe('skipped');
+    expect(fs.existsSync(filePath)).toBe(true);
+  });
+});

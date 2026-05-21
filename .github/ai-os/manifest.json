@@ -1,6 +1,6 @@
 {
   "version": "0.16.0",
-  "generatedAt": "2026-05-21T04:24:07.077Z",
+  "generatedAt": "2026-05-21T04:50:17.574Z",
   "files": [
     ".github/COPILOT_CONTEXT.md",
     ".github/agents/ai-os-initializer.agent.md",
@@ -49,17 +49,17 @@
     "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\architecture.md": "a147b906f1037aa3f13d058e29d2bb7aa8e1b5264bc81dad69df1c9cf0f03f30",
     "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\conventions.md": "9ae5de8b1445ae5cdbc12907a55a7c323a7429c904277399773f2f68b6111001",
     "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\memory.md": "39268ae9597d249ae704e5a4ad8e43fca9444a5dd3b6e1cfd50bc66cd3df0748",
-    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\existing-ai-context.md": "198a24c0423630441c0837c88dc6332d9933e257cd6de686a71a810e2160976c",
+    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\existing-ai-context.md": "d48709a9cc368386d6e535ba94944a0b7fbe072089449d35e6e45e0cea702b64",
     "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\context-budget.md": "ce3b7d4ac7ea8287310f8ca565c42083283d83f6908b3c06d3a890a7387d364a",
     "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\protected-blocks.md": "8a8aa6ba532b9d7795f012e437b02a4af872923b39a3758d2fafaf0ca7fb294d",
-    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\dependency-graph.json": "3d9950e404bdc48d6799d305b39ffa5a4df9b121be270c9e09e3fd55692b5294",
-    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\mcp-tools.md": "d62a64e253a62f437ab9d7e8dcf89e1485fdb602493e4fc990f6416cf4e1f4b4",
-    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\config.json": "3670d0fa9cc189c51eb3d335ef94e3653b84966eb38b60d5f060cfd6d610d635",
+    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\dependency-graph.json": "a5430398606cbfb87632f04abcef726d3b75778f709c412572a1eb081a851794",
+    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\context\\mcp-tools.md": "68d7c77374f4856eafba5ead1dd63f38184acf56426b6e6e44e33931f708a3b3",
+    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\config.json": "27ff2b82259eccf0662a11557ef6f78b860cbf7bb77e58a9478fd3f75fc623c0",
     "D:\\Projects\\Personal\\ai-os\\.github\\COPILOT_CONTEXT.md": "6fd7f21a679597c5b2a9d491090873f12580f6d8c9da9ca4a1485342443c1145",
-    "D:\\Projects\\Personal\\ai-os\\.github\\copilot-instructions.md": "dc839c973302863c2ad797538eec4af698790ac189b573ae9027aa35d87c9b03",
+    "D:\\Projects\\Personal\\ai-os\\.github\\copilot-instructions.md": "526ccd40de9c80209b1301848d03db5a29058ae6a34c3327ba2c6c75709e132f",
     "D:\\Projects\\Personal\\ai-os\\.github\\instructions\\ai-os.instructions.md": "e3fe555b4b636f7891222d91114f9971deb79dbd4166beac7f30c9fd6fffb06a",
     "D:\\Projects\\Personal\\ai-os\\.github\\instructions\\tests.instructions.md": "8a37506999c7cd735ea955234ee76738b00c57bc14aa8464e8067e277894cea3",
-    "D:\\Projects\\Personal\\ai-os\\.github\\instructions\\prompt-quality.instructions.md": "8a8bd8c8b30c8f1f098b9e621a695ed91fb22bc78e18fbd09bac4ce680f9acd3",
+    "D:\\Projects\\Personal\\ai-os\\.github\\instructions\\prompt-quality.instructions.md": "f9d89652e9c5723fb8e4d6d55a3163bd9acfb1d5b020a6e4e8ebc252501a547b",
     "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\tools.json": "ba6dd555adfb1178ff8c58a9f1077aa6b5069e14f917148c68672472095b6189",
     "D:\\Projects\\Personal\\ai-os\\.github\\agents\\ai-os-initializer.agent.md": "eddba16b56789e7574e1d2b6548f3aebaf8523dec683e8959b9e64bb1a570a8e",
     "D:\\Projects\\Personal\\ai-os\\.github\\agents\\expert-typescript-developer.agent.md": "e34b98b60ad6c66bdd5da320ce01b2d27492c01b0fa61cc30ef58e604986c58e",
@@ -82,6 +82,6 @@
     "D:\\Projects\\Personal\\ai-os\\.vscode\\ai-os-review.chatprompt.md": "43f6449c6c74e565ee9569515e7c8be2a4aff69114043ce3251330bed7151e34",
     "D:\\Projects\\Personal\\ai-os\\.vscode\\ai-os-explore.chatprompt.md": "e03f2f9e1c45c41f79c7fa0c36f904c5f83585b9c0af1478fdd8f276e8d54f7e",
     "D:\\Projects\\Personal\\ai-os\\.github\\workflows\\ai-os-update-check.yml": "3902b2ccfb39c310bd1fa641fb49c7c959264d03202aaffea411d02a56d9896e",
-    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\recommendations.md": "6c7b48ca36b508241993f7f74be0e2fdb8102d7270837f0a7c77e81a426abede"
+    "D:\\Projects\\Personal\\ai-os\\.github\\ai-os\\recommendations.md": "0b6ca7a3e4e59fb6ff3fca38b14aefd45f831d5e25c0e9a49b432c0d2b530107"
   }
 }

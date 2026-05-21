@@ -177,8 +177,25 @@ npx -y github:marinvch/ai-os --check-drift
 ```
 
 - **Drift** means your codebase has changed (e.g., new frameworks, deleted files) and your Copilot context is stale.
-- The output will list any files that need to be updated or removed.
-- To fix drift, run with `--refresh-existing`.
+- The output lists any files that need updating and the type of drift detected.
+- **Semantic drift** is also detected: if `config.json` lists a framework that no longer appears in your instructions, or your `agents.json` count doesn't match your `.agent.md` files, a warning is shown.
+- To fix any drift, run with `--refresh-existing`.
+
+Example output when drift is detected:
+
+```
+## AI OS Drift Report
+
+Found 2 issue(s):
+
+### ⚠️ Warnings (1)
+- `.github/copilot-instructions.md`: Context snapshot is 10 days old (threshold: 7 days)
+  Fix: `npx -y github:marinvch/ai-os --refresh-existing`
+
+### 🔀 Semantic Drift (1)
+- `.github/copilot-instructions.md`: Primary framework "React" from config.json is not mentioned
+  Fix: `npx -y github:marinvch/ai-os --refresh-existing`
+```
 
 ---
 

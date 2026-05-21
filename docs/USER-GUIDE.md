@@ -35,7 +35,7 @@ This is the advanced reference for power users of AI OS. Here you’ll find ever
 - **`--dry-run`**: Shows what would be generated/changed without writing files.
 - **`--full-diff`**: Outputs a unified diff of all changes (useful for code review).
 - **`--check-freshness`**: Computes a freshness score for your context artifacts, showing which are stale.
-- **`--check-drift`**: Checks if your AI OS artifacts are out of sync with your codebase. Exits with code 1 if drift is detected.
+- **`--check-drift`**: Checks if your AI OS artifacts are out of sync with your codebase. Exits with code 1 if drift is detected. Includes 7 checks: missing required files, MCP config validity, unreplaced template placeholders, stale context snapshot (>7 days), agent schema issues, skills/instructions sync, and **semantic drift** (config.json `primaryFramework` vs. instructions content, agents.json count vs. file count).
 - **`--doctor`**: Runs a health check on MCP server, config, and tools. Use after install or if something isn’t working.
 - **`--compact-memory`**: Deduplicates and compacts repository memory entries.
 - **`--refresh-existing`**: Re-scans and regenerates all artifacts, removing any that are no longer needed.
@@ -164,6 +164,41 @@ To enforce drift checks in CI, add a step to your workflow:
 
 - Fails the build if Copilot context is out of sync.
 - Use `--check-freshness` for a freshness score.
+
+---
+
+## Generation Summary
+
+After each install or refresh, AI OS prints a structured summary:
+
+```
+  Diff summary:
+  ✅ Written (new or changed):  12
+  ⏭️  Unchanged (skipped):        8
+  🔒 Preserved (curated):        2
+  🗑️  Pruned (stale):              1
+  ⏱️  Duration:                    1.2s
+```
+
+- **Written**: Files created or updated this run.
+- **Unchanged**: Files that were identical to the previous run (skipped for performance).
+- **Preserved**: Files in `protect.json` that were shielded from overwrite.
+- **Pruned**: Stale files from a previous run that no longer need to exist.
+- **Duration**: Total generation time in seconds.
+
+---
+
+## Error Codes
+
+AI OS exits with structured error codes:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Unexpected / unhandled error |
+| `2` | Known recoverable error — a fix hint is printed to stderr |
+
+When exit code 2 occurs, the error message includes a `Fix:` line with the suggested command.
 
 ---
 

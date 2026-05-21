@@ -661,6 +661,10 @@ function normalizeTags(tags) {
 function buildMemoryKey(entry) {
   return `${normalizeMemoryText(entry.category)}::${normalizeMemoryText(entry.title)}`;
 }
+function buildVersionFamilyKey(entry) {
+  const versionlessTitle = normalizeMemoryText(entry.title).replace(/v\d+\.\d+(?:\.\d+)?(?:-[\w.]+)*/g, "{version}");
+  return `${normalizeMemoryText(entry.category)}::${versionlessTitle}`;
+}
 function buildFingerprint(entry) {
   return `${buildMemoryKey(entry)}::${normalizeMemoryText(entry.content)}`;
 }
@@ -725,6 +729,24 @@ function applyStalePolicy(entries, ttlDays) {
       entry.status = "stale";
       entry.staleReason = entry.staleReason ?? "superseded-by-newer-entry";
       entry.updatedAt = toIsoDate(entry.updatedAt);
+    }
+  }
+  const byFamilyKey = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    if (entry.status === "stale") continue;
+    const familyKey = buildVersionFamilyKey(entry);
+    if (!familyKey.includes("{version}")) continue;
+    const list = byFamilyKey.get(familyKey) ?? [];
+    list.push(entry);
+    byFamilyKey.set(familyKey, list);
+  }
+  for (const [, list] of byFamilyKey) {
+    if (list.length <= 1) continue;
+    list.sort(sortByRecencyDesc);
+    for (let i = 1; i < list.length; i++) {
+      list[i].status = "stale";
+      list[i].staleReason = "superseded-by-newer-version";
+      list[i].updatedAt = toIsoDate(list[i].updatedAt);
     }
   }
   for (const entry of entries) {
@@ -908,11 +930,30 @@ function rememberRepoFact(title, content, category, tags) {
         incoming.supersedesId = currentActive.id;
         incoming.conflictWithId = currentActive.id;
       }
+      let versionFamilySuperseded = false;
+      if (!currentActive) {
+        const incomingFamilyKey = buildVersionFamilyKey(incoming);
+        if (incomingFamilyKey.includes("{version}")) {
+          const familyMatches = entries.filter(
+            (entry) => entry.status !== "stale" && buildVersionFamilyKey(entry) === incomingFamilyKey
+          );
+          for (const match of familyMatches) {
+            match.status = "stale";
+            match.staleReason = "superseded-by-newer-version";
+            match.updatedAt = now;
+            incoming.supersedesId ??= match.id;
+          }
+          versionFamilySuperseded = familyMatches.length > 0;
+        }
+      }
       entries.push(incoming);
       const normalized = dedupeEntries(applyStalePolicy(entries));
       writeMemoryEntriesAtomic(normalized);
       if (currentActive) {
         return `Stored memory entry with conflict marker: ${incoming.title} (${incoming.category})`;
+      }
+      if (versionFamilySuperseded) {
+        return `Stored memory entry, superseding older version: ${incoming.title} (${incoming.category})`;
       }
       return `Stored memory entry: ${incoming.title} (${incoming.category})`;
     });

@@ -179,3 +179,43 @@ export function isAiOsConfig(obj: unknown): obj is AiOsConfig {
     Array.isArray(o['exclude'])
   );
 }
+
+/** One entry in the agent registry — A2A-inspired AgentCard for a generated agent. */
+export interface AgentRegistryEntry {
+  /** Display name of the agent (e.g. "Payments Expert") */
+  name: string;
+  /** Filename in .github/agents/ (e.g. "expert-payments.agent.md") */
+  file: string;
+  /** What this agent can do (used by orchestrator to match tasks) */
+  capabilities: string[];
+  /** Lowercase keywords that trigger routing to this agent */
+  triggers: string[];
+  /** One-sentence summary used in the orchestrator's agent list */
+  description: string;
+}
+
+/** The full agent registry written to .github/ai-os/agents.json */
+export interface AgentRegistry {
+  version: '1';
+  generatedAt: string;
+  agents: AgentRegistryEntry[];
+}
+
+/** Runtime type guard for AgentRegistry — validates JSON loaded from agents.json */
+export function isAgentRegistry(value: unknown): value is AgentRegistry {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (v['version'] !== '1') return false;
+  if (typeof v['generatedAt'] !== 'string') return false;
+  if (!Array.isArray(v['agents'])) return false;
+  return v['agents'].every(
+    (a) =>
+      typeof a === 'object' &&
+      a !== null &&
+      typeof (a as Record<string, unknown>)['name'] === 'string' &&
+      typeof (a as Record<string, unknown>)['file'] === 'string' &&
+      Array.isArray((a as Record<string, unknown>)['capabilities']) &&
+      Array.isArray((a as Record<string, unknown>)['triggers']) &&
+      typeof (a as Record<string, unknown>)['description'] === 'string'
+  );
+}

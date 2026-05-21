@@ -1,0 +1,33 @@
+<h2>A2A in AI OS — What's the core goal?</h2>
+<p class="subtitle">AI OS currently generates MCP tools, agents, skills & instructions for repos. Where does A2A fit?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Make AI OS agents discoverable</h3>
+      <p>Generate an <strong>AgentCard</strong> (<code>/.well-known/agent-card.json</code>) for each repo so external AI agents can discover and call the repo's capabilities via the A2A protocol.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Turn the MCP server into an A2A server</h3>
+      <p>Expose AI OS's MCP server as an <strong>A2A-compatible HTTP endpoint</strong> — other agents (Google, Claude, GPT-based) can delegate tasks (search code, query memory, introspect stack) to it.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Generate A2A config for the target repo</h3>
+      <p>AI OS scans the repo and <strong>auto-generates A2A configuration</strong> — AgentCard, skill definitions, task schemas — so the repo's own agents become A2A-interoperable out of the box.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>AI OS as an A2A orchestrator</h3>
+      <p>AI OS acts as a <strong>master orchestrator</strong> that routes tasks across multiple A2A-compatible agents (code agent, test agent, deploy agent) coordinated by the repo context it generates.</p>
+    </div>
+  </div>
+</div>

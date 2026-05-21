@@ -38,6 +38,7 @@ Scan these locations for terms, patterns, and guidance tied to the old architect
 - `.github/copilot/skills/*.md`
 - `.github/agents/*.md`
 - `.github/copilot/*.prompt.md`
+- `.github/instructions/*.instructions.md`
 - Any `.github/ai-os/memory/*.md` files
 
 ### Step 3: Generate impact inventory

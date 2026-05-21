@@ -57,6 +57,12 @@
       "importedBy": [],
       "exports": []
     },
+    "scripts/gen-mcp-docs.mjs": {
+      "path": "scripts/gen-mcp-docs.mjs",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
     "src/actions/apply.ts": {
       "path": "src/actions/apply.ts",
       "imports": [
@@ -68,6 +74,8 @@
         "src/generators/skills.ts",
         "src/generators/prompts.ts",
         "src/generators/workflows.ts",
+        "src/generators/toolsets.ts",
+        "src/generators/chatmodes.ts",
         "src/mcp-tools.ts",
         "src/updater.ts",
         "src/planner.ts",
@@ -77,7 +85,7 @@
         "src/user-blocks.ts",
         "src/detectors/freshness.ts",
         "src/mcp-server/utils.ts",
-        "src/actions/bootstrap.ts",
+        "src/bootstrap.ts",
         "src/actions/plan.ts",
         "src/actions/preview.ts",
         "src/cli/args.ts"
@@ -95,9 +103,7 @@
         "src/bootstrap.ts",
         "src/types.ts"
       ],
-      "importedBy": [
-        "src/actions/apply.ts"
-      ],
+      "importedBy": [],
       "exports": [
         "runBootstrapAction"
       ]
@@ -198,6 +204,7 @@
         "src/recommendations/index.ts"
       ],
       "importedBy": [
+        "src/actions/apply.ts",
         "src/actions/bootstrap.ts",
         "src/tests/bootstrap.test.ts"
       ],
@@ -207,6 +214,7 @@
         "BootstrapPlanItem",
         "BootstrapReport",
         "BootstrapOptions",
+        "installSkill",
         "runBootstrap",
         "formatBootstrapReport"
       ]
@@ -357,6 +365,19 @@
         "generateAgents"
       ]
     },
+    "src/generators/chatmodes.ts": {
+      "path": "src/generators/chatmodes.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts"
+      ],
+      "exports": [
+        "generateChatModes"
+      ]
+    },
     "src/generators/context-docs.ts": {
       "path": "src/generators/context-docs.ts",
       "imports": [
@@ -399,8 +420,11 @@
         "src/actions/apply.ts"
       ],
       "exports": [
-        "writeMcpServerConfig",
-        "generateMcpJson"
+        "writeCopilotCliMcpConfig",
+        "writeVsCodeMcpConfig",
+        "writeMcpServerConfigs",
+        "generateMcpJson",
+        "writeMcpServerConfig"
       ]
     },
     "src/generators/prompts.ts": {
@@ -432,6 +456,19 @@
         "deployBundledSkills"
       ]
     },
+    "src/generators/toolsets.ts": {
+      "path": "src/generators/toolsets.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/actions/apply.ts"
+      ],
+      "exports": [
+        "generateToolsets"
+      ]
+    },
     "src/generators/utils.ts": {
       "path": "src/generators/utils.ts",
       "imports": [],
@@ -440,11 +477,13 @@
         "src/actions/check-hygiene.ts",
         "src/detectors/freshness.ts",
         "src/generators/agents.ts",
+        "src/generators/chatmodes.ts",
         "src/generators/context-docs.ts",
         "src/generators/instructions.ts",
         "src/generators/mcp.ts",
         "src/generators/prompts.ts",
         "src/generators/skills.ts",
+        "src/generators/toolsets.ts",
         "src/generators/workflows.ts",
         "src/recommendations/index.ts",
         "src/tests/sanitize-instructions.test.ts",
@@ -452,12 +491,18 @@
         "src/uninstall.ts"
       ],
       "exports": [
+        "setPrevHashes",
+        "resetHashes",
+        "getNewHashes",
         "setVerboseMode",
         "hashContent",
         "hashFile",
         "WriteResult",
         "writeFileAtomic",
         "writeIfChanged",
+        "DryRunCapture",
+        "setDryRunMode",
+        "getDryRunCaptures",
         "findUnresolvedPlaceholders",
         "applyFallbacks",
         "AiOsManifest",
@@ -640,11 +685,13 @@
       ],
       "importedBy": [
         "src/mcp-server/index.ts",
-        "src/tests/mcp-tool-definitions.test.ts"
+        "src/tests/mcp-tool-definitions.test.ts",
+        "src/tests/schema-validate.test.ts"
       ],
       "exports": [
         "McpToolSchema",
         "McpToolDefinition",
+        "isMcpToolDefinition",
         "getAllMcpTools",
         "getActiveToolsForProject"
       ]
@@ -898,6 +945,14 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/orchestration.test.ts": {
+      "path": "src/tests/orchestration.test.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/profile.test.ts": {
       "path": "src/tests/profile.test.ts",
       "imports": [
@@ -927,7 +982,8 @@
       "path": "src/tests/schema-validate.test.ts",
       "imports": [
         "src/types.ts",
-        "src/generators/utils.ts"
+        "src/generators/utils.ts",
+        "src/mcp-server/tool-definitions.ts"
       ],
       "importedBy": [],
       "exports": []
@@ -957,6 +1013,14 @@
       "imports": [
         "src/recommendations/cli-compat.ts",
         "src/recommendations/index.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/toolsets-and-chatmodes.test.ts": {
+      "path": "src/tests/toolsets-and-chatmodes.test.ts",
+      "imports": [
         "src/types.ts"
       ],
       "importedBy": [],
@@ -1005,11 +1069,13 @@
         "src/detectors/language.ts",
         "src/detectors/patterns.ts",
         "src/generators/agents.ts",
+        "src/generators/chatmodes.ts",
         "src/generators/context-docs.ts",
         "src/generators/instructions.ts",
         "src/generators/mcp.ts",
         "src/generators/prompts.ts",
         "src/generators/skills.ts",
+        "src/generators/toolsets.ts",
         "src/generators/workflows.ts",
         "src/mcp-tools.ts",
         "src/profile.ts",
@@ -1018,9 +1084,11 @@
         "src/tests/generators-extended.test.ts",
         "src/tests/generators.test.ts",
         "src/tests/mcp-tool-definitions.test.ts",
+        "src/tests/orchestration.test.ts",
         "src/tests/profile.test.ts",
         "src/tests/schema-validate.test.ts",
-        "src/tests/skills-cli-compat.test.ts"
+        "src/tests/skills-cli-compat.test.ts",
+        "src/tests/toolsets-and-chatmodes.test.ts"
       ],
       "exports": [
         "DetectedLanguage",
@@ -1033,7 +1101,10 @@
         "DependencyGraph",
         "InstallProfile",
         "AiOsConfig",
-        "isAiOsConfig"
+        "isAiOsConfig",
+        "AgentRegistryEntry",
+        "AgentRegistry",
+        "isAgentRegistry"
       ]
     },
     "src/uninstall.ts": {
@@ -1182,6 +1253,6 @@
       "exports": []
     }
   },
-  "generatedAt": "2026-04-29T07:35:19.858Z",
-  "fileCount": 90
+  "generatedAt": "2026-05-21T04:58:32.793Z",
+  "fileCount": 95
 }

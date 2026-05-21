@@ -330,3 +330,114 @@ describe('memory hygiene — prune_memory MCP tool is registered', () => {
     expect(tool?.description).toContain('Compact');
   });
 });
+
+// ── Version-family supersession ───────────────────────────────────────────────
+
+describe('memory hygiene — version-family supersession', () => {
+  let tempRoot = '';
+  const originalRoot = process.env['AI_OS_ROOT'];
+  const freshDate = new Date().toISOString();
+
+  afterEach(() => {
+    if (originalRoot === undefined) {
+      delete process.env['AI_OS_ROOT'];
+    } else {
+      process.env['AI_OS_ROOT'] = originalRoot;
+    }
+    vi.resetModules();
+    if (tempRoot) fs.rmSync(tempRoot, { recursive: true, force: true });
+    tempRoot = '';
+  });
+
+  it('rememberRepoFact supersedes older version-family entry at write time', async () => {
+    const oldEntry = {
+      id: 'ver-old',
+      createdAt: freshDate,
+      updatedAt: freshDate,
+      title: 'AI OS refreshed to v0.13.0',
+      content: 'Refreshed to version 0.13.0 with new context docs.',
+      category: 'build',
+      tags: [],
+      status: 'active',
+      fingerprint: 'build::ai os refreshed to v0.13.0::refreshed to version 0.13.0 with new context docs.',
+    };
+    tempRoot = createTempMemoryRoot([oldEntry]);
+    process.env['AI_OS_ROOT'] = tempRoot;
+
+    const { rememberRepoFact } = await import('../mcp-server/utils.js');
+    const result = rememberRepoFact('AI OS refreshed to v0.16.0', 'Refreshed to version 0.16.0.', 'build');
+
+    expect(result).toContain('superseding older version');
+
+    const entries = readMemoryFile(tempRoot);
+    const staleEntry = entries.find((e) => (e as { id: string }).id === 'ver-old') as { status: string; staleReason: string } | undefined;
+    expect(staleEntry?.status).toBe('stale');
+    expect(staleEntry?.staleReason).toBe('superseded-by-newer-version');
+  });
+
+  it('pruneMemory removes version-family stale entries from disk', async () => {
+    const oldEntry = {
+      id: 'ver-old2',
+      createdAt: freshDate,
+      updatedAt: freshDate,
+      title: 'AI OS refreshed to v0.12.1',
+      content: 'Refreshed to version 0.12.1.',
+      category: 'build',
+      tags: [],
+      status: 'stale',
+      staleReason: 'superseded-by-newer-version',
+    };
+    const newEntry = {
+      id: 'ver-new2',
+      createdAt: freshDate,
+      updatedAt: freshDate,
+      title: 'AI OS refreshed to v0.16.0',
+      content: 'Refreshed to version 0.16.0.',
+      category: 'build',
+      tags: [],
+      status: 'active',
+    };
+    tempRoot = createTempMemoryRoot([oldEntry, newEntry]);
+    process.env['AI_OS_ROOT'] = tempRoot;
+
+    const { pruneMemory } = await import('../mcp-server/utils.js');
+    pruneMemory();
+
+    const remaining = readMemoryFile(tempRoot);
+    const ids = remaining.map((e) => (e as { id: string }).id);
+    expect(ids).toContain('ver-new2');
+    expect(ids).not.toContain('ver-old2');
+  });
+
+  it('applyStalePolicy marks version-family duplicates stale during maintenance scan', async () => {
+    const v1 = {
+      id: 'vf1',
+      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // older
+      updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      title: 'AI OS refreshed to v0.15.0',
+      content: 'Refreshed to 0.15.0.',
+      category: 'build',
+      tags: [],
+      status: 'active',
+    };
+    const v2 = {
+      id: 'vf2',
+      createdAt: freshDate, // newer
+      updatedAt: freshDate,
+      title: 'AI OS refreshed to v0.16.0',
+      content: 'Refreshed to 0.16.0.',
+      category: 'build',
+      tags: [],
+      status: 'active',
+    };
+    tempRoot = createTempMemoryRoot([v1, v2]);
+    process.env['AI_OS_ROOT'] = tempRoot;
+
+    const { runMemoryMaintenance } = await import('../mcp-server/utils.js');
+    const summary = runMemoryMaintenance();
+
+    // The older version entry should be detected as stale
+    expect(summary.staleMarked).toBeGreaterThanOrEqual(1);
+    expect(summary.activeAfter).toBe(1);
+  });
+});

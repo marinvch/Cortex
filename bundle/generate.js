@@ -359,7 +359,7 @@ function writeIfChanged(filePath, content) {
   fs2.mkdirSync(path3.dirname(filePath), { recursive: true });
   const contentHash = hashContent(content);
   _newHashes[filePath] = contentHash;
-  if (_prevHashes[filePath] !== void 0 && _prevHashes[filePath] === contentHash) {
+  if (_prevHashes[filePath] !== void 0 && _prevHashes[filePath] === contentHash && fs2.existsSync(filePath)) {
     if (_verbose) console.log(`  \u23ED\uFE0F  skip    ${filePath}  (hash-match)`);
     if (_dryRun) _dryRunCaptures.push({ filePath, newContent: content, existingContent: content });
     return "skipped";
@@ -1264,6 +1264,10 @@ function normalizeTags(tags) {
 function buildMemoryKey(entry) {
   return `${normalizeMemoryText(entry.category)}::${normalizeMemoryText(entry.title)}`;
 }
+function buildVersionFamilyKey(entry) {
+  const versionlessTitle = normalizeMemoryText(entry.title).replace(/v\d+\.\d+(?:\.\d+)?(?:-[\w.]+)*/g, "{version}");
+  return `${normalizeMemoryText(entry.category)}::${versionlessTitle}`;
+}
 function buildFingerprint(entry) {
   return `${buildMemoryKey(entry)}::${normalizeMemoryText(entry.content)}`;
 }
@@ -1328,6 +1332,24 @@ function applyStalePolicy(entries, ttlDays) {
       entry.status = "stale";
       entry.staleReason = entry.staleReason ?? "superseded-by-newer-entry";
       entry.updatedAt = toIsoDate(entry.updatedAt);
+    }
+  }
+  const byFamilyKey = /* @__PURE__ */ new Map();
+  for (const entry of entries) {
+    if (entry.status === "stale") continue;
+    const familyKey = buildVersionFamilyKey(entry);
+    if (!familyKey.includes("{version}")) continue;
+    const list = byFamilyKey.get(familyKey) ?? [];
+    list.push(entry);
+    byFamilyKey.set(familyKey, list);
+  }
+  for (const [, list] of byFamilyKey) {
+    if (list.length <= 1) continue;
+    list.sort(sortByRecencyDesc);
+    for (let i = 1; i < list.length; i++) {
+      list[i].status = "stale";
+      list[i].staleReason = "superseded-by-newer-version";
+      list[i].updatedAt = toIsoDate(list[i].updatedAt);
     }
   }
   for (const entry of entries) {
@@ -2399,7 +2421,36 @@ function buildPersonaDirective(stack) {
   if (fw) return `Act as a Senior ${fw} developer with deep expertise in ${lang} and the full ${fw} ecosystem.`;
   return `Act as a Senior ${lang} developer.`;
 }
-function fillTemplate(template, stack, frameworkOverlay) {
+function buildSkillRoutingSection(outputDir) {
+  const skillsDir = path15.join(outputDir, ".github", "copilot", "skills");
+  if (!fs13.existsSync(skillsDir)) return "";
+  const rows = [];
+  for (const file of fs13.readdirSync(skillsDir)) {
+    if (!file.endsWith(".md")) continue;
+    try {
+      const raw = fs13.readFileSync(path15.join(skillsDir, file), "utf-8");
+      const nameMatch = raw.match(/^name:\s*(.+)$/m);
+      const descMatch = raw.match(/^description:\s*(.+)$/m);
+      const name = nameMatch?.[1]?.trim() ?? file.replace(".md", "");
+      const desc = descMatch?.[1]?.trim() ?? "";
+      rows.push(`| \`${name}\` | ${desc} |`);
+    } catch {
+    }
+  }
+  if (rows.length === 0) return "";
+  return [
+    "",
+    "## Available Skills",
+    "",
+    "| Skill | Trigger (auto-activates when prompt matches) |",
+    "|---|---|",
+    ...rows,
+    "",
+    "---",
+    ""
+  ].join("\n");
+}
+function fillTemplate(template, stack, frameworkOverlay, outputDir) {
   const s = sanitizeForInstructions;
   const frameworks = stack.frameworks.map((f) => s(f.name)).join(", ") || s(stack.primaryLanguage.name);
   const linter = s(stack.patterns.linter ?? "none detected");
@@ -2407,15 +2458,26 @@ function fillTemplate(template, stack, frameworkOverlay) {
   const testFramework = s(stack.patterns.testFramework ?? "none detected");
   const testDir = s(stack.patterns.testDirectory ?? "none detected");
   const buildCommandsSection = buildBuildCommandsSection(stack);
-  return template.replace(/{{PROJECT_NAME}}/g, s(stack.projectName)).replace(/{{PRIMARY_LANGUAGE}}/g, s(stack.primaryLanguage.name)).replace(/{{FRAMEWORKS}}/g, frameworks).replace(/{{PACKAGE_MANAGER}}/g, s(stack.patterns.packageManager)).replace(/{{HAS_TYPESCRIPT}}/g, stack.patterns.hasTypeScript ? "Yes" : "No").replace(/{{STACK_SUMMARY}}/g, buildStackSummary(stack)).replace(/{{NAMING_CONVENTION}}/g, s(stack.patterns.namingConvention)).replace(/{{LINTER}}/g, linter).replace(/{{FORMATTER}}/g, formatter).replace(/{{TEST_FRAMEWORK}}/g, testFramework).replace(/{{TEST_DIRECTORY}}/g, testDir).replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack)).replace(/{{BUILD_COMMANDS}}/g, buildCommandsSection).replace(/{{PERSONA_DIRECTIVE}}/g, buildPersonaDirective(stack)).replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
+  const skillRoutingSection = buildSkillRoutingSection(outputDir);
+  return template.replace(/{{PROJECT_NAME}}/g, s(stack.projectName)).replace(/{{PRIMARY_LANGUAGE}}/g, s(stack.primaryLanguage.name)).replace(/{{FRAMEWORKS}}/g, frameworks).replace(/{{PACKAGE_MANAGER}}/g, s(stack.patterns.packageManager)).replace(/{{HAS_TYPESCRIPT}}/g, stack.patterns.hasTypeScript ? "Yes" : "No").replace(/{{STACK_SUMMARY}}/g, buildStackSummary(stack)).replace(/{{NAMING_CONVENTION}}/g, s(stack.patterns.namingConvention)).replace(/{{LINTER}}/g, linter).replace(/{{FORMATTER}}/g, formatter).replace(/{{TEST_FRAMEWORK}}/g, testFramework).replace(/{{TEST_DIRECTORY}}/g, testDir).replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack)).replace(/{{BUILD_COMMANDS}}/g, buildCommandsSection).replace(/{{SKILL_ROUTING}}/g, skillRoutingSection).replace(/{{PERSONA_DIRECTIVE}}/g, buildPersonaDirective(stack)).replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
 }
 function enforceSizeCap(content, maxBytes = 8192) {
   const encoded = Buffer.byteLength(content, "utf-8");
   if (encoded <= maxBytes) return content;
-  const cutIdx = content.lastIndexOf("\n---\n", Math.floor(content.length * (maxBytes / encoded)));
-  if (cutIdx > 0) {
-    const truncated = content.slice(0, cutIdx) + "\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n";
-    if (Buffer.byteLength(truncated, "utf-8") <= maxBytes) return truncated;
+  const TRIM_NOTICE = "\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n";
+  const noticeBytes = Buffer.byteLength(TRIM_NOTICE, "utf-8");
+  const budget = maxBytes - noticeBytes;
+  const SEP_RE = /\r?\n---\r?\n/g;
+  const separators = [];
+  let m;
+  while ((m = SEP_RE.exec(content)) !== null) {
+    separators.push(m.index);
+  }
+  for (let i = separators.length - 1; i >= 0; i--) {
+    const slice = content.slice(0, separators[i]);
+    if (Buffer.byteLength(slice, "utf-8") <= budget) {
+      return slice + TRIM_NOTICE;
+    }
   }
   const bytes = Buffer.from(content, "utf-8").slice(0, maxBytes - 100);
   return bytes.toString("utf-8") + "\n\n<!-- [AI OS] truncated to 8 KB Copilot budget -->\n";
@@ -2584,7 +2646,7 @@ function generateInstructions(stack, outputDir, options) {
   const overlays = [...templateKeys].map((k) => readFrameworkTemplate(k)).filter(Boolean).join("\n\n---\n\n");
   let content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project
 
-No specific framework template found. Follow the general rules above.`);
+No specific framework template found. Follow the general rules above.`, outputDir);
   const persistentRules = config?.persistentRules ?? [];
   const persistentSection = buildPersistentRulesSection(persistentRules, stack);
   if (persistentSection) {
@@ -2625,13 +2687,6 @@ No specific framework template found. Follow the general rules above.`);
     "| `get_recommendations` | To see stack-appropriate tools, extensions, and skills |",
     "| `suggest_improvements` | To surface architectural and tooling gaps |",
     "",
-    "## Session Restart Protocol",
-    "",
-    "**When starting a new conversation or after a context window reset:**",
-    "1. Call `get_session_context` \u2192 reloads MUST-ALWAYS rules, build commands, key files",
-    "2. Call `get_repo_memory` \u2192 reloads durable architectural decisions",
-    "3. Call `get_conventions` \u2192 reloads coding rules",
-    "",
     "## Memory Protocol",
     "",
     "1. MUST start each non-trivial task by checking relevant repository memory.",
@@ -2653,29 +2708,6 @@ No specific framework template found. Follow the general rules above.`);
     "1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.",
     "2. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.",
     "3. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.",
-    "",
-    "## Strict Behavior Guardrails",
-    "",
-    "1. MUST ask clarifying questions first when a request is ambiguous, underspecified, or outside described scope.",
-    "2. MUST NOT improvise requirements, API contracts, or migration scope beyond explicit instructions.",
-    "3. MUST avoid silent fallback for core runtime failures; return explicit diagnostics instead.",
-    "",
-    "### Allowed Actions",
-    "",
-    "- Read relevant context and repository memory before implementation.",
-    "- Apply minimal in-scope edits and validate with non-destructive checks.",
-    "",
-    "### Forbidden Actions",
-    "",
-    "- Destructive operations without explicit approval.",
-    "- Broad refactors or architecture changes without confirmation.",
-    "- Writing speculative or transient notes into repo memory.",
-    "",
-    "### Escalation Flow (When Ambiguous)",
-    "",
-    "1. State what is unclear and what assumptions would change behavior.",
-    "2. Ask focused clarifying question(s) with bounded options.",
-    "3. Continue after clarification; if unavailable, take safest minimal action and document limits.",
     "",
     "## Agentic Task Safety",
     "",
@@ -2759,7 +2791,8 @@ function generatePromptQualityPack(stack, outputDir, githubDir) {
   }
   const agentTable = agentRows.length > 0 ? ["| Agent | Description | When to use |", "|---|---|---|", ...agentRows].join("\n") : "_No agents installed yet._";
   const skillTable = skillRows.length > 0 ? ["| Skill | Trigger phrase / description |", "|---|---|", ...skillRows].join("\n") : "_No skills installed yet._";
-  const frameworks = stack.frameworks.map((f) => f.name).join(", ") || stack.primaryLanguage.name;
+  const frameworks = stack.frameworks.map((f) => f.name).join(", ");
+  const stackMetaLine = frameworks ? `> Stack: **${frameworks}** \xB7 Language: **${stack.primaryLanguage.name}** \xB7 Package manager: **${stack.patterns.packageManager}**` : `> Language: **${stack.primaryLanguage.name}** \xB7 Package manager: **${stack.patterns.packageManager}**`;
   const buildCmd = stack.buildCommands?.build ?? "npm run build";
   const testCmd = stack.buildCommands?.test ?? "npm test";
   const contextSyncCmd = "npx -y github:marinvch/ai-os --refresh-existing";
@@ -2770,7 +2803,7 @@ function generatePromptQualityPack(stack, outputDir, githubDir) {
     "",
     `# Prompt Quality Pack \u2014 ${stack.projectName}`,
     "",
-    `> Stack: **${frameworks}** \xB7 Language: **${stack.primaryLanguage.name}** \xB7 Package manager: **${stack.patterns.packageManager}**`,
+    stackMetaLine,
     "",
     "## 1. Prompt Template",
     "",
@@ -4102,15 +4135,25 @@ function generateContextDocs(stack, outputDir, options) {
   if (config.sessionContextCard) {
     const sessionCardPath = track(path18.join(outputDir, ".github", "COPILOT_CONTEXT.md"));
     if (!shouldPreserve(sessionCardPath)) {
-      writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
+      writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config, outputDir));
     }
   }
   return managed;
 }
-function generateSessionContextCard(stack, config) {
+function generateSessionContextCard(stack, config, outputDir) {
   const fw = stack.primaryFramework?.name ?? stack.primaryLanguage.name;
   const pm = stack.patterns.packageManager;
   const isNode = ["npm", "yarn", "pnpm", "bun"].includes(pm);
+  const skillsCount = (() => {
+    if (!outputDir) return 0;
+    const skillsDir = path18.join(outputDir, ".github", "copilot", "skills");
+    if (!fs16.existsSync(skillsDir)) return 0;
+    try {
+      return fs16.readdirSync(skillsDir).filter((f) => f.endsWith(".md")).length;
+    } catch {
+      return 0;
+    }
+  })();
   const buildCmd = isNode ? `${pm} run build` : pm === "go" ? "go build ./..." : pm === "cargo" ? "cargo build" : pm === "maven" ? "mvn package" : pm === "gradle" ? "./gradlew build" : "build";
   const testCmd = isNode ? `${pm} run test` : pm === "go" ? "go test ./..." : pm === "cargo" ? "cargo test" : pm === "maven" ? "mvn test" : pm === "gradle" ? "./gradlew test" : "test";
   const lintCmd = stack.patterns.linter ? isNode ? `${pm} run lint` : stack.patterns.linter : null;
@@ -4123,7 +4166,11 @@ function generateSessionContextCard(stack, config) {
     "Call get_impact_of_change before editing any shared file"
   ];
   const allRules = [...config.persistentRules, ...rules].slice(0, 10);
-  const keyFilesTable = stack.keyFiles.slice(0, 6).map((f) => `| \`${f}\` | key file |`).join("\n");
+  const keyFilesRows = stack.keyFiles.slice(0, 6).map((f) => `| \`${f}\` | key file |`);
+  if (skillsCount > 0) {
+    keyFilesRows.push(`| \`.github/copilot/skills/\` | ${skillsCount} skill${skillsCount !== 1 ? "s" : ""} installed |`);
+  }
+  const keyFilesTable = keyFilesRows.join("\n");
   return [
     "# Copilot Context \u2014 Quick Start",
     "",
@@ -4152,6 +4199,7 @@ function generateSessionContextCard(stack, config) {
     "1. Call `get_session_context` \u2192 reloads this card",
     "2. Call `get_repo_memory` \u2192 reloads durable decisions",
     "3. Call `get_conventions` \u2192 reloads coding rules",
+    "4. Call `get_active_plan` \u2192 restores active task plan and open checkpoints (if any)",
     "",
     "## Non-Trivial Task Protocol",
     "",
@@ -4227,6 +4275,73 @@ function toBulletList(items) {
   if (items.length === 0) return "- _No items detected yet_";
   return items.map((item) => `- ${item}`).join("\n");
 }
+function discoverProjectKeyFiles(cwd, stack, limit = 6) {
+  const exists4 = (rel) => fs17.existsSync(path19.join(cwd, rel));
+  const found = [];
+  const wellKnown = [
+    "prisma/schema.prisma",
+    "src/app/layout.tsx",
+    "src/app/page.tsx",
+    "src/pages/_app.tsx",
+    "src/app/api/auth/[...nextauth]/route.ts",
+    "src/trpc/index.ts",
+    "src/server/index.ts",
+    "src/app/api/chat/route.ts",
+    "src/lib/prisma.ts",
+    "src/lib/db.ts",
+    "src/lib/auth.ts"
+  ];
+  for (const f of wellKnown) {
+    if (exists4(f) && !found.includes(f)) found.push(f);
+    if (found.length >= limit) return found;
+  }
+  const entryPoints = [
+    "src/index.ts",
+    "src/index.js",
+    "src/main.ts",
+    "src/main.js",
+    "src/generate.ts",
+    "src/generate.js",
+    "src/app.ts",
+    "src/app.js",
+    "src/cli.ts",
+    "src/cli.js",
+    "src/server.ts",
+    "src/server.js",
+    "index.ts",
+    "index.js",
+    "main.ts",
+    "main.js",
+    "app.ts",
+    "app.js"
+  ];
+  for (const f of entryPoints) {
+    if (exists4(f) && !found.includes(f)) found.push(f);
+    if (found.length >= limit) return found;
+  }
+  const srcDir = path19.join(cwd, "src");
+  if (fs17.existsSync(srcDir)) {
+    try {
+      const subDirs = fs17.readdirSync(srcDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).slice(0, 10);
+      for (const sub of subDirs) {
+        const barrel = `src/${sub}/index.ts`;
+        if (exists4(barrel) && !found.includes(barrel)) {
+          found.push(barrel);
+          if (found.length >= limit) return found;
+        }
+      }
+    } catch {
+    }
+  }
+  const skipPatterns = [".lock", ".json", "Dockerfile", "README", ".yml", ".yaml", ".env"];
+  for (const f of stack.keyFiles) {
+    if (!skipPatterns.some((p) => f.toLowerCase().includes(p.toLowerCase()))) {
+      if (!found.includes(f)) found.push(f);
+    }
+    if (found.length >= limit) return found;
+  }
+  return found;
+}
 function buildFrameworkRules(stack) {
   const frameworkNames = stack.frameworks.map((f) => f.name.toLowerCase());
   const rules = [];
@@ -4265,13 +4380,7 @@ function buildAgentSpecs(stack, cwd) {
     `Package manager: ${stack.patterns.packageManager}`,
     `TypeScript: ${stack.patterns.hasTypeScript ? "Yes" : "No"}`
   ];
-  const keyFiles = [
-    "src/trpc/index.ts",
-    "src/lib/vector-store.ts",
-    "src/app/api/chat/route.ts",
-    "src/components/ChatInterface.tsx",
-    "prisma/schema.prisma"
-  ].filter((f) => fs17.existsSync(path19.join(cwd, f)));
+  const keyFiles = discoverProjectKeyFiles(cwd, stack);
   const keyFilesList = toBulletList(keyFiles.map((file) => `\`${file}\``));
   const keyEntryPoints = toBulletList((keyFiles.slice(0, 4).length > 0 ? keyFiles.slice(0, 4) : ["src/"]).map((file) => `\`${file}\``));
   const runtimeDir = path19.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
@@ -4438,13 +4547,8 @@ function buildSequentialAgentSpecs(stack, cwd) {
     `Package manager: ${stack.patterns.packageManager}`,
     `TypeScript: ${stack.patterns.hasTypeScript ? "Yes" : "No"}`
   ];
-  const keyFiles = [
-    "src/trpc/index.ts",
-    "src/lib/vector-store.ts",
-    "src/app/api/chat/route.ts",
-    "prisma/schema.prisma"
-  ].filter((f) => fs17.existsSync(path19.join(cwd, f)));
-  const keyFilesList = keyFiles.length > 0 ? keyFiles.map((f) => `- \`${f}\``).join("\n") : "- _No key files detected yet_";
+  const discoveredKeyFiles = discoverProjectKeyFiles(cwd, stack);
+  const keyFilesList = discoveredKeyFiles.length > 0 ? discoveredKeyFiles.map((f) => `- \`${f}\``).join("\n") : "- _No key files detected yet_";
   const buildCmd = stack.patterns.packageManager === "npm" ? "npm run build" : stack.patterns.packageManager === "pnpm" ? "pnpm build" : stack.patterns.packageManager === "yarn" ? "yarn build" : stack.patterns.packageManager === "bun" ? "bun run build" : stack.patterns.packageManager === "maven" ? "mvn compile" : stack.patterns.packageManager === "gradle" ? "gradle build" : stack.patterns.packageManager === "go" ? "go build ./..." : stack.patterns.packageManager === "cargo" ? "cargo build" : "npm run build";
   const testCmd = stack.buildCommands?.test ?? (stack.patterns.packageManager === "npm" ? "npm test" : stack.patterns.packageManager === "pnpm" ? "pnpm test" : stack.patterns.packageManager === "yarn" ? "yarn test" : stack.patterns.packageManager === "bun" ? "bun test" : stack.patterns.packageManager === "maven" ? "mvn test" : stack.patterns.packageManager === "gradle" ? "gradle test" : stack.patterns.packageManager === "go" ? "go test ./..." : stack.patterns.packageManager === "cargo" ? "cargo test" : "npm test");
   const regenerateCmd = stack.patterns.packageManager === "npm" ? "npx ai-os" : stack.patterns.packageManager === "pnpm" ? "pnpm dlx ai-os" : stack.patterns.packageManager === "bun" ? "bunx ai-os" : "npx ai-os";
@@ -6843,6 +6947,35 @@ function printMemoryMaintenanceSummary(cwd) {
   } catch {
   }
 }
+function validateSkillRoutingCompleteness(cwd) {
+  const skillsDir = path27.join(cwd, ".github", "copilot", "skills");
+  if (!fs22.existsSync(skillsDir)) return;
+  const issues = [];
+  try {
+    for (const file of fs22.readdirSync(skillsDir)) {
+      if (!file.endsWith(".md")) continue;
+      try {
+        const raw = fs22.readFileSync(path27.join(skillsDir, file), "utf-8");
+        const hasName = /^name:\s*.+$/m.test(raw);
+        const hasDescription = /^description:\s*.+$/m.test(raw);
+        if (!hasName || !hasDescription) {
+          const missing = [!hasName && "name", !hasDescription && "description"].filter(Boolean).join(", ");
+          issues.push(`     \u26A0\uFE0F  ${file} \u2014 missing frontmatter: ${missing}`);
+        }
+      } catch {
+        issues.push(`     \u26A0\uFE0F  ${file} \u2014 unreadable`);
+      }
+    }
+  } catch {
+    return;
+  }
+  if (issues.length > 0) {
+    console.log("  \u{1F50D} Skill routing validation:");
+    for (const issue of issues) console.log(issue);
+    console.log("     Skills with missing frontmatter are excluded from routing in prompt-quality.instructions.md");
+    console.log("");
+  }
+}
 function printSuperpowersPluginSetup() {
   console.log("  \u{1F4CE} Superpowers plugin \u2014 activate in your agent harness:");
   console.log("");
@@ -7170,6 +7303,7 @@ ${gapReport}
   }
   if (isRefresh) {
     printMemoryMaintenanceSummary(cwd);
+    validateSkillRoutingCompleteness(cwd);
   }
   if (quiet) {
     console.log = _origConsoleLog;

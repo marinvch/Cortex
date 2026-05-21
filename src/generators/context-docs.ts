@@ -786,7 +786,7 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
   if (config.sessionContextCard) {
     const sessionCardPath = track(path.join(outputDir, '.github', 'COPILOT_CONTEXT.md'));
     if (!shouldPreserve(sessionCardPath)) {
-      writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
+      writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config, outputDir));
     }
   }
 
@@ -794,10 +794,20 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
 }
 
 /** Generate a compact session context card (≤ 500 tokens). */
-function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig): string {
+function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig, outputDir?: string): string {
   const fw = stack.primaryFramework?.name ?? stack.primaryLanguage.name;
   const pm = stack.patterns.packageManager;
   const isNode = ['npm', 'yarn', 'pnpm', 'bun'].includes(pm);
+
+  // Count installed skills for the Key Files table
+  const skillsCount = (() => {
+    if (!outputDir) return 0;
+    const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
+    if (!fs.existsSync(skillsDir)) return 0;
+    try {
+      return fs.readdirSync(skillsDir).filter(f => f.endsWith('.md')).length;
+    } catch { return 0; }
+  })();
 
   // Build/test commands based on detected stack
   const buildCmd = isNode ? `${pm} run build` : pm === 'go' ? 'go build ./...' : pm === 'cargo' ? 'cargo build' : pm === 'maven' ? 'mvn package' : pm === 'gradle' ? './gradlew build' : 'build';
@@ -816,7 +826,11 @@ function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig): s
   // Add user-defined persistent rules at the top
   const allRules = [...config.persistentRules, ...rules].slice(0, 10);
 
-  const keyFilesTable = stack.keyFiles.slice(0, 6).map(f => `| \`${f}\` | key file |`).join('\n');
+  const keyFilesRows = stack.keyFiles.slice(0, 6).map(f => `| \`${f}\` | key file |`);
+  if (skillsCount > 0) {
+    keyFilesRows.push(`| \`.github/copilot/skills/\` | ${skillsCount} skill${skillsCount !== 1 ? 's' : ''} installed |`);
+  }
+  const keyFilesTable = keyFilesRows.join('\n');
 
   return [
     '# Copilot Context — Quick Start',

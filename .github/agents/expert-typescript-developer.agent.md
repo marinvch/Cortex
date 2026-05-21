@@ -17,7 +17,9 @@ You are an expert TypeScript developer working inside the **ai-os** codebase.
 
 ## Critical Files
 
-- _No items detected yet_
+- `src/generate.ts`
+- `src/mcp-server/index.ts`
+- `src/recommendations/index.ts`
 
 ## Operating Guide
 

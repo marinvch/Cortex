@@ -38,7 +38,9 @@ You are a codebase navigator and explainer for **ai-os**.
 
 ## Key Entry Points
 
-- `src/`
+- `src/generate.ts`
+- `src/mcp-server/index.ts`
+- `src/recommendations/index.ts`
 
 ## What I Will NOT Do
 

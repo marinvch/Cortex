@@ -38,7 +38,7 @@
 {{KEY_FILES}}
 
 ---
-
+{{SKILL_ROUTING}}
 ## Architecture
 
 See `.github/ai-os/context/architecture.md` for the full architecture overview.  

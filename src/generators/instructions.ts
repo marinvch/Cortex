@@ -63,7 +63,39 @@ function buildPersonaDirective(stack: DetectedStack): string {
   return `Act as a Senior ${lang} developer.`;
 }
 
-function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: string): string {
+/** Discover installed skills from .github/copilot/skills/ and return a Skill Routing section, or '' if no skills. */
+function buildSkillRoutingSection(outputDir: string): string {
+  const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
+  if (!fs.existsSync(skillsDir)) return '';
+
+  const rows: string[] = [];
+  for (const file of fs.readdirSync(skillsDir)) {
+    if (!file.endsWith('.md')) continue;
+    try {
+      const raw = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
+      const nameMatch = raw.match(/^name:\s*(.+)$/m);
+      const descMatch = raw.match(/^description:\s*(.+)$/m);
+      const name = nameMatch?.[1]?.trim() ?? file.replace('.md', '');
+      const desc = descMatch?.[1]?.trim() ?? '';
+      rows.push(`| \`${name}\` | ${desc} |`);
+    } catch { /* skip unreadable files */ }
+  }
+  if (rows.length === 0) return '';
+
+  return [
+    '',
+    '## Available Skills',
+    '',
+    '| Skill | Trigger (auto-activates when prompt matches) |',
+    '|---|---|',
+    ...rows,
+    '',
+    '---',
+    '',
+  ].join('\n');
+}
+
+function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: string, outputDir: string): string {
   const s = sanitizeForInstructions;
   const frameworks = stack.frameworks.map(f => s(f.name)).join(', ') || s(stack.primaryLanguage.name);
   const linter = s(stack.patterns.linter ?? 'none detected');
@@ -71,6 +103,7 @@ function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: 
   const testFramework = s(stack.patterns.testFramework ?? 'none detected');
   const testDir = s(stack.patterns.testDirectory ?? 'none detected');
   const buildCommandsSection = buildBuildCommandsSection(stack);
+  const skillRoutingSection = buildSkillRoutingSection(outputDir);
 
   return template
     .replace(/{{PROJECT_NAME}}/g, s(stack.projectName))
@@ -86,6 +119,7 @@ function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: 
     .replace(/{{TEST_DIRECTORY}}/g, testDir)
     .replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack))
     .replace(/{{BUILD_COMMANDS}}/g, buildCommandsSection)
+    .replace(/{{SKILL_ROUTING}}/g, skillRoutingSection)
     .replace(/{{PERSONA_DIRECTIVE}}/g, buildPersonaDirective(stack))
     .replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
 }
@@ -319,7 +353,7 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
   // Deduplicated overlays
   const overlays = [...templateKeys].map(k => readFrameworkTemplate(k)).filter(Boolean).join('\n\n---\n\n');
 
-  let content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`);
+  let content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`, outputDir);
 
   // Inject persistent rules section
   const persistentRules = config?.persistentRules ?? [];

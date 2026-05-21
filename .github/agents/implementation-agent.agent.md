@@ -19,7 +19,9 @@ You are an expert implementation agent for **ai-os**. You receive a validated Ap
 
 ## Critical Files
 
-- _No key files detected yet_
+- `src/generate.ts`
+- `src/mcp-server/index.ts`
+- `src/recommendations/index.ts`
 
 ## Pre-Implementation Protocol
 

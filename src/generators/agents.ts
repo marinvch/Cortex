@@ -22,6 +22,84 @@ function toBulletList(items: string[]): string {
   return items.map(item => `- ${item}`).join('\n');
 }
 
+/**
+ * Discover key project entry points for agent "Critical Files" sections.
+ * Returns up to `limit` existing relative file paths in priority order:
+ *   1. Well-known framework entry points (Next.js, Prisma, tRPC, Express, etc.)
+ *   2. Common single-file entry points (src/index, src/main, src/generate, src/app, src/cli)
+ *   3. Barrel exports in src/ subdirectories
+ *   4. The stack's detected keyFiles
+ */
+function discoverProjectKeyFiles(cwd: string, stack: DetectedStack, limit = 6): string[] {
+  const exists = (rel: string) => fs.existsSync(path.join(cwd, rel));
+  const found: string[] = [];
+
+  // 1. Framework-specific well-known paths
+  const wellKnown = [
+    'prisma/schema.prisma',
+    'src/app/layout.tsx',
+    'src/app/page.tsx',
+    'src/pages/_app.tsx',
+    'src/app/api/auth/[...nextauth]/route.ts',
+    'src/trpc/index.ts',
+    'src/server/index.ts',
+    'src/app/api/chat/route.ts',
+    'src/lib/prisma.ts',
+    'src/lib/db.ts',
+    'src/lib/auth.ts',
+  ];
+  for (const f of wellKnown) {
+    if (exists(f) && !found.includes(f)) found.push(f);
+    if (found.length >= limit) return found;
+  }
+
+  // 2. Common single-file entry points
+  const entryPoints = [
+    'src/index.ts', 'src/index.js',
+    'src/main.ts', 'src/main.js',
+    'src/generate.ts', 'src/generate.js',
+    'src/app.ts', 'src/app.js',
+    'src/cli.ts', 'src/cli.js',
+    'src/server.ts', 'src/server.js',
+    'index.ts', 'index.js',
+    'main.ts', 'main.js',
+    'app.ts', 'app.js',
+  ];
+  for (const f of entryPoints) {
+    if (exists(f) && !found.includes(f)) found.push(f);
+    if (found.length >= limit) return found;
+  }
+
+  // 3. Barrel exports: look for index.ts in first-level src/ subdirectories
+  const srcDir = path.join(cwd, 'src');
+  if (fs.existsSync(srcDir)) {
+    try {
+      const subDirs = fs.readdirSync(srcDir, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name)
+        .slice(0, 10);
+      for (const sub of subDirs) {
+        const barrel = `src/${sub}/index.ts`;
+        if (exists(barrel) && !found.includes(barrel)) {
+          found.push(barrel);
+          if (found.length >= limit) return found;
+        }
+      }
+    } catch { /* ignore scan errors */ }
+  }
+
+  // 4. Fall back to stack-detected key files (excluding docs/lock files)
+  const skipPatterns = ['.lock', '.json', 'Dockerfile', 'README', '.yml', '.yaml', '.env'];
+  for (const f of stack.keyFiles) {
+    if (!skipPatterns.some(p => f.toLowerCase().includes(p.toLowerCase()))) {
+      if (!found.includes(f)) found.push(f);
+    }
+    if (found.length >= limit) return found;
+  }
+
+  return found;
+}
+
 function buildFrameworkRules(stack: DetectedStack): string {
   const frameworkNames = stack.frameworks.map(f => f.name.toLowerCase());
   const rules: string[] = [];
@@ -68,14 +146,7 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
     `TypeScript: ${stack.patterns.hasTypeScript ? 'Yes' : 'No'}`,
   ];
 
-  const keyFiles = [
-    'src/trpc/index.ts',
-    'src/lib/vector-store.ts',
-    'src/app/api/chat/route.ts',
-    'src/components/ChatInterface.tsx',
-    'prisma/schema.prisma',
-  ].filter(f => fs.existsSync(path.join(cwd, f)));
-
+  const keyFiles = discoverProjectKeyFiles(cwd, stack);
   const keyFilesList = toBulletList(keyFiles.map(file => `\`${file}\``));
   const keyEntryPoints = toBulletList((keyFiles.slice(0, 4).length > 0 ? keyFiles.slice(0, 4) : ['src/']).map(file => `\`${file}\``));
 
@@ -289,14 +360,9 @@ function buildSequentialAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec
     `TypeScript: ${stack.patterns.hasTypeScript ? 'Yes' : 'No'}`,
   ];
 
-  const keyFiles = [
-    'src/trpc/index.ts',
-    'src/lib/vector-store.ts',
-    'src/app/api/chat/route.ts',
-    'prisma/schema.prisma',
-  ].filter(f => fs.existsSync(path.join(cwd, f)));
-  const keyFilesList = keyFiles.length > 0
-    ? keyFiles.map(f => `- \`${f}\``).join('\n')
+  const discoveredKeyFiles = discoverProjectKeyFiles(cwd, stack);
+  const keyFilesList = discoveredKeyFiles.length > 0
+    ? discoveredKeyFiles.map(f => `- \`${f}\``).join('\n')
     : '- _No key files detected yet_';
 
   const buildCmd = stack.patterns.packageManager === 'npm' ? 'npm run build'

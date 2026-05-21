@@ -175,6 +175,16 @@ export interface AiOsConfig {
    * Default: false (must be explicitly enabled or set AI_OS_ALLOW_RUN_TOOLS=1).
    */
   allowRunTools?: boolean;
+  /**
+   * Target AI model for generated instructions.
+   * Defaults to 'copilot' (standard Markdown). Other values produce companion files.
+   */
+  model?: 'copilot' | 'claude' | 'gemini' | 'local';
+  /**
+   * Additional editor targets for generated configs.
+   * 'vscode' is always included. Others produce companion files.
+   */
+  editorTargets?: Array<'vscode' | 'cursor' | 'jetbrains' | 'neovim' | 'all'>;
 }
 
 /** Runtime type guard for AiOsConfig JSON artifacts. */

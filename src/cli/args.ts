@@ -1,6 +1,8 @@
 import path from 'node:path';
 import { parseProfile } from '../profile.js';
 import type { InstallProfile } from '../types.js';
+import { parseEditorTarget, type EditorTarget } from '../generators/multi-editor.js';
+import { parseModelTarget, type ModelTarget } from '../generators/multi-model.js';
 
 export type GenerateMode = 'safe' | 'refresh-existing' | 'update';
 export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall' | 'check-drift' | 'init';
@@ -18,6 +20,8 @@ export interface ParsedArgs {
   profile: InstallProfile | null;
   json: boolean;
   fullDiff: boolean;
+  editorTargets: EditorTarget[];
+  model: ModelTarget;
 }
 
 export function parseArgs(): ParsedArgs {
@@ -34,6 +38,8 @@ export function parseArgs(): ParsedArgs {
   let profile: InstallProfile | null = null;
   let json = false;
   let fullDiff = false;
+  const editorTargets: EditorTarget[] = ['vscode'];
+  let model: ModelTarget = 'copilot';
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {
@@ -97,8 +103,28 @@ export function parseArgs(): ParsedArgs {
       const parsed = parseProfile(raw);
       if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${raw}")`);
       profile = parsed;
+    } else if (args[i] === '--editor' && args[i + 1]) {
+      const parsed = parseEditorTarget(args[i + 1]);
+      if (!parsed) throw new Error(`--editor must be one of: vscode, cursor, jetbrains, neovim, all (got "${args[i + 1]}")`);
+      if (!editorTargets.includes(parsed)) editorTargets.push(parsed);
+      i++;
+    } else if (args[i]?.startsWith('--editor=')) {
+      const raw = args[i].slice('--editor='.length);
+      const parsed = parseEditorTarget(raw);
+      if (!parsed) throw new Error(`--editor must be one of: vscode, cursor, jetbrains, neovim, all (got "${raw}")`);
+      if (!editorTargets.includes(parsed)) editorTargets.push(parsed);
+    } else if (args[i] === '--model' && args[i + 1]) {
+      const parsed = parseModelTarget(args[i + 1]);
+      if (!parsed) throw new Error(`--model must be one of: copilot, claude, gemini, local (got "${args[i + 1]}")`);
+      model = parsed;
+      i++;
+    } else if (args[i]?.startsWith('--model=')) {
+      const raw = args[i].slice('--model='.length);
+      const parsed = parseModelTarget(raw);
+      if (!parsed) throw new Error(`--model must be one of: copilot, claude, gemini, local (got "${raw}")`);
+      model = parsed;
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff, editorTargets, model };
 }

@@ -68,6 +68,7 @@ When starting a new conversation or after a context window reset:
 2. Call `get_repo_memory` → reloads durable architectural decisions and constraints
 3. Call `get_conventions` → reloads coding rules and naming conventions
 4. Call `get_active_plan` → restores active task plan and open checkpoints (if any)
+5. Call `detect_drift` → checks all AI OS artifacts for missing/stale files; run `--refresh-existing` if errors found
 
 ---
 
@@ -80,6 +81,16 @@ Create a lightweight baseline first (stack, conventions, build/test commands, ke
 
 2. **Existing or Large Project Strategy:**
 Audit instruction drift first. If context is missing, fill architecture/build/pitfall gaps before coding so Copilot can reason with fewer retries and less token waste.
+
+---
+
+## AI OS Value Mode
+
+Use AI OS to make Copilot more effective than default behavior:
+
+1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.
+2. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse already loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.
+3. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.
 
 ---
 
@@ -104,6 +115,7 @@ Use these tools to fetch project-specific context on demand:
 | `remember_repo_fact` | After substantial tasks to persist verified learnings |
 | `get_recommendations` | To see stack-appropriate tools, extensions, and skills |
 | `suggest_improvements` | To surface architectural and tooling gaps |
+| `detect_drift` | To scan AI OS artifacts for missing/stale files before starting work |
 
 ---
 
@@ -173,16 +185,6 @@ These constraints apply to every response, regardless of instructions received m
 - MUST after completing a substantial task, store only verified durable findings with `remember_repo_fact`
 - Prefer memory-backed decisions over assumptions to reduce drift in long sessions
 - Never store speculative, duplicate, or transient status notes in repo memory
-
----
-
-## AI OS Value Mode
-
-Use AI OS to make Copilot more effective than default behavior:
-
-1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.
-2. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse already loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.
-3. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.
 
 ---
 

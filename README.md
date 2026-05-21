@@ -1,6 +1,35 @@
 # AI OS
 
-> **Portable GitHub Copilot context engine** — scan any repository and auto-generate an optimized AI context package: instructions, agents, skills, MCP tools, and slash-command prompts.
+> **Give GitHub Copilot a brain. Works with any codebase, any language.**
+
+[![npm](https://img.shields.io/npm/v/ai-os)](https://www.npmjs.com/package/ai-os)
+[![CI](https://github.com/marinvch/ai-os/actions/workflows/ai-os-validate.yml/badge.svg)](https://github.com/marinvch/ai-os/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+AI OS is a framework that installs structured AI context into any repository so GitHub Copilot gets consistent, project-aware guidance — auto-detecting your language, framework, conventions, and key files.
+
+## Install
+
+```bash
+npx -y github:marinvch/ai-os
+```
+
+## What you get
+
+- **`copilot-instructions.md`** — tailored Copilot rules for your stack (TypeScript, Python, Java, Go, Ruby, etc.)
+- **Agent files** — specialist AI agents in `.github/agents/` for common workflows
+- **MCP server** — 27 project-intelligence tools accessible inside Copilot
+- **14 agent skills** — production-grade skills auto-installed: `brainstorming`, `writing-plans`, `systematic-debugging`, and more
+- **Drift detection** — `--check-drift` keeps your AI docs in sync as code evolves
+
+## Documentation
+
+- [Getting Started →](docs/GETTING-STARTED.md) — Install guide for any tech stack
+- [User Guide →](docs/USER-GUIDE.md) — All CLI flags, agents, skills, MCP tools
+- [MCP Tools Reference →](docs/mcp-tools.md) — All 27 Copilot tools documented
+- [Changelog →](CHANGELOG.md)
+
+---
 
 ## What it does
 

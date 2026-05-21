@@ -46,6 +46,7 @@ import {
   suggestImprovements,
   getContextFreshness,
 } from './utils.js';
+import { detectDrift, formatDriftReport } from '../detectors/drift.js';
 
 interface ToolInput {
   query?: string;
@@ -77,6 +78,7 @@ interface ToolInput {
   confidence?: number;
   toolCallCount?: number;
   threshold?: number;
+  verbose?: boolean;
 }
 
 function logDiagnostic(message: string): void {
@@ -219,6 +221,12 @@ function executeTool(toolName: string, input: ToolInput): string {
     case 'get_context_freshness':
       result = getContextFreshness();
       break;
+    case 'detect_drift': {
+      const root = getProjectRoot();
+      const report = detectDrift(root);
+      result = formatDriftReport(report, !!(input as { verbose?: boolean }).verbose);
+      break;
+    }
     default:
       result = `Unknown tool: ${toolName}`;
       break;

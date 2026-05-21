@@ -328,6 +328,18 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },
+  // ── Tool #27: Drift Detection ──────────────────────────────────────────────
+  {
+    name: 'detect_drift',
+    description: 'Scans AI OS artifacts (skills, instructions, agents, MCP config, context snapshot) for drift. Reports missing files, unreplaced template placeholders, stale context snapshot (>7 days), broken MCP server paths, agent schema gaps, and skills not listed in instructions. Returns a formatted report; exits non-zero when errors exist.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        verbose: { type: 'boolean', description: 'Include healthy files in output (default: false)' },
+      },
+    },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

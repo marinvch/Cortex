@@ -5,6 +5,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.18.0] — 2026-05-21
+
+### Added
+- **Drift Detection Engine** (`src/detectors/drift.ts`): `detectDrift()` scans 6 artifact classes — required files, MCP config validity, unreplaced template placeholders, context snapshot age (>7 days), agent file schema, and skills/instructions sync
+- **`detect_drift` MCP tool** (#27): Copilot-accessible drift scanner with optional verbose mode
+- **`--check-drift` CLI flag**: CI-friendly drift check, exits 1 on errors
+- **AI OS Drift Check CI workflow** (`.github/workflows/ai-os-drift-check.yml`): weekly schedule + on-artifact-change trigger; auto-opens GitHub issue when drift errors found
+- **`docs/GETTING-STARTED.md`**: comprehensive 10-minute install guide covering any tech stack (Node, Python, Java, Go, Ruby)
+- **`docs/USER-GUIDE.md`**: advanced reference for all CLI flags, agent/skill customization, MCP tools, USER_BLOCKs, memory management, and CI integration
+- `detect_drift` added to MCP Tools table and Session Restart Protocol (step 5) in base-instructions template
+- Drift check command added to prompt-quality Build & Test Commands table
+
+### Changed
+- `## AI OS Value Mode` moved earlier in `base-instructions.md` (higher priority under 8 KB cap)
+- README hero section rewritten with install-first approach and documentation links
+
+---
+
 ## [0.17.0] — 2026-05-21
 
 ### Added

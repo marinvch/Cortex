@@ -1,7 +1,18 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'node:crypto';
-import { globSync } from 'glob';
+
+function globFiles(pattern: { dir: string; ext: string }, cwd: string): string[] {
+  const absDir = join(cwd, pattern.dir);
+  if (!existsSync(absDir)) return [];
+  try {
+    return readdirSync(absDir)
+      .filter(f => f.endsWith(pattern.ext))
+      .map(f => `${pattern.dir}/${f}`);
+  } catch {
+    return [];
+  }
+}
 
 export type DriftSeverity = 'error' | 'warning' | 'info';
 
@@ -68,7 +79,7 @@ function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
     try {
       const registry = JSON.parse(readFileSync(agentsRegistryPath, 'utf8')) as unknown[];
       const registryCount = Array.isArray(registry) ? registry.length : 0;
-      const agentFiles = globSync('.github/agents/*.agent.md', { cwd, absolute: false });
+      const agentFiles = globFiles({ dir: '.github/agents', ext: '.agent.md' }, cwd);
       const fileCount = agentFiles.length;
 
       if (registryCount !== fileCount) {
@@ -182,7 +193,7 @@ export function detectDrift(cwd: string): DriftReport {
   }
 
   // 5. Agent files — check for required sections
-  const agentFiles = globSync('.github/agents/*.agent.md', { cwd, absolute: false });
+  const agentFiles = globFiles({ dir: '.github/agents', ext: '.agent.md' }, cwd);
   for (const agentFile of agentFiles) {
     const content = readFileSync(join(cwd, agentFile), 'utf8');
     const missingSections: string[] = [];
@@ -204,7 +215,9 @@ export function detectDrift(cwd: string): DriftReport {
   // 6. Skills in instructions vs installed
   const skillsDir = join(cwd, '.github/copilot/skills');
   const installedSkills = existsSync(skillsDir)
-    ? globSync('*.md', { cwd: skillsDir, absolute: false }).map(f => f.replace(/\.md$/, ''))
+    ? readdirSync(skillsDir)
+        .filter(f => f.endsWith('.md'))
+        .map(f => f.replace(/\.md$/, ''))
     : [];
 
   if (installedSkills.length > 0 && existsSync(instrPath)) {

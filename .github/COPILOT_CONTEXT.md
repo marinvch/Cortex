@@ -9,8 +9,8 @@
 - Call get_impact_of_change before editing shared source files.
 - Prefer minimal, in-scope edits and avoid broad refactors unless requested.
 - Run npm run build and npm run test after substantial code changes.
-- Use Markdown conventions for all new code
-- Primary language: Markdown with TypeScript
+- Use TypeScript conventions for all new code
+- Primary language: TypeScript with TypeScript
 - Package manager: npm — do not mix with others
 - Call get_repo_memory before starting any non-trivial task
 - Call get_conventions before writing new code
@@ -20,6 +20,7 @@
 ```bash
 npm run build   # build
 npm run test   # test
+npm run lint   # lint
 ```
 
 ## Key Files
@@ -35,6 +36,7 @@ npm run test   # test
 1. Call `get_session_context` → reloads this card
 2. Call `get_repo_memory` → reloads durable decisions
 3. Call `get_conventions` → reloads coding rules
+4. Call `get_active_plan` → restores active task plan and open checkpoints (if any)
 
 ## Non-Trivial Task Protocol
 

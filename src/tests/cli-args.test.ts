@@ -165,4 +165,16 @@ describe('parseArgs', () => {
       expect(() => parseArgs()).toThrow('--profile must be one of');
     });
   });
+
+  it('sets action=init when --init is passed', () => {
+    withArgv(['--init'], () => {
+      expect(parseArgs().action).toBe('init');
+    });
+  });
+
+  it('sets action=check-drift when --check-drift is passed', () => {
+    withArgv(['--check-drift'], () => {
+      expect(parseArgs().action).toBe('check-drift');
+    });
+  });
 });

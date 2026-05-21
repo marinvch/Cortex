@@ -63,7 +63,39 @@ function buildPersonaDirective(stack: DetectedStack): string {
   return `Act as a Senior ${lang} developer.`;
 }
 
-function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: string): string {
+/** Discover installed skills from .github/copilot/skills/ and return a Skill Routing section, or '' if no skills. */
+function buildSkillRoutingSection(outputDir: string): string {
+  const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
+  if (!fs.existsSync(skillsDir)) return '';
+
+  const rows: string[] = [];
+  for (const file of fs.readdirSync(skillsDir)) {
+    if (!file.endsWith('.md')) continue;
+    try {
+      const raw = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
+      const nameMatch = raw.match(/^name:\s*(.+)$/m);
+      const descMatch = raw.match(/^description:\s*(.+)$/m);
+      const name = nameMatch?.[1]?.trim() ?? file.replace('.md', '');
+      const desc = descMatch?.[1]?.trim() ?? '';
+      rows.push(`| \`${name}\` | ${desc} |`);
+    } catch { /* skip unreadable files */ }
+  }
+  if (rows.length === 0) return '';
+
+  return [
+    '',
+    '## Available Skills',
+    '',
+    '| Skill | Trigger (auto-activates when prompt matches) |',
+    '|---|---|',
+    ...rows,
+    '',
+    '---',
+    '',
+  ].join('\n');
+}
+
+function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: string, outputDir: string): string {
   const s = sanitizeForInstructions;
   const frameworks = stack.frameworks.map(f => s(f.name)).join(', ') || s(stack.primaryLanguage.name);
   const linter = s(stack.patterns.linter ?? 'none detected');
@@ -71,6 +103,7 @@ function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: 
   const testFramework = s(stack.patterns.testFramework ?? 'none detected');
   const testDir = s(stack.patterns.testDirectory ?? 'none detected');
   const buildCommandsSection = buildBuildCommandsSection(stack);
+  const skillRoutingSection = buildSkillRoutingSection(outputDir);
 
   return template
     .replace(/{{PROJECT_NAME}}/g, s(stack.projectName))
@@ -86,6 +119,7 @@ function fillTemplate(template: string, stack: DetectedStack, frameworkOverlay: 
     .replace(/{{TEST_DIRECTORY}}/g, testDir)
     .replace(/{{KEY_FILES}}/g, buildKeyFilesList(stack))
     .replace(/{{BUILD_COMMANDS}}/g, buildCommandsSection)
+    .replace(/{{SKILL_ROUTING}}/g, skillRoutingSection)
     .replace(/{{PERSONA_DIRECTIVE}}/g, buildPersonaDirective(stack))
     .replace(/{{FRAMEWORK_OVERLAY}}/g, frameworkOverlay);
 }
@@ -97,19 +131,32 @@ interface GenerateInstructionsOptions {
   config?: AiOsConfig;
 }
 
-/** Enforce an 8 KB cap on copilot-instructions.md. Truncates framework overlay if needed. */
+/** Enforce an 8 KB cap on copilot-instructions.md. Truncates at the last section boundary that fits. */
 function enforceSizeCap(content: string, maxBytes = 8192): string {
   const encoded = Buffer.byteLength(content, 'utf-8');
   if (encoded <= maxBytes) return content;
 
-  // Find the FRAMEWORK_OVERLAY boundary and trim from there
-  const cutIdx = content.lastIndexOf('\n---\n', Math.floor(content.length * (maxBytes / encoded)));
-  if (cutIdx > 0) {
-    const truncated = content.slice(0, cutIdx) + '\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n';
-    if (Buffer.byteLength(truncated, 'utf-8') <= maxBytes) return truncated;
+  const TRIM_NOTICE = '\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n';
+  const noticeBytes = Buffer.byteLength(TRIM_NOTICE, 'utf-8');
+  const budget = maxBytes - noticeBytes;
+
+  // Find all section separator positions (handles both \n---\n and \r\n---\r\n)
+  const SEP_RE = /\r?\n---\r?\n/g;
+  const separators: number[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = SEP_RE.exec(content)) !== null) {
+    separators.push(m.index);
   }
 
-  // Hard truncate as last resort
+  // Pick the last separator whose preceding content fits within the budget
+  for (let i = separators.length - 1; i >= 0; i--) {
+    const slice = content.slice(0, separators[i]);
+    if (Buffer.byteLength(slice, 'utf-8') <= budget) {
+      return slice + TRIM_NOTICE;
+    }
+  }
+
+  // Hard truncate as last resort (no separator found within budget)
   const bytes = Buffer.from(content, 'utf-8').slice(0, maxBytes - 100);
   return bytes.toString('utf-8') + '\n\n<!-- [AI OS] truncated to 8 KB Copilot budget -->\n';
 }
@@ -227,6 +274,32 @@ function generatePathSpecificInstructions(stack: DetectedStack, githubDir: strin
 }
 
 /** Build the persistent rules section for copilot-instructions.md */
+function buildMonorepoSection(stack: DetectedStack): string {
+  const profiles = stack.packageProfiles;
+  if (!profiles || profiles.length <= 1 || !stack.patterns.monorepo) return '';
+
+  const rows = profiles
+    .filter(p => p.path !== '.')
+    .map(p => {
+      const fws = p.frameworks.map(f => sanitizeForInstructions(f.name)).join(', ') || (p.languages[0]?.name ?? 'Unknown');
+      return `| \`${p.path}\` | ${fws} |`;
+    });
+
+  if (rows.length === 0) return '';
+
+  return [
+    '',
+    '## Monorepo Packages',
+    '',
+    '| Package | Stack |',
+    '|---|---|',
+    ...rows,
+    '',
+    '> When modifying shared code, check all packages above for impact.',
+  ].join('\n');
+}
+
+/** Build the persistent rules section for copilot-instructions.md */
 function buildPersistentRulesSection(persistentRules: string[], stack: DetectedStack): string {
   const detectedRules: string[] = [];
   const root = stack.rootDir;
@@ -306,7 +379,13 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
   // Deduplicated overlays
   const overlays = [...templateKeys].map(k => readFrameworkTemplate(k)).filter(Boolean).join('\n\n---\n\n');
 
-  let content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`);
+  let content = fillTemplate(base, stack, overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`, outputDir);
+
+  // Inject monorepo section if applicable
+  const monorepoSection = buildMonorepoSection(stack);
+  if (monorepoSection) {
+    content = content + monorepoSection;
+  }
 
   // Inject persistent rules section
   const persistentRules = config?.persistentRules ?? [];
@@ -360,13 +439,6 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     '| `get_recommendations` | To see stack-appropriate tools, extensions, and skills |',
     '| `suggest_improvements` | To surface architectural and tooling gaps |',
     '',
-    '## Session Restart Protocol',
-    '',
-    '**When starting a new conversation or after a context window reset:**',
-    '1. Call `get_session_context` → reloads MUST-ALWAYS rules, build commands, key files',
-    '2. Call `get_repo_memory` → reloads durable architectural decisions',
-    '3. Call `get_conventions` → reloads coding rules',
-    '',
     '## Memory Protocol',
     '',
     '1. MUST start each non-trivial task by checking relevant repository memory.',
@@ -388,29 +460,6 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     '1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.',
     '2. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.',
     '3. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.',
-    '',
-    '## Strict Behavior Guardrails',
-    '',
-    '1. MUST ask clarifying questions first when a request is ambiguous, underspecified, or outside described scope.',
-    '2. MUST NOT improvise requirements, API contracts, or migration scope beyond explicit instructions.',
-    '3. MUST avoid silent fallback for core runtime failures; return explicit diagnostics instead.',
-    '',
-    '### Allowed Actions',
-    '',
-    '- Read relevant context and repository memory before implementation.',
-    '- Apply minimal in-scope edits and validate with non-destructive checks.',
-    '',
-    '### Forbidden Actions',
-    '',
-    '- Destructive operations without explicit approval.',
-    '- Broad refactors or architecture changes without confirmation.',
-    '- Writing speculative or transient notes into repo memory.',
-    '',
-    '### Escalation Flow (When Ambiguous)',
-    '',
-    '1. State what is unclear and what assumptions would change behavior.',
-    '2. Ask focused clarifying question(s) with bounded options.',
-    '3. Continue after clarification; if unavailable, take safest minimal action and document limits.',
     '',
     '## Agentic Task Safety',
     '',
@@ -515,7 +564,10 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     ? ['| Skill | Trigger phrase / description |', '|---|---|', ...skillRows].join('\n')
     : '_No skills installed yet._';
 
-  const frameworks = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
+  const frameworks = stack.frameworks.map(f => f.name).join(', ');
+  const stackMetaLine = frameworks
+    ? `> Stack: **${frameworks}** · Language: **${stack.primaryLanguage.name}** · Package manager: **${stack.patterns.packageManager}**`
+    : `> Language: **${stack.primaryLanguage.name}** · Package manager: **${stack.patterns.packageManager}**`;
   const buildCmd = stack.buildCommands?.build ?? 'npm run build';
   const testCmd = stack.buildCommands?.test ?? 'npm test';
   const contextSyncCmd = 'npx -y github:marinvch/ai-os --refresh-existing';
@@ -527,7 +579,7 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     '',
     `# Prompt Quality Pack — ${stack.projectName}`,
     '',
-    `> Stack: **${frameworks}** · Language: **${stack.primaryLanguage.name}** · Package manager: **${stack.patterns.packageManager}**`,
+    stackMetaLine,
     '',
     '## 1. Prompt Template',
     '',
@@ -589,6 +641,7 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     `|---|---|`,
     `| Build | \`${buildCmd}\` |`,
     `| Test | \`${testCmd}\` |`,
+    `| Drift check | \`node dist/generate.js --check-drift\` |`,
   ].join('\n');
 
   const instructionsDir = path.join(githubDir, 'instructions');

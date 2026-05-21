@@ -56,17 +56,14 @@ function detectFromPackageJson(rootDir: string): DetectedFramework[] {
     frameworks.push({ name: 'SolidJS', category: 'frontend', version: deps['solid-js'], template: 'solid' });
   } else if (deps['vue']) {
     frameworks.push({ name: 'Vue.js', category: 'frontend', version: deps['vue'], template: 'vue' });
+  } else if (deps['@sveltejs/kit']) {
+    frameworks.push({ name: 'SvelteKit', category: 'fullstack', version: deps['@sveltejs/kit'], template: 'sveltekit' });
   } else if (deps['svelte']) {
     frameworks.push({ name: 'Svelte', category: 'frontend', template: 'svelte' });
   } else if (deps['@angular/core']) {
     frameworks.push({ name: 'Angular', category: 'frontend', version: deps['@angular/core'], template: 'angular' });
   } else if (deps['astro']) {
     frameworks.push({ name: 'Astro', category: 'fullstack', version: deps['astro'], template: 'astro' });
-  } else if (deps['@remix-run/react'] || deps['@remix-run/node']) {
-    const version = deps['@remix-run/react'] ?? deps['@remix-run/node'];
-    frameworks.push({ name: 'Remix', category: 'fullstack', version, template: 'remix' });
-  } else if (deps['solid-js']) {
-    frameworks.push({ name: 'SolidJS', category: 'frontend', version: deps['solid-js'], template: 'solid' });
   }
 
   if (deps['@nestjs/core']) {
@@ -74,11 +71,11 @@ function detectFromPackageJson(rootDir: string): DetectedFramework[] {
   } else if (deps['express']) {
     frameworks.push({ name: 'Express', category: 'backend', version: deps['express'], template: 'express' });
   } else if (deps['fastify']) {
-    frameworks.push({ name: 'Fastify', category: 'backend', version: deps['fastify'], template: 'express' });
+    frameworks.push({ name: 'Fastify', category: 'backend', version: deps['fastify'], template: 'fastify' });
   } else if (deps['hono']) {
-    frameworks.push({ name: 'Hono', category: 'backend', version: deps['hono'], template: 'express' });
+    frameworks.push({ name: 'Hono', category: 'backend', version: deps['hono'], template: 'hono' });
   } else if (deps['koa']) {
-    frameworks.push({ name: 'Koa', category: 'backend', version: deps['koa'], template: 'express' });
+    frameworks.push({ name: 'Koa', category: 'backend', version: deps['koa'], template: 'koa' });
   }
 
   if (deps['@trpc/server']) {
@@ -113,9 +110,9 @@ function detectFromPython(rootDir: string): DetectedFramework[] {
   } else if (content.includes('fastapi')) {
     frameworks.push({ name: 'FastAPI', category: 'backend', template: 'python-fastapi' });
   } else if (content.includes('flask')) {
-    frameworks.push({ name: 'Flask', category: 'backend', template: 'python-fastapi' });
+    frameworks.push({ name: 'Flask', category: 'backend', template: 'python-flask' });
   } else if (content.includes('starlette')) {
-    frameworks.push({ name: 'Starlette', category: 'backend', template: 'python-fastapi' });
+    frameworks.push({ name: 'Starlette', category: 'backend', template: 'python-starlette' });
   }
 
   return frameworks;
@@ -169,12 +166,12 @@ function detectFromJava(rootDir: string): DetectedFramework[] {
   if (content.includes('spring-boot') || content.includes('spring-boot-starter')) {
     return [{ name: 'Spring Boot', category: 'backend', template: 'java-spring' }];
   } else if (content.includes('quarkus')) {
-    return [{ name: 'Quarkus', category: 'backend', template: 'java-spring' }];
+    return [{ name: 'Quarkus', category: 'backend', template: 'java-quarkus' }];
   } else if (content.includes('micronaut')) {
-    return [{ name: 'Micronaut', category: 'backend', template: 'java-spring' }];
+    return [{ name: 'Micronaut', category: 'backend', template: 'java-micronaut' }];
   }
 
-  if (content) return [{ name: 'Java', category: 'backend', template: 'java-spring' }];
+  if (content) return [{ name: 'Java', category: 'backend', template: 'java' }];
   return [];
 }
 
@@ -204,18 +201,6 @@ function detectFromRuby(rootDir: string): DetectedFramework[] {
   }
 
   return [{ name: 'Ruby', category: 'backend', template: 'ruby-rails' }];
-}
-
-function detectFromBun(rootDir: string): DetectedFramework[] {
-  if (!fs.existsSync(path.join(rootDir, 'bun.lockb'))) return [];
-  return [{ name: 'Bun', category: 'backend', template: 'bun' }];
-}
-
-function detectFromDeno(rootDir: string): DetectedFramework[] {
-  const hasDenoJson = fs.existsSync(path.join(rootDir, 'deno.json'))
-    || fs.existsSync(path.join(rootDir, 'deno.jsonc'));
-  if (!hasDenoJson) return [];
-  return [{ name: 'Deno', category: 'backend', template: 'deno' }];
 }
 
 function detectFromPhp(rootDir: string): DetectedFramework[] {
@@ -276,8 +261,8 @@ function detectDeno(rootDir: string): DetectedFramework[] {
 export function detectFrameworks(rootDir: string): DetectedFramework[] {
   const frameworks: DetectedFramework[] = [
     ...detectFromPackageJson(rootDir),
-    ...detectFromBun(rootDir),
-    ...detectFromDeno(rootDir),
+    ...detectBun(rootDir),
+    ...detectDeno(rootDir),
     ...detectFromPython(rootDir),
     ...detectFromGo(rootDir),
     ...detectFromRust(rootDir),
@@ -285,8 +270,6 @@ export function detectFrameworks(rootDir: string): DetectedFramework[] {
     ...detectFromDotnet(rootDir),
     ...detectFromRuby(rootDir),
     ...detectFromPhp(rootDir),
-    ...detectBun(rootDir),
-    ...detectDeno(rootDir),
   ];
 
   // Deduplicate by name

@@ -63,6 +63,9 @@ export interface PackageProfile {
   allDependencies: string[];
 }
 
+/** Alias for PackageProfile — represents a single workspace package in a monorepo. */
+export type WorkspacePackage = PackageProfile;
+
 export interface FileNode {
   /** Relative path from project root (forward slashes) */
   path: string;
@@ -162,6 +165,26 @@ export interface AiOsConfig {
    * Default: true.
    */
   promptQualityPack?: boolean;
+  /**
+   * Skill version tracking: maps skill name to SHA-256 content hash.
+   * Populated by --refresh-existing. Checked by --doctor and detect_drift.
+   */
+  skillVersions?: Record<string, string>;
+  /**
+   * Allow run_tests, run_lint, and run_build MCP tools to execute shell commands.
+   * Default: false (must be explicitly enabled or set AI_OS_ALLOW_RUN_TOOLS=1).
+   */
+  allowRunTools?: boolean;
+  /**
+   * Target AI model for generated instructions.
+   * Defaults to 'copilot' (standard Markdown). Other values produce companion files.
+   */
+  model?: 'copilot' | 'claude' | 'gemini' | 'local';
+  /**
+   * Additional editor targets for generated configs.
+   * 'vscode' is always included. Others produce companion files.
+   */
+  editorTargets?: Array<'vscode' | 'cursor' | 'jetbrains' | 'neovim' | 'all'>;
 }
 
 /** Runtime type guard for AiOsConfig JSON artifacts. */
@@ -177,5 +200,45 @@ export function isAiOsConfig(obj: unknown): obj is AiOsConfig {
     typeof o['hasTypeScript'] === 'boolean' &&
     Array.isArray(o['persistentRules']) &&
     Array.isArray(o['exclude'])
+  );
+}
+
+/** One entry in the agent registry — A2A-inspired AgentCard for a generated agent. */
+export interface AgentRegistryEntry {
+  /** Display name of the agent (e.g. "Payments Expert") */
+  name: string;
+  /** Filename in .github/agents/ (e.g. "expert-payments.agent.md") */
+  file: string;
+  /** What this agent can do (used by orchestrator to match tasks) */
+  capabilities: string[];
+  /** Lowercase keywords that trigger routing to this agent */
+  triggers: string[];
+  /** One-sentence summary used in the orchestrator's agent list */
+  description: string;
+}
+
+/** The full agent registry written to .github/ai-os/agents.json */
+export interface AgentRegistry {
+  version: '1';
+  generatedAt: string;
+  agents: AgentRegistryEntry[];
+}
+
+/** Runtime type guard for AgentRegistry — validates JSON loaded from agents.json */
+export function isAgentRegistry(value: unknown): value is AgentRegistry {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (v['version'] !== '1') return false;
+  if (typeof v['generatedAt'] !== 'string') return false;
+  if (!Array.isArray(v['agents'])) return false;
+  return v['agents'].every(
+    (a) =>
+      typeof a === 'object' &&
+      a !== null &&
+      typeof (a as Record<string, unknown>)['name'] === 'string' &&
+      typeof (a as Record<string, unknown>)['file'] === 'string' &&
+      Array.isArray((a as Record<string, unknown>)['capabilities']) &&
+      Array.isArray((a as Record<string, unknown>)['triggers']) &&
+      typeof (a as Record<string, unknown>)['description'] === 'string'
   );
 }

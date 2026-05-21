@@ -328,6 +328,71 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },
+  // ── Tool #27: Drift Detection ──────────────────────────────────────────────
+  {
+    name: 'detect_drift',
+    description: 'Scans AI OS artifacts (skills, instructions, agents, MCP config, context snapshot) for drift. Reports missing files, unreplaced template placeholders, stale context snapshot (>7 days), broken MCP server paths, agent schema gaps, and skills not listed in instructions. Returns a formatted report; exits non-zero when errors exist.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        verbose: { type: 'boolean', description: 'Include healthy files in output (default: false)' },
+      },
+    },
+    condition: always,
+  },
+  {
+    name: 'read_file',
+    description: 'Read the content of a file within the project root. Path traversal outside the project root is blocked. Files larger than 32 KB are rejected with a helpful message.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'Path to the file, relative to the project root (e.g. "src/utils.ts")' },
+      },
+      required: ['path'],
+    },
+    condition: always,
+  },
+  {
+    name: 'list_directory',
+    description: 'List the contents of a directory within the project root. Returns file names with sizes and directory names. Ignores node_modules, dist, .git, and other build artefacts.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'Directory path relative to project root (default: "." = project root)' },
+      },
+    },
+    condition: always,
+  },
+  {
+    name: 'run_tests',
+    description: 'Run the project test suite (`npm run test` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    inputSchema: { type: 'object' as const, properties: {} },
+    condition: always,
+  },
+  {
+    name: 'run_lint',
+    description: 'Run the project linter (`npm run lint` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    inputSchema: { type: 'object' as const, properties: {} },
+    condition: always,
+  },
+  {
+    name: 'run_build',
+    description: 'Run the project build (`npm run build` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    inputSchema: { type: 'object' as const, properties: {} },
+    condition: always,
+  },
+  {
+    name: 'run_workflow',
+    description: 'Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        workflow_name: { type: 'string', description: 'Workflow filename (e.g. "feature-pipeline.yml"). Omit to list all workflows.' },
+        dry_run: { type: 'boolean', description: 'Show chain without executing (default: true)' },
+      },
+    },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

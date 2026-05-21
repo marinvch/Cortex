@@ -45,6 +45,49 @@ npx -y skills add <source>@context7 -g -a github-copilot
 
 > ⚠️  Skills without a known source (`context7`): find the GitHub repo hosting the skill and replace `<source>` before running.
 
+## Superpowers
+
+> Agentic software development methodology: design → plan → TDD → parallel execution → review. Works across Claude Code, GitHub Copilot CLI, Codex, Cursor, and more.
+
+**Install in your coding agent:**
+
+```bash
+# Claude Code (official marketplace)
+/plugin install superpowers@claude-plugins-official
+
+# GitHub Copilot CLI — step 1 (register marketplace)
+copilot plugin marketplace add obra/superpowers-marketplace
+
+# GitHub Copilot CLI — step 2 (install plugin)
+copilot plugin install superpowers@superpowers-marketplace
+
+# Cursor
+/add-plugin superpowers
+
+# Gemini CLI
+gemini extensions install https://github.com/obra/superpowers
+
+```
+
+**Or install individual skills via skills CLI:**
+
+```bash
+npx -y skills add obra/superpowers@brainstorming -g -a github-copilot
+npx -y skills add obra/superpowers@writing-plans -g -a github-copilot
+npx -y skills add obra/superpowers@executing-plans -g -a github-copilot
+npx -y skills add obra/superpowers@test-driven-development -g -a github-copilot
+npx -y skills add obra/superpowers@subagent-driven-development -g -a github-copilot
+npx -y skills add obra/superpowers@dispatching-parallel-agents -g -a github-copilot
+npx -y skills add obra/superpowers@requesting-code-review -g -a github-copilot
+npx -y skills add obra/superpowers@receiving-code-review -g -a github-copilot
+npx -y skills add obra/superpowers@systematic-debugging -g -a github-copilot
+npx -y skills add obra/superpowers@verification-before-completion -g -a github-copilot
+npx -y skills add obra/superpowers@finishing-a-development-branch -g -a github-copilot
+npx -y skills add obra/superpowers@using-git-worktrees -g -a github-copilot
+npx -y skills add obra/superpowers@using-superpowers -g -a github-copilot
+npx -y skills add obra/superpowers@writing-skills -g -a github-copilot
+```
+
 ## Universal Skills (Optional)
 
 > These skills are useful for any project and are not specific to the detected stack.
@@ -57,4 +100,4 @@ npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot
 ```
 
 ---
-*Generated at 2026-04-29T07:35:19.887Z by AI OS*
+*Generated at 2026-05-21T04:58:32.823Z by AI OS*

@@ -24,6 +24,7 @@ import { runMemoryMaintenance } from '../mcp-server/utils.js';
 import { runBootstrap, formatBootstrapReport, installSkill } from '../bootstrap.js';
 import { runPlanAction } from './plan.js';
 import { runPreviewAction } from './preview.js';
+import { buildGenerationSummary, formatGenerationSummary } from './summary.js';
 import type { ParsedArgs, GenerateMode } from '../cli/args.js';
 import type { OnboardingPlan } from '../planner.js';
 import type { UpdateStatus } from '../updater.js';
@@ -289,6 +290,7 @@ function printSummary(
   agents: string[],
   preserved: string[],
   activeProfile?: string,
+  durationMs?: number,
 ): void {
   const mcpToolCount = getMcpToolsForStack(stack).length;
   const fw = stack.frameworks.map(f => f.name).join(', ') || stack.primaryLanguage.name;
@@ -302,14 +304,18 @@ function printSummary(
   }
   console.log('');
   console.log('  Diff summary:');
-  console.log(`  ✅ Written (new or changed):  ${written.length}`);
-  console.log(`  ⏭️  Unchanged (skipped):        ${skipped.length}`);
+  const summary = buildGenerationSummary({
+    written,
+    skipped,
+    pruned: pruned.map(p => p),
+    preserved,
+    durationMs: durationMs ?? 0,
+  });
+  console.log(formatGenerationSummary(summary));
   if (preserved.length > 0) {
-    console.log(`  🔒 Preserved (curated):        ${preserved.length}`);
     for (const p of preserved) console.log(`       • ${path.relative(outputDir, p).replace(/\\/g, '/')}`);
   }
   if (pruned.length > 0) {
-    console.log(`  🗑️  Pruned (stale):              ${pruned.length}`);
     for (const p of pruned) console.log(`       • ${path.relative(outputDir, p).replace(/\\/g, '/')}`);
   }
   if (agents.length > 0) {
@@ -526,6 +532,43 @@ function printMemoryMaintenanceSummary(cwd: string): void {
 }
 
 /**
+ * Validate skill routing completeness: check all skill files in .github/copilot/skills/
+ * and warn if any are missing required frontmatter (name/description) that would cause
+ * them to be silently excluded from the prompt-quality.instructions.md routing table.
+ */
+function validateSkillRoutingCompleteness(cwd: string): void {
+  const skillsDir = path.join(cwd, '.github', 'copilot', 'skills');
+  if (!fs.existsSync(skillsDir)) return;
+
+  const issues: string[] = [];
+  try {
+    for (const file of fs.readdirSync(skillsDir)) {
+      if (!file.endsWith('.md')) continue;
+      try {
+        const raw = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
+        const hasName = /^name:\s*.+$/m.test(raw);
+        const hasDescription = /^description:\s*.+$/m.test(raw);
+        if (!hasName || !hasDescription) {
+          const missing = [!hasName && 'name', !hasDescription && 'description'].filter(Boolean).join(', ');
+          issues.push(`     ⚠️  ${file} — missing frontmatter: ${missing}`);
+        }
+      } catch {
+        issues.push(`     ⚠️  ${file} — unreadable`);
+      }
+    }
+  } catch {
+    return; // Non-fatal
+  }
+
+  if (issues.length > 0) {
+    console.log('  🔍 Skill routing validation:');
+    for (const issue of issues) console.log(issue);
+    console.log('     Skills with missing frontmatter are excluded from routing in prompt-quality.instructions.md');
+    console.log('');
+  }
+}
+
+/**
  * Print the Superpowers harness-level plugin install instructions.
  * Shown on first install so users know how to activate the full plugin experience.
  */
@@ -709,6 +752,8 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   }
 
   const stack = analyze(cwd);
+  // Track generation start time for summary duration
+  const generationStartMs = Date.now();
   // Read existing config before generation to preserve user-editable fields
   const existingConfig = readAiOsConfig(cwd);
   const onboardingPlan = buildOnboardingPlan(cwd, mode, { regenerateContext });
@@ -961,6 +1006,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
 
   if (isRefresh) {
     printMemoryMaintenanceSummary(cwd);
+    validateSkillRoutingCompleteness(cwd);
   }
 
   if (quiet) {
@@ -1011,7 +1057,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     return;
   }
 
-  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? undefined);
+  printSummary(stack, cwd, newFiles, existingFiles, prunedAbs, agentFiles, preservedAbs, effectiveProfile ?? undefined, Date.now() - generationStartMs);
   printContextualNextSteps(mode, onboardingPlan, updateStatus, config?.recommendations !== false);
 
   // ── Bootstrap action: auto-install skills after full generation ──────────

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { AiOsError } from '../errors.js';
 
 // ── Verbose mode (H2) ────────────────────────────────────────────────────────
 
@@ -20,6 +21,12 @@ let _newHashes: Record<string, string> = {};
  */
 export function setPrevHashes(hashes: Record<string, string>): void {
   _prevHashes = hashes;
+  _newHashes = {};
+}
+
+/** Reset all hash state — useful in tests to prevent cross-test contamination. */
+export function resetHashes(): void {
+  _prevHashes = {};
   _newHashes = {};
 }
 
@@ -77,6 +84,16 @@ export function writeFileAtomic(filePath: string, content: string): void {
     fs.renameSync(tmpPath, filePath);
   } catch (err) {
     try { fs.unlinkSync(tmpPath); } catch { /* ignore cleanup errors */ }
+    const isPermission = (err as NodeJS.ErrnoException).code === 'EACCES'
+      || (err as NodeJS.ErrnoException).code === 'EPERM';
+    if (isPermission) {
+      throw new AiOsError(
+        'WRITE_FAILED',
+        `Permission denied writing to ${filePath}`,
+        'Check file permissions or run with appropriate privileges',
+        { path: filePath, cause: (err as Error).message },
+      );
+    }
     throw err;
   }
 }
@@ -95,7 +112,8 @@ export function writeIfChanged(filePath: string, content: string): WriteResult {
   _newHashes[filePath] = contentHash;
 
   // Fast-path: compare against previous manifest hash before reading disk.
-  if (_prevHashes[filePath] !== undefined && _prevHashes[filePath] === contentHash) {
+  // Only skip if the file actually exists — a deleted file must always be recreated.
+  if (_prevHashes[filePath] !== undefined && _prevHashes[filePath] === contentHash && fs.existsSync(filePath)) {
     if (_verbose) console.log(`  ⏭️  skip    ${filePath}  (hash-match)`);
     if (_dryRun) _dryRunCaptures.push({ filePath, newContent: content, existingContent: content });
     return 'skipped';

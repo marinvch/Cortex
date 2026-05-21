@@ -1,0 +1,16 @@
+name: Feature Development Pipeline
+description: Three-phase feature development — Enhancement Advisor → Idea Validator → Implementation Agent
+
+steps:
+  - agent: ai-os — Feature Enhancement Advisor
+    output: enhancement-report
+    description: Scan the codebase for improvement opportunities and generate a prioritized enhancement report
+
+  - agent: ai-os — Idea Validator
+    input: enhancement-report
+    output: approved-work-order
+    description: Validate the enhancement report against actual codebase reality and produce an Approved Work Order
+
+  - agent: ai-os — Implementation Agent
+    input: approved-work-order
+    description: Execute the Approved Work Order in dependency-safe sequence, implementing all approved changes

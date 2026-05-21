@@ -4,7 +4,7 @@ applyTo: "**"
 
 # Prompt Quality Pack — ai-os
 
-> Stack: **TypeScript** · Language: **TypeScript** · Package manager: **npm**
+> Language: **TypeScript** · Package manager: **npm**
 
 ## 1. Prompt Template
 
@@ -25,10 +25,12 @@ Use `@<agent-name>` to invoke a specialist agent:
 
 | Agent | Description | When to use |
 |---|---|---|
-| `ai-os Initializer` | Maintain and evolve the AI framework artifacts for the ai-os repo (docs, skills, prompts) using the real Markdown stack. | What artifact to update or create (e.g. "update skills", "add agent for auth") |
+| `ai-os Initializer` | Maintain and evolve the AI framework artifacts for the ai-os repo (docs, skills, prompts) using the real TypeScript stack. | What artifact to update or create (e.g. "update skills", "add agent for auth") |
+| `Architecture Migration` | Three-phase guide for ai-os architecture migrations: audit legacy AI guidance, gate on phased migration status, and drive post-change context replacement. | Describe the migration: "from X to Y" (e.g., "from session auth to JWT", "from REST to tRPC") |
 | `Codebase Explorer` | Read-only navigator for ai-os — answers "how does X work?" questions. | Ask about any feature, file, or pattern (e.g. "how does auth work?") |
 | `Expert Markdown Developer` | Expert Markdown developer specializing in Markdown patterns for ai-os. | Describe the feature, bug or refactor you need help with |
-| `Feature Enhancement Advisor` | "Scan ai-os for improvement opportunities and expansion ideas. Use when you want prioritized enhancements, gap analysis, roadmap proposals, and concrete implementation recommendations for this repository only." | Describe scope (e.g. reliability, DX, CI/CD, MCP, context quality) and depth (quick/medium/deep). |
+| `Expert TypeScript Developer` | Expert TypeScript developer specializing in TypeScript patterns for ai-os. | Describe the feature, bug or refactor you need help with |
+| `ai-os — Feature Enhancement Advisor` | Scan ai-os for improvement opportunities and expansion ideas. Use when you want prioritized enhancements, gap analysis, roadmap proposals, and concrete implementation recommendations for this repository only. | Describe scope (e.g. reliability, DX, CI/CD, security, performance) and depth (quick/medium/deep). |
 | `ai-os — Idea Validator` | Validates enhancement recommendations from the Feature Enhancement Advisor against actual codebase reality. Use after the Enhancement Advisor produces a report — before any implementation begins. | Paste the Enhancement Advisor numbered report here, or describe the finding(s) to validate. |
 | `ai-os — Implementation Agent` | Executes the Approved Work Order produced by the Idea Validator. Implements changes in dependency-safe sequence. Use only after the Idea Validator has produced a verified Approved Work Order. | Paste the Approved Work Order from the Idea Validator, or name a specific item to implement. |
 

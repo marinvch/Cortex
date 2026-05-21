@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { isAiOsConfig } from '../types.js';
 import { buildDependencyGraph } from '../detectors/graph.js';
@@ -33,6 +34,25 @@ export function readAiOsConfig(outputDir: string): AiOsConfig | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Compute SHA-256 content hashes for all installed skill .md files.
+ * Returns a map of skill-name → hash-prefix (first 12 hex chars).
+ */
+export function computeSkillVersions(outputDir: string): Record<string, string> {
+  const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
+  const versions: Record<string, string> = {};
+  if (!fs.existsSync(skillsDir)) return versions;
+  try {
+    for (const file of fs.readdirSync(skillsDir)) {
+      if (!file.endsWith('.md')) continue;
+      const content = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
+      const hash = createHash('sha256').update(content).digest('hex').slice(0, 12);
+      versions[file.replace(/\.md$/, '')] = hash;
+    }
+  } catch { /* ignore */ }
+  return versions;
 }
 
 interface ExistingArtifact {
@@ -755,6 +775,20 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
   const toolRefPath = track(path.join(contextDir, 'mcp-tools.md'));
   writeIfChanged(toolRefPath, generateMcpToolRefDoc(stack));
 
+  // Deploy built-in workflow templates to .github/ai-os/workflows/ (first install only)
+  const workflowTemplatesDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'templates', 'workflows');
+  const targetWorkflowsDir = path.join(outputDir, '.github', 'ai-os', 'workflows');
+  if (fs.existsSync(workflowTemplatesDir)) {
+    fs.mkdirSync(targetWorkflowsDir, { recursive: true });
+    for (const file of fs.readdirSync(workflowTemplatesDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'))) {
+      const dest = track(path.join(targetWorkflowsDir, file));
+      if (!fs.existsSync(dest)) {
+        // Only deploy on first install — don't overwrite user customizations
+        writeIfChanged(dest, fs.readFileSync(path.join(workflowTemplatesDir, file), 'utf8'));
+      }
+    }
+  }
+
   // Write config.json — preserve user-editable fields across refreshes
   const existingConfig = readAiOsConfig(outputDir);
   const config: AiOsConfig = {
@@ -777,6 +811,8 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
     agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_AI_OS_CONFIG.agentFlowMode,
     persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude,
+    // Skill version tracking — refreshed on every generation run
+    skillVersions: computeSkillVersions(outputDir),
   };
 
   const aiOsDir = path.join(outputDir, '.github', 'ai-os');
@@ -786,7 +822,7 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
   if (config.sessionContextCard) {
     const sessionCardPath = track(path.join(outputDir, '.github', 'COPILOT_CONTEXT.md'));
     if (!shouldPreserve(sessionCardPath)) {
-      writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config));
+      writeIfChanged(sessionCardPath, generateSessionContextCard(stack, config, outputDir));
     }
   }
 
@@ -794,10 +830,20 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
 }
 
 /** Generate a compact session context card (≤ 500 tokens). */
-function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig): string {
+function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig, outputDir?: string): string {
   const fw = stack.primaryFramework?.name ?? stack.primaryLanguage.name;
   const pm = stack.patterns.packageManager;
   const isNode = ['npm', 'yarn', 'pnpm', 'bun'].includes(pm);
+
+  // Count installed skills for the Key Files table
+  const skillsCount = (() => {
+    if (!outputDir) return 0;
+    const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
+    if (!fs.existsSync(skillsDir)) return 0;
+    try {
+      return fs.readdirSync(skillsDir).filter(f => f.endsWith('.md')).length;
+    } catch { return 0; }
+  })();
 
   // Build/test commands based on detected stack
   const buildCmd = isNode ? `${pm} run build` : pm === 'go' ? 'go build ./...' : pm === 'cargo' ? 'cargo build' : pm === 'maven' ? 'mvn package' : pm === 'gradle' ? './gradlew build' : 'build';
@@ -816,7 +862,11 @@ function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig): s
   // Add user-defined persistent rules at the top
   const allRules = [...config.persistentRules, ...rules].slice(0, 10);
 
-  const keyFilesTable = stack.keyFiles.slice(0, 6).map(f => `| \`${f}\` | key file |`).join('\n');
+  const keyFilesRows = stack.keyFiles.slice(0, 6).map(f => `| \`${f}\` | key file |`);
+  if (skillsCount > 0) {
+    keyFilesRows.push(`| \`.github/copilot/skills/\` | ${skillsCount} skill${skillsCount !== 1 ? 's' : ''} installed |`);
+  }
+  const keyFilesTable = keyFilesRows.join('\n');
 
   return [
     '# Copilot Context — Quick Start',
@@ -846,6 +896,7 @@ function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig): s
     '1. Call `get_session_context` → reloads this card',
     '2. Call `get_repo_memory` → reloads durable decisions',
     '3. Call `get_conventions` → reloads coding rules',
+    '4. Call `get_active_plan` → restores active task plan and open checkpoints (if any)',
     '',
     '## Non-Trivial Task Protocol',
     '',

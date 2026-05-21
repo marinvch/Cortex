@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-04-29T05:36:38.503Z",
+  "updatedAt": "2026-05-21T05:27:29.575Z",
   "weeks": [
     {
       "weekStart": "2026-04-14",
@@ -21,6 +21,19 @@
       "contextHitRate": 0.78,
       "notes": "2026-04-29 scorecard update — all 198 tests pass, PHP/WordPress detection added",
       "updatedAt": "2026-04-29T05:36:38.496Z"
+    },
+    {
+      "weekStart": "2026-05-19",
+      "firstPassSuccessRate": 0.92,
+      "toolCallSuccessRate": 0.98,
+      "reworkRate": 0.08,
+      "avgTimeToFixMinutes": 20,
+      "contextHitRate": 0.84,
+      "notes": "v0.18.0 — 401 tests, drift detection engine, template modernization, user docs, audit fix",
+      "skillContractPassRate": 1,
+      "startupProtocolCompliance": 0.96,
+      "severityReviewAdoption": 0.91,
+      "updatedAt": "2026-05-21T05:56:02.245Z"
     }
   ]
 }

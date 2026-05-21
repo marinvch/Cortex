@@ -1,0 +1,99 @@
+name: AI OS Drift Check
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Monday 09:00 UTC
+  workflow_dispatch:
+  push:
+    branches: [master, dev]
+    paths:
+      - '.github/copilot-instructions.md'
+      - '.github/ai-os/**'
+      - '.github/agents/**'
+      - '.github/copilot/skills/**'
+      - '.vscode/mcp.json'
+      - '.mcp.json'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run drift check
+        id: drift
+        run: |
+          set +e
+          node dist/generate.js --check-drift --verbose 2>&1 | tee drift-report.txt
+          EXIT_CODE=$?
+          set -e
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "has_drift=true" >> "$GITHUB_OUTPUT"
+          fi
+          {
+            echo "report<<EOF"
+            cat drift-report.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create issue on drift errors
+        if: steps.drift.outputs.has_drift == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = 'AI OS drift detected — run --refresh-existing to fix';
+            const open = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            if (open.some(i => i.title === title)) {
+              core.info('Drift issue already open — skipping creation.');
+              return;
+            }
+            const report = `${{ steps.drift.outputs.report }}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              labels: ['ai-os', 'maintenance'],
+              body: [
+                '## AI OS Drift Detected',
+                '',
+                'The automated drift check found issues with AI OS artifacts in this repository.',
+                '',
+                '```',
+                report,
+                '```',
+                '',
+                '### Fix',
+                '',
+                'Run the following command to regenerate all AI OS artifacts:',
+                '',
+                '```bash',
+                'npx -y github:marinvch/ai-os --refresh-existing',
+                '```',
+                '',
+                '---',
+                '_This issue was automatically created by the [AI OS Drift Check](.github/workflows/ai-os-drift-check.yml) workflow._',
+              ].join('\n'),
+            });

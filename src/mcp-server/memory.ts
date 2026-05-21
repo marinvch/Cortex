@@ -108,6 +108,12 @@ function buildMemoryKey(entry: Pick<RepoMemoryEntry, 'title' | 'category'>): str
   return `${normalizeMemoryText(entry.category)}::${normalizeMemoryText(entry.title)}`;
 }
 
+/** Version-family key: strips semver tokens so "AI OS refreshed to v0.16.0" and "AI OS refreshed to v0.13.0" share the same family key. */
+function buildVersionFamilyKey(entry: Pick<RepoMemoryEntry, 'title' | 'category'>): string {
+  const versionlessTitle = normalizeMemoryText(entry.title).replace(/v\d+\.\d+(?:\.\d+)?(?:-[\w.]+)*/g, '{version}');
+  return `${normalizeMemoryText(entry.category)}::${versionlessTitle}`;
+}
+
 function buildFingerprint(entry: Pick<RepoMemoryEntry, 'title' | 'category' | 'content'>): string {
   return `${buildMemoryKey(entry)}::${normalizeMemoryText(entry.content)}`;
 }
@@ -188,6 +194,28 @@ function applyStalePolicy(entries: RepoMemoryEntry[], ttlDays?: number): RepoMem
       entry.status = 'stale';
       entry.staleReason = entry.staleReason ?? 'superseded-by-newer-entry';
       entry.updatedAt = toIsoDate(entry.updatedAt);
+    }
+  }
+
+  // Also supersede across version-family groups (e.g. "AI OS refreshed to v0.13.0" vs "v0.16.0").
+  // Groups entries with different exact keys that share the same version-family key and marks
+  // all but the most recent active entry stale — enabling pruneMemory() to clean them up.
+  const byFamilyKey = new Map<string, RepoMemoryEntry[]>();
+  for (const entry of entries) {
+    if (entry.status === 'stale') continue;
+    const familyKey = buildVersionFamilyKey(entry);
+    if (!familyKey.includes('{version}')) continue;
+    const list = byFamilyKey.get(familyKey) ?? [];
+    list.push(entry);
+    byFamilyKey.set(familyKey, list);
+  }
+  for (const [, list] of byFamilyKey) {
+    if (list.length <= 1) continue;
+    list.sort(sortByRecencyDesc);
+    for (let i = 1; i < list.length; i++) {
+      list[i].status = 'stale';
+      list[i].staleReason = 'superseded-by-newer-version';
+      list[i].updatedAt = toIsoDate(list[i].updatedAt);
     }
   }
 
@@ -429,6 +457,24 @@ export function rememberRepoFact(title: string, content: string, category?: stri
         incoming.conflictWithId = currentActive.id;
       }
 
+      // Supersede entries whose titles share the same version-family (e.g. "AI OS refreshed to v0.13.0" → v0.16.0)
+      let versionFamilySuperseded = false;
+      if (!currentActive) {
+        const incomingFamilyKey = buildVersionFamilyKey(incoming);
+        if (incomingFamilyKey.includes('{version}')) {
+          const familyMatches = entries.filter(
+            (entry) => entry.status !== 'stale' && buildVersionFamilyKey(entry) === incomingFamilyKey,
+          );
+          for (const match of familyMatches) {
+            match.status = 'stale';
+            match.staleReason = 'superseded-by-newer-version';
+            match.updatedAt = now;
+            incoming.supersedesId ??= match.id;
+          }
+          versionFamilySuperseded = familyMatches.length > 0;
+        }
+      }
+
       entries.push(incoming);
 
       const normalized = dedupeEntries(applyStalePolicy(entries));
@@ -436,6 +482,10 @@ export function rememberRepoFact(title: string, content: string, category?: stri
 
       if (currentActive) {
         return `Stored memory entry with conflict marker: ${incoming.title} (${incoming.category})`;
+      }
+
+      if (versionFamilySuperseded) {
+        return `Stored memory entry, superseding older version: ${incoming.title} (${incoming.category})`;
       }
 
       return `Stored memory entry: ${incoming.title} (${incoming.category})`;

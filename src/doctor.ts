@@ -22,8 +22,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { getToolVersion } from './updater.js';
+import { readAiOsConfig } from './generators/context-docs.js';
 
 export interface DoctorCheck {
   name: string;
@@ -309,6 +311,59 @@ function checkSkillsDeployed(cwd: string): DoctorCheck {
   };
 }
 
+function checkSkillVersions(cwd: string): DoctorCheck {
+  const config = readAiOsConfig(cwd);
+  if (!config?.skillVersions || Object.keys(config.skillVersions).length === 0) {
+    return {
+      name: 'Skill version integrity',
+      critical: false,
+      passed: true,
+      detail: 'No skill versions tracked in config.json',
+    };
+  }
+
+  const skillsDir = path.join(cwd, '.github', 'copilot', 'skills');
+  const modified: string[] = [];
+  const missing: string[] = [];
+
+  for (const [skillName, expectedHash] of Object.entries(config.skillVersions)) {
+    const skillPath = path.join(skillsDir, `${skillName}.md`);
+    if (!fs.existsSync(skillPath)) {
+      missing.push(skillName);
+      continue;
+    }
+    const content = fs.readFileSync(skillPath, 'utf-8');
+    const actualHash = createHash('sha256').update(content).digest('hex').slice(0, 12);
+    if (actualHash !== expectedHash) {
+      modified.push(skillName);
+    }
+  }
+
+  const issues = [...modified, ...missing];
+  if (issues.length === 0) {
+    const count = Object.keys(config.skillVersions).length;
+    return {
+      name: 'Skill version integrity',
+      critical: false,
+      passed: true,
+      detail: `${count} skill(s) verified — all hashes match`,
+    };
+  }
+
+  const detail = [
+    modified.length > 0 ? `Modified: ${modified.join(', ')}` : '',
+    missing.length > 0 ? `Missing: ${missing.join(', ')}` : '',
+  ].filter(Boolean).join('; ');
+
+  return {
+    name: 'Skill version integrity',
+    critical: false,
+    passed: false,
+    detail,
+    fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -343,6 +398,7 @@ export function runDoctor(cwd: string): DoctorResult {
     checkAiOsConfigPresent(cwd),
     checkToolsFilePresent(cwd),
     checkSkillsDeployed(cwd),
+    checkSkillVersions(cwd),
   ];
 
   const criticalFailures = checks.filter(c => c.critical && !c.passed).length;

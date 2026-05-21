@@ -60,6 +60,35 @@ jobs:
           npm run gen-mcp-docs
           git diff --exit-code docs/mcp-tools.md || (echo "docs/mcp-tools.md is stale — run npm run gen-mcp-docs and commit" && exit 1)
 
+  test-matrix:
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ["20", "22"]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm run test
+
   validate-full:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest

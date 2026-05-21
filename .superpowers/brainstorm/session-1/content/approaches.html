@@ -1,0 +1,40 @@
+<h2>3 Approaches to A2A Orchestration in AI OS</h2>
+<p class="subtitle">Each has a different depth of A2A adoption. Pick the one that feels right.</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>⭐ Smart Orchestrator Agent + MCP routing <span style="font-size:0.75em;color:#22c55e;">(Recommended)</span></h3>
+      <p>Generate a master <code>orchestrator.agent.md</code> that knows all sub-agents. Add a new MCP tool <code>delegate_to_agent(agent, task)</code>. Developer chats with the orchestrator → it routes to the right sub-agent via MCP. <strong>A2A-inspired architecture, no new runtime.</strong></p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Works today in Copilot chat</li><li>No new server</li><li>Extends existing MCP server</li><li>Quick to build</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Not spec-compliant A2A</li><li>Only works within Copilot ecosystem</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>A2A Adapter on the MCP Server</h3>
+      <p>Extend the existing MCP server to <strong>also speak A2A</strong> (HTTP + JSON-RPC 2.0 + SSE). Each generated <code>.agent.md</code> gets an <code>AgentCard</code>. Add <code>orchestrate_task</code> MCP tool. True A2A spec compliance — other agents outside Copilot can call in.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>Real A2A interoperability</li><li>Reuses existing server</li><li>One port, two protocols</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Significant MCP server changes</li><li>Agents still run "in prompt", not true services</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Full A2A Sidecar Runtime</h3>
+      <p>AI OS generates a <strong>standalone A2A Node.js server</strong> alongside the MCP server. Each generated agent gets a real HTTP endpoint with full task lifecycle (submitted → working → completed). AgentCard at <code>/.well-known/agent-card.json</code>. Fully spec-compliant.</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>100% A2A spec compliant</li><li>Cross-vendor interoperability</li><li>Production-grade architecture</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Biggest build effort</li><li>Requires running a second server</li><li>Overkill if staying in Copilot</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

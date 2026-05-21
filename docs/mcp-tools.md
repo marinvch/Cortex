@@ -37,6 +37,13 @@
 | `sync_hosted_memory` | Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication. |
 | `get_context_freshness` | Computes a freshness score (0–100) for AI OS context artifacts by comparing them against the stored context snapshot. Returns a list of stale artifacts, changed source files, and targeted sync recommendations. Run after structural code changes to detect context drift. |
 | `prune_memory` | Compacts the repository memory file by running full hygiene (near-duplicate detection, TTL enforcement, superseded entry removal) and physically deleting all stale entries. Returns a maintenance summary with counts of removed vs. kept entries. |
+| `detect_drift` | Scans AI OS artifacts (skills, instructions, agents, MCP config, context snapshot) for drift. Reports missing files, unreplaced template placeholders, stale context snapshot (>7 days), broken MCP server paths, agent schema gaps, and skills not listed in instructions. Returns a formatted report; exits non-zero when errors exist. |
+| `read_file` | Read the content of a file within the project root. Path traversal outside the project root is blocked. Files larger than 32 KB are rejected with a helpful message. |
+| `list_directory` | List the contents of a directory within the project root. Returns file names with sizes and directory names. Ignores node_modules, dist, .git, and other build artefacts. |
+| `run_tests` | Run the project test suite (`npm run test` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json. |
+| `run_lint` | Run the project linter (`npm run lint` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json. |
+| `run_build` | Run the project build (`npm run build` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json. |
+| `run_workflow` | Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows. |
 
 ## Session Start Protocol
 

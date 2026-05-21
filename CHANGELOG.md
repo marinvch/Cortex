@@ -5,6 +5,24 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.19.0] — 2026-05-22
+
+### Added
+- **Structured error reporting** (`src/errors.ts`, #186): `AiOsError` class with `AiOsErrorCode` union (8 codes), `formatError()` with actionable fix hints. Exit code 2 for user-fixable errors, exit code 1 for unexpected errors. `writeFileAtomic` wraps EACCES/EPERM as `AiOsError('WRITE_FAILED')`.
+- **Generation summary output** (`src/actions/summary.ts`, #187): `buildGenerationSummary()` + `formatGenerationSummary()` produce a structured diff table after each run showing written/unchanged/preserved/pruned file counts and duration in seconds.
+- **Semantic drift detection** (`src/detectors/drift.ts`, #174): check #7 in `detectDrift()` — verifies `config.json` `primaryFramework` matches `copilot-instructions.md` content, and `agents.json` agent count matches `.github/agents/*.agent.md` file count. Rendered in a `🔀 Semantic Drift` section in `formatDriftReport()`.
+- **MCP prompts contract tests** (`src/tests/mcp-prompts.test.ts`): 6 tests verifying all 3 known prompts exist with non-empty descriptions and that `mcp-server/index.ts` declares the prompts capability.
+- **Documentation updates** (#185): `docs/architecture.md` — error handling section with exit codes table and `AiOsErrorCode` values; drift detection section with 7 check classes and `DriftItem.kind` values. `docs/USER-GUIDE.md` — generation summary section, error codes table, extended `--check-drift` docs with semantic drift description. `docs/GETTING-STARTED.md` — semantic drift example output and expanded drift detection section.
+- v0.19.0 design spec and TDD implementation plan in `docs/superpowers/`
+
+### Resolved Issues
+- #186 — Structured error reporting with exit code 2 for actionable errors
+- #187 — Generation summary output with duration and diff counts
+- #174 — Semantic drift detection for framework/agent count mismatches
+- #185 — Architecture, user guide, and getting-started documentation updates
+
+---
+
 ## [0.18.0] — 2026-05-21
 
 ### Added

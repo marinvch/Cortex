@@ -24,16 +24,16 @@
     },
     {
       "weekStart": "2026-05-19",
-      "firstPassSuccessRate": 0.9,
-      "toolCallSuccessRate": 0.97,
-      "reworkRate": 0.1,
-      "avgTimeToFixMinutes": 22,
-      "contextHitRate": 0.82,
-      "notes": "v0.17.0 release week — all 392 tests pass, superpowers integration complete, all 4 issues resolved",
+      "firstPassSuccessRate": 0.92,
+      "toolCallSuccessRate": 0.98,
+      "reworkRate": 0.08,
+      "avgTimeToFixMinutes": 20,
+      "contextHitRate": 0.84,
+      "notes": "v0.18.0 — 401 tests, drift detection engine, template modernization, user docs, audit fix",
       "skillContractPassRate": 1,
-      "startupProtocolCompliance": 0.95,
-      "severityReviewAdoption": 0.9,
-      "updatedAt": "2026-05-21T05:27:29.569Z"
+      "startupProtocolCompliance": 0.96,
+      "severityReviewAdoption": 0.91,
+      "updatedAt": "2026-05-21T05:56:02.245Z"
     }
   ]
 }

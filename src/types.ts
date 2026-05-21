@@ -165,6 +165,11 @@ export interface AiOsConfig {
    * Default: true.
    */
   promptQualityPack?: boolean;
+  /**
+   * Skill version tracking: maps skill name to SHA-256 content hash.
+   * Populated by --refresh-existing. Checked by --doctor and detect_drift.
+   */
+  skillVersions?: Record<string, string>;
 }
 
 /** Runtime type guard for AiOsConfig JSON artifacts. */

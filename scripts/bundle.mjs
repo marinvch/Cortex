@@ -70,5 +70,5 @@ fs.writeFileSync(manifestPath, JSON.stringify({
 
 console.log(`\n✅ Bundle complete — dist/server.js (AI OS v${pkg.version})`);
 console.log(`   SHA-256: ${bundleHash}`);
-console.log('   Deploy: copy dist/server.js to .ai-os/mcp-server/index.js in target repos');
+console.log('   Deploy: copy dist/server.js to .github/ai-os/mcp-server/index.js in target repos');
 console.log('   Ship: bundle/generate.js and bundle/server.js for npx/github consumers');

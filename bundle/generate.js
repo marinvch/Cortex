@@ -269,6 +269,31 @@ function printUpdateBanner(status) {
   console.log(`  ${updateCmd}`);
   console.log("");
 }
+function migrateLegacyMcpServer(targetDir) {
+  const legacyMcpDir = path.join(targetDir, ".ai-os", "mcp-server");
+  const legacyMcpEntry = path.join(legacyMcpDir, "index.js");
+  if (!fs.existsSync(legacyMcpEntry)) return;
+  const newMcpDir = path.join(targetDir, ".github", "ai-os", "mcp-server");
+  try {
+    fs.mkdirSync(newMcpDir, { recursive: true });
+    for (const file of fs.readdirSync(legacyMcpDir)) {
+      fs.copyFileSync(path.join(legacyMcpDir, file), path.join(newMcpDir, file));
+    }
+    fs.rmSync(legacyMcpDir, { recursive: true, force: true });
+    const legacyAiOsDir = path.join(targetDir, ".ai-os");
+    if (fs.existsSync(legacyAiOsDir) && fs.readdirSync(legacyAiOsDir).length === 0) {
+      fs.rmdirSync(legacyAiOsDir);
+    }
+    const gitignorePath = path.join(targetDir, ".gitignore");
+    if (fs.existsSync(gitignorePath)) {
+      const content = fs.readFileSync(gitignorePath, "utf-8");
+      const updated = content.replace(/^\.ai-os\/mcp-server\/node_modules\s*$/m, ".github/ai-os/mcp-server/").replace(/^\.ai-os\/mcp-server\/\s*$/m, ".github/ai-os/mcp-server/");
+      if (updated !== content) fs.writeFileSync(gitignorePath, updated, "utf-8");
+    }
+    console.log("  \u{1F500} Migrated .ai-os/mcp-server/ \u2192 .github/ai-os/mcp-server/ (v0.22.0 layout)");
+  } catch {
+  }
+}
 function pruneLegacyArtifacts(targetDir, options) {
   const fullCleanup = options?.fullCleanup === true;
   const legacyContextDir = path.join(targetDir, ".ai-os", "context");
@@ -278,6 +303,7 @@ function pruneLegacyArtifacts(targetDir, options) {
   const legacyAiOsDir = path.join(targetDir, ".ai-os");
   const legacyMcpJson = path.join(targetDir, ".github", "copilot", "mcp.json");
   const legacyMcpLocal = path.join(targetDir, ".github", "copilot", "mcp.local.json");
+  migrateLegacyMcpServer(targetDir);
   if (fullCleanup) {
     let removed2 = 0;
     try {
@@ -724,13 +750,16 @@ function runCheckHygieneAction(cwd, json = false) {
       issues.push(`  \u26A0  Stale lock file found: ${path4.relative(cwd, lockPath)} \u2014 safe to delete`);
     }
   }
-  const mcpNodeModules = path4.join(cwd, ".ai-os", "mcp-server", "node_modules");
+  const mcpNodeModules = path4.join(cwd, ".github", "ai-os", "mcp-server", "node_modules");
   if (fs3.existsSync(mcpNodeModules)) {
-    issues.push(`  \u26A0  node_modules present in .ai-os/mcp-server/ \u2014 Phase F (bundle deploy) will eliminate this`);
+    issues.push(`  \u26A0  node_modules present in .github/ai-os/mcp-server/ \u2014 run --refresh-existing to clean up`);
+  }
+  const legacyMcpDir = path4.join(cwd, ".ai-os", "mcp-server");
+  if (fs3.existsSync(legacyMcpDir)) {
+    issues.push(`  \u26A0  Legacy .ai-os/mcp-server/ found \u2014 run --refresh-existing to migrate to .github/ai-os/mcp-server/`);
   }
   const aiOsDirs = [
-    path4.join(cwd, ".github", "ai-os"),
-    path4.join(cwd, ".ai-os")
+    path4.join(cwd, ".github", "ai-os")
   ];
   for (const dir of aiOsDirs) {
     if (!fs3.existsSync(dir)) continue;
@@ -1683,7 +1712,7 @@ function generateArchitectureDoc(stack) {
   lines.push('  Detect --> Generate["Generate AI OS artifacts"]');
   lines.push('  Generate --> Docs[".github/ai-os/context/*.md"]');
   lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
-  lines.push('  Generate --> MCP[".mcp.json + .vscode/mcp.json + .ai-os/mcp-server/"]');
+  lines.push('  Generate --> MCP[".mcp.json + .vscode/mcp.json + .github/ai-os/mcp-server/"]');
   lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
   lines.push('  Generate --> Skills[".github/copilot/skills/*.md"]');
   lines.push("```");
@@ -2181,10 +2210,10 @@ function generateSessionContextCard(stack, config, outputDir) {
 
 // src/doctor.ts
 function checkMcpRuntimeExists(cwd) {
-  const runtimePath = path7.join(cwd, ".ai-os", "mcp-server", "index.js");
+  const runtimePath = path7.join(cwd, ".github", "ai-os", "mcp-server", "index.js");
   const passed = fs6.existsSync(runtimePath) && fs6.statSync(runtimePath).isFile();
   return {
-    name: "MCP runtime binary present (.ai-os/mcp-server/index.js)",
+    name: "MCP runtime binary present (.github/ai-os/mcp-server/index.js)",
     critical: true,
     passed,
     detail: passed ? runtimePath : `Expected runtime at ${runtimePath}`,
@@ -2192,7 +2221,7 @@ function checkMcpRuntimeExists(cwd) {
   };
 }
 function checkMcpRuntimeHealthcheck(cwd) {
-  const runtimePath = path7.join(cwd, ".ai-os", "mcp-server", "index.js");
+  const runtimePath = path7.join(cwd, ".github", "ai-os", "mcp-server", "index.js");
   const nodePath = process.execPath;
   if (!fs6.existsSync(runtimePath)) {
     return {
@@ -4934,7 +4963,7 @@ function writeCopilotCliMcpConfig(outputDir, options) {
   const existing = readJsonObject(mcpJsonPath);
   const mcpServers = getServerMap(existing.mcpServers);
   mcpServers["ai-os"] = getServerEntry2(
-    [".ai-os/mcp-server/index.js"],
+    [".github/ai-os/mcp-server/index.js"],
     { AI_OS_ROOT: "." },
     options
   );
@@ -4946,7 +4975,7 @@ function writeVsCodeMcpConfig(outputDir, options) {
   const existing = readJsonObject(mcpJsonPath);
   const servers = getServerMap(existing.servers);
   servers["ai-os"] = getServerEntry2(
-    ["${workspaceFolder}/.ai-os/mcp-server/index.js"],
+    ["${workspaceFolder}/.github/ai-os/mcp-server/index.js"],
     { AI_OS_ROOT: "${workspaceFolder}" },
     options
   );
@@ -6489,7 +6518,7 @@ function buildOnboardingPlan(targetDir, mode, opts = {}) {
   actions.push(decideAction(targetDir, ".mcp.json", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".vscode/mcp.json", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/ai-os/tools.json", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".ai-os/mcp-server/runtime-manifest.json", mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, ".github/ai-os/mcp-server/runtime-manifest.json", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/ai-os/context/stack.md", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/ai-os/context/architecture.md", mode, "safe-merge", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/ai-os/context/conventions.md", mode, "safe-merge", preserveContextFiles));
@@ -7398,7 +7427,7 @@ function installLocalMcpRuntime(cwd, verbose) {
     console.warn("  \u26A0 Could not locate bundled MCP server; local ai-os tools may be unavailable.");
     return;
   }
-  const runtimeDir = path27.join(cwd, ".ai-os", "mcp-server");
+  const runtimeDir = path27.join(cwd, ".github", "ai-os", "mcp-server");
   const runtimeEntry = path27.join(runtimeDir, "index.js");
   const runtimeManifest = path27.join(runtimeDir, "runtime-manifest.json");
   const nodePath = process.execPath;
@@ -7418,7 +7447,7 @@ function installLocalMcpRuntime(cwd, verbose) {
       AI_OS_ROOT: cwd
     }
   });
-  ensureGitignoreEntry(cwd, ".ai-os/mcp-server/node_modules");
+  ensureGitignoreEntry(cwd, ".github/ai-os/mcp-server/");
   ensureGitignoreEntry(cwd, ".github/ai-os/memory/.memory.lock");
   const legacyLocalMcp = path27.join(cwd, ".github", "copilot", "mcp.local.json");
   if (fs22.existsSync(legacyLocalMcp)) {
@@ -7442,7 +7471,7 @@ function installLocalMcpRuntime(cwd, verbose) {
     console.log(`  \u270F\uFE0F  write   ${runtimeManifest}`);
     console.log(`  \u270F\uFE0F  write   .vscode/mcp.json`);
   } else {
-    console.log("  \u2713 MCP runtime installed to .ai-os/mcp-server");
+    console.log("  \u2713 MCP runtime installed to .github/ai-os/mcp-server");
     console.log("  \u2713 MCP config written to .vscode/mcp.json");
   }
 }
@@ -8265,6 +8294,8 @@ function runUninstall(cwd, options = {}) {
     }
   }
   const managedDirs = [
+    path28.join(cwd, ".github", "ai-os", "mcp-server"),
+    // legacy pre-v0.22 location
     path28.join(cwd, ".ai-os", "mcp-server"),
     path28.join(cwd, ".ai-os")
   ];

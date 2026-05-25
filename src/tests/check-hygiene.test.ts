@@ -79,6 +79,16 @@ describe('runCheckHygieneAction', () => {
     expect(parsed.issues.some((i: string) => i.includes('.tmp'))).toBe(true);
   });
 
+  it('detects legacy .ai-os/mcp-server/ directory as issue', async () => {
+    write(tmp, '.ai-os/mcp-server/index.js', '// legacy');
+    const { runCheckHygieneAction } = await import('../actions/check-hygiene.js');
+    runCheckHygieneAction(tmp, true);
+    const output = consoleSpy.mock.calls.map(c => c.join(' ')).join('\n');
+    const parsed = JSON.parse(output);
+    expect(parsed.issues.some((i: string) => i.includes('.ai-os/mcp-server'))).toBe(true);
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
   it('reports no manifest.json as an issue', async () => {
     const { runCheckHygieneAction } = await import('../actions/check-hygiene.js');
     runCheckHygieneAction(tmp, true);

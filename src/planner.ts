@@ -106,7 +106,7 @@ export function buildOnboardingPlan(
   actions.push(decideAction(targetDir, '.mcp.json', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, '.vscode/mcp.json', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, '.github/ai-os/tools.json', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.ai-os/mcp-server/runtime-manifest.json', mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, '.github/ai-os/mcp-server/runtime-manifest.json', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, '.github/ai-os/context/stack.md', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, '.github/ai-os/context/architecture.md', mode, 'safe-merge', preserveContextFiles));
   actions.push(decideAction(targetDir, '.github/ai-os/context/conventions.md', mode, 'safe-merge', preserveContextFiles));

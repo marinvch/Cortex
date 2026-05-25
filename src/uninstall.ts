@@ -136,6 +136,8 @@ export function runUninstall(cwd: string, options: { dryRun?: boolean; verbose?:
 
   // Also remove AI OS runtime directory and manifest itself
   const managedDirs = [
+    path.join(cwd, '.github', 'ai-os', 'mcp-server'),
+    // legacy pre-v0.22 location
     path.join(cwd, '.ai-os', 'mcp-server'),
     path.join(cwd, '.ai-os'),
   ];

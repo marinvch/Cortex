@@ -75,7 +75,7 @@ export function writeCopilotCliMcpConfig(outputDir: string, options?: WriteMcpSe
   const mcpServers = getServerMap(existing.mcpServers);
 
   mcpServers['ai-os'] = getServerEntry(
-    ['.ai-os/mcp-server/index.js'],
+    ['.github/ai-os/mcp-server/index.js'],
     { AI_OS_ROOT: '.' },
     options,
   );
@@ -95,7 +95,7 @@ export function writeVsCodeMcpConfig(outputDir: string, options?: WriteMcpServer
   const servers = getServerMap(existing.servers);
 
   servers['ai-os'] = getServerEntry(
-    ['${workspaceFolder}/.ai-os/mcp-server/index.js'],
+    ['${workspaceFolder}/.github/ai-os/mcp-server/index.js'],
     { AI_OS_ROOT: '${workspaceFolder}' },
     options,
   );

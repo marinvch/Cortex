@@ -393,6 +393,33 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  // ── Tool #38: Prompt Booster ──────────────────────────────────────────────────
+  {
+    name: 'boost_prompt',
+    description: 'Analyses a user prompt for vagueness and, when the score is ≥ 3, returns up to 3 targeted clarifying questions so the intent can be precisely resolved before implementation. Returns vaguenessScore, triggered flag, questions array, and optional skill routing. Works without repo-index (keyword-only fallback).',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'The raw user prompt to evaluate for vagueness.' },
+        activeFile: { type: 'string', description: 'Optional: currently open file path. When provided, booster is bypassed (file-anchored prompts are specific enough).' },
+      },
+      required: ['prompt'],
+    },
+    condition: always,
+  },
+  // ── Tool #39: Intent Classifier ────────────────────────────────────────────────
+  {
+    name: 'detect_intent',
+    description: 'Classifies the intent of a user prompt into one of 9 categories (new-feature, bug-fix, refactor, db-change, test-addition, dependency-update, docs-update, config-change, quick-edit). Returns intentType, confidence, affectedDomain, suggestedSkill, and an optional WORKFLOW-FORK clarifying question. Works without repo-index (keyword-only fallback).',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'The user prompt to classify.' },
+      },
+      required: ['prompt'],
+    },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

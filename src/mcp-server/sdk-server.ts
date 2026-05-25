@@ -44,6 +44,8 @@ import {
   getRecommendations,
   suggestImprovements,
   getContextFreshness,
+  boostPrompt,
+  classifyIntent,
 } from './utils.js';
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
 import { readFile, listDirectory, runTests, runLint, runBuild } from './filesystem.js';
@@ -545,6 +547,70 @@ export function createSdkServer(): McpServer {
       }
       const plan = buildWorkflowRunPlan(wf, dryRun);
       return formatRunPlan(plan);
+    }),
+  );
+
+  // ── Tool 38: boost_prompt ──────────────────────────────────────────────────
+  server.registerTool(
+    'boost_prompt',
+    {
+      description: 'Analyses a user prompt for vagueness and, when the score is ≥ 3, returns up to 3 targeted clarifying questions so the intent can be precisely resolved before implementation. Returns vaguenessScore, triggered flag, questions array, and optional skill routing. Works without repo-index (keyword-only fallback).',
+      inputSchema: {
+        prompt: z.string().describe('The raw user prompt to evaluate for vagueness.'),
+        activeFile: z.string().optional().describe('Currently open file path. When provided, booster is bypassed (file-anchored prompts are specific enough).'),
+      },
+    },
+    wrap('boost_prompt', (args) => {
+      const prompt = String(args['prompt'] ?? '');
+      const activeFile = args['activeFile'] !== undefined ? String(args['activeFile']) : undefined;
+      const result = boostPrompt(prompt, activeFile);
+      const lines: string[] = [
+        `Vagueness score: ${result.vaguenessScore}/5`,
+        `Booster triggered: ${result.triggered}`,
+      ];
+      if (result.triggered && result.questions.length > 0) {
+        lines.push('', 'Clarifying questions:');
+        for (const q of result.questions) {
+          lines.push(`  [${q.id}] ${q.text}`);
+          if (q.choices) lines.push(`        Options: ${q.choices.join(' · ')}`);
+        }
+        if (result.confirmationMessage) lines.push('', result.confirmationMessage);
+        if (result.suggestedSkill) lines.push('', `Suggested skill: ${result.suggestedSkill}`);
+        if (result.affectedDomain?.length) lines.push(`Likely domain(s): ${result.affectedDomain.join(', ')}`);
+      } else {
+        lines.push('', 'Prompt is sufficiently specific — proceeding without clarification.');
+      }
+      return lines.join('\n');
+    }),
+  );
+
+  // ── Tool 39: detect_intent ─────────────────────────────────────────────────
+  server.registerTool(
+    'detect_intent',
+    {
+      description: 'Classifies the intent of a user prompt into one of 9 categories (new-feature, bug-fix, refactor, db-change, test-addition, dependency-update, docs-update, config-change, quick-edit). Returns intentType, confidence, affectedDomain, suggestedSkill, and an optional WORKFLOW-FORK clarifying question. Works without repo-index (keyword-only fallback).',
+      inputSchema: {
+        prompt: z.string().describe('The user prompt to classify.'),
+      },
+    },
+    wrap('detect_intent', (args) => {
+      const prompt = String(args['prompt'] ?? '');
+      const result = classifyIntent(prompt);
+      const lines: string[] = [
+        `Intent: ${result.intentType}`,
+        `Confidence: ${result.confidence}`,
+        `Reasoning: ${result.reasoning}`,
+      ];
+      if (result.affectedDomain.length > 0) {
+        lines.push(`Affected domain(s): ${result.affectedDomain.join(', ')}`);
+      }
+      if (result.suggestedSkill) {
+        lines.push(`Suggested skill: ${result.suggestedSkill}`);
+      }
+      if (result.clarifyingQuestion) {
+        lines.push('', `WORKFLOW-FORK: ${result.clarifyingQuestion}`);
+      }
+      return lines.join('\n');
     }),
   );
 

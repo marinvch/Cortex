@@ -217,6 +217,64 @@ export interface AgentRegistryEntry {
   description: string;
 }
 
+// ── Prompt Intelligence types ─────────────────────────────────────────────────
+
+/** 9 intent categories recognised by the Intent Classification Protocol. */
+export type IntentType =
+  | 'new-feature'
+  | 'bug-fix'
+  | 'refactor'
+  | 'db-change'
+  | 'test-addition'
+  | 'dependency-update'
+  | 'docs-update'
+  | 'config-change'
+  | 'quick-edit';
+
+/** A single clarifying question surfaced by the Prompt Booster. */
+export interface ClarifyingQuestion {
+  /** Identifies which gap this question addresses */
+  id: 'what' | 'where' | 'how';
+  /** The question text to show the user */
+  text: string;
+  /** Optional multiple-choice hints */
+  choices?: string[];
+  required: boolean;
+}
+
+/** Output of `detect_intent` / `classifyIntent()`. */
+export interface IntentResult {
+  intentType: IntentType;
+  /** Keyword-match confidence */
+  confidence: 'high' | 'medium' | 'low';
+  /** Broad domains affected (e.g. "database", "auth") */
+  affectedDomain: string[];
+  /** Skill name to route to, if any */
+  suggestedSkill: string | null;
+  /** WORKFLOW-FORK question to ask the user, if applicable */
+  clarifyingQuestion: string | null;
+  /** Short human-readable rationale */
+  reasoning: string;
+}
+
+/** Output of `boost_prompt` / `boostPrompt()`. */
+export interface BoostPromptResult {
+  /** Raw vagueness score (0–5) */
+  vaguenessScore: number;
+  /** True when score ≥ 3 and booster was activated */
+  triggered: boolean;
+  /** Up to 3 clarifying questions (empty when not triggered) */
+  questions: ClarifyingQuestion[];
+  /** Synthesized prompt shown to user for confirmation (set after answers) */
+  optimizedPrompt?: string;
+  /** Broad domains the optimised prompt touches */
+  affectedDomain?: string[];
+  /** Suggested skill routing for the optimised prompt */
+  suggestedSkill?: string;
+  /** Confirmation message summarising what was understood */
+  confirmationMessage?: string;
+}
+
 /** The full agent registry written to .github/ai-os/agents.json */
 export interface AgentRegistry {
   version: '1';

@@ -44,6 +44,10 @@ import {
   getRecommendations,
   suggestImprovements,
   getContextFreshness,
+  boostPrompt,
+  classifyIntent,
+  searchSymbols,
+  getFilePurpose,
 } from './utils.js';
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
 import { readFile, listDirectory, runTests, runLint, runBuild } from './filesystem.js';
@@ -545,6 +549,120 @@ export function createSdkServer(): McpServer {
       }
       const plan = buildWorkflowRunPlan(wf, dryRun);
       return formatRunPlan(plan);
+    }),
+  );
+
+  // ── Tool 38: boost_prompt ──────────────────────────────────────────────────
+  server.registerTool(
+    'boost_prompt',
+    {
+      description: 'Analyses a user prompt for vagueness and, when the score is ≥ 3, returns up to 3 targeted clarifying questions so the intent can be precisely resolved before implementation. Returns vaguenessScore, triggered flag, questions array, and optional skill routing. Works without repo-index (keyword-only fallback).',
+      inputSchema: {
+        prompt: z.string().describe('The raw user prompt to evaluate for vagueness.'),
+        activeFile: z.string().optional().describe('Currently open file path. When provided, booster is bypassed (file-anchored prompts are specific enough).'),
+      },
+    },
+    wrap('boost_prompt', (args) => {
+      const prompt = String(args['prompt'] ?? '');
+      const activeFile = args['activeFile'] !== undefined ? String(args['activeFile']) : undefined;
+      const result = boostPrompt(prompt, activeFile);
+      const lines: string[] = [
+        `Vagueness score: ${result.vaguenessScore}/5`,
+        `Booster triggered: ${result.triggered}`,
+      ];
+      if (result.triggered && result.questions.length > 0) {
+        lines.push('', 'Clarifying questions:');
+        for (const q of result.questions) {
+          lines.push(`  [${q.id}] ${q.text}`);
+          if (q.choices) lines.push(`        Options: ${q.choices.join(' · ')}`);
+        }
+        if (result.confirmationMessage) lines.push('', result.confirmationMessage);
+        if (result.suggestedSkill) lines.push('', `Suggested skill: ${result.suggestedSkill}`);
+        if (result.affectedDomain?.length) lines.push(`Likely domain(s): ${result.affectedDomain.join(', ')}`);
+      } else {
+        lines.push('', 'Prompt is sufficiently specific — proceeding without clarification.');
+      }
+      return lines.join('\n');
+    }),
+  );
+
+  // ── Tool 39: detect_intent ─────────────────────────────────────────────────
+  server.registerTool(
+    'detect_intent',
+    {
+      description: 'Classifies the intent of a user prompt into one of 9 categories (new-feature, bug-fix, refactor, db-change, test-addition, dependency-update, docs-update, config-change, quick-edit). Returns intentType, confidence, affectedDomain, suggestedSkill, and an optional WORKFLOW-FORK clarifying question. Works without repo-index (keyword-only fallback).',
+      inputSchema: {
+        prompt: z.string().describe('The user prompt to classify.'),
+      },
+    },
+    wrap('detect_intent', (args) => {
+      const prompt = String(args['prompt'] ?? '');
+      const result = classifyIntent(prompt);
+      const lines: string[] = [
+        `Intent: ${result.intentType}`,
+        `Confidence: ${result.confidence}`,
+        `Reasoning: ${result.reasoning}`,
+      ];
+      if (result.affectedDomain.length > 0) {
+        lines.push(`Affected domain(s): ${result.affectedDomain.join(', ')}`);
+      }
+      if (result.suggestedSkill) {
+        lines.push(`Suggested skill: ${result.suggestedSkill}`);
+      }
+      if (result.clarifyingQuestion) {
+        lines.push('', `WORKFLOW-FORK: ${result.clarifyingQuestion}`);
+      }
+      return lines.join('\n');
+    }),
+  );
+
+  // ── Tool 40: search_symbols ──────────────────────────────────────────────
+  server.registerTool(
+    'search_symbols',
+    {
+      description: 'Searches the Repository Intelligence Index for named symbols by query string. Optional filters: kind (function, class, interface, type, variable, enum, method) and tag (auth, database, api, testing, ui, etc.). Returns up to 30 matches with file, line, signature, and tags. Requires `ai-os --index` to have run first.',
+      inputSchema: {
+        query: z.string().describe('Symbol name to search for (partial match).'),
+        kind: z.string().optional().describe('Optional kind filter: function, class, interface, type, variable, enum, method.'),
+        tag: z.string().optional().describe('Optional domain tag filter.'),
+      },
+    },
+    wrap('search_symbols', (args) => {
+      const root = getProjectRoot();
+      const query = String(args['query'] ?? '');
+      const kind = args['kind'] ? String(args['kind']) : undefined;
+      const tag = args['tag'] ? String(args['tag']) : undefined;
+      const results = searchSymbols(root, query, kind, tag);
+      if (results.length === 0) return 'No symbols found. Run `ai-os --index` to build the index first.';
+      return results.map(r =>
+        `${r.kind} ${r.name} — ${r.file}:${r.line}${r.signature ? ` (${r.signature})` : ''}${r.tags.length > 0 ? ` [${r.tags.join(', ')}]` : ''}`,
+      ).join('\n');
+    }),
+  );
+
+  // ── Tool 41: get_file_purpose ────────────────────────────────────────────
+  server.registerTool(
+    'get_file_purpose',
+    {
+      description: 'Returns a concise description of a source file: purpose (first docstring/comment), exports, domain tags, size in bytes, and language — sourced from the repo index. Requires `ai-os --index` to have run first.',
+      inputSchema: {
+        file_path: z.string().describe('Relative file path, e.g. "src/auth/middleware.ts".'),
+      },
+    },
+    wrap('get_file_purpose', (args) => {
+      const root = getProjectRoot();
+      const filePath = String(args['file_path'] ?? '');
+      const result = getFilePurpose(root, filePath);
+      if (!result) return `No index entry for "${filePath}". Run \`ai-os --index\` first, or check the path.`;
+      const lines = [
+        `File: ${result.path}`,
+        `Language: ${result.language}`,
+        `Size: ${result.size} bytes`,
+        result.purpose ? `Purpose: ${result.purpose}` : 'Purpose: (none extracted)',
+        result.exports.length > 0 ? `Exports: ${result.exports.join(', ')}` : 'Exports: (none)',
+        result.tags.length > 0 ? `Tags: ${result.tags.join(', ')}` : 'Tags: (none)',
+      ];
+      return lines.join('\n');
     }),
   );
 

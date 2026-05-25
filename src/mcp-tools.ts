@@ -393,6 +393,61 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  // ── Tool #38: Prompt Booster ──────────────────────────────────────────────────
+  {
+    name: 'boost_prompt',
+    description: 'Analyses a user prompt for vagueness and, when the score is ≥ 3, returns up to 3 targeted clarifying questions so the intent can be precisely resolved before implementation. Returns vaguenessScore, triggered flag, questions array, and optional skill routing. Works without repo-index (keyword-only fallback).',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'The raw user prompt to evaluate for vagueness.' },
+        activeFile: { type: 'string', description: 'Optional: currently open file path. When provided, booster is bypassed (file-anchored prompts are specific enough).' },
+      },
+      required: ['prompt'],
+    },
+    condition: always,
+  },
+  // ── Tool #39: Intent Classifier ────────────────────────────────────────────────
+  {
+    name: 'detect_intent',
+    description: 'Classifies the intent of a user prompt into one of 9 categories (new-feature, bug-fix, refactor, db-change, test-addition, dependency-update, docs-update, config-change, quick-edit). Returns intentType, confidence, affectedDomain, suggestedSkill, and an optional WORKFLOW-FORK clarifying question. Works without repo-index (keyword-only fallback).',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        prompt: { type: 'string', description: 'The user prompt to classify.' },
+      },
+      required: ['prompt'],
+    },
+    condition: always,
+  },
+  // ── Tool #40: Symbol Search ────────────────────────────────────────────────
+  {
+    name: 'search_symbols',
+    description: 'Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Symbol name to search for (partial match).' },
+        kind: { type: 'string', description: 'Optional symbol kind filter: function, class, interface, type, variable, enum, method.' },
+        tag: { type: 'string', description: 'Optional domain tag filter: auth, database, api, testing, ui, cache, payments, notifications, config, observability, utils, storage, jobs, search, security.' },
+      },
+      required: ['query'],
+    },
+    condition: always,
+  },
+  // ── Tool #41: File Purpose ─────────────────────────────────────────────────
+  {
+    name: 'get_file_purpose',
+    description: 'Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        file_path: { type: 'string', description: 'Relative path to the source file (e.g. "src/auth/middleware.ts").' },
+      },
+      required: ['file_path'],
+    },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

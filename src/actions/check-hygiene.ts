@@ -46,16 +46,21 @@ export function runCheckHygieneAction(cwd: string, json = false): void {
     }
   }
 
-  // Check for node_modules inside .ai-os/mcp-server/ (Phase F not yet applied)
-  const mcpNodeModules = path.join(cwd, '.ai-os', 'mcp-server', 'node_modules');
+  // Check for node_modules inside .github/ai-os/mcp-server/ (should never be present)
+  const mcpNodeModules = path.join(cwd, '.github', 'ai-os', 'mcp-server', 'node_modules');
   if (fs.existsSync(mcpNodeModules)) {
-    issues.push(`  ⚠  node_modules present in .ai-os/mcp-server/ — Phase F (bundle deploy) will eliminate this`);
+    issues.push(`  ⚠  node_modules present in .github/ai-os/mcp-server/ — run --refresh-existing to clean up`);
+  }
+
+  // Check for legacy .ai-os/mcp-server/ (pre-v0.22.0 location)
+  const legacyMcpDir = path.join(cwd, '.ai-os', 'mcp-server');
+  if (fs.existsSync(legacyMcpDir)) {
+    issues.push(`  ⚠  Legacy .ai-os/mcp-server/ found — run --refresh-existing to migrate to .github/ai-os/mcp-server/`);
   }
 
   // Check for *.tmp files in ai-os dirs
   const aiOsDirs = [
     path.join(cwd, '.github', 'ai-os'),
-    path.join(cwd, '.ai-os'),
   ];
   for (const dir of aiOsDirs) {
     if (!fs.existsSync(dir)) continue;

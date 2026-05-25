@@ -1,0 +1,55 @@
+name: AI OS — Repository Index
+
+on:
+  push:
+    branches:
+      - master
+      - dev
+    paths-ignore:
+      - '.github/ai-os/**'
+      - 'docs/**'
+      - '*.md'
+      - '**/*.md'
+
+concurrency:
+  group: ai-os-index-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  index:
+    name: Index repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build ai-os
+        run: npm run build
+
+      - name: Run index
+        run: node dist/cli/dispatch.js --index --incremental
+        env:
+          NODE_ENV: production
+
+      - name: Commit updated index
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/ai-os/context/repo-index.jsonl || true
+          git diff --cached --quiet && echo "No changes to commit" || \
+            git commit -m "chore(index): update repo-index.jsonl [skip ci]"
+          git push

@@ -8,6 +8,7 @@ import { runCheckDriftAction } from '../actions/check-drift.js';
 import { runApply } from '../actions/apply.js';
 import { runUninstall, formatUninstallReport } from '../uninstall.js';
 import { runInitWizard } from '../actions/init.js';
+import { indexRepo } from '../actions/index.js';
 import { analyze } from '../analyze.js';
 
 function printBanner(): void {
@@ -53,6 +54,17 @@ export async function main(): Promise<void> {
 
   if (action === 'check-drift') {
     await runCheckDriftAction(cwd, args.verbose);
+    return;
+  }
+
+  if (action === 'index') {
+    await indexRepo({
+      cwd,
+      incremental: args.incremental,
+      regenContext: args.regenerateContext,
+      dryRun: args.dryRun,
+      quiet: args.json,
+    });
     return;
   }
 

@@ -46,7 +46,7 @@
     "install:skills": "npm run install:skill-creator && npm run install:find-skills"
   },
   "dependencies": {
-    "@github/copilot-sdk": "^0.1.8",
+    "@github/copilot-sdk": "^0.3.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.25.76"
   },

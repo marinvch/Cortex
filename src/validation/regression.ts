@@ -524,11 +524,11 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
       results.push({
         fixture: fixtureName,
         check: `${configInfo.label} ai-os server args point to runtime entry`,
-        passed: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js')),
-        detail: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.ai-os') && arg.includes('index.js'))
+        passed: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => (arg.includes('.github/ai-os/mcp-server') || arg.includes('.ai-os/mcp-server')) && arg.includes('index.js')),
+        detail: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => (arg.includes('.github/ai-os/mcp-server') || arg.includes('.ai-os/mcp-server')) && arg.includes('index.js'))
           ? undefined
           : Array.isArray(serverEntry.args)
-            ? `args do not include .ai-os runtime entry: ${JSON.stringify(serverEntry.args)}`
+            ? `args do not include ai-os runtime entry: ${JSON.stringify(serverEntry.args)}`
             : 'args are missing',
       });
     }

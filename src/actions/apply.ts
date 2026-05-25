@@ -121,7 +121,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     return;
   }
 
-  const runtimeDir = path.join(cwd, '.ai-os', 'mcp-server');
+  const runtimeDir = path.join(cwd, '.github', 'ai-os', 'mcp-server');
   const runtimeEntry = path.join(runtimeDir, 'index.js');
   const runtimeManifest = path.join(runtimeDir, 'runtime-manifest.json');
   const nodePath = process.execPath;
@@ -149,7 +149,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     },
   });
 
-  ensureGitignoreEntry(cwd, '.ai-os/mcp-server/node_modules');
+  ensureGitignoreEntry(cwd, '.github/ai-os/mcp-server/');
   ensureGitignoreEntry(cwd, '.github/ai-os/memory/.memory.lock');
 
   // Clean up legacy .github/copilot/mcp.local.json if present
@@ -175,7 +175,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     console.log(`  ✏️  write   ${runtimeManifest}`);
     console.log(`  ✏️  write   .vscode/mcp.json`);
   } else {
-    console.log('  ✓ MCP runtime installed to .ai-os/mcp-server');
+    console.log('  ✓ MCP runtime installed to .github/ai-os/mcp-server');
     console.log('  ✓ MCP config written to .vscode/mcp.json');
   }
 }

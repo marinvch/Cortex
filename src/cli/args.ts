@@ -5,7 +5,7 @@ import { parseEditorTarget, type EditorTarget } from '../generators/multi-editor
 import { parseModelTarget, type ModelTarget } from '../generators/multi-model.js';
 
 export type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall' | 'check-drift' | 'init';
+export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall' | 'check-drift' | 'init' | 'index';
 
 export interface ParsedArgs {
   cwd: string;
@@ -22,6 +22,7 @@ export interface ParsedArgs {
   fullDiff: boolean;
   editorTargets: EditorTarget[];
   model: ModelTarget;
+  incremental: boolean;
 }
 
 export function parseArgs(): ParsedArgs {
@@ -38,6 +39,7 @@ export function parseArgs(): ParsedArgs {
   let profile: InstallProfile | null = null;
   let json = false;
   let fullDiff = false;
+  let incremental = false;
   const editorTargets: EditorTarget[] = ['vscode'];
   let model: ModelTarget = 'copilot';
 
@@ -81,6 +83,10 @@ export function parseArgs(): ParsedArgs {
       action = 'check-drift';
     } else if (args[i] === '--init') {
       action = 'init';
+    } else if (args[i] === '--index') {
+      action = 'index';
+    } else if (args[i] === '--incremental') {
+      incremental = true;
     } else if (args[i] === '--uninstall') {
       action = 'uninstall';
     } else if (args[i] === '--json') {
@@ -126,5 +132,5 @@ export function parseArgs(): ParsedArgs {
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff, editorTargets, model };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff, editorTargets, model, incremental };
 }

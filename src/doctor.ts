@@ -4,7 +4,7 @@
  * Post-install health validation and repair-hint emitter.
  *
  * Checks:
- *  1. MCP runtime binary present  (.ai-os/mcp-server/index.js)
+ *  1. MCP runtime binary present  (.github/ai-os/mcp-server/index.js)
  *  2. MCP runtime healthcheck      (node index.js --healthcheck)
  *  3. Copilot CLI MCP config present           (.mcp.json)
  *  4. ai-os CLI server entry present           (.mcp.json → mcpServers.ai-os)
@@ -49,10 +49,10 @@ export interface DoctorResult {
 // ---------------------------------------------------------------------------
 
 function checkMcpRuntimeExists(cwd: string): DoctorCheck {
-  const runtimePath = path.join(cwd, '.ai-os', 'mcp-server', 'index.js');
+  const runtimePath = path.join(cwd, '.github', 'ai-os', 'mcp-server', 'index.js');
   const passed = fs.existsSync(runtimePath) && fs.statSync(runtimePath).isFile();
   return {
-    name: 'MCP runtime binary present (.ai-os/mcp-server/index.js)',
+    name: 'MCP runtime binary present (.github/ai-os/mcp-server/index.js)',
     critical: true,
     passed,
     detail: passed
@@ -65,7 +65,7 @@ function checkMcpRuntimeExists(cwd: string): DoctorCheck {
 }
 
 function checkMcpRuntimeHealthcheck(cwd: string): DoctorCheck {
-  const runtimePath = path.join(cwd, '.ai-os', 'mcp-server', 'index.js');
+  const runtimePath = path.join(cwd, '.github', 'ai-os', 'mcp-server', 'index.js');
   const nodePath = process.execPath;
 
   if (!fs.existsSync(runtimePath)) {

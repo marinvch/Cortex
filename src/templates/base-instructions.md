@@ -72,6 +72,39 @@ When starting a new conversation or after a context window reset:
 
 ---
 
+## Prompt Clarification Protocol
+
+**Trigger:** Vagueness score ≥ 3. **Score:** <10 words (+2) · no action verb: create/update/delete/fix/add/migrate (+1) · no component: file/table/endpoint/function (+1) · no domain keyword: auth/database/API/UI/testing (+1)
+
+**Skip when:** prompt has a file path, function/symbol name, or line reference · user says "just", "quickly", "fix typo", or "rename" · already inside a skill or plan flow.
+
+**Flow (max 3 questions — ask only what is missing):**
+1. WHAT — "What specifically should happen or change?"
+2. WHERE — "Which layer is affected — database, API, service, or frontend?"
+3. HOW — "Is this a new addition, a change to existing code, or a migration?"
+
+After answers: synthesize → "Here's what I understood: [optimized prompt]. Is this right?" → wait for confirmation → then proceed.
+
+---
+
+## Intent Classification Protocol
+
+Before any implementation request, classify the intent. If a WORKFLOW-FORK pattern matches, ask the one clarifying question — once — before acting.
+
+| Keywords | Intent | Clarifying question |
+|---|---|---|
+| spec/design/feature/implement/build | New feature | "Spec-driven workflow or quick local addition?" |
+| fix/bug/error/crash/broken/failing | Bug fix | "Tracked bug or quick local fix?" |
+| refactor/cleanup/reorganize/extract | Refactor | "Systematic refactor (needs plan) or focused local improvement?" |
+| schema/table/migration/CREATE TABLE | DB change | "Spec-driven schema change or one-time local edit?" |
+| upgrade/update/bump/migrate/version | Dependency | "Planned upgrade or quick patch?" |
+
+**WORKFLOW-FORK rule:** "Spec-driven" → invoke `brainstorming` or `writing-plans` skill before writing any code. "Local/quick" → proceed directly.
+
+**Skip when:** user says "just"/"quickly"/no spec needed · change is ≤ 5 lines · already in a skill or plan flow.
+
+---
+
 ## Project-State Strategy
 
 Always start by reviewing `.github/copilot-instructions.md` and aligning it to the current repository state before implementation.

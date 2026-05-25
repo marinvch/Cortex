@@ -217,6 +217,80 @@ export interface AgentRegistryEntry {
   description: string;
 }
 
+// ── Repository Intelligence Index (RII) types ────────────────────────────────
+
+export type SymbolKind = 'function' | 'class' | 'interface' | 'type' | 'variable' | 'enum' | 'method';
+
+/** A single symbol extracted from a source file. */
+export interface SymbolExtract {
+  name: string;
+  kind: SymbolKind;
+  line: number;
+  signature: string | null;
+  /** Spec IDs from @spec: annotations above or on this symbol */
+  specIds: string[];
+}
+
+/** Pluggable per-language extractor adapter interface. */
+export interface LanguageExtractor {
+  language: string;
+  extensions: string[];
+  extractSymbols(content: string, filePath: string): SymbolExtract[];
+  extractPurpose(content: string): string | null;
+  extractTags(content: string, filePath: string): string[];
+}
+
+/** Meta entry — summary header, one per index file */
+export interface MetaIndexEntry {
+  type: 'meta';
+  generatedAt: string;
+  version: string;
+  primaryLanguage: string;
+  primaryFramework: string | null;
+  frameworks: string[];
+  fileCount: number;
+  symbolCount: number;
+}
+
+/** File-level entry — one per indexed source file */
+export interface FileIndexEntry {
+  type: 'file';
+  path: string;
+  language: string;
+  size: number;
+  /** SHA-1 of file content — used for incremental indexing */
+  hash: string;
+  /** First docstring or comment, ≤ 120 chars */
+  purpose: string | null;
+  tags: string[];
+  exports: string[];
+}
+
+/** Symbol-level entry — one per extracted named symbol */
+export interface SymbolIndexEntry {
+  type: 'symbol';
+  name: string;
+  kind: SymbolKind;
+  file: string;
+  line: number;
+  signature: string | null;
+  tags: string[];
+  specIds: string[];
+}
+
+/** Spec traceability entry (Phase 2) */
+export interface SpecIndexEntry {
+  type: 'spec';
+  specId: string;
+  title: string;
+  specFile: string;
+  requirementCount: number;
+  implementedBy: string[];
+  coverageRatio: number;
+}
+
+export type RepoIndexEntry = MetaIndexEntry | FileIndexEntry | SymbolIndexEntry | SpecIndexEntry;
+
 // ── Prompt Intelligence types ─────────────────────────────────────────────────
 
 /** 9 intent categories recognised by the Intent Classification Protocol. */

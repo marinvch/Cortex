@@ -309,9 +309,110 @@ export function boostPrompt(prompt: string, activeFile?: string): BoostPromptRes
 
 /** Reads the project repo-index.jsonl if it exists; returns null otherwise. */
 export function readRepoIndex(projectRoot: string): string | null {
-  const indexPath = path.join(projectRoot, '.github', 'ai-os', 'repo-index.jsonl');
+  const indexPath = path.join(projectRoot, '.github', 'ai-os', 'context', 'repo-index.jsonl');
   try {
     if (fs.existsSync(indexPath)) return fs.readFileSync(indexPath, 'utf-8');
   } catch { /* ignore */ }
   return null;
 }
+
+interface IndexEntry { type: string; [key: string]: unknown }
+
+function parseIndexEntries(raw: string): IndexEntry[] {
+  return raw.split('\n').filter(Boolean).map(l => {
+    try { return JSON.parse(l) as IndexEntry; } catch { return null; }
+  }).filter((e): e is IndexEntry => e !== null);
+}
+
+export interface SymbolSearchResult {
+  name: string;
+  kind: string;
+  file: string;
+  line: number;
+  signature: string | null;
+  tags: string[];
+}
+
+/**
+ * Searches symbols in the repo index by name/kind/tag.
+ * Falls back gracefully when no index file is present.
+ */
+export function searchSymbols(
+  projectRoot: string,
+  query: string,
+  kind?: string,
+  tag?: string,
+): SymbolSearchResult[] {
+  const raw = readRepoIndex(projectRoot);
+  if (!raw) return [];
+
+  const lower = query.toLowerCase();
+  const entries = parseIndexEntries(raw);
+
+  const results: SymbolSearchResult[] = [];
+  for (const entry of entries) {
+    if (entry.type !== 'symbol') continue;
+    const name = (entry['name'] as string | undefined) ?? '';
+    const entryKind = (entry['kind'] as string | undefined) ?? '';
+    const tags = (entry['tags'] as string[] | undefined) ?? [];
+
+    if (!name.toLowerCase().includes(lower)) continue;
+    if (kind && entryKind !== kind) continue;
+    if (tag && !tags.includes(tag)) continue;
+
+    results.push({
+      name,
+      kind: entryKind,
+      file: (entry['file'] as string | undefined) ?? '',
+      line: (entry['line'] as number | undefined) ?? 0,
+      signature: (entry['signature'] as string | null | undefined) ?? null,
+      tags,
+    });
+
+    if (results.length >= 30) break;
+  }
+
+  return results;
+}
+
+export interface FilePurposeResult {
+  path: string;
+  language: string;
+  purpose: string | null;
+  exports: string[];
+  tags: string[];
+  size: number;
+}
+
+/**
+ * Returns purpose, exports, and tags for a specific file path from the index.
+ * Falls back gracefully when no index or file entry is found.
+ */
+export function getFilePurpose(
+  projectRoot: string,
+  filePath: string,
+): FilePurposeResult | null {
+  const raw = readRepoIndex(projectRoot);
+  if (!raw) return null;
+
+  const normalised = filePath.replace(/\\/g, '/');
+  const entries = parseIndexEntries(raw);
+
+  for (const entry of entries) {
+    if (entry.type !== 'file') continue;
+    const p = ((entry['path'] as string | undefined) ?? '').replace(/\\/g, '/');
+    if (p === normalised || p.endsWith(`/${normalised}`)) {
+      return {
+        path: p,
+        language: (entry['language'] as string | undefined) ?? 'Unknown',
+        purpose: (entry['purpose'] as string | null | undefined) ?? null,
+        exports: (entry['exports'] as string[] | undefined) ?? [],
+        tags: (entry['tags'] as string[] | undefined) ?? [],
+        size: (entry['size'] as number | undefined) ?? 0,
+      };
+    }
+  }
+
+  return null;
+}
+

@@ -420,6 +420,34 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  // ── Tool #40: Symbol Search ────────────────────────────────────────────────
+  {
+    name: 'search_symbols',
+    description: 'Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        query: { type: 'string', description: 'Symbol name to search for (partial match).' },
+        kind: { type: 'string', description: 'Optional symbol kind filter: function, class, interface, type, variable, enum, method.' },
+        tag: { type: 'string', description: 'Optional domain tag filter: auth, database, api, testing, ui, cache, payments, notifications, config, observability, utils, storage, jobs, search, security.' },
+      },
+      required: ['query'],
+    },
+    condition: always,
+  },
+  // ── Tool #41: File Purpose ─────────────────────────────────────────────────
+  {
+    name: 'get_file_purpose',
+    description: 'Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        file_path: { type: 'string', description: 'Relative path to the source file (e.g. "src/auth/middleware.ts").' },
+      },
+      required: ['file_path'],
+    },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

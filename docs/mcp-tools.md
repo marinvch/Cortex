@@ -44,6 +44,10 @@
 | `run_lint` | Run the project linter (`npm run lint` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json. |
 | `run_build` | Run the project build (`npm run build` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json. |
 | `run_workflow` | Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows. |
+| `boost_prompt` | Analyses a user prompt for vagueness and, when the score is ≥ 3, returns up to 3 targeted clarifying questions so the intent can be precisely resolved before implementation. Returns vaguenessScore, triggered flag, questions array, and optional skill routing. Works without repo-index (keyword-only fallback). |
+| `detect_intent` | Classifies the intent of a user prompt into one of 9 categories (new-feature, bug-fix, refactor, db-change, test-addition, dependency-update, docs-update, config-change, quick-edit). Returns intentType, confidence, affectedDomain, suggestedSkill, and an optional WORKFLOW-FORK clarifying question. Works without repo-index (keyword-only fallback). |
+| `search_symbols` | Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists. |
+| `get_file_purpose` | Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists. |
 
 ## Session Start Protocol
 

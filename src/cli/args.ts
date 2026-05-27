@@ -23,6 +23,7 @@ export interface ParsedArgs {
   editorTargets: EditorTarget[];
   model: ModelTarget;
   incremental: boolean;
+  specDir: string | undefined;
 }
 
 export function parseArgs(): ParsedArgs {
@@ -40,6 +41,7 @@ export function parseArgs(): ParsedArgs {
   let json = false;
   let fullDiff = false;
   let incremental = false;
+  let specDir: string | undefined = undefined;
   const editorTargets: EditorTarget[] = ['vscode'];
   let model: ModelTarget = 'copilot';
 
@@ -87,6 +89,13 @@ export function parseArgs(): ParsedArgs {
       action = 'index';
     } else if (args[i] === '--incremental') {
       incremental = true;
+    } else if (args[i] === '--spec-dir' && args[i + 1]) {
+      specDir = path.resolve(args[i + 1] as string);
+      i++;
+    } else if (args[i] === '--spec-dir' && !args[i + 1]) {
+      throw new Error('--spec-dir requires a path value');
+    } else if (args[i]?.startsWith('--spec-dir=')) {
+      specDir = path.resolve(args[i].slice('--spec-dir='.length));
     } else if (args[i] === '--uninstall') {
       action = 'uninstall';
     } else if (args[i] === '--json') {
@@ -132,5 +141,5 @@ export function parseArgs(): ParsedArgs {
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff, editorTargets, model, incremental };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff, editorTargets, model, incremental, specDir };
 }

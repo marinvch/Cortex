@@ -47,6 +47,8 @@ import {
   classifyIntent,
   searchSymbols,
   getFilePurpose,
+  validateSpecCoverage,
+  getSpecForFile,
 } from './utils.js';
 import { resolveMcpServerVersion } from './shared.js';
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
@@ -661,6 +663,78 @@ export function createSdkServer(): McpServer {
         result.exports.length > 0 ? `Exports: ${result.exports.join(', ')}` : 'Exports: (none)',
         result.tags.length > 0 ? `Tags: ${result.tags.join(', ')}` : 'Tags: (none)',
       ];
+      return lines.join('\n');
+    }),
+  );
+
+  // ── Tool 42: validate_spec_coverage ────────────────────────────────────────
+  server.registerTool(
+    'validate_spec_coverage',
+    {
+      description: 'Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.',
+      inputSchema: {
+        show_all: z.boolean().optional().describe('Show all requirements including implemented ones (default: false — gaps only).'),
+      },
+    },
+    wrap('validate_spec_coverage', (args) => {
+      const root = getProjectRoot();
+      const showAll = args['show_all'] === true;
+      const groups = validateSpecCoverage(root);
+
+      if (groups.length === 0) {
+        return 'No spec entries found. Run `ai-os --index` first. Ensure spec files exist in docs/superpowers/specs/.';
+      }
+
+      const totalCovered = groups.reduce((sum, g) => sum + g.covered, 0);
+      const totalReqs = groups.reduce((sum, g) => sum + g.total, 0);
+      const overallPct = totalReqs > 0 ? Math.round((totalCovered / totalReqs) * 100) : 0;
+
+      const lines: string[] = ['Spec Coverage Report', '─'.repeat(60)];
+      for (const group of groups) {
+        const pct = Math.round(group.ratio * 100);
+        const icon = pct === 100 ? '✓' : pct === 0 ? '✗' : '⚠';
+        lines.push(
+          `${group.specPrefix.padEnd(14)} ${group.specFile.padEnd(45)} ${group.covered}/${group.total} reqs  ${String(pct).padStart(3)}%  ${icon}`,
+        );
+        if (showAll) {
+          for (const req of group.requirements) {
+            const status = req.implemented ? '  ✓' : '  ✗';
+            lines.push(`  ${status} ${req.specId} — ${req.title}`);
+            if (req.implemented && req.implementedBy.length > 0) {
+              lines.push(`       ↳ ${req.implementedBy.join(', ')}`);
+            }
+          }
+        }
+      }
+      lines.push('─'.repeat(60));
+      lines.push(`Overall: ${totalCovered}/${totalReqs} requirements annotated (${overallPct}%)`);
+      return lines.join('\n');
+    }),
+  );
+
+  // ── Tool 43: get_spec_for_file ──────────────────────────────────────────────
+  server.registerTool(
+    'get_spec_for_file',
+    {
+      description: 'Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.',
+      inputSchema: {
+        path: z.string().describe('Relative path to the source file, e.g. "src/actions/index.ts".'),
+      },
+    },
+    wrap('get_spec_for_file', (args) => {
+      const root = getProjectRoot();
+      const filePath = String(args['path'] ?? '');
+      const results = getSpecForFile(root, filePath);
+
+      if (results.length === 0) {
+        return `No spec annotations found for "${filePath}". Run \`ai-os --index\` first, or add // @spec: ID comments above exported functions.`;
+      }
+
+      const lines = [`${filePath} contributes to:`];
+      for (const r of results) {
+        lines.push(`  ${r.specId.padEnd(20)} — ${r.title}`);
+        lines.push(`  ${''.padEnd(20)}   (${r.specFile})`);
+      }
       return lines.join('\n');
     }),
   );

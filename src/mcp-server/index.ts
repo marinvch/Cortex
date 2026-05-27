@@ -13,6 +13,7 @@
  * Requirements: Node.js >= 20
  */
 import type { CopilotClient as CopilotClientClass } from '@github/copilot-sdk';
+import { approveAll } from '@github/copilot-sdk';
 import { getProjectRoot } from './utils.js';
 import { getActiveToolsForProject, type McpToolDefinition } from './tool-definitions.js';
 import { runSdkMcp, createSdkServer } from './sdk-server.js';
@@ -141,7 +142,7 @@ async function main(): Promise<void> {
         return result;
       },
     })),
-    onPermissionRequest: (_req) => ({ kind: 'approved' as const }),
+    onPermissionRequest: approveAll,
   });
 
   process.on('SIGINT', async () => {

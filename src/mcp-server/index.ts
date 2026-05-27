@@ -12,6 +12,7 @@
  * Protocol: MCP 2025-11-25 (JSON-RPC over stdio via @modelcontextprotocol/sdk)
  * Requirements: Node.js >= 20
  */
+import type { CopilotClient as CopilotClientClass } from '@github/copilot-sdk';
 import { getProjectRoot } from './utils.js';
 import { getActiveToolsForProject, type McpToolDefinition } from './tool-definitions.js';
 import { runSdkMcp, createSdkServer } from './sdk-server.js';
@@ -76,15 +77,7 @@ async function main(): Promise<void> {
     throw new Error(`MCP runtime validation failed: ${health.messages.join(' | ')}`);
   }
 
-  let CopilotClient: new () => {
-    start(): Promise<void>;
-    stop(): Promise<unknown>;
-    createSession(opts: {
-      model: string;
-      tools: Array<{ name: string; description: string; parameters: Record<string, unknown>; handler: (input: Record<string, unknown>) => Promise<string> }>;
-      onPermissionRequest: (_req: unknown) => { kind: 'approved' };
-    }): Promise<{ disconnect(): Promise<void> }>;
-  };
+  let CopilotClient: typeof CopilotClientClass;
 
   try {
     const sdk = await import('@github/copilot-sdk');

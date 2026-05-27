@@ -448,6 +448,31 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  // ── Tool #42: Spec Coverage ───────────────────────────────────────────────
+  {
+    name: 'validate_spec_coverage',
+    description: 'Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        show_all: { type: 'boolean', description: 'Show all requirements including implemented ones (default: false — gaps only).' },
+      },
+    },
+    condition: always,
+  },
+  // ── Tool #43: Spec for File ───────────────────────────────────────────────
+  {
+    name: 'get_spec_for_file',
+    description: 'Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'Relative path to the source file, e.g. "src/actions/index.ts".' },
+      },
+      required: ['path'],
+    },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

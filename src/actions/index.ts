@@ -13,11 +13,13 @@ import path from 'node:path';
 import { getExtractorForFile } from '../detectors/symbols.js';
 import { getToolVersion } from '../updater.js';
 import { analyze } from '../analyze.js';
+import { parseSpecFiles } from '../generators/spec-parser.js';
 import type {
   MetaIndexEntry,
   FileIndexEntry,
   SymbolIndexEntry,
   RepoIndexEntry,
+  SpecIndexEntry,
 } from '../types.js';
 
 export interface IndexOptions {
@@ -27,6 +29,8 @@ export interface IndexOptions {
   regenContext?: boolean;
   dryRun?: boolean;
   quiet?: boolean;
+  /** Directory containing spec .md files. Defaults to docs/superpowers/specs/. */
+  specDir?: string;
 }
 
 export interface IndexResult {
@@ -171,7 +175,20 @@ export async function indexRepo(opts: IndexOptions): Promise<IndexResult> {
     symbolCount: symbolEntries.length,
   };
 
-  const allEntries: RepoIndexEntry[] = [meta, ...fileEntries, ...symbolEntries];
+  // Build spec entries — include unchanged symbols too in incremental mode
+  const specDirPath = opts.specDir ?? path.join(cwd, 'docs', 'superpowers', 'specs');
+  const changedPathsForSpec = new Set(fileEntries.map(f => f.path));
+  const existingSymbolsForSpec = incremental && fs.existsSync(outputPath)
+    ? loadExistingEntries(outputPath)
+        .filter((e): e is SymbolIndexEntry =>
+          e.type === 'symbol'
+          && !changedPathsForSpec.has(e.file)
+          && fs.existsSync(path.join(cwd, e.file))
+        )
+    : [];
+  const specEntries = buildSpecEntries(specDirPath, [...symbolEntries, ...existingSymbolsForSpec]);
+
+  const allEntries: RepoIndexEntry[] = [meta, ...fileEntries, ...symbolEntries, ...specEntries];
 
   log(`  📊 ${fileEntries.length} files indexed, ${symbolEntries.length} symbols extracted, ${skippedCount} skipped (unchanged)`);
 
@@ -185,11 +202,11 @@ export async function indexRepo(opts: IndexOptions): Promise<IndexResult> {
       const changedPaths = new Set(fileEntries.map(e => e.path));
       const keptEntries = existing.filter(e => {
         if (e.type === 'meta') return false; // always replace meta
-        if (e.type === 'file') return !changedPaths.has(e.path);
-        if (e.type === 'symbol') return !changedPaths.has(e.file);
-        return true; // keep spec entries
+        if (e.type === 'file') return !changedPaths.has(e.path) && fs.existsSync(path.join(cwd, e.path));
+        if (e.type === 'symbol') return !changedPaths.has(e.file) && fs.existsSync(path.join(cwd, e.file));
+        return false; // spec entries regenerated fresh on every run
       });
-      const merged: RepoIndexEntry[] = [meta, ...fileEntries, ...symbolEntries, ...keptEntries];
+      const merged: RepoIndexEntry[] = [meta, ...fileEntries, ...symbolEntries, ...specEntries, ...keptEntries];
       fs.writeFileSync(outputPath, merged.map(e => JSON.stringify(e)).join('\n') + '\n', 'utf-8');
       log(`  ✅ Index updated: ${outputPath}`);
     } else {
@@ -230,6 +247,40 @@ function loadExistingEntries(outputPath: string): RepoIndexEntry[] {
   } catch {
     return [];
   }
+}
+
+function buildSpecEntries(
+  specDirPath: string,
+  allSymbols: SymbolIndexEntry[],
+): SpecIndexEntry[] {
+  const parsed = parseSpecFiles(specDirPath);
+  if (parsed.length === 0) return [];
+
+  // Map specId (normalised uppercase) → set of files that annotate it
+  const implementedByMap = new Map<string, Set<string>>();
+  for (const sym of allSymbols) {
+    const specIds = Array.isArray(sym.specIds) ? sym.specIds : [];
+    for (const specId of specIds) {
+      const normalized = specId.toUpperCase();
+      if (!implementedByMap.has(normalized)) {
+        implementedByMap.set(normalized, new Set<string>());
+      }
+      implementedByMap.get(normalized)!.add(sym.file);
+    }
+  }
+
+  return parsed.map(p => {
+    const implementedBy = [...(implementedByMap.get(p.specId) ?? [])];
+    return {
+      type: 'spec' as const,
+      specId: p.specId,
+      title: p.title,
+      specFile: p.specFile,
+      requirementCount: p.requirementCount,
+      implementedBy,
+      coverageRatio: implementedBy.length > 0 ? 1.0 : 0.0,
+    };
+  });
 }
 
 function inferLanguage(filePath: string): string {

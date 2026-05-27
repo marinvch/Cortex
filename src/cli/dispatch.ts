@@ -64,6 +64,7 @@ export async function main(): Promise<void> {
       regenContext: args.regenerateContext,
       dryRun: args.dryRun,
       quiet: args.json,
+      specDir: args.specDir,
     });
     return;
   }

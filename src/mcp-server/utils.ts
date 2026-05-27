@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getLatestResolvableVersion } from '../updater.js';
-import { ROOT, readAiOsFile as _readAiOsFile } from './shared.js';
+import { ROOT, readAiOsFile as _readAiOsFile, resolveMcpServerVersion } from './shared.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -89,11 +89,8 @@ export function checkForUpdates(): string {
 
   let toolVersion = '0.0.0';
   try {
-    const toolPkg = JSON.parse(
-      fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf-8'),
-    ) as { version?: string };
-    toolVersion = toolPkg.version ?? '0.0.0';
-  } catch { /* tool package.json not found */ }
+    toolVersion = resolveMcpServerVersion(import.meta.url);
+  } catch { /* ignore */ }
 
   const latestVersion = getLatestResolvableVersion(toolVersion);
 

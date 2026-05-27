@@ -5,6 +5,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // ── Project root ───────────────────────────────────────────────────────────────
 
@@ -87,6 +88,37 @@ export function ensureSessionMemoryStore(): void {
   if (!fs.existsSync(failurePath)) {
     fs.writeFileSync(failurePath, '', 'utf-8');
   }
+}
+
+// ── Bundle version resolution ─────────────────────────────────────────────────
+
+/**
+ * Resolves the AI OS bundle version for use in the installed MCP server.
+ *
+ * When the bundle runs from `.github/ai-os/mcp-server/index.js`, relative paths
+ * like `../../package.json` incorrectly resolve to `.github/package.json`.
+ * Instead, we read `runtime-manifest.json` (co-located with the bundle) which
+ * the installer always writes with the correct `sourceVersion`. Falls back to
+ * the development-time `../../package.json` path and then to `'0.0.0'`.
+ */
+export function resolveMcpServerVersion(importMetaUrl: string): string {
+  const dir = path.dirname(fileURLToPath(importMetaUrl));
+
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(dir, 'runtime-manifest.json'), 'utf-8'),
+    ) as { sourceVersion?: string };
+    if (manifest.sourceVersion) return manifest.sourceVersion;
+  } catch { /* not installed yet — fall through to dev path */ }
+
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(dir, '..', '..', 'package.json'), 'utf-8'),
+    ) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch { /* dev package.json not found */ }
+
+  return '0.0.0';
 }
 
 // ── I/O utilities ──────────────────────────────────────────────────────────────

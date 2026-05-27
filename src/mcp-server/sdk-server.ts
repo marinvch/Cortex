@@ -11,7 +11,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import path from 'node:path';
-import { createRequire } from 'node:module';
 import {
   getProjectRoot,
   readAiOsFile,
@@ -49,6 +48,7 @@ import {
   searchSymbols,
   getFilePurpose,
 } from './utils.js';
+import { resolveMcpServerVersion } from './shared.js';
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
 import { readFile, listDirectory, runTests, runLint, runBuild } from './filesystem.js';
 import { listWorkflows, loadWorkflow, validateWorkflow, buildWorkflowRunPlan, formatRunPlan } from '../workflow-runner.js';
@@ -72,8 +72,7 @@ function wrap(
 }
 
 export function createSdkServer(): McpServer {
-  const req = createRequire(import.meta.url);
-  const pkgVersion = (req('../../package.json') as { version: string }).version;
+  const pkgVersion = resolveMcpServerVersion(import.meta.url);
 
   const server = new McpServer({ name: 'ai-os', version: pkgVersion });
 

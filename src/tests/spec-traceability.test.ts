@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { deriveSpecPrefix, parseSpecFiles } from '../generators/spec-parser.js';
+import { indexRepo } from '../actions/index.js';
 import type { SpecIndexEntry, RepoIndexEntry } from '../types.js';
 
 function makeTmp(): string {
@@ -18,6 +19,12 @@ const dirs: string[] = [];
 afterEach(() => {
   for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true });
 });
+
+function readJsonl(p: string): RepoIndexEntry[] {
+  return fs.readFileSync(p, 'utf-8')
+    .split('\n').filter(Boolean)
+    .map(l => JSON.parse(l) as RepoIndexEntry);
+}
 
 // ── deriveSpecPrefix ──────────────────────────────────────────────────────────
 
@@ -86,5 +93,60 @@ describe('parseSpecFiles', () => {
     const tmp = makeTmp(); dirs.push(tmp);
     write(tmp, 'specs/2026-01-01-empty-design.md', '# Only H1\n#### Only H4');
     expect(parseSpecFiles(path.join(tmp, 'specs'))).toHaveLength(0);
+  });
+});
+
+// ── indexRepo integration ─────────────────────────────────────────────────────
+
+describe('indexRepo — SpecIndexEntry emission', () => {
+  it('emits SpecIndexEntry records when spec files and annotations exist', async () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    write(tmp, 'src/index.ts', [
+      '// @spec: MY-FEAT-1',
+      'export function doThing(): void {}',
+    ].join('\n'));
+    write(tmp, 'docs/superpowers/specs/2026-01-01-my-feature-design.md', [
+      '## Overview',
+      '## Detail',
+    ].join('\n'));
+
+    const result = await indexRepo({ cwd: tmp, quiet: true });
+    const entries = readJsonl(result.outputPath);
+    const specs = entries.filter((e): e is SpecIndexEntry => e.type === 'spec');
+
+    expect(specs).toHaveLength(2);
+
+    const covered = specs.find(s => s.specId === 'MY-FEAT-1');
+    expect(covered).toBeDefined();
+    expect(covered!.implementedBy).toContain('src/index.ts');
+    expect(covered!.coverageRatio).toBe(1.0);
+
+    const uncovered = specs.find(s => s.specId === 'MY-FEAT-2');
+    expect(uncovered).toBeDefined();
+    expect(uncovered!.implementedBy).toHaveLength(0);
+    expect(uncovered!.coverageRatio).toBe(0.0);
+  });
+
+  it('emits no spec entries when spec dir is absent', async () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    write(tmp, 'src/index.ts', 'export function foo() {}');
+    const result = await indexRepo({ cwd: tmp, quiet: true });
+    const entries = readJsonl(result.outputPath);
+    expect(entries.filter(e => e.type === 'spec')).toHaveLength(0);
+  });
+
+  it('uses custom specDir when provided', async () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    write(tmp, 'src/index.ts', '// @spec: FOO-1\nexport function foo() {}');
+    write(tmp, 'custom/2026-01-01-foo-design.md', '## Req One');
+    const result = await indexRepo({
+      cwd: tmp,
+      quiet: true,
+      specDir: path.join(tmp, 'custom'),
+    });
+    const entries = readJsonl(result.outputPath);
+    const specs = entries.filter((e): e is SpecIndexEntry => e.type === 'spec');
+    expect(specs).toHaveLength(1);
+    expect(specs[0]!.implementedBy).toContain('src/index.ts');
   });
 });

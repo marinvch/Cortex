@@ -376,13 +376,12 @@ describe('AI OS value mode guidance', () => {
     const instructionsPath = path.join(tmpDir, '.github', 'instructions', 'ai-os.instructions.md');
     const content = fs.readFileSync(instructionsPath, 'utf-8');
 
-    expect(content).toContain('## AI OS Value Mode');
-    expect(content).toContain('Problem Understanding First');
-    expect(content).toContain('Token Spending Discipline');
-    expect(content).toContain('User-Value Delivery');
-    expect(content).toContain('## Project-State Strategy');
-    expect(content).toContain('New Project Strategy');
-    expect(content).toContain('Existing or Large Project Strategy');
+    expect(content).toContain('## Value Mode');
+    expect(content).toContain('Problem first');
+    expect(content).toContain('Targeted tools');
+    expect(content).toContain('End-to-end');
+    expect(content).toContain('Session start');
+    expect(content).toContain('get_session_context');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

@@ -382,8 +382,6 @@ export function getRepoMemory(query?: string, category?: string, limit?: number)
     lines.push('');
     const state = entry.status === 'stale' ? 'stale' : 'active';
     lines.push(`- **${entry.title}** [${entry.category}] (${state})`);
-    lines.push(`  - Created: ${entry.createdAt}`);
-    lines.push(`  - Updated: ${entry.updatedAt ?? entry.createdAt}`);
     if (entry.tags.length > 0) {
       lines.push(`  - Tags: ${entry.tags.join(', ')}`);
     }

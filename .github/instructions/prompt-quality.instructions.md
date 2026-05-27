@@ -46,14 +46,7 @@ Verify the MCP server is connected before starting a session.
 If `get_session_context` or `get_repo_memory` returns no output, the server is not running.
 Restart it via the VS Code MCP panel or re-run the install.
 
-## 5. Plan-Mode Trigger
-
-Switch to **Plan mode** first when:
-- The task has 3 or more sequential steps
-- The change is irreversible (delete, drop, migrate, deploy)
-- Multiple files or systems are affected
-
-## 6. Post-Change Context Refresh
+## 5. Post-Change Context Refresh
 
 After structural changes (new dependencies, new files, architecture moves), refresh AI OS context:
 
@@ -61,17 +54,10 @@ After structural changes (new dependencies, new files, architecture moves), refr
 npx -y github:marinvch/ai-os --refresh-existing
 ```
 
-## 7. Anti-Patterns
+## 6. Anti-Patterns
 
 - **Mixing concerns** — one prompt should do one thing
 - **Vague `#codebase`** when a specific file path is known — use `#file:<path>`
 - **Accepting unsourced claims** — verify with `get_repo_memory` or `search_codebase`
 - **Skipping Plan mode** for irreversible changes
 - **Ignoring stale context** — run `check_for_updates` if output quality drops
-
-## Build & Test Commands
-
-| Action | Command |
-|---|---|
-| Build | `npm run build` |
-| Test | `npm run test` |

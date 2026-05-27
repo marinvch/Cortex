@@ -34,19 +34,39 @@ Use `@<agent-name>` to invoke a specialist agent:
 | `ai-os — Idea Validator` | Validates enhancement recommendations from the Feature Enhancement Advisor against actual codebase reality. Use after the Enhancement Advisor produces a report — before any implementation begins. | Paste the Enhancement Advisor numbered report here, or describe the finding(s) to validate. |
 | `ai-os — Implementation Agent` | Executes the Approved Work Order produced by the Idea Validator. Implements changes in dependency-safe sequence. Use only after the Idea Validator has produced a verified Approved Work Order. | Paste the Approved Work Order from the Idea Validator, or name a specific item to implement. |
 
-## 3. Skill Trigger Keywords
+## 3. Model Routing
+
+Each phase of the development workflow uses a specific model. Apply these when invoking the `task` tool or specialist agents:
+
+| Phase | Task | Model |
+|---|---|---|
+| 1 — Brainstorm | Exploring ideas, clarifying requirements, writing design spec | `claude-sonnet-4.6` |
+| 2 — Validate spec | Reviewing design doc, spec consistency checks, spec self-review | `gpt-5.3-codex` |
+| 3 — Execute | Implementation, writing code, file changes, refactoring | `claude-sonnet-4.6` |
+| 4 — Validate implementation | Code review, verifying acceptance criteria, integration checks | `gpt-5.3-codex` |
+
+> **Why:** Sonnet 4.6 excels at creative problem-solving and generation; Codex models excel at rigorous code analysis and consistency verification. Alternating gives you the best of both.
+
+## 4. Skill Trigger Keywords
 
 Skills load automatically when your prompt matches their description:
 
 _No skills installed yet._
 
-## 4. MCP Health Check
+## 5. MCP Health Check
 
 Verify the MCP server is connected before starting a session.
 If `get_session_context` or `get_repo_memory` returns no output, the server is not running.
 Restart it via the VS Code MCP panel or re-run the install.
 
-## 5. Post-Change Context Refresh
+## 6. Plan-Mode Trigger
+
+Switch to **Plan mode** first when:
+- The task has 3 or more sequential steps
+- The change is irreversible (delete, drop, migrate, deploy)
+- Multiple files or systems are affected
+
+## 7. Post-Change Context Refresh
 
 After structural changes (new dependencies, new files, architecture moves), refresh AI OS context:
 
@@ -54,7 +74,7 @@ After structural changes (new dependencies, new files, architecture moves), refr
 npx -y github:marinvch/ai-os --refresh-existing
 ```
 
-## 6. Anti-Patterns
+## 8. Anti-Patterns
 
 - **Mixing concerns** — one prompt should do one thing
 - **Vague `#codebase`** when a specific file path is known — use `#file:<path>`

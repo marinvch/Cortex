@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from './shared.js';
 import type { IntentType, IntentResult, BoostPromptResult, ClarifyingQuestion } from '../types.js';
+import { deriveSpecPrefix } from '../generators/spec-parser.js';
 
 export function searchFiles(query: string, filePattern?: string, caseSensitive = false): string {
   try {
@@ -416,3 +417,108 @@ export function getFilePurpose(
   return null;
 }
 
+export interface SpecCoverageGroup {
+  specPrefix: string;
+  specFile: string;
+  covered: number;
+  total: number;
+  ratio: number;
+  requirements: Array<{
+    specId: string;
+    title: string;
+    implemented: boolean;
+    implementedBy: string[];
+  }>;
+}
+
+/**
+ * Groups SpecIndexEntry records by spec file and computes per-file coverage.
+ * Falls back gracefully when no index file exists.
+ */
+export function validateSpecCoverage(projectRoot: string): SpecCoverageGroup[] {
+  const raw = readRepoIndex(projectRoot);
+  if (!raw) return [];
+
+  const entries = parseIndexEntries(raw);
+  const specEntries = entries.filter(e => e.type === 'spec');
+  if (specEntries.length === 0) return [];
+
+  const byFile = new Map<string, typeof specEntries>();
+  for (const e of specEntries) {
+    const file = (e['specFile'] as string | undefined) ?? 'unknown';
+    if (!byFile.has(file)) byFile.set(file, []);
+    byFile.get(file)!.push(e);
+  }
+
+  const results: SpecCoverageGroup[] = [];
+  for (const [specFile, reqs] of byFile) {
+    const requirements = reqs.map(e => {
+      const rawBy = e['implementedBy'];
+      const implementedBy: string[] = Array.isArray(rawBy)
+        ? (rawBy as unknown[]).filter((x): x is string => typeof x === 'string')
+        : [];
+      return {
+        specId: (e['specId'] as string | undefined) ?? '',
+        title: (e['title'] as string | undefined) ?? '',
+        implemented: implementedBy.length > 0,
+        implementedBy,
+      };
+    });
+    const covered = requirements.filter(r => r.implemented).length;
+    results.push({
+      specPrefix: deriveSpecPrefix(specFile),
+      specFile,
+      covered,
+      total: requirements.length,
+      ratio: requirements.length > 0 ? covered / requirements.length : 0,
+      requirements,
+    });
+  }
+
+  return results.sort((a, b) => a.specFile.localeCompare(b.specFile));
+}
+
+export interface SpecForFileEntry {
+  specId: string;
+  title: string;
+  specFile: string;
+}
+
+/**
+ * Returns spec requirements implemented by a given file path.
+ * Falls back gracefully when no index file exists.
+ * Accepts both relative and absolute paths.
+ */
+export function getSpecForFile(projectRoot: string, filePath: string): SpecForFileEntry[] {
+  const raw = readRepoIndex(projectRoot);
+  if (!raw) return [];
+
+  // Normalise to forward slashes; strip projectRoot prefix if absolute path supplied
+  const root = projectRoot.replace(/\\/g, '/').replace(/\/$/, '');
+  let normalised = filePath.replace(/\\/g, '/');
+  if (normalised.startsWith(root + '/')) normalised = normalised.slice(root.length + 1);
+
+  const entries = parseIndexEntries(raw);
+  const results: SpecForFileEntry[] = [];
+
+  for (const entry of entries) {
+    if (entry.type !== 'spec') continue;
+    const rawBy = entry['implementedBy'];
+    const implementedBy: string[] = Array.isArray(rawBy)
+      ? (rawBy as unknown[]).filter((x): x is string => typeof x === 'string')
+      : [];
+    const isImplemented = implementedBy.some(f => {
+      const fn = f.replace(/\\/g, '/');
+      return fn === normalised || fn.endsWith(`/${normalised}`);
+    });
+    if (isImplemented) {
+      results.push({
+        specId: (entry['specId'] as string | undefined) ?? '',
+        title: (entry['title'] as string | undefined) ?? '',
+        specFile: (entry['specFile'] as string | undefined) ?? '',
+      });
+    }
+  }
+
+  return results;
+}

@@ -150,3 +150,91 @@ describe('indexRepo — SpecIndexEntry emission', () => {
     expect(specs[0]!.implementedBy).toContain('src/index.ts');
   });
 });
+
+// ── validateSpecCoverage ──────────────────────────────────────────────────────
+
+import { validateSpecCoverage, getSpecForFile } from '../mcp-server/search.js';
+
+describe('validateSpecCoverage', () => {
+  it('returns [] when no index file exists', () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    expect(validateSpecCoverage(tmp)).toEqual([]);
+  });
+
+  it('groups spec entries by specFile and computes coverage', () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    const specEntries: SpecIndexEntry[] = [
+      { type: 'spec', specId: 'FOO-1', title: 'R1', specFile: 'foo.md', requirementCount: 2, implementedBy: ['src/a.ts'], coverageRatio: 1.0 },
+      { type: 'spec', specId: 'FOO-2', title: 'R2', specFile: 'foo.md', requirementCount: 2, implementedBy: [], coverageRatio: 0.0 },
+    ];
+    fs.mkdirSync(path.join(tmp, '.github/ai-os/context'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp, '.github/ai-os/context/repo-index.jsonl'),
+      specEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
+      'utf-8',
+    );
+    const results = validateSpecCoverage(tmp);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ specFile: 'foo.md', covered: 1, total: 2 });
+    expect(results[0]!.ratio).toBeCloseTo(0.5);
+    expect(results[0]!.requirements[0]).toMatchObject({ specId: 'FOO-1', implemented: true });
+    expect(results[0]!.requirements[1]).toMatchObject({ specId: 'FOO-2', implemented: false });
+  });
+});
+
+// ── getSpecForFile ────────────────────────────────────────────────────────────
+
+describe('getSpecForFile', () => {
+  it('returns [] when no index file exists', () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    expect(getSpecForFile(tmp, 'src/a.ts')).toEqual([]);
+  });
+
+  it('returns spec IDs where the file is in implementedBy', () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    const specEntries: SpecIndexEntry[] = [
+      { type: 'spec', specId: 'FOO-1', title: 'R1', specFile: 'foo.md', requirementCount: 2, implementedBy: ['src/a.ts'], coverageRatio: 1.0 },
+      { type: 'spec', specId: 'FOO-2', title: 'R2', specFile: 'foo.md', requirementCount: 2, implementedBy: ['src/b.ts'], coverageRatio: 1.0 },
+    ];
+    fs.mkdirSync(path.join(tmp, '.github/ai-os/context'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp, '.github/ai-os/context/repo-index.jsonl'),
+      specEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
+      'utf-8',
+    );
+    const results = getSpecForFile(tmp, 'src/a.ts');
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ specId: 'FOO-1', specFile: 'foo.md' });
+  });
+
+  it('matches when absolute path is passed', () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    const specEntries: SpecIndexEntry[] = [
+      { type: 'spec', specId: 'FOO-1', title: 'R1', specFile: 'foo.md', requirementCount: 1, implementedBy: ['src/a.ts'], coverageRatio: 1.0 },
+    ];
+    fs.mkdirSync(path.join(tmp, '.github/ai-os/context'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp, '.github/ai-os/context/repo-index.jsonl'),
+      specEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
+      'utf-8',
+    );
+    const absPath = path.join(tmp, 'src', 'a.ts');
+    const results = getSpecForFile(tmp, absPath);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ specId: 'FOO-1' });
+  });
+
+  it('returns [] when file has no annotations', () => {
+    const tmp = makeTmp(); dirs.push(tmp);
+    const specEntries: SpecIndexEntry[] = [
+      { type: 'spec', specId: 'FOO-1', title: 'R1', specFile: 'foo.md', requirementCount: 1, implementedBy: ['src/other.ts'], coverageRatio: 1.0 },
+    ];
+    fs.mkdirSync(path.join(tmp, '.github/ai-os/context'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmp, '.github/ai-os/context/repo-index.jsonl'),
+      specEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
+      'utf-8',
+    );
+    expect(getSpecForFile(tmp, 'src/unrelated.ts')).toEqual([]);
+  });
+});

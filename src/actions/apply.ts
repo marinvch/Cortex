@@ -592,11 +592,25 @@ function printSuperpowersPluginSetup(): void {
  * Idempotent: reads skills-lock.json and skips skills already installed.
  * Gives every AI OS project the core agentic development methodology out of the box.
  */
-function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPath: string): void {
+function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPath: string, cwd: string): void {
   const recs = collectRecommendations(stack);
   const allSuperpowers = recs.universalSkills.filter(s => s.source === 'obra/superpowers');
 
   if (allSuperpowers.length === 0) return;
+
+  // Skills already copied locally by AI OS — global install is redundant for these
+  const localSkillsDir = path.join(cwd, '.github', 'copilot', 'skills');
+  const locallyInstalled = new Set(
+    allSuperpowers
+      .filter(s => fs.existsSync(path.join(localSkillsDir, `${s.name}.md`)))
+      .map(s => s.name.toLowerCase())
+  );
+
+  if (locallyInstalled.size > 0) {
+    console.log(`  🦸 ${locallyInstalled.size} Superpowers skill(s) already available as local project skills in .github/copilot/skills/ — skipping global install.`);
+    console.log('     (Global install via `npx -y skills add` is only needed for other agents that don\'t read project-local skills.)');
+    console.log('');
+  }
 
   // Read installed skills from lock file to skip already-installed ones
   let installedSet = new Set<string>();
@@ -610,8 +624,11 @@ function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPat
     // Lock file missing — treat all as uninstalled
   }
 
-  const toInstall = allSuperpowers.filter(s => !installedSet.has(s.name.toLowerCase()));
-  const alreadyInstalled = allSuperpowers.length - toInstall.length;
+  // Skip skills that are locally available or already in the lock file
+  const toInstall = allSuperpowers.filter(
+    s => !installedSet.has(s.name.toLowerCase()) && !locallyInstalled.has(s.name.toLowerCase())
+  );
+  const alreadyInstalled = allSuperpowers.length - toInstall.length - locallyInstalled.size;
 
   if (toInstall.length === 0) {
     console.log('  🦸 All Superpowers skills already installed.');
@@ -1076,7 +1093,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   const isFirstInstall = updateStatus.isFirstInstall;
   if (!dryRun && isFirstInstall) {
     const spLockPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'skills-lock.json');
-    autoInstallSuperpowers(stack, spLockPath);
+    autoInstallSuperpowers(stack, spLockPath, cwd);
   }
 
   // ── Agent-flow setup prompt ──────────────────────────────────────────────

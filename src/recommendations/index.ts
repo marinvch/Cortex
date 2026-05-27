@@ -189,6 +189,15 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
     for (const plugin of collected.pluginInstalls) {
       lines.push(`## ${plugin.name}`, '');
       lines.push(`> ${plugin.description}`, '');
+
+      // Note: AI OS repos already have these skills as local project copies
+      if (plugin.skillSource) {
+        lines.push('');
+        lines.push('> **Note for AI OS repos:** If this repository has AI OS installed, the skills listed below are already available as project-local copies in `.github/copilot/skills/`.');
+        lines.push('> Global install via the commands below is only needed for agents that do **not** read project-local skills (e.g. Cursor, Augment) or for cross-repo use.');
+        lines.push('');
+      }
+
       lines.push('**Install in your coding agent:**', '');
       lines.push('```bash');
       for (const step of plugin.steps) {

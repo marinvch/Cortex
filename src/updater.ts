@@ -260,6 +260,30 @@ export function pruneLegacyArtifacts(targetDir: string, options?: LegacyPruneOpt
     }
   }
 
+  // Remove .github/package.json stale artifact (#256)
+  const staleGithubPkg = path.join(targetDir, '.github', 'package.json');
+  if (fs.existsSync(staleGithubPkg)) {
+    try {
+      fs.rmSync(staleGithubPkg);
+      console.log('  🧹 Removed stale .github/package.json artifact');
+    } catch { /* best-effort */ }
+  }
+
+  // Remove stale !.github/superpowers/ gitignore exceptions (#250)
+  const gitignorePathForCleanup = path.join(targetDir, '.gitignore');
+  if (fs.existsSync(gitignorePathForCleanup)) {
+    try {
+      const gitignoreContent = fs.readFileSync(gitignorePathForCleanup, 'utf-8');
+      const staleGitignoreEntries = new Set(['!.github/superpowers/', '!.github/superpowers/**']);
+      const gitignoreLines = gitignoreContent.split(/\r?\n/);
+      const filtered = gitignoreLines.filter(l => !staleGitignoreEntries.has(l.trim()));
+      if (filtered.length !== gitignoreLines.length) {
+        fs.writeFileSync(gitignorePathForCleanup, filtered.join('\n'), 'utf-8');
+        console.log('  🧹 Removed stale !.github/superpowers/ entries from .gitignore');
+      }
+    } catch { /* best-effort */ }
+  }
+
   if (!fs.existsSync(legacyContextDir)) return;
 
   const MANAGED_EXTENSIONS = new Set(['.md', '.json']);

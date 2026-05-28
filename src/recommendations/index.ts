@@ -270,13 +270,8 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
 }
 
 /** Generate the skills gap report (stdout message only). */
-export function getSkillsGapReport(stack: DetectedStack, skillsLockPath: string): string {
+export function getSkillsGapReport(stack: DetectedStack, skillsLockPath: string, cwd?: string): string {
   const collected = collectRecommendations(stack);
-  // Include both stack-specific and universal skills in gap report
-  const recommendedSkills = new Set([
-    ...collected.skills.map(s => s.name),
-    ...collected.universalSkills.map(s => s.name),
-  ]);
 
   let installed: string[] = [];
   try {
@@ -294,6 +289,29 @@ export function getSkillsGapReport(stack: DetectedStack, skillsLockPath: string)
   }
 
   const installedSet = new Set(installed.map(s => s.toLowerCase()));
+
+  // Also check disk for locally installed skills to avoid false positives (#247)
+  if (cwd) {
+    const canonicalSkillsDir = path.join(cwd, '.github', 'skills');
+    if (fs.existsSync(canonicalSkillsDir)) {
+      try {
+        for (const entry of fs.readdirSync(canonicalSkillsDir, { withFileTypes: true })) {
+          if (entry.isDirectory() && fs.existsSync(path.join(canonicalSkillsDir, entry.name, 'SKILL.md'))) {
+            installedSet.add(entry.name.toLowerCase());
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    const legacySkillsDir = path.join(cwd, '.github', 'copilot', 'skills');
+    if (fs.existsSync(legacySkillsDir)) {
+      try {
+        for (const file of fs.readdirSync(legacySkillsDir)) {
+          if (file.endsWith('.md')) installedSet.add(file.replace(/\.md$/i, '').toLowerCase());
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
   const missingStackItems = collected.skills.filter(s => !installedSet.has(s.name.toLowerCase()));
   const missingUniversalItems = collected.universalSkills.filter(s => !installedSet.has(s.name.toLowerCase()));
   const missingItems = [...missingStackItems, ...missingUniversalItems];

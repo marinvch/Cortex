@@ -63,23 +63,47 @@ function buildPersonaDirective(stack: DetectedStack): string {
   return `Act as a Senior ${lang} developer.`;
 }
 
-/** Discover installed skills from .github/copilot/skills/ and return a Skill Routing section, or '' if no skills. */
+/** Discover installed skills from canonical and legacy paths, return a Skill Routing section, or '' if no skills. */
 function buildSkillRoutingSection(outputDir: string): string {
-  const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
-  if (!fs.existsSync(skillsDir)) return '';
+  const canonicalSkillsDir = path.join(outputDir, '.github', 'skills');
+  const legacySkillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
 
   const rows: string[] = [];
-  for (const file of fs.readdirSync(skillsDir)) {
-    if (!file.endsWith('.md')) continue;
-    try {
-      const raw = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
-      const nameMatch = raw.match(/^name:\s*(.+)$/m);
-      const descMatch = raw.match(/^description:\s*(.+)$/m);
-      const name = nameMatch?.[1]?.trim() ?? file.replace('.md', '');
-      const desc = descMatch?.[1]?.trim() ?? '';
-      rows.push(`| \`${name}\` | ${desc} |`);
-    } catch { /* skip unreadable files */ }
+
+  // Scan new canonical path: .github/skills/<name>/SKILL.md (#255)
+  if (fs.existsSync(canonicalSkillsDir)) {
+    for (const entry of fs.readdirSync(canonicalSkillsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const skillMdPath = path.join(canonicalSkillsDir, entry.name, 'SKILL.md');
+      if (!fs.existsSync(skillMdPath)) continue;
+      try {
+        const raw = fs.readFileSync(skillMdPath, 'utf-8');
+        const nameMatch = raw.match(/^name:\s*(.+)$/m);
+        const descMatch = raw.match(/^description:\s*(.+)$/m);
+        const name = nameMatch?.[1]?.trim() ?? entry.name;
+        const desc = descMatch?.[1]?.trim() ?? '';
+        rows.push(`| \`${name}\` | ${desc} |`);
+      } catch { /* skip unreadable files */ }
+    }
   }
+
+  // Also scan legacy flat path: .github/copilot/skills/*.md (skip duplicates)
+  if (fs.existsSync(legacySkillsDir)) {
+    for (const file of fs.readdirSync(legacySkillsDir)) {
+      if (!file.endsWith('.md')) continue;
+      try {
+        const raw = fs.readFileSync(path.join(legacySkillsDir, file), 'utf-8');
+        const nameMatch = raw.match(/^name:\s*(.+)$/m);
+        const descMatch = raw.match(/^description:\s*(.+)$/m);
+        const name = nameMatch?.[1]?.trim() ?? file.replace('.md', '');
+        const desc = descMatch?.[1]?.trim() ?? '';
+        if (!rows.some(r => r.includes(`\`${name}\``))) {
+          rows.push(`| \`${name}\` | ${desc} |`);
+        }
+      } catch { /* skip unreadable files */ }
+    }
+  }
+
   if (rows.length === 0) return '';
 
   return [
@@ -449,16 +473,17 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
 
   // Generate Prompt Quality Pack unless explicitly disabled
   if (config?.promptQualityPack !== false) {
-    const pqpPath = generatePromptQualityPack(stack, outputDir, githubDir);
+    const pqpPath = generatePromptQualityPack(stack, outputDir, githubDir, options?.preserveContextFiles);
     if (pqpPath) outputFiles.push(pqpPath);
   }
 
   return outputFiles;
 }
 
-function generatePromptQualityPack(stack: DetectedStack, outputDir: string, githubDir: string): string | null {
+function generatePromptQualityPack(stack: DetectedStack, outputDir: string, githubDir: string, preserveContextFiles?: boolean): string | null {
   const agentsDir = path.join(outputDir, '.github', 'agents');
-  const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
+  const canonicalSkillsDir = path.join(outputDir, '.github', 'skills');
+  const legacySkillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
 
   // Discover installed agents
   const agentRows: string[] = [];
@@ -480,18 +505,37 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     }
   }
 
-  // Discover installed skills
+  // Discover installed skills — check canonical path and legacy path (#255)
   const skillRows: string[] = [];
-  if (fs.existsSync(skillsDir)) {
-    for (const file of fs.readdirSync(skillsDir)) {
+  if (fs.existsSync(canonicalSkillsDir)) {
+    for (const entry of fs.readdirSync(canonicalSkillsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const skillMdPath = path.join(canonicalSkillsDir, entry.name, 'SKILL.md');
+      if (!fs.existsSync(skillMdPath)) continue;
+      try {
+        const raw = fs.readFileSync(skillMdPath, 'utf-8');
+        const nameMatch = raw.match(/^name:\s*(.+)$/m);
+        const triggerMatch = raw.match(/^description:\s*(.+)$/m);
+        const name = nameMatch?.[1]?.trim() ?? entry.name;
+        const trigger = triggerMatch?.[1]?.trim() ?? '';
+        skillRows.push(`| \`${name}\` | ${trigger} |`);
+      } catch {
+        // skip unreadable skill files
+      }
+    }
+  }
+  if (fs.existsSync(legacySkillsDir)) {
+    for (const file of fs.readdirSync(legacySkillsDir)) {
       if (!file.endsWith('.md')) continue;
       try {
-        const raw = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
+        const raw = fs.readFileSync(path.join(legacySkillsDir, file), 'utf-8');
         const nameMatch = raw.match(/^name:\s*(.+)$/m);
         const triggerMatch = raw.match(/^description:\s*(.+)$/m);
         const name = nameMatch?.[1]?.trim() ?? file.replace('.md', '');
         const trigger = triggerMatch?.[1]?.trim() ?? '';
-        skillRows.push(`| \`${name}\` | ${trigger} |`);
+        if (!skillRows.some(r => r.includes(`\`${name}\``))) {
+          skillRows.push(`| \`${name}\` | ${trigger} |`);
+        }
       } catch {
         // skip unreadable skill files
       }
@@ -596,6 +640,8 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     fs.mkdirSync(instructionsDir, { recursive: true });
   }
   const outputPath = path.join(instructionsDir, 'prompt-quality.instructions.md');
+  // Preserve existing prompt-quality.instructions.md in safe refresh mode (#255)
+  if (preserveContextFiles && fs.existsSync(outputPath)) return outputPath;
   writeIfChanged(outputPath, content);
   return outputPath;
 }

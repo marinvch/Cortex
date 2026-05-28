@@ -105,7 +105,7 @@ describe('indexRepo — SpecIndexEntry emission', () => {
       '// @spec: MY-FEAT-1',
       'export function doThing(): void {}',
     ].join('\n'));
-    write(tmp, 'docs/superpowers/specs/2026-01-01-my-feature-design.md', [
+    write(tmp, '.github/ai-os/specs/2026-01-01-my-feature-design.md', [
       '## Overview',
       '## Detail',
     ].join('\n'));

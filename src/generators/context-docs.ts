@@ -37,21 +37,44 @@ export function readAiOsConfig(outputDir: string): AiOsConfig | null {
 }
 
 /**
- * Compute SHA-256 content hashes for all installed skill .md files.
+ * Compute SHA-256 content hashes for all installed skill files.
+ * Checks canonical .github/skills/<name>/SKILL.md (new path) and
+ * legacy .github/copilot/skills/<name>.md (flat files) for backward compat.
  * Returns a map of skill-name → hash-prefix (first 12 hex chars).
  */
 export function computeSkillVersions(outputDir: string): Record<string, string> {
-  const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
   const versions: Record<string, string> = {};
-  if (!fs.existsSync(skillsDir)) return versions;
-  try {
-    for (const file of fs.readdirSync(skillsDir)) {
-      if (!file.endsWith('.md')) continue;
-      const content = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
-      const hash = createHash('sha256').update(content).digest('hex').slice(0, 12);
-      versions[file.replace(/\.md$/, '')] = hash;
-    }
-  } catch { /* ignore */ }
+
+  // Scan new canonical path: .github/skills/<name>/SKILL.md (#254)
+  const canonicalDir = path.join(outputDir, '.github', 'skills');
+  if (fs.existsSync(canonicalDir)) {
+    try {
+      for (const entry of fs.readdirSync(canonicalDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const skillMdPath = path.join(canonicalDir, entry.name, 'SKILL.md');
+        if (!fs.existsSync(skillMdPath)) continue;
+        const content = fs.readFileSync(skillMdPath, 'utf-8');
+        const hash = createHash('sha256').update(content).digest('hex').slice(0, 12);
+        versions[entry.name] = hash;
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Also scan legacy flat path: .github/copilot/skills/*.md (canonical takes priority)
+  const legacyDir = path.join(outputDir, '.github', 'copilot', 'skills');
+  if (fs.existsSync(legacyDir)) {
+    try {
+      for (const file of fs.readdirSync(legacyDir)) {
+        if (!file.endsWith('.md')) continue;
+        const name = file.replace(/\.md$/, '');
+        if (versions[name]) continue;
+        const content = fs.readFileSync(path.join(legacyDir, file), 'utf-8');
+        const hash = createHash('sha256').update(content).digest('hex').slice(0, 12);
+        versions[name] = hash;
+      }
+    } catch { /* ignore */ }
+  }
+
   return versions;
 }
 
@@ -821,7 +844,16 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
     packageManager: stack.patterns.packageManager,
     hasTypeScript: stack.patterns.hasTypeScript,
     // User-editable fields (preserved from existing config, fall back to defaults)
-    agentsMd: existingConfig?.agentsMd ?? DEFAULT_AI_OS_CONFIG.agentsMd,
+    // Auto-detect agentsMd from disk: if .github/agents/ has .agent.md files, enable it (#253)
+    agentsMd: (() => {
+      const agentsDir = path.join(outputDir, '.github', 'agents');
+      if (fs.existsSync(agentsDir)) {
+        try {
+          if (fs.readdirSync(agentsDir).some(f => f.endsWith('.agent.md'))) return true;
+        } catch { /* ignore */ }
+      }
+      return existingConfig?.agentsMd ?? DEFAULT_AI_OS_CONFIG.agentsMd;
+    })(),
     pathSpecificInstructions: existingConfig?.pathSpecificInstructions ?? DEFAULT_AI_OS_CONFIG.pathSpecificInstructions,
     recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
     sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,

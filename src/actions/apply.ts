@@ -15,7 +15,7 @@ import { generateChatModes } from '../generators/chatmodes.js';
 import { getMcpToolsForStack } from '../mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from '../updater.js';
 import { buildOnboardingPlan } from '../planner.js';
-import { readManifest, writeManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic, setPrevHashes, getNewHashes } from '../generators/utils.js';
+import { readManifest, writeManifest, syncManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic, setPrevHashes, getNewHashes } from '../generators/utils.js';
 import { generateRecommendations, getSkillsGapReport, collectRecommendations } from '../recommendations/index.js';
 import { applyProfile, describeProfile } from '../profile.js';
 import { mergeUserBlocks } from '../user-blocks.js';
@@ -987,7 +987,11 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   }
 
   // Write updated manifest (#8 / #11).
-  if (!dryRun) writeManifest(cwd, getToolVersion(), currentRelFiles, getNewHashes());
+  if (!dryRun) {
+    writeManifest(cwd, getToolVersion(), currentRelFiles, getNewHashes());
+    // Sync manifest to pick up any manually-added AI OS artifacts (#240)
+    syncManifest(cwd, getToolVersion());
+  }
 
   // ── Capture context freshness snapshot ──────────────────────────────────
   // After a successful generation run, record a new baseline snapshot so that

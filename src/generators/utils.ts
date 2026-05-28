@@ -253,6 +253,50 @@ export function writeManifest(
   writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2));
 }
 
+/**
+ * Sync the manifest to include any AI OS artifact files that exist on disk
+ * but were not generated in this run (e.g. manually added or left from a
+ * previous install). Scans `.github/` for `*.instructions.md`, `*.prompt.md`,
+ * and `*.agent.md` files and merges them into the manifest file list (#240).
+ */
+export function syncManifest(outputDir: string, version: string): void {
+  const githubDir = path.join(outputDir, '.github');
+  if (!fs.existsSync(githubDir)) return;
+
+  const existing = readManifest(outputDir);
+  const existingFiles = new Set<string>(existing?.files ?? []);
+  const existingHashes: Record<string, string> = existing?.hashes ?? {};
+
+  const patterns = ['.instructions.md', '.prompt.md', '.agent.md'];
+
+  function scan(dir: string): void {
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'node_modules') scan(full);
+      } else if (entry.isFile() && patterns.some(p => entry.name.endsWith(p))) {
+        const rel = path.relative(outputDir, full).replace(/\\/g, '/');
+        if (!existingFiles.has(rel)) {
+          existingFiles.add(rel);
+          try {
+            const content = fs.readFileSync(full);
+            existingHashes[rel] = createHash('sha256').update(content).digest('hex');
+          } catch { /* ignore */ }
+        }
+      }
+    }
+  }
+
+  scan(githubDir);
+  writeManifest(outputDir, version, [...existingFiles], existingHashes);
+}
+
 // ── Diff tracking (#11) ───────────────────────────────────────────────────────
 
 export interface FileDiff {

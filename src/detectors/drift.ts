@@ -74,22 +74,65 @@ function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
     } catch { /* non-fatal */ }
   }
 
-  const agentsRegistryPath = join(cwd, '.github/ai-os/agents.json');
-  if (existsSync(agentsRegistryPath)) {
+  // Check agent count via existing-ai-context.md instead of agents.json (#231)
+  const existingContextPath = join(cwd, '.github/ai-os/context/existing-ai-context.md');
+  if (existsSync(existingContextPath)) {
     try {
-      const registry = JSON.parse(readFileSync(agentsRegistryPath, 'utf8')) as unknown[];
-      const registryCount = Array.isArray(registry) ? registry.length : 0;
+      const contextContent = readFileSync(existingContextPath, 'utf8');
+      const agentCountMatch = contextContent.match(/"agents"\s*:\s*(\d+)/);
+      const recordedCount = agentCountMatch ? parseInt(agentCountMatch[1], 10) : null;
       const agentFiles = globFiles({ dir: '.github/agents', ext: '.agent.md' }, cwd);
       const fileCount = agentFiles.length;
 
-      if (registryCount !== fileCount) {
+      if (recordedCount !== null && recordedCount !== fileCount) {
         warnings.push({
-          path: '.github/ai-os/agents.json',
+          path: '.github/ai-os/context/existing-ai-context.md',
           kind: 'semantic-mismatch',
           severity: 'warning',
-          message: `agents.json lists ${registryCount} agent(s) but ${fileCount} .agent.md file(s) found in .github/agents/ — run refresh to sync`,
+          message: `existing-ai-context.md records ${recordedCount} agent(s) but ${fileCount} .agent.md file(s) found in .github/agents/ — run refresh to sync`,
           fix: FIX_CMD,
         });
+      }
+
+      // Check Mermaid diagram vs config.json for language/framework consistency (#244)
+      if (existsSync(configPath)) {
+        try {
+          const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
+            primaryFramework?: string;
+            primaryLanguage?: string;
+          };
+          // Extract Mermaid block from the file
+          const mermaidMatch = contextContent.match(/```mermaid([\s\S]*?)```/);
+          if (mermaidMatch) {
+            const mermaidBlock = mermaidMatch[1];
+            // Check that config.json primaryFramework appears in the Mermaid Fw node
+            if (config.primaryFramework) {
+              const fwLabelMatch = mermaidBlock.match(/Fw\["([^"]+)"\]/);
+              if (fwLabelMatch && !fwLabelMatch[1].toLowerCase().includes(config.primaryFramework.toLowerCase())) {
+                warnings.push({
+                  path: '.github/ai-os/context/existing-ai-context.md',
+                  kind: 'semantic-mismatch',
+                  severity: 'warning',
+                  message: `Mermaid diagram Fw label "${fwLabelMatch[1]}" does not include primary framework "${config.primaryFramework}" from config.json — diagram may be stale`,
+                  fix: FIX_CMD,
+                });
+              }
+            }
+            // Check that config.json primaryLanguage appears in the Mermaid Lang node
+            if (config.primaryLanguage) {
+              const langLabelMatch = mermaidBlock.match(/Lang\["([^"]+)"\]/);
+              if (langLabelMatch && !langLabelMatch[1].toLowerCase().includes(config.primaryLanguage.toLowerCase())) {
+                warnings.push({
+                  path: '.github/ai-os/context/existing-ai-context.md',
+                  kind: 'semantic-mismatch',
+                  severity: 'warning',
+                  message: `Mermaid diagram Lang label "${langLabelMatch[1]}" does not include primary language "${config.primaryLanguage}" from config.json — diagram may be stale`,
+                  fix: FIX_CMD,
+                });
+              }
+            }
+          }
+        } catch { /* non-fatal */ }
       }
     } catch { /* non-fatal */ }
   }
@@ -212,8 +255,10 @@ export function detectDrift(cwd: string): DriftReport {
     }
   }
 
-  // 6. Skills in instructions vs installed
-  const skillsDir = join(cwd, '.github/copilot/skills');
+  // 6. Skills in instructions vs installed — check canonical path first, then legacy (#237)
+  const skillsDirNew = join(cwd, '.github', 'skills');
+  const skillsDirLegacy = join(cwd, '.github', 'copilot', 'skills');
+  const skillsDir = existsSync(skillsDirNew) ? skillsDirNew : skillsDirLegacy;
   const installedSkills = existsSync(skillsDir)
     ? readdirSync(skillsDir)
         .filter(f => f.endsWith('.md'))
@@ -241,14 +286,19 @@ export function detectDrift(cwd: string): DriftReport {
     try {
       const cfg = JSON.parse(readFileSync(configPath, 'utf8')) as { skillVersions?: Record<string, string> };
       if (cfg.skillVersions && Object.keys(cfg.skillVersions).length > 0) {
+        // Resolve skills dir: canonical path first, then legacy
+        const svDirNew = join(cwd, '.github', 'skills');
+        const svDirLegacy = join(cwd, '.github', 'copilot', 'skills');
+        const svDir = existsSync(svDirNew) ? svDirNew : svDirLegacy;
+        const svDirRel = existsSync(svDirNew) ? '.github/skills' : '.github/copilot/skills';
         for (const [skillName, expectedHash] of Object.entries(cfg.skillVersions)) {
-          const skillFilePath = join(cwd, '.github/copilot/skills', `${skillName}.md`);
+          const skillFilePath = join(svDir, `${skillName}.md`);
           if (!existsSync(skillFilePath)) {
             warnings.push({
-              path: `.github/copilot/skills/${skillName}.md`,
+              path: `${svDirRel}/${skillName}.md`,
               kind: 'missing',
               severity: 'warning',
-              message: `Tracked skill "${skillName}" is missing from .github/copilot/skills/`,
+              message: `Tracked skill "${skillName}" is missing from ${svDirRel}/`,
               fix: FIX_CMD,
             });
           } else {
@@ -256,14 +306,14 @@ export function detectDrift(cwd: string): DriftReport {
             const actualHash = createHash('sha256').update(content).digest('hex').slice(0, 12);
             if (actualHash !== expectedHash) {
               warnings.push({
-                path: `.github/copilot/skills/${skillName}.md`,
+                path: `${svDirRel}/${skillName}.md`,
                 kind: 'stale',
                 severity: 'warning',
                 message: `Skill "${skillName}" content has changed since last generation (hash mismatch)`,
                 fix: FIX_CMD,
               });
             } else {
-              healthy.push(`.github/copilot/skills/${skillName}.md`);
+              healthy.push(`${svDirRel}/${skillName}.md`);
             }
           }
         }

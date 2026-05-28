@@ -110,10 +110,15 @@ function detectExistingAiContext(rootDir: string): ExistingAiContextSummary {
   if (exists(rootDir, '.github/copilot-instructions.md')) add('.github/copilot-instructions.md', 'instructions');
   if (exists(rootDir, '.github/instructions')) add('.github/instructions/', 'instructions');
   if (exists(rootDir, '.github/copilot/prompts.json')) add('.github/copilot/prompts.json', 'prompts');
+  if (exists(rootDir, '.github/prompts')) add('.github/prompts/', 'prompts');
 
-  const skillsDir = path.join(rootDir, '.github', 'copilot', 'skills');
-  const skillsCount = countMarkdownFiles(skillsDir);
-  if (skillsCount > 0) add(`.github/copilot/skills/ (${skillsCount} files)`, 'skills');
+  // Check canonical skills location first, then legacy copilot/skills fallback (#239)
+  const skillsDirNew = path.join(rootDir, '.github', 'skills');
+  const skillsDirLegacy = path.join(rootDir, '.github', 'copilot', 'skills');
+  const skillsCount = fs.existsSync(skillsDirNew)
+    ? countMarkdownFiles(skillsDirNew)
+    : countMarkdownFiles(skillsDirLegacy);
+  if (skillsCount > 0) add(`.github/skills/ (${skillsCount} skill dirs)`, 'skills');
 
   const agentsDir = path.join(rootDir, '.github', 'agents');
   const agentsCount = countMarkdownFiles(agentsDir);
@@ -349,7 +354,7 @@ function generateArchitectureDoc(stack: DetectedStack): string {
   lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
   lines.push('  Generate --> MCP[".mcp.json + .vscode/mcp.json + .github/ai-os/mcp-server/"]');
   lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
-  lines.push('  Generate --> Skills[".github/copilot/skills/*.md"]');
+  lines.push('  Generate --> Skills[".github/skills/*/SKILL.md"]');
   lines.push('```');
   lines.push('');
   lines.push('_Open this file in VS Code Markdown Preview to view the diagram._');
@@ -629,8 +634,12 @@ interface GenerateContextDocsOptions {
  * One table row per tool with name, description, and required params.
  */
 export function generateMcpToolRefDoc(stack: DetectedStack): string {
+  const RUN_TOOL_NAMES = ['run_tests', 'run_lint', 'run_build'];
   const active = MCP_TOOL_DEFINITIONS.filter(t => (t.condition ? t.condition(stack) : true));
-  const rows = active.map(tool => {
+  const enabledTools = active.filter(t => !RUN_TOOL_NAMES.includes(t.name));
+  const disabledTools = active.filter(t => RUN_TOOL_NAMES.includes(t.name));
+
+  const buildRows = (tools: typeof active) => tools.map(tool => {
     const required = tool.inputSchema.required ?? [];
     const props = Object.entries(tool.inputSchema.properties ?? {});
     const paramList = props
@@ -652,7 +661,17 @@ export function generateMcpToolRefDoc(stack: DetectedStack): string {
     '',
     '| Tool | Description | Parameters (`*` = required) |',
     '|---|---|---|',
-    ...rows,
+    ...buildRows(enabledTools),
+    '',
+    '## Disabled / Opt-in Tools',
+    '',
+    'The following tools are disabled by default and require explicit opt-in.',
+    'Enable them by setting `AI_OS_ALLOW_RUN_TOOLS=1` in your environment or',
+    '`"allowRunTools": true` in `.github/ai-os/config.json`.',
+    '',
+    '| Tool | Description | Parameters (`*` = required) |',
+    '|---|---|---|',
+    ...buildRows(disabledTools),
     '',
     '## Usage',
     '',
@@ -835,10 +854,12 @@ function generateSessionContextCard(stack: DetectedStack, config: AiOsConfig, ou
   const pm = stack.patterns.packageManager;
   const isNode = ['npm', 'yarn', 'pnpm', 'bun'].includes(pm);
 
-  // Count installed skills for the Key Files table
+  // Count installed skills for the Key Files table — check canonical path first, then legacy
   const skillsCount = (() => {
     if (!outputDir) return 0;
-    const skillsDir = path.join(outputDir, '.github', 'copilot', 'skills');
+    const newPath = path.join(outputDir, '.github', 'skills');
+    const legacyPath = path.join(outputDir, '.github', 'copilot', 'skills');
+    const skillsDir = fs.existsSync(newPath) ? newPath : legacyPath;
     if (!fs.existsSync(skillsDir)) return 0;
     try {
       return fs.readdirSync(skillsDir).filter(f => f.endsWith('.md')).length;

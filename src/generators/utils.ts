@@ -268,6 +268,7 @@ export function syncManifest(outputDir: string, version: string): void {
   const existingHashes: Record<string, string> = existing?.hashes ?? {};
 
   const patterns = ['.instructions.md', '.prompt.md', '.agent.md'];
+  const aiOsDir = path.join(githubDir, 'ai-os');
 
   function scan(dir: string): void {
     let entries: fs.Dirent[];
@@ -280,14 +281,18 @@ export function syncManifest(outputDir: string, version: string): void {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (entry.name !== 'node_modules') scan(full);
-      } else if (entry.isFile() && patterns.some(p => entry.name.endsWith(p))) {
-        const rel = path.relative(outputDir, full).replace(/\\/g, '/');
-        if (!existingFiles.has(rel)) {
-          existingFiles.add(rel);
-          try {
-            const content = fs.readFileSync(full);
-            existingHashes[rel] = createHash('sha256').update(content).digest('hex');
-          } catch { /* ignore */ }
+      } else if (entry.isFile()) {
+        // Include standard AI OS artifact patterns, plus any .md file under .github/ai-os/ (#252)
+        const isAiOsSubDir = full.startsWith(aiOsDir + path.sep) || full.startsWith(aiOsDir + '/');
+        if (patterns.some(p => entry.name.endsWith(p)) || (isAiOsSubDir && entry.name.endsWith('.md'))) {
+          const rel = path.relative(outputDir, full).replace(/\\/g, '/');
+          if (!existingFiles.has(rel)) {
+            existingFiles.add(rel);
+            try {
+              const content = fs.readFileSync(full);
+              existingHashes[rel] = createHash('sha256').update(content).digest('hex');
+            } catch { /* ignore */ }
+          }
         }
       }
     }

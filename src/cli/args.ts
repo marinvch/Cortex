@@ -28,6 +28,46 @@ export interface ParsedArgs {
 
 export function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2);
+
+  // Handle --help / -h early exit (#249)
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+Usage: npx ai-os [options]
+
+Options:
+  --cwd <path>                Directory to run in (default: process.cwd())
+  --dry-run                   Preview changes without writing
+  --refresh-existing          Refresh all AI OS artifacts
+  --update                    Update mode
+  --plan                      Show planned changes
+  --preview                   Preview generated output
+  --apply                     Apply changes (default)
+  --prune                     Remove stale artifacts
+  --clean-update              Full clean refresh
+  --regenerate-context        Regenerate all context files even if curated
+  --verbose, -v               Verbose output
+  --check-hygiene             Run hygiene checks
+  --doctor                    Run diagnostics
+  --bootstrap                 Bootstrap AI OS into a new project
+  --check-freshness           Check if AI OS artifacts are fresh
+  --compact-memory            Compact memory.jsonl file
+  --check-drift               Check for context drift
+  --init                      Interactive setup wizard
+  --index                     Build repository intelligence index
+  --incremental               Incremental indexing (with --index)
+  --spec-dir <path>           Spec files directory for --index (default: .github/ai-os/specs/)
+  --uninstall                 Remove all AI OS artifacts
+  --json                      Output results as JSON
+  --full-diff                 Show full file diffs
+  --profile <name>            Install profile: minimal, standard, full
+  --editor <name>             Target editor: vscode, cursor, jetbrains, neovim, all
+  --model <name>              Target model: copilot, claude, gemini, local
+  --prune-custom-artifacts    Also prune custom artifacts (agents, skills, prompts)
+  --help, -h                  Show this help message
+`);
+    process.exit(0);
+  }
+
   let cwd = process.cwd();
   let dryRun = false;
   let mode: GenerateMode = 'safe';

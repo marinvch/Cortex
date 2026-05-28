@@ -125,13 +125,13 @@ describe('detectDrift', () => {
     expect(report.warnings.some(w => w.kind === 'semantic-mismatch')).toBe(false);
   });
 
-  it('reports semantic mismatch when agents.json count differs from agent file count', () => {
-    mkdirSync(join(tmpDir, '.github', 'ai-os'), { recursive: true });
+  it('reports semantic mismatch when existing-ai-context.md agent count differs from agent file count', () => {
+    mkdirSync(join(tmpDir, '.github', 'ai-os', 'context'), { recursive: true });
     mkdirSync(join(tmpDir, '.github', 'agents'), { recursive: true });
-    // agents.json says 3 agents, but only 1 .agent.md file exists
+    // existing-ai-context.md records 3 agents, but only 1 .agent.md file exists
     writeFileSync(
-      join(tmpDir, '.github', 'ai-os', 'agents.json'),
-      JSON.stringify([{ name: 'a' }, { name: 'b' }, { name: 'c' }])
+      join(tmpDir, '.github', 'ai-os', 'context', 'existing-ai-context.md'),
+      '# Existing AI Context\n\n```\n  "agents" : 3\n```\n'
     );
     writeFileSync(join(tmpDir, '.github', 'agents', 'my-agent.agent.md'), '## Goal\nDo things\n## Constraints\nNone');
     const report = detectDrift(tmpDir);
@@ -139,11 +139,12 @@ describe('detectDrift', () => {
   });
 
   it('does NOT report agent count mismatch when counts match', () => {
-    mkdirSync(join(tmpDir, '.github', 'ai-os'), { recursive: true });
+    mkdirSync(join(tmpDir, '.github', 'ai-os', 'context'), { recursive: true });
     mkdirSync(join(tmpDir, '.github', 'agents'), { recursive: true });
+    // existing-ai-context.md records 1 agent, and 1 .agent.md file exists
     writeFileSync(
-      join(tmpDir, '.github', 'ai-os', 'agents.json'),
-      JSON.stringify([{ name: 'a' }])
+      join(tmpDir, '.github', 'ai-os', 'context', 'existing-ai-context.md'),
+      '# Existing AI Context\n\n```\n  "agents" : 1\n```\n'
     );
     writeFileSync(join(tmpDir, '.github', 'agents', 'my-agent.agent.md'), '## Goal\nDo things\n## Constraints\nNone');
     const report = detectDrift(tmpDir);

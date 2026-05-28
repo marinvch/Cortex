@@ -634,7 +634,8 @@ export function createSdkServer(): McpServer {
       const kind = args['kind'] ? String(args['kind']) : undefined;
       const tag = args['tag'] ? String(args['tag']) : undefined;
       const results = searchSymbols(root, query, kind, tag);
-      if (results.length === 0) return 'No symbols found. Run `ai-os --index` to build the index first.';
+      if (results === null) return 'No symbol index found. Run `ai-os --index` to build the index first.';
+      if (results.length === 0) return `No symbols matching "${query}"${kind ? ` of kind "${kind}"` : ''}${tag ? ` with tag "${tag}"` : ''} were found in the index.`;
       return results.map(r =>
         `${r.kind} ${r.name} — ${r.file}:${r.line}${r.signature ? ` (${r.signature})` : ''}${r.tags.length > 0 ? ` [${r.tags.join(', ')}]` : ''}`,
       ).join('\n');
@@ -654,7 +655,10 @@ export function createSdkServer(): McpServer {
       const root = getProjectRoot();
       const filePath = String(args['file_path'] ?? '');
       const result = getFilePurpose(root, filePath);
-      if (!result) return `No index entry for "${filePath}". Run \`ai-os --index\` first, or check the path.`;
+      if ('notFound' in result) {
+        if (result.noIndex) return `No symbol index found. Run \`ai-os --index\` first, then retry.`;
+        return `"${filePath}" is not in the index. Run \`ai-os --index\` to rebuild, or check the path.`;
+      }
       const lines = [
         `File: ${result.path}`,
         `Language: ${result.language}`,

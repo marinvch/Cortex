@@ -29,6 +29,15 @@ export function collectRecommendations(stack: DetectedStack): CollectedRecommend
   const seenSkills = new Set<string>();
   const seenExt = new Set<string>();
 
+  // Build a fallback source map from universal recommendations so stack-specific
+  // entries with no skillSources can resolve known skills (e.g. context7).
+  const universalSkillSources: Record<string, string> = {};
+  for (const rec of UNIVERSAL_RECOMMENDATIONS) {
+    for (const [skillName, source] of Object.entries(rec.skillSources ?? {})) {
+      if (!universalSkillSources[skillName]) universalSkillSources[skillName] = source;
+    }
+  }
+
   function applyRec(rec: StackRecommendation, isUniversal = false): void {
     if (rec.mcp && !seenMcp.has(rec.mcp.package)) {
       seenMcp.add(rec.mcp.package);
@@ -43,11 +52,10 @@ export function collectRecommendations(stack: DetectedStack): CollectedRecommend
     for (const skill of rec.skills ?? []) {
       if (!seenSkills.has(skill)) {
         seenSkills.add(skill);
+        const source = rec.skillSources?.[skill] ?? universalSkillSources[skill];
         if (isUniversal) {
-          const source = rec.skillSources?.[skill];
           collected.universalSkills.push({ trigger: rec.trigger, name: skill, source });
         } else {
-          const source = rec.skillSources?.[skill];
           collected.skills.push({ trigger: rec.trigger, name: skill, source });
         }
       }
@@ -107,7 +115,7 @@ function generateRecommendationsDoc(stack: DetectedStack, collected: CollectedRe
   lines.push('| Review | `/review` | Severity-tagged code review (Critical → Required → Optional → FYI) |');
   lines.push('| Ship | `/ship` | Pre-ship checklist — tests, secrets scan, changelog, version bump |');
   lines.push('');
-  lines.push('> These prompts are available as VS Code Copilot slash commands via `.github/copilot/prompts.json`.');
+  lines.push('>  Use them in Copilot Chat, or map them to VS Code slash commands by adding prompt files to `.github/copilot/prompts/`.');
   lines.push('');
 
   if (collected.mcp.length > 0) {

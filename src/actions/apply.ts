@@ -87,7 +87,11 @@ function isCustomArtifact(relPath: string): boolean {
 
 function ensureGitignoreEntry(cwd: string, entry: string): void {
   const gitignorePath = path.join(cwd, '.gitignore');
-  if (!fs.existsSync(gitignorePath)) return;
+  if (!fs.existsSync(gitignorePath)) {
+    // Create .gitignore with just this entry if the file doesn't exist (#251)
+    fs.writeFileSync(gitignorePath, `${entry}\n`, 'utf-8');
+    return;
+  }
 
   const current = fs.readFileSync(gitignorePath, 'utf-8');
   const lines = current.split(/\r?\n/);
@@ -600,14 +604,18 @@ function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPat
 
   // Skills already copied locally by AI OS — global install is redundant for these
   const localSkillsDir = path.join(cwd, '.github', 'copilot', 'skills');
+  const canonicalSkillsDir = path.join(cwd, '.github', 'skills');
   const locallyInstalled = new Set(
     allSuperpowers
-      .filter(s => fs.existsSync(path.join(localSkillsDir, `${s.name}.md`)))
+      .filter(s =>
+        fs.existsSync(path.join(localSkillsDir, `${s.name}.md`)) ||
+        fs.existsSync(path.join(canonicalSkillsDir, s.name, 'SKILL.md'))
+      )
       .map(s => s.name.toLowerCase())
   );
 
   if (locallyInstalled.size > 0) {
-    console.log(`  🦸 ${locallyInstalled.size} Superpowers skill(s) already available as local project skills in .github/copilot/skills/ — skipping global install.`);
+    console.log(`  🦸 ${locallyInstalled.size} Superpowers skill(s) already available as local project skills in .github/skills/ or .github/copilot/skills/ — skipping global install.`);
     console.log('     (Global install via `npx -y skills add` is only needed for other agents that don\'t read project-local skills.)');
     console.log('');
   }
@@ -859,7 +867,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     recommendationFiles.push(recPath);
     // Skills gap report (stdout only, not written to disk)
     const skillsLockPath = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'skills-lock.json');
-    const gapReport = getSkillsGapReport(stack, skillsLockPath);
+    const gapReport = getSkillsGapReport(stack, skillsLockPath, cwd);
     if (gapReport) console.log(`\n${gapReport}\n`);
   }
 

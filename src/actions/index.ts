@@ -29,7 +29,7 @@ export interface IndexOptions {
   regenContext?: boolean;
   dryRun?: boolean;
   quiet?: boolean;
-  /** Directory containing spec .md files. Defaults to docs/superpowers/specs/. */
+  /** Directory containing spec .md files. Defaults to .github/ai-os/specs/. */
   specDir?: string;
 }
 
@@ -176,7 +176,7 @@ export async function indexRepo(opts: IndexOptions): Promise<IndexResult> {
   };
 
   // Build spec entries — include unchanged symbols too in incremental mode
-  const specDirPath = opts.specDir ?? path.join(cwd, 'docs', 'superpowers', 'specs');
+  const specDirPath = opts.specDir ?? path.join(cwd, '.github', 'ai-os', 'specs');
   const changedPathsForSpec = new Set(fileEntries.map(f => f.path));
   const existingSymbolsForSpec = incremental && fs.existsSync(outputPath)
     ? loadExistingEntries(outputPath)

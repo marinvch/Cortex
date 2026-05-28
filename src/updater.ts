@@ -269,6 +269,30 @@ export function pruneLegacyArtifacts(targetDir: string, options?: LegacyPruneOpt
     } catch { /* best-effort */ }
   }
 
+  // Untrack .github/ai-os/mcp-server/index.js from git if previously committed (#251)
+  // The file is a build artifact; it must exist on disk for the MCP server to run,
+  // but it must NOT be committed to source control. `ensureGitignoreEntry` prevents
+  // future tracking; this step untracks any copy already in the index.
+  const mcpBundleRelPath = '.github/ai-os/mcp-server/index.js';
+  const mcpBundleAbsPath = path.join(targetDir, '.github', 'ai-os', 'mcp-server', 'index.js');
+  if (fs.existsSync(mcpBundleAbsPath)) {
+    try {
+      const isTracked = spawnSync('git', ['ls-files', '--error-unmatch', mcpBundleRelPath], {
+        cwd: targetDir,
+        encoding: 'utf-8',
+        stdio: 'pipe',
+      });
+      if (isTracked.status === 0) {
+        spawnSync('git', ['rm', '--cached', mcpBundleRelPath], {
+          cwd: targetDir,
+          encoding: 'utf-8',
+          stdio: 'pipe',
+        });
+        console.log('  🧹 Untracked .github/ai-os/mcp-server/index.js from git (build artifact)');
+      }
+    } catch { /* best-effort */ }
+  }
+
   // Remove stale !.github/superpowers/ gitignore exceptions (#250)
   const gitignorePathForCleanup = path.join(targetDir, '.gitignore');
   if (fs.existsSync(gitignorePathForCleanup)) {

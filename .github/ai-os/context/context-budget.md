@@ -53,7 +53,8 @@ When a context window reset occurs or a new session begins:
 1. Call `get_session_context` to reload the session card and MUST-ALWAYS rules
 2. Call `get_repo_memory` to reload durable architectural decisions
 3. Call `get_conventions` to reload coding rules
-4. Resume only from the last verified checkpoint — do not reconstruct reasoning from memory
-5. If work-in-progress was lost, ask the user for the last known state before resuming
+4. Call `get_active_plan` to restore the active task plan and open checkpoints
+5. Resume only from the last verified checkpoint — do not reconstruct reasoning from memory
+6. If work-in-progress was lost, ask the user for the last known state before resuming
 
 > **Rule:** Never continue with assumptions after a reset. Reload context explicitly.

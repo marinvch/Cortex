@@ -59,9 +59,20 @@ const ARTIFACT_PATHS = [
   '.github/ai-os/context/conventions.md',
   '.github/ai-os/context/architecture.md',
   '.github/ai-os/context/stack.md',
+  '.github/ai-os/context/existing-ai-context.md',
+  '.github/ai-os/context/context-budget.md',
   '.github/copilot-instructions.md',
   '.github/ai-os/config.json',
   '.github/ai-os/tools.json',
+  '.github/ai-os/context/mcp-tools.md',
+  '.github/ai-os/context/recommendations.md',
+] as const;
+
+/** Directories tracked at the directory-hash level for freshness. */
+const ARTIFACT_DIRS = [
+  '.github/agents',
+  '.github/instructions',
+  '.github/skills',
 ] as const;
 
 /** Source/config files that indicate structural code changes when modified. */
@@ -156,6 +167,14 @@ export function captureContextSnapshot(rootDir: string, aiOsVersion: string): Co
     trackedFileCount = count;
   }
 
+  // Capture directory-level hashes for AI OS artifact directories (#238)
+  for (const rel of ARTIFACT_DIRS) {
+    const absDir = path.join(rootDir, rel);
+    if (fs.existsSync(absDir)) {
+      artifactHashes[`${rel}/`] = hashDirectory(absDir).hash;
+    }
+  }
+
   return {
     capturedAt: new Date().toISOString(),
     aiOsVersion,
@@ -213,14 +232,24 @@ export function computeFreshnessReport(rootDir: string): FreshnessReport {
     };
   }
 
-  // Compare artifact hashes
+  // Compare artifact hashes (files and directories)
+  // Skip MISSING-to-MISSING pairs — they represent files that never existed and
+  // should not inflate the fresh count or dilute the stale signal (#238).
   const staleArtifacts: string[] = [];
   let artifactTotal = 0;
   let artifactFresh = 0;
 
   for (const [rel, storedHash] of Object.entries(snapshot.artifactHashes)) {
+    let currentHash: string;
+    if (rel.endsWith('/')) {
+      const absDir = path.join(rootDir, rel.slice(0, -1));
+      currentHash = fs.existsSync(absDir) ? hashDirectory(absDir).hash : 'MISSING';
+    } else {
+      currentHash = hashFile(path.join(rootDir, rel));
+    }
+    // Skip if the file was missing at snapshot time and is still missing — it never existed
+    if (storedHash === 'MISSING' && currentHash === 'MISSING') continue;
     artifactTotal++;
-    const currentHash = hashFile(path.join(rootDir, rel));
     if (currentHash === storedHash) {
       artifactFresh++;
     } else {

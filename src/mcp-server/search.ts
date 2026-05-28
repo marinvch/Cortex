@@ -343,9 +343,9 @@ export function searchSymbols(
   query: string,
   kind?: string,
   tag?: string,
-): SymbolSearchResult[] {
+): SymbolSearchResult[] | null {
   const raw = readRepoIndex(projectRoot);
-  if (!raw) return [];
+  if (!raw) return null; // null = index does not exist yet
 
   const lower = query.toLowerCase();
   const entries = parseIndexEntries(raw);
@@ -385,16 +385,20 @@ export interface FilePurposeResult {
   size: number;
 }
 
+export type FilePurposeNotFound = { notFound: true; noIndex: boolean };
+
 /**
  * Returns purpose, exports, and tags for a specific file path from the index.
- * Falls back gracefully when no index or file entry is found.
+ * Returns `{ notFound: true, noIndex: true }` when no index has been built,
+ * `{ notFound: true, noIndex: false }` when the index exists but the file is not in it,
+ * or a `FilePurposeResult` on success.
  */
 export function getFilePurpose(
   projectRoot: string,
   filePath: string,
-): FilePurposeResult | null {
+): FilePurposeResult | FilePurposeNotFound {
   const raw = readRepoIndex(projectRoot);
-  if (!raw) return null;
+  if (!raw) return { notFound: true, noIndex: true };
 
   const normalised = filePath.replace(/\\/g, '/');
   const entries = parseIndexEntries(raw);
@@ -414,7 +418,7 @@ export function getFilePurpose(
     }
   }
 
-  return null;
+  return { notFound: true, noIndex: false };
 }
 
 export interface SpecCoverageGroup {

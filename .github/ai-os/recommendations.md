@@ -15,7 +15,7 @@ AI OS embeds slash-command prompts for each lifecycle phase. Use them in order:
 | Review | `/review` | Severity-tagged code review (Critical → Required → Optional → FYI) |
 | Ship | `/ship` | Pre-ship checklist — tests, secrets scan, changelog, version bump |
 
-> These prompts are available as VS Code Copilot slash commands via `.github/copilot/prompts.json`.
+>  Use them in Copilot Chat, or map them to VS Code slash commands by adding prompt files to `.github/copilot/prompts/`.
 
 ## Recommended VS Code Extensions
 
@@ -40,14 +40,16 @@ code --install-extension ms-python.black-formatter
 
 **Install via skills CLI** (source-based form `<source>@<skill>`):
 ```bash
-npx -y skills add <source>@context7 -g -a github-copilot
+npx -y skills add intellectronica/agent-skills@context7 -g -a github-copilot
 ```
-
-> ⚠️  Skills without a known source (`context7`): find the GitHub repo hosting the skill and replace `<source>` before running.
 
 ## Superpowers
 
 > Agentic software development methodology: design → plan → TDD → parallel execution → review. Works across Claude Code, GitHub Copilot CLI, Codex, Cursor, and more.
+
+
+> **Note for AI OS repos:** If this repository has AI OS installed, the skills listed below are already available as project-local copies in `.github/copilot/skills/`.
+> Global install via the commands below is only needed for agents that do **not** read project-local skills (e.g. Cursor, Augment) or for cross-repo use.
 
 **Install in your coding agent:**
 
@@ -100,4 +102,4 @@ npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot
 ```
 
 ---
-*Generated at 2026-05-21T04:58:32.823Z by AI OS*
+*Generated at 2026-05-28T07:03:44.935Z by AI OS*

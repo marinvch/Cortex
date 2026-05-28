@@ -88,6 +88,7 @@
         "src/bootstrap.ts",
         "src/actions/plan.ts",
         "src/actions/preview.ts",
+        "src/actions/summary.ts",
         "src/cli/args.ts"
       ],
       "importedBy": [
@@ -106,6 +107,18 @@
       "importedBy": [],
       "exports": [
         "runBootstrapAction"
+      ]
+    },
+    "src/actions/check-drift.ts": {
+      "path": "src/actions/check-drift.ts",
+      "imports": [
+        "src/detectors/drift.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts"
+      ],
+      "exports": [
+        "runCheckDriftAction"
       ]
     },
     "src/actions/check-freshness.ts": {
@@ -156,6 +169,43 @@
         "runDoctorAction"
       ]
     },
+    "src/actions/index.ts": {
+      "path": "src/actions/index.ts",
+      "imports": [
+        "src/detectors/symbols.ts",
+        "src/updater.ts",
+        "src/analyze.ts",
+        "src/generators/spec-parser.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts",
+        "src/tests/indexer.test.ts",
+        "src/tests/spec-traceability.test.ts"
+      ],
+      "exports": [
+        "IndexOptions",
+        "IndexResult",
+        "indexRepo"
+      ]
+    },
+    "src/actions/init.ts": {
+      "path": "src/actions/init.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/cli/dispatch.ts"
+      ],
+      "exports": [
+        "InitResult",
+        "AskFn",
+        "formatStackSummary",
+        "formatProfileDescription",
+        "runWizardLogic",
+        "runInitWizard"
+      ]
+    },
     "src/actions/plan.ts": {
       "path": "src/actions/plan.ts",
       "imports": [
@@ -180,6 +230,19 @@
         "runPreviewAction"
       ]
     },
+    "src/actions/summary.ts": {
+      "path": "src/actions/summary.ts",
+      "imports": [],
+      "importedBy": [
+        "src/actions/apply.ts",
+        "src/tests/summary.test.ts"
+      ],
+      "exports": [
+        "GenerationSummary",
+        "buildGenerationSummary",
+        "formatGenerationSummary"
+      ]
+    },
     "src/analyze.ts": {
       "path": "src/analyze.ts",
       "imports": [
@@ -190,8 +253,11 @@
       ],
       "importedBy": [
         "src/actions/apply.ts",
+        "src/actions/index.ts",
+        "src/cli/dispatch.ts",
         "src/tests/examples.test.ts",
-        "src/tests/wordpress-detection.test.ts"
+        "src/tests/wordpress-detection.test.ts",
+        "src/tests/workspace-detection.test.ts"
       ],
       "exports": [
         "analyze"
@@ -223,7 +289,9 @@
       "path": "src/cli/args.ts",
       "imports": [
         "src/profile.ts",
-        "src/types.ts"
+        "src/types.ts",
+        "src/generators/multi-editor.ts",
+        "src/generators/multi-model.ts"
       ],
       "importedBy": [
         "src/actions/apply.ts",
@@ -246,14 +314,35 @@
         "src/actions/doctor.ts",
         "src/actions/check-freshness.ts",
         "src/actions/compact-memory.ts",
+        "src/actions/check-drift.ts",
         "src/actions/apply.ts",
-        "src/uninstall.ts"
+        "src/uninstall.ts",
+        "src/actions/init.ts",
+        "src/actions/index.ts",
+        "src/analyze.ts"
       ],
       "importedBy": [
         "src/generate.ts"
       ],
       "exports": [
         "main"
+      ]
+    },
+    "src/detectors/drift.ts": {
+      "path": "src/detectors/drift.ts",
+      "imports": [],
+      "importedBy": [
+        "src/actions/check-drift.ts",
+        "src/mcp-server/sdk-server.ts",
+        "src/tests/drift.test.ts",
+        "src/tests/skill-versioning.test.ts"
+      ],
+      "exports": [
+        "DriftSeverity",
+        "DriftItem",
+        "DriftReport",
+        "detectDrift",
+        "formatDriftReport"
       ]
     },
     "src/detectors/framework.ts": {
@@ -326,10 +415,35 @@
         "detectPatterns"
       ]
     },
+    "src/detectors/symbols.ts": {
+      "path": "src/detectors/symbols.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [
+        "src/actions/index.ts",
+        "src/tests/symbol-extractors.test.ts"
+      ],
+      "exports": [
+        "TypeScriptExtractor",
+        "let",
+        "name",
+        "m",
+        "PythonExtractor",
+        "GoExtractor",
+        "JavaExtractor",
+        "RustExtractor",
+        "RubyExtractor",
+        "PhpExtractor",
+        "getExtractorForFile",
+        "EXTRACTORS"
+      ]
+    },
     "src/doctor.ts": {
       "path": "src/doctor.ts",
       "imports": [
-        "src/updater.ts"
+        "src/updater.ts",
+        "src/generators/context-docs.ts"
       ],
       "importedBy": [
         "src/actions/doctor.ts"
@@ -341,10 +455,25 @@
         "printDoctorReport"
       ]
     },
+    "src/errors.ts": {
+      "path": "src/errors.ts",
+      "imports": [],
+      "importedBy": [
+        "src/generate.ts",
+        "src/generators/utils.ts",
+        "src/tests/errors.test.ts"
+      ],
+      "exports": [
+        "AiOsErrorCode",
+        "AiOsError",
+        "formatError"
+      ]
+    },
     "src/generate.ts": {
       "path": "src/generate.ts",
       "imports": [
-        "src/cli/dispatch.ts"
+        "src/cli/dispatch.ts",
+        "src/errors.ts"
       ],
       "importedBy": [],
       "exports": []
@@ -388,12 +517,25 @@
         "src/mcp-tools.ts"
       ],
       "importedBy": [
-        "src/actions/apply.ts"
+        "src/actions/apply.ts",
+        "src/doctor.ts",
+        "src/tests/skill-versioning.test.ts"
       ],
       "exports": [
         "readAiOsConfig",
+        "computeSkillVersions",
         "generateMcpToolRefDoc",
         "generateContextDocs"
+      ]
+    },
+    "src/generators/index-docs.ts": {
+      "path": "src/generators/index-docs.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": [
+        "regenerateContextFromIndex"
       ]
     },
     "src/generators/instructions.ts": {
@@ -427,6 +569,43 @@
         "writeMcpServerConfig"
       ]
     },
+    "src/generators/multi-editor.ts": {
+      "path": "src/generators/multi-editor.ts",
+      "imports": [
+        "src/types.ts",
+        "src/generators/utils.ts"
+      ],
+      "importedBy": [
+        "src/cli/args.ts",
+        "src/tests/multi-editor.test.ts"
+      ],
+      "exports": [
+        "EditorTarget",
+        "parseEditorTarget",
+        "detectEditorTargets",
+        "generateCursorRules",
+        "generateJetBrainsContext",
+        "generateNeovimContext",
+        "generateEditorConfigs"
+      ]
+    },
+    "src/generators/multi-model.ts": {
+      "path": "src/generators/multi-model.ts",
+      "imports": [],
+      "importedBy": [
+        "src/cli/args.ts",
+        "src/tests/multi-model.test.ts"
+      ],
+      "exports": [
+        "ModelTarget",
+        "parseModelTarget",
+        "adaptForClaude",
+        "adaptForGemini",
+        "adaptForLocal",
+        "adaptInstructionsForModel",
+        "getModelOutputPath"
+      ]
+    },
     "src/generators/prompts.ts": {
       "path": "src/generators/prompts.ts",
       "imports": [
@@ -456,6 +635,20 @@
         "deployBundledSkills"
       ]
     },
+    "src/generators/spec-parser.ts": {
+      "path": "src/generators/spec-parser.ts",
+      "imports": [],
+      "importedBy": [
+        "src/actions/index.ts",
+        "src/mcp-server/search.ts",
+        "src/tests/spec-traceability.test.ts"
+      ],
+      "exports": [
+        "ParsedSpec",
+        "deriveSpecPrefix",
+        "parseSpecFiles"
+      ]
+    },
     "src/generators/toolsets.ts": {
       "path": "src/generators/toolsets.ts",
       "imports": [
@@ -471,7 +664,9 @@
     },
     "src/generators/utils.ts": {
       "path": "src/generators/utils.ts",
-      "imports": [],
+      "imports": [
+        "src/errors.ts"
+      ],
       "importedBy": [
         "src/actions/apply.ts",
         "src/actions/check-hygiene.ts",
@@ -481,6 +676,7 @@
         "src/generators/context-docs.ts",
         "src/generators/instructions.ts",
         "src/generators/mcp.ts",
+        "src/generators/multi-editor.ts",
         "src/generators/prompts.ts",
         "src/generators/skills.ts",
         "src/generators/toolsets.ts",
@@ -510,6 +706,7 @@
         "isAiOsManifest",
         "readManifest",
         "writeManifest",
+        "syncManifest",
         "FileDiff",
         "makeFileDiff",
         "recordResult",
@@ -532,6 +729,22 @@
         "generateWorkflows"
       ]
     },
+    "src/mcp-server/filesystem.ts": {
+      "path": "src/mcp-server/filesystem.ts",
+      "imports": [
+        "src/mcp-server/shared.ts"
+      ],
+      "importedBy": [
+        "src/mcp-server/sdk-server.ts"
+      ],
+      "exports": [
+        "readFile",
+        "listDirectory",
+        "runTests",
+        "runLint",
+        "runBuild"
+      ]
+    },
     "src/mcp-server/freshness-bridge.ts": {
       "path": "src/mcp-server/freshness-bridge.ts",
       "imports": [
@@ -549,8 +762,9 @@
     "src/mcp-server/index.ts": {
       "path": "src/mcp-server/index.ts",
       "imports": [
+        "src/mcp-server/utils.ts",
         "src/mcp-server/tool-definitions.ts",
-        "src/mcp-server/utils.ts"
+        "src/mcp-server/sdk-server.ts"
       ],
       "importedBy": [],
       "exports": []
@@ -608,18 +822,54 @@
         "suggestImprovements"
       ]
     },
+    "src/mcp-server/sdk-server.ts": {
+      "path": "src/mcp-server/sdk-server.ts",
+      "imports": [
+        "src/mcp-server/utils.ts",
+        "src/mcp-server/shared.ts",
+        "src/detectors/drift.ts",
+        "src/mcp-server/filesystem.ts",
+        "src/workflow-runner.ts"
+      ],
+      "importedBy": [
+        "src/mcp-server/index.ts"
+      ],
+      "exports": [
+        "createSdkServer",
+        "runSdkMcp"
+      ]
+    },
     "src/mcp-server/search.ts": {
       "path": "src/mcp-server/search.ts",
       "imports": [
-        "src/mcp-server/shared.ts"
+        "src/mcp-server/shared.ts",
+        "src/types.ts",
+        "src/generators/spec-parser.ts"
       ],
       "importedBy": [
         "src/mcp-server/utils.ts",
-        "src/tests/mcp-server-modules.test.ts"
+        "src/tests/intent-classifier.test.ts",
+        "src/tests/mcp-server-modules.test.ts",
+        "src/tests/prompt-booster.test.ts",
+        "src/tests/spec-traceability.test.ts"
       ],
       "exports": [
         "searchFiles",
-        "buildFileTree"
+        "buildFileTree",
+        "scoreVagueness",
+        "buildClarifyingQuestions",
+        "classifyIntent",
+        "boostPrompt",
+        "readRepoIndex",
+        "SymbolSearchResult",
+        "searchSymbols",
+        "FilePurposeResult",
+        "FilePurposeNotFound",
+        "getFilePurpose",
+        "SpecCoverageGroup",
+        "validateSpecCoverage",
+        "SpecForFileEntry",
+        "getSpecForFile"
       ]
     },
     "src/mcp-server/session.ts": {
@@ -647,10 +897,12 @@
       "path": "src/mcp-server/shared.ts",
       "imports": [],
       "importedBy": [
+        "src/mcp-server/filesystem.ts",
         "src/mcp-server/freshness-bridge.ts",
         "src/mcp-server/memory.ts",
         "src/mcp-server/project-introspection.ts",
         "src/mcp-server/recommendations-bridge.ts",
+        "src/mcp-server/sdk-server.ts",
         "src/mcp-server/search.ts",
         "src/mcp-server/session.ts",
         "src/mcp-server/utils.ts"
@@ -670,6 +922,7 @@
         "getRuntimeStatePath",
         "ensureMemoryStore",
         "ensureSessionMemoryStore",
+        "resolveMcpServerVersion",
         "writeTextAtomic",
         "readJsonlFile",
         "sleepSync",
@@ -711,7 +964,8 @@
       "importedBy": [
         "src/actions/apply.ts",
         "src/actions/compact-memory.ts",
-        "src/mcp-server/index.ts"
+        "src/mcp-server/index.ts",
+        "src/mcp-server/sdk-server.ts"
       ],
       "exports": [
         "getProjectRoot",
@@ -854,6 +1108,12 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/check-hygiene.test.ts": {
+      "path": "src/tests/check-hygiene.test.ts",
+      "imports": [],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/cli-args.test.ts": {
       "path": "src/tests/cli-args.test.ts",
       "imports": [
@@ -877,11 +1137,33 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/drift.test.ts": {
+      "path": "src/tests/drift.test.ts",
+      "imports": [
+        "src/detectors/drift.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/errors.test.ts": {
+      "path": "src/tests/errors.test.ts",
+      "imports": [
+        "src/errors.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/examples.test.ts": {
       "path": "src/tests/examples.test.ts",
       "imports": [
         "src/analyze.ts"
       ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/filesystem-security.test.ts": {
+      "path": "src/tests/filesystem-security.test.ts",
+      "imports": [],
       "importedBy": [],
       "exports": []
     },
@@ -907,6 +1189,48 @@
         "src/recommendations/index.ts",
         "src/types.ts"
       ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/indexer.test.ts": {
+      "path": "src/tests/indexer.test.ts",
+      "imports": [
+        "src/actions/index.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": [
+        "verifyToken",
+        "TokenPayload",
+        "formatCurrency",
+        "checkAuth",
+        "foo",
+        "stable",
+        "v1",
+        "v2",
+        "x"
+      ]
+    },
+    "src/tests/init-wizard.test.ts": {
+      "path": "src/tests/init-wizard.test.ts",
+      "imports": [
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/intent-classifier.test.ts": {
+      "path": "src/tests/intent-classifier.test.ts",
+      "imports": [
+        "src/mcp-server/search.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/mcp-prompts.test.ts": {
+      "path": "src/tests/mcp-prompts.test.ts",
+      "imports": [],
       "importedBy": [],
       "exports": []
     },
@@ -945,6 +1269,23 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/multi-editor.test.ts": {
+      "path": "src/tests/multi-editor.test.ts",
+      "imports": [
+        "src/generators/multi-editor.ts",
+        "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/multi-model.test.ts": {
+      "path": "src/tests/multi-model.test.ts",
+      "imports": [
+        "src/generators/multi-model.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/orchestration.test.ts": {
       "path": "src/tests/orchestration.test.ts",
       "imports": [
@@ -958,6 +1299,14 @@
       "imports": [
         "src/profile.ts",
         "src/types.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/prompt-booster.test.ts": {
+      "path": "src/tests/prompt-booster.test.ts",
+      "imports": [
+        "src/mcp-server/search.ts"
       ],
       "importedBy": [],
       "exports": []
@@ -1008,6 +1357,15 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/skill-versioning.test.ts": {
+      "path": "src/tests/skill-versioning.test.ts",
+      "imports": [
+        "src/generators/context-docs.ts",
+        "src/detectors/drift.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/tests/skills-cli-compat.test.ts": {
       "path": "src/tests/skills-cli-compat.test.ts",
       "imports": [
@@ -1017,6 +1375,46 @@
       ],
       "importedBy": [],
       "exports": []
+    },
+    "src/tests/spec-traceability.test.ts": {
+      "path": "src/tests/spec-traceability.test.ts",
+      "imports": [
+        "src/generators/spec-parser.ts",
+        "src/actions/index.ts",
+        "src/types.ts",
+        "src/mcp-server/search.ts"
+      ],
+      "importedBy": [],
+      "exports": [
+        "doThing",
+        "foo"
+      ]
+    },
+    "src/tests/summary.test.ts": {
+      "path": "src/tests/summary.test.ts",
+      "imports": [
+        "src/actions/summary.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/symbol-extractors.test.ts": {
+      "path": "src/tests/symbol-extractors.test.ts",
+      "imports": [
+        "src/detectors/symbols.ts"
+      ],
+      "importedBy": [],
+      "exports": [
+        "foo",
+        "bar",
+        "baz",
+        "MyService",
+        "User",
+        "Status",
+        "Role",
+        "format",
+        "loginUser"
+      ]
     },
     "src/tests/toolsets-and-chatmodes.test.ts": {
       "path": "src/tests/toolsets-and-chatmodes.test.ts",
@@ -1056,11 +1454,29 @@
       "importedBy": [],
       "exports": []
     },
+    "src/tests/workflow-runner.test.ts": {
+      "path": "src/tests/workflow-runner.test.ts",
+      "imports": [
+        "src/workflow-runner.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
+    "src/tests/workspace-detection.test.ts": {
+      "path": "src/tests/workspace-detection.test.ts",
+      "imports": [
+        "src/analyze.ts"
+      ],
+      "importedBy": [],
+      "exports": []
+    },
     "src/types.ts": {
       "path": "src/types.ts",
       "imports": [],
       "importedBy": [
         "src/actions/bootstrap.ts",
+        "src/actions/index.ts",
+        "src/actions/init.ts",
         "src/analyze.ts",
         "src/bootstrap.ts",
         "src/cli/args.ts",
@@ -1068,26 +1484,35 @@
         "src/detectors/graph.ts",
         "src/detectors/language.ts",
         "src/detectors/patterns.ts",
+        "src/detectors/symbols.ts",
         "src/generators/agents.ts",
         "src/generators/chatmodes.ts",
         "src/generators/context-docs.ts",
+        "src/generators/index-docs.ts",
         "src/generators/instructions.ts",
         "src/generators/mcp.ts",
+        "src/generators/multi-editor.ts",
         "src/generators/prompts.ts",
         "src/generators/skills.ts",
         "src/generators/toolsets.ts",
         "src/generators/workflows.ts",
+        "src/mcp-server/search.ts",
         "src/mcp-tools.ts",
         "src/profile.ts",
         "src/recommendations/index.ts",
         "src/tests/bootstrap.test.ts",
         "src/tests/generators-extended.test.ts",
         "src/tests/generators.test.ts",
+        "src/tests/indexer.test.ts",
+        "src/tests/init-wizard.test.ts",
+        "src/tests/intent-classifier.test.ts",
         "src/tests/mcp-tool-definitions.test.ts",
+        "src/tests/multi-editor.test.ts",
         "src/tests/orchestration.test.ts",
         "src/tests/profile.test.ts",
         "src/tests/schema-validate.test.ts",
         "src/tests/skills-cli-compat.test.ts",
+        "src/tests/spec-traceability.test.ts",
         "src/tests/toolsets-and-chatmodes.test.ts"
       ],
       "exports": [
@@ -1097,12 +1522,25 @@
         "BuildCommands",
         "DetectedStack",
         "PackageProfile",
+        "WorkspacePackage",
         "FileNode",
         "DependencyGraph",
         "InstallProfile",
         "AiOsConfig",
         "isAiOsConfig",
         "AgentRegistryEntry",
+        "SymbolKind",
+        "SymbolExtract",
+        "LanguageExtractor",
+        "MetaIndexEntry",
+        "FileIndexEntry",
+        "SymbolIndexEntry",
+        "SpecIndexEntry",
+        "RepoIndexEntry",
+        "IntentType",
+        "ClarifyingQuestion",
+        "IntentResult",
+        "BoostPromptResult",
         "AgentRegistry",
         "isAgentRegistry"
       ]
@@ -1128,6 +1566,7 @@
       "imports": [],
       "importedBy": [
         "src/actions/apply.ts",
+        "src/actions/index.ts",
         "src/cli/dispatch.ts",
         "src/doctor.ts",
         "src/generators/context-docs.ts",
@@ -1246,6 +1685,26 @@
       "importedBy": [],
       "exports": []
     },
+    "src/workflow-runner.ts": {
+      "path": "src/workflow-runner.ts",
+      "imports": [],
+      "importedBy": [
+        "src/mcp-server/sdk-server.ts",
+        "src/tests/workflow-runner.test.ts"
+      ],
+      "exports": [
+        "WorkflowStep",
+        "WorkflowDefinition",
+        "WorkflowValidationError",
+        "WorkflowRunPlan",
+        "parseWorkflowYaml",
+        "validateWorkflow",
+        "buildWorkflowRunPlan",
+        "formatRunPlan",
+        "listWorkflows",
+        "loadWorkflow"
+      ]
+    },
     "vitest.config.ts": {
       "path": "vitest.config.ts",
       "imports": [],
@@ -1253,6 +1712,6 @@
       "exports": []
     }
   },
-  "generatedAt": "2026-05-21T04:58:32.793Z",
-  "fileCount": 95
+  "generatedAt": "2026-05-28T07:03:44.914Z",
+  "fileCount": 126
 }

@@ -2,18 +2,39 @@
 name: ai-os Initializer
 description: Maintain and evolve the AI framework artifacts for the ai-os repo (docs, skills, prompts) using the real TypeScript stack.
 argument-hint: "What artifact to update or create (e.g. "update skills", "add agent for auth")"
+model: gpt-4.1
+tools: ["changes", "codebase", "editFiles", "fetch", "problems", "runCommands", "search", "searchResults", "usages"]
 ---
+
+## Goal
+
+Maintain and evolve AI OS artifacts for **ai-os** so that Copilot agents always have accurate, up-to-date context. This includes context docs, skills, prompts, agents, and instructions.
+
+## Constraints
+
+- Only modify files under `.github/` and `docs/ai/` — never touch application source code
+- Preserve user-edited blocks (marked `<!-- USER BLOCK -->`) during any refresh
+- Ask before performing irreversible operations (delete, bulk overwrite)
+- Follow the coding conventions in `.github/ai-os/context/conventions.md`
 
 This agent operates on the **ai-os** codebase (TypeScript).
 
 It maintains the AI OS artifacts:
 
 - `.github/ai-os/context/` — Architecture, stack, and conventions docs
-- `.github/copilot/skills/` — Skill playbooks
-- `.github/copilot/prompts.json` — Prompt templates
+- `.github/skills/` — Skill playbooks
 - `.github/agents/` — Specialized agents
 - `.github/copilot-instructions.md` — Main Copilot instructions
 - `docs/ai/session_memory.md` — Session memory log
+
+## Session Bootstrap
+
+At the start of every session:
+
+1. Call `get_session_context` → reload MUST-ALWAYS rules and build commands
+2. Call `get_repo_memory` → reload durable architectural decisions
+3. Call `get_conventions` → reload coding rules
+4. Call `get_context_freshness` → verify no AI OS context drift before editing
 
 ## Operating Guide
 

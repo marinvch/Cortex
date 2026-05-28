@@ -403,6 +403,194 @@
         "type": "object",
         "properties": {}
       }
+    },
+    {
+      "name": "detect_drift",
+      "description": "Scans AI OS artifacts (skills, instructions, agents, MCP config, context snapshot) for drift. Reports missing files, unreplaced template placeholders, stale context snapshot (>7 days), broken MCP server paths, agent schema gaps, and skills not listed in instructions. Returns a formatted report; exits non-zero when errors exist.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "verbose": {
+            "type": "boolean",
+            "description": "Include healthy files in output (default: false)"
+          }
+        }
+      }
+    },
+    {
+      "name": "read_file",
+      "description": "Read the content of a file within the project root. Path traversal outside the project root is blocked. Files larger than 32 KB are rejected with a helpful message.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path to the file, relative to the project root (e.g. \"src/utils.ts\")"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "list_directory",
+      "description": "List the contents of a directory within the project root. Returns file names with sizes and directory names. Ignores node_modules, dist, .git, and other build artefacts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Directory path relative to project root (default: \".\" = project root)"
+          }
+        }
+      }
+    },
+    {
+      "name": "run_tests",
+      "description": "Run the project test suite (`npm run test` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or \"allowRunTools\": true in .github/ai-os/config.json.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "run_lint",
+      "description": "Run the project linter (`npm run lint` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or \"allowRunTools\": true in .github/ai-os/config.json.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "run_build",
+      "description": "Run the project build (`npm run build` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or \"allowRunTools\": true in .github/ai-os/config.json.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "run_workflow",
+      "description": "Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "workflow_name": {
+            "type": "string",
+            "description": "Workflow filename (e.g. \"feature-pipeline.yml\"). Omit to list all workflows."
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "Show chain without executing (default: true)"
+          }
+        }
+      }
+    },
+    {
+      "name": "boost_prompt",
+      "description": "Analyses a user prompt for vagueness and, when the score is ≥ 3, returns up to 3 targeted clarifying questions so the intent can be precisely resolved before implementation. Returns vaguenessScore, triggered flag, questions array, and optional skill routing. Works without repo-index (keyword-only fallback).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "The raw user prompt to evaluate for vagueness."
+          },
+          "activeFile": {
+            "type": "string",
+            "description": "Optional: currently open file path. When provided, booster is bypassed (file-anchored prompts are specific enough)."
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "detect_intent",
+      "description": "Classifies the intent of a user prompt into one of 9 categories (new-feature, bug-fix, refactor, db-change, test-addition, dependency-update, docs-update, config-change, quick-edit). Returns intentType, confidence, affectedDomain, suggestedSkill, and an optional WORKFLOW-FORK clarifying question. Works without repo-index (keyword-only fallback).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "description": "The user prompt to classify."
+          }
+        },
+        "required": [
+          "prompt"
+        ]
+      }
+    },
+    {
+      "name": "search_symbols",
+      "description": "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Symbol name to search for (partial match)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Optional symbol kind filter: function, class, interface, type, variable, enum, method."
+          },
+          "tag": {
+            "type": "string",
+            "description": "Optional domain tag filter: auth, database, api, testing, ui, cache, payments, notifications, config, observability, utils, storage, jobs, search, security."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "get_file_purpose",
+      "description": "Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Relative path to the source file (e.g. \"src/auth/middleware.ts\")."
+          }
+        },
+        "required": [
+          "file_path"
+        ]
+      }
+    },
+    {
+      "name": "validate_spec_coverage",
+      "description": "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "show_all": {
+            "type": "boolean",
+            "description": "Show all requirements including implemented ones (default: false — gaps only)."
+          }
+        }
+      }
+    },
+    {
+      "name": "get_spec_for_file",
+      "description": "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Relative path to the source file, e.g. \"src/actions/index.ts\"."
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
     }
   ],
   "availableButInactive": [

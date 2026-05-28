@@ -482,8 +482,22 @@ async function generateAgentsWithOptions(
   for (const spec of specs) {
     const outputPath = path.join(agentsDir, spec.outputFile);
 
-    // Skip existing files in safe mode OR when preserveExistingAgents is true (safe refresh).
-    if (fs.existsSync(outputPath) && (!options.refreshExisting || options.preserveExistingAgents)) continue;
+    if (fs.existsSync(outputPath)) {
+      if (!options.refreshExisting) {
+        // First-install: never overwrite existing files.
+        continue;
+      }
+      if (options.preserveExistingAgents) {
+        // Safe refresh: only preserve user-defined (non-ai-os-generated) agents.
+        // ai-os-generated agents are always regenerated so template changes apply.
+        const existing = fs.readFileSync(outputPath, 'utf-8');
+        const isAiOsGenerated =
+          existing.includes('ai-os/context/architecture.md') ||
+          existing.includes('ai-os/context/conventions.md') ||
+          existing.includes('ai-os/context/stack.md');
+        if (!isAiOsGenerated) continue;
+      }
+    }
 
     // In safe mode, skip conceptually equivalent existing agents.
     if (!options.refreshExisting) {

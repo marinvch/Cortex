@@ -127,28 +127,20 @@ Use AI OS to make Copilot more effective than default behavior:
 
 ---
 
+<!-- AI-OS:SECTION id="mcp-tools" -->
 ## MCP Tools Available
 
-Use these tools to fetch project-specific context on demand:
+Call these MCP tools at session start (full catalog: `.github/ai-os/context/mcp-tools.md`):
 
 | Tool | When to call |
 | --- | --- |
-| `get_session_context` | **At the start of every new conversation** — reloads MUST-ALWAYS rules and key context |
-| `search_codebase` | To find symbols, patterns, or usage examples |
-| `get_project_structure` | Before exploring unfamiliar directories |
+| `get_session_context` | **At the start of every new conversation** — reloads MUST-ALWAYS rules |
+| `get_repo_memory` | Before coding — recover durable repo decisions and constraints |
 | `get_conventions` | Before writing new code in this repo |
-| `get_stack_info` | Before suggesting any library or tooling changes |
-| `get_file_summary` | To understand a file without reading it fully |
-| `get_impact_of_change` | **Before editing any file** — shows blast radius |
-| `get_dependency_chain` | To trace how a module connects to the rest of the code |
-| `get_env_vars` | Before referencing environment variables |
-| `check_for_updates` | To see if AI OS artifacts are out of date |
-| `get_memory_guidelines` | At task start to load memory safety protocol |
-| `get_repo_memory` | Before coding to recover durable repo decisions and constraints |
-| `remember_repo_fact` | After substantial tasks to persist verified learnings |
-| `get_recommendations` | To see stack-appropriate tools, extensions, and skills |
-| `suggest_improvements` | To surface architectural and tooling gaps |
-| `detect_drift` | To scan AI OS artifacts for missing/stale files before starting work |
+| `get_active_plan` | Restore the active task plan and open checkpoints |
+
+> If MCP tools are unavailable, read `.github/COPILOT_CONTEXT.md`, `.github/ai-os/context/conventions.md`, and `.github/ai-os/context/mcp-tools.md` directly.
+<!-- AI-OS:SECTION-END id="mcp-tools" -->
 
 ---
 

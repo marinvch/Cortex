@@ -59,16 +59,11 @@ See `.github/ai-os/context/stack.md` for the complete dependency inventory.
 
 ---
 
+<!-- AI-OS:SECTION id="session-restart" -->
 ## Session Restart Protocol
 
-**Start every new conversation by calling `get_session_context` before any task.**
-
-When starting a new conversation or after a context window reset:
-1. Call `get_session_context` → reloads MUST-ALWAYS rules, build commands, and key file locations
-2. Call `get_repo_memory` → reloads durable architectural decisions and constraints
-3. Call `get_conventions` → reloads coding rules and naming conventions
-4. Call `get_active_plan` → restores active task plan and open checkpoints (if any)
-5. Call `detect_drift` → checks all AI OS artifacts for missing/stale files; run `--refresh-existing` if errors found
+**Session start / after a context reset:** call `get_session_context` first (reloads the full protocol, MUST-ALWAYS rules, and build commands), then `get_repo_memory`, `get_conventions`, `get_active_plan`.
+<!-- AI-OS:SECTION-END id="session-restart" -->
 
 ---
 

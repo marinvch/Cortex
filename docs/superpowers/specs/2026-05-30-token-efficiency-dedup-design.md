@@ -68,15 +68,24 @@ All MCP schema changes are **additive optional params only**; default behavior p
 1. **`get_session_context`** (`src/mcp-server/utils.ts:22-67`): drop the `SESSION_BOOTSTRAP` append **only when `COPILOT_CONTEXT.md` exists** (the card already contains the protocol). The missing-card fallback path **keeps** the bootstrap so startup guidance is never lost.
 2. **`get_stack_info`**: keep the Mermaid diagram in `context/stack.md` (human-facing docs), but strip it from tool output by default. Add `includeDiagram?: boolean` (default `false`) to the tool schema; update the SDK Zod schema, the shared tool catalog, `mcp-tool-definitions.test.ts`, and the generated `mcp-tools.md`.
 
-## 6. Migration for existing installs
+## 6. Applying the optimized layout — fresh installs AND updates
 
-Safe-refresh mode (`preserveContextFiles=true`) preserves curated files (`copilot-instructions.md`, `COPILOT_CONTEXT.md`, context docs), so template slimming benefits only fresh installs and full regenerations unless we migrate.
+The optimized layout must reach **both** paths automatically:
 
-**Section-scoped migrator:**
-- Operates only on **AI-OS-managed sections**, matched by stable section markers/headers; never touches user-authored blocks (reuse `user-blocks.ts` boundaries).
-- Rewrites known duplicated sections to their slimmed form in place.
-- Gated behind the existing **regenerate-context opt-in**. When not opted in, emit a one-line notice: `Token-slimming migration available — re-run with --regenerate-context to apply.`
-- Idempotent: running twice produces no further change.
+- **Fresh install / full regeneration** — the slimmed generators (Phase 1) emit the optimized files directly. No extra step.
+- **Update of an existing install (`--refresh-existing`)** — runs the **auto-migration** described below **by default**, so simply updating AI OS on a repo upgrades its files to the optimized version without any opt-in flag.
+
+This is a deliberate change from the original draft, which gated migration behind `--regenerate-context`. We can run it automatically because the migrator is **section-scoped** and provably non-destructive to user content (see below). This narrows — but does not violate — the existing "safe refresh preserves curated files" guarantee: whole-file user customizations are preserved; only the AI-OS-managed default sections are rewritten in place.
+
+**Section-scoped auto-migrator:**
+- Runs automatically during every `--refresh-existing` (the standard update path), before/within the normal generation flow.
+- Operates **only on AI-OS-managed sections**, matched by stable section markers/headers; never touches user-authored blocks (reuse `user-blocks.ts` boundaries). If a managed section cannot be unambiguously located (e.g. a user heavily edited it), it is **left untouched** and a one-line notice is emitted instead of guessing.
+- Rewrites known duplicated sections (MCP tool table, Session Restart Protocol body, Context Budget Policy body, Value Mode) to their slimmed canonical form in place.
+- **Idempotent:** running on an already-optimized repo is a no-op (no churn in user PRs).
+- **Versioned:** keyed off an artifact `schemaVersion`/layout marker so the migration runs once per repo and is skipped thereafter.
+- **Safety escape hatch:** a `--no-token-migration` flag (or config key) lets a user opt **out** if they have unusual customizations; the default is opt-**in** (automatic).
+
+**Marker bootstrapping:** existing installs predate the stable section markers, so the migrator matches the **old duplicated default sections by their known content/headers** for the first pass, replaces them with marker-wrapped slimmed sections, and relies on the markers for all subsequent refreshes.
 
 ## 7. Regression guard (prevents re-bloat)
 
@@ -103,7 +112,7 @@ New test module (e.g. `src/tests/token-budget.test.ts`):
 
 1. **Phase 1 — De-dup generators/templates.** Slim `base-instructions.md`, `ai-os.instructions.md`, `prompt-quality.instructions.md`; assign canonical homes + pointers + min-rules + offline-fallback line. (Biggest win; fresh-install benefit immediately.)
 2. **Phase 2 — MCP output slimming.** `getSessionContext()` conditional append; `get_stack_info` `includeDiagram` param + contract/test updates.
-3. **Phase 3 — Section-scoped migrator** for existing installs under regenerate-context.
+3. **Phase 3 — Section-scoped auto-migrator** that runs by default on every `--refresh-existing`, upgrading existing installs to the optimized layout without an opt-in flag (with `--no-token-migration` escape hatch). Section-scoped + idempotent + version-keyed so it never clobbers user content and never re-runs needlessly.
 4. **Phase 4 — Regression-guard tests** (duplicate-block + payload-budget invariants + coverage).
 
 Each phase ends with `npm run build` + `npm run test` green.
@@ -115,7 +124,8 @@ Each phase ends with `npm run build` + `npm run test` green.
 - All safety-critical rules (guardrails, protected blocks, memory workflow, session start) remain actionable inline (min-rule present even where details moved).
 - `get_stack_info` default output contains no Mermaid; diagram still present in `context/stack.md`.
 - `get_session_context` never loses bootstrap guidance when `COPILOT_CONTEXT.md` is absent.
-- Existing installs can opt into the slimmed layout via `--regenerate-context`; safe refresh without that flag is non-destructive.
+- Both code paths converge on the optimized layout: **fresh installs** emit it directly, and **updates (`--refresh-existing`) auto-migrate** existing repos to it by default — verified by tests for both paths.
+- The auto-migrator is idempotent (no-op on already-optimized repos), version-keyed (runs once), section-scoped (rewrites only AI-OS-managed sections), and preserves all user-authored blocks; `--no-token-migration` opts out.
 - MCP tool schema changes are additive/optional; pre-existing calls remain valid.
 - `npm run build`, `npm run test`, and `npm run lint` all pass.
 

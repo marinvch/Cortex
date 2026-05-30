@@ -1,13 +1,34 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { generateInstructions } from '../generators/instructions.js';
+import type { DetectedStack } from '../types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE = fs.readFileSync(
   path.join(__dirname, '..', 'templates', 'base-instructions.md'),
   'utf-8',
 );
+
+function fakeStack(): DetectedStack {
+  return {
+    projectName: 'demo',
+    rootDir: os.tmpdir(),
+    primaryLanguage: { name: 'TypeScript', percentage: 100, fileCount: 1, extensions: ['.ts'] },
+    languages: [{ name: 'TypeScript', percentage: 100, fileCount: 1, extensions: ['.ts'] }],
+    frameworks: [],
+    primaryFramework: null,
+    keyFiles: ['package.json'],
+    buildCommands: { build: 'npm run build', test: 'npm test' },
+    allDependencies: [],
+    patterns: {
+      packageManager: 'npm', hasTypeScript: true, namingConvention: 'kebab-case',
+      linter: 'ESLint', formatter: 'none detected', testFramework: 'Vitest', testDirectory: 'none detected',
+    },
+  } as unknown as DetectedStack;
+}
 
 describe('base-instructions.md token slimming', () => {
   it('does not embed the full 16-row MCP tool catalog', () => {
@@ -36,3 +57,26 @@ describe('base-instructions.md token slimming', () => {
     expect(TEMPLATE).toMatch(/Value Mode/);
   });
 });
+
+describe('ai-os.instructions.md is lean', () => {
+  it('does not duplicate the MCP tool quick-reference list', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-instr-'));
+    generateInstructions(fakeStack(), dir, {});
+    const out = fs.readFileSync(
+      path.join(dir, '.github', 'instructions', 'ai-os.instructions.md'), 'utf-8');
+    expect(out).not.toContain('**Quick reference:**');
+    expect(out).toContain('## Value Mode');
+  });
+});
+
+describe('prompt-quality.instructions.md is lean', () => {
+  it('does not duplicate MCP health/tool guidance', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-pqp-'));
+    generateInstructions(fakeStack(), dir, {});
+    const out = fs.readFileSync(
+      path.join(dir, '.github', 'instructions', 'prompt-quality.instructions.md'), 'utf-8');
+    expect(out).not.toContain('## 5. MCP Health Check');
+    expect(out).toContain('## 5. Plan-Mode Trigger');
+  });
+});
+

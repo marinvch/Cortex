@@ -30,4 +30,9 @@ describe('base-instructions.md token slimming', () => {
     expect(TEMPLATE).not.toContain('get_file_summary` — before reading full files (token-efficient)');
     expect(TEMPLATE).toContain('context/context-budget.md');
   });
+
+  it('keeps Value Mode as a single compact line for multi-editor parity', () => {
+    expect(TEMPLATE).not.toContain('**Problem Understanding First:**');
+    expect(TEMPLATE).toMatch(/Value Mode/);
+  });
 });

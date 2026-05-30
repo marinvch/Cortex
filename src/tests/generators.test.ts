@@ -355,9 +355,8 @@ describe('AI OS value mode guidance', () => {
     const content = fs.readFileSync(instructionsPath, 'utf-8');
 
     expect(content).toContain('## AI OS Value Mode');
-    expect(content).toContain('Problem Understanding First');
-    expect(content).toContain('Token Spending Discipline');
-    expect(content).toContain('User-Value Delivery');
+    expect(content).toContain('Restate the goal in implementation terms');
+    expect(content).toContain('.github/instructions/ai-os.instructions.md');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

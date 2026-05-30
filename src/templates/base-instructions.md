@@ -112,13 +112,11 @@ Audit instruction drift first. If context is missing, fill architecture/build/pi
 
 ---
 
+<!-- AI-OS:SECTION id="value-mode" -->
 ## AI OS Value Mode
 
-Use AI OS to make Copilot more effective than default behavior:
-
-1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.
-2. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse already loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.
-3. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.
+Restate the goal in implementation terms, prefer targeted retrieval over full reads, deliver end-to-end (implement + validate), and surface tradeoffs. Full guidance lives in `.github/instructions/ai-os.instructions.md`.
+<!-- AI-OS:SECTION-END id="value-mode" -->
 
 ---
 

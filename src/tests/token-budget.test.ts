@@ -25,4 +25,9 @@ describe('base-instructions.md token slimming', () => {
     expect(TEMPLATE).not.toContain('reloads MUST-ALWAYS rules, build commands, and key file locations');
     expect(TEMPLATE).toMatch(/Session start.*get_session_context/i);
   });
+
+  it('keeps only a compact Context Budget summary (canonical: context-budget.md)', () => {
+    expect(TEMPLATE).not.toContain('get_file_summary` — before reading full files (token-efficient)');
+    expect(TEMPLATE).toContain('context/context-budget.md');
+  });
 });

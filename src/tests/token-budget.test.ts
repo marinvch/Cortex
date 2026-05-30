@@ -20,4 +20,9 @@ describe('base-instructions.md token slimming', () => {
   it('keeps an offline fallback pointer', () => {
     expect(TEMPLATE).toContain('If MCP tools are unavailable');
   });
+
+  it('does not restate the numbered Session Restart Protocol (canonical: COPILOT_CONTEXT.md)', () => {
+    expect(TEMPLATE).not.toContain('reloads MUST-ALWAYS rules, build commands, and key file locations');
+    expect(TEMPLATE).toMatch(/Session start.*get_session_context/i);
+  });
 });

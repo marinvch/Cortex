@@ -7,6 +7,7 @@ import { buildDependencyGraph } from '../detectors/graph.js';
 import { getToolVersion } from '../updater.js';
 import { writeIfChanged, writeFileAtomic, sanitizeForInstructions } from './utils.js';
 import { MCP_TOOL_DEFINITIONS } from '../mcp-tools.js';
+import type { ModelTarget } from './multi-model.js';
 
 const DEFAULT_AI_OS_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projectName' | 'primaryLanguage' | 'primaryFramework' | 'frameworks' | 'packageManager' | 'hasTypeScript'> = {
   agentsMd: false,
@@ -650,6 +651,8 @@ function mergeSections(existing: string, updated: string): string {
 interface GenerateContextDocsOptions {
   /** When true, skip overwriting curated context files that already exist (architecture.md, conventions.md). */
   preserveContextFiles?: boolean;
+  /** Target AI model — persisted to config.json so subsequent refreshes inherit the setting. */
+  model?: ModelTarget;
 }
 
 /**
@@ -864,6 +867,12 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude,
     // Skill version tracking — refreshed on every generation run
     skillVersions: computeSkillVersions(outputDir),
+    // AI model preference — persisted so refreshes inherit the selection
+    ...(options?.model && options.model !== 'copilot'
+      ? { model: options.model }
+      : existingConfig?.model
+        ? { model: existingConfig.model }
+        : {}),
   };
 
   const aiOsDir = path.join(outputDir, '.github', 'ai-os');

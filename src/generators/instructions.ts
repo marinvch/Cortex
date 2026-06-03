@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { writeIfChanged, resolveTemplatesDir, sanitizeForInstructions } from './utils.js';
+import { generateClaudeCodeMd, adaptInstructionsForModel, getModelOutputPath, type ModelTarget } from './multi-model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = resolveTemplatesDir(__dirname);
@@ -153,6 +154,8 @@ interface GenerateInstructionsOptions {
   /** When true, skip overwriting copilot-instructions.md if it already exists. */
   preserveContextFiles?: boolean;
   config?: AiOsConfig;
+  /** Target AI model — triggers generation of CLAUDE.md when 'claude' or 'both'. */
+  model?: ModelTarget;
 }
 
 /** Enforce an 8 KB cap on copilot-instructions.md. Truncates at the last section boundary that fits. */
@@ -462,6 +465,21 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
   writeIfChanged(autoActivationPath, autoActivationContent);
 
   const outputFiles = [outputPath, autoActivationPath];
+
+  // Generate Claude Code files when model is 'claude' or 'both'
+  const effectiveModel = options?.model ?? options?.config?.model ?? 'copilot';
+  if (effectiveModel === 'claude' || effectiveModel === 'both') {
+    // 1. CLAUDE.md at project root — read by Claude Code CLI
+    const claudeMdPath = path.join(outputDir, 'CLAUDE.md');
+    if (!(options?.preserveContextFiles && fs.existsSync(claudeMdPath))) {
+      writeIfChanged(claudeMdPath, generateClaudeCodeMd(content, stack.projectName));
+    }
+    outputFiles.push(claudeMdPath);
+    // 2. XML-tagged companion file for Claude API use
+    const claudeApiPath = getModelOutputPath('claude', githubDir);
+    writeIfChanged(claudeApiPath, adaptInstructionsForModel(content, 'claude'));
+    outputFiles.push(claudeApiPath);
+  }
 
   // Generate path-specific instruction files if enabled
   if (config?.pathSpecificInstructions !== false) {

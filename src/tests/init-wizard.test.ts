@@ -86,18 +86,31 @@ describe('runInitWizard', () => {
   it('returns chosen profile when user confirms', async () => {
     const { runWizardLogic } = await import('../actions/init.js');
 
-    const answers = ['', 'standard', 'y'];
+    // answers: stack confirm, profile, model, proceed
+    const answers = ['', 'standard', 'copilot', 'y'];
     let idx = 0;
     const ask = async (_prompt: string) => answers[idx++] ?? '';
 
     const result = await runWizardLogic(minimalStack({ rootDir: tmp }), ask);
-    expect(result).toEqual({ proceed: true, profile: 'standard' });
+    expect(result).toEqual({ proceed: true, profile: 'standard', model: 'copilot' });
+  });
+
+  it('returns chosen profile with claude model', async () => {
+    const { runWizardLogic } = await import('../actions/init.js');
+
+    const answers = ['', 'standard', 'claude', 'y'];
+    let idx = 0;
+    const ask = async (_prompt: string) => answers[idx++] ?? '';
+
+    const result = await runWizardLogic(minimalStack({ rootDir: tmp }), ask);
+    expect(result).toEqual({ proceed: true, profile: 'standard', model: 'claude' });
   });
 
   it('returns proceed:false when user aborts', async () => {
     const { runWizardLogic } = await import('../actions/init.js');
 
-    const answers = ['', 'minimal', 'n'];
+    // answers: stack confirm, profile, model, proceed (n = abort)
+    const answers = ['', 'minimal', 'copilot', 'n'];
     let idx = 0;
     const ask = async (_prompt: string) => answers[idx++] ?? '';
 

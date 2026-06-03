@@ -61,7 +61,7 @@ Options:
   --full-diff                 Show full file diffs
   --profile <name>            Install profile: minimal, standard, full
   --editor <name>             Target editor: vscode, cursor, jetbrains, neovim, all
-  --model <name>              Target model: copilot, claude, gemini, local
+  --model <name>              Target model: copilot, claude, gemini, local, both
   --prune-custom-artifacts    Also prune custom artifacts (agents, skills, prompts)
   --help, -h                  Show this help message
 `);

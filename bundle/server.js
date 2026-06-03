@@ -3225,8 +3225,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path13) {
-      let input = path13;
+    function removeDotSegments(path14) {
+      let input = path14;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3478,8 +3478,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path13, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
+        const [path14, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path14 && path14 !== "/" ? path14 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -12580,10 +12580,13 @@ var require_dist = __commonJS({
   }
 });
 
+// src/mcp-server/index.ts
+import { approveAll } from "@github/copilot-sdk";
+
 // src/mcp-server/utils.ts
 import fs8 from "node:fs";
-import path8 from "node:path";
-import { fileURLToPath as fileURLToPath2 } from "node:url";
+import path9 from "node:path";
+import { fileURLToPath as fileURLToPath3 } from "node:url";
 
 // src/updater.ts
 import path from "node:path";
@@ -12634,6 +12637,7 @@ function getLatestResolvableVersion(toolVersion) {
 // src/mcp-server/shared.ts
 import fs from "node:fs";
 import path2 from "node:path";
+import { fileURLToPath as fileURLToPath2 } from "node:url";
 var ROOT = process.env["AI_OS_ROOT"] ?? process.cwd();
 function readAiOsFile(relPath) {
   try {
@@ -12696,6 +12700,24 @@ function ensureSessionMemoryStore() {
   if (!fs.existsSync(failurePath)) {
     fs.writeFileSync(failurePath, "", "utf-8");
   }
+}
+function resolveMcpServerVersion(importMetaUrl) {
+  const dir = path2.dirname(fileURLToPath2(importMetaUrl));
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path2.join(dir, "runtime-manifest.json"), "utf-8")
+    );
+    if (manifest.sourceVersion) return manifest.sourceVersion;
+  } catch {
+  }
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path2.join(dir, "..", "..", "package.json"), "utf-8")
+    );
+    return pkg.version ?? "0.0.0";
+  } catch {
+  }
+  return "0.0.0";
 }
 function writeTextAtomic(filePath, content) {
   const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
@@ -13081,8 +13103,6 @@ function getRepoMemory(query, category, limit) {
     lines.push("");
     const state = entry.status === "stale" ? "stale" : "active";
     lines.push(`- **${entry.title}** [${entry.category}] (${state})`);
-    lines.push(`  - Created: ${entry.createdAt}`);
-    lines.push(`  - Updated: ${entry.updatedAt ?? entry.createdAt}`);
     if (entry.tags.length > 0) {
       lines.push(`  - Tags: ${entry.tags.join(", ")}`);
     }
@@ -13639,7 +13659,28 @@ function resetSessionState() {
 // src/mcp-server/search.ts
 import { spawnSync as spawnSync2 } from "node:child_process";
 import fs4 from "node:fs";
+import path5 from "node:path";
+
+// src/generators/spec-parser.ts
 import path4 from "node:path";
+function deriveSpecPrefix(filename) {
+  const base = path4.basename(filename, ".md");
+  const slug = base.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-design$/, "");
+  const words = slug.split("-").filter(Boolean);
+  if (words.length === 1) return words[0].toUpperCase();
+  return words.slice(0, 2).map(abbreviateWord).join("-").toUpperCase();
+}
+function abbreviateWord(word) {
+  if (word.length <= 6) return word;
+  const truncated = word.slice(0, 5);
+  const last = truncated[truncated.length - 1];
+  if (!"aeiou".includes(last)) return truncated;
+  const prev = truncated[truncated.length - 2];
+  if ("cg".includes(prev) && "ei".includes(last)) return truncated;
+  return truncated.slice(0, -1);
+}
+
+// src/mcp-server/search.ts
 function searchFiles(query, filePattern, caseSensitive = false) {
   try {
     const args = ["--yes", "ripgrep"];
@@ -13687,7 +13728,7 @@ function buildFileTree(dir, depth = 0, maxDepth = 4) {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         lines.push(`${prefix}${entry.name}/`);
-        lines.push(...buildFileTree(path4.join(dir, entry.name), depth + 1, maxDepth));
+        lines.push(...buildFileTree(path5.join(dir, entry.name), depth + 1, maxDepth));
       } else {
         lines.push(`${prefix}${entry.name}`);
       }
@@ -13972,7 +14013,7 @@ function boostPrompt(prompt, activeFile) {
   };
 }
 function readRepoIndex(projectRoot) {
-  const indexPath = path4.join(projectRoot, ".github", "ai-os", "context", "repo-index.jsonl");
+  const indexPath = path5.join(projectRoot, ".github", "ai-os", "context", "repo-index.jsonl");
   try {
     if (fs4.existsSync(indexPath)) return fs4.readFileSync(indexPath, "utf-8");
   } catch {
@@ -13990,7 +14031,7 @@ function parseIndexEntries(raw) {
 }
 function searchSymbols(projectRoot, query, kind, tag) {
   const raw = readRepoIndex(projectRoot);
-  if (!raw) return [];
+  if (!raw) return null;
   const lower = query.toLowerCase();
   const entries = parseIndexEntries(raw);
   const results = [];
@@ -14016,7 +14057,7 @@ function searchSymbols(projectRoot, query, kind, tag) {
 }
 function getFilePurpose(projectRoot, filePath) {
   const raw = readRepoIndex(projectRoot);
-  if (!raw) return null;
+  if (!raw) return { notFound: true, noIndex: true };
   const normalised = filePath.replace(/\\/g, "/");
   const entries = parseIndexEntries(raw);
   for (const entry of entries) {
@@ -14033,13 +14074,75 @@ function getFilePurpose(projectRoot, filePath) {
       };
     }
   }
-  return null;
+  return { notFound: true, noIndex: false };
+}
+function validateSpecCoverage(projectRoot) {
+  const raw = readRepoIndex(projectRoot);
+  if (!raw) return [];
+  const entries = parseIndexEntries(raw);
+  const specEntries = entries.filter((e) => e.type === "spec");
+  if (specEntries.length === 0) return [];
+  const byFile = /* @__PURE__ */ new Map();
+  for (const e of specEntries) {
+    const file = e["specFile"] ?? "unknown";
+    if (!byFile.has(file)) byFile.set(file, []);
+    byFile.get(file).push(e);
+  }
+  const results = [];
+  for (const [specFile, reqs] of byFile) {
+    const requirements = reqs.map((e) => {
+      const rawBy = e["implementedBy"];
+      const implementedBy = Array.isArray(rawBy) ? rawBy.filter((x) => typeof x === "string") : [];
+      return {
+        specId: e["specId"] ?? "",
+        title: e["title"] ?? "",
+        implemented: implementedBy.length > 0,
+        implementedBy
+      };
+    });
+    const covered = requirements.filter((r) => r.implemented).length;
+    results.push({
+      specPrefix: deriveSpecPrefix(specFile),
+      specFile,
+      covered,
+      total: requirements.length,
+      ratio: requirements.length > 0 ? covered / requirements.length : 0,
+      requirements
+    });
+  }
+  return results.sort((a, b) => a.specFile.localeCompare(b.specFile));
+}
+function getSpecForFile(projectRoot, filePath) {
+  const raw = readRepoIndex(projectRoot);
+  if (!raw) return [];
+  const root = projectRoot.replace(/\\/g, "/").replace(/\/$/, "");
+  let normalised = filePath.replace(/\\/g, "/");
+  if (normalised.startsWith(root + "/")) normalised = normalised.slice(root.length + 1);
+  const entries = parseIndexEntries(raw);
+  const results = [];
+  for (const entry of entries) {
+    if (entry.type !== "spec") continue;
+    const rawBy = entry["implementedBy"];
+    const implementedBy = Array.isArray(rawBy) ? rawBy.filter((x) => typeof x === "string") : [];
+    const isImplemented = implementedBy.some((f) => {
+      const fn = f.replace(/\\/g, "/");
+      return fn === normalised || fn.endsWith(`/${normalised}`);
+    });
+    if (isImplemented) {
+      results.push({
+        specId: entry["specId"] ?? "",
+        title: entry["title"] ?? "",
+        specFile: entry["specFile"] ?? ""
+      });
+    }
+  }
+  return results;
 }
 
 // src/mcp-server/project-introspection.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
 import fs5 from "node:fs";
-import path5 from "node:path";
+import path6 from "node:path";
 function spawnRipgrep(args) {
   for (const cmd of ["rg", "ripgrep"]) {
     const r2 = spawnSync3(cmd, args, { maxBuffer: 1024 * 1024, timeout: 8e3 });
@@ -14051,7 +14154,7 @@ function spawnRipgrep(args) {
 function getPrismaSchema() {
   const candidates = ["prisma/schema.prisma", "schema.prisma", "db/schema.prisma"];
   for (const rel of candidates) {
-    const abs = path5.join(ROOT, rel);
+    const abs = path6.join(ROOT, rel);
     if (fs5.existsSync(abs)) {
       return fs5.readFileSync(abs, "utf-8");
     }
@@ -14061,7 +14164,7 @@ function getPrismaSchema() {
 function getTrpcProcedures() {
   const candidates = ["src/trpc/index.ts", "src/server/trpc.ts", "server/trpc.ts"];
   for (const rel of candidates) {
-    const abs = path5.join(ROOT, rel);
+    const abs = path6.join(ROOT, rel);
     if (!fs5.existsSync(abs)) continue;
     const content = fs5.readFileSync(abs, "utf-8");
     const lines = content.split("\n");
@@ -14088,17 +14191,17 @@ function getApiRoutes(filter) {
     if (!trimmed) return;
     routes.add(trimmed);
   }
-  const apiDir = path5.join(ROOT, "src/app/api");
+  const apiDir = path6.join(ROOT, "src/app/api");
   function scanNextApiDir(dir, prefix = "") {
     try {
       const entries = fs5.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isDirectory()) {
-          scanNextApiDir(path5.join(dir, entry.name), `${prefix}/${entry.name}`);
+          scanNextApiDir(path6.join(dir, entry.name), `${prefix}/${entry.name}`);
           continue;
         }
         if (entry.name !== "route.ts" && entry.name !== "route.js") continue;
-        const content = fs5.readFileSync(path5.join(dir, entry.name), "utf-8");
+        const content = fs5.readFileSync(path6.join(dir, entry.name), "utf-8");
         const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"].filter(
           (m) => new RegExp(`export\\s+(?:async\\s+)?function\\s+${m}`).test(content)
         );
@@ -14193,8 +14296,8 @@ function getEnvVars() {
   const envExamplePaths = [".env.example", ".env.local.example", ".env.sample", ".env.template"];
   let envContent = "";
   for (const p of envExamplePaths) {
-    if (fs5.existsSync(path5.join(ROOT, p))) {
-      envContent = fs5.readFileSync(path5.join(ROOT, p), "utf-8");
+    if (fs5.existsSync(path6.join(ROOT, p))) {
+      envContent = fs5.readFileSync(path6.join(ROOT, p), "utf-8");
       break;
     }
   }
@@ -14241,7 +14344,7 @@ function getEnvVars() {
 }
 function getPackageInfo(packageName) {
   const lines = [];
-  const pkgPath = path5.join(ROOT, "package.json");
+  const pkgPath = path6.join(ROOT, "package.json");
   if (fs5.existsSync(pkgPath)) {
     const pkg = JSON.parse(fs5.readFileSync(pkgPath, "utf-8"));
     const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
@@ -14255,7 +14358,7 @@ function getPackageInfo(packageName) {
       lines.push("", "**Node Dependencies:**", ...depPairs);
     }
   }
-  const requirementsPath = path5.join(ROOT, "requirements.txt");
+  const requirementsPath = path6.join(ROOT, "requirements.txt");
   if (fs5.existsSync(requirementsPath)) {
     const reqLines = fs5.readFileSync(requirementsPath, "utf-8").split("\n").map((line) => line.trim()).filter(Boolean).filter((line) => !line.startsWith("#"));
     if (packageName) {
@@ -14265,25 +14368,25 @@ function getPackageInfo(packageName) {
     lines.push("", `**Python Requirements:** ${reqLines.length} entries`);
     lines.push(...reqLines.slice(0, 40).map((line) => `  ${line}`));
   }
-  const pomPath = path5.join(ROOT, "pom.xml");
+  const pomPath = path6.join(ROOT, "pom.xml");
   if (fs5.existsSync(pomPath)) {
     const pom = fs5.readFileSync(pomPath, "utf-8");
     const artifact = pom.match(/<artifactId>([^<]+)<\/artifactId>/)?.[1] ?? "unknown";
     const version2 = pom.match(/<version>([^<]+)<\/version>/)?.[1] ?? "unknown";
     lines.push("", `**Maven Project:** ${artifact}@${version2}`);
   }
-  const gradlePath = path5.join(ROOT, "build.gradle");
-  const gradleKtsPath = path5.join(ROOT, "build.gradle.kts");
+  const gradlePath = path6.join(ROOT, "build.gradle");
+  const gradleKtsPath = path6.join(ROOT, "build.gradle.kts");
   if (fs5.existsSync(gradlePath) || fs5.existsSync(gradleKtsPath)) {
     lines.push("", "**Gradle Build:** detected");
   }
-  const goModPath = path5.join(ROOT, "go.mod");
+  const goModPath = path6.join(ROOT, "go.mod");
   if (fs5.existsSync(goModPath)) {
     const goMod = fs5.readFileSync(goModPath, "utf-8");
     const moduleName = goMod.match(/^module\s+(\S+)/m)?.[1] ?? "unknown";
     lines.push("", `**Go Module:** ${moduleName}`);
   }
-  const cargoPath = path5.join(ROOT, "Cargo.toml");
+  const cargoPath = path6.join(ROOT, "Cargo.toml");
   if (fs5.existsSync(cargoPath)) {
     const cargo = fs5.readFileSync(cargoPath, "utf-8");
     const name = cargo.match(/^name\s*=\s*"([^"]+)"/m)?.[1] ?? "unknown";
@@ -14296,11 +14399,11 @@ function getPackageInfo(packageName) {
   return lines.join("\n").trim();
 }
 function getFileSummary(filePath) {
-  const absPath = path5.isAbsolute(filePath) ? filePath : path5.join(ROOT, filePath);
+  const absPath = path6.isAbsolute(filePath) ? filePath : path6.join(ROOT, filePath);
   try {
     const content = fs5.readFileSync(absPath, "utf-8");
     const lines = content.split("\n");
-    const ext = path5.extname(filePath).toLowerCase();
+    const ext = path6.extname(filePath).toLowerCase();
     const exports = [];
     const imports = [];
     for (const line of lines.slice(0, 200)) {
@@ -14345,8 +14448,8 @@ function getFileSummary(filePath) {
   }
 }
 function getImpactOfChange(filePath) {
-  const newGraphPath = path5.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
-  const legacyGraphPath = path5.join(ROOT, ".ai-os", "context", "dependency-graph.json");
+  const newGraphPath = path6.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
+  const legacyGraphPath = path6.join(ROOT, ".ai-os", "context", "dependency-graph.json");
   const graphPath = fs5.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs5.existsSync(graphPath)) {
     return "Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).";
@@ -14398,8 +14501,8 @@ ${candidates.map((c) => `- ${c}`).join("\n")}`;
   return lines.join("\n");
 }
 function getDependencyChain(filePath) {
-  const newGraphPath = path5.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
-  const legacyGraphPath = path5.join(ROOT, ".ai-os", "context", "dependency-graph.json");
+  const newGraphPath = path6.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
+  const legacyGraphPath = path6.join(ROOT, ".ai-os", "context", "dependency-graph.json");
   const graphPath = fs5.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs5.existsSync(graphPath)) {
     return "Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).";
@@ -14446,7 +14549,7 @@ function getDependencyChain(filePath) {
 // src/detectors/freshness.ts
 import crypto from "node:crypto";
 import fs6 from "node:fs";
-import path6 from "node:path";
+import path7 from "node:path";
 var SNAPSHOT_PATH = ".github/ai-os/context-snapshot.json";
 function hashFile(filePath) {
   try {
@@ -14467,7 +14570,7 @@ function hashDirectory(dirPath) {
       return;
     }
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-      const full = path6.join(dir, entry.name);
+      const full = path7.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (["node_modules", ".git", "dist", "build", "coverage", ".ai-os"].includes(entry.name)) continue;
         walk(full);
@@ -14482,7 +14585,7 @@ function hashDirectory(dirPath) {
   return { count, hash: combined };
 }
 function loadContextSnapshot(rootDir) {
-  const snapshotPath = path6.join(rootDir, SNAPSHOT_PATH);
+  const snapshotPath = path7.join(rootDir, SNAPSHOT_PATH);
   if (!fs6.existsSync(snapshotPath)) return null;
   try {
     return JSON.parse(fs6.readFileSync(snapshotPath, "utf-8"));
@@ -14494,7 +14597,7 @@ function computeFreshnessReport(rootDir) {
   const snapshot = loadContextSnapshot(rootDir);
   let lastGeneratedAt = null;
   try {
-    const configPath = path6.join(rootDir, ".github", "ai-os", "config.json");
+    const configPath = path7.join(rootDir, ".github", "ai-os", "config.json");
     if (fs6.existsSync(configPath)) {
       const config2 = JSON.parse(fs6.readFileSync(configPath, "utf-8"));
       lastGeneratedAt = config2.installedAt ?? null;
@@ -14518,8 +14621,15 @@ function computeFreshnessReport(rootDir) {
   let artifactTotal = 0;
   let artifactFresh = 0;
   for (const [rel, storedHash] of Object.entries(snapshot.artifactHashes)) {
+    let currentHash;
+    if (rel.endsWith("/")) {
+      const absDir = path7.join(rootDir, rel.slice(0, -1));
+      currentHash = fs6.existsSync(absDir) ? hashDirectory(absDir).hash : "MISSING";
+    } else {
+      currentHash = hashFile(path7.join(rootDir, rel));
+    }
+    if (storedHash === "MISSING" && currentHash === "MISSING") continue;
     artifactTotal++;
-    const currentHash = hashFile(path6.join(rootDir, rel));
     if (currentHash === storedHash) {
       artifactFresh++;
     } else {
@@ -14531,7 +14641,7 @@ function computeFreshnessReport(rootDir) {
   let sourceFresh = 0;
   for (const [rel, storedHash] of Object.entries(snapshot.sourceHashes)) {
     sourceTotal++;
-    const abs = rel === "src/" ? path6.join(rootDir, "src") : path6.join(rootDir, rel);
+    const abs = rel === "src/" ? path7.join(rootDir, "src") : path7.join(rootDir, rel);
     let currentHash;
     if (rel === "src/" && fs6.existsSync(abs)) {
       currentHash = hashDirectory(abs).hash;
@@ -14645,9 +14755,9 @@ function getContextFreshness() {
 
 // src/mcp-server/recommendations-bridge.ts
 import fs7 from "node:fs";
-import path7 from "node:path";
+import path8 from "node:path";
 function getRecommendations() {
-  const recommendationsPath = path7.join(ROOT, ".github", "ai-os", "recommendations.md");
+  const recommendationsPath = path8.join(ROOT, ".github", "ai-os", "recommendations.md");
   if (fs7.existsSync(recommendationsPath)) {
     return fs7.readFileSync(recommendationsPath, "utf-8");
   }
@@ -14656,17 +14766,17 @@ function getRecommendations() {
 function suggestImprovements() {
   const suggestions = [];
   const envExamplePaths = [".env.example", ".env.local.example", ".env.sample"];
-  const hasEnvExample = envExamplePaths.some((p) => fs7.existsSync(path7.join(ROOT, p)));
+  const hasEnvExample = envExamplePaths.some((p) => fs7.existsSync(path8.join(ROOT, p)));
   if (!hasEnvExample) {
     suggestions.push("**Missing `.env.example`**: Document required environment variables so `get_env_vars` can surface them.");
   }
-  if (!fs7.existsSync(path7.join(ROOT, ".github", "COPILOT_CONTEXT.md"))) {
+  if (!fs7.existsSync(path8.join(ROOT, ".github", "COPILOT_CONTEXT.md"))) {
     suggestions.push("**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate the session context card for better session continuity.");
   }
-  if (!fs7.existsSync(path7.join(ROOT, ".github", "ai-os", "recommendations.md"))) {
+  if (!fs7.existsSync(path8.join(ROOT, ".github", "ai-os", "recommendations.md"))) {
     suggestions.push("**Missing `recommendations.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate stack-specific tool recommendations.");
   }
-  const memoryPath = path7.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
+  const memoryPath = path8.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
   if (!fs7.existsSync(memoryPath)) {
     suggestions.push("**No repository memory found**: Use `remember_repo_fact` to capture key architectural decisions.");
   } else {
@@ -14675,11 +14785,11 @@ function suggestImprovements() {
       suggestions.push("**Empty repository memory**: Use `remember_repo_fact` to capture key architectural decisions and conventions.");
     }
   }
-  const archPath = path7.join(ROOT, ".github", "ai-os", "context", "architecture.md");
+  const archPath = path8.join(ROOT, ".github", "ai-os", "context", "architecture.md");
   if (!fs7.existsSync(archPath)) {
     suggestions.push("**Missing architecture doc**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to rebuild `.github/ai-os/context/architecture.md`.");
   }
-  const configPath = path7.join(ROOT, ".github", "ai-os", "config.json");
+  const configPath = path8.join(ROOT, ".github", "ai-os", "config.json");
   if (fs7.existsSync(configPath)) {
     try {
       const config2 = JSON.parse(fs7.readFileSync(configPath, "utf-8"));
@@ -14703,9 +14813,9 @@ function suggestImprovements() {
 }
 
 // src/mcp-server/utils.ts
-var __dirname2 = path8.dirname(fileURLToPath2(import.meta.url));
+var __dirname2 = path9.dirname(fileURLToPath3(import.meta.url));
 function getProjectRoot() {
-  return path8.resolve(ROOT);
+  return path9.resolve(ROOT);
 }
 function getSessionContext() {
   const SESSION_BOOTSTRAP = [
@@ -14730,7 +14840,7 @@ function getSessionContext() {
     "> If the request is ambiguous or underspecified, ask clarifying questions first.",
     "> Do not improvise requirements or make architectural changes without confirmation."
   ].join("\n");
-  const contextCardPath = path8.join(ROOT, ".github", "COPILOT_CONTEXT.md");
+  const contextCardPath = path9.join(ROOT, ".github", "COPILOT_CONTEXT.md");
   if (fs8.existsSync(contextCardPath)) {
     return fs8.readFileSync(contextCardPath, "utf-8") + SESSION_BOOTSTRAP;
   }
@@ -14752,8 +14862,8 @@ function getSessionContext() {
   return lines.join("\n") + SESSION_BOOTSTRAP;
 }
 function checkForUpdates() {
-  const newConfigPath = path8.join(ROOT, ".github", "ai-os", "config.json");
-  const legacyConfigPath = path8.join(ROOT, ".ai-os", "config.json");
+  const newConfigPath = path9.join(ROOT, ".github", "ai-os", "config.json");
+  const legacyConfigPath = path9.join(ROOT, ".ai-os", "config.json");
   const configPath = fs8.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs8.existsSync(configPath)) {
     return "AI OS is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`";
@@ -14769,10 +14879,7 @@ function checkForUpdates() {
   }
   let toolVersion = "0.0.0";
   try {
-    const toolPkg = JSON.parse(
-      fs8.readFileSync(path8.join(__dirname2, "..", "..", "package.json"), "utf-8")
-    );
-    toolVersion = toolPkg.version ?? "0.0.0";
+    toolVersion = resolveMcpServerVersion(import.meta.url);
   } catch {
   }
   const latestVersion = getLatestResolvableVersion(toolVersion);
@@ -14800,7 +14907,7 @@ function checkForUpdates() {
 
 // src/mcp-server/tool-definitions.ts
 import fs9 from "node:fs";
-import path9 from "node:path";
+import path10 from "node:path";
 
 // src/mcp-tools.ts
 var always = () => true;
@@ -15222,6 +15329,31 @@ var MCP_TOOL_DEFINITIONS = [
       required: ["file_path"]
     },
     condition: always
+  },
+  // ── Tool #42: Spec Coverage ───────────────────────────────────────────────
+  {
+    name: "validate_spec_coverage",
+    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        show_all: { type: "boolean", description: "Show all requirements including implemented ones (default: false \u2014 gaps only)." }
+      }
+    },
+    condition: always
+  },
+  // ── Tool #43: Spec for File ───────────────────────────────────────────────
+  {
+    name: "get_spec_for_file",
+    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: 'Relative path to the source file, e.g. "src/actions/index.ts".' }
+      },
+      required: ["path"]
+    },
+    condition: always
   }
 ];
 function getAllMcpTools() {
@@ -15242,7 +15374,7 @@ function getAllMcpTools2() {
   }));
 }
 function getActiveToolsForProject(projectRoot) {
-  const toolsJsonPath = path9.join(projectRoot, ".github", "ai-os", "tools.json");
+  const toolsJsonPath = path10.join(projectRoot, ".github", "ai-os", "tools.json");
   if (!fs9.existsSync(toolsJsonPath)) {
     return getAllMcpTools2();
   }
@@ -15760,8 +15892,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path13, errorMaps, issueData } = params;
-  const fullPath = [...path13, ...issueData.path || []];
+  const { data, path: path14, errorMaps, issueData } = params;
+  const fullPath = [...path14, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -15877,11 +16009,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path13, key) {
+  constructor(parent, value, path14, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path13;
+    this._path = path14;
     this._key = key;
   }
   get path() {
@@ -19518,10 +19650,10 @@ function assignProp(target, prop, value) {
     configurable: true
   });
 }
-function getElementAtPath(obj, path13) {
-  if (!path13)
+function getElementAtPath(obj, path14) {
+  if (!path14)
     return obj;
-  return path13.reduce((acc, key) => acc?.[key], obj);
+  return path14.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -19841,11 +19973,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path13, issues) {
+function prefixIssues(path14, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path13);
+    iss.path.unshift(path14);
     return iss;
   });
 }
@@ -29495,8 +29627,7 @@ var StdioServerTransport = class {
 };
 
 // src/mcp-server/sdk-server.ts
-import path12 from "node:path";
-import { createRequire } from "node:module";
+import path13 from "node:path";
 
 // src/detectors/drift.ts
 import { existsSync, readFileSync, readdirSync } from "fs";
@@ -29540,21 +29671,56 @@ function detectSemanticDrift(cwd, warnings) {
     } catch {
     }
   }
-  const agentsRegistryPath = join(cwd, ".github/ai-os/agents.json");
-  if (existsSync(agentsRegistryPath)) {
+  const existingContextPath = join(cwd, ".github/ai-os/context/existing-ai-context.md");
+  if (existsSync(existingContextPath)) {
     try {
-      const registry2 = JSON.parse(readFileSync(agentsRegistryPath, "utf8"));
-      const registryCount = Array.isArray(registry2) ? registry2.length : 0;
+      const contextContent = readFileSync(existingContextPath, "utf8");
+      const agentCountMatch = contextContent.match(/"agents"\s*:\s*(\d+)/);
+      const recordedCount = agentCountMatch ? parseInt(agentCountMatch[1], 10) : null;
       const agentFiles = globFiles({ dir: ".github/agents", ext: ".agent.md" }, cwd);
       const fileCount = agentFiles.length;
-      if (registryCount !== fileCount) {
+      if (recordedCount !== null && recordedCount !== fileCount) {
         warnings.push({
-          path: ".github/ai-os/agents.json",
+          path: ".github/ai-os/context/existing-ai-context.md",
           kind: "semantic-mismatch",
           severity: "warning",
-          message: `agents.json lists ${registryCount} agent(s) but ${fileCount} .agent.md file(s) found in .github/agents/ \u2014 run refresh to sync`,
+          message: `existing-ai-context.md records ${recordedCount} agent(s) but ${fileCount} .agent.md file(s) found in .github/agents/ \u2014 run refresh to sync`,
           fix: FIX_CMD
         });
+      }
+      if (existsSync(configPath)) {
+        try {
+          const config2 = JSON.parse(readFileSync(configPath, "utf8"));
+          const mermaidMatch = contextContent.match(/```mermaid([\s\S]*?)```/);
+          if (mermaidMatch) {
+            const mermaidBlock = mermaidMatch[1];
+            if (config2.primaryFramework) {
+              const fwLabelMatch = mermaidBlock.match(/Fw\["([^"]+)"\]/);
+              if (fwLabelMatch && !fwLabelMatch[1].toLowerCase().includes(config2.primaryFramework.toLowerCase())) {
+                warnings.push({
+                  path: ".github/ai-os/context/existing-ai-context.md",
+                  kind: "semantic-mismatch",
+                  severity: "warning",
+                  message: `Mermaid diagram Fw label "${fwLabelMatch[1]}" does not include primary framework "${config2.primaryFramework}" from config.json \u2014 diagram may be stale`,
+                  fix: FIX_CMD
+                });
+              }
+            }
+            if (config2.primaryLanguage) {
+              const langLabelMatch = mermaidBlock.match(/Lang\["([^"]+)"\]/);
+              if (langLabelMatch && !langLabelMatch[1].toLowerCase().includes(config2.primaryLanguage.toLowerCase())) {
+                warnings.push({
+                  path: ".github/ai-os/context/existing-ai-context.md",
+                  kind: "semantic-mismatch",
+                  severity: "warning",
+                  message: `Mermaid diagram Lang label "${langLabelMatch[1]}" does not include primary language "${config2.primaryLanguage}" from config.json \u2014 diagram may be stale`,
+                  fix: FIX_CMD
+                });
+              }
+            }
+          }
+        } catch {
+        }
       }
     } catch {
     }
@@ -29565,11 +29731,11 @@ function detectDrift(cwd) {
   const warnings = [];
   const infos = [];
   const healthy = [];
-  for (const { path: path13, description } of REQUIRED_FILES) {
-    if (!existsSync(join(cwd, path13))) {
-      errors.push({ path: path13, kind: "missing", severity: "error", message: `${description} is missing`, fix: FIX_CMD });
+  for (const { path: path14, description } of REQUIRED_FILES) {
+    if (!existsSync(join(cwd, path14))) {
+      errors.push({ path: path14, kind: "missing", severity: "error", message: `${description} is missing`, fix: FIX_CMD });
     } else {
-      healthy.push(path13);
+      healthy.push(path14);
     }
   }
   const mcpPaths = [".mcp.json", ".vscode/mcp.json"];
@@ -29666,7 +29832,9 @@ function detectDrift(cwd) {
       healthy.push(agentFile);
     }
   }
-  const skillsDir = join(cwd, ".github/copilot/skills");
+  const skillsDirNew = join(cwd, ".github", "skills");
+  const skillsDirLegacy = join(cwd, ".github", "copilot", "skills");
+  const skillsDir = existsSync(skillsDirNew) ? skillsDirNew : skillsDirLegacy;
   const installedSkills = existsSync(skillsDir) ? readdirSync(skillsDir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, "")) : [];
   if (installedSkills.length > 0 && existsSync(instrPath)) {
     const instrContent = readFileSync(instrPath, "utf8");
@@ -29687,14 +29855,18 @@ function detectDrift(cwd) {
     try {
       const cfg = JSON.parse(readFileSync(configPath, "utf8"));
       if (cfg.skillVersions && Object.keys(cfg.skillVersions).length > 0) {
+        const svDirNew = join(cwd, ".github", "skills");
+        const svDirLegacy = join(cwd, ".github", "copilot", "skills");
+        const svDir = existsSync(svDirNew) ? svDirNew : svDirLegacy;
+        const svDirRel = existsSync(svDirNew) ? ".github/skills" : ".github/copilot/skills";
         for (const [skillName, expectedHash] of Object.entries(cfg.skillVersions)) {
-          const skillFilePath = join(cwd, ".github/copilot/skills", `${skillName}.md`);
+          const skillFilePath = join(svDir, `${skillName}.md`);
           if (!existsSync(skillFilePath)) {
             warnings.push({
-              path: `.github/copilot/skills/${skillName}.md`,
+              path: `${svDirRel}/${skillName}.md`,
               kind: "missing",
               severity: "warning",
-              message: `Tracked skill "${skillName}" is missing from .github/copilot/skills/`,
+              message: `Tracked skill "${skillName}" is missing from ${svDirRel}/`,
               fix: FIX_CMD
             });
           } else {
@@ -29702,14 +29874,14 @@ function detectDrift(cwd) {
             const actualHash = createHash("sha256").update(content).digest("hex").slice(0, 12);
             if (actualHash !== expectedHash) {
               warnings.push({
-                path: `.github/copilot/skills/${skillName}.md`,
+                path: `${svDirRel}/${skillName}.md`,
                 kind: "stale",
                 severity: "warning",
                 message: `Skill "${skillName}" content has changed since last generation (hash mismatch)`,
                 fix: FIX_CMD
               });
             } else {
-              healthy.push(`.github/copilot/skills/${skillName}.md`);
+              healthy.push(`${svDirRel}/${skillName}.md`);
             }
           }
         }
@@ -29788,7 +29960,7 @@ function formatDriftReport(report, verbose = false) {
 
 // src/mcp-server/filesystem.ts
 import fs10 from "node:fs";
-import path10 from "node:path";
+import path11 from "node:path";
 import { spawnSync as spawnSync4 } from "node:child_process";
 var MAX_OUTPUT_BYTES = 8 * 1024;
 var MAX_FILE_BYTES = 32 * 1024;
@@ -29809,8 +29981,8 @@ var BLOCKED_DIRS = /* @__PURE__ */ new Set([
   ".gradle"
 ]);
 function resolveSafe(userPath) {
-  const resolved = path10.resolve(ROOT, userPath);
-  if (!resolved.startsWith(ROOT + path10.sep) && resolved !== ROOT) return null;
+  const resolved = path11.resolve(ROOT, userPath);
+  if (!resolved.startsWith(ROOT + path11.sep) && resolved !== ROOT) return null;
   return resolved;
 }
 function readFile(filePath) {
@@ -29857,13 +30029,13 @@ function listDirectory(dirPath) {
     const lines = entries.map((e) => {
       if (e.isDirectory()) return `${e.name}/  [dir]`;
       try {
-        const stat = fs10.statSync(path10.join(resolved, e.name));
+        const stat = fs10.statSync(path11.join(resolved, e.name));
         return `${e.name}  (${stat.size} bytes)`;
       } catch {
         return e.name;
       }
     });
-    const relativePath = path10.relative(ROOT, resolved).replace(/\\/g, "/") || ".";
+    const relativePath = path11.relative(ROOT, resolved).replace(/\\/g, "/") || ".";
     return `Directory: ${relativePath}
 
 ${lines.join("\n")}`;
@@ -29873,7 +30045,7 @@ ${lines.join("\n")}`;
 }
 function runToolsAllowed() {
   if (process.env["AI_OS_ALLOW_RUN_TOOLS"] === "1") return true;
-  const configPath = path10.join(ROOT, ".github", "ai-os", "config.json");
+  const configPath = path11.join(ROOT, ".github", "ai-os", "config.json");
   try {
     const cfg = JSON.parse(fs10.readFileSync(configPath, "utf-8"));
     return cfg.allowRunTools === true;
@@ -29882,9 +30054,9 @@ function runToolsAllowed() {
   }
 }
 function detectPackageManager() {
-  if (fs10.existsSync(path10.join(ROOT, "bun.lockb"))) return "bun";
-  if (fs10.existsSync(path10.join(ROOT, "pnpm-lock.yaml"))) return "pnpm";
-  if (fs10.existsSync(path10.join(ROOT, "yarn.lock"))) return "yarn";
+  if (fs10.existsSync(path11.join(ROOT, "bun.lockb"))) return "bun";
+  if (fs10.existsSync(path11.join(ROOT, "pnpm-lock.yaml"))) return "pnpm";
+  if (fs10.existsSync(path11.join(ROOT, "yarn.lock"))) return "yarn";
   return "npm";
 }
 function runScript(scriptName) {
@@ -29937,7 +30109,7 @@ function runBuild() {
 
 // src/workflow-runner.ts
 import fs11 from "node:fs";
-import path11 from "node:path";
+import path12 from "node:path";
 function parseWorkflowYaml(yaml) {
   const lines = yaml.split("\n");
   const result = { steps: [] };
@@ -30061,12 +30233,12 @@ function formatRunPlan(plan) {
   return lines.filter((l) => l !== null).join("\n").replace(/\n{3,}/g, "\n\n");
 }
 function listWorkflows(cwd) {
-  const dir = path11.join(cwd, ".github", "ai-os", "workflows");
+  const dir = path12.join(cwd, ".github", "ai-os", "workflows");
   if (!fs11.existsSync(dir)) return [];
   return fs11.readdirSync(dir).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
 }
 function loadWorkflow(cwd, filename) {
-  const filepath = path11.join(cwd, ".github", "ai-os", "workflows", filename);
+  const filepath = path12.join(cwd, ".github", "ai-os", "workflows", filename);
   if (!fs11.existsSync(filepath)) {
     throw new Error(`Workflow file not found: ${filepath}`);
   }
@@ -30091,8 +30263,7 @@ function wrap(toolName, fn) {
   };
 }
 function createSdkServer() {
-  const req = createRequire(import.meta.url);
-  const pkgVersion = req("../../package.json").version;
+  const pkgVersion = resolveMcpServerVersion(import.meta.url);
   const server = new McpServer({ name: "ai-os", version: pkgVersion });
   server.registerTool(
     "search_codebase",
@@ -30116,7 +30287,7 @@ function createSdkServer() {
       }
     },
     wrap("get_project_structure", ({ path: subPath, depth }) => {
-      const startDir = subPath ? path12.join(getProjectRoot(), subPath) : getProjectRoot();
+      const startDir = subPath ? path13.join(getProjectRoot(), subPath) : getProjectRoot();
       return buildFileTree(startDir, 0, depth ?? 4).join("\n");
     })
   );
@@ -30562,7 +30733,8 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const kind = args["kind"] ? String(args["kind"]) : void 0;
       const tag = args["tag"] ? String(args["tag"]) : void 0;
       const results = searchSymbols(root, query, kind, tag);
-      if (results.length === 0) return "No symbols found. Run `ai-os --index` to build the index first.";
+      if (results === null) return "No symbol index found. Run `ai-os --index` to build the index first.";
+      if (results.length === 0) return `No symbols matching "${query}"${kind ? ` of kind "${kind}"` : ""}${tag ? ` with tag "${tag}"` : ""} were found in the index.`;
       return results.map(
         (r) => `${r.kind} ${r.name} \u2014 ${r.file}:${r.line}${r.signature ? ` (${r.signature})` : ""}${r.tags.length > 0 ? ` [${r.tags.join(", ")}]` : ""}`
       ).join("\n");
@@ -30580,7 +30752,10 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const root = getProjectRoot();
       const filePath = String(args["file_path"] ?? "");
       const result = getFilePurpose(root, filePath);
-      if (!result) return `No index entry for "${filePath}". Run \`ai-os --index\` first, or check the path.`;
+      if ("notFound" in result) {
+        if (result.noIndex) return `No symbol index found. Run \`ai-os --index\` first, then retry.`;
+        return `"${filePath}" is not in the index. Run \`ai-os --index\` to rebuild, or check the path.`;
+      }
       const lines = [
         `File: ${result.path}`,
         `Language: ${result.language}`,
@@ -30589,6 +30764,69 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
         result.exports.length > 0 ? `Exports: ${result.exports.join(", ")}` : "Exports: (none)",
         result.tags.length > 0 ? `Tags: ${result.tags.join(", ")}` : "Tags: (none)"
       ];
+      return lines.join("\n");
+    })
+  );
+  server.registerTool(
+    "validate_spec_coverage",
+    {
+      description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+      inputSchema: {
+        show_all: external_exports.boolean().optional().describe("Show all requirements including implemented ones (default: false \u2014 gaps only).")
+      }
+    },
+    wrap("validate_spec_coverage", (args) => {
+      const root = getProjectRoot();
+      const showAll = args["show_all"] === true;
+      const groups = validateSpecCoverage(root);
+      if (groups.length === 0) {
+        return "No spec entries found. Run `ai-os --index` first. Ensure spec files exist in docs/superpowers/specs/.";
+      }
+      const totalCovered = groups.reduce((sum, g) => sum + g.covered, 0);
+      const totalReqs = groups.reduce((sum, g) => sum + g.total, 0);
+      const overallPct = totalReqs > 0 ? Math.round(totalCovered / totalReqs * 100) : 0;
+      const lines = ["Spec Coverage Report", "\u2500".repeat(60)];
+      for (const group of groups) {
+        const pct = Math.round(group.ratio * 100);
+        const icon = pct === 100 ? "\u2713" : pct === 0 ? "\u2717" : "\u26A0";
+        lines.push(
+          `${group.specPrefix.padEnd(14)} ${group.specFile.padEnd(45)} ${group.covered}/${group.total} reqs  ${String(pct).padStart(3)}%  ${icon}`
+        );
+        if (showAll) {
+          for (const req of group.requirements) {
+            const status = req.implemented ? "  \u2713" : "  \u2717";
+            lines.push(`  ${status} ${req.specId} \u2014 ${req.title}`);
+            if (req.implemented && req.implementedBy.length > 0) {
+              lines.push(`       \u21B3 ${req.implementedBy.join(", ")}`);
+            }
+          }
+        }
+      }
+      lines.push("\u2500".repeat(60));
+      lines.push(`Overall: ${totalCovered}/${totalReqs} requirements annotated (${overallPct}%)`);
+      return lines.join("\n");
+    })
+  );
+  server.registerTool(
+    "get_spec_for_file",
+    {
+      description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+      inputSchema: {
+        path: external_exports.string().describe('Relative path to the source file, e.g. "src/actions/index.ts".')
+      }
+    },
+    wrap("get_spec_for_file", (args) => {
+      const root = getProjectRoot();
+      const filePath = String(args["path"] ?? "");
+      const results = getSpecForFile(root, filePath);
+      if (results.length === 0) {
+        return `No spec annotations found for "${filePath}". Run \`ai-os --index\` first, or add // @spec: ID comments above exported functions.`;
+      }
+      const lines = [`${filePath} contributes to:`];
+      for (const r of results) {
+        lines.push(`  ${r.specId.padEnd(20)} \u2014 ${r.title}`);
+        lines.push(`  ${"".padEnd(20)}   (${r.specFile})`);
+      }
       return lines.join("\n");
     })
   );
@@ -30767,7 +31005,7 @@ async function main() {
         return result;
       }
     })),
-    onPermissionRequest: (_req) => ({ kind: "approved" })
+    onPermissionRequest: approveAll
   });
   process.on("SIGINT", async () => {
     await session.disconnect();

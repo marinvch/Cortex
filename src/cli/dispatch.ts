@@ -1,3 +1,4 @@
+import readline from 'node:readline';
 import { getToolVersion } from '../updater.js';
 import { parseArgs } from './args.js';
 import { runCheckHygieneAction } from '../actions/check-hygiene.js';
@@ -10,6 +11,12 @@ import { runUninstall, formatUninstallReport } from '../uninstall.js';
 import { runInitWizard } from '../actions/init.js';
 import { indexRepo } from '../actions/index.js';
 import { analyze } from '../analyze.js';
+import { readAiOsConfig } from '../generators/context-docs.js';
+
+function promptUser(question: string): Promise<string> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise<string>(resolve => rl.question(question, answer => { rl.close(); resolve(answer); }));
+}
 
 function printBanner(): void {
   const version = `v${getToolVersion()}`;
@@ -74,7 +81,27 @@ export async function main(): Promise<void> {
     const result = await runInitWizard(stack, cwd);
     if (!result.proceed) return;
     args.profile = result.profile;
-    // Fall through to apply with selected profile
+    args.model = result.model;
+    // Fall through to apply with selected profile + model
+  }
+
+  // For update/refresh: if project is still on copilot and no explicit --model flag,
+  // offer migration to Claude Code (skip in JSON/dry-run mode and after --init)
+  if (
+    action !== 'init' &&
+    !args.json &&
+    !args.dryRun &&
+    args.model === 'copilot' &&
+    (args.mode === 'refresh-existing' || args.mode === 'update' || action === 'apply')
+  ) {
+    const existingCfg = readAiOsConfig(cwd);
+    if (existingCfg && (!existingCfg.model || existingCfg.model === 'copilot')) {
+      const answer = await promptUser('  🤖 Add Claude Code support to this project? [y/N]: ');
+      if (answer.trim().toLowerCase() === 'y') {
+        args.model = 'claude';
+        console.log('  ✅ Claude Code selected — CLAUDE.md will be generated.\n');
+      }
+    }
   }
 
   if (action === 'uninstall') {

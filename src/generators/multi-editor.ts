@@ -132,7 +132,7 @@ export function generateEditorConfigs(
   stack: DetectedStack,
   targets: EditorTarget[],
   instructionsContent: string,
-  track: (p: string) => string,
+  track: (p: string) => string = (p) => p,
 ): string[] {
   const written: string[] = [];
   const effectiveTargets = new Set(targets.includes('all')
@@ -146,17 +146,13 @@ export function generateEditorConfigs(
   }
 
   if (effectiveTargets.has('jetbrains')) {
-    const aiOsDir = path.join(cwd, '.github', 'ai-os');
-    if (!fs.existsSync(aiOsDir)) fs.mkdirSync(aiOsDir, { recursive: true });
-    const dest = track(path.join(aiOsDir, 'jetbrains-ai-context.md'));
+    const dest = track(path.join(cwd, '.github', 'ai-os', 'jetbrains-ai-context.md'));
     writeIfChanged(dest, generateJetBrainsContext(stack));
     written.push('.github/ai-os/jetbrains-ai-context.md');
   }
 
   if (effectiveTargets.has('neovim')) {
-    const aiOsDir = path.join(cwd, '.github', 'ai-os');
-    if (!fs.existsSync(aiOsDir)) fs.mkdirSync(aiOsDir, { recursive: true });
-    const dest = track(path.join(aiOsDir, 'nvim-context.md'));
+    const dest = track(path.join(cwd, '.github', 'ai-os', 'nvim-context.md'));
     writeIfChanged(dest, generateNeovimContext(stack));
     written.push('.github/ai-os/nvim-context.md');
   }

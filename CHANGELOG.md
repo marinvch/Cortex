@@ -5,6 +5,33 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.24.0] — 2026-06-03
+
+### Added
+
+- **Claude Code model support**: `--model claude` / `--model both` generates `CLAUDE.md` at the project root (read by Claude Code CLI) and `.github/ai-os/claude-instructions.md` (XML-tagged for Claude API use).
+- **Init wizard model prompt**: first-time setup now asks which AI assistant will use the project — `copilot`, `claude`, or `both`.
+- **Migration prompt**: `--refresh-existing` / `--update` offers a one-time opt-in to add Claude Code support to existing copilot-only installs.
+- **Model persisted in config**: selection is written to `config.json` so subsequent refreshes inherit it without re-prompting.
+
+### Changed
+
+- Token-efficiency deduplication: slimmed MCP tool table, Value Mode, Context Budget Policy, and Session Restart Protocol in base instructions — reducing always-loaded instruction payload by ~35–40% (~1,200–1,400 tokens/turn).
+- `ModelTarget` union extended with `'both'`; `AiOsConfig.model` type aligned.
+- `--model` help text updated to list `both` as a valid value.
+
+### Improved
+
+- `instructions.ts`: uses `getModelOutputPath` + `adaptInstructionsForModel` instead of hardcoded path and direct `adaptForClaude` call; redundant `existsSync + mkdirSync` guard removed (`writeIfChanged` already ensures the parent dir).
+- `dispatch.ts`: extracted `promptUser()` helper to replace inline readline boilerplate.
+- `multi-editor.ts`: `track` parameter is now optional (default identity); redundant `existsSync + mkdirSync` guards removed from JetBrains/Neovim branches.
+
+### Tests
+
+- 642 tests across 46 test files
+
+---
+
 ## [0.21.0] — 2026-05-24
 
 ### Added

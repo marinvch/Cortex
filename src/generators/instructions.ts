@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { writeIfChanged, resolveTemplatesDir, sanitizeForInstructions } from './utils.js';
+import { generateClaudeCodeMd, adaptInstructionsForModel, getModelOutputPath, type ModelTarget } from './multi-model.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = resolveTemplatesDir(__dirname);
@@ -153,6 +154,8 @@ interface GenerateInstructionsOptions {
   /** When true, skip overwriting copilot-instructions.md if it already exists. */
   preserveContextFiles?: boolean;
   config?: AiOsConfig;
+  /** Target AI model — triggers generation of CLAUDE.md when 'claude' or 'both'. */
+  model?: ModelTarget;
 }
 
 /** Enforce an 8 KB cap on copilot-instructions.md. Truncates at the last section boundary that fits. */
@@ -447,8 +450,6 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     '',
     'AI OS MCP tools are available. **Session start:** call `get_session_context` → `get_repo_memory` → `get_conventions` → `get_active_plan`.',
     '',
-    '**Quick reference:** `search_codebase` · `get_file_summary` · `get_impact_of_change` · `get_dependency_chain` · `get_project_structure` · `get_stack_info` · `get_env_vars` · `check_for_updates` · `remember_repo_fact` · `suggest_improvements` · `get_recommendations`',
-    '',
     '## Value Mode',
     '',
     '1. **Problem first:** derive constraints from repo context and memory before writing code.',
@@ -464,6 +465,21 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
   writeIfChanged(autoActivationPath, autoActivationContent);
 
   const outputFiles = [outputPath, autoActivationPath];
+
+  // Generate Claude Code files when model is 'claude' or 'both'
+  const effectiveModel = options?.model ?? options?.config?.model ?? 'copilot';
+  if (effectiveModel === 'claude' || effectiveModel === 'both') {
+    // 1. CLAUDE.md at project root — read by Claude Code CLI
+    const claudeMdPath = path.join(outputDir, 'CLAUDE.md');
+    if (!(options?.preserveContextFiles && fs.existsSync(claudeMdPath))) {
+      writeIfChanged(claudeMdPath, generateClaudeCodeMd(content, stack.projectName));
+    }
+    outputFiles.push(claudeMdPath);
+    // 2. XML-tagged companion file for Claude API use
+    const claudeApiPath = getModelOutputPath('claude', githubDir);
+    writeIfChanged(claudeApiPath, adaptInstructionsForModel(content, 'claude'));
+    outputFiles.push(claudeApiPath);
+  }
 
   // Generate path-specific instruction files if enabled
   if (config?.pathSpecificInstructions !== false) {
@@ -605,20 +621,14 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     '',
     skillTable,
     '',
-    '## 5. MCP Health Check',
-    '',
-    'Verify the MCP server is connected before starting a session.',
-    'If `get_session_context` or `get_repo_memory` returns no output, the server is not running.',
-    'Restart it via the VS Code MCP panel or re-run the install.',
-    '',
-    '## 6. Plan-Mode Trigger',
+    '## 5. Plan-Mode Trigger',
     '',
     'Switch to **Plan mode** first when:',
     '- The task has 3 or more sequential steps',
     '- The change is irreversible (delete, drop, migrate, deploy)',
     '- Multiple files or systems are affected',
     '',
-    '## 7. Post-Change Context Refresh',
+    '## 6. Post-Change Context Refresh',
     '',
     'After structural changes (new dependencies, new files, architecture moves), refresh AI OS context:',
     '',
@@ -626,7 +636,7 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     contextSyncCmd,
     '```',
     '',
-    '## 8. Anti-Patterns',
+    '## 7. Anti-Patterns',
     '',
     '- **Mixing concerns** — one prompt should do one thing',
     `- **Vague \`#codebase\`** when a specific file path is known — use \`#file:<path>\``,

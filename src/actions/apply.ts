@@ -18,6 +18,7 @@ import { buildOnboardingPlan } from '../planner.js';
 import { readManifest, writeManifest, syncManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic, setPrevHashes, getNewHashes } from '../generators/utils.js';
 import { generateRecommendations, getSkillsGapReport, collectRecommendations } from '../recommendations/index.js';
 import { applyProfile, describeProfile } from '../profile.js';
+import { generateEditorConfigs, detectEditorTargets } from '../generators/multi-editor.js';
 import { mergeUserBlocks } from '../user-blocks.js';
 import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport } from '../detectors/freshness.js';
 import { runMemoryMaintenance } from '../mcp-server/utils.js';
@@ -685,7 +686,7 @@ function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPat
 }
 
 export async function runApply(args: ParsedArgs): Promise<void> {
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile } = args;
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, model, editorTargets } = args;
   let mode: GenerateMode = rawMode;
 
   // In --json mode, suppress all human-readable output so only the final JSON
@@ -816,7 +817,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   setPrevHashes(previousManifest?.hashes ?? {});
 
   // Phase 1: Core context files (config.json is written here, with user fields preserved)
-  const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles });
+  const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles, model });
   // Read the freshly-written config to get feature flags for remaining generators.
   // If a --profile flag was passed, apply it now (it overrides individual flags but is
   // written back into config.json so subsequent refreshes inherit the same density level).
@@ -841,8 +842,19 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   }
 
   const skillsStrategy = config?.skillsStrategy ?? 'creator-only';
-  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined });
+  const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined, model });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
+
+  // Generate editor-specific config files (cursor, jetbrains, neovim)
+  // When only the default ['vscode'] is set, auto-detect additional editors from the project.
+  const effectiveEditorTargets = editorTargets.length > 1 || editorTargets[0] !== 'vscode'
+    ? editorTargets
+    : detectEditorTargets(cwd);
+  const copilotInstructionsPath = path.join(cwd, '.github', 'copilot-instructions.md');
+  const copilotInstructionsContent = fs.existsSync(copilotInstructionsPath)
+    ? fs.readFileSync(copilotInstructionsPath, 'utf-8')
+    : '';
+  const editorConfigFiles = generateEditorConfigs(cwd, stack, effectiveEditorTargets, copilotInstructionsContent);
 
   // Phase 2: Agents, Skills, Prompts
   const agentFiles = await generateAgents(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveExistingAgents: preserveContextFiles, config: config ?? undefined });
@@ -883,6 +895,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
     ...chatModeFiles,
     ...workflowFiles,
     ...recommendationFiles,
+    ...editorConfigFiles,
   ];
   const toRel = (p: string) => path.relative(cwd, p).replace(/\\/g, '/');
   const currentRelFiles = allManagedAbs.map(toRel);

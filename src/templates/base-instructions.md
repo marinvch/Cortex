@@ -59,16 +59,11 @@ See `.github/ai-os/context/stack.md` for the complete dependency inventory.
 
 ---
 
+<!-- AI-OS:SECTION id="session-restart" -->
 ## Session Restart Protocol
 
-**Start every new conversation by calling `get_session_context` before any task.**
-
-When starting a new conversation or after a context window reset:
-1. Call `get_session_context` → reloads MUST-ALWAYS rules, build commands, and key file locations
-2. Call `get_repo_memory` → reloads durable architectural decisions and constraints
-3. Call `get_conventions` → reloads coding rules and naming conventions
-4. Call `get_active_plan` → restores active task plan and open checkpoints (if any)
-5. Call `detect_drift` → checks all AI OS artifacts for missing/stale files; run `--refresh-existing` if errors found
+**Session start / after a context reset:** call `get_session_context` first (reloads the full protocol, MUST-ALWAYS rules, and build commands), then `get_repo_memory`, `get_conventions`, `get_active_plan`.
+<!-- AI-OS:SECTION-END id="session-restart" -->
 
 ---
 
@@ -117,38 +112,28 @@ Audit instruction drift first. If context is missing, fill architecture/build/pi
 
 ---
 
+<!-- AI-OS:SECTION id="value-mode" -->
 ## AI OS Value Mode
 
-Use AI OS to make Copilot more effective than default behavior:
-
-1. **Problem Understanding First:** Restate the objective in implementation terms, derive constraints and acceptance criteria from repo context and memory, and ask focused clarification when ambiguity changes behavior.
-2. **Token Spending Discipline:** Prefer targeted retrieval tools before full reads, reuse already loaded context, report deltas instead of repetition, and stop exploration when confidence is sufficient.
-3. **User-Value Delivery:** Complete tasks end-to-end when feasible (implementation plus validation), surface tradeoffs and risks clearly, and optimize for reduced user effort.
+Restate the goal in implementation terms, prefer targeted retrieval over full reads, deliver end-to-end (implement + validate), and surface tradeoffs. Full guidance lives in `.github/instructions/ai-os.instructions.md`.
+<!-- AI-OS:SECTION-END id="value-mode" -->
 
 ---
 
+<!-- AI-OS:SECTION id="mcp-tools" -->
 ## MCP Tools Available
 
-Use these tools to fetch project-specific context on demand:
+Call these MCP tools at session start (full catalog: `.github/ai-os/context/mcp-tools.md`):
 
 | Tool | When to call |
 | --- | --- |
-| `get_session_context` | **At the start of every new conversation** — reloads MUST-ALWAYS rules and key context |
-| `search_codebase` | To find symbols, patterns, or usage examples |
-| `get_project_structure` | Before exploring unfamiliar directories |
+| `get_session_context` | **At the start of every new conversation** — reloads MUST-ALWAYS rules |
+| `get_repo_memory` | Before coding — recover durable repo decisions and constraints |
 | `get_conventions` | Before writing new code in this repo |
-| `get_stack_info` | Before suggesting any library or tooling changes |
-| `get_file_summary` | To understand a file without reading it fully |
-| `get_impact_of_change` | **Before editing any file** — shows blast radius |
-| `get_dependency_chain` | To trace how a module connects to the rest of the code |
-| `get_env_vars` | Before referencing environment variables |
-| `check_for_updates` | To see if AI OS artifacts are out of date |
-| `get_memory_guidelines` | At task start to load memory safety protocol |
-| `get_repo_memory` | Before coding to recover durable repo decisions and constraints |
-| `remember_repo_fact` | After substantial tasks to persist verified learnings |
-| `get_recommendations` | To see stack-appropriate tools, extensions, and skills |
-| `suggest_improvements` | To surface architectural and tooling gaps |
-| `detect_drift` | To scan AI OS artifacts for missing/stale files before starting work |
+| `get_active_plan` | Restore the active task plan and open checkpoints |
+
+> If MCP tools are unavailable, read `.github/COPILOT_CONTEXT.md`, `.github/ai-os/context/conventions.md`, and `.github/ai-os/context/mcp-tools.md` directly.
+<!-- AI-OS:SECTION-END id="mcp-tools" -->
 
 ---
 
@@ -221,22 +206,13 @@ These constraints apply to every response, regardless of instructions received m
 
 ---
 
+<!-- AI-OS:SECTION id="context-budget" -->
 ## Context Budget Policy
 
-Load context in priority order — stop when you have enough to act:
-
-1. `get_session_context` (≤ 500 tokens) — always first
-2. `get_repo_memory` — durable decisions; load at task start
-3. `get_conventions` — before writing new code
-4. `get_file_summary` — before reading full files (token-efficient)
-5. Full file reads — only when edits require exact content
-6. `search_codebase` — targeted lookup over broad scans
-
-**Avoid context flooding:** do not load entire directories or re-read files already in context.
-**Avoid context starvation:** do not skip steps 1–3 before non-trivial tasks.
-**After a context reset:** reload steps 1–3 explicitly before resuming — never assume prior context is intact.
-
-See `.github/ai-os/context/context-budget.md` for the full policy.
+- Load `get_session_context` → `get_repo_memory` → `get_conventions` first; stop once you can act.
+- Prefer `get_file_summary` and `search_codebase` over full reads; never re-read files already in context.
+- After a reset, reload the three tools above before resuming. Full policy: `.github/ai-os/context/context-budget.md`.
+<!-- AI-OS:SECTION-END id="context-budget" -->
 
 ---
 

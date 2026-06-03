@@ -7,10 +7,12 @@
 import readline from 'node:readline';
 import type { DetectedStack } from '../types.js';
 import type { InstallProfile } from '../types.js';
+import type { ModelTarget } from '../generators/multi-model.js';
 
 export interface InitResult {
   proceed: boolean;
   profile: InstallProfile;
+  model: ModelTarget;
 }
 
 export type AskFn = (prompt: string) => Promise<string>;
@@ -72,6 +74,24 @@ export async function runWizardLogic(stack: DetectedStack, ask: AskFn): Promise<
   }
 
   console.log(`\n  Selected profile: ${profile}`);
+
+  // ── Model selection ────────────────────────────────────────────────────────
+  console.log('\n  🤖 Which AI assistant will use this project?\n');
+  console.log('     copilot — GitHub Copilot (default)');
+  console.log('     claude  — Claude Code (Anthropic CLI) — generates CLAUDE.md');
+  console.log('     both    — Generate files for both assistants');
+  console.log('');
+
+  let model: ModelTarget = 'copilot';
+  while (true) {
+    const raw = (await ask('  Model [copilot/claude/both] (default: copilot): ')).trim().toLowerCase();
+    if (raw === '' || raw === 'copilot') { model = 'copilot'; break; }
+    if (raw === 'claude') { model = 'claude'; break; }
+    if (raw === 'both') { model = 'both'; break; }
+    console.log('  Please enter: copilot, claude, or both');
+  }
+
+  console.log(`\n  Selected model: ${model}`);
   console.log('');
   console.log('  📋 What will be generated:');
   if (profile === 'minimal') {
@@ -90,16 +110,20 @@ export async function runWizardLogic(stack: DetectedStack, ask: AskFn): Promise<
     console.log('    • Advanced skill suite');
     console.log('    • GitHub Actions drift-check workflow');
   }
+  if (model === 'claude' || model === 'both') {
+    console.log('    • CLAUDE.md (project root — read by Claude Code CLI)');
+    console.log('    • .github/ai-os/claude-instructions.md (XML-tagged for Claude API)');
+  }
   console.log('');
 
   const confirm = (await ask('  Proceed with generation? [Y/n]: ')).trim().toLowerCase();
   if (confirm === 'n' || confirm === 'no') {
     console.log('\n  ⚡ Aborted. No files were written.\n');
-    return { proceed: false, profile };
+    return { proceed: false, profile, model };
   }
 
   console.log('');
-  return { proceed: true, profile };
+  return { proceed: true, profile, model };
 }
 
 /** Production entry point — wires readline and delegates to runWizardLogic. */

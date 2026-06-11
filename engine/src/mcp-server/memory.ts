@@ -28,6 +28,7 @@ interface RepoMemoryEntry {
   staleReason?: string;
   supersedesId?: string;
   conflictWithId?: string;
+  domain?: 'project' | 'personal' | 'shared';
 }
 
 interface MemoryReadResult {
@@ -161,6 +162,7 @@ function canonicalizeEntry(raw: Partial<RepoMemoryEntry>): RepoMemoryEntry | nul
     staleReason: typeof raw.staleReason === 'string' ? raw.staleReason : undefined,
     supersedesId: typeof raw.supersedesId === 'string' ? raw.supersedesId : undefined,
     conflictWithId: typeof raw.conflictWithId === 'string' ? raw.conflictWithId : undefined,
+    domain: raw.domain === 'personal' || raw.domain === 'shared' ? raw.domain : 'project',
   };
 }
 

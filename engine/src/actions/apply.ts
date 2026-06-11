@@ -697,7 +697,7 @@ function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPat
 }
 
 export async function runApply(args: ParsedArgs): Promise<void> {
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, model, editorTargets } = args;
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, model, editorTargets, personalBrainPath, projectBoundary } = args;
   let mode: GenerateMode = rawMode;
 
   // In --json mode, suppress all human-readable output so only the final JSON
@@ -828,7 +828,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   setPrevHashes(previousManifest?.hashes ?? {});
 
   // Phase 1: Core context files (config.json is written here, with user fields preserved)
-  const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles, model });
+  const contextFiles = generateContextDocs(stack, cwd, { preserveContextFiles, model, personalBrainPath, projectBoundary });
   // Read the freshly-written config to get feature flags for remaining generators.
   // If a --profile flag was passed, apply it now (it overrides individual flags but is
   // written back into config.json so subsequent refreshes inherit the same density level).

@@ -25,6 +25,7 @@ export interface ParsedArgs {
   incremental: boolean;
   specDir: string | undefined;
   personalBrainPath?: string;
+  projectBoundary?: 'strict' | 'permissive';
 }
 
 export function parseArgs(): ParsedArgs {

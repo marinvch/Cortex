@@ -608,6 +608,43 @@ describe('preserveContextFiles option', () => {
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
+
+  it('writes projectBoundary and personalBrainPath into config.json', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-cfg-personal-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    generateContextDocs(stack, tmpDir, { projectBoundary: 'strict', personalBrainPath: '/tmp/brain' });
+    const cfg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.github', 'ai-os', 'config.json'), 'utf-8')) as { projectBoundary?: string; personalBrainPath?: string };
+    expect(cfg.projectBoundary).toBe('strict');
+    expect(cfg.personalBrainPath).toBe('/tmp/brain');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('preserves projectBoundary/personalBrainPath across refresh runs', async () => {
+    const { generateContextDocs } = await import('../generators/context-docs.js');
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const stack = makeStack();
+
+    const tmpDir = path.join(os.tmpdir(), 'ai-os-cfg-personal-refresh-' + Date.now());
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    // First run sets the fields
+    generateContextDocs(stack, tmpDir, { projectBoundary: 'strict', personalBrainPath: '/tmp/brain' });
+    // Refresh run without options should preserve existing values
+    generateContextDocs(stack, tmpDir, {});
+    const cfg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.github', 'ai-os', 'config.json'), 'utf-8')) as { projectBoundary?: string; personalBrainPath?: string };
+    expect(cfg.projectBoundary).toBe('strict');
+    expect(cfg.personalBrainPath).toBe('/tmp/brain');
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 });
 
 describe('prompt generation', () => {

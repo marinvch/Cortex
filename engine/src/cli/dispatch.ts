@@ -88,6 +88,9 @@ export async function main(): Promise<void> {
     if (!result.proceed) return;
     args.profile = result.profile;
     args.model = result.model;
+    // Personal-OS linkage from the wizard (CLI --personal-brain-path still takes precedence)
+    if (result.projectBoundary) args.projectBoundary = result.projectBoundary;
+    if (result.personalBrainPath && !args.personalBrainPath) args.personalBrainPath = result.personalBrainPath;
     // Fall through to apply with selected profile + model
   }
 

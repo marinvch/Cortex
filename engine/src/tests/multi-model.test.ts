@@ -5,6 +5,7 @@ import {
   adaptForLocal,
   adaptInstructionsForModel,
   getModelOutputPath,
+  generateAgentsShim,
   parseModelTarget,
 } from '../generators/multi-model.js';
 
@@ -160,5 +161,14 @@ describe('getModelOutputPath', () => {
     expect(getModelOutputPath('claude', githubDir)).toBe('/project/.github/ai-os/claude-instructions.md');
     expect(getModelOutputPath('gemini', githubDir)).toBe('/project/.github/ai-os/gemini-instructions.md');
     expect(getModelOutputPath('local', githubDir)).toBe('/project/.github/ai-os/local-instructions.md');
+  });
+});
+
+describe('generateAgentsShim', () => {
+  it('produces a one-line @AGENTS.md import for claude', () => {
+    expect(generateAgentsShim('claude').trim()).toBe('@AGENTS.md');
+  });
+  it('produces a one-line @AGENTS.md import for gemini', () => {
+    expect(generateAgentsShim('gemini').trim()).toBe('@AGENTS.md');
   });
 });

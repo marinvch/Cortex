@@ -152,10 +152,17 @@ export function adaptInstructionsForModel(content: string, model: ModelTarget): 
   }
 }
 
+/** Thin per-tool shim that imports the canonical AGENTS.md. Used for claude/gemini, which
+ *  do not read AGENTS.md natively. Codex/Copilot/Cursor read AGENTS.md directly — no shim. */
+export function generateAgentsShim(_model: 'claude' | 'gemini'): string {
+  return '@AGENTS.md\n';
+}
+
 /**
  * Returns the output file path for the model-specific instructions.
  * VS Code Copilot reads the canonical path; other models get a companion file.
  */
+// TODO(agents-canonical): migrate emission to canonical AGENTS.md + shims
 export function getModelOutputPath(model: ModelTarget, githubDir: string): string {
   switch (model) {
     case 'claude': return `${githubDir}/ai-os/claude-instructions.md`;

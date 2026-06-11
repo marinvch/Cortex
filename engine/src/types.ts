@@ -91,6 +91,9 @@ export interface DependencyGraph {
  */
 export type InstallProfile = 'minimal' | 'standard' | 'full';
 
+/** Which data domain a memory entry / config belongs to (encapsulation model). */
+export type MemoryDomain = 'project' | 'personal' | 'shared';
+
 /** User-editable + auto-detected config written to .github/ai-os/config.json */
 export interface AiOsConfig {
   /** AI OS version that wrote this config */
@@ -185,6 +188,10 @@ export interface AiOsConfig {
    * 'vscode' is always included. Others produce companion files.
    */
   editorTargets?: Array<'vscode' | 'cursor' | 'jetbrains' | 'neovim' | 'all'>;
+  /** Absolute path to the personal brain root (personal-OS installs only). */
+  personalBrainPath?: string;
+  /** Cross-domain boundary strictness for this project (default: 'strict'). */
+  projectBoundary?: 'strict' | 'permissive';
 }
 
 /** Runtime type guard for AiOsConfig JSON artifacts. */

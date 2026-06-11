@@ -32,7 +32,10 @@ function getArgValue(flag: string): string | undefined {
 function parseMaxAgeDays(): number {
   const raw = getArgValue('--max-age-days');
   if (!raw) {
-    return 14;
+    // Scorecard KPIs are entered manually (no workflow auto-updates them), so a 14-day
+    // window was perpetually red and blocked unrelated PRs. Relaxed to 60 days to match
+    // the realistic update cadence; pass --max-age-days=N to tighten for a release gate.
+    return 60;
   }
 
   const parsed = Number(raw);

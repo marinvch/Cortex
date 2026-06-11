@@ -5,7 +5,7 @@ import { parseEditorTarget, type EditorTarget } from '../generators/multi-editor
 import { parseModelTarget, type ModelTarget } from '../generators/multi-model.js';
 
 export type GenerateMode = 'safe' | 'refresh-existing' | 'update';
-export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall' | 'check-drift' | 'init' | 'index';
+export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall' | 'check-drift' | 'init' | 'index' | 'check-boundaries';
 
 export interface ParsedArgs {
   cwd: string;
@@ -24,6 +24,7 @@ export interface ParsedArgs {
   model: ModelTarget;
   incremental: boolean;
   specDir: string | undefined;
+  personalBrainPath?: string;
 }
 
 export function parseArgs(): ParsedArgs {
@@ -52,6 +53,8 @@ Options:
   --check-freshness           Check if AI OS artifacts are fresh
   --compact-memory            Compact memory.jsonl file
   --check-drift               Check for context drift
+  --check-boundaries          Scan project memory for cross-domain leaks
+  --personal-brain-path <path> Path to the personal brain root
   --init                      Interactive setup wizard
   --index                     Build repository intelligence index
   --incremental               Incremental indexing (with --index)
@@ -82,6 +85,7 @@ Options:
   let fullDiff = false;
   let incremental = false;
   let specDir: string | undefined = undefined;
+  let personalBrainPath: string | undefined = undefined;
   const editorTargets: EditorTarget[] = ['vscode'];
   let model: ModelTarget = 'copilot';
 
@@ -123,6 +127,10 @@ Options:
       action = 'compact-memory';
     } else if (args[i] === '--check-drift') {
       action = 'check-drift';
+    } else if (args[i] === '--check-boundaries') {
+      action = 'check-boundaries';
+    } else if (args[i] === '--personal-brain-path') {
+      personalBrainPath = args[++i];
     } else if (args[i] === '--init') {
       action = 'init';
     } else if (args[i] === '--index') {
@@ -181,5 +189,5 @@ Options:
     }
   }
 
-  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff, editorTargets, model, incremental, specDir };
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff, editorTargets, model, incremental, specDir, personalBrainPath };
 }

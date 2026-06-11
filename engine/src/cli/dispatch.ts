@@ -6,6 +6,7 @@ import { runDoctorAction } from '../actions/doctor.js';
 import { runCheckFreshnessAction } from '../actions/check-freshness.js';
 import { runCompactMemoryAction } from '../actions/compact-memory.js';
 import { runCheckDriftAction } from '../actions/check-drift.js';
+import { runCheckBoundariesAction } from '../actions/check-boundaries.js';
 import { runApply } from '../actions/apply.js';
 import { runUninstall, formatUninstallReport } from '../uninstall.js';
 import { runInitWizard } from '../actions/init.js';
@@ -61,6 +62,11 @@ export async function main(): Promise<void> {
 
   if (action === 'check-drift') {
     await runCheckDriftAction(cwd, args.verbose);
+    return;
+  }
+
+  if (action === 'check-boundaries') {
+    runCheckBoundariesAction(cwd, args.json);
     return;
   }
 

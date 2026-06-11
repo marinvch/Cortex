@@ -178,3 +178,16 @@ describe('parseArgs', () => {
     });
   });
 });
+
+describe('parseArgs — boundaries + personal brain', () => {
+  it('parses --check-boundaries into the action', () => {
+    withArgv(['--check-boundaries'], () => {
+      expect(parseArgs().action).toBe('check-boundaries');
+    });
+  });
+  it('parses --personal-brain-path <path>', () => {
+    withArgv(['--init', '--personal-brain-path', '/tmp/brain'], () => {
+      expect(parseArgs().personalBrainPath).toBe('/tmp/brain');
+    });
+  });
+});

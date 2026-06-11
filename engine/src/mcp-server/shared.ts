@@ -33,6 +33,14 @@ export function getMemoryLockFilePath(): string {
   return path.join(getMemoryDirPath(), '.memory.lock');
 }
 
+/**
+ * Resolve the personal brain root. Reads AI_OS_PERSONAL_ROOT; returns '' when unset so the
+ * caller must resolve from config and fail loudly rather than guessing a home directory.
+ */
+export function getPersonalBrainPath(): string {
+  return process.env['AI_OS_PERSONAL_ROOT'] ?? '';
+}
+
 export function getSessionMemoryDirPath(): string {
   return path.join(getMemoryDirPath(), 'session');
 }

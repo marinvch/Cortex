@@ -476,6 +476,7 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     }
     outputFiles.push(claudeMdPath);
     // 2. XML-tagged companion file for Claude API use
+    // TODO(agents-canonical): migrate emission to canonical AGENTS.md + shims (generateAgentsShim)
     const claudeApiPath = getModelOutputPath('claude', githubDir);
     writeIfChanged(claudeApiPath, adaptInstructionsForModel(content, 'claude'));
     outputFiles.push(claudeApiPath);

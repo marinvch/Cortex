@@ -52,6 +52,7 @@ import {
 } from './utils.js';
 import { resolveMcpServerVersion } from './shared.js';
 import { promoteToBrain } from './promotion.js';
+import { appendCandidate } from './candidates.js';
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
 import { readFile, listDirectory, runTests, runLint, runBuild } from './filesystem.js';
 import { listWorkflows, loadWorkflow, validateWorkflow, buildWorkflowRunPlan, formatRunPlan } from '../workflow-runner.js';
@@ -765,6 +766,27 @@ export function createSdkServer(): McpServer {
         category: category as string | undefined,
         tags: tags as string | undefined,
       })),
+  );
+
+  // ── Tool 45: suggest_profile_update ───────────────────────────────────────
+  server.registerTool(
+    'suggest_profile_update',
+    {
+      description: 'Queue a candidate profile/context fact for confirmation at /level-up (append-only).',
+      inputSchema: {
+        text: z.string().describe('The candidate fact to queue'),
+        domain: z.enum(['personal', 'project']).describe('Source domain'),
+        trigger: z.string().optional().describe('What triggered this suggestion'),
+      },
+    },
+    wrap('suggest_profile_update', ({ text, domain, trigger }) => {
+      const c = appendCandidate({
+        text: text as string,
+        domain: domain as 'personal' | 'project',
+        trigger: (trigger as string | undefined) ?? '',
+      });
+      return `Queued candidate (${c.domain}${c.needsSanitization ? ', needs sanitization' : ''}) for /level-up confirmation.`;
+    }),
   );
 
   // ── Prompts ────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import type { DetectedStack } from './types.js';
 
 export interface McpToolSchema {
   type: 'object';
-  properties: Record<string, { type: string; description: string }>;
+  properties: Record<string, { type: string; description: string; enum?: string[] }>;
   required?: string[];
 }
 
@@ -487,6 +487,21 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
         tags: { type: 'string', description: 'Optional comma-separated tags' },
       },
       required: ['title', 'content', 'sanitized_confirmed'],
+    },
+    condition: always,
+  },
+  // ── Tool #45: Suggest Profile Update ──────────────────────────────────────
+  {
+    name: 'suggest_profile_update',
+    description: 'Propose a candidate profile/context fact noticed during a session. APPEND-ONLY: queues to brain/candidates.jsonl for confirmation at /level-up. Cannot write context/ or brain/memory directly. Project-domain candidates are flagged for sanitization.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        text: { type: 'string', description: 'The candidate fact to queue' },
+        domain: { type: 'string', enum: ['personal', 'project'], description: 'Source domain of the observation' },
+        trigger: { type: 'string', description: 'The text/context that triggered this suggestion' },
+      },
+      required: ['text', 'domain'],
     },
     condition: always,
   },

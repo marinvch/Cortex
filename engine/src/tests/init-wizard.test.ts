@@ -129,6 +129,8 @@ describe('runInitWizard', () => {
 
     const result = await runWizardLogic(minimalStack({ rootDir: tmp }), ask);
     expect(result.proceed).toBe(false);
+    expect(result.projectBoundary).toBeUndefined();
+    expect(result.personalBrainPath).toBeUndefined();
   });
 });
 

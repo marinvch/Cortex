@@ -18,7 +18,7 @@ export interface AppendCandidateArgs {
 
 function candidatesPath(): string {
   const root = getPersonalBrainPath();
-  if (!root) throw new Error('No personal brain path configured (AI_OS_PERSONAL_ROOT).');
+  if (!root) throw new Error('No personal brain path configured. Set AI_OS_PERSONAL_ROOT or personalBrainPath in config.');
   return path.join(root, 'brain', 'candidates.jsonl');
 }
 

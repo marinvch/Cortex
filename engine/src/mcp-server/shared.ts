@@ -34,11 +34,26 @@ export function getMemoryLockFilePath(): string {
 }
 
 /**
- * Resolve the personal brain root. Reads AI_OS_PERSONAL_ROOT; returns '' when unset so the
- * caller must resolve from config and fail loudly rather than guessing a home directory.
+ * Resolve the personal brain root. Prefers AI_OS_PERSONAL_ROOT; falls back to
+ * `personalBrainPath` in `<ROOT>/.github/ai-os/config.json` (written by the init
+ * wizard). Returns '' when neither is set so the caller fails loudly rather than
+ * guessing a home directory.
  */
 export function getPersonalBrainPath(): string {
-  return process.env['AI_OS_PERSONAL_ROOT'] ?? '';
+  const fromEnv = process.env['AI_OS_PERSONAL_ROOT'];
+  if (fromEnv) return fromEnv;
+  try {
+    const raw = readAiOsFile('config.json');
+    if (raw) {
+      const cfg = JSON.parse(raw) as { personalBrainPath?: unknown };
+      if (typeof cfg.personalBrainPath === 'string' && cfg.personalBrainPath.trim()) {
+        return cfg.personalBrainPath;
+      }
+    }
+  } catch {
+    /* malformed config — fall through to '' */
+  }
+  return '';
 }
 
 export function getSessionMemoryDirPath(): string {

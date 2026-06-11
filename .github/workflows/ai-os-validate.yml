@@ -172,7 +172,8 @@ jobs:
         run: npm run build
 
       - name: Run ai-os against itself (dry-run)
-        run: node dist/generate.js --dry-run
+        working-directory: .
+        run: node engine/dist/generate.js --dry-run
 
       - name: Scorecard check (self-hosted regression gate)
         run: npm run scorecard:check

@@ -51,6 +51,7 @@ import {
   getSpecForFile,
 } from './utils.js';
 import { resolveMcpServerVersion } from './shared.js';
+import { promoteToBrain } from './promotion.js';
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
 import { readFile, listDirectory, runTests, runLint, runBuild } from './filesystem.js';
 import { listWorkflows, loadWorkflow, validateWorkflow, buildWorkflowRunPlan, formatRunPlan } from '../workflow-runner.js';
@@ -741,6 +742,29 @@ export function createSdkServer(): McpServer {
       }
       return lines.join('\n');
     }),
+  );
+
+  // ── Tool 44: promote_to_brain ─────────────────────────────────────────────
+  server.registerTool(
+    'promote_to_brain',
+    {
+      description: 'Promote a fact from project memory into the personal brain (sanitized, audited).',
+      inputSchema: {
+        title: z.string().describe('Short title for the fact'),
+        content: z.string().describe('The fact to promote'),
+        sanitized_confirmed: z.boolean().describe('Must be true; confirms review for company/client data'),
+        category: z.string().optional().describe('Optional category'),
+        tags: z.string().optional().describe('Optional comma-separated tags'),
+      },
+    },
+    wrap('promote_to_brain', ({ title, content, sanitized_confirmed, category, tags }) =>
+      promoteToBrain({
+        title: title as string,
+        content: content as string,
+        sanitized_confirmed: sanitized_confirmed as boolean,
+        category: category as string | undefined,
+        tags: tags as string | undefined,
+      })),
   );
 
   // ── Prompts ────────────────────────────────────────────────────────────────

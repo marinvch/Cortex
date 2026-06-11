@@ -473,6 +473,23 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
     },
     condition: always,
   },
+  // ── Tool #44: Promote to Brain ────────────────────────────────────────────
+  {
+    name: 'promote_to_brain',
+    description: 'Promote a fact from project memory into the personal brain. The ONLY sanctioned project→personal path. Requires sanitized_confirmed=true after reviewing for company/client data.',
+    inputSchema: {
+      type: 'object' as const,
+      properties: {
+        title: { type: 'string', description: 'Short title for the fact' },
+        content: { type: 'string', description: 'The fact to promote (review for sensitive data first)' },
+        sanitized_confirmed: { type: 'boolean', description: 'Must be true; confirms the user reviewed for company/client data' },
+        category: { type: 'string', description: 'Optional category (default: promoted)' },
+        tags: { type: 'string', description: 'Optional comma-separated tags' },
+      },
+      required: ['title', 'content', 'sanitized_confirmed'],
+    },
+    condition: always,
+  },
 ];
 
 export function getMcpToolsForStack(stack: DetectedStack): Array<Omit<McpToolDefinition, 'condition'>> {

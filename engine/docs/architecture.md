@@ -213,7 +213,7 @@ Every memory entry carries a `domain` (`MemoryDomain = 'project' | 'personal' | 
 
 A fact moves in exactly **one** direction — `project → personal` — and **only** via the sanitized, audited `promote_to_brain` gate. Never `project → shared`. Never `personal → project`.
 
-- `getPersonalBrainPath()` (`src/mcp-server/shared.ts`) reads `AI_OS_PERSONAL_ROOT` and returns `''` when unset, forcing the promotion handler to fail loudly rather than guessing a home directory.
+- `getPersonalBrainPath()` (`src/mcp-server/shared.ts`) prefers `AI_OS_PERSONAL_ROOT`, then falls back to `personalBrainPath` in `.github/ai-os/config.json` (written by the init wizard), and returns `''` only when neither is set, forcing the promotion handler to fail loudly rather than guessing a home directory.
 - `promoteToBrain()` (`src/mcp-server/promotion.ts`) refuses unless `sanitized_confirmed === true`, runs a warn-only secret scan (`detectSecretPatterns()` in `src/mcp-server/sanitize.ts`), appends a `domain: 'personal'` entry to `brain/memory.jsonl`, and writes an audit line to `brain/memory-log.md`.
 - Ambient capture is append-only: `suggest_profile_update` queues candidate facts to `brain/candidates.jsonl` (`src/mcp-server/candidates.ts`) for confirmation at `/level-up`; it never writes `context/` or `brain/memory.jsonl` directly. Project-domain candidates are flagged for sanitization.
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -56,5 +56,24 @@ describe('promoteToBrain', () => {
     expect(lines).toHaveLength(2);
     expect(JSON.parse(lines[0]).title).toBe('First');
     expect(JSON.parse(lines[1]).title).toBe('Second');
+  });
+
+  it('promotes using config.personalBrainPath when env var is unset', async () => {
+    delete process.env['AI_OS_PERSONAL_ROOT'];
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-cfgbrain-'));
+    process.env['AI_OS_ROOT'] = root;
+    fs.mkdirSync(path.join(root, '.github', 'ai-os'), { recursive: true });
+    const cfgBrain = path.join(root, 'mybrain');
+    fs.writeFileSync(
+      path.join(root, '.github', 'ai-os', 'config.json'),
+      JSON.stringify({ personalBrainPath: cfgBrain }),
+    );
+    vi.resetModules();
+    const { promoteToBrain } = await import('../mcp-server/promotion.js');
+    const out = promoteToBrain({ title: 'X', content: 'Y', sanitized_confirmed: true });
+    expect(out).toMatch(/promoted/i);
+    expect(fs.existsSync(path.join(cfgBrain, 'brain', 'memory.jsonl'))).toBe(true);
+    delete process.env['AI_OS_ROOT'];
+    fs.rmSync(root, { recursive: true, force: true });
   });
 });

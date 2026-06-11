@@ -12656,7 +12656,19 @@ function getMemoryLockFilePath() {
   return path2.join(getMemoryDirPath(), ".memory.lock");
 }
 function getPersonalBrainPath() {
-  return process.env["AI_OS_PERSONAL_ROOT"] ?? "";
+  const fromEnv = process.env["AI_OS_PERSONAL_ROOT"];
+  if (fromEnv) return fromEnv;
+  try {
+    const raw = readAiOsFile("config.json");
+    if (raw) {
+      const cfg = JSON.parse(raw);
+      if (typeof cfg.personalBrainPath === "string" && cfg.personalBrainPath.trim()) {
+        return cfg.personalBrainPath;
+      }
+    }
+  } catch {
+  }
+  return "";
 }
 function getSessionMemoryDirPath() {
   return path2.join(getMemoryDirPath(), "session");
@@ -29736,7 +29748,7 @@ import * as fs11 from "node:fs";
 import * as path12 from "node:path";
 function candidatesPath() {
   const root = getPersonalBrainPath();
-  if (!root) throw new Error("No personal brain path configured (AI_OS_PERSONAL_ROOT).");
+  if (!root) throw new Error("No personal brain path configured. Set AI_OS_PERSONAL_ROOT or personalBrainPath in config.");
   return path12.join(root, "brain", "candidates.jsonl");
 }
 function appendCandidate(args) {

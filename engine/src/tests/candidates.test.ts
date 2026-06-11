@@ -36,4 +36,21 @@ describe('candidate queue', () => {
     expect(fs.existsSync(path.join(brain, 'context'))).toBe(false);
     expect(fs.existsSync(path.join(brain, 'brain', 'candidates.jsonl'))).toBe(true);
   });
+
+  it('throws when no personal brain path is configured', async () => {
+    delete process.env['AI_OS_PERSONAL_ROOT'];
+    const { appendCandidate } = await import('../mcp-server/candidates.js');
+    expect(() => appendCandidate({ text: 'x', domain: 'personal', trigger: 't' })).toThrow(/personal brain path/i);
+  });
+
+  it('appends a second candidate as a new line, preserving the first', async () => {
+    const { appendCandidate, readCandidates } = await import('../mcp-server/candidates.js');
+    appendCandidate({ text: 'first', domain: 'personal', trigger: 'a' });
+    appendCandidate({ text: 'second', domain: 'project', trigger: 'b' });
+    const all = readCandidates();
+    expect(all).toHaveLength(2);
+    expect(all[0].text).toBe('first');
+    expect(all[1].text).toBe('second');
+    expect(all[1].needsSanitization).toBe(true);
+  });
 });

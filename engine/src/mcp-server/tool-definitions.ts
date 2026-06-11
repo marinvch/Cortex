@@ -4,7 +4,7 @@ import { getAllMcpTools as getSharedMcpTools } from '../mcp-tools.js';
 
 export interface McpToolSchema {
   type: 'object';
-  properties: Record<string, { type: string; description: string }>;
+  properties: Record<string, { type: string; description: string; enum?: string[] }>;
   required?: string[];
 }
 

@@ -129,8 +129,10 @@ Options:
       action = 'check-drift';
     } else if (args[i] === '--check-boundaries') {
       action = 'check-boundaries';
-    } else if (args[i] === '--personal-brain-path') {
+    } else if (args[i] === '--personal-brain-path' && args[i + 1]) {
       personalBrainPath = args[++i];
+    } else if (args[i] === '--personal-brain-path' && !args[i + 1]) {
+      throw new Error('--personal-brain-path requires a path value');
     } else if (args[i] === '--init') {
       action = 'init';
     } else if (args[i] === '--index') {

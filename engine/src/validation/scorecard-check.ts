@@ -14,7 +14,9 @@ interface ScorecardFile {
   weeks: WeekMetrics[];
 }
 
-const SCORECARD_PATH = path.resolve(import.meta.dirname, '../../.github/ai-os/metrics/scorecard.json');
+// Repo-root dogfooding data lives at <repo-root>/.github/ai-os/. This script is at
+// engine/src/validation/, so the repo root is three levels up (../../..), not two.
+const SCORECARD_PATH = path.resolve(import.meta.dirname, '../../../.github/ai-os/metrics/scorecard.json');
 
 // Minimum thresholds for robustness KPIs (when present in the scorecard entry)
 const ROBUSTNESS_THRESHOLDS: Record<keyof Omit<WeekMetrics, 'weekStart'>, number> = {

@@ -118,15 +118,15 @@ jobs:
             echo "SHA-256 checksums for verifying the integrity of shipped bundles:"
             echo
             echo "\`\`\`"
-            sha256sum bundle/generate.js dist/server.js
+            sha256sum engine/bundle/generate.js engine/dist/server.js
             echo "\`\`\`"
             echo
             echo "To verify after install:"
             echo "\`\`\`bash"
-            echo "# Verify bundle/generate.js"
-            echo "sha256sum bundle/generate.js"
-            echo "# Verify dist/server.js"
-            echo "sha256sum dist/server.js"
+            echo "# Verify engine/bundle/generate.js"
+            echo "sha256sum engine/bundle/generate.js"
+            echo "# Verify engine/dist/server.js"
+            echo "sha256sum engine/dist/server.js"
             echo "\`\`\`"
           } > "$RELEASE_NOTES_FILE"
 
@@ -139,8 +139,8 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
-            bundle/generate.js
-            bundle/server.js
+            engine/bundle/generate.js
+            engine/bundle/server.js
 
       - name: Bump version in package.json
         continue-on-error: true
@@ -168,17 +168,19 @@ jobs:
 
           node -e "
             const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '${NEXT_DEV_VERSION}';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            for (const file of ['package.json', 'engine/package.json']) {
+              const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+              pkg.version = '${NEXT_DEV_VERSION}';
+              fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + '\n');
+            }
           "
 
-          if git diff --quiet package.json; then
-            echo "package.json already at ${NEXT_DEV_VERSION} — no commit needed."
+          if git diff --quiet package.json engine/package.json; then
+            echo "package.json + engine/package.json already at ${NEXT_DEV_VERSION} — no commit needed."
             exit 0
           fi
 
-          git add package.json
+          git add package.json engine/package.json
           git commit -m "chore: bump version to v${NEXT_DEV_VERSION} [skip ci]"
           git push -u origin "$BUMP_BRANCH"
 

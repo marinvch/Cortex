@@ -653,6 +653,10 @@ interface GenerateContextDocsOptions {
   preserveContextFiles?: boolean;
   /** Target AI model — persisted to config.json so subsequent refreshes inherit the setting. */
   model?: ModelTarget;
+  /** Cross-domain boundary strictness — persisted to config.json (personal-OS installs). */
+  projectBoundary?: 'strict' | 'permissive';
+  /** Absolute path to the personal brain root — persisted to config.json (personal-OS installs). */
+  personalBrainPath?: string;
 }
 
 /**
@@ -865,6 +869,9 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
     agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_AI_OS_CONFIG.agentFlowMode,
     persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
     exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude,
+    // Personal-OS linkage — option wins, otherwise preserved across refreshes
+    projectBoundary: options?.projectBoundary ?? existingConfig?.projectBoundary,
+    personalBrainPath: options?.personalBrainPath ?? existingConfig?.personalBrainPath,
     // Skill version tracking — refreshed on every generation run
     skillVersions: computeSkillVersions(outputDir),
     // AI model preference — persisted so refreshes inherit the selection

@@ -86,6 +86,7 @@ function isCustomArtifact(relPath: string): boolean {
   return CUSTOM_ARTIFACT_DIRS.some(dir => relPath.startsWith(dir));
 }
 
+// Invariant: all writes are path.join(cwd, …) — no cross-domain writes exist.
 function ensureGitignoreEntry(cwd: string, entry: string): void {
   const gitignorePath = path.join(cwd, '.gitignore');
   if (!fs.existsSync(gitignorePath)) {
@@ -100,6 +101,16 @@ function ensureGitignoreEntry(cwd: string, entry: string): void {
 
   const next = `${current.replace(/\s*$/, '')}\n${entry}\n`;
   fs.writeFileSync(gitignorePath, next, 'utf-8');
+}
+
+/**
+ * Personal-OS root gitignore guarantees. The engine NEVER writes across domains — all writes
+ * use path.join(cwd, ...). This only ensures the personal layers stay uncommitted.
+ */
+export function ensurePersonalRootGitignore(cwd: string): void {
+  for (const entry of ['brain/', 'context/', 'decisions/', 'projects/']) {
+    ensureGitignoreEntry(cwd, entry);
+  }
 }
 
 function resolveBundledServerSource(): string | null {

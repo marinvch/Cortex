@@ -15,6 +15,8 @@ describe('ensurePersonalRootGitignore', () => {
     const gi = fs.readFileSync(path.join(cwd, '.gitignore'), 'utf-8');
     expect(gi.match(/^brain\/$/m)).toBeTruthy();
     expect(gi.match(/^context\/$/m)).toBeTruthy();
+    expect(gi.match(/^decisions\/$/m)).toBeTruthy();
+    expect(gi.match(/^projects\/$/m)).toBeTruthy();
     // idempotent — only one occurrence each
     expect(gi.split('\n').filter((l) => l === 'brain/')).toHaveLength(1);
   });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { parseArgs } from '../cli/args.js';
 
 function withArgv(args: string[], fn: () => void): void {

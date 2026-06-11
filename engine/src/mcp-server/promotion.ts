@@ -1,5 +1,5 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import fs from 'node:fs';
+import path from 'node:path';
 import { getPersonalBrainPath, writeTextAtomic } from './shared.js';
 import { detectSecretPatterns } from './sanitize.js';
 
@@ -37,6 +37,14 @@ export function promoteToBrain(args: PromoteArgs): string {
   const logPath = path.join(brainDir, 'memory-log.md');
 
   const now = new Date().toISOString();
+
+  const secrets = detectSecretPatterns(`${title} ${content}`);
+  const warning = secrets.length
+    ? ` ⚠️  Warning: possible secret(s) detected (${secrets.map((s) => s.kind).join(', ')}) — review brain/memory.jsonl.`
+    : '';
+
+  // fingerprint and updatedAt are intentionally omitted — memory.ts canonicalizeEntry
+  // recomputes fingerprint on read, and a missing updatedAt marks the entry "fresh".
   const entry = {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: now,
@@ -56,11 +64,6 @@ export function promoteToBrain(args: PromoteArgs): string {
   const auditLine = `- ${now} — promoted "${title}" (category: ${entry.category})\n`;
   const log = fs.existsSync(logPath) ? fs.readFileSync(logPath, 'utf-8') : '';
   writeTextAtomic(logPath, `${auditHeader}${log}${auditLine}`);
-
-  const secrets = detectSecretPatterns(content);
-  const warning = secrets.length
-    ? ` ⚠️  Warning: possible secret(s) detected (${secrets.map((s) => s.kind).join(', ')}) — review brain/memory.jsonl.`
-    : '';
 
   return `Promoted "${title}" to personal brain.${warning}`;
 }

@@ -194,3 +194,34 @@ User blocks use `<!-- AI-OS:USER_BLOCK:START id="..." -->` / `<!-- AI-OS:USER_BL
 **Frameworks:** Next.js, React, Vue, Angular, Svelte, Express, FastAPI, Django, Spring Boot, .NET, Laravel, Rails, Nuxt, Astro, Remix, tRPC, Prisma, and more
 
 **Tools:** ESLint, Prettier, Vitest, Jest, Playwright, Docker, GitHub Actions, all major package managers
+
+## Cortex Userland & the Three-Domain Data Model
+
+The engine no longer lives at the repository root. It is a bounded **kernel** under `engine/`; the repo root is the **Cortex** userland — a clone-and-go personal AI OS (identity in `context/`, memory in `brain/`, ritual skills in `.claude/skills/`, canonical `AGENTS.md`). The root `package.json` keeps `npx github:<user>/ai-os` working by pointing `bin` at `./engine/bundle/generate.js`. The framework is documented in `../references/alive-os-framework.md` (Alive · Bounded · Sovereign).
+
+### Three domains
+
+Every memory entry carries a `domain` (`MemoryDomain = 'project' | 'personal' | 'shared'`, default `'project'`; see `src/types.ts` and the `domain` field on `RepoMemoryEntry` in `src/mcp-server/memory.ts`).
+
+| Domain     | What lives there                                  | Storage |
+| ---------- | ------------------------------------------------- | ------- |
+| `shared`   | structure, framework, skills — ZERO real data     | committed template files + `src/templates/` |
+| `personal` | the user's brain: identity + durable memory       | the personal brain root (gitignored), resolved by `getPersonalBrainPath()` |
+| `project`  | company/client data, encapsulated in its own repo | `.github/ai-os/memory/memory.jsonl` |
+
+### The boundary invariant (non-negotiable)
+
+A fact moves in exactly **one** direction — `project → personal` — and **only** via the sanitized, audited `promote_to_brain` gate. Never `project → shared`. Never `personal → project`.
+
+- `getPersonalBrainPath()` (`src/mcp-server/shared.ts`) reads `AI_OS_PERSONAL_ROOT` and returns `''` when unset, forcing the promotion handler to fail loudly rather than guessing a home directory.
+- `promoteToBrain()` (`src/mcp-server/promotion.ts`) refuses unless `sanitized_confirmed === true`, runs a warn-only secret scan (`detectSecretPatterns()` in `src/mcp-server/sanitize.ts`), appends a `domain: 'personal'` entry to `brain/memory.jsonl`, and writes an audit line to `brain/memory-log.md`.
+- Ambient capture is append-only: `suggest_profile_update` queues candidate facts to `brain/candidates.jsonl` (`src/mcp-server/candidates.ts`) for confirmation at `/level-up`; it never writes `context/` or `brain/memory.jsonl` directly. Project-domain candidates are flagged for sanitization.
+
+### New CLI actions / MCP tools
+
+| Surface | Name | Purpose |
+| --- | --- | --- |
+| CLI action | `--check-boundaries` | Reports cross-domain leaks (non-`project` memory entries, missing personal-layer `.gitignore` rules). Read-only. |
+| CLI flag | `--personal-brain-path <dir>` | Overrides the personal brain root (otherwise `AI_OS_PERSONAL_ROOT` / config). |
+| MCP tool | `promote_to_brain` | The only sanctioned `project → personal` promotion (sanitized, audited). |
+| MCP tool | `suggest_profile_update` | Append-only ambient capture into `brain/candidates.jsonl`. |

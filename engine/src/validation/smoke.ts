@@ -21,7 +21,12 @@ interface ScorecardFile {
   weeks?: ScorecardWeek[];
 }
 
-const REPO_ROOT = path.resolve(import.meta.dirname, '../..');
+// After the engine/ subtree move, two roots diverge:
+//  - ENGINE_ROOT (engine/): engine source, templates, and the cwd for `npm run` (package.json lives here).
+//  - REPO_ROOT (repo root): the repo's self-dogfooding data under .github/ai-os/ (stayed at root).
+// This file is at engine/src/validation/, so engine/ is two levels up and the repo root is three.
+const ENGINE_ROOT = path.resolve(import.meta.dirname, '../..');
+const REPO_ROOT = path.resolve(ENGINE_ROOT, '..');
 
 function runCommand(command: string, cwd: string): { ok: boolean; output: string } {
   const result = spawnSync(command, {
@@ -38,8 +43,8 @@ function runCommand(command: string, cwd: string): { ok: boolean; output: string
   };
 }
 
-function checkFileExists(relativePath: string): SmokeCheck {
-  const fullPath = path.join(REPO_ROOT, relativePath);
+function checkFileExists(relativePath: string, base: string = REPO_ROOT): SmokeCheck {
+  const fullPath = path.join(base, relativePath);
   const passed = fs.existsSync(fullPath);
   return {
     name: `file exists: ${relativePath}`,
@@ -91,7 +96,7 @@ function checkScorecardHasEntries(): SmokeCheck {
 }
 
 function checkSkillTemplateContracts(): SmokeCheck {
-  const templatesDir = path.join(REPO_ROOT, 'src/templates/skills');
+  const templatesDir = path.join(ENGINE_ROOT, 'src/templates/skills');
   if (!fs.existsSync(templatesDir)) {
     return {
       name: 'skill templates satisfy contract sections',
@@ -122,7 +127,7 @@ function checkSkillTemplateContracts(): SmokeCheck {
 }
 
 function checkAgentTemplateContracts(): SmokeCheck {
-  const templatesDir = path.join(REPO_ROOT, 'src/templates/agents');
+  const templatesDir = path.join(ENGINE_ROOT, 'src/templates/agents');
   if (!fs.existsSync(templatesDir)) {
     return {
       name: 'agent templates satisfy contract sections',
@@ -160,7 +165,7 @@ function checkReviewSeverityTaxonomy(): SmokeCheck {
 
   const missing: string[] = [];
   for (const relPath of reviewTemplates) {
-    const fullPath = path.join(REPO_ROOT, relPath);
+    const fullPath = path.join(ENGINE_ROOT, relPath);
     if (!fs.existsSync(fullPath)) {
       missing.push(`${relPath} (file not found)`);
       continue;
@@ -187,29 +192,29 @@ function run(): void {
   checks.push(checkFileExists('.github/ai-os/context/knowledge-vault.md'));
   checks.push(checkFileExists('.github/ai-os/context/packs/implementation.md'));
   checks.push(checkFileExists('.github/ai-os/context/templates/decision-note.md'));
-  checks.push(checkFileExists('src/validation/scorecard.ts'));
-  checks.push(checkFileExists('src/validation/scorecard-check.ts'));
+  checks.push(checkFileExists('src/validation/scorecard.ts', ENGINE_ROOT));
+  checks.push(checkFileExists('src/validation/scorecard-check.ts', ENGINE_ROOT));
   checks.push(checkPersistentRules());
   checks.push(checkScorecardHasEntries());
   checks.push(checkSkillTemplateContracts());
   checks.push(checkAgentTemplateContracts());
   checks.push(checkReviewSeverityTaxonomy());
 
-  const scorecardCheck = runCommand('npm run scorecard:check', REPO_ROOT);
+  const scorecardCheck = runCommand('npm run scorecard:check', ENGINE_ROOT);
   checks.push({
     name: 'scorecard freshness command',
     passed: scorecardCheck.ok,
     detail: scorecardCheck.ok ? undefined : scorecardCheck.output,
   });
 
-  const planCheck = runCommand('npm run generate -- --cwd . --plan', REPO_ROOT);
+  const planCheck = runCommand('npm run generate -- --cwd . --plan', ENGINE_ROOT);
   checks.push({
     name: 'generator plan mode',
     passed: planCheck.ok,
     detail: planCheck.ok ? undefined : planCheck.output,
   });
 
-  const previewCheck = runCommand('npm run generate -- --cwd . --preview', REPO_ROOT);
+  const previewCheck = runCommand('npm run generate -- --cwd . --preview', ENGINE_ROOT);
   checks.push({
     name: 'generator preview mode',
     passed: previewCheck.ok,

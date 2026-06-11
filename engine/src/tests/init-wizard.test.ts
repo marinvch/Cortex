@@ -86,35 +86,89 @@ describe('runInitWizard', () => {
   it('returns chosen profile when user confirms', async () => {
     const { runWizardLogic } = await import('../actions/init.js');
 
-    // answers: stack confirm, profile, model, proceed
-    const answers = ['', 'standard', 'copilot', 'y'];
+    // answers: stack confirm, profile, model, personal-OS, proceed
+    const answers = ['', 'standard', 'copilot', 'n', 'y'];
     let idx = 0;
     const ask = async (_prompt: string) => answers[idx++] ?? '';
 
     const result = await runWizardLogic(minimalStack({ rootDir: tmp }), ask);
-    expect(result).toEqual({ proceed: true, profile: 'standard', model: 'copilot' });
+    expect(result).toEqual({
+      proceed: true,
+      profile: 'standard',
+      model: 'copilot',
+      projectBoundary: undefined,
+      personalBrainPath: undefined,
+    });
   });
 
   it('returns chosen profile with claude model', async () => {
     const { runWizardLogic } = await import('../actions/init.js');
 
-    const answers = ['', 'standard', 'claude', 'y'];
+    // answers: stack confirm, profile, model, personal-OS, proceed
+    const answers = ['', 'standard', 'claude', 'n', 'y'];
     let idx = 0;
     const ask = async (_prompt: string) => answers[idx++] ?? '';
 
     const result = await runWizardLogic(minimalStack({ rootDir: tmp }), ask);
-    expect(result).toEqual({ proceed: true, profile: 'standard', model: 'claude' });
+    expect(result).toEqual({
+      proceed: true,
+      profile: 'standard',
+      model: 'claude',
+      projectBoundary: undefined,
+      personalBrainPath: undefined,
+    });
   });
 
   it('returns proceed:false when user aborts', async () => {
     const { runWizardLogic } = await import('../actions/init.js');
 
-    // answers: stack confirm, profile, model, proceed (n = abort)
-    const answers = ['', 'minimal', 'copilot', 'n'];
+    // answers: stack confirm, profile, model, personal-OS, proceed (n = abort)
+    const answers = ['', 'minimal', 'copilot', 'n', 'n'];
     let idx = 0;
     const ask = async (_prompt: string) => answers[idx++] ?? '';
 
     const result = await runWizardLogic(minimalStack({ rootDir: tmp }), ask);
     expect(result.proceed).toBe(false);
+  });
+});
+
+describe('wizard — personal OS question', () => {
+  it('captures personalBrainPath when the user answers yes', async () => {
+    const { runWizardLogic } = await import('../actions/init.js');
+
+    // answers: stack confirm, profile, model, personal-OS (y), brain path, proceed
+    const answers = ['', 'standard', 'copilot', 'y', '/tmp/brain', 'y'];
+    let idx = 0;
+    const ask = async (_prompt: string) => answers[idx++] ?? '';
+
+    const result = await runWizardLogic(minimalStack(), ask);
+    expect(result.projectBoundary).toBe('strict');
+    expect(result.personalBrainPath).toBe('/tmp/brain');
+  });
+
+  it('sets strict boundary but skips brain path when left blank', async () => {
+    const { runWizardLogic } = await import('../actions/init.js');
+
+    // answers: stack confirm, profile, model, personal-OS (y), brain path (blank), proceed
+    const answers = ['', 'standard', 'copilot', 'y', '', 'y'];
+    let idx = 0;
+    const ask = async (_prompt: string) => answers[idx++] ?? '';
+
+    const result = await runWizardLogic(minimalStack(), ask);
+    expect(result.projectBoundary).toBe('strict');
+    expect(result.personalBrainPath).toBeUndefined();
+  });
+
+  it('defaults to no personal brain (project stays standalone)', async () => {
+    const { runWizardLogic } = await import('../actions/init.js');
+
+    // answers: stack confirm, profile, model, personal-OS (n), proceed
+    const answers = ['', 'standard', 'copilot', 'n', 'y'];
+    let idx = 0;
+    const ask = async (_prompt: string) => answers[idx++] ?? '';
+
+    const result = await runWizardLogic(minimalStack(), ask);
+    expect(result.projectBoundary).toBeUndefined();
+    expect(result.personalBrainPath).toBeUndefined();
   });
 });

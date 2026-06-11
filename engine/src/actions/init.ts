@@ -13,6 +13,8 @@ export interface InitResult {
   proceed: boolean;
   profile: InstallProfile;
   model: ModelTarget;
+  projectBoundary?: 'strict' | 'permissive';
+  personalBrainPath?: string;
 }
 
 export type AskFn = (prompt: string) => Promise<string>;
@@ -116,14 +118,27 @@ export async function runWizardLogic(stack: DetectedStack, ask: AskFn): Promise<
   }
   console.log('');
 
+  // ── Personal OS linkage ───────────────────────────────────────────────
+  console.log('\n  🧠 Is this project part of your personal AI OS (Cortex)?\n');
+  console.log('     Links it to your personal brain for sanitized promotion of learnings.');
+  console.log('');
+  let projectBoundary: 'strict' | 'permissive' | undefined;
+  let personalBrainPath: string | undefined;
+  const isPersonalOs = (await ask('  Personal OS project? [y/N]: ')).trim().toLowerCase();
+  if (isPersonalOs === 'y' || isPersonalOs === 'yes') {
+    projectBoundary = 'strict';
+    const bp = (await ask('  Personal brain path (absolute, blank to skip): ')).trim();
+    if (bp) personalBrainPath = bp;
+  }
+
   const confirm = (await ask('  Proceed with generation? [Y/n]: ')).trim().toLowerCase();
   if (confirm === 'n' || confirm === 'no') {
     console.log('\n  ⚡ Aborted. No files were written.\n');
-    return { proceed: false, profile, model };
+    return { proceed: false, profile, model, projectBoundary, personalBrainPath };
   }
 
   console.log('');
-  return { proceed: true, profile, model };
+  return { proceed: true, profile, model, projectBoundary, personalBrainPath };
 }
 
 /** Production entry point — wires readline and delegates to runWizardLogic. */

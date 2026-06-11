@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getPersonalBrainPath, writeTextAtomic } from './shared.js';
+import { getPersonalBrainPath, readJsonlFile, writeTextAtomic } from './shared.js';
 
 export interface Candidate {
   id: string;
@@ -43,5 +43,5 @@ export function appendCandidate(args: AppendCandidateArgs): Candidate {
 export function readCandidates(): Candidate[] {
   const file = candidatesPath();
   if (!fs.existsSync(file)) return [];
-  return fs.readFileSync(file, 'utf-8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l) as Candidate);
+  return readJsonlFile<Candidate>(file);
 }

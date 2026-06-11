@@ -9,6 +9,14 @@
   "bin": {
     "ai-os": "./bundle/generate.js"
   },
+  "files": [
+    "bundle/generate.js",
+    "bundle/server.js",
+    "dist/server.js",
+    "dist/bundle-manifest.json",
+    "src/templates",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc",
     "bundle": "node scripts/bundle.mjs",

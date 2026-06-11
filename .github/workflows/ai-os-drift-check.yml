@@ -12,7 +12,7 @@ on:
       - '.github/agents/**'
       - '.github/copilot/skills/**'
       - '.vscode/mcp.json'
-      - '.mcp.json'
+      - 'engine/.mcp.json'
 
 permissions:
   contents: read

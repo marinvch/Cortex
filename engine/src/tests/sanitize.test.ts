@@ -17,6 +17,11 @@ describe('detectSecretPatterns', () => {
     expect(hits.some(h => h.kind === 'env-secret')).toBe(true);
   });
 
+  it('flags Stripe-style api keys', () => {
+    const hits = detectSecretPatterns('key sk_live_abcdefghijklmnopqrst');
+    expect(hits.some(h => h.kind === 'generic-api-key')).toBe(true);
+  });
+
   it('returns no hits for clean text', () => {
     expect(detectSecretPatterns('The project uses pnpm and Vitest.')).toEqual([]);
   });

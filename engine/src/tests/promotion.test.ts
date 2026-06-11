@@ -46,4 +46,15 @@ describe('promoteToBrain', () => {
     expect(out).toMatch(/warning/i);
     expect(out).toMatch(/promoted/i);
   });
+
+  it('appends a second entry as a new line without corrupting the first', async () => {
+    const { promoteToBrain } = await import('../mcp-server/promotion.js');
+    promoteToBrain({ title: 'First', content: 'First fact.', sanitized_confirmed: true });
+    promoteToBrain({ title: 'Second', content: 'Second fact.', sanitized_confirmed: true });
+    const lines = fs.readFileSync(path.join(brain, 'brain', 'memory.jsonl'), 'utf-8')
+      .split('\n').filter(Boolean);
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[0]).title).toBe('First');
+    expect(JSON.parse(lines[1]).title).toBe('Second');
+  });
 });

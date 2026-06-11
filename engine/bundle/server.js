@@ -3225,8 +3225,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path14) {
-      let input = path14;
+    function removeDotSegments(path16) {
+      let input = path16;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3478,8 +3478,8 @@ var require_schemes = __commonJS({
         wsComponent.secure = void 0;
       }
       if (wsComponent.resourceName) {
-        const [path14, query] = wsComponent.resourceName.split("?");
-        wsComponent.path = path14 && path14 !== "/" ? path14 : void 0;
+        const [path16, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path16 && path16 !== "/" ? path16 : void 0;
         wsComponent.query = query;
         wsComponent.resourceName = void 0;
       }
@@ -12567,12 +12567,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs12, exportName) {
+    function addFormats(ajv, list, fs14, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs12[f]);
+        ajv.addFormat(f, fs14[f]);
     }
     module.exports = exports = formatsPlugin;
     Object.defineProperty(exports, "__esModule", { value: true });
@@ -12654,6 +12654,9 @@ function getMemoryDirPath() {
 }
 function getMemoryLockFilePath() {
   return path2.join(getMemoryDirPath(), ".memory.lock");
+}
+function getPersonalBrainPath() {
+  return process.env["AI_OS_PERSONAL_ROOT"] ?? "";
 }
 function getSessionMemoryDirPath() {
   return path2.join(getMemoryDirPath(), "session");
@@ -12935,7 +12938,8 @@ function canonicalizeEntry(raw) {
     status,
     staleReason: typeof raw.staleReason === "string" ? raw.staleReason : void 0,
     supersedesId: typeof raw.supersedesId === "string" ? raw.supersedesId : void 0,
-    conflictWithId: typeof raw.conflictWithId === "string" ? raw.conflictWithId : void 0
+    conflictWithId: typeof raw.conflictWithId === "string" ? raw.conflictWithId : void 0,
+    domain: raw.domain === "personal" || raw.domain === "shared" ? raw.domain : "project"
   };
 }
 function sortByRecencyDesc(a, b) {
@@ -15354,6 +15358,38 @@ var MCP_TOOL_DEFINITIONS = [
       required: ["path"]
     },
     condition: always
+  },
+  // ── Tool #44: Promote to Brain ────────────────────────────────────────────
+  {
+    name: "promote_to_brain",
+    description: "Promote a fact from project memory into the personal brain. The ONLY sanctioned project\u2192personal path. Requires sanitized_confirmed=true after reviewing for company/client data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Short title for the fact" },
+        content: { type: "string", description: "The fact to promote (review for sensitive data first)" },
+        sanitized_confirmed: { type: "boolean", description: "Must be true; confirms the user reviewed for company/client data" },
+        category: { type: "string", description: "Optional category (default: promoted)" },
+        tags: { type: "string", description: "Optional comma-separated tags" }
+      },
+      required: ["title", "content", "sanitized_confirmed"]
+    },
+    condition: always
+  },
+  // ── Tool #45: Suggest Profile Update ──────────────────────────────────────
+  {
+    name: "suggest_profile_update",
+    description: "Propose a candidate profile/context fact noticed during a session. APPEND-ONLY: queues to brain/candidates.jsonl for confirmation at /level-up. Cannot write context/ or brain/memory directly. Project-domain candidates are flagged for sanitization.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "The candidate fact to queue" },
+        domain: { type: "string", enum: ["personal", "project"], description: "Source domain of the observation" },
+        trigger: { type: "string", description: "The text/context that triggered this suggestion" }
+      },
+      required: ["text", "domain"]
+    },
+    condition: always
   }
 ];
 function getAllMcpTools() {
@@ -15892,8 +15928,8 @@ function getErrorMap() {
 
 // node_modules/zod/v3/helpers/parseUtil.js
 var makeIssue = (params) => {
-  const { data, path: path14, errorMaps, issueData } = params;
-  const fullPath = [...path14, ...issueData.path || []];
+  const { data, path: path16, errorMaps, issueData } = params;
+  const fullPath = [...path16, ...issueData.path || []];
   const fullIssue = {
     ...issueData,
     path: fullPath
@@ -16009,11 +16045,11 @@ var errorUtil;
 
 // node_modules/zod/v3/types.js
 var ParseInputLazyPath = class {
-  constructor(parent, value, path14, key) {
+  constructor(parent, value, path16, key) {
     this._cachedPath = [];
     this.parent = parent;
     this.data = value;
-    this._path = path14;
+    this._path = path16;
     this._key = key;
   }
   get path() {
@@ -19650,10 +19686,10 @@ function assignProp(target, prop, value) {
     configurable: true
   });
 }
-function getElementAtPath(obj, path14) {
-  if (!path14)
+function getElementAtPath(obj, path16) {
+  if (!path16)
     return obj;
-  return path14.reduce((acc, key) => acc?.[key], obj);
+  return path16.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -19973,11 +20009,11 @@ function aborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path14, issues) {
+function prefixIssues(path16, issues) {
   return issues.map((iss) => {
     var _a;
     (_a = iss).path ?? (_a.path = []);
-    iss.path.unshift(path14);
+    iss.path.unshift(path16);
     return iss;
   });
 }
@@ -29627,15 +29663,106 @@ var StdioServerTransport = class {
 };
 
 // src/mcp-server/sdk-server.ts
-import path13 from "node:path";
+import path15 from "node:path";
+
+// src/mcp-server/promotion.ts
+import fs10 from "node:fs";
+import path11 from "node:path";
+
+// src/mcp-server/sanitize.ts
+var PATTERNS = [
+  { kind: "aws-access-key", re: /\bAKIA[0-9A-Z]{16}\b/g },
+  { kind: "connection-string", re: /\b[a-z][a-z0-9+.-]*:\/\/[^\s:@/]+:[^\s:@/]+@[^\s/]+/gi },
+  { kind: "env-secret", re: /\b[A-Z0-9_]*(?:SECRET|TOKEN|PASSWORD|API[_-]?KEY)[A-Z0-9_]*\s*[=:]\s*\S{8,}/g },
+  { kind: "generic-api-key", re: /\b(?:sk|pk|rk)_(?:live|test)_[A-Za-z0-9]{12,}\b/g }
+];
+function detectSecretPatterns(text) {
+  const hits = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const { kind, re } of PATTERNS) {
+    for (const m of text.matchAll(re)) {
+      const key = `${kind}:${m[0]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      hits.push({ kind, match: m[0] });
+    }
+  }
+  return hits;
+}
+
+// src/mcp-server/promotion.ts
+function promoteToBrain(args) {
+  const title = (args.title ?? "").trim();
+  const content = (args.content ?? "").trim();
+  if (!title || !content) return "Both title and content are required to promote a fact.";
+  if (args.sanitized_confirmed !== true) {
+    return "Refused: promotion requires sanitized_confirmed=true. Review the fact for company/client data first.";
+  }
+  const root = getPersonalBrainPath();
+  if (!root) {
+    return "Refused: no personal brain path configured. Set AI_OS_PERSONAL_ROOT or personalBrainPath in config.";
+  }
+  const brainDir = path11.join(root, "brain");
+  fs10.mkdirSync(brainDir, { recursive: true });
+  const jsonlPath = path11.join(brainDir, "memory.jsonl");
+  const logPath = path11.join(brainDir, "memory-log.md");
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const secrets = detectSecretPatterns(`${title} ${content}`);
+  const warning = secrets.length ? ` \u26A0\uFE0F  Warning: possible secret(s) detected (${secrets.map((s) => s.kind).join(", ")}) \u2014 review brain/memory.jsonl.` : "";
+  const entry = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: now,
+    title,
+    content,
+    category: (args.category ?? "promoted").trim() || "promoted",
+    tags: (args.tags ?? "").split(",").map((t) => t.trim()).filter(Boolean),
+    status: "active",
+    domain: "personal"
+  };
+  const existing = fs10.existsSync(jsonlPath) ? fs10.readFileSync(jsonlPath, "utf-8") : "";
+  const next = `${existing.replace(/\s*$/, "")}${existing ? "\n" : ""}${JSON.stringify(entry)}
+`;
+  writeTextAtomic(jsonlPath, next);
+  const auditHeader = fs10.existsSync(logPath) ? "" : "# Personal Brain \u2014 Promotion Audit Log\n\n";
+  const auditLine = `- ${now} \u2014 promoted "${title}" (category: ${entry.category})
+`;
+  const log = fs10.existsSync(logPath) ? fs10.readFileSync(logPath, "utf-8") : "";
+  writeTextAtomic(logPath, `${auditHeader}${log}${auditLine}`);
+  return `Promoted "${title}" to personal brain.${warning}`;
+}
+
+// src/mcp-server/candidates.ts
+import * as fs11 from "node:fs";
+import * as path12 from "node:path";
+function candidatesPath() {
+  const root = getPersonalBrainPath();
+  if (!root) throw new Error("No personal brain path configured (AI_OS_PERSONAL_ROOT).");
+  return path12.join(root, "brain", "candidates.jsonl");
+}
+function appendCandidate(args) {
+  const file = candidatesPath();
+  fs11.mkdirSync(path12.dirname(file), { recursive: true });
+  const candidate = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+    text: args.text.trim(),
+    domain: args.domain,
+    trigger: args.trigger.trim(),
+    needsSanitization: args.domain === "project"
+  };
+  const existing = fs11.existsSync(file) ? fs11.readFileSync(file, "utf-8") : "";
+  writeTextAtomic(file, `${existing.replace(/\s*$/, "")}${existing ? "\n" : ""}${JSON.stringify(candidate)}
+`);
+  return candidate;
+}
 
 // src/detectors/drift.ts
-import { existsSync, readFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync } from "fs";
+import { join as join2 } from "path";
 import { createHash } from "node:crypto";
 function globFiles(pattern, cwd) {
-  const absDir = join(cwd, pattern.dir);
-  if (!existsSync(absDir)) return [];
+  const absDir = join2(cwd, pattern.dir);
+  if (!existsSync2(absDir)) return [];
   try {
     return readdirSync(absDir).filter((f) => f.endsWith(pattern.ext)).map((f) => `${pattern.dir}/${f}`);
   } catch {
@@ -29650,12 +29777,12 @@ var REQUIRED_FILES = [
 var SNAPSHOT_MAX_AGE_DAYS = 7;
 var FIX_CMD = "npx -y github:marinvch/ai-os --refresh-existing";
 function detectSemanticDrift(cwd, warnings) {
-  const configPath = join(cwd, ".github/ai-os/config.json");
-  const instrPath = join(cwd, ".github/copilot-instructions.md");
-  if (existsSync(configPath) && existsSync(instrPath)) {
+  const configPath = join2(cwd, ".github/ai-os/config.json");
+  const instrPath = join2(cwd, ".github/copilot-instructions.md");
+  if (existsSync2(configPath) && existsSync2(instrPath)) {
     try {
-      const config2 = JSON.parse(readFileSync(configPath, "utf8"));
-      const instrContent = readFileSync(instrPath, "utf8");
+      const config2 = JSON.parse(readFileSync2(configPath, "utf8"));
+      const instrContent = readFileSync2(instrPath, "utf8");
       if (config2.primaryFramework) {
         const fw = config2.primaryFramework;
         if (!instrContent.toLowerCase().includes(fw.toLowerCase())) {
@@ -29671,10 +29798,10 @@ function detectSemanticDrift(cwd, warnings) {
     } catch {
     }
   }
-  const existingContextPath = join(cwd, ".github/ai-os/context/existing-ai-context.md");
-  if (existsSync(existingContextPath)) {
+  const existingContextPath = join2(cwd, ".github/ai-os/context/existing-ai-context.md");
+  if (existsSync2(existingContextPath)) {
     try {
-      const contextContent = readFileSync(existingContextPath, "utf8");
+      const contextContent = readFileSync2(existingContextPath, "utf8");
       const agentCountMatch = contextContent.match(/"agents"\s*:\s*(\d+)/);
       const recordedCount = agentCountMatch ? parseInt(agentCountMatch[1], 10) : null;
       const agentFiles = globFiles({ dir: ".github/agents", ext: ".agent.md" }, cwd);
@@ -29688,9 +29815,9 @@ function detectSemanticDrift(cwd, warnings) {
           fix: FIX_CMD
         });
       }
-      if (existsSync(configPath)) {
+      if (existsSync2(configPath)) {
         try {
-          const config2 = JSON.parse(readFileSync(configPath, "utf8"));
+          const config2 = JSON.parse(readFileSync2(configPath, "utf8"));
           const mermaidMatch = contextContent.match(/```mermaid([\s\S]*?)```/);
           if (mermaidMatch) {
             const mermaidBlock = mermaidMatch[1];
@@ -29731,15 +29858,15 @@ function detectDrift(cwd) {
   const warnings = [];
   const infos = [];
   const healthy = [];
-  for (const { path: path14, description } of REQUIRED_FILES) {
-    if (!existsSync(join(cwd, path14))) {
-      errors.push({ path: path14, kind: "missing", severity: "error", message: `${description} is missing`, fix: FIX_CMD });
+  for (const { path: path16, description } of REQUIRED_FILES) {
+    if (!existsSync2(join2(cwd, path16))) {
+      errors.push({ path: path16, kind: "missing", severity: "error", message: `${description} is missing`, fix: FIX_CMD });
     } else {
-      healthy.push(path14);
+      healthy.push(path16);
     }
   }
   const mcpPaths = [".mcp.json", ".vscode/mcp.json"];
-  const presentMcpPaths = mcpPaths.filter((p) => existsSync(join(cwd, p)));
+  const presentMcpPaths = mcpPaths.filter((p) => existsSync2(join2(cwd, p)));
   if (presentMcpPaths.length === 0) {
     errors.push({
       path: ".vscode/mcp.json",
@@ -29751,14 +29878,14 @@ function detectDrift(cwd) {
   } else {
     for (const p of presentMcpPaths) {
       try {
-        const cfg = JSON.parse(readFileSync(join(cwd, p), "utf8"));
+        const cfg = JSON.parse(readFileSync2(join2(cwd, p), "utf8"));
         const servers = cfg["mcpServers"] ?? cfg["servers"] ?? {};
         let serverPathBroken = false;
         for (const [name, def] of Object.entries(servers)) {
           const serverPath = (def.args ?? []).find((a) => a.endsWith(".js"));
           if (serverPath) {
             const resolved = serverPath.replace("${workspaceFolder}", cwd);
-            if (!existsSync(resolved)) {
+            if (!existsSync2(resolved)) {
               warnings.push({
                 path: p,
                 kind: "stale",
@@ -29776,9 +29903,9 @@ function detectDrift(cwd) {
       }
     }
   }
-  const instrPath = join(cwd, ".github/copilot-instructions.md");
-  if (existsSync(instrPath)) {
-    const content = readFileSync(instrPath, "utf8");
+  const instrPath = join2(cwd, ".github/copilot-instructions.md");
+  if (existsSync2(instrPath)) {
+    const content = readFileSync2(instrPath, "utf8");
     const placeholders = content.match(/\{\{[A-Z_]+\}\}/g);
     if (placeholders) {
       errors.push({
@@ -29791,10 +29918,10 @@ function detectDrift(cwd) {
     }
   }
   const snapshotPath = ".github/ai-os/context-snapshot.json";
-  const snapshotAbs = join(cwd, snapshotPath);
-  if (existsSync(snapshotAbs)) {
+  const snapshotAbs = join2(cwd, snapshotPath);
+  if (existsSync2(snapshotAbs)) {
     try {
-      const snap = JSON.parse(readFileSync(snapshotAbs, "utf8"));
+      const snap = JSON.parse(readFileSync2(snapshotAbs, "utf8"));
       const generatedAt = snap.generatedAt ? new Date(snap.generatedAt) : null;
       if (generatedAt) {
         const ageDays = (Date.now() - generatedAt.getTime()) / (1e3 * 60 * 60 * 24);
@@ -29816,7 +29943,7 @@ function detectDrift(cwd) {
   }
   const agentFiles = globFiles({ dir: ".github/agents", ext: ".agent.md" }, cwd);
   for (const agentFile of agentFiles) {
-    const content = readFileSync(join(cwd, agentFile), "utf8");
+    const content = readFileSync2(join2(cwd, agentFile), "utf8");
     const missingSections = [];
     if (!content.includes("## Goal") && !content.includes("# Goal")) missingSections.push("Goal");
     if (!content.includes("## Constraints") && !content.includes("# Constraints")) missingSections.push("Constraints");
@@ -29832,12 +29959,12 @@ function detectDrift(cwd) {
       healthy.push(agentFile);
     }
   }
-  const skillsDirNew = join(cwd, ".github", "skills");
-  const skillsDirLegacy = join(cwd, ".github", "copilot", "skills");
-  const skillsDir = existsSync(skillsDirNew) ? skillsDirNew : skillsDirLegacy;
-  const installedSkills = existsSync(skillsDir) ? readdirSync(skillsDir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, "")) : [];
-  if (installedSkills.length > 0 && existsSync(instrPath)) {
-    const instrContent = readFileSync(instrPath, "utf8");
+  const skillsDirNew = join2(cwd, ".github", "skills");
+  const skillsDirLegacy = join2(cwd, ".github", "copilot", "skills");
+  const skillsDir = existsSync2(skillsDirNew) ? skillsDirNew : skillsDirLegacy;
+  const installedSkills = existsSync2(skillsDir) ? readdirSync(skillsDir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, "")) : [];
+  if (installedSkills.length > 0 && existsSync2(instrPath)) {
+    const instrContent = readFileSync2(instrPath, "utf8");
     for (const skill of installedSkills) {
       if (!instrContent.includes(skill)) {
         warnings.push({
@@ -29850,18 +29977,18 @@ function detectDrift(cwd) {
       }
     }
   }
-  const configPath = join(cwd, ".github/ai-os/config.json");
-  if (existsSync(configPath)) {
+  const configPath = join2(cwd, ".github/ai-os/config.json");
+  if (existsSync2(configPath)) {
     try {
-      const cfg = JSON.parse(readFileSync(configPath, "utf8"));
+      const cfg = JSON.parse(readFileSync2(configPath, "utf8"));
       if (cfg.skillVersions && Object.keys(cfg.skillVersions).length > 0) {
-        const svDirNew = join(cwd, ".github", "skills");
-        const svDirLegacy = join(cwd, ".github", "copilot", "skills");
-        const svDir = existsSync(svDirNew) ? svDirNew : svDirLegacy;
-        const svDirRel = existsSync(svDirNew) ? ".github/skills" : ".github/copilot/skills";
+        const svDirNew = join2(cwd, ".github", "skills");
+        const svDirLegacy = join2(cwd, ".github", "copilot", "skills");
+        const svDir = existsSync2(svDirNew) ? svDirNew : svDirLegacy;
+        const svDirRel = existsSync2(svDirNew) ? ".github/skills" : ".github/copilot/skills";
         for (const [skillName, expectedHash] of Object.entries(cfg.skillVersions)) {
-          const skillFilePath = join(svDir, `${skillName}.md`);
-          if (!existsSync(skillFilePath)) {
+          const skillFilePath = join2(svDir, `${skillName}.md`);
+          if (!existsSync2(skillFilePath)) {
             warnings.push({
               path: `${svDirRel}/${skillName}.md`,
               kind: "missing",
@@ -29870,7 +29997,7 @@ function detectDrift(cwd) {
               fix: FIX_CMD
             });
           } else {
-            const content = readFileSync(skillFilePath, "utf8");
+            const content = readFileSync2(skillFilePath, "utf8");
             const actualHash = createHash("sha256").update(content).digest("hex").slice(0, 12);
             if (actualHash !== expectedHash) {
               warnings.push({
@@ -29959,8 +30086,8 @@ function formatDriftReport(report, verbose = false) {
 }
 
 // src/mcp-server/filesystem.ts
-import fs10 from "node:fs";
-import path11 from "node:path";
+import fs12 from "node:fs";
+import path13 from "node:path";
 import { spawnSync as spawnSync4 } from "node:child_process";
 var MAX_OUTPUT_BYTES = 8 * 1024;
 var MAX_FILE_BYTES = 32 * 1024;
@@ -29981,8 +30108,8 @@ var BLOCKED_DIRS = /* @__PURE__ */ new Set([
   ".gradle"
 ]);
 function resolveSafe(userPath) {
-  const resolved = path11.resolve(ROOT, userPath);
-  if (!resolved.startsWith(ROOT + path11.sep) && resolved !== ROOT) return null;
+  const resolved = path13.resolve(ROOT, userPath);
+  if (!resolved.startsWith(ROOT + path13.sep) && resolved !== ROOT) return null;
   return resolved;
 }
 function readFile(filePath) {
@@ -29993,18 +30120,18 @@ function readFile(filePath) {
   if (!resolved) {
     return `Error: path traversal detected \u2014 "${filePath}" is outside the project root`;
   }
-  if (!fs10.existsSync(resolved)) {
+  if (!fs12.existsSync(resolved)) {
     return `Error: file not found: ${filePath}`;
   }
-  if (!fs10.statSync(resolved).isFile()) {
+  if (!fs12.statSync(resolved).isFile()) {
     return `Error: not a file: ${filePath}`;
   }
-  const size = fs10.statSync(resolved).size;
+  const size = fs12.statSync(resolved).size;
   if (size > MAX_FILE_BYTES) {
     return `File is too large to read inline (${size} bytes). Use search_codebase to find specific sections.`;
   }
   try {
-    return fs10.readFileSync(resolved, "utf-8");
+    return fs12.readFileSync(resolved, "utf-8");
   } catch (e) {
     return `Error reading file: ${e instanceof Error ? e.message : String(e)}`;
   }
@@ -30015,27 +30142,27 @@ function listDirectory(dirPath) {
   if (!resolved) {
     return `Error: path traversal detected \u2014 "${target}" is outside the project root`;
   }
-  if (!fs10.existsSync(resolved)) {
+  if (!fs12.existsSync(resolved)) {
     return `Error: directory not found: ${target}`;
   }
-  if (!fs10.statSync(resolved).isDirectory()) {
+  if (!fs12.statSync(resolved).isDirectory()) {
     return `Error: not a directory: ${target}`;
   }
   try {
-    const entries = fs10.readdirSync(resolved, { withFileTypes: true }).filter((e) => !BLOCKED_DIRS.has(e.name)).sort((a, b) => {
+    const entries = fs12.readdirSync(resolved, { withFileTypes: true }).filter((e) => !BLOCKED_DIRS.has(e.name)).sort((a, b) => {
       if (a.isDirectory() !== b.isDirectory()) return a.isDirectory() ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
     const lines = entries.map((e) => {
       if (e.isDirectory()) return `${e.name}/  [dir]`;
       try {
-        const stat = fs10.statSync(path11.join(resolved, e.name));
+        const stat = fs12.statSync(path13.join(resolved, e.name));
         return `${e.name}  (${stat.size} bytes)`;
       } catch {
         return e.name;
       }
     });
-    const relativePath = path11.relative(ROOT, resolved).replace(/\\/g, "/") || ".";
+    const relativePath = path13.relative(ROOT, resolved).replace(/\\/g, "/") || ".";
     return `Directory: ${relativePath}
 
 ${lines.join("\n")}`;
@@ -30045,18 +30172,18 @@ ${lines.join("\n")}`;
 }
 function runToolsAllowed() {
   if (process.env["AI_OS_ALLOW_RUN_TOOLS"] === "1") return true;
-  const configPath = path11.join(ROOT, ".github", "ai-os", "config.json");
+  const configPath = path13.join(ROOT, ".github", "ai-os", "config.json");
   try {
-    const cfg = JSON.parse(fs10.readFileSync(configPath, "utf-8"));
+    const cfg = JSON.parse(fs12.readFileSync(configPath, "utf-8"));
     return cfg.allowRunTools === true;
   } catch {
     return false;
   }
 }
 function detectPackageManager() {
-  if (fs10.existsSync(path11.join(ROOT, "bun.lockb"))) return "bun";
-  if (fs10.existsSync(path11.join(ROOT, "pnpm-lock.yaml"))) return "pnpm";
-  if (fs10.existsSync(path11.join(ROOT, "yarn.lock"))) return "yarn";
+  if (fs12.existsSync(path13.join(ROOT, "bun.lockb"))) return "bun";
+  if (fs12.existsSync(path13.join(ROOT, "pnpm-lock.yaml"))) return "pnpm";
+  if (fs12.existsSync(path13.join(ROOT, "yarn.lock"))) return "yarn";
   return "npm";
 }
 function runScript(scriptName) {
@@ -30108,8 +30235,8 @@ function runBuild() {
 }
 
 // src/workflow-runner.ts
-import fs11 from "node:fs";
-import path12 from "node:path";
+import fs13 from "node:fs";
+import path14 from "node:path";
 function parseWorkflowYaml(yaml) {
   const lines = yaml.split("\n");
   const result = { steps: [] };
@@ -30233,16 +30360,16 @@ function formatRunPlan(plan) {
   return lines.filter((l) => l !== null).join("\n").replace(/\n{3,}/g, "\n\n");
 }
 function listWorkflows(cwd) {
-  const dir = path12.join(cwd, ".github", "ai-os", "workflows");
-  if (!fs11.existsSync(dir)) return [];
-  return fs11.readdirSync(dir).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
+  const dir = path14.join(cwd, ".github", "ai-os", "workflows");
+  if (!fs13.existsSync(dir)) return [];
+  return fs13.readdirSync(dir).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
 }
 function loadWorkflow(cwd, filename) {
-  const filepath = path12.join(cwd, ".github", "ai-os", "workflows", filename);
-  if (!fs11.existsSync(filepath)) {
+  const filepath = path14.join(cwd, ".github", "ai-os", "workflows", filename);
+  if (!fs13.existsSync(filepath)) {
     throw new Error(`Workflow file not found: ${filepath}`);
   }
-  const content = fs11.readFileSync(filepath, "utf8");
+  const content = fs13.readFileSync(filepath, "utf8");
   return parseWorkflowYaml(content);
 }
 
@@ -30287,7 +30414,7 @@ function createSdkServer() {
       }
     },
     wrap("get_project_structure", ({ path: subPath, depth }) => {
-      const startDir = subPath ? path13.join(getProjectRoot(), subPath) : getProjectRoot();
+      const startDir = subPath ? path15.join(getProjectRoot(), subPath) : getProjectRoot();
       return buildFileTree(startDir, 0, depth ?? 4).join("\n");
     })
   );
@@ -30828,6 +30955,45 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
         lines.push(`  ${"".padEnd(20)}   (${r.specFile})`);
       }
       return lines.join("\n");
+    })
+  );
+  server.registerTool(
+    "promote_to_brain",
+    {
+      description: "Promote a fact from project memory into the personal brain (sanitized, audited).",
+      inputSchema: {
+        title: external_exports.string().describe("Short title for the fact"),
+        content: external_exports.string().describe("The fact to promote"),
+        sanitized_confirmed: external_exports.boolean().describe("Must be true; confirms review for company/client data"),
+        category: external_exports.string().optional().describe("Optional category"),
+        tags: external_exports.string().optional().describe("Optional comma-separated tags")
+      }
+    },
+    wrap("promote_to_brain", ({ title, content, sanitized_confirmed, category, tags }) => promoteToBrain({
+      title,
+      content,
+      sanitized_confirmed,
+      category,
+      tags
+    }))
+  );
+  server.registerTool(
+    "suggest_profile_update",
+    {
+      description: "Queue a candidate profile/context fact for confirmation at /level-up (append-only).",
+      inputSchema: {
+        text: external_exports.string().describe("The candidate fact to queue"),
+        domain: external_exports.enum(["personal", "project"]).describe("Source domain"),
+        trigger: external_exports.string().optional().describe("What triggered this suggestion")
+      }
+    },
+    wrap("suggest_profile_update", ({ text, domain, trigger }) => {
+      const c = appendCandidate({
+        text,
+        domain,
+        trigger: trigger ?? ""
+      });
+      return `Queued candidate (${c.domain}${c.needsSanitization ? ", needs sanitization" : ""}) for /level-up confirmation.`;
     })
   );
   server.registerPrompt(

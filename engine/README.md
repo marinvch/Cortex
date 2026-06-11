@@ -1,5 +1,8 @@
 # AI OS
 
+> **This is the `ai-os` engine (kernel).** The repository root is **Cortex**, a personal AI OS
+> userland that lights this engine up when a codebase is present. See [`../README.md`](../README.md).
+
 > **Give GitHub Copilot a brain. Works with any codebase, any language.**
 
 [![npm](https://img.shields.io/npm/v/ai-os)](https://www.npmjs.com/package/ai-os)
@@ -21,6 +24,7 @@ npx -y github:marinvch/ai-os
 - **MCP server** — 37 project-intelligence tools accessible inside Copilot
 - **14 agent skills** — production-grade skills auto-installed: `brainstorming`, `writing-plans`, `systematic-debugging`, and more
 - **Drift detection** — `--check-drift` keeps your AI docs in sync as code evolves
+- **Boundary model** — `--check-boundaries` reports cross-domain leaks; `--personal-brain-path` and the `promote_to_brain` MCP tool gate the only sanctioned `project → personal` promotion
 - **Multi-editor** — generate configs for VS Code, Cursor, JetBrains, Neovim with `--editor`
 - **Multi-model** — adapt instructions for Claude, Gemini, or local LLMs with `--model`
 - **Workflow chaining** — YAML agent pipelines via the `run_workflow` MCP tool
@@ -133,6 +137,20 @@ bash install.sh --uninstall
 - **Languages:** TypeScript, JavaScript, Python, Go, Rust, Java, C#, PHP, Ruby, Swift, Kotlin, 30+ more
 - **Frameworks:** Next.js, React, Vue, Angular, Svelte, Express, FastAPI, Django, Spring Boot, .NET, Laravel, Rails, Nuxt, Astro, Remix, tRPC, Prisma, and more
 - **Tools:** ESLint, Prettier, Vitest, Jest, Playwright, Docker, GitHub Actions, package managers
+
+## Cortex boundary flags
+
+When run inside the Cortex userland (or any repo using the three-domain data model):
+
+```bash
+# Read-only cross-domain leak report (non-project memory, missing personal-layer .gitignore rules)
+npx -y github:marinvch/ai-os --check-boundaries --cwd /path/to/repo
+
+# Point promotion at an explicit personal brain root (otherwise AI_OS_PERSONAL_ROOT / config)
+npx -y github:marinvch/ai-os --personal-brain-path /path/to/brain --cwd /path/to/repo
+```
+
+A fact moves `project → personal` ONLY via the sanitized, audited `promote_to_brain` MCP tool — never `project → shared`, never `personal → project`. See [docs/architecture.md](docs/architecture.md) and `../references/alive-os-framework.md`.
 
 ## Full Documentation
 

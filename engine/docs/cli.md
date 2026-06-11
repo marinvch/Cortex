@@ -14,6 +14,7 @@
 | `--check-hygiene` | `check-hygiene` | Detect orphaned files, stale lock files, manifest drift |
 | `--check-freshness` | `check-freshness` | Score context freshness vs source files |
 | `--compact-memory` | `compact-memory` | Remove stale memory entries |
+| `--check-boundaries` | `check-boundaries` | Read-only cross-domain leak report (non-`project` memory entries, missing personal-layer `.gitignore` rules) |
 | `--bootstrap` | `bootstrap` | Full generation + auto-install skills |
 | `--uninstall` | _(install.sh flag)_ | Guided removal of all AI OS artifacts |
 
@@ -30,6 +31,7 @@
 | `--prune-custom-artifacts` | Also prune non-AI-OS artifacts in managed dirs |
 | `--clean-update` | Aggressive refresh — equivalent to `--refresh-existing` |
 | `--json` | Suppress human output; emit structured JSON to stdout |
+| `--personal-brain-path <dir>` | Personal brain root for `project → personal` promotion (otherwise `AI_OS_PERSONAL_ROOT` / config) |
 
 ## Install Profiles
 

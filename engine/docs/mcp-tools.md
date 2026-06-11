@@ -50,6 +50,8 @@
 | `get_file_purpose` | Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists. |
 | `validate_spec_coverage` | Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first. |
 | `get_spec_for_file` | Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first. |
+| `promote_to_brain` | Promote a fact from project memory into the personal brain. The ONLY sanctioned project→personal path. Requires sanitized_confirmed=true after reviewing for company/client data. |
+| `suggest_profile_update` | Propose a candidate profile/context fact noticed during a session. APPEND-ONLY: queues to brain/candidates.jsonl for confirmation at /level-up. Cannot write context/ or brain/memory directly. Project-domain candidates are flagged for sanitization. |
 
 ## Session Start Protocol
 

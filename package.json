@@ -48,19 +48,19 @@
   "dependencies": {
     "@github/copilot-sdk": "^0.3.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.1",
-    "@typescript-eslint/eslint-plugin": "^8.59.4",
-    "@typescript-eslint/parser": "^8.59.4",
-    "@vitest/coverage-v8": "^4.1.7",
-    "esbuild": "^0.28.0",
-    "eslint": "^10.4.0",
-    "tsx": "^4.22.3",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "@vitest/coverage-v8": "^4.1.8",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.4.1",
+    "tsx": "^4.22.4",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.59.4",
-    "vitest": "^4.1.7"
+    "typescript-eslint": "^8.61.1",
+    "vitest": "^4.1.8"
   },
   "optionalDependencies": {
     "@emnapi/core": "1.10.0",

@@ -4,22 +4,22 @@ on:
   pull_request:
     branches: [dev]
     paths:
-      - "src/**"
-      - "scripts/**"
-      - "docs/mcp-tools.md"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.json"
+      - "engine/src/**"
+      - "engine/scripts/**"
+      - "engine/docs/mcp-tools.md"
+      - "engine/package.json"
+      - "engine/package-lock.json"
+      - "engine/tsconfig.json"
       - ".github/workflows/**"
   push:
     branches: [dev, master]
     paths:
-      - "src/**"
-      - "scripts/**"
-      - "docs/mcp-tools.md"
-      - "package.json"
-      - "package-lock.json"
-      - "tsconfig.json"
+      - "engine/src/**"
+      - "engine/scripts/**"
+      - "engine/docs/mcp-tools.md"
+      - "engine/package.json"
+      - "engine/package-lock.json"
+      - "engine/tsconfig.json"
       - ".github/workflows/**"
   workflow_dispatch:
 
@@ -33,6 +33,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: engine
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -42,6 +45,12 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
+          cache-dependency-path: engine/package-lock.json
+
+      - name: Version lockstep check
+        working-directory: .
+        run: |
+          node -e "const r=require('./package.json').version,e=require('./engine/package.json').version; if(r!==e){console.error('version mismatch root='+r+' engine='+e);process.exit(1)} else console.log('versions match: '+r)"
 
       - name: Install dependencies
         run: npm ci
@@ -58,7 +67,7 @@ jobs:
       - name: MCP docs freshness check
         run: |
           npm run gen-mcp-docs
-          git diff --exit-code docs/mcp-tools.md || (echo "docs/mcp-tools.md is stale — run npm run gen-mcp-docs and commit" && exit 1)
+          git diff --exit-code docs/mcp-tools.md || (echo "engine/docs/mcp-tools.md is stale — run npm run gen-mcp-docs and commit" && exit 1)
 
   test-matrix:
     if: github.event_name == 'pull_request'
@@ -70,6 +79,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: engine
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -79,6 +91,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
           cache: "npm"
+          cache-dependency-path: engine/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -94,6 +107,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: engine
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -103,6 +119,12 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
+          cache-dependency-path: engine/package-lock.json
+
+      - name: Version lockstep check
+        working-directory: .
+        run: |
+          node -e "const r=require('./package.json').version,e=require('./engine/package.json').version; if(r!==e){console.error('version mismatch root='+r+' engine='+e);process.exit(1)} else console.log('versions match: '+r)"
 
       - name: Install dependencies
         run: npm ci
@@ -119,7 +141,7 @@ jobs:
       - name: MCP docs freshness check
         run: |
           npm run gen-mcp-docs
-          git diff --exit-code docs/mcp-tools.md || (echo "docs/mcp-tools.md is stale — run npm run gen-mcp-docs and commit" && exit 1)
+          git diff --exit-code docs/mcp-tools.md || (echo "engine/docs/mcp-tools.md is stale — run npm run gen-mcp-docs and commit" && exit 1)
 
       - name: Scorecard regression check
         run: npm run scorecard:check
@@ -129,6 +151,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: engine
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -138,6 +163,7 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
+          cache-dependency-path: engine/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -146,7 +172,8 @@ jobs:
         run: npm run build
 
       - name: Run ai-os against itself (dry-run)
-        run: node dist/generate.js --dry-run
+        working-directory: .
+        run: node engine/dist/generate.js --dry-run
 
       - name: Scorecard check (self-hosted regression gate)
         run: npm run scorecard:check

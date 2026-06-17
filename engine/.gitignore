@@ -1,0 +1,22 @@
+node_modules/
+# dist/ is excluded EXCEPT the pre-built MCP server bundle that ships with AI OS
+dist/**
+!dist/server.js
+!dist/bundle-manifest.json
+dist/*.js.map
+dist/generate.js
+dist/generate.d.ts
+*.js.map
+*.d.ts
+tsconfig.tsbuildinfo
+
+# Coverage reports
+coverage/
+
+# Test output — generated files written to target repos
+.ai-os/
+.vscode/mcp.json
+.github/copilot-instructions.md.bak
+.ai-os/mcp-server/node_modules
+.github/ai-os/memory/.memory.lock
+.github/ai-os/memory/session/

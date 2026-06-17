@@ -1,0 +1,196 @@
+import path from 'node:path';
+import { parseProfile } from '../profile.js';
+import type { InstallProfile } from '../types.js';
+import { parseEditorTarget, type EditorTarget } from '../generators/multi-editor.js';
+import { parseModelTarget, type ModelTarget } from '../generators/multi-model.js';
+
+export type GenerateMode = 'safe' | 'refresh-existing' | 'update';
+export type GenerateAction = 'apply' | 'plan' | 'preview' | 'check-hygiene' | 'doctor' | 'bootstrap' | 'check-freshness' | 'compact-memory' | 'uninstall' | 'check-drift' | 'init' | 'index' | 'check-boundaries';
+
+export interface ParsedArgs {
+  cwd: string;
+  dryRun: boolean;
+  mode: GenerateMode;
+  action: GenerateAction;
+  prune: boolean;
+  verbose: boolean;
+  cleanUpdate: boolean;
+  regenerateContext: boolean;
+  pruneCustomArtifacts: boolean;
+  profile: InstallProfile | null;
+  json: boolean;
+  fullDiff: boolean;
+  editorTargets: EditorTarget[];
+  model: ModelTarget;
+  incremental: boolean;
+  specDir: string | undefined;
+  personalBrainPath?: string;
+  projectBoundary?: 'strict' | 'permissive';
+}
+
+export function parseArgs(): ParsedArgs {
+  const args = process.argv.slice(2);
+
+  // Handle --help / -h early exit (#249)
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(`
+Usage: npx ai-os [options]
+
+Options:
+  --cwd <path>                Directory to run in (default: process.cwd())
+  --dry-run                   Preview changes without writing
+  --refresh-existing          Refresh all AI OS artifacts
+  --update                    Update mode
+  --plan                      Show planned changes
+  --preview                   Preview generated output
+  --apply                     Apply changes (default)
+  --prune                     Remove stale artifacts
+  --clean-update              Full clean refresh
+  --regenerate-context        Regenerate all context files even if curated
+  --verbose, -v               Verbose output
+  --check-hygiene             Run hygiene checks
+  --doctor                    Run diagnostics
+  --bootstrap                 Bootstrap AI OS into a new project
+  --check-freshness           Check if AI OS artifacts are fresh
+  --compact-memory            Compact memory.jsonl file
+  --check-drift               Check for context drift
+  --check-boundaries          Scan project memory for cross-domain leaks
+  --personal-brain-path <path> Path to the personal brain root
+  --init                      Interactive setup wizard
+  --index                     Build repository intelligence index
+  --incremental               Incremental indexing (with --index)
+  --spec-dir <path>           Spec files directory for --index (default: .github/ai-os/specs/)
+  --uninstall                 Remove all AI OS artifacts
+  --json                      Output results as JSON
+  --full-diff                 Show full file diffs
+  --profile <name>            Install profile: minimal, standard, full
+  --editor <name>             Target editor: vscode, cursor, jetbrains, neovim, all
+  --model <name>              Target model: copilot, claude, gemini, local, both
+  --prune-custom-artifacts    Also prune custom artifacts (agents, skills, prompts)
+  --help, -h                  Show this help message
+`);
+    process.exit(0);
+  }
+
+  let cwd = process.cwd();
+  let dryRun = false;
+  let mode: GenerateMode = 'safe';
+  let action: GenerateAction = 'apply';
+  let prune = false;
+  let verbose = false;
+  let cleanUpdate = false;
+  let regenerateContext = false;
+  let pruneCustomArtifacts = false;
+  let profile: InstallProfile | null = null;
+  let json = false;
+  let fullDiff = false;
+  let incremental = false;
+  let specDir: string | undefined = undefined;
+  let personalBrainPath: string | undefined = undefined;
+  const editorTargets: EditorTarget[] = ['vscode'];
+  let model: ModelTarget = 'copilot';
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--cwd' && args[i + 1]) {
+      cwd = path.resolve(args[i + 1]);
+      i++;
+    } else if (args[i] === '--cwd' && !args[i + 1]) {
+      throw new Error('--cwd requires a path value');
+    } else if (args[i]?.startsWith('--cwd=')) {
+      cwd = path.resolve(args[i].slice('--cwd='.length));
+    } else if (args[i] === '--dry-run') {
+      dryRun = true;
+    } else if (args[i] === '--refresh-existing') {
+      mode = 'refresh-existing';
+    } else if (args[i] === '--update') {
+      mode = 'update';
+    } else if (args[i] === '--plan') {
+      action = 'plan';
+    } else if (args[i] === '--preview') {
+      action = 'preview';
+    } else if (args[i] === '--apply') {
+      action = 'apply';
+    } else if (args[i] === '--prune') {
+      prune = true;
+    } else if (args[i]?.startsWith('--clean-update')) {
+      // Accept --clean-update and forgiving variants like --clean-update~ from shell typos.
+      cleanUpdate = true;
+      mode = 'refresh-existing';
+    } else if (args[i] === '--check-hygiene') {
+      action = 'check-hygiene';
+    } else if (args[i] === '--doctor') {
+      action = 'doctor';
+    } else if (args[i] === '--bootstrap') {
+      action = 'bootstrap';
+    } else if (args[i] === '--check-freshness') {
+      action = 'check-freshness';
+    } else if (args[i] === '--compact-memory') {
+      action = 'compact-memory';
+    } else if (args[i] === '--check-drift') {
+      action = 'check-drift';
+    } else if (args[i] === '--check-boundaries') {
+      action = 'check-boundaries';
+    } else if (args[i] === '--personal-brain-path' && args[i + 1]) {
+      personalBrainPath = args[++i];
+    } else if (args[i] === '--personal-brain-path' && !args[i + 1]) {
+      throw new Error('--personal-brain-path requires a path value');
+    } else if (args[i] === '--init') {
+      action = 'init';
+    } else if (args[i] === '--index') {
+      action = 'index';
+    } else if (args[i] === '--incremental') {
+      incremental = true;
+    } else if (args[i] === '--spec-dir' && args[i + 1]) {
+      specDir = path.resolve(args[i + 1] as string);
+      i++;
+    } else if (args[i] === '--spec-dir' && !args[i + 1]) {
+      throw new Error('--spec-dir requires a path value');
+    } else if (args[i]?.startsWith('--spec-dir=')) {
+      specDir = path.resolve(args[i].slice('--spec-dir='.length));
+    } else if (args[i] === '--uninstall') {
+      action = 'uninstall';
+    } else if (args[i] === '--json') {
+      json = true;
+    } else if (args[i] === '--full-diff') {
+      fullDiff = true;
+    } else if (args[i] === '--verbose' || args[i] === '-v') {
+      verbose = true;
+    } else if (args[i] === '--regenerate-context') {
+      regenerateContext = true;
+    } else if (args[i] === '--prune-custom-artifacts') {
+      pruneCustomArtifacts = true;
+    } else if (args[i] === '--profile' && args[i + 1]) {
+      const parsed = parseProfile(args[i + 1]);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${args[i + 1]}")`);
+      profile = parsed;
+      i++;
+    } else if (args[i]?.startsWith('--profile=')) {
+      const raw = args[i].slice('--profile='.length);
+      const parsed = parseProfile(raw);
+      if (!parsed) throw new Error(`--profile must be one of: minimal, standard, full (got "${raw}")`);
+      profile = parsed;
+    } else if (args[i] === '--editor' && args[i + 1]) {
+      const parsed = parseEditorTarget(args[i + 1]);
+      if (!parsed) throw new Error(`--editor must be one of: vscode, cursor, jetbrains, neovim, all (got "${args[i + 1]}")`);
+      if (!editorTargets.includes(parsed)) editorTargets.push(parsed);
+      i++;
+    } else if (args[i]?.startsWith('--editor=')) {
+      const raw = args[i].slice('--editor='.length);
+      const parsed = parseEditorTarget(raw);
+      if (!parsed) throw new Error(`--editor must be one of: vscode, cursor, jetbrains, neovim, all (got "${raw}")`);
+      if (!editorTargets.includes(parsed)) editorTargets.push(parsed);
+    } else if (args[i] === '--model' && args[i + 1]) {
+      const parsed = parseModelTarget(args[i + 1]);
+      if (!parsed) throw new Error(`--model must be one of: copilot, claude, gemini, local (got "${args[i + 1]}")`);
+      model = parsed;
+      i++;
+    } else if (args[i]?.startsWith('--model=')) {
+      const raw = args[i].slice('--model='.length);
+      const parsed = parseModelTarget(raw);
+      if (!parsed) throw new Error(`--model must be one of: copilot, claude, gemini, local (got "${raw}")`);
+      model = parsed;
+    }
+  }
+
+  return { cwd, dryRun, mode, action, prune, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile, json, fullDiff, editorTargets, model, incremental, specDir, personalBrainPath };
+}

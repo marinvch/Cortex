@@ -1,0 +1,77 @@
+{
+  "name": "ai-os",
+  "version": "0.24.0",
+  "description": "Portable AI OS — scans any repo and generates optimized GitHub Copilot context, agents, skills, MCP tools, and slash-command prompts",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "bin": {
+    "ai-os": "./bundle/generate.js"
+  },
+  "files": [
+    "bundle/generate.js",
+    "bundle/server.js",
+    "dist/server.js",
+    "dist/bundle-manifest.json",
+    "src/templates",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "bundle": "node scripts/bundle.mjs",
+    "gen-mcp-docs": "node scripts/gen-mcp-docs.mjs",
+    "dev": "tsx src/generate.ts",
+    "generate": "tsx src/generate.ts",
+    "generate:dry": "tsx src/generate.ts --dry-run",
+    "generate:refresh": "tsx src/generate.ts --refresh-existing",
+    "bootstrap": "tsx src/generate.ts --bootstrap",
+    "bootstrap:dry": "tsx src/generate.ts --bootstrap --dry-run",
+    "update": "tsx src/generate.ts --update",
+    "update:projects": "bash scripts/update-projects.sh",
+    "check-hygiene": "tsx src/generate.ts --check-hygiene",
+    "doctor": "tsx src/generate.ts --doctor",
+    "check-freshness": "tsx src/generate.ts --check-freshness",
+    "compact-memory": "tsx src/generate.ts --compact-memory",
+    "validate": "tsx src/validation/regression.ts",
+    "validate:smoke": "tsx src/validation/smoke.ts",
+    "scorecard:update": "tsx src/validation/scorecard.ts",
+    "scorecard:show": "tsx src/validation/scorecard.ts --show",
+    "scorecard:check": "tsx src/validation/scorecard-check.ts",
+    "validate:fast": "npm run build && npm run lint && npm run test",
+    "validate:ops": "npm run validate:fast && npm run scorecard:check",
+    "validate:full": "npm run build && npm run test && npm run validate",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"const {rmSync,existsSync}=require('fs');['dist','bundle/generate.js','bundle/server.js'].forEach(p=>{if(existsSync(p))rmSync(p,{recursive:true,force:true})})\"",
+    "ci": "npm run typecheck && npm run lint && npm run test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "install:skill-creator": "npx -y skills add anthropics/skills@skill-creator -g -a github-copilot",
+    "install:find-skills": "npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot",
+    "install:skills": "npm run install:skill-creator && npm run install:find-skills"
+  },
+  "dependencies": {
+    "@github/copilot-sdk": "^0.3.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.4",
+    "@typescript-eslint/parser": "^8.59.4",
+    "@vitest/coverage-v8": "^4.1.7",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.4.0",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.4",
+    "vitest": "^4.1.7"
+  },
+  "optionalDependencies": {
+    "@emnapi/core": "1.10.0",
+    "@emnapi/runtime": "1.10.0"
+  }
+}

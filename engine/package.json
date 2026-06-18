@@ -3,6 +3,29 @@
   "version": "0.24.0",
   "description": "Portable AI OS — scans any repo and generates optimized GitHub Copilot context, agents, skills, MCP tools, and slash-command prompts",
   "type": "module",
+  "license": "MIT",
+  "author": "Marin Cholakov",
+  "homepage": "https://github.com/marinvch/ai-os#readme",
+  "bugs": "https://github.com/marinvch/ai-os/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marinvch/ai-os.git",
+    "directory": "engine"
+  },
+  "keywords": [
+    "ai",
+    "ai-os",
+    "copilot",
+    "claude",
+    "mcp",
+    "agents",
+    "skills",
+    "context-engineering",
+    "cli"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
@@ -20,6 +43,7 @@
   "scripts": {
     "build": "tsc",
     "bundle": "node scripts/bundle.mjs",
+    "prepublishOnly": "npm run build && npm run bundle",
     "gen-mcp-docs": "node scripts/gen-mcp-docs.mjs",
     "dev": "tsx src/generate.ts",
     "generate": "tsx src/generate.ts",

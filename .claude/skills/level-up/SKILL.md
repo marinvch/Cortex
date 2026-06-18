@@ -1,6 +1,6 @@
 ---
 name: level-up
-description: Biweekly Cortex growth ritual — re-interview what changed, surface queued ambient-capture candidates for confirmation, sanitized promotion of project learnings into brain/, evolve AGENTS.md.
+description: Biweekly Cortex growth ritual — mine recent session behavior, re-interview what changed, surface queued ambient-capture candidates for confirmation, sanitized promotion of project learnings into brain/, evolve AGENTS.md.
 ---
 
 # /level-up — grow your OS
@@ -9,6 +9,30 @@ Cortex gets richer the more it's used. This is the recurring re-interview. Respe
 data boundary: project-derived learnings reach `brain/` ONLY via sanitized promotion.
 
 ## Steps
+0. **Reflect on recent sessions (mine behavior, don't interview):** learn from what you actually
+   did, not just what the user remembers to say. This step ONLY queues candidates — it never writes
+   `context/*` or `brain/memory.jsonl`. Storage stays gated by Step 2.
+   - **Locate transcripts:** Claude Code stores this repo's session logs under
+     `~/.claude/projects/<repo-dir>/` where `<repo-dir>` is this repo's absolute path with the
+     drive colon and every path separator replaced by `-` (e.g. `D:\Projects\Personal\ai-os` →
+     `D--Projects-Personal-ai-os`). Match **top-level `*.jsonl` only** — never recurse into the
+     `memory/` subdirectory. If the directory does not exist, print "no transcripts — skipping
+     reflection" and go to Step 1.
+   - **Watermark:** read `brain/.last-reflect` (an ISO date; gitignored under `brain/`). Mine only
+     transcripts whose mtime is newer than it. If the file is missing/unreadable, fall back to
+     transcripts modified in the last ~14 days (bounds a first run).
+   - **Extract, token-bounded:** use targeted `Grep` over the new transcripts — do NOT full-read
+     megabytes of JSONL. Look for recurring signal: corrections/preferences ("no, actually…",
+     "don't…", "I prefer…", "always…", "never…"), repeated task shapes (the same command/sequence
+     across sessions), and repeat manual fixes (things you had to be told more than once). Cap how
+     many transcripts/matches you pull per run.
+   - **Queue each distinct pattern** via the `suggest_profile_update` MCP tool: `domain: 'personal'`
+     for workflow/preference/how-I-work signal; `domain: 'project'` for anything repo/company
+     specific (this sets `needsSanitization` and routes it through Step 3's gate). When unsure,
+     choose `'project'`. If the MCP server isn't running, print the would-be candidates for manual
+     capture and **skip the watermark stamp** so nothing is lost.
+   - **Stamp** `brain/.last-reflect` with today's date once candidates are queued. These candidates
+     flow into Step 2 alongside any ambient-capture queue.
 1. **What changed?** Re-interview briefly. Update the relevant `context/*` files. Re-stamp
    `context/current-focus.md` with today's date.
 2. **Surface ambient-capture candidates:** if `brain/candidates.jsonl` exists, read each

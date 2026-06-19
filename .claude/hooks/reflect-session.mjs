@@ -1,3 +1,6 @@
+import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+
 /** True for turns that are command/system wrappers, not human prose. */
 function isWrapper(text) {
   return /<command-(name|message|args)>|<\/command-|<local-command-stdout>|<system-reminder>/i.test(text);
@@ -67,4 +70,41 @@ export function mineTranscript(turns) {
     }
   }
   return drafts;
+}
+
+function newId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Append-only, boundary-safe. Writes ONLY <root>/brain/candidates.jsonl. */
+export function appendCandidates(drafts, root) {
+  if (!Array.isArray(drafts) || drafts.length === 0) return [];
+  const file = join(root, 'brain', 'candidates.jsonl');
+  const existing = existsSync(file) ? readFileSync(file, 'utf-8') : '';
+  const seen = new Set(
+    existing.split('\n').filter(Boolean).map((l) => {
+      try { return JSON.parse(l).text; } catch { return null; }
+    }).filter(Boolean),
+  );
+  const fresh = [];
+  for (const d of drafts) {
+    if (!d || !d.text || seen.has(d.text)) continue;
+    seen.add(d.text);
+    fresh.push({
+      id: newId(),
+      createdAt: new Date().toISOString(),
+      text: d.text.trim(),
+      domain: d.domain,
+      trigger: String(d.trigger || '').trim(),
+      needsSanitization: d.domain === 'project',
+    });
+  }
+  if (fresh.length === 0) return [];
+  mkdirSync(dirname(file), { recursive: true });
+  const body = `${existing.replace(/\s*$/, '')}${existing.trim() ? '\n' : ''}` +
+    `${fresh.map((c) => JSON.stringify(c)).join('\n')}\n`;
+  const tmp = `${file}.tmp`;
+  writeFileSync(tmp, body);
+  renameSync(tmp, file);
+  return fresh;
 }

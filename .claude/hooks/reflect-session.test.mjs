@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractUserTurns, mineTranscript } from './reflect-session.mjs';
+import { extractUserTurns, mineTranscript, appendCandidates } from './reflect-session.mjs';
+import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const lines = [
   JSON.stringify({ type: 'user', isSidechain: false, message: { role: 'user', content: [{ type: 'text', text: 'I prefer tabs over spaces.' }] } }),
@@ -40,4 +43,37 @@ test('mineTranscript dedups and caps at 5', () => {
 
 test('mineTranscript returns nothing for plain chatter', () => {
   assert.deepEqual(mineTranscript(['can you open the file', 'thanks']), []);
+});
+
+test('appendCandidates writes only candidates.jsonl with correct schema', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cortex-'));
+  const written = appendCandidates(
+    [{ text: 'Always run tests.', domain: 'project', trigger: 'always' }],
+    root,
+  );
+  assert.equal(written.length, 1);
+  const c = written[0];
+  assert.equal(c.text, 'Always run tests.');
+  assert.equal(c.domain, 'project');
+  assert.equal(c.needsSanitization, true);
+  assert.ok(c.id && c.createdAt && c.trigger === 'always');
+  // Boundary: brain/ contains ONLY candidates.jsonl; no memory.jsonl / context written.
+  assert.deepEqual(readdirSync(join(root, 'brain')), ['candidates.jsonl']);
+  const onDisk = readFileSync(join(root, 'brain', 'candidates.jsonl'), 'utf-8').trim().split('\n');
+  assert.equal(onDisk.length, 1);
+  assert.equal(JSON.parse(onDisk[0]).text, 'Always run tests.');
+});
+
+test('appendCandidates dedups against existing file content', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cortex-'));
+  appendCandidates([{ text: 'Always run tests.', domain: 'project', trigger: 'always' }], root);
+  const second = appendCandidates([
+    { text: 'Always run tests.', domain: 'project', trigger: 'always' },
+    { text: 'I prefer tabs.', domain: 'personal', trigger: 'i prefer' },
+  ], root);
+  assert.equal(second.length, 1);
+  assert.equal(second[0].text, 'I prefer tabs.');
+  assert.equal(second[0].needsSanitization, false);
+  const onDisk = readFileSync(join(root, 'brain', 'candidates.jsonl'), 'utf-8').trim().split('\n');
+  assert.equal(onDisk.length, 2);
 });

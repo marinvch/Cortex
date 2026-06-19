@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** True for turns that are command/system wrappers, not human prose. */
 function isWrapper(text) {
@@ -107,4 +108,35 @@ export function appendCandidates(drafts, root) {
   writeFileSync(tmp, body);
   renameSync(tmp, file);
   return fresh;
+}
+
+function resolveRoot(payload) {
+  return process.env.AI_OS_PERSONAL_ROOT || payload.cwd ||
+    process.env.CLAUDE_PROJECT_DIR || process.cwd();
+}
+
+export function runFromPayload(payload, root) {
+  const transcriptPath = payload && payload.transcript_path;
+  if (!transcriptPath || !existsSync(transcriptPath)) return [];
+  const text = readFileSync(transcriptPath, 'utf-8');
+  const written = appendCandidates(mineTranscript(extractUserTurns(text)), root);
+  try {
+    const wm = join(root, 'brain', '.last-reflect');
+    mkdirSync(dirname(wm), { recursive: true });
+    writeFileSync(wm, `${new Date().toISOString().slice(0, 10)}\n`);
+  } catch { /* watermark is best-effort */ }
+  return written;
+}
+
+function main() {
+  try {
+    let payload = {};
+    try { payload = JSON.parse(readFileSync(0, 'utf-8')); } catch { /* no/invalid stdin */ }
+    runFromPayload(payload, resolveRoot(payload));
+  } catch { /* never disrupt the session */ }
+  process.exit(0);
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
 }

@@ -9,9 +9,13 @@ Cortex gets richer the more it's used. This is the recurring re-interview. Respe
 data boundary: project-derived learnings reach `brain/` ONLY via sanitized promotion.
 
 ## Steps
-0. **Reflect on recent sessions (mine behavior, don't interview):** learn from what you actually
-   did, not just what the user remembers to say. This step ONLY queues candidates — it never writes
-   `context/*` or `brain/memory.jsonl`. Storage stays gated by Step 2.
+0. **Reflect on recent sessions (fallback miner):** the `SessionEnd` hook
+   (`.claude/hooks/reflect-session.mjs`) already auto-mines each finished session into
+   `brain/candidates.jsonl` and stamps the watermark. This step is the **fallback** for sessions
+   the hook missed (e.g. Node absent): it mines only transcripts newer than the watermark, ONLY
+   queues candidates, and never writes `context/*` or `brain/memory.jsonl`. Storage stays gated by
+   Step 2. If the watermark is current and no newer transcripts exist, print "queue is current —
+   skipping fallback mine" and go to Step 1.
    - **Locate transcripts:** Claude Code stores this repo's session logs under
      `~/.claude/projects/<repo-dir>/` where `<repo-dir>` is this repo's absolute path with the
      drive colon and every path separator replaced by `-` (e.g. `D:\Projects\Personal\ai-os` →

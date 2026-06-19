@@ -63,7 +63,7 @@ export function mineTranscript(turns) {
       const personal = firstMatch(PERSONAL_SIGNALS, sentence);
       const trigger = personal || firstMatch(PROJECT_SIGNALS, sentence);
       if (!trigger) continue;
-      const text = sentence.slice(0, 240);
+      const text = sentence;
       if (seen.has(text)) continue;
       seen.add(text);
       drafts.push({ text, domain: personal ? 'personal' : 'project', trigger });
@@ -110,7 +110,7 @@ export function appendCandidates(drafts, root) {
   return fresh;
 }
 
-function resolveRoot(payload) {
+export function resolveRoot(payload) {
   return process.env.AI_OS_PERSONAL_ROOT || payload.cwd ||
     process.env.CLAUDE_PROJECT_DIR || process.cwd();
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractUserTurns, mineTranscript, appendCandidates } from './reflect-session.mjs';
-import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
+import { extractUserTurns, mineTranscript, appendCandidates, resolveRoot, runFromPayload } from './reflect-session.mjs';
+import { mkdtempSync, readFileSync, readdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -76,4 +76,31 @@ test('appendCandidates dedups against existing file content', () => {
   assert.equal(second[0].needsSanitization, false);
   const onDisk = readFileSync(join(root, 'brain', 'candidates.jsonl'), 'utf-8').trim().split('\n');
   assert.equal(onDisk.length, 2);
+});
+
+test('mineTranscript: personal signal wins when a sentence also matches a project signal', () => {
+  // "I always" is a PERSONAL signal; "always" is a PROJECT signal — personal must win.
+  const drafts = mineTranscript(['I always rebase before pushing.']);
+  assert.equal(drafts.length, 1);
+  assert.equal(drafts[0].domain, 'personal');
+});
+
+test('resolveRoot honors precedence: env override beats payload.cwd', () => {
+  const prev = process.env.AI_OS_PERSONAL_ROOT;
+  try {
+    process.env.AI_OS_PERSONAL_ROOT = '/env/root';
+    assert.equal(resolveRoot({ cwd: '/payload/cwd' }), '/env/root');
+    delete process.env.AI_OS_PERSONAL_ROOT;
+    assert.equal(resolveRoot({ cwd: '/payload/cwd' }), '/payload/cwd');
+  } finally {
+    if (prev === undefined) delete process.env.AI_OS_PERSONAL_ROOT;
+    else process.env.AI_OS_PERSONAL_ROOT = prev;
+  }
+});
+
+test('runFromPayload is a no-op (returns [], no writes) for a missing transcript', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cortex-'));
+  const out = runFromPayload({ transcript_path: join(root, 'nope.jsonl') }, root);
+  assert.deepEqual(out, []);
+  assert.equal(existsSync(join(root, 'brain')), false);
 });

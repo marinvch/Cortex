@@ -429,7 +429,7 @@ Phase 3 — Post-Change Replacement:
 1. Replace every stale statement (do not append-only; remove the old guidance)
 2. Add supersession comments for changed core rules: <!-- SUPERSEDED: <old> — replaced by <new> on <date> -->
 3. Re-run the Phase 1 scan to verify zero stale references remain
-4. If Cortex is installed, run: npx github:marinvch/ai-os --check-hygiene
+4. If Cortex is installed, run: npx github:marinvch/cortex --check-hygiene
 
 Start now: ask me for the migration boundary.`,
   });

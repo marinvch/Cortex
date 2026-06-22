@@ -22,7 +22,7 @@ import { ENV } from '../brand.js';
 
 function logDiagnostic(message: string): void {
   if (process.env[ENV.MCP_DEBUG] === '1') {
-    console.error(`[ai-os:mcp] ${message}`);
+    console.error(`[cortex:mcp] ${message}`);
   }
 }
 
@@ -52,12 +52,12 @@ async function main(): Promise<void> {
     const health = validateRuntimeEnvironment();
     if (!health.ok) {
       for (const message of health.messages) {
-        console.error(`[ai-os:mcp:healthcheck] ${message}`);
+        console.error(`[cortex:mcp:healthcheck] ${message}`);
       }
       process.exit(1);
     }
 
-    console.error('[ai-os:mcp:healthcheck] OK');
+    console.error('[cortex:mcp:healthcheck] OK');
     process.exit(0);
   }
 
@@ -85,8 +85,8 @@ async function main(): Promise<void> {
     const sdk = await import('@github/copilot-sdk');
     CopilotClient = sdk.CopilotClient;
   } catch {
-    console.error('[ai-os:mcp] @github/copilot-sdk is required for --copilot mode but was not found.');
-    console.error('[ai-os:mcp] Install it or omit --copilot to use the standard MCP SDK mode.');
+    console.error('[cortex:mcp] @github/copilot-sdk is required for --copilot mode but was not found.');
+    console.error('[cortex:mcp] Install it or omit --copilot to use the standard MCP SDK mode.');
     process.exit(1);
   }
 
@@ -103,8 +103,8 @@ async function main(): Promise<void> {
     await client.start();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[ai-os:mcp] Copilot SDK client failed to start: ${msg}`);
-    console.error('[ai-os:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.');
+    console.error(`[cortex:mcp] Copilot SDK client failed to start: ${msg}`);
+    console.error('[cortex:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.');
     process.exit(1);
   }
 
@@ -161,6 +161,6 @@ async function main(): Promise<void> {
 
 main().catch(err => {
   const msg = err instanceof Error ? err.message : String(err);
-  console.error(`[ai-os:mcp] Fatal error: ${msg}`);
+  console.error(`[cortex:mcp] Fatal error: ${msg}`);
   process.exit(1);
 });

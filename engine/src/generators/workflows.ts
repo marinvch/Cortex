@@ -93,7 +93,7 @@ jobs:
                 '- Latest: v' + latest,
                 '',
                 'To update, run:',
-                'npx -y github:marinvch/ai-os --refresh-existing',
+                'npx -y github:marinvch/cortex --refresh-existing',
               ].join('\n'),
             });
 `;

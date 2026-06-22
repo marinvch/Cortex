@@ -226,7 +226,7 @@ export function computeFreshnessReport(rootDir: string): FreshnessReport {
       staleArtifacts: [],
       changedSourceFiles: [],
       recommendations: [
-        'No context snapshot found. Run `npx -y github:marinvch/ai-os --refresh-existing` to generate a baseline snapshot.',
+        'No context snapshot found. Run `npx -y github:marinvch/cortex --refresh-existing` to generate a baseline snapshot.',
       ],
       snapshotCapturedAt: null,
       lastGeneratedAt,
@@ -296,7 +296,7 @@ export function computeFreshnessReport(rootDir: string): FreshnessReport {
 
   // Build targeted recommendations
   const recommendations: string[] = [];
-  const refreshCmd = 'npx -y github:marinvch/ai-os --refresh-existing';
+  const refreshCmd = 'npx -y github:marinvch/cortex --refresh-existing';
 
   if (staleArtifacts.length > 0 && changedSourceFiles.length > 0) {
     recommendations.push(

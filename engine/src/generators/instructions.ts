@@ -458,7 +458,7 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     '',
     '## Update Cortex',
     '',
-    'Run `npx -y github:marinvch/ai-os --refresh-existing` when `check_for_updates` signals a new version.',
+    'Run `npx -y github:marinvch/cortex --refresh-existing` when `check_for_updates` signals a new version.',
   ].join('\n');
 
   const autoActivationPath = path.join(instructionsDir, 'cortex.instructions.md');
@@ -573,7 +573,7 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     : `> Language: **${stack.primaryLanguage.name}** · Package manager: **${stack.patterns.packageManager}**`;
   const buildCmd = stack.buildCommands?.build ?? 'npm run build';
   const testCmd = stack.buildCommands?.test ?? 'npm test';
-  const contextSyncCmd = 'npx -y github:marinvch/ai-os --refresh-existing';
+  const contextSyncCmd = 'npx -y github:marinvch/cortex --refresh-existing';
 
   const content = [
     '---',

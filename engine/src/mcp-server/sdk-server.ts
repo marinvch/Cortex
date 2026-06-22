@@ -624,7 +624,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'search_symbols',
     {
-      description: 'Searches the Repository Intelligence Index for named symbols by query string. Optional filters: kind (function, class, interface, type, variable, enum, method) and tag (auth, database, api, testing, ui, etc.). Returns up to 30 matches with file, line, signature, and tags. Requires `ai-os --index` to have run first.',
+      description: 'Searches the Repository Intelligence Index for named symbols by query string. Optional filters: kind (function, class, interface, type, variable, enum, method) and tag (auth, database, api, testing, ui, etc.). Returns up to 30 matches with file, line, signature, and tags. Requires `cortex --index` to have run first.',
       inputSchema: {
         query: z.string().describe('Symbol name to search for (partial match).'),
         kind: z.string().optional().describe('Optional kind filter: function, class, interface, type, variable, enum, method.'),
@@ -637,7 +637,7 @@ export function createSdkServer(): McpServer {
       const kind = args['kind'] ? String(args['kind']) : undefined;
       const tag = args['tag'] ? String(args['tag']) : undefined;
       const results = searchSymbols(root, query, kind, tag);
-      if (results === null) return 'No symbol index found. Run `ai-os --index` to build the index first.';
+      if (results === null) return 'No symbol index found. Run `cortex --index` to build the index first.';
       if (results.length === 0) return `No symbols matching "${query}"${kind ? ` of kind "${kind}"` : ''}${tag ? ` with tag "${tag}"` : ''} were found in the index.`;
       return results.map(r =>
         `${r.kind} ${r.name} — ${r.file}:${r.line}${r.signature ? ` (${r.signature})` : ''}${r.tags.length > 0 ? ` [${r.tags.join(', ')}]` : ''}`,
@@ -649,7 +649,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'get_file_purpose',
     {
-      description: 'Returns a concise description of a source file: purpose (first docstring/comment), exports, domain tags, size in bytes, and language — sourced from the repo index. Requires `ai-os --index` to have run first.',
+      description: 'Returns a concise description of a source file: purpose (first docstring/comment), exports, domain tags, size in bytes, and language — sourced from the repo index. Requires `cortex --index` to have run first.',
       inputSchema: {
         file_path: z.string().describe('Relative file path, e.g. "src/auth/middleware.ts".'),
       },
@@ -659,8 +659,8 @@ export function createSdkServer(): McpServer {
       const filePath = String(args['file_path'] ?? '');
       const result = getFilePurpose(root, filePath);
       if ('notFound' in result) {
-        if (result.noIndex) return `No symbol index found. Run \`ai-os --index\` first, then retry.`;
-        return `"${filePath}" is not in the index. Run \`ai-os --index\` to rebuild, or check the path.`;
+        if (result.noIndex) return `No symbol index found. Run \`cortex --index\` first, then retry.`;
+        return `"${filePath}" is not in the index. Run \`cortex --index\` to rebuild, or check the path.`;
       }
       const lines = [
         `File: ${result.path}`,
@@ -678,7 +678,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'validate_spec_coverage',
     {
-      description: 'Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.',
+      description: 'Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first.',
       inputSchema: {
         show_all: z.boolean().optional().describe('Show all requirements including implemented ones (default: false — gaps only).'),
       },
@@ -689,7 +689,7 @@ export function createSdkServer(): McpServer {
       const groups = validateSpecCoverage(root);
 
       if (groups.length === 0) {
-        return 'No spec entries found. Run `ai-os --index` first. Ensure spec files exist in docs/superpowers/specs/.';
+        return 'No spec entries found. Run `cortex --index` first. Ensure spec files exist in docs/superpowers/specs/.';
       }
 
       const totalCovered = groups.reduce((sum, g) => sum + g.covered, 0);
@@ -723,7 +723,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'get_spec_for_file',
     {
-      description: 'Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.',
+      description: 'Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first.',
       inputSchema: {
         path: z.string().describe('Relative path to the source file, e.g. "src/actions/index.ts".'),
       },
@@ -734,7 +734,7 @@ export function createSdkServer(): McpServer {
       const results = getSpecForFile(root, filePath);
 
       if (results.length === 0) {
-        return `No spec annotations found for "${filePath}". Run \`ai-os --index\` first, or add // @spec: ID comments above exported functions.`;
+        return `No spec annotations found for "${filePath}". Run \`cortex --index\` first, or add // @spec: ID comments above exported functions.`;
       }
 
       const lines = [`${filePath} contributes to:`];

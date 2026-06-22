@@ -1014,7 +1014,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   if (allConflicts.length > 0) {
     console.log('');
     console.log(`  ⚠ ${allConflicts.length} user block conflict(s) require manual reconciliation.`);
-    console.log('     Each block has been appended to its file wrapped in <!-- CORTEX:CONFLICT --> markers.');
+    console.log('     Each block has been appended to its file wrapped in <!-- AI-OS:CONFLICT --> markers.');
     console.log('     Review and move them to the correct location, then remove the conflict markers.');
     console.log('');
   }

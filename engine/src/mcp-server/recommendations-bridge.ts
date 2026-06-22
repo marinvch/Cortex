@@ -31,12 +31,12 @@ export function suggestImprovements(): string {
 
   // Check for missing COPILOT_CONTEXT.md
   if (!fs.existsSync(path.join(ROOT, '.github', 'COPILOT_CONTEXT.md'))) {
-    suggestions.push('**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate the session context card for better session continuity.');
+    suggestions.push('**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`npx -y github:marinvch/cortex --refresh-existing`) to generate the session context card for better session continuity.');
   }
 
   // Check for missing recommendations.md
   if (!fs.existsSync(path.join(ROOT, CONFIG_DIR, 'recommendations.md'))) {
-    suggestions.push('**Missing `recommendations.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate stack-specific tool recommendations.');
+    suggestions.push('**Missing `recommendations.md`**: Re-run the AI OS installer (`npx -y github:marinvch/cortex --refresh-existing`) to generate stack-specific tool recommendations.');
   }
 
   // Check memory freshness
@@ -53,7 +53,7 @@ export function suggestImprovements(): string {
   // Check for architecture doc
   const archPath = path.join(ROOT, CONFIG_DIR, 'context', 'architecture.md');
   if (!fs.existsSync(archPath)) {
-    suggestions.push('**Missing architecture doc**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to rebuild `.github/cortex/context/architecture.md`.');
+    suggestions.push('**Missing architecture doc**: Re-run the AI OS installer (`npx -y github:marinvch/cortex --refresh-existing`) to rebuild `.github/cortex/context/architecture.md`.');
   }
 
   // Config-based suggestions

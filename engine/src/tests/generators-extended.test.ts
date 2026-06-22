@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import type { DetectedStack } from '../types.js';
+import { CONFIG_DIR } from '../brand.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,7 @@ describe('generateMcpJson', () => {
     const { generateMcpJson } = await import('../generators/mcp.js');
     const stack = minimalStack();
     generateMcpJson(stack, tmp);
-    const toolsPath = path.join(tmp, '.github', 'ai-os', 'tools.json');
+    const toolsPath = path.join(tmp, CONFIG_DIR, 'tools.json');
     const content = JSON.parse(fs.readFileSync(toolsPath, 'utf-8'));
     // Strict mode (default) produces split object with activeTools
     expect(content.activeTools).toBeDefined();
@@ -189,7 +190,7 @@ describe('generateMcpJson', () => {
         exclude: [],
       },
     });
-    const toolsPath = path.join(tmp, '.github', 'ai-os', 'tools.json');
+    const toolsPath = path.join(tmp, CONFIG_DIR, 'tools.json');
     const content = JSON.parse(fs.readFileSync(toolsPath, 'utf-8'));
     // Legacy mode produces a flat array
     expect(Array.isArray(content)).toBe(true);
@@ -299,11 +300,11 @@ describe('user-overridable agent templates (#183)', () => {
   beforeEach(() => { tmp = mkTmp(); });
   afterEach(() => rmTmp(tmp));
 
-  it('uses custom override template when present in .github/ai-os/templates/agents/', async () => {
+  it('uses custom override template when present in .github/cortex/templates/agents/', async () => {
     const { generateAgents } = await import('../generators/agents.js');
 
     // Place a custom override for framework-expert template
-    const overrideDir = path.join(tmp, '.github', 'ai-os', 'templates', 'agents');
+    const overrideDir = path.join(tmp, CONFIG_DIR, 'templates', 'agents');
     fs.mkdirSync(overrideDir, { recursive: true });
     fs.writeFileSync(path.join(overrideDir, 'framework-expert.md'), [
       '---',
@@ -342,7 +343,7 @@ describe('user-overridable agent templates (#183)', () => {
     const { generateAgents } = await import('../generators/agents.js');
     const warnSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const overrideDir = path.join(tmp, '.github', 'ai-os', 'templates', 'agents');
+    const overrideDir = path.join(tmp, CONFIG_DIR, 'templates', 'agents');
     fs.mkdirSync(overrideDir, { recursive: true });
     fs.writeFileSync(path.join(overrideDir, 'framework-expert.md'), [
       '---',

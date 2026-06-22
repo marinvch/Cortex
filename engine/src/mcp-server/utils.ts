@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getLatestResolvableVersion } from '../updater.js';
 import { ROOT, readAiOsFile as _readAiOsFile, resolveMcpServerVersion } from './shared.js';
+import { CONFIG_DIR } from '../brand.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,7 +68,7 @@ export function getSessionContext(): string {
 }
 
 export function checkForUpdates(): string {
-  const newConfigPath = path.join(ROOT, '.github', 'ai-os', 'config.json');
+  const newConfigPath = path.join(ROOT, CONFIG_DIR, 'config.json');
   const legacyConfigPath = path.join(ROOT, '.ai-os', 'config.json');
   const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs.existsSync(configPath)) {
@@ -84,7 +85,7 @@ export function checkForUpdates(): string {
     installedVersion = config.version ?? '0.0.0';
     installedAt = config.installedAt ?? 'unknown';
   } catch {
-    return 'Could not read .github/ai-os/config.json';
+    return 'Could not read .github/cortex/config.json';
   }
 
   let toolVersion = '0.0.0';

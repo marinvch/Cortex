@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { getMcpToolsForStack, getToolsWithStackSplit } from '../mcp-tools.js';
 import { writeIfChanged, writeFileAtomic } from './utils.js';
-import { ENV } from '../brand.js';
+import { ENV, CONFIG_DIR } from '../brand.js';
 
 interface McpServerConfig {
   type: 'stdio';
@@ -76,7 +76,7 @@ export function writeCopilotCliMcpConfig(outputDir: string, options?: WriteMcpSe
   const mcpServers = getServerMap(existing.mcpServers);
 
   mcpServers['ai-os'] = getServerEntry(
-    ['.github/ai-os/mcp-server/index.js'],
+    [`${CONFIG_DIR}/mcp-server/index.js`],
     { [ENV.ROOT]: '.' },
     options,
   );
@@ -96,7 +96,7 @@ export function writeVsCodeMcpConfig(outputDir: string, options?: WriteMcpServer
   const servers = getServerMap(existing.servers);
 
   servers['ai-os'] = getServerEntry(
-    ['${workspaceFolder}/.github/ai-os/mcp-server/index.js'],
+    [`\${workspaceFolder}/${CONFIG_DIR}/mcp-server/index.js`],
     { [ENV.ROOT]: '${workspaceFolder}' },
     options,
   );
@@ -127,7 +127,7 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, options
   writeMcpServerConfigs(outputDir);
 
   // Write tool definitions for reference
-  const toolsJsonPath = path.join(outputDir, '.github', 'ai-os', 'tools.json');
+  const toolsJsonPath = path.join(outputDir, CONFIG_DIR, 'tools.json');
 
   if (strictFiltering) {
     // Strict mode: split tools into activeTools (stack-eligible) and availableButInactive

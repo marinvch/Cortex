@@ -105,7 +105,7 @@ describe('indexRepo — SpecIndexEntry emission', () => {
       '// @spec: MY-FEAT-1',
       'export function doThing(): void {}',
     ].join('\n'));
-    write(tmp, '.github/ai-os/specs/2026-01-01-my-feature-design.md', [
+    write(tmp, '.github/cortex/specs/2026-01-01-my-feature-design.md', [
       '## Overview',
       '## Detail',
     ].join('\n'));
@@ -167,9 +167,9 @@ describe('validateSpecCoverage', () => {
       { type: 'spec', specId: 'FOO-1', title: 'R1', specFile: 'foo.md', requirementCount: 2, implementedBy: ['src/a.ts'], coverageRatio: 1.0 },
       { type: 'spec', specId: 'FOO-2', title: 'R2', specFile: 'foo.md', requirementCount: 2, implementedBy: [], coverageRatio: 0.0 },
     ];
-    fs.mkdirSync(path.join(tmp, '.github/ai-os/context'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.github/cortex/context'), { recursive: true });
     fs.writeFileSync(
-      path.join(tmp, '.github/ai-os/context/repo-index.jsonl'),
+      path.join(tmp, '.github/cortex/context/repo-index.jsonl'),
       specEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
       'utf-8',
     );
@@ -196,9 +196,9 @@ describe('getSpecForFile', () => {
       { type: 'spec', specId: 'FOO-1', title: 'R1', specFile: 'foo.md', requirementCount: 2, implementedBy: ['src/a.ts'], coverageRatio: 1.0 },
       { type: 'spec', specId: 'FOO-2', title: 'R2', specFile: 'foo.md', requirementCount: 2, implementedBy: ['src/b.ts'], coverageRatio: 1.0 },
     ];
-    fs.mkdirSync(path.join(tmp, '.github/ai-os/context'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.github/cortex/context'), { recursive: true });
     fs.writeFileSync(
-      path.join(tmp, '.github/ai-os/context/repo-index.jsonl'),
+      path.join(tmp, '.github/cortex/context/repo-index.jsonl'),
       specEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
       'utf-8',
     );
@@ -212,9 +212,9 @@ describe('getSpecForFile', () => {
     const specEntries: SpecIndexEntry[] = [
       { type: 'spec', specId: 'FOO-1', title: 'R1', specFile: 'foo.md', requirementCount: 1, implementedBy: ['src/a.ts'], coverageRatio: 1.0 },
     ];
-    fs.mkdirSync(path.join(tmp, '.github/ai-os/context'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.github/cortex/context'), { recursive: true });
     fs.writeFileSync(
-      path.join(tmp, '.github/ai-os/context/repo-index.jsonl'),
+      path.join(tmp, '.github/cortex/context/repo-index.jsonl'),
       specEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
       'utf-8',
     );
@@ -229,9 +229,9 @@ describe('getSpecForFile', () => {
     const specEntries: SpecIndexEntry[] = [
       { type: 'spec', specId: 'FOO-1', title: 'R1', specFile: 'foo.md', requirementCount: 1, implementedBy: ['src/other.ts'], coverageRatio: 1.0 },
     ];
-    fs.mkdirSync(path.join(tmp, '.github/ai-os/context'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.github/cortex/context'), { recursive: true });
     fs.writeFileSync(
-      path.join(tmp, '.github/ai-os/context/repo-index.jsonl'),
+      path.join(tmp, '.github/cortex/context/repo-index.jsonl'),
       specEntries.map(e => JSON.stringify(e)).join('\n') + '\n',
       'utf-8',
     );

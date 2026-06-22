@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { AiOsError } from '../errors.js';
+import { CONFIG_DIR } from '../brand.js';
 
 // ── Verbose mode (H2) ────────────────────────────────────────────────────────
 
@@ -202,7 +203,7 @@ export interface AiOsManifest {
 const MANIFEST_FILENAME = 'manifest.json';
 
 export function getManifestPath(outputDir: string): string {
-  return path.join(outputDir, '.github', 'ai-os', MANIFEST_FILENAME);
+  return path.join(outputDir, CONFIG_DIR, MANIFEST_FILENAME);
 }
 
 /** Runtime type guard for AiOsManifest JSON artifacts. */
@@ -268,7 +269,7 @@ export function syncManifest(outputDir: string, version: string): void {
   const existingHashes: Record<string, string> = existing?.hashes ?? {};
 
   const patterns = ['.instructions.md', '.prompt.md', '.agent.md'];
-  const aiOsDir = path.join(githubDir, 'ai-os');
+  const aiOsDir = path.join(outputDir, CONFIG_DIR);
 
   function scan(dir: string): void {
     let entries: fs.Dirent[];
@@ -282,7 +283,7 @@ export function syncManifest(outputDir: string, version: string): void {
       if (entry.isDirectory()) {
         if (entry.name !== 'node_modules') scan(full);
       } else if (entry.isFile()) {
-        // Include standard AI OS artifact patterns, plus any .md file under .github/ai-os/ (#252)
+        // Include standard AI OS artifact patterns, plus any .md file under .github/cortex/ (#252)
         const isAiOsSubDir = full.startsWith(aiOsDir + path.sep) || full.startsWith(aiOsDir + '/');
         if (patterns.some(p => entry.name.endsWith(p)) || (isAiOsSubDir && entry.name.endsWith('.md'))) {
           const rel = path.relative(outputDir, full).replace(/\\/g, '/');

@@ -20,9 +20,9 @@ Scan the **{{PROJECT_NAME}}** codebase for improvement opportunities and expansi
 
 ## Your Context Sources
 
-- Architecture overview: `.github/ai-os/context/architecture.md`
-- Tech stack: `.github/ai-os/context/stack.md`
-- Coding conventions: `.github/ai-os/context/conventions.md`
+- Architecture overview: `.github/cortex/context/architecture.md`
+- Tech stack: `.github/cortex/context/stack.md`
+- Coding conventions: `.github/cortex/context/conventions.md`
 
 ## Stack
 

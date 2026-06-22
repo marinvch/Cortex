@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { CONFIG_DIR } from '../brand.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -57,7 +58,7 @@ describe('runDoctor', () => {
     const result = runDoctor(tmpDir);
 
     const names = result.checks.map(c => c.name);
-    expect(names).toContain('MCP runtime binary present (.github/ai-os/mcp-server/index.js)');
+    expect(names).toContain('MCP runtime binary present (.github/cortex/mcp-server/index.js)');
     expect(names).toContain('MCP runtime healthcheck');
     expect(names).toContain('Copilot CLI MCP config present (.mcp.json)');
     expect(names).toContain('ai-os CLI server entry in MCP config');
@@ -65,8 +66,8 @@ describe('runDoctor', () => {
     expect(names).toContain('VS Code MCP config present (.vscode/mcp.json)');
     expect(names).toContain('ai-os VS Code server entry in MCP config');
     expect(names).toContain('VS Code MCP command resolves');
-    expect(names).toContain('AI OS config present (.github/ai-os/config.json)');
-    expect(names).toContain('MCP tools catalog present (.github/ai-os/tools.json)');
+    expect(names).toContain('AI OS config present (.github/cortex/config.json)');
+    expect(names).toContain('MCP tools catalog present (.github/cortex/tools.json)');
     expect(names).toContain('AI OS skills deployed');
   });
 
@@ -91,17 +92,17 @@ describe('runDoctor', () => {
 
   it('passes MCP runtime check when the file exists', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const runtimePath = path.join(tmpDir, '.github', 'ai-os', 'mcp-server', 'index.js');
+    const runtimePath = path.join(tmpDir, CONFIG_DIR, 'mcp-server', 'index.js');
     writeFile(runtimePath, '// stub');
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'MCP runtime binary present (.github/ai-os/mcp-server/index.js)');
+    const check = result.checks.find(c => c.name === 'MCP runtime binary present (.github/cortex/mcp-server/index.js)');
     expect(check?.passed).toBe(true);
   });
 
   it('fails MCP runtime check when the file is absent', async () => {
     const { runDoctor } = await import('../doctor.js');
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'MCP runtime binary present (.github/ai-os/mcp-server/index.js)');
+    const check = result.checks.find(c => c.name === 'MCP runtime binary present (.github/cortex/mcp-server/index.js)');
     expect(check?.passed).toBe(false);
     expect(check?.critical).toBe(true);
     expect(check?.fixCommand).toContain('--refresh-existing');
@@ -142,12 +143,12 @@ describe('runDoctor', () => {
 
   it('passes Copilot CLI command-resolves check when script file exists', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const scriptPath = path.join(tmpDir, '.github', 'ai-os', 'mcp-server', 'index.js');
+    const scriptPath = path.join(tmpDir, CONFIG_DIR, 'mcp-server', 'index.js');
     writeFile(scriptPath, '// stub');
     writeCliMcpConfig(tmpDir, {
       type: 'stdio',
       command: 'node',
-      args: ['.github/ai-os/mcp-server/index.js'],
+      args: ['.github/cortex/mcp-server/index.js'],
     });
     const result = runDoctor(tmpDir);
     const check = result.checks.find(c => c.name === 'Copilot CLI MCP command resolves');
@@ -159,7 +160,7 @@ describe('runDoctor', () => {
     writeCliMcpConfig(tmpDir, {
       type: 'stdio',
       command: 'node',
-      args: ['.github/ai-os/mcp-server/index.js'],
+      args: ['.github/cortex/mcp-server/index.js'],
     });
     const result = runDoctor(tmpDir);
     const check = result.checks.find(c => c.name === 'Copilot CLI MCP command resolves');
@@ -201,12 +202,12 @@ describe('runDoctor', () => {
 
   it('passes VS Code command-resolves check when script file exists', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const scriptPath = path.join(tmpDir, '.github', 'ai-os', 'mcp-server', 'index.js');
+    const scriptPath = path.join(tmpDir, CONFIG_DIR, 'mcp-server', 'index.js');
     writeFile(scriptPath, '// stub');
     writeVsCodeMcpConfig(tmpDir, {
       type: 'stdio',
       command: 'node',
-      args: ['${workspaceFolder}/.github/ai-os/mcp-server/index.js'],
+      args: ['${workspaceFolder}/.github/cortex/mcp-server/index.js'],
     });
     const result = runDoctor(tmpDir);
     const check = result.checks.find(c => c.name === 'VS Code MCP command resolves');
@@ -218,7 +219,7 @@ describe('runDoctor', () => {
     writeVsCodeMcpConfig(tmpDir, {
       type: 'stdio',
       command: 'node',
-      args: ['${workspaceFolder}/.github/ai-os/mcp-server/index.js'],
+      args: ['${workspaceFolder}/.github/cortex/mcp-server/index.js'],
     });
     const result = runDoctor(tmpDir);
     const check = result.checks.find(c => c.name === 'VS Code MCP command resolves');
@@ -227,29 +228,29 @@ describe('runDoctor', () => {
 
   it('passes AI OS config check when config.json is valid JSON', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const configPath = path.join(tmpDir, '.github', 'ai-os', 'config.json');
+    const configPath = path.join(tmpDir, CONFIG_DIR, 'config.json');
     writeFile(configPath, JSON.stringify({ version: '0.10.0' }));
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'AI OS config present (.github/ai-os/config.json)');
+    const check = result.checks.find(c => c.name === 'AI OS config present (.github/cortex/config.json)');
     expect(check?.passed).toBe(true);
   });
 
   it('fails AI OS config check when config.json is invalid JSON', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const configPath = path.join(tmpDir, '.github', 'ai-os', 'config.json');
+    const configPath = path.join(tmpDir, CONFIG_DIR, 'config.json');
     writeFile(configPath, '{invalid json}');
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'AI OS config present (.github/ai-os/config.json)');
+    const check = result.checks.find(c => c.name === 'AI OS config present (.github/cortex/config.json)');
     expect(check?.passed).toBe(false);
     expect(check?.critical).toBe(false);
   });
 
   it('passes tools file check when tools.json is valid JSON', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const toolsPath = path.join(tmpDir, '.github', 'ai-os', 'tools.json');
+    const toolsPath = path.join(tmpDir, CONFIG_DIR, 'tools.json');
     writeFile(toolsPath, JSON.stringify({ activeTools: [] }));
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'MCP tools catalog present (.github/ai-os/tools.json)');
+    const check = result.checks.find(c => c.name === 'MCP tools catalog present (.github/cortex/tools.json)');
     expect(check?.passed).toBe(true);
   });
 
@@ -294,7 +295,7 @@ describe('printDoctorReport', () => {
       toolVersion: '0.10.0',
       checks: [
         {
-          name: 'MCP runtime binary present (.github/ai-os/mcp-server/index.js)',
+          name: 'MCP runtime binary present (.github/cortex/mcp-server/index.js)',
           critical: true,
           passed: false,
           detail: 'Not found',
@@ -366,7 +367,7 @@ describe('printDoctorReport', () => {
       toolVersion: '0.10.0',
       checks: [
         {
-          name: 'MCP runtime binary present (.github/ai-os/mcp-server/index.js)',
+          name: 'MCP runtime binary present (.github/cortex/mcp-server/index.js)',
           critical: true,
           passed: false,
           detail: 'Not found',

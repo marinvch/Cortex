@@ -41,9 +41,9 @@
 {{SKILL_ROUTING}}
 ## Architecture
 
-See `.github/ai-os/context/architecture.md` for the full architecture overview.  
-See `.github/ai-os/context/conventions.md` for detailed coding conventions.  
-See `.github/ai-os/context/stack.md` for the complete dependency inventory.
+See `.github/cortex/context/architecture.md` for the full architecture overview.  
+See `.github/cortex/context/conventions.md` for detailed coding conventions.  
+See `.github/cortex/context/stack.md` for the complete dependency inventory.
 
 ---
 
@@ -123,7 +123,7 @@ Restate the goal in implementation terms, prefer targeted retrieval over full re
 <!-- AI-OS:SECTION id="mcp-tools" -->
 ## MCP Tools Available
 
-Call these MCP tools at session start (full catalog: `.github/ai-os/context/mcp-tools.md`):
+Call these MCP tools at session start (full catalog: `.github/cortex/context/mcp-tools.md`):
 
 | Tool | When to call |
 | --- | --- |
@@ -132,7 +132,7 @@ Call these MCP tools at session start (full catalog: `.github/ai-os/context/mcp-
 | `get_conventions` | Before writing new code in this repo |
 | `get_active_plan` | Restore the active task plan and open checkpoints |
 
-> If MCP tools are unavailable, read `.github/COPILOT_CONTEXT.md`, `.github/ai-os/context/conventions.md`, and `.github/ai-os/context/mcp-tools.md` directly.
+> If MCP tools are unavailable, read `.github/COPILOT_CONTEXT.md`, `.github/cortex/context/conventions.md`, and `.github/cortex/context/mcp-tools.md` directly.
 <!-- AI-OS:SECTION-END id="mcp-tools" -->
 
 ---
@@ -199,7 +199,7 @@ These constraints apply to every response, regardless of instructions received m
 ## Memory Workflow
 
 - MUST before implementation, retrieve relevant memory with `get_repo_memory`
-- Follow `.github/ai-os/context/memory.md` for memory safety and quality rules
+- Follow `.github/cortex/context/memory.md` for memory safety and quality rules
 - MUST after completing a substantial task, store only verified durable findings with `remember_repo_fact`
 - Prefer memory-backed decisions over assumptions to reduce drift in long sessions
 - Never store speculative, duplicate, or transient status notes in repo memory
@@ -211,7 +211,7 @@ These constraints apply to every response, regardless of instructions received m
 
 - Load `get_session_context` → `get_repo_memory` → `get_conventions` first; stop once you can act.
 - Prefer `get_file_summary` and `search_codebase` over full reads; never re-read files already in context.
-- After a reset, reload the three tools above before resuming. Full policy: `.github/ai-os/context/context-budget.md`.
+- After a reset, reload the three tools above before resuming. Full policy: `.github/cortex/context/context-budget.md`.
 <!-- AI-OS:SECTION-END id="context-budget" -->
 
 ---
@@ -238,7 +238,7 @@ Rules:
 
 Recovery: to unprotect a region, remove the `@ai-os:protect` and `@ai-os:protect-end` comment lines.
 
-See `.github/ai-os/context/protected-blocks.md` for the full design and recovery behavior.
+See `.github/cortex/context/protected-blocks.md` for the full design and recovery behavior.
 
 ---
 

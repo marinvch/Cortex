@@ -1,6 +1,6 @@
 /**
  * memory.ts — repo-memory store and hygiene for AI OS MCP server.
- * Manages .github/ai-os/memory/memory.jsonl.
+ * Manages .github/cortex/memory/memory.jsonl.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import {
   withMemoryLock,
   writeTextAtomic,
 } from './shared.js';
+import { CONFIG_DIR } from '../brand.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -62,11 +63,11 @@ function normalizeMemoryText(value: string): string {
 
 /**
  * Read memory-related config values (TTL, near-duplicate threshold) from
- * .github/ai-os/config.json. Falls back to safe defaults if the file is
+ * .github/cortex/config.json. Falls back to safe defaults if the file is
  * absent or the values are invalid.
  */
 function readMemoryConfig(): { ttlDays: number; nearDuplicateThreshold: number } {
-  const configPath = path.join(ROOT, '.github', 'ai-os', 'config.json');
+  const configPath = path.join(ROOT, CONFIG_DIR, 'config.json');
   try {
     const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
     const ttlDays =
@@ -340,7 +341,7 @@ function recoverMalformedMemoryIfNeeded(result: MemoryReadResult): void {
 
 export function getMemoryGuidelines(): string {
   const guidelines = readAiOsFile('context/memory.md');
-  return guidelines || 'No memory guidelines found. Re-run AI OS generation to create .github/ai-os/context/memory.md.';
+  return guidelines || 'No memory guidelines found. Re-run AI OS generation to create .github/cortex/context/memory.md.';
 }
 
 export function getRepoMemory(query?: string, category?: string, limit?: number): string {
@@ -508,7 +509,7 @@ export function syncHostedMemory(): string {
     '## Sync Hosted Memory → memory.jsonl',
     '',
     'This tool cannot access Copilot\'s hosted memory directly.',
-    'Follow these steps to mirror durable facts into `.github/ai-os/memory/memory.jsonl`:',
+    'Follow these steps to mirror durable facts into `.github/cortex/memory/memory.jsonl`:',
     '',
     '1. Review your current hosted/in-context memory for facts about this project.',
     '2. For each fact not already in `memory.jsonl` (listed below), call `remember_repo_fact`.',

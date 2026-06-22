@@ -164,7 +164,7 @@ describe('listWorkflows and loadWorkflow', () => {
   });
 
   it('lists workflow files', () => {
-    const dir = join(tmpDir, '.github', 'ai-os', 'workflows');
+    const dir = join(tmpDir, '.github', 'cortex', 'workflows');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'my-pipeline.yml'), FEATURE_PIPELINE_YAML);
     const wfs = listWorkflows(tmpDir);
@@ -172,7 +172,7 @@ describe('listWorkflows and loadWorkflow', () => {
   });
 
   it('loads and parses a workflow file', () => {
-    const dir = join(tmpDir, '.github', 'ai-os', 'workflows');
+    const dir = join(tmpDir, '.github', 'cortex', 'workflows');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'feature-pipeline.yml'), FEATURE_PIPELINE_YAML);
     const wf = loadWorkflow(tmpDir, 'feature-pipeline.yml');

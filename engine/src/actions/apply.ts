@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { ENV } from '../brand.js';
+import { ENV, CONFIG_DIR } from '../brand.js';
 import { analyze } from '../analyze.js';
 import { generateInstructions } from '../generators/instructions.js';
 import { generateMcpJson, writeMcpServerConfig } from '../generators/mcp.js';
@@ -32,7 +32,7 @@ import type { OnboardingPlan } from '../planner.js';
 import type { UpdateStatus } from '../updater.js';
 
 /**
- * Parsed result of `.github/ai-os/protect.json`.
+ * Parsed result of `.github/cortex/protect.json`.
  *
  * - `protected` — whole-file shield: file is never overwritten or pruned.
  * - `hybrid`    — block-level merge: file is regenerated but
@@ -59,7 +59,7 @@ function toPathSet(value: unknown): Set<string> {
 
 function loadProtectConfig(cwd: string): ProtectConfig {
   const empty: ProtectConfig = { protected: new Set(), hybrid: new Set() };
-  const protectPath = path.join(cwd, '.github', 'ai-os', 'protect.json');
+  const protectPath = path.join(cwd, CONFIG_DIR, 'protect.json');
   if (!fs.existsSync(protectPath)) return empty;
   try {
     const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as {
@@ -72,7 +72,7 @@ function loadProtectConfig(cwd: string): ProtectConfig {
       hybrid: toPathSet(raw.hybrid),
     };
   } catch {
-    console.warn('  ⚠ Could not parse .github/ai-os/protect.json — ignoring protection config');
+    console.warn('  ⚠ Could not parse .github/cortex/protect.json — ignoring protection config');
     return empty;
   }
 }
@@ -138,7 +138,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     return;
   }
 
-  const runtimeDir = path.join(cwd, '.github', 'ai-os', 'mcp-server');
+  const runtimeDir = path.join(cwd, CONFIG_DIR, 'mcp-server');
   const runtimeEntry = path.join(runtimeDir, 'index.js');
   const runtimeManifest = path.join(runtimeDir, 'runtime-manifest.json');
   const nodePath = process.execPath;
@@ -166,8 +166,8 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     },
   });
 
-  ensureGitignoreEntry(cwd, '.github/ai-os/mcp-server/');
-  ensureGitignoreEntry(cwd, '.github/ai-os/memory/.memory.lock');
+  ensureGitignoreEntry(cwd, `${CONFIG_DIR}/mcp-server/`);
+  ensureGitignoreEntry(cwd, `${CONFIG_DIR}/memory/.memory.lock`);
 
   // Clean up legacy .github/copilot/mcp.local.json if present
   const legacyLocalMcp = path.join(cwd, '.github', 'copilot', 'mcp.local.json');
@@ -192,7 +192,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     console.log(`  ✏️  write   ${runtimeManifest}`);
     console.log(`  ✏️  write   .vscode/mcp.json`);
   } else {
-    console.log('  ✓ MCP runtime installed to .github/ai-os/mcp-server');
+    console.log('  ✓ MCP runtime installed to .github/cortex/mcp-server');
     console.log('  ✓ MCP config written to .vscode/mcp.json');
   }
 }
@@ -366,7 +366,7 @@ function printContextualNextSteps(
   recommendationsEnabled: boolean,
 ): void {
   const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
-  const recommendationsPath = '.github/ai-os/recommendations.md';
+  const recommendationsPath = `${CONFIG_DIR}/recommendations.md`;
 
   const printInstructionStrategy = (): void => {
     console.log('  📌 First action after install/refresh:');
@@ -456,7 +456,7 @@ function printAgentFlowSetupPrompt(cwd: string, currentMode: 'create' | 'hook' |
   if (hasUserAgents) {
     console.log(`  │  Existing agents detected: ${scan.userDefined.join(', ').slice(0, 38).padEnd(38)} │`);
     console.log('  │                                                             │');
-    console.log('  │  Choose an option in .github/ai-os/config.json:            │');
+    console.log('  │  Choose an option in .github/cortex/config.json:           │');
     console.log('  │    "agentFlowMode": "create"  — add the 3 agents (default) │');
     console.log('  │    "agentFlowMode": "hook"    — guide to link to existing   │');
     console.log('  │    "agentFlowMode": "skip"    — do not generate agents      │');
@@ -512,7 +512,7 @@ function printAgentFlowStatus(cwd: string, mode: 'create' | 'hook' | 'skip' | nu
   if (activeMode === 'hook') {
     console.log('     hook mode enabled — AI OS will keep your existing agents and print handoff guidance.');
   } else if (activeMode === 'skip') {
-    console.log('     skip mode enabled — set agentFlowMode to "create" in .github/ai-os/config.json to enable flow agents.');
+    console.log('     skip mode enabled — set agentFlowMode to "create" in .github/cortex/config.json to enable flow agents.');
   }
   console.log('');
 }
@@ -522,7 +522,7 @@ function printAgentFlowStatus(cwd: string, mode: 'create' | 'hook' | 'skip' | nu
  * This is a non-destructive read-only hygiene report (does not modify the file).
  */
 function printMemoryMaintenanceSummary(cwd: string): void {
-  const memoryFile = path.join(cwd, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  const memoryFile = path.join(cwd, CONFIG_DIR, 'memory', 'memory.jsonl');
   if (!fs.existsSync(memoryFile)) return;
 
   try {
@@ -847,7 +847,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
       config = applyProfile(config, effectiveProfile);
       // Persist the profile-applied config back to disk (skip in dry-run).
       if (!dryRun) {
-        const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
+        const configPath = path.join(cwd, CONFIG_DIR, 'config.json');
         writeFileAtomic(configPath, JSON.stringify(config, null, 2) + '\n');
       }
     }
@@ -1034,7 +1034,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
       const snapshot = captureContextSnapshot(cwd, getToolVersion());
       writeContextSnapshot(cwd, snapshot);
       if (verbose) {
-        console.log('  ✏️  write   .github/ai-os/context-snapshot.json  (freshness baseline)');
+        console.log('  ✏️  write   .github/cortex/context-snapshot.json  (freshness baseline)');
       }
     } catch {
       // Non-fatal: freshness snapshot is best-effort

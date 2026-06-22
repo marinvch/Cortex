@@ -1,12 +1,13 @@
 /**
  * workflow-runner.ts — Agent workflow chaining: structured multi-agent pipelines.
  *
- * Parses .github/ai-os/workflows/*.yml chain definitions and produces
+ * Parses .github/cortex/workflows/*.yml chain definitions and produces
  * execution plans or dry-run summaries. Actual step execution is performed
  * by the AI model — this module handles parsing, validation, and sequencing.
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { CONFIG_DIR } from './brand.js';
 
 export interface WorkflowStep {
   agent: string;
@@ -172,14 +173,14 @@ export function formatRunPlan(plan: WorkflowRunPlan): string {
 
 /** List all workflow files in a project. */
 export function listWorkflows(cwd: string): string[] {
-  const dir = path.join(cwd, '.github', 'ai-os', 'workflows');
+  const dir = path.join(cwd, CONFIG_DIR, 'workflows');
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'));
 }
 
 /** Load and parse a workflow by filename. */
 export function loadWorkflow(cwd: string, filename: string): WorkflowDefinition {
-  const filepath = path.join(cwd, '.github', 'ai-os', 'workflows', filename);
+  const filepath = path.join(cwd, CONFIG_DIR, 'workflows', filename);
   if (!fs.existsSync(filepath)) {
     throw new Error(`Workflow file not found: ${filepath}`);
   }

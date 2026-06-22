@@ -50,7 +50,7 @@ Requirements:
 - Guard with getServerSession() → redirect to /auth/signin if no session
 - Pass any data to a Client Component child only if interactivity is needed
 - Use TypeScript strict types
-- Follow the project conventions in .github/ai-os/context/conventions.md`,
+- Follow the project conventions in .github/cortex/context/conventions.md`,
     });
 
     prompts.push({
@@ -79,7 +79,7 @@ Requirements:
 - Keep page-level data fetching in a composable/service, not in deeply nested components
 - Validate route params and external data shapes
 - Keep component state minimal and derive where possible
-- Follow the conventions in .github/ai-os/context/conventions.md`,
+- Follow the conventions in .github/cortex/context/conventions.md`,
     });
   }
 
@@ -94,7 +94,7 @@ Requirements:
 - Put business logic in services, keep components focused on presentation
 - Use reactive forms for non-trivial form inputs
 - Add guard/interceptor wiring if auth is required
-- Follow naming and structure conventions from .github/ai-os/context/conventions.md`,
+- Follow naming and structure conventions from .github/cortex/context/conventions.md`,
     });
   }
 
@@ -287,7 +287,7 @@ Produce a structured feature brief:
 - **Constraints**: Tech, time, compatibility, or security limits
 - **Success Criteria**: Measurable conditions that confirm the feature is complete
 - **Risks**: Known unknowns and mitigation ideas
-Reference the architecture in .github/ai-os/context/architecture.md and conventions in .github/ai-os/context/conventions.md to identify integration points.`,
+Reference the architecture in .github/cortex/context/architecture.md and conventions in .github/cortex/context/conventions.md to identify integration points.`,
   });
 
   prompts.push({
@@ -311,7 +311,7 @@ Do NOT write any code yet — planning only.`,
     prompt: `Implement the specific task I identify from the plan.
 Rules:
 - Touch only the files listed in that task
-- Follow all conventions in .github/ai-os/context/conventions.md
+- Follow all conventions in .github/cortex/context/conventions.md
 - Keep the change minimal — do not refactor or improve adjacent code
 - Add or update tests for the changed logic
 - After writing, list any follow-up tasks the plan must account for
@@ -382,7 +382,7 @@ Include:
 - Any important side effects or dependencies
 - How it connects to other parts of the system
 - Any gotchas or non-obvious behavior
-Reference the project architecture in .github/ai-os/context/architecture.md as context.`,
+Reference the project architecture in .github/cortex/context/architecture.md as context.`,
   });
 
   prompts.push({
@@ -395,7 +395,7 @@ Before touching anything:
 2. List all imports and consumers (grep for the component name)
 3. Identify props, ${hasTrpc ? 'tRPC hooks' : hasRtkQuery ? 'RTK Query hooks' : 'data hooks (custom/fetching)'}, and state
 Then:
-- Apply the naming conventions from .github/ai-os/context/conventions.md
+- Apply the naming conventions from .github/cortex/context/conventions.md
 - Extract business logic to the existing shared module pattern used by this repo (for example lib/, services/, or hooks/)
 - Ensure TypeScript strict compliance (no any)
 - Verify all callers still compile after the refactor`,
@@ -411,9 +411,9 @@ Phase 1 — Pre-Change Audit:
 1. Ask me to declare the migration boundary: "from X to Y" (e.g., "from session auth to JWT")
 2. Scan ALL AI artifacts for legacy references:
    - .github/copilot-instructions.md
-   - .github/ai-os/context/architecture.md
-   - .github/ai-os/context/conventions.md
-   - .github/ai-os/context/stack.md
+   - .github/cortex/context/architecture.md
+   - .github/cortex/context/conventions.md
+   - .github/cortex/context/stack.md
    - .github/copilot/skills/*.md
    - .github/agents/*.md
    - .github/copilot/*.prompt.md

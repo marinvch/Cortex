@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function createTempMemoryRoot(entries: object[]): string {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-os-hygiene-test-'));
-  const memoryDir = path.join(tempRoot, '.github', 'ai-os', 'memory');
+  const memoryDir = path.join(tempRoot, '.github', 'cortex', 'memory');
   fs.mkdirSync(memoryDir, { recursive: true });
   fs.writeFileSync(
     path.join(memoryDir, 'memory.jsonl'),
@@ -18,7 +18,7 @@ function createTempMemoryRoot(entries: object[]): string {
 }
 
 function readMemoryFile(tempRoot: string): object[] {
-  const memFile = path.join(tempRoot, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  const memFile = path.join(tempRoot, '.github', 'cortex', 'memory', 'memory.jsonl');
   return fs
     .readFileSync(memFile, 'utf-8')
     .split('\n')
@@ -119,7 +119,7 @@ describe('memory hygiene — configurable TTL', () => {
     tempRoot = createTempMemoryRoot([oldEntry]);
 
     // Write a config that sets TTL to 20 days (shorter than 30 days of entry age)
-    const configDir = path.join(tempRoot, '.github', 'ai-os');
+    const configDir = path.join(tempRoot, '.github', 'cortex');
     fs.writeFileSync(
       path.join(configDir, 'config.json'),
       JSON.stringify({ memoryTtlDays: 20 }),
@@ -249,7 +249,7 @@ describe('memory hygiene — pruneMemory', () => {
 
   it('handles empty memory file without errors', async () => {
     // Overwrite with empty file
-    const memFile = path.join(tempRoot, '.github', 'ai-os', 'memory', 'memory.jsonl');
+    const memFile = path.join(tempRoot, '.github', 'cortex', 'memory', 'memory.jsonl');
     fs.writeFileSync(memFile, '', 'utf-8');
 
     const { pruneMemory } = await import('../mcp-server/utils.js');

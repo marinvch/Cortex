@@ -62,7 +62,7 @@ POST /api/chat
 1. Update `vector-store.ts` to use the new model
 2. **Re-embed all existing files** — old embeddings are incompatible
 3. Update dimension in pgvector column: `ALTER TABLE document_chunks ALTER COLUMN embedding TYPE vector(NEW_DIM)`
-4. Update `config.json` in `.github/ai-os/`
+4. Update `config.json` in `.github/cortex/`
 
 ## OCR Fallback
 

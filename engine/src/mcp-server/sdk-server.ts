@@ -238,7 +238,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'get_memory_guidelines',
     {
-      description: 'Returns repository memory rules and memory usage protocol from .github/ai-os/context/memory.md.',
+      description: 'Returns repository memory rules and memory usage protocol from .github/cortex/context/memory.md.',
       inputSchema: {},
     },
     wrap('get_memory_guidelines', () => getMemoryGuidelines()),
@@ -248,7 +248,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'get_repo_memory',
     {
-      description: 'Retrieves persisted repository memory entries from .github/ai-os/memory/memory.jsonl, optionally filtered by query/category.',
+      description: 'Retrieves persisted repository memory entries from .github/cortex/memory/memory.jsonl, optionally filtered by query/category.',
       inputSchema: {
         query: z.string().optional().describe('Optional full-text query against title/content/tags'),
         category: z.string().optional().describe('Optional category filter (e.g. architecture, conventions, pitfalls)'),
@@ -263,7 +263,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'remember_repo_fact',
     {
-      description: 'Stores a durable repository memory entry in .github/ai-os/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).',
+      description: 'Stores a durable repository memory entry in .github/cortex/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).',
       inputSchema: {
         title: z.string().describe('Short memory title'),
         content: z.string().describe('Durable fact/decision/constraint'),
@@ -279,7 +279,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'get_active_plan',
     {
-      description: 'Returns the persisted active session plan from .github/ai-os/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.',
+      description: 'Returns the persisted active session plan from .github/cortex/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.',
       inputSchema: {},
     },
     wrap('get_active_plan', () => getActivePlan()),
@@ -314,7 +314,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'append_checkpoint',
     {
-      description: 'Appends a progress checkpoint to .github/ai-os/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.',
+      description: 'Appends a progress checkpoint to .github/cortex/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.',
       inputSchema: {
         title: z.string().describe('Checkpoint title'),
         status: z.string().optional().describe('Checkpoint status: open or closed (default: open)'),
@@ -330,7 +330,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'close_checkpoint',
     {
-      description: 'Closes an existing checkpoint by id in .github/ai-os/memory/session/checkpoints.jsonl.',
+      description: 'Closes an existing checkpoint by id in .github/cortex/memory/session/checkpoints.jsonl.',
       inputSchema: {
         checkpointId: z.string().describe('Checkpoint id returned by append_checkpoint'),
         notes: z.string().optional().describe('Optional closing notes to append'),
@@ -344,7 +344,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'record_failure_pattern',
     {
-      description: 'Records or updates a failure pattern in .github/ai-os/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.',
+      description: 'Records or updates a failure pattern in .github/cortex/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.',
       inputSchema: {
         tool: z.string().describe('Tool or subsystem where failure occurred'),
         errorSignature: z.string().describe('Short normalized error signature'),
@@ -431,7 +431,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'sync_hosted_memory',
     {
-      description: 'Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.',
+      description: 'Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/cortex/memory/memory.jsonl. Lists existing entries to prevent duplication.',
       inputSchema: {},
     },
     wrap('sync_hosted_memory', () => syncHostedMemory()),
@@ -501,7 +501,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'run_tests',
     {
-      description: `Run the project test suite (\`npm run test\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/ai-os/config.json.`,
+      description: `Run the project test suite (\`npm run test\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
       inputSchema: {},
     },
     wrap('run_tests', () => runTests()),
@@ -511,7 +511,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'run_lint',
     {
-      description: `Run the project linter (\`npm run lint\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/ai-os/config.json.`,
+      description: `Run the project linter (\`npm run lint\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
       inputSchema: {},
     },
     wrap('run_lint', () => runLint()),
@@ -521,7 +521,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'run_build',
     {
-      description: `Run the project build (\`npm run build\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/ai-os/config.json.`,
+      description: `Run the project build (\`npm run build\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
       inputSchema: {},
     },
     wrap('run_build', () => runBuild()),
@@ -531,7 +531,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'run_workflow',
     {
-      description: 'Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.',
+      description: 'Load and display the execution plan for a named agent workflow from .github/cortex/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.',
       inputSchema: {
         workflow_name: z.string().optional().describe('Workflow filename (e.g. "feature-pipeline.yml"). Omit to list all workflows.'),
         dry_run: z.boolean().optional().describe('Show chain without executing (default: true)'),
@@ -543,7 +543,7 @@ export function createSdkServer(): McpServer {
       if (!workflow_name) {
         const workflows = listWorkflows(root);
         return workflows.length === 0
-          ? 'No workflows found in .github/ai-os/workflows/. Create a .yml file to define an agent pipeline.'
+          ? 'No workflows found in .github/cortex/workflows/. Create a .yml file to define an agent pipeline.'
           : `Available workflows:\n${workflows.map(w => `- ${w}`).join('\n')}`;
       }
       const wf = loadWorkflow(root, workflow_name as string);

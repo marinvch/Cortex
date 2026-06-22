@@ -35,7 +35,7 @@
 
 | File | Issue | Action |
 |------|-------|--------|
-| _e.g. `.github/ai-os/context/architecture.md` is stale_ | _Describes old monolith_ | _Refresh after migration_ |
+| _e.g. `.github/cortex/context/architecture.md` is stale_ | _Describes old monolith_ | _Refresh after migration_ |
 
 ## Recommended Next Steps
 

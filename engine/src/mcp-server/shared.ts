@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ENV } from '../brand.js';
+import { ENV, CONFIG_DIR } from '../brand.js';
 
 // ── Project root ───────────────────────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ export const ROOT = process.env[ENV.ROOT] ?? process.cwd();
 
 export function readAiOsFile(relPath: string): string {
   try {
-    return fs.readFileSync(path.join(ROOT, '.github', 'ai-os', relPath), 'utf-8');
+    return fs.readFileSync(path.join(ROOT, CONFIG_DIR, relPath), 'utf-8');
   } catch {
     return '';
   }
@@ -23,11 +23,11 @@ export function readAiOsFile(relPath: string): string {
 // ── File path helpers ──────────────────────────────────────────────────────────
 
 export function getMemoryFilePath(): string {
-  return path.join(ROOT, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  return path.join(ROOT, CONFIG_DIR, 'memory', 'memory.jsonl');
 }
 
 export function getMemoryDirPath(): string {
-  return path.join(ROOT, '.github', 'ai-os', 'memory');
+  return path.join(ROOT, CONFIG_DIR, 'memory');
 }
 
 export function getMemoryLockFilePath(): string {
@@ -36,7 +36,7 @@ export function getMemoryLockFilePath(): string {
 
 /**
  * Resolve the personal brain root. Prefers CORTEX_PERSONAL_ROOT; falls back to
- * `personalBrainPath` in `<ROOT>/.github/ai-os/config.json` (written by the init
+ * `personalBrainPath` in `<ROOT>/.github/cortex/config.json` (written by the init
  * wizard). Returns '' when neither is set so the caller fails loudly rather than
  * guessing a home directory.
  */
@@ -119,7 +119,7 @@ export function ensureSessionMemoryStore(): void {
 /**
  * Resolves the AI OS bundle version for use in the installed MCP server.
  *
- * When the bundle runs from `.github/ai-os/mcp-server/index.js`, relative paths
+ * When the bundle runs from `.github/cortex/mcp-server/index.js`, relative paths
  * like `../../package.json` incorrectly resolve to `.github/package.json`.
  * Instead, we read `runtime-manifest.json` (co-located with the bundle) which
  * the installer always writes with the correct `sourceVersion`. Falls back to
@@ -208,7 +208,7 @@ function _releaseLockOnExit(): void {
 process.on('exit', _releaseLockOnExit);
 
 // ── Session lock — separate lighter-weight lock for session-only files ─────────
-// Session files (.github/ai-os/memory/session/*) are distinct from the durable
+// Session files (.github/cortex/memory/session/*) are distinct from the durable
 // repo memory store (memory.jsonl). Using a dedicated lock prevents session ops
 // (which run on every tool call) from blocking durable memory reads/writes.
 let _activeSessionLockPath: string | null = null;

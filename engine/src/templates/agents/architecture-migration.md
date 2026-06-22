@@ -40,14 +40,14 @@ Ask the user to confirm:
 
 Scan these locations for terms, patterns, and guidance tied to the old architecture:
 - `.github/copilot-instructions.md`
-- `.github/ai-os/context/architecture.md`
-- `.github/ai-os/context/conventions.md`
-- `.github/ai-os/context/stack.md`
+- `.github/cortex/context/architecture.md`
+- `.github/cortex/context/conventions.md`
+- `.github/cortex/context/stack.md`
 - `.github/skills/*/SKILL.md`
 - `.github/agents/*.md`
 - `.github/copilot/*.prompt.md`
 - `.github/instructions/*.instructions.md`
-- Any `.github/ai-os/memory/*.md` files
+- Any `.github/cortex/memory/*.md` files
 
 ### Step 3: Generate impact inventory
 
@@ -55,7 +55,7 @@ For every stale reference found, produce a table row:
 
 | File | Line | Stale Statement | Replacement | Risk |
 | --- | --- | --- | --- | --- |
-| `.github/ai-os/context/conventions.md` | 42 | "Always use Passport sessions" | "Use Auth.js v5 JWT strategy" | High |
+| `.github/cortex/context/conventions.md` | 42 | "Always use Passport sessions" | "Use Auth.js v5 JWT strategy" | High |
 
 Risk levels:
 - **High** — will actively scaffold deprecated patterns in new sessions

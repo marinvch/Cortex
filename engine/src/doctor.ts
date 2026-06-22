@@ -4,7 +4,7 @@
  * Post-install health validation and repair-hint emitter.
  *
  * Checks:
- *  1. MCP runtime binary present  (.github/ai-os/mcp-server/index.js)
+ *  1. MCP runtime binary present  (.github/cortex/mcp-server/index.js)
  *  2. MCP runtime healthcheck      (node index.js --healthcheck)
  *  3. Copilot CLI MCP config present           (.mcp.json)
  *  4. ai-os CLI server entry present           (.mcp.json → mcpServers.ai-os)
@@ -12,8 +12,8 @@
  *  6. VS Code MCP config present               (.vscode/mcp.json)
  *  7. ai-os VS Code server entry present       (.vscode/mcp.json → servers.ai-os)
  *  8. VS Code MCP command resolves             (command/args for servers.ai-os)
- *  9. AI OS config present                     (.github/ai-os/config.json)
- * 10. Tools file present                       (.github/ai-os/tools.json)
+ *  9. AI OS config present                     (.github/cortex/config.json)
+ * 10. Tools file present                       (.github/cortex/tools.json)
  * 11. Skills deployed                          (.agents/skills/ai-os-skill-creator/ OR .github/copilot/skills/)
  *
  * Critical failures → exit code 1.
@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { getToolVersion } from './updater.js';
 import { readAiOsConfig } from './generators/context-docs.js';
-import { ENV } from './brand.js';
+import { ENV, CONFIG_DIR } from './brand.js';
 
 export interface DoctorCheck {
   name: string;
@@ -50,10 +50,10 @@ export interface DoctorResult {
 // ---------------------------------------------------------------------------
 
 function checkMcpRuntimeExists(cwd: string): DoctorCheck {
-  const runtimePath = path.join(cwd, '.github', 'ai-os', 'mcp-server', 'index.js');
+  const runtimePath = path.join(cwd, CONFIG_DIR, 'mcp-server', 'index.js');
   const passed = fs.existsSync(runtimePath) && fs.statSync(runtimePath).isFile();
   return {
-    name: 'MCP runtime binary present (.github/ai-os/mcp-server/index.js)',
+    name: 'MCP runtime binary present (.github/cortex/mcp-server/index.js)',
     critical: true,
     passed,
     detail: passed
@@ -66,7 +66,7 @@ function checkMcpRuntimeExists(cwd: string): DoctorCheck {
 }
 
 function checkMcpRuntimeHealthcheck(cwd: string): DoctorCheck {
-  const runtimePath = path.join(cwd, '.github', 'ai-os', 'mcp-server', 'index.js');
+  const runtimePath = path.join(cwd, CONFIG_DIR, 'mcp-server', 'index.js');
   const nodePath = process.execPath;
 
   if (!fs.existsSync(runtimePath)) {
@@ -226,10 +226,10 @@ function checkMcpCommandResolves(cwd: string, definition: McpCheckDefinition): D
 }
 
 function checkAiOsConfigPresent(cwd: string): DoctorCheck {
-  const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
+  const configPath = path.join(cwd, CONFIG_DIR, 'config.json');
   if (!fs.existsSync(configPath)) {
     return {
-      name: 'AI OS config present (.github/ai-os/config.json)',
+      name: 'AI OS config present (.github/cortex/config.json)',
       critical: false,
       passed: false,
       detail: `Expected at ${configPath}`,
@@ -239,14 +239,14 @@ function checkAiOsConfigPresent(cwd: string): DoctorCheck {
   try {
     JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     return {
-      name: 'AI OS config present (.github/ai-os/config.json)',
+      name: 'AI OS config present (.github/cortex/config.json)',
       critical: false,
       passed: true,
       detail: configPath,
     };
   } catch {
     return {
-      name: 'AI OS config present (.github/ai-os/config.json)',
+      name: 'AI OS config present (.github/cortex/config.json)',
       critical: false,
       passed: false,
       detail: 'config.json exists but is not valid JSON',
@@ -256,10 +256,10 @@ function checkAiOsConfigPresent(cwd: string): DoctorCheck {
 }
 
 function checkToolsFilePresent(cwd: string): DoctorCheck {
-  const toolsPath = path.join(cwd, '.github', 'ai-os', 'tools.json');
+  const toolsPath = path.join(cwd, CONFIG_DIR, 'tools.json');
   if (!fs.existsSync(toolsPath)) {
     return {
-      name: 'MCP tools catalog present (.github/ai-os/tools.json)',
+      name: 'MCP tools catalog present (.github/cortex/tools.json)',
       critical: false,
       passed: false,
       detail: `Expected at ${toolsPath}`,
@@ -269,14 +269,14 @@ function checkToolsFilePresent(cwd: string): DoctorCheck {
   try {
     JSON.parse(fs.readFileSync(toolsPath, 'utf-8'));
     return {
-      name: 'MCP tools catalog present (.github/ai-os/tools.json)',
+      name: 'MCP tools catalog present (.github/cortex/tools.json)',
       critical: false,
       passed: true,
       detail: toolsPath,
     };
   } catch {
     return {
-      name: 'MCP tools catalog present (.github/ai-os/tools.json)',
+      name: 'MCP tools catalog present (.github/cortex/tools.json)',
       critical: false,
       passed: false,
       detail: 'tools.json exists but is not valid JSON',

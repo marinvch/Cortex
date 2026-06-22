@@ -62,10 +62,10 @@ describe('promoteToBrain', () => {
     delete process.env['CORTEX_PERSONAL_ROOT'];
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-cfgbrain-'));
     process.env['CORTEX_ROOT'] = root;
-    fs.mkdirSync(path.join(root, '.github', 'ai-os'), { recursive: true });
+    fs.mkdirSync(path.join(root, '.github', 'cortex'), { recursive: true });
     const cfgBrain = path.join(root, 'mybrain');
     fs.writeFileSync(
-      path.join(root, '.github', 'ai-os', 'config.json'),
+      path.join(root, '.github', 'cortex', 'config.json'),
       JSON.stringify({ personalBrainPath: cfgBrain }),
     );
     vi.resetModules();

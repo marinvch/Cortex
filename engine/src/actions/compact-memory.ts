@@ -1,13 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pruneMemory } from '../mcp-server/utils.js';
-import { ENV } from '../brand.js';
+import { ENV, CONFIG_DIR } from '../brand.js';
 
 export function runCompactMemoryAction(cwd: string): void {
   console.log(`  🧹 Compact memory: ${cwd}`);
   console.log('');
 
-  const memoryFile = path.join(cwd, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  const memoryFile = path.join(cwd, CONFIG_DIR, 'memory', 'memory.jsonl');
   if (!fs.existsSync(memoryFile)) {
     console.log('  ℹ️  No memory.jsonl file found — nothing to compact.');
     console.log('');

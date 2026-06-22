@@ -21,7 +21,7 @@ This agent operates on the **{{PROJECT_NAME}}** codebase ({{FRAMEWORK_LIST}}).
 
 It maintains the AI OS artifacts:
 
-- `.github/ai-os/context/` — Architecture, stack, and conventions docs
+- `.github/cortex/context/` — Architecture, stack, and conventions docs
 - `.github/skills/` — Skill playbooks
 - `.github/agents/` — Specialized agents
 - `.github/copilot-instructions.md` — Main Copilot instructions
@@ -57,7 +57,7 @@ Update `docs/ai/session_memory.md`:
 **Follow-ups / Risks:** ...
 ```
 
-Refresh `.github/ai-os/context/` if the architecture changed:
+Refresh `.github/cortex/context/` if the architecture changed:
 
 ```bash
 bash scripts/ai-os/install.sh

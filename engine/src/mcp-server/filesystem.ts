@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { ROOT } from './shared.js';
-import { ENV } from '../brand.js';
+import { ENV, CONFIG_DIR } from '../brand.js';
 
 const MAX_OUTPUT_BYTES = 8 * 1024;
 const MAX_FILE_BYTES = 32 * 1024;
@@ -100,7 +100,7 @@ export function listDirectory(dirPath: string): string {
 /** Returns true when run-tool execution is allowed. */
 function runToolsAllowed(): boolean {
   if (process.env[ENV.ALLOW_RUN_TOOLS] === '1') return true;
-  const configPath = path.join(ROOT, '.github', 'ai-os', 'config.json');
+  const configPath = path.join(ROOT, CONFIG_DIR, 'config.json');
   try {
     const cfg = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { allowRunTools?: boolean };
     return cfg.allowRunTools === true;
@@ -119,7 +119,7 @@ function detectPackageManager(): string {
 
 function runScript(scriptName: string): string {
   if (!runToolsAllowed()) {
-    return `run_* tools are disabled by default. Set CORTEX_ALLOW_RUN_TOOLS=1 or "allowRunTools": true in .github/ai-os/config.json to enable.`;
+    return `run_* tools are disabled by default. Set CORTEX_ALLOW_RUN_TOOLS=1 or "allowRunTools": true in .github/cortex/config.json to enable.`;
   }
   const pm = detectPackageManager();
   let cmd: string;

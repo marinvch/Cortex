@@ -59,7 +59,7 @@ Options:
   --init                      Interactive setup wizard
   --index                     Build repository intelligence index
   --incremental               Incremental indexing (with --index)
-  --spec-dir <path>           Spec files directory for --index (default: .github/ai-os/specs/)
+  --spec-dir <path>           Spec files directory for --index (default: .github/cortex/specs/)
   --uninstall                 Remove all AI OS artifacts
   --json                      Output results as JSON
   --full-diff                 Show full file diffs

@@ -27,9 +27,9 @@ describe('getPersonalBrainPath', () => {
     delete process.env['CORTEX_PERSONAL_ROOT'];
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-pbp-'));
     process.env['CORTEX_ROOT'] = tmp;
-    fs.mkdirSync(path.join(tmp, '.github', 'ai-os'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.github', 'cortex'), { recursive: true });
     fs.writeFileSync(
-      path.join(tmp, '.github', 'ai-os', 'config.json'),
+      path.join(tmp, '.github', 'cortex', 'config.json'),
       JSON.stringify({ personalBrainPath: '/tmp/from-config' }),
     );
     vi.resetModules();
@@ -41,9 +41,9 @@ describe('getPersonalBrainPath', () => {
   it('prefers env var over config when both set', async () => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-pbp-'));
     process.env['CORTEX_ROOT'] = tmp;
-    fs.mkdirSync(path.join(tmp, '.github', 'ai-os'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, '.github', 'cortex'), { recursive: true });
     fs.writeFileSync(
-      path.join(tmp, '.github', 'ai-os', 'config.json'),
+      path.join(tmp, '.github', 'cortex', 'config.json'),
       JSON.stringify({ personalBrainPath: '/tmp/from-config' }),
     );
     process.env['CORTEX_PERSONAL_ROOT'] = '/tmp/from-env';
@@ -57,8 +57,8 @@ describe('getPersonalBrainPath', () => {
     delete process.env['CORTEX_PERSONAL_ROOT'];
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-pbp-'));
     process.env['CORTEX_ROOT'] = tmp;
-    fs.mkdirSync(path.join(tmp, '.github', 'ai-os'), { recursive: true });
-    fs.writeFileSync(path.join(tmp, '.github', 'ai-os', 'config.json'), '{ not valid json');
+    fs.mkdirSync(path.join(tmp, '.github', 'cortex'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.github', 'cortex', 'config.json'), '{ not valid json');
     vi.resetModules();
     const { getPersonalBrainPath } = await import('../mcp-server/shared.js');
     expect(getPersonalBrainPath()).toBe('');

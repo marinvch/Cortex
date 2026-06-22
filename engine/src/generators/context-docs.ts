@@ -8,7 +8,7 @@ import { getToolVersion } from '../updater.js';
 import { writeIfChanged, writeFileAtomic, sanitizeForInstructions } from './utils.js';
 import { MCP_TOOL_DEFINITIONS } from '../mcp-tools.js';
 import type { ModelTarget } from './multi-model.js';
-import { ENV } from '../brand.js';
+import { ENV, CONFIG_DIR } from '../brand.js';
 
 const DEFAULT_CORTEX_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projectName' | 'primaryLanguage' | 'primaryFramework' | 'frameworks' | 'packageManager' | 'hasTypeScript'> = {
   agentsMd: false,
@@ -25,7 +25,7 @@ const DEFAULT_CORTEX_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'proje
 
 /** Read and return the existing AI OS config, or null. */
 export function readAiOsConfig(outputDir: string): AiOsConfig | null {
-  const configPath = path.join(outputDir, '.github', 'ai-os', 'config.json');
+  const configPath = path.join(outputDir, CONFIG_DIR, 'config.json');
   try {
     const parsed: unknown = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     if (!isAiOsConfig(parsed)) {
@@ -149,13 +149,13 @@ function detectExistingAiContext(rootDir: string): ExistingAiContextSummary {
   const agentsCount = countMarkdownFiles(agentsDir);
   if (agentsCount > 0) add(`.github/agents/ (${agentsCount} files)`, 'agents');
 
-  if (exists(rootDir, '.github/ai-os/context/stack.md')) add('.github/ai-os/context/stack.md', 'docs');
-  if (exists(rootDir, '.github/ai-os/context/architecture.md')) add('.github/ai-os/context/architecture.md', 'docs');
-  if (exists(rootDir, '.github/ai-os/context/conventions.md')) add('.github/ai-os/context/conventions.md', 'docs');
+  if (exists(rootDir, `${CONFIG_DIR}/context/stack.md`)) add(`${CONFIG_DIR}/context/stack.md`, 'docs');
+  if (exists(rootDir, `${CONFIG_DIR}/context/architecture.md`)) add(`${CONFIG_DIR}/context/architecture.md`, 'docs');
+  if (exists(rootDir, `${CONFIG_DIR}/context/conventions.md`)) add(`${CONFIG_DIR}/context/conventions.md`, 'docs');
   // Legacy paths — backward compat detection
-  if (!exists(rootDir, '.github/ai-os/context/stack.md') && exists(rootDir, '.ai-os/context/stack.md')) add('.ai-os/context/stack.md (legacy)', 'docs');
-  if (!exists(rootDir, '.github/ai-os/context/architecture.md') && exists(rootDir, '.ai-os/context/architecture.md')) add('.ai-os/context/architecture.md (legacy)', 'docs');
-  if (!exists(rootDir, '.github/ai-os/context/conventions.md') && exists(rootDir, '.ai-os/context/conventions.md')) add('.ai-os/context/conventions.md (legacy)', 'docs');
+  if (!exists(rootDir, `${CONFIG_DIR}/context/stack.md`) && exists(rootDir, '.ai-os/context/stack.md')) add('.ai-os/context/stack.md (legacy)', 'docs');
+  if (!exists(rootDir, `${CONFIG_DIR}/context/architecture.md`) && exists(rootDir, '.ai-os/context/architecture.md')) add('.ai-os/context/architecture.md (legacy)', 'docs');
+  if (!exists(rootDir, `${CONFIG_DIR}/context/conventions.md`) && exists(rootDir, '.ai-os/context/conventions.md')) add('.ai-os/context/conventions.md (legacy)', 'docs');
   if (exists(rootDir, 'docs/ai/session_memory.md')) add('docs/ai/session_memory.md', 'docs');
 
   if (exists(rootDir, 'AGENTS.md')) add('AGENTS.md', 'other');
@@ -205,7 +205,7 @@ function generateExistingAiContextDoc(stack: DetectedStack, summary: ExistingAiC
   lines.push('bash install.sh --cwd "$PWD" --refresh-existing');
   lines.push('```');
   lines.push('3. Keep Copilot as the single active target for generated instructions, prompts, and skills.');
-  lines.push('4. Treat `.github/ai-os/context/*.md` files as source-of-truth and update them after architectural changes.');
+  lines.push('4. Treat `.github/cortex/context/*.md` files as source-of-truth and update them after architectural changes.');
 
   lines.push('', '## Notes', '');
   lines.push('- This workflow is shell-driven (Git Bash + Node.js) and does not require Python runtime scripts.');
@@ -375,9 +375,9 @@ function generateArchitectureDoc(stack: DetectedStack): string {
   lines.push('  Detect --> Ctx["Scan existing AI context"]');
   lines.push('  Detect --> Graph["Build dependency graph"]');
   lines.push('  Detect --> Generate["Generate AI OS artifacts"]');
-  lines.push('  Generate --> Docs[".github/ai-os/context/*.md"]');
+  lines.push('  Generate --> Docs[".github/cortex/context/*.md"]');
   lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
-  lines.push('  Generate --> MCP[".mcp.json + .vscode/mcp.json + .github/ai-os/mcp-server/"]');
+  lines.push('  Generate --> MCP[".mcp.json + .vscode/mcp.json + .github/cortex/mcp-server/"]');
   lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
   lines.push('  Generate --> Skills[".github/skills/*/SKILL.md"]');
   lines.push('```');
@@ -591,8 +591,8 @@ function generateMemoryDoc(stack: DetectedStack): string {
     '',
     '## Memory Files',
     '',
-    '- `.github/ai-os/memory/memory.jsonl` — append-only durable memory entries',
-    '- `.github/ai-os/memory/README.md` — memory categories and usage rules',
+    '- `.github/cortex/memory/memory.jsonl` — append-only durable memory entries',
+    '- `.github/cortex/memory/README.md` — memory categories and usage rules',
     '',
     '## Agent Workflow',
     '',
@@ -698,7 +698,7 @@ export function generateMcpToolRefDoc(stack: DetectedStack): string {
     '',
     'The following tools are disabled by default and require explicit opt-in.',
     `Enable them by setting \`${ENV.ALLOW_RUN_TOOLS}=1\` in your environment or`,
-    '`"allowRunTools": true` in `.github/ai-os/config.json`.',
+    '`"allowRunTools": true` in `.github/cortex/config.json`.',
     '',
     '| Tool | Description | Parameters (`*` = required) |',
     '|---|---|---|',
@@ -716,9 +716,9 @@ export function generateMcpToolRefDoc(stack: DetectedStack): string {
 /** Returns absolute paths of all managed files. */
 export function generateContextDocs(stack: DetectedStack, outputDir: string, options?: GenerateContextDocsOptions): string[] {
   const preserveContextFiles = options?.preserveContextFiles ?? false;
-  const contextDir = path.join(outputDir, '.github', 'ai-os', 'context');
+  const contextDir = path.join(outputDir, CONFIG_DIR, 'context');
   fs.mkdirSync(contextDir, { recursive: true });
-  const memoryDir = path.join(outputDir, '.github', 'ai-os', 'memory');
+  const memoryDir = path.join(outputDir, CONFIG_DIR, 'memory');
   fs.mkdirSync(memoryDir, { recursive: true });
 
   const managed: string[] = [];
@@ -825,9 +825,9 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
   const toolRefPath = track(path.join(contextDir, 'mcp-tools.md'));
   writeIfChanged(toolRefPath, generateMcpToolRefDoc(stack));
 
-  // Deploy built-in workflow templates to .github/ai-os/workflows/ (first install only)
+  // Deploy built-in workflow templates to .github/cortex/workflows/ (first install only)
   const workflowTemplatesDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'templates', 'workflows');
-  const targetWorkflowsDir = path.join(outputDir, '.github', 'ai-os', 'workflows');
+  const targetWorkflowsDir = path.join(outputDir, CONFIG_DIR, 'workflows');
   if (fs.existsSync(workflowTemplatesDir)) {
     fs.mkdirSync(targetWorkflowsDir, { recursive: true });
     for (const file of fs.readdirSync(workflowTemplatesDir).filter(f => f.endsWith('.yml') || f.endsWith('.yaml'))) {
@@ -883,7 +883,7 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
         : {}),
   };
 
-  const aiOsDir = path.join(outputDir, '.github', 'ai-os');
+  const aiOsDir = path.join(outputDir, CONFIG_DIR);
   writeIfChanged(track(path.join(aiOsDir, 'config.json')), JSON.stringify(config, null, 2));
 
   // Generate session context card if enabled

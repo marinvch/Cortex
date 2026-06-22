@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { CONFIG_DIR } from '../brand.js';
 
 export interface BoundaryLeak { id: string; title: string; domain: string; }
 export interface BoundaryReport {
@@ -9,10 +10,10 @@ export interface BoundaryReport {
   scannedEntries: number;
 }
 
-const REQUIRED_GITIGNORE = ['.github/ai-os/memory/'];
+const REQUIRED_GITIGNORE = [`${CONFIG_DIR}/memory/`];
 
 export function computeBoundaryReport(cwd: string): BoundaryReport {
-  const memPath = path.join(cwd, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  const memPath = path.join(cwd, CONFIG_DIR, 'memory', 'memory.jsonl');
   const leaks: BoundaryLeak[] = [];
   let scannedEntries = 0;
 

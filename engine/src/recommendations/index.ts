@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { DetectedStack } from '../types.js';
 import { writeIfChanged } from '../generators/utils.js';
+import { CONFIG_DIR } from '../brand.js';
 import {
   DEPENDENCY_RECOMMENDATIONS,
   FRAMEWORK_RECOMMENDATIONS,
@@ -326,7 +327,7 @@ export function getSkillsGapReport(stack: DetectedStack, skillsLockPath: string,
 export function generateRecommendations(stack: DetectedStack, outputDir: string): string {
   const collected = collectRecommendations(stack);
   const content = generateRecommendationsDoc(stack, collected);
-  const outPath = path.join(outputDir, '.github', 'ai-os', 'recommendations.md');
+  const outPath = path.join(outputDir, CONFIG_DIR, 'recommendations.md');
   writeIfChanged(outPath, content);
   return outPath;
 }

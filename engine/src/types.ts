@@ -94,7 +94,7 @@ export type InstallProfile = 'minimal' | 'standard' | 'full';
 /** Which data domain a memory entry / config belongs to (encapsulation model). */
 export type MemoryDomain = 'project' | 'personal' | 'shared';
 
-/** User-editable + auto-detected config written to .github/ai-os/config.json */
+/** User-editable + auto-detected config written to .github/cortex/config.json */
 export interface AiOsConfig {
   /** AI OS version that wrote this config */
   version: string;
@@ -356,7 +356,7 @@ export interface BoostPromptResult {
   confirmationMessage?: string;
 }
 
-/** The full agent registry written to .github/ai-os/agents.json */
+/** The full agent registry written to .github/cortex/agents.json */
 export interface AgentRegistry {
   version: '1';
   generatedAt: string;

@@ -107,7 +107,7 @@ echo ""
 
 # ── Uninstall mode (#12) ─────────────────────────────────────────────────────
 if [[ "$UNINSTALL" == "true" ]]; then
-  MANIFEST="$TARGET_DIR/.github/ai-os/manifest.json"
+  MANIFEST="$TARGET_DIR/.github/cortex/manifest.json"
   if [[ ! -f "$MANIFEST" ]]; then
     echo -e "  ${YELLOW}⚠ No Cortex manifest found at $MANIFEST${RESET}"
     echo -e "  ${YELLOW}  Nothing to uninstall (or files were removed manually).${RESET}"
@@ -261,7 +261,7 @@ if [[ "$USE_DOCKER" == "true" ]]; then
   echo -e "  ${BOLD}Next steps:${RESET}"
   echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
   echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
-  echo -e "  3. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
+  echo -e "  3. Project context is in ${CYAN}.github/cortex/context/${RESET}"
   echo ""
   exit 0
 fi
@@ -320,8 +320,8 @@ resolve_node_path() {
 
 NODE_ABS_PATH="$(resolve_node_path)"
 
-# Check new config path first (.github/ai-os/config.json), fall back to legacy (.ai-os/config.json)
-_CORE_CONFIG_PATH="$TARGET_DIR/.github/ai-os/config.json"
+# Check new config path first (.github/cortex/config.json), fall back to legacy (.ai-os/config.json)
+_CORE_CONFIG_PATH="$TARGET_DIR/.github/cortex/config.json"
 if [[ ! -f "$_CORE_CONFIG_PATH" ]]; then
   _CORE_CONFIG_PATH="$TARGET_DIR/.ai-os/config.json"
 fi
@@ -361,7 +361,7 @@ if [[ -n "$PROFILE" ]]; then
   GEN_ARGS+=(--profile "$PROFILE")
 fi
 
-(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+(cd "$AIOS_SRC" && CORTEX_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
 
 # ── Copy MCP server to target repo ──────────────────────────────────────────
 MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
@@ -447,7 +447,7 @@ const indexTs = path.join(currentDir, 'index.ts');
 const result = spawnSync(process.execPath, ['--import', 'tsx/esm', indexTs, ...process.argv.slice(2)], {
   cwd: currentDir,
   stdio: 'inherit',
-  env: { ...process.env, AI_OS_ROOT: process.env.AI_OS_ROOT ?? process.cwd() },
+  env: { ...process.env, CORTEX_ROOT: process.env.CORTEX_ROOT ?? process.cwd() },
 });
 
 if (result.error) {
@@ -468,7 +468,7 @@ EOF
 }
 EOF
 
-  if AI_OS_ROOT="$TARGET_DIR" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
+  if CORTEX_ROOT="$TARGET_DIR" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓ MCP server installed and healthy${RESET}"
   else
     echo -e "  ${RED}✗ MCP server healthcheck failed after install.${RESET}"
@@ -518,7 +518,7 @@ mkdir -p "$TARGET_DIR/.vscode"
     type: 'stdio',
     command,
     args: [scriptPath],
-    env: { AI_OS_ROOT: root }
+    env: { CORTEX_ROOT: root }
   };
 
   const vscodeConfig = readJson(vscodePath);
@@ -527,7 +527,7 @@ mkdir -p "$TARGET_DIR/.vscode"
     type: 'stdio',
     command,
     args: [scriptPath],
-    env: { AI_OS_ROOT: root }
+    env: { CORTEX_ROOT: root }
   };
 
   writeJson(cliPath, cliConfig);
@@ -581,7 +581,7 @@ if [[ "$LEGACY_FOUND" == "true" ]]; then
     cleanup_legacy_artifacts
   elif [[ "$REFRESH_EXISTING" == "true" ]]; then
     echo -e "  ${YELLOW}⚠ Legacy Cortex fragments detected under .ai-os/${RESET}"
-    echo -e "  ${YELLOW}  New architecture uses .github/ai-os/.${RESET}"
+    echo -e "  ${YELLOW}  New architecture uses .github/cortex/.${RESET}"
     if [[ -t 0 ]]; then
       read -rp "  Remove legacy fragments now? [Y/n] " _CLEAN_CONFIRM
       if [[ -z "${_CLEAN_CONFIRM:-}" || "${_CLEAN_CONFIRM}" == "y" || "${_CLEAN_CONFIRM}" == "Y" ]]; then
@@ -610,18 +610,18 @@ if [[ -f "$GITIGNORE" ]]; then
     echo ".ai-os/mcp-server/node_modules" >> "$GITIGNORE"
     echo -e "  ${GREEN}✓ Updated .gitignore${RESET}"
   fi
-  if ! grep -q "^\.github/ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
-    echo ".github/ai-os/mcp-server/node_modules" >> "$GITIGNORE"
+  if ! grep -q "^\.github/cortex/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
+    echo ".github/cortex/mcp-server/node_modules" >> "$GITIGNORE"
   fi
   # #10 — ignore the memory lock file so it never appears as an untracked change
-  if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
-    echo ".github/ai-os/memory/.memory.lock" >> "$GITIGNORE"
+  if ! grep -q "^\.github/cortex/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
+    echo ".github/cortex/memory/.memory.lock" >> "$GITIGNORE"
   fi
 fi
 
 # ── Post-install health check (--doctor) ─────────────────────────────────────
 echo -e "  ${CYAN}→ Running post-install health check...${RESET}"
-if (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts --doctor --cwd "$TARGET_DIR"); then
+if (cd "$AIOS_SRC" && CORTEX_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts --doctor --cwd "$TARGET_DIR"); then
   echo -e "  ${GREEN}✓ Health check passed${RESET}"
 else
   echo ""

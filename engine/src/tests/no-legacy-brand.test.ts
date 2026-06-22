@@ -62,4 +62,24 @@ describe('no legacy ai-os brand literals remain in src', () => {
     expect(out, `Found legacy [ai-os log-prefix literals:\n${out}`).toBe('');
   });
 
+  it('shipped shell scripts have no AI_OS_ or .github/ai-os literals', () => {
+    // Scans the live installer scripts (outside src/) for legacy brand patterns.
+    // Allowed: github:marinvch/ai-os and raw.githubusercontent.com/marinvch/ai-os
+    // URLs — those won't match AI_OS_ or .github/ai-os so no exclusion needed.
+    const result = spawnSync(
+      'git',
+      [
+        'grep', '-nIE',
+        'AI_OS_|\\.github/ai-os',
+        '--',
+        'install.sh',
+        'bootstrap.sh',
+        'scripts',
+      ],
+      { cwd: engineRoot, encoding: 'utf8' },
+    );
+    const out = (result.stdout ?? '').trim();
+    expect(out, `Found legacy brand literals in shell scripts:\n${out}`).toBe('');
+  });
+
 });

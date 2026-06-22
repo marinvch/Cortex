@@ -6,12 +6,12 @@
 
 set -euo pipefail
 
-REPO_URL="${AI_OS_REPO_URL:-https://github.com/marinvch/ai-os.git}"
+REPO_URL="${CORTEX_REPO_URL:-https://github.com/marinvch/ai-os.git}"
 TARGET_PWD="$(pwd)"
 
 # Use mktemp for a safe, unique temp directory (no PID collision risk)
-TMPDIR_AI_OS="$(mktemp -d)"
-cleanup() { rm -rf "$TMPDIR_AI_OS"; }
+TMPDIR_CORTEX="$(mktemp -d)"
+cleanup() { rm -rf "$TMPDIR_CORTEX"; }
 trap cleanup EXIT
 
 # ── Auto-install Node.js via nvm if not present ───────────────────────────────
@@ -37,7 +37,7 @@ ensure_node() {
 ensure_node
 
 echo "→ Fetching Cortex from ${REPO_URL}"
-git clone --depth 1 "$REPO_URL" "$TMPDIR_AI_OS/ai-os" >/dev/null 2>&1
+git clone --depth 1 "$REPO_URL" "$TMPDIR_CORTEX/cortex" >/dev/null 2>&1
 
 HAS_CWD=false
 for arg in "$@"; do
@@ -48,7 +48,7 @@ for arg in "$@"; do
 done
 
 if [[ "$HAS_CWD" == "true" ]]; then
-  bash "$TMPDIR_AI_OS/ai-os/install.sh" "$@"
+  bash "$TMPDIR_CORTEX/cortex/install.sh" "$@"
 else
-  bash "$TMPDIR_AI_OS/ai-os/install.sh" --cwd "$TARGET_PWD" "$@"
+  bash "$TMPDIR_CORTEX/cortex/install.sh" --cwd "$TARGET_PWD" "$@"
 fi

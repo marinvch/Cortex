@@ -21,7 +21,7 @@
 #   bash scripts/update-projects.sh --search-dir ~/Projects --dry-run
 #
 # What it does:
-#   For each repo with .github/ai-os/manifest.json the script runs:
+#   For each repo with .github/cortex/manifest.json the script runs:
 #     npx -y github:marinvch/ai-os --update --cwd <repo>
 #   which performs a full Cortex refresh: regenerates context docs, updates the
 #   MCP server bundle, and bumps the manifest version.
@@ -83,10 +83,10 @@ if [[ ${#EXPLICIT_DIRS[@]} -gt 0 ]]; then
   # Explicit paths: verify each has a Cortex manifest
   for dir in "${EXPLICIT_DIRS[@]}"; do
     abs_dir="$(cd "$dir" && pwd)"
-    if [[ -f "$abs_dir/.github/ai-os/manifest.json" ]]; then
+    if [[ -f "$abs_dir/.github/cortex/manifest.json" ]]; then
       REPOS+=("$abs_dir")
     else
-      echo "Warning: $abs_dir does not have .github/ai-os/manifest.json — skipping." >&2
+      echo "Warning: $abs_dir does not have .github/cortex/manifest.json — skipping." >&2
     fi
   done
 else
@@ -100,7 +100,7 @@ else
     REPOS+=("$repo_dir")
   done < <(find "$SCAN_ROOT" -maxdepth "$MAX_DEPTH" \
       -name "manifest.json" \
-      -path "*/.github/ai-os/manifest.json" \
+      -path "*/.github/cortex/manifest.json" \
       2>/dev/null | sort)
 fi
 
@@ -113,8 +113,8 @@ fi
 echo "Found ${#REPOS[@]} Cortex repository/repositories:"
 for repo in "${REPOS[@]}"; do
   installed_ver=""
-  if [[ -f "$repo/.github/ai-os/manifest.json" ]]; then
-    installed_ver=$(node -e "try{const m=require('$repo/.github/ai-os/manifest.json');process.stdout.write(m.version||'')}catch{}" 2>/dev/null || true)
+  if [[ -f "$repo/.github/cortex/manifest.json" ]]; then
+    installed_ver=$(node -e "try{const m=require('$repo/.github/cortex/manifest.json');process.stdout.write(m.version||'')}catch{}" 2>/dev/null || true)
   fi
   echo "  • $repo${installed_ver:+  (v$installed_ver)}"
 done

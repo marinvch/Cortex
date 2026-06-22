@@ -16,9 +16,9 @@
 
 - [instructions] `.github/instructions/`
 - [agents] `.github/agents/ (8 files)`
-- [docs] `.github/ai-os/context/stack.md`
-- [docs] `.github/ai-os/context/architecture.md`
-- [docs] `.github/ai-os/context/conventions.md`
+- [docs] `.github/cortex/context/stack.md`
+- [docs] `.github/cortex/context/architecture.md`
+- [docs] `.github/cortex/context/conventions.md`
 
 ## Optimization Plan (Git Bash-First)
 
@@ -31,7 +31,7 @@ npm run generate -- --cwd "$PWD" --refresh-existing
 bash install.sh --cwd "$PWD" --refresh-existing
 ```
 3. Keep Copilot as the single active target for generated instructions, prompts, and skills.
-4. Treat `.github/ai-os/context/*.md` files as source-of-truth and update them after architectural changes.
+4. Treat `.github/cortex/context/*.md` files as source-of-truth and update them after architectural changes.
 
 ## Notes
 

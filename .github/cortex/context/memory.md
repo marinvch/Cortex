@@ -10,8 +10,8 @@
 
 ## Memory Files
 
-- `.github/ai-os/memory/memory.jsonl` — append-only durable memory entries
-- `.github/ai-os/memory/README.md` — memory categories and usage rules
+- `.github/cortex/memory/memory.jsonl` — append-only durable memory entries
+- `.github/cortex/memory/README.md` — memory categories and usage rules
 
 ## Agent Workflow
 

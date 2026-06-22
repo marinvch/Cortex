@@ -48,9 +48,9 @@ flowchart TD
   Detect --> Ctx["Scan existing AI context"]
   Detect --> Graph["Build dependency graph"]
   Detect --> Generate["Generate AI OS artifacts"]
-  Generate --> Docs[".github/ai-os/context/*.md"]
+  Generate --> Docs[".github/cortex/context/*.md"]
   Generate --> Instr[".github/copilot-instructions.md"]
-  Generate --> MCP[".mcp.json + .vscode/mcp.json + .ai-os/mcp-server/"]
+  Generate --> MCP[".mcp.json + .vscode/mcp.json + .cortex/mcp-server/"]
   Generate --> Agents[".github/agents/*.agent.md"]
   Generate --> Skills[".github/copilot/skills/*.md"]
 ```

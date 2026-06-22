@@ -32,12 +32,12 @@ Use this workflow to keep project knowledge durable, linked, and easy for humans
 
 ## Suggested Folder Layout
 
-- `.github/ai-os/context/templates/decision-note.md`
-- `.github/ai-os/context/templates/prompt-pattern.md`
-- `.github/ai-os/context/templates/failure-pattern.md`
-- `.github/ai-os/context/templates/tool-recipe.md`
-- `.github/ai-os/context/templates/context-pack.md`
-- `.github/ai-os/context/packs/implementation.md`
+- `.github/cortex/context/templates/decision-note.md`
+- `.github/cortex/context/templates/prompt-pattern.md`
+- `.github/cortex/context/templates/failure-pattern.md`
+- `.github/cortex/context/templates/tool-recipe.md`
+- `.github/cortex/context/templates/context-pack.md`
+- `.github/cortex/context/packs/implementation.md`
 
 ## Retrieval Flow
 
@@ -48,7 +48,7 @@ Use this workflow to keep project knowledge durable, linked, and easy for humans
 
 ## Weekly Measurement
 
-Use `.github/ai-os/metrics/scorecard.json` to track:
+Use `.github/cortex/metrics/scorecard.json` to track:
 
 - first-pass success rate
 - tool-call success rate

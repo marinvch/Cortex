@@ -105,12 +105,12 @@ export function checkForUpdates(): string {
 
   if (updateAvailable) {
     return [
-      `## AI OS Update Available`,
+      `## Cortex Update Available`,
       ``,
       `- **Installed:** v${installedVersion} (generated ${installedAt})`,
       `- **Latest:**    v${latestVersion}`,
       ``,
-      `Run the following to update all AI OS artifacts in-place:`,
+      `Run the following to update all Cortex artifacts in-place:`,
       `\`\`\`bash`,
       `npx -y "github:marinvch/ai-os#v${latestVersion}" --refresh-existing`,
       `\`\`\``,
@@ -119,7 +119,7 @@ export function checkForUpdates(): string {
     ].join('\n');
   }
 
-  return `AI OS is up-to-date (v${installedVersion}). Last generated: ${installedAt}`;
+  return `Cortex is up-to-date (v${installedVersion}). Last generated: ${installedAt}`;
 }
 
 // ── Re-exports from focused sub-modules (backward compatibility) ───────────────

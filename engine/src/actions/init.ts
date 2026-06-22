@@ -47,7 +47,7 @@ export function formatProfileDescription(profile: InstallProfile): string {
     case 'standard':
       return 'standard — Instructions + agents + skills + tools. Recommended for most projects.';
     case 'full':
-      return 'full — All integrations, extra skills, and advanced agents. Maximum AI OS coverage.';
+      return 'full — All integrations, extra skills, and advanced agents. Maximum Cortex coverage.';
   }
 }
 
@@ -119,7 +119,7 @@ export async function runWizardLogic(stack: DetectedStack, ask: AskFn): Promise<
   console.log('');
 
   // ── Personal OS linkage ───────────────────────────────────────────────
-  console.log('\n  🧠 Is this project part of your personal AI OS (Cortex)?\n');
+  console.log('\n  🧠 Is this project part of your personal Cortex (AI OS)?\n');
   console.log('     Links it to your personal brain for sanitized promotion of learnings.');
   console.log('');
   let projectBoundary: 'strict' | 'permissive' | undefined;

@@ -1,8 +1,8 @@
 /**
  * toolsets.ts — generates .vscode/toolsets.json for VS Code v1.101+ Tool Sets.
  *
- * Tool sets group related AI OS MCP tools so developers can quickly reference
- * them in chat with `#ai-os-context`, `#ai-os-explore`, etc.
+ * Tool sets group related Cortex MCP tools so developers can quickly reference
+ * them in chat with `#cortex-context`, `#cortex-explore`, etc.
  *
  * @see https://code.visualstudio.com/updates/v1_101#_chat-tool-sets
  */
@@ -91,24 +91,24 @@ export function generateToolsets(stack: DetectedStack, outputDir: string): strin
   const managed: string[] = [];
 
   const config: ToolSetsConfig = {
-    'ai-os-context': {
+    'cortex-context': {
       tools: CONTEXT_TOOLS,
-      description: 'AI OS context & memory tools — conventions, repo memory, freshness',
+      description: 'Cortex context & memory tools — conventions, repo memory, freshness',
     },
-    'ai-os-explore': {
+    'cortex-explore': {
       tools: EXPLORE_TOOLS,
-      description: 'AI OS codebase navigation — search, structure, impact analysis',
+      description: 'Cortex codebase navigation — search, structure, impact analysis',
     },
-    'ai-os-plan': {
+    'cortex-plan': {
       tools: PLAN_TOOLS,
-      description: 'AI OS session planning — active plan, checkpoints, failure tracking',
+      description: 'Cortex session planning — active plan, checkpoints, failure tracking',
     },
   };
 
   if (hasBackendTools(stack)) {
-    config['ai-os-backend'] = {
+    config['cortex-backend'] = {
       tools: buildBackendTools(stack),
-      description: 'AI OS backend tools — API routes, schema, env vars, packages',
+      description: 'Cortex backend tools — API routes, schema, env vars, packages',
     };
   }
 

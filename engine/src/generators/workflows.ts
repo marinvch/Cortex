@@ -14,7 +14,7 @@ export function generateWorkflows(outputDir: string, options?: GenerateWorkflowO
   };
 
   if (options?.config?.updateCheckEnabled !== false) {
-    const workflowPath = track(path.join(outputDir, '.github', 'workflows', 'ai-os-update-check.yml'));
+    const workflowPath = track(path.join(outputDir, '.github', 'workflows', 'cortex-update-check.yml'));
     writeIfChanged(workflowPath, getUpdateCheckWorkflowContent());
   }
 
@@ -22,7 +22,7 @@ export function generateWorkflows(outputDir: string, options?: GenerateWorkflowO
 }
 
 function getUpdateCheckWorkflowContent(): string {
-  return `name: AI OS Update Check
+  return `name: Cortex Update Check
 
 on:
   schedule:
@@ -34,7 +34,7 @@ permissions:
   issues: write
 
 jobs:
-  check-for-ai-os-updates:
+  check-for-cortex-updates:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -68,7 +68,7 @@ jobs:
             const installed = '\${{ steps.versions.outputs.installed }}';
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const title = 'AI OS update available: v' + latest;
+            const title = 'Cortex update available: v' + latest;
 
             const open = await github.paginate(github.rest.issues.listForRepo, {
               owner,
@@ -87,7 +87,7 @@ jobs:
               repo,
               title,
               body: [
-                'A newer AI OS version is available.',
+                'A newer Cortex version is available.',
                 '',
                 '- Installed: v' + installed,
                 '- Latest: v' + latest,

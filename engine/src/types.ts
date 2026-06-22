@@ -96,7 +96,7 @@ export type MemoryDomain = 'project' | 'personal' | 'shared';
 
 /** User-editable + auto-detected config written to .github/cortex/config.json */
 export interface AiOsConfig {
-  /** AI OS version that wrote this config */
+  /** Cortex version that wrote this config */
   version: string;
   installedAt: string;
   projectName: string;
@@ -132,7 +132,7 @@ export interface AiOsConfig {
   /**
    * How to handle the sequential agent flow (Enhancement Advisor → Idea Validator → Implementation Agent).
    * - 'create'  : generate all three agents (default for new installs)
-   * - 'hook'    : print a guide for connecting ai-os to existing agents instead of creating new ones
+   * - 'hook'    : print a guide for connecting Cortex to existing agents instead of creating new ones
    * - 'skip'    : do not generate sequential agents
    */
   agentFlowMode?: 'create' | 'hook' | 'skip';

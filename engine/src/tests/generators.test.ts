@@ -84,7 +84,7 @@ describe('instructions size cap', () => {
 
     const content = fs.readFileSync(path.join(tmpDir, '.github', 'copilot-instructions.md'), 'utf-8');
     // If truncation occurred, it must use the clean boundary marker
-    if (content.includes('<!-- [AI OS]')) {
+    if (content.includes('<!-- [Cortex]')) {
       expect(content).toContain('content trimmed');
       expect(content).not.toContain('truncated to 8 KB');
     }
@@ -340,14 +340,14 @@ describe('persona directive in copilot-instructions.md', () => {
   });
 });
 
-describe('AI OS value mode guidance', () => {
+describe('Cortex value mode guidance', () => {
   it('includes value mode section in copilot-instructions.md', async () => {
     const { generateInstructions } = await import('../generators/instructions.js');
     const fs = await import('node:fs');
     const path = await import('node:path');
 
     const stack = makeStack();
-    const tmpDir = path.join(os.tmpdir(), 'ai-os-value-mode-copilot-' + Date.now());
+    const tmpDir = path.join(os.tmpdir(), 'cortex-value-mode-copilot-' + Date.now());
     fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
 
     generateInstructions(stack, tmpDir, { refreshExisting: false });
@@ -355,25 +355,25 @@ describe('AI OS value mode guidance', () => {
     const instructionsPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
     const content = fs.readFileSync(instructionsPath, 'utf-8');
 
-    expect(content).toContain('## AI OS Value Mode');
+    expect(content).toContain('## Cortex Value Mode');
     expect(content).toContain('Restate the goal in implementation terms');
-    expect(content).toContain('.github/instructions/ai-os.instructions.md');
+    expect(content).toContain('.github/instructions/cortex.instructions.md');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('includes value mode section in ai-os.instructions.md', async () => {
+  it('includes value mode section in cortex.instructions.md', async () => {
     const { generateInstructions } = await import('../generators/instructions.js');
     const fs = await import('node:fs');
     const path = await import('node:path');
 
     const stack = makeStack();
-    const tmpDir = path.join(os.tmpdir(), 'ai-os-value-mode-auto-' + Date.now());
+    const tmpDir = path.join(os.tmpdir(), 'cortex-value-mode-auto-' + Date.now());
     fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
 
     generateInstructions(stack, tmpDir, { refreshExisting: false });
 
-    const instructionsPath = path.join(tmpDir, '.github', 'instructions', 'ai-os.instructions.md');
+    const instructionsPath = path.join(tmpDir, '.github', 'instructions', 'cortex.instructions.md');
     const content = fs.readFileSync(instructionsPath, 'utf-8');
 
     expect(content).toContain('## Value Mode');
@@ -824,7 +824,7 @@ describe('skills strategy', () => {
 
     const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
     const onDisk = fs.existsSync(skillsDir)
-      ? fs.readdirSync(skillsDir).filter(f => f.startsWith('ai-os-') && f.endsWith('.md'))
+      ? fs.readdirSync(skillsDir).filter(f => f.startsWith('cortex-') && f.endsWith('.md'))
       : [];
     expect(onDisk.length).toBe(0);
 
@@ -844,14 +844,14 @@ describe('skills strategy', () => {
     const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-prune-creator-only-' + Date.now());
     const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
     fs.mkdirSync(skillsDir, { recursive: true });
-    fs.writeFileSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'), '# old skill\n', 'utf-8');
+    fs.writeFileSync(path.join(skillsDir, 'cortex-nextjs-patterns.md'), '# old skill\n', 'utf-8');
 
     await generateSkills(stack, tmpDir, {
       refreshExisting: true,
       strategy: 'creator-only',
     });
 
-    expect(fs.existsSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'))).toBe(false);
+    expect(fs.existsSync(path.join(skillsDir, 'cortex-nextjs-patterns.md'))).toBe(false);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
@@ -869,8 +869,8 @@ describe('skills strategy', () => {
     const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-empty-dir-' + Date.now());
     const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
     fs.mkdirSync(skillsDir, { recursive: true });
-    // Place only ai-os-* skills so they all get pruned leaving an empty dir
-    fs.writeFileSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'), '# old\n', 'utf-8');
+    // Place only cortex-* skills so they all get pruned leaving an empty dir
+    fs.writeFileSync(path.join(skillsDir, 'cortex-nextjs-patterns.md'), '# old\n', 'utf-8');
 
     await generateSkills(stack, tmpDir, {
       refreshExisting: true,

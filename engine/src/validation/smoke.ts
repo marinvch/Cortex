@@ -223,7 +223,7 @@ function run(): void {
 
   const failed = checks.filter((c) => !c.passed);
 
-  console.log('AI OS smoke test results:');
+  console.log('Cortex smoke test results:');
   for (const check of checks) {
     const icon = check.passed ? 'PASS' : 'FAIL';
     console.log(`- [${icon}] ${check.name}`);

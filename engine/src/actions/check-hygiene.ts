@@ -79,7 +79,7 @@ export function runCheckHygieneAction(cwd: string, json = false): void {
       issues.push(`  ⚠  ${missingFiles.length} manifest entries point to missing files — run --refresh-existing`);
     }
   } else {
-    issues.push(`  ⚠  No manifest.json found — run AI OS generation to create one`);
+    issues.push(`  ⚠  No manifest.json found — run Cortex generation to create one`);
   }
 
   if (issues.length === 0) {

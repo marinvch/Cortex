@@ -1,7 +1,7 @@
 /**
  * Context Freshness Scoring and Drift Detection
  *
- * Captures snapshots of AI OS context artifacts and key source files,
+ * Captures snapshots of Cortex context artifacts and key source files,
  * then compares them to detect drift after structural code changes.
  */
 import crypto from 'node:crypto';
@@ -12,14 +12,14 @@ import { CONFIG_DIR } from '../brand.js';
 
 // ── Interfaces ─────────────────────────────────────────────────────────────
 
-/** Metadata captured at AI OS generation time. */
+/** Metadata captured at Cortex generation time. */
 export interface ContextSnapshot {
   /** ISO timestamp when this snapshot was captured. */
   capturedAt: string;
-  /** AI OS version that generated this snapshot. */
+  /** Cortex version that generated this snapshot. */
   aiOsVersion: string;
   /**
-   * SHA-256 fingerprints of AI OS context artifact files.
+   * SHA-256 fingerprints of Cortex context artifact files.
    * Key = repo-relative path, value = hex hash (or 'MISSING').
    */
   artifactHashes: Record<string, string>;
@@ -49,13 +49,13 @@ export interface FreshnessReport {
   recommendations: string[];
   /** When the baseline snapshot was captured (ISO string) or null if no snapshot exists. */
   snapshotCapturedAt: string | null;
-  /** When AI OS was last run (ISO string from config.json) or null. */
+  /** When Cortex was last run (ISO string from config.json) or null. */
   lastGeneratedAt: string | null;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-/** AI OS context artifact files that are tracked for freshness. */
+/** Cortex context artifact files that are tracked for freshness. */
 const ARTIFACT_PATHS = [
   `${CONFIG_DIR}/context/conventions.md`,
   `${CONFIG_DIR}/context/architecture.md`,
@@ -168,7 +168,7 @@ export function captureContextSnapshot(rootDir: string, aiOsVersion: string): Co
     trackedFileCount = count;
   }
 
-  // Capture directory-level hashes for AI OS artifact directories (#238)
+  // Capture directory-level hashes for Cortex artifact directories (#238)
   for (const rel of ARTIFACT_DIRS) {
     const absDir = path.join(rootDir, rel);
     if (fs.existsSync(absDir)) {
@@ -362,7 +362,7 @@ export function formatFreshnessReport(report: FreshnessReport): string {
     lines.push(`- **Snapshot captured:** ${report.snapshotCapturedAt}`);
   }
   if (report.lastGeneratedAt) {
-    lines.push(`- **Last AI OS run:** ${report.lastGeneratedAt}`);
+    lines.push(`- **Last Cortex run:** ${report.lastGeneratedAt}`);
   }
   lines.push('');
 

@@ -1,7 +1,7 @@
 import { detectDrift, formatDriftReport } from '../detectors/drift.js';
 
 export async function runCheckDriftAction(cwd: string, verbose = false): Promise<void> {
-  console.log(`  🔍 AI OS drift check: ${cwd}`);
+  console.log(`  🔍 Cortex drift check: ${cwd}`);
   console.log('');
 
   const report = detectDrift(cwd);
@@ -15,7 +15,7 @@ export async function runCheckDriftAction(cwd: string, verbose = false): Promise
     console.log('  ⚠️  Drift warnings found. Consider running `--refresh-existing` to resync.');
     console.log('');
   } else {
-    console.log('  ✅ No drift detected — all AI OS artifacts are healthy.');
+    console.log('  ✅ No drift detected — all Cortex artifacts are healthy.');
     console.log('');
   }
 }

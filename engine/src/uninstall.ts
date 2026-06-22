@@ -1,7 +1,7 @@
 /**
- * AI OS Uninstall
+ * Cortex Uninstall
  *
- * Removes all files that AI OS owns (per manifest.json) from the project.
+ * Removes all files that Cortex owns (per manifest.json) from the project.
  * Preserves any files listed in protect.json or that contain user-block markers.
  * Supports --dry-run mode.
  *
@@ -87,7 +87,7 @@ export function runUninstall(cwd: string, options: { dryRun?: boolean; verbose?:
 
   const manifest = readManifest(cwd);
   if (!manifest) {
-    console.log('  ℹ️  No AI OS manifest found — nothing to uninstall.');
+    console.log('  ℹ️  No Cortex manifest found — nothing to uninstall.');
     return report;
   }
 
@@ -135,7 +135,7 @@ export function runUninstall(cwd: string, options: { dryRun?: boolean; verbose?:
     }
   }
 
-  // Also remove AI OS runtime directory and manifest itself
+  // Also remove Cortex runtime directory and manifest itself
   const managedDirs = [
     path.join(cwd, CONFIG_DIR, 'mcp-server'),
     // legacy pre-v0.22 location
@@ -184,7 +184,7 @@ export function formatUninstallReport(report: UninstallReport): string {
   const lines: string[] = [];
   const mode = report.dryRun ? ' [DRY RUN]' : '';
 
-  lines.push(`\n  ✅ AI OS uninstall complete${mode}`);
+  lines.push(`\n  ✅ Cortex uninstall complete${mode}`);
   lines.push(`     Removed:   ${report.removed.length} file(s)`);
   if (report.skipped.length > 0) lines.push(`     Skipped:   ${report.skipped.length} file(s)  (user content preserved)`);
   if (report.notFound.length > 0) lines.push(`     Not found: ${report.notFound.length} file(s)`);

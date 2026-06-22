@@ -73,9 +73,9 @@ describe('generateToolsets', () => {
     const toolsetsPath = path.join(tmpDir, '.vscode', 'toolsets.json');
     const config = JSON.parse(fs.readFileSync(toolsetsPath, 'utf-8')) as Record<string, { tools: string[]; description: string }>;
 
-    expect(config).toHaveProperty('ai-os-context');
-    expect(config).toHaveProperty('ai-os-explore');
-    expect(config).toHaveProperty('ai-os-plan');
+    expect(config).toHaveProperty('cortex-context');
+    expect(config).toHaveProperty('cortex-explore');
+    expect(config).toHaveProperty('cortex-plan');
   });
 
   it('core context toolset includes get_session_context and get_repo_memory', async () => {
@@ -87,11 +87,11 @@ describe('generateToolsets', () => {
       fs.readFileSync(path.join(tmpDir, '.vscode', 'toolsets.json'), 'utf-8'),
     ) as Record<string, { tools: string[] }>;
 
-    expect(config['ai-os-context'].tools).toContain('get_session_context');
-    expect(config['ai-os-context'].tools).toContain('get_repo_memory');
+    expect(config['cortex-context'].tools).toContain('get_session_context');
+    expect(config['cortex-context'].tools).toContain('get_repo_memory');
   });
 
-  it('does NOT include ai-os-backend for a pure frontend stack', async () => {
+  it('does NOT include cortex-backend for a pure frontend stack', async () => {
     const { generateToolsets } = await import('../generators/toolsets.js');
     const stack = makeStack({ allDependencies: ['react', 'vite'] });
     generateToolsets(stack, tmpDir);
@@ -100,10 +100,10 @@ describe('generateToolsets', () => {
       fs.readFileSync(path.join(tmpDir, '.vscode', 'toolsets.json'), 'utf-8'),
     ) as Record<string, unknown>;
 
-    expect(config).not.toHaveProperty('ai-os-backend');
+    expect(config).not.toHaveProperty('cortex-backend');
   });
 
-  it('includes ai-os-backend with get_prisma_schema when Prisma is detected', async () => {
+  it('includes cortex-backend with get_prisma_schema when Prisma is detected', async () => {
     const { generateToolsets } = await import('../generators/toolsets.js');
     const stack = makeStack({ allDependencies: ['@prisma/client', 'next'] });
     generateToolsets(stack, tmpDir);
@@ -112,12 +112,12 @@ describe('generateToolsets', () => {
       fs.readFileSync(path.join(tmpDir, '.vscode', 'toolsets.json'), 'utf-8'),
     ) as Record<string, { tools: string[] }>;
 
-    expect(config).toHaveProperty('ai-os-backend');
-    expect(config['ai-os-backend'].tools).toContain('get_prisma_schema');
-    expect(config['ai-os-backend'].tools).toContain('get_api_routes');
+    expect(config).toHaveProperty('cortex-backend');
+    expect(config['cortex-backend'].tools).toContain('get_prisma_schema');
+    expect(config['cortex-backend'].tools).toContain('get_api_routes');
   });
 
-  it('includes ai-os-backend with get_trpc_procedures when tRPC is detected', async () => {
+  it('includes cortex-backend with get_trpc_procedures when tRPC is detected', async () => {
     const { generateToolsets } = await import('../generators/toolsets.js');
     const stack = makeStack({ allDependencies: ['@trpc/server'] });
     generateToolsets(stack, tmpDir);
@@ -126,11 +126,11 @@ describe('generateToolsets', () => {
       fs.readFileSync(path.join(tmpDir, '.vscode', 'toolsets.json'), 'utf-8'),
     ) as Record<string, { tools: string[] }>;
 
-    expect(config).toHaveProperty('ai-os-backend');
-    expect(config['ai-os-backend'].tools).toContain('get_trpc_procedures');
+    expect(config).toHaveProperty('cortex-backend');
+    expect(config['cortex-backend'].tools).toContain('get_trpc_procedures');
   });
 
-  it('includes ai-os-backend for a Next.js stack without Prisma', async () => {
+  it('includes cortex-backend for a Next.js stack without Prisma', async () => {
     const { generateToolsets } = await import('../generators/toolsets.js');
     const stack = makeStack({
       frameworks: [{ name: 'Next.js', category: 'fullstack', template: 'nextjs' }],
@@ -142,7 +142,7 @@ describe('generateToolsets', () => {
       fs.readFileSync(path.join(tmpDir, '.vscode', 'toolsets.json'), 'utf-8'),
     ) as Record<string, unknown>;
 
-    expect(config).toHaveProperty('ai-os-backend');
+    expect(config).toHaveProperty('cortex-backend');
   });
 
   it('produces valid JSON output (no trailing commas, no syntax errors)', async () => {
@@ -183,14 +183,14 @@ describe('generateChatModes', () => {
     }
   });
 
-  it('generates ai-os-plan, ai-os-review, and ai-os-explore modes', async () => {
+  it('generates cortex-plan, cortex-review, and cortex-explore modes', async () => {
     const { generateChatModes } = await import('../generators/chatmodes.js');
     generateChatModes(makeStack(), tmpDir);
 
     const vscodePath = path.join(tmpDir, '.vscode');
-    expect(fs.existsSync(path.join(vscodePath, 'ai-os-plan.chatprompt.md'))).toBe(true);
-    expect(fs.existsSync(path.join(vscodePath, 'ai-os-review.chatprompt.md'))).toBe(true);
-    expect(fs.existsSync(path.join(vscodePath, 'ai-os-explore.chatprompt.md'))).toBe(true);
+    expect(fs.existsSync(path.join(vscodePath, 'cortex-plan.chatprompt.md'))).toBe(true);
+    expect(fs.existsSync(path.join(vscodePath, 'cortex-review.chatprompt.md'))).toBe(true);
+    expect(fs.existsSync(path.join(vscodePath, 'cortex-explore.chatprompt.md'))).toBe(true);
   });
 
   it('each chat mode file has valid YAML frontmatter with description and tools', async () => {
@@ -211,7 +211,7 @@ describe('generateChatModes', () => {
     generateChatModes(makeStack(), tmpDir);
 
     const content = fs.readFileSync(
-      path.join(tmpDir, '.vscode', 'ai-os-plan.chatprompt.md'),
+      path.join(tmpDir, '.vscode', 'cortex-plan.chatprompt.md'),
       'utf-8',
     );
     expect(content).toContain('get_session_context');
@@ -222,7 +222,7 @@ describe('generateChatModes', () => {
     generateChatModes(makeStack(), tmpDir);
 
     const vscodePath = path.join(tmpDir, '.vscode');
-    for (const filename of ['ai-os-plan.chatprompt.md', 'ai-os-review.chatprompt.md']) {
+    for (const filename of ['cortex-plan.chatprompt.md', 'cortex-review.chatprompt.md']) {
       const content = fs.readFileSync(path.join(vscodePath, filename), 'utf-8');
       expect(content).not.toContain('editFiles');
       expect(content).not.toContain('runCommands');
@@ -237,7 +237,7 @@ describe('generateChatModes', () => {
     generateChatModes(stack, tmpDir);
 
     const reviewContent = fs.readFileSync(
-      path.join(tmpDir, '.vscode', 'ai-os-review.chatprompt.md'),
+      path.join(tmpDir, '.vscode', 'cortex-review.chatprompt.md'),
       'utf-8',
     );
     expect(reviewContent).toContain('TypeScript');
@@ -249,12 +249,12 @@ describe('generateChatModes', () => {
     generateChatModes(stack, tmpDir);
 
     const before = fs.readFileSync(
-      path.join(tmpDir, '.vscode', 'ai-os-plan.chatprompt.md'),
+      path.join(tmpDir, '.vscode', 'cortex-plan.chatprompt.md'),
       'utf-8',
     );
     generateChatModes(stack, tmpDir);
     const after = fs.readFileSync(
-      path.join(tmpDir, '.vscode', 'ai-os-plan.chatprompt.md'),
+      path.join(tmpDir, '.vscode', 'cortex-plan.chatprompt.md'),
       'utf-8',
     );
 
@@ -274,7 +274,7 @@ describe('generateChatModes', () => {
     generateChatModes(stack, tmpDir);
 
     const reviewContent = fs.readFileSync(
-      path.join(tmpDir, '.vscode', 'ai-os-review.chatprompt.md'),
+      path.join(tmpDir, '.vscode', 'cortex-review.chatprompt.md'),
       'utf-8',
     );
     // Zero-width space must be stripped by sanitizeForInstructions
@@ -291,7 +291,7 @@ describe('generateChatModes', () => {
     generateChatModes(stack, tmpDir);
 
     const planContent = fs.readFileSync(
-      path.join(tmpDir, '.vscode', 'ai-os-plan.chatprompt.md'),
+      path.join(tmpDir, '.vscode', 'cortex-plan.chatprompt.md'),
       'utf-8',
     );
     // Colon inside a quoted description is safe YAML

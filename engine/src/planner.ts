@@ -16,7 +16,7 @@ export type FileCategory = 'tooling' | 'context' | 'custom-artifact';
 
 export interface OnboardingPlan {
   targetDir: string;
-  detectedRepoType: 'new' | 'existing-ai-os' | 'existing-non-ai-os';
+  detectedRepoType: 'new' | 'existing-cortex' | 'existing-non-cortex';
   mode: 'safe' | 'refresh-existing' | 'update';
   actions: PlannedAction[];
 }
@@ -26,9 +26,9 @@ function exists(root: string, relPath: string): boolean {
 }
 
 function detectRepoType(targetDir: string): OnboardingPlan['detectedRepoType'] {
-  if (exists(targetDir, `${CONFIG_DIR}/config.json`) || exists(targetDir, '.ai-os/config.json')) return 'existing-ai-os';
+  if (exists(targetDir, `${CONFIG_DIR}/config.json`) || exists(targetDir, '.ai-os/config.json')) return 'existing-cortex';
   if (exists(targetDir, '.github/copilot-instructions.md') || exists(targetDir, '.github/copilot/prompts.json')) {
-    return 'existing-non-ai-os';
+    return 'existing-non-cortex';
   }
   return 'new';
 }
@@ -103,7 +103,7 @@ export function buildOnboardingPlan(
 
   // Core artifacts
   actions.push(decideAction(targetDir, '.github/copilot-instructions.md', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/instructions/ai-os.instructions.md', mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, '.github/instructions/cortex.instructions.md', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, '.mcp.json', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, '.vscode/mcp.json', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, `${CONFIG_DIR}/tools.json`, mode, 'always-overwrite', preserveContextFiles));

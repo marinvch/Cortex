@@ -1,9 +1,9 @@
 {
-  "name": "ai-os",
+  "name": "cortex",
   "version": "0.24.0",
-  "description": "Cortex — a personal AI OS. Engine package lives in ./engine.",
+  "description": "Cortex — portable AI-assistant context engine. Engine package lives in ./engine.",
   "type": "module",
   "engines": { "node": ">=20.0.0" },
-  "bin": { "ai-os": "./engine/bundle/generate.js" },
+  "bin": { "cortex": "./engine/bundle/generate.js" },
   "files": ["engine/bundle", "engine/src/templates", "engine/README.md"]
 }

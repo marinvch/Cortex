@@ -194,7 +194,7 @@ export function applyFallbacks(content: string, fallbacks: Record<string, string
 export interface AiOsManifest {
   version: string;
   generatedAt: string;
-  /** Repo-relative paths of all files written by AI OS in this run */
+  /** Repo-relative paths of all files written by Cortex in this run */
   files: string[];
   /** SHA-256 content hashes keyed by repo-relative file path */
   hashes?: Record<string, string>;
@@ -255,7 +255,7 @@ export function writeManifest(
 }
 
 /**
- * Sync the manifest to include any AI OS artifact files that exist on disk
+ * Sync the manifest to include any Cortex artifact files that exist on disk
  * but were not generated in this run (e.g. manually added or left from a
  * previous install). Scans `.github/` for `*.instructions.md`, `*.prompt.md`,
  * and `*.agent.md` files and merges them into the manifest file list (#240).
@@ -283,7 +283,7 @@ export function syncManifest(outputDir: string, version: string): void {
       if (entry.isDirectory()) {
         if (entry.name !== 'node_modules') scan(full);
       } else if (entry.isFile()) {
-        // Include standard AI OS artifact patterns, plus any .md file under .github/cortex/ (#252)
+        // Include standard Cortex artifact patterns, plus any .md file under .github/cortex/ (#252)
         const isAiOsSubDir = full.startsWith(aiOsDir + path.sep) || full.startsWith(aiOsDir + '/');
         if (patterns.some(p => entry.name.endsWith(p)) || (isAiOsSubDir && entry.name.endsWith('.md'))) {
           const rel = path.relative(outputDir, full).replace(/\\/g, '/');

@@ -55,7 +55,7 @@ describe('generateWorkflows', () => {
     const { generateWorkflows } = await import('../generators/workflows.js');
     const files = generateWorkflows(tmp);
     expect(files).toHaveLength(1);
-    expect(files[0]).toContain('ai-os-update-check.yml');
+    expect(files[0]).toContain('cortex-update-check.yml');
     expect(fs.existsSync(files[0])).toBe(true);
   });
 

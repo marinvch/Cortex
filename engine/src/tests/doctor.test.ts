@@ -66,9 +66,9 @@ describe('runDoctor', () => {
     expect(names).toContain('VS Code MCP config present (.vscode/mcp.json)');
     expect(names).toContain('cortex VS Code server entry in MCP config');
     expect(names).toContain('VS Code MCP command resolves');
-    expect(names).toContain('AI OS config present (.github/cortex/config.json)');
+    expect(names).toContain('Cortex config present (.github/cortex/config.json)');
     expect(names).toContain('MCP tools catalog present (.github/cortex/tools.json)');
-    expect(names).toContain('AI OS skills deployed');
+    expect(names).toContain('Cortex skills deployed');
   });
 
   it('has criticalFailures > 0 when no files are present', async () => {
@@ -226,21 +226,21 @@ describe('runDoctor', () => {
     expect(check?.passed).toBe(false);
   });
 
-  it('passes AI OS config check when config.json is valid JSON', async () => {
+  it('passes Cortex config check when config.json is valid JSON', async () => {
     const { runDoctor } = await import('../doctor.js');
     const configPath = path.join(tmpDir, CONFIG_DIR, 'config.json');
     writeFile(configPath, JSON.stringify({ version: '0.10.0' }));
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'AI OS config present (.github/cortex/config.json)');
+    const check = result.checks.find(c => c.name === 'Cortex config present (.github/cortex/config.json)');
     expect(check?.passed).toBe(true);
   });
 
-  it('fails AI OS config check when config.json is invalid JSON', async () => {
+  it('fails Cortex config check when config.json is invalid JSON', async () => {
     const { runDoctor } = await import('../doctor.js');
     const configPath = path.join(tmpDir, CONFIG_DIR, 'config.json');
     writeFile(configPath, '{invalid json}');
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'AI OS config present (.github/cortex/config.json)');
+    const check = result.checks.find(c => c.name === 'Cortex config present (.github/cortex/config.json)');
     expect(check?.passed).toBe(false);
     expect(check?.critical).toBe(false);
   });
@@ -254,12 +254,12 @@ describe('runDoctor', () => {
     expect(check?.passed).toBe(true);
   });
 
-  it('passes skills check when ai-os-skill-creator directory exists', async () => {
+  it('passes skills check when cortex-skill-creator directory exists', async () => {
     const { runDoctor } = await import('../doctor.js');
-    const skillDir = path.join(tmpDir, '.agents', 'skills', 'ai-os-skill-creator');
+    const skillDir = path.join(tmpDir, '.agents', 'skills', 'cortex-skill-creator');
     fs.mkdirSync(skillDir, { recursive: true });
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'AI OS skills deployed');
+    const check = result.checks.find(c => c.name === 'Cortex skills deployed');
     expect(check?.passed).toBe(true);
   });
 
@@ -268,14 +268,14 @@ describe('runDoctor', () => {
     const skillDir = path.join(tmpDir, '.github', 'copilot', 'skills');
     fs.mkdirSync(skillDir, { recursive: true });
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'AI OS skills deployed');
+    const check = result.checks.find(c => c.name === 'Cortex skills deployed');
     expect(check?.passed).toBe(true);
   });
 
   it('fails skills check when no skill directory exists', async () => {
     const { runDoctor } = await import('../doctor.js');
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'AI OS skills deployed');
+    const check = result.checks.find(c => c.name === 'Cortex skills deployed');
     expect(check?.passed).toBe(false);
     expect(check?.critical).toBe(false);
   });
@@ -320,7 +320,7 @@ describe('printDoctorReport', () => {
       toolVersion: '0.10.0',
       checks: [
         {
-          name: 'AI OS skills deployed',
+          name: 'Cortex skills deployed',
           critical: false,
           passed: false,
           detail: 'No skill directory found',

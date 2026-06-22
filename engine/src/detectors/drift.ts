@@ -37,7 +37,7 @@ export interface DriftReport {
 const REQUIRED_FILES: Array<{ path: string; description: string }> = [
   { path: '.github/copilot-instructions.md', description: 'Main Copilot instructions file' },
   { path: '.github/COPILOT_CONTEXT.md', description: 'Session context card' },
-  { path: `${CONFIG_DIR}/config.json`, description: 'AI OS configuration' },
+  { path: `${CONFIG_DIR}/config.json`, description: 'Cortex configuration' },
 ];
 
 const SNAPSHOT_MAX_AGE_DAYS = 7;
@@ -338,12 +338,12 @@ export function detectDrift(cwd: string): DriftReport {
 
 export function formatDriftReport(report: DriftReport, verbose = false): string {
   const lines: string[] = [
-    `## AI OS Drift Report — ${new Date(report.scannedAt).toLocaleString()}`,
+    `## Cortex Drift Report — ${new Date(report.scannedAt).toLocaleString()}`,
     '',
   ];
 
   if (report.totalIssues === 0) {
-    lines.push('✅ All AI OS artifacts are healthy — no drift detected.');
+    lines.push('✅ All Cortex artifacts are healthy — no drift detected.');
     if (verbose && report.healthy.length > 0) {
       lines.push('');
       lines.push(`Healthy files (${report.healthy.length}):`);

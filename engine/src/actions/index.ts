@@ -5,7 +5,7 @@
  * extractor adapters, and writes a newline-delimited JSON file to
  * .github/cortex/context/repo-index.jsonl.
  *
- * Usage:  npx ai-os --index [--incremental] [--regen-context] [--dry-run] [--quiet]
+ * Usage:  npx cortex --index [--incremental] [--regen-context] [--dry-run] [--quiet]
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';

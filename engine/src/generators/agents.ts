@@ -308,20 +308,20 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
 // ---------------------------------------------------------------------------
 
 export interface ExistingAgentScan {
-  /** All .md files found under .github/agents/ that are NOT ai-os generated */
+  /** All .md files found under .github/agents/ that are NOT Cortex generated */
   userDefined: string[];
-  /** All .md files that are ai-os generated (contain the ai-os agent header) */
+  /** All .md files that are Cortex generated (contain the Cortex agent header) */
   aiOsGenerated: string[];
 }
 
 /**
  * Scan `.github/agents/` for existing agent files, classifying each as
- * ai-os-generated or user-defined. Used to present the agent-flow setup
+ * Cortex-generated or user-defined. Used to present the agent-flow setup
  * prompt during install.
  */
 export function scanExistingAgents(cwd: string): ExistingAgentScan {
   const agentsDir = path.join(cwd, AGENTS_DIR);
-  if (!fs.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] };
+  if (!fs.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] }; // aiOsGenerated kept for API compat
 
   const files = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md') || f.endsWith('.agent.md'));
   const userDefined: string[] = [];
@@ -329,7 +329,7 @@ export function scanExistingAgents(cwd: string): ExistingAgentScan {
 
   for (const file of files) {
     const content = fs.readFileSync(path.join(agentsDir, file), 'utf-8');
-    // ai-os generated agents always contain one of the known template marker patterns
+    // Cortex generated agents always contain one of the known template marker patterns
     const isAiOs = content.includes('cortex/context/architecture.md') ||
       content.includes('cortex/context/conventions.md') ||
       content.includes('cortex/context/stack.md');
@@ -388,10 +388,10 @@ function buildSequentialAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec
                     : 'npm test'
   );
 
-  const regenerateCmd = stack.patterns.packageManager === 'npm' ? 'npx ai-os'
-    : stack.patterns.packageManager === 'pnpm' ? 'pnpm dlx ai-os'
-      : stack.patterns.packageManager === 'bun' ? 'bunx ai-os'
-        : 'npx ai-os';
+  const regenerateCmd = stack.patterns.packageManager === 'npm' ? 'npx cortex'
+    : stack.patterns.packageManager === 'pnpm' ? 'pnpm dlx cortex'
+      : stack.patterns.packageManager === 'bun' ? 'bunx cortex'
+        : 'npx cortex';
 
   const commonReplacements = {
     '{{PROJECT_NAME}}': projectName,
@@ -489,8 +489,8 @@ async function generateAgentsWithOptions(
         continue;
       }
       if (options.preserveExistingAgents) {
-        // Safe refresh: only preserve user-defined (non-ai-os-generated) agents.
-        // ai-os-generated agents are always regenerated so template changes apply.
+        // Safe refresh: only preserve user-defined (non-Cortex-generated) agents.
+        // Cortex-generated agents are always regenerated so template changes apply.
         const existing = fs.readFileSync(outputPath, 'utf-8');
         const isAiOsGenerated =
           existing.includes('cortex/context/architecture.md') ||

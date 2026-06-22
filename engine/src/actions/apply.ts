@@ -134,7 +134,7 @@ function resolveBundledServerSource(): string | null {
 function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   const bundledServerSource = resolveBundledServerSource();
   if (!bundledServerSource) {
-    console.warn('  ⚠ Could not locate bundled MCP server; local ai-os tools may be unavailable.');
+    console.warn('  ⚠ Could not locate bundled MCP server; local Cortex tools may be unavailable.');
     return;
   }
 
@@ -149,7 +149,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   fs.chmodSync(runtimeEntry, 0o755);
 
   writeFileAtomic(runtimeManifest, JSON.stringify({
-    name: 'ai-os-mcp-server',
+    name: 'cortex-mcp-server',
     runtime: 'bundled',
     sourceVersion: getToolVersion(),
     installedAt: new Date().toISOString(),
@@ -375,7 +375,7 @@ function printContextualNextSteps(
     if (onboardingPlan.detectedRepoType === 'new') {
       console.log('  🆕 Strategy for new project:');
       console.log('     Build a baseline context first (stack, conventions, architecture), then keep instructions concise and task-agnostic.');
-      console.log('     Use AI OS MCP tools to fill context as the codebase grows.');
+      console.log('     Use Cortex MCP tools to fill context as the codebase grows.');
       return;
     }
 
@@ -393,10 +393,10 @@ function printContextualNextSteps(
   if (mode === 'safe' && updateStatus.updateAvailable && !updateStatus.isFirstInstall) {
     console.log('  🧭 Recommended next step:');
     console.log(`  ${refreshCmd}`);
-    console.log('  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.');
+    console.log('  Safe mode updated local MCP/runtime wiring, but left existing Cortex context artifacts in place.');
     printInstructionStrategy();
-    console.log('  After refresh, ask Copilot:');
-    console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
+    console.log('  After refresh, ask your assistant:');
+    console.log('     "Use all Cortex MCP tools, inspect this codebase, and improve the AI context files."');
     printRecommendationsHint();
     console.log('');
     return;
@@ -407,15 +407,15 @@ function printContextualNextSteps(
     printInstructionStrategy();
     console.log('  If the tools do not appear immediately, run: MCP: Restart Servers');
     console.log('  Suggested first prompt:');
-    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use Cortex MCP tools to review architecture, conventions, and missing context gaps."');
     printRecommendationsHint();
     console.log('');
     return;
   }
 
-  const firstPrompt = onboardingPlan.detectedRepoType === 'existing-non-ai-os'
-    ? 'Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files.'
-    : 'Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.';
+  const firstPrompt = onboardingPlan.detectedRepoType === 'existing-non-cortex'
+    ? 'Use Cortex MCP tools to map this codebase, compare the existing instructions with generated context, and improve the context files.'
+    : 'Use all Cortex MCP tools, inspect this codebase, and improve the AI context files.';
 
   console.log('  🧭 Next steps:');
   console.log('  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.');
@@ -445,7 +445,7 @@ function printAgentFlowSetupPrompt(cwd: string, currentMode: 'create' | 'hook' |
   console.log('  ┌─────────────────────────────────────────────────────────────┐');
   console.log('  │  🤖 Sequential Agent Flow — Setup                           │');
   console.log('  │                                                             │');
-  console.log('  │  AI OS can generate a 3-agent sequential improvement flow:  │');
+  console.log('  │  Cortex can generate a 3-agent sequential improvement flow:  │');
   console.log('  │                                                             │');
   console.log('  │   1. Feature Enhancement Advisor  (finds improvements)     │');
   console.log('  │      ↓                                                      │');
@@ -477,7 +477,7 @@ function printAgentFlowSetupPrompt(cwd: string, currentMode: 'create' | 'hook' |
 }
 
 function printAgentHookGuide(userDefinedAgents: string[]): void {
-  console.log('  📎 Hook Guide — connecting your existing agents to the ai-os flow:');
+  console.log('  📎 Hook Guide — connecting your existing agents to the Cortex flow:');
   console.log('');
   for (const agent of userDefinedAgents) {
     console.log(`     ${agent}`);
@@ -510,7 +510,7 @@ function printAgentFlowStatus(cwd: string, mode: 'create' | 'hook' | 'skip' | nu
     console.log(`     detected: ${present.join(', ')}`);
   }
   if (activeMode === 'hook') {
-    console.log('     hook mode enabled — AI OS will keep your existing agents and print handoff guidance.');
+    console.log('     hook mode enabled — Cortex will keep your existing agents and print handoff guidance.');
   } else if (activeMode === 'skip') {
     console.log('     skip mode enabled — set agentFlowMode to "create" in .github/cortex/config.json to enable flow agents.');
   }
@@ -607,7 +607,7 @@ function printSuperpowersPluginSetup(): void {
 /**
  * Auto-install Superpowers skills (obra/superpowers-sourced universal skills) on first install.
  * Idempotent: reads skills-lock.json and skips skills already installed.
- * Gives every AI OS project the core agentic development methodology out of the box.
+ * Gives every Cortex project the core agentic development methodology out of the box.
  */
 function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPath: string, cwd: string): void {
   const recs = collectRecommendations(stack);
@@ -615,7 +615,7 @@ function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPat
 
   if (allSuperpowers.length === 0) return;
 
-  // Skills already copied locally by AI OS — global install is redundant for these
+  // Skills already copied locally by Cortex — global install is redundant for these
   const localSkillsDir = path.join(cwd, '.github', 'copilot', 'skills');
   const canonicalSkillsDir = path.join(cwd, '.github', 'skills');
   const locallyInstalled = new Set(
@@ -727,7 +727,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
 
   if (mode === 'update') {
     if (updateStatus.isFirstInstall) {
-      console.log('  ℹ️  No existing AI OS installation found. Running fresh install...');
+      console.log('  ℹ️  No existing Cortex installation found. Running fresh install...');
     } else if (updateStatus.updateAvailable) {
       console.log(`  🔄 Updating from v${updateStatus.installedVersion ?? '?'} → v${updateStatus.toolVersion}`);
     } else {
@@ -1014,7 +1014,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   if (allConflicts.length > 0) {
     console.log('');
     console.log(`  ⚠ ${allConflicts.length} user block conflict(s) require manual reconciliation.`);
-    console.log('     Each block has been appended to its file wrapped in <!-- AI-OS:CONFLICT --> markers.');
+    console.log('     Each block has been appended to its file wrapped in <!-- CORTEX:CONFLICT --> markers.');
     console.log('     Review and move them to the correct location, then remove the conflict markers.');
     console.log('');
   }
@@ -1022,7 +1022,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   // Write updated manifest (#8 / #11).
   if (!dryRun) {
     writeManifest(cwd, getToolVersion(), currentRelFiles, getNewHashes());
-    // Sync manifest to pick up any manually-added AI OS artifacts (#240)
+    // Sync manifest to pick up any manually-added Cortex artifacts (#240)
     syncManifest(cwd, getToolVersion());
   }
 
@@ -1124,7 +1124,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   }
 
   // ── Auto-install Superpowers skills on first install ─────────────────────
-  // On a brand-new AI OS setup, install obra/superpowers agentic-methodology
+  // On a brand-new Cortex setup, install obra/superpowers agentic-methodology
   // skills automatically so users get the core workflow out of the box.
   // (On subsequent refreshes users can run `--bootstrap` for a full skill sync.)
   const isFirstInstall = updateStatus.isFirstInstall;

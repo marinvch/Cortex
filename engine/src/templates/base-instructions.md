@@ -113,9 +113,9 @@ Audit instruction drift first. If context is missing, fill architecture/build/pi
 ---
 
 <!-- AI-OS:SECTION id="value-mode" -->
-## AI OS Value Mode
+## Cortex Value Mode
 
-Restate the goal in implementation terms, prefer targeted retrieval over full reads, deliver end-to-end (implement + validate), and surface tradeoffs. Full guidance lives in `.github/instructions/ai-os.instructions.md`.
+Restate the goal in implementation terms, prefer targeted retrieval over full reads, deliver end-to-end (implement + validate), and surface tradeoffs. Full guidance lives in `.github/instructions/cortex.instructions.md`.
 <!-- AI-OS:SECTION-END id="value-mode" -->
 
 ---

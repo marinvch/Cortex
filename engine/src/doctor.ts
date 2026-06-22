@@ -1,5 +1,5 @@
 /**
- * AI OS Doctor
+ * Cortex Doctor
  *
  * Post-install health validation and repair-hint emitter.
  *
@@ -7,14 +7,14 @@
  *  1. MCP runtime binary present  (.github/cortex/mcp-server/index.js)
  *  2. MCP runtime healthcheck      (node index.js --healthcheck)
  *  3. Copilot CLI MCP config present           (.mcp.json)
- *  4. ai-os CLI server entry present           (.mcp.json → mcpServers.ai-os)
- *  5. Copilot CLI MCP command resolves         (command/args for mcpServers.ai-os)
+ *  4. cortex CLI server entry present          (.mcp.json → mcpServers.cortex)
+ *  5. Copilot CLI MCP command resolves         (command/args for mcpServers.cortex)
  *  6. VS Code MCP config present               (.vscode/mcp.json)
- *  7. ai-os VS Code server entry present       (.vscode/mcp.json → servers.ai-os)
- *  8. VS Code MCP command resolves             (command/args for servers.ai-os)
- *  9. AI OS config present                     (.github/cortex/config.json)
+ *  7. cortex VS Code server entry present      (.vscode/mcp.json → servers.cortex)
+ *  8. VS Code MCP command resolves             (command/args for servers.cortex)
+ *  9. Cortex config present                    (.github/cortex/config.json)
  * 10. Tools file present                       (.github/cortex/tools.json)
- * 11. Skills deployed                          (.agents/skills/ai-os-skill-creator/ OR .github/copilot/skills/)
+ * 11. Skills deployed                          (.agents/skills/cortex-skill-creator/ OR .github/copilot/skills/)
  *
  * Critical failures → exit code 1.
  * Warnings only     → exit code 0.
@@ -165,8 +165,8 @@ function checkMcpAiOsEntry(cwd: string, definition: McpCheckDefinition): DoctorC
     critical: true,
     passed,
     detail: passed
-      ? `${definition.topLevelKey}["ai-os"] entry found`
-      : `No ${definition.topLevelKey}["ai-os"] entry in ${definition.configPath}`,
+      ? `${definition.topLevelKey}["${MCP_SERVER_NAME}"] entry found`
+      : `No ${definition.topLevelKey}["${MCP_SERVER_NAME}"] entry in ${definition.configPath}`,
     fixCommand: passed
       ? undefined
       : `npx -y "github:marinvch/ai-os" --refresh-existing`,
@@ -182,7 +182,7 @@ function checkMcpCommandResolves(cwd: string, definition: McpCheckDefinition): D
       name: definition.commandName,
       critical: true,
       passed: false,
-      detail: `${definition.topLevelKey}["ai-os"] entry missing — cannot verify command path.`,
+      detail: `${definition.topLevelKey}["${MCP_SERVER_NAME}"] entry missing — cannot verify command path.`,
       fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`,
     };
   }
@@ -225,11 +225,11 @@ function checkMcpCommandResolves(cwd: string, definition: McpCheckDefinition): D
   };
 }
 
-function checkAiOsConfigPresent(cwd: string): DoctorCheck {
+function checkCortexConfigPresent(cwd: string): DoctorCheck {
   const configPath = path.join(cwd, CONFIG_DIR, 'config.json');
   if (!fs.existsSync(configPath)) {
     return {
-      name: 'AI OS config present (.github/cortex/config.json)',
+      name: 'Cortex config present (.github/cortex/config.json)',
       critical: false,
       passed: false,
       detail: `Expected at ${configPath}`,
@@ -239,14 +239,14 @@ function checkAiOsConfigPresent(cwd: string): DoctorCheck {
   try {
     JSON.parse(fs.readFileSync(configPath, 'utf-8'));
     return {
-      name: 'AI OS config present (.github/cortex/config.json)',
+      name: 'Cortex config present (.github/cortex/config.json)',
       critical: false,
       passed: true,
       detail: configPath,
     };
   } catch {
     return {
-      name: 'AI OS config present (.github/cortex/config.json)',
+      name: 'Cortex config present (.github/cortex/config.json)',
       critical: false,
       passed: false,
       detail: 'config.json exists but is not valid JSON',
@@ -288,14 +288,14 @@ function checkToolsFilePresent(cwd: string): DoctorCheck {
 function checkSkillsDeployed(cwd: string): DoctorCheck {
   // Accept skill-creator in either location (.agents/skills or .github/copilot/skills)
   const candidates = [
-    path.join(cwd, '.agents', 'skills', 'ai-os-skill-creator'),
+    path.join(cwd, '.agents', 'skills', 'cortex-skill-creator'),
     path.join(cwd, '.github', 'copilot', 'skills'),
   ];
 
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
       return {
-        name: 'AI OS skills deployed',
+        name: 'Cortex skills deployed',
         critical: false,
         passed: true,
         detail: `Found: ${path.relative(cwd, candidate)}`,
@@ -304,10 +304,10 @@ function checkSkillsDeployed(cwd: string): DoctorCheck {
   }
 
   return {
-    name: 'AI OS skills deployed',
+    name: 'Cortex skills deployed',
     critical: false,
     passed: false,
-    detail: 'No ai-os skill directory found under .agents/skills/ or .github/copilot/skills/',
+    detail: 'No Cortex skill directory found under .agents/skills/ or .github/copilot/skills/',
     fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`,
   };
 }
@@ -396,7 +396,7 @@ export function runDoctor(cwd: string): DoctorResult {
     checkMcpConfigPresent(cwd, vsCodeConfig),
     checkMcpAiOsEntry(cwd, vsCodeConfig),
     checkMcpCommandResolves(cwd, vsCodeConfig),
-    checkAiOsConfigPresent(cwd),
+    checkCortexConfigPresent(cwd),
     checkToolsFilePresent(cwd),
     checkSkillsDeployed(cwd),
     checkSkillVersions(cwd),
@@ -418,7 +418,7 @@ export function runDoctor(cwd: string): DoctorResult {
 export function printDoctorReport(result: DoctorResult): number {
   const { checks, criticalFailures, warnings, toolVersion, cwd } = result;
 
-  console.log(`  🩺 AI OS Doctor  v${toolVersion}`);
+  console.log(`  🩺 Cortex Doctor  v${toolVersion}`);
   console.log(`  📂 Target: ${cwd}`);
   console.log('');
 
@@ -440,10 +440,10 @@ export function printDoctorReport(result: DoctorResult): number {
   const passed = checks.filter(c => c.passed).length;
 
   if (criticalFailures === 0 && warnings === 0) {
-    console.log(`  ✅ All ${total} checks passed — AI OS is healthy.`);
+    console.log(`  ✅ All ${total} checks passed — Cortex is healthy.`);
   } else if (criticalFailures > 0) {
     console.log(`  ❌ ${criticalFailures} critical failure(s), ${warnings} warning(s) — ${passed}/${total} checks passed.`);
-    console.log('     Address critical failures before using AI OS tools.');
+    console.log('     Address critical failures before using Cortex tools.');
   } else {
     console.log(`  ⚠️  ${warnings} warning(s) — ${passed}/${total} checks passed.`);
     console.log('     Core MCP runtime is healthy; optional components may need attention.');

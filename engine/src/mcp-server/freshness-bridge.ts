@@ -1,5 +1,5 @@
 /**
- * freshness-bridge.ts — wraps detectors/freshness for AI OS MCP server.
+ * freshness-bridge.ts — wraps detectors/freshness for Cortex MCP server.
  */
 import { computeFreshnessReport, formatFreshnessReport } from '../detectors/freshness.js';
 import { ROOT } from './shared.js';

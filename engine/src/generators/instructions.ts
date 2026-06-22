@@ -163,7 +163,7 @@ function enforceSizeCap(content: string, maxBytes = 8192): string {
   const encoded = Buffer.byteLength(content, 'utf-8');
   if (encoded <= maxBytes) return content;
 
-  const TRIM_NOTICE = '\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n';
+  const TRIM_NOTICE = '\n\n<!-- [Cortex] content trimmed to stay within 8 KB Copilot budget -->\n';
   const noticeBytes = Buffer.byteLength(TRIM_NOTICE, 'utf-8');
   const budget = maxBytes - noticeBytes;
 
@@ -185,7 +185,7 @@ function enforceSizeCap(content: string, maxBytes = 8192): string {
 
   // Hard truncate as last resort (no separator found within budget)
   const bytes = Buffer.from(content, 'utf-8').slice(0, maxBytes - 100);
-  return bytes.toString('utf-8') + '\n\n<!-- [AI OS] truncated to 8 KB Copilot budget -->\n';
+  return bytes.toString('utf-8') + '\n\n<!-- [Cortex] truncated to 8 KB Copilot budget -->\n';
 }
 
 /** Generate path-specific instruction files based on detected stack paths. */
@@ -433,7 +433,7 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     writeIfChanged(outputPath, content);
   }
 
-  // Generate .github/instructions/ai-os.instructions.md
+  // Generate .github/instructions/cortex.instructions.md
   // This file with applyTo:"**" causes Copilot's default agent to auto-load these
   // instructions on every request, enabling MCP tools without manual activation.
   const instructionsDir = path.join(githubDir, 'instructions');
@@ -446,9 +446,9 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     'applyTo: "**"',
     '---',
     '',
-    `# AI OS — Active (${stack.projectName})`,
+    `# Cortex — Active (${stack.projectName})`,
     '',
-    'AI OS MCP tools are available. **Session start:** call `get_session_context` → `get_repo_memory` → `get_conventions` → `get_active_plan`.',
+    'Cortex MCP tools are available. **Session start:** call `get_session_context` → `get_repo_memory` → `get_conventions` → `get_active_plan`.',
     '',
     '## Value Mode',
     '',
@@ -456,12 +456,12 @@ export function generateInstructions(stack: DetectedStack, outputDir: string, op
     '2. **Targeted tools:** prefer retrieval tools over full file reads; stop exploring when confident.',
     '3. **End-to-end:** implement + validate + surface tradeoffs, optimise for reduced user effort.',
     '',
-    '## Update AI OS',
+    '## Update Cortex',
     '',
     'Run `npx -y github:marinvch/ai-os --refresh-existing` when `check_for_updates` signals a new version.',
   ].join('\n');
 
-  const autoActivationPath = path.join(instructionsDir, 'ai-os.instructions.md');
+  const autoActivationPath = path.join(instructionsDir, 'cortex.instructions.md');
   writeIfChanged(autoActivationPath, autoActivationContent);
 
   const outputFiles = [outputPath, autoActivationPath];
@@ -631,7 +631,7 @@ function generatePromptQualityPack(stack: DetectedStack, outputDir: string, gith
     '',
     '## 6. Post-Change Context Refresh',
     '',
-    'After structural changes (new dependencies, new files, architecture moves), refresh AI OS context:',
+    'After structural changes (new dependencies, new files, architecture moves), refresh Cortex context:',
     '',
     '```bash',
     contextSyncCmd,

@@ -67,7 +67,7 @@ function getServerEntry(
 }
 
 /**
- * Merge-write an ai-os server entry into `.mcp.json`.
+ * Merge-write a cortex server entry into `.mcp.json`.
  * Preserves any other CLI MCP servers under the `mcpServers` top-level key.
  */
 export function writeCopilotCliMcpConfig(outputDir: string, options?: WriteMcpServerConfigOptions): string {
@@ -86,7 +86,7 @@ export function writeCopilotCliMcpConfig(outputDir: string, options?: WriteMcpSe
 }
 
 /**
- * Merge-write an ai-os server entry into `.vscode/mcp.json`.
+ * Merge-write a cortex server entry into `.vscode/mcp.json`.
  * Preserves any other servers the user may have configured.
  * Uses the VS Code MCP config format: `"servers"` top-level key.
  */
@@ -106,7 +106,7 @@ export function writeVsCodeMcpConfig(outputDir: string, options?: WriteMcpServer
 }
 
 /**
- * AI OS emits both `.mcp.json` for Copilot CLI and `.vscode/mcp.json`
+ * Cortex emits both `.mcp.json` for Copilot CLI and `.vscode/mcp.json`
  * for VS Code / Copilot Chat so upgrades keep both surfaces working.
  */
 export function writeMcpServerConfigs(outputDir: string, options?: WriteMcpServerConfigOptions): string[] {
@@ -121,8 +121,8 @@ export function generateMcpJson(stack: DetectedStack, outputDir: string, options
   // Default: strict stack filtering is ON unless explicitly disabled in config
   const strictFiltering = options?.config?.strictStackFiltering !== false;
 
-  // Write both MCP config variants so AI OS works in Copilot CLI and VS Code.
-  // installLocalMcpRuntime() rewrites the ai-os entry with the resolved local
+  // Write both MCP config variants so Cortex works in Copilot CLI and VS Code.
+  // installLocalMcpRuntime() rewrites the cortex entry with the resolved local
   // Node executable path for reliable startup, especially on Windows.
   writeMcpServerConfigs(outputDir);
 

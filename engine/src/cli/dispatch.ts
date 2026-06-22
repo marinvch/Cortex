@@ -21,11 +21,11 @@ function promptUser(question: string): Promise<string> {
 
 function printBanner(): void {
   const version = `v${getToolVersion()}`;
-  const versionCell = `AI OS  ${version}`.padEnd(25, ' ');
+  const versionCell = `Cortex  ${version}`.padEnd(25, ' ');
   console.log('');
   console.log('  ╔═══════════════════════════════════╗');
   console.log(`  ║          ${versionCell}║`);
-  console.log('  ║  Portable Copilot Context Engine  ║');
+  console.log('  ║  Portable AI-Assistant Context    ║');
   console.log('  ╚═══════════════════════════════════╝');
   console.log('');
 }

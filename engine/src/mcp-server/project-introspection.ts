@@ -374,7 +374,7 @@ export function getImpactOfChange(filePath: string): string {
   const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
-    return 'Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/cortex --refresh-existing` (or the bootstrap one-liner from the README).';
+    return 'Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).';
   }
 
   let graph: { nodes: Record<string, { imports: string[]; importedBy: string[]; exports: string[] }> };
@@ -437,7 +437,7 @@ export function getDependencyChain(filePath: string): string {
   const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
-    return 'Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/cortex --refresh-existing` (or the bootstrap one-liner from the README).';
+    return 'Dependency graph not found. Re-run the AI OS installer: `npx -y github:marinvch/ai-os --refresh-existing` (or the bootstrap one-liner from the README).';
   }
 
   let graph: { nodes: Record<string, { imports: string[]; importedBy: string[]; exports: string[] }> };

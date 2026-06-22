@@ -39,6 +39,6 @@
 
 ## Recommended Next Steps
 
-1. Fill in missing agent files using `npx -y github:marinvch/cortex --refresh-existing`
+1. Fill in missing agent files using `npx -y github:marinvch/ai-os --refresh-existing`
 2. Address each open checkbox above before onboarding new contributors
 3. Re-run `detect_drift` after resolving gaps to confirm coverage

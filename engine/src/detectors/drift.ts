@@ -41,7 +41,7 @@ const REQUIRED_FILES: Array<{ path: string; description: string }> = [
 ];
 
 const SNAPSHOT_MAX_AGE_DAYS = 7;
-const FIX_CMD = 'npx -y github:marinvch/cortex --refresh-existing';
+const FIX_CMD = 'npx -y github:marinvch/ai-os --refresh-existing';
 
 /**
  * Check semantic consistency between config.json and generated files:

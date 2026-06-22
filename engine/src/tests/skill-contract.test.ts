@@ -50,7 +50,7 @@ describe('validateSkillContract', () => {
 describe('enforceSkillContract', () => {
   it('produces content that satisfies the skill contract', () => {
     const content = '# Minimal Skill\n\nSome content.';
-    const enforced = enforceSkillContract(content, { skillName: 'ai-os-nextjs-patterns.md' });
+    const enforced = enforceSkillContract(content, { skillName: 'cortex-nextjs-patterns.md' });
     const result = validateSkillContract(enforced);
 
     expect(result.valid).toBe(true);
@@ -81,7 +81,7 @@ describe('enforceSkillContract', () => {
       '## Verification',
       'text',
     ].join('\n');
-    const enforced = enforceSkillContract(content, { skillName: 'ai-os-stable.md' });
+    const enforced = enforceSkillContract(content, { skillName: 'cortex-stable.md' });
 
     expect(enforced).toBe(content);
   });

@@ -2,7 +2,7 @@
 applyTo: "**"
 ---
 
-# Prompt Quality Pack — ai-os
+# Prompt Quality Pack — cortex
 
 > Language: **TypeScript** · Package manager: **npm**
 
@@ -25,14 +25,14 @@ Use `@<agent-name>` to invoke a specialist agent:
 
 | Agent | Description | When to use |
 |---|---|---|
-| `ai-os Initializer` | Maintain and evolve the AI framework artifacts for the ai-os repo (docs, skills, prompts) using the real TypeScript stack. | What artifact to update or create (e.g. "update skills", "add agent for auth") |
-| `Architecture Migration` | Three-phase guide for ai-os architecture migrations: audit legacy AI guidance, gate on phased migration status, and drive post-change context replacement. | Describe the migration: "from X to Y" (e.g., "from session auth to JWT", "from REST to tRPC") |
-| `Codebase Explorer` | Read-only navigator for ai-os — answers "how does X work?" questions. | Ask about any feature, file, or pattern (e.g. "how does auth work?") |
-| `Expert Markdown Developer` | Expert Markdown developer specializing in Markdown patterns for ai-os. | Describe the feature, bug or refactor you need help with |
-| `Expert TypeScript Developer` | Expert TypeScript developer specializing in TypeScript patterns for ai-os. | Describe the feature, bug or refactor you need help with |
-| `ai-os — Feature Enhancement Advisor` | Scan ai-os for improvement opportunities and expansion ideas. Use when you want prioritized enhancements, gap analysis, roadmap proposals, and concrete implementation recommendations for this repository only. | Describe scope (e.g. reliability, DX, CI/CD, security, performance) and depth (quick/medium/deep). |
-| `ai-os — Idea Validator` | Validates enhancement recommendations from the Feature Enhancement Advisor against actual codebase reality. Use after the Enhancement Advisor produces a report — before any implementation begins. | Paste the Enhancement Advisor numbered report here, or describe the finding(s) to validate. |
-| `ai-os — Implementation Agent` | Executes the Approved Work Order produced by the Idea Validator. Implements changes in dependency-safe sequence. Use only after the Idea Validator has produced a verified Approved Work Order. | Paste the Approved Work Order from the Idea Validator, or name a specific item to implement. |
+| `Cortex Initializer` | Maintain and evolve the AI framework artifacts for the cortex repo (docs, skills, prompts) using the real TypeScript stack. | What artifact to update or create (e.g. "update skills", "add agent for auth") |
+| `Architecture Migration` | Three-phase guide for cortex architecture migrations: audit legacy AI guidance, gate on phased migration status, and drive post-change context replacement. | Describe the migration: "from X to Y" (e.g., "from session auth to JWT", "from REST to tRPC") |
+| `Codebase Explorer` | Read-only navigator for cortex — answers "how does X work?" questions. | Ask about any feature, file, or pattern (e.g. "how does auth work?") |
+| `Expert Markdown Developer` | Expert Markdown developer specializing in Markdown patterns for cortex. | Describe the feature, bug or refactor you need help with |
+| `Expert TypeScript Developer` | Expert TypeScript developer specializing in TypeScript patterns for cortex. | Describe the feature, bug or refactor you need help with |
+| `Cortex — Feature Enhancement Advisor` | Scan cortex for improvement opportunities and expansion ideas. Use when you want prioritized enhancements, gap analysis, roadmap proposals, and concrete implementation recommendations for this repository only. | Describe scope (e.g. reliability, DX, CI/CD, security, performance) and depth (quick/medium/deep). |
+| `Cortex — Idea Validator` | Validates enhancement recommendations from the Feature Enhancement Advisor against actual codebase reality. Use after the Enhancement Advisor produces a report — before any implementation begins. | Paste the Enhancement Advisor numbered report here, or describe the finding(s) to validate. |
+| `Cortex — Implementation Agent` | Executes the Approved Work Order produced by the Idea Validator. Implements changes in dependency-safe sequence. Use only after the Idea Validator has produced a verified Approved Work Order. | Paste the Approved Work Order from the Idea Validator, or name a specific item to implement. |
 
 ## 3. Model Routing
 
@@ -68,7 +68,7 @@ Switch to **Plan mode** first when:
 
 ## 7. Post-Change Context Refresh
 
-After structural changes (new dependencies, new files, architecture moves), refresh AI OS context:
+After structural changes (new dependencies, new files, architecture moves), refresh Cortex context:
 
 ```bash
 npx -y github:marinvch/ai-os --refresh-existing

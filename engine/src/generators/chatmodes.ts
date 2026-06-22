@@ -28,7 +28,7 @@ const BUILTIN_READ_ONLY = ['codebase', 'fetch', 'findTestFiles', 'githubRepo', '
 function getPlanMode(stack: DetectedStack): ChatMode {
   const fw = stack.primaryFramework ? sanitizeForInstructions(stack.primaryFramework.name) : sanitizeForInstructions(stack.primaryLanguage.name);
   return {
-    filename: 'ai-os-plan.chatprompt.md',
+    filename: 'cortex-plan.chatprompt.md',
     description: `Generate an implementation plan for ${fw} features or refactoring tasks (read-only, no edits)`,
     tools: [
       ...BUILTIN_READ_ONLY,
@@ -43,12 +43,12 @@ function getPlanMode(stack: DetectedStack): ChatMode {
       'get_active_plan',
       'upsert_active_plan',
     ],
-    instructions: `# AI OS — Planning Mode
+    instructions: `# Cortex — Planning Mode
 
 You are in **planning mode**. Your task is to produce an implementation plan.
 Do **not** make any code edits — generate a plan document only.
 
-Use the AI OS context tools to load conventions and repo memory before planning.
+Use the Cortex context tools to load conventions and repo memory before planning.
 Always call \`get_session_context\` first to reload MUST-ALWAYS rules.
 
 ## Plan format
@@ -68,7 +68,7 @@ Return a Markdown document with:
 function getReviewMode(stack: DetectedStack): ChatMode {
   const lang = sanitizeForInstructions(stack.primaryLanguage.name);
   return {
-    filename: 'ai-os-review.chatprompt.md',
+    filename: 'cortex-review.chatprompt.md',
     description: `Code review mode for ${lang} — no edits, returns structured review with severity levels`,
     tools: [
       'codebase',
@@ -82,7 +82,7 @@ function getReviewMode(stack: DetectedStack): ChatMode {
       'get_impact_of_change',
       'get_dependency_chain',
     ],
-    instructions: `# AI OS — Review Mode
+    instructions: `# Cortex — Review Mode
 
 You are in **code review mode**. Analyse the requested code and return a
 structured review. Do **not** make any edits directly — return findings only.
@@ -110,7 +110,7 @@ For each finding include: **file:line**, **severity**, **description**, and
 
 function getExploreMode(): ChatMode {
   return {
-    filename: 'ai-os-explore.chatprompt.md',
+    filename: 'cortex-explore.chatprompt.md',
     description: 'Read-only codebase exploration — answers "how does X work?" questions without editing files',
     tools: [
       ...BUILTIN_READ_ONLY,
@@ -124,12 +124,12 @@ function getExploreMode(): ChatMode {
       'get_api_routes',
       'get_env_vars',
     ],
-    instructions: `# AI OS — Explore Mode
+    instructions: `# Cortex — Explore Mode
 
 You are in **read-only exploration mode**. Answer questions about the codebase
 without making any edits.
 
-Use AI OS navigation tools to answer "how does X work?" questions efficiently:
+Use Cortex navigation tools to answer "how does X work?" questions efficiently:
 - Call \`get_project_structure\` before exploring unfamiliar directories
 - Call \`get_file_summary\` instead of reading full files when possible
 - Call \`search_codebase\` to find symbols, patterns, or usage examples

@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { writeIfChanged, applyFallbacks, resolveTemplatesDir, sanitizeForInstructions } from './utils.js';
 import { enforceAgentContract } from '../validation/agent-contract.js';
+import { CONFIG_DIR } from '../brand.js';
 
 const AGENTS_DIR = '.github/agents';
 
@@ -118,7 +119,7 @@ function buildFrameworkRules(stack: DetectedStack): string {
   }
 
   if (rules.length === 0) {
-    rules.push('- Follow conventions from `.github/ai-os/context/conventions.md` for naming, structure, and safety checks');
+    rules.push(`- Follow conventions from \`.github/cortex/context/conventions.md\` for naming, structure, and safety checks`);
   }
 
   return rules.join('\n');
@@ -164,11 +165,11 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
       '{{PROJECT_NAME}}': projectName,
       '{{FRAMEWORK}}': frameworkLabel,
       '{{FRAMEWORK_LIST}}': frameworkList,
-      '{{CONVENTIONS_FILE}}': '.github/ai-os/context/conventions.md',
-      '{{STACK_FILE}}': '.github/ai-os/context/stack.md',
-      '{{ARCHITECTURE_FILE}}': '.github/ai-os/context/architecture.md',
+      '{{CONVENTIONS_FILE}}': `${CONFIG_DIR}/context/conventions.md`,
+      '{{STACK_FILE}}': `${CONFIG_DIR}/context/stack.md`,
+      '{{ARCHITECTURE_FILE}}': `${CONFIG_DIR}/context/architecture.md`,
       '{{CONVENTIONS_SUMMARY}}': toBulletList([
-        'Treat `.github/ai-os/context/conventions.md` as source of truth for naming and structure',
+        `Treat \`.github/cortex/context/conventions.md\` as source of truth for naming and structure`,
         'Prefer safe, incremental edits with clear rollback points',
         'Refresh AI artifacts after architecture or workflow changes',
       ]),
@@ -187,9 +188,9 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
       '{{FRAMEWORK}}': frameworkLabel,
       '{{STACK_SUMMARY}}': toBulletList(stackSummary),
       '{{KEY_FILES_LIST}}': keyFilesList,
-      '{{CONVENTIONS_FILE}}': '.github/ai-os/context/conventions.md',
-      '{{ARCHITECTURE_FILE}}': '.github/ai-os/context/architecture.md',
-      '{{STACK_FILE}}': '.github/ai-os/context/stack.md',
+      '{{CONVENTIONS_FILE}}': `${CONFIG_DIR}/context/conventions.md`,
+      '{{ARCHITECTURE_FILE}}': `${CONFIG_DIR}/context/architecture.md`,
+      '{{STACK_FILE}}': `${CONFIG_DIR}/context/stack.md`,
       '{{BUILD_COMMAND}}': stack.patterns.packageManager === 'npm' ? 'npm run build' : `${stack.patterns.packageManager} build`,
       '{{FRAMEWORK_RULES}}': buildFrameworkRules(stack),
     },
@@ -307,20 +308,20 @@ function buildAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec[] {
 // ---------------------------------------------------------------------------
 
 export interface ExistingAgentScan {
-  /** All .md files found under .github/agents/ that are NOT ai-os generated */
+  /** All .md files found under .github/agents/ that are NOT Cortex generated */
   userDefined: string[];
-  /** All .md files that are ai-os generated (contain the ai-os agent header) */
+  /** All .md files that are Cortex generated (contain the Cortex agent header) */
   aiOsGenerated: string[];
 }
 
 /**
  * Scan `.github/agents/` for existing agent files, classifying each as
- * ai-os-generated or user-defined. Used to present the agent-flow setup
+ * Cortex-generated or user-defined. Used to present the agent-flow setup
  * prompt during install.
  */
 export function scanExistingAgents(cwd: string): ExistingAgentScan {
   const agentsDir = path.join(cwd, AGENTS_DIR);
-  if (!fs.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] };
+  if (!fs.existsSync(agentsDir)) return { userDefined: [], aiOsGenerated: [] }; // aiOsGenerated kept for API compat
 
   const files = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md') || f.endsWith('.agent.md'));
   const userDefined: string[] = [];
@@ -328,10 +329,10 @@ export function scanExistingAgents(cwd: string): ExistingAgentScan {
 
   for (const file of files) {
     const content = fs.readFileSync(path.join(agentsDir, file), 'utf-8');
-    // ai-os generated agents always contain one of the known template marker patterns
-    const isAiOs = content.includes('ai-os/context/architecture.md') ||
-      content.includes('ai-os/context/conventions.md') ||
-      content.includes('ai-os/context/stack.md');
+    // Cortex generated agents always contain one of the known template marker patterns
+    const isAiOs = content.includes('cortex/context/architecture.md') ||
+      content.includes('cortex/context/conventions.md') ||
+      content.includes('cortex/context/stack.md');
     if (isAiOs) {
       aiOsGenerated.push(file);
     } else {
@@ -387,10 +388,10 @@ function buildSequentialAgentSpecs(stack: DetectedStack, cwd: string): AgentSpec
                     : 'npm test'
   );
 
-  const regenerateCmd = stack.patterns.packageManager === 'npm' ? 'npx ai-os'
-    : stack.patterns.packageManager === 'pnpm' ? 'pnpm dlx ai-os'
-      : stack.patterns.packageManager === 'bun' ? 'bunx ai-os'
-        : 'npx ai-os';
+  const regenerateCmd = stack.patterns.packageManager === 'npm' ? 'npx cortex'
+    : stack.patterns.packageManager === 'pnpm' ? 'pnpm dlx cortex'
+      : stack.patterns.packageManager === 'bun' ? 'bunx cortex'
+        : 'npx cortex';
 
   const commonReplacements = {
     '{{PROJECT_NAME}}': projectName,
@@ -488,13 +489,13 @@ async function generateAgentsWithOptions(
         continue;
       }
       if (options.preserveExistingAgents) {
-        // Safe refresh: only preserve user-defined (non-ai-os-generated) agents.
-        // ai-os-generated agents are always regenerated so template changes apply.
+        // Safe refresh: only preserve user-defined (non-Cortex-generated) agents.
+        // Cortex-generated agents are always regenerated so template changes apply.
         const existing = fs.readFileSync(outputPath, 'utf-8');
         const isAiOsGenerated =
-          existing.includes('ai-os/context/architecture.md') ||
-          existing.includes('ai-os/context/conventions.md') ||
-          existing.includes('ai-os/context/stack.md');
+          existing.includes('cortex/context/architecture.md') ||
+          existing.includes('cortex/context/conventions.md') ||
+          existing.includes('cortex/context/stack.md');
         if (!isAiOsGenerated) continue;
       }
     }
@@ -516,9 +517,9 @@ async function generateAgentsWithOptions(
       continue;
     }
 
-    // #183 — user override: check .github/ai-os/templates/agents/<template-base>.md first
+    // #183 — user override: check .github/cortex/templates/agents/<template-base>.md first
     const templateBase = path.basename(spec.templateFile);
-    const userOverridePath = path.join(cwd, '.github', 'ai-os', 'templates', 'agents', templateBase);
+    const userOverridePath = path.join(cwd, CONFIG_DIR, 'templates', 'agents', templateBase);
     const resolvedTemplate = fs.existsSync(userOverridePath) ? userOverridePath : spec.templateFile;
     if (resolvedTemplate !== spec.templateFile) {
       console.log(`  🔧 Using override template for ${spec.outputFile}: ${path.relative(cwd, resolvedTemplate)}`);

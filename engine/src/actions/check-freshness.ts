@@ -35,7 +35,7 @@ export function runCheckFreshnessAction(cwd: string, json = false): void {
   } else if (report.status === 'drifted') {
     console.log('  ⚠️  Context has drifted. Consider running `--refresh-existing` to resync.');
   } else if (report.status === 'unknown') {
-    console.log('  ❓ No snapshot found — run AI OS generation first to establish a baseline.');
+    console.log('  ❓ No snapshot found — run Cortex generation first to establish a baseline.');
   } else {
     console.log('  ✅ Context is fresh.');
   }

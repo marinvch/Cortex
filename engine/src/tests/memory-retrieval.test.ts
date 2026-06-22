@@ -5,11 +5,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('getRepoMemory ordering', () => {
   let tempRoot = '';
-  const originalRoot = process.env['AI_OS_ROOT'];
+  const originalRoot = process.env['CORTEX_ROOT'];
 
   beforeEach(() => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-os-memory-test-'));
-    const memoryDir = path.join(tempRoot, '.github', 'ai-os', 'memory');
+    const memoryDir = path.join(tempRoot, '.github', 'cortex', 'memory');
     fs.mkdirSync(memoryDir, { recursive: true });
 
     const entries = [
@@ -51,14 +51,14 @@ describe('getRepoMemory ordering', () => {
       'utf-8',
     );
 
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
   });
 
   afterEach(() => {
     if (originalRoot === undefined) {
-      delete process.env['AI_OS_ROOT'];
+      delete process.env['CORTEX_ROOT'];
     } else {
-      process.env['AI_OS_ROOT'] = originalRoot;
+      process.env['CORTEX_ROOT'] = originalRoot;
     }
     vi.resetModules();
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -84,7 +84,7 @@ describe('getRepoMemory ordering', () => {
   });
 
   it('recovers stale lock file and stores memory entry', async () => {
-    const lockFile = path.join(tempRoot, '.github', 'ai-os', 'memory', '.memory.lock');
+    const lockFile = path.join(tempRoot, '.github', 'cortex', 'memory', '.memory.lock');
     fs.writeFileSync(lockFile, 'stale-lock', 'utf-8');
 
     // Stale threshold in utils.ts is 15s; set lock timestamp far in the past.
@@ -107,14 +107,14 @@ describe('getRepoMemory ordering', () => {
     expect(first).toContain('Stored memory entry');
     expect(second.includes('Updated memory tags') || second.includes('Skipped duplicate memory fact')).toBe(true);
 
-    const memFile = path.join(tempRoot, '.github', 'ai-os', 'memory', 'memory.jsonl');
+    const memFile = path.join(tempRoot, '.github', 'cortex', 'memory', 'memory.jsonl');
     const lines = fs.readFileSync(memFile, 'utf-8').split('\n').filter(Boolean);
     const duplicateTitleEntries = lines.filter((line) => line.includes('"title":"Duplicate fact"'));
     expect(duplicateTitleEntries.length).toBe(1);
   });
 
   it('cleans malformed memory lines on next write', async () => {
-    const memFile = path.join(tempRoot, '.github', 'ai-os', 'memory', 'memory.jsonl');
+    const memFile = path.join(tempRoot, '.github', 'cortex', 'memory', 'memory.jsonl');
     const valid = JSON.stringify({
       id: 'valid-entry',
       createdAt: '2026-04-17T04:38:26.195Z',

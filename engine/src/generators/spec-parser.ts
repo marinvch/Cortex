@@ -10,7 +10,7 @@ import path from 'node:path';
 export interface ParsedSpec {
   /** Stable ID, e.g. "REPO-INTEL-3". One per H2/H3 heading. */
   specId: string;
-  /** Heading text, e.g. "CLI Command: ai-os index". */
+  /** Heading text, e.g. "CLI Command: cortex index". */
   title: string;
   /** Basename of spec file, e.g. "2026-05-25-repo-intelligence-index-design.md". */
   specFile: string;

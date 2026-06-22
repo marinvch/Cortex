@@ -34,7 +34,7 @@ const table = [
   ...rows,
 ].join('\n');
 
-const output = `# AI OS — MCP Tools Reference
+const output = `# Cortex — MCP Tools Reference
 
 > This file is auto-generated from \`src/mcp-tools.ts\` by \`scripts/gen-mcp-docs.mjs\`.
 > Run \`npm run gen-mcp-docs\` to refresh after adding or editing tool definitions.
@@ -45,7 +45,7 @@ ${table}
 
 ## Session Start Protocol
 
-At the start of every new Copilot session in an AI OS repo:
+At the start of every new Copilot session in a Cortex repo:
 
 1. Call \`get_session_context\` → reloads MUST-ALWAYS rules and key commands
 2. Call \`get_repo_memory\` → recovers durable architectural decisions
@@ -61,10 +61,10 @@ At the start of every new Copilot session in an AI OS repo:
 
 \`\`\`bash
 # Health check the MCP server
-AI_OS_ROOT=. node .ai-os/mcp-server/index.js --healthcheck
+CORTEX_ROOT=. node .github/cortex/mcp-server/index.js --healthcheck
 
 # Debug mode
-AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck
+CORTEX_MCP_DEBUG=1 node .github/cortex/mcp-server/index.js --healthcheck
 \`\`\`
 
 ## Bundle Architecture

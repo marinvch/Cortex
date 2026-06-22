@@ -14,7 +14,7 @@ export interface PromoteArgs {
 /**
  * Promote a fact into the personal brain. The ONLY sanctioned project -> personal path.
  * - Refuses unless sanitized_confirmed === true.
- * - Refuses when no personal brain path is configured (AI_OS_PERSONAL_ROOT).
+ * - Refuses when no personal brain path is configured (CORTEX_PERSONAL_ROOT).
  * - Runs a warn-only secret scan (never blocks).
  * - Appends to brain/memory.jsonl (domain: 'personal') and writes an audit line to memory-log.md.
  */
@@ -28,7 +28,7 @@ export function promoteToBrain(args: PromoteArgs): string {
 
   const root = getPersonalBrainPath();
   if (!root) {
-    return 'Refused: no personal brain path configured. Set AI_OS_PERSONAL_ROOT or personalBrainPath in config.';
+    return 'Refused: no personal brain path configured. Set CORTEX_PERSONAL_ROOT or personalBrainPath in config.';
   }
 
   const brainDir = path.join(root, 'brain');

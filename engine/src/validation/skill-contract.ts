@@ -32,7 +32,7 @@ export function validateSkillContract(content: string): SkillContractValidationR
 
 function normalizeSkillName(skillName?: string): string {
   if (!skillName) return 'this area';
-  return skillName.replace(/^ai-os-/, '').replace(/-patterns|-flow|-pipeline|-api|-billing/g, '').replace(/-/g, ' ').trim();
+  return skillName.replace(/^cortex-/, '').replace(/-patterns|-flow|-pipeline|-api|-billing/g, '').replace(/-/g, ' ').trim();
 }
 
 export function enforceSkillContract(content: string, context: SkillContractContext = {}): string {

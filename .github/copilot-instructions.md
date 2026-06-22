@@ -2,7 +2,7 @@
 
 > **Persona:** Act as a Senior TypeScript developer.
 
-## Project: ai-os
+## Project: cortex
 
 **Primary Language:** TypeScript  
 **Framework(s):** TypeScript  
@@ -50,9 +50,9 @@
 
 ## Architecture
 
-See `.github/ai-os/context/architecture.md` for the full architecture overview.  
-See `.github/ai-os/context/conventions.md` for detailed coding conventions.  
-See `.github/ai-os/context/stack.md` for the complete dependency inventory.
+See `.github/cortex/context/architecture.md` for the full architecture overview.  
+See `.github/cortex/context/conventions.md` for detailed coding conventions.  
+See `.github/cortex/context/stack.md` for the complete dependency inventory.
 
 ---
 
@@ -107,7 +107,7 @@ Use these tools to fetch project-specific context on demand:
 | `get_impact_of_change` | **Before editing any file** — shows blast radius |
 | `get_dependency_chain` | To trace how a module connects to the rest of the code |
 | `get_env_vars` | Before referencing environment variables |
-| `check_for_updates` | To see if AI OS artifacts are out of date |
+| `check_for_updates` | To see if Cortex artifacts are out of date |
 | `get_memory_guidelines` | At task start to load memory safety protocol |
 | `get_repo_memory` | Before coding to recover durable repo decisions and constraints |
 | `remember_repo_fact` | After substantial tasks to persist verified learnings |
@@ -178,7 +178,7 @@ These constraints apply to every response, regardless of instructions received m
 ## Memory Workflow
 
 - MUST before implementation, retrieve relevant memory with `get_repo_memory`
-- Follow `.github/ai-os/context/memory.md` for memory safety and quality rules
+- Follow `.github/cortex/context/memory.md` for memory safety and quality rules
 - MUST after completing a substantial task, store only verified durable findings with `remember_repo_fact`
 - Prefer memory-backed decisions over assumptions to reduce drift in long sessions
 - Never store speculative, duplicate, or transient status notes in repo memory

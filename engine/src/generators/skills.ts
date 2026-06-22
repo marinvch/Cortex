@@ -36,7 +36,7 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
 
   // Next.js
   if (frameworks.some(f => f.includes('next'))) {
-    add('nextjs.md', 'ai-os-nextjs-patterns.md');
+    add('nextjs.md', 'cortex-nextjs-patterns.md');
   }
 
   // React (non-Next.js to avoid duplicate)
@@ -48,7 +48,7 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
     const stateManagementComment = hasRedux
       ? 'Redux store (useSelector / useDispatch) for global state; RTK Query for server state'
       : 'tRPC cache\n// No Redux, no Zustand — tRPC covers server state';
-    add('react.md', 'ai-os-react-patterns.md', {
+    add('react.md', 'cortex-react-patterns.md', {
       '{{STATE_MANAGEMENT_COMMENT}}': stateManagementComment,
     });
   }
@@ -58,7 +58,7 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
     const trpcRouterFile = fs.existsSync(path.join(cwd, 'src/trpc/index.ts'))
       ? 'src/trpc/index.ts'
       : 'src/server/trpc.ts';
-    add('trpc.md', 'ai-os-trpc-patterns.md', { '{{TRPC_ROUTER_FILE}}': trpcRouterFile });
+    add('trpc.md', 'cortex-trpc-patterns.md', { '{{TRPC_ROUTER_FILE}}': trpcRouterFile });
   }
 
   // Prisma
@@ -66,7 +66,7 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
     const schemaFile = fs.existsSync(path.join(cwd, 'prisma/schema.prisma'))
       ? 'prisma/schema.prisma'
       : 'schema.prisma';
-    add('prisma.md', 'ai-os-prisma-patterns.md', { '{{SCHEMA_FILE}}': schemaFile });
+    add('prisma.md', 'cortex-prisma-patterns.md', { '{{SCHEMA_FILE}}': schemaFile });
   }
 
   // Stripe
@@ -74,7 +74,7 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
     const plansFile = fs.existsSync(path.join(cwd, 'src/constants/stripe.ts'))
       ? 'src/constants/stripe.ts'
       : 'src/lib/stripe.ts';
-    add('stripe.md', 'ai-os-billing-stripe.md', {
+    add('stripe.md', 'cortex-billing-stripe.md', {
       '{{PLANS_FILE}}': plansFile,
       '{{STRIPE_LIB_FILE}}': fs.existsSync(path.join(cwd, 'src/lib/stripe.ts')) ? 'src/lib/stripe.ts' : plansFile,
       '{{WEBHOOK_FILE}}': 'src/app/api/webhooks/stripe/route.ts',
@@ -86,62 +86,62 @@ function buildSkillSpecs(stack: DetectedStack, cwd: string): SkillSpec[] {
     const authFile = fs.existsSync(path.join(cwd, 'src/app/api/auth/[...nextauth]/authOptions.ts'))
       ? 'src/app/api/auth/[...nextauth]/authOptions.ts'
       : 'src/lib/auth.ts';
-    add('auth-nextauth.md', 'ai-os-auth-flow.md', { '{{AUTH_CONFIG_FILE}}': authFile });
+    add('auth-nextauth.md', 'cortex-auth-flow.md', { '{{AUTH_CONFIG_FILE}}': authFile });
   }
 
   // Supabase
   if (packages.includes('@supabase/supabase-js')) {
-    add('supabase.md', 'ai-os-supabase-patterns.md');
+    add('supabase.md', 'cortex-supabase-patterns.md');
   }
 
   // pgvector / RAG
   if (packages.includes('langchain') || packages.includes('@langchain/community') || packages.includes('pgvector')) {
-    add('rag-pgvector.md', 'ai-os-rag-pipeline.md');
+    add('rag-pgvector.md', 'cortex-rag-pipeline.md');
   }
 
   // Express/Nest/Fastify/Koa/Hono
   if (hasExpressLike) {
-    add('express.md', 'ai-os-express-api.md');
+    add('express.md', 'cortex-express-api.md');
   }
 
   // FastAPI / Django
   if (frameworks.some(f => f.includes('fastapi') || f.includes('django'))) {
-    add('python-fastapi.md', 'ai-os-fastapi-patterns.md');
+    add('python-fastapi.md', 'cortex-fastapi-patterns.md');
   }
 
   // Go
   if (stack.languages.some(l => l.name.toLowerCase() === 'go')) {
-    add('go.md', 'ai-os-go-patterns.md');
+    add('go.md', 'cortex-go-patterns.md');
   }
 
   // Java / Spring Boot
   if (hasJavaSpringLike) {
-    add('java-spring.md', 'ai-os-java-spring-patterns.md');
+    add('java-spring.md', 'cortex-java-spring-patterns.md');
   }
 
   // Remix
   if (frameworks.some(f => f.includes('remix'))) {
-    add('remix.md', 'ai-os-remix-patterns.md');
+    add('remix.md', 'cortex-remix-patterns.md');
   }
 
   // SolidJS
   if (frameworks.some(f => f.includes('solid'))) {
-    add('solid.md', 'ai-os-solid-patterns.md');
+    add('solid.md', 'cortex-solid-patterns.md');
   }
 
   // Bun
   if (frameworks.some(f => f === 'bun') || packages.includes('bun')) {
-    add('bun.md', 'ai-os-bun-patterns.md');
+    add('bun.md', 'cortex-bun-patterns.md');
   }
 
   // Deno
   if (frameworks.some(f => f === 'deno')) {
-    add('deno.md', 'ai-os-deno-patterns.md');
+    add('deno.md', 'cortex-deno-patterns.md');
   }
 
   // WordPress
   if (frameworks.some(f => f.toLowerCase().includes('wordpress'))) {
-    add('wordpress.md', 'ai-os-wordpress-patterns.md');
+    add('wordpress.md', 'cortex-wordpress-patterns.md');
   }
 
   return specs;
@@ -162,9 +162,9 @@ async function generateSkillsWithOptions(
 
   if (options.strategy === 'creator-only') {
     // In creator-only mode we intentionally avoid generating stack-based predefined
-    // skills. During refresh we prune existing ai-os-* predefined skills.
+    // skills. During refresh we prune existing cortex-* predefined skills.
     if (options.refreshExisting && fs.existsSync(skillsDir)) {
-      const onDisk = fs.readdirSync(skillsDir).filter(f => f.startsWith('ai-os-') && f.endsWith('.md'));
+      const onDisk = fs.readdirSync(skillsDir).filter(f => f.startsWith('cortex-') && f.endsWith('.md'));
       for (const stale of onDisk) {
         fs.rmSync(path.join(skillsDir, stale));
         console.log(`  🗑️  Pruned predefined skill (creator-only mode): ${stale}`);

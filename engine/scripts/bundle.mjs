@@ -3,7 +3,7 @@
  * Bundle script: produces single-file bundles for deployment without node_modules.
  *   dist/server.js     — MCP server runtime used by install.sh
  *   bundle/server.js   — shipped MCP server bundle for npm/github package consumers
- *   bundle/generate.js — shipped CLI entrypoint used by `npx github:marinvch/ai-os`
+ *   bundle/generate.js — shipped CLI entrypoint used by `npx github:marinvch/cortex`
  *
  * Usage: node scripts/bundle.mjs
  */
@@ -30,7 +30,7 @@ for (const outfile of [distServerOutfile, bundleServerOutfile]) {
     outfile,
     // Do NOT add #!/usr/bin/env node in banner — esbuild preserves the shebang
     // from src/mcp-server/index.ts automatically at position 1.
-    banner: { js: '// AI OS MCP Server — bundled single-file deployment' },
+    banner: { js: '// Cortex MCP Server — bundled single-file deployment' },
     // @github/copilot-sdk is a dynamic import only loaded in --copilot mode.
     // Mark it external so the bundle runs cleanly without it in standalone mode.
     external: ['@github/copilot-sdk'],
@@ -68,7 +68,7 @@ fs.writeFileSync(manifestPath, JSON.stringify({
   node: '>=20',
 }, null, 2));
 
-console.log(`\n✅ Bundle complete — dist/server.js (AI OS v${pkg.version})`);
+console.log(`\n✅ Bundle complete — dist/server.js (Cortex v${pkg.version})`);
 console.log(`   SHA-256: ${bundleHash}`);
-console.log('   Deploy: copy dist/server.js to .github/ai-os/mcp-server/index.js in target repos');
+console.log('   Deploy: copy dist/server.js to .github/cortex/mcp-server/index.js in target repos');
 console.log('   Ship: bundle/generate.js and bundle/server.js for npx/github consumers');

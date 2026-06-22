@@ -1,14 +1,14 @@
-# Getting Started with AI OS
+# Getting Started with Cortex
 
-Welcome to AI OS — the framework that gives GitHub Copilot a brain, tailored to your codebase. This guide will get you up and running in 10 minutes or less, no matter your tech stack.
+Welcome to Cortex — the framework that gives GitHub Copilot a brain, tailored to your codebase. This guide will get you up and running in 10 minutes or less, no matter your tech stack.
 
 ---
 
-## What is AI OS?
+## What is Cortex?
 
-AI OS is a structured AI context framework that supercharges GitHub Copilot with deep, project-aware guidance. It works with any language or framework, auto-detects your stack, and generates precise instructions, agents, and tools for your codebase. 
+Cortex is a structured AI context framework that supercharges GitHub Copilot with deep, project-aware guidance. It works with any language or framework, auto-detects your stack, and generates precise instructions, agents, and tools for your codebase. 
 
-Unlike generic Copilot prompts, AI OS installs a persistent context layer: it scans your repository, learns your conventions, and creates a suite of artifacts (instructions, agents, skills, and tools) that make Copilot smarter, safer, and more productive for your team.
+Unlike generic Copilot prompts, Cortex installs a persistent context layer: it scans your repository, learns your conventions, and creates a suite of artifacts (instructions, agents, skills, and tools) that make Copilot smarter, safer, and more productive for your team.
 
 ---
 
@@ -31,12 +31,12 @@ Unlike generic Copilot prompts, AI OS installs a persistent context layer: it sc
    npx -y github:marinvch/ai-os
    ```
 
-3. AI OS will scan your codebase and generate:
+3. Cortex will scan your codebase and generate:
 
    - **`copilot-instructions.md`** — tailored Copilot rules for your stack
    - **Agents** — `.github/agents/*.agent.md` for common workflows
    - **COPILOT_CONTEXT.md** — session context card for Copilot
-   - **MCP server** — `.ai-os/mcp-server/` (27+ Copilot tools)
+   - **MCP server** — `.cortex/mcp-server/` (27+ Copilot tools)
    - **MCP config** — `.vscode/mcp.json`
    - **14 agent skills** — `.github/copilot/skills/`
 
@@ -66,7 +66,7 @@ If you see any ❌, follow the suggestions to resolve.
 
 ---
 
-## Your First AI OS Session
+## Your First Cortex Session
 
 1. **Open VS Code** in your project.
 2. **Open the Copilot Chat** panel (or use the Copilot sidebar).
@@ -142,7 +142,7 @@ npx -y github:marinvch/ai-os
 
 ## Install Profiles
 
-AI OS supports three install profiles:
+Cortex supports three install profiles:
 
 - `--profile minimal` — Only Copilot instructions and MCP wiring (fastest, smallest)
 - `--profile standard` — Default: instructions, agents, skills, tools (recommended)
@@ -164,13 +164,13 @@ If you change your stack, add new frameworks, or want to update all artifacts:
 npx -y github:marinvch/ai-os --refresh-existing
 ```
 
-This will re-scan your repo and regenerate all AI OS artifacts, pruning any that are no longer needed.
+This will re-scan your repo and regenerate all Cortex artifacts, pruning any that are no longer needed.
 
 ---
 
 ## Drift Detection
 
-To check if your AI OS artifacts are out of sync with your codebase:
+To check if your Cortex artifacts are out of sync with your codebase:
 
 ```bash
 npx -y github:marinvch/ai-os --check-drift
@@ -184,7 +184,7 @@ npx -y github:marinvch/ai-os --check-drift
 Example output when drift is detected:
 
 ```
-## AI OS Drift Report
+## Cortex Drift Report
 
 Found 2 issue(s):
 
@@ -217,13 +217,13 @@ Add these blocks anywhere in `copilot-instructions.md` or agent files.
 
 ## FAQ
 
-**1. Does AI OS work with any tech stack?**
-> Yes! AI OS auto-detects 30+ languages and frameworks, including TypeScript, Python, Java, Go, Ruby, and more.
+**1. Does Cortex work with any tech stack?**
+> Yes! Cortex auto-detects 30+ languages and frameworks, including TypeScript, Python, Java, Go, Ruby, and more.
 
 **2. Will my existing `copilot-instructions.md` be preserved?**
-> Yes. AI OS merges your custom USER_BLOCKs and never overwrites your manual content.
+> Yes. Cortex merges your custom USER_BLOCKs and never overwrites your manual content.
 
-**3. How do I uninstall AI OS?**
+**3. How do I uninstall Cortex?**
 > Run:
 > ```bash
 > npx -y github:marinvch/ai-os --uninstall
@@ -233,13 +233,13 @@ Add these blocks anywhere in `copilot-instructions.md` or agent files.
 **4. I don’t see MCP tools in Copilot. What do I do?**
 > Make sure `.vscode/mcp.json` exists and reload VS Code. Run `--doctor` to check MCP health.
 
-**5. How do I upgrade AI OS?**
+**5. How do I upgrade Cortex?**
 > Just re-run the installer. For major upgrades, use `--clean-update` to force a full regeneration.
 
-**6. Can I use AI OS in CI/CD?**
+**6. Can I use Cortex in CI/CD?**
 > Yes. Use `--check-drift` in your CI workflow to ensure Copilot context stays in sync.
 
-**7. Can my whole team use AI OS?**
+**7. Can my whole team use Cortex?**
 > Yes! All generated artifacts are committed to your repo. Every developer gets the same Copilot context.
 
 **8. What if I want to add or remove skills?**

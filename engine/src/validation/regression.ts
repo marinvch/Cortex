@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AI OS Regression Suite
+ * Cortex Regression Suite
  *
  * Validates core generation, MCP health, memory governance, and refresh-safety
  * across a representative set of project fixture scenarios.
@@ -61,13 +61,13 @@ function readText(dir: string, rel: string): string {
 
 function gitInit(dir: string): void {
   spawnSync('git', ['init'], { cwd: dir, stdio: 'ignore' });
-  spawnSync('git', ['config', 'user.email', 'test@ai-os.local'], { cwd: dir, stdio: 'ignore' });
-  spawnSync('git', ['config', 'user.name', 'AI OS Test'], { cwd: dir, stdio: 'ignore' });
+  spawnSync('git', ['config', 'user.email', 'test@cortex.local'], { cwd: dir, stdio: 'ignore' });
+  spawnSync('git', ['config', 'user.name', 'Cortex Test'], { cwd: dir, stdio: 'ignore' });
 }
 
-const AI_OS_ROOT = path.resolve(import.meta.dirname, '../..');
-const GENERATE_CMD = `node --import tsx/esm "${path.join(AI_OS_ROOT, 'src/generate.ts')}"`;
-const TOOL_VERSION = JSON.parse(fs.readFileSync(path.join(AI_OS_ROOT, 'package.json'), 'utf-8')) as { version: string };
+const CORTEX_ROOT = path.resolve(import.meta.dirname, '../..');
+const GENERATE_CMD = `node --import tsx/esm "${path.join(CORTEX_ROOT, 'src/generate.ts')}"`;
+const TOOL_VERSION = JSON.parse(fs.readFileSync(path.join(CORTEX_ROOT, 'package.json'), 'utf-8')) as { version: string };
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -225,7 +225,7 @@ const fixtures: FixtureSpec[] = [
 // ---------------------------------------------------------------------------
 
 function checkPlanOutputs(dir: string, fixtureName: string, results: CheckResult[]): void {
-  const r = run(`${GENERATE_CMD} --cwd "${dir}" --plan`, AI_OS_ROOT);
+  const r = run(`${GENERATE_CMD} --cwd "${dir}" --plan`, CORTEX_ROOT);
   results.push({
     fixture: fixtureName,
     check: 'generate --plan exits cleanly',
@@ -235,7 +235,7 @@ function checkPlanOutputs(dir: string, fixtureName: string, results: CheckResult
 }
 
 function checkPreviewOutputs(dir: string, fixtureName: string, results: CheckResult[]): void {
-  const r = run(`${GENERATE_CMD} --cwd "${dir}" --preview`, AI_OS_ROOT);
+  const r = run(`${GENERATE_CMD} --cwd "${dir}" --preview`, CORTEX_ROOT);
   results.push({
     fixture: fixtureName,
     check: 'generate --preview exits cleanly',
@@ -245,7 +245,7 @@ function checkPreviewOutputs(dir: string, fixtureName: string, results: CheckRes
 }
 
 function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResult[]): void {
-  const r = run(`${GENERATE_CMD} --cwd "${dir}"`, AI_OS_ROOT);
+  const r = run(`${GENERATE_CMD} --cwd "${dir}"`, CORTEX_ROOT);
   results.push({
     fixture: fixtureName,
     check: 'generate --apply exits cleanly',
@@ -257,9 +257,9 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
     '.github/copilot-instructions.md',
     '.mcp.json',
     '.vscode/mcp.json',
-    '.github/ai-os/context/stack.md',
-    '.github/ai-os/context/architecture.md',
-    '.github/ai-os/context/conventions.md',
+    '.github/cortex/context/stack.md',
+    '.github/cortex/context/architecture.md',
+    '.github/cortex/context/conventions.md',
   ];
   for (const f of expectedFiles) {
     results.push({
@@ -310,15 +310,15 @@ function checkApplyOutputs(dir: string, fixtureName: string, results: CheckResul
   results.push({
     fixture: fixtureName,
     check: 'apply output mentions recommendations path',
-    passed: r.stdout.includes('.github/ai-os/recommendations.md'),
-    detail: r.stdout.includes('.github/ai-os/recommendations.md') ? undefined : 'Missing recommendations path hint in apply output',
+    passed: r.stdout.includes('.github/cortex/recommendations.md'),
+    detail: r.stdout.includes('.github/cortex/recommendations.md') ? undefined : 'Missing recommendations path hint in apply output',
   });
 }
 
 function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResult[]): void {
   // Re-run apply — content of generated files should not drift
   const instructionsBefore = readText(dir, '.github/copilot-instructions.md');
-  const r = run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, AI_OS_ROOT);
+  const r = run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, CORTEX_ROOT);
 
   results.push({
     fixture: fixtureName,
@@ -354,16 +354,16 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
   results.push({
     fixture: fixtureName,
     check: 'refresh-existing output does not repeat update banner',
-    passed: !r.stdout.includes('AI OS Update Available'),
-    detail: !r.stdout.includes('AI OS Update Available') ? undefined : 'Update banner was printed during refresh-existing run',
+    passed: !r.stdout.includes('Cortex Update Available'),
+    detail: !r.stdout.includes('Cortex Update Available') ? undefined : 'Update banner was printed during refresh-existing run',
   });
 
-  const configPath = path.join(dir, '.github/ai-os/config.json');
+  const configPath = path.join(dir, '.github/cortex/config.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { version: string };
   config.version = '0.0.1';
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
 
-  const safeRerun = run(`${GENERATE_CMD} --cwd "${dir}"`, AI_OS_ROOT);
+  const safeRerun = run(`${GENERATE_CMD} --cwd "${dir}"`, CORTEX_ROOT);
   const refreshCmd = `npx -y "github:marinvch/ai-os#v${TOOL_VERSION.version}" --refresh-existing`;
 
   results.push({
@@ -382,20 +382,20 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
 
   // protect.json hybrid mode: user blocks inside a file must survive refresh.
   // We write a file with user block markers and verify they are re-inserted after refresh.
-  const hybridTarget = '.github/ai-os/context/conventions.md';
+  const hybridTarget = '.github/cortex/context/conventions.md';
   const userBlockContent = 'My custom convention: always use tabs.';
   const blockId = 'my-conventions';
 
-  // First: run a normal refresh to ensure the file exists (generated by AI OS)
-  run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, AI_OS_ROOT);
+  // First: run a normal refresh to ensure the file exists (generated by Cortex)
+  run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, CORTEX_ROOT);
 
   // Then patch in user block markers
   const existingConventions = readText(dir, hybridTarget);
   const withUserBlock = `${existingConventions}\n\n<!-- AI-OS:USER_BLOCK:START id="${blockId}" -->\n${userBlockContent}\n<!-- AI-OS:USER_BLOCK:END id="${blockId}" -->`;
   writeFile(path.join(dir, hybridTarget), withUserBlock);
-  writeJson(path.join(dir, '.github/ai-os/protect.json'), { hybrid: [hybridTarget] });
+  writeJson(path.join(dir, '.github/cortex/protect.json'), { hybrid: [hybridTarget] });
 
-  const hybridRefresh = run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, AI_OS_ROOT);
+  const hybridRefresh = run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, CORTEX_ROOT);
   const contentAfterHybrid = readText(dir, hybridTarget);
 
   results.push({
@@ -417,16 +417,16 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
   });
 
   // Clean up protect.json so subsequent checks are not affected
-  fs.rmSync(path.join(dir, '.github/ai-os/protect.json'));
+  fs.rmSync(path.join(dir, '.github/cortex/protect.json'));
 
   // protect.json write-path protection: a file listed in protect.json must not be
   // overwritten by --refresh-existing even if it overlaps with a managed path.
   const protectTarget = '.github/copilot-instructions.md';
   const uniqueContent = '<!-- PROTECTED CUSTOM CONTENT — must survive refresh -->';
   writeFile(path.join(dir, protectTarget), uniqueContent);
-  writeJson(path.join(dir, '.github/ai-os/protect.json'), { protected: [protectTarget] });
+  writeJson(path.join(dir, '.github/cortex/protect.json'), { protected: [protectTarget] });
 
-  const protectRefresh = run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, AI_OS_ROOT);
+  const protectRefresh = run(`${GENERATE_CMD} --cwd "${dir}" --refresh-existing`, CORTEX_ROOT);
   const contentAfterProtect = readText(dir, protectTarget);
 
   results.push({
@@ -448,14 +448,14 @@ function checkRefreshSafety(dir: string, fixtureName: string, results: CheckResu
   });
 
   // Clean up protect.json so subsequent checks are not affected
-  fs.rmSync(path.join(dir, '.github/ai-os/protect.json'));
+  fs.rmSync(path.join(dir, '.github/cortex/protect.json'));
 }
 
 function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]): void {
   // The MCP server runtime (index.js) is deployed by install.sh, not by `generate`.
   // The regression suite only runs `generate`, so we verify both generated MCP
   // configs rather than the installed runtime launch path itself.
-  // Tool definitions are written to .github/ai-os/tools.json.
+  // Tool definitions are written to .github/cortex/tools.json.
   const configs = [
     {
       relativePath: '.mcp.json',
@@ -506,41 +506,41 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
       detail: serverMap === undefined ? `missing "${configInfo.rootKey}" top-level key` : undefined,
     });
 
-    const serverEntry = serverMap?.['ai-os'];
+    const serverEntry = serverMap?.['cortex'];
     results.push({
       fixture: fixtureName,
-      check: `${configInfo.label} MCP config has ai-os server entry`,
+      check: `${configInfo.label} MCP config has cortex server entry`,
       passed: serverEntry !== undefined,
-      detail: serverEntry === undefined ? `ai-os server not found in ${configInfo.rootKey}` : undefined,
+      detail: serverEntry === undefined ? `cortex server not found in ${configInfo.rootKey}` : undefined,
     });
 
     if (serverEntry) {
       results.push({
         fixture: fixtureName,
-        check: `${configInfo.label} ai-os server has launch command`,
+        check: `${configInfo.label} cortex server has launch command`,
         passed: typeof serverEntry.command === 'string' && serverEntry.command.length > 0,
         detail: !serverEntry.command ? 'command is missing' : undefined,
       });
       results.push({
         fixture: fixtureName,
-        check: `${configInfo.label} ai-os server args point to runtime entry`,
-        passed: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => (arg.includes('.github/ai-os/mcp-server') || arg.includes('.ai-os/mcp-server')) && arg.includes('index.js')),
-        detail: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => (arg.includes('.github/ai-os/mcp-server') || arg.includes('.ai-os/mcp-server')) && arg.includes('index.js'))
+        check: `${configInfo.label} cortex server args point to runtime entry`,
+        passed: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.github/cortex/mcp-server') && arg.includes('index.js')),
+        detail: Array.isArray(serverEntry.args) && serverEntry.args.some(arg => arg.includes('.github/cortex/mcp-server') && arg.includes('index.js'))
           ? undefined
           : Array.isArray(serverEntry.args)
-            ? `args do not include ai-os runtime entry: ${JSON.stringify(serverEntry.args)}`
+            ? `args do not include cortex runtime entry: ${JSON.stringify(serverEntry.args)}`
             : 'args are missing',
       });
     }
   }
 
-  const toolsJsonPath = path.join(dir, '.github/ai-os/tools.json');
+  const toolsJsonPath = path.join(dir, '.github/cortex/tools.json');
   if (!fs.existsSync(toolsJsonPath)) {
     results.push({
       fixture: fixtureName,
       check: 'tools.json present for MCP tool definitions',
       passed: false,
-      detail: '.github/ai-os/tools.json not found after apply',
+      detail: '.github/cortex/tools.json not found after apply',
     });
     return;
   }
@@ -607,7 +607,7 @@ function checkMcpHealth(dir: string, fixtureName: string, results: CheckResult[]
 
 function checkMemoryQuality(dir: string, fixtureName: string, results: CheckResult[]): void {
   // Write a fact via the generate action's planner — or directly inject JSONL and check recovery
-  const memDir = path.join(dir, '.github/ai-os/memory');
+  const memDir = path.join(dir, '.github/cortex/memory');
   fs.mkdirSync(memDir, { recursive: true });
   const memFile = path.join(memDir, 'memory.jsonl');
 
@@ -660,12 +660,12 @@ function checkGeneratedSkillContracts(dir: string, fixtureName: string, results:
   }
 
   const skillFiles = fs.readdirSync(skillsDir)
-    .filter((name) => name.startsWith('ai-os-') && name.endsWith('.md'));
+    .filter((name) => name.startsWith('cortex-') && name.endsWith('.md'));
 
   if (skillFiles.length === 0) {
     results.push({
       fixture: fixtureName,
-      check: 'generated skills contract validation skipped (no ai-os skills)',
+      check: 'generated skills contract validation skipped (no cortex skills)',
       passed: true,
     });
     return;
@@ -735,7 +735,7 @@ function printReport(results: CheckResult[]): boolean {
   const failed = results.filter(r => !r.passed);
 
   console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log(' AI OS Regression Results');
+  console.log(' Cortex Regression Results');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
   const byFixture = new Map<string, CheckResult[]>();
@@ -780,10 +780,10 @@ function printReport(results: CheckResult[]): boolean {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
-  console.log('\n  AI OS Regression Suite');
+  console.log('\n  Cortex Regression Suite');
   console.log('  Running fixture matrix...\n');
 
-  const tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-os-regression-'));
+  const tmpBase = fs.mkdtempSync(path.join(os.tmpdir(), 'cortex-regression-'));
   const results: CheckResult[] = [];
 
   try {

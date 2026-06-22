@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function createTempMemoryRoot(entries: object[]): string {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-os-hygiene-test-'));
-  const memoryDir = path.join(tempRoot, '.github', 'ai-os', 'memory');
+  const memoryDir = path.join(tempRoot, '.github', 'cortex', 'memory');
   fs.mkdirSync(memoryDir, { recursive: true });
   fs.writeFileSync(
     path.join(memoryDir, 'memory.jsonl'),
@@ -18,7 +18,7 @@ function createTempMemoryRoot(entries: object[]): string {
 }
 
 function readMemoryFile(tempRoot: string): object[] {
-  const memFile = path.join(tempRoot, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  const memFile = path.join(tempRoot, '.github', 'cortex', 'memory', 'memory.jsonl');
   return fs
     .readFileSync(memFile, 'utf-8')
     .split('\n')
@@ -30,7 +30,7 @@ function readMemoryFile(tempRoot: string): object[] {
 
 describe('memory hygiene — near-duplicate detection', () => {
   let tempRoot = '';
-  const originalRoot = process.env['AI_OS_ROOT'];
+  const originalRoot = process.env['CORTEX_ROOT'];
 
   beforeEach(() => {
     // Use dates from 30 days ago — well within the default 180-day TTL
@@ -61,14 +61,14 @@ describe('memory hygiene — near-duplicate detection', () => {
     };
 
     tempRoot = createTempMemoryRoot([base, nearDupe]);
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
   });
 
   afterEach(() => {
     if (originalRoot === undefined) {
-      delete process.env['AI_OS_ROOT'];
+      delete process.env['CORTEX_ROOT'];
     } else {
-      process.env['AI_OS_ROOT'] = originalRoot;
+      process.env['CORTEX_ROOT'] = originalRoot;
     }
     vi.resetModules();
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -100,7 +100,7 @@ describe('memory hygiene — near-duplicate detection', () => {
 
 describe('memory hygiene — configurable TTL', () => {
   let tempRoot = '';
-  const originalRoot = process.env['AI_OS_ROOT'];
+  const originalRoot = process.env['CORTEX_ROOT'];
 
   beforeEach(() => {
     // Entry that is 30 days old
@@ -119,21 +119,21 @@ describe('memory hygiene — configurable TTL', () => {
     tempRoot = createTempMemoryRoot([oldEntry]);
 
     // Write a config that sets TTL to 20 days (shorter than 30 days of entry age)
-    const configDir = path.join(tempRoot, '.github', 'ai-os');
+    const configDir = path.join(tempRoot, '.github', 'cortex');
     fs.writeFileSync(
       path.join(configDir, 'config.json'),
       JSON.stringify({ memoryTtlDays: 20 }),
       'utf-8',
     );
 
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
   });
 
   afterEach(() => {
     if (originalRoot === undefined) {
-      delete process.env['AI_OS_ROOT'];
+      delete process.env['CORTEX_ROOT'];
     } else {
-      process.env['AI_OS_ROOT'] = originalRoot;
+      process.env['CORTEX_ROOT'] = originalRoot;
     }
     vi.resetModules();
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -162,7 +162,7 @@ describe('memory hygiene — configurable TTL', () => {
 
 describe('memory hygiene — pruneMemory', () => {
   let tempRoot = '';
-  const originalRoot = process.env['AI_OS_ROOT'];
+  const originalRoot = process.env['CORTEX_ROOT'];
 
   const staleDate = '2020-01-01T00:00:00.000Z'; // far in the past → auto-stale
   const freshDate = new Date().toISOString();
@@ -203,14 +203,14 @@ describe('memory hygiene — pruneMemory', () => {
     };
 
     tempRoot = createTempMemoryRoot([activeEntry, staleEntry, explicitlyStale]);
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
   });
 
   afterEach(() => {
     if (originalRoot === undefined) {
-      delete process.env['AI_OS_ROOT'];
+      delete process.env['CORTEX_ROOT'];
     } else {
-      process.env['AI_OS_ROOT'] = originalRoot;
+      process.env['CORTEX_ROOT'] = originalRoot;
     }
     vi.resetModules();
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -249,7 +249,7 @@ describe('memory hygiene — pruneMemory', () => {
 
   it('handles empty memory file without errors', async () => {
     // Overwrite with empty file
-    const memFile = path.join(tempRoot, '.github', 'ai-os', 'memory', 'memory.jsonl');
+    const memFile = path.join(tempRoot, '.github', 'cortex', 'memory', 'memory.jsonl');
     fs.writeFileSync(memFile, '', 'utf-8');
 
     const { pruneMemory } = await import('../mcp-server/utils.js');
@@ -264,7 +264,7 @@ describe('memory hygiene — pruneMemory', () => {
 
 describe('memory hygiene — runMemoryMaintenance', () => {
   let tempRoot = '';
-  const originalRoot = process.env['AI_OS_ROOT'];
+  const originalRoot = process.env['CORTEX_ROOT'];
 
   const staleDate = '2020-01-01T00:00:00.000Z';
   const freshDate = new Date().toISOString();
@@ -292,14 +292,14 @@ describe('memory hygiene — runMemoryMaintenance', () => {
     };
 
     tempRoot = createTempMemoryRoot([active, aged]);
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
   });
 
   afterEach(() => {
     if (originalRoot === undefined) {
-      delete process.env['AI_OS_ROOT'];
+      delete process.env['CORTEX_ROOT'];
     } else {
-      process.env['AI_OS_ROOT'] = originalRoot;
+      process.env['CORTEX_ROOT'] = originalRoot;
     }
     vi.resetModules();
     fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -335,14 +335,14 @@ describe('memory hygiene — prune_memory MCP tool is registered', () => {
 
 describe('memory hygiene — version-family supersession', () => {
   let tempRoot = '';
-  const originalRoot = process.env['AI_OS_ROOT'];
+  const originalRoot = process.env['CORTEX_ROOT'];
   const freshDate = new Date().toISOString();
 
   afterEach(() => {
     if (originalRoot === undefined) {
-      delete process.env['AI_OS_ROOT'];
+      delete process.env['CORTEX_ROOT'];
     } else {
-      process.env['AI_OS_ROOT'] = originalRoot;
+      process.env['CORTEX_ROOT'] = originalRoot;
     }
     vi.resetModules();
     if (tempRoot) fs.rmSync(tempRoot, { recursive: true, force: true });
@@ -354,18 +354,18 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'ver-old',
       createdAt: freshDate,
       updatedAt: freshDate,
-      title: 'AI OS refreshed to v0.13.0',
+      title: 'Cortex refreshed to v0.13.0',
       content: 'Refreshed to version 0.13.0 with new context docs.',
       category: 'build',
       tags: [],
       status: 'active',
-      fingerprint: 'build::ai os refreshed to v0.13.0::refreshed to version 0.13.0 with new context docs.',
+      fingerprint: 'build::cortex refreshed to v0.13.0::refreshed to version 0.13.0 with new context docs.',
     };
     tempRoot = createTempMemoryRoot([oldEntry]);
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
 
     const { rememberRepoFact } = await import('../mcp-server/utils.js');
-    const result = rememberRepoFact('AI OS refreshed to v0.16.0', 'Refreshed to version 0.16.0.', 'build');
+    const result = rememberRepoFact('Cortex refreshed to v0.16.0', 'Refreshed to version 0.16.0.', 'build');
 
     expect(result).toContain('superseding older version');
 
@@ -380,7 +380,7 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'ver-old2',
       createdAt: freshDate,
       updatedAt: freshDate,
-      title: 'AI OS refreshed to v0.12.1',
+      title: 'Cortex refreshed to v0.12.1',
       content: 'Refreshed to version 0.12.1.',
       category: 'build',
       tags: [],
@@ -391,14 +391,14 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'ver-new2',
       createdAt: freshDate,
       updatedAt: freshDate,
-      title: 'AI OS refreshed to v0.16.0',
+      title: 'Cortex refreshed to v0.16.0',
       content: 'Refreshed to version 0.16.0.',
       category: 'build',
       tags: [],
       status: 'active',
     };
     tempRoot = createTempMemoryRoot([oldEntry, newEntry]);
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
 
     const { pruneMemory } = await import('../mcp-server/utils.js');
     pruneMemory();
@@ -414,7 +414,7 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'vf1',
       createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // older
       updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      title: 'AI OS refreshed to v0.15.0',
+      title: 'Cortex refreshed to v0.15.0',
       content: 'Refreshed to 0.15.0.',
       category: 'build',
       tags: [],
@@ -424,14 +424,14 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'vf2',
       createdAt: freshDate, // newer
       updatedAt: freshDate,
-      title: 'AI OS refreshed to v0.16.0',
+      title: 'Cortex refreshed to v0.16.0',
       content: 'Refreshed to 0.16.0.',
       category: 'build',
       tags: [],
       status: 'active',
     };
     tempRoot = createTempMemoryRoot([v1, v2]);
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
 
     const { runMemoryMaintenance } = await import('../mcp-server/utils.js');
     const summary = runMemoryMaintenance();

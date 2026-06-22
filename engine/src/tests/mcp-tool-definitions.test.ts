@@ -101,7 +101,7 @@ describe('getActiveToolsForProject', () => {
 
   it('reads activeTools from new-format tools.json', () => {
     const tmpDir = path.join(os.tmpdir(), `mcp-test-new-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    const aiOsDir = path.join(tmpDir, '.github', 'ai-os');
+    const aiOsDir = path.join(tmpDir, '.github', 'cortex');
     fs.mkdirSync(aiOsDir, { recursive: true });
 
     const split = {
@@ -119,7 +119,7 @@ describe('getActiveToolsForProject', () => {
 
   it('reads all tools from legacy flat-array tools.json', () => {
     const tmpDir = path.join(os.tmpdir(), `mcp-test-legacy-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    const aiOsDir = path.join(tmpDir, '.github', 'ai-os');
+    const aiOsDir = path.join(tmpDir, '.github', 'cortex');
     fs.mkdirSync(aiOsDir, { recursive: true });
 
     const legacyTools = [

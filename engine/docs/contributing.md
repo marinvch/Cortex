@@ -1,10 +1,10 @@
-# Contributing to AI OS
+# Contributing to Cortex
 
 ## Development Setup
 
 ```bash
 git clone https://github.com/marinvch/ai-os
-cd ai-os
+cd cortex
 npm install
 npm run build
 npm test

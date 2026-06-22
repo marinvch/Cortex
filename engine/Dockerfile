@@ -1,12 +1,12 @@
-# AI OS — Docker image for Node.js-free installation
-# Usage: docker run --rm -v "$(pwd):/repo" ghcr.io/marinvch/ai-os
+# Cortex — Docker image for Node.js-free installation
+# Usage: docker run --rm -v "$(pwd):/repo" ghcr.io/marinvch/cortex
 # Or build locally:
-#   docker build -t ai-os .
-#   docker run --rm -v "$(pwd):/repo" ai-os
+#   docker build -t cortex .
+#   docker run --rm -v "$(pwd):/repo" cortex
 
 FROM node:20-alpine
 
-WORKDIR /ai-os
+WORKDIR /cortex
 
 # Install dependencies first (layer cache)
 COPY package*.json ./
@@ -18,5 +18,5 @@ COPY . .
 # Default working directory for mounted target repo
 WORKDIR /repo
 
-ENTRYPOINT ["node", "--import", "tsx/esm", "/ai-os/src/generate.ts"]
+ENTRYPOINT ["node", "--import", "tsx/esm", "/cortex/src/generate.ts"]
 CMD ["--cwd", "/repo"]

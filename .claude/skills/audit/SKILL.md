@@ -12,10 +12,10 @@ Produce a health report. **Never auto-fix** — auditability requires that you o
    If older than 14 days, flag: "current-focus is N days old — consider `/level-up`."
    Note any missing `context/*` file.
 2. **Boundary audit (gated):** run `node --version`. If present, for each project run
-   `npx ai-os --check-boundaries --cwd projects/<name>` and report any leaks (non-`project`
+   `npx cortex --check-boundaries --cwd projects/<name>` and report any leaks (non-`project`
    memory entries, missing `.gitignore` rules). If Node is absent, print the skipped command.
 3. **Per-project drift/freshness (gated):** when the engine is present, for each project run
-   `npx ai-os --check-freshness --json --cwd projects/<name>` and `npx ai-os --check-drift
+   `npx cortex --check-freshness --json --cwd projects/<name>` and `npx cortex --check-drift
    --cwd projects/<name>`. Summarize status (fresh / drifted / stale).
 4. **Memory hygiene:** report `brain/memory.jsonl` entry count and stale-entry count if the
    file exists; suggest `--compact-memory` (do not run it).

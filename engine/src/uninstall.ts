@@ -1,11 +1,11 @@
 /**
- * AI OS Uninstall
+ * Cortex Uninstall
  *
- * Removes all files that AI OS owns (per manifest.json) from the project.
+ * Removes all files that Cortex owns (per manifest.json) from the project.
  * Preserves any files listed in protect.json or that contain user-block markers.
  * Supports --dry-run mode.
  *
- * Managed directories (.ai-os/, .github/ai-os/) are removed when empty after
+ * Managed directories (.ai-os/, .github/cortex/) are removed when empty after
  * file deletion.
  */
 
@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readManifest } from './generators/utils.js';
 import { extractUserBlocks } from './user-blocks.js';
+import { CONFIG_DIR } from './brand.js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,7 +29,7 @@ export interface UninstallReport {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function readProtectedPaths(cwd: string): Set<string> {
-  const protectPath = path.join(cwd, '.github', 'ai-os', 'protect.json');
+  const protectPath = path.join(cwd, CONFIG_DIR, 'protect.json');
   if (!fs.existsSync(protectPath)) return new Set();
   try {
     const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as unknown;
@@ -86,7 +87,7 @@ export function runUninstall(cwd: string, options: { dryRun?: boolean; verbose?:
 
   const manifest = readManifest(cwd);
   if (!manifest) {
-    console.log('  ℹ️  No AI OS manifest found — nothing to uninstall.');
+    console.log('  ℹ️  No Cortex manifest found — nothing to uninstall.');
     return report;
   }
 
@@ -134,14 +135,14 @@ export function runUninstall(cwd: string, options: { dryRun?: boolean; verbose?:
     }
   }
 
-  // Also remove AI OS runtime directory and manifest itself
+  // Also remove Cortex runtime directory and manifest itself
   const managedDirs = [
-    path.join(cwd, '.github', 'ai-os', 'mcp-server'),
+    path.join(cwd, CONFIG_DIR, 'mcp-server'),
     // legacy pre-v0.22 location
     path.join(cwd, '.ai-os', 'mcp-server'),
     path.join(cwd, '.ai-os'),
   ];
-  const manifestPath = path.join(cwd, '.github', 'ai-os', 'manifest.json');
+  const manifestPath = path.join(cwd, CONFIG_DIR, 'manifest.json');
 
   if (!dryRun) {
     for (const dir of managedDirs) {
@@ -160,14 +161,14 @@ export function runUninstall(cwd: string, options: { dryRun?: boolean; verbose?:
     try {
       if (fs.existsSync(manifestPath)) {
         fs.unlinkSync(manifestPath);
-        if (verbose) console.log(`  🗑️  removed    .github/ai-os/manifest.json`);
+        if (verbose) console.log(`  🗑️  removed    .github/cortex/manifest.json`);
       }
     } catch { /* ignore */ }
 
     // Prune empty managed directories
     const dirsToCheck = [
       ...Array.from(affectedDirs),
-      path.join(cwd, '.github', 'ai-os'),
+      path.join(cwd, CONFIG_DIR),
       path.join(cwd, '.github', 'agents'),
       path.join(cwd, '.github', 'copilot', 'skills'),
       path.join(cwd, '.github', 'copilot'),
@@ -183,7 +184,7 @@ export function formatUninstallReport(report: UninstallReport): string {
   const lines: string[] = [];
   const mode = report.dryRun ? ' [DRY RUN]' : '';
 
-  lines.push(`\n  ✅ AI OS uninstall complete${mode}`);
+  lines.push(`\n  ✅ Cortex uninstall complete${mode}`);
   lines.push(`     Removed:   ${report.removed.length} file(s)`);
   if (report.skipped.length > 0) lines.push(`     Skipped:   ${report.skipped.length} file(s)  (user content preserved)`);
   if (report.notFound.length > 0) lines.push(`     Not found: ${report.notFound.length} file(s)`);

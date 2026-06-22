@@ -10,6 +10,7 @@ import {
   computeFreshnessReport,
   formatFreshnessReport,
 } from '../detectors/freshness.js';
+import { CONFIG_DIR } from '../brand.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -26,12 +27,12 @@ function writeFile(root: string, rel: string, content: string): void {
 }
 
 function seedAiOsArtifacts(root: string): void {
-  writeFile(root, '.github/ai-os/context/conventions.md', '# Conventions\n\nsome rules');
-  writeFile(root, '.github/ai-os/context/architecture.md', '# Architecture\n\noverview');
-  writeFile(root, '.github/ai-os/context/stack.md', '# Stack\n\nnodejs');
+  writeFile(root, '.github/cortex/context/conventions.md', '# Conventions\n\nsome rules');
+  writeFile(root, '.github/cortex/context/architecture.md', '# Architecture\n\noverview');
+  writeFile(root, '.github/cortex/context/stack.md', '# Stack\n\nnodejs');
   writeFile(root, '.github/copilot-instructions.md', '# Instructions\n\nrules');
-  writeFile(root, '.github/ai-os/config.json', JSON.stringify({ version: '0.10.0', installedAt: '2025-01-01T00:00:00Z' }));
-  writeFile(root, '.github/ai-os/tools.json', JSON.stringify({ activeTools: [], availableButInactive: [] }));
+  writeFile(root, '.github/cortex/config.json', JSON.stringify({ version: '0.10.0', installedAt: '2025-01-01T00:00:00Z' }));
+  writeFile(root, '.github/cortex/tools.json', JSON.stringify({ activeTools: [], availableButInactive: [] }));
   writeFile(root, 'package.json', JSON.stringify({ name: 'test', version: '1.0.0' }));
 }
 
@@ -54,16 +55,16 @@ describe('captureContextSnapshot', () => {
 
     expect(snapshot.aiOsVersion).toBe('0.10.0');
     expect(snapshot.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(snapshot.artifactHashes['.github/ai-os/context/conventions.md']).toBeTruthy();
+    expect(snapshot.artifactHashes['.github/cortex/context/conventions.md']).toBeTruthy();
     expect(snapshot.artifactHashes['.github/copilot-instructions.md']).toBeTruthy();
-    expect(snapshot.artifactHashes['.github/ai-os/config.json']).toBeTruthy();
+    expect(snapshot.artifactHashes['.github/cortex/config.json']).toBeTruthy();
   });
 
   it('records MISSING for non-existent artifact files', () => {
     // Remove one file
-    fs.rmSync(path.join(tmpDir, '.github/ai-os/context/architecture.md'));
+    fs.rmSync(path.join(tmpDir, '.github/cortex/context/architecture.md'));
     const snapshot = captureContextSnapshot(tmpDir, '0.10.0');
-    expect(snapshot.artifactHashes['.github/ai-os/context/architecture.md']).toBe('MISSING');
+    expect(snapshot.artifactHashes['.github/cortex/context/architecture.md']).toBe('MISSING');
   });
 
   it('captures source hashes for existing config files', () => {
@@ -94,7 +95,7 @@ describe('writeContextSnapshot / loadContextSnapshot', () => {
     const snapshot = {
       capturedAt: '2025-01-01T00:00:00.000Z',
       aiOsVersion: '0.10.0',
-      artifactHashes: { '.github/ai-os/config.json': 'abc123' },
+      artifactHashes: { '.github/cortex/config.json': 'abc123' },
       sourceHashes: { 'package.json': 'def456' },
       trackedFileCount: 5,
     };
@@ -104,7 +105,7 @@ describe('writeContextSnapshot / loadContextSnapshot', () => {
 
     expect(loaded).not.toBeNull();
     expect(loaded?.aiOsVersion).toBe('0.10.0');
-    expect(loaded?.artifactHashes['.github/ai-os/config.json']).toBe('abc123');
+    expect(loaded?.artifactHashes['.github/cortex/config.json']).toBe('abc123');
     expect(loaded?.sourceHashes['package.json']).toBe('def456');
   });
 
@@ -114,8 +115,8 @@ describe('writeContextSnapshot / loadContextSnapshot', () => {
   });
 
   it('returns null for corrupted snapshot file', () => {
-    fs.mkdirSync(path.join(tmpDir, '.github', 'ai-os'), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, '.github', 'ai-os', 'context-snapshot.json'), '{ invalid json', 'utf-8');
+    fs.mkdirSync(path.join(tmpDir, CONFIG_DIR), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, CONFIG_DIR, 'context-snapshot.json'), '{ invalid json', 'utf-8');
     const loaded = loadContextSnapshot(tmpDir);
     expect(loaded).toBeNull();
   });
@@ -156,11 +157,11 @@ describe('computeFreshnessReport', () => {
     writeContextSnapshot(tmpDir, snapshot);
 
     // Modify a context artifact
-    writeFile(tmpDir, '.github/ai-os/context/conventions.md', '# Conventions\n\nupdated rules');
+    writeFile(tmpDir, '.github/cortex/context/conventions.md', '# Conventions\n\nupdated rules');
 
     const report = computeFreshnessReport(tmpDir);
     expect(report.status).not.toBe('fresh');
-    expect(report.staleArtifacts).toContain('.github/ai-os/context/conventions.md');
+    expect(report.staleArtifacts).toContain('.github/cortex/context/conventions.md');
   });
 
   it('detects changed source file when package.json is updated', () => {
@@ -178,8 +179,8 @@ describe('computeFreshnessReport', () => {
     const snapshot = captureContextSnapshot(tmpDir, '0.10.0');
     writeContextSnapshot(tmpDir, snapshot);
     // Corrupt several artifacts
-    writeFile(tmpDir, '.github/ai-os/context/conventions.md', 'changed');
-    writeFile(tmpDir, '.github/ai-os/context/architecture.md', 'changed');
+    writeFile(tmpDir, '.github/cortex/context/conventions.md', 'changed');
+    writeFile(tmpDir, '.github/cortex/context/architecture.md', 'changed');
     writeFile(tmpDir, 'package.json', '{ "changed": true }');
 
     const report = computeFreshnessReport(tmpDir);
@@ -217,12 +218,12 @@ describe('formatFreshnessReport', () => {
     seedAiOsArtifacts(tmpDir);
     const snapshot = captureContextSnapshot(tmpDir, '0.10.0');
     writeContextSnapshot(tmpDir, snapshot);
-    writeFile(tmpDir, '.github/ai-os/context/conventions.md', 'modified');
+    writeFile(tmpDir, '.github/cortex/context/conventions.md', 'modified');
 
     const report = computeFreshnessReport(tmpDir);
     const formatted = formatFreshnessReport(report);
     expect(formatted).toContain('Stale Context Artifacts');
-    expect(formatted).toContain('.github/ai-os/context/conventions.md');
+    expect(formatted).toContain('.github/cortex/context/conventions.md');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

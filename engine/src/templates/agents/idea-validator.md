@@ -22,9 +22,9 @@ Validate each item in the Feature Enhancement Advisor report against actual code
 
 ## Context Sources
 
-- Architecture: `.github/ai-os/context/architecture.md`
-- Stack: `.github/ai-os/context/stack.md`
-- Conventions: `.github/ai-os/context/conventions.md`
+- Architecture: `.github/cortex/context/architecture.md`
+- Stack: `.github/cortex/context/stack.md`
+- Conventions: `.github/cortex/context/conventions.md`
 
 ## Stack
 

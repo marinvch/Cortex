@@ -24,9 +24,9 @@ Explore and explain the **{{PROJECT_NAME}}** codebase accurately. Answer questio
 
 ## How to Find Things
 
-- **Architecture overview:** `.github/ai-os/context/architecture.md`
-- **Full tech stack:** `.github/ai-os/context/stack.md`
-- **Coding conventions:** `.github/ai-os/context/conventions.md`
+- **Architecture overview:** `.github/cortex/context/architecture.md`
+- **Full tech stack:** `.github/cortex/context/stack.md`
+- **Coding conventions:** `.github/cortex/context/conventions.md`
 - **Key files by tier:** See `stack.md` → Key Files section
 
 ## Common Exploration Patterns

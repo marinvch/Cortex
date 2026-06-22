@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from './shared.js';
+import { CONFIG_DIR } from '../brand.js';
 import type { IntentType, IntentResult, BoostPromptResult, ClarifyingQuestion } from '../types.js';
 import { deriveSpecPrefix } from '../generators/spec-parser.js';
 
@@ -310,7 +311,7 @@ export function boostPrompt(prompt: string, activeFile?: string): BoostPromptRes
 
 /** Reads the project repo-index.jsonl if it exists; returns null otherwise. */
 export function readRepoIndex(projectRoot: string): string | null {
-  const indexPath = path.join(projectRoot, '.github', 'ai-os', 'context', 'repo-index.jsonl');
+  const indexPath = path.join(projectRoot, CONFIG_DIR, 'context', 'repo-index.jsonl');
   try {
     if (fs.existsSync(indexPath)) return fs.readFileSync(indexPath, 'utf-8');
   } catch { /* ignore */ }

@@ -1,6 +1,6 @@
 /**
  * memory.ts — repo-memory store and hygiene for AI OS MCP server.
- * Manages .github/ai-os/memory/memory.jsonl.
+ * Manages .github/cortex/memory/memory.jsonl.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import {
   withMemoryLock,
   writeTextAtomic,
 } from './shared.js';
+import { CONFIG_DIR } from '../brand.js';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -62,11 +63,11 @@ function normalizeMemoryText(value: string): string {
 
 /**
  * Read memory-related config values (TTL, near-duplicate threshold) from
- * .github/ai-os/config.json. Falls back to safe defaults if the file is
+ * .github/cortex/config.json. Falls back to safe defaults if the file is
  * absent or the values are invalid.
  */
 function readMemoryConfig(): { ttlDays: number; nearDuplicateThreshold: number } {
-  const configPath = path.join(ROOT, '.github', 'ai-os', 'config.json');
+  const configPath = path.join(ROOT, CONFIG_DIR, 'config.json');
   try {
     const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
     const ttlDays =
@@ -109,7 +110,7 @@ function buildMemoryKey(entry: Pick<RepoMemoryEntry, 'title' | 'category'>): str
   return `${normalizeMemoryText(entry.category)}::${normalizeMemoryText(entry.title)}`;
 }
 
-/** Version-family key: strips semver tokens so "AI OS refreshed to v0.16.0" and "AI OS refreshed to v0.13.0" share the same family key. */
+/** Version-family key: strips semver tokens so "Cortex refreshed to v0.16.0" and "Cortex refreshed to v0.13.0" share the same family key. */
 function buildVersionFamilyKey(entry: Pick<RepoMemoryEntry, 'title' | 'category'>): string {
   const versionlessTitle = normalizeMemoryText(entry.title).replace(/v\d+\.\d+(?:\.\d+)?(?:-[\w.]+)*/g, '{version}');
   return `${normalizeMemoryText(entry.category)}::${versionlessTitle}`;
@@ -199,7 +200,7 @@ function applyStalePolicy(entries: RepoMemoryEntry[], ttlDays?: number): RepoMem
     }
   }
 
-  // Also supersede across version-family groups (e.g. "AI OS refreshed to v0.13.0" vs "v0.16.0").
+  // Also supersede across version-family groups (e.g. "Cortex refreshed to v0.13.0" vs "v0.16.0").
   // Groups entries with different exact keys that share the same version-family key and marks
   // all but the most recent active entry stale — enabling pruneMemory() to clean them up.
   const byFamilyKey = new Map<string, RepoMemoryEntry[]>();
@@ -340,7 +341,7 @@ function recoverMalformedMemoryIfNeeded(result: MemoryReadResult): void {
 
 export function getMemoryGuidelines(): string {
   const guidelines = readAiOsFile('context/memory.md');
-  return guidelines || 'No memory guidelines found. Re-run AI OS generation to create .github/ai-os/context/memory.md.';
+  return guidelines || 'No memory guidelines found. Re-run AI OS generation to create .github/cortex/context/memory.md.';
 }
 
 export function getRepoMemory(query?: string, category?: string, limit?: number): string {
@@ -457,7 +458,7 @@ export function rememberRepoFact(title: string, content: string, category?: stri
         incoming.conflictWithId = currentActive.id;
       }
 
-      // Supersede entries whose titles share the same version-family (e.g. "AI OS refreshed to v0.13.0" → v0.16.0)
+      // Supersede entries whose titles share the same version-family (e.g. "Cortex refreshed to v0.13.0" → v0.16.0)
       let versionFamilySuperseded = false;
       if (!currentActive) {
         const incomingFamilyKey = buildVersionFamilyKey(incoming);
@@ -508,7 +509,7 @@ export function syncHostedMemory(): string {
     '## Sync Hosted Memory → memory.jsonl',
     '',
     'This tool cannot access Copilot\'s hosted memory directly.',
-    'Follow these steps to mirror durable facts into `.github/ai-os/memory/memory.jsonl`:',
+    'Follow these steps to mirror durable facts into `.github/cortex/memory/memory.jsonl`:',
     '',
     '1. Review your current hosted/in-context memory for facts about this project.',
     '2. For each fact not already in `memory.jsonl` (listed below), call `remember_repo_fact`.',

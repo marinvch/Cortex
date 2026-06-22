@@ -8,4 +8,4 @@ Produce a structured feature brief:
 - **Constraints**: Tech, time, compatibility, or security limits
 - **Success Criteria**: Measurable conditions that confirm the feature is complete
 - **Risks**: Known unknowns and mitigation ideas
-Reference the architecture in .github/ai-os/context/architecture.md and conventions in .github/ai-os/context/conventions.md to identify integration points.
+Reference the architecture in .github/cortex/context/architecture.md and conventions in .github/cortex/context/conventions.md to identify integration points.

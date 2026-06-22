@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { createHash } from 'node:crypto';
+import { CONFIG_DIR } from '../brand.js';
 
 function globFiles(pattern: { dir: string; ext: string }, cwd: string): string[] {
   const absDir = join(cwd, pattern.dir);
@@ -36,7 +37,7 @@ export interface DriftReport {
 const REQUIRED_FILES: Array<{ path: string; description: string }> = [
   { path: '.github/copilot-instructions.md', description: 'Main Copilot instructions file' },
   { path: '.github/COPILOT_CONTEXT.md', description: 'Session context card' },
-  { path: '.github/ai-os/config.json', description: 'AI OS configuration' },
+  { path: `${CONFIG_DIR}/config.json`, description: 'Cortex configuration' },
 ];
 
 const SNAPSHOT_MAX_AGE_DAYS = 7;
@@ -48,7 +49,7 @@ const FIX_CMD = 'npx -y github:marinvch/ai-os --refresh-existing';
  * 2. agents.json agent count should match actual .agent.md file count
  */
 function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
-  const configPath = join(cwd, '.github/ai-os/config.json');
+  const configPath = join(cwd, CONFIG_DIR, 'config.json');
   const instrPath = join(cwd, '.github/copilot-instructions.md');
 
   if (existsSync(configPath) && existsSync(instrPath)) {
@@ -75,7 +76,7 @@ function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
   }
 
   // Check agent count via existing-ai-context.md instead of agents.json (#231)
-  const existingContextPath = join(cwd, '.github/ai-os/context/existing-ai-context.md');
+  const existingContextPath = join(cwd, CONFIG_DIR, 'context/existing-ai-context.md');
   if (existsSync(existingContextPath)) {
     try {
       const contextContent = readFileSync(existingContextPath, 'utf8');
@@ -86,7 +87,7 @@ function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
 
       if (recordedCount !== null && recordedCount !== fileCount) {
         warnings.push({
-          path: '.github/ai-os/context/existing-ai-context.md',
+          path: `${CONFIG_DIR}/context/existing-ai-context.md`,
           kind: 'semantic-mismatch',
           severity: 'warning',
           message: `existing-ai-context.md records ${recordedCount} agent(s) but ${fileCount} .agent.md file(s) found in .github/agents/ — run refresh to sync`,
@@ -110,7 +111,7 @@ function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
               const fwLabelMatch = mermaidBlock.match(/Fw\["([^"]+)"\]/);
               if (fwLabelMatch && !fwLabelMatch[1].toLowerCase().includes(config.primaryFramework.toLowerCase())) {
                 warnings.push({
-                  path: '.github/ai-os/context/existing-ai-context.md',
+                  path: `${CONFIG_DIR}/context/existing-ai-context.md`,
                   kind: 'semantic-mismatch',
                   severity: 'warning',
                   message: `Mermaid diagram Fw label "${fwLabelMatch[1]}" does not include primary framework "${config.primaryFramework}" from config.json — diagram may be stale`,
@@ -123,7 +124,7 @@ function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
               const langLabelMatch = mermaidBlock.match(/Lang\["([^"]+)"\]/);
               if (langLabelMatch && !langLabelMatch[1].toLowerCase().includes(config.primaryLanguage.toLowerCase())) {
                 warnings.push({
-                  path: '.github/ai-os/context/existing-ai-context.md',
+                  path: `${CONFIG_DIR}/context/existing-ai-context.md`,
                   kind: 'semantic-mismatch',
                   severity: 'warning',
                   message: `Mermaid diagram Lang label "${langLabelMatch[1]}" does not include primary language "${config.primaryLanguage}" from config.json — diagram may be stale`,
@@ -210,7 +211,7 @@ export function detectDrift(cwd: string): DriftReport {
   }
 
   // 4. Context snapshot age
-  const snapshotPath = '.github/ai-os/context-snapshot.json';
+  const snapshotPath = `${CONFIG_DIR}/context-snapshot.json`;
   const snapshotAbs = join(cwd, snapshotPath);
   if (existsSync(snapshotAbs)) {
     try {
@@ -281,7 +282,7 @@ export function detectDrift(cwd: string): DriftReport {
   }
 
   // 7. Skill version integrity — compare hashes stored in config.json with live files
-  const configPath = join(cwd, '.github/ai-os/config.json');
+  const configPath = join(cwd, CONFIG_DIR, 'config.json');
   if (existsSync(configPath)) {
     try {
       const cfg = JSON.parse(readFileSync(configPath, 'utf8')) as { skillVersions?: Record<string, string> };
@@ -337,12 +338,12 @@ export function detectDrift(cwd: string): DriftReport {
 
 export function formatDriftReport(report: DriftReport, verbose = false): string {
   const lines: string[] = [
-    `## AI OS Drift Report — ${new Date(report.scannedAt).toLocaleString()}`,
+    `## Cortex Drift Report — ${new Date(report.scannedAt).toLocaleString()}`,
     '',
   ];
 
   if (report.totalIssues === 0) {
-    lines.push('✅ All AI OS artifacts are healthy — no drift detected.');
+    lines.push('✅ All Cortex artifacts are healthy — no drift detected.');
     if (verbose && report.healthy.length > 0) {
       lines.push('');
       lines.push(`Healthy files (${report.healthy.length}):`);

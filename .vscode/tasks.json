@@ -2,40 +2,40 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "ai-os: test",
+      "label": "cortex: test",
       "type": "shell",
       "command": "npm",
       "args": ["test"],
       "group": "test"
     },
     {
-      "label": "ai-os: build",
+      "label": "cortex: build",
       "type": "shell",
       "command": "npm",
       "args": ["run", "build"],
       "group": "build"
     },
     {
-      "label": "ai-os: validate",
+      "label": "cortex: validate",
       "type": "shell",
       "command": "npm",
       "args": ["run", "validate"]
     },
     {
-      "label": "ai-os: smoke",
+      "label": "cortex: smoke",
       "type": "shell",
       "command": "npm",
       "args": ["run", "validate:smoke"]
     },
     {
-      "label": "ai-os: scorecard-check",
+      "label": "cortex: scorecard-check",
       "type": "shell",
       "command": "npm",
       "args": ["run", "scorecard:check"]
     },
     {
-      "label": "ai-os: quality-check",
-      "dependsOn": ["ai-os: test", "ai-os: build", "ai-os: scorecard-check"],
+      "label": "cortex: quality-check",
+      "dependsOn": ["cortex: test", "cortex: build", "cortex: scorecard-check"],
       "dependsOrder": "sequence",
       "problemMatcher": []
     }

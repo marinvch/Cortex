@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { CONFIG_DIR } from './brand.js';
 
 export type PlannedActionType = 'create' | 'update' | 'merge' | 'skip' | 'preserve';
 
@@ -15,7 +16,7 @@ export type FileCategory = 'tooling' | 'context' | 'custom-artifact';
 
 export interface OnboardingPlan {
   targetDir: string;
-  detectedRepoType: 'new' | 'existing-ai-os' | 'existing-non-ai-os';
+  detectedRepoType: 'new' | 'existing-cortex' | 'existing-non-cortex';
   mode: 'safe' | 'refresh-existing' | 'update';
   actions: PlannedAction[];
 }
@@ -25,9 +26,9 @@ function exists(root: string, relPath: string): boolean {
 }
 
 function detectRepoType(targetDir: string): OnboardingPlan['detectedRepoType'] {
-  if (exists(targetDir, '.github/ai-os/config.json') || exists(targetDir, '.ai-os/config.json')) return 'existing-ai-os';
+  if (exists(targetDir, `${CONFIG_DIR}/config.json`) || exists(targetDir, '.ai-os/config.json')) return 'existing-cortex';
   if (exists(targetDir, '.github/copilot-instructions.md') || exists(targetDir, '.github/copilot/prompts.json')) {
-    return 'existing-non-ai-os';
+    return 'existing-non-cortex';
   }
   return 'new';
 }
@@ -38,8 +39,8 @@ function detectRepoType(targetDir: string): OnboardingPlan['detectedRepoType'] {
  */
 const CONTEXT_FILE_PATHS = new Set([
   '.github/copilot-instructions.md',
-  '.github/ai-os/context/architecture.md',
-  '.github/ai-os/context/conventions.md',
+  `${CONFIG_DIR}/context/architecture.md`,
+  `${CONFIG_DIR}/context/conventions.md`,
 ]);
 
 function decideAction(
@@ -102,23 +103,23 @@ export function buildOnboardingPlan(
 
   // Core artifacts
   actions.push(decideAction(targetDir, '.github/copilot-instructions.md', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/instructions/ai-os.instructions.md', mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, '.github/instructions/cortex.instructions.md', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, '.mcp.json', mode, 'always-overwrite', preserveContextFiles));
   actions.push(decideAction(targetDir, '.vscode/mcp.json', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/tools.json', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/mcp-server/runtime-manifest.json', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/context/stack.md', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/context/architecture.md', mode, 'safe-merge', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/context/conventions.md', mode, 'safe-merge', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/context/memory.md', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/context/existing-ai-context.md', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/context/dependency-graph.json', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/config.json', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/manifest.json', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/memory/README.md', mode, 'safe-merge', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/memory/memory.jsonl', mode, 'safe-merge', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/tools.json`, mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/mcp-server/runtime-manifest.json`, mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/stack.md`, mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/architecture.md`, mode, 'safe-merge', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/conventions.md`, mode, 'safe-merge', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/memory.md`, mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/existing-ai-context.md`, mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/dependency-graph.json`, mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/config.json`, mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/manifest.json`, mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/memory/README.md`, mode, 'safe-merge', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/memory/memory.jsonl`, mode, 'safe-merge', preserveContextFiles));
   actions.push(decideAction(targetDir, '.github/COPILOT_CONTEXT.md', mode, 'always-overwrite', preserveContextFiles));
-  actions.push(decideAction(targetDir, '.github/ai-os/recommendations.md', mode, 'always-overwrite', preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/recommendations.md`, mode, 'always-overwrite', preserveContextFiles));
 
   // Generated collections
   actions.push(decideAction(targetDir, '.github/agents/', mode, 'safe-merge', preserveContextFiles));

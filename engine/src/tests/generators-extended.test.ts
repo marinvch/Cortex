@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import type { DetectedStack } from '../types.js';
+import { CONFIG_DIR } from '../brand.js';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -54,7 +55,7 @@ describe('generateWorkflows', () => {
     const { generateWorkflows } = await import('../generators/workflows.js');
     const files = generateWorkflows(tmp);
     expect(files).toHaveLength(1);
-    expect(files[0]).toContain('ai-os-update-check.yml');
+    expect(files[0]).toContain('cortex-update-check.yml');
     expect(fs.existsSync(files[0])).toBe(true);
   });
 
@@ -107,13 +108,13 @@ describe('writeMcpServerConfig', () => {
   beforeEach(() => { tmp = mkTmp(); });
   afterEach(() => rmTmp(tmp));
 
-  it('creates .vscode/mcp.json with ai-os server entry', async () => {
+  it('creates .vscode/mcp.json with cortex server entry', async () => {
     const { writeMcpServerConfig } = await import('../generators/mcp.js');
     const outPath = writeMcpServerConfig(tmp);
     expect(outPath).toContain('mcp.json');
     const content = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
-    expect(content.servers['ai-os']).toBeDefined();
-    expect(content.servers['ai-os'].type).toBe('stdio');
+    expect(content.servers['cortex']).toBeDefined();
+    expect(content.servers['cortex'].type).toBe('stdio');
   });
 
   it('preserves existing servers when updating', async () => {
@@ -127,15 +128,15 @@ describe('writeMcpServerConfig', () => {
     writeMcpServerConfig(tmp);
     const content = JSON.parse(fs.readFileSync(path.join(mcpDir, 'mcp.json'), 'utf-8'));
     expect(content.servers['my-server']).toBeDefined();
-    expect(content.servers['ai-os']).toBeDefined();
+    expect(content.servers['cortex']).toBeDefined();
   });
 
   it('uses custom command and args when provided', async () => {
     const { writeMcpServerConfig } = await import('../generators/mcp.js');
     writeMcpServerConfig(tmp, { command: '/usr/bin/node', args: ['/custom/path/server.js'] });
     const content = JSON.parse(fs.readFileSync(path.join(tmp, '.vscode', 'mcp.json'), 'utf-8'));
-    expect(content.servers['ai-os'].command).toBe('/usr/bin/node');
-    expect(content.servers['ai-os'].args).toContain('/custom/path/server.js');
+    expect(content.servers['cortex'].command).toBe('/usr/bin/node');
+    expect(content.servers['cortex'].args).toContain('/custom/path/server.js');
   });
 });
 
@@ -157,7 +158,7 @@ describe('generateMcpJson', () => {
     const { generateMcpJson } = await import('../generators/mcp.js');
     const stack = minimalStack();
     generateMcpJson(stack, tmp);
-    const toolsPath = path.join(tmp, '.github', 'ai-os', 'tools.json');
+    const toolsPath = path.join(tmp, CONFIG_DIR, 'tools.json');
     const content = JSON.parse(fs.readFileSync(toolsPath, 'utf-8'));
     // Strict mode (default) produces split object with activeTools
     expect(content.activeTools).toBeDefined();
@@ -189,7 +190,7 @@ describe('generateMcpJson', () => {
         exclude: [],
       },
     });
-    const toolsPath = path.join(tmp, '.github', 'ai-os', 'tools.json');
+    const toolsPath = path.join(tmp, CONFIG_DIR, 'tools.json');
     const content = JSON.parse(fs.readFileSync(toolsPath, 'utf-8'));
     // Legacy mode produces a flat array
     expect(Array.isArray(content)).toBe(true);
@@ -299,11 +300,11 @@ describe('user-overridable agent templates (#183)', () => {
   beforeEach(() => { tmp = mkTmp(); });
   afterEach(() => rmTmp(tmp));
 
-  it('uses custom override template when present in .github/ai-os/templates/agents/', async () => {
+  it('uses custom override template when present in .github/cortex/templates/agents/', async () => {
     const { generateAgents } = await import('../generators/agents.js');
 
     // Place a custom override for framework-expert template
-    const overrideDir = path.join(tmp, '.github', 'ai-os', 'templates', 'agents');
+    const overrideDir = path.join(tmp, CONFIG_DIR, 'templates', 'agents');
     fs.mkdirSync(overrideDir, { recursive: true });
     fs.writeFileSync(path.join(overrideDir, 'framework-expert.md'), [
       '---',
@@ -342,7 +343,7 @@ describe('user-overridable agent templates (#183)', () => {
     const { generateAgents } = await import('../generators/agents.js');
     const warnSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
-    const overrideDir = path.join(tmp, '.github', 'ai-os', 'templates', 'agents');
+    const overrideDir = path.join(tmp, CONFIG_DIR, 'templates', 'agents');
     fs.mkdirSync(overrideDir, { recursive: true });
     fs.writeFileSync(path.join(overrideDir, 'framework-expert.md'), [
       '---',

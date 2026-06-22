@@ -58,12 +58,12 @@ describe('base-instructions.md token slimming', () => {
   });
 });
 
-describe('ai-os.instructions.md is lean', () => {
+describe('cortex.instructions.md is lean', () => {
   it('does not duplicate the MCP tool quick-reference list', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-instr-'));
     generateInstructions(fakeStack(), dir, {});
     const out = fs.readFileSync(
-      path.join(dir, '.github', 'instructions', 'ai-os.instructions.md'), 'utf-8');
+      path.join(dir, '.github', 'instructions', 'cortex.instructions.md'), 'utf-8');
     expect(out).not.toContain('**Quick reference:**');
     expect(out).toContain('## Value Mode');
   });

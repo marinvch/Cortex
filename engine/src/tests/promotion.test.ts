@@ -6,10 +6,10 @@ import * as path from 'node:path';
 let brain: string;
 beforeEach(() => {
   brain = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-brain-'));
-  process.env['AI_OS_PERSONAL_ROOT'] = brain;
+  process.env['CORTEX_PERSONAL_ROOT'] = brain;
 });
 afterEach(() => {
-  delete process.env['AI_OS_PERSONAL_ROOT'];
+  delete process.env['CORTEX_PERSONAL_ROOT'];
   fs.rmSync(brain, { recursive: true, force: true });
 });
 
@@ -34,7 +34,7 @@ describe('promoteToBrain', () => {
   });
 
   it('refuses when no personal brain path is configured', async () => {
-    delete process.env['AI_OS_PERSONAL_ROOT'];
+    delete process.env['CORTEX_PERSONAL_ROOT'];
     const { promoteToBrain } = await import('../mcp-server/promotion.js');
     const out = promoteToBrain({ title: 'X', content: 'Y', sanitized_confirmed: true });
     expect(out).toMatch(/no personal brain/i);
@@ -59,13 +59,13 @@ describe('promoteToBrain', () => {
   });
 
   it('promotes using config.personalBrainPath when env var is unset', async () => {
-    delete process.env['AI_OS_PERSONAL_ROOT'];
+    delete process.env['CORTEX_PERSONAL_ROOT'];
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-cfgbrain-'));
-    process.env['AI_OS_ROOT'] = root;
-    fs.mkdirSync(path.join(root, '.github', 'ai-os'), { recursive: true });
+    process.env['CORTEX_ROOT'] = root;
+    fs.mkdirSync(path.join(root, '.github', 'cortex'), { recursive: true });
     const cfgBrain = path.join(root, 'mybrain');
     fs.writeFileSync(
-      path.join(root, '.github', 'ai-os', 'config.json'),
+      path.join(root, '.github', 'cortex', 'config.json'),
       JSON.stringify({ personalBrainPath: cfgBrain }),
     );
     vi.resetModules();
@@ -73,7 +73,7 @@ describe('promoteToBrain', () => {
     const out = promoteToBrain({ title: 'X', content: 'Y', sanitized_confirmed: true });
     expect(out).toMatch(/promoted/i);
     expect(fs.existsSync(path.join(cfgBrain, 'brain', 'memory.jsonl'))).toBe(true);
-    delete process.env['AI_OS_ROOT'];
+    delete process.env['CORTEX_ROOT'];
     fs.rmSync(root, { recursive: true, force: true });
   });
 });

@@ -94,9 +94,9 @@ export type InstallProfile = 'minimal' | 'standard' | 'full';
 /** Which data domain a memory entry / config belongs to (encapsulation model). */
 export type MemoryDomain = 'project' | 'personal' | 'shared';
 
-/** User-editable + auto-detected config written to .github/ai-os/config.json */
+/** User-editable + auto-detected config written to .github/cortex/config.json */
 export interface AiOsConfig {
-  /** AI OS version that wrote this config */
+  /** Cortex version that wrote this config */
   version: string;
   installedAt: string;
   projectName: string;
@@ -132,7 +132,7 @@ export interface AiOsConfig {
   /**
    * How to handle the sequential agent flow (Enhancement Advisor → Idea Validator → Implementation Agent).
    * - 'create'  : generate all three agents (default for new installs)
-   * - 'hook'    : print a guide for connecting ai-os to existing agents instead of creating new ones
+   * - 'hook'    : print a guide for connecting Cortex to existing agents instead of creating new ones
    * - 'skip'    : do not generate sequential agents
    */
   agentFlowMode?: 'create' | 'hook' | 'skip';
@@ -175,7 +175,7 @@ export interface AiOsConfig {
   skillVersions?: Record<string, string>;
   /**
    * Allow run_tests, run_lint, and run_build MCP tools to execute shell commands.
-   * Default: false (must be explicitly enabled or set AI_OS_ALLOW_RUN_TOOLS=1).
+   * Default: false (must be explicitly enabled or set CORTEX_ALLOW_RUN_TOOLS=1).
    */
   allowRunTools?: boolean;
   /**
@@ -356,7 +356,7 @@ export interface BoostPromptResult {
   confirmationMessage?: string;
 }
 
-/** The full agent registry written to .github/ai-os/agents.json */
+/** The full agent registry written to .github/cortex/agents.json */
 export interface AgentRegistry {
   version: '1';
   generatedAt: string;

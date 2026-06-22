@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  AI OS Installer — Portable Copilot Context Engine
+#  Cortex Installer — Portable Copilot Context Engine
 #  Install on any repository with: bash install.sh
 #  Requires: git bash, Node.js >= 20
 # =============================================================================
@@ -27,7 +27,7 @@ RESET='\033[0m'
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}${BOLD}  ╔═══════════════════════════════════╗${RESET}"
-echo -e "${CYAN}${BOLD}  ║          AI OS  v${AIOS_BANNER_VERSION}           ║${RESET}"
+echo -e "${CYAN}${BOLD}  ║          Cortex  v${AIOS_BANNER_VERSION}           ║${RESET}"
 echo -e "${CYAN}${BOLD}  ║  Portable Copilot Context Engine  ║${RESET}"
 echo -e "${CYAN}${BOLD}  ╚═══════════════════════════════════╝${RESET}"
 echo ""
@@ -107,15 +107,15 @@ echo ""
 
 # ── Uninstall mode (#12) ─────────────────────────────────────────────────────
 if [[ "$UNINSTALL" == "true" ]]; then
-  MANIFEST="$TARGET_DIR/.github/ai-os/manifest.json"
+  MANIFEST="$TARGET_DIR/.github/cortex/manifest.json"
   if [[ ! -f "$MANIFEST" ]]; then
-    echo -e "  ${YELLOW}⚠ No AI OS manifest found at $MANIFEST${RESET}"
+    echo -e "  ${YELLOW}⚠ No Cortex manifest found at $MANIFEST${RESET}"
     echo -e "  ${YELLOW}  Nothing to uninstall (or files were removed manually).${RESET}"
     exit 0
   fi
 
-  echo -e "  ${YELLOW}${BOLD}AI OS Uninstall${RESET}"
-  echo -e "  This will remove all files tracked in the AI OS manifest:"
+  echo -e "  ${YELLOW}${BOLD}Cortex Uninstall${RESET}"
+  echo -e "  This will remove all files tracked in the Cortex manifest:"
   echo -e "  ${CYAN}$MANIFEST${RESET}"
   echo ""
 
@@ -157,14 +157,14 @@ if [[ "$UNINSTALL" == "true" ]]; then
   # Remove .memory.lock gitignore entry if present
   GITIGNORE="$TARGET_DIR/.gitignore"
   if [[ -f "$GITIGNORE" ]]; then
-    # Remove AI OS gitignore lines using sed (cross-platform)
-    sed -i.bak '/^# AI OS/d; /^\.ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/memory\/.memory\.lock$/d' "$GITIGNORE"
+    # Remove Cortex gitignore lines using sed (cross-platform)
+    sed -i.bak '/^# Cortex/d; /^\.ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/mcp-server\/node_modules$/d; /^\.github\/ai-os\/memory\/.memory\.lock$/d' "$GITIGNORE"
     rm -f "$GITIGNORE.bak"
-    echo -e "  ${GREEN}✓ Cleaned AI OS entries from .gitignore${RESET}"
+    echo -e "  ${GREEN}✓ Cleaned Cortex entries from .gitignore${RESET}"
   fi
 
   echo ""
-  echo -e "  ${GREEN}${BOLD}AI OS uninstalled.${RESET} MCP runtime (.ai-os/mcp-server/) was not removed."
+  echo -e "  ${GREEN}${BOLD}Cortex uninstalled.${RESET} MCP runtime (.ai-os/mcp-server/) was not removed."
   echo -e "  ${YELLOW}Tip:${RESET} Remove .ai-os/mcp-server/ manually if no longer needed."
   exit 0
 fi
@@ -183,7 +183,7 @@ USE_DOCKER=false
 
 if ! command -v node &>/dev/null; then
   echo -e "  ${YELLOW}⚠ Node.js not found.${RESET}"
-  echo -e "  ${YELLOW}  AI OS requires Node.js >= 20 (or Docker as a fallback).${RESET}"
+  echo -e "  ${YELLOW}  Cortex requires Node.js >= 20 (or Docker as a fallback).${RESET}"
 
   if command -v docker &>/dev/null; then
     echo -e "  ${CYAN}→ Docker detected — using Docker as Node.js runtime fallback.${RESET}"
@@ -192,7 +192,7 @@ if ! command -v node &>/dev/null; then
     echo -e "  ${RED}✗ Neither Node.js nor Docker found.${RESET}"
     echo -e "  ${YELLOW}  Install Node.js >= 20: https://nodejs.org${RESET}"
     echo -e "  ${YELLOW}  Or install Docker:     https://docs.docker.com/get-docker/${RESET}"
-    echo -e "  ${YELLOW}  Your project does NOT need Node.js — only AI OS tooling does.${RESET}"
+    echo -e "  ${YELLOW}  Your project does NOT need Node.js — only Cortex tooling does.${RESET}"
     exit 1
   fi
 else
@@ -228,8 +228,8 @@ echo ""
 
 # ── Docker-based install (fallback when Node.js is unavailable/old) ───────────
 if [[ "$USE_DOCKER" == "true" ]]; then
-  echo -e "  ${CYAN}→ Building AI OS Docker image...${RESET}"
-  DOCKER_IMAGE="ai-os-installer-$(date +%s)-$$"
+  echo -e "  ${CYAN}→ Building Cortex Docker image...${RESET}"
+  DOCKER_IMAGE="cortex-installer-$(date +%s)-$$"
   if ! docker build -t "$DOCKER_IMAGE" "$SCRIPT_DIR" -f "$SCRIPT_DIR/Dockerfile" 2>&1; then
     echo -e "  ${RED}✗ Docker build failed. See output above for details.${RESET}"
     exit 1
@@ -237,7 +237,7 @@ if [[ "$USE_DOCKER" == "true" ]]; then
   echo -e "  ${GREEN}✓ Docker image built${RESET}"
   echo ""
 
-  echo -e "  ${CYAN}→ Running AI OS generator via Docker...${RESET}"
+  echo -e "  ${CYAN}→ Running Cortex generator via Docker...${RESET}"
   DOCKER_GEN_ARGS=(--cwd /repo)
   if [[ "$REFRESH_EXISTING" == "true" ]]; then
     DOCKER_GEN_ARGS+=(--refresh-existing)
@@ -253,7 +253,7 @@ if [[ "$USE_DOCKER" == "true" ]]; then
   docker rmi "$DOCKER_IMAGE" >/dev/null 2>&1 || true
 
   echo ""
-  echo -e "  ${GREEN}${BOLD}✅ AI OS installed successfully via Docker!${RESET}"
+  echo -e "  ${GREEN}${BOLD}✅ Cortex installed successfully via Docker!${RESET}"
   echo ""
   echo -e "  ${BOLD}Note:${RESET} The MCP server requires Node.js >= 20 to run."
   echo -e "  ${YELLOW}Tip:${RESET} Install Node.js to enable the MCP server: https://nodejs.org"
@@ -261,7 +261,7 @@ if [[ "$USE_DOCKER" == "true" ]]; then
   echo -e "  ${BOLD}Next steps:${RESET}"
   echo -e "  1. Open this repo in VS Code with GitHub Copilot extension installed"
   echo -e "  2. Copilot will use ${CYAN}.github/copilot-instructions.md${RESET} automatically"
-  echo -e "  3. Project context is in ${CYAN}.github/ai-os/context/${RESET}"
+  echo -e "  3. Project context is in ${CYAN}.github/cortex/context/${RESET}"
   echo ""
   exit 0
 fi
@@ -276,7 +276,7 @@ if [[ "$INSTALL_SKILL_CREATOR" == "true" ]]; then
   elif npx -y skills add anthropics/skills@skill-creator -g -a github-copilot; then
     echo -e "  ${GREEN}✓ skill-creator installed globally${RESET}"
   else
-    echo -e "  ${YELLOW}⚠ skill-creator install failed. Continuing AI OS install.${RESET}"
+    echo -e "  ${YELLOW}⚠ skill-creator install failed. Continuing Cortex install.${RESET}"
     echo -e "  ${YELLOW}  Retry later:${RESET} npx -y skills add anthropics/skills@skill-creator -g -a github-copilot"
   fi
 
@@ -293,7 +293,7 @@ if [[ "$INSTALL_FIND_SKILLS" == "true" ]]; then
   elif npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot; then
     echo -e "  ${GREEN}✓ find-skills installed globally${RESET}"
   else
-    echo -e "  ${YELLOW}⚠ find-skills install failed. Continuing AI OS install.${RESET}"
+    echo -e "  ${YELLOW}⚠ find-skills install failed. Continuing Cortex install.${RESET}"
     echo -e "  ${YELLOW}  Retry later:${RESET} npx -y skills add vercel-labs/skills@find-skills -g -a github-copilot"
   fi
 
@@ -320,15 +320,15 @@ resolve_node_path() {
 
 NODE_ABS_PATH="$(resolve_node_path)"
 
-# Check new config path first (.github/ai-os/config.json), fall back to legacy (.ai-os/config.json)
-_CORE_CONFIG_PATH="$TARGET_DIR/.github/ai-os/config.json"
+# Check new config path first (.github/cortex/config.json), fall back to legacy (.ai-os/config.json)
+_CORE_CONFIG_PATH="$TARGET_DIR/.github/cortex/config.json"
 if [[ ! -f "$_CORE_CONFIG_PATH" ]]; then
   _CORE_CONFIG_PATH="$TARGET_DIR/.ai-os/config.json"
 fi
 INSTALLED_CORE_VERSION="$(node -e "const fs=require('fs');const p=process.argv[1];try{const cfg=JSON.parse(fs.readFileSync(p,'utf8'));process.stdout.write(String(cfg.version||''));}catch{process.stdout.write('');}" "$_CORE_CONFIG_PATH")"
 
 echo -e "  ${CYAN}→ Startup diagnostics:${RESET}"
-echo -e "  ${CYAN}  AI OS source version:${RESET} v${AIOS_VERSION}"
+echo -e "  ${CYAN}  Cortex source version:${RESET} v${AIOS_VERSION}"
 if [[ -n "$INSTALLED_CORE_VERSION" ]]; then
   echo -e "  ${CYAN}  Installed target version:${RESET} v${INSTALLED_CORE_VERSION}"
 else
@@ -361,7 +361,7 @@ if [[ -n "$PROFILE" ]]; then
   GEN_ARGS+=(--profile "$PROFILE")
 fi
 
-(cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
+(cd "$AIOS_SRC" && CORTEX_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts "${GEN_ARGS[@]}")
 
 # ── Copy MCP server to target repo ──────────────────────────────────────────
 MCP_SERVER_SRC="$AIOS_SRC/src/mcp-server"
@@ -417,7 +417,7 @@ if [[ "$MCP_INSTALL_REQUIRED" == "true" ]]; then
     # Create a runtime package.json for the MCP server in the target repo
     cat > "$MCP_SERVER_DEST/package.json" << 'EOF'
 {
-  "name": "ai-os-mcp-server",
+  "name": "cortex-mcp-server",
   "version": "0.1.0",
   "type": "module",
   "main": "index.js",
@@ -434,8 +434,8 @@ EOF
     # Create a portable runtime launcher
     cat > "$MCP_SERVER_DEST/index.js" << 'EOF'
 #!/usr/bin/env node
-// AI OS MCP Server — auto-generated entry point
-// This file is generated by ai-os install. Do not edit manually.
+// Cortex MCP Server — auto-generated entry point
+// This file is generated by cortex install. Do not edit manually.
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -447,11 +447,11 @@ const indexTs = path.join(currentDir, 'index.ts');
 const result = spawnSync(process.execPath, ['--import', 'tsx/esm', indexTs, ...process.argv.slice(2)], {
   cwd: currentDir,
   stdio: 'inherit',
-  env: { ...process.env, AI_OS_ROOT: process.env.AI_OS_ROOT ?? process.cwd() },
+  env: { ...process.env, CORTEX_ROOT: process.env.CORTEX_ROOT ?? process.cwd() },
 });
 
 if (result.error) {
-  console.error('[ai-os:mcp] Failed to launch TypeScript runtime:', result.error.message);
+  console.error('[cortex:mcp] Failed to launch TypeScript runtime:', result.error.message);
   process.exit(1);
 }
 
@@ -461,18 +461,18 @@ EOF
 
   cat > "$MCP_RUNTIME_MANIFEST" << EOF
 {
-  "name": "ai-os-mcp-server",
+  "name": "cortex-mcp-server",
   "runtime": "$([ -f "$BUNDLED_SERVER" ] && echo "bundled" || echo "tsx")",
   "sourceVersion": "$AIOS_VERSION",
   "installedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 EOF
 
-  if AI_OS_ROOT="$TARGET_DIR" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
+  if CORTEX_ROOT="$TARGET_DIR" "$NODE_ABS_PATH" "$MCP_SERVER_DEST/index.js" --healthcheck >/dev/null 2>&1; then
     echo -e "  ${GREEN}✓ MCP server installed and healthy${RESET}"
   else
     echo -e "  ${RED}✗ MCP server healthcheck failed after install.${RESET}"
-    echo -e "  ${YELLOW}  Run with diagnostics:${RESET} AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck"
+    echo -e "  ${YELLOW}  Run with diagnostics:${RESET} CORTEX_MCP_DEBUG=1 node .github/cortex/mcp-server/index.js --healthcheck"
     exit 1
   fi
 else
@@ -488,7 +488,7 @@ CLI_MCP_CONFIG="$TARGET_DIR/.mcp.json"
 VSCODE_MCP_CONFIG="$TARGET_DIR/.vscode/mcp.json"
 mkdir -p "$TARGET_DIR/.vscode"
 
-# Merge ai-os server entry into both MCP configs (preserve user servers)
+# Merge cortex server entry into both MCP configs (preserve user servers)
 "$NODE_ABS_PATH" -e "
   const fs = require('fs');
   const path = require('path');
@@ -514,20 +514,20 @@ mkdir -p "$TARGET_DIR/.vscode"
 
   const cliConfig = readJson(cliPath);
   if (!cliConfig.mcpServers || typeof cliConfig.mcpServers !== 'object' || Array.isArray(cliConfig.mcpServers)) cliConfig.mcpServers = {};
-  cliConfig.mcpServers['ai-os'] = {
+  cliConfig.mcpServers['cortex'] = {
     type: 'stdio',
     command,
     args: [scriptPath],
-    env: { AI_OS_ROOT: root }
+    env: { CORTEX_ROOT: root }
   };
 
   const vscodeConfig = readJson(vscodePath);
   if (!vscodeConfig.servers || typeof vscodeConfig.servers !== 'object' || Array.isArray(vscodeConfig.servers)) vscodeConfig.servers = {};
-  vscodeConfig.servers['ai-os'] = {
+  vscodeConfig.servers['cortex'] = {
     type: 'stdio',
     command,
     args: [scriptPath],
-    env: { AI_OS_ROOT: root }
+    env: { CORTEX_ROOT: root }
   };
 
   writeJson(cliPath, cliConfig);
@@ -564,7 +564,7 @@ cleanup_legacy_artifacts() {
       echo -e "  ${GREEN}✓ Removed:${RESET} ${dir#"$TARGET_DIR/"}/"
     fi
   done
-  echo -e "  ${GREEN}✓ Legacy cleanup complete. Canonical context is now at .github/ai-os/${RESET}"
+  echo -e "  ${GREEN}✓ Legacy cleanup complete. Canonical context is now at .github/cortex/${RESET}"
   echo ""
 }
 
@@ -580,8 +580,8 @@ if [[ "$LEGACY_FOUND" == "true" ]]; then
   if [[ "$CLEAN_UPDATE" == "true" ]]; then
     cleanup_legacy_artifacts
   elif [[ "$REFRESH_EXISTING" == "true" ]]; then
-    echo -e "  ${YELLOW}⚠ Legacy AI OS fragments detected under .ai-os/${RESET}"
-    echo -e "  ${YELLOW}  New architecture uses .github/ai-os/.${RESET}"
+    echo -e "  ${YELLOW}⚠ Legacy Cortex fragments detected under .ai-os/${RESET}"
+    echo -e "  ${YELLOW}  New architecture uses .github/cortex/.${RESET}"
     if [[ -t 0 ]]; then
       read -rp "  Remove legacy fragments now? [Y/n] " _CLEAN_CONFIRM
       if [[ -z "${_CLEAN_CONFIRM:-}" || "${_CLEAN_CONFIRM}" == "y" || "${_CLEAN_CONFIRM}" == "Y" ]]; then
@@ -606,34 +606,34 @@ GITIGNORE="$TARGET_DIR/.gitignore"
 if [[ -f "$GITIGNORE" ]]; then
   if ! grep -q "^\.ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
     echo "" >> "$GITIGNORE"
-    echo "# AI OS (generated — safe to commit except node_modules)" >> "$GITIGNORE"
+    echo "# Cortex (generated — safe to commit except node_modules)" >> "$GITIGNORE"
     echo ".ai-os/mcp-server/node_modules" >> "$GITIGNORE"
     echo -e "  ${GREEN}✓ Updated .gitignore${RESET}"
   fi
-  if ! grep -q "^\.github/ai-os/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
-    echo ".github/ai-os/mcp-server/node_modules" >> "$GITIGNORE"
+  if ! grep -q "^\.github/cortex/mcp-server/node_modules$" "$GITIGNORE" 2>/dev/null; then
+    echo ".github/cortex/mcp-server/node_modules" >> "$GITIGNORE"
   fi
   # #10 — ignore the memory lock file so it never appears as an untracked change
-  if ! grep -q "^\.github/ai-os/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
-    echo ".github/ai-os/memory/.memory.lock" >> "$GITIGNORE"
+  if ! grep -q "^\.github/cortex/memory/\.memory\.lock$" "$GITIGNORE" 2>/dev/null; then
+    echo ".github/cortex/memory/.memory.lock" >> "$GITIGNORE"
   fi
 fi
 
 # ── Post-install health check (--doctor) ─────────────────────────────────────
 echo -e "  ${CYAN}→ Running post-install health check...${RESET}"
-if (cd "$AIOS_SRC" && AI_OS_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts --doctor --cwd "$TARGET_DIR"); then
+if (cd "$AIOS_SRC" && CORTEX_NODE_PATH="$NODE_ABS_PATH" "$NODE_ABS_PATH" --import tsx/esm src/generate.ts --doctor --cwd "$TARGET_DIR"); then
   echo -e "  ${GREEN}✓ Health check passed${RESET}"
 else
   echo ""
-  echo -e "  ${YELLOW}⚠ Health check found issues (see above). AI OS is installed but may need attention.${RESET}"
+  echo -e "  ${YELLOW}⚠ Health check found issues (see above). Cortex is installed but may need attention.${RESET}"
   echo -e "  ${YELLOW}  Re-run diagnostics:${RESET} npx -y github:marinvch/ai-os --doctor --cwd ."
 fi
 echo ""
 
 # ── Done ────────────────────────────────────────────────────────────────────
 echo ""
-echo -e "  ${GREEN}${BOLD}✅ AI OS installed successfully!${RESET}"
+echo -e "  ${GREEN}${BOLD}✅ Cortex installed successfully!${RESET}"
 echo ""
-echo -e "  ${CYAN}Detailed next-step guidance is printed by AI OS above.${RESET}"
+echo -e "  ${CYAN}Detailed next-step guidance is printed by Cortex above.${RESET}"
 echo -e "  ${CYAN}If Copilot tools do not appear immediately in VS Code, run:${RESET} ${BOLD}MCP: Restart Servers${RESET}"
 echo ""

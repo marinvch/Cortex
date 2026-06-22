@@ -89,7 +89,7 @@ describe('detectDrift — skill version checking', () => {
   });
 
   it('reports missing skill as warning when tracked in config', () => {
-    const aiOsDir = join(tmpDir, '.github', 'ai-os');
+    const aiOsDir = join(tmpDir, '.github', 'cortex');
     mkdirSync(aiOsDir, { recursive: true });
     writeFileSync(join(aiOsDir, 'config.json'), JSON.stringify({
       skillVersions: { 'my-skill': 'abc123def456' },
@@ -102,7 +102,7 @@ describe('detectDrift — skill version checking', () => {
   });
 
   it('reports hash mismatch as warning when skill content changed', () => {
-    const aiOsDir = join(tmpDir, '.github', 'ai-os');
+    const aiOsDir = join(tmpDir, '.github', 'cortex');
     mkdirSync(aiOsDir, { recursive: true });
     const skillsDir = join(tmpDir, '.github', 'copilot', 'skills');
     mkdirSync(skillsDir, { recursive: true });
@@ -123,7 +123,7 @@ describe('detectDrift — skill version checking', () => {
   });
 
   it('reports healthy when skill hash matches', () => {
-    const aiOsDir = join(tmpDir, '.github', 'ai-os');
+    const aiOsDir = join(tmpDir, '.github', 'cortex');
     mkdirSync(aiOsDir, { recursive: true });
     const skillsDir = join(tmpDir, '.github', 'copilot', 'skills');
     mkdirSync(skillsDir, { recursive: true });
@@ -142,7 +142,7 @@ describe('detectDrift — skill version checking', () => {
   });
 
   it('no skill version issues when skillVersions is empty or absent', () => {
-    const aiOsDir = join(tmpDir, '.github', 'ai-os');
+    const aiOsDir = join(tmpDir, '.github', 'cortex');
     mkdirSync(aiOsDir, { recursive: true });
     writeFileSync(join(aiOsDir, 'config.json'), JSON.stringify({}), 'utf-8');
 

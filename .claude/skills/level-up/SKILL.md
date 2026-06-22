@@ -53,7 +53,7 @@ data boundary: project-derived learnings reach `brain/` ONLY via sanitized promo
    `promote_to_brain` MCP tool with `sanitized_confirmed: true` ONLY after the user confirms
    the secret-pattern warnings. The tool appends to `brain/memory.jsonl` and logs to
    `brain/memory-log.md`. If the engine/MCP server isn't running, print the skipped action.
-4. **Optional compaction:** offer `npx ai-os --compact-memory --cwd projects/<name>` (gated).
+4. **Optional compaction:** offer `npx cortex --compact-memory --cwd projects/<name>` (gated).
 5. **Evolve `AGENTS.md`:** if structure/operating conventions changed, update the canonical
    `AGENTS.md` — but keep it DATA-FREE. Personal facts stay in `context/*`.
 6. **Capture decisions:** append any decisions made to `decisions/log.md`.

@@ -3,9 +3,9 @@
  *
  * Walks source files, extracts symbols + purpose + tags via per-language
  * extractor adapters, and writes a newline-delimited JSON file to
- * .github/ai-os/context/repo-index.jsonl.
+ * .github/cortex/context/repo-index.jsonl.
  *
- * Usage:  npx ai-os --index [--incremental] [--regen-context] [--dry-run] [--quiet]
+ * Usage:  npx cortex --index [--incremental] [--regen-context] [--dry-run] [--quiet]
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -14,6 +14,7 @@ import { getExtractorForFile } from '../detectors/symbols.js';
 import { getToolVersion } from '../updater.js';
 import { analyze } from '../analyze.js';
 import { parseSpecFiles } from '../generators/spec-parser.js';
+import { CONFIG_DIR } from '../brand.js';
 import type {
   MetaIndexEntry,
   FileIndexEntry,
@@ -29,7 +30,7 @@ export interface IndexOptions {
   regenContext?: boolean;
   dryRun?: boolean;
   quiet?: boolean;
-  /** Directory containing spec .md files. Defaults to .github/ai-os/specs/. */
+  /** Directory containing spec .md files. Defaults to .github/cortex/specs/. */
   specDir?: string;
 }
 
@@ -103,7 +104,7 @@ export async function indexRepo(opts: IndexOptions): Promise<IndexResult> {
     quiet = false,
   } = opts;
 
-  const outputPath = opts.output ?? path.join(cwd, '.github', 'ai-os', 'context', 'repo-index.jsonl');
+  const outputPath = opts.output ?? path.join(cwd, CONFIG_DIR, 'context', 'repo-index.jsonl');
   const log = (msg: string): void => { if (!quiet) console.log(msg); };
 
   log(`  🔍 Indexing repository: ${cwd}`);
@@ -176,7 +177,7 @@ export async function indexRepo(opts: IndexOptions): Promise<IndexResult> {
   };
 
   // Build spec entries — include unchanged symbols too in incremental mode
-  const specDirPath = opts.specDir ?? path.join(cwd, '.github', 'ai-os', 'specs');
+  const specDirPath = opts.specDir ?? path.join(cwd, CONFIG_DIR, 'specs');
   const changedPathsForSpec = new Set(fileEntries.map(f => f.path));
   const existingSymbolsForSpec = incremental && fs.existsSync(outputPath)
     ? loadExistingEntries(outputPath)

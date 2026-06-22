@@ -157,10 +157,10 @@ describe('getModelOutputPath', () => {
     expect(getModelOutputPath('copilot', githubDir)).toBe('/project/.github/copilot-instructions.md');
   });
 
-  it('returns ai-os subdir paths for other models', () => {
-    expect(getModelOutputPath('claude', githubDir)).toBe('/project/.github/ai-os/claude-instructions.md');
-    expect(getModelOutputPath('gemini', githubDir)).toBe('/project/.github/ai-os/gemini-instructions.md');
-    expect(getModelOutputPath('local', githubDir)).toBe('/project/.github/ai-os/local-instructions.md');
+  it('returns cortex subdir paths for other models', () => {
+    expect(getModelOutputPath('claude', githubDir)).toBe('/project/.github/cortex/claude-instructions.md');
+    expect(getModelOutputPath('gemini', githubDir)).toBe('/project/.github/cortex/gemini-instructions.md');
+    expect(getModelOutputPath('local', githubDir)).toBe('/project/.github/cortex/local-instructions.md');
   });
 });
 

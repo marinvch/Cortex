@@ -1,15 +1,15 @@
-# AI OS
+# Cortex
 
-> **This is the `ai-os` engine (kernel).** The repository root is **Cortex**, a personal AI OS
+> **This is the Cortex engine (kernel).** The repository root is **Cortex**, a personal AI OS
 > userland that lights this engine up when a codebase is present. See [`../README.md`](../README.md).
 
 > **Give GitHub Copilot a brain. Works with any codebase, any language.**
 
-[![npm](https://img.shields.io/npm/v/ai-os)](https://www.npmjs.com/package/ai-os)
+[![npm](https://img.shields.io/npm/v/cortex)](https://www.npmjs.com/package/cortex)
 [![CI](https://github.com/marinvch/ai-os/actions/workflows/ai-os-validate.yml/badge.svg)](https://github.com/marinvch/ai-os/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-AI OS is a framework that installs structured AI context into any repository so GitHub Copilot gets consistent, project-aware guidance — auto-detecting your language, framework, conventions, and key files.
+Cortex is a framework that installs structured AI context into any repository so GitHub Copilot gets consistent, project-aware guidance — auto-detecting your language, framework, conventions, and key files.
 
 ## Install
 
@@ -40,20 +40,20 @@ npx -y github:marinvch/ai-os
 
 ## What it does
 
-Run once in any repo. AI OS scans the codebase, detects your stack, and generates:
+Run once in any repo. Cortex scans the codebase, detects your stack, and generates:
 
 | Artifact | Location | What it is |
 | --- | --- | --- |
 | Copilot instructions | `.github/copilot-instructions.md` | System prompt optimized for your stack |
-| Context docs | `.github/ai-os/context/` | Token-efficient stack, architecture, conventions docs |
-| MCP tools | `.vscode/mcp.json` + `.ai-os/mcp-server/` | 37 tools for code search, memory, session continuity |
+| Context docs | `.github/cortex/context/` | Token-efficient stack, architecture, conventions docs |
+| MCP tools | `.vscode/mcp.json` + `.cortex/mcp-server/` | 37 tools for code search, memory, session continuity |
 | Agents | `.github/agents/*.agent.md` | Stack-specific chat agents |
-| Skills | `.github/copilot/skills/ai-os-*.md` | Per-library playbooks (Next.js, tRPC, Prisma, etc.) |
+| Skills | `.github/copilot/skills/cortex-*.md` | Per-library playbooks (Next.js, tRPC, Prisma, etc.) |
 | Slash commands | `.github/copilot/prompts.json` | `/new-page`, `/new-trpc-procedure`, `/new-model`, etc. |
 | Prompt Quality Pack | `.github/instructions/prompt-quality.instructions.md` | Agent routing table + prompting guide |
-| Manifest | `.github/ai-os/manifest.json` | Tracks every file AI OS owns for clean pruning |
+| Manifest | `.github/cortex/manifest.json` | Tracks every file Cortex owns for clean pruning |
 
-AI OS initializes a persistent repository memory store at `.github/ai-os/memory/`. Memory entries are automatically deduplicated, TTL-expired, and compacted via `--compact-memory` or the `prune_memory` MCP tool.
+Cortex initializes a persistent repository memory store at `.github/cortex/memory/`. Memory entries are automatically deduplicated, TTL-expired, and compacted via `--compact-memory` or the `prune_memory` MCP tool.
 
 ## Requirements
 
@@ -146,7 +146,7 @@ When run inside the Cortex userland (or any repo using the three-domain data mod
 # Read-only cross-domain leak report (non-project memory, missing personal-layer .gitignore rules)
 npx -y github:marinvch/ai-os --check-boundaries --cwd /path/to/repo
 
-# Point promotion at an explicit personal brain root (otherwise AI_OS_PERSONAL_ROOT / config)
+# Point promotion at an explicit personal brain root (otherwise CORTEX_PERSONAL_ROOT / config)
 npx -y github:marinvch/ai-os --personal-brain-path /path/to/brain --cwd /path/to/repo
 ```
 

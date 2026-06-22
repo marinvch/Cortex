@@ -34,12 +34,12 @@ export function parseArgs(): ParsedArgs {
   // Handle --help / -h early exit (#249)
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`
-Usage: npx ai-os [options]
+Usage: npx cortex [options]
 
 Options:
   --cwd <path>                Directory to run in (default: process.cwd())
   --dry-run                   Preview changes without writing
-  --refresh-existing          Refresh all AI OS artifacts
+  --refresh-existing          Refresh all Cortex artifacts
   --update                    Update mode
   --plan                      Show planned changes
   --preview                   Preview generated output
@@ -50,8 +50,8 @@ Options:
   --verbose, -v               Verbose output
   --check-hygiene             Run hygiene checks
   --doctor                    Run diagnostics
-  --bootstrap                 Bootstrap AI OS into a new project
-  --check-freshness           Check if AI OS artifacts are fresh
+  --bootstrap                 Bootstrap Cortex into a new project
+  --check-freshness           Check if Cortex artifacts are fresh
   --compact-memory            Compact memory.jsonl file
   --check-drift               Check for context drift
   --check-boundaries          Scan project memory for cross-domain leaks
@@ -59,8 +59,8 @@ Options:
   --init                      Interactive setup wizard
   --index                     Build repository intelligence index
   --incremental               Incremental indexing (with --index)
-  --spec-dir <path>           Spec files directory for --index (default: .github/ai-os/specs/)
-  --uninstall                 Remove all AI OS artifacts
+  --spec-dir <path>           Spec files directory for --index (default: .github/cortex/specs/)
+  --uninstall                 Remove all Cortex artifacts
   --json                      Output results as JSON
   --full-diff                 Show full file diffs
   --profile <name>            Install profile: minimal, standard, full

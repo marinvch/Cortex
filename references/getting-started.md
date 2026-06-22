@@ -8,21 +8,21 @@
 5. **Run `/level-up` biweekly** — confirm queued candidates, promote durable learnings.
 
 If you have code projects, point Cortex at them under `projects/` (or keep them as external
-repos). When Node + a codebase are present, the engine lights up: `npx ai-os --init` inside a
-project wires its `.github/ai-os/` context.
+repos). When Node + a codebase are present, the engine lights up: `npx cortex --init` inside a
+project wires its `.github/cortex/` context.
 
 Your personal data (`context/`, `brain/`, `decisions/`, `projects/`) is gitignored and never
 published. Only the shared template (structure, framework, skills) is.
 
 ## When the engine lights up
 
-With Node ≥ 20 and a codebase present, the `ai-os` engine runs and Cortex becomes **Alive**.
+With Node ≥ 20 and a codebase present, the Cortex engine runs and Cortex becomes **Alive**.
 The rituals call it for you, but you can run it directly too:
 
-- `npx ai-os --check-boundaries --cwd projects/<name>` — read-only cross-domain leak report
+- `npx cortex --check-boundaries --cwd projects/<name>` — read-only cross-domain leak report
   (non-`project` memory entries, missing personal-layer `.gitignore` rules).
-- `npx ai-os --check-freshness --json` / `--check-drift` — is the project context stale?
-- `--personal-brain-path <dir>` — point promotion at your brain root (otherwise `AI_OS_PERSONAL_ROOT`).
+- `npx cortex --check-freshness --json` / `--check-drift` — is the project context stale?
+- `--personal-brain-path <dir>` — point promotion at your brain root (otherwise `CORTEX_PERSONAL_ROOT`).
 
 A fact crosses from a project into your brain ONLY via the sanitized, audited `promote_to_brain`
 gate (surfaced during `/level-up`) — never `project → shared`, never `personal → project`.

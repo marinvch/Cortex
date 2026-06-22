@@ -14,9 +14,9 @@ tsconfig.tsbuildinfo
 coverage/
 
 # Test output — generated files written to target repos
-.ai-os/
+.cortex/
 .vscode/mcp.json
 .github/copilot-instructions.md.bak
-.ai-os/mcp-server/node_modules
-.github/ai-os/memory/.memory.lock
-.github/ai-os/memory/session/
+.cortex/mcp-server/node_modules
+.github/cortex/memory/.memory.lock
+.github/cortex/memory/session/

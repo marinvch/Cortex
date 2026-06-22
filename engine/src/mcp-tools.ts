@@ -1,4 +1,5 @@
 import type { DetectedStack } from './types.js';
+import { ENV } from './brand.js';
 
 export interface McpToolSchema {
   type: 'object';
@@ -160,13 +161,13 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'get_memory_guidelines',
-    description: 'Returns repository memory rules and memory usage protocol from .github/ai-os/context/memory.md.',
+    description: 'Returns repository memory rules and memory usage protocol from .github/cortex/context/memory.md.',
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },
   {
     name: 'get_repo_memory',
-    description: 'Retrieves persisted repository memory entries from .github/ai-os/memory/memory.jsonl, optionally filtered by query/category.',
+    description: 'Retrieves persisted repository memory entries from .github/cortex/memory/memory.jsonl, optionally filtered by query/category.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -179,7 +180,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'remember_repo_fact',
-    description: 'Stores a durable repository memory entry in .github/ai-os/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).',
+    description: 'Stores a durable repository memory entry in .github/cortex/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).',
     inputSchema: {
       type: 'object',
       properties: {
@@ -194,7 +195,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'get_active_plan',
-    description: 'Returns the persisted active session plan from .github/ai-os/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.',
+    description: 'Returns the persisted active session plan from .github/cortex/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.',
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },
@@ -217,7 +218,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'append_checkpoint',
-    description: 'Appends a progress checkpoint to .github/ai-os/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.',
+    description: 'Appends a progress checkpoint to .github/cortex/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -232,7 +233,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'close_checkpoint',
-    description: 'Closes an existing checkpoint by id in .github/ai-os/memory/session/checkpoints.jsonl.',
+    description: 'Closes an existing checkpoint by id in .github/cortex/memory/session/checkpoints.jsonl.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -245,7 +246,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'record_failure_pattern',
-    description: 'Records or updates a failure pattern in .github/ai-os/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.',
+    description: 'Records or updates a failure pattern in .github/cortex/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -310,7 +311,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   // ── Tool #24: Sync Hosted Memory ──────────────────────────────────────────
   {
     name: 'sync_hosted_memory',
-    description: 'Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.',
+    description: 'Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/cortex/memory/memory.jsonl. Lists existing entries to prevent duplication.',
     inputSchema: { type: 'object', properties: {} },
     condition: always,
   },
@@ -365,25 +366,25 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   },
   {
     name: 'run_tests',
-    description: 'Run the project test suite (`npm run test` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project test suite (\`npm run test\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: 'object' as const, properties: {} },
     condition: always,
   },
   {
     name: 'run_lint',
-    description: 'Run the project linter (`npm run lint` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project linter (\`npm run lint\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: 'object' as const, properties: {} },
     condition: always,
   },
   {
     name: 'run_build',
-    description: 'Run the project build (`npm run build` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project build (\`npm run build\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: 'object' as const, properties: {} },
     condition: always,
   },
   {
     name: 'run_workflow',
-    description: 'Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.',
+    description: 'Load and display the execution plan for a named agent workflow from .github/cortex/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -423,7 +424,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   // ── Tool #40: Symbol Search ────────────────────────────────────────────────
   {
     name: 'search_symbols',
-    description: 'Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists.',
+    description: 'Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `cortex --index` to have been run first; gracefully returns empty list if no index exists.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -438,7 +439,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   // ── Tool #41: File Purpose ─────────────────────────────────────────────────
   {
     name: 'get_file_purpose',
-    description: 'Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists.',
+    description: 'Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `cortex --index` to have been run first. Returns null if no index or no entry for the given file path exists.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -451,7 +452,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   // ── Tool #42: Spec Coverage ───────────────────────────────────────────────
   {
     name: 'validate_spec_coverage',
-    description: 'Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.',
+    description: 'Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -463,7 +464,7 @@ export const MCP_TOOL_DEFINITIONS: McpToolDefinition[] = [
   // ── Tool #43: Spec for File ───────────────────────────────────────────────
   {
     name: 'get_spec_for_file',
-    description: 'Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.',
+    description: 'Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first.',
     inputSchema: {
       type: 'object' as const,
       properties: {

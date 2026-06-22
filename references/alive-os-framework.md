@@ -3,7 +3,7 @@
 Cortex is a personal AI OS. Three properties define it.
 
 ## Alive — the OS maintains itself
-When a codebase is present, the `ai-os` engine re-scans your code, refreshes context,
+When a codebase is present, the Cortex engine re-scans your code, refreshes context,
 reconciles memory, and flags drift. Cortex is not a static folder of notes; the rituals
 call the engine to keep it current. Backed by: `rememberRepoFact()`, memory compaction,
 freshness snapshots, `--check-drift`, `--compact-memory`.

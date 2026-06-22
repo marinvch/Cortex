@@ -11,6 +11,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import path from 'node:path';
+import { ENV } from '../brand.js';
 import {
   getProjectRoot,
   readAiOsFile,
@@ -500,7 +501,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'run_tests',
     {
-      description: 'Run the project test suite (`npm run test` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+      description: `Run the project test suite (\`npm run test\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/ai-os/config.json.`,
       inputSchema: {},
     },
     wrap('run_tests', () => runTests()),
@@ -510,7 +511,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'run_lint',
     {
-      description: 'Run the project linter (`npm run lint` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+      description: `Run the project linter (\`npm run lint\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/ai-os/config.json.`,
       inputSchema: {},
     },
     wrap('run_lint', () => runLint()),
@@ -520,7 +521,7 @@ export function createSdkServer(): McpServer {
   server.registerTool(
     'run_build',
     {
-      description: 'Run the project build (`npm run build` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+      description: `Run the project build (\`npm run build\` or equivalent). Disabled by default — requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/ai-os/config.json.`,
       inputSchema: {},
     },
     wrap('run_build', () => runBuild()),

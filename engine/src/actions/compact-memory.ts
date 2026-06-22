@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pruneMemory } from '../mcp-server/utils.js';
+import { ENV } from '../brand.js';
 
 export function runCompactMemoryAction(cwd: string): void {
   console.log(`  🧹 Compact memory: ${cwd}`);
@@ -14,7 +15,7 @@ export function runCompactMemoryAction(cwd: string): void {
   }
 
   try {
-    process.env['AI_OS_ROOT'] = cwd;
+    process.env[ENV.ROOT] = cwd;
     const result = pruneMemory();
     const lines = result.split('\n');
     for (const line of lines) {

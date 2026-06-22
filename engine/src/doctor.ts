@@ -26,6 +26,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { getToolVersion } from './updater.js';
 import { readAiOsConfig } from './generators/context-docs.js';
+import { ENV } from './brand.js';
 
 export interface DoctorCheck {
   name: string;
@@ -80,7 +81,7 @@ function checkMcpRuntimeHealthcheck(cwd: string): DoctorCheck {
 
   const result = spawnSync(nodePath, [runtimePath, '--healthcheck'], {
     cwd,
-    env: { ...process.env, AI_OS_ROOT: cwd },
+    env: { ...process.env, [ENV.ROOT]: cwd },
     encoding: 'utf-8',
     timeout: 10_000,
   });

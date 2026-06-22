@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { ENV } from '../brand.js';
 import { analyze } from '../analyze.js';
 import { generateInstructions } from '../generators/instructions.js';
 import { generateMcpJson, writeMcpServerConfig } from '../generators/mcp.js';
@@ -161,7 +162,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     command: nodePath,
     args: [runtimeEntry],
     env: {
-      AI_OS_ROOT: cwd,
+      [ENV.ROOT]: cwd,
     },
   });
 
@@ -176,7 +177,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
 
   const healthcheck = spawnSync(nodePath, [runtimeEntry, '--healthcheck'], {
     cwd,
-    env: { ...process.env, AI_OS_ROOT: cwd },
+    env: { ...process.env, [ENV.ROOT]: cwd },
     encoding: 'utf-8',
     stdio: 'pipe',
   });
@@ -525,7 +526,7 @@ function printMemoryMaintenanceSummary(cwd: string): void {
   if (!fs.existsSync(memoryFile)) return;
 
   try {
-    process.env['AI_OS_ROOT'] = cwd;
+    process.env[ENV.ROOT] = cwd;
     const summary = runMemoryMaintenance();
 
     if (summary.totalBefore === 0) return;

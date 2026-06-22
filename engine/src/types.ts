@@ -175,7 +175,7 @@ export interface AiOsConfig {
   skillVersions?: Record<string, string>;
   /**
    * Allow run_tests, run_lint, and run_build MCP tools to execute shell commands.
-   * Default: false (must be explicitly enabled or set AI_OS_ALLOW_RUN_TOOLS=1).
+   * Default: false (must be explicitly enabled or set CORTEX_ALLOW_RUN_TOOLS=1).
    */
   allowRunTools?: boolean;
   /**

@@ -8,8 +8,9 @@ import { getToolVersion } from '../updater.js';
 import { writeIfChanged, writeFileAtomic, sanitizeForInstructions } from './utils.js';
 import { MCP_TOOL_DEFINITIONS } from '../mcp-tools.js';
 import type { ModelTarget } from './multi-model.js';
+import { ENV } from '../brand.js';
 
-const DEFAULT_AI_OS_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projectName' | 'primaryLanguage' | 'primaryFramework' | 'frameworks' | 'packageManager' | 'hasTypeScript'> = {
+const DEFAULT_CORTEX_CONFIG: Omit<AiOsConfig, 'version' | 'installedAt' | 'projectName' | 'primaryLanguage' | 'primaryFramework' | 'frameworks' | 'packageManager' | 'hasTypeScript'> = {
   agentsMd: false,
   pathSpecificInstructions: true,
   recommendations: true,
@@ -696,7 +697,7 @@ export function generateMcpToolRefDoc(stack: DetectedStack): string {
     '## Disabled / Opt-in Tools',
     '',
     'The following tools are disabled by default and require explicit opt-in.',
-    'Enable them by setting `AI_OS_ALLOW_RUN_TOOLS=1` in your environment or',
+    `Enable them by setting \`${ENV.ALLOW_RUN_TOOLS}=1\` in your environment or`,
     '`"allowRunTools": true` in `.github/ai-os/config.json`.',
     '',
     '| Tool | Description | Parameters (`*` = required) |',
@@ -859,16 +860,16 @@ export function generateContextDocs(stack: DetectedStack, outputDir: string, opt
           if (fs.readdirSync(agentsDir).some(f => f.endsWith('.agent.md'))) return true;
         } catch { /* ignore */ }
       }
-      return existingConfig?.agentsMd ?? DEFAULT_AI_OS_CONFIG.agentsMd;
+      return existingConfig?.agentsMd ?? DEFAULT_CORTEX_CONFIG.agentsMd;
     })(),
-    pathSpecificInstructions: existingConfig?.pathSpecificInstructions ?? DEFAULT_AI_OS_CONFIG.pathSpecificInstructions,
-    recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
-    sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,
-    updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_AI_OS_CONFIG.updateCheckEnabled,
-    skillsStrategy: existingConfig?.skillsStrategy ?? DEFAULT_AI_OS_CONFIG.skillsStrategy,
-    agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_AI_OS_CONFIG.agentFlowMode,
-    persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
-    exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude,
+    pathSpecificInstructions: existingConfig?.pathSpecificInstructions ?? DEFAULT_CORTEX_CONFIG.pathSpecificInstructions,
+    recommendations: existingConfig?.recommendations ?? DEFAULT_CORTEX_CONFIG.recommendations,
+    sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_CORTEX_CONFIG.sessionContextCard,
+    updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_CORTEX_CONFIG.updateCheckEnabled,
+    skillsStrategy: existingConfig?.skillsStrategy ?? DEFAULT_CORTEX_CONFIG.skillsStrategy,
+    agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_CORTEX_CONFIG.agentFlowMode,
+    persistentRules: existingConfig?.persistentRules ?? DEFAULT_CORTEX_CONFIG.persistentRules,
+    exclude: existingConfig?.exclude ?? DEFAULT_CORTEX_CONFIG.exclude,
     // Personal-OS linkage — option wins, otherwise preserved across refreshes
     projectBoundary: options?.projectBoundary ?? existingConfig?.projectBoundary,
     personalBrainPath: options?.personalBrainPath ?? existingConfig?.personalBrainPath,

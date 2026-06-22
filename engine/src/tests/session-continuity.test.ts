@@ -5,21 +5,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('session continuity memory tools', () => {
   let tempRoot = '';
-  const originalRoot = process.env['AI_OS_ROOT'];
+  const originalRoot = process.env['CORTEX_ROOT'];
 
   beforeEach(() => {
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ai-os-session-test-'));
     const memoryDir = path.join(tempRoot, '.github', 'ai-os', 'memory');
     fs.mkdirSync(memoryDir, { recursive: true });
     fs.writeFileSync(path.join(memoryDir, 'memory.jsonl'), '', 'utf-8');
-    process.env['AI_OS_ROOT'] = tempRoot;
+    process.env['CORTEX_ROOT'] = tempRoot;
   });
 
   afterEach(() => {
     if (originalRoot === undefined) {
-      delete process.env['AI_OS_ROOT'];
+      delete process.env['CORTEX_ROOT'];
     } else {
-      process.env['AI_OS_ROOT'] = originalRoot;
+      process.env['CORTEX_ROOT'] = originalRoot;
     }
     vi.resetModules();
     fs.rmSync(tempRoot, { recursive: true, force: true });

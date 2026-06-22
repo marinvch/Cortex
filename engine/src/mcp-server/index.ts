@@ -18,9 +18,10 @@ import { getProjectRoot } from './utils.js';
 import { getActiveToolsForProject, type McpToolDefinition } from './tool-definitions.js';
 import { runSdkMcp, createSdkServer } from './sdk-server.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { ENV } from '../brand.js';
 
 function logDiagnostic(message: string): void {
-  if (process.env['AI_OS_MCP_DEBUG'] === '1') {
+  if (process.env[ENV.MCP_DEBUG] === '1') {
     console.error(`[ai-os:mcp] ${message}`);
   }
 }
@@ -30,7 +31,7 @@ function validateRuntimeEnvironment(): { ok: boolean; messages: string[] } {
 
   const root = getProjectRoot();
   if (!root) {
-    messages.push('AI_OS_ROOT resolved to an empty path.');
+    messages.push('CORTEX_ROOT resolved to an empty path.');
   }
 
   const tools = getActiveToolsForProject(root);
@@ -38,8 +39,8 @@ function validateRuntimeEnvironment(): { ok: boolean; messages: string[] } {
     messages.push('No MCP tools were registered at runtime.');
   }
 
-  if (process.env['AI_OS_MCP_DEBUG'] === '1') {
-    messages.push(`Resolved AI_OS_ROOT: ${root}`);
+  if (process.env[ENV.MCP_DEBUG] === '1') {
+    messages.push(`Resolved CORTEX_ROOT: ${root}`);
     messages.push(`Registered tools: ${tools.length}`);
   }
 

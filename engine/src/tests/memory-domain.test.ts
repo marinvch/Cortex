@@ -6,11 +6,11 @@ import * as path from 'node:path';
 let tmp: string;
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-domain-'));
-  process.env['AI_OS_ROOT'] = tmp;
+  process.env['CORTEX_ROOT'] = tmp;
   fs.mkdirSync(path.join(tmp, '.github', 'ai-os', 'memory'), { recursive: true });
 });
 afterEach(() => {
-  delete process.env['AI_OS_ROOT'];
+  delete process.env['CORTEX_ROOT'];
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 

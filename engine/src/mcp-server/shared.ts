@@ -6,10 +6,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ENV } from '../brand.js';
 
 // ── Project root ───────────────────────────────────────────────────────────────
 
-export const ROOT = process.env['AI_OS_ROOT'] ?? process.cwd();
+export const ROOT = process.env[ENV.ROOT] ?? process.cwd();
 
 export function readAiOsFile(relPath: string): string {
   try {
@@ -34,13 +35,13 @@ export function getMemoryLockFilePath(): string {
 }
 
 /**
- * Resolve the personal brain root. Prefers AI_OS_PERSONAL_ROOT; falls back to
+ * Resolve the personal brain root. Prefers CORTEX_PERSONAL_ROOT; falls back to
  * `personalBrainPath` in `<ROOT>/.github/ai-os/config.json` (written by the init
  * wizard). Returns '' when neither is set so the caller fails loudly rather than
  * guessing a home directory.
  */
 export function getPersonalBrainPath(): string {
-  const fromEnv = process.env['AI_OS_PERSONAL_ROOT'];
+  const fromEnv = process.env[ENV.PERSONAL_ROOT];
   if (fromEnv) return fromEnv;
   try {
     const raw = readAiOsFile('config.json');

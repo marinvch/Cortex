@@ -1,5 +1,5 @@
 /**
- * AI OS Doctor Unit Tests
+ * Cortex Doctor Unit Tests
  *
  * Tests the health-check functions in src/doctor.ts using a temporary
  * directory so that no real filesystem side-effects reach the repo.

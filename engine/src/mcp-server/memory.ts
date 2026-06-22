@@ -110,7 +110,7 @@ function buildMemoryKey(entry: Pick<RepoMemoryEntry, 'title' | 'category'>): str
   return `${normalizeMemoryText(entry.category)}::${normalizeMemoryText(entry.title)}`;
 }
 
-/** Version-family key: strips semver tokens so "AI OS refreshed to v0.16.0" and "AI OS refreshed to v0.13.0" share the same family key. */
+/** Version-family key: strips semver tokens so "Cortex refreshed to v0.16.0" and "Cortex refreshed to v0.13.0" share the same family key. */
 function buildVersionFamilyKey(entry: Pick<RepoMemoryEntry, 'title' | 'category'>): string {
   const versionlessTitle = normalizeMemoryText(entry.title).replace(/v\d+\.\d+(?:\.\d+)?(?:-[\w.]+)*/g, '{version}');
   return `${normalizeMemoryText(entry.category)}::${versionlessTitle}`;
@@ -200,7 +200,7 @@ function applyStalePolicy(entries: RepoMemoryEntry[], ttlDays?: number): RepoMem
     }
   }
 
-  // Also supersede across version-family groups (e.g. "AI OS refreshed to v0.13.0" vs "v0.16.0").
+  // Also supersede across version-family groups (e.g. "Cortex refreshed to v0.13.0" vs "v0.16.0").
   // Groups entries with different exact keys that share the same version-family key and marks
   // all but the most recent active entry stale — enabling pruneMemory() to clean them up.
   const byFamilyKey = new Map<string, RepoMemoryEntry[]>();
@@ -458,7 +458,7 @@ export function rememberRepoFact(title: string, content: string, category?: stri
         incoming.conflictWithId = currentActive.id;
       }
 
-      // Supersede entries whose titles share the same version-family (e.g. "AI OS refreshed to v0.13.0" → v0.16.0)
+      // Supersede entries whose titles share the same version-family (e.g. "Cortex refreshed to v0.13.0" → v0.16.0)
       let versionFamilySuperseded = false;
       if (!currentActive) {
         const incomingFamilyKey = buildVersionFamilyKey(incoming);

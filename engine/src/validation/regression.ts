@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AI OS Regression Suite
+ * Cortex Regression Suite
  *
  * Validates core generation, MCP health, memory governance, and refresh-safety
  * across a representative set of project fixture scenarios.

@@ -1,8 +1,8 @@
-# AI OS — Architecture
+# Cortex — Architecture
 
 ## Overview
 
-AI OS is a portable GitHub Copilot context engine. It scans a repository, detects the tech stack, and generates an optimized AI context package. Detection is package-aware for monorepos and mixed stacks.
+Cortex is a portable GitHub Copilot context engine. It scans a repository, detects the tech stack, and generates an optimized AI context package. Detection is package-aware for monorepos and mixed stacks.
 
 ## Components
 
@@ -36,16 +36,16 @@ src/
   generators/
     instructions.ts   — .github/copilot-instructions.md + instructions/
     agents.ts         — .github/agents/*.agent.md
-    skills.ts         — .github/copilot/skills/ai-os-*.md
+    skills.ts         — .github/copilot/skills/cortex-*.md
     mcp.ts            — .vscode/mcp.json + .mcp.json
     workflows.ts      — .github/workflows/ (update-check)
-    context-docs.ts   — .github/ai-os/context/ docs
+    context-docs.ts   — .github/cortex/context/ docs
     prompts.ts        — .github/copilot/prompts.json
     utils.ts          — writeIfChanged, writeManifest, hashContent, writeFileAtomic
 
   mcp-server/
     index.ts          — MCP JSON-RPC stdio server entry point (includes prompts capability)
-    tool-definitions.ts — Tool handlers (reads from .github/ai-os/)
+    tool-definitions.ts — Tool handlers (reads from .github/cortex/)
     utils.ts          — Memory, session, freshness utilities
 
   recommendations/
@@ -66,13 +66,13 @@ CLI flags + cwd
   DetectedStack          ← typed snapshot of the repo's tech profile
       │
       ├──► generateInstructions()    → .github/copilot-instructions.md
-      ├──► generateContextDocs()     → .github/ai-os/context/
+      ├──► generateContextDocs()     → .github/cortex/context/
       ├──► generateAgents()          → .github/agents/
       ├──► generateSkills()          → .github/copilot/skills/
       ├──► generateMcpJson()         → .vscode/mcp.json + .mcp.json
       ├──► generateWorkflows()       → .github/workflows/
       ├──► generatePrompts()         → .github/copilot/prompts.json
-      └──► writeManifest()           → .github/ai-os/manifest.json
+      └──► writeManifest()           → .github/cortex/manifest.json
             │
             ▼
       buildGenerationSummary()  ← written/skipped/pruned counts + duration
@@ -80,15 +80,15 @@ CLI flags + cwd
 
 ## Error Handling
 
-AI OS uses `AiOsError` (from `src/errors.ts`) for all known recoverable errors:
+Cortex uses `CortexError` (from `src/errors.ts`) for all known recoverable errors:
 
 | Exit code | Meaning |
 |-----------|---------|
 | `0` | Success |
 | `1` | Unexpected / unhandled error |
-| `2` | Known `AiOsError` — user-actionable fix hint provided |
+| `2` | Known `CortexError` — user-actionable fix hint provided |
 
-`AiOsErrorCode` values: `MISSING_CONFIG`, `INVALID_CONFIG`, `WRITE_FAILED`, `SCAN_FAILED`, `TEMPLATE_NOT_FOUND`, `MCP_RUNTIME_MISSING`, `BUNDLE_CORRUPTED`, `UNKNOWN`.
+`CortexErrorCode` values: `MISSING_CONFIG`, `INVALID_CONFIG`, `WRITE_FAILED`, `SCAN_FAILED`, `TEMPLATE_NOT_FOUND`, `MCP_RUNTIME_MISSING`, `BUNDLE_CORRUPTED`, `UNKNOWN`.
 
 ## Drift Detection
 
@@ -108,7 +108,7 @@ Returns a `DriftReport` with `errors`, `warnings`, `infos`, `healthy`, and `tota
 
 ## Manifest Contract
 
-`.github/ai-os/manifest.json` tracks every file AI OS owns:
+`.github/cortex/manifest.json` tracks every file Cortex owns:
 
 ```json
 {
@@ -126,14 +126,14 @@ Returns a `DriftReport` with `errors`, `warnings`, `infos`, `healthy`, and `tota
 
 ## MCP Config Files
 
-AI OS manages two MCP config files:
+Cortex manages two MCP config files:
 
 | File | Key | Purpose |
 | --- | --- | --- |
 | `.vscode/mcp.json` | `servers` | VS Code MCP integration (workspace-scoped) |
 | `.mcp.json` | `mcpServers` | Project-level MCP config |
 
-Non-AI OS entries in both files are preserved on refresh.
+Non-Cortex entries in both files are preserved on refresh.
 
 ## tools.json Format
 
@@ -154,7 +154,7 @@ With `strictStackFiltering: false`:
 
 ## Memory Architecture
 
-Repository memory lives in `.github/ai-os/memory/memory.jsonl`. Each entry:
+Repository memory lives in `.github/cortex/memory/memory.jsonl`. Each entry:
 
 ```json
 {
@@ -168,7 +168,7 @@ Repository memory lives in `.github/ai-os/memory/memory.jsonl`. Each entry:
 }
 ```
 
-Session state lives in `.github/ai-os/memory/session/`:
+Session state lives in `.github/cortex/memory/session/`:
 
 | File | Purpose |
 | --- | --- |
@@ -180,7 +180,7 @@ Session state lives in `.github/ai-os/memory/session/`:
 
 ## Content Protection
 
-`.github/ai-os/protect.json` controls refresh behavior:
+`.github/cortex/protect.json` controls refresh behavior:
 
 - `protected` array: files never overwritten or pruned
 - `hybrid` array: files refreshed but user `USER_BLOCK` sections preserved
@@ -197,7 +197,7 @@ User blocks use `<!-- AI-OS:USER_BLOCK:START id="..." -->` / `<!-- AI-OS:USER_BL
 
 ## Cortex Userland & the Three-Domain Data Model
 
-The engine no longer lives at the repository root. It is a bounded **kernel** under `engine/`; the repo root is the **Cortex** userland — a clone-and-go personal AI OS (identity in `context/`, memory in `brain/`, ritual skills in `.claude/skills/`, canonical `AGENTS.md`). The root `package.json` keeps `npx github:<user>/ai-os` working by pointing `bin` at `./engine/bundle/generate.js`. The framework is documented in `../references/alive-os-framework.md` (Alive · Bounded · Sovereign).
+The engine no longer lives at the repository root. It is a bounded **kernel** under `engine/`; the repo root is the **Cortex** userland — a clone-and-go personal AI operating system (identity in `context/`, memory in `brain/`, ritual skills in `.claude/skills/`, canonical `AGENTS.md`). The root `package.json` keeps `npx github:<user>/ai-os` working by pointing `bin` at `./engine/bundle/generate.js`. The framework is documented in `../references/alive-os-framework.md` (Alive · Bounded · Sovereign).
 
 ### Three domains
 
@@ -207,13 +207,13 @@ Every memory entry carries a `domain` (`MemoryDomain = 'project' | 'personal' | 
 | ---------- | ------------------------------------------------- | ------- |
 | `shared`   | structure, framework, skills — ZERO real data     | committed template files + `src/templates/` |
 | `personal` | the user's brain: identity + durable memory       | the personal brain root (gitignored), resolved by `getPersonalBrainPath()` |
-| `project`  | company/client data, encapsulated in its own repo | `.github/ai-os/memory/memory.jsonl` |
+| `project`  | company/client data, encapsulated in its own repo | `.github/cortex/memory/memory.jsonl` |
 
 ### The boundary invariant (non-negotiable)
 
 A fact moves in exactly **one** direction — `project → personal` — and **only** via the sanitized, audited `promote_to_brain` gate. Never `project → shared`. Never `personal → project`.
 
-- `getPersonalBrainPath()` (`src/mcp-server/shared.ts`) prefers `AI_OS_PERSONAL_ROOT`, then falls back to `personalBrainPath` in `.github/ai-os/config.json` (written by the init wizard), and returns `''` only when neither is set, forcing the promotion handler to fail loudly rather than guessing a home directory.
+- `getPersonalBrainPath()` (`src/mcp-server/shared.ts`) prefers `CORTEX_PERSONAL_ROOT`, then falls back to `personalBrainPath` in `.github/cortex/config.json` (written by the init wizard), and returns `''` only when neither is set, forcing the promotion handler to fail loudly rather than guessing a home directory.
 - `promoteToBrain()` (`src/mcp-server/promotion.ts`) refuses unless `sanitized_confirmed === true`, runs a warn-only secret scan (`detectSecretPatterns()` in `src/mcp-server/sanitize.ts`), appends a `domain: 'personal'` entry to `brain/memory.jsonl`, and writes an audit line to `brain/memory-log.md`.
 - Ambient capture is append-only: `suggest_profile_update` queues candidate facts to `brain/candidates.jsonl` (`src/mcp-server/candidates.ts`) for confirmation at `/level-up`; it never writes `context/` or `brain/memory.jsonl` directly. Project-domain candidates are flagged for sanitization.
 
@@ -222,6 +222,6 @@ A fact moves in exactly **one** direction — `project → personal` — and **o
 | Surface | Name | Purpose |
 | --- | --- | --- |
 | CLI action | `--check-boundaries` | Reports cross-domain leaks (non-`project` memory entries, missing personal-layer `.gitignore` rules). Read-only. |
-| CLI flag | `--personal-brain-path <dir>` | Overrides the personal brain root (otherwise `AI_OS_PERSONAL_ROOT` / config). |
+| CLI flag | `--personal-brain-path <dir>` | Overrides the personal brain root (otherwise `CORTEX_PERSONAL_ROOT` / config). |
 | MCP tool | `promote_to_brain` | The only sanctioned `project → personal` promotion (sanitized, audited). |
 | MCP tool | `suggest_profile_update` | Append-only ambient capture into `brain/candidates.jsonl`. |

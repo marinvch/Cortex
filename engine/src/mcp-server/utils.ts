@@ -52,7 +52,7 @@ export function getSessionContext(): string {
   const lines: string[] = [
     '# Session Context',
     '',
-    '> COPILOT_CONTEXT.md not found. Run AI OS generation to create it.',
+    '> COPILOT_CONTEXT.md not found. Run Cortex generation to create it.',
     '',
     '## Quick Context',
     '',
@@ -72,7 +72,7 @@ export function checkForUpdates(): string {
   const legacyConfigPath = path.join(ROOT, '.ai-os', 'config.json');
   const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs.existsSync(configPath)) {
-    return 'AI OS is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`';
+    return 'Cortex is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`';
   }
 
   let installedVersion = '0.0.0';

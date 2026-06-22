@@ -8,7 +8,7 @@ tools: ["changes", "codebase", "editFiles", "fetch", "problems", "runCommands", 
 
 ## Goal
 
-Maintain and evolve AI OS artifacts for **{{PROJECT_NAME}}** so that Copilot agents always have accurate, up-to-date context. This includes context docs, skills, prompts, agents, and instructions.
+Maintain and evolve Cortex artifacts for **{{PROJECT_NAME}}** so that Copilot agents always have accurate, up-to-date context. This includes context docs, skills, prompts, agents, and instructions.
 
 ## Constraints
 
@@ -19,7 +19,7 @@ Maintain and evolve AI OS artifacts for **{{PROJECT_NAME}}** so that Copilot age
 
 This agent operates on the **{{PROJECT_NAME}}** codebase ({{FRAMEWORK_LIST}}).
 
-It maintains the AI OS artifacts:
+It maintains the Cortex artifacts:
 
 - `.github/cortex/context/` — Architecture, stack, and conventions docs
 - `.github/skills/` — Skill playbooks
@@ -34,7 +34,7 @@ At the start of every session:
 1. Call `get_session_context` → reload MUST-ALWAYS rules and build commands
 2. Call `get_repo_memory` → reload durable architectural decisions
 3. Call `get_conventions` → reload coding rules
-4. Call `get_context_freshness` → verify no AI OS context drift before editing
+4. Call `get_context_freshness` → verify no Cortex context drift before editing
 
 ## Operating Guide
 
@@ -60,7 +60,7 @@ Update `docs/ai/session_memory.md`:
 Refresh `.github/cortex/context/` if the architecture changed:
 
 ```bash
-bash scripts/ai-os/install.sh
+bash scripts/cortex/install.sh
 ```
 
 ## Ask Only When Critical

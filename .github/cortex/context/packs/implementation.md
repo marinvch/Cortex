@@ -2,7 +2,7 @@
 
 ## Scope
 
-Use for feature work and bug fixes in the AI OS codebase.
+Use for feature work and bug fixes in the Cortex codebase.
 
 ## Must-Load Inputs
 

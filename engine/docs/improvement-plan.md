@@ -1,10 +1,10 @@
-# ai-os — Improvement & Optimization Plan (audited)
+# Cortex — Improvement & Optimization Plan (audited)
 
 > Status: proposal for review. Each item is rated **Necessary**, **Recommended**, or **Optional** based on a critical audit of the codebase as of v0.12.1.
 
 ## Repository purpose (restated)
 
-ai-os is a **portable GitHub Copilot context engine** — a Node ≥20 CLI that scans any target repository, detects its stack, and emits a manifest-tracked Copilot context package (instructions, agents, skills, MCP tools, prompts, workflows, memory store, freshness snapshot). It also ships a self-contained MCP runtime server (`dist/server.js`) plus validation tooling (regression, smoke, scorecard, doctor).
+Cortex is a **portable GitHub Copilot context engine** — a Node ≥20 CLI that scans any target repository, detects its stack, and emits a manifest-tracked Copilot context package (instructions, agents, skills, MCP tools, prompts, workflows, memory store, freshness snapshot). It also ships a self-contained MCP runtime server (`dist/server.js`) plus validation tooling (regression, smoke, scorecard, doctor).
 
 The bar for any change: must improve **generation correctness, install/refresh reliability, security, or developer velocity** without breaking the manifest-tracked artifact contract that downstream repos depend on.
 
@@ -95,7 +95,7 @@ The full validated roadmap is below. Items marked **Necessary** should ship befo
 - **Fix:** unified-diff helper; show summary counts + first N changed lines per artifact.
 
 ### 3.3 `--uninstall` action — **Necessary**
-- **Evidence:** today only `pruneLegacyArtifacts` exists internally. Users have no clean way to remove ai-os from a target repo.
+- **Evidence:** today only `pruneLegacyArtifacts` exists internally. Users have no clean way to remove Cortex from a target repo.
 - **Behavior:** consume the manifest, remove every owned file, leave user-authored blocks intact (already supported via `user-blocks.ts`), report what was kept and why.
 
 ### 3.4 `--json` output mode — **Optional**
@@ -112,7 +112,7 @@ The full validated roadmap is below. Items marked **Necessary** should ship befo
 - Publish SHA-256 of `bundle/generate.js` and `dist/server.js` in the GitHub Release notes; document verification step in README.
 
 ### 4.3 Self-host scorecard in CI — **Recommended**
-- Run ai-os against itself and assert the scorecard meets a threshold; prevents detection regressions for TS/Node/Vitest stacks.
+- Run Cortex against itself and assert the scorecard meets a threshold; prevents detection regressions for TS/Node/Vitest stacks.
 
 ---
 

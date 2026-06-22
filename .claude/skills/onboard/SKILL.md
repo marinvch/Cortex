@@ -24,10 +24,10 @@ You are onboarding the user into Cortex. This is a **starting point**, not a one
    header, and `sessions/`. (These are gitignored.)
 7. **Engine check + project init (gated):**
    - Run `node --version`. If it fails, print "Engine not available — skipping project
-     setup. Install Node ≥20 and run `npx ai-os --init --cwd projects/<name>` later." and
+     setup. Install Node ≥20 and run `npx cortex --init --cwd projects/<name>` later." and
      continue.
    - If Node is present, for each code project the user names, optionally run
-     `npx ai-os --init --cwd projects/<name>` (writes only inside that project).
+     `npx cortex --init --cwd projects/<name>` (writes only inside that project).
 8. **Personalize `CLAUDE.md`** — leave the shim as `@AGENTS.md`; do NOT inline personal data
    into committed files. Confirm `context/*` exist so AGENTS.md's personal-context section resolves.
 

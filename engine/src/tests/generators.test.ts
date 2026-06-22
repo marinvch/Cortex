@@ -1,5 +1,5 @@
 /**
- * AI OS Generator Unit Tests
+ * Cortex Generator Unit Tests
  *
  * Tests core generator utilities:
  * - enforceSizeCap: copilot-instructions.md must stay under 8 KB
@@ -902,7 +902,7 @@ describe('skills strategy', () => {
     });
 
     const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
-    const reactSkillPath = path.join(skillsDir, 'ai-os-react-patterns.md');
+    const reactSkillPath = path.join(skillsDir, 'cortex-react-patterns.md');
 
     if (fs.existsSync(reactSkillPath)) {
       const content = fs.readFileSync(reactSkillPath, 'utf-8');

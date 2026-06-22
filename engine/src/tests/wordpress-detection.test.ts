@@ -1,7 +1,7 @@
 /**
  * WordPress and PHP stack detection tests
  *
- * Verifies that AI OS detects WordPress projects by checking for
+ * Verifies that Cortex detects WordPress projects by checking for
  * wp-config.php, wp-content/, and wp-includes/ — without requiring composer.json.
  */
 

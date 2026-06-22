@@ -354,18 +354,18 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'ver-old',
       createdAt: freshDate,
       updatedAt: freshDate,
-      title: 'AI OS refreshed to v0.13.0',
+      title: 'Cortex refreshed to v0.13.0',
       content: 'Refreshed to version 0.13.0 with new context docs.',
       category: 'build',
       tags: [],
       status: 'active',
-      fingerprint: 'build::ai os refreshed to v0.13.0::refreshed to version 0.13.0 with new context docs.',
+      fingerprint: 'build::cortex refreshed to v0.13.0::refreshed to version 0.13.0 with new context docs.',
     };
     tempRoot = createTempMemoryRoot([oldEntry]);
     process.env['CORTEX_ROOT'] = tempRoot;
 
     const { rememberRepoFact } = await import('../mcp-server/utils.js');
-    const result = rememberRepoFact('AI OS refreshed to v0.16.0', 'Refreshed to version 0.16.0.', 'build');
+    const result = rememberRepoFact('Cortex refreshed to v0.16.0', 'Refreshed to version 0.16.0.', 'build');
 
     expect(result).toContain('superseding older version');
 
@@ -380,7 +380,7 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'ver-old2',
       createdAt: freshDate,
       updatedAt: freshDate,
-      title: 'AI OS refreshed to v0.12.1',
+      title: 'Cortex refreshed to v0.12.1',
       content: 'Refreshed to version 0.12.1.',
       category: 'build',
       tags: [],
@@ -391,7 +391,7 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'ver-new2',
       createdAt: freshDate,
       updatedAt: freshDate,
-      title: 'AI OS refreshed to v0.16.0',
+      title: 'Cortex refreshed to v0.16.0',
       content: 'Refreshed to version 0.16.0.',
       category: 'build',
       tags: [],
@@ -414,7 +414,7 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'vf1',
       createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // older
       updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      title: 'AI OS refreshed to v0.15.0',
+      title: 'Cortex refreshed to v0.15.0',
       content: 'Refreshed to 0.15.0.',
       category: 'build',
       tags: [],
@@ -424,7 +424,7 @@ describe('memory hygiene — version-family supersession', () => {
       id: 'vf2',
       createdAt: freshDate, // newer
       updatedAt: freshDate,
-      title: 'AI OS refreshed to v0.16.0',
+      title: 'Cortex refreshed to v0.16.0',
       content: 'Refreshed to 0.16.0.',
       category: 'build',
       tags: [],

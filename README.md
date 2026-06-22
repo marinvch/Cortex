@@ -5,9 +5,9 @@
 
 Cortex is a personal AI operating system. Clone it, open it in Claude Code, run `/onboard`.
 It learns who you are and how you work, then **keeps itself alive** — when you point it at
-code, the `ai-os` engine re-scans, refreshes context, and reconciles memory for you.
+code, the Cortex engine re-scans, refreshes context, and reconciles memory for you.
 
-> Not affiliated with `nateherkai/AIS-OS`. Cortex is the `ai-os` engine (kernel) plus a
+> Not affiliated with `nateherkai/AIS-OS`. Cortex is the Cortex engine (kernel) plus a
 > clone-and-go userland.
 
 ## Why Cortex
@@ -22,7 +22,7 @@ Full framework: [`references/alive-os-framework.md`](./references/alive-os-frame
 
 ## Two ways to use it
 
-**As your personal AI OS** — clone, open in Claude Code, and run the rituals:
+**As your personal AI operating system** — clone, open in Claude Code, and run the rituals:
 
 1. `/onboard` once — seeds your identity into `context/` and initializes `brain/`.
    (No Node needed for the personal layer.)
@@ -38,13 +38,15 @@ See [`SETUP.md`](./SETUP.md) to begin and
 npx -y github:marinvch/ai-os
 ```
 
+> **Note:** The GitHub repo will be renamed to `marinvch/cortex`; existing `github:marinvch/ai-os` URLs will continue to work via GitHub's redirect.
+
 This scans the repo, detects the stack, and generates AI-context artifacts, a project-intelligence
 MCP server, agents, and skills. Full docs and source live in [`engine/`](./engine/README.md).
 
 ## How it fits together
 
 - The **userland** (this repo root) is the shareable, data-free template you fork and make yours.
-- The **kernel** ([`engine/`](./engine/README.md)) is the TypeScript `ai-os` engine; it lights up
+- The **kernel** ([`engine/`](./engine/README.md)) is the TypeScript Cortex engine; it lights up
   whenever a codebase and Node are present.
 - Your **personal layers** (`context/`, `brain/`, `decisions/`) are gitignored and never committed.
 

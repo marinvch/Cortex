@@ -123,15 +123,15 @@ After all replacements are complete:
 2. If AI OS is installed, run: `npx github:marinvch/ai-os --check-hygiene`
 3. Confirm the hygiene check passes before marking migration complete
 
-### Step 4: Auto-regenerate AI OS context (if installed)
+### Step 4: Auto-regenerate Cortex context (if installed)
 
-If AI OS is installed in the target repo, trigger a context refresh so that all generated files (stack.md, conventions.md, instructions.md) reflect the new architecture:
+If Cortex is installed in the target repo, trigger a context refresh so that all generated files (stack.md, conventions.md, instructions.md) reflect the new architecture:
 
 ```bash
 npx github:marinvch/ai-os --refresh-existing
 ```
 
-This rewrites only AI OS-managed files — user blocks and protected files are preserved. Run this as the final step to close the migration.
+This rewrites only Cortex-managed files — user blocks and protected files are preserved. Run this as the final step to close the migration.
 
 ## Operating Rules
 

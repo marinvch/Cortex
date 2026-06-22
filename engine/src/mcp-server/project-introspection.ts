@@ -1,6 +1,6 @@
 /**
  * project-introspection.ts — env vars, package info, file summary, impact analysis,
- * dependency chain, API routes, tRPC procedures, and Prisma schema for AI OS MCP server.
+ * dependency chain, API routes, tRPC procedures, and Prisma schema for Cortex MCP server.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';

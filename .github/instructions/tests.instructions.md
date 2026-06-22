@@ -1,7 +1,7 @@
 ---
 applyTo: "**/*.test.ts, **/*.test.tsx, **/*.spec.ts, **/*.spec.tsx, **/*.test.js, **/*.spec.js"
 ---
-# Test Rules — ai-os
+# Test Rules — cortex
 - Use Vitest as the test framework
 - One assertion concept per test (avoid multiple unrelated assertions)
 - Test descriptions must be descriptive: `it("returns 401 when token is missing")`

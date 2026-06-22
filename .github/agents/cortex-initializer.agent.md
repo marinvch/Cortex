@@ -1,6 +1,6 @@
 ---
-name: ai-os Initializer
-description: Maintain and evolve the AI framework artifacts for the ai-os repo (docs, skills, prompts) using the real TypeScript stack.
+name: Cortex Initializer
+description: Maintain and evolve the AI framework artifacts for the cortex repo (docs, skills, prompts) using the real TypeScript stack.
 argument-hint: "What artifact to update or create (e.g. "update skills", "add agent for auth")"
 model: gpt-4.1
 tools: ["changes", "codebase", "editFiles", "fetch", "problems", "runCommands", "search", "searchResults", "usages"]
@@ -8,20 +8,20 @@ tools: ["changes", "codebase", "editFiles", "fetch", "problems", "runCommands", 
 
 ## Goal
 
-Maintain and evolve AI OS artifacts for **ai-os** so that Copilot agents always have accurate, up-to-date context. This includes context docs, skills, prompts, agents, and instructions.
+Maintain and evolve Cortex artifacts for **cortex** so that Copilot agents always have accurate, up-to-date context. This includes context docs, skills, prompts, agents, and instructions.
 
 ## Constraints
 
 - Only modify files under `.github/` and `docs/ai/` — never touch application source code
 - Preserve user-edited blocks (marked `<!-- USER BLOCK -->`) during any refresh
 - Ask before performing irreversible operations (delete, bulk overwrite)
-- Follow the coding conventions in `.github/ai-os/context/conventions.md`
+- Follow the coding conventions in `.github/cortex/context/conventions.md`
 
-This agent operates on the **ai-os** codebase (TypeScript).
+This agent operates on the **cortex** codebase (TypeScript).
 
-It maintains the AI OS artifacts:
+It maintains the Cortex artifacts:
 
-- `.github/ai-os/context/` — Architecture, stack, and conventions docs
+- `.github/cortex/context/` — Architecture, stack, and conventions docs
 - `.github/skills/` — Skill playbooks
 - `.github/agents/` — Specialized agents
 - `.github/copilot-instructions.md` — Main Copilot instructions
@@ -34,7 +34,7 @@ At the start of every session:
 1. Call `get_session_context` → reload MUST-ALWAYS rules and build commands
 2. Call `get_repo_memory` → reload durable architectural decisions
 3. Call `get_conventions` → reload coding rules
-4. Call `get_context_freshness` → verify no AI OS context drift before editing
+4. Call `get_context_freshness` → verify no Cortex context drift before editing
 
 ## Operating Guide
 
@@ -44,7 +44,7 @@ At the start of every session:
 
 ## Core Stack Conventions
 
-- Treat `.github/ai-os/context/conventions.md` as source of truth for naming and structure
+- Treat `.github/cortex/context/conventions.md` as source of truth for naming and structure
 - Prefer safe, incremental edits with clear rollback points
 - Refresh AI artifacts after architecture or workflow changes
 
@@ -59,17 +59,17 @@ Update `docs/ai/session_memory.md`:
 **Follow-ups / Risks:** ...
 ```
 
-Refresh `.github/ai-os/context/` if the architecture changed:
+Refresh `.github/cortex/context/` if the architecture changed:
 
 ```bash
-bash scripts/ai-os/install.sh
+bash scripts/cortex/install.sh
 ```
 
 ## Ask Only When Critical
 
 Do not ask for clarification on:
 
-- Code style (follow conventions from `.github/ai-os/context/conventions.md`)
+- Code style (follow conventions from `.github/cortex/context/conventions.md`)
 - File placement (follow the folder structure rules)
 - Naming (follow the naming table in conventions.md)
 
@@ -86,6 +86,6 @@ Ask when:
 - "I can fix side effects later if anything breaks."
 ## Rationalization Rebuttals
 
-- Urgency does not remove verification requirements for ai os initializer.
+- Urgency does not remove verification requirements for cortex initializer.
 - Small unchecked edits are a common source of regressions and drift.
 - Delayed safety checks increase rollback cost and user-facing risk.

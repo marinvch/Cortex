@@ -1,6 +1,6 @@
-# AI OS User Guide
+# Cortex User Guide
 
-This is the advanced reference for power users of AI OS. Here you’ll find every CLI flag, agent and skill customization, MCP tool reference, memory management, CI integration, and upgrade strategy.
+This is the advanced reference for power users of Cortex. Here you’ll find every CLI flag, agent and skill customization, MCP tool reference, memory management, CI integration, and upgrade strategy.
 
 ---
 
@@ -18,7 +18,7 @@ This is the advanced reference for power users of AI OS. Here you’ll find ever
 | `--compact-memory` | Run memory hygiene and deduplication |
 | `--refresh-existing` | Regenerate all artifacts, prune stale files |
 | `--clean-update` | Force full regeneration (major upgrades) |
-| `--uninstall` | Remove all AI OS artifacts |
+| `--uninstall` | Remove all Cortex artifacts |
 | `--cwd <path>` | Target directory for install/refresh |
 | `--verbose` | Verbose output (debugging) |
 | `--json` | Output results as JSON |
@@ -35,12 +35,12 @@ This is the advanced reference for power users of AI OS. Here you’ll find ever
 - **`--dry-run`**: Shows what would be generated/changed without writing files.
 - **`--full-diff`**: Outputs a unified diff of all changes (useful for code review).
 - **`--check-freshness`**: Computes a freshness score for your context artifacts, showing which are stale.
-- **`--check-drift`**: Checks if your AI OS artifacts are out of sync with your codebase. Exits with code 1 if drift is detected. Includes 7 checks: missing required files, MCP config validity, unreplaced template placeholders, stale context snapshot (>7 days), agent schema issues, skills/instructions sync, and **semantic drift** (config.json `primaryFramework` vs. instructions content, agents.json count vs. file count).
+- **`--check-drift`**: Checks if your Cortex artifacts are out of sync with your codebase. Exits with code 1 if drift is detected. Includes 7 checks: missing required files, MCP config validity, unreplaced template placeholders, stale context snapshot (>7 days), agent schema issues, skills/instructions sync, and **semantic drift** (config.json `primaryFramework` vs. instructions content, agents.json count vs. file count).
 - **`--doctor`**: Runs a health check on MCP server, config, and tools. Use after install or if something isn’t working.
 - **`--compact-memory`**: Deduplicates and compacts repository memory entries.
 - **`--refresh-existing`**: Re-scans and regenerates all artifacts, removing any that are no longer needed.
 - **`--clean-update`**: Forces a full regeneration of all artifacts (recommended for major version upgrades).
-- **`--uninstall`**: Removes all AI OS artifacts from your repo.
+- **`--uninstall`**: Removes all Cortex artifacts from your repo.
 - **`--cwd <path>`**: Specify a different target directory (default: current directory).
 - **`--verbose`**: Enables verbose logging for debugging.
 - **`--json`**: Outputs all results in JSON format (for scripting/automation).
@@ -51,7 +51,7 @@ This is the advanced reference for power users of AI OS. Here you’ll find ever
 
 ## Agent Customization
 
-AI OS agents live in `.github/agents/*.agent.md`. Each agent file defines a specialist Copilot agent for a workflow (e.g., workspace, reviewer, planner).
+Cortex agents live in `.github/agents/*.agent.md`. Each agent file defines a specialist Copilot agent for a workflow (e.g., workspace, reviewer, planner).
 
 **Required sections:**
 - **Goal:** What the agent is for
@@ -72,7 +72,7 @@ Assist with any project-wide task, enforcing repo conventions and memory.
 
 ## Critical Files
 - copilot-instructions.md
-- .github/ai-os/context/conventions.md
+- .github/cortex/context/conventions.md
 - src/
 ```
 
@@ -158,7 +158,7 @@ Your custom content here
 To enforce drift checks in CI, add a step to your workflow:
 
 ```yaml
-- name: Check AI OS drift
+- name: Check Cortex drift
   run: npx -y github:marinvch/ai-os --check-drift
 ```
 
@@ -169,7 +169,7 @@ To enforce drift checks in CI, add a step to your workflow:
 
 ## Generation Summary
 
-After each install or refresh, AI OS prints a structured summary:
+After each install or refresh, Cortex prints a structured summary:
 
 ```
   Diff summary:
@@ -190,7 +190,7 @@ After each install or refresh, AI OS prints a structured summary:
 
 ## Error Codes
 
-AI OS exits with structured error codes:
+Cortex exits with structured error codes:
 
 | Code | Meaning |
 |------|---------|
@@ -204,7 +204,7 @@ When exit code 2 occurs, the error message includes a `Fix:` line with the sugge
 
 ## Upgrade Strategy
 
-- To upgrade AI OS, re-run the installer:
+- To upgrade Cortex, re-run the installer:
   ```bash
   npx -y github:marinvch/ai-os
   ```

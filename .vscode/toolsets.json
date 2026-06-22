@@ -1,5 +1,5 @@
 {
-  "ai-os-context": {
+  "cortex-context": {
     "tools": [
       "get_session_context",
       "get_conventions",
@@ -8,9 +8,9 @@
       "get_memory_guidelines",
       "get_context_freshness"
     ],
-    "description": "AI OS context & memory tools — conventions, repo memory, freshness"
+    "description": "Cortex context & memory tools — conventions, repo memory, freshness"
   },
-  "ai-os-explore": {
+  "cortex-explore": {
     "tools": [
       "search_codebase",
       "get_project_structure",
@@ -19,9 +19,9 @@
       "get_impact_of_change",
       "get_dependency_chain"
     ],
-    "description": "AI OS codebase navigation — search, structure, impact analysis"
+    "description": "Cortex codebase navigation — search, structure, impact analysis"
   },
-  "ai-os-plan": {
+  "cortex-plan": {
     "tools": [
       "get_active_plan",
       "upsert_active_plan",
@@ -30,6 +30,6 @@
       "compact_session_context",
       "record_failure_pattern"
     ],
-    "description": "AI OS session planning — active plan, checkpoints, failure tracking"
+    "description": "Cortex session planning — active plan, checkpoints, failure tracking"
   }
 }

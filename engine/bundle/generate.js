@@ -1769,7 +1769,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #40: Symbol Search ────────────────────────────────────────────────
   {
     name: "search_symbols",
-    description: "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists.",
+    description: "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `cortex --index` to have been run first; gracefully returns empty list if no index exists.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1784,7 +1784,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #41: File Purpose ─────────────────────────────────────────────────
   {
     name: "get_file_purpose",
-    description: "Returns a concise description of what a source file does, its exports, domain tags, size, and language \u2014 sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
+    description: "Returns a concise description of what a source file does, its exports, domain tags, size, and language \u2014 sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `cortex --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1797,7 +1797,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #42: Spec Coverage ───────────────────────────────────────────────
   {
     name: "validate_spec_coverage",
-    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1809,7 +1809,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #43: Spec for File ───────────────────────────────────────────────
   {
     name: "get_spec_for_file",
-    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -8873,7 +8873,7 @@ ${gapReport}
   if (allConflicts.length > 0) {
     console.log("");
     console.log(`  \u26A0 ${allConflicts.length} user block conflict(s) require manual reconciliation.`);
-    console.log("     Each block has been appended to its file wrapped in <!-- CORTEX:CONFLICT --> markers.");
+    console.log("     Each block has been appended to its file wrapped in <!-- AI-OS:CONFLICT --> markers.");
     console.log("     Review and move them to the correct location, then remove the conflict markers.");
     console.log("");
   }

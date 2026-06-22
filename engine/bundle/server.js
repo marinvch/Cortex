@@ -9655,7 +9655,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #40: Symbol Search ────────────────────────────────────────────────
   {
     name: "search_symbols",
-    description: "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists.",
+    description: "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `cortex --index` to have been run first; gracefully returns empty list if no index exists.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9670,7 +9670,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #41: File Purpose ─────────────────────────────────────────────────
   {
     name: "get_file_purpose",
-    description: "Returns a concise description of what a source file does, its exports, domain tags, size, and language \u2014 sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
+    description: "Returns a concise description of what a source file does, its exports, domain tags, size, and language \u2014 sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `cortex --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9683,7 +9683,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #42: Spec Coverage ───────────────────────────────────────────────
   {
     name: "validate_spec_coverage",
-    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9695,7 +9695,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #43: Spec for File ───────────────────────────────────────────────
   {
     name: "get_spec_for_file",
-    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -35044,7 +35044,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
   server.registerTool(
     "search_symbols",
     {
-      description: "Searches the Repository Intelligence Index for named symbols by query string. Optional filters: kind (function, class, interface, type, variable, enum, method) and tag (auth, database, api, testing, ui, etc.). Returns up to 30 matches with file, line, signature, and tags. Requires `ai-os --index` to have run first.",
+      description: "Searches the Repository Intelligence Index for named symbols by query string. Optional filters: kind (function, class, interface, type, variable, enum, method) and tag (auth, database, api, testing, ui, etc.). Returns up to 30 matches with file, line, signature, and tags. Requires `cortex --index` to have run first.",
       inputSchema: {
         query: external_exports.string().describe("Symbol name to search for (partial match)."),
         kind: external_exports.string().optional().describe("Optional kind filter: function, class, interface, type, variable, enum, method."),
@@ -35057,7 +35057,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const kind = args["kind"] ? String(args["kind"]) : void 0;
       const tag = args["tag"] ? String(args["tag"]) : void 0;
       const results = searchSymbols(root, query, kind, tag);
-      if (results === null) return "No symbol index found. Run `ai-os --index` to build the index first.";
+      if (results === null) return "No symbol index found. Run `cortex --index` to build the index first.";
       if (results.length === 0) return `No symbols matching "${query}"${kind ? ` of kind "${kind}"` : ""}${tag ? ` with tag "${tag}"` : ""} were found in the index.`;
       return results.map(
         (r) => `${r.kind} ${r.name} \u2014 ${r.file}:${r.line}${r.signature ? ` (${r.signature})` : ""}${r.tags.length > 0 ? ` [${r.tags.join(", ")}]` : ""}`
@@ -35067,7 +35067,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
   server.registerTool(
     "get_file_purpose",
     {
-      description: "Returns a concise description of a source file: purpose (first docstring/comment), exports, domain tags, size in bytes, and language \u2014 sourced from the repo index. Requires `ai-os --index` to have run first.",
+      description: "Returns a concise description of a source file: purpose (first docstring/comment), exports, domain tags, size in bytes, and language \u2014 sourced from the repo index. Requires `cortex --index` to have run first.",
       inputSchema: {
         file_path: external_exports.string().describe('Relative file path, e.g. "src/auth/middleware.ts".')
       }
@@ -35077,8 +35077,8 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const filePath = String(args["file_path"] ?? "");
       const result = getFilePurpose(root, filePath);
       if ("notFound" in result) {
-        if (result.noIndex) return `No symbol index found. Run \`ai-os --index\` first, then retry.`;
-        return `"${filePath}" is not in the index. Run \`ai-os --index\` to rebuild, or check the path.`;
+        if (result.noIndex) return `No symbol index found. Run \`cortex --index\` first, then retry.`;
+        return `"${filePath}" is not in the index. Run \`cortex --index\` to rebuild, or check the path.`;
       }
       const lines = [
         `File: ${result.path}`,
@@ -35094,7 +35094,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
   server.registerTool(
     "validate_spec_coverage",
     {
-      description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+      description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first.",
       inputSchema: {
         show_all: external_exports.boolean().optional().describe("Show all requirements including implemented ones (default: false \u2014 gaps only).")
       }
@@ -35104,7 +35104,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const showAll = args["show_all"] === true;
       const groups = validateSpecCoverage(root);
       if (groups.length === 0) {
-        return "No spec entries found. Run `ai-os --index` first. Ensure spec files exist in docs/superpowers/specs/.";
+        return "No spec entries found. Run `cortex --index` first. Ensure spec files exist in docs/superpowers/specs/.";
       }
       const totalCovered = groups.reduce((sum, g) => sum + g.covered, 0);
       const totalReqs = groups.reduce((sum, g) => sum + g.total, 0);
@@ -35134,7 +35134,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
   server.registerTool(
     "get_spec_for_file",
     {
-      description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+      description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first.",
       inputSchema: {
         path: external_exports.string().describe('Relative path to the source file, e.g. "src/actions/index.ts".')
       }
@@ -35144,7 +35144,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const filePath = String(args["path"] ?? "");
       const results = getSpecForFile(root, filePath);
       if (results.length === 0) {
-        return `No spec annotations found for "${filePath}". Run \`ai-os --index\` first, or add // @spec: ID comments above exported functions.`;
+        return `No spec annotations found for "${filePath}". Run \`cortex --index\` first, or add // @spec: ID comments above exported functions.`;
       }
       const lines = [`${filePath} contributes to:`];
       for (const r of results) {
@@ -35275,7 +35275,7 @@ async function runSdkMcp() {
 // src/mcp-server/index.ts
 function logDiagnostic(message) {
   if (process.env[ENV.MCP_DEBUG] === "1") {
-    console.error(`[ai-os:mcp] ${message}`);
+    console.error(`[cortex:mcp] ${message}`);
   }
 }
 function validateRuntimeEnvironment() {
@@ -35299,11 +35299,11 @@ async function main() {
     const health2 = validateRuntimeEnvironment();
     if (!health2.ok) {
       for (const message of health2.messages) {
-        console.error(`[ai-os:mcp:healthcheck] ${message}`);
+        console.error(`[cortex:mcp:healthcheck] ${message}`);
       }
       process.exit(1);
     }
-    console.error("[ai-os:mcp:healthcheck] OK");
+    console.error("[cortex:mcp:healthcheck] OK");
     process.exit(0);
   }
   if (!process.argv.includes("--copilot")) {
@@ -35323,8 +35323,8 @@ async function main() {
     const sdk = await import("@github/copilot-sdk");
     CopilotClient = sdk.CopilotClient;
   } catch {
-    console.error("[ai-os:mcp] @github/copilot-sdk is required for --copilot mode but was not found.");
-    console.error("[ai-os:mcp] Install it or omit --copilot to use the standard MCP SDK mode.");
+    console.error("[cortex:mcp] @github/copilot-sdk is required for --copilot mode but was not found.");
+    console.error("[cortex:mcp] Install it or omit --copilot to use the standard MCP SDK mode.");
     process.exit(1);
   }
   const sdkServer = createSdkServer();
@@ -35334,8 +35334,8 @@ async function main() {
     await client.start();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[ai-os:mcp] Copilot SDK client failed to start: ${msg}`);
-    console.error("[ai-os:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.");
+    console.error(`[cortex:mcp] Copilot SDK client failed to start: ${msg}`);
+    console.error("[cortex:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.");
     process.exit(1);
   }
   const [serverTransport, clientTransport] = ["server", "client"].map(() => ({
@@ -35383,6 +35383,6 @@ async function main() {
 }
 main().catch((err) => {
   const msg = err instanceof Error ? err.message : String(err);
-  console.error(`[ai-os:mcp] Fatal error: ${msg}`);
+  console.error(`[cortex:mcp] Fatal error: ${msg}`);
   process.exit(1);
 });

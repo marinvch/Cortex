@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  AI OS Bootstrap
-#  Run from any target repository to fetch and execute AI OS installer.
+#  Cortex Bootstrap
+#  Run from any target repository to fetch and execute Cortex installer.
 # =============================================================================
 
 set -euo pipefail
@@ -36,7 +36,7 @@ ensure_node() {
 
 ensure_node
 
-echo "→ Fetching AI OS from ${REPO_URL}"
+echo "→ Fetching Cortex from ${REPO_URL}"
 git clone --depth 1 "$REPO_URL" "$TMPDIR_AI_OS/ai-os" >/dev/null 2>&1
 
 HAS_CWD=false

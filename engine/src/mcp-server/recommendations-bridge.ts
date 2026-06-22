@@ -1,6 +1,6 @@
 /**
  * recommendations-bridge.ts — getRecommendations and suggestImprovements
- * for AI OS MCP server.
+ * for Cortex MCP server.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +14,7 @@ export function getRecommendations(): string {
   if (fs.existsSync(recommendationsPath)) {
     return fs.readFileSync(recommendationsPath, 'utf-8');
   }
-  return 'No recommendations file found. Run AI OS generation with recommendations enabled to create .github/cortex/recommendations.md.';
+  return 'No recommendations file found. Run Cortex generation with recommendations enabled to create .github/cortex/recommendations.md.';
 }
 
 // ── Tool #21: Suggest Improvements ────────────────────────────────────────────
@@ -76,7 +76,7 @@ export function suggestImprovements(): string {
   }
 
   if (suggestions.length === 0) {
-    return '## Improvement Suggestions\n\nNo actionable improvements found. Your AI OS setup looks healthy!\n\nConsider:\n- Adding more persistent rules in `config.json` for frequently forgotten conventions\n- Calling `remember_repo_fact` after major architectural decisions';
+    return '## Improvement Suggestions\n\nNo actionable improvements found. Your Cortex setup looks healthy!\n\nConsider:\n- Adding more persistent rules in `config.json` for frequently forgotten conventions\n- Calling `remember_repo_fact` after major architectural decisions';
   }
 
   return [

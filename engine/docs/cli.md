@@ -1,10 +1,10 @@
-# AI OS CLI Reference
+# Cortex CLI Reference
 
 ## Actions
 
 | Flag | Action | Description |
 | --- | --- | --- |
-| _(default)_ | `apply` | Generate or refresh all AI OS context files |
+| _(default)_ | `apply` | Generate or refresh all Cortex context files |
 | `--refresh-existing` | `apply` | Refresh mode — update existing files, prune stale |
 | `--update` | `apply` | Same as `--refresh-existing` with version bump message |
 | `--plan` | `plan` | Print onboarding plan, no files written |
@@ -16,7 +16,7 @@
 | `--compact-memory` | `compact-memory` | Remove stale memory entries |
 | `--check-boundaries` | `check-boundaries` | Read-only cross-domain leak report (non-`project` memory entries, missing personal-layer `.gitignore` rules) |
 | `--bootstrap` | `bootstrap` | Full generation + auto-install skills |
-| `--uninstall` | _(install.sh flag)_ | Guided removal of all AI OS artifacts |
+| `--uninstall` | _(install.sh flag)_ | Guided removal of all Cortex artifacts |
 
 ## Flags
 
@@ -31,7 +31,7 @@
 | `--prune-custom-artifacts` | Also prune non-AI-OS artifacts in managed dirs |
 | `--clean-update` | Aggressive refresh — equivalent to `--refresh-existing` |
 | `--json` | Suppress human output; emit structured JSON to stdout |
-| `--personal-brain-path <dir>` | Personal brain root for `project → personal` promotion (otherwise `AI_OS_PERSONAL_ROOT` / config) |
+| `--personal-brain-path <dir>` | Personal brain root for `project → personal` promotion (otherwise `CORTEX_PERSONAL_ROOT` / config) |
 
 ## Install Profiles
 
@@ -41,7 +41,7 @@
 | `standard` | Balanced default — most features on, predefined skills off. |
 | `full` | All integrations — agents, recommendations, session context card, update-check workflow, skills. |
 
-Profiles are persisted to `.github/ai-os/config.json` under `"profile"` and re-applied on subsequent refreshes.
+Profiles are persisted to `.github/cortex/config.json` under `"profile"` and re-applied on subsequent refreshes.
 
 ## Common Workflows
 
@@ -108,10 +108,10 @@ For `--bootstrap`, the output includes an additional `bootstrap` field with the 
   "toolVersion": "0.11.0",
   "checks": [
     {
-      "name": "MCP runtime binary present (.ai-os/mcp-server/index.js)",
+      "name": "MCP runtime binary present (.cortex/mcp-server/index.js)",
       "critical": true,
       "passed": true,
-      "detail": "/path/to/repo/.ai-os/mcp-server/index.js"
+      "detail": "/path/to/repo/.cortex/mcp-server/index.js"
     }
   ],
   "criticalFailures": 0,
@@ -147,7 +147,7 @@ For `--bootstrap`, the output includes an additional `bootstrap` field with the 
 
 ## Dry-run Output Format
 
-With `--dry-run`, AI OS prints the detected stack as JSON and exits:
+With `--dry-run`, Cortex prints the detected stack as JSON and exits:
 
 ```json
 {
@@ -167,7 +167,7 @@ With `--dry-run`, AI OS prints the detected stack as JSON and exits:
 
 ## Bootstrap Output
 
-With `--bootstrap`, AI OS runs full generation then auto-installs stack-relevant skills:
+With `--bootstrap`, Cortex runs full generation then auto-installs stack-relevant skills:
 
 ```
   ╔════════════════════════════════════════╗
@@ -182,7 +182,7 @@ With `--bootstrap`, AI OS runs full generation then auto-installs stack-relevant
 
 | Variable | Description |
 | --- | --- |
-| `AI_OS_ROOT` | Override root directory for MCP server runtime |
-| `AI_OS_MCP_DEBUG=1` | Enable verbose MCP server logging |
+| `CORTEX_ROOT` | Override root directory for MCP server runtime |
+| `CORTEX_MCP_DEBUG=1` | Enable verbose MCP server logging |
 | `CI=true` | Enables CI mode — `--check-freshness` exits non-zero when stale |
 | `GITHUB_ACTIONS=true` | Same as `CI=true` |

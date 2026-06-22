@@ -2,9 +2,9 @@
 applyTo: "**"
 ---
 
-# AI OS — Active (ai-os)
+# Cortex — Active (cortex)
 
-AI OS MCP tools are available. **Session start:** call `get_session_context` → `get_repo_memory` → `get_conventions` → `get_active_plan`.
+Cortex MCP tools are available. **Session start:** call `get_session_context` → `get_repo_memory` → `get_conventions` → `get_active_plan`.
 
 **Quick reference:** `search_codebase` · `get_file_summary` · `get_impact_of_change` · `get_dependency_chain` · `get_project_structure` · `get_stack_info` · `get_env_vars` · `check_for_updates` · `remember_repo_fact` · `suggest_improvements` · `get_recommendations`
 
@@ -14,6 +14,6 @@ AI OS MCP tools are available. **Session start:** call `get_session_context` →
 2. **Targeted tools:** prefer retrieval tools over full file reads; stop exploring when confident.
 3. **End-to-end:** implement + validate + surface tradeoffs, optimise for reduced user effort.
 
-## Update AI OS
+## Update Cortex
 
 Run `npx -y github:marinvch/ai-os --refresh-existing` when `check_for_updates` signals a new version.

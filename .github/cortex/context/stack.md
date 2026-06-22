@@ -1,4 +1,4 @@
-# Tech Stack — ai-os
+# Tech Stack — cortex
 
 ## Languages
 
@@ -42,7 +42,7 @@
 
 ```mermaid
 flowchart LR
-  Project["Project: ai-os"]
+  Project["Project: cortex"]
   Lang["Languages: TypeScript, Markdown, Shell, JSON +5 more"]
   Fw["Frameworks: none"]
   Tooling["Tooling: npm, Vitest"]

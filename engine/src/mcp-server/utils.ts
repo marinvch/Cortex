@@ -10,6 +10,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getLatestResolvableVersion } from '../updater.js';
 import { ROOT, readAiOsFile as _readAiOsFile, resolveMcpServerVersion } from './shared.js';
+import { CONFIG_DIR } from '../brand.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -51,7 +52,7 @@ export function getSessionContext(): string {
   const lines: string[] = [
     '# Session Context',
     '',
-    '> COPILOT_CONTEXT.md not found. Run AI OS generation to create it.',
+    '> COPILOT_CONTEXT.md not found. Run Cortex generation to create it.',
     '',
     '## Quick Context',
     '',
@@ -67,11 +68,11 @@ export function getSessionContext(): string {
 }
 
 export function checkForUpdates(): string {
-  const newConfigPath = path.join(ROOT, '.github', 'ai-os', 'config.json');
+  const newConfigPath = path.join(ROOT, CONFIG_DIR, 'config.json');
   const legacyConfigPath = path.join(ROOT, '.ai-os', 'config.json');
   const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs.existsSync(configPath)) {
-    return 'AI OS is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`';
+    return 'Cortex is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`';
   }
 
   let installedVersion = '0.0.0';
@@ -84,7 +85,7 @@ export function checkForUpdates(): string {
     installedVersion = config.version ?? '0.0.0';
     installedAt = config.installedAt ?? 'unknown';
   } catch {
-    return 'Could not read .github/ai-os/config.json';
+    return 'Could not read .github/cortex/config.json';
   }
 
   let toolVersion = '0.0.0';
@@ -104,12 +105,12 @@ export function checkForUpdates(): string {
 
   if (updateAvailable) {
     return [
-      `## AI OS Update Available`,
+      `## Cortex Update Available`,
       ``,
       `- **Installed:** v${installedVersion} (generated ${installedAt})`,
       `- **Latest:**    v${latestVersion}`,
       ``,
-      `Run the following to update all AI OS artifacts in-place:`,
+      `Run the following to update all Cortex artifacts in-place:`,
       `\`\`\`bash`,
       `npx -y "github:marinvch/ai-os#v${latestVersion}" --refresh-existing`,
       `\`\`\``,
@@ -118,7 +119,7 @@ export function checkForUpdates(): string {
     ].join('\n');
   }
 
-  return `AI OS is up-to-date (v${installedVersion}). Last generated: ${installedAt}`;
+  return `Cortex is up-to-date (v${installedVersion}). Last generated: ${installedAt}`;
 }
 
 // ── Re-exports from focused sub-modules (backward compatibility) ───────────────

@@ -1,0 +1,33 @@
+{
+  "version": "0.24.0",
+  "installedAt": "2026-05-28T07:03:44.917Z",
+  "projectName": "cortex",
+  "primaryLanguage": "TypeScript",
+  "primaryFramework": null,
+  "frameworks": [],
+  "packageManager": "npm",
+  "hasTypeScript": true,
+  "agentsMd": false,
+  "pathSpecificInstructions": true,
+  "recommendations": true,
+  "sessionContextCard": true,
+  "updateCheckEnabled": true,
+  "skillsStrategy": "creator-only",
+  "agentFlowMode": "create",
+  "persistentRules": [
+    "Call get_repo_memory before non-trivial implementation tasks.",
+    "Call get_conventions before writing new code.",
+    "Call get_impact_of_change before editing shared source files.",
+    "Prefer minimal, in-scope edits and avoid broad refactors unless requested.",
+    "Run npm run build and npm run test after substantial code changes."
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next",
+    ".nuxt",
+    "build",
+    "out"
+  ],
+  "skillVersions": {}
+}

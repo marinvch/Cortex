@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { ENV, CONFIG_DIR } from '../brand.js';
 import { analyze } from '../analyze.js';
 import { generateInstructions } from '../generators/instructions.js';
 import { generateMcpJson, writeMcpServerConfig } from '../generators/mcp.js';
@@ -31,7 +32,7 @@ import type { OnboardingPlan } from '../planner.js';
 import type { UpdateStatus } from '../updater.js';
 
 /**
- * Parsed result of `.github/ai-os/protect.json`.
+ * Parsed result of `.github/cortex/protect.json`.
  *
  * - `protected` — whole-file shield: file is never overwritten or pruned.
  * - `hybrid`    — block-level merge: file is regenerated but
@@ -58,7 +59,7 @@ function toPathSet(value: unknown): Set<string> {
 
 function loadProtectConfig(cwd: string): ProtectConfig {
   const empty: ProtectConfig = { protected: new Set(), hybrid: new Set() };
-  const protectPath = path.join(cwd, '.github', 'ai-os', 'protect.json');
+  const protectPath = path.join(cwd, CONFIG_DIR, 'protect.json');
   if (!fs.existsSync(protectPath)) return empty;
   try {
     const raw = JSON.parse(fs.readFileSync(protectPath, 'utf-8')) as {
@@ -71,7 +72,7 @@ function loadProtectConfig(cwd: string): ProtectConfig {
       hybrid: toPathSet(raw.hybrid),
     };
   } catch {
-    console.warn('  ⚠ Could not parse .github/ai-os/protect.json — ignoring protection config');
+    console.warn('  ⚠ Could not parse .github/cortex/protect.json — ignoring protection config');
     return empty;
   }
 }
@@ -133,11 +134,11 @@ function resolveBundledServerSource(): string | null {
 function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   const bundledServerSource = resolveBundledServerSource();
   if (!bundledServerSource) {
-    console.warn('  ⚠ Could not locate bundled MCP server; local ai-os tools may be unavailable.');
+    console.warn('  ⚠ Could not locate bundled MCP server; local Cortex tools may be unavailable.');
     return;
   }
 
-  const runtimeDir = path.join(cwd, '.github', 'ai-os', 'mcp-server');
+  const runtimeDir = path.join(cwd, CONFIG_DIR, 'mcp-server');
   const runtimeEntry = path.join(runtimeDir, 'index.js');
   const runtimeManifest = path.join(runtimeDir, 'runtime-manifest.json');
   const nodePath = process.execPath;
@@ -148,7 +149,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
   fs.chmodSync(runtimeEntry, 0o755);
 
   writeFileAtomic(runtimeManifest, JSON.stringify({
-    name: 'ai-os-mcp-server',
+    name: 'cortex-mcp-server',
     runtime: 'bundled',
     sourceVersion: getToolVersion(),
     installedAt: new Date().toISOString(),
@@ -161,12 +162,12 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     command: nodePath,
     args: [runtimeEntry],
     env: {
-      AI_OS_ROOT: cwd,
+      [ENV.ROOT]: cwd,
     },
   });
 
-  ensureGitignoreEntry(cwd, '.github/ai-os/mcp-server/');
-  ensureGitignoreEntry(cwd, '.github/ai-os/memory/.memory.lock');
+  ensureGitignoreEntry(cwd, `${CONFIG_DIR}/mcp-server/`);
+  ensureGitignoreEntry(cwd, `${CONFIG_DIR}/memory/.memory.lock`);
 
   // Clean up legacy .github/copilot/mcp.local.json if present
   const legacyLocalMcp = path.join(cwd, '.github', 'copilot', 'mcp.local.json');
@@ -176,7 +177,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
 
   const healthcheck = spawnSync(nodePath, [runtimeEntry, '--healthcheck'], {
     cwd,
-    env: { ...process.env, AI_OS_ROOT: cwd },
+    env: { ...process.env, [ENV.ROOT]: cwd },
     encoding: 'utf-8',
     stdio: 'pipe',
   });
@@ -191,7 +192,7 @@ function installLocalMcpRuntime(cwd: string, verbose: boolean): void {
     console.log(`  ✏️  write   ${runtimeManifest}`);
     console.log(`  ✏️  write   .vscode/mcp.json`);
   } else {
-    console.log('  ✓ MCP runtime installed to .github/ai-os/mcp-server');
+    console.log('  ✓ MCP runtime installed to .github/cortex/mcp-server');
     console.log('  ✓ MCP config written to .vscode/mcp.json');
   }
 }
@@ -365,7 +366,7 @@ function printContextualNextSteps(
   recommendationsEnabled: boolean,
 ): void {
   const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
-  const recommendationsPath = '.github/ai-os/recommendations.md';
+  const recommendationsPath = `${CONFIG_DIR}/recommendations.md`;
 
   const printInstructionStrategy = (): void => {
     console.log('  📌 First action after install/refresh:');
@@ -374,7 +375,7 @@ function printContextualNextSteps(
     if (onboardingPlan.detectedRepoType === 'new') {
       console.log('  🆕 Strategy for new project:');
       console.log('     Build a baseline context first (stack, conventions, architecture), then keep instructions concise and task-agnostic.');
-      console.log('     Use AI OS MCP tools to fill context as the codebase grows.');
+      console.log('     Use Cortex MCP tools to fill context as the codebase grows.');
       return;
     }
 
@@ -392,10 +393,10 @@ function printContextualNextSteps(
   if (mode === 'safe' && updateStatus.updateAvailable && !updateStatus.isFirstInstall) {
     console.log('  🧭 Recommended next step:');
     console.log(`  ${refreshCmd}`);
-    console.log('  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.');
+    console.log('  Safe mode updated local MCP/runtime wiring, but left existing Cortex context artifacts in place.');
     printInstructionStrategy();
-    console.log('  After refresh, ask Copilot:');
-    console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
+    console.log('  After refresh, ask your assistant:');
+    console.log('     "Use all Cortex MCP tools, inspect this codebase, and improve the AI context files."');
     printRecommendationsHint();
     console.log('');
     return;
@@ -406,15 +407,15 @@ function printContextualNextSteps(
     printInstructionStrategy();
     console.log('  If the tools do not appear immediately, run: MCP: Restart Servers');
     console.log('  Suggested first prompt:');
-    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use Cortex MCP tools to review architecture, conventions, and missing context gaps."');
     printRecommendationsHint();
     console.log('');
     return;
   }
 
-  const firstPrompt = onboardingPlan.detectedRepoType === 'existing-non-ai-os'
-    ? 'Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files.'
-    : 'Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.';
+  const firstPrompt = onboardingPlan.detectedRepoType === 'existing-non-cortex'
+    ? 'Use Cortex MCP tools to map this codebase, compare the existing instructions with generated context, and improve the context files.'
+    : 'Use all Cortex MCP tools, inspect this codebase, and improve the AI context files.';
 
   console.log('  🧭 Next steps:');
   console.log('  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.');
@@ -444,7 +445,7 @@ function printAgentFlowSetupPrompt(cwd: string, currentMode: 'create' | 'hook' |
   console.log('  ┌─────────────────────────────────────────────────────────────┐');
   console.log('  │  🤖 Sequential Agent Flow — Setup                           │');
   console.log('  │                                                             │');
-  console.log('  │  AI OS can generate a 3-agent sequential improvement flow:  │');
+  console.log('  │  Cortex can generate a 3-agent sequential improvement flow:  │');
   console.log('  │                                                             │');
   console.log('  │   1. Feature Enhancement Advisor  (finds improvements)     │');
   console.log('  │      ↓                                                      │');
@@ -455,7 +456,7 @@ function printAgentFlowSetupPrompt(cwd: string, currentMode: 'create' | 'hook' |
   if (hasUserAgents) {
     console.log(`  │  Existing agents detected: ${scan.userDefined.join(', ').slice(0, 38).padEnd(38)} │`);
     console.log('  │                                                             │');
-    console.log('  │  Choose an option in .github/ai-os/config.json:            │');
+    console.log('  │  Choose an option in .github/cortex/config.json:           │');
     console.log('  │    "agentFlowMode": "create"  — add the 3 agents (default) │');
     console.log('  │    "agentFlowMode": "hook"    — guide to link to existing   │');
     console.log('  │    "agentFlowMode": "skip"    — do not generate agents      │');
@@ -476,7 +477,7 @@ function printAgentFlowSetupPrompt(cwd: string, currentMode: 'create' | 'hook' |
 }
 
 function printAgentHookGuide(userDefinedAgents: string[]): void {
-  console.log('  📎 Hook Guide — connecting your existing agents to the ai-os flow:');
+  console.log('  📎 Hook Guide — connecting your existing agents to the Cortex flow:');
   console.log('');
   for (const agent of userDefinedAgents) {
     console.log(`     ${agent}`);
@@ -509,9 +510,9 @@ function printAgentFlowStatus(cwd: string, mode: 'create' | 'hook' | 'skip' | nu
     console.log(`     detected: ${present.join(', ')}`);
   }
   if (activeMode === 'hook') {
-    console.log('     hook mode enabled — AI OS will keep your existing agents and print handoff guidance.');
+    console.log('     hook mode enabled — Cortex will keep your existing agents and print handoff guidance.');
   } else if (activeMode === 'skip') {
-    console.log('     skip mode enabled — set agentFlowMode to "create" in .github/ai-os/config.json to enable flow agents.');
+    console.log('     skip mode enabled — set agentFlowMode to "create" in .github/cortex/config.json to enable flow agents.');
   }
   console.log('');
 }
@@ -521,11 +522,11 @@ function printAgentFlowStatus(cwd: string, mode: 'create' | 'hook' | 'skip' | nu
  * This is a non-destructive read-only hygiene report (does not modify the file).
  */
 function printMemoryMaintenanceSummary(cwd: string): void {
-  const memoryFile = path.join(cwd, '.github', 'ai-os', 'memory', 'memory.jsonl');
+  const memoryFile = path.join(cwd, CONFIG_DIR, 'memory', 'memory.jsonl');
   if (!fs.existsSync(memoryFile)) return;
 
   try {
-    process.env['AI_OS_ROOT'] = cwd;
+    process.env[ENV.ROOT] = cwd;
     const summary = runMemoryMaintenance();
 
     if (summary.totalBefore === 0) return;
@@ -606,7 +607,7 @@ function printSuperpowersPluginSetup(): void {
 /**
  * Auto-install Superpowers skills (obra/superpowers-sourced universal skills) on first install.
  * Idempotent: reads skills-lock.json and skips skills already installed.
- * Gives every AI OS project the core agentic development methodology out of the box.
+ * Gives every Cortex project the core agentic development methodology out of the box.
  */
 function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPath: string, cwd: string): void {
   const recs = collectRecommendations(stack);
@@ -614,7 +615,7 @@ function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPat
 
   if (allSuperpowers.length === 0) return;
 
-  // Skills already copied locally by AI OS — global install is redundant for these
+  // Skills already copied locally by Cortex — global install is redundant for these
   const localSkillsDir = path.join(cwd, '.github', 'copilot', 'skills');
   const canonicalSkillsDir = path.join(cwd, '.github', 'skills');
   const locallyInstalled = new Set(
@@ -726,7 +727,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
 
   if (mode === 'update') {
     if (updateStatus.isFirstInstall) {
-      console.log('  ℹ️  No existing AI OS installation found. Running fresh install...');
+      console.log('  ℹ️  No existing Cortex installation found. Running fresh install...');
     } else if (updateStatus.updateAvailable) {
       console.log(`  🔄 Updating from v${updateStatus.installedVersion ?? '?'} → v${updateStatus.toolVersion}`);
     } else {
@@ -846,7 +847,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
       config = applyProfile(config, effectiveProfile);
       // Persist the profile-applied config back to disk (skip in dry-run).
       if (!dryRun) {
-        const configPath = path.join(cwd, '.github', 'ai-os', 'config.json');
+        const configPath = path.join(cwd, CONFIG_DIR, 'config.json');
         writeFileAtomic(configPath, JSON.stringify(config, null, 2) + '\n');
       }
     }
@@ -1021,7 +1022,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   // Write updated manifest (#8 / #11).
   if (!dryRun) {
     writeManifest(cwd, getToolVersion(), currentRelFiles, getNewHashes());
-    // Sync manifest to pick up any manually-added AI OS artifacts (#240)
+    // Sync manifest to pick up any manually-added Cortex artifacts (#240)
     syncManifest(cwd, getToolVersion());
   }
 
@@ -1033,7 +1034,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
       const snapshot = captureContextSnapshot(cwd, getToolVersion());
       writeContextSnapshot(cwd, snapshot);
       if (verbose) {
-        console.log('  ✏️  write   .github/ai-os/context-snapshot.json  (freshness baseline)');
+        console.log('  ✏️  write   .github/cortex/context-snapshot.json  (freshness baseline)');
       }
     } catch {
       // Non-fatal: freshness snapshot is best-effort
@@ -1123,7 +1124,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   }
 
   // ── Auto-install Superpowers skills on first install ─────────────────────
-  // On a brand-new AI OS setup, install obra/superpowers agentic-methodology
+  // On a brand-new Cortex setup, install obra/superpowers agentic-methodology
   // skills automatically so users get the core workflow out of the box.
   // (On subsequent refreshes users can run `--bootstrap` for a full skill sync.)
   const isFirstInstall = updateStatus.isFirstInstall;

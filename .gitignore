@@ -18,8 +18,8 @@ engine/coverage/
 .env.local
 
 # ── Engine self-test / runtime output written into repo root ───────────
-.ai-os/
+.cortex/
 .vscode/mcp.json
 .github/copilot-instructions.md.bak
-.github/ai-os/memory/.memory.lock
-.github/ai-os/memory/session/
+.github/cortex/memory/.memory.lock
+.github/cortex/memory/session/

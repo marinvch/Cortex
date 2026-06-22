@@ -1,7 +1,7 @@
 {
-  "name": "ai-os",
+  "name": "cortex",
   "version": "0.24.0",
-  "description": "Portable AI OS — scans any repo and generates optimized GitHub Copilot context, agents, skills, MCP tools, and slash-command prompts",
+  "description": "Cortex — portable AI-assistant context engine that scans any repo and generates context, agents, skills, MCP tools, and slash-command prompts",
   "type": "module",
   "license": "MIT",
   "author": "Marin Cholakov",
@@ -14,7 +14,7 @@
   },
   "keywords": [
     "ai",
-    "ai-os",
+    "cortex",
     "copilot",
     "claude",
     "mcp",
@@ -30,7 +30,7 @@
     "node": ">=20.0.0"
   },
   "bin": {
-    "ai-os": "./bundle/generate.js"
+    "cortex": "./bundle/generate.js"
   },
   "files": [
     "bundle/generate.js",

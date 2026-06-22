@@ -1,4 +1,4 @@
-// AI OS MCP Server — bundled single-file deployment
+// Cortex MCP Server — bundled single-file deployment
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -6901,6 +6901,19 @@ import { fileURLToPath as fileURLToPath3 } from "node:url";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+
+// src/brand.ts
+var CONFIG_DIR = ".github/cortex";
+var MCP_SERVER_NAME = "cortex";
+var ENV = {
+  ROOT: "CORTEX_ROOT",
+  PERSONAL_ROOT: "CORTEX_PERSONAL_ROOT",
+  CONFIG: "CORTEX_CONFIG",
+  ALLOW_RUN_TOOLS: "CORTEX_ALLOW_RUN_TOOLS",
+  MCP_DEBUG: "CORTEX_MCP_DEBUG"
+};
+
+// src/updater.ts
 var __dirname = path.dirname(fileURLToPath(import.meta.url));
 function parseSemver(v) {
   const [maj = 0, min = 0, pat = 0] = v.replace(/^v/, "").split(".").map(Number);
@@ -6947,25 +6960,25 @@ function getLatestResolvableVersion(toolVersion) {
 import fs from "node:fs";
 import path2 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
-var ROOT = process.env["AI_OS_ROOT"] ?? process.cwd();
+var ROOT = process.env[ENV.ROOT] ?? process.cwd();
 function readAiOsFile(relPath) {
   try {
-    return fs.readFileSync(path2.join(ROOT, ".github", "ai-os", relPath), "utf-8");
+    return fs.readFileSync(path2.join(ROOT, CONFIG_DIR, relPath), "utf-8");
   } catch {
     return "";
   }
 }
 function getMemoryFilePath() {
-  return path2.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
+  return path2.join(ROOT, CONFIG_DIR, "memory", "memory.jsonl");
 }
 function getMemoryDirPath() {
-  return path2.join(ROOT, ".github", "ai-os", "memory");
+  return path2.join(ROOT, CONFIG_DIR, "memory");
 }
 function getMemoryLockFilePath() {
   return path2.join(getMemoryDirPath(), ".memory.lock");
 }
 function getPersonalBrainPath() {
-  const fromEnv = process.env["AI_OS_PERSONAL_ROOT"];
+  const fromEnv = process.env[ENV.PERSONAL_ROOT];
   if (fromEnv) return fromEnv;
   try {
     const raw = readAiOsFile("config.json");
@@ -7193,7 +7206,7 @@ function normalizeMemoryText(value) {
   return normalizeWhitespace(value).toLowerCase();
 }
 function readMemoryConfig() {
-  const configPath = path3.join(ROOT, ".github", "ai-os", "config.json");
+  const configPath = path3.join(ROOT, CONFIG_DIR, "config.json");
   try {
     const raw = JSON.parse(fs2.readFileSync(configPath, "utf-8"));
     const ttlDays = typeof raw["memoryTtlDays"] === "number" && raw["memoryTtlDays"] > 0 ? Math.floor(raw["memoryTtlDays"]) : MEMORY_STALE_DAYS;
@@ -7396,7 +7409,7 @@ function recoverMalformedMemoryIfNeeded(result) {
 }
 function getMemoryGuidelines() {
   const guidelines = readAiOsFile("context/memory.md");
-  return guidelines || "No memory guidelines found. Re-run AI OS generation to create .github/ai-os/context/memory.md.";
+  return guidelines || "No memory guidelines found. Re-run AI OS generation to create .github/cortex/context/memory.md.";
 }
 function getRepoMemory(query, category, limit) {
   const { entries, malformedCount } = readMemoryEntries();
@@ -7526,7 +7539,7 @@ function syncHostedMemory() {
     "## Sync Hosted Memory \u2192 memory.jsonl",
     "",
     "This tool cannot access Copilot's hosted memory directly.",
-    "Follow these steps to mirror durable facts into `.github/ai-os/memory/memory.jsonl`:",
+    "Follow these steps to mirror durable facts into `.github/cortex/memory/memory.jsonl`:",
     "",
     "1. Review your current hosted/in-context memory for facts about this project.",
     "2. For each fact not already in `memory.jsonl` (listed below), call `remember_repo_fact`.",
@@ -7885,7 +7898,7 @@ function compactSessionContext() {
         lines.push("- Define next step with `upsert_active_plan` to avoid goal drift.");
       }
       writeTextAtomic(outputPath, lines.join("\n") + "\n");
-      return `Compact context written to .github/ai-os/memory/session/compact-context.md
+      return `Compact context written to .github/cortex/memory/session/compact-context.md
 
 ${lines.join("\n")}`;
     });
@@ -8338,7 +8351,7 @@ function boostPrompt(prompt, activeFile) {
   };
 }
 function readRepoIndex(projectRoot) {
-  const indexPath = path5.join(projectRoot, ".github", "ai-os", "context", "repo-index.jsonl");
+  const indexPath = path5.join(projectRoot, CONFIG_DIR, "context", "repo-index.jsonl");
   try {
     if (fs4.existsSync(indexPath)) return fs4.readFileSync(indexPath, "utf-8");
   } catch {
@@ -8773,7 +8786,7 @@ function getFileSummary(filePath) {
   }
 }
 function getImpactOfChange(filePath) {
-  const newGraphPath = path6.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
+  const newGraphPath = path6.join(ROOT, CONFIG_DIR, "context", "dependency-graph.json");
   const legacyGraphPath = path6.join(ROOT, ".ai-os", "context", "dependency-graph.json");
   const graphPath = fs5.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs5.existsSync(graphPath)) {
@@ -8826,7 +8839,7 @@ ${candidates.map((c) => `- ${c}`).join("\n")}`;
   return lines.join("\n");
 }
 function getDependencyChain(filePath) {
-  const newGraphPath = path6.join(ROOT, ".github", "ai-os", "context", "dependency-graph.json");
+  const newGraphPath = path6.join(ROOT, CONFIG_DIR, "context", "dependency-graph.json");
   const legacyGraphPath = path6.join(ROOT, ".ai-os", "context", "dependency-graph.json");
   const graphPath = fs5.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs5.existsSync(graphPath)) {
@@ -8875,7 +8888,19 @@ function getDependencyChain(filePath) {
 import crypto from "node:crypto";
 import fs6 from "node:fs";
 import path7 from "node:path";
-var SNAPSHOT_PATH = ".github/ai-os/context-snapshot.json";
+var ARTIFACT_PATHS = [
+  `${CONFIG_DIR}/context/conventions.md`,
+  `${CONFIG_DIR}/context/architecture.md`,
+  `${CONFIG_DIR}/context/stack.md`,
+  `${CONFIG_DIR}/context/existing-ai-context.md`,
+  `${CONFIG_DIR}/context/context-budget.md`,
+  ".github/copilot-instructions.md",
+  `${CONFIG_DIR}/config.json`,
+  `${CONFIG_DIR}/tools.json`,
+  `${CONFIG_DIR}/context/mcp-tools.md`,
+  `${CONFIG_DIR}/context/recommendations.md`
+];
+var SNAPSHOT_PATH = `${CONFIG_DIR}/context-snapshot.json`;
 function hashFile(filePath) {
   try {
     const content = fs6.readFileSync(filePath);
@@ -8922,7 +8947,7 @@ function computeFreshnessReport(rootDir) {
   const snapshot = loadContextSnapshot(rootDir);
   let lastGeneratedAt = null;
   try {
-    const configPath = path7.join(rootDir, ".github", "ai-os", "config.json");
+    const configPath = path7.join(rootDir, CONFIG_DIR, "config.json");
     if (fs6.existsSync(configPath)) {
       const config2 = JSON.parse(fs6.readFileSync(configPath, "utf-8"));
       lastGeneratedAt = config2.installedAt ?? null;
@@ -9045,7 +9070,7 @@ function formatFreshnessReport(report) {
     lines.push(`- **Snapshot captured:** ${report.snapshotCapturedAt}`);
   }
   if (report.lastGeneratedAt) {
-    lines.push(`- **Last AI OS run:** ${report.lastGeneratedAt}`);
+    lines.push(`- **Last Cortex run:** ${report.lastGeneratedAt}`);
   }
   lines.push("");
   if (report.staleArtifacts.length > 0) {
@@ -9082,11 +9107,11 @@ function getContextFreshness() {
 import fs7 from "node:fs";
 import path8 from "node:path";
 function getRecommendations() {
-  const recommendationsPath = path8.join(ROOT, ".github", "ai-os", "recommendations.md");
+  const recommendationsPath = path8.join(ROOT, CONFIG_DIR, "recommendations.md");
   if (fs7.existsSync(recommendationsPath)) {
     return fs7.readFileSync(recommendationsPath, "utf-8");
   }
-  return "No recommendations file found. Run AI OS generation with recommendations enabled to create .github/ai-os/recommendations.md.";
+  return "No recommendations file found. Run AI OS generation with recommendations enabled to create .github/cortex/recommendations.md.";
 }
 function suggestImprovements() {
   const suggestions = [];
@@ -9098,10 +9123,10 @@ function suggestImprovements() {
   if (!fs7.existsSync(path8.join(ROOT, ".github", "COPILOT_CONTEXT.md"))) {
     suggestions.push("**Missing `COPILOT_CONTEXT.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate the session context card for better session continuity.");
   }
-  if (!fs7.existsSync(path8.join(ROOT, ".github", "ai-os", "recommendations.md"))) {
+  if (!fs7.existsSync(path8.join(ROOT, CONFIG_DIR, "recommendations.md"))) {
     suggestions.push("**Missing `recommendations.md`**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to generate stack-specific tool recommendations.");
   }
-  const memoryPath = path8.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
+  const memoryPath = path8.join(ROOT, CONFIG_DIR, "memory", "memory.jsonl");
   if (!fs7.existsSync(memoryPath)) {
     suggestions.push("**No repository memory found**: Use `remember_repo_fact` to capture key architectural decisions.");
   } else {
@@ -9110,19 +9135,19 @@ function suggestImprovements() {
       suggestions.push("**Empty repository memory**: Use `remember_repo_fact` to capture key architectural decisions and conventions.");
     }
   }
-  const archPath = path8.join(ROOT, ".github", "ai-os", "context", "architecture.md");
+  const archPath = path8.join(ROOT, CONFIG_DIR, "context", "architecture.md");
   if (!fs7.existsSync(archPath)) {
-    suggestions.push("**Missing architecture doc**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to rebuild `.github/ai-os/context/architecture.md`.");
+    suggestions.push("**Missing architecture doc**: Re-run the AI OS installer (`npx -y github:marinvch/ai-os --refresh-existing`) to rebuild `.github/cortex/context/architecture.md`.");
   }
-  const configPath = path8.join(ROOT, ".github", "ai-os", "config.json");
+  const configPath = path8.join(ROOT, CONFIG_DIR, "config.json");
   if (fs7.existsSync(configPath)) {
     try {
       const config2 = JSON.parse(fs7.readFileSync(configPath, "utf-8"));
       if (!config2.persistentRules || config2.persistentRules.length === 0) {
-        suggestions.push('**No persistent rules defined**: Add `persistentRules` in `.github/ai-os/config.json` for rules that survive context window resets (e.g. "use shared components from components/ui").');
+        suggestions.push('**No persistent rules defined**: Add `persistentRules` in `.github/cortex/config.json` for rules that survive context window resets (e.g. "use shared components from components/ui").');
       }
       if (config2.recommendations === false) {
-        suggestions.push('**Recommendations disabled**: Set `"recommendations": true` in `.github/ai-os/config.json` to enable stack-specific tool suggestions.');
+        suggestions.push('**Recommendations disabled**: Set `"recommendations": true` in `.github/cortex/config.json` to enable stack-specific tool suggestions.');
       }
     } catch {
     }
@@ -9187,7 +9212,7 @@ function getSessionContext() {
   return lines.join("\n") + SESSION_BOOTSTRAP;
 }
 function checkForUpdates() {
-  const newConfigPath = path9.join(ROOT, ".github", "ai-os", "config.json");
+  const newConfigPath = path9.join(ROOT, CONFIG_DIR, "config.json");
   const legacyConfigPath = path9.join(ROOT, ".ai-os", "config.json");
   const configPath = fs8.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs8.existsSync(configPath)) {
@@ -9200,7 +9225,7 @@ function checkForUpdates() {
     installedVersion = config2.version ?? "0.0.0";
     installedAt = config2.installedAt ?? "unknown";
   } catch {
-    return "Could not read .github/ai-os/config.json";
+    return "Could not read .github/cortex/config.json";
   }
   let toolVersion = "0.0.0";
   try {
@@ -9214,12 +9239,12 @@ function checkForUpdates() {
   const updateAvailable = cMaj > iMaj || cMaj === iMaj && cMin > iMin || cMaj === iMaj && cMin === iMin && cPat > iPat;
   if (updateAvailable) {
     return [
-      `## AI OS Update Available`,
+      `## Cortex Update Available`,
       ``,
       `- **Installed:** v${installedVersion} (generated ${installedAt})`,
       `- **Latest:**    v${latestVersion}`,
       ``,
-      `Run the following to update all AI OS artifacts in-place:`,
+      `Run the following to update all Cortex artifacts in-place:`,
       `\`\`\`bash`,
       `npx -y "github:marinvch/ai-os#v${latestVersion}" --refresh-existing`,
       `\`\`\``,
@@ -9227,7 +9252,7 @@ function checkForUpdates() {
       `This refreshes context docs, agents, skills, MCP tools, and the dependency graph without deleting your existing files.`
     ].join("\n");
   }
-  return `AI OS is up-to-date (v${installedVersion}). Last generated: ${installedAt}`;
+  return `Cortex is up-to-date (v${installedVersion}). Last generated: ${installedAt}`;
 }
 
 // src/mcp-server/tool-definitions.ts
@@ -9367,13 +9392,13 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "get_memory_guidelines",
-    description: "Returns repository memory rules and memory usage protocol from .github/ai-os/context/memory.md.",
+    description: "Returns repository memory rules and memory usage protocol from .github/cortex/context/memory.md.",
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
   {
     name: "get_repo_memory",
-    description: "Retrieves persisted repository memory entries from .github/ai-os/memory/memory.jsonl, optionally filtered by query/category.",
+    description: "Retrieves persisted repository memory entries from .github/cortex/memory/memory.jsonl, optionally filtered by query/category.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9386,7 +9411,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "remember_repo_fact",
-    description: "Stores a durable repository memory entry in .github/ai-os/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).",
+    description: "Stores a durable repository memory entry in .github/cortex/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).",
     inputSchema: {
       type: "object",
       properties: {
@@ -9401,7 +9426,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "get_active_plan",
-    description: "Returns the persisted active session plan from .github/ai-os/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.",
+    description: "Returns the persisted active session plan from .github/cortex/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.",
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
@@ -9424,7 +9449,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "append_checkpoint",
-    description: "Appends a progress checkpoint to .github/ai-os/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.",
+    description: "Appends a progress checkpoint to .github/cortex/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9439,7 +9464,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "close_checkpoint",
-    description: "Closes an existing checkpoint by id in .github/ai-os/memory/session/checkpoints.jsonl.",
+    description: "Closes an existing checkpoint by id in .github/cortex/memory/session/checkpoints.jsonl.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9452,7 +9477,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "record_failure_pattern",
-    description: "Records or updates a failure pattern in .github/ai-os/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.",
+    description: "Records or updates a failure pattern in .github/cortex/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9517,7 +9542,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #24: Sync Hosted Memory ──────────────────────────────────────────
   {
     name: "sync_hosted_memory",
-    description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.",
+    description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/cortex/memory/memory.jsonl. Lists existing entries to prevent duplication.",
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
@@ -9572,25 +9597,25 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "run_tests",
-    description: 'Run the project test suite (`npm run test` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project test suite (\`npm run test\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
   {
     name: "run_lint",
-    description: 'Run the project linter (`npm run lint` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project linter (\`npm run lint\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
   {
     name: "run_build",
-    description: 'Run the project build (`npm run build` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project build (\`npm run build\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
   {
     name: "run_workflow",
-    description: "Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.",
+    description: "Load and display the execution plan for a named agent workflow from .github/cortex/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9630,7 +9655,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #40: Symbol Search ────────────────────────────────────────────────
   {
     name: "search_symbols",
-    description: "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists.",
+    description: "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `cortex --index` to have been run first; gracefully returns empty list if no index exists.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9645,7 +9670,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #41: File Purpose ─────────────────────────────────────────────────
   {
     name: "get_file_purpose",
-    description: "Returns a concise description of what a source file does, its exports, domain tags, size, and language \u2014 sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
+    description: "Returns a concise description of what a source file does, its exports, domain tags, size, and language \u2014 sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `cortex --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9658,7 +9683,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #42: Spec Coverage ───────────────────────────────────────────────
   {
     name: "validate_spec_coverage",
-    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9670,7 +9695,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #43: Spec for File ───────────────────────────────────────────────
   {
     name: "get_spec_for_file",
-    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -9731,7 +9756,7 @@ function getAllMcpTools2() {
   }));
 }
 function getActiveToolsForProject(projectRoot) {
-  const toolsJsonPath = path10.join(projectRoot, ".github", "ai-os", "tools.json");
+  const toolsJsonPath = path10.join(projectRoot, CONFIG_DIR, "tools.json");
   if (!fs9.existsSync(toolsJsonPath)) {
     return getAllMcpTools2();
   }
@@ -33872,7 +33897,7 @@ function promoteToBrain(args) {
   }
   const root = getPersonalBrainPath();
   if (!root) {
-    return "Refused: no personal brain path configured. Set AI_OS_PERSONAL_ROOT or personalBrainPath in config.";
+    return "Refused: no personal brain path configured. Set CORTEX_PERSONAL_ROOT or personalBrainPath in config.";
   }
   const brainDir = path11.join(root, "brain");
   fs10.mkdirSync(brainDir, { recursive: true });
@@ -33908,7 +33933,7 @@ import * as fs11 from "node:fs";
 import * as path12 from "node:path";
 function candidatesPath() {
   const root = getPersonalBrainPath();
-  if (!root) throw new Error("No personal brain path configured. Set AI_OS_PERSONAL_ROOT or personalBrainPath in config.");
+  if (!root) throw new Error("No personal brain path configured. Set CORTEX_PERSONAL_ROOT or personalBrainPath in config.");
   return path12.join(root, "brain", "candidates.jsonl");
 }
 function appendCandidate(args) {
@@ -33944,12 +33969,12 @@ function globFiles(pattern, cwd) {
 var REQUIRED_FILES = [
   { path: ".github/copilot-instructions.md", description: "Main Copilot instructions file" },
   { path: ".github/COPILOT_CONTEXT.md", description: "Session context card" },
-  { path: ".github/ai-os/config.json", description: "AI OS configuration" }
+  { path: `${CONFIG_DIR}/config.json`, description: "Cortex configuration" }
 ];
 var SNAPSHOT_MAX_AGE_DAYS = 7;
 var FIX_CMD = "npx -y github:marinvch/ai-os --refresh-existing";
 function detectSemanticDrift(cwd, warnings) {
-  const configPath = join2(cwd, ".github/ai-os/config.json");
+  const configPath = join2(cwd, CONFIG_DIR, "config.json");
   const instrPath = join2(cwd, ".github/copilot-instructions.md");
   if (existsSync2(configPath) && existsSync2(instrPath)) {
     try {
@@ -33970,7 +33995,7 @@ function detectSemanticDrift(cwd, warnings) {
     } catch {
     }
   }
-  const existingContextPath = join2(cwd, ".github/ai-os/context/existing-ai-context.md");
+  const existingContextPath = join2(cwd, CONFIG_DIR, "context/existing-ai-context.md");
   if (existsSync2(existingContextPath)) {
     try {
       const contextContent = readFileSync2(existingContextPath, "utf8");
@@ -33980,7 +34005,7 @@ function detectSemanticDrift(cwd, warnings) {
       const fileCount = agentFiles.length;
       if (recordedCount !== null && recordedCount !== fileCount) {
         warnings.push({
-          path: ".github/ai-os/context/existing-ai-context.md",
+          path: `${CONFIG_DIR}/context/existing-ai-context.md`,
           kind: "semantic-mismatch",
           severity: "warning",
           message: `existing-ai-context.md records ${recordedCount} agent(s) but ${fileCount} .agent.md file(s) found in .github/agents/ \u2014 run refresh to sync`,
@@ -33997,7 +34022,7 @@ function detectSemanticDrift(cwd, warnings) {
               const fwLabelMatch = mermaidBlock.match(/Fw\["([^"]+)"\]/);
               if (fwLabelMatch && !fwLabelMatch[1].toLowerCase().includes(config2.primaryFramework.toLowerCase())) {
                 warnings.push({
-                  path: ".github/ai-os/context/existing-ai-context.md",
+                  path: `${CONFIG_DIR}/context/existing-ai-context.md`,
                   kind: "semantic-mismatch",
                   severity: "warning",
                   message: `Mermaid diagram Fw label "${fwLabelMatch[1]}" does not include primary framework "${config2.primaryFramework}" from config.json \u2014 diagram may be stale`,
@@ -34009,7 +34034,7 @@ function detectSemanticDrift(cwd, warnings) {
               const langLabelMatch = mermaidBlock.match(/Lang\["([^"]+)"\]/);
               if (langLabelMatch && !langLabelMatch[1].toLowerCase().includes(config2.primaryLanguage.toLowerCase())) {
                 warnings.push({
-                  path: ".github/ai-os/context/existing-ai-context.md",
+                  path: `${CONFIG_DIR}/context/existing-ai-context.md`,
                   kind: "semantic-mismatch",
                   severity: "warning",
                   message: `Mermaid diagram Lang label "${langLabelMatch[1]}" does not include primary language "${config2.primaryLanguage}" from config.json \u2014 diagram may be stale`,
@@ -34089,7 +34114,7 @@ function detectDrift(cwd) {
       });
     }
   }
-  const snapshotPath = ".github/ai-os/context-snapshot.json";
+  const snapshotPath = `${CONFIG_DIR}/context-snapshot.json`;
   const snapshotAbs = join2(cwd, snapshotPath);
   if (existsSync2(snapshotAbs)) {
     try {
@@ -34149,7 +34174,7 @@ function detectDrift(cwd) {
       }
     }
   }
-  const configPath = join2(cwd, ".github/ai-os/config.json");
+  const configPath = join2(cwd, CONFIG_DIR, "config.json");
   if (existsSync2(configPath)) {
     try {
       const cfg = JSON.parse(readFileSync2(configPath, "utf8"));
@@ -34201,11 +34226,11 @@ function detectDrift(cwd) {
 }
 function formatDriftReport(report, verbose = false) {
   const lines = [
-    `## AI OS Drift Report \u2014 ${new Date(report.scannedAt).toLocaleString()}`,
+    `## Cortex Drift Report \u2014 ${new Date(report.scannedAt).toLocaleString()}`,
     ""
   ];
   if (report.totalIssues === 0) {
-    lines.push("\u2705 All AI OS artifacts are healthy \u2014 no drift detected.");
+    lines.push("\u2705 All Cortex artifacts are healthy \u2014 no drift detected.");
     if (verbose && report.healthy.length > 0) {
       lines.push("");
       lines.push(`Healthy files (${report.healthy.length}):`);
@@ -34343,8 +34368,8 @@ ${lines.join("\n")}`;
   }
 }
 function runToolsAllowed() {
-  if (process.env["AI_OS_ALLOW_RUN_TOOLS"] === "1") return true;
-  const configPath = path13.join(ROOT, ".github", "ai-os", "config.json");
+  if (process.env[ENV.ALLOW_RUN_TOOLS] === "1") return true;
+  const configPath = path13.join(ROOT, CONFIG_DIR, "config.json");
   try {
     const cfg = JSON.parse(fs12.readFileSync(configPath, "utf-8"));
     return cfg.allowRunTools === true;
@@ -34360,7 +34385,7 @@ function detectPackageManager() {
 }
 function runScript(scriptName) {
   if (!runToolsAllowed()) {
-    return `run_* tools are disabled by default. Set AI_OS_ALLOW_RUN_TOOLS=1 or "allowRunTools": true in .github/ai-os/config.json to enable.`;
+    return `run_* tools are disabled by default. Set CORTEX_ALLOW_RUN_TOOLS=1 or "allowRunTools": true in .github/cortex/config.json to enable.`;
   }
   const pm = detectPackageManager();
   let cmd;
@@ -34532,12 +34557,12 @@ function formatRunPlan(plan) {
   return lines.filter((l) => l !== null).join("\n").replace(/\n{3,}/g, "\n\n");
 }
 function listWorkflows(cwd) {
-  const dir = path14.join(cwd, ".github", "ai-os", "workflows");
+  const dir = path14.join(cwd, CONFIG_DIR, "workflows");
   if (!fs13.existsSync(dir)) return [];
   return fs13.readdirSync(dir).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
 }
 function loadWorkflow(cwd, filename) {
-  const filepath = path14.join(cwd, ".github", "ai-os", "workflows", filename);
+  const filepath = path14.join(cwd, CONFIG_DIR, "workflows", filename);
   if (!fs13.existsSync(filepath)) {
     throw new Error(`Workflow file not found: ${filepath}`);
   }
@@ -34563,7 +34588,7 @@ function wrap(toolName, fn) {
 }
 function createSdkServer() {
   const pkgVersion = resolveMcpServerVersion(import.meta.url);
-  const server = new McpServer({ name: "ai-os", version: pkgVersion });
+  const server = new McpServer({ name: MCP_SERVER_NAME, version: pkgVersion });
   server.registerTool(
     "search_codebase",
     {
@@ -34691,7 +34716,7 @@ function createSdkServer() {
   server.registerTool(
     "get_memory_guidelines",
     {
-      description: "Returns repository memory rules and memory usage protocol from .github/ai-os/context/memory.md.",
+      description: "Returns repository memory rules and memory usage protocol from .github/cortex/context/memory.md.",
       inputSchema: {}
     },
     wrap("get_memory_guidelines", () => getMemoryGuidelines())
@@ -34699,7 +34724,7 @@ function createSdkServer() {
   server.registerTool(
     "get_repo_memory",
     {
-      description: "Retrieves persisted repository memory entries from .github/ai-os/memory/memory.jsonl, optionally filtered by query/category.",
+      description: "Retrieves persisted repository memory entries from .github/cortex/memory/memory.jsonl, optionally filtered by query/category.",
       inputSchema: {
         query: external_exports.string().optional().describe("Optional full-text query against title/content/tags"),
         category: external_exports.string().optional().describe("Optional category filter (e.g. architecture, conventions, pitfalls)"),
@@ -34711,7 +34736,7 @@ function createSdkServer() {
   server.registerTool(
     "remember_repo_fact",
     {
-      description: "Stores a durable repository memory entry in .github/ai-os/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).",
+      description: "Stores a durable repository memory entry in .github/cortex/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).",
       inputSchema: {
         title: external_exports.string().describe("Short memory title"),
         content: external_exports.string().describe("Durable fact/decision/constraint"),
@@ -34724,7 +34749,7 @@ function createSdkServer() {
   server.registerTool(
     "get_active_plan",
     {
-      description: "Returns the persisted active session plan from .github/ai-os/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.",
+      description: "Returns the persisted active session plan from .github/cortex/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.",
       inputSchema: {}
     },
     wrap("get_active_plan", () => getActivePlan())
@@ -34754,7 +34779,7 @@ function createSdkServer() {
   server.registerTool(
     "append_checkpoint",
     {
-      description: "Appends a progress checkpoint to .github/ai-os/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.",
+      description: "Appends a progress checkpoint to .github/cortex/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.",
       inputSchema: {
         title: external_exports.string().describe("Checkpoint title"),
         status: external_exports.string().optional().describe("Checkpoint status: open or closed (default: open)"),
@@ -34767,7 +34792,7 @@ function createSdkServer() {
   server.registerTool(
     "close_checkpoint",
     {
-      description: "Closes an existing checkpoint by id in .github/ai-os/memory/session/checkpoints.jsonl.",
+      description: "Closes an existing checkpoint by id in .github/cortex/memory/session/checkpoints.jsonl.",
       inputSchema: {
         checkpointId: external_exports.string().describe("Checkpoint id returned by append_checkpoint"),
         notes: external_exports.string().optional().describe("Optional closing notes to append")
@@ -34778,7 +34803,7 @@ function createSdkServer() {
   server.registerTool(
     "record_failure_pattern",
     {
-      description: "Records or updates a failure pattern in .github/ai-os/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.",
+      description: "Records or updates a failure pattern in .github/cortex/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.",
       inputSchema: {
         tool: external_exports.string().describe("Tool or subsystem where failure occurred"),
         errorSignature: external_exports.string().describe("Short normalized error signature"),
@@ -34850,7 +34875,7 @@ function createSdkServer() {
   server.registerTool(
     "sync_hosted_memory",
     {
-      description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.",
+      description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/cortex/memory/memory.jsonl. Lists existing entries to prevent duplication.",
       inputSchema: {}
     },
     wrap("sync_hosted_memory", () => syncHostedMemory())
@@ -34908,7 +34933,7 @@ function createSdkServer() {
   server.registerTool(
     "run_tests",
     {
-      description: 'Run the project test suite (`npm run test` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+      description: `Run the project test suite (\`npm run test\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
       inputSchema: {}
     },
     wrap("run_tests", () => runTests())
@@ -34916,7 +34941,7 @@ function createSdkServer() {
   server.registerTool(
     "run_lint",
     {
-      description: 'Run the project linter (`npm run lint` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+      description: `Run the project linter (\`npm run lint\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
       inputSchema: {}
     },
     wrap("run_lint", () => runLint())
@@ -34924,7 +34949,7 @@ function createSdkServer() {
   server.registerTool(
     "run_build",
     {
-      description: 'Run the project build (`npm run build` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+      description: `Run the project build (\`npm run build\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
       inputSchema: {}
     },
     wrap("run_build", () => runBuild())
@@ -34932,7 +34957,7 @@ function createSdkServer() {
   server.registerTool(
     "run_workflow",
     {
-      description: "Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.",
+      description: "Load and display the execution plan for a named agent workflow from .github/cortex/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.",
       inputSchema: {
         workflow_name: external_exports.string().optional().describe('Workflow filename (e.g. "feature-pipeline.yml"). Omit to list all workflows.'),
         dry_run: external_exports.boolean().optional().describe("Show chain without executing (default: true)")
@@ -34943,7 +34968,7 @@ function createSdkServer() {
       const dryRun = dry_run !== false;
       if (!workflow_name) {
         const workflows = listWorkflows(root);
-        return workflows.length === 0 ? "No workflows found in .github/ai-os/workflows/. Create a .yml file to define an agent pipeline." : `Available workflows:
+        return workflows.length === 0 ? "No workflows found in .github/cortex/workflows/. Create a .yml file to define an agent pipeline." : `Available workflows:
 ${workflows.map((w) => `- ${w}`).join("\n")}`;
       }
       const wf = loadWorkflow(root, workflow_name);
@@ -35019,7 +35044,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
   server.registerTool(
     "search_symbols",
     {
-      description: "Searches the Repository Intelligence Index for named symbols by query string. Optional filters: kind (function, class, interface, type, variable, enum, method) and tag (auth, database, api, testing, ui, etc.). Returns up to 30 matches with file, line, signature, and tags. Requires `ai-os --index` to have run first.",
+      description: "Searches the Repository Intelligence Index for named symbols by query string. Optional filters: kind (function, class, interface, type, variable, enum, method) and tag (auth, database, api, testing, ui, etc.). Returns up to 30 matches with file, line, signature, and tags. Requires `cortex --index` to have run first.",
       inputSchema: {
         query: external_exports.string().describe("Symbol name to search for (partial match)."),
         kind: external_exports.string().optional().describe("Optional kind filter: function, class, interface, type, variable, enum, method."),
@@ -35032,7 +35057,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const kind = args["kind"] ? String(args["kind"]) : void 0;
       const tag = args["tag"] ? String(args["tag"]) : void 0;
       const results = searchSymbols(root, query, kind, tag);
-      if (results === null) return "No symbol index found. Run `ai-os --index` to build the index first.";
+      if (results === null) return "No symbol index found. Run `cortex --index` to build the index first.";
       if (results.length === 0) return `No symbols matching "${query}"${kind ? ` of kind "${kind}"` : ""}${tag ? ` with tag "${tag}"` : ""} were found in the index.`;
       return results.map(
         (r) => `${r.kind} ${r.name} \u2014 ${r.file}:${r.line}${r.signature ? ` (${r.signature})` : ""}${r.tags.length > 0 ? ` [${r.tags.join(", ")}]` : ""}`
@@ -35042,7 +35067,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
   server.registerTool(
     "get_file_purpose",
     {
-      description: "Returns a concise description of a source file: purpose (first docstring/comment), exports, domain tags, size in bytes, and language \u2014 sourced from the repo index. Requires `ai-os --index` to have run first.",
+      description: "Returns a concise description of a source file: purpose (first docstring/comment), exports, domain tags, size in bytes, and language \u2014 sourced from the repo index. Requires `cortex --index` to have run first.",
       inputSchema: {
         file_path: external_exports.string().describe('Relative file path, e.g. "src/auth/middleware.ts".')
       }
@@ -35052,8 +35077,8 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const filePath = String(args["file_path"] ?? "");
       const result = getFilePurpose(root, filePath);
       if ("notFound" in result) {
-        if (result.noIndex) return `No symbol index found. Run \`ai-os --index\` first, then retry.`;
-        return `"${filePath}" is not in the index. Run \`ai-os --index\` to rebuild, or check the path.`;
+        if (result.noIndex) return `No symbol index found. Run \`cortex --index\` first, then retry.`;
+        return `"${filePath}" is not in the index. Run \`cortex --index\` to rebuild, or check the path.`;
       }
       const lines = [
         `File: ${result.path}`,
@@ -35069,7 +35094,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
   server.registerTool(
     "validate_spec_coverage",
     {
-      description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+      description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first.",
       inputSchema: {
         show_all: external_exports.boolean().optional().describe("Show all requirements including implemented ones (default: false \u2014 gaps only).")
       }
@@ -35079,7 +35104,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const showAll = args["show_all"] === true;
       const groups = validateSpecCoverage(root);
       if (groups.length === 0) {
-        return "No spec entries found. Run `ai-os --index` first. Ensure spec files exist in docs/superpowers/specs/.";
+        return "No spec entries found. Run `cortex --index` first. Ensure spec files exist in docs/superpowers/specs/.";
       }
       const totalCovered = groups.reduce((sum, g) => sum + g.covered, 0);
       const totalReqs = groups.reduce((sum, g) => sum + g.total, 0);
@@ -35109,7 +35134,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
   server.registerTool(
     "get_spec_for_file",
     {
-      description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+      description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first.",
       inputSchema: {
         path: external_exports.string().describe('Relative path to the source file, e.g. "src/actions/index.ts".')
       }
@@ -35119,7 +35144,7 @@ ${errors.map((e) => `- Step ${e.step + 1} [${e.field}]: ${e.message}`).join("\n"
       const filePath = String(args["path"] ?? "");
       const results = getSpecForFile(root, filePath);
       if (results.length === 0) {
-        return `No spec annotations found for "${filePath}". Run \`ai-os --index\` first, or add // @spec: ID comments above exported functions.`;
+        return `No spec annotations found for "${filePath}". Run \`cortex --index\` first, or add // @spec: ID comments above exported functions.`;
       }
       const lines = [`${filePath} contributes to:`];
       for (const r of results) {
@@ -35249,22 +35274,22 @@ async function runSdkMcp() {
 
 // src/mcp-server/index.ts
 function logDiagnostic(message) {
-  if (process.env["AI_OS_MCP_DEBUG"] === "1") {
-    console.error(`[ai-os:mcp] ${message}`);
+  if (process.env[ENV.MCP_DEBUG] === "1") {
+    console.error(`[cortex:mcp] ${message}`);
   }
 }
 function validateRuntimeEnvironment() {
   const messages = [];
   const root = getProjectRoot();
   if (!root) {
-    messages.push("AI_OS_ROOT resolved to an empty path.");
+    messages.push("CORTEX_ROOT resolved to an empty path.");
   }
   const tools = getActiveToolsForProject(root);
   if (tools.length === 0) {
     messages.push("No MCP tools were registered at runtime.");
   }
-  if (process.env["AI_OS_MCP_DEBUG"] === "1") {
-    messages.push(`Resolved AI_OS_ROOT: ${root}`);
+  if (process.env[ENV.MCP_DEBUG] === "1") {
+    messages.push(`Resolved CORTEX_ROOT: ${root}`);
     messages.push(`Registered tools: ${tools.length}`);
   }
   return { ok: messages.filter((msg) => !msg.startsWith("Resolved ") && !msg.startsWith("Registered ")).length === 0, messages };
@@ -35274,11 +35299,11 @@ async function main() {
     const health2 = validateRuntimeEnvironment();
     if (!health2.ok) {
       for (const message of health2.messages) {
-        console.error(`[ai-os:mcp:healthcheck] ${message}`);
+        console.error(`[cortex:mcp:healthcheck] ${message}`);
       }
       process.exit(1);
     }
-    console.error("[ai-os:mcp:healthcheck] OK");
+    console.error("[cortex:mcp:healthcheck] OK");
     process.exit(0);
   }
   if (!process.argv.includes("--copilot")) {
@@ -35298,8 +35323,8 @@ async function main() {
     const sdk = await import("@github/copilot-sdk");
     CopilotClient = sdk.CopilotClient;
   } catch {
-    console.error("[ai-os:mcp] @github/copilot-sdk is required for --copilot mode but was not found.");
-    console.error("[ai-os:mcp] Install it or omit --copilot to use the standard MCP SDK mode.");
+    console.error("[cortex:mcp] @github/copilot-sdk is required for --copilot mode but was not found.");
+    console.error("[cortex:mcp] Install it or omit --copilot to use the standard MCP SDK mode.");
     process.exit(1);
   }
   const sdkServer = createSdkServer();
@@ -35309,8 +35334,8 @@ async function main() {
     await client.start();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[ai-os:mcp] Copilot SDK client failed to start: ${msg}`);
-    console.error("[ai-os:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.");
+    console.error(`[cortex:mcp] Copilot SDK client failed to start: ${msg}`);
+    console.error("[cortex:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.");
     process.exit(1);
   }
   const [serverTransport, clientTransport] = ["server", "client"].map(() => ({
@@ -35358,6 +35383,6 @@ async function main() {
 }
 main().catch((err) => {
   const msg = err instanceof Error ? err.message : String(err);
-  console.error(`[ai-os:mcp] Fatal error: ${msg}`);
+  console.error(`[cortex:mcp] Fatal error: ${msg}`);
   process.exit(1);
 });

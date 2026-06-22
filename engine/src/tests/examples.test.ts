@@ -1,9 +1,9 @@
 /**
  * Examples fixture regression tests
  *
- * Runs AI OS stack detection and key generators against the three reference
+ * Runs Cortex stack detection and key generators against the three reference
  * fixture repos in examples/ and snapshot-tests the output. This doubles as
- * living documentation (the fixtures show what AI OS produces for common stacks)
+ * living documentation (the fixtures show what Cortex produces for common stacks)
  * and as a regression bedrock for stack detection + generation output.
  *
  * Fixtures:

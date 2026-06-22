@@ -8,9 +8,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { RepoIndexEntry, MetaIndexEntry, FileIndexEntry } from '../types.js';
+import { CONFIG_DIR } from '../brand.js';
 
-const ARCHITECTURE_PATH = '.github/ai-os/context/architecture.md';
-const STACK_PATH = '.github/ai-os/context/stack.md';
+const ARCHITECTURE_PATH = `${CONFIG_DIR}/context/architecture.md`;
+const STACK_PATH = `${CONFIG_DIR}/context/stack.md`;
 
 // Anything between these markers is preserved verbatim
 const PROTECTED_RE = /<!-- protected -->([\s\S]*?)<!-- \/protected -->/g;

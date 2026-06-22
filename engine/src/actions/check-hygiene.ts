@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { readManifest } from '../generators/utils.js';
+import { CONFIG_DIR } from '../brand.js';
 
 function findFilesRecursive(dir: string, predicate: (name: string) => boolean): string[] {
   const results: string[] = [];
@@ -37,7 +38,7 @@ export function runCheckHygieneAction(cwd: string, json = false): void {
 
   // Check for leftover .memory.lock files (crash artifact)
   const lockPaths = [
-    path.join(cwd, '.github', 'ai-os', 'memory', '.memory.lock'),
+    path.join(cwd, CONFIG_DIR, 'memory', '.memory.lock'),
     path.join(cwd, '.ai-os', 'memory', '.memory.lock'),
   ];
   for (const lockPath of lockPaths) {
@@ -46,21 +47,21 @@ export function runCheckHygieneAction(cwd: string, json = false): void {
     }
   }
 
-  // Check for node_modules inside .github/ai-os/mcp-server/ (should never be present)
-  const mcpNodeModules = path.join(cwd, '.github', 'ai-os', 'mcp-server', 'node_modules');
+  // Check for node_modules inside .github/cortex/mcp-server/ (should never be present)
+  const mcpNodeModules = path.join(cwd, CONFIG_DIR, 'mcp-server', 'node_modules');
   if (fs.existsSync(mcpNodeModules)) {
-    issues.push(`  ⚠  node_modules present in .github/ai-os/mcp-server/ — run --refresh-existing to clean up`);
+    issues.push(`  ⚠  node_modules present in .github/cortex/mcp-server/ — run --refresh-existing to clean up`);
   }
 
   // Check for legacy .ai-os/mcp-server/ (pre-v0.22.0 location)
   const legacyMcpDir = path.join(cwd, '.ai-os', 'mcp-server');
   if (fs.existsSync(legacyMcpDir)) {
-    issues.push(`  ⚠  Legacy .ai-os/mcp-server/ found — run --refresh-existing to migrate to .github/ai-os/mcp-server/`);
+    issues.push(`  ⚠  Legacy .ai-os/mcp-server/ found — run --refresh-existing to migrate to .github/cortex/mcp-server/`);
   }
 
   // Check for *.tmp files in ai-os dirs
   const aiOsDirs = [
-    path.join(cwd, '.github', 'ai-os'),
+    path.join(cwd, CONFIG_DIR),
   ];
   for (const dir of aiOsDirs) {
     if (!fs.existsSync(dir)) continue;
@@ -78,7 +79,7 @@ export function runCheckHygieneAction(cwd: string, json = false): void {
       issues.push(`  ⚠  ${missingFiles.length} manifest entries point to missing files — run --refresh-existing`);
     }
   } else {
-    issues.push(`  ⚠  No manifest.json found — run AI OS generation to create one`);
+    issues.push(`  ⚠  No manifest.json found — run Cortex generation to create one`);
   }
 
   if (issues.length === 0) {

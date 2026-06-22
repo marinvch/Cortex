@@ -14,7 +14,7 @@ export function generateWorkflows(outputDir: string, options?: GenerateWorkflowO
   };
 
   if (options?.config?.updateCheckEnabled !== false) {
-    const workflowPath = track(path.join(outputDir, '.github', 'workflows', 'ai-os-update-check.yml'));
+    const workflowPath = track(path.join(outputDir, '.github', 'workflows', 'cortex-update-check.yml'));
     writeIfChanged(workflowPath, getUpdateCheckWorkflowContent());
   }
 
@@ -22,7 +22,7 @@ export function generateWorkflows(outputDir: string, options?: GenerateWorkflowO
 }
 
 function getUpdateCheckWorkflowContent(): string {
-  return `name: AI OS Update Check
+  return `name: Cortex Update Check
 
 on:
   schedule:
@@ -34,7 +34,7 @@ permissions:
   issues: write
 
 jobs:
-  check-for-ai-os-updates:
+  check-for-cortex-updates:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,10 +46,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          ENABLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/ai-os/config.json','utf8')); process.stdout.write(String(c.updateCheckEnabled !== false)); } catch { process.stdout.write('true'); }")
+          ENABLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/cortex/config.json','utf8')); process.stdout.write(String(c.updateCheckEnabled !== false)); } catch { process.stdout.write('true'); }")
           echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
 
-          INSTALLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/ai-os/config.json','utf8')); process.stdout.write(c.version || '0.0.0'); } catch { process.stdout.write('0.0.0'); }")
+          INSTALLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/cortex/config.json','utf8')); process.stdout.write(c.version || '0.0.0'); } catch { process.stdout.write('0.0.0'); }")
           echo "installed=$INSTALLED" >> "$GITHUB_OUTPUT"
 
           LATEST=$(curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/dev/package.json | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{const j=JSON.parse(d); process.stdout.write(j.version||'0.0.0');});")
@@ -68,7 +68,7 @@ jobs:
             const installed = '\${{ steps.versions.outputs.installed }}';
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const title = 'AI OS update available: v' + latest;
+            const title = 'Cortex update available: v' + latest;
 
             const open = await github.paginate(github.rest.issues.listForRepo, {
               owner,
@@ -87,7 +87,7 @@ jobs:
               repo,
               title,
               body: [
-                'A newer AI OS version is available.',
+                'A newer Cortex version is available.',
                 '',
                 '- Installed: v' + installed,
                 '- Latest: v' + latest,

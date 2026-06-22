@@ -1,5 +1,5 @@
 /**
- * AI OS Generator Unit Tests
+ * Cortex Generator Unit Tests
  *
  * Tests core generator utilities:
  * - enforceSizeCap: copilot-instructions.md must stay under 8 KB
@@ -11,6 +11,7 @@ import { describe, it, expect, vi } from 'vitest';
 import os from 'node:os';
 import { buildRecommendationsText, collectRecommendations } from '../recommendations/index.js';
 import type { DetectedStack, DetectedPatterns } from '../types.js';
+import { CONFIG_DIR } from '../brand.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -83,7 +84,7 @@ describe('instructions size cap', () => {
 
     const content = fs.readFileSync(path.join(tmpDir, '.github', 'copilot-instructions.md'), 'utf-8');
     // If truncation occurred, it must use the clean boundary marker
-    if (content.includes('<!-- [AI OS]')) {
+    if (content.includes('<!-- [Cortex]')) {
       expect(content).toContain('content trimmed');
       expect(content).not.toContain('truncated to 8 KB');
     }
@@ -339,14 +340,14 @@ describe('persona directive in copilot-instructions.md', () => {
   });
 });
 
-describe('AI OS value mode guidance', () => {
+describe('Cortex value mode guidance', () => {
   it('includes value mode section in copilot-instructions.md', async () => {
     const { generateInstructions } = await import('../generators/instructions.js');
     const fs = await import('node:fs');
     const path = await import('node:path');
 
     const stack = makeStack();
-    const tmpDir = path.join(os.tmpdir(), 'ai-os-value-mode-copilot-' + Date.now());
+    const tmpDir = path.join(os.tmpdir(), 'cortex-value-mode-copilot-' + Date.now());
     fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
 
     generateInstructions(stack, tmpDir, { refreshExisting: false });
@@ -354,25 +355,25 @@ describe('AI OS value mode guidance', () => {
     const instructionsPath = path.join(tmpDir, '.github', 'copilot-instructions.md');
     const content = fs.readFileSync(instructionsPath, 'utf-8');
 
-    expect(content).toContain('## AI OS Value Mode');
+    expect(content).toContain('## Cortex Value Mode');
     expect(content).toContain('Restate the goal in implementation terms');
-    expect(content).toContain('.github/instructions/ai-os.instructions.md');
+    expect(content).toContain('.github/instructions/cortex.instructions.md');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('includes value mode section in ai-os.instructions.md', async () => {
+  it('includes value mode section in cortex.instructions.md', async () => {
     const { generateInstructions } = await import('../generators/instructions.js');
     const fs = await import('node:fs');
     const path = await import('node:path');
 
     const stack = makeStack();
-    const tmpDir = path.join(os.tmpdir(), 'ai-os-value-mode-auto-' + Date.now());
+    const tmpDir = path.join(os.tmpdir(), 'cortex-value-mode-auto-' + Date.now());
     fs.mkdirSync(path.join(tmpDir, '.github'), { recursive: true });
 
     generateInstructions(stack, tmpDir, { refreshExisting: false });
 
-    const instructionsPath = path.join(tmpDir, '.github', 'instructions', 'ai-os.instructions.md');
+    const instructionsPath = path.join(tmpDir, '.github', 'instructions', 'cortex.instructions.md');
     const content = fs.readFileSync(instructionsPath, 'utf-8');
 
     expect(content).toContain('## Value Mode');
@@ -462,7 +463,7 @@ describe('preserveContextFiles option', () => {
     const stack = makeStack();
 
     const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-arch-' + Date.now());
-    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    const contextDir = path.join(tmpDir, CONFIG_DIR, 'context');
     fs.mkdirSync(contextDir, { recursive: true });
 
     const archPath = path.join(contextDir, 'architecture.md');
@@ -484,7 +485,7 @@ describe('preserveContextFiles option', () => {
     const stack = makeStack();
 
     const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-convs-' + Date.now());
-    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    const contextDir = path.join(tmpDir, CONFIG_DIR, 'context');
     fs.mkdirSync(contextDir, { recursive: true });
 
     const convsPath = path.join(contextDir, 'conventions.md');
@@ -506,7 +507,7 @@ describe('preserveContextFiles option', () => {
     const stack = makeStack();
 
     const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-stack-' + Date.now());
-    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    const contextDir = path.join(tmpDir, CONFIG_DIR, 'context');
     fs.mkdirSync(contextDir, { recursive: true });
 
     const stackPath = path.join(contextDir, 'stack.md');
@@ -528,7 +529,7 @@ describe('preserveContextFiles option', () => {
     const stack = makeStack();
 
     const tmpDir = path.join(os.tmpdir(), 'ai-os-preserve-existing-context-' + Date.now());
-    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    const contextDir = path.join(tmpDir, CONFIG_DIR, 'context');
     fs.mkdirSync(contextDir, { recursive: true });
 
     const existingContextPath = path.join(contextDir, 'existing-ai-context.md');
@@ -576,7 +577,7 @@ describe('preserveContextFiles option', () => {
 
     generateContextDocs(stack, tmpDir, { preserveContextFiles: true });
 
-    const archPath = path.join(tmpDir, '.github', 'ai-os', 'context', 'architecture.md');
+    const archPath = path.join(tmpDir, CONFIG_DIR, 'context', 'architecture.md');
     expect(fs.existsSync(archPath), 'architecture.md should be created when missing').toBe(true);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -595,7 +596,7 @@ describe('preserveContextFiles option', () => {
     vi.setSystemTime(new Date('2026-04-21T00:00:00.000Z'));
 
     generateContextDocs(stack, tmpDir, { preserveContextFiles: false });
-    const configPath = path.join(tmpDir, '.github', 'ai-os', 'config.json');
+    const configPath = path.join(tmpDir, CONFIG_DIR, 'config.json');
     const firstConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { installedAt: string };
 
     vi.setSystemTime(new Date('2026-04-21T00:00:10.000Z'));
@@ -619,7 +620,7 @@ describe('preserveContextFiles option', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
 
     generateContextDocs(stack, tmpDir, { projectBoundary: 'strict', personalBrainPath: '/tmp/brain' });
-    const cfg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.github', 'ai-os', 'config.json'), 'utf-8')) as { projectBoundary?: string; personalBrainPath?: string };
+    const cfg = JSON.parse(fs.readFileSync(path.join(tmpDir, CONFIG_DIR, 'config.json'), 'utf-8')) as { projectBoundary?: string; personalBrainPath?: string };
     expect(cfg.projectBoundary).toBe('strict');
     expect(cfg.personalBrainPath).toBe('/tmp/brain');
 
@@ -639,7 +640,7 @@ describe('preserveContextFiles option', () => {
     generateContextDocs(stack, tmpDir, { projectBoundary: 'strict', personalBrainPath: '/tmp/brain' });
     // Refresh run without options should preserve existing values
     generateContextDocs(stack, tmpDir, {});
-    const cfg = JSON.parse(fs.readFileSync(path.join(tmpDir, '.github', 'ai-os', 'config.json'), 'utf-8')) as { projectBoundary?: string; personalBrainPath?: string };
+    const cfg = JSON.parse(fs.readFileSync(path.join(tmpDir, CONFIG_DIR, 'config.json'), 'utf-8')) as { projectBoundary?: string; personalBrainPath?: string };
     expect(cfg.projectBoundary).toBe('strict');
     expect(cfg.personalBrainPath).toBe('/tmp/brain');
 
@@ -724,12 +725,12 @@ describe('buildOnboardingPlan with regenerateContext=false', () => {
     const path = await import('node:path');
 
     const tmpDir = path.join(os.tmpdir(), 'ai-os-plan-preserve-' + Date.now());
-    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    const contextDir = path.join(tmpDir, CONFIG_DIR, 'context');
     fs.mkdirSync(contextDir, { recursive: true });
     fs.writeFileSync(path.join(contextDir, 'architecture.md'), '# Arch\n', 'utf-8');
 
     const plan = buildOnboardingPlan(tmpDir, 'refresh-existing', { regenerateContext: false });
-    const archAction = plan.actions.find(a => a.path === '.github/ai-os/context/architecture.md');
+    const archAction = plan.actions.find(a => a.path === '.github/cortex/context/architecture.md');
     expect(archAction?.action).toBe('preserve');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -741,12 +742,12 @@ describe('buildOnboardingPlan with regenerateContext=false', () => {
     const path = await import('node:path');
 
     const tmpDir = path.join(os.tmpdir(), 'ai-os-plan-regen-' + Date.now());
-    const contextDir = path.join(tmpDir, '.github', 'ai-os', 'context');
+    const contextDir = path.join(tmpDir, CONFIG_DIR, 'context');
     fs.mkdirSync(contextDir, { recursive: true });
     fs.writeFileSync(path.join(contextDir, 'architecture.md'), '# Arch\n', 'utf-8');
 
     const plan = buildOnboardingPlan(tmpDir, 'refresh-existing', { regenerateContext: true });
-    const archAction = plan.actions.find(a => a.path === '.github/ai-os/context/architecture.md');
+    const archAction = plan.actions.find(a => a.path === '.github/cortex/context/architecture.md');
     expect(archAction?.action).toBe('update');
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -794,7 +795,7 @@ describe('skills strategy', () => {
 
     generateContextDocs(stack, tmpDir, { preserveContextFiles: false });
 
-    const configPath = path.join(tmpDir, '.github', 'ai-os', 'config.json');
+    const configPath = path.join(tmpDir, CONFIG_DIR, 'config.json');
     const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { skillsStrategy?: string };
     expect(config.skillsStrategy).toBe('creator-only');
 
@@ -823,7 +824,7 @@ describe('skills strategy', () => {
 
     const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
     const onDisk = fs.existsSync(skillsDir)
-      ? fs.readdirSync(skillsDir).filter(f => f.startsWith('ai-os-') && f.endsWith('.md'))
+      ? fs.readdirSync(skillsDir).filter(f => f.startsWith('cortex-') && f.endsWith('.md'))
       : [];
     expect(onDisk.length).toBe(0);
 
@@ -843,14 +844,14 @@ describe('skills strategy', () => {
     const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-prune-creator-only-' + Date.now());
     const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
     fs.mkdirSync(skillsDir, { recursive: true });
-    fs.writeFileSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'), '# old skill\n', 'utf-8');
+    fs.writeFileSync(path.join(skillsDir, 'cortex-nextjs-patterns.md'), '# old skill\n', 'utf-8');
 
     await generateSkills(stack, tmpDir, {
       refreshExisting: true,
       strategy: 'creator-only',
     });
 
-    expect(fs.existsSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'))).toBe(false);
+    expect(fs.existsSync(path.join(skillsDir, 'cortex-nextjs-patterns.md'))).toBe(false);
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
@@ -868,8 +869,8 @@ describe('skills strategy', () => {
     const tmpDir = path.join(os.tmpdir(), 'ai-os-skills-empty-dir-' + Date.now());
     const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
     fs.mkdirSync(skillsDir, { recursive: true });
-    // Place only ai-os-* skills so they all get pruned leaving an empty dir
-    fs.writeFileSync(path.join(skillsDir, 'ai-os-nextjs-patterns.md'), '# old\n', 'utf-8');
+    // Place only cortex-* skills so they all get pruned leaving an empty dir
+    fs.writeFileSync(path.join(skillsDir, 'cortex-nextjs-patterns.md'), '# old\n', 'utf-8');
 
     await generateSkills(stack, tmpDir, {
       refreshExisting: true,
@@ -901,7 +902,7 @@ describe('skills strategy', () => {
     });
 
     const skillsDir = path.join(tmpDir, '.github', 'copilot', 'skills');
-    const reactSkillPath = path.join(skillsDir, 'ai-os-react-patterns.md');
+    const reactSkillPath = path.join(skillsDir, 'cortex-react-patterns.md');
 
     if (fs.existsSync(reactSkillPath)) {
       const content = fs.readFileSync(reactSkillPath, 'utf-8');

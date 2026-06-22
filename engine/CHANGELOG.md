@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to AI OS are documented here.  
+All notable changes to Cortex are documented here.  
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
@@ -9,7 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- **Claude Code model support**: `--model claude` / `--model both` generates `CLAUDE.md` at the project root (read by Claude Code CLI) and `.github/ai-os/claude-instructions.md` (XML-tagged for Claude API use).
+- **Claude Code model support**: `--model claude` / `--model both` generates `CLAUDE.md` at the project root (read by Claude Code CLI) and `.github/cortex/claude-instructions.md` (XML-tagged for Claude API use).
 - **Init wizard model prompt**: first-time setup now asks which AI assistant will use the project — `copilot`, `claude`, or `both`.
 - **Migration prompt**: `--refresh-existing` / `--update` offers a one-time opt-in to add Claude Code support to existing copilot-only installs.
 - **Model persisted in config**: selection is written to `config.json` so subsequent refreshes inherit it without re-prompting.
@@ -61,10 +61,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Interactive `--init` wizard** (#175): `runWizardLogic()` with dependency-injectable `AskFn` guides first-time setup through project type, language, framework, and test framework selection.
 - **Monorepo/workspace support** (#173): npm workspaces field detection (`string[]` or `{ packages: string[] }`), normalized forward-slash paths on Windows, `buildMonorepoSection()` in generated instructions, `WorkspacePackage` type.
 - **Skill version tracking** (#181): SHA-256 content hashes stored in `config.json.skillVersions`, checked by `--doctor` and `detect_drift` (check #7) to flag modified/missing skills.
-- **User-overridable agent templates** (#183): agents first check `.github/ai-os/templates/agents/<template>.md` before falling back to built-in templates.
-- **Multi-editor support** (#189): `generateCursorRules()` → `.cursorrules`, `generateJetBrainsContext()` → `.github/ai-os/jetbrains-ai-context.md`, `generateNeovimContext()` → `.github/ai-os/nvim-context.md`. Auto-detects `.idea/` and existing `.cursorrules`. `--editor` flag: `vscode|cursor|jetbrains|neovim|all`.
-- **Multi-model output** (#190): `adaptForClaude()` (XML tags), `adaptForGemini()` (compact sections), `adaptForLocal()` (4K-8K token budget). `--model` flag: `copilot|claude|gemini|local`. Companion files in `.github/ai-os/`.
-- **Agent workflow chaining** (#184): YAML workflow schema (`name`, `description`, `steps` with `agent`/`input`/`output`), `parseWorkflowYaml()`, `validateWorkflow()`, `buildWorkflowRunPlan()`, `formatRunPlan()`. `run_workflow` MCP tool lists/executes workflows with dry-run mode. Built-in `feature-pipeline.yml` ships with AI OS. Workflows deployed to `.github/ai-os/workflows/` on install.
+- **User-overridable agent templates** (#183): agents first check `.github/cortex/templates/agents/<template>.md` before falling back to built-in templates.
+- **Multi-editor support** (#189): `generateCursorRules()` → `.cursorrules`, `generateJetBrainsContext()` → `.github/cortex/jetbrains-ai-context.md`, `generateNeovimContext()` → `.github/cortex/nvim-context.md`. Auto-detects `.idea/` and existing `.cursorrules`. `--editor` flag: `vscode|cursor|jetbrains|neovim|all`.
+- **Multi-model output** (#190): `adaptForClaude()` (XML tags), `adaptForGemini()` (compact sections), `adaptForLocal()` (4K-8K token budget). `--model` flag: `copilot|claude|gemini|local`. Companion files in `.github/cortex/`.
+- **Agent workflow chaining** (#184): YAML workflow schema (`name`, `description`, `steps` with `agent`/`input`/`output`), `parseWorkflowYaml()`, `validateWorkflow()`, `buildWorkflowRunPlan()`, `formatRunPlan()`. `run_workflow` MCP tool lists/executes workflows with dry-run mode. Built-in `feature-pipeline.yml` ships with Cortex. Workflows deployed to `.github/cortex/workflows/` on install.
 
 ### Changed
 - `ParsedArgs` gains `editorTargets: EditorTarget[]` and `model: ModelTarget` fields
@@ -110,14 +110,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Drift Detection Engine** (`src/detectors/drift.ts`): `detectDrift()` scans 6 artifact classes — required files, MCP config validity, unreplaced template placeholders, context snapshot age (>7 days), agent file schema, and skills/instructions sync
 - **`detect_drift` MCP tool** (#27): Copilot-accessible drift scanner with optional verbose mode
 - **`--check-drift` CLI flag**: CI-friendly drift check, exits 1 on errors
-- **AI OS Drift Check CI workflow** (`.github/workflows/ai-os-drift-check.yml`): weekly schedule + on-artifact-change trigger; auto-opens GitHub issue when drift errors found
+- **Cortex Drift Check CI workflow** (`.github/workflows/cortex-drift-check.yml`): weekly schedule + on-artifact-change trigger; auto-opens GitHub issue when drift errors found
 - **`docs/GETTING-STARTED.md`**: comprehensive 10-minute install guide covering any tech stack (Node, Python, Java, Go, Ruby)
 - **`docs/USER-GUIDE.md`**: advanced reference for all CLI flags, agent/skill customization, MCP tools, USER_BLOCKs, memory management, and CI integration
 - `detect_drift` added to MCP Tools table and Session Restart Protocol (step 5) in base-instructions template
 - Drift check command added to prompt-quality Build & Test Commands table
 
 ### Changed
-- `## AI OS Value Mode` moved earlier in `base-instructions.md` (higher priority under 8 KB cap)
+- `## Cortex Value Mode` moved earlier in `base-instructions.md` (higher priority under 8 KB cap)
 - README hero section rewritten with install-first approach and documentation links
 
 ---
@@ -134,12 +134,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 - **CRLF separator detection** in `enforceSizeCap()`: uses `/\r?\n---\r?\n/g` regex; `copilot-instructions.md` now trims at clean section boundaries instead of mid-sentence (Windows CRLF was not matched by `\n---\n`)
 - **`writeIfChanged()` hash gate**: now calls `fs.existsSync()` before allowing hash-match skip — deleted files are re-created correctly on next run
-- **CI workflow YAML bug**: `ai-os-update-check.yml` had a literal newline inside a JavaScript string (`].join('\nACTUAL_NEWLINE')`) causing `actions/github-script` parse failure; replaced with `\n`
+- **CI workflow YAML bug**: `cortex-update-check.yml` had a literal newline inside a JavaScript string (`].join('\nACTUAL_NEWLINE')`) causing `actions/github-script` parse failure; replaced with `\n`
 - **Duplicate numbered list items** in `base-instructions.md` (`1. / 1.` → `1. / 2.`)
 - **Redundant Stack/Language metadata** in `prompt-quality.instructions.md` (`Stack: TypeScript · Language: TypeScript` → single `Stack:` line)
 
 ### Changed
-- `copilot-instructions.md` template section order: safety rules and guardrails now appear before Memory Workflow and AI OS Value Mode sections — preserved under the 8 KB token budget
+- `copilot-instructions.md` template section order: safety rules and guardrails now appear before Memory Workflow and Cortex Value Mode sections — preserved under the 8 KB token budget
 - `generateSessionContextCard()` signature now accepts optional `outputDir` parameter for skill counting
 
 ### Resolved Issues
@@ -152,10 +152,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - **Superpowers skill suite**: 14 production-grade agent skills auto-installed on first setup via `obra/superpowers` integration: `dispatching-parallel-agents`, `executing-plans`, `writing-plans`, `subagent-driven-development`, `brainstorming`, `test-driven-development`, `systematic-debugging`, `receiving-code-review`, `requesting-code-review`, `verification-before-completion`, `finishing-a-development-branch`, `using-git-worktrees`, `using-superpowers`, `find-skills`
-- **Version memory supersession**: newer memory entries replace older ones in `.github/ai-os/memory/memory.jsonl`
-- **4-step session restart protocol** in `ai-os.instructions.md`
-- **MCP tools table** in `ai-os.instructions.md`
-- `ai-os.instructions.md` deduplication against `copilot-instructions.md`
+- **Version memory supersession**: newer memory entries replace older ones in `.github/cortex/memory/memory.jsonl`
+- **4-step session restart protocol** in `cortex.instructions.md`
+- **MCP tools table** in `cortex.instructions.md`
+- `cortex.instructions.md` deduplication against `copilot-instructions.md`
 - **Skill routing validation** in `prompt-quality.instructions.md`
 
 ### Fixed
@@ -184,7 +184,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Senior developer checklist and VS Code Copilot updates documentation
 
 ### Fixed
-- MCP config now manages both `.mcp.json` (mcpServers) and `.vscode/mcp.json` (servers), preserving non-ai-os entries
+- MCP config now manages both `.mcp.json` (mcpServers) and `.vscode/mcp.json` (servers), preserving non-cortex entries
 
 ---
 

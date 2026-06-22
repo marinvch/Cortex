@@ -47,7 +47,7 @@ export function formatProfileDescription(profile: InstallProfile): string {
     case 'standard':
       return 'standard — Instructions + agents + skills + tools. Recommended for most projects.';
     case 'full':
-      return 'full — All integrations, extra skills, and advanced agents. Maximum AI OS coverage.';
+      return 'full — All integrations, extra skills, and advanced agents. Maximum Cortex coverage.';
   }
 }
 
@@ -99,13 +99,13 @@ export async function runWizardLogic(stack: DetectedStack, ask: AskFn): Promise<
   if (profile === 'minimal') {
     console.log('    • .github/copilot-instructions.md');
     console.log('    • .vscode/mcp.json');
-    console.log('    • .github/ai-os/config.json');
+    console.log('    • .github/cortex/config.json');
   } else if (profile === 'standard') {
     console.log('    • .github/copilot-instructions.md');
     console.log('    • .github/agents/ (project agents)');
     console.log('    • .github/copilot/skills/ (recommended skills)');
     console.log('    • .vscode/mcp.json + tools.json');
-    console.log('    • .github/ai-os/context/ (stack, conventions, architecture)');
+    console.log('    • .github/cortex/context/ (stack, conventions, architecture)');
   } else {
     console.log('    • Everything in standard plus:');
     console.log('    • Extra domain agents (db, auth, payments)');
@@ -114,12 +114,12 @@ export async function runWizardLogic(stack: DetectedStack, ask: AskFn): Promise<
   }
   if (model === 'claude' || model === 'both') {
     console.log('    • CLAUDE.md (project root — read by Claude Code CLI)');
-    console.log('    • .github/ai-os/claude-instructions.md (XML-tagged for Claude API)');
+    console.log('    • .github/cortex/claude-instructions.md (XML-tagged for Claude API)');
   }
   console.log('');
 
   // ── Personal OS linkage ───────────────────────────────────────────────
-  console.log('\n  🧠 Is this project part of your personal AI OS (Cortex)?\n');
+  console.log('\n  🧠 Is this project part of your personal Cortex (AI OS)?\n');
   console.log('     Links it to your personal brain for sanitized promotion of learnings.');
   console.log('');
   let projectBoundary: 'strict' | 'permissive' | undefined;

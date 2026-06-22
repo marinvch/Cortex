@@ -8,4 +8,4 @@ Include:
 - Any important side effects or dependencies
 - How it connects to other parts of the system
 - Any gotchas or non-obvious behavior
-Reference the project architecture in .github/ai-os/context/architecture.md as context.
+Reference the project architecture in .github/cortex/context/architecture.md as context.

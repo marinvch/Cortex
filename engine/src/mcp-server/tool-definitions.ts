@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getAllMcpTools as getSharedMcpTools } from '../mcp-tools.js';
+import { CONFIG_DIR } from '../brand.js';
 
 export interface McpToolSchema {
   type: 'object';
@@ -45,7 +46,7 @@ export function getAllMcpTools(): McpToolDefinition[] {
  * Falls back to the full tool catalog if tools.json is missing or uses the legacy flat format.
  */
 export function getActiveToolsForProject(projectRoot: string): McpToolDefinition[] {
-  const toolsJsonPath = path.join(projectRoot, '.github', 'ai-os', 'tools.json');
+  const toolsJsonPath = path.join(projectRoot, CONFIG_DIR, 'tools.json');
   if (!fs.existsSync(toolsJsonPath)) {
     return getAllMcpTools();
   }

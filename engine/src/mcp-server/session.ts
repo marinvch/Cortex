@@ -1,6 +1,6 @@
 /**
  * session.ts — active plan, checkpoints, failure ledger, watchdog for AI OS MCP server.
- * Manages .github/ai-os/memory/session/ files.
+ * Manages .github/cortex/memory/session/ files.
  */
 import fs from 'node:fs';
 import {
@@ -414,7 +414,7 @@ export function compactSessionContext(): string {
       }
 
       writeTextAtomic(outputPath, lines.join('\n') + '\n');
-      return `Compact context written to .github/ai-os/memory/session/compact-context.md\n\n${lines.join('\n')}`;
+      return `Compact context written to .github/cortex/memory/session/compact-context.md\n\n${lines.join('\n')}`;
     });
   } catch (err) {
     return `Failed to compact session context: ${err instanceof Error ? err.message : String(err)}`;

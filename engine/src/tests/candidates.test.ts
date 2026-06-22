@@ -6,10 +6,10 @@ import * as path from 'node:path';
 let brain: string;
 beforeEach(() => {
   brain = fs.mkdtempSync(path.join(os.tmpdir(), 'aios-cand-'));
-  process.env['AI_OS_PERSONAL_ROOT'] = brain;
+  process.env['CORTEX_PERSONAL_ROOT'] = brain;
 });
 afterEach(() => {
-  delete process.env['AI_OS_PERSONAL_ROOT'];
+  delete process.env['CORTEX_PERSONAL_ROOT'];
   fs.rmSync(brain, { recursive: true, force: true });
 });
 
@@ -38,7 +38,7 @@ describe('candidate queue', () => {
   });
 
   it('throws when no personal brain path is configured', async () => {
-    delete process.env['AI_OS_PERSONAL_ROOT'];
+    delete process.env['CORTEX_PERSONAL_ROOT'];
     const { appendCandidate } = await import('../mcp-server/candidates.js');
     expect(() => appendCandidate({ text: 'x', domain: 'personal', trigger: 't' })).toThrow(/personal brain path/i);
   });

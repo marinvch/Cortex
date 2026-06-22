@@ -69,8 +69,8 @@ Before creating any new file, function, or component:
 
 Before writing any code:
 
-1. Read `.github/ai-os/context/conventions.md` — all edits must follow naming rules and forbidden patterns
-2. Read `.github/ai-os/context/architecture.md` — confirm the change fits the existing structure
+1. Read `.github/cortex/context/conventions.md` — all edits must follow naming rules and forbidden patterns
+2. Read `.github/cortex/context/architecture.md` — confirm the change fits the existing structure
 3. Re-read the target file(s) to get the current state — never edit from memory
 
 ## Execution Workflow (per Work Order item)

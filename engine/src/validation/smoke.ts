@@ -23,7 +23,7 @@ interface ScorecardFile {
 
 // After the engine/ subtree move, two roots diverge:
 //  - ENGINE_ROOT (engine/): engine source, templates, and the cwd for `npm run` (package.json lives here).
-//  - REPO_ROOT (repo root): the repo's self-dogfooding data under .github/ai-os/ (stayed at root).
+//  - REPO_ROOT (repo root): the repo's self-dogfooding data under .github/cortex/ (stayed at root).
 // This file is at engine/src/validation/, so engine/ is two levels up and the repo root is three.
 const ENGINE_ROOT = path.resolve(import.meta.dirname, '../..');
 const REPO_ROOT = path.resolve(ENGINE_ROOT, '..');
@@ -54,7 +54,7 @@ function checkFileExists(relativePath: string, base: string = REPO_ROOT): SmokeC
 }
 
 function checkPersistentRules(): SmokeCheck {
-  const configPath = path.join(REPO_ROOT, '.github/ai-os/config.json');
+  const configPath = path.join(REPO_ROOT, '.github/cortex/config.json');
   if (!fs.existsSync(configPath)) {
     return {
       name: 'persistent rules configured',
@@ -75,7 +75,7 @@ function checkPersistentRules(): SmokeCheck {
 }
 
 function checkScorecardHasEntries(): SmokeCheck {
-  const scorecardPath = path.join(REPO_ROOT, '.github/ai-os/metrics/scorecard.json');
+  const scorecardPath = path.join(REPO_ROOT, '.github/cortex/metrics/scorecard.json');
   if (!fs.existsSync(scorecardPath)) {
     return {
       name: 'scorecard has weekly entries',
@@ -189,9 +189,9 @@ function checkReviewSeverityTaxonomy(): SmokeCheck {
 function run(): void {
   const checks: SmokeCheck[] = [];
 
-  checks.push(checkFileExists('.github/ai-os/context/knowledge-vault.md'));
-  checks.push(checkFileExists('.github/ai-os/context/packs/implementation.md'));
-  checks.push(checkFileExists('.github/ai-os/context/templates/decision-note.md'));
+  checks.push(checkFileExists('.github/cortex/context/knowledge-vault.md'));
+  checks.push(checkFileExists('.github/cortex/context/packs/implementation.md'));
+  checks.push(checkFileExists('.github/cortex/context/templates/decision-note.md'));
   checks.push(checkFileExists('src/validation/scorecard.ts', ENGINE_ROOT));
   checks.push(checkFileExists('src/validation/scorecard-check.ts', ENGINE_ROOT));
   checks.push(checkPersistentRules());
@@ -223,7 +223,7 @@ function run(): void {
 
   const failed = checks.filter((c) => !c.passed);
 
-  console.log('AI OS smoke test results:');
+  console.log('Cortex smoke test results:');
   for (const check of checks) {
     const icon = check.passed ? 'PASS' : 'FAIL';
     console.log(`- [${icon}] ${check.name}`);

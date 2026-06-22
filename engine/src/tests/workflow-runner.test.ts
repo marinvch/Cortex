@@ -16,16 +16,16 @@ name: Feature Development Pipeline
 description: Three-phase feature development
 
 steps:
-  - agent: ai-os — Feature Enhancement Advisor
+  - agent: cortex — Feature Enhancement Advisor
     output: enhancement-report
     description: Scan for improvements
 
-  - agent: ai-os — Idea Validator
+  - agent: cortex — Idea Validator
     input: enhancement-report
     output: approved-work-order
     description: Validate report
 
-  - agent: ai-os — Implementation Agent
+  - agent: cortex — Implementation Agent
     input: approved-work-order
     description: Implement changes
 `;
@@ -40,7 +40,7 @@ describe('parseWorkflowYaml', () => {
   it('parses steps with agent, input, output, description', () => {
     const wf = parseWorkflowYaml(FEATURE_PIPELINE_YAML);
     expect(wf.steps).toHaveLength(3);
-    expect(wf.steps[0].agent).toBe('ai-os — Feature Enhancement Advisor');
+    expect(wf.steps[0].agent).toBe('cortex — Feature Enhancement Advisor');
     expect(wf.steps[0].output).toBe('enhancement-report');
     expect(wf.steps[1].input).toBe('enhancement-report');
     expect(wf.steps[1].output).toBe('approved-work-order');
@@ -164,7 +164,7 @@ describe('listWorkflows and loadWorkflow', () => {
   });
 
   it('lists workflow files', () => {
-    const dir = join(tmpDir, '.github', 'ai-os', 'workflows');
+    const dir = join(tmpDir, '.github', 'cortex', 'workflows');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'my-pipeline.yml'), FEATURE_PIPELINE_YAML);
     const wfs = listWorkflows(tmpDir);
@@ -172,7 +172,7 @@ describe('listWorkflows and loadWorkflow', () => {
   });
 
   it('loads and parses a workflow file', () => {
-    const dir = join(tmpDir, '.github', 'ai-os', 'workflows');
+    const dir = join(tmpDir, '.github', 'cortex', 'workflows');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'feature-pipeline.yml'), FEATURE_PIPELINE_YAML);
     const wf = loadWorkflow(tmpDir, 'feature-pipeline.yml');

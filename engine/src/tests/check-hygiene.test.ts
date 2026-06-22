@@ -38,7 +38,7 @@ describe('runCheckHygieneAction', () => {
 
   it('passes when no legacy artifacts or issues exist', async () => {
     // Create a valid manifest so the manifest check passes
-    write(tmp, '.github/ai-os/manifest.json', JSON.stringify({
+    write(tmp, '.github/cortex/manifest.json', JSON.stringify({
       version: '1',
       generatedAt: new Date().toISOString(),
       files: [],
@@ -61,7 +61,7 @@ describe('runCheckHygieneAction', () => {
   });
 
   it('detects stale .memory.lock file as issue', async () => {
-    write(tmp, '.github/ai-os/memory/.memory.lock', '');
+    write(tmp, '.github/cortex/memory/.memory.lock', '');
     const { runCheckHygieneAction } = await import('../actions/check-hygiene.js');
     runCheckHygieneAction(tmp, true);
     const output = consoleSpy.mock.calls.map(c => c.join(' ')).join('\n');
@@ -70,8 +70,8 @@ describe('runCheckHygieneAction', () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
-  it('detects orphaned .tmp files in .github/ai-os/', async () => {
-    write(tmp, '.github/ai-os/temp-output.tmp', 'orphaned temp');
+  it('detects orphaned .tmp files in .github/cortex/', async () => {
+    write(tmp, '.github/cortex/temp-output.tmp', 'orphaned temp');
     const { runCheckHygieneAction } = await import('../actions/check-hygiene.js');
     runCheckHygieneAction(tmp, true);
     const output = consoleSpy.mock.calls.map(c => c.join(' ')).join('\n');

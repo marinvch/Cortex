@@ -7,7 +7,7 @@ Before touching anything:
 2. List all imports and consumers (grep for the component name)
 3. Identify props, data hooks (custom/fetching), and state
 Then:
-- Apply the naming conventions from .github/ai-os/context/conventions.md
+- Apply the naming conventions from .github/cortex/context/conventions.md
 - Extract business logic to the existing shared module pattern used by this repo (for example lib/, services/, or hooks/)
 - Ensure TypeScript strict compliance (no any)
 - Verify all callers still compile after the refactor

@@ -18,7 +18,7 @@
  *                  <!-- AI-OS:CONFLICT --> wrapper and emit a ConflictReport so the
  *                  user knows manual reconciliation is needed.
  *
- * Per-file mode is configured via `.github/ai-os/protect.json`:
+ * Per-file mode is configured via `.github/cortex/protect.json`:
  *   {
  *     "protected": ["file-to-fully-protect.md"],  // whole-file shield (existing behaviour)
  *     "hybrid":    ["file-with-user-blocks.md"]   // block-level merge (new behaviour)

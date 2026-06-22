@@ -1,11 +1,12 @@
 /**
  * project-introspection.ts — env vars, package info, file summary, impact analysis,
- * dependency chain, API routes, tRPC procedures, and Prisma schema for AI OS MCP server.
+ * dependency chain, API routes, tRPC procedures, and Prisma schema for Cortex MCP server.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from './shared.js';
+import { CONFIG_DIR } from '../brand.js';
 
 /** Try system rg first, then npx ripgrep, for fast CI environments. */
 function spawnRipgrep(args: string[]): string {
@@ -369,7 +370,7 @@ export function getFileSummary(filePath: string): string {
 }
 
 export function getImpactOfChange(filePath: string): string {
-  const newGraphPath = path.join(ROOT, '.github', 'ai-os', 'context', 'dependency-graph.json');
+  const newGraphPath = path.join(ROOT, CONFIG_DIR, 'context', 'dependency-graph.json');
   const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {
@@ -432,7 +433,7 @@ export function getImpactOfChange(filePath: string): string {
 }
 
 export function getDependencyChain(filePath: string): string {
-  const newGraphPath = path.join(ROOT, '.github', 'ai-os', 'context', 'dependency-graph.json');
+  const newGraphPath = path.join(ROOT, CONFIG_DIR, 'context', 'dependency-graph.json');
   const legacyGraphPath = path.join(ROOT, '.ai-os', 'context', 'dependency-graph.json');
   const graphPath = fs.existsSync(newGraphPath) ? newGraphPath : legacyGraphPath;
   if (!fs.existsSync(graphPath)) {

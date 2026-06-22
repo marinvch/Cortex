@@ -1,4 +1,4 @@
-# AI OS — MCP Tools Reference
+# Cortex — MCP Tools Reference
 
 > This file is auto-generated from `src/mcp-tools.ts` by `scripts/gen-mcp-docs.mjs`.
 > Run `npm run gen-mcp-docs` to refresh after adding or editing tool definitions.
@@ -20,42 +20,42 @@
 | `get_impact_of_change` | Shows what files are affected when a given file changes. Returns direct importers and all transitively affected files. |
 | `get_dependency_chain` | Shows the full dependency chain for a file: what it imports and what imports it, with export names. |
 | `check_for_updates` | Checks if the AI OS artifacts installed in this repo are out of date. Returns update instructions when a newer version of AI OS is available. |
-| `get_memory_guidelines` | Returns repository memory rules and memory usage protocol from .github/ai-os/context/memory.md. |
-| `get_repo_memory` | Retrieves persisted repository memory entries from .github/ai-os/memory/memory.jsonl, optionally filtered by query/category. |
-| `remember_repo_fact` | Stores a durable repository memory entry in .github/ai-os/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts). |
-| `get_active_plan` | Returns the persisted active session plan from .github/ai-os/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift. |
+| `get_memory_guidelines` | Returns repository memory rules and memory usage protocol from .github/cortex/context/memory.md. |
+| `get_repo_memory` | Retrieves persisted repository memory entries from .github/cortex/memory/memory.jsonl, optionally filtered by query/category. |
+| `remember_repo_fact` | Stores a durable repository memory entry in .github/cortex/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts). |
+| `get_active_plan` | Returns the persisted active session plan from .github/cortex/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift. |
 | `upsert_active_plan` | Creates or updates the persisted active plan (objective, criteria, current/next step, blockers). This provides durable task state across context resets. |
-| `append_checkpoint` | Appends a progress checkpoint to .github/ai-os/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences. |
-| `close_checkpoint` | Closes an existing checkpoint by id in .github/ai-os/memory/session/checkpoints.jsonl. |
-| `record_failure_pattern` | Records or updates a failure pattern in .github/ai-os/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes. |
+| `append_checkpoint` | Appends a progress checkpoint to .github/cortex/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences. |
+| `close_checkpoint` | Closes an existing checkpoint by id in .github/cortex/memory/session/checkpoints.jsonl. |
+| `record_failure_pattern` | Records or updates a failure pattern in .github/cortex/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes. |
 | `compact_session_context` | Creates a compact session summary from active plan, open checkpoints, and recent failure patterns to reduce context stuffing and preserve continuity. |
 | `get_session_context` | Returns the compact session context card with MUST-ALWAYS rules, build/test commands, and key file locations. CALL THIS at the start of every new conversation to reload critical context after a session reset. |
 | `get_recommendations` | Returns stack-appropriate recommendations: MCP servers, VS Code extensions, agent skills, and GitHub Copilot Extensions. Useful for setting up a new developer environment. |
 | `suggest_improvements` | Analyzes project structure and memory entries to return architectural and tooling optimization suggestions (e.g. missing env var documentation, undocumented key paths, skills gaps). |
 | `set_watchdog_threshold` | Configures the automatic watchdog checkpoint interval for the current session (default: 8 tool calls). Increase for complex multi-step tasks; decrease for shorter focused work. Range: 1–100. |
 | `reset_session_state` | Clears all session state files (active-plan.json, checkpoints.jsonl, failure-ledger.jsonl, runtime-state.json, compact-context.md) so a new branch or task starts from a clean slate. Durable repo memory (memory.jsonl) is never modified. |
-| `sync_hosted_memory` | Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication. |
+| `sync_hosted_memory` | Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/cortex/memory/memory.jsonl. Lists existing entries to prevent duplication. |
 | `get_context_freshness` | Computes a freshness score (0–100) for AI OS context artifacts by comparing them against the stored context snapshot. Returns a list of stale artifacts, changed source files, and targeted sync recommendations. Run after structural code changes to detect context drift. |
 | `prune_memory` | Compacts the repository memory file by running full hygiene (near-duplicate detection, TTL enforcement, superseded entry removal) and physically deleting all stale entries. Returns a maintenance summary with counts of removed vs. kept entries. |
 | `detect_drift` | Scans AI OS artifacts (skills, instructions, agents, MCP config, context snapshot) for drift. Reports missing files, unreplaced template placeholders, stale context snapshot (>7 days), broken MCP server paths, agent schema gaps, and skills not listed in instructions. Returns a formatted report; exits non-zero when errors exist. |
 | `read_file` | Read the content of a file within the project root. Path traversal outside the project root is blocked. Files larger than 32 KB are rejected with a helpful message. |
 | `list_directory` | List the contents of a directory within the project root. Returns file names with sizes and directory names. Ignores node_modules, dist, .git, and other build artefacts. |
-| `run_tests` | Run the project test suite (`npm run test` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json. |
-| `run_lint` | Run the project linter (`npm run lint` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json. |
-| `run_build` | Run the project build (`npm run build` or equivalent). Disabled by default — requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json. |
-| `run_workflow` | Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows. |
+| `run_tests` | Run the project test suite (`npm run test` or equivalent). Disabled by default — requires CORTEX_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/cortex/config.json. |
+| `run_lint` | Run the project linter (`npm run lint` or equivalent). Disabled by default — requires CORTEX_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/cortex/config.json. |
+| `run_build` | Run the project build (`npm run build` or equivalent). Disabled by default — requires CORTEX_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/cortex/config.json. |
+| `run_workflow` | Load and display the execution plan for a named agent workflow from .github/cortex/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows. |
 | `boost_prompt` | Analyses a user prompt for vagueness and, when the score is ≥ 3, returns up to 3 targeted clarifying questions so the intent can be precisely resolved before implementation. Returns vaguenessScore, triggered flag, questions array, and optional skill routing. Works without repo-index (keyword-only fallback). |
 | `detect_intent` | Classifies the intent of a user prompt into one of 9 categories (new-feature, bug-fix, refactor, db-change, test-addition, dependency-update, docs-update, config-change, quick-edit). Returns intentType, confidence, affectedDomain, suggestedSkill, and an optional WORKFLOW-FORK clarifying question. Works without repo-index (keyword-only fallback). |
-| `search_symbols` | Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists. |
-| `get_file_purpose` | Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists. |
-| `validate_spec_coverage` | Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first. |
-| `get_spec_for_file` | Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first. |
+| `search_symbols` | Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `cortex --index` to have been run first; gracefully returns empty list if no index exists. |
+| `get_file_purpose` | Returns a concise description of what a source file does, its exports, domain tags, size, and language — sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `cortex --index` to have been run first. Returns null if no index or no entry for the given file path exists. |
+| `validate_spec_coverage` | Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first. |
+| `get_spec_for_file` | Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first. |
 | `promote_to_brain` | Promote a fact from project memory into the personal brain. The ONLY sanctioned project→personal path. Requires sanitized_confirmed=true after reviewing for company/client data. |
 | `suggest_profile_update` | Propose a candidate profile/context fact noticed during a session. APPEND-ONLY: queues to brain/candidates.jsonl for confirmation at /level-up. Cannot write context/ or brain/memory directly. Project-domain candidates are flagged for sanitization. |
 
 ## Session Start Protocol
 
-At the start of every new Copilot session in an AI OS repo:
+At the start of every new Copilot session in a Cortex repo:
 
 1. Call `get_session_context` → reloads MUST-ALWAYS rules and key commands
 2. Call `get_repo_memory` → recovers durable architectural decisions
@@ -71,10 +71,10 @@ At the start of every new Copilot session in an AI OS repo:
 
 ```bash
 # Health check the MCP server
-AI_OS_ROOT=. node .ai-os/mcp-server/index.js --healthcheck
+CORTEX_ROOT=. node .github/cortex/mcp-server/index.js --healthcheck
 
 # Debug mode
-AI_OS_MCP_DEBUG=1 node .ai-os/mcp-server/index.js --healthcheck
+CORTEX_MCP_DEBUG=1 node .github/cortex/mcp-server/index.js --healthcheck
 ```
 
 ## Bundle Architecture

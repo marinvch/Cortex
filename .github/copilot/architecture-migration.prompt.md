@@ -7,9 +7,9 @@ Phase 1 — Pre-Change Audit:
 1. Ask me to declare the migration boundary: "from X to Y" (e.g., "from session auth to JWT")
 2. Scan ALL AI artifacts for legacy references:
    - .github/copilot-instructions.md
-   - .github/ai-os/context/architecture.md
-   - .github/ai-os/context/conventions.md
-   - .github/ai-os/context/stack.md
+   - .github/cortex/context/architecture.md
+   - .github/cortex/context/conventions.md
+   - .github/cortex/context/stack.md
    - .github/copilot/skills/*.md
    - .github/agents/*.md
    - .github/copilot/*.prompt.md

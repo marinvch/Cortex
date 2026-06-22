@@ -21,4 +21,4 @@ Never `project → shared`. Never `personal → project`.
 - `brain/` — memory.jsonl, memory-log.md, sessions/ (gitignored)
 - `projects/` — per-project encapsulation (gitignored)
 - `references/` — this framework (shared, committed)
-- `engine/` — the `ai-os` kernel (shared, committed)
+- `engine/` — the Cortex kernel (shared, committed)

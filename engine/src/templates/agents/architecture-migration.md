@@ -40,14 +40,14 @@ Ask the user to confirm:
 
 Scan these locations for terms, patterns, and guidance tied to the old architecture:
 - `.github/copilot-instructions.md`
-- `.github/ai-os/context/architecture.md`
-- `.github/ai-os/context/conventions.md`
-- `.github/ai-os/context/stack.md`
+- `.github/cortex/context/architecture.md`
+- `.github/cortex/context/conventions.md`
+- `.github/cortex/context/stack.md`
 - `.github/skills/*/SKILL.md`
 - `.github/agents/*.md`
 - `.github/copilot/*.prompt.md`
 - `.github/instructions/*.instructions.md`
-- Any `.github/ai-os/memory/*.md` files
+- Any `.github/cortex/memory/*.md` files
 
 ### Step 3: Generate impact inventory
 
@@ -55,7 +55,7 @@ For every stale reference found, produce a table row:
 
 | File | Line | Stale Statement | Replacement | Risk |
 | --- | --- | --- | --- | --- |
-| `.github/ai-os/context/conventions.md` | 42 | "Always use Passport sessions" | "Use Auth.js v5 JWT strategy" | High |
+| `.github/cortex/context/conventions.md` | 42 | "Always use Passport sessions" | "Use Auth.js v5 JWT strategy" | High |
 
 Risk levels:
 - **High** — will actively scaffold deprecated patterns in new sessions
@@ -123,15 +123,15 @@ After all replacements are complete:
 2. If AI OS is installed, run: `npx github:marinvch/ai-os --check-hygiene`
 3. Confirm the hygiene check passes before marking migration complete
 
-### Step 4: Auto-regenerate AI OS context (if installed)
+### Step 4: Auto-regenerate Cortex context (if installed)
 
-If AI OS is installed in the target repo, trigger a context refresh so that all generated files (stack.md, conventions.md, instructions.md) reflect the new architecture:
+If Cortex is installed in the target repo, trigger a context refresh so that all generated files (stack.md, conventions.md, instructions.md) reflect the new architecture:
 
 ```bash
 npx github:marinvch/ai-os --refresh-existing
 ```
 
-This rewrites only AI OS-managed files — user blocks and protected files are preserved. Run this as the final step to close the migration.
+This rewrites only Cortex-managed files — user blocks and protected files are preserved. Run this as the final step to close the migration.
 
 ## Operating Rules
 

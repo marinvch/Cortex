@@ -1,24 +1,25 @@
 /**
  * Context Freshness Scoring and Drift Detection
  *
- * Captures snapshots of AI OS context artifacts and key source files,
+ * Captures snapshots of Cortex context artifacts and key source files,
  * then compares them to detect drift after structural code changes.
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { writeFileAtomic } from '../generators/utils.js';
+import { CONFIG_DIR } from '../brand.js';
 
 // ── Interfaces ─────────────────────────────────────────────────────────────
 
-/** Metadata captured at AI OS generation time. */
+/** Metadata captured at Cortex generation time. */
 export interface ContextSnapshot {
   /** ISO timestamp when this snapshot was captured. */
   capturedAt: string;
-  /** AI OS version that generated this snapshot. */
+  /** Cortex version that generated this snapshot. */
   aiOsVersion: string;
   /**
-   * SHA-256 fingerprints of AI OS context artifact files.
+   * SHA-256 fingerprints of Cortex context artifact files.
    * Key = repo-relative path, value = hex hash (or 'MISSING').
    */
   artifactHashes: Record<string, string>;
@@ -48,25 +49,25 @@ export interface FreshnessReport {
   recommendations: string[];
   /** When the baseline snapshot was captured (ISO string) or null if no snapshot exists. */
   snapshotCapturedAt: string | null;
-  /** When AI OS was last run (ISO string from config.json) or null. */
+  /** When Cortex was last run (ISO string from config.json) or null. */
   lastGeneratedAt: string | null;
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
-/** AI OS context artifact files that are tracked for freshness. */
+/** Cortex context artifact files that are tracked for freshness. */
 const ARTIFACT_PATHS = [
-  '.github/ai-os/context/conventions.md',
-  '.github/ai-os/context/architecture.md',
-  '.github/ai-os/context/stack.md',
-  '.github/ai-os/context/existing-ai-context.md',
-  '.github/ai-os/context/context-budget.md',
+  `${CONFIG_DIR}/context/conventions.md`,
+  `${CONFIG_DIR}/context/architecture.md`,
+  `${CONFIG_DIR}/context/stack.md`,
+  `${CONFIG_DIR}/context/existing-ai-context.md`,
+  `${CONFIG_DIR}/context/context-budget.md`,
   '.github/copilot-instructions.md',
-  '.github/ai-os/config.json',
-  '.github/ai-os/tools.json',
-  '.github/ai-os/context/mcp-tools.md',
-  '.github/ai-os/context/recommendations.md',
-] as const;
+  `${CONFIG_DIR}/config.json`,
+  `${CONFIG_DIR}/tools.json`,
+  `${CONFIG_DIR}/context/mcp-tools.md`,
+  `${CONFIG_DIR}/context/recommendations.md`,
+];
 
 /** Directories tracked at the directory-hash level for freshness. */
 const ARTIFACT_DIRS = [
@@ -97,7 +98,7 @@ const SOURCE_PROBE_PATHS = [
   'Dockerfile',
 ] as const;
 
-const SNAPSHOT_PATH = '.github/ai-os/context-snapshot.json';
+const SNAPSHOT_PATH = `${CONFIG_DIR}/context-snapshot.json`;
 
 // ── Hash utilities ─────────────────────────────────────────────────────────
 
@@ -167,7 +168,7 @@ export function captureContextSnapshot(rootDir: string, aiOsVersion: string): Co
     trackedFileCount = count;
   }
 
-  // Capture directory-level hashes for AI OS artifact directories (#238)
+  // Capture directory-level hashes for Cortex artifact directories (#238)
   for (const rel of ARTIFACT_DIRS) {
     const absDir = path.join(rootDir, rel);
     if (fs.existsSync(absDir)) {
@@ -195,7 +196,7 @@ export function loadContextSnapshot(rootDir: string): ContextSnapshot | null {
   }
 }
 
-/** Write the context snapshot to `.github/ai-os/context-snapshot.json`. */
+/** Write the context snapshot to `.github/cortex/context-snapshot.json`. */
 export function writeContextSnapshot(rootDir: string, snapshot: ContextSnapshot): void {
   const snapshotPath = path.join(rootDir, SNAPSHOT_PATH);
   writeFileAtomic(snapshotPath, JSON.stringify(snapshot, null, 2));
@@ -211,7 +212,7 @@ export function computeFreshnessReport(rootDir: string): FreshnessReport {
   // Determine lastGeneratedAt from config.json
   let lastGeneratedAt: string | null = null;
   try {
-    const configPath = path.join(rootDir, '.github', 'ai-os', 'config.json');
+    const configPath = path.join(rootDir, CONFIG_DIR, 'config.json');
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf-8')) as { installedAt?: string };
       lastGeneratedAt = config.installedAt ?? null;
@@ -361,7 +362,7 @@ export function formatFreshnessReport(report: FreshnessReport): string {
     lines.push(`- **Snapshot captured:** ${report.snapshotCapturedAt}`);
   }
   if (report.lastGeneratedAt) {
-    lines.push(`- **Last AI OS run:** ${report.lastGeneratedAt}`);
+    lines.push(`- **Last Cortex run:** ${report.lastGeneratedAt}`);
   }
   lines.push('');
 

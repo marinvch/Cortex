@@ -14,6 +14,23 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
+// src/brand.ts
+var CONFIG_DIR, MCP_SERVER_NAME, ENV;
+var init_brand = __esm({
+  "src/brand.ts"() {
+    "use strict";
+    CONFIG_DIR = ".github/cortex";
+    MCP_SERVER_NAME = "cortex";
+    ENV = {
+      ROOT: "CORTEX_ROOT",
+      PERSONAL_ROOT: "CORTEX_PERSONAL_ROOT",
+      CONFIG: "CORTEX_CONFIG",
+      ALLOW_RUN_TOOLS: "CORTEX_ALLOW_RUN_TOOLS",
+      MCP_DEBUG: "CORTEX_MCP_DEBUG"
+    };
+  }
+});
+
 // src/generators/index-docs.ts
 var index_docs_exports = {};
 __export(index_docs_exports, {
@@ -159,8 +176,9 @@ var ARCHITECTURE_PATH, STACK_PATH, PROTECTED_RE;
 var init_index_docs = __esm({
   "src/generators/index-docs.ts"() {
     "use strict";
-    ARCHITECTURE_PATH = ".github/ai-os/context/architecture.md";
-    STACK_PATH = ".github/ai-os/context/stack.md";
+    init_brand();
+    ARCHITECTURE_PATH = `${CONFIG_DIR}/context/architecture.md`;
+    STACK_PATH = `${CONFIG_DIR}/context/stack.md`;
     PROTECTED_RE = /<!-- protected -->([\s\S]*?)<!-- \/protected -->/g;
   }
 });
@@ -169,6 +187,7 @@ var init_index_docs = __esm({
 import readline2 from "node:readline";
 
 // src/updater.ts
+init_brand();
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -185,7 +204,7 @@ function getToolVersion() {
   }
 }
 function readInstalledConfig(targetDir) {
-  const newConfigPath = path.join(targetDir, ".github", "ai-os", "config.json");
+  const newConfigPath = path.join(targetDir, CONFIG_DIR, "config.json");
   const legacyConfigPath = path.join(targetDir, ".ai-os", "config.json");
   const configPath = fs.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   try {
@@ -268,10 +287,10 @@ function printUpdateBanner(status) {
   const updateCmd = `npx -y "github:marinvch/ai-os#v${status.latestVersion}" --refresh-existing`;
   console.log("");
   console.log("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
-  console.log(`  \u2502  \u{1F514} AI OS Update Available                          \u2502`);
+  console.log(`  \u2502  \u{1F514} Cortex Update Available                         \u2502`);
   console.log(`  \u2502     Installed: v${status.installedVersion?.padEnd(10) ?? "unknown   "}  \u2192  Latest: v${status.latestVersion.padEnd(10)}\u2502`);
   console.log(`  \u2502                                                     \u2502`);
-  console.log(`  \u2502  Re-run AI OS with --refresh-existing (or --update) \u2502`);
+  console.log(`  \u2502  Re-run Cortex with --refresh-existing (or --update) \u2502`);
   console.log(`  \u2502  to refresh context, tools, agents, and MCP files.  \u2502`);
   console.log("  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518");
   console.log(`  ${updateCmd}`);
@@ -281,7 +300,7 @@ function migrateLegacyMcpServer(targetDir) {
   const legacyMcpDir = path.join(targetDir, ".ai-os", "mcp-server");
   const legacyMcpEntry = path.join(legacyMcpDir, "index.js");
   if (!fs.existsSync(legacyMcpEntry)) return;
-  const newMcpDir = path.join(targetDir, ".github", "ai-os", "mcp-server");
+  const newMcpDir = path.join(targetDir, CONFIG_DIR, "mcp-server");
   try {
     fs.mkdirSync(newMcpDir, { recursive: true });
     for (const file of fs.readdirSync(legacyMcpDir)) {
@@ -295,10 +314,10 @@ function migrateLegacyMcpServer(targetDir) {
     const gitignorePath = path.join(targetDir, ".gitignore");
     if (fs.existsSync(gitignorePath)) {
       const content = fs.readFileSync(gitignorePath, "utf-8");
-      const updated = content.replace(/^\.ai-os\/mcp-server\/node_modules\s*$/m, ".github/ai-os/mcp-server/").replace(/^\.ai-os\/mcp-server\/\s*$/m, ".github/ai-os/mcp-server/");
+      const updated = content.replace(/^\.ai-os\/mcp-server\/node_modules\s*$/m, ".github/cortex/mcp-server/").replace(/^\.ai-os\/mcp-server\/\s*$/m, ".github/cortex/mcp-server/");
       if (updated !== content) fs.writeFileSync(gitignorePath, updated, "utf-8");
     }
-    console.log("  \u{1F500} Migrated .ai-os/mcp-server/ \u2192 .github/ai-os/mcp-server/ (v0.22.0 layout)");
+    console.log("  \u{1F500} Migrated .ai-os/mcp-server/ \u2192 .github/cortex/mcp-server/ (v0.22.0 layout)");
   } catch {
   }
 }
@@ -353,8 +372,8 @@ function pruneLegacyArtifacts(targetDir, options) {
     } catch {
     }
   }
-  const mcpBundleRelPath = ".github/ai-os/mcp-server/index.js";
-  const mcpBundleAbsPath = path.join(targetDir, ".github", "ai-os", "mcp-server", "index.js");
+  const mcpBundleRelPath = `${CONFIG_DIR}/mcp-server/index.js`;
+  const mcpBundleAbsPath = path.join(targetDir, CONFIG_DIR, "mcp-server", "index.js");
   if (fs.existsSync(mcpBundleAbsPath)) {
     try {
       const isTracked = spawnSync("git", ["ls-files", "--error-unmatch", mcpBundleRelPath], {
@@ -368,7 +387,7 @@ function pruneLegacyArtifacts(targetDir, options) {
           encoding: "utf-8",
           stdio: "pipe"
         });
-        console.log("  \u{1F9F9} Untracked .github/ai-os/mcp-server/index.js from git (build artifact)");
+        console.log(`  \u{1F9F9} Untracked ${CONFIG_DIR}/mcp-server/index.js from git (build artifact)`);
       }
     } catch {
     }
@@ -510,6 +529,7 @@ function formatError(err) {
 }
 
 // src/generators/utils.ts
+init_brand();
 var _verbose = false;
 var _prevHashes = {};
 var _newHashes = {};
@@ -592,7 +612,7 @@ function applyFallbacks(content, fallbacks = {}) {
 }
 var MANIFEST_FILENAME = "manifest.json";
 function getManifestPath(outputDir) {
-  return path2.join(outputDir, ".github", "ai-os", MANIFEST_FILENAME);
+  return path2.join(outputDir, CONFIG_DIR, MANIFEST_FILENAME);
 }
 function isAiOsManifest(obj) {
   if (typeof obj !== "object" || obj === null) return false;
@@ -629,7 +649,7 @@ function syncManifest(outputDir, version) {
   const existingFiles = new Set(existing?.files ?? []);
   const existingHashes = existing?.hashes ?? {};
   const patterns = [".instructions.md", ".prompt.md", ".agent.md"];
-  const aiOsDir = path2.join(githubDir, "ai-os");
+  const aiOsDir = path2.join(outputDir, CONFIG_DIR);
   function scan(dir) {
     let entries;
     try {
@@ -681,6 +701,7 @@ function resolveTemplatesDir(runtimeDir) {
 }
 
 // src/generators/multi-editor.ts
+init_brand();
 function parseEditorTarget(raw) {
   const targets = ["vscode", "cursor", "jetbrains", "neovim", "all"];
   const lower = raw.toLowerCase();
@@ -695,7 +716,7 @@ function detectEditorTargets(cwd) {
 function generateCursorRules(stack, instructionsContent) {
   const header = [
     `# Cursor AI Rules \u2014 ${stack.projectName}`,
-    `# Generated by AI OS \u2014 https://github.com/marinvch/ai-os`,
+    `# Generated by Cortex \u2014 https://github.com/marinvch/ai-os`,
     `# Edit this file directly OR protect sections with AI-OS:USER_BLOCK markers.`,
     ""
   ].join("\n");
@@ -775,14 +796,14 @@ function generateEditorConfigs(cwd, stack, targets, instructionsContent, track =
     written.push(".cursorrules");
   }
   if (effectiveTargets.has("jetbrains")) {
-    const dest = track(path3.join(cwd, ".github", "ai-os", "jetbrains-ai-context.md"));
+    const dest = track(path3.join(cwd, CONFIG_DIR, "jetbrains-ai-context.md"));
     writeIfChanged(dest, generateJetBrainsContext(stack));
-    written.push(".github/ai-os/jetbrains-ai-context.md");
+    written.push(`${CONFIG_DIR}/jetbrains-ai-context.md`);
   }
   if (effectiveTargets.has("neovim")) {
-    const dest = track(path3.join(cwd, ".github", "ai-os", "nvim-context.md"));
+    const dest = track(path3.join(cwd, CONFIG_DIR, "nvim-context.md"));
     writeIfChanged(dest, generateNeovimContext(stack));
-    written.push(".github/ai-os/nvim-context.md");
+    written.push(`${CONFIG_DIR}/nvim-context.md`);
   }
   return written;
 }
@@ -875,7 +896,7 @@ function generateClaudeCodeMd(instructionsContent, projectName) {
     `# ${projectName} \u2014 Claude Code Instructions`,
     "",
     "<!-- Generated by AI OS. Source of truth: .github/copilot-instructions.md -->",
-    "<!-- Edit .github/ai-os/config.json \u2192 persistentRules to survive regeneration. -->",
+    "<!-- Edit .github/cortex/config.json \u2192 persistentRules to survive regeneration. -->",
     ""
   ].join("\n");
   return `${header}${stripped}
@@ -898,11 +919,11 @@ function adaptInstructionsForModel(content, model) {
 function getModelOutputPath(model, githubDir) {
   switch (model) {
     case "claude":
-      return `${githubDir}/ai-os/claude-instructions.md`;
+      return `${githubDir}/cortex/claude-instructions.md`;
     case "gemini":
-      return `${githubDir}/ai-os/gemini-instructions.md`;
+      return `${githubDir}/cortex/gemini-instructions.md`;
     case "local":
-      return `${githubDir}/ai-os/local-instructions.md`;
+      return `${githubDir}/cortex/local-instructions.md`;
     case "copilot":
     default:
       return `${githubDir}/copilot-instructions.md`;
@@ -914,12 +935,12 @@ function parseArgs() {
   const args = process.argv.slice(2);
   if (args.includes("--help") || args.includes("-h")) {
     console.log(`
-Usage: npx ai-os [options]
+Usage: npx cortex [options]
 
 Options:
   --cwd <path>                Directory to run in (default: process.cwd())
   --dry-run                   Preview changes without writing
-  --refresh-existing          Refresh all AI OS artifacts
+  --refresh-existing          Refresh all Cortex artifacts
   --update                    Update mode
   --plan                      Show planned changes
   --preview                   Preview generated output
@@ -930,8 +951,8 @@ Options:
   --verbose, -v               Verbose output
   --check-hygiene             Run hygiene checks
   --doctor                    Run diagnostics
-  --bootstrap                 Bootstrap AI OS into a new project
-  --check-freshness           Check if AI OS artifacts are fresh
+  --bootstrap                 Bootstrap Cortex into a new project
+  --check-freshness           Check if Cortex artifacts are fresh
   --compact-memory            Compact memory.jsonl file
   --check-drift               Check for context drift
   --check-boundaries          Scan project memory for cross-domain leaks
@@ -939,8 +960,8 @@ Options:
   --init                      Interactive setup wizard
   --index                     Build repository intelligence index
   --incremental               Incremental indexing (with --index)
-  --spec-dir <path>           Spec files directory for --index (default: .github/ai-os/specs/)
-  --uninstall                 Remove all AI OS artifacts
+  --spec-dir <path>           Spec files directory for --index (default: .github/cortex/specs/)
+  --uninstall                 Remove all Cortex artifacts
   --json                      Output results as JSON
   --full-diff                 Show full file diffs
   --profile <name>            Install profile: minimal, standard, full
@@ -1074,6 +1095,7 @@ Options:
 // src/actions/check-hygiene.ts
 import fs4 from "node:fs";
 import path5 from "node:path";
+init_brand();
 function findFilesRecursive(dir, predicate) {
   const results = [];
   try {
@@ -1103,7 +1125,7 @@ function runCheckHygieneAction(cwd, json = false) {
     }
   }
   const lockPaths = [
-    path5.join(cwd, ".github", "ai-os", "memory", ".memory.lock"),
+    path5.join(cwd, CONFIG_DIR, "memory", ".memory.lock"),
     path5.join(cwd, ".ai-os", "memory", ".memory.lock")
   ];
   for (const lockPath of lockPaths) {
@@ -1111,16 +1133,16 @@ function runCheckHygieneAction(cwd, json = false) {
       issues.push(`  \u26A0  Stale lock file found: ${path5.relative(cwd, lockPath)} \u2014 safe to delete`);
     }
   }
-  const mcpNodeModules = path5.join(cwd, ".github", "ai-os", "mcp-server", "node_modules");
+  const mcpNodeModules = path5.join(cwd, CONFIG_DIR, "mcp-server", "node_modules");
   if (fs4.existsSync(mcpNodeModules)) {
-    issues.push(`  \u26A0  node_modules present in .github/ai-os/mcp-server/ \u2014 run --refresh-existing to clean up`);
+    issues.push(`  \u26A0  node_modules present in .github/cortex/mcp-server/ \u2014 run --refresh-existing to clean up`);
   }
   const legacyMcpDir = path5.join(cwd, ".ai-os", "mcp-server");
   if (fs4.existsSync(legacyMcpDir)) {
-    issues.push(`  \u26A0  Legacy .ai-os/mcp-server/ found \u2014 run --refresh-existing to migrate to .github/ai-os/mcp-server/`);
+    issues.push(`  \u26A0  Legacy .ai-os/mcp-server/ found \u2014 run --refresh-existing to migrate to .github/cortex/mcp-server/`);
   }
   const aiOsDirs = [
-    path5.join(cwd, ".github", "ai-os")
+    path5.join(cwd, CONFIG_DIR)
   ];
   for (const dir of aiOsDirs) {
     if (!fs4.existsSync(dir)) continue;
@@ -1136,7 +1158,7 @@ function runCheckHygieneAction(cwd, json = false) {
       issues.push(`  \u26A0  ${missingFiles.length} manifest entries point to missing files \u2014 run --refresh-existing`);
     }
   } else {
-    issues.push(`  \u26A0  No manifest.json found \u2014 run AI OS generation to create one`);
+    issues.push(`  \u26A0  No manifest.json found \u2014 run Cortex generation to create one`);
   }
   if (issues.length === 0) {
     if (json) {
@@ -1351,6 +1373,7 @@ function buildDependencyGraph(rootDir) {
 }
 
 // src/mcp-tools.ts
+init_brand();
 var always = () => true;
 var MCP_TOOL_DEFINITIONS = [
   {
@@ -1483,13 +1506,13 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "get_memory_guidelines",
-    description: "Returns repository memory rules and memory usage protocol from .github/ai-os/context/memory.md.",
+    description: "Returns repository memory rules and memory usage protocol from .github/cortex/context/memory.md.",
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
   {
     name: "get_repo_memory",
-    description: "Retrieves persisted repository memory entries from .github/ai-os/memory/memory.jsonl, optionally filtered by query/category.",
+    description: "Retrieves persisted repository memory entries from .github/cortex/memory/memory.jsonl, optionally filtered by query/category.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1502,7 +1525,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "remember_repo_fact",
-    description: "Stores a durable repository memory entry in .github/ai-os/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).",
+    description: "Stores a durable repository memory entry in .github/cortex/memory/memory.jsonl using dedupe/upsert rules (marks superseded conflicts and avoids duplicate facts).",
     inputSchema: {
       type: "object",
       properties: {
@@ -1517,7 +1540,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "get_active_plan",
-    description: "Returns the persisted active session plan from .github/ai-os/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.",
+    description: "Returns the persisted active session plan from .github/cortex/memory/session/active-plan.json. Use after context resets to restore goals and avoid drift.",
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
@@ -1540,7 +1563,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "append_checkpoint",
-    description: "Appends a progress checkpoint to .github/ai-os/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.",
+    description: "Appends a progress checkpoint to .github/cortex/memory/session/checkpoints.jsonl to preserve intent and execution state during long tool-call sequences.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1555,7 +1578,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "close_checkpoint",
-    description: "Closes an existing checkpoint by id in .github/ai-os/memory/session/checkpoints.jsonl.",
+    description: "Closes an existing checkpoint by id in .github/cortex/memory/session/checkpoints.jsonl.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1568,7 +1591,7 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "record_failure_pattern",
-    description: "Records or updates a failure pattern in .github/ai-os/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.",
+    description: "Records or updates a failure pattern in .github/cortex/memory/session/failure-ledger.jsonl to prevent repeating the same mistakes.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1633,7 +1656,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #24: Sync Hosted Memory ──────────────────────────────────────────
   {
     name: "sync_hosted_memory",
-    description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/ai-os/memory/memory.jsonl. Lists existing entries to prevent duplication.",
+    description: "Returns guidance and a prompt template for mirroring durable facts from Copilot hosted/in-context memory into .github/cortex/memory/memory.jsonl. Lists existing entries to prevent duplication.",
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
@@ -1688,25 +1711,25 @@ var MCP_TOOL_DEFINITIONS = [
   },
   {
     name: "run_tests",
-    description: 'Run the project test suite (`npm run test` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project test suite (\`npm run test\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
   {
     name: "run_lint",
-    description: 'Run the project linter (`npm run lint` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project linter (\`npm run lint\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
   {
     name: "run_build",
-    description: 'Run the project build (`npm run build` or equivalent). Disabled by default \u2014 requires AI_OS_ALLOW_RUN_TOOLS=1 env var or "allowRunTools": true in .github/ai-os/config.json.',
+    description: `Run the project build (\`npm run build\` or equivalent). Disabled by default \u2014 requires ${ENV.ALLOW_RUN_TOOLS}=1 env var or "allowRunTools": true in .github/cortex/config.json.`,
     inputSchema: { type: "object", properties: {} },
     condition: always
   },
   {
     name: "run_workflow",
-    description: "Load and display the execution plan for a named agent workflow from .github/ai-os/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.",
+    description: "Load and display the execution plan for a named agent workflow from .github/cortex/workflows/. Use dry_run: true to preview the chain without executing. Omit workflow_name to list all available workflows.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1746,7 +1769,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #40: Symbol Search ────────────────────────────────────────────────
   {
     name: "search_symbols",
-    description: "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `ai-os --index` to have been run first; gracefully returns empty list if no index exists.",
+    description: "Searches the Repository Intelligence Index (repo-index.jsonl) for named symbols (functions, classes, interfaces, types, enums, variables) by name query. Optionally filter by kind (function | class | interface | type | variable | enum | method) or by tag (auth, database, api, testing, ui, etc.). Returns up to 30 matching symbols with file path, line, signature, and tags. Requires `cortex --index` to have been run first; gracefully returns empty list if no index exists.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1761,7 +1784,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #41: File Purpose ─────────────────────────────────────────────────
   {
     name: "get_file_purpose",
-    description: "Returns a concise description of what a source file does, its exports, domain tags, size, and language \u2014 sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `ai-os --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
+    description: "Returns a concise description of what a source file does, its exports, domain tags, size, and language \u2014 sourced from the Repository Intelligence Index (repo-index.jsonl). Requires `cortex --index` to have been run first. Returns null if no index or no entry for the given file path exists.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1774,7 +1797,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #42: Spec Coverage ───────────────────────────────────────────────
   {
     name: "validate_spec_coverage",
-    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `ai-os --index` to have run first.",
+    description: "Reports spec requirement coverage across all spec files in the repo index. Groups requirements by spec file and shows which are annotated with @spec: (implemented) and which are gaps. Requires `cortex --index` to have run first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1786,7 +1809,7 @@ var MCP_TOOL_DEFINITIONS = [
   // ── Tool #43: Spec for File ───────────────────────────────────────────────
   {
     name: "get_spec_for_file",
-    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `ai-os --index` to have run first.",
+    description: "Returns the spec requirements (with IDs and titles) that a given source file implements, based on @spec: annotations in the repo index. Requires `cortex --index` to have run first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1846,7 +1869,8 @@ function getToolsWithStackSplit(stack) {
 }
 
 // src/generators/context-docs.ts
-var DEFAULT_AI_OS_CONFIG = {
+init_brand();
+var DEFAULT_CORTEX_CONFIG = {
   agentsMd: false,
   pathSpecificInstructions: true,
   recommendations: true,
@@ -1859,7 +1883,7 @@ var DEFAULT_AI_OS_CONFIG = {
   exclude: ["node_modules", "dist", ".next", ".nuxt", "build", "out"]
 };
 function readAiOsConfig(outputDir) {
-  const configPath = path7.join(outputDir, ".github", "ai-os", "config.json");
+  const configPath = path7.join(outputDir, CONFIG_DIR, "config.json");
   try {
     const parsed = JSON.parse(fs6.readFileSync(configPath, "utf-8"));
     if (!isAiOsConfig(parsed)) {
@@ -1950,12 +1974,12 @@ function detectExistingAiContext(rootDir) {
   const agentsDir = path7.join(rootDir, ".github", "agents");
   const agentsCount = countMarkdownFiles(agentsDir);
   if (agentsCount > 0) add(`.github/agents/ (${agentsCount} files)`, "agents");
-  if (exists(rootDir, ".github/ai-os/context/stack.md")) add(".github/ai-os/context/stack.md", "docs");
-  if (exists(rootDir, ".github/ai-os/context/architecture.md")) add(".github/ai-os/context/architecture.md", "docs");
-  if (exists(rootDir, ".github/ai-os/context/conventions.md")) add(".github/ai-os/context/conventions.md", "docs");
-  if (!exists(rootDir, ".github/ai-os/context/stack.md") && exists(rootDir, ".ai-os/context/stack.md")) add(".ai-os/context/stack.md (legacy)", "docs");
-  if (!exists(rootDir, ".github/ai-os/context/architecture.md") && exists(rootDir, ".ai-os/context/architecture.md")) add(".ai-os/context/architecture.md (legacy)", "docs");
-  if (!exists(rootDir, ".github/ai-os/context/conventions.md") && exists(rootDir, ".ai-os/context/conventions.md")) add(".ai-os/context/conventions.md (legacy)", "docs");
+  if (exists(rootDir, `${CONFIG_DIR}/context/stack.md`)) add(`${CONFIG_DIR}/context/stack.md`, "docs");
+  if (exists(rootDir, `${CONFIG_DIR}/context/architecture.md`)) add(`${CONFIG_DIR}/context/architecture.md`, "docs");
+  if (exists(rootDir, `${CONFIG_DIR}/context/conventions.md`)) add(`${CONFIG_DIR}/context/conventions.md`, "docs");
+  if (!exists(rootDir, `${CONFIG_DIR}/context/stack.md`) && exists(rootDir, ".ai-os/context/stack.md")) add(".ai-os/context/stack.md (legacy)", "docs");
+  if (!exists(rootDir, `${CONFIG_DIR}/context/architecture.md`) && exists(rootDir, ".ai-os/context/architecture.md")) add(".ai-os/context/architecture.md (legacy)", "docs");
+  if (!exists(rootDir, `${CONFIG_DIR}/context/conventions.md`) && exists(rootDir, ".ai-os/context/conventions.md")) add(".ai-os/context/conventions.md (legacy)", "docs");
   if (exists(rootDir, "docs/ai/session_memory.md")) add("docs/ai/session_memory.md", "docs");
   if (exists(rootDir, "AGENTS.md")) add("AGENTS.md", "other");
   if (exists(rootDir, "CLAUDE.md")) add("CLAUDE.md", "other");
@@ -1968,7 +1992,7 @@ function generateExistingAiContextDoc(stack, summary) {
   const lines = [
     `# Existing AI Context \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
-    "> Auto-generated by AI OS. This report detects existing AI guidance and suggests a Git Bash-first optimization path.",
+    "> Auto-generated by Cortex. This report detects existing AI guidance and suggests a Git Bash-first optimization path.",
     "",
     "## Detection Summary",
     "",
@@ -2000,7 +2024,7 @@ function generateExistingAiContextDoc(stack, summary) {
   lines.push('bash install.sh --cwd "$PWD" --refresh-existing');
   lines.push("```");
   lines.push("3. Keep Copilot as the single active target for generated instructions, prompts, and skills.");
-  lines.push("4. Treat `.github/ai-os/context/*.md` files as source-of-truth and update them after architectural changes.");
+  lines.push("4. Treat `.github/cortex/context/*.md` files as source-of-truth and update them after architectural changes.");
   lines.push("", "## Notes", "");
   lines.push("- This workflow is shell-driven (Git Bash + Node.js) and does not require Python runtime scripts.");
   lines.push("- Existing files are preserved in safe mode and updated intentionally in refresh mode.");
@@ -2096,7 +2120,7 @@ function generateArchitectureDoc(stack) {
   const lines = [
     `# Architecture \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
-    "> Auto-generated by AI OS. Update this file as the architecture evolves.",
+    "> Auto-generated by Cortex. Update this file as the architecture evolves.",
     "",
     "## Project Type",
     ""
@@ -2146,10 +2170,10 @@ function generateArchitectureDoc(stack) {
   lines.push(`  Detect --> Fw["${formatNodeLabel(`Frameworks: ${joinOrNone(stack.frameworks.map((fw2) => fw2.name))}`)}"]`);
   lines.push('  Detect --> Ctx["Scan existing AI context"]');
   lines.push('  Detect --> Graph["Build dependency graph"]');
-  lines.push('  Detect --> Generate["Generate AI OS artifacts"]');
-  lines.push('  Generate --> Docs[".github/ai-os/context/*.md"]');
+  lines.push('  Detect --> Generate["Generate Cortex artifacts"]');
+  lines.push('  Generate --> Docs[".github/cortex/context/*.md"]');
   lines.push('  Generate --> Instr[".github/copilot-instructions.md"]');
-  lines.push('  Generate --> MCP[".mcp.json + .vscode/mcp.json + .github/ai-os/mcp-server/"]');
+  lines.push('  Generate --> MCP[".mcp.json + .vscode/mcp.json + .github/cortex/mcp-server/"]');
   lines.push('  Generate --> Agents[".github/agents/*.agent.md"]');
   lines.push('  Generate --> Skills[".github/skills/*/SKILL.md"]');
   lines.push("```");
@@ -2161,7 +2185,7 @@ function generateConventionsDoc(stack) {
   const lines = [
     `# Coding Conventions \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
-    "> Auto-generated by AI OS. Update to reflect actual team agreements.",
+    "> Auto-generated by Cortex. Update to reflect actual team agreements.",
     "",
     "## Naming Conventions",
     "",
@@ -2211,7 +2235,7 @@ function generateContextBudgetDoc(stack) {
   const lines = [
     `# Context Budget Policy \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
-    "> Auto-generated by AI OS. This policy defines context loading order, compaction triggers, anti-patterns, and session reset guidance.",
+    "> Auto-generated by Cortex. This policy defines context loading order, compaction triggers, anti-patterns, and session reset guidance.",
     "",
     "## Context Loading Order",
     "",
@@ -2275,7 +2299,7 @@ function generateProtectedBlocksDoc() {
   const lines = [
     "# Protected Block Hooks \u2014 Design & Recovery",
     "",
-    "> Auto-generated by AI OS. This document describes the opt-in protected-block mechanism for preventing accidental AI edits of critical code regions.",
+    "> Auto-generated by Cortex. This document describes the opt-in protected-block mechanism for preventing accidental AI edits of critical code regions.",
     "",
     "## Overview",
     "",
@@ -2340,7 +2364,7 @@ function generateMemoryDoc(stack) {
   const lines = [
     `# Memory Protocol \u2014 ${sanitizeForInstructions(stack.projectName)}`,
     "",
-    "> Auto-generated by AI OS. Use this protocol to preserve stable project knowledge across long sessions.",
+    "> Auto-generated by Cortex. Use this protocol to preserve stable project knowledge across long sessions.",
     "",
     "## Goals",
     "",
@@ -2350,8 +2374,8 @@ function generateMemoryDoc(stack) {
     "",
     "## Memory Files",
     "",
-    "- `.github/ai-os/memory/memory.jsonl` \u2014 append-only durable memory entries",
-    "- `.github/ai-os/memory/README.md` \u2014 memory categories and usage rules",
+    "- `.github/cortex/memory/memory.jsonl` \u2014 append-only durable memory entries",
+    "- `.github/cortex/memory/README.md` \u2014 memory categories and usage rules",
     "",
     "## Agent Workflow",
     "",
@@ -2422,7 +2446,7 @@ function generateMcpToolRefDoc(stack) {
   return [
     "# MCP Tool Reference",
     "",
-    "> Auto-generated by AI OS. Do not edit manually \u2014 this file is regenerated on each refresh.",
+    "> Auto-generated by Cortex. Do not edit manually \u2014 this file is regenerated on each refresh.",
     `> Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`,
     "",
     `Active tools for this project: **${active.length}** of ${MCP_TOOL_DEFINITIONS.length} total.`,
@@ -2434,8 +2458,8 @@ function generateMcpToolRefDoc(stack) {
     "## Disabled / Opt-in Tools",
     "",
     "The following tools are disabled by default and require explicit opt-in.",
-    "Enable them by setting `AI_OS_ALLOW_RUN_TOOLS=1` in your environment or",
-    '`"allowRunTools": true` in `.github/ai-os/config.json`.',
+    `Enable them by setting \`${ENV.ALLOW_RUN_TOOLS}=1\` in your environment or`,
+    '`"allowRunTools": true` in `.github/cortex/config.json`.',
     "",
     "| Tool | Description | Parameters (`*` = required) |",
     "|---|---|---|",
@@ -2451,9 +2475,9 @@ function generateMcpToolRefDoc(stack) {
 }
 function generateContextDocs(stack, outputDir, options) {
   const preserveContextFiles = options?.preserveContextFiles ?? false;
-  const contextDir = path7.join(outputDir, ".github", "ai-os", "context");
+  const contextDir = path7.join(outputDir, CONFIG_DIR, "context");
   fs6.mkdirSync(contextDir, { recursive: true });
-  const memoryDir = path7.join(outputDir, ".github", "ai-os", "memory");
+  const memoryDir = path7.join(outputDir, CONFIG_DIR, "memory");
   fs6.mkdirSync(memoryDir, { recursive: true });
   const managed = [];
   const track = (p) => {
@@ -2499,7 +2523,7 @@ function generateContextDocs(stack, outputDir, options) {
     writeIfChanged(
       memoryReadmePath,
       [
-        "# AI OS Repository Memory",
+        "# Cortex Repository Memory",
         "",
         "- Durable memory lives in `memory.jsonl` as one JSON object per line.",
         "- Use categories: architecture, conventions, build, testing, security, pitfalls, decisions.",
@@ -2518,7 +2542,7 @@ function generateContextDocs(stack, outputDir, options) {
         tags: "session,always,startup",
         priority: "high",
         createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        source: "ai-os-installer"
+        source: "cortex-installer"
       },
       {
         id: "session-preamble-memory-workflow",
@@ -2528,7 +2552,7 @@ function generateContextDocs(stack, outputDir, options) {
         tags: "memory,always,session",
         priority: "high",
         createdAt: (/* @__PURE__ */ new Date()).toISOString(),
-        source: "ai-os-installer"
+        source: "cortex-installer"
       }
     ];
     writeFileAtomic(
@@ -2541,7 +2565,7 @@ function generateContextDocs(stack, outputDir, options) {
   const toolRefPath = track(path7.join(contextDir, "mcp-tools.md"));
   writeIfChanged(toolRefPath, generateMcpToolRefDoc(stack));
   const workflowTemplatesDir = path7.join(path7.dirname(new URL(import.meta.url).pathname), "..", "templates", "workflows");
-  const targetWorkflowsDir = path7.join(outputDir, ".github", "ai-os", "workflows");
+  const targetWorkflowsDir = path7.join(outputDir, CONFIG_DIR, "workflows");
   if (fs6.existsSync(workflowTemplatesDir)) {
     fs6.mkdirSync(targetWorkflowsDir, { recursive: true });
     for (const file of fs6.readdirSync(workflowTemplatesDir).filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"))) {
@@ -2572,16 +2596,16 @@ function generateContextDocs(stack, outputDir, options) {
         } catch {
         }
       }
-      return existingConfig?.agentsMd ?? DEFAULT_AI_OS_CONFIG.agentsMd;
+      return existingConfig?.agentsMd ?? DEFAULT_CORTEX_CONFIG.agentsMd;
     })(),
-    pathSpecificInstructions: existingConfig?.pathSpecificInstructions ?? DEFAULT_AI_OS_CONFIG.pathSpecificInstructions,
-    recommendations: existingConfig?.recommendations ?? DEFAULT_AI_OS_CONFIG.recommendations,
-    sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_AI_OS_CONFIG.sessionContextCard,
-    updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_AI_OS_CONFIG.updateCheckEnabled,
-    skillsStrategy: existingConfig?.skillsStrategy ?? DEFAULT_AI_OS_CONFIG.skillsStrategy,
-    agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_AI_OS_CONFIG.agentFlowMode,
-    persistentRules: existingConfig?.persistentRules ?? DEFAULT_AI_OS_CONFIG.persistentRules,
-    exclude: existingConfig?.exclude ?? DEFAULT_AI_OS_CONFIG.exclude,
+    pathSpecificInstructions: existingConfig?.pathSpecificInstructions ?? DEFAULT_CORTEX_CONFIG.pathSpecificInstructions,
+    recommendations: existingConfig?.recommendations ?? DEFAULT_CORTEX_CONFIG.recommendations,
+    sessionContextCard: existingConfig?.sessionContextCard ?? DEFAULT_CORTEX_CONFIG.sessionContextCard,
+    updateCheckEnabled: existingConfig?.updateCheckEnabled ?? DEFAULT_CORTEX_CONFIG.updateCheckEnabled,
+    skillsStrategy: existingConfig?.skillsStrategy ?? DEFAULT_CORTEX_CONFIG.skillsStrategy,
+    agentFlowMode: existingConfig?.agentFlowMode ?? DEFAULT_CORTEX_CONFIG.agentFlowMode,
+    persistentRules: existingConfig?.persistentRules ?? DEFAULT_CORTEX_CONFIG.persistentRules,
+    exclude: existingConfig?.exclude ?? DEFAULT_CORTEX_CONFIG.exclude,
     // Personal-OS linkage — option wins, otherwise preserved across refreshes
     projectBoundary: options?.projectBoundary ?? existingConfig?.projectBoundary,
     personalBrainPath: options?.personalBrainPath ?? existingConfig?.personalBrainPath,
@@ -2590,7 +2614,7 @@ function generateContextDocs(stack, outputDir, options) {
     // AI model preference — persisted so refreshes inherit the selection
     ...options?.model && options.model !== "copilot" ? { model: options.model } : existingConfig?.model ? { model: existingConfig.model } : {}
   };
-  const aiOsDir = path7.join(outputDir, ".github", "ai-os");
+  const aiOsDir = path7.join(outputDir, CONFIG_DIR);
   writeIfChanged(track(path7.join(aiOsDir, "config.json")), JSON.stringify(config, null, 2));
   if (config.sessionContextCard) {
     const sessionCardPath = track(path7.join(outputDir, ".github", "COPILOT_CONTEXT.md"));
@@ -2676,11 +2700,12 @@ function generateSessionContextCard(stack, config, outputDir) {
 }
 
 // src/doctor.ts
+init_brand();
 function checkMcpRuntimeExists(cwd) {
-  const runtimePath = path8.join(cwd, ".github", "ai-os", "mcp-server", "index.js");
+  const runtimePath = path8.join(cwd, CONFIG_DIR, "mcp-server", "index.js");
   const passed = fs7.existsSync(runtimePath) && fs7.statSync(runtimePath).isFile();
   return {
-    name: "MCP runtime binary present (.github/ai-os/mcp-server/index.js)",
+    name: "MCP runtime binary present (.github/cortex/mcp-server/index.js)",
     critical: true,
     passed,
     detail: passed ? runtimePath : `Expected runtime at ${runtimePath}`,
@@ -2688,7 +2713,7 @@ function checkMcpRuntimeExists(cwd) {
   };
 }
 function checkMcpRuntimeHealthcheck(cwd) {
-  const runtimePath = path8.join(cwd, ".github", "ai-os", "mcp-server", "index.js");
+  const runtimePath = path8.join(cwd, CONFIG_DIR, "mcp-server", "index.js");
   const nodePath = process.execPath;
   if (!fs7.existsSync(runtimePath)) {
     return {
@@ -2701,7 +2726,7 @@ function checkMcpRuntimeHealthcheck(cwd) {
   }
   const result = spawnSync2(nodePath, [runtimePath, "--healthcheck"], {
     cwd,
-    env: { ...process.env, AI_OS_ROOT: cwd },
+    env: { ...process.env, [ENV.ROOT]: cwd },
     encoding: "utf-8",
     timeout: 1e4
   });
@@ -2738,7 +2763,7 @@ function parseMcpConfig(cwd, configPath) {
 function getServerEntry(config, topLevelKey) {
   if (!config) return void 0;
   const servers = config[topLevelKey];
-  return servers?.["ai-os"];
+  return servers?.[MCP_SERVER_NAME];
 }
 function checkMcpAiOsEntry(cwd, definition) {
   const config = parseMcpConfig(cwd, definition.configPath);
@@ -2757,7 +2782,7 @@ function checkMcpAiOsEntry(cwd, definition) {
     name: definition.entryName,
     critical: true,
     passed,
-    detail: passed ? `${definition.topLevelKey}["ai-os"] entry found` : `No ${definition.topLevelKey}["ai-os"] entry in ${definition.configPath}`,
+    detail: passed ? `${definition.topLevelKey}["${MCP_SERVER_NAME}"] entry found` : `No ${definition.topLevelKey}["${MCP_SERVER_NAME}"] entry in ${definition.configPath}`,
     fixCommand: passed ? void 0 : `npx -y "github:marinvch/ai-os" --refresh-existing`
   };
 }
@@ -2769,7 +2794,7 @@ function checkMcpCommandResolves(cwd, definition) {
       name: definition.commandName,
       critical: true,
       passed: false,
-      detail: `${definition.topLevelKey}["ai-os"] entry missing \u2014 cannot verify command path.`,
+      detail: `${definition.topLevelKey}["${MCP_SERVER_NAME}"] entry missing \u2014 cannot verify command path.`,
       fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
     };
   }
@@ -2798,11 +2823,11 @@ function checkMcpCommandResolves(cwd, definition) {
     detail: `Command: ${command} ${resolvedArgs.join(" ")} (non-node command, path not verified)`
   };
 }
-function checkAiOsConfigPresent(cwd) {
-  const configPath = path8.join(cwd, ".github", "ai-os", "config.json");
+function checkCortexConfigPresent(cwd) {
+  const configPath = path8.join(cwd, CONFIG_DIR, "config.json");
   if (!fs7.existsSync(configPath)) {
     return {
-      name: "AI OS config present (.github/ai-os/config.json)",
+      name: "Cortex config present (.github/cortex/config.json)",
       critical: false,
       passed: false,
       detail: `Expected at ${configPath}`,
@@ -2812,14 +2837,14 @@ function checkAiOsConfigPresent(cwd) {
   try {
     JSON.parse(fs7.readFileSync(configPath, "utf-8"));
     return {
-      name: "AI OS config present (.github/ai-os/config.json)",
+      name: "Cortex config present (.github/cortex/config.json)",
       critical: false,
       passed: true,
       detail: configPath
     };
   } catch {
     return {
-      name: "AI OS config present (.github/ai-os/config.json)",
+      name: "Cortex config present (.github/cortex/config.json)",
       critical: false,
       passed: false,
       detail: "config.json exists but is not valid JSON",
@@ -2828,10 +2853,10 @@ function checkAiOsConfigPresent(cwd) {
   }
 }
 function checkToolsFilePresent(cwd) {
-  const toolsPath = path8.join(cwd, ".github", "ai-os", "tools.json");
+  const toolsPath = path8.join(cwd, CONFIG_DIR, "tools.json");
   if (!fs7.existsSync(toolsPath)) {
     return {
-      name: "MCP tools catalog present (.github/ai-os/tools.json)",
+      name: "MCP tools catalog present (.github/cortex/tools.json)",
       critical: false,
       passed: false,
       detail: `Expected at ${toolsPath}`,
@@ -2841,14 +2866,14 @@ function checkToolsFilePresent(cwd) {
   try {
     JSON.parse(fs7.readFileSync(toolsPath, "utf-8"));
     return {
-      name: "MCP tools catalog present (.github/ai-os/tools.json)",
+      name: "MCP tools catalog present (.github/cortex/tools.json)",
       critical: false,
       passed: true,
       detail: toolsPath
     };
   } catch {
     return {
-      name: "MCP tools catalog present (.github/ai-os/tools.json)",
+      name: "MCP tools catalog present (.github/cortex/tools.json)",
       critical: false,
       passed: false,
       detail: "tools.json exists but is not valid JSON",
@@ -2858,13 +2883,13 @@ function checkToolsFilePresent(cwd) {
 }
 function checkSkillsDeployed(cwd) {
   const candidates = [
-    path8.join(cwd, ".agents", "skills", "ai-os-skill-creator"),
+    path8.join(cwd, ".agents", "skills", "cortex-skill-creator"),
     path8.join(cwd, ".github", "copilot", "skills")
   ];
   for (const candidate of candidates) {
     if (fs7.existsSync(candidate)) {
       return {
-        name: "AI OS skills deployed",
+        name: "Cortex skills deployed",
         critical: false,
         passed: true,
         detail: `Found: ${path8.relative(cwd, candidate)}`
@@ -2872,10 +2897,10 @@ function checkSkillsDeployed(cwd) {
     }
   }
   return {
-    name: "AI OS skills deployed",
+    name: "Cortex skills deployed",
     critical: false,
     passed: false,
-    detail: "No ai-os skill directory found under .agents/skills/ or .github/copilot/skills/",
+    detail: "No Cortex skill directory found under .agents/skills/ or .github/copilot/skills/",
     fixCommand: `npx -y "github:marinvch/ai-os" --refresh-existing`
   };
 }
@@ -2931,14 +2956,14 @@ function runDoctor(cwd) {
     configPath: ".mcp.json",
     displayName: "Copilot CLI MCP config present (.mcp.json)",
     topLevelKey: "mcpServers",
-    entryName: "ai-os CLI server entry in MCP config",
+    entryName: "cortex CLI server entry in MCP config",
     commandName: "Copilot CLI MCP command resolves"
   };
   const vsCodeConfig = {
     configPath: path8.join(".vscode", "mcp.json"),
     displayName: "VS Code MCP config present (.vscode/mcp.json)",
     topLevelKey: "servers",
-    entryName: "ai-os VS Code server entry in MCP config",
+    entryName: "cortex VS Code server entry in MCP config",
     commandName: "VS Code MCP command resolves"
   };
   const checks = [
@@ -2950,7 +2975,7 @@ function runDoctor(cwd) {
     checkMcpConfigPresent(cwd, vsCodeConfig),
     checkMcpAiOsEntry(cwd, vsCodeConfig),
     checkMcpCommandResolves(cwd, vsCodeConfig),
-    checkAiOsConfigPresent(cwd),
+    checkCortexConfigPresent(cwd),
     checkToolsFilePresent(cwd),
     checkSkillsDeployed(cwd),
     checkSkillVersions(cwd)
@@ -2967,7 +2992,7 @@ function runDoctor(cwd) {
 }
 function printDoctorReport(result) {
   const { checks, criticalFailures, warnings, toolVersion, cwd } = result;
-  console.log(`  \u{1FA7A} AI OS Doctor  v${toolVersion}`);
+  console.log(`  \u{1FA7A} Cortex Doctor  v${toolVersion}`);
   console.log(`  \u{1F4C2} Target: ${cwd}`);
   console.log("");
   for (const check of checks) {
@@ -2985,10 +3010,10 @@ function printDoctorReport(result) {
   const total = checks.length;
   const passed = checks.filter((c) => c.passed).length;
   if (criticalFailures === 0 && warnings === 0) {
-    console.log(`  \u2705 All ${total} checks passed \u2014 AI OS is healthy.`);
+    console.log(`  \u2705 All ${total} checks passed \u2014 Cortex is healthy.`);
   } else if (criticalFailures > 0) {
     console.log(`  \u274C ${criticalFailures} critical failure(s), ${warnings} warning(s) \u2014 ${passed}/${total} checks passed.`);
-    console.log("     Address critical failures before using AI OS tools.");
+    console.log("     Address critical failures before using Cortex tools.");
   } else {
     console.log(`  \u26A0\uFE0F  ${warnings} warning(s) \u2014 ${passed}/${total} checks passed.`);
     console.log("     Core MCP runtime is healthy; optional components may need attention.");
@@ -3020,17 +3045,18 @@ function runDoctorAction(cwd, json = false) {
 import crypto from "node:crypto";
 import fs8 from "node:fs";
 import path9 from "node:path";
+init_brand();
 var ARTIFACT_PATHS = [
-  ".github/ai-os/context/conventions.md",
-  ".github/ai-os/context/architecture.md",
-  ".github/ai-os/context/stack.md",
-  ".github/ai-os/context/existing-ai-context.md",
-  ".github/ai-os/context/context-budget.md",
+  `${CONFIG_DIR}/context/conventions.md`,
+  `${CONFIG_DIR}/context/architecture.md`,
+  `${CONFIG_DIR}/context/stack.md`,
+  `${CONFIG_DIR}/context/existing-ai-context.md`,
+  `${CONFIG_DIR}/context/context-budget.md`,
   ".github/copilot-instructions.md",
-  ".github/ai-os/config.json",
-  ".github/ai-os/tools.json",
-  ".github/ai-os/context/mcp-tools.md",
-  ".github/ai-os/context/recommendations.md"
+  `${CONFIG_DIR}/config.json`,
+  `${CONFIG_DIR}/tools.json`,
+  `${CONFIG_DIR}/context/mcp-tools.md`,
+  `${CONFIG_DIR}/context/recommendations.md`
 ];
 var ARTIFACT_DIRS = [
   ".github/agents",
@@ -3057,7 +3083,7 @@ var SOURCE_PROBE_PATHS = [
   "jest.config.js",
   "Dockerfile"
 ];
-var SNAPSHOT_PATH = ".github/ai-os/context-snapshot.json";
+var SNAPSHOT_PATH = `${CONFIG_DIR}/context-snapshot.json`;
 function hashFile(filePath) {
   try {
     const content = fs8.readFileSync(filePath);
@@ -3141,7 +3167,7 @@ function computeFreshnessReport(rootDir) {
   const snapshot = loadContextSnapshot(rootDir);
   let lastGeneratedAt = null;
   try {
-    const configPath = path9.join(rootDir, ".github", "ai-os", "config.json");
+    const configPath = path9.join(rootDir, CONFIG_DIR, "config.json");
     if (fs8.existsSync(configPath)) {
       const config = JSON.parse(fs8.readFileSync(configPath, "utf-8"));
       lastGeneratedAt = config.installedAt ?? null;
@@ -3264,7 +3290,7 @@ function formatFreshnessReport(report) {
     lines.push(`- **Snapshot captured:** ${report.snapshotCapturedAt}`);
   }
   if (report.lastGeneratedAt) {
-    lines.push(`- **Last AI OS run:** ${report.lastGeneratedAt}`);
+    lines.push(`- **Last Cortex run:** ${report.lastGeneratedAt}`);
   }
   lines.push("");
   if (report.staleArtifacts.length > 0) {
@@ -3321,7 +3347,7 @@ function runCheckFreshnessAction(cwd, json = false) {
   } else if (report.status === "drifted") {
     console.log("  \u26A0\uFE0F  Context has drifted. Consider running `--refresh-existing` to resync.");
   } else if (report.status === "unknown") {
-    console.log("  \u2753 No snapshot found \u2014 run AI OS generation first to establish a baseline.");
+    console.log("  \u2753 No snapshot found \u2014 run Cortex generation first to establish a baseline.");
   } else {
     console.log("  \u2705 Context is fresh.");
   }
@@ -3339,12 +3365,13 @@ import { fileURLToPath as fileURLToPath2 } from "node:url";
 // src/mcp-server/shared.ts
 import fs9 from "node:fs";
 import path10 from "node:path";
-var ROOT = process.env["AI_OS_ROOT"] ?? process.cwd();
+init_brand();
+var ROOT = process.env[ENV.ROOT] ?? process.cwd();
 function getMemoryFilePath() {
-  return path10.join(ROOT, ".github", "ai-os", "memory", "memory.jsonl");
+  return path10.join(ROOT, CONFIG_DIR, "memory", "memory.jsonl");
 }
 function getMemoryDirPath() {
-  return path10.join(ROOT, ".github", "ai-os", "memory");
+  return path10.join(ROOT, CONFIG_DIR, "memory");
 }
 function getMemoryLockFilePath() {
   return path10.join(getMemoryDirPath(), ".memory.lock");
@@ -3437,9 +3464,13 @@ function withMemoryLock(fn) {
   }
 }
 
+// src/mcp-server/utils.ts
+init_brand();
+
 // src/mcp-server/memory.ts
 import fs10 from "node:fs";
 import path11 from "node:path";
+init_brand();
 var MEMORY_STALE_DAYS = 180;
 var NEAR_DUPLICATE_THRESHOLD = 0.85;
 function normalizeWhitespace(value) {
@@ -3449,7 +3480,7 @@ function normalizeMemoryText(value) {
   return normalizeWhitespace(value).toLowerCase();
 }
 function readMemoryConfig() {
-  const configPath = path11.join(ROOT, ".github", "ai-os", "config.json");
+  const configPath = path11.join(ROOT, CONFIG_DIR, "config.json");
   try {
     const raw = JSON.parse(fs10.readFileSync(configPath, "utf-8"));
     const ttlDays = typeof raw["memoryTtlDays"] === "number" && raw["memoryTtlDays"] > 0 ? Math.floor(raw["memoryTtlDays"]) : MEMORY_STALE_DAYS;
@@ -3709,6 +3740,9 @@ function runMemoryMaintenance() {
   };
 }
 
+// src/mcp-server/search.ts
+init_brand();
+
 // src/generators/spec-parser.ts
 import fs11 from "node:fs";
 import path12 from "node:path";
@@ -3790,21 +3824,28 @@ function extractHeadings(content) {
   return headings;
 }
 
+// src/mcp-server/project-introspection.ts
+init_brand();
+
+// src/mcp-server/recommendations-bridge.ts
+init_brand();
+
 // src/mcp-server/utils.ts
 var __dirname2 = path13.dirname(fileURLToPath2(import.meta.url));
 
 // src/actions/compact-memory.ts
+init_brand();
 function runCompactMemoryAction(cwd) {
   console.log(`  \u{1F9F9} Compact memory: ${cwd}`);
   console.log("");
-  const memoryFile = path14.join(cwd, ".github", "ai-os", "memory", "memory.jsonl");
+  const memoryFile = path14.join(cwd, CONFIG_DIR, "memory", "memory.jsonl");
   if (!fs12.existsSync(memoryFile)) {
     console.log("  \u2139\uFE0F  No memory.jsonl file found \u2014 nothing to compact.");
     console.log("");
     return;
   }
   try {
-    process.env["AI_OS_ROOT"] = cwd;
+    process.env[ENV.ROOT] = cwd;
     const result = pruneMemory();
     const lines = result.split("\n");
     for (const line of lines) {
@@ -3818,6 +3859,7 @@ function runCompactMemoryAction(cwd) {
 }
 
 // src/detectors/drift.ts
+init_brand();
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { createHash as createHash4 } from "node:crypto";
@@ -3833,12 +3875,12 @@ function globFiles(pattern, cwd) {
 var REQUIRED_FILES = [
   { path: ".github/copilot-instructions.md", description: "Main Copilot instructions file" },
   { path: ".github/COPILOT_CONTEXT.md", description: "Session context card" },
-  { path: ".github/ai-os/config.json", description: "AI OS configuration" }
+  { path: `${CONFIG_DIR}/config.json`, description: "Cortex configuration" }
 ];
 var SNAPSHOT_MAX_AGE_DAYS = 7;
 var FIX_CMD = "npx -y github:marinvch/ai-os --refresh-existing";
 function detectSemanticDrift(cwd, warnings) {
-  const configPath = join(cwd, ".github/ai-os/config.json");
+  const configPath = join(cwd, CONFIG_DIR, "config.json");
   const instrPath = join(cwd, ".github/copilot-instructions.md");
   if (existsSync(configPath) && existsSync(instrPath)) {
     try {
@@ -3859,7 +3901,7 @@ function detectSemanticDrift(cwd, warnings) {
     } catch {
     }
   }
-  const existingContextPath = join(cwd, ".github/ai-os/context/existing-ai-context.md");
+  const existingContextPath = join(cwd, CONFIG_DIR, "context/existing-ai-context.md");
   if (existsSync(existingContextPath)) {
     try {
       const contextContent = readFileSync(existingContextPath, "utf8");
@@ -3869,7 +3911,7 @@ function detectSemanticDrift(cwd, warnings) {
       const fileCount = agentFiles.length;
       if (recordedCount !== null && recordedCount !== fileCount) {
         warnings.push({
-          path: ".github/ai-os/context/existing-ai-context.md",
+          path: `${CONFIG_DIR}/context/existing-ai-context.md`,
           kind: "semantic-mismatch",
           severity: "warning",
           message: `existing-ai-context.md records ${recordedCount} agent(s) but ${fileCount} .agent.md file(s) found in .github/agents/ \u2014 run refresh to sync`,
@@ -3886,7 +3928,7 @@ function detectSemanticDrift(cwd, warnings) {
               const fwLabelMatch = mermaidBlock.match(/Fw\["([^"]+)"\]/);
               if (fwLabelMatch && !fwLabelMatch[1].toLowerCase().includes(config.primaryFramework.toLowerCase())) {
                 warnings.push({
-                  path: ".github/ai-os/context/existing-ai-context.md",
+                  path: `${CONFIG_DIR}/context/existing-ai-context.md`,
                   kind: "semantic-mismatch",
                   severity: "warning",
                   message: `Mermaid diagram Fw label "${fwLabelMatch[1]}" does not include primary framework "${config.primaryFramework}" from config.json \u2014 diagram may be stale`,
@@ -3898,7 +3940,7 @@ function detectSemanticDrift(cwd, warnings) {
               const langLabelMatch = mermaidBlock.match(/Lang\["([^"]+)"\]/);
               if (langLabelMatch && !langLabelMatch[1].toLowerCase().includes(config.primaryLanguage.toLowerCase())) {
                 warnings.push({
-                  path: ".github/ai-os/context/existing-ai-context.md",
+                  path: `${CONFIG_DIR}/context/existing-ai-context.md`,
                   kind: "semantic-mismatch",
                   severity: "warning",
                   message: `Mermaid diagram Lang label "${langLabelMatch[1]}" does not include primary language "${config.primaryLanguage}" from config.json \u2014 diagram may be stale`,
@@ -3978,7 +4020,7 @@ function detectDrift(cwd) {
       });
     }
   }
-  const snapshotPath = ".github/ai-os/context-snapshot.json";
+  const snapshotPath = `${CONFIG_DIR}/context-snapshot.json`;
   const snapshotAbs = join(cwd, snapshotPath);
   if (existsSync(snapshotAbs)) {
     try {
@@ -4038,7 +4080,7 @@ function detectDrift(cwd) {
       }
     }
   }
-  const configPath = join(cwd, ".github/ai-os/config.json");
+  const configPath = join(cwd, CONFIG_DIR, "config.json");
   if (existsSync(configPath)) {
     try {
       const cfg = JSON.parse(readFileSync(configPath, "utf8"));
@@ -4090,11 +4132,11 @@ function detectDrift(cwd) {
 }
 function formatDriftReport(report, verbose = false) {
   const lines = [
-    `## AI OS Drift Report \u2014 ${new Date(report.scannedAt).toLocaleString()}`,
+    `## Cortex Drift Report \u2014 ${new Date(report.scannedAt).toLocaleString()}`,
     ""
   ];
   if (report.totalIssues === 0) {
-    lines.push("\u2705 All AI OS artifacts are healthy \u2014 no drift detected.");
+    lines.push("\u2705 All Cortex artifacts are healthy \u2014 no drift detected.");
     if (verbose && report.healthy.length > 0) {
       lines.push("");
       lines.push(`Healthy files (${report.healthy.length}):`);
@@ -4148,7 +4190,7 @@ function formatDriftReport(report, verbose = false) {
 
 // src/actions/check-drift.ts
 async function runCheckDriftAction(cwd, verbose = false) {
-  console.log(`  \u{1F50D} AI OS drift check: ${cwd}`);
+  console.log(`  \u{1F50D} Cortex drift check: ${cwd}`);
   console.log("");
   const report = detectDrift(cwd);
   console.log(formatDriftReport(report, verbose));
@@ -4160,17 +4202,18 @@ async function runCheckDriftAction(cwd, verbose = false) {
     console.log("  \u26A0\uFE0F  Drift warnings found. Consider running `--refresh-existing` to resync.");
     console.log("");
   } else {
-    console.log("  \u2705 No drift detected \u2014 all AI OS artifacts are healthy.");
+    console.log("  \u2705 No drift detected \u2014 all Cortex artifacts are healthy.");
     console.log("");
   }
 }
 
 // src/actions/check-boundaries.ts
+init_brand();
 import * as fs13 from "node:fs";
 import * as path15 from "node:path";
-var REQUIRED_GITIGNORE = [".github/ai-os/memory/"];
+var REQUIRED_GITIGNORE = [`${CONFIG_DIR}/memory/`];
 function computeBoundaryReport(cwd) {
-  const memPath = path15.join(cwd, ".github", "ai-os", "memory", "memory.jsonl");
+  const memPath = path15.join(cwd, CONFIG_DIR, "memory", "memory.jsonl");
   const leaks = [];
   let scannedEntries = 0;
   if (fs13.existsSync(memPath)) {
@@ -4222,6 +4265,7 @@ function runCheckBoundariesAction(cwd, json = false) {
 }
 
 // src/actions/apply.ts
+init_brand();
 import fs25 from "node:fs";
 import path30 from "node:path";
 import { spawnSync as spawnSync4 } from "node:child_process";
@@ -5179,7 +5223,7 @@ function fillTemplate(template, stack, frameworkOverlay, outputDir) {
 function enforceSizeCap(content, maxBytes = 8192) {
   const encoded = Buffer.byteLength(content, "utf-8");
   if (encoded <= maxBytes) return content;
-  const TRIM_NOTICE = "\n\n<!-- [AI OS] content trimmed to stay within 8 KB Copilot budget -->\n";
+  const TRIM_NOTICE = "\n\n<!-- [Cortex] content trimmed to stay within 8 KB Copilot budget -->\n";
   const noticeBytes = Buffer.byteLength(TRIM_NOTICE, "utf-8");
   const budget = maxBytes - noticeBytes;
   const SEP_RE = /\r?\n---\r?\n/g;
@@ -5195,7 +5239,7 @@ function enforceSizeCap(content, maxBytes = 8192) {
     }
   }
   const bytes = Buffer.from(content, "utf-8").slice(0, maxBytes - 100);
-  return bytes.toString("utf-8") + "\n\n<!-- [AI OS] truncated to 8 KB Copilot budget -->\n";
+  return bytes.toString("utf-8") + "\n\n<!-- [Cortex] truncated to 8 KB Copilot budget -->\n";
 }
 function generatePathSpecificInstructions(stack, githubDir) {
   const files = [];
@@ -5402,9 +5446,9 @@ No specific framework template found. Follow the general rules above.`, outputDi
     'applyTo: "**"',
     "---",
     "",
-    `# AI OS \u2014 Active (${stack.projectName})`,
+    `# Cortex \u2014 Active (${stack.projectName})`,
     "",
-    "AI OS MCP tools are available. **Session start:** call `get_session_context` \u2192 `get_repo_memory` \u2192 `get_conventions` \u2192 `get_active_plan`.",
+    "Cortex MCP tools are available. **Session start:** call `get_session_context` \u2192 `get_repo_memory` \u2192 `get_conventions` \u2192 `get_active_plan`.",
     "",
     "## Value Mode",
     "",
@@ -5412,11 +5456,11 @@ No specific framework template found. Follow the general rules above.`, outputDi
     "2. **Targeted tools:** prefer retrieval tools over full file reads; stop exploring when confident.",
     "3. **End-to-end:** implement + validate + surface tradeoffs, optimise for reduced user effort.",
     "",
-    "## Update AI OS",
+    "## Update Cortex",
     "",
     "Run `npx -y github:marinvch/ai-os --refresh-existing` when `check_for_updates` signals a new version."
   ].join("\n");
-  const autoActivationPath = path20.join(instructionsDir, "ai-os.instructions.md");
+  const autoActivationPath = path20.join(instructionsDir, "cortex.instructions.md");
   writeIfChanged(autoActivationPath, autoActivationContent);
   const outputFiles = [outputPath, autoActivationPath];
   const effectiveModel = options?.model ?? options?.config?.model ?? "copilot";
@@ -5557,7 +5601,7 @@ function generatePromptQualityPack(stack, outputDir, githubDir, preserveContextF
     "",
     "## 6. Post-Change Context Refresh",
     "",
-    "After structural changes (new dependencies, new files, architecture moves), refresh AI OS context:",
+    "After structural changes (new dependencies, new files, architecture moves), refresh Cortex context:",
     "",
     "```bash",
     contextSyncCmd,
@@ -5584,6 +5628,7 @@ function generatePromptQualityPack(stack, outputDir, githubDir, preserveContextF
 // src/generators/mcp.ts
 import fs19 from "node:fs";
 import path21 from "node:path";
+init_brand();
 function readJsonObject(filePath) {
   if (!fs19.existsSync(filePath)) return {};
   try {
@@ -5617,9 +5662,9 @@ function writeCopilotCliMcpConfig(outputDir, options) {
   const mcpJsonPath = path21.join(outputDir, ".mcp.json");
   const existing = readJsonObject(mcpJsonPath);
   const mcpServers = getServerMap(existing.mcpServers);
-  mcpServers["ai-os"] = getServerEntry2(
-    [".github/ai-os/mcp-server/index.js"],
-    { AI_OS_ROOT: "." },
+  mcpServers[MCP_SERVER_NAME] = getServerEntry2(
+    [`${CONFIG_DIR}/mcp-server/index.js`],
+    { [ENV.ROOT]: "." },
     options
   );
   existing.mcpServers = mcpServers;
@@ -5629,9 +5674,9 @@ function writeVsCodeMcpConfig(outputDir, options) {
   const mcpJsonPath = path21.join(outputDir, ".vscode", "mcp.json");
   const existing = readJsonObject(mcpJsonPath);
   const servers = getServerMap(existing.servers);
-  servers["ai-os"] = getServerEntry2(
-    ["${workspaceFolder}/.github/ai-os/mcp-server/index.js"],
-    { AI_OS_ROOT: "${workspaceFolder}" },
+  servers[MCP_SERVER_NAME] = getServerEntry2(
+    [`\${workspaceFolder}/${CONFIG_DIR}/mcp-server/index.js`],
+    { [ENV.ROOT]: "${workspaceFolder}" },
     options
   );
   existing.servers = servers;
@@ -5646,7 +5691,7 @@ function writeMcpServerConfigs(outputDir, options) {
 function generateMcpJson(stack, outputDir, options) {
   const strictFiltering = options?.config?.strictStackFiltering !== false;
   writeMcpServerConfigs(outputDir);
-  const toolsJsonPath = path21.join(outputDir, ".github", "ai-os", "tools.json");
+  const toolsJsonPath = path21.join(outputDir, CONFIG_DIR, "tools.json");
   if (strictFiltering) {
     const split = getToolsWithStackSplit(stack);
     writeIfChanged(toolsJsonPath, JSON.stringify(split, null, 2));
@@ -5718,6 +5763,7 @@ ${sectionsToAppend.join("\n")}
 }
 
 // src/generators/agents.ts
+init_brand();
 var AGENTS_DIR = ".github/agents";
 function toBulletList(items) {
   if (items.length === 0) return "- _No items detected yet_";
@@ -5804,7 +5850,7 @@ function buildFrameworkRules(stack) {
     rules.push("- Keep strict typing; avoid `any` unless there is a documented boundary reason");
   }
   if (rules.length === 0) {
-    rules.push("- Follow conventions from `.github/ai-os/context/conventions.md` for naming, structure, and safety checks");
+    rules.push(`- Follow conventions from \`.github/cortex/context/conventions.md\` for naming, structure, and safety checks`);
   }
   return rules.join("\n");
 }
@@ -5843,11 +5889,11 @@ function buildAgentSpecs(stack, cwd) {
       "{{PROJECT_NAME}}": projectName,
       "{{FRAMEWORK}}": frameworkLabel,
       "{{FRAMEWORK_LIST}}": frameworkList,
-      "{{CONVENTIONS_FILE}}": ".github/ai-os/context/conventions.md",
-      "{{STACK_FILE}}": ".github/ai-os/context/stack.md",
-      "{{ARCHITECTURE_FILE}}": ".github/ai-os/context/architecture.md",
+      "{{CONVENTIONS_FILE}}": `${CONFIG_DIR}/context/conventions.md`,
+      "{{STACK_FILE}}": `${CONFIG_DIR}/context/stack.md`,
+      "{{ARCHITECTURE_FILE}}": `${CONFIG_DIR}/context/architecture.md`,
       "{{CONVENTIONS_SUMMARY}}": toBulletList([
-        "Treat `.github/ai-os/context/conventions.md` as source of truth for naming and structure",
+        `Treat \`.github/cortex/context/conventions.md\` as source of truth for naming and structure`,
         "Prefer safe, incremental edits with clear rollback points",
         "Refresh AI artifacts after architecture or workflow changes"
       ])
@@ -5864,9 +5910,9 @@ function buildAgentSpecs(stack, cwd) {
       "{{FRAMEWORK}}": frameworkLabel,
       "{{STACK_SUMMARY}}": toBulletList(stackSummary),
       "{{KEY_FILES_LIST}}": keyFilesList,
-      "{{CONVENTIONS_FILE}}": ".github/ai-os/context/conventions.md",
-      "{{ARCHITECTURE_FILE}}": ".github/ai-os/context/architecture.md",
-      "{{STACK_FILE}}": ".github/ai-os/context/stack.md",
+      "{{CONVENTIONS_FILE}}": `${CONFIG_DIR}/context/conventions.md`,
+      "{{ARCHITECTURE_FILE}}": `${CONFIG_DIR}/context/architecture.md`,
+      "{{STACK_FILE}}": `${CONFIG_DIR}/context/stack.md`,
       "{{BUILD_COMMAND}}": stack.patterns.packageManager === "npm" ? "npm run build" : `${stack.patterns.packageManager} build`,
       "{{FRAMEWORK_RULES}}": buildFrameworkRules(stack)
     }
@@ -5971,7 +6017,7 @@ function scanExistingAgents(cwd) {
   const aiOsGenerated = [];
   for (const file of files) {
     const content = fs20.readFileSync(path22.join(agentsDir, file), "utf-8");
-    const isAiOs = content.includes("ai-os/context/architecture.md") || content.includes("ai-os/context/conventions.md") || content.includes("ai-os/context/stack.md");
+    const isAiOs = content.includes("cortex/context/architecture.md") || content.includes("cortex/context/conventions.md") || content.includes("cortex/context/stack.md");
     if (isAiOs) {
       aiOsGenerated.push(file);
     } else {
@@ -5999,7 +6045,7 @@ function buildSequentialAgentSpecs(stack, cwd) {
   const keyFilesList = discoveredKeyFiles.length > 0 ? discoveredKeyFiles.map((f) => `- \`${f}\``).join("\n") : "- _No key files detected yet_";
   const buildCmd = stack.patterns.packageManager === "npm" ? "npm run build" : stack.patterns.packageManager === "pnpm" ? "pnpm build" : stack.patterns.packageManager === "yarn" ? "yarn build" : stack.patterns.packageManager === "bun" ? "bun run build" : stack.patterns.packageManager === "maven" ? "mvn compile" : stack.patterns.packageManager === "gradle" ? "gradle build" : stack.patterns.packageManager === "go" ? "go build ./..." : stack.patterns.packageManager === "cargo" ? "cargo build" : "npm run build";
   const testCmd = stack.buildCommands?.test ?? (stack.patterns.packageManager === "npm" ? "npm test" : stack.patterns.packageManager === "pnpm" ? "pnpm test" : stack.patterns.packageManager === "yarn" ? "yarn test" : stack.patterns.packageManager === "bun" ? "bun test" : stack.patterns.packageManager === "maven" ? "mvn test" : stack.patterns.packageManager === "gradle" ? "gradle test" : stack.patterns.packageManager === "go" ? "go test ./..." : stack.patterns.packageManager === "cargo" ? "cargo test" : "npm test");
-  const regenerateCmd = stack.patterns.packageManager === "npm" ? "npx ai-os" : stack.patterns.packageManager === "pnpm" ? "pnpm dlx ai-os" : stack.patterns.packageManager === "bun" ? "bunx ai-os" : "npx ai-os";
+  const regenerateCmd = stack.patterns.packageManager === "npm" ? "npx cortex" : stack.patterns.packageManager === "pnpm" ? "pnpm dlx cortex" : stack.patterns.packageManager === "bun" ? "bunx cortex" : "npx cortex";
   const commonReplacements = {
     "{{PROJECT_NAME}}": projectName,
     "{{FRAMEWORK}}": frameworkLabel,
@@ -6069,7 +6115,7 @@ async function generateAgentsWithOptions(stack, cwd, options) {
       }
       if (options.preserveExistingAgents) {
         const existing = fs20.readFileSync(outputPath, "utf-8");
-        const isAiOsGenerated = existing.includes("ai-os/context/architecture.md") || existing.includes("ai-os/context/conventions.md") || existing.includes("ai-os/context/stack.md");
+        const isAiOsGenerated = existing.includes("cortex/context/architecture.md") || existing.includes("cortex/context/conventions.md") || existing.includes("cortex/context/stack.md");
         if (!isAiOsGenerated) continue;
       }
     }
@@ -6085,7 +6131,7 @@ async function generateAgentsWithOptions(stack, cwd, options) {
       continue;
     }
     const templateBase = path22.basename(spec.templateFile);
-    const userOverridePath = path22.join(cwd, ".github", "ai-os", "templates", "agents", templateBase);
+    const userOverridePath = path22.join(cwd, CONFIG_DIR, "templates", "agents", templateBase);
     const resolvedTemplate = fs20.existsSync(userOverridePath) ? userOverridePath : spec.templateFile;
     if (resolvedTemplate !== spec.templateFile) {
       console.log(`  \u{1F527} Using override template for ${spec.outputFile}: ${path22.relative(cwd, resolvedTemplate)}`);
@@ -6142,7 +6188,7 @@ function validateSkillContract(content) {
 }
 function normalizeSkillName(skillName) {
   if (!skillName) return "this area";
-  return skillName.replace(/^ai-os-/, "").replace(/-patterns|-flow|-pipeline|-api|-billing/g, "").replace(/-/g, " ").trim();
+  return skillName.replace(/^cortex-/, "").replace(/-patterns|-flow|-pipeline|-api|-billing/g, "").replace(/-/g, " ").trim();
 }
 function enforceSkillContract(content, context = {}) {
   const missing = validateSkillContract(content).missingSections;
@@ -6247,28 +6293,28 @@ function buildSkillSpecs(stack, cwd) {
     }
   };
   if (frameworks.some((f) => f.includes("next"))) {
-    add("nextjs.md", "ai-os-nextjs-patterns.md");
+    add("nextjs.md", "cortex-nextjs-patterns.md");
   }
   if (frameworks.some((f) => f.includes("react")) && !frameworks.some((f) => f.includes("next"))) {
     const hasRedux = packages.some(
       (p) => ["redux", "@reduxjs/toolkit", "react-redux"].includes(p.toLowerCase())
     );
     const stateManagementComment = hasRedux ? "Redux store (useSelector / useDispatch) for global state; RTK Query for server state" : "tRPC cache\n// No Redux, no Zustand \u2014 tRPC covers server state";
-    add("react.md", "ai-os-react-patterns.md", {
+    add("react.md", "cortex-react-patterns.md", {
       "{{STATE_MANAGEMENT_COMMENT}}": stateManagementComment
     });
   }
   if (packages.includes("@trpc/server") || packages.includes("trpc")) {
     const trpcRouterFile = fs21.existsSync(path23.join(cwd, "src/trpc/index.ts")) ? "src/trpc/index.ts" : "src/server/trpc.ts";
-    add("trpc.md", "ai-os-trpc-patterns.md", { "{{TRPC_ROUTER_FILE}}": trpcRouterFile });
+    add("trpc.md", "cortex-trpc-patterns.md", { "{{TRPC_ROUTER_FILE}}": trpcRouterFile });
   }
   if (packages.includes("prisma") || packages.includes("@prisma/client")) {
     const schemaFile = fs21.existsSync(path23.join(cwd, "prisma/schema.prisma")) ? "prisma/schema.prisma" : "schema.prisma";
-    add("prisma.md", "ai-os-prisma-patterns.md", { "{{SCHEMA_FILE}}": schemaFile });
+    add("prisma.md", "cortex-prisma-patterns.md", { "{{SCHEMA_FILE}}": schemaFile });
   }
   if (packages.includes("stripe")) {
     const plansFile = fs21.existsSync(path23.join(cwd, "src/constants/stripe.ts")) ? "src/constants/stripe.ts" : "src/lib/stripe.ts";
-    add("stripe.md", "ai-os-billing-stripe.md", {
+    add("stripe.md", "cortex-billing-stripe.md", {
       "{{PLANS_FILE}}": plansFile,
       "{{STRIPE_LIB_FILE}}": fs21.existsSync(path23.join(cwd, "src/lib/stripe.ts")) ? "src/lib/stripe.ts" : plansFile,
       "{{WEBHOOK_FILE}}": "src/app/api/webhooks/stripe/route.ts"
@@ -6276,40 +6322,40 @@ function buildSkillSpecs(stack, cwd) {
   }
   if (packages.includes("next-auth") || packages.includes("nextauth")) {
     const authFile = fs21.existsSync(path23.join(cwd, "src/app/api/auth/[...nextauth]/authOptions.ts")) ? "src/app/api/auth/[...nextauth]/authOptions.ts" : "src/lib/auth.ts";
-    add("auth-nextauth.md", "ai-os-auth-flow.md", { "{{AUTH_CONFIG_FILE}}": authFile });
+    add("auth-nextauth.md", "cortex-auth-flow.md", { "{{AUTH_CONFIG_FILE}}": authFile });
   }
   if (packages.includes("@supabase/supabase-js")) {
-    add("supabase.md", "ai-os-supabase-patterns.md");
+    add("supabase.md", "cortex-supabase-patterns.md");
   }
   if (packages.includes("langchain") || packages.includes("@langchain/community") || packages.includes("pgvector")) {
-    add("rag-pgvector.md", "ai-os-rag-pipeline.md");
+    add("rag-pgvector.md", "cortex-rag-pipeline.md");
   }
   if (hasExpressLike) {
-    add("express.md", "ai-os-express-api.md");
+    add("express.md", "cortex-express-api.md");
   }
   if (frameworks.some((f) => f.includes("fastapi") || f.includes("django"))) {
-    add("python-fastapi.md", "ai-os-fastapi-patterns.md");
+    add("python-fastapi.md", "cortex-fastapi-patterns.md");
   }
   if (stack.languages.some((l) => l.name.toLowerCase() === "go")) {
-    add("go.md", "ai-os-go-patterns.md");
+    add("go.md", "cortex-go-patterns.md");
   }
   if (hasJavaSpringLike) {
-    add("java-spring.md", "ai-os-java-spring-patterns.md");
+    add("java-spring.md", "cortex-java-spring-patterns.md");
   }
   if (frameworks.some((f) => f.includes("remix"))) {
-    add("remix.md", "ai-os-remix-patterns.md");
+    add("remix.md", "cortex-remix-patterns.md");
   }
   if (frameworks.some((f) => f.includes("solid"))) {
-    add("solid.md", "ai-os-solid-patterns.md");
+    add("solid.md", "cortex-solid-patterns.md");
   }
   if (frameworks.some((f) => f === "bun") || packages.includes("bun")) {
-    add("bun.md", "ai-os-bun-patterns.md");
+    add("bun.md", "cortex-bun-patterns.md");
   }
   if (frameworks.some((f) => f === "deno")) {
-    add("deno.md", "ai-os-deno-patterns.md");
+    add("deno.md", "cortex-deno-patterns.md");
   }
   if (frameworks.some((f) => f.toLowerCase().includes("wordpress"))) {
-    add("wordpress.md", "ai-os-wordpress-patterns.md");
+    add("wordpress.md", "cortex-wordpress-patterns.md");
   }
   return specs;
 }
@@ -6318,7 +6364,7 @@ async function generateSkillsWithOptions(stack, cwd, options) {
   fs21.mkdirSync(skillsDir, { recursive: true });
   if (options.strategy === "creator-only") {
     if (options.refreshExisting && fs21.existsSync(skillsDir)) {
-      const onDisk = fs21.readdirSync(skillsDir).filter((f) => f.startsWith("ai-os-") && f.endsWith(".md"));
+      const onDisk = fs21.readdirSync(skillsDir).filter((f) => f.startsWith("cortex-") && f.endsWith(".md"));
       for (const stale of onDisk) {
         fs21.rmSync(path23.join(skillsDir, stale));
         console.log(`  \u{1F5D1}\uFE0F  Pruned predefined skill (creator-only mode): ${stale}`);
@@ -6429,7 +6475,7 @@ Requirements:
 - Guard with getServerSession() \u2192 redirect to /auth/signin if no session
 - Pass any data to a Client Component child only if interactivity is needed
 - Use TypeScript strict types
-- Follow the project conventions in .github/ai-os/context/conventions.md`
+- Follow the project conventions in .github/cortex/context/conventions.md`
     });
     prompts.push({
       id: "/new-api-route",
@@ -6456,7 +6502,7 @@ Requirements:
 - Keep page-level data fetching in a composable/service, not in deeply nested components
 - Validate route params and external data shapes
 - Keep component state minimal and derive where possible
-- Follow the conventions in .github/ai-os/context/conventions.md`
+- Follow the conventions in .github/cortex/context/conventions.md`
     });
   }
   if (hasAngular) {
@@ -6470,7 +6516,7 @@ Requirements:
 - Put business logic in services, keep components focused on presentation
 - Use reactive forms for non-trivial form inputs
 - Add guard/interceptor wiring if auth is required
-- Follow naming and structure conventions from .github/ai-os/context/conventions.md`
+- Follow naming and structure conventions from .github/cortex/context/conventions.md`
     });
   }
   if (hasAstro) {
@@ -6649,7 +6695,7 @@ Produce a structured feature brief:
 - **Constraints**: Tech, time, compatibility, or security limits
 - **Success Criteria**: Measurable conditions that confirm the feature is complete
 - **Risks**: Known unknowns and mitigation ideas
-Reference the architecture in .github/ai-os/context/architecture.md and conventions in .github/ai-os/context/conventions.md to identify integration points.`
+Reference the architecture in .github/cortex/context/architecture.md and conventions in .github/cortex/context/conventions.md to identify integration points.`
   });
   prompts.push({
     id: "/plan",
@@ -6671,7 +6717,7 @@ Do NOT write any code yet \u2014 planning only.`
     prompt: `Implement the specific task I identify from the plan.
 Rules:
 - Touch only the files listed in that task
-- Follow all conventions in .github/ai-os/context/conventions.md
+- Follow all conventions in .github/cortex/context/conventions.md
 - Keep the change minimal \u2014 do not refactor or improve adjacent code
 - Add or update tests for the changed logic
 - After writing, list any follow-up tasks the plan must account for
@@ -6737,7 +6783,7 @@ Include:
 - Any important side effects or dependencies
 - How it connects to other parts of the system
 - Any gotchas or non-obvious behavior
-Reference the project architecture in .github/ai-os/context/architecture.md as context.`
+Reference the project architecture in .github/cortex/context/architecture.md as context.`
   });
   prompts.push({
     id: "/refactor-component",
@@ -6749,7 +6795,7 @@ Before touching anything:
 2. List all imports and consumers (grep for the component name)
 3. Identify props, ${hasTrpc ? "tRPC hooks" : hasRtkQuery ? "RTK Query hooks" : "data hooks (custom/fetching)"}, and state
 Then:
-- Apply the naming conventions from .github/ai-os/context/conventions.md
+- Apply the naming conventions from .github/cortex/context/conventions.md
 - Extract business logic to the existing shared module pattern used by this repo (for example lib/, services/, or hooks/)
 - Ensure TypeScript strict compliance (no any)
 - Verify all callers still compile after the refactor`
@@ -6764,9 +6810,9 @@ Phase 1 \u2014 Pre-Change Audit:
 1. Ask me to declare the migration boundary: "from X to Y" (e.g., "from session auth to JWT")
 2. Scan ALL AI artifacts for legacy references:
    - .github/copilot-instructions.md
-   - .github/ai-os/context/architecture.md
-   - .github/ai-os/context/conventions.md
-   - .github/ai-os/context/stack.md
+   - .github/cortex/context/architecture.md
+   - .github/cortex/context/conventions.md
+   - .github/cortex/context/stack.md
    - .github/copilot/skills/*.md
    - .github/agents/*.md
    - .github/copilot/*.prompt.md
@@ -6782,7 +6828,7 @@ Phase 3 \u2014 Post-Change Replacement:
 1. Replace every stale statement (do not append-only; remove the old guidance)
 2. Add supersession comments for changed core rules: <!-- SUPERSEDED: <old> \u2014 replaced by <new> on <date> -->
 3. Re-run the Phase 1 scan to verify zero stale references remain
-4. If AI OS is installed, run: npx github:marinvch/ai-os --check-hygiene
+4. If Cortex is installed, run: npx github:marinvch/ai-os --check-hygiene
 
 Start now: ask me for the migration boundary.`
   });
@@ -6819,13 +6865,13 @@ function generateWorkflows(outputDir, options) {
     return p;
   };
   if (options?.config?.updateCheckEnabled !== false) {
-    const workflowPath = track(path25.join(outputDir, ".github", "workflows", "ai-os-update-check.yml"));
+    const workflowPath = track(path25.join(outputDir, ".github", "workflows", "cortex-update-check.yml"));
     writeIfChanged(workflowPath, getUpdateCheckWorkflowContent());
   }
   return managed;
 }
 function getUpdateCheckWorkflowContent() {
-  return `name: AI OS Update Check
+  return `name: Cortex Update Check
 
 on:
   schedule:
@@ -6837,7 +6883,7 @@ permissions:
   issues: write
 
 jobs:
-  check-for-ai-os-updates:
+  check-for-cortex-updates:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -6849,10 +6895,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          ENABLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/ai-os/config.json','utf8')); process.stdout.write(String(c.updateCheckEnabled !== false)); } catch { process.stdout.write('true'); }")
+          ENABLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/cortex/config.json','utf8')); process.stdout.write(String(c.updateCheckEnabled !== false)); } catch { process.stdout.write('true'); }")
           echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
 
-          INSTALLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/ai-os/config.json','utf8')); process.stdout.write(c.version || '0.0.0'); } catch { process.stdout.write('0.0.0'); }")
+          INSTALLED=$(node -e "const fs=require('fs'); try { const c=JSON.parse(fs.readFileSync('.github/cortex/config.json','utf8')); process.stdout.write(c.version || '0.0.0'); } catch { process.stdout.write('0.0.0'); }")
           echo "installed=$INSTALLED" >> "$GITHUB_OUTPUT"
 
           LATEST=$(curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/dev/package.json | node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{const j=JSON.parse(d); process.stdout.write(j.version||'0.0.0');});")
@@ -6871,7 +6917,7 @@ jobs:
             const installed = '\${{ steps.versions.outputs.installed }}';
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const title = 'AI OS update available: v' + latest;
+            const title = 'Cortex update available: v' + latest;
 
             const open = await github.paginate(github.rest.issues.listForRepo, {
               owner,
@@ -6890,7 +6936,7 @@ jobs:
               repo,
               title,
               body: [
-                'A newer AI OS version is available.',
+                'A newer Cortex version is available.',
                 '',
                 '- Installed: v' + installed,
                 '- Latest: v' + latest,
@@ -6955,23 +7001,23 @@ function buildBackendTools(stack) {
 function generateToolsets(stack, outputDir) {
   const managed = [];
   const config = {
-    "ai-os-context": {
+    "cortex-context": {
       tools: CONTEXT_TOOLS,
-      description: "AI OS context & memory tools \u2014 conventions, repo memory, freshness"
+      description: "Cortex context & memory tools \u2014 conventions, repo memory, freshness"
     },
-    "ai-os-explore": {
+    "cortex-explore": {
       tools: EXPLORE_TOOLS,
-      description: "AI OS codebase navigation \u2014 search, structure, impact analysis"
+      description: "Cortex codebase navigation \u2014 search, structure, impact analysis"
     },
-    "ai-os-plan": {
+    "cortex-plan": {
       tools: PLAN_TOOLS,
-      description: "AI OS session planning \u2014 active plan, checkpoints, failure tracking"
+      description: "Cortex session planning \u2014 active plan, checkpoints, failure tracking"
     }
   };
   if (hasBackendTools(stack)) {
-    config["ai-os-backend"] = {
+    config["cortex-backend"] = {
       tools: buildBackendTools(stack),
-      description: "AI OS backend tools \u2014 API routes, schema, env vars, packages"
+      description: "Cortex backend tools \u2014 API routes, schema, env vars, packages"
     };
   }
   const toolsetsPath = path26.join(outputDir, ".vscode", "toolsets.json");
@@ -6986,7 +7032,7 @@ var BUILTIN_READ_ONLY = ["codebase", "fetch", "findTestFiles", "githubRepo", "se
 function getPlanMode(stack) {
   const fw = stack.primaryFramework ? sanitizeForInstructions(stack.primaryFramework.name) : sanitizeForInstructions(stack.primaryLanguage.name);
   return {
-    filename: "ai-os-plan.chatprompt.md",
+    filename: "cortex-plan.chatprompt.md",
     description: `Generate an implementation plan for ${fw} features or refactoring tasks (read-only, no edits)`,
     tools: [
       ...BUILTIN_READ_ONLY,
@@ -7001,12 +7047,12 @@ function getPlanMode(stack) {
       "get_active_plan",
       "upsert_active_plan"
     ],
-    instructions: `# AI OS \u2014 Planning Mode
+    instructions: `# Cortex \u2014 Planning Mode
 
 You are in **planning mode**. Your task is to produce an implementation plan.
 Do **not** make any code edits \u2014 generate a plan document only.
 
-Use the AI OS context tools to load conventions and repo memory before planning.
+Use the Cortex context tools to load conventions and repo memory before planning.
 Always call \`get_session_context\` first to reload MUST-ALWAYS rules.
 
 ## Plan format
@@ -7025,7 +7071,7 @@ Return a Markdown document with:
 function getReviewMode(stack) {
   const lang = sanitizeForInstructions(stack.primaryLanguage.name);
   return {
-    filename: "ai-os-review.chatprompt.md",
+    filename: "cortex-review.chatprompt.md",
     description: `Code review mode for ${lang} \u2014 no edits, returns structured review with severity levels`,
     tools: [
       "codebase",
@@ -7039,7 +7085,7 @@ function getReviewMode(stack) {
       "get_impact_of_change",
       "get_dependency_chain"
     ],
-    instructions: `# AI OS \u2014 Review Mode
+    instructions: `# Cortex \u2014 Review Mode
 
 You are in **code review mode**. Analyse the requested code and return a
 structured review. Do **not** make any edits directly \u2014 return findings only.
@@ -7066,7 +7112,7 @@ For each finding include: **file:line**, **severity**, **description**, and
 }
 function getExploreMode() {
   return {
-    filename: "ai-os-explore.chatprompt.md",
+    filename: "cortex-explore.chatprompt.md",
     description: 'Read-only codebase exploration \u2014 answers "how does X work?" questions without editing files',
     tools: [
       ...BUILTIN_READ_ONLY,
@@ -7080,12 +7126,12 @@ function getExploreMode() {
       "get_api_routes",
       "get_env_vars"
     ],
-    instructions: `# AI OS \u2014 Explore Mode
+    instructions: `# Cortex \u2014 Explore Mode
 
 You are in **read-only exploration mode**. Answer questions about the codebase
 without making any edits.
 
-Use AI OS navigation tools to answer "how does X work?" questions efficiently:
+Use Cortex navigation tools to answer "how does X work?" questions efficiently:
 - Call \`get_project_structure\` before exploring unfamiliar directories
 - Call \`get_file_summary\` instead of reading full files when possible
 - Call \`search_codebase\` to find symbols, patterns, or usage examples
@@ -7121,22 +7167,23 @@ function generateChatModes(stack, outputDir) {
 }
 
 // src/planner.ts
+init_brand();
 import fs23 from "node:fs";
 import path28 from "node:path";
 function exists3(root, relPath) {
   return fs23.existsSync(path28.join(root, relPath));
 }
 function detectRepoType(targetDir) {
-  if (exists3(targetDir, ".github/ai-os/config.json") || exists3(targetDir, ".ai-os/config.json")) return "existing-ai-os";
+  if (exists3(targetDir, `${CONFIG_DIR}/config.json`) || exists3(targetDir, ".ai-os/config.json")) return "existing-cortex";
   if (exists3(targetDir, ".github/copilot-instructions.md") || exists3(targetDir, ".github/copilot/prompts.json")) {
-    return "existing-non-ai-os";
+    return "existing-non-cortex";
   }
   return "new";
 }
 var CONTEXT_FILE_PATHS = /* @__PURE__ */ new Set([
   ".github/copilot-instructions.md",
-  ".github/ai-os/context/architecture.md",
-  ".github/ai-os/context/conventions.md"
+  `${CONFIG_DIR}/context/architecture.md`,
+  `${CONFIG_DIR}/context/conventions.md`
 ]);
 function decideAction(targetDir, relPath, mode, behavior, preserveContextFiles) {
   const alreadyExists = exists3(targetDir, relPath);
@@ -7178,23 +7225,23 @@ function buildOnboardingPlan(targetDir, mode, opts = {}) {
   const preserveContextFiles = mode === "refresh-existing" && !(opts.regenerateContext ?? false);
   const actions = [];
   actions.push(decideAction(targetDir, ".github/copilot-instructions.md", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/instructions/ai-os.instructions.md", mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, ".github/instructions/cortex.instructions.md", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".mcp.json", mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".vscode/mcp.json", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/tools.json", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/mcp-server/runtime-manifest.json", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/context/stack.md", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/context/architecture.md", mode, "safe-merge", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/context/conventions.md", mode, "safe-merge", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/context/memory.md", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/context/existing-ai-context.md", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/context/dependency-graph.json", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/config.json", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/manifest.json", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/memory/README.md", mode, "safe-merge", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/memory/memory.jsonl", mode, "safe-merge", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/tools.json`, mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/mcp-server/runtime-manifest.json`, mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/stack.md`, mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/architecture.md`, mode, "safe-merge", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/conventions.md`, mode, "safe-merge", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/memory.md`, mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/existing-ai-context.md`, mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/context/dependency-graph.json`, mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/config.json`, mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/manifest.json`, mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/memory/README.md`, mode, "safe-merge", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/memory/memory.jsonl`, mode, "safe-merge", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/COPILOT_CONTEXT.md", mode, "always-overwrite", preserveContextFiles));
-  actions.push(decideAction(targetDir, ".github/ai-os/recommendations.md", mode, "always-overwrite", preserveContextFiles));
+  actions.push(decideAction(targetDir, `${CONFIG_DIR}/recommendations.md`, mode, "always-overwrite", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/agents/", mode, "safe-merge", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/copilot/skills/", mode, "safe-merge", preserveContextFiles));
   actions.push(decideAction(targetDir, ".github/copilot/prompts.json", mode, "safe-merge", preserveContextFiles));
@@ -7235,6 +7282,7 @@ function formatOnboardingPlan(plan) {
 // src/recommendations/index.ts
 import fs24 from "node:fs";
 import path29 from "node:path";
+init_brand();
 
 // src/recommendations/registry.ts
 var DEPENDENCY_RECOMMENDATIONS = {
@@ -7775,7 +7823,7 @@ ${cmds.split("\n").map((l) => `    ${l}`).join("\n")}`;
 function generateRecommendations(stack, outputDir) {
   const collected = collectRecommendations(stack);
   const content = generateRecommendationsDoc(stack, collected);
-  const outPath = path29.join(outputDir, ".github", "ai-os", "recommendations.md");
+  const outPath = path29.join(outputDir, CONFIG_DIR, "recommendations.md");
   writeIfChanged(outPath, content);
   return outPath;
 }
@@ -8072,7 +8120,7 @@ function toPathSet(value) {
 }
 function loadProtectConfig(cwd) {
   const empty = { protected: /* @__PURE__ */ new Set(), hybrid: /* @__PURE__ */ new Set() };
-  const protectPath = path30.join(cwd, ".github", "ai-os", "protect.json");
+  const protectPath = path30.join(cwd, CONFIG_DIR, "protect.json");
   if (!fs25.existsSync(protectPath)) return empty;
   try {
     const raw = JSON.parse(fs25.readFileSync(protectPath, "utf-8"));
@@ -8081,7 +8129,7 @@ function loadProtectConfig(cwd) {
       hybrid: toPathSet(raw.hybrid)
     };
   } catch {
-    console.warn("  \u26A0 Could not parse .github/ai-os/protect.json \u2014 ignoring protection config");
+    console.warn("  \u26A0 Could not parse .github/cortex/protect.json \u2014 ignoring protection config");
     return empty;
   }
 }
@@ -8121,10 +8169,10 @@ function resolveBundledServerSource() {
 function installLocalMcpRuntime(cwd, verbose) {
   const bundledServerSource = resolveBundledServerSource();
   if (!bundledServerSource) {
-    console.warn("  \u26A0 Could not locate bundled MCP server; local ai-os tools may be unavailable.");
+    console.warn("  \u26A0 Could not locate bundled MCP server; local Cortex tools may be unavailable.");
     return;
   }
-  const runtimeDir = path30.join(cwd, ".github", "ai-os", "mcp-server");
+  const runtimeDir = path30.join(cwd, CONFIG_DIR, "mcp-server");
   const runtimeEntry = path30.join(runtimeDir, "index.js");
   const runtimeManifest = path30.join(runtimeDir, "runtime-manifest.json");
   const nodePath = process.execPath;
@@ -8132,7 +8180,7 @@ function installLocalMcpRuntime(cwd, verbose) {
   fs25.copyFileSync(bundledServerSource, runtimeEntry);
   fs25.chmodSync(runtimeEntry, 493);
   writeFileAtomic(runtimeManifest, JSON.stringify({
-    name: "ai-os-mcp-server",
+    name: "cortex-mcp-server",
     runtime: "bundled",
     sourceVersion: getToolVersion(),
     installedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -8141,11 +8189,11 @@ function installLocalMcpRuntime(cwd, verbose) {
     command: nodePath,
     args: [runtimeEntry],
     env: {
-      AI_OS_ROOT: cwd
+      [ENV.ROOT]: cwd
     }
   });
-  ensureGitignoreEntry(cwd, ".github/ai-os/mcp-server/");
-  ensureGitignoreEntry(cwd, ".github/ai-os/memory/.memory.lock");
+  ensureGitignoreEntry(cwd, `${CONFIG_DIR}/mcp-server/`);
+  ensureGitignoreEntry(cwd, `${CONFIG_DIR}/memory/.memory.lock`);
   const legacyLocalMcp = path30.join(cwd, ".github", "copilot", "mcp.local.json");
   if (fs25.existsSync(legacyLocalMcp)) {
     try {
@@ -8155,7 +8203,7 @@ function installLocalMcpRuntime(cwd, verbose) {
   }
   const healthcheck = spawnSync4(nodePath, [runtimeEntry, "--healthcheck"], {
     cwd,
-    env: { ...process.env, AI_OS_ROOT: cwd },
+    env: { ...process.env, [ENV.ROOT]: cwd },
     encoding: "utf-8",
     stdio: "pipe"
   });
@@ -8168,7 +8216,7 @@ function installLocalMcpRuntime(cwd, verbose) {
     console.log(`  \u270F\uFE0F  write   ${runtimeManifest}`);
     console.log(`  \u270F\uFE0F  write   .vscode/mcp.json`);
   } else {
-    console.log("  \u2713 MCP runtime installed to .github/ai-os/mcp-server");
+    console.log("  \u2713 MCP runtime installed to .github/cortex/mcp-server");
     console.log("  \u2713 MCP config written to .vscode/mcp.json");
   }
 }
@@ -8323,14 +8371,14 @@ function printSummary(stack, outputDir, written, skipped, pruned, agents, preser
 }
 function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommendationsEnabled) {
   const refreshCmd = `npx -y "github:marinvch/ai-os#v${updateStatus.latestVersion}" --refresh-existing`;
-  const recommendationsPath = ".github/ai-os/recommendations.md";
+  const recommendationsPath = `${CONFIG_DIR}/recommendations.md`;
   const printInstructionStrategy = () => {
     console.log("  \u{1F4CC} First action after install/refresh:");
     console.log("     Review and optimize .github/copilot-instructions.md before asking Copilot to implement changes.");
     if (onboardingPlan.detectedRepoType === "new") {
       console.log("  \u{1F195} Strategy for new project:");
       console.log("     Build a baseline context first (stack, conventions, architecture), then keep instructions concise and task-agnostic.");
-      console.log("     Use AI OS MCP tools to fill context as the codebase grows.");
+      console.log("     Use Cortex MCP tools to fill context as the codebase grows.");
       return;
     }
     console.log("  \u{1F3D7}\uFE0F  Strategy for existing/large project:");
@@ -8345,10 +8393,10 @@ function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommenda
   if (mode === "safe" && updateStatus.updateAvailable && !updateStatus.isFirstInstall) {
     console.log("  \u{1F9ED} Recommended next step:");
     console.log(`  ${refreshCmd}`);
-    console.log("  Safe mode updated local MCP/runtime wiring, but left existing AI OS context artifacts in place.");
+    console.log("  Safe mode updated local MCP/runtime wiring, but left existing Cortex context artifacts in place.");
     printInstructionStrategy();
-    console.log("  After refresh, ask Copilot:");
-    console.log('     "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files."');
+    console.log("  After refresh, ask your assistant:");
+    console.log('     "Use all Cortex MCP tools, inspect this codebase, and improve the AI context files."');
     printRecommendationsHint();
     console.log("");
     return;
@@ -8358,12 +8406,12 @@ function printContextualNextSteps(mode, onboardingPlan, updateStatus, recommenda
     printInstructionStrategy();
     console.log("  If the tools do not appear immediately, run: MCP: Restart Servers");
     console.log("  Suggested first prompt:");
-    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use AI OS MCP tools to review architecture, conventions, and missing context gaps."');
+    console.log('     "Open and optimize .github/copilot-instructions.md for this repo state, then use Cortex MCP tools to review architecture, conventions, and missing context gaps."');
     printRecommendationsHint();
     console.log("");
     return;
   }
-  const firstPrompt = onboardingPlan.detectedRepoType === "existing-non-ai-os" ? "Use AI OS MCP tools to map this codebase, compare the existing instructions with generated context, and improve the AI context files." : "Use all AI OS MCP tools, inspect this codebase, and improve the AI context files.";
+  const firstPrompt = onboardingPlan.detectedRepoType === "existing-non-cortex" ? "Use Cortex MCP tools to map this codebase, compare the existing instructions with generated context, and improve the context files." : "Use all Cortex MCP tools, inspect this codebase, and improve the AI context files.";
   console.log("  \u{1F9ED} Next steps:");
   console.log("  1. Open this repo in VS Code with GitHub Copilot Agent mode enabled.");
   console.log("  2. Review and optimize .github/copilot-instructions.md for the current project state.");
@@ -8385,7 +8433,7 @@ function printAgentFlowSetupPrompt(cwd, currentMode) {
   console.log("  \u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510");
   console.log("  \u2502  \u{1F916} Sequential Agent Flow \u2014 Setup                           \u2502");
   console.log("  \u2502                                                             \u2502");
-  console.log("  \u2502  AI OS can generate a 3-agent sequential improvement flow:  \u2502");
+  console.log("  \u2502  Cortex can generate a 3-agent sequential improvement flow:  \u2502");
   console.log("  \u2502                                                             \u2502");
   console.log("  \u2502   1. Feature Enhancement Advisor  (finds improvements)     \u2502");
   console.log("  \u2502      \u2193                                                      \u2502");
@@ -8396,7 +8444,7 @@ function printAgentFlowSetupPrompt(cwd, currentMode) {
   if (hasUserAgents) {
     console.log(`  \u2502  Existing agents detected: ${scan.userDefined.join(", ").slice(0, 38).padEnd(38)} \u2502`);
     console.log("  \u2502                                                             \u2502");
-    console.log("  \u2502  Choose an option in .github/ai-os/config.json:            \u2502");
+    console.log("  \u2502  Choose an option in .github/cortex/config.json:           \u2502");
     console.log('  \u2502    "agentFlowMode": "create"  \u2014 add the 3 agents (default) \u2502');
     console.log('  \u2502    "agentFlowMode": "hook"    \u2014 guide to link to existing   \u2502');
     console.log('  \u2502    "agentFlowMode": "skip"    \u2014 do not generate agents      \u2502');
@@ -8415,7 +8463,7 @@ function printAgentFlowSetupPrompt(cwd, currentMode) {
   }
 }
 function printAgentHookGuide(userDefinedAgents) {
-  console.log("  \u{1F4CE} Hook Guide \u2014 connecting your existing agents to the ai-os flow:");
+  console.log("  \u{1F4CE} Hook Guide \u2014 connecting your existing agents to the Cortex flow:");
   console.log("");
   for (const agent of userDefinedAgents) {
     console.log(`     ${agent}`);
@@ -8446,17 +8494,17 @@ function printAgentFlowStatus(cwd, mode) {
     console.log(`     detected: ${present.join(", ")}`);
   }
   if (activeMode === "hook") {
-    console.log("     hook mode enabled \u2014 AI OS will keep your existing agents and print handoff guidance.");
+    console.log("     hook mode enabled \u2014 Cortex will keep your existing agents and print handoff guidance.");
   } else if (activeMode === "skip") {
-    console.log('     skip mode enabled \u2014 set agentFlowMode to "create" in .github/ai-os/config.json to enable flow agents.');
+    console.log('     skip mode enabled \u2014 set agentFlowMode to "create" in .github/cortex/config.json to enable flow agents.');
   }
   console.log("");
 }
 function printMemoryMaintenanceSummary(cwd) {
-  const memoryFile = path30.join(cwd, ".github", "ai-os", "memory", "memory.jsonl");
+  const memoryFile = path30.join(cwd, CONFIG_DIR, "memory", "memory.jsonl");
   if (!fs25.existsSync(memoryFile)) return;
   try {
-    process.env["AI_OS_ROOT"] = cwd;
+    process.env[ENV.ROOT] = cwd;
     const summary = runMemoryMaintenance();
     if (summary.totalBefore === 0) return;
     console.log("  \u{1F9E0} Memory maintenance:");
@@ -8604,7 +8652,7 @@ async function runApply(args) {
   console.log(`  \u{1FA7A} Diagnostics: tool=v${updateStatus.toolVersion}, installed=v${installedVersionLabel}, firstInstall=${updateStatus.isFirstInstall ? "yes" : "no"}, updateAvailable=${updateStatus.updateAvailable ? "yes" : "no"}`);
   if (mode === "update") {
     if (updateStatus.isFirstInstall) {
-      console.log("  \u2139\uFE0F  No existing AI OS installation found. Running fresh install...");
+      console.log("  \u2139\uFE0F  No existing Cortex installation found. Running fresh install...");
     } else if (updateStatus.updateAvailable) {
       console.log(`  \u{1F504} Updating from v${updateStatus.installedVersion ?? "?"} \u2192 v${updateStatus.toolVersion}`);
     } else {
@@ -8692,7 +8740,7 @@ async function runApply(args) {
     if (config) {
       config = applyProfile(config, effectiveProfile);
       if (!dryRun) {
-        const configPath = path30.join(cwd, ".github", "ai-os", "config.json");
+        const configPath = path30.join(cwd, CONFIG_DIR, "config.json");
         writeFileAtomic(configPath, JSON.stringify(config, null, 2) + "\n");
       }
     }
@@ -8838,7 +8886,7 @@ ${gapReport}
       const snapshot = captureContextSnapshot(cwd, getToolVersion());
       writeContextSnapshot(cwd, snapshot);
       if (verbose) {
-        console.log("  \u270F\uFE0F  write   .github/ai-os/context-snapshot.json  (freshness baseline)");
+        console.log("  \u270F\uFE0F  write   .github/cortex/context-snapshot.json  (freshness baseline)");
       }
     } catch {
     }
@@ -8923,8 +8971,9 @@ ${gapReport}
 // src/uninstall.ts
 import fs26 from "node:fs";
 import path31 from "node:path";
+init_brand();
 function readProtectedPaths(cwd) {
-  const protectPath = path31.join(cwd, ".github", "ai-os", "protect.json");
+  const protectPath = path31.join(cwd, CONFIG_DIR, "protect.json");
   if (!fs26.existsSync(protectPath)) return /* @__PURE__ */ new Set();
   try {
     const raw = JSON.parse(fs26.readFileSync(protectPath, "utf-8"));
@@ -8974,7 +9023,7 @@ function runUninstall(cwd, options = {}) {
   };
   const manifest = readManifest(cwd);
   if (!manifest) {
-    console.log("  \u2139\uFE0F  No AI OS manifest found \u2014 nothing to uninstall.");
+    console.log("  \u2139\uFE0F  No Cortex manifest found \u2014 nothing to uninstall.");
     return report;
   }
   const protected_ = readProtectedPaths(cwd);
@@ -9013,12 +9062,12 @@ function runUninstall(cwd, options = {}) {
     }
   }
   const managedDirs = [
-    path31.join(cwd, ".github", "ai-os", "mcp-server"),
+    path31.join(cwd, CONFIG_DIR, "mcp-server"),
     // legacy pre-v0.22 location
     path31.join(cwd, ".ai-os", "mcp-server"),
     path31.join(cwd, ".ai-os")
   ];
-  const manifestPath = path31.join(cwd, ".github", "ai-os", "manifest.json");
+  const manifestPath = path31.join(cwd, CONFIG_DIR, "manifest.json");
   if (!dryRun) {
     for (const dir of managedDirs) {
       try {
@@ -9034,13 +9083,13 @@ function runUninstall(cwd, options = {}) {
     try {
       if (fs26.existsSync(manifestPath)) {
         fs26.unlinkSync(manifestPath);
-        if (verbose) console.log(`  \u{1F5D1}\uFE0F  removed    .github/ai-os/manifest.json`);
+        if (verbose) console.log(`  \u{1F5D1}\uFE0F  removed    .github/cortex/manifest.json`);
       }
     } catch {
     }
     const dirsToCheck = [
       ...Array.from(affectedDirs),
-      path31.join(cwd, ".github", "ai-os"),
+      path31.join(cwd, CONFIG_DIR),
       path31.join(cwd, ".github", "agents"),
       path31.join(cwd, ".github", "copilot", "skills"),
       path31.join(cwd, ".github", "copilot"),
@@ -9054,7 +9103,7 @@ function formatUninstallReport(report) {
   const lines = [];
   const mode = report.dryRun ? " [DRY RUN]" : "";
   lines.push(`
-  \u2705 AI OS uninstall complete${mode}`);
+  \u2705 Cortex uninstall complete${mode}`);
   lines.push(`     Removed:   ${report.removed.length} file(s)`);
   if (report.skipped.length > 0) lines.push(`     Skipped:   ${report.skipped.length} file(s)  (user content preserved)`);
   if (report.notFound.length > 0) lines.push(`     Not found: ${report.notFound.length} file(s)`);
@@ -9098,7 +9147,7 @@ function formatProfileDescription(profile) {
     case "standard":
       return "standard \u2014 Instructions + agents + skills + tools. Recommended for most projects.";
     case "full":
-      return "full \u2014 All integrations, extra skills, and advanced agents. Maximum AI OS coverage.";
+      return "full \u2014 All integrations, extra skills, and advanced agents. Maximum Cortex coverage.";
   }
 }
 async function runWizardLogic(stack, ask) {
@@ -9160,13 +9209,13 @@ async function runWizardLogic(stack, ask) {
   if (profile === "minimal") {
     console.log("    \u2022 .github/copilot-instructions.md");
     console.log("    \u2022 .vscode/mcp.json");
-    console.log("    \u2022 .github/ai-os/config.json");
+    console.log("    \u2022 .github/cortex/config.json");
   } else if (profile === "standard") {
     console.log("    \u2022 .github/copilot-instructions.md");
     console.log("    \u2022 .github/agents/ (project agents)");
     console.log("    \u2022 .github/copilot/skills/ (recommended skills)");
     console.log("    \u2022 .vscode/mcp.json + tools.json");
-    console.log("    \u2022 .github/ai-os/context/ (stack, conventions, architecture)");
+    console.log("    \u2022 .github/cortex/context/ (stack, conventions, architecture)");
   } else {
     console.log("    \u2022 Everything in standard plus:");
     console.log("    \u2022 Extra domain agents (db, auth, payments)");
@@ -9175,10 +9224,10 @@ async function runWizardLogic(stack, ask) {
   }
   if (model === "claude" || model === "both") {
     console.log("    \u2022 CLAUDE.md (project root \u2014 read by Claude Code CLI)");
-    console.log("    \u2022 .github/ai-os/claude-instructions.md (XML-tagged for Claude API)");
+    console.log("    \u2022 .github/cortex/claude-instructions.md (XML-tagged for Claude API)");
   }
   console.log("");
-  console.log("\n  \u{1F9E0} Is this project part of your personal AI OS (Cortex)?\n");
+  console.log("\n  \u{1F9E0} Is this project part of your personal Cortex (AI OS)?\n");
   console.log("     Links it to your personal brain for sanitized promotion of learnings.");
   console.log("");
   let projectBoundary;
@@ -9573,6 +9622,7 @@ function getExtractorForFile(filePath) {
 }
 
 // src/actions/index.ts
+init_brand();
 var IGNORE_DIRS3 = /* @__PURE__ */ new Set([
   "node_modules",
   ".git",
@@ -9660,7 +9710,7 @@ async function indexRepo(opts) {
     dryRun = false,
     quiet = false
   } = opts;
-  const outputPath = opts.output ?? path33.join(cwd, ".github", "ai-os", "context", "repo-index.jsonl");
+  const outputPath = opts.output ?? path33.join(cwd, CONFIG_DIR, "context", "repo-index.jsonl");
   const log = (msg) => {
     if (!quiet) console.log(msg);
   };
@@ -9722,7 +9772,7 @@ async function indexRepo(opts) {
     fileCount: fileEntries.length,
     symbolCount: symbolEntries.length
   };
-  const specDirPath = opts.specDir ?? path33.join(cwd, ".github", "ai-os", "specs");
+  const specDirPath = opts.specDir ?? path33.join(cwd, CONFIG_DIR, "specs");
   const changedPathsForSpec = new Set(fileEntries.map((f) => f.path));
   const existingSymbolsForSpec = incremental && fs28.existsSync(outputPath) ? loadExistingEntries(outputPath).filter(
     (e) => e.type === "symbol" && !changedPathsForSpec.has(e.file) && fs28.existsSync(path33.join(cwd, e.file))
@@ -9837,11 +9887,11 @@ function promptUser(question) {
 }
 function printBanner() {
   const version = `v${getToolVersion()}`;
-  const versionCell = `AI OS  ${version}`.padEnd(25, " ");
+  const versionCell = `Cortex  ${version}`.padEnd(25, " ");
   console.log("");
   console.log("  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
   console.log(`  \u2551          ${versionCell}\u2551`);
-  console.log("  \u2551  Portable Copilot Context Engine  \u2551");
+  console.log("  \u2551  Portable AI-Assistant Context    \u2551");
   console.log("  \u255A\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255D");
   console.log("");
 }

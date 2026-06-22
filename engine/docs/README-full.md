@@ -1,4 +1,4 @@
-# AI OS — Full Reference (archived)
+# Cortex — Full Reference (archived)
 
 This file is kept for historical reference. The README has been split into focused docs:
 

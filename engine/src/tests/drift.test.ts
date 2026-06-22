@@ -74,7 +74,7 @@ describe('detectDrift', () => {
     mkdirSync(join(tmpDir, '.vscode'), { recursive: true });
     writeFileSync(
       join(tmpDir, '.vscode', 'mcp.json'),
-      JSON.stringify({ servers: { 'ai-os': { type: 'stdio', command: 'node', args: [] } } })
+      JSON.stringify({ servers: { 'cortex': { type: 'stdio', command: 'node', args: [] } } })
     );
     const report = detectDrift(tmpDir);
     expect(report.healthy.some(h => h.includes('mcp.json'))).toBe(true);

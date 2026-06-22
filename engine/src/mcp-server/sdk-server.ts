@@ -11,7 +11,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import path from 'node:path';
-import { ENV } from '../brand.js';
+import { ENV, MCP_SERVER_NAME } from '../brand.js';
 import {
   getProjectRoot,
   readAiOsFile,
@@ -79,7 +79,7 @@ function wrap(
 export function createSdkServer(): McpServer {
   const pkgVersion = resolveMcpServerVersion(import.meta.url);
 
-  const server = new McpServer({ name: 'ai-os', version: pkgVersion });
+  const server = new McpServer({ name: MCP_SERVER_NAME, version: pkgVersion });
 
   // ── Tool 1: search_codebase ──────────────────────────────────────────────
   server.registerTool(

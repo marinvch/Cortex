@@ -108,13 +108,13 @@ describe('writeMcpServerConfig', () => {
   beforeEach(() => { tmp = mkTmp(); });
   afterEach(() => rmTmp(tmp));
 
-  it('creates .vscode/mcp.json with ai-os server entry', async () => {
+  it('creates .vscode/mcp.json with cortex server entry', async () => {
     const { writeMcpServerConfig } = await import('../generators/mcp.js');
     const outPath = writeMcpServerConfig(tmp);
     expect(outPath).toContain('mcp.json');
     const content = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
-    expect(content.servers['ai-os']).toBeDefined();
-    expect(content.servers['ai-os'].type).toBe('stdio');
+    expect(content.servers['cortex']).toBeDefined();
+    expect(content.servers['cortex'].type).toBe('stdio');
   });
 
   it('preserves existing servers when updating', async () => {
@@ -128,15 +128,15 @@ describe('writeMcpServerConfig', () => {
     writeMcpServerConfig(tmp);
     const content = JSON.parse(fs.readFileSync(path.join(mcpDir, 'mcp.json'), 'utf-8'));
     expect(content.servers['my-server']).toBeDefined();
-    expect(content.servers['ai-os']).toBeDefined();
+    expect(content.servers['cortex']).toBeDefined();
   });
 
   it('uses custom command and args when provided', async () => {
     const { writeMcpServerConfig } = await import('../generators/mcp.js');
     writeMcpServerConfig(tmp, { command: '/usr/bin/node', args: ['/custom/path/server.js'] });
     const content = JSON.parse(fs.readFileSync(path.join(tmp, '.vscode', 'mcp.json'), 'utf-8'));
-    expect(content.servers['ai-os'].command).toBe('/usr/bin/node');
-    expect(content.servers['ai-os'].args).toContain('/custom/path/server.js');
+    expect(content.servers['cortex'].command).toBe('/usr/bin/node');
+    expect(content.servers['cortex'].args).toContain('/custom/path/server.js');
   });
 });
 

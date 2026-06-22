@@ -26,7 +26,7 @@ import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { getToolVersion } from './updater.js';
 import { readAiOsConfig } from './generators/context-docs.js';
-import { ENV, CONFIG_DIR } from './brand.js';
+import { ENV, CONFIG_DIR, MCP_SERVER_NAME } from './brand.js';
 
 export interface DoctorCheck {
   name: string;
@@ -144,7 +144,7 @@ function parseMcpConfig(cwd: string, configPath: string): McpConfig | null {
 function getServerEntry(config: McpConfig | null, topLevelKey: McpTopLevelKey): { command?: string; args?: string[] } | undefined {
   if (!config) return undefined;
   const servers = config[topLevelKey];
-  return servers?.['ai-os'];
+  return servers?.[MCP_SERVER_NAME];
 }
 
 function checkMcpAiOsEntry(cwd: string, definition: McpCheckDefinition): DoctorCheck {
@@ -375,7 +375,7 @@ export function runDoctor(cwd: string): DoctorResult {
     configPath: '.mcp.json',
     displayName: 'Copilot CLI MCP config present (.mcp.json)',
     topLevelKey: 'mcpServers',
-    entryName: 'ai-os CLI server entry in MCP config',
+    entryName: 'cortex CLI server entry in MCP config',
     commandName: 'Copilot CLI MCP command resolves',
   };
 
@@ -383,7 +383,7 @@ export function runDoctor(cwd: string): DoctorResult {
     configPath: path.join('.vscode', 'mcp.json'),
     displayName: 'VS Code MCP config present (.vscode/mcp.json)',
     topLevelKey: 'servers',
-    entryName: 'ai-os VS Code server entry in MCP config',
+    entryName: 'cortex VS Code server entry in MCP config',
     commandName: 'VS Code MCP command resolves',
   };
 

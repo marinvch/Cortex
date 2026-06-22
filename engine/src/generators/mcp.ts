@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { DetectedStack, AiOsConfig } from '../types.js';
 import { getMcpToolsForStack, getToolsWithStackSplit } from '../mcp-tools.js';
 import { writeIfChanged, writeFileAtomic } from './utils.js';
-import { ENV, CONFIG_DIR } from '../brand.js';
+import { ENV, CONFIG_DIR, MCP_SERVER_NAME } from '../brand.js';
 
 interface McpServerConfig {
   type: 'stdio';
@@ -75,7 +75,7 @@ export function writeCopilotCliMcpConfig(outputDir: string, options?: WriteMcpSe
   const existing = readJsonObject(mcpJsonPath);
   const mcpServers = getServerMap(existing.mcpServers);
 
-  mcpServers['ai-os'] = getServerEntry(
+  mcpServers[MCP_SERVER_NAME] = getServerEntry(
     [`${CONFIG_DIR}/mcp-server/index.js`],
     { [ENV.ROOT]: '.' },
     options,
@@ -95,7 +95,7 @@ export function writeVsCodeMcpConfig(outputDir: string, options?: WriteMcpServer
   const existing = readJsonObject(mcpJsonPath);
   const servers = getServerMap(existing.servers);
 
-  servers['ai-os'] = getServerEntry(
+  servers[MCP_SERVER_NAME] = getServerEntry(
     [`\${workspaceFolder}/${CONFIG_DIR}/mcp-server/index.js`],
     { [ENV.ROOT]: '${workspaceFolder}' },
     options,

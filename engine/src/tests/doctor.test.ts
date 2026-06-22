@@ -27,14 +27,14 @@ function writeFile(filePath: string, content: string): void {
 function writeCliMcpConfig(tmpDir: string, server: Record<string, unknown>): void {
   writeFile(
     path.join(tmpDir, '.mcp.json'),
-    JSON.stringify({ mcpServers: { 'ai-os': server } }),
+    JSON.stringify({ mcpServers: { 'cortex': server } }),
   );
 }
 
 function writeVsCodeMcpConfig(tmpDir: string, server: Record<string, unknown>): void {
   writeFile(
     path.join(tmpDir, '.vscode', 'mcp.json'),
-    JSON.stringify({ servers: { 'ai-os': server } }),
+    JSON.stringify({ servers: { 'cortex': server } }),
   );
 }
 
@@ -61,10 +61,10 @@ describe('runDoctor', () => {
     expect(names).toContain('MCP runtime binary present (.github/cortex/mcp-server/index.js)');
     expect(names).toContain('MCP runtime healthcheck');
     expect(names).toContain('Copilot CLI MCP config present (.mcp.json)');
-    expect(names).toContain('ai-os CLI server entry in MCP config');
+    expect(names).toContain('cortex CLI server entry in MCP config');
     expect(names).toContain('Copilot CLI MCP command resolves');
     expect(names).toContain('VS Code MCP config present (.vscode/mcp.json)');
-    expect(names).toContain('ai-os VS Code server entry in MCP config');
+    expect(names).toContain('cortex VS Code server entry in MCP config');
     expect(names).toContain('VS Code MCP command resolves');
     expect(names).toContain('AI OS config present (.github/cortex/config.json)');
     expect(names).toContain('MCP tools catalog present (.github/cortex/tools.json)');
@@ -124,19 +124,19 @@ describe('runDoctor', () => {
     expect(check?.critical).toBe(true);
   });
 
-  it('detects the ai-os CLI server entry when present', async () => {
+  it('detects the cortex CLI server entry when present', async () => {
     const { runDoctor } = await import('../doctor.js');
     writeCliMcpConfig(tmpDir, { type: 'stdio', command: 'node', args: ['stub.js'] });
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'ai-os CLI server entry in MCP config');
+    const check = result.checks.find(c => c.name === 'cortex CLI server entry in MCP config');
     expect(check?.passed).toBe(true);
   });
 
-  it('fails CLI ai-os entry check when mcpServers object is empty', async () => {
+  it('fails CLI cortex entry check when mcpServers object is empty', async () => {
     const { runDoctor } = await import('../doctor.js');
     writeFile(path.join(tmpDir, '.mcp.json'), JSON.stringify({ mcpServers: {} }));
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'ai-os CLI server entry in MCP config');
+    const check = result.checks.find(c => c.name === 'cortex CLI server entry in MCP config');
     expect(check?.passed).toBe(false);
     expect(check?.fixCommand).toBeDefined();
   });
@@ -183,19 +183,19 @@ describe('runDoctor', () => {
     expect(check?.critical).toBe(true);
   });
 
-  it('detects the ai-os VS Code server entry when present', async () => {
+  it('detects the cortex VS Code server entry when present', async () => {
     const { runDoctor } = await import('../doctor.js');
     writeVsCodeMcpConfig(tmpDir, { type: 'stdio', command: 'node', args: ['stub.js'] });
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'ai-os VS Code server entry in MCP config');
+    const check = result.checks.find(c => c.name === 'cortex VS Code server entry in MCP config');
     expect(check?.passed).toBe(true);
   });
 
-  it('fails VS Code ai-os entry check when servers object is empty', async () => {
+  it('fails VS Code cortex entry check when servers object is empty', async () => {
     const { runDoctor } = await import('../doctor.js');
     writeFile(path.join(tmpDir, '.vscode', 'mcp.json'), JSON.stringify({ servers: {} }));
     const result = runDoctor(tmpDir);
-    const check = result.checks.find(c => c.name === 'ai-os VS Code server entry in MCP config');
+    const check = result.checks.find(c => c.name === 'cortex VS Code server entry in MCP config');
     expect(check?.passed).toBe(false);
     expect(check?.fixCommand).toBeDefined();
   });

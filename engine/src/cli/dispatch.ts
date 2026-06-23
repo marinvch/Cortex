@@ -100,6 +100,7 @@ export async function main(): Promise<void> {
     action !== 'init' &&
     !args.json &&
     !args.dryRun &&
+    process.stdin.isTTY &&
     args.model === 'copilot' &&
     (args.mode === 'refresh-existing' || args.mode === 'update' || action === 'apply')
   ) {

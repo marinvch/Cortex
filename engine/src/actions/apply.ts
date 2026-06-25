@@ -21,6 +21,8 @@ import { generateRecommendations, getSkillsGapReport, collectRecommendations } f
 import { applyProfile, describeProfile } from '../profile.js';
 import { generateEditorConfigs, detectEditorTargets } from '../generators/multi-editor.js';
 import { detectAssistants } from '../generators/detect-assistants.js';
+import { adaptersFor } from '../generators/adapters/registry.js';
+import type { AdapterId } from '../generators/detect-assistants.js';
 import { mergeUserBlocks } from '../user-blocks.js';
 import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport } from '../detectors/freshness.js';
 import { runMemoryMaintenance } from '../mcp-server/utils.js';
@@ -702,26 +704,50 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, editorTargets, personalBrainPath, projectBoundary } = args;
   let mode: GenerateMode = rawMode;
 
-  // Resolve 'auto': detect which AI assistants are present in cwd.
-  // If detection finds nothing, fall back to 'copilot' so existing tests/fixtures
-  // (which expect copilot-instructions.md etc.) continue to pass.
-  const model = args.model === 'auto'
-    ? (() => {
-        const detected = detectAssistants(cwd);
-        // For 'auto', we only use detected adapters that map directly to ModelTarget.
-        // 'cursor', 'jetbrains', 'neovim' are editor adapters — they don't change the
-        // model output target, so filter them out of the model resolution.
-        const modelIds = detected.filter(
-          (id): id is 'copilot' | 'claude' | 'gemini' | 'local' => ['copilot', 'claude', 'gemini', 'local'].includes(id),
-        );
-        if (modelIds.length === 0) return 'copilot' as const;
-        // If multiple detected, prefer the first one in priority order
-        for (const id of ['claude', 'gemini', 'local', 'copilot'] as const) {
-          if (modelIds.includes(id)) return id;
+  // ── Adapter selection via registry ──────────────────────────────────────────
+  // Resolve which adapters are active BEFORE any generator is called, so that
+  // 'auto' is never passed down into multi-model.ts/multi-editor.ts functions.
+  //
+  // Priority:
+  //   1. Explicit --model / --editor flags (from ParsedArgs)
+  //   2. detectAssistants(cwd) — filesystem marker detection
+  //   3. ['copilot'] baseline fallback (keeps existing fixtures green)
+  const resolvedIds: AdapterId[] = (() => {
+    const modelId = args.model;
+    const hasExplicitModel = modelId && modelId !== 'auto' && modelId !== 'both';
+    if (hasExplicitModel) {
+      // Explicit model flag: use it as the primary model adapter id
+      const ids: AdapterId[] = [modelId as AdapterId];
+      // Append explicit editor targets (excluding vscode which has no registry entry)
+      for (const et of editorTargets) {
+        if (et !== 'vscode' && et !== 'all' && !ids.includes(et as AdapterId)) {
+          ids.push(et as AdapterId);
         }
-        return modelIds[0];
-      })()
-    : args.model;
+      }
+      return ids;
+    }
+    // 'both' is a legacy ModelTarget meaning copilot + claude simultaneously
+    if (modelId === 'both') return ['copilot', 'claude'];
+    // 'auto' or no explicit model: detect from filesystem markers
+    const detected = detectAssistants(cwd);
+    if (detected.length > 0) return detected;
+    // Baseline fallback — copilot so existing tests/fixtures keep passing
+    return ['copilot'];
+  })();
+
+  const activeAdapters = adaptersFor(resolvedIds);
+
+  // Derive a single ModelTarget for generators that still accept one (generateInstructions,
+  // generateContextDocs). 'auto' must NOT reach those functions — only concrete ids do.
+  const MODEL_ADAPTER_IDS = ['copilot', 'claude', 'gemini', 'local'] as const;
+  type ModelAdapterId = typeof MODEL_ADAPTER_IDS[number];
+  const primaryModelId = resolvedIds.find((id): id is ModelAdapterId => (MODEL_ADAPTER_IDS as readonly string[]).includes(id));
+  // If both copilot + claude are selected, pass 'both' for backward compat with generateInstructions
+  const hasCopilot = resolvedIds.includes('copilot');
+  const hasClaude = resolvedIds.includes('claude');
+  const model = hasCopilot && hasClaude
+    ? 'both' as const
+    : (primaryModelId ?? 'copilot');
 
   // In --json mode, suppress all human-readable output so only the final JSON
   // object is written to stdout. Restore console.log before emitting it.
@@ -880,10 +906,18 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
 
   // Generate editor-specific config files (cursor, jetbrains, neovim)
-  // When only the default ['vscode'] is set, auto-detect additional editors from the project.
+  // The active adapters from the registry drive which editors get a config file.
+  // If explicit editor targets were given on the CLI, honour them; otherwise derive from
+  // the active adapter list (which was already resolved via detectAssistants or flags).
+  const EDITOR_IDS = ['cursor', 'jetbrains', 'neovim'] as const;
+  const registryEditorIds = activeAdapters
+    .map((a) => a.id)
+    .filter((id): id is typeof EDITOR_IDS[number] => (EDITOR_IDS as readonly string[]).includes(id));
   const effectiveEditorTargets = editorTargets.length > 1 || editorTargets[0] !== 'vscode'
     ? editorTargets
-    : detectEditorTargets(cwd);
+    : registryEditorIds.length > 0
+      ? ['vscode', ...registryEditorIds] as typeof editorTargets
+      : detectEditorTargets(cwd);
   const copilotInstructionsPath = path.join(cwd, '.github', 'copilot-instructions.md');
   const copilotInstructionsContent = fs.existsSync(copilotInstructionsPath)
     ? fs.readFileSync(copilotInstructionsPath, 'utf-8')

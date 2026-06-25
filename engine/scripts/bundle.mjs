@@ -31,9 +31,6 @@ for (const outfile of [distServerOutfile, bundleServerOutfile]) {
     // Do NOT add #!/usr/bin/env node in banner — esbuild preserves the shebang
     // from src/mcp-server/index.ts automatically at position 1.
     banner: { js: '// Cortex MCP Server — bundled single-file deployment' },
-    // @github/copilot-sdk is a dynamic import only loaded in --copilot mode.
-    // Mark it external so the bundle runs cleanly without it in standalone mode.
-    external: ['@github/copilot-sdk'],
     // Do NOT use packages:'external' — that would externalize ALL npm deps,
     // defeating the purpose of a self-contained bundle.
     minify: false,

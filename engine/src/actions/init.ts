@@ -84,7 +84,7 @@ export async function runWizardLogic(stack: DetectedStack, ask: AskFn): Promise<
   console.log('     both    — Generate files for both assistants');
   console.log('');
 
-  let model: ModelTarget = 'copilot';
+  let model: ModelTarget = 'auto';
   while (true) {
     const raw = (await ask('  Model [copilot/claude/both] (default: copilot): ')).trim().toLowerCase();
     if (raw === '' || raw === 'copilot') { model = 'copilot'; break; }

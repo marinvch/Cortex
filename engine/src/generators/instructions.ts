@@ -391,6 +391,43 @@ function buildPersistentRulesSection(persistentRules: string[], stack: DetectedS
   ].join('\n');
 }
 
+/**
+ * Generate the content for the canonical AGENTS.md (repo root).
+ *
+ * AGENTS.md is the primary artifact — cross-tool, no size cap, no Copilot
+ * frontmatter.  The same neutral instruction source feeds copilot-instructions.md,
+ * but that file gets the 8 KB cap and is produced by the Copilot adapter.
+ *
+ * @returns the raw Markdown string (caller is responsible for writing)
+ */
+export function generateCanonicalAgentsMd(stack: DetectedStack, outputDir: string, config?: AiOsConfig): string {
+  const base = readTemplate('base-instructions.md');
+  if (!base) return `# ${stack.projectName} — AGENTS.md\n\nNo base template found.\n`;
+
+  const templateKeys = new Set<string>();
+  for (const fw of stack.frameworks) {
+    templateKeys.add(fw.template);
+  }
+  const overlays = [...templateKeys].map(k => readFrameworkTemplate(k)).filter(Boolean).join('\n\n---\n\n');
+
+  let content = fillTemplate(
+    base,
+    stack,
+    overlays || `## ${stack.primaryLanguage.name} Project\n\nNo specific framework template found. Follow the general rules above.`,
+    outputDir,
+  );
+
+  const monorepoSection = buildMonorepoSection(stack);
+  if (monorepoSection) content += monorepoSection;
+
+  const persistentRules = config?.persistentRules ?? [];
+  const persistentSection = buildPersistentRulesSection(persistentRules, stack);
+  if (persistentSection) content += persistentSection;
+
+  // No size cap for AGENTS.md — all tools can read the full content
+  return content;
+}
+
 /** Returns absolute paths of all managed files. */
 export function generateInstructions(stack: DetectedStack, outputDir: string, options?: GenerateInstructionsOptions): string[] {
   const base = readTemplate('base-instructions.md');

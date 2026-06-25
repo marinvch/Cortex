@@ -49,8 +49,8 @@ describe('adapter registry', () => {
     expect(sel.length).toBe(2);
   });
 
-  it('adaptersFor returns empty array for unknown ids', () => {
-    // 'neovim' is a valid AdapterId but 'bogus' is not — adaptersFor filters to known ids
+  it('adaptersFor returns empty array for empty id list', () => {
+    // Passing an empty array returns no adapters
     const sel = adaptersFor([]).map((a) => a.id);
     expect(sel).toEqual([]);
   });

@@ -88,7 +88,7 @@ Options:
   let specDir: string | undefined = undefined;
   let personalBrainPath: string | undefined = undefined;
   const editorTargets: EditorTarget[] = ['vscode'];
-  let model: ModelTarget = 'copilot';
+  let model: ModelTarget = 'auto';
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--cwd' && args[i + 1]) {

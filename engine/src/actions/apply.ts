@@ -20,6 +20,7 @@ import { readManifest, writeManifest, syncManifest, getManifestPath, setVerboseM
 import { generateRecommendations, getSkillsGapReport, collectRecommendations } from '../recommendations/index.js';
 import { applyProfile, describeProfile } from '../profile.js';
 import { generateEditorConfigs, detectEditorTargets } from '../generators/multi-editor.js';
+import { detectAssistants } from '../generators/detect-assistants.js';
 import { mergeUserBlocks } from '../user-blocks.js';
 import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport } from '../detectors/freshness.js';
 import { runMemoryMaintenance } from '../mcp-server/utils.js';
@@ -698,8 +699,29 @@ function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPat
 }
 
 export async function runApply(args: ParsedArgs): Promise<void> {
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, model, editorTargets, personalBrainPath, projectBoundary } = args;
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, editorTargets, personalBrainPath, projectBoundary } = args;
   let mode: GenerateMode = rawMode;
+
+  // Resolve 'auto': detect which AI assistants are present in cwd.
+  // If detection finds nothing, fall back to 'copilot' so existing tests/fixtures
+  // (which expect copilot-instructions.md etc.) continue to pass.
+  const model = args.model === 'auto'
+    ? (() => {
+        const detected = detectAssistants(cwd);
+        // For 'auto', we only use detected adapters that map directly to ModelTarget.
+        // 'cursor', 'jetbrains', 'neovim' are editor adapters — they don't change the
+        // model output target, so filter them out of the model resolution.
+        const modelIds = detected.filter(
+          (id): id is 'copilot' | 'claude' | 'gemini' | 'local' => ['copilot', 'claude', 'gemini', 'local'].includes(id),
+        );
+        if (modelIds.length === 0) return 'copilot' as const;
+        // If multiple detected, prefer the first one in priority order
+        for (const id of ['claude', 'gemini', 'local', 'copilot'] as const) {
+          if (modelIds.includes(id)) return id;
+        }
+        return modelIds[0];
+      })()
+    : args.model;
 
   // In --json mode, suppress all human-readable output so only the final JSON
   // object is written to stdout. Restore console.log before emitting it.

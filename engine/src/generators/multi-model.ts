@@ -9,10 +9,10 @@
  */
 
 
-export type ModelTarget = 'copilot' | 'claude' | 'gemini' | 'local' | 'both';
+export type ModelTarget = 'copilot' | 'claude' | 'gemini' | 'local' | 'both' | 'auto';
 
 export function parseModelTarget(raw: string): ModelTarget | null {
-  const models: ModelTarget[] = ['copilot', 'claude', 'gemini', 'local', 'both'];
+  const models: ModelTarget[] = ['copilot', 'claude', 'gemini', 'local', 'both', 'auto'];
   const lower = raw.toLowerCase() as ModelTarget;
   return models.includes(lower) ? lower : null;
 }
@@ -149,6 +149,7 @@ export function adaptInstructionsForModel(content: string, model: ModelTarget): 
     case 'gemini': return adaptForGemini(content);
     case 'local': return adaptForLocal(content);
     case 'copilot':
+    case 'auto':
     default: return content;
   }
 }
@@ -170,6 +171,7 @@ export function getModelOutputPath(model: ModelTarget, githubDir: string): strin
     case 'gemini': return `${githubDir}/cortex/gemini-instructions.md`;
     case 'local': return `${githubDir}/cortex/local-instructions.md`;
     case 'copilot':
+    case 'auto':
     default: return `${githubDir}/copilot-instructions.md`;
   }
 }

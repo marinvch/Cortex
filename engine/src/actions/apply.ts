@@ -916,7 +916,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   //   2. In safe-refresh mode, if AGENTS.md already exists AND the user has
   //      authored blocks (AI-OS:USER_BLOCK markers), merge them (same logic as
   //      hybridSnapshots, applied inline here so we don't need protect.json).
-  //   3. Write via writeFileAtomic (skips disk write when unchanged).
+  //   3. Write via writeIfChanged (skips disk write when unchanged).
   const agentsMdPath = path.join(cwd, 'AGENTS.md');
   const agentsMdFiles: string[] = [];
   {

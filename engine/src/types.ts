@@ -182,7 +182,7 @@ export interface AiOsConfig {
    * Target AI model for generated instructions.
    * Defaults to 'copilot' (standard Markdown). Other values produce companion files.
    */
-  model?: 'copilot' | 'claude' | 'gemini' | 'local' | 'both' | 'auto';
+  model?: 'copilot' | 'claude' | 'gemini' | 'local' | 'both';
   /**
    * Additional editor targets for generated configs.
    * 'vscode' is always included. Others produce companion files.

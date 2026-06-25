@@ -94,15 +94,14 @@ export async function main(): Promise<void> {
     // Fall through to apply with selected profile + model
   }
 
-  // For update/refresh: if the project has no explicit model preference (copilot default or
-  // 'auto'), offer migration to Claude Code.
-  // Guarded by process.stdin.isTTY so CI/JSON/dry-run runs are unaffected.
+  // For update/refresh: if project is still on copilot and no explicit --model flag,
+  // offer migration to Claude Code (skip in JSON/dry-run mode and after --init)
   if (
     action !== 'init' &&
     !args.json &&
     !args.dryRun &&
     process.stdin.isTTY &&
-    (args.model === 'copilot' || args.model === 'auto') &&
+    args.model === 'copilot' &&
     (args.mode === 'refresh-existing' || args.mode === 'update' || action === 'apply')
   ) {
     const existingCfg = readAiOsConfig(cwd);

@@ -6889,6 +6889,9 @@ var require_dist = __commonJS({
   }
 });
 
+// src/mcp-server/index.ts
+import { approveAll } from "@github/copilot-sdk";
+
 // src/mcp-server/utils.ts
 import fs8 from "node:fs";
 import path9 from "node:path";
@@ -9108,7 +9111,7 @@ function getRecommendations() {
   if (fs7.existsSync(recommendationsPath)) {
     return fs7.readFileSync(recommendationsPath, "utf-8");
   }
-  return "No recommendations file found. Run Cortex generation with recommendations enabled to create .github/cortex/recommendations.md.";
+  return "No recommendations file found. Run AI OS generation with recommendations enabled to create .github/cortex/recommendations.md.";
 }
 function suggestImprovements() {
   const suggestions = [];
@@ -9150,7 +9153,7 @@ function suggestImprovements() {
     }
   }
   if (suggestions.length === 0) {
-    return "## Improvement Suggestions\n\nNo actionable improvements found. Your Cortex setup looks healthy!\n\nConsider:\n- Adding more persistent rules in `config.json` for frequently forgotten conventions\n- Calling `remember_repo_fact` after major architectural decisions";
+    return "## Improvement Suggestions\n\nNo actionable improvements found. Your AI OS setup looks healthy!\n\nConsider:\n- Adding more persistent rules in `config.json` for frequently forgotten conventions\n- Calling `remember_repo_fact` after major architectural decisions";
   }
   return [
     "## Improvement Suggestions",
@@ -9194,7 +9197,7 @@ function getSessionContext() {
   const lines = [
     "# Session Context",
     "",
-    "> COPILOT_CONTEXT.md not found. Run Cortex generation to create it.",
+    "> COPILOT_CONTEXT.md not found. Run AI OS generation to create it.",
     "",
     "## Quick Context",
     ""
@@ -9213,7 +9216,7 @@ function checkForUpdates() {
   const legacyConfigPath = path9.join(ROOT, ".ai-os", "config.json");
   const configPath = fs8.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs8.existsSync(configPath)) {
-    return "Cortex is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`";
+    return "AI OS is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`";
   }
   let installedVersion = "0.0.0";
   let installedAt = "unknown";
@@ -35293,9 +35296,9 @@ function validateRuntimeEnvironment() {
 }
 async function main() {
   if (process.argv.includes("--healthcheck")) {
-    const health = validateRuntimeEnvironment();
-    if (!health.ok) {
-      for (const message of health.messages) {
+    const health2 = validateRuntimeEnvironment();
+    if (!health2.ok) {
+      for (const message of health2.messages) {
         console.error(`[cortex:mcp:healthcheck] ${message}`);
       }
       process.exit(1);
@@ -35303,8 +35306,80 @@ async function main() {
     console.error("[cortex:mcp:healthcheck] OK");
     process.exit(0);
   }
-  logDiagnostic("Starting in MCP SDK stdio mode");
-  await runSdkMcp();
+  if (!process.argv.includes("--copilot")) {
+    logDiagnostic("Starting in MCP SDK stdio mode");
+    await runSdkMcp();
+    return;
+  }
+  const health = validateRuntimeEnvironment();
+  for (const message of health.messages) {
+    logDiagnostic(message);
+  }
+  if (!health.ok) {
+    throw new Error(`MCP runtime validation failed: ${health.messages.join(" | ")}`);
+  }
+  let CopilotClient;
+  try {
+    const sdk = await import("@github/copilot-sdk");
+    CopilotClient = sdk.CopilotClient;
+  } catch {
+    console.error("[cortex:mcp] @github/copilot-sdk is required for --copilot mode but was not found.");
+    console.error("[cortex:mcp] Install it or omit --copilot to use the standard MCP SDK mode.");
+    process.exit(1);
+  }
+  const sdkServer = createSdkServer();
+  const toolDefs = getActiveToolsForProject(getProjectRoot());
+  const client = new CopilotClient();
+  try {
+    await client.start();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[cortex:mcp] Copilot SDK client failed to start: ${msg}`);
+    console.error("[cortex:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.");
+    process.exit(1);
+  }
+  const [serverTransport, clientTransport] = ["server", "client"].map(() => ({
+    onmessage: null,
+    start: async () => {
+    },
+    close: async () => {
+    },
+    send: (msg) => {
+    }
+  }));
+  void sdkServer;
+  void serverTransport;
+  void clientTransport;
+  const session = await client.createSession({
+    model: "gpt-4.1",
+    tools: toolDefs.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema,
+      handler: async (input) => {
+        const sdkInstance = createSdkServer();
+        let result = `Tool ${tool.name} executed via SDK`;
+        try {
+          const transport = new StdioServerTransport();
+          void transport;
+          result = `[copilot mode] ${tool.name}: use standard MCP mode for full functionality`;
+        } catch {
+        }
+        return result;
+      }
+    })),
+    onPermissionRequest: approveAll
+  });
+  process.on("SIGINT", async () => {
+    await session.disconnect();
+    await client.stop();
+    process.exit(0);
+  });
+  process.on("SIGTERM", async () => {
+    await session.disconnect();
+    await client.stop();
+    process.exit(0);
+  });
 }
 main().catch((err) => {
   const msg = err instanceof Error ? err.message : String(err);

@@ -57,14 +57,11 @@ export interface FreshnessReport {
 
 /** Cortex context artifact files that are tracked for freshness. */
 const ARTIFACT_PATHS = [
-  // Canonical primary — always tracked
-  'AGENTS.md',
   `${CONFIG_DIR}/context/conventions.md`,
   `${CONFIG_DIR}/context/architecture.md`,
   `${CONFIG_DIR}/context/stack.md`,
   `${CONFIG_DIR}/context/existing-ai-context.md`,
   `${CONFIG_DIR}/context/context-budget.md`,
-  // Adapter views — tracked but absence is not a freshness failure when AGENTS.md is present
   '.github/copilot-instructions.md',
   `${CONFIG_DIR}/config.json`,
   `${CONFIG_DIR}/tools.json`,
@@ -325,10 +322,8 @@ export function computeFreshnessReport(rootDir: string): FreshnessReport {
   if (staleArtifacts.some(a => a.includes('architecture'))) {
     recommendations.push('`architecture.md` is stale — review system design docs and re-run generation.');
   }
-  if (staleArtifacts.some(a => a === 'AGENTS.md')) {
-    recommendations.push('`AGENTS.md` (canonical primary) has changed — check persistent rules in `config.json` are still aligned.');
-  } else if (staleArtifacts.some(a => a.includes('copilot-instructions'))) {
-    recommendations.push('`copilot-instructions.md` (Copilot adapter) has changed — check persistent rules in `config.json` are still aligned.');
+  if (staleArtifacts.some(a => a.includes('copilot-instructions'))) {
+    recommendations.push('`copilot-instructions.md` has changed — check persistent rules in `config.json` are still aligned.');
   }
 
   if (status === 'fresh' && recommendations.length === 0) {

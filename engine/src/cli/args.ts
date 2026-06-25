@@ -65,7 +65,7 @@ Options:
   --full-diff                 Show full file diffs
   --profile <name>            Install profile: minimal, standard, full
   --editor <name>             Target editor: vscode, cursor, jetbrains, neovim, all
-  --model <name>              Target model: copilot, claude, gemini, local, both
+  --model <name>              Target model: auto, copilot, claude, gemini, local, both (default: auto)
   --prune-custom-artifacts    Also prune custom artifacts (agents, skills, prompts)
   --help, -h                  Show this help message
 `);
@@ -181,13 +181,13 @@ Options:
       if (!editorTargets.includes(parsed)) editorTargets.push(parsed);
     } else if (args[i] === '--model' && args[i + 1]) {
       const parsed = parseModelTarget(args[i + 1]);
-      if (!parsed) throw new Error(`--model must be one of: copilot, claude, gemini, local (got "${args[i + 1]}")`);
+      if (!parsed) throw new Error(`--model must be one of: auto, copilot, claude, gemini, local, both (got "${args[i + 1]}")`);
       model = parsed;
       i++;
     } else if (args[i]?.startsWith('--model=')) {
       const raw = args[i].slice('--model='.length);
       const parsed = parseModelTarget(raw);
-      if (!parsed) throw new Error(`--model must be one of: copilot, claude, gemini, local (got "${raw}")`);
+      if (!parsed) throw new Error(`--model must be one of: auto, copilot, claude, gemini, local, both (got "${raw}")`);
       model = parsed;
     }
   }

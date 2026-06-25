@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cortex is a portable, assistant-agnostic AI context engine. It scans a repository, detects the tech stack, and generates an optimized AI context package. `AGENTS.md` is the canonical primary artifact; adapter views (`copilot-instructions.md`, `CLAUDE.md`, etc.) are derived from it automatically. Detection is package-aware for monorepos and mixed stacks.
+Cortex is a portable GitHub Copilot context engine. It scans a repository, detects the tech stack, and generates an optimized AI context package. Detection is package-aware for monorepos and mixed stacks.
 
 ## Components
 
@@ -60,18 +60,12 @@ src/
 CLI flags + cwd
       │
       ▼
-  detectAssistants(cwd)  ← auto-detects active AI assistants (--model auto, default)
-      │
-      ▼
   analyze(cwd)           ← detects stack, languages, frameworks, patterns
       │
       ▼
   DetectedStack          ← typed snapshot of the repo's tech profile
       │
-      ├──► generateCanonicalAgentsMd()  → AGENTS.md  (canonical primary)
-      │         │
-      │         └─► adapter registry  → copilot-instructions.md, CLAUDE.md,
-      │                                  GEMINI.md, cursor/.cursorrules, etc.
+      ├──► generateInstructions()    → .github/copilot-instructions.md
       ├──► generateContextDocs()     → .github/cortex/context/
       ├──► generateAgents()          → .github/agents/
       ├──► generateSkills()          → .github/copilot/skills/
@@ -100,7 +94,7 @@ Cortex uses `CortexError` (from `src/errors.ts`) for all known recoverable error
 
 `detectDrift(cwd)` in `src/detectors/drift.ts` scans 7 artifact classes:
 
-1. **Required files** — `AGENTS.md`, `COPILOT_CONTEXT.md`, `config.json`
+1. **Required files** — `copilot-instructions.md`, `COPILOT_CONTEXT.md`, `config.json`
 2. **MCP config** — presence and server path validity
 3. **Template placeholders** — unreplaced `{{VAR}}` in instructions
 4. **Context snapshot age** — warns if older than 7 days

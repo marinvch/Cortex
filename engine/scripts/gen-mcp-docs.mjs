@@ -45,7 +45,7 @@ ${table}
 
 ## Session Start Protocol
 
-At the start of every new session in a Cortex repo:
+At the start of every new Copilot session in a Cortex repo:
 
 1. Call \`get_session_context\` → reloads MUST-ALWAYS rules and key commands
 2. Call \`get_repo_memory\` → recovers durable architectural decisions
@@ -55,7 +55,8 @@ At the start of every new session in a Cortex repo:
 
 | Mode | How to invoke | Use case |
 | --- | --- | --- |
-| Standalone JSON-RPC stdio | default (no flag) | VS Code MCP integration |
+| Standalone JSON-RPC stdio | default (no flag) | VS Code Copilot MCP integration |
+| Copilot SDK client | \`--copilot\` flag | Copilot CLI integration |
 | Health check | \`--healthcheck\` flag | Post-install validation |
 
 \`\`\`bash
@@ -68,7 +69,7 @@ CORTEX_MCP_DEBUG=1 node .github/cortex/mcp-server/index.js --healthcheck
 
 ## Bundle Architecture
 
-\`npm run bundle\` uses esbuild to produce \`dist/server.js\` — a single self-contained bundle with zero npm dependencies. The server communicates over stdio MCP transport. This file is committed and deployed as-is — no \`npm install\` required in target repos.
+\`npm run bundle\` uses esbuild to produce \`dist/server.js\` — a single self-contained bundle with zero npm dependencies for the default standalone mode. \`@github/copilot-sdk\` is dynamically imported only when \`--copilot\` is passed. This file is committed and deployed as-is — no \`npm install\` required in target repos.
 `;
 
 const outPath = resolve(__dirname, '../docs/mcp-tools.md');

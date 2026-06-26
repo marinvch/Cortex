@@ -105,6 +105,23 @@ jobs:
       - name: Run tests
         run: npm run test
 
+  # Single aggregating check for branch protection. Require ONLY this context on
+  # dev/master — it stays green only if every validate-fast + test-matrix leg
+  # passed, so the matrix can change shape without breaking branch protection.
+  validate-gate:
+    if: always() && github.event_name == 'pull_request'
+    needs: [validate-fast, test-matrix]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required check did not succeed
+        if: needs.validate-fast.result != 'success' || needs.test-matrix.result != 'success'
+        run: |
+          echo "validate-fast=${{ needs.validate-fast.result }} test-matrix=${{ needs.test-matrix.result }}"
+          echo "::error::A required PR check failed — blocking merge."
+          exit 1
+      - name: All required PR checks passed
+        run: echo "validate-fast and test-matrix succeeded"
+
   validate-full:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest

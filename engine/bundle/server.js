@@ -6889,9 +6889,6 @@ var require_dist = __commonJS({
   }
 });
 
-// src/mcp-server/index.ts
-import { approveAll } from "@github/copilot-sdk";
-
 // src/mcp-server/utils.ts
 import fs8 from "node:fs";
 import path9 from "node:path";
@@ -8889,11 +8886,14 @@ import crypto from "node:crypto";
 import fs6 from "node:fs";
 import path7 from "node:path";
 var ARTIFACT_PATHS = [
+  // Canonical primary — always tracked
+  "AGENTS.md",
   `${CONFIG_DIR}/context/conventions.md`,
   `${CONFIG_DIR}/context/architecture.md`,
   `${CONFIG_DIR}/context/stack.md`,
   `${CONFIG_DIR}/context/existing-ai-context.md`,
   `${CONFIG_DIR}/context/context-budget.md`,
+  // Adapter views — tracked but absence is not a freshness failure when AGENTS.md is present
   ".github/copilot-instructions.md",
   `${CONFIG_DIR}/config.json`,
   `${CONFIG_DIR}/tools.json`,
@@ -9036,8 +9036,10 @@ function computeFreshnessReport(rootDir) {
   if (staleArtifacts.some((a) => a.includes("architecture"))) {
     recommendations.push("`architecture.md` is stale \u2014 review system design docs and re-run generation.");
   }
-  if (staleArtifacts.some((a) => a.includes("copilot-instructions"))) {
-    recommendations.push("`copilot-instructions.md` has changed \u2014 check persistent rules in `config.json` are still aligned.");
+  if (staleArtifacts.some((a) => a === "AGENTS.md")) {
+    recommendations.push("`AGENTS.md` (canonical primary) has changed \u2014 check persistent rules in `config.json` are still aligned.");
+  } else if (staleArtifacts.some((a) => a.includes("copilot-instructions"))) {
+    recommendations.push("`copilot-instructions.md` (Copilot adapter) has changed \u2014 check persistent rules in `config.json` are still aligned.");
   }
   if (status === "fresh" && recommendations.length === 0) {
     recommendations.push("Context is fresh. No action needed.");
@@ -9111,7 +9113,7 @@ function getRecommendations() {
   if (fs7.existsSync(recommendationsPath)) {
     return fs7.readFileSync(recommendationsPath, "utf-8");
   }
-  return "No recommendations file found. Run AI OS generation with recommendations enabled to create .github/cortex/recommendations.md.";
+  return "No recommendations file found. Run Cortex generation with recommendations enabled to create .github/cortex/recommendations.md.";
 }
 function suggestImprovements() {
   const suggestions = [];
@@ -9153,7 +9155,7 @@ function suggestImprovements() {
     }
   }
   if (suggestions.length === 0) {
-    return "## Improvement Suggestions\n\nNo actionable improvements found. Your AI OS setup looks healthy!\n\nConsider:\n- Adding more persistent rules in `config.json` for frequently forgotten conventions\n- Calling `remember_repo_fact` after major architectural decisions";
+    return "## Improvement Suggestions\n\nNo actionable improvements found. Your Cortex setup looks healthy!\n\nConsider:\n- Adding more persistent rules in `config.json` for frequently forgotten conventions\n- Calling `remember_repo_fact` after major architectural decisions";
   }
   return [
     "## Improvement Suggestions",
@@ -9197,7 +9199,7 @@ function getSessionContext() {
   const lines = [
     "# Session Context",
     "",
-    "> COPILOT_CONTEXT.md not found. Run AI OS generation to create it.",
+    "> COPILOT_CONTEXT.md not found. Run Cortex generation to create it.",
     "",
     "## Quick Context",
     ""
@@ -9216,7 +9218,7 @@ function checkForUpdates() {
   const legacyConfigPath = path9.join(ROOT, ".ai-os", "config.json");
   const configPath = fs8.existsSync(newConfigPath) ? newConfigPath : legacyConfigPath;
   if (!fs8.existsSync(configPath)) {
-    return "AI OS is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`";
+    return "Cortex is not installed in this repository. Run the bootstrap installer: `curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/master/bootstrap.sh | bash`";
   }
   let installedVersion = "0.0.0";
   let installedAt = "unknown";
@@ -33967,7 +33969,7 @@ function globFiles(pattern, cwd) {
   }
 }
 var REQUIRED_FILES = [
-  { path: ".github/copilot-instructions.md", description: "Main Copilot instructions file" },
+  { path: "AGENTS.md", description: "Canonical cross-tool instructions (primary artifact)" },
   { path: ".github/COPILOT_CONTEXT.md", description: "Session context card" },
   { path: `${CONFIG_DIR}/config.json`, description: "Cortex configuration" }
 ];
@@ -33975,19 +33977,22 @@ var SNAPSHOT_MAX_AGE_DAYS = 7;
 var FIX_CMD = "npx -y github:marinvch/ai-os --refresh-existing";
 function detectSemanticDrift(cwd, warnings) {
   const configPath = join2(cwd, CONFIG_DIR, "config.json");
+  const agentsMdPath = join2(cwd, "AGENTS.md");
   const instrPath = join2(cwd, ".github/copilot-instructions.md");
-  if (existsSync2(configPath) && existsSync2(instrPath)) {
+  const primaryPath = existsSync2(agentsMdPath) ? agentsMdPath : instrPath;
+  const primaryRel = existsSync2(agentsMdPath) ? "AGENTS.md" : ".github/copilot-instructions.md";
+  if (existsSync2(configPath) && existsSync2(primaryPath)) {
     try {
       const config2 = JSON.parse(readFileSync2(configPath, "utf8"));
-      const instrContent = readFileSync2(instrPath, "utf8");
+      const instrContent = readFileSync2(primaryPath, "utf8");
       if (config2.primaryFramework) {
         const fw = config2.primaryFramework;
         if (!instrContent.toLowerCase().includes(fw.toLowerCase())) {
           warnings.push({
-            path: ".github/copilot-instructions.md",
+            path: primaryRel,
             kind: "semantic-mismatch",
             severity: "warning",
-            message: `Primary framework "${fw}" from config.json is not mentioned in copilot-instructions.md \u2014 instructions may be stale`,
+            message: `Primary framework "${fw}" from config.json is not mentioned in ${primaryRel} \u2014 instructions may be stale`,
             fix: FIX_CMD
           });
         }
@@ -34100,18 +34105,42 @@ function detectDrift(cwd) {
       }
     }
   }
-  const instrPath = join2(cwd, ".github/copilot-instructions.md");
-  if (existsSync2(instrPath)) {
-    const content = readFileSync2(instrPath, "utf8");
-    const placeholders = content.match(/\{\{[A-Z_]+\}\}/g);
+  const agentsMdPath = join2(cwd, "AGENTS.md");
+  if (existsSync2(agentsMdPath)) {
+    const agentsMdContent = readFileSync2(agentsMdPath, "utf8");
+    const placeholders = agentsMdContent.match(/\{\{[A-Z_]+\}\}/g);
     if (placeholders) {
       errors.push({
-        path: ".github/copilot-instructions.md",
+        path: "AGENTS.md",
         kind: "schema-mismatch",
         severity: "error",
         message: `Contains unreplaced template placeholders: ${[...new Set(placeholders)].join(", ")}`,
         fix: FIX_CMD
       });
+    }
+  }
+  const instrPath = join2(cwd, ".github/copilot-instructions.md");
+  if (existsSync2(agentsMdPath) && !existsSync2(instrPath)) {
+    warnings.push({
+      path: ".github/copilot-instructions.md",
+      kind: "missing",
+      severity: "warning",
+      message: "Copilot adapter file is missing \u2014 run refresh to regenerate it",
+      fix: FIX_CMD
+    });
+  } else if (existsSync2(instrPath)) {
+    const instrContent = readFileSync2(instrPath, "utf8");
+    const instrPlaceholders = instrContent.match(/\{\{[A-Z_]+\}\}/g);
+    if (instrPlaceholders) {
+      errors.push({
+        path: ".github/copilot-instructions.md",
+        kind: "schema-mismatch",
+        severity: "error",
+        message: `Contains unreplaced template placeholders: ${[...new Set(instrPlaceholders)].join(", ")}`,
+        fix: FIX_CMD
+      });
+    } else {
+      healthy.push(".github/copilot-instructions.md");
     }
   }
   const snapshotPath = `${CONFIG_DIR}/context-snapshot.json`;
@@ -34160,15 +34189,17 @@ function detectDrift(cwd) {
   const skillsDirLegacy = join2(cwd, ".github", "copilot", "skills");
   const skillsDir = existsSync2(skillsDirNew) ? skillsDirNew : skillsDirLegacy;
   const installedSkills = existsSync2(skillsDir) ? readdirSync(skillsDir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, "")) : [];
-  if (installedSkills.length > 0 && existsSync2(instrPath)) {
-    const instrContent = readFileSync2(instrPath, "utf8");
+  const skillCheckPath = existsSync2(join2(cwd, "AGENTS.md")) ? join2(cwd, "AGENTS.md") : instrPath;
+  const skillCheckRel = existsSync2(join2(cwd, "AGENTS.md")) ? "AGENTS.md" : ".github/copilot-instructions.md";
+  if (installedSkills.length > 0 && existsSync2(skillCheckPath)) {
+    const instrContent = readFileSync2(skillCheckPath, "utf8");
     for (const skill of installedSkills) {
       if (!instrContent.includes(skill)) {
         warnings.push({
-          path: ".github/copilot-instructions.md",
+          path: skillCheckRel,
           kind: "stale",
           severity: "warning",
-          message: `Installed skill "${skill}" is not listed in copilot-instructions.md`,
+          message: `Installed skill "${skill}" is not listed in ${skillCheckRel}`,
           fix: FIX_CMD
         });
       }
@@ -35296,9 +35327,9 @@ function validateRuntimeEnvironment() {
 }
 async function main() {
   if (process.argv.includes("--healthcheck")) {
-    const health2 = validateRuntimeEnvironment();
-    if (!health2.ok) {
-      for (const message of health2.messages) {
+    const health = validateRuntimeEnvironment();
+    if (!health.ok) {
+      for (const message of health.messages) {
         console.error(`[cortex:mcp:healthcheck] ${message}`);
       }
       process.exit(1);
@@ -35306,80 +35337,8 @@ async function main() {
     console.error("[cortex:mcp:healthcheck] OK");
     process.exit(0);
   }
-  if (!process.argv.includes("--copilot")) {
-    logDiagnostic("Starting in MCP SDK stdio mode");
-    await runSdkMcp();
-    return;
-  }
-  const health = validateRuntimeEnvironment();
-  for (const message of health.messages) {
-    logDiagnostic(message);
-  }
-  if (!health.ok) {
-    throw new Error(`MCP runtime validation failed: ${health.messages.join(" | ")}`);
-  }
-  let CopilotClient;
-  try {
-    const sdk = await import("@github/copilot-sdk");
-    CopilotClient = sdk.CopilotClient;
-  } catch {
-    console.error("[cortex:mcp] @github/copilot-sdk is required for --copilot mode but was not found.");
-    console.error("[cortex:mcp] Install it or omit --copilot to use the standard MCP SDK mode.");
-    process.exit(1);
-  }
-  const sdkServer = createSdkServer();
-  const toolDefs = getActiveToolsForProject(getProjectRoot());
-  const client = new CopilotClient();
-  try {
-    await client.start();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[cortex:mcp] Copilot SDK client failed to start: ${msg}`);
-    console.error("[cortex:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.");
-    process.exit(1);
-  }
-  const [serverTransport, clientTransport] = ["server", "client"].map(() => ({
-    onmessage: null,
-    start: async () => {
-    },
-    close: async () => {
-    },
-    send: (msg) => {
-    }
-  }));
-  void sdkServer;
-  void serverTransport;
-  void clientTransport;
-  const session = await client.createSession({
-    model: "gpt-4.1",
-    tools: toolDefs.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.inputSchema,
-      handler: async (input) => {
-        const sdkInstance = createSdkServer();
-        let result = `Tool ${tool.name} executed via SDK`;
-        try {
-          const transport = new StdioServerTransport();
-          void transport;
-          result = `[copilot mode] ${tool.name}: use standard MCP mode for full functionality`;
-        } catch {
-        }
-        return result;
-      }
-    })),
-    onPermissionRequest: approveAll
-  });
-  process.on("SIGINT", async () => {
-    await session.disconnect();
-    await client.stop();
-    process.exit(0);
-  });
-  process.on("SIGTERM", async () => {
-    await session.disconnect();
-    await client.stop();
-    process.exit(0);
-  });
+  logDiagnostic("Starting in MCP SDK stdio mode");
+  await runSdkMcp();
 }
 main().catch((err) => {
   const msg = err instanceof Error ? err.message : String(err);

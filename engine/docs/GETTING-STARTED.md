@@ -1,22 +1,21 @@
 # Getting Started with Cortex
 
-Welcome to Cortex — the framework that gives GitHub Copilot a brain, tailored to your codebase. This guide will get you up and running in 10 minutes or less, no matter your tech stack.
+Welcome to Cortex — the assistant-agnostic AI context engine that gives any AI assistant a brain, tailored to your codebase. This guide will get you up and running in 10 minutes or less, no matter your tech stack.
 
 ---
 
 ## What is Cortex?
 
-Cortex is a structured AI context framework that supercharges GitHub Copilot with deep, project-aware guidance. It works with any language or framework, auto-detects your stack, and generates precise instructions, agents, and tools for your codebase. 
+Cortex is a structured AI context engine that gives any AI assistant deep, project-aware guidance. It works with any language or framework, auto-detects your stack and which assistants you use, then generates `AGENTS.md` as the canonical primary artifact plus adapter views for each assistant (GitHub Copilot, Claude Code, Gemini, Cursor, JetBrains, Neovim).
 
-Unlike generic Copilot prompts, Cortex installs a persistent context layer: it scans your repository, learns your conventions, and creates a suite of artifacts (instructions, agents, skills, and tools) that make Copilot smarter, safer, and more productive for your team.
+Unlike generic prompts, Cortex installs a persistent context layer: it scans your repository, learns your conventions, and creates a suite of artifacts (instructions, agents, skills, and tools) that make your AI assistant smarter, safer, and more productive for your team.
 
 ---
 
 ## Prerequisites
 
-- **GitHub account** with Copilot enabled
-- **VS Code** with the GitHub Copilot extension installed
 - **Node.js 18+** (LTS recommended)
+- **Any AI assistant:** GitHub Copilot, Claude Code, Gemini CLI, Cursor, JetBrains AI, or Neovim + MCP
 
 > **Note:** You do *not* need Node.js in your target repo — only for running the installer.
 
@@ -33,10 +32,11 @@ Unlike generic Copilot prompts, Cortex installs a persistent context layer: it s
 
 3. Cortex will scan your codebase and generate:
 
-   - **`copilot-instructions.md`** — tailored Copilot rules for your stack
+   - **`AGENTS.md`** — canonical cross-tool instructions for your stack (primary artifact)
+   - **`copilot-instructions.md`** — Copilot adapter view (generated from `AGENTS.md`)
+   - **`CLAUDE.md`** — Claude Code adapter view (generated from `AGENTS.md`)
    - **Agents** — `.github/agents/*.agent.md` for common workflows
-   - **COPILOT_CONTEXT.md** — session context card for Copilot
-   - **MCP server** — `.cortex/mcp-server/` (27+ Copilot tools)
+   - **MCP server** — `.cortex/mcp-server/` (27+ tools via stdio MCP)
    - **MCP config** — `.vscode/mcp.json`
    - **14 agent skills** — `.github/copilot/skills/`
 
@@ -56,7 +56,7 @@ A healthy install will show:
 
 ```
 ✔ MCP server: OK
-✔ Copilot instructions: OK
+✔ AGENTS.md: OK
 ✔ Agents: OK
 ✔ Skills: OK
 ✔ Drift: none
@@ -68,16 +68,13 @@ If you see any ❌, follow the suggestions to resolve.
 
 ## Your First Cortex Session
 
-1. **Open VS Code** in your project.
-2. **Open the Copilot Chat** panel (or use the Copilot sidebar).
-3. **Type:**
-   - `@workspace` — loads the workspace agent (project context)
-   - Or select an agent from the agent list (if available)
-4. **Reference a skill:**
+1. **Open your project** in your preferred AI assistant (VS Code + Copilot, Claude Code, Cursor, etc.).
+2. The assistant will pick up `AGENTS.md` automatically — or load the adapter view for your assistant.
+3. **Reference a skill:**
    - Try: `Use the brainstorming skill to generate ideas for a new feature.`
-   - Or: `@workspace Use the systematic-debugging skill to diagnose this test failure.`
+   - Or: `Use the systematic-debugging skill to diagnose this test failure.`
 
-> **Tip:** Skills like `brainstorming`, `writing-plans`, and `systematic-debugging` are available out of the box.
+> **Tip:** Skills like `brainstorming`, `writing-plans`, and `systematic-debugging` are available out of the box and work with any assistant.
 
 ---
 
@@ -90,7 +87,8 @@ npx -y github:marinvch/ai-os
 ```
 
 **Expected output:**
-- `copilot-instructions.md` with TypeScript/Node.js rules
+- `AGENTS.md` with TypeScript/Node.js rules (canonical)
+- `copilot-instructions.md`, `CLAUDE.md` (adapter views)
 - `.github/agents/nodejs.agent.md`
 - `.vscode/mcp.json` with Node.js tools
 
@@ -101,7 +99,8 @@ npx -y github:marinvch/ai-os
 ```
 
 **Expected output:**
-- `copilot-instructions.md` with Python rules
+- `AGENTS.md` with Python rules (canonical)
+- `copilot-instructions.md`, `CLAUDE.md` (adapter views)
 - `.github/agents/python.agent.md`
 - `.vscode/mcp.json` with Python tools
 
@@ -112,7 +111,8 @@ npx -y github:marinvch/ai-os
 ```
 
 **Expected output:**
-- `copilot-instructions.md` with Java/Maven rules
+- `AGENTS.md` with Java/Maven rules (canonical)
+- `copilot-instructions.md`, `CLAUDE.md` (adapter views)
 - `.github/agents/java.agent.md`
 - `.vscode/mcp.json` with Java tools
 
@@ -123,7 +123,8 @@ npx -y github:marinvch/ai-os
 ```
 
 **Expected output:**
-- `copilot-instructions.md` with Rails rules
+- `AGENTS.md` with Rails rules (canonical)
+- `copilot-instructions.md`, `CLAUDE.md` (adapter views)
 - `.github/agents/rails.agent.md`
 - `.vscode/mcp.json` with Ruby tools
 
@@ -134,7 +135,8 @@ npx -y github:marinvch/ai-os
 ```
 
 **Expected output:**
-- `copilot-instructions.md` with Go rules
+- `AGENTS.md` with Go rules (canonical)
+- `copilot-instructions.md`, `CLAUDE.md` (adapter views)
 - `.github/agents/go.agent.md`
 - `.vscode/mcp.json` with Go tools
 

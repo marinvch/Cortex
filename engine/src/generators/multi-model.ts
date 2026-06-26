@@ -9,10 +9,10 @@
  */
 
 
-export type ModelTarget = 'copilot' | 'claude' | 'gemini' | 'local' | 'both';
+export type ModelTarget = 'copilot' | 'claude' | 'gemini' | 'local' | 'both' | 'auto';
 
 export function parseModelTarget(raw: string): ModelTarget | null {
-  const models: ModelTarget[] = ['copilot', 'claude', 'gemini', 'local', 'both'];
+  const models: ModelTarget[] = ['copilot', 'claude', 'gemini', 'local', 'both', 'auto'];
   const lower = raw.toLowerCase() as ModelTarget;
   return models.includes(lower) ? lower : null;
 }
@@ -141,6 +141,9 @@ export function generateClaudeCodeMd(instructionsContent: string, projectName: s
 /**
  * Apply model-specific transformation to instruction content.
  * 'copilot' (default) returns content unchanged.
+ *
+ * NOTE: 'auto' must be resolved to a concrete AdapterId BEFORE this function
+ * is called. Passing 'auto' here indicates a bug in the call site.
  */
 export function adaptInstructionsForModel(content: string, model: ModelTarget): string {
   switch (model) {
@@ -148,6 +151,10 @@ export function adaptInstructionsForModel(content: string, model: ModelTarget): 
     case 'both': return adaptForClaude(content);
     case 'gemini': return adaptForGemini(content);
     case 'local': return adaptForLocal(content);
+    case 'auto':
+      // 'auto' must be resolved before adapters are invoked.
+      // This case is now unreachable in normal flow — reaching it is a bug.
+      throw new Error("adaptInstructionsForModel: 'auto' must be resolved to a concrete adapter id before calling this function");
     case 'copilot':
     default: return content;
   }
@@ -162,6 +169,9 @@ export function generateAgentsShim(_model: 'claude' | 'gemini'): string {
 /**
  * Returns the output file path for the model-specific instructions.
  * VS Code Copilot reads the canonical path; other models get a companion file.
+ *
+ * NOTE: 'auto' must be resolved to a concrete AdapterId BEFORE this function
+ * is called. Passing 'auto' here indicates a bug in the call site.
  */
 // TODO(agents-canonical): migrate emission to canonical AGENTS.md + shims
 export function getModelOutputPath(model: ModelTarget, githubDir: string): string {
@@ -169,6 +179,10 @@ export function getModelOutputPath(model: ModelTarget, githubDir: string): strin
     case 'claude': return `${githubDir}/cortex/claude-instructions.md`;
     case 'gemini': return `${githubDir}/cortex/gemini-instructions.md`;
     case 'local': return `${githubDir}/cortex/local-instructions.md`;
+    case 'auto':
+      // 'auto' must be resolved before this function is called.
+      // This case is now unreachable in normal flow — reaching it is a bug.
+      throw new Error("getModelOutputPath: 'auto' must be resolved to a concrete adapter id before calling this function");
     case 'copilot':
     default: return `${githubDir}/copilot-instructions.md`;
   }

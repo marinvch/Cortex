@@ -11,7 +11,9 @@ import path from 'node:path';
 import type { BrainNode, Domain, NodeStatus } from './types.js';
 import { computeFingerprint, nodeToMarkdown, slugify } from './vault.js';
 import { SqliteBrainStore } from './sqlite-store.js';
-import type { RebuildStats } from './types.js';
+import type { BrainScope, RebuildStats } from './types.js';
+import { resolveEmbeddingProvider, type EmbeddingProviderConfig } from './embedding.js';
+import { reindexEmbeddings, type ReindexStats } from './semantic.js';
 
 interface JsonlEntry {
   id?: string;
@@ -35,6 +37,8 @@ export interface ImportOptions {
   tenantId?: string;
   /** Domain to assume when an entry omits one. */
   defaultDomain?: Domain;
+  /** If set (with dbPath), compute + store embeddings after the rebuild. */
+  embedding?: EmbeddingProviderConfig;
 }
 
 export interface ImportStats {
@@ -43,6 +47,7 @@ export interface ImportStats {
   malformed: number;
   skipped: number;
   rebuild?: RebuildStats;
+  reindex?: ReindexStats[];
 }
 
 const VALID_DOMAINS: Domain[] = ['project', 'personal', 'shared'];
@@ -65,6 +70,7 @@ export async function importJsonlToVault(opts: ImportOptions): Promise<ImportSta
   const raw = fs.readFileSync(opts.jsonlPath, 'utf8');
   const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
   const usedPaths = new Set<string>();
+  const domainsSeen = new Set<Domain>();
 
   for (const line of lines) {
     let entry: JsonlEntry;
@@ -107,6 +113,7 @@ export async function importJsonlToVault(opts: ImportOptions): Promise<ImportSta
 
     const relPath = uniquePath(domain, effectiveTitle, usedPaths);
     usedPaths.add(relPath);
+    domainsSeen.add(domain);
     const full = path.join(opts.vaultPath, relPath);
     fs.mkdirSync(path.dirname(full), { recursive: true });
     fs.writeFileSync(full, nodeToMarkdown({ ...node, path: relPath }), 'utf8');
@@ -117,6 +124,14 @@ export async function importJsonlToVault(opts: ImportOptions): Promise<ImportSta
     const store = new SqliteBrainStore({ dbPath: opts.dbPath });
     try {
       stats.rebuild = await store.rebuild(opts.vaultPath);
+      if (opts.embedding) {
+        const provider = resolveEmbeddingProvider(opts.embedding);
+        stats.reindex = [];
+        for (const domain of domainsSeen) {
+          const scope: BrainScope = { tenantId, domain };
+          stats.reindex.push(await reindexEmbeddings(store, provider, scope));
+        }
+      }
     } finally {
       store.close();
     }

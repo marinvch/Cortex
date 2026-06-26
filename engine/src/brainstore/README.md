@@ -31,8 +31,10 @@ without a valid scope and never leak across scopes).
 |---|---|
 | `types.ts` | `BrainStore` interface, node/edge/scope types, `assertScope` |
 | `vault.ts` | Markdown notes ↔ nodes, frontmatter (no YAML dep), `[[wikilink]]` extraction |
-| `sqlite-store.ts` | `SqliteBrainStore` — `node:sqlite` index, cosine kNN seam |
-| `import-jsonl.ts` | Migrate legacy `memory.jsonl` → vault notes → rebuilt index |
+| `sqlite-store.ts` | `SqliteBrainStore` — `node:sqlite` index, cosine kNN, `listNodes`/`search`/`getContext`/`rebuild`/`deleteTenant` |
+| `embedding.ts` | `EmbeddingProvider` seam + `HashingEmbeddingProvider` (zero-dep default) + `OllamaEmbeddingProvider` + registry |
+| `semantic.ts` | `reindexEmbeddings()` + `semanticSearch()` — glue provider ↔ store without coupling |
+| `import-jsonl.ts` | Migrate legacy `memory.jsonl` → vault notes → rebuilt index (+ optional embeddings) |
 | `index.ts` | Barrel export |
 
 ## Usage
@@ -53,6 +55,27 @@ const store = new SqliteBrainStore({ dbPath: 'brain/.index/brain.db' });
 const hits = await store.search({ text: 'build pipeline' }, { tenantId: 'local', domain: 'project' });
 ```
 
+### Semantic search (embeddings)
+
+```ts
+import { SqliteBrainStore, resolveEmbeddingProvider, reindexEmbeddings, semanticSearch } from './brainstore/index.js';
+
+const store = new SqliteBrainStore({ dbPath: 'brain/.index/brain.db' });
+const scope = { tenantId: 'local', domain: 'project' as const };
+
+// Default = zero-dependency hashing embedder (offline). Swap to Ollama for real semantics:
+//   resolveEmbeddingProvider({ provider: 'ollama', ollama: { model: 'nomic-embed-text' } })
+const provider = resolveEmbeddingProvider({ provider: 'hashing' });
+
+await reindexEmbeddings(store, provider, scope);          // compute + store vectors
+const hits = await semanticSearch(store, provider, 'how do I compile typescript', scope);
+```
+
+The `EmbeddingProvider` interface (`embed(texts) → vectors`) is the single variable-cost
+seam (#272). Vectors are stored as BLOBs; ranking is JS cosine kNN. Falls back to lexical
+search when nothing is embedded yet. The provider is resolved through a registry, so no
+core code names a provider.
+
 ## Swappability (#272 SaaS-readiness seam)
 
 `BrainStore` is async by design so a cloud impl (Turso/libSQL per-tenant, or
@@ -60,9 +83,14 @@ Postgres + pgvector) drops in without touching engine logic. `deleteTenant()` is
 GDPR hard-delete seam. Embedding/LLM providers and the MCP transport seam are
 separate follow-up sub-projects; this PR leaves the storage seam only.
 
-## Not in this PR (follow-ups)
+## Done (this module)
+
+- Storage seam + `node:sqlite` index + scoping invariant + `memory.jsonl` importer (#282).
+- Embedding provider seam + hashing/Ollama impls + `semanticSearch` (#272 follow-up).
+
+## Still ahead (follow-ups)
 
 - Flip the live personal brain (`promote_to_brain`, personal reads) onto the store.
 - Rewire per-repo project memory; retire legacy JSONL.
-- Embedding provider + LLM/extraction provider interfaces.
+- LLM/extraction provider interface (text/sessions → notes + `[[wikilinks]]`).
 - MCP transport seam + multi-agent memory tools.

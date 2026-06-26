@@ -3,7 +3,7 @@
   "version": "0.24.0",
   "description": "Cortex — portable AI-assistant context engine. Engine package lives in ./engine.",
   "type": "module",
-  "engines": { "node": ">=20.0.0" },
+  "engines": { "node": ">=22.0.0" },
   "bin": { "cortex": "./engine/bundle/generate.js" },
   "files": ["engine/bundle", "engine/src/templates", "engine/README.md"]
 }

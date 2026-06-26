@@ -111,6 +111,8 @@ export interface RebuildStats {
 export interface BrainStore {
   upsertNode(input: BrainNodeInput): Promise<string>;
   addEdge(edge: BrainEdge): Promise<void>;
+  /** All nodes in a scope (scoped read — used by embedding reindex). */
+  listNodes(scope: BrainScope, opts?: { includeStale?: boolean }): Promise<BrainNode[]>;
   search(query: SearchQuery, scope: BrainScope): Promise<SearchResult[]>;
   getContext(
     nodeId: string,

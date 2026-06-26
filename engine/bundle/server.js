@@ -8886,11 +8886,14 @@ import crypto from "node:crypto";
 import fs6 from "node:fs";
 import path7 from "node:path";
 var ARTIFACT_PATHS = [
+  // Canonical primary — always tracked
+  "AGENTS.md",
   `${CONFIG_DIR}/context/conventions.md`,
   `${CONFIG_DIR}/context/architecture.md`,
   `${CONFIG_DIR}/context/stack.md`,
   `${CONFIG_DIR}/context/existing-ai-context.md`,
   `${CONFIG_DIR}/context/context-budget.md`,
+  // Adapter views — tracked but absence is not a freshness failure when AGENTS.md is present
   ".github/copilot-instructions.md",
   `${CONFIG_DIR}/config.json`,
   `${CONFIG_DIR}/tools.json`,
@@ -9033,8 +9036,10 @@ function computeFreshnessReport(rootDir) {
   if (staleArtifacts.some((a) => a.includes("architecture"))) {
     recommendations.push("`architecture.md` is stale \u2014 review system design docs and re-run generation.");
   }
-  if (staleArtifacts.some((a) => a.includes("copilot-instructions"))) {
-    recommendations.push("`copilot-instructions.md` has changed \u2014 check persistent rules in `config.json` are still aligned.");
+  if (staleArtifacts.some((a) => a === "AGENTS.md")) {
+    recommendations.push("`AGENTS.md` (canonical primary) has changed \u2014 check persistent rules in `config.json` are still aligned.");
+  } else if (staleArtifacts.some((a) => a.includes("copilot-instructions"))) {
+    recommendations.push("`copilot-instructions.md` (Copilot adapter) has changed \u2014 check persistent rules in `config.json` are still aligned.");
   }
   if (status === "fresh" && recommendations.length === 0) {
     recommendations.push("Context is fresh. No action needed.");
@@ -33964,7 +33969,7 @@ function globFiles(pattern, cwd) {
   }
 }
 var REQUIRED_FILES = [
-  { path: ".github/copilot-instructions.md", description: "Main Copilot instructions file" },
+  { path: "AGENTS.md", description: "Canonical cross-tool instructions (primary artifact)" },
   { path: ".github/COPILOT_CONTEXT.md", description: "Session context card" },
   { path: `${CONFIG_DIR}/config.json`, description: "Cortex configuration" }
 ];
@@ -33972,19 +33977,22 @@ var SNAPSHOT_MAX_AGE_DAYS = 7;
 var FIX_CMD = "npx -y github:marinvch/ai-os --refresh-existing";
 function detectSemanticDrift(cwd, warnings) {
   const configPath = join2(cwd, CONFIG_DIR, "config.json");
+  const agentsMdPath = join2(cwd, "AGENTS.md");
   const instrPath = join2(cwd, ".github/copilot-instructions.md");
-  if (existsSync2(configPath) && existsSync2(instrPath)) {
+  const primaryPath = existsSync2(agentsMdPath) ? agentsMdPath : instrPath;
+  const primaryRel = existsSync2(agentsMdPath) ? "AGENTS.md" : ".github/copilot-instructions.md";
+  if (existsSync2(configPath) && existsSync2(primaryPath)) {
     try {
       const config2 = JSON.parse(readFileSync2(configPath, "utf8"));
-      const instrContent = readFileSync2(instrPath, "utf8");
+      const instrContent = readFileSync2(primaryPath, "utf8");
       if (config2.primaryFramework) {
         const fw = config2.primaryFramework;
         if (!instrContent.toLowerCase().includes(fw.toLowerCase())) {
           warnings.push({
-            path: ".github/copilot-instructions.md",
+            path: primaryRel,
             kind: "semantic-mismatch",
             severity: "warning",
-            message: `Primary framework "${fw}" from config.json is not mentioned in copilot-instructions.md \u2014 instructions may be stale`,
+            message: `Primary framework "${fw}" from config.json is not mentioned in ${primaryRel} \u2014 instructions may be stale`,
             fix: FIX_CMD
           });
         }
@@ -34097,18 +34105,42 @@ function detectDrift(cwd) {
       }
     }
   }
-  const instrPath = join2(cwd, ".github/copilot-instructions.md");
-  if (existsSync2(instrPath)) {
-    const content = readFileSync2(instrPath, "utf8");
-    const placeholders = content.match(/\{\{[A-Z_]+\}\}/g);
+  const agentsMdPath = join2(cwd, "AGENTS.md");
+  if (existsSync2(agentsMdPath)) {
+    const agentsMdContent = readFileSync2(agentsMdPath, "utf8");
+    const placeholders = agentsMdContent.match(/\{\{[A-Z_]+\}\}/g);
     if (placeholders) {
       errors.push({
-        path: ".github/copilot-instructions.md",
+        path: "AGENTS.md",
         kind: "schema-mismatch",
         severity: "error",
         message: `Contains unreplaced template placeholders: ${[...new Set(placeholders)].join(", ")}`,
         fix: FIX_CMD
       });
+    }
+  }
+  const instrPath = join2(cwd, ".github/copilot-instructions.md");
+  if (existsSync2(agentsMdPath) && !existsSync2(instrPath)) {
+    warnings.push({
+      path: ".github/copilot-instructions.md",
+      kind: "missing",
+      severity: "warning",
+      message: "Copilot adapter file is missing \u2014 run refresh to regenerate it",
+      fix: FIX_CMD
+    });
+  } else if (existsSync2(instrPath)) {
+    const instrContent = readFileSync2(instrPath, "utf8");
+    const instrPlaceholders = instrContent.match(/\{\{[A-Z_]+\}\}/g);
+    if (instrPlaceholders) {
+      errors.push({
+        path: ".github/copilot-instructions.md",
+        kind: "schema-mismatch",
+        severity: "error",
+        message: `Contains unreplaced template placeholders: ${[...new Set(instrPlaceholders)].join(", ")}`,
+        fix: FIX_CMD
+      });
+    } else {
+      healthy.push(".github/copilot-instructions.md");
     }
   }
   const snapshotPath = `${CONFIG_DIR}/context-snapshot.json`;
@@ -34157,15 +34189,17 @@ function detectDrift(cwd) {
   const skillsDirLegacy = join2(cwd, ".github", "copilot", "skills");
   const skillsDir = existsSync2(skillsDirNew) ? skillsDirNew : skillsDirLegacy;
   const installedSkills = existsSync2(skillsDir) ? readdirSync(skillsDir).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, "")) : [];
-  if (installedSkills.length > 0 && existsSync2(instrPath)) {
-    const instrContent = readFileSync2(instrPath, "utf8");
+  const skillCheckPath = existsSync2(join2(cwd, "AGENTS.md")) ? join2(cwd, "AGENTS.md") : instrPath;
+  const skillCheckRel = existsSync2(join2(cwd, "AGENTS.md")) ? "AGENTS.md" : ".github/copilot-instructions.md";
+  if (installedSkills.length > 0 && existsSync2(skillCheckPath)) {
+    const instrContent = readFileSync2(skillCheckPath, "utf8");
     for (const skill of installedSkills) {
       if (!instrContent.includes(skill)) {
         warnings.push({
-          path: ".github/copilot-instructions.md",
+          path: skillCheckRel,
           kind: "stale",
           severity: "warning",
-          message: `Installed skill "${skill}" is not listed in copilot-instructions.md`,
+          message: `Installed skill "${skill}" is not listed in ${skillCheckRel}`,
           fix: FIX_CMD
         });
       }

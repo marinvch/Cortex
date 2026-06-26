@@ -1,6 +1,6 @@
 {
   "name": "cortex",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "description": "Cortex — portable AI-assistant context engine that scans any repo and generates context, agents, skills, MCP tools, and slash-command prompts",
   "type": "module",
   "license": "MIT",

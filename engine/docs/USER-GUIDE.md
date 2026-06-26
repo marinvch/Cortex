@@ -51,7 +51,7 @@ This is the advanced reference for power users of Cortex. Here you’ll find eve
 
 ## Agent Customization
 
-Cortex agents live in `.github/agents/*.agent.md`. Each agent file defines a specialist Copilot agent for a workflow (e.g., workspace, reviewer, planner).
+Cortex agents live in `.github/agents/*.agent.md`. Each agent file defines a specialist AI agent for a workflow (e.g., workspace, reviewer, planner).
 
 **Required sections:**
 - **Goal:** What the agent is for
@@ -71,18 +71,18 @@ Assist with any project-wide task, enforcing repo conventions and memory.
 - Always use the MCP tools for file summaries
 
 ## Critical Files
-- copilot-instructions.md
+- AGENTS.md
 - .github/cortex/context/conventions.md
 - src/
 ```
 
-You can create your own agents by copying and editing these files. Agents are auto-detected and appear in Copilot Chat.
+You can create your own agents by copying and editing these files. Agents are auto-detected and appear in your AI assistant's chat UI.
 
 ---
 
 ## Writing Custom Skills
 
-Skills are reusable playbooks for Copilot agents. They live in `.github/copilot/skills/`.
+Skills are reusable playbooks for AI agents. They live in `.github/copilot/skills/`.
 
 **Skill template:**
 

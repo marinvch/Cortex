@@ -3,13 +3,13 @@
 > **This is the Cortex engine (kernel).** The repository root is **Cortex**, a personal AI OS
 > userland that lights this engine up when a codebase is present. See [`../README.md`](../README.md).
 
-> **Give GitHub Copilot a brain. Works with any codebase, any language.**
+> **Give any AI assistant a brain. Works with any codebase, any language.**
 
 [![npm](https://img.shields.io/npm/v/cortex)](https://www.npmjs.com/package/cortex)
 [![CI](https://github.com/marinvch/ai-os/actions/workflows/ai-os-validate.yml/badge.svg)](https://github.com/marinvch/ai-os/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-Cortex is a framework that installs structured AI context into any repository so GitHub Copilot gets consistent, project-aware guidance — auto-detecting your language, framework, conventions, and key files.
+Cortex is an assistant-agnostic context engine that installs structured AI context into any repository — auto-detecting your language, framework, conventions, and key files. It generates `AGENTS.md` as the canonical primary artifact, then adapts it for each AI assistant you use (Claude Code, GitHub Copilot, Gemini, Cursor, JetBrains, Neovim).
 
 ## Install
 
@@ -19,21 +19,22 @@ npx -y github:marinvch/ai-os
 
 ## What you get
 
-- **`copilot-instructions.md`** — tailored Copilot rules for your stack (TypeScript, Python, Java, Go, Ruby, etc.)
+- **`AGENTS.md`** — canonical primary artifact: cross-tool instructions for any AI assistant, auto-generated for your stack (TypeScript, Python, Java, Go, Ruby, etc.)
+- **Adapter views** — `copilot-instructions.md`, `CLAUDE.md`, `GEMINI.md`, and editor configs generated from `AGENTS.md` for each assistant you use
 - **Agent files** — specialist AI agents in `.github/agents/` for common workflows
-- **MCP server** — 37 project-intelligence tools accessible inside Copilot
+- **MCP server** — 37 project-intelligence tools accessible via stdio MCP (the universal transport)
 - **14 agent skills** — production-grade skills auto-installed: `brainstorming`, `writing-plans`, `systematic-debugging`, and more
 - **Drift detection** — `--check-drift` keeps your AI docs in sync as code evolves
 - **Boundary model** — `--check-boundaries` reports cross-domain leaks; `--personal-brain-path` and the `promote_to_brain` MCP tool gate the only sanctioned `project → personal` promotion
+- **Auto-detected assistants** — `--model auto` (default) detects which assistants are active; use `--model claude`, `--model gemini`, etc. to target specific ones
 - **Multi-editor** — generate configs for VS Code, Cursor, JetBrains, Neovim with `--editor`
-- **Multi-model** — adapt instructions for Claude, Gemini, or local LLMs with `--model`
 - **Workflow chaining** — YAML agent pipelines via the `run_workflow` MCP tool
 
 ## Documentation
 
 - [Getting Started →](docs/GETTING-STARTED.md) — Install guide for any tech stack
 - [User Guide →](docs/USER-GUIDE.md) — All CLI flags, agents, skills, MCP tools
-- [MCP Tools Reference →](docs/mcp-tools.md) — All 37 Copilot tools documented
+- [MCP Tools Reference →](docs/mcp-tools.md) — All 37 MCP tools documented
 - [Changelog →](CHANGELOG.md)
 
 ---
@@ -44,9 +45,11 @@ Run once in any repo. Cortex scans the codebase, detects your stack, and generat
 
 | Artifact | Location | What it is |
 | --- | --- | --- |
-| Copilot instructions | `.github/copilot-instructions.md` | System prompt optimized for your stack |
+| Canonical instructions | `AGENTS.md` | Primary cross-tool instructions for any AI assistant |
+| Copilot adapter view | `.github/copilot-instructions.md` | Copilot-specific adapter generated from `AGENTS.md` |
+| Claude adapter view | `CLAUDE.md` | Claude Code adapter generated from `AGENTS.md` |
 | Context docs | `.github/cortex/context/` | Token-efficient stack, architecture, conventions docs |
-| MCP tools | `.vscode/mcp.json` + `.cortex/mcp-server/` | 37 tools for code search, memory, session continuity |
+| MCP tools | `.vscode/mcp.json` + `.cortex/mcp-server/` | 37 tools for code search, memory, session continuity (stdio MCP transport) |
 | Agents | `.github/agents/*.agent.md` | Stack-specific chat agents |
 | Skills | `.github/copilot/skills/cortex-*.md` | Per-library playbooks (Next.js, tRPC, Prisma, etc.) |
 | Slash commands | `.github/copilot/prompts.json` | `/new-page`, `/new-trpc-procedure`, `/new-model`, etc. |
@@ -59,7 +62,7 @@ Cortex initializes a persistent repository memory store at `.github/cortex/memor
 
 - Node.js >= 20 **or** Docker (Node.js-free fallback)
 - Git
-- GitHub Copilot (VS Code extension)
+- Any AI assistant: GitHub Copilot, Claude Code, Gemini, Cursor, JetBrains AI, or Neovim + MCP
 
 **Target repositories do not need Node.js** — the MCP server is a pre-built, self-contained bundle.
 

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { ENV, CONFIG_DIR } from '../brand.js';
 import { analyze } from '../analyze.js';
-import { generateInstructions } from '../generators/instructions.js';
+import { generateInstructions, generateCanonicalAgentsMd } from '../generators/instructions.js';
 import { generateMcpJson, writeMcpServerConfig } from '../generators/mcp.js';
 import { generateContextDocs, readAiOsConfig } from '../generators/context-docs.js';
 import { generateAgents, scanExistingAgents } from '../generators/agents.js';
@@ -16,10 +16,13 @@ import { generateChatModes } from '../generators/chatmodes.js';
 import { getMcpToolsForStack } from '../mcp-tools.js';
 import { checkUpdateStatus, printUpdateBanner, getToolVersion, pruneLegacyArtifacts } from '../updater.js';
 import { buildOnboardingPlan } from '../planner.js';
-import { readManifest, writeManifest, syncManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic, setPrevHashes, getNewHashes } from '../generators/utils.js';
+import { readManifest, writeManifest, syncManifest, getManifestPath, setVerboseMode, setDryRunMode, getDryRunCaptures, writeFileAtomic, writeIfChanged, setPrevHashes, getNewHashes } from '../generators/utils.js';
 import { generateRecommendations, getSkillsGapReport, collectRecommendations } from '../recommendations/index.js';
 import { applyProfile, describeProfile } from '../profile.js';
 import { generateEditorConfigs, detectEditorTargets } from '../generators/multi-editor.js';
+import { detectAssistants } from '../generators/detect-assistants.js';
+import { adaptersFor } from '../generators/adapters/registry.js';
+import type { AdapterId } from '../generators/detect-assistants.js';
 import { mergeUserBlocks } from '../user-blocks.js';
 import { captureContextSnapshot, writeContextSnapshot, computeFreshnessReport } from '../detectors/freshness.js';
 import { runMemoryMaintenance } from '../mcp-server/utils.js';
@@ -698,8 +701,53 @@ function autoInstallSuperpowers(stack: ReturnType<typeof analyze>, skillsLockPat
 }
 
 export async function runApply(args: ParsedArgs): Promise<void> {
-  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, model, editorTargets, personalBrainPath, projectBoundary } = args;
+  const { cwd, dryRun, mode: rawMode, action, prune: pruneFlag, verbose, cleanUpdate, regenerateContext, pruneCustomArtifacts, profile: cliProfile, editorTargets, personalBrainPath, projectBoundary } = args;
   let mode: GenerateMode = rawMode;
+
+  // ── Adapter selection via registry ──────────────────────────────────────────
+  // Resolve which adapters are active BEFORE any generator is called, so that
+  // 'auto' is never passed down into multi-model.ts/multi-editor.ts functions.
+  //
+  // Priority:
+  //   1. Explicit --model / --editor flags (from ParsedArgs)
+  //   2. detectAssistants(cwd) — filesystem marker detection
+  //   3. ['copilot'] baseline fallback (keeps existing fixtures green)
+  const resolvedIds: AdapterId[] = (() => {
+    const modelId = args.model;
+    const hasExplicitModel = modelId && modelId !== 'auto' && modelId !== 'both';
+    if (hasExplicitModel) {
+      // Explicit model flag: use it as the primary model adapter id
+      const ids: AdapterId[] = [modelId as AdapterId];
+      // Append explicit editor targets (excluding vscode which has no registry entry)
+      for (const et of editorTargets) {
+        if (et !== 'vscode' && et !== 'all' && !ids.includes(et as AdapterId)) {
+          ids.push(et as AdapterId);
+        }
+      }
+      return ids;
+    }
+    // 'both' is a legacy ModelTarget meaning copilot + claude simultaneously
+    if (modelId === 'both') return ['copilot', 'claude'];
+    // 'auto' or no explicit model: detect from filesystem markers
+    const detected = detectAssistants(cwd);
+    if (detected.length > 0) return detected;
+    // Baseline fallback — copilot so existing tests/fixtures keep passing
+    return ['copilot'];
+  })();
+
+  const activeAdapters = adaptersFor(resolvedIds);
+
+  // Derive a single ModelTarget for generators that still accept one (generateInstructions,
+  // generateContextDocs). 'auto' must NOT reach those functions — only concrete ids do.
+  const MODEL_ADAPTER_IDS = ['copilot', 'claude', 'gemini', 'local'] as const;
+  type ModelAdapterId = typeof MODEL_ADAPTER_IDS[number];
+  const primaryModelId = resolvedIds.find((id): id is ModelAdapterId => (MODEL_ADAPTER_IDS as readonly string[]).includes(id));
+  // If both copilot + claude are selected, pass 'both' for backward compat with generateInstructions
+  const hasCopilot = resolvedIds.includes('copilot');
+  const hasClaude = resolvedIds.includes('claude');
+  const model = hasCopilot && hasClaude
+    ? 'both' as const
+    : (primaryModelId ?? 'copilot');
 
   // In --json mode, suppress all human-readable output so only the final JSON
   // object is written to stdout. Restore console.log before emitting it.
@@ -857,11 +905,51 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   const instructionFiles = generateInstructions(stack, cwd, { refreshExisting: mode === 'refresh-existing', preserveContextFiles, config: config ?? undefined, model });
   const mcpFiles = generateMcpJson(stack, cwd, { refreshExisting: mode === 'refresh-existing', config: config ?? undefined });
 
+  // ── AGENTS.md — canonical primary artifact (always emitted, all tools) ───────
+  // AGENTS.md is the cross-tool canonical. We emit it unconditionally (regardless
+  // of which adapters are active). User-authored regions are preserved via the
+  // hybrid protect.json mechanism (if the user listed 'AGENTS.md' there), or by
+  // the simple "preserve in refresh mode" rule below when no protect.json exists.
+  //
+  // Strategy:
+  //   1. Generate fresh content from the neutral instruction source.
+  //   2. In safe-refresh mode, if AGENTS.md already exists AND the user has
+  //      authored blocks (AI-OS:USER_BLOCK markers), merge them (same logic as
+  //      hybridSnapshots, applied inline here so we don't need protect.json).
+  //   3. Write via writeIfChanged (skips disk write when unchanged).
+  const agentsMdPath = path.join(cwd, 'AGENTS.md');
+  const agentsMdFiles: string[] = [];
+  {
+    const freshContent = generateCanonicalAgentsMd(stack, cwd, config ?? undefined);
+    const existingAgentsMd = fs.existsSync(agentsMdPath)
+      ? fs.readFileSync(agentsMdPath, 'utf-8')
+      : null;
+
+    // In refresh mode, preserve user-authored blocks even without protect.json entry
+    let finalContent = freshContent;
+    if (preserveContextFiles && existingAgentsMd !== null) {
+      const { content: merged } = mergeUserBlocks(freshContent, existingAgentsMd);
+      finalContent = merged;
+    }
+
+    // Use writeIfChanged so dry-run capture mode records this write alongside all others
+    writeIfChanged(agentsMdPath, finalContent);
+    agentsMdFiles.push(agentsMdPath);
+  }
+
   // Generate editor-specific config files (cursor, jetbrains, neovim)
-  // When only the default ['vscode'] is set, auto-detect additional editors from the project.
+  // The active adapters from the registry drive which editors get a config file.
+  // If explicit editor targets were given on the CLI, honour them; otherwise derive from
+  // the active adapter list (which was already resolved via detectAssistants or flags).
+  const EDITOR_IDS = ['cursor', 'jetbrains', 'neovim'] as const;
+  const registryEditorIds = activeAdapters
+    .map((a) => a.id)
+    .filter((id): id is typeof EDITOR_IDS[number] => (EDITOR_IDS as readonly string[]).includes(id));
   const effectiveEditorTargets = editorTargets.length > 1 || editorTargets[0] !== 'vscode'
     ? editorTargets
-    : detectEditorTargets(cwd);
+    : registryEditorIds.length > 0
+      ? ['vscode', ...registryEditorIds] as typeof editorTargets
+      : detectEditorTargets(cwd);
   const copilotInstructionsPath = path.join(cwd, '.github', 'copilot-instructions.md');
   const copilotInstructionsContent = fs.existsSync(copilotInstructionsPath)
     ? fs.readFileSync(copilotInstructionsPath, 'utf-8')
@@ -899,6 +987,7 @@ export async function runApply(args: ParsedArgs): Promise<void> {
   const allManagedAbs = [
     ...contextFiles,
     ...instructionFiles,
+    ...agentsMdFiles,
     ...mcpFiles,
     ...agentFiles,
     ...skillFiles,

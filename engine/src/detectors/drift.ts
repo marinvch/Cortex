@@ -35,7 +35,7 @@ export interface DriftReport {
 }
 
 const REQUIRED_FILES: Array<{ path: string; description: string }> = [
-  { path: '.github/copilot-instructions.md', description: 'Main Copilot instructions file' },
+  { path: 'AGENTS.md', description: 'Canonical cross-tool instructions (primary artifact)' },
   { path: '.github/COPILOT_CONTEXT.md', description: 'Session context card' },
   { path: `${CONFIG_DIR}/config.json`, description: 'Cortex configuration' },
 ];
@@ -50,24 +50,28 @@ const FIX_CMD = 'npx -y github:marinvch/ai-os --refresh-existing';
  */
 function detectSemanticDrift(cwd: string, warnings: DriftItem[]): void {
   const configPath = join(cwd, CONFIG_DIR, 'config.json');
+  // Prefer AGENTS.md as the canonical reference; fall back to copilot-instructions.md
+  const agentsMdPath = join(cwd, 'AGENTS.md');
   const instrPath = join(cwd, '.github/copilot-instructions.md');
+  const primaryPath = existsSync(agentsMdPath) ? agentsMdPath : instrPath;
+  const primaryRel = existsSync(agentsMdPath) ? 'AGENTS.md' : '.github/copilot-instructions.md';
 
-  if (existsSync(configPath) && existsSync(instrPath)) {
+  if (existsSync(configPath) && existsSync(primaryPath)) {
     try {
       const config = JSON.parse(readFileSync(configPath, 'utf8')) as {
         primaryFramework?: string;
         primaryLanguage?: string;
       };
-      const instrContent = readFileSync(instrPath, 'utf8');
+      const instrContent = readFileSync(primaryPath, 'utf8');
 
       if (config.primaryFramework) {
         const fw = config.primaryFramework;
         if (!instrContent.toLowerCase().includes(fw.toLowerCase())) {
           warnings.push({
-            path: '.github/copilot-instructions.md',
+            path: primaryRel,
             kind: 'semantic-mismatch',
             severity: 'warning',
-            message: `Primary framework "${fw}" from config.json is not mentioned in copilot-instructions.md — instructions may be stale`,
+            message: `Primary framework "${fw}" from config.json is not mentioned in ${primaryRel} — instructions may be stale`,
             fix: FIX_CMD,
           });
         }
@@ -194,19 +198,48 @@ export function detectDrift(cwd: string): DriftReport {
     }
   }
 
-  // 3. Unreplaced template placeholders in copilot-instructions.md
-  const instrPath = join(cwd, '.github/copilot-instructions.md');
-  if (existsSync(instrPath)) {
-    const content = readFileSync(instrPath, 'utf8');
-    const placeholders = content.match(/\{\{[A-Z_]+\}\}/g);
+  // 3. Unreplaced template placeholders in AGENTS.md (canonical primary)
+  const agentsMdPath = join(cwd, 'AGENTS.md');
+  if (existsSync(agentsMdPath)) {
+    const agentsMdContent = readFileSync(agentsMdPath, 'utf8');
+    const placeholders = agentsMdContent.match(/\{\{[A-Z_]+\}\}/g);
     if (placeholders) {
       errors.push({
-        path: '.github/copilot-instructions.md',
+        path: 'AGENTS.md',
         kind: 'schema-mismatch',
         severity: 'error',
         message: `Contains unreplaced template placeholders: ${[...new Set(placeholders)].join(', ')}`,
         fix: FIX_CMD,
       });
+    }
+  }
+
+  // 3b. copilot-instructions.md — adapter view check (warning if missing when AGENTS.md present)
+  const instrPath = join(cwd, '.github/copilot-instructions.md');
+  if (existsSync(agentsMdPath) && !existsSync(instrPath)) {
+    // AGENTS.md exists (healthy) but copilot adapter file is absent — warn, not error
+    warnings.push({
+      path: '.github/copilot-instructions.md',
+      kind: 'missing',
+      severity: 'warning',
+      message: 'Copilot adapter file is missing — run refresh to regenerate it',
+      fix: FIX_CMD,
+    });
+  } else if (existsSync(instrPath)) {
+    // Check for unreplaced placeholders in the copilot adapter file
+    const instrContent = readFileSync(instrPath, 'utf8');
+    const instrPlaceholders = instrContent.match(/\{\{[A-Z_]+\}\}/g);
+    if (instrPlaceholders) {
+      errors.push({
+        path: '.github/copilot-instructions.md',
+        kind: 'schema-mismatch',
+        severity: 'error',
+        message: `Contains unreplaced template placeholders: ${[...new Set(instrPlaceholders)].join(', ')}`,
+        fix: FIX_CMD,
+      });
+    } else {
+      // Copilot adapter file exists and is valid — mark healthy
+      healthy.push('.github/copilot-instructions.md');
     }
   }
 
@@ -266,15 +299,18 @@ export function detectDrift(cwd: string): DriftReport {
         .map(f => f.replace(/\.md$/, ''))
     : [];
 
-  if (installedSkills.length > 0 && existsSync(instrPath)) {
-    const instrContent = readFileSync(instrPath, 'utf8');
+  // Check skills listing in AGENTS.md (primary) or copilot-instructions.md (adapter fallback)
+  const skillCheckPath = existsSync(join(cwd, 'AGENTS.md')) ? join(cwd, 'AGENTS.md') : instrPath;
+  const skillCheckRel = existsSync(join(cwd, 'AGENTS.md')) ? 'AGENTS.md' : '.github/copilot-instructions.md';
+  if (installedSkills.length > 0 && existsSync(skillCheckPath)) {
+    const instrContent = readFileSync(skillCheckPath, 'utf8');
     for (const skill of installedSkills) {
       if (!instrContent.includes(skill)) {
         warnings.push({
-          path: '.github/copilot-instructions.md',
+          path: skillCheckRel,
           kind: 'stale',
           severity: 'warning',
-          message: `Installed skill "${skill}" is not listed in copilot-instructions.md`,
+          message: `Installed skill "${skill}" is not listed in ${skillCheckRel}`,
           fix: FIX_CMD,
         });
       }

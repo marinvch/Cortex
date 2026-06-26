@@ -6,18 +6,14 @@
  * (see sdk-server.ts). The SDK auto-handles initialize, tools/list, tools/call,
  * prompts/list, prompts/get, and MCP protocol negotiation.
  *
- * Pass --copilot to use the optional @github/copilot-sdk client integration.
  * Pass --healthcheck to validate the runtime environment and exit.
  *
  * Protocol: MCP 2025-11-25 (JSON-RPC over stdio via @modelcontextprotocol/sdk)
  * Requirements: Node.js >= 20
  */
-import type { CopilotClient as CopilotClientClass } from '@github/copilot-sdk';
-import { approveAll } from '@github/copilot-sdk';
 import { getProjectRoot } from './utils.js';
-import { getActiveToolsForProject, type McpToolDefinition } from './tool-definitions.js';
-import { runSdkMcp, createSdkServer } from './sdk-server.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { getActiveToolsForProject } from './tool-definitions.js';
+import { runSdkMcp } from './sdk-server.js';
 import { ENV } from '../brand.js';
 
 function logDiagnostic(message: string): void {
@@ -62,101 +58,8 @@ async function main(): Promise<void> {
   }
 
   // Default mode: MCP SDK server over stdio
-  if (!process.argv.includes('--copilot')) {
-    logDiagnostic('Starting in MCP SDK stdio mode');
-    await runSdkMcp();
-    return;
-  }
-
-  // -- Copilot SDK mode (--copilot flag) ----------------------------------------
-  // Requires: npm install @github/copilot-sdk (optional peer dependency)
-  const health = validateRuntimeEnvironment();
-  for (const message of health.messages) {
-    logDiagnostic(message);
-  }
-
-  if (!health.ok) {
-    throw new Error(`MCP runtime validation failed: ${health.messages.join(' | ')}`);
-  }
-
-  let CopilotClient: typeof CopilotClientClass;
-
-  try {
-    const sdk = await import('@github/copilot-sdk');
-    CopilotClient = sdk.CopilotClient;
-  } catch {
-    console.error('[cortex:mcp] @github/copilot-sdk is required for --copilot mode but was not found.');
-    console.error('[cortex:mcp] Install it or omit --copilot to use the standard MCP SDK mode.');
-    process.exit(1);
-  }
-
-  // Build the SDK server and extract tool handler map for the copilot client adapter
-  const sdkServer = createSdkServer();
-  const toolDefs = getActiveToolsForProject(getProjectRoot()) as McpToolDefinition[];
-
-  // Adapter: resolve tool calls through the SDK server's registered handlers via
-  // a synthetic MCP transport (in-memory round-trip). This avoids duplicating handler logic.
-  // For simplicity, fall back to a direct in-process call via executeTool-equivalent.
-  const client = new CopilotClient();
-
-  try {
-    await client.start();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[cortex:mcp] Copilot SDK client failed to start: ${msg}`);
-    console.error('[cortex:mcp] Ensure the Copilot CLI is installed and authenticated, or omit --copilot to use standard mode.');
-    process.exit(1);
-  }
-
-  // Wire the SDK server through a passthrough transport so the copilot client can
-  // call tools using the same registered Zod-validated handlers.
-  const [serverTransport, clientTransport] = ['server', 'client'].map(() => ({
-    onmessage: null as ((msg: unknown) => void) | null,
-    start: async () => {},
-    close: async () => {},
-    send: (msg: unknown) => {
-      // Pass messages between the two halves of the in-memory pair
-    },
-  }));
-  void (sdkServer); // suppress unused warning — used for side effects in registerTool
-  void (serverTransport);
-  void (clientTransport);
-
-  const session = await client.createSession({
-    model: 'gpt-4.1',
-    tools: toolDefs.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      parameters: tool.inputSchema as unknown as Record<string, unknown>,
-      handler: async (input: Record<string, unknown>) => {
-        // Route through the SDK server via a local MCP call
-        const sdkInstance = createSdkServer();
-        let result = `Tool ${tool.name} executed via SDK`;
-        // Connect to in-process transport and invoke
-        try {
-          const transport = new StdioServerTransport();
-          void (transport); // SDK transport only works with actual stdio
-          result = `[copilot mode] ${tool.name}: use standard MCP mode for full functionality`;
-        } catch {
-          // pass
-        }
-        return result;
-      },
-    })),
-    onPermissionRequest: approveAll,
-  });
-
-  process.on('SIGINT', async () => {
-    await session.disconnect();
-    await client.stop();
-    process.exit(0);
-  });
-
-  process.on('SIGTERM', async () => {
-    await session.disconnect();
-    await client.stop();
-    process.exit(0);
-  });
+  logDiagnostic('Starting in MCP SDK stdio mode');
+  await runSdkMcp();
 }
 
 main().catch(err => {

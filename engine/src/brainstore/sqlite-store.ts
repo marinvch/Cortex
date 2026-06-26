@@ -207,6 +207,14 @@ export class SqliteBrainStore implements BrainStore {
       .run(edge.srcId, edge.dstId, edge.type, edge.tenantId, edge.domain);
   }
 
+  async listNodes(scope: BrainScope, opts?: { includeStale?: boolean }): Promise<BrainNode[]> {
+    assertScope(scope);
+    let sql = `SELECT * FROM nodes ${SCOPE_WHERE}`;
+    if (!opts?.includeStale) sql += ` AND status = 'active'`;
+    const rows = this.db.prepare(sql).all(scope.tenantId, scope.domain) as unknown as NodeRow[];
+    return rows.map(rowToNode);
+  }
+
   async search(query: SearchQuery, scope: BrainScope): Promise<SearchResult[]> {
     assertScope(scope);
     const limit = query.limit && query.limit > 0 ? query.limit : 20;

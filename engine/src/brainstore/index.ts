@@ -39,3 +39,21 @@ export {
 export { SqliteBrainStore, cosineSimilarity, type SqliteBrainStoreOptions } from './sqlite-store.js';
 
 export { importJsonlToVault, type ImportOptions, type ImportStats } from './import-jsonl.js';
+
+export {
+  type EmbeddingProvider,
+  HashingEmbeddingProvider,
+  OllamaEmbeddingProvider,
+  resolveEmbeddingProvider,
+  availableEmbeddingProviders,
+  type EmbeddingProviderConfig,
+  type HashingEmbeddingOptions,
+  type OllamaEmbeddingOptions,
+} from './embedding.js';
+
+export {
+  reindexEmbeddings,
+  semanticSearch,
+  type ReindexStats,
+  type SemanticSearchOptions,
+} from './semantic.js';

@@ -4,7 +4,7 @@ on:
   push:
     branches: [master]
   workflow_run:
-    workflows: ["AI OS Validate"]
+    workflows: ["Cortex Validate"]
     types: [completed]
     branches: [master]
   workflow_dispatch:
@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Skip direct push release
-        run: echo "Release is gated by AI OS Validate workflow_run; push event is a no-op."
+        run: echo "Release is gated by Cortex Validate workflow_run; push event is a no-op."
 
   release:
     # Only release when: manual dispatch OR validate succeeded AND ran on the master branch

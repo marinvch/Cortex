@@ -1,25 +1,30 @@
-# ── Cortex personal layers (never committed) ───────────────────────────
+# ── Personal layer (never committed) — the "one privacy rule" ───────────
+# Personal/business content stays local.
 context/
+inbox/
+daily/
+notes/
+projects/
+areas/
+resources/
 decisions/
 brain/
-projects/
 
-# Keep folder placeholders tracked
+# Keep folder placeholders + README templates tracked so the vault stays shareable
 !context/.gitkeep
 !decisions/.gitkeep
-
-# ── Engine build artifacts ─────────────────────────────────────────────
-node_modules/
-engine/node_modules/
-engine/coverage/
+!inbox/README.md
+!projects/README.md
+!areas/README.md
+!resources/README.md
 
 # ── Local tool state ───────────────────────────────────────────────────
 .env
 .env.local
+# Local /slash-command copies of the rituals; canonical skills live in skills/
+.claude/skills/
 
-# ── Engine self-test / runtime output written into repo root ───────────
-.cortex/
-.vscode/mcp.json
-.github/copilot-instructions.md.bak
-.github/cortex/memory/.memory.lock
-.github/cortex/memory/session/
+# ── Legacy engine (retired, kept on disk; ignore its build output if run) ─
+node_modules/
+engine/node_modules/
+engine/coverage/

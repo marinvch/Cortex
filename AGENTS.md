@@ -46,6 +46,9 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
 - `/weekly-review` (weekly) — empty `inbox/`, update `projects/`, restamp `current-focus`, archive stale.
 - `/audit` (weekly) — read-only Four-Layer health score with the top gaps to close.
 - `/level-up` (biweekly) — Notice→Decide→Build interview; surface one piece of leverage; ship one artifact.
+- `/install-project` (per repo) — stamp a *codebase brain* into a specific repo: scans the code and
+  writes a project `AGENTS.md` + scoped `/plan-feature` and `/investigate-bug` skills. Isolated to
+  that repo — company code never enters this personal vault.
 
 Each ritual is a plain `SKILL.md` (no engine, no Node). They live in `skills/` (committed,
 shareable); run `cp -r skills/* .claude/skills/` to expose them as Claude Code `/slash` commands.

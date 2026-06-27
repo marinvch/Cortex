@@ -66,10 +66,32 @@ Fill from the scan + the user's corrections:
 - <domain terms specific to this codebase>
 ```
 
-### b) `CLAUDE.md` — shim
-```markdown
-@AGENTS.md
-```
+### b) Cross-agent shims — so EVERY teammate's AI reads the same brain
+`AGENTS.md` is the one source of truth. Each AI tool reads a different filename, so write a tiny
+shim for each that points back to it. This is what makes a mixed-tool team work (one dev on Claude,
+one on Copilot, one on Gemini — all read the same project knowledge).
+
+- `CLAUDE.md` (Claude Code) →
+  ```markdown
+  @AGENTS.md
+  ```
+- `GEMINI.md` (Gemini CLI) →
+  ```markdown
+  See AGENTS.md for all project context, architecture, and conventions.
+  ```
+- `.github/copilot-instructions.md` (GitHub Copilot) →
+  ```markdown
+  All project context and conventions live in AGENTS.md at the repo root. Follow it.
+  ```
+- `.cursor/rules/project.mdc` (Cursor) →
+  ```markdown
+  ---
+  alwaysApply: true
+  ---
+  Read AGENTS.md at the repo root for architecture, conventions, and the dev cycle.
+  ```
+> Codex, Amp, Aider, Jules and most newer agents read `AGENTS.md` natively — no shim needed.
+> Keep the real content in `AGENTS.md` only; shims must never hold their own copy (it drifts).
 
 ### c) `.claude/skills/plan-feature/SKILL.md` — dev-cycle ritual
 ```markdown
@@ -113,6 +135,14 @@ team shares them. If this should stay private, tell the user to add them to the 
 ## Step 5 — Close
 Confirm what was written and tell the user: *"Open this repo in Claude Code / Cowork and run
 `/plan-feature` when the ticket lands."* Suggest growing `## Gotchas` as they learn the codebase.
+
+## Cross-agent note
+- **Knowledge is cross-agent:** `AGENTS.md` + the shims mean Claude, Copilot, Gemini, Cursor, etc.
+  all read the same project brain. Commit them so the whole team benefits.
+- **Skills are mostly Claude-specific:** the `/plan-feature` and `/investigate-bug` slash commands
+  only fire in Claude Code. That's fine — the *same dev-cycle rules* are written in `AGENTS.md`'s
+  "Development cycle" section, so Copilot/Gemini users follow plan-before-implementing too, just
+  without the slash command. Put the rules in `AGENTS.md`; treat skills as a Claude convenience.
 
 ## Rules
 - Idempotent — re-run to refresh after the codebase changes; back up before overwriting.

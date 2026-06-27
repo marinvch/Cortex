@@ -47,20 +47,52 @@ printf 'MyApp\nWhat it does\nKey rule\nall\n' | node tools/cortex-init.mjs
 node tools/cortex-init.mjs --yes
 ```
 
+## Flags
+
+```
+--name <s>               Project name (default: package.json name / folder)
+--purpose <s>            One line: what the project does
+--rule <s>               A key rule the AI must always follow
+--agents <list>          claude,gemini,copilot,cursor  or  all   (default: all)
+--yes, -y                Accept all detected defaults; no prompts, no stdin
+--additive               Refresh skills only; never touch AGENTS.md / shims
+--register-to-vault <p>  Append a metadata-only project stub to <vault>/projects/
+--help, -h               Show help
+```
+
 ## What it does
-1. Scans the repo (package.json, lockfile, configs, folders) to detect stack, scripts, conventions.
-2. Asks: project name, what it does, any key rule, which agents to support.
-3. Writes into the **current repo only** (backs up existing files to `*.bak`):
-   - `AGENTS.md` — the single source of truth (the project brain)
+1. **Detects** (it does not read your source): `package.json` deps + scripts, lockfile,
+   `tsconfig` (strict + first path alias), eslint/prettier/CI presence, the README's first line,
+   and route/source directories (`src/app`, `pages`, `src/routes`, `src/components`, …).
+2. **Asks** (or takes flags/stdin/`--yes`): name, what it does, a key rule, which agents.
+3. **Scaffolds** into the **current repo only** (existing files → `*.bak`):
+   - `AGENTS.md` — the source of truth, with real Stack/Run/Architecture/Conventions filled from
+     the scan and `<…>` blanks for prose it can't infer.
    - shims: `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.cursor/rules/project.mdc`
-   - `.claude/skills/plan-feature` + `investigate-bug`
-   - `docs/decisions.md`
-4. You review `AGENTS.md`, fix anything it guessed wrong, and commit.
+   - `.claude/skills/plan-feature` + `investigate-bug`, and `docs/decisions.md`
+4. You review `AGENTS.md`, fix anything it guessed, and commit.
+
+> This is a **fast scaffold**, not an AI scan. For deep prose (real Architecture/Conventions/Gotchas
+> read from the code), run the `/install-project` skill in Claude Code.
+
+## Safety on re-run / brownfield
+- **Never clobbers curated docs.** A hand-written `AGENTS.md` is preserved; the generated one is
+  written to `AGENTS.generated.md` to diff. A curated `CLAUDE.md` (anything but the `@AGENTS.md`
+  shim) is left untouched.
+- **Non-clobbering backups.** The first overwrite makes `file.bak`; later runs make
+  `file.bak.<timestamp>`, so the original is never lost.
+- **Gitignore-aware.** Warns if a generated file is ignored by the repo's `.gitignore` (so the team
+  doesn't silently miss it) and suggests adding `*.bak` to `.gitignore`.
+
+## Register with your personal vault (opt-in)
+`--register-to-vault <path>` writes a **metadata-only** stub to `<vault>/projects/<repo>.md`
+(name, local path, repo URL, one-line purpose, stack, install date) and flips the vault's
+`connections.md` "Tasks / projects" row to `local files`. No code, secrets, or client data — the
+firewall holds. The vault-side companion is the `/scan-projects` skill.
 
 ## After running
 - Open the repo in Claude Code → `/plan-feature` to start work (plan-before-implementing).
 - Commit `AGENTS.md` + shims so the whole team's agents share the brain.
-- Re-run anytime to refresh after big codebase changes (old files are backed up).
 
-> Self-contained: copy `cortex-init.mjs` to a work machine and it runs with just Node — no install,
-> no internet, no engine.
+> Self-contained: copy `cortex-init.mjs` to a work machine and it runs with just Node or Bun — no
+> install, no internet, no engine.

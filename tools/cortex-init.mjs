@@ -6,9 +6,15 @@
  * source-of-truth AGENTS.md plus tiny shims so every AI agent (Claude, Gemini,
  * Copilot, Cursor) reads the same project knowledge — and Claude-only dev-cycle skills.
  *
- * Run from inside a repo:
- *   node path/to/cortex-init.mjs
- *   npx cortex-init            (once published / via github)
+ * Run from inside a repo — any shell (bash, zsh, gitbash, PowerShell), any JS runtime:
+ *   node  path/to/cortex-init.mjs
+ *   bun   path/to/cortex-init.mjs
+ *   npx   github:marinvch/ai-os
+ *   bunx  github:marinvch/ai-os
+ *
+ * Interactive in a real terminal; non-interactive when answers are piped in or with --yes:
+ *   printf 'Name\nWhat it does\nKey rule\nall\n' | node path/to/cortex-init.mjs
+ *   node path/to/cortex-init.mjs --yes        (accept all detected defaults)
  *
  * Writes ONLY inside the current working directory. Backs up existing files to *.bak.
  */
@@ -25,6 +31,17 @@ const today = new Date().toISOString().slice(0, 10);
 const read = (p) => { try { return readFileSync(join(cwd, p), 'utf8'); } catch { return null; } };
 const readJson = (p) => { const t = read(p); if (!t) return null; try { return JSON.parse(t); } catch { return null; } };
 const has = (p) => existsSync(join(cwd, p));
+
+// Read all of (non-TTY) stdin once. Works identically under node and bun, and for input
+// piped from any shell. readline/promises drops piped input after the first answer, so we
+// don't use it for non-interactive runs.
+const readStdin = () => new Promise((resolve) => {
+  let data = '';
+  input.setEncoding('utf8');
+  input.on('data', (c) => { data += c; });
+  input.on('end', () => resolve(data));
+  input.on('error', () => resolve(data));
+});
 
 function writeFile(relPath, content) {
   const abs = join(cwd, relPath);
@@ -50,7 +67,8 @@ function detect() {
   else if (d('@angular/core')) framework = 'Angular';
   else if (d('express') || d('fastify') || d('koa')) framework = 'Node backend';
 
-  const pm = has('pnpm-lock.yaml') ? 'pnpm' : has('yarn.lock') ? 'yarn' : has('bun.lockb') ? 'bun' : 'npm';
+  const pm = has('pnpm-lock.yaml') ? 'pnpm' : has('yarn.lock') ? 'yarn'
+    : (has('bun.lockb') || has('bun.lock')) ? 'bun' : 'npm';
   const lang = has('tsconfig.json') || d('typescript') ? 'TypeScript' : 'JavaScript';
   const bundler = d('vite') ? 'Vite' : d('webpack') ? 'webpack' : pkg.scripts?.build?.includes('next') ? 'Next' : '';
   const styling = d('tailwindcss') ? 'Tailwind CSS' : d('styled-components') ? 'styled-components' : d('sass') ? 'Sass' : '';
@@ -86,14 +104,29 @@ async function main() {
   console.log(`    run: dev='${i.dev}' build='${i.build}' test='${i.test}' lint='${i.lint}'`);
   console.log(`    source dirs: ${i.dirs.join(', ') || '(none found)'}\n`);
 
-  const rl = createInterface({ input, output });
-  const ask = async (q, def) => ((await rl.question(`  ${q}${def ? ` [${def}]` : ''}: `)).trim() || def || '');
+  const yes = process.argv.slice(2).some((a) => a === '--yes' || a === '-y');
+  const interactive = Boolean(input.isTTY) && !yes;
 
-  const name = await ask('Project name', i.name);
-  const purpose = await ask('One line — what does this project do?', '');
-  const conventions = await ask('Any key rule the AI must follow? (optional)', '');
-  const agentsAns = (await ask('Generate shims for which agents? (claude,gemini,copilot,cursor or "all")', 'all')).toLowerCase();
-  rl.close();
+  let name, purpose, conventions, agentsAns;
+  if (interactive) {
+    const rl = createInterface({ input, output });
+    const ask = async (q, def) => ((await rl.question(`  ${q}${def ? ` [${def}]` : ''}: `)).trim() || def || '');
+    name = await ask('Project name', i.name);
+    purpose = await ask('One line — what does this project do?', '');
+    conventions = await ask('Any key rule the AI must follow? (optional)', '');
+    agentsAns = (await ask('Generate shims for which agents? (claude,gemini,copilot,cursor or "all")', 'all')).toLowerCase();
+    rl.close();
+  } else {
+    // Non-interactive: --yes accepts all defaults; otherwise read piped answers, one per
+    // line (name, purpose, key rule, agents). Blank or missing lines fall back to defaults.
+    const lines = (yes ? '' : await readStdin()).split(/\r?\n/);
+    const pick = (idx, def) => { const v = (lines[idx] ?? '').trim(); return v === '' ? (def ?? '') : v; };
+    name = pick(0, i.name);
+    purpose = pick(1, '');
+    conventions = pick(2, '');
+    agentsAns = pick(3, 'all').toLowerCase();
+    console.log(`  ${yes ? 'Non-interactive (--yes): using detected defaults.' : 'Non-interactive: reading answers from stdin.'}`);
+  }
 
   const want = (a) => agentsAns === 'all' || agentsAns.includes(a);
 

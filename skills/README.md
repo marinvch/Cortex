@@ -17,6 +17,11 @@ Each subfolder is a ritual the AI can run. They are plain `SKILL.md` files with 
 | `weekly-review` | Weekly | Empties inbox, updates projects, restamps focus, archives stale |
 | `audit` | Weekly | Four-layer health score + top gaps |
 | `level-up` | Biweekly | Find one piece of leverage, ship one artifact |
+| `install-project` | Per repo | Stamps a codebase brain into a specific project (scoped to that repo) |
+
+> **Two kinds of brain.** This vault is your *personal* brain (knows you, cross-project).
+> `install-project` creates a *codebase* brain inside a specific repo (knows only that codebase
+> and runs its dev cycle). They stay isolated — company code never enters the personal vault.
 
 ## Activating them as slash commands (optional)
 

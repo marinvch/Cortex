@@ -32,6 +32,18 @@ Personal and business content (`context/`, `inbox/`, `daily/`, `notes/`, `projec
 (this README, `AGENTS.md`, `references/` frameworks, `templates/`) are data-free, so the vault
 itself stays shareable and forkable.
 
+## Give any repo a codebase brain (one-liner)
+
+Run this **inside any project repo** — it scans the code, asks a few questions, and writes an
+`AGENTS.md` + agent shims (Claude/Gemini/Copilot/Cursor) + dev-cycle skills into that repo:
+
+```bash
+npx github:marinvch/ai-os
+```
+
+Zero dependencies, nothing to install. Review the generated `AGENTS.md`, then commit it so the
+whole team's agents share the same project knowledge. Source: `tools/cortex-init.mjs`.
+
 ## Skills (rituals)
 
 Plain `SKILL.md` files in `skills/`. Say "run my onboard skill" in Cowork/Claude Code, or copy

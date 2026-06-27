@@ -49,6 +49,9 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
 - `/install-project` (per repo) — stamp a *codebase brain* into a specific repo: scans the code and
   writes a project `AGENTS.md` + scoped `/plan-feature` and `/investigate-bug` skills. Isolated to
   that repo — company code never enters this personal vault.
+- `/scan-projects` (anytime) — opt-in, metadata-only bridge: list which repos on your machine have a
+  codebase brain and register the missing ones into `projects/` (name/path/URL/stack only — no code).
+  Pairs with `cortex-init --register-to-vault`. Keeps the privacy firewall intact.
 
 Each ritual is a plain `SKILL.md` (no engine, no Node). They live in `skills/` (committed,
 shareable); run `cp -r skills/* .claude/skills/` to expose them as Claude Code `/slash` commands.

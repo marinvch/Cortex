@@ -34,31 +34,42 @@ itself stays shareable and forkable.
 
 ## Give any repo a codebase brain (one-liner)
 
-Run this **inside any project repo** — it scans the code, asks a few questions, and writes an
-`AGENTS.md` + agent shims (Claude/Gemini/Copilot/Cursor) + dev-cycle skills into that repo.
-Works in any shell (bash, zsh, gitbash, PowerShell) and under either runtime:
+Run this **inside any project repo** — it detects the stack (package manager, framework, language),
+scripts, `tsconfig`, lint/CI, and route/source directories, then **scaffolds** an `AGENTS.md` +
+agent shims (Claude/Gemini/Copilot/Cursor) + dev-cycle skills into that repo. Works in any shell
+(bash, zsh, gitbash, PowerShell) and under either runtime:
 
 ```bash
 npx  github:marinvch/ai-os     # Node
 bunx github:marinvch/ai-os     # Bun
 ```
 
-Prefer non-interactive (CI, scripts)? Pipe the four answers — name, what-it-does, key rule,
-agents — or take all detected defaults with `--yes`:
+> It scaffolds from what it can detect, leaving `<…>` blanks for prose it can't infer. For a deep,
+> **AI-driven** pass that fills Architecture / Conventions / Gotchas from the actual code, open the
+> repo in Claude Code and run **`/install-project`**.
+
+Non-interactive (CI, scripts, agents)? Use flags, pipe the four answers, or take all defaults:
 
 ```bash
-printf 'MyApp\nWhat it does\nKey rule\nall\n' | npx github:marinvch/ai-os
 npx github:marinvch/ai-os --yes
+npx github:marinvch/ai-os --name=App --purpose="..." --agents=claude,gemini
+printf 'MyApp\nWhat it does\nKey rule\nall\n' | npx github:marinvch/ai-os
 ```
 
-Zero dependencies, nothing to install. It detects your package manager (npm/pnpm/yarn/bun)
-automatically. Review the generated `AGENTS.md`, then commit it so the whole team's agents share
-the same project knowledge. Source: `tools/cortex-init.mjs`.
+It's **brownfield-safe**: a curated `AGENTS.md`/`CLAUDE.md` is never clobbered (you get
+`AGENTS.generated.md` to diff instead), existing files back up to `*.bak`, and it warns if a
+generated file is gitignored. `--additive` refreshes only the skills. Optionally register the repo
+with your personal vault (metadata only, opt-in): `--register-to-vault ~/vault`. Run `--help` for
+all flags. Source: `tools/cortex-init.mjs`.
 
 ## Skills (rituals)
 
 Plain `SKILL.md` files in `skills/`. Say "run my onboard skill" in Cowork/Claude Code, or copy
 them into `.claude/skills/` to use as `/slash` commands (`cp -r skills/* .claude/skills/`).
+
+Includes `/scan-projects` — an opt-in, metadata-only bridge that lets the vault learn which repos
+on your machine have a codebase brain (no code ever leaves the repo). It pairs with
+`cortex-init --register-to-vault`.
 
 ## What changed from the old setup
 

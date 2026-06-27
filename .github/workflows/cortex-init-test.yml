@@ -12,14 +12,23 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [node, bun]
+    name: smoke (${{ matrix.runtime }})
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
+        if: matrix.runtime == 'node'
         with:
           node-version: 20
 
-      - name: Run cortex-init against a dummy repo
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.runtime == 'bun'
+
+      - name: Run cortex-init against a dummy repo (${{ matrix.runtime }})
         run: |
           set -euo pipefail
           SCRIPT="$PWD/tools/cortex-init.mjs"
@@ -37,20 +46,20 @@ jobs:
           JSON
           mkdir -p src public
 
-          # answer the wizard prompts: name, purpose, convention, agents
-          printf 'DummyApp\nA test project\nNo console.logs in committed code\nall\n' | node "$SCRIPT"
+          # answer the wizard prompts via stdin: name, purpose, convention, agents
+          printf 'DummyApp\nA test project\nNo console.logs in committed code\nall\n' | ${{ matrix.runtime }} "$SCRIPT"
 
           echo "=== generated tree ==="
           find . -type f -not -name package.json | sort
 
-      - name: Assert the brain files exist
+      - name: Assert the brain files exist (${{ matrix.runtime }})
         run: |
           set -euo pipefail
           # Regenerate in a fresh dir and assert the output here (cheap + deterministic).
           SCRIPT="$PWD/tools/cortex-init.mjs"
           DIR="$(mktemp -d)"; cd "$DIR"
           printf '{ "name": "dummy", "dependencies": { "react": "^18" } }' > package.json
-          printf 'DummyApp\nA test project\n\nall\n' | node "$SCRIPT" >/dev/null
+          printf 'DummyApp\nA test project\n\nall\n' | ${{ matrix.runtime }} "$SCRIPT" >/dev/null
 
           fail=0
           for f in \
@@ -69,4 +78,18 @@ jobs:
           # AGENTS.md must mention the detected framework
           grep -q "React" AGENTS.md || { echo "AGENTS.md missing detected stack"; fail=1; }
 
+          exit $fail
+
+      - name: Assert non-interactive --yes works (${{ matrix.runtime }})
+        run: |
+          set -euo pipefail
+          # No stdin at all: --yes must accept detected defaults and still write the brain.
+          SCRIPT="$PWD/tools/cortex-init.mjs"
+          DIR="$(mktemp -d)"; cd "$DIR"
+          printf '{ "name": "yesapp", "dependencies": { "next": "^14" } }' > package.json
+          ${{ matrix.runtime }} "$SCRIPT" --yes >/dev/null
+
+          fail=0
+          [ -f AGENTS.md ] || { echo "MISS AGENTS.md"; fail=1; }
+          grep -q "Next.js" AGENTS.md || { echo "AGENTS.md missing detected stack (Next.js)"; fail=1; }
           exit $fail

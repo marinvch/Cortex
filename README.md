@@ -35,14 +35,25 @@ itself stays shareable and forkable.
 ## Give any repo a codebase brain (one-liner)
 
 Run this **inside any project repo** — it scans the code, asks a few questions, and writes an
-`AGENTS.md` + agent shims (Claude/Gemini/Copilot/Cursor) + dev-cycle skills into that repo:
+`AGENTS.md` + agent shims (Claude/Gemini/Copilot/Cursor) + dev-cycle skills into that repo.
+Works in any shell (bash, zsh, gitbash, PowerShell) and under either runtime:
 
 ```bash
-npx github:marinvch/ai-os
+npx  github:marinvch/ai-os     # Node
+bunx github:marinvch/ai-os     # Bun
 ```
 
-Zero dependencies, nothing to install. Review the generated `AGENTS.md`, then commit it so the
-whole team's agents share the same project knowledge. Source: `tools/cortex-init.mjs`.
+Prefer non-interactive (CI, scripts)? Pipe the four answers — name, what-it-does, key rule,
+agents — or take all detected defaults with `--yes`:
+
+```bash
+printf 'MyApp\nWhat it does\nKey rule\nall\n' | npx github:marinvch/ai-os
+npx github:marinvch/ai-os --yes
+```
+
+Zero dependencies, nothing to install. It detects your package manager (npm/pnpm/yarn/bun)
+automatically. Review the generated `AGENTS.md`, then commit it so the whole team's agents share
+the same project knowledge. Source: `tools/cortex-init.mjs`.
 
 ## Skills (rituals)
 

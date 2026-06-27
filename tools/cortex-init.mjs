@@ -46,9 +46,10 @@ const readStdin = () => new Promise((resolve) => {
 function writeFile(relPath, content) {
   const abs = join(cwd, relPath);
   mkdirSync(join(abs, '..'), { recursive: true });
-  if (existsSync(abs)) copyFileSync(abs, abs + '.bak'); // back up before overwrite
+  const backedUp = existsSync(abs);
+  if (backedUp) copyFileSync(abs, abs + '.bak'); // back up before overwrite
   writeFileSync(abs, content, 'utf8');
-  console.log('  ✓ ' + relPath + (existsSync(abs + '.bak') ? '  (old → .bak)' : ''));
+  console.log('  ✓ ' + relPath + (backedUp ? '  (old → .bak)' : ''));
 }
 
 // ── 1. scan the repo ───────────────────────────────────────────────────────────
@@ -85,7 +86,7 @@ function detect() {
   return {
     name: pkg.name || basename(cwd),
     framework, pm, lang, bundler, styling, testing,
-    install: s.install ? `${pm} install` : `${pm} install`,
+    install: `${pm} install`,
     dev: runCmd('dev') !== '—' ? runCmd('dev') : runCmd('start'),
     build: runCmd('build'), test: runCmd('test'), lint: runCmd('lint'),
     dirs,
@@ -128,6 +129,11 @@ async function main() {
     console.log(`  ${yes ? 'Non-interactive (--yes): using detected defaults.' : 'Non-interactive: reading answers from stdin.'}`);
   }
 
+  const KNOWN_AGENTS = ['claude', 'gemini', 'copilot', 'cursor'];
+  if (agentsAns !== 'all' && !KNOWN_AGENTS.some((a) => agentsAns.includes(a))) {
+    console.log(`  (couldn't match any agent in "${agentsAns}" — defaulting to all)`);
+    agentsAns = 'all';
+  }
   const want = (a) => agentsAns === 'all' || agentsAns.includes(a);
 
   // ── 3. write ─────────────────────────────────────────────────────────────────

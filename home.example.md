@@ -1,9 +1,16 @@
 ---
 type: moc
 title: Home
-updated: 2026-06-26
+updated: 2026-01-01
 tags: [moc, home]
 ---
+
+<!--
+  This is the data-free STARTER for your vault's home dashboard.
+  Copy it to `home.md` (which is gitignored) and let `/onboard` personalize it:
+      cp home.example.md home.md
+  Keep this example file data-free so the vault stays shareable/forkable.
+-->
 
 # 🧠 Home — Cortex Vault
 
@@ -19,6 +26,10 @@ links out to everything that matters. It is the one note you open every day.
 - **Capture** anything → `inbox/` (or run `/capture`)
 - **Today's log** → `daily/` (run `/daily`)
 - **This week** → see [[current-focus]]
+
+## 🔥 Active now
+
+<!-- /onboard fills this with your live projects + areas, e.g. [[a-project]], [[an-area]] -->
 
 ## 🗂 The vault
 
@@ -46,7 +57,8 @@ Build a MOC note in `notes/` whenever a topic grows past ~7 related notes. Link 
 
 ## 🔌 What the brain can reach
 
-- `connections.md` — every tool/data source the vault can pull from.
+- [[connections]] — every tool/data source the vault can pull from.
+- [[log|Decision log]] — append-only record of what I decided and why.
 
 ## 🔁 Rituals
 
@@ -57,6 +69,7 @@ Build a MOC note in `notes/` whenever a topic grows past ~7 related notes. Link 
 | Weekly | `/weekly-review` | Empties inbox, updates projects, archives stale |
 | Weekly | `/audit` | Health score of the four vault layers |
 | Biweekly | `/level-up` | Find one piece of leverage, ship one artifact |
+| Per repo | `/install-project` | Give a specific codebase its own brain + dev-cycle skills |
 | Once | `/onboard` | Teaches the brain who you are |
 
 ## 📚 How this brain thinks

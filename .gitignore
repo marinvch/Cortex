@@ -9,6 +9,8 @@ areas/
 resources/
 decisions/
 brain/
+# Your personalized dashboard. Forkers start from home.example.md (cp home.example.md home.md).
+home.md
 
 # Keep folder placeholders + README templates tracked so the vault stays shareable
 !context/.gitkeep
@@ -28,3 +30,6 @@ brain/
 node_modules/
 engine/node_modules/
 engine/coverage/
+
+# Generated knowledge-graph visual (contains personal note titles) — local only
+cortex-graph.html

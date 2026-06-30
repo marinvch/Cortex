@@ -74,6 +74,39 @@ function checkIgnored(paths) {
   }
 }
 
+// Detect a pre-existing OLD engine-based AI OS (the retired `.ai-os/` MCP system). Returns a list
+// of human-readable markers, or [] if none. cortex-init never touches the engine — it only advises
+// running the AI-driven `/migrate-engine` ritual, which harvests the engine's memory before removal.
+function detectOldEngine() {
+  const markers = [];
+  if (has('.ai-os')) markers.push('.ai-os/ (engine MCP server)');
+  if (has('.github/ai-os')) markers.push('.github/ai-os/ (engine context + memory store)');
+  if (has('.github/agents')) markers.push('.github/agents/ (engine-generated agents)');
+  if (has('.github/COPILOT_CONTEXT.md')) markers.push('.github/COPILOT_CONTEXT.md');
+  for (const f of ['.mcp.json', '.vscode/mcp.json']) {
+    const t = read(f);
+    if (t && /ai-os|AI_OS_ROOT/.test(t)) markers.push(`${f} (ai-os MCP entry)`);
+  }
+  const ci = read('.github/copilot-instructions.md');
+  if (ci && /get_session_context|AI OS/i.test(ci)) markers.push('.github/copilot-instructions.md (engine-style)');
+  return markers;
+}
+
+// Print a prominent notice + recommendation if an old engine is present. Returns true if found.
+function warnOldEngine() {
+  const found = detectOldEngine();
+  if (!found.length) return false;
+  console.log('\n  ⚠ Old engine-based AI OS detected in this repo:');
+  found.forEach((m) => console.log('     - ' + m));
+  console.log('    This repo predates the plain-files brain. To avoid LOSING the engine\'s');
+  console.log('    accumulated memory, migrate it before relying on the new AGENTS.md:');
+  console.log('      → Open this repo in Claude Code / Cowork and run  /migrate-engine');
+  console.log('    It harvests the engine\'s memory store into AGENTS.md, logs the change in');
+  console.log('    docs/decisions.md, backs everything up, then removes the old files.');
+  console.log('    (cortex-init does not touch the old engine itself.)');
+  return true;
+}
+
 const written = [];   // repo-relative paths actually written (for the gitignore check)
 let madeBackups = false;
 
@@ -262,6 +295,8 @@ async function main() {
   if (tooling.length) console.log(`    tooling: ${tooling.join(' · ')}`);
   console.log(`    dirs: ${i.arch.map((a) => a.dir).join(', ') || '(none found)'}\n`);
 
+  const hasOldEngine = warnOldEngine();
+
   const yes = Boolean(args.yes);
   const additive = Boolean(args.additive || args['skip-instructions']);
   const registerTo = typeof args['register-to-vault'] === 'string' ? args['register-to-vault'] : null;
@@ -338,7 +373,13 @@ async function main() {
   console.log('\n  ✅ Done. This repo now has a brain.');
   console.log('  That was a fast stack scan + scaffold. For a deep, AI-driven pass that fills');
   console.log('  Architecture / Conventions / Gotchas from the actual code, open this repo in');
-  console.log('  Claude Code and run /install-project — then review AGENTS.md and commit it.\n');
+  console.log('  Claude Code and run /install-project — then review AGENTS.md and commit it.');
+  if (hasOldEngine) {
+    console.log('\n  ⚠ Reminder: an old engine-based AI OS is still in this repo. Run');
+    console.log('    /migrate-engine in Claude Code to rescue its memory into AGENTS.md before');
+    console.log('    removing it — otherwise that accumulated knowledge is lost.');
+  }
+  console.log('');
 }
 
 // ── vault bridge (#301) ──────────────────────────────────────────────────────────

@@ -52,6 +52,9 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
 - `/scan-projects` (anytime) — opt-in, metadata-only bridge: list which repos on your machine have a
   codebase brain and register the missing ones into `projects/` (name/path/URL/stack only — no code).
   Pairs with `cortex-init --register-to-vault`. Keeps the privacy firewall intact.
+- `/migrate-engine` (per repo, once) — migrate a repo off the OLD engine-based AI OS (`.ai-os/` +
+  `.github/ai-os/` MCP system) onto the plain-files brain. **Harvests the engine's memory store into
+  `AGENTS.md` first, then removes the old files** so no knowledge is lost across the breaking change.
 
 Each ritual is a plain `SKILL.md` (no engine, no Node). They live in `skills/` (committed,
 shareable); run `cp -r skills/* .claude/skills/` to expose them as Claude Code `/slash` commands.

@@ -71,6 +71,14 @@ Includes `/scan-projects` — an opt-in, metadata-only bridge that lets the vaul
 on your machine have a codebase brain (no code ever leaves the repo). It pairs with
 `cortex-init --register-to-vault`.
 
+### Migrating off the old engine
+
+If you install on a repo that still has the **old engine-based AI OS** (`.ai-os/`,
+`.github/ai-os/`, an `ai-os` MCP entry), both `cortex-init` and `/install-project` **detect it and
+prompt you to run `/migrate-engine` first**. That ritual harvests the engine's memory store into
+`AGENTS.md` (so accumulated knowledge isn't lost), logs the change in `docs/decisions.md`, backs
+everything up, then removes the old files. Harvest before delete — always.
+
 ## What changed from the old setup
 
 This folder was previously an engine-based AIOS ("Cortex"). It was rebuilt into this plain-files

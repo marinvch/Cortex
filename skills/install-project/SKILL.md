@@ -19,6 +19,18 @@ writes the personal vault, and the personal vault never absorbs this repo's comp
 Confirm the target repo path (default: the current working directory). Everything below is written
 relative to that root.
 
+## Step 1.5 — Check for an OLD engine first (don't lose its memory)
+Before scanning, look for a pre-existing engine-based AI OS: `.ai-os/`, `.github/ai-os/`
+(especially `.github/ai-os/memory/`), `.github/agents/`, `.github/COPILOT_CONTEXT.md`, or an
+`ai-os` entry in `.mcp.json` / `.vscode/mcp.json`. If any exist:
+- **Stop and tell the user** this repo has the old engine, whose memory store holds hand-verified
+  knowledge that a plain `/install-project` would not capture.
+- **Offer to run `/migrate-engine` first** — it harvests that memory into `AGENTS.md`, logs the
+  change, backs everything up, then removes the old files. Only continue once the user decides.
+- If the user declines, proceed but warn that engine knowledge won't be carried over.
+
+If no engine is present, continue normally.
+
 ## Step 2 — Learn the codebase (read-only scan)
 Read, don't guess:
 - `package.json` (deps + `scripts`), lockfile → framework, package manager, run/test/build commands.

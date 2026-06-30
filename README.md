@@ -1,81 +1,156 @@
-# 🧠 Cortex Vault — your personal + business second brain
+# 🧠 Cortex — your personal + business second brain (and a brain for every repo)
 
-A plain-markdown knowledge vault, Obsidian-style but **app-optional**. No build step, no engine,
-no Node — just files you own, readable by any editor and by AI (Claude, etc.). It combines a
-**knowledge layer** (capture → atomic notes → maps of content) with an **operating layer** (who
-you are, what the brain can reach, and the rituals that keep it alive).
+**v1.0.0** · plain-files, bash-only · see [CHANGELOG.md](CHANGELOG.md)
+
+A plain-markdown knowledge vault, Obsidian-style but **app-optional**. **No build step, no engine,
+no Node, no Python** — just files you own, readable by any editor and by any AI agent (Claude,
+Gemini, Copilot, Cursor). The only tooling is a few **bash** scripts.
+
+Two systems share one folder:
+- a **personal brain** — who you are, what you're working on, your notes and decisions; and
+- a **codebase-brain installer** — drop an `AGENTS.md` (+ agent shims + dev-cycle skills) into any
+  repo so every AI tool understands that project the same way.
 
 > One rule: capture first, organize later. Nothing lives only in your head.
 
-## Start here
+---
 
-1. Open `home.md` — the map of the whole vault.
-2. Run the **`onboard`** ritual (`skills/onboard/`) so the brain learns who you are.
-3. Each morning run **`daily`**; capture freely with **`capture`**; on Fridays run **`weekly-review`**.
-4. Weekly **`audit`** scores the vault; biweekly **`level-up`** finds one piece of leverage to ship.
+## Quick start (5 minutes)
 
-## The layers (see `references/vault-architecture.md`)
+**1. Get the vault**
+```bash
+git clone https://github.com/marinvch/ai-os.git
+cd ai-os
+cp home.example.md home.md           # your personal map (gitignored)
+cp -r skills/* .claude/skills/        # expose the rituals as /slash commands
+```
+
+**2. Teach the brain who you are** — in Claude Code / Cowork, run:
+```
+/onboard
+```
+It interviews you and fills `context/` (about you, priorities, how you work, voice).
+
+**3. Use it daily**
+```
+/capture        # drop any thought into the inbox (anytime)
+/daily          # start today's note; see priorities + what's due (each morning)
+/weekly-review  # empty the inbox, update projects, archive stale (Fridays)
+```
+
+**4. See your whole brain**
+```bash
+bash tools/cortex.sh                  # builds cortex.html and opens it
+```
+One page, four tabs: **Map** (an Obsidian-style force graph — click a node to read it),
+**Notes** (rendered markdown; click `[[wikilinks]]` to navigate; 🗑 to remove a note),
+**Repos** (your registered codebases), **Gaps** (orphan notes + dead links to fix).
+
+---
+
+## Use it on your other projects ⭐
+
+This is the part that makes any AI coding agent faster and safer on a specific codebase.
+
+**Step 1 — open the project repo** (in Claude Code / Cowork, or a terminal).
+
+**Step 2 — give it a brain.** Two options:
+
+- **Deep (recommended), AI-driven** — in Claude Code / Cowork, run:
+  ```
+  /install-project
+  ```
+  It reads the actual code and writes a real `AGENTS.md` (stack, architecture, conventions,
+  gotchas) + agent shims + `/plan-feature` and `/investigate-bug` skills.
+
+- **Fast, deterministic** — from a terminal inside the repo:
+  ```bash
+  bash /path/to/ai-os/tools/cortex-init.sh
+  ```
+  Detects the stack (package manager, framework, language, scripts, tsconfig, lint/CI, source dirs),
+  scaffolds `AGENTS.md` + shims + skills, and **suggests relevant skills** for your stack.
+
+**Step 3 — if the repo has an OLD engine** (`.ai-os/`, `.github/ai-os/`): both paths detect it and
+tell you to run **`/migrate-engine`** first — it harvests the old memory into `AGENTS.md`, then
+removes the cruft, so no knowledge is lost.
+
+**Step 4 — register it with your vault** (optional, metadata only — no code leaves the repo):
+```bash
+bash /path/to/ai-os/tools/cortex-init.sh --register-to-vault /path/to/ai-os
+```
+Now the repo shows up in the **Repos** tab of `cortex.html`.
+
+**Step 5 — commit the brain** (`AGENTS.md` + shims) so your whole team's agents share it.
+
+**Working in a critical area?** Run `/scope-area <dir>` to give it a deep, scoped `AGENTS.md` leaf
+(auth, billing, a pipeline) so agents load narrow context — faster and less drift. Starting a risky
+feature? `/analyze-spec` runs a brainstorm → spec → plan grounded by the brain.
+
+> **Brownfield-safe:** a curated `AGENTS.md`/`CLAUDE.md` is never clobbered (you get
+> `AGENTS.generated.md` to diff), existing files back up to `*.bak`, and it warns if a generated
+> file is gitignored. Run `bash tools/cortex-init.sh --help` for all flags.
+
+---
+
+## The rituals (skills)
+
+Plain `SKILL.md` files in `skills/`. Say "run my onboard skill" in Cowork/Claude Code, or `cp -r
+skills/* .claude/skills/` to use them as `/slash` commands.
+
+| Ritual | When | What it does |
+|---|---|---|
+| `/onboard` | once | Interview you; fill `context/`, seed `home.md`, `connections.md` |
+| `/capture` | anytime | One-line drop to the inbox |
+| `/daily` | each morning | Today's note + priorities + due items |
+| `/weekly-review` | weekly | Empty inbox, update projects, archive stale |
+| `/audit` | weekly | Four-layer health score + **noise check** (drift control) |
+| `/level-up` | biweekly | Find one piece of leverage; ship one artifact |
+| `/reindex` | periodic | Rebuild `cortex.html`; nominate MOCs; fix dead links |
+| `/install-project` | per repo | Give a repo a codebase brain (AI-driven, deep) |
+| `/migrate-engine` | per repo, once | Move a repo off the old engine without losing memory |
+| `/scope-area` | per critical part | Deep scoped `AGENTS.md` leaf + routing table |
+| `/analyze-spec` | per feature | Spec-Driven Development grounded by the brain |
+| `/scan-projects` | anytime | Register which local repos have a brain (metadata only) |
+
+---
+
+## How it's organized
 
 | Layer | Folder(s) | Job |
 |---|---|---|
 | **Capture** | `inbox/`, `daily/` | Nothing is lost |
 | **Knowledge** | `notes/`, `projects/`, `areas/`, `resources/` | Ideas connect into a graph |
 | **Context** | `context/`, `connections.md` | The brain knows you and your tools |
-| **Cadence** | `skills/`, scheduled tasks | It runs without being asked |
+| **Cadence** | `skills/` | It runs without being asked |
 
-How the brain thinks: `references/operating-principles.md` (Notice → Decide → Build).
+Navigate by **Maps of Content** (a `templates/moc.md` index note per topic, linked from `home.md`),
+not deep folders — folders fight `[[wikilinks]]`. How the brain thinks:
+`references/operating-principles.md` (Notice → Decide → Build) and `references/vault-architecture.md`.
 
 ## Privacy
 
-Personal and business content (`context/`, `inbox/`, `daily/`, `notes/`, `projects/`, `areas/`,
+Personal/business content (`context/`, `inbox/`, `daily/`, `notes/`, `projects/`, `areas/`,
 `resources/`, `decisions/`) is **gitignored** — it never leaves your machine. The committed files
-(this README, `AGENTS.md`, `references/` frameworks, `templates/`) are data-free, so the vault
-itself stays shareable and forkable.
+(this README, `AGENTS.md`, `references/`, `templates/`) are data-free, so the vault stays
+shareable/forkable. When you install a brain into a work repo, **company code never enters this
+vault** — only opt-in, metadata-only registration.
 
-## Give any repo a codebase brain (one-liner)
+## No noise = no drift
 
-Run this **inside any project repo** — it detects the stack (package manager, framework, language),
-scripts, `tsconfig`, lint/CI, and route/source directories, then **scaffolds** an `AGENTS.md` +
-agent shims (Claude/Gemini/Copilot/Cursor) + dev-cycle skills into that repo. Works in any shell
-(bash, zsh, gitbash, PowerShell) and under either runtime:
+`.cortexignore` is the single source of truth for what *isn't* knowledge (scaffolding, backups,
+generated views, skills). Every generator reads it (via `tools/_cortex-lib.sh`), so the graph stays
+clean and there's no per-script drift. `/audit` flags anything noisy that creeps in.
 
-```bash
-npx  github:marinvch/ai-os     # Node
-bunx github:marinvch/ai-os     # Bun
-```
+## Tools (`tools/`, all bash, zero deps)
 
-> It scaffolds from what it can detect, leaving `<…>` blanks for prose it can't infer. For a deep,
-> **AI-driven** pass that fills Architecture / Conventions / Gotchas from the actual code, open the
-> repo in Claude Code and run **`/install-project`**.
+| Script | Does |
+|---|---|
+| `cortex-init.sh` | Install a codebase brain into any repo |
+| `cortex.sh` | Build/open `cortex.html` — the viewer app |
+| `cortex-rm.sh` | Remove a note safely (archive + de-link + refresh) |
+| `_cortex-lib.sh` | Shared `knowledge_files()` (reads `.cortexignore`) |
 
-Non-interactive (CI, scripts, agents)? Use flags, pipe the four answers, or take all defaults:
-
-```bash
-npx github:marinvch/ai-os --yes
-npx github:marinvch/ai-os --name=App --purpose="..." --agents=claude,gemini
-printf 'MyApp\nWhat it does\nKey rule\nall\n' | npx github:marinvch/ai-os
-```
-
-It's **brownfield-safe**: a curated `AGENTS.md`/`CLAUDE.md` is never clobbered (you get
-`AGENTS.generated.md` to diff instead), existing files back up to `*.bak`, and it warns if a
-generated file is gitignored. `--additive` refreshes only the skills. Optionally register the repo
-with your personal vault (metadata only, opt-in): `--register-to-vault ~/vault`. Run `--help` for
-all flags. Source: `tools/cortex-init.mjs`.
-
-## Skills (rituals)
-
-Plain `SKILL.md` files in `skills/`. Say "run my onboard skill" in Cowork/Claude Code, or copy
-them into `.claude/skills/` to use as `/slash` commands (`cp -r skills/* .claude/skills/`).
-
-Includes `/scan-projects` — an opt-in, metadata-only bridge that lets the vault learn which repos
-on your machine have a codebase brain (no code ever leaves the repo). It pairs with
-`cortex-init --register-to-vault`.
-
-## What changed from the old setup
-
-This folder was previously an engine-based AIOS ("Cortex"). It was rebuilt into this plain-files
-second brain — see `00-AUDIT-AND-PLAN.md` for the full audit and rationale. The old `engine/`
-remains on disk but is retired and not part of the active path.
+> The original Node installer is retired at `archives/cortex-init.mjs.legacy`. Everything is bash now.
 
 ## License
 

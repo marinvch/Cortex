@@ -19,6 +19,18 @@ writes the personal vault, and the personal vault never absorbs this repo's comp
 Confirm the target repo path (default: the current working directory). Everything below is written
 relative to that root.
 
+## Step 1.5 — Check for an OLD engine first (don't lose its memory)
+Before scanning, look for a pre-existing engine-based AI OS: `.ai-os/`, `.github/ai-os/`
+(especially `.github/ai-os/memory/`), `.github/agents/`, `.github/COPILOT_CONTEXT.md`, or an
+`ai-os` entry in `.mcp.json` / `.vscode/mcp.json`. If any exist:
+- **Stop and tell the user** this repo has the old engine, whose memory store holds hand-verified
+  knowledge that a plain `/install-project` would not capture.
+- **Offer to run `/migrate-engine` first** — it harvests that memory into `AGENTS.md`, logs the
+  change, backs everything up, then removes the old files. Only continue once the user decides.
+- If the user declines, proceed but warn that engine knowledge won't be carried over.
+
+If no engine is present, continue normally.
+
 ## Step 2 — Learn the codebase (read-only scan)
 Read, don't guess:
 - `package.json` (deps + `scripts`), lockfile → framework, package manager, run/test/build commands.
@@ -127,6 +139,14 @@ description: Systematically investigate a bug in THIS repo. Use when given a bug
 # Decision Log — <Project>
 Append-only. Newest on top. Why a technical call was made, so it isn't re-litigated.
 ```
+
+## Step 3.5 — Offer scoped briefs for critical areas (nested AGENTS.md)
+From the scan, **nominate the critical parts** — directories that are high-churn, security/data
+sensitive, or hold invariants an agent could break (auth, billing/webhooks, the data layer, a
+pipeline). Present the shortlist and **ask the user which deserve their own deep brief.** For each
+they pick, run `/scope-area <dir>`: write a scoped `AGENTS.md` leaf inside that directory and add a
+`## Area map` routing table to the root `AGENTS.md`. Keep root lean (overview + routing); depth
+lives in the leaves. Don't over-split — only areas with a real gotcha/invariant earn a leaf.
 
 ## Step 4 — Gitignore note
 The brain files (`AGENTS.md`, `.claude/`, `docs/decisions.md`) are usually fine to commit so the

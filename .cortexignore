@@ -1,0 +1,21 @@
+# Cortex — paths that are NOT knowledge (noise). The single source of truth: every generator and
+# the /audit ritual reads THIS file. Add a line to keep something out of the graph/navigator.
+# Trailing slash = a directory anywhere; otherwise a filename or *.glob (matched on the basename).
+.git/
+node_modules/
+.claude/
+.agents/
+.superpowers/
+.vscode/
+docs/
+archives/
+templates/
+tools/
+skills/
+.backups/
+*.example.md
+README.md
+CLAUDE.md
+GEMINI.md
+*.chatprompt.md
+*.html

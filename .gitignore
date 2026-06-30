@@ -12,6 +12,9 @@ brain/
 # Your personalized dashboard. Forkers start from home.example.md (cp home.example.md home.md).
 home.md
 
+# Removed notes are archived here by cortex-rm.sh; they may carry personal content — never commit.
+archives/removed/
+
 # Keep folder placeholders + README templates tracked so the vault stays shareable
 !context/.gitkeep
 !decisions/.gitkeep
@@ -31,5 +34,16 @@ node_modules/
 engine/node_modules/
 engine/coverage/
 
-# Generated knowledge-graph visual (contains personal note titles) — local only
+# Generated views (contain personal note titles) — regenerate locally, never commit
+cortex.html
+brain.html
+navigator.html
 cortex-graph.html
+
+# Backups (auto-created; noise — never commit)
+*.bak
+context/.backups/
+
+# ── Vendored third-party skill collections (re-fetchable; keep the repo lean) ──
+.agents/
+.superpowers/

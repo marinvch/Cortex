@@ -52,26 +52,19 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
 - `/scan-projects` (anytime) — opt-in, metadata-only bridge: list which repos on your machine have a
   codebase brain and register the missing ones into `projects/` (name/path/URL/stack only — no code).
   Pairs with `cortex-init --register-to-vault`. Keeps the privacy firewall intact.
+- `/migrate-engine` (per repo, once) — migrate a repo off the OLD engine-based AI OS (`.ai-os/` +
+  `.github/ai-os/` MCP system) onto the plain-files brain. **Harvests the engine's memory store into
+  `AGENTS.md` first, then removes the old files** so no knowledge is lost across the breaking change.
+- `/analyze-spec` (per feature) — Spec-Driven Development grounded by the repo brain: brainstorm →
+  design spec → plan, **no code**. Bridges Cortex (context) with Superpowers (workflow). Use for
+  risky/critical changes; `/plan-feature` stays the lightweight path for routine tickets.
+- `/scope-area` (per critical part) — give a critical directory its own deep **scoped `AGENTS.md`
+  leaf** + a routing table in root, so agents load narrow, high-signal context (faster, cheaper,
+  less drift). One filename (`AGENTS.md`), nested — not a sprawl of per-topic files. Split only
+  where there's a real invariant/gotcha.
+- `/reindex` (periodic) — keep the vault navigable as it grows: regenerate the visual **navigator**
+  (`tools/cortex.sh` → `cortex.html`, an Obsidian-style force graph + search), nominate
+  topics that need a **Map of Content**, and resolve genuine dead links. Navigate by MOCs + links,
+  not folder depth.
 
-Each ritual is a plain `SKILL.md` (no engine, no Node). They live in `skills/` (committed,
-shareable); run `cp -r skills/* .claude/skills/` to expose them as Claude Code `/slash` commands.
-
-## Working style (defaults until `context/how-i-work.md` says otherwise)
-
-- Be direct and concise. Lead with what needs action. Answer the question asked.
-- When the user decides something, offer to log it in `decisions/log.md`.
-- When the user repeats a manual task 3+ times, flag it for `/level-up`.
-- Draft in the user's voice (`references/voice.md`); never publish external content without a draft first.
-- Match existing file conventions. Use `[[wikilinks]]` to connect notes. Keep templates data-free.
-
-## Note conventions
-
-- YAML frontmatter on every note: at least `type`, `title`, `tags`. Daily/notes add `date`/`created`.
-- One idea per note in `notes/`. If the title needs "and", split it.
-- Link generously — a note with no links is a dead end.
-
-## Legacy
-
-An earlier engine-based system (`engine/`, three-domain data boundary) was retired in favor of
-plain files. `engine/` may still exist on disk but is **not part of the active path** — ignore it
-unless explicitly asked. The active frameworks are [[operating-principles]] and [[vault-architecture]].
+Each ritual

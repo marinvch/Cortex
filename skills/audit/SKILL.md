@@ -33,6 +33,18 @@ old (5); voice captured (5); ≥1 decision logged (5).
 **Cadence (25)** — a recurring ritual runs (`/daily`/`/weekly-review` used recently) (10);
 activity in last 7 days (10); templates populated (5).
 
+## Step 2.5 — Noise check (drift control)
+Noise is what drifts the brain over time, so flag it. Compare every `*.md` against `.cortexignore`
+(the single source of truth for "not knowledge"). Report:
+- **Stale cruft** — files that look like old-engine leftovers (`.ai-os/`, `*.chatprompt.md`,
+  `*.generated.*`), superseded generated views committed by accident, or empty/placeholder notes.
+- **Backup accumulation** — anything under `*/.backups/` (e.g. `context/.backups/`); these duplicate
+  live files and should be gitignored/pruned, not edited.
+- **Uncovered noise** — non-knowledge files that aren't matched by `.cortexignore` yet (suggest
+  adding a line).
+For each, suggest the fix: archive it, gitignore it, prune it, or add it to `.cortexignore`. A clean
+vault is a non-drifting vault.
+
 ## Step 3 — Top 3 gaps by leverage
 For each lost-points criterion, weight by impact: empty `context/` ×3 (brain is blind to the
 user), no capture habit ×3 (raw material never arrives), 0 links ×2 (pile not graph), no cadence

@@ -140,6 +140,14 @@ description: Systematically investigate a bug in THIS repo. Use when given a bug
 Append-only. Newest on top. Why a technical call was made, so it isn't re-litigated.
 ```
 
+## Step 3.5 — Offer scoped briefs for critical areas (nested AGENTS.md)
+From the scan, **nominate the critical parts** — directories that are high-churn, security/data
+sensitive, or hold invariants an agent could break (auth, billing/webhooks, the data layer, a
+pipeline). Present the shortlist and **ask the user which deserve their own deep brief.** For each
+they pick, run `/scope-area <dir>`: write a scoped `AGENTS.md` leaf inside that directory and add a
+`## Area map` routing table to the root `AGENTS.md`. Keep root lean (overview + routing); depth
+lives in the leaves. Don't over-split — only areas with a real gotcha/invariant earn a leaf.
+
 ## Step 4 — Gitignore note
 The brain files (`AGENTS.md`, `.claude/`, `docs/decisions.md`) are usually fine to commit so the
 team shares them. If this should stay private, tell the user to add them to the repo's `.gitignore`.

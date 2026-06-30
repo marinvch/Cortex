@@ -1,20 +1,23 @@
 ---
 type: moc
-title: {{title}} MOC
-created: {{date}}
-tags: [moc]
+title: <Topic> — Map of Content
+created: <YYYY-MM-DD>
+tags: [moc, <topic>]
 ---
 
-# {{title}} — Map of Content
+# <Topic> — Map of Content
 
-A curated index for everything in the vault about **{{title}}**. Create one when a topic
-grows past ~7 related notes. Link it from [[home]].
+> A MOC is a hand-curated index note. Make one when a topic passes ~7 related notes, then link it
+> from `home.md`. It turns a pile into a navigable map.
+
+## Start here
+- [[<the best entry-point note>]]
 
 ## Core notes
-- [[ ]]
+- [[<note>]] — <one line>
+- [[<note>]] — <one line>
 
-## Sub-topics
+## Open questions / to capture
+- <what's still missing on this topic>
 
-
-## Open questions
-<!-- what you still want to learn — drives future capture -->
+> Linked from [[home]].

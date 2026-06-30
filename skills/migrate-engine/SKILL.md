@@ -51,6 +51,10 @@ Rules while harvesting:
 - **Verify against the code.** Memory can be stale. If a fact names a file/flag, confirm it still
   exists before promoting it. Drop or correct anything wrong.
 - **Keep it factual and concise** — one line per fact, evidence-based.
+- **Route to the right brief.** If a fact is specific to a critical area that has (or should have) a
+  scoped `AGENTS.md` leaf, put it in that leaf — not root. (e.g. RAG/embedding facts → `src/lib/AGENTS.md`,
+  webhook/raw-body facts → the webhooks leaf.) Offer to run `/scope-area` for areas the harvested
+  memory clusters around. Global facts go in root; area facts go in the leaf.
 - Do NOT copy engine *mechanics* (MCP tool names, `get_session_context`, session protocols) — those
   die with the engine.
 

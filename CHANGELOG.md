@@ -3,6 +3,20 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [1.1.0] — 2026-07-01
+
+**Live MCP brain + team engine + plugin bundle.**
+
+### Added
+- **Live MCP brain** — `mcp/` Node server with `recall`, `get_project_context`, `list_projects`, and `capture` tools; security path-jail; one-line user-scope registration via `/connect-brain`.
+- **Team context engine** — team-brain git sync (append-only, one-file-per-note, auto commit+push), generic `.cortex/connector.json`, `ai-os team init|add` (`/team-init`, `/team-add`).
+- **Capture sources** — `ai-os digest` (read-only git/PR digest into brain notes).
+- **Holiday catch-up** — `catch_me_up` MCP tool + `ai-os catch-up` (`/catch-me-up`).
+- **Cortex Core Plugin Bundle** — committed manifest + `.claude/settings.json` stamping (Core tier out-of-the-box) + `ai-os setup-plugins` offering optional tiers by role.
+
+### Resolved
+- **#305**, **#306**.
+
 ## [1.0.0] — 2026-06-30
 
 First stable **plain-files, bash-only** release. The vault and all tooling run with nothing but

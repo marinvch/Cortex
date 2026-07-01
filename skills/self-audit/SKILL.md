@@ -1,42 +1,52 @@
 ---
 name: self-audit
-description: Use when the user says "self audit", "audit your skills", "improve Cortex", "improve yourself", "what ritual is missing", "is the OS healthy", "make yourself better", or periodically to keep the operating system sharp. Looks inward at Cortex's own skills/rituals/wiring — not the knowledge content — and ships one improvement.
+description: Use when the user says "self audit", "audit the vault structure", "find orphan/old/redundant files", "clean up cortex", "fix dead links", "is the file structure healthy", "make cortex optimal", or wants an architecture / file-structure health pass. Scans the WHOLE vault for non-connected, stale, duplicate, misplaced files and broken links — then fixes them. Structural, not content-scoring (that's /audit).
 ---
 
-# /self-audit — audit the operating system and improve it
+# /self-audit — vault architecture & file-structure doctor
 
-Cortex looking **inward at itself**: the `skills/`, the `AGENTS.md` rituals, `connections.md`, and
-how they're wired — then shipping **one** concrete improvement. One run = one improvement.
+Keep Cortex **structurally clean and optimal**. This is the file-architecture health pass: scan
+*every* file and find what's dragging the vault down — **orphan (non-connected) files, dead links,
+stale/old files, redundant duplicates, misplaced files, and structural bugs** — then fix them.
 
-> Not to be confused with `/audit`, which scores the four **knowledge** layers (Capture, Knowledge,
-> Context, Cadence) of your *content*. `/self-audit` scores the **system** that operates on that content.
+> Distinct from siblings: `/audit` scores the four **knowledge** layers (content health); `/reindex`
+> regenerates the visual navigator + nominates MOCs. `/self-audit` is the **structure/architecture**
+> doctor — it finds and fixes the underlying file problems those rely on.
 
-## What to check (score each 🟢/🟡/🔴, one line of evidence)
+## What to scan for (report each finding with the exact file path)
 
-1. **Coverage** — is there a recurring task or pain (visible in recent `daily/`, `inbox/`,
-   `context/current-focus`) that has **no ritual**? Gaps are the highest-leverage finds.
-2. **Quality** — any skill whose `description:` summarizes its workflow (a discovery bug), reads
-   vaguely, is stale, or **duplicates** another skill's job?
-3. **Wiring** — is every `skills/<name>/` listed in `AGENTS.md` **and** the README table **and**
-   copied into `.claude/skills/`? Any dead `[[links]]` or broken references?
-4. **Fit** — do the rituals still match how the user actually works today, or have they drifted?
+1. **Orphans / non-connected files** — notes with **no inbound and no outbound `[[wikilinks]]`**,
+   unreachable from `home.md`/MOCs (e.g. a registered project stub like `projects/ai-saas.md`).
+   These float disconnected in the graph and are invisible to link-navigation.
+2. **Dead links** — `[[links]]` pointing at notes that don't exist (broken references).
+3. **Stale / old** — files untouched for a long time that look abandoned: lingering `inbox/` items,
+   `projects/` marked done/dropped, far-past `daily/` notes, superseded drafts.
+4. **Redundant / duplicate** — multiple files covering the same topic, duplicate stubs, near-identical
+   notes that should be one canonical note.
+5. **Misplaced / malformed** — a permanent note stuck in `inbox/`, a project without proper
+   frontmatter, wrong PARA bucket (`projects` vs `areas` vs `resources`), inconsistent naming.
+6. **Integrity bugs** — a **committed** file containing personal/business data (privacy-firewall
+   leak), a skill not wired into `AGENTS.md`/README/`.claude/skills`, `.cortexignore` violations.
 
 ## What to do
 
-1. **Read** `skills/` (names + descriptions), `AGENTS.md` rituals, the README table, and skim recent
-   `daily/`/`inbox/`/`context/current-focus.md` for real signal. Read-only so far.
-2. **Score** the four dimensions above with one line of evidence each.
-3. **Pick the single highest-leverage weakness** — the one fix that most improves the OS. Don't try
-   to fix everything.
-4. **Propose it** in one or two sentences, then on the user's go-ahead **ship it**:
-   - Missing/weak skill → drive **[[skill-creator]]** to add or patch the `SKILL.md`.
-   - Broken wiring → add the missing `AGENTS.md` bullet / README row / `.claude/skills/` copy.
-5. **Report** in a few lines: the four scores, the one gap you closed, and the artifact you shipped.
+1. **Gather signal (read-only first).** Run `bash tools/cortex.sh` — it reports node/link counts and
+   **dead-link count**. Glob the vault; check file mtimes for staleness; grep for `[[wikilinks]]` to
+   build the in/out link map and find orphans; scan frontmatter and folder placement.
+2. **Produce a prioritized findings list** grouped by the six categories above, each with the exact
+   path and a one-line "why it hurts."
+3. **Fix the safe/clear ones** (with a quick confirm): resolve dead links; wire orphans in (add
+   `[[links]]` from `home.md`/a MOC/related notes) or **archive** truly-dead ones (`move` to
+   `archives/`, never delete); move misplaced files to the right folder.
+4. **Propose the judgment calls** (redundant merges, "is this stale or just quiet?") — don't guess;
+   let the user decide, then execute.
+5. **Re-run `tools/cortex.sh`** to confirm the graph improved (fewer orphans, `0 dead`), and report:
+   the findings by category, what you fixed, and what's left for the user to decide.
 
 ## Don't
-- Don't boil the ocean — **one** improvement per run; log the rest for next time.
-- Don't touch the knowledge layers or personal content — that's `/audit` and `/weekly-review`.
-- Read first; make changes only with a green light. Keep committed skills data-free.
+- **Never delete** — move to `archives/` (things resurface). Deletion is the user's call only.
+- Don't touch personal *content* quality — that's `/audit` and `/weekly-review`. Stay on structure.
+- Read first; make changes only with a green light. Keep committed files data-free.
 
-Pairs with [[skill-creator]] (to ship skill improvements), complements `/audit` (content health) and
-`/level-up` (Notice → Decide → Build leverage).
+Pairs with [[reindex]] (regenerate the graph after cleanup) and [[skill-creator]]; complements
+`/audit` (content health) and `/weekly-review` (inbox/stale processing).

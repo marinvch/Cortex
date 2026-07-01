@@ -22,11 +22,19 @@ test("rejects absolute path outside root", () => {
   assert.throws(() => resolveInRoot(root, "/etc/passwd"), OutsideRootError);
 });
 
-test("rejects symlink that escapes root", () => {
+test("rejects symlink that escapes root", (t) => {
   const root = mkdtempSync(join(tmpdir(), "jail-"));
   const outside = mkdtempSync(join(tmpdir(), "out-"));
   writeFileSync(join(outside, "secret.md"), "x");
   mkdirSync(join(root, "sub"));
-  symlinkSync(outside, join(root, "sub", "link"));
+  try {
+    symlinkSync(outside, join(root, "sub", "link"));
+  } catch (e) {
+    if (e.code === "EPERM" || e.code === "EACCES" || e.code === "ENOSYS") {
+      t.skip("symlink creation not permitted in this environment");
+      return;
+    }
+    throw e;
+  }
   assert.throws(() => resolveInRoot(root, "sub/link/secret.md"), OutsideRootError);
 });

@@ -34,3 +34,8 @@ jobs:
           test -f .claude/skills/plan-feature/SKILL.md
           grep -q "Next.js" AGENTS.md
           echo "OK: bash installer produced a valid brain"
+
+          test -f "$WORK/.claude/settings.json"
+          grep -q '"superpowers@claude-plugins-official": true' "$WORK/.claude/settings.json"
+          grep -q 'anthropics/claude-plugins-official' "$WORK/.claude/settings.json"
+          echo "OK: core plugin bundle stamped into .claude/settings.json"

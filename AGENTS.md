@@ -6,8 +6,8 @@ The single source of truth for any AI agent working in this vault. Claude reads 
 ## What this is
 
 A **personal + business second brain** — a plain-markdown knowledge vault, Obsidian-style but
-app-optional. No build step, no engine, no Node. Just files you own, readable by any editor and
-by AI. Two systems share one folder: a **knowledge layer** (capture → notes → maps) and an
+app-optional. No build step, no engine — the core is just files you own, readable by any editor and
+by AI. (An **optional** Node MCP "brain" in `mcp/` adds live recall/capture; the vault works fully without it.) Two systems share one folder: a **knowledge layer** (capture → notes → maps) and an
 **operating layer** (who you are, what you can reach, and the rituals that keep it alive).
 
 ## The one rule (privacy)
@@ -66,5 +66,14 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
   (`tools/cortex.sh` → `cortex.html`, an Obsidian-style force graph + search), nominate
   topics that need a **Map of Content**, and resolve genuine dead links. Navigate by MOCs + links,
   not folder depth.
+- `/connect-brain` (once per machine) — register the live **MCP brain** (`mcp/server.js`) at user scope
+  so every project on this machine can `recall`/`capture` against the vault with zero per-project setup.
+- `/setup-plugins` (per machine/team) — install the **Cortex Core plugin bundle** out-of-the-box
+  (analysis + skill/plugin creation) via `ai-os setup-plugins`; offer the optional tiers by role.
+- `/team-init` (leader, once) — create + seed the shared **team-brain** repo (one folder per project) and push.
+- `/team-add` (member, per product repo) — clone the team-brain locally + drop a generic `.cortex/connector.json`
+  so teammates inherit the wiring on clone. Never auto-commits the product repo.
+- `/catch-me-up` (after time away) — assemble brain notes + team-brain git history since a date via
+  `catch_me_up`, then summarize *what changed & why*.
 
 Each ritual

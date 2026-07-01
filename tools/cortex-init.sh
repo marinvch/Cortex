@@ -7,6 +7,7 @@
 #   bash cortex-init.sh --name App --purpose "..." --agents claude,gemini
 #   bash cortex-init.sh --additive              # refresh skills only
 #   bash cortex-init.sh --register-to-vault ~/vault
+#   bash cortex-init.sh --no-plugins            # skip stamping .claude/settings.json (Core plugin bundle)
 #
 # Writes only inside the current repo (existing files backed up to *.bak), except
 # --register-to-vault, which writes one metadata-only stub into the vault.
@@ -48,7 +49,7 @@ write_shim(){ local p="$CWD/$1"
 }
 
 # ── 1. parse args ─────────────────────────────────────────────────────────────
-A_NAME=""; A_PURPOSE=""; A_RULE=""; A_AGENTS=""; YES=0; ADDITIVE=0; REGISTER=""
+A_NAME=""; A_PURPOSE=""; A_RULE=""; A_AGENTS=""; YES=0; ADDITIVE=0; REGISTER=""; NO_PLUGINS=0
 while [ $# -gt 0 ]; do case "$1" in
   --name) A_NAME="${2:-}"; shift 2;;            --name=*) A_NAME="${1#*=}"; shift;;
   --purpose) A_PURPOSE="${2:-}"; shift 2;;      --purpose=*) A_PURPOSE="${1#*=}"; shift;;
@@ -57,7 +58,8 @@ while [ $# -gt 0 ]; do case "$1" in
   --register-to-vault) REGISTER="${2:-}"; shift 2;; --register-to-vault=*) REGISTER="${1#*=}"; shift;;
   --yes|-y) YES=1; shift;;
   --additive|--skip-instructions) ADDITIVE=1; shift;;
-  --help|-h) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
+  --no-plugins) NO_PLUGINS=1; shift;;
+  --help|-h) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; exit 0;;
   *) printf '  (ignoring unknown arg: %s)\n' "$1"; shift;;
 esac; done
 
@@ -226,6 +228,63 @@ has docs/decisions.md || write_file docs/decisions.md "# Decision Log — $NAME
 Append-only. Newest on top. Record why a technical call was made so it isn't re-litigated.
 "
 
+# ── 5b. stamp Claude Code plugin settings (Core tier) ─────────────────────────
+# Mirrors plugins/cortex-core-plugins.json → tiers.core. Kept hardcoded here (not parsed via
+# jq from that manifest) so this installer keeps running with zero required deps.
+CORE_PLUGINS=(superpowers skill-creator claude-md-management claude-code-setup feature-dev code-review code-simplifier context7)
+PLUGIN_MARKETPLACE="claude-plugins-official"
+PLUGIN_MARKETPLACE_REPO="anthropics/claude-plugins-official"
+
+PLUGIN_STAMPED=0
+stamp_plugin_settings(){
+  local rel=".claude/settings.json" abs="$CWD/.claude/settings.json" content=""
+  if command -v jq >/dev/null 2>&1; then
+    local plugins_json marketplace_json
+    plugins_json="$(printf '%s\n' "${CORE_PLUGINS[@]}" | jq -R -s -c --arg mp "$PLUGIN_MARKETPLACE" \
+      'split("\n") | map(select(length > 0)) | map({(. + "@" + $mp): true}) | add')"
+    marketplace_json="$(jq -n --arg name "$PLUGIN_MARKETPLACE" --arg repo "$PLUGIN_MARKETPLACE_REPO" \
+      '{($name): {source: {source: "github", repo: $repo}}}')"
+    if [ -f "$abs" ]; then
+      content="$(jq --argjson mk "$marketplace_json" --argjson pl "$plugins_json" \
+        '.extraKnownMarketplaces = ((.extraKnownMarketplaces // {}) * $mk)
+         | .enabledPlugins = ((.enabledPlugins // {}) * $pl)' \
+        "$abs" 2>/dev/null)"
+      if [ -z "$content" ]; then
+        say "  ⚠ .claude/settings.json exists but isn't valid JSON — left untouched (merge skipped)"
+        return
+      fi
+    else
+      content="$(jq -n --argjson mk "$marketplace_json" --argjson pl "$plugins_json" \
+        '{extraKnownMarketplaces: $mk, enabledPlugins: $pl}')"
+    fi
+    write_file "$rel" "$content"$'\n'
+  else
+    if [ -f "$abs" ]; then
+      say "  ↷ .claude/settings.json exists and jq isn't installed — left untouched"
+      say "    (add the Core plugin bundle manually; see references/cortex-plugins.md)"
+      return
+    fi
+    local pairs=() p
+    for p in "${CORE_PLUGINS[@]}"; do pairs+=("    \"$p@$PLUGIN_MARKETPLACE\": true"); done
+    local enabled_lines; enabled_lines="$(printf '%s,\n' "${pairs[@]}")"; enabled_lines="${enabled_lines%,}"
+    content="{
+  \"extraKnownMarketplaces\": {
+    \"$PLUGIN_MARKETPLACE\": { \"source\": { \"source\": \"github\", \"repo\": \"$PLUGIN_MARKETPLACE_REPO\" } }
+  },
+  \"enabledPlugins\": {
+$enabled_lines
+  }
+}"
+    write_file "$rel" "$content"$'\n'
+  fi
+  PLUGIN_STAMPED=1
+}
+if [ $NO_PLUGINS -eq 0 ]; then
+  stamp_plugin_settings
+else
+  say "  (--no-plugins: skipping .claude/settings.json plugin bundle stamp)"
+fi
+
 # ── 6. gitignore awareness ────────────────────────────────────────────────────
 if command -v git >/dev/null 2>&1 && git -C "$CWD" rev-parse >/dev/null 2>&1; then
   IGN="$(git -C "$CWD" check-ignore "${WRITTEN[@]}" 2>/dev/null || true)"
@@ -253,6 +312,10 @@ say ""; say "  ✅ Done. This repo now has a brain."
 say "  For a deep, AI-driven pass that fills Architecture/Conventions/Gotchas from the"
 say "  actual code, open this repo in Claude Code and run /install-project."
   say "  For critical parts (auth, billing, a pipeline), run /scope-area to give them a deep brief."
+if [ $PLUGIN_STAMPED -eq 1 ]; then
+  say "  Stamped the Core plugin bundle into .claude/settings.json (superpowers, skill-creator,"
+  say "  claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier, context7)."
+fi
 if [ $ENGINE_FOUND -eq 1 ]; then
   say ""; say "  ⚠ Reminder: an old engine is still here. Run /migrate-engine to rescue its"
   say "    memory into AGENTS.md before removing it — otherwise that knowledge is lost."

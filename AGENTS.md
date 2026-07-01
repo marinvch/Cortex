@@ -75,5 +75,11 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
   so teammates inherit the wiring on clone. Never auto-commits the product repo.
 - `/catch-me-up` (after time away) — assemble brain notes + team-brain git history since a date via
   `catch_me_up`, then summarize *what changed & why*.
+- `/skill-creator` (on request) — create a tailored new ritual: ask intent, write a plain
+  `skills/<name>/SKILL.md`, and wire it into `AGENTS.md` + README + `.claude/skills/`. Cortex grows
+  its own skills on demand. (Adapted from Anthropic's skill-creator; deeper rigor via `superpowers:writing-skills`.)
+- `/self-audit` (periodic) — Cortex looks **inward at its own OS** (skills, rituals, wiring — not the
+  knowledge layers), scores coverage/quality/wiring/fit, and ships **one** improvement per run (often
+  via `/skill-creator`). Distinct from `/audit` (which scores content health).
 
 Each ritual

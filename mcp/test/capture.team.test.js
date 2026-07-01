@@ -17,7 +17,7 @@ function vaultWithTeam() {
   git(remote, "init", "--bare", "-q", "-b", "master");
   const root = mkdtempSync(join(tmpdir(), "vault-"));
   const clone = join(root, "team", "acme");
-  execFileSync("git", ["clone", "-q", remote, clone]);
+  execFileSync("git", ["clone", "-q", remote, clone], { stdio: ["ignore", "pipe", "pipe"] });
   git(clone, "config", "user.email", "t@t");
   git(clone, "config", "user.name", "t");
   writeFileSync(join(clone, "seed.md"), "s");

@@ -1,0 +1,13 @@
+{
+  "marketplaces": {
+    "claude-plugins-official": { "source": { "source": "github", "repo": "anthropics/claude-plugins-official" } },
+    "cloudflare": { "source": { "source": "github", "repo": "cloudflare/skills" } }
+  },
+  "tiers": {
+    "core": ["superpowers", "skill-creator", "claude-md-management", "claude-code-setup", "feature-dev", "code-review", "code-simplifier", "context7"],
+    "dev-tools": ["typescript-lsp", "github"],
+    "browser-qa": ["playwright", "chrome-devtools-mcp"],
+    "platform": ["vercel", "cloudflare@cloudflare", "andrej-karpathy-skills@multica-ai"]
+  },
+  "defaultMarketplace": "claude-plugins-official"
+}

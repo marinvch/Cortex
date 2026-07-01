@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadManifest, buildPlan, formatCommands } from "./lib/setup-plugins.js";
+import { initTeamBrain, cloneTeamBrain, writeConnector } from "./lib/team.js";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
 const WIN = process.platform === "win32";
@@ -42,12 +43,35 @@ function cmdSetupPlugins(args) {
   return 0;
 }
 
+function cmdTeam(teamSub, args) {
+  const root = process.env.AI_OS_ROOT;
+  if (!root) throw new Error("AI_OS_ROOT is not set (required for team operations)");
+  if (teamSub === "init") {
+    if (!args.name || !args.repo) throw new Error("usage: ai-os team init --name <team> --repo <git-url> [--projects a,b]");
+    const projects = typeof args.projects === "string" ? args.projects.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const dir = initTeamBrain(root, { name: args.name, repo: args.repo, projects });
+    console.log(`Team-brain initialized at ${dir} and pushed to ${args.repo}.`);
+    return 0;
+  }
+  if (teamSub === "add") {
+    if (!args.name || !args.repo || !args.slug) throw new Error("usage: ai-os team add --name <team> --repo <git-url> --slug <project-slug>");
+    const { dir, cloned } = cloneTeamBrain(root, args.name, args.repo);
+    const conn = writeConnector(process.cwd(), args.slug, args.repo);
+    console.log(`Team-brain ${cloned ? "cloned to" : "already at"} ${dir}. Wrote ${conn}.`);
+    console.log("Next: commit the connector into THIS repo →  git add .cortex/connector.json");
+    return 0;
+  }
+  throw new Error("usage: ai-os team init|add ...");
+}
+
 const [sub, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 try {
   switch (sub) {
     case "setup-plugins":
       process.exit(cmdSetupPlugins(args));
+    case "team":
+      process.exit(cmdTeam(rest[0], args));
     default:
       console.error("usage: ai-os setup-plugins [--tier core|dev-tools|browser-qa|platform] [--scope user|project|local]");
       process.exit(sub ? 1 : 2);

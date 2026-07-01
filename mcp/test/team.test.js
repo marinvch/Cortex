@@ -59,3 +59,11 @@ test("initTeamBrain seeds, commits, and pushes to the remote", () => {
   assert.ok(existsSync(join(verify, "team.md")));
   assert.ok(existsSync(join(verify, "projects", "unis", ".gitkeep")));
 });
+
+test("initTeamBrain is idempotent (safe to re-run after a prior init)", () => {
+  const remote = bareRemote();
+  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const dir = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
+  assert.doesNotThrow(() => initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] }));
+  assert.ok(existsSync(join(dir, "team.md")));
+});

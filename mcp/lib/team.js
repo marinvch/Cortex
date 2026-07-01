@@ -56,8 +56,9 @@ export function initTeamBrain(root, { name, repo, projects = [] }) {
   seedTeamBrain(dir, { name, projects });
   ensureIdentity(dir);
   git(dir, ["add", "."]);
-  git(dir, ["commit", "-q", "-m", `chore: seed team-brain ${name}`]);
+  const pending = git(dir, ["status", "--porcelain"]).trim();
+  if (pending) git(dir, ["commit", "-q", "-m", `chore: seed team-brain ${name}`]);
   git(dir, ["branch", "-M", "master"]);
-  git(dir, ["push", "-q", "-u", "origin", "master"]);
+  git(dir, ["push", "-q", "-u", "origin", "master"]); // always push (retry-safe if a prior commit was unpushed)
   return dir;
 }

@@ -31,6 +31,10 @@ test("teamCloneDir builds path under root/team", () => {
   assert.match(teamCloneDir("/vault", "acme"), /team[\\/]acme$/);
 });
 
+test("teamCloneDir slugifies the team name", () => {
+  assert.match(teamCloneDir("/vault", "Acme Corp"), /team[\\/]acme-corp$/);
+});
+
 test("commitAndPush pushes a note to the bare remote", () => {
   const { clone } = setup();
   writeFileSync(join(clone, "note.md"), "hello");

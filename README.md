@@ -48,6 +48,27 @@ One page, four tabs: **Map** (an Obsidian-style force graph — click a node to 
 
 ---
 
+## Connect the live brain (MCP)
+
+The skills above work by editing plain files. If your agent speaks **MCP** (Claude Code, Cursor,
+etc.), you can also wire the vault up as a live server so `recall`/`capture` become real tools —
+available in **every project on this machine**, not just this repo. One-time, user scope:
+
+```bash
+cd /path/to/ai-os/mcp && npm install   # once, installs the server's deps
+claude mcp add --scope user ai-os --env AI_OS_ROOT=/path/to/ai-os -- node /path/to/ai-os/mcp/server.js
+```
+
+**Cursor / other MCP agents** — add to the agent's `mcpServers` config:
+```json
+{ "ai-os": { "command": "node", "args": ["/path/to/ai-os/mcp/server.js"], "env": { "AI_OS_ROOT": "/path/to/ai-os" } } }
+```
+
+`AI_OS_ROOT` (this vault's path) is the only configuration — nothing else to set. Say "connect the
+brain" (or run `/connect-brain`) to have your agent do this for you.
+
+---
+
 ## Use it on your other projects ⭐
 
 This is the part that makes any AI coding agent faster and safer on a specific codebase.

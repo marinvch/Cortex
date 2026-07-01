@@ -137,6 +137,8 @@ skills/* .claude/skills/` to use them as `/slash` commands.
 | `/team-init` | leader, once | Create + seed the shared team-brain repo and push |
 | `/team-add` | member, per repo | Clone the team-brain + drop a generic connector into the product repo |
 | `/catch-me-up` | after time away | Summarize what changed on a project since a date |
+| `/skill-creator` | on request | Create a tailored new ritual and wire it in |
+| `/self-audit` | periodic | Audit Cortex's own skills/wiring and ship one improvement |
 
 ---
 

@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadManifest, buildPlan, formatCommands } from "./lib/setup-plugins.js";
 import { initTeamBrain, cloneTeamBrain, writeConnector } from "./lib/team.js";
+import { digest } from "./lib/digest.js";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
 const WIN = process.platform === "win32";
@@ -64,6 +65,15 @@ function cmdTeam(teamSub, args) {
   throw new Error("usage: ai-os team init|add ...");
 }
 
+function cmdDigest(args) {
+  if (!args.repo || !args.since || !args.out) {
+    throw new Error("usage: ai-os digest --repo <path> --since <YYYY-MM-DD> --out <file>");
+  }
+  const out = digest(args.repo, args.since, args.out);
+  console.log(`Digest appended to ${out}.`);
+  return 0;
+}
+
 const [sub, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 try {
@@ -72,6 +82,8 @@ try {
       process.exit(cmdSetupPlugins(args));
     case "team":
       process.exit(cmdTeam(rest[0], args));
+    case "digest":
+      process.exit(cmdDigest(args));
     default:
       console.error("usage: ai-os setup-plugins [--tier core|dev-tools|browser-qa|platform] [--scope user|project|local]");
       process.exit(sub ? 1 : 2);

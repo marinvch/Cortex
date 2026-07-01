@@ -27,6 +27,7 @@ function claudeAvailable() {
 function cmdSetupPlugins(args) {
   const tier = args.tier || "core";
   const scope = args.scope || "user";
+  if (!["user", "project", "local"].includes(scope)) throw new Error(`invalid scope: ${scope} (use user|project|local)`);
   const plan = buildPlan(loadManifest(REPO_ROOT), tier, scope);
   if (!claudeAvailable()) {
     console.log(`# 'claude' CLI not found — run these to install the '${tier}' tier (scope ${scope}):`);
@@ -43,10 +44,15 @@ function cmdSetupPlugins(args) {
 
 const [sub, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
-switch (sub) {
-  case "setup-plugins":
-    process.exit(cmdSetupPlugins(args));
-  default:
-    console.error("usage: ai-os setup-plugins [--tier core|dev-tools|browser-qa|platform] [--scope user|project|local]");
-    process.exit(sub ? 1 : 2);
+try {
+  switch (sub) {
+    case "setup-plugins":
+      process.exit(cmdSetupPlugins(args));
+    default:
+      console.error("usage: ai-os setup-plugins [--tier core|dev-tools|browser-qa|platform] [--scope user|project|local]");
+      process.exit(sub ? 1 : 2);
+  }
+} catch (e) {
+  console.error(`error: ${e.message}`);
+  process.exit(1);
 }

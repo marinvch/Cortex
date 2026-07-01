@@ -1,0 +1,23 @@
+name: mcp test
+on:
+  push:
+    paths: ["mcp/**", ".github/workflows/mcp-test.yml"]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Configure git identity (for sync tests)
+        run: git config --global user.email ci@example.com && git config --global user.name CI
+      - name: Install
+        run: cd mcp && npm ci
+      - name: Test
+        run: cd mcp && npm test

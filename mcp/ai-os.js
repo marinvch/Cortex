@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { loadManifest, buildPlan, formatCommands } from "./lib/setup-plugins.js";
 import { initTeamBrain, cloneTeamBrain, writeConnector } from "./lib/team.js";
 import { digest } from "./lib/digest.js";
+import { catchMeUp } from "./lib/catchup.js";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
 const WIN = process.platform === "win32";
@@ -74,6 +75,15 @@ function cmdDigest(args) {
   return 0;
 }
 
+function cmdCatchUp(args) {
+  const root = process.env.AI_OS_ROOT;
+  if (!root) throw new Error("AI_OS_ROOT is not set (required for catch-up)");
+  if (!args.project || !args.since) throw new Error("usage: ai-os catch-up --project <slug> --since <YYYY-MM-DD> [--team <name>]");
+  const res = catchMeUp(root, { project: args.project, since: args.since, team: args.team });
+  console.log(JSON.stringify(res, null, 2));
+  return 0;
+}
+
 const [sub, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
 try {
@@ -84,8 +94,10 @@ try {
       process.exit(cmdTeam(rest[0], args));
     case "digest":
       process.exit(cmdDigest(args));
+    case "catch-up":
+      process.exit(cmdCatchUp(args));
     default:
-      console.error("usage: ai-os setup-plugins [--tier core|dev-tools|browser-qa|platform] [--scope user|project|local]");
+      console.error("usage: ai-os <setup-plugins|team|digest|catch-up> [--flags]");
       process.exit(sub ? 1 : 2);
   }
 } catch (e) {

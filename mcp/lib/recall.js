@@ -54,6 +54,6 @@ export function recall(root, { query, project, limit = 8 }) {
     const snippet = text.slice(start, start + 200).replace(/\s+/g, " ").trim();
     hits.push({ path, score, snippet, mtime: statSync(path).mtimeMs });
   }
-  hits.sort((a, b) => b.score - a.score || a.mtime - b.mtime);
+  hits.sort((a, b) => b.score - a.score || b.mtime - a.mtime);
   return hits.slice(0, limit).map(({ path, score, snippet }) => ({ path, score, snippet }));
 }

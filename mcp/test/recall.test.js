@@ -9,7 +9,7 @@ import { recall } from "../lib/recall.js";
 function seed() {
   const root = mkdtempSync(join(tmpdir(), "vault-"));
   mkdirSync(join(root, "projects"));
-  writeFileSync(join(root, "projects", "unis.md"), "# UNIS\nUNIS uses PingID session cookies for auth.\n");
+  writeFileSync(join(root, "projects", "unis.md"), "# UNIS\nUNIS uses PingID session cookies for auth. PingID cookies are the key detail.\n");
   writeFileSync(join(root, "projects", "acme.md"), "# ACME\nACME uses OAuth device flow.\n");
   writeFileSync(join(root, "notes.md"), "General note about PingID and cookies.\n");
   return root;

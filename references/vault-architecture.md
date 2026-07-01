@@ -30,7 +30,7 @@ PARA split) keep knowledge actionable: project = outcome + deadline, area = ongo
 resource = reference material.
 
 ## 3. Context
-`context/` + `connections.md`. Who you are, your business, your priorities, your voice, and every
+`context/` + `connections.md`. Who you are, your business, your priorities, your [[voice]], and every
 tool/data source the vault can reach. This is what lets the brain answer *as you* and pull *your*
 live data instead of guessing. Filled by `/onboard`, grown by `/level-up`.
 

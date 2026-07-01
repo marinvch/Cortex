@@ -4,9 +4,9 @@
 
 **Goal:** Ship a live MCP "brain" server + team-brain git sync + a curated Core Plugin Bundle so any project/team/PC that installs Cortex gets recall/capture + analysis + skill-creation power out of the box.
 
-**Architecture:** Pure, unit-testable Node lib modules (`mcp/lib/*`) do the work (path-jail, lexical recall, capture, projects, git sync, catch-up). A thin `mcp/server.js` wires them to the MCP stdio transport. Team sync writes only inside `AI_OS_ROOT` (team repo cloned under it) and pushes only to the team-brain remote. Plugins ship via a committed manifest + declarative `.claude/settings.json` + a `/setup-plugins` script. Everything non-MCP is skills + bash, matching the vault's plain-files ethos.
+**Architecture:** Pure, unit-testable Node lib modules (`mcp/lib/*`) do the work (path-jail, lexical recall, capture, projects, git sync, catch-up). A thin `mcp/server.js` wires them to the MCP stdio transport, and a thin `mcp/ai-os.js` CLI exposes the operational commands (setup-plugins, team, digest, catch-up) over the same lib. Team sync writes only inside `AI_OS_ROOT` (team repo cloned under it) and pushes only to the team-brain remote. Plugins ship via a committed manifest + declarative `.claude/settings.json` (stamped by the existing bash installer) + an `ai-os setup-plugins` command. See **Plan Amendment (2026-07-01)** below: operational tooling is a Node CLI, not bash scripts.
 
-**Tech Stack:** Node ≥20 (ESM), `@modelcontextprotocol/sdk`, built-in `node:test`/`node:assert`, bash (`tools/*.sh`), GitHub Actions.
+**Tech Stack:** Node ≥20 (ESM), `@modelcontextprotocol/sdk`, built-in `node:test`/`node:assert`, a Node `ai-os` CLI, the existing bash installer (`tools/cortex-init.sh`) + GitHub Actions.
 
 ## Global Constraints
 
@@ -1390,3 +1390,19 @@ EOF
 **Placeholder scan:** No "TBD/TODO/handle edge cases" left; each code step shows real code; bash-heavy tasks (9, 10, 13, 14) specify exact commands, flags, and grep assertions rather than vague prose.
 
 **Type consistency:** `resolveInRoot`/`OutsideRootError` (Task 2) used verbatim in Tasks 5 & 12. `recall(root,{query,project,limit})` (Task 3) reused in Task 15. `commitAndPush`/`teamCloneDir` (Task 11) consumed by Tasks 12 & 15. Tool names match across `server.js`, smoke test, and `AGENTS.md`. `capture(root, {...})` signature extended (not renamed) in Task 12.
+
+---
+
+## Plan Amendment (2026-07-01): Node CLI for operational tooling
+
+**Decision:** The new *operational* tooling is built as a Node `ai-os` CLI (`mcp/ai-os.js`) that reuses `mcp/lib/*`, instead of bash `tools/*.sh`. Rationale: Node is already a hard dependency (the MCP server), so there's no zero-Node purity left to protect; Node is cross-platform (no Git Bash dependency — which caused the symlink-EPERM and hook friction on Windows); and the team/digest/catch-up commands reuse already-tested Node lib (`gitsync.js`, `catchup.js`, `recall.js`) instead of duplicating git logic in bash.
+
+**Kept as bash (unchanged):** the existing bootstrap installer `tools/cortex-init.sh` (incl. the plugin `.claude/settings.json` stamping added in Task 9, commit `bcad259`) and the existing `.github/workflows/cortex-init-test.yml` bash smoke. We are not rewriting the working installer — only *new* tooling goes to Node.
+
+**Re-planned tasks (supersede the bash versions written above):**
+- **Task 10** → `mcp/ai-os.js` CLI entry + `mcp/lib/setup-plugins.js` (`ai-os setup-plugins [--tier core] [--scope user]`) + `node:test` + `/setup-plugins` skill that calls `node <vault>/mcp/ai-os.js setup-plugins`.
+- **Task 13** → `mcp/lib/team.js` (`ai-os team init|add`, reusing `gitsync.js`) + `templates/connector.json` + `/team-init` and `/team-add` skills calling the CLI + `node:test`.
+- **Task 14** → `mcp/lib/digest.js` (`ai-os digest --repo --since --out`, git log via Node child_process, optional `gh` PRs) + `node:test`.
+- **Task 15** → unchanged (Node `catchup.js` + `catch_me_up` tool), plus an `ai-os catch-up` CLI wrapper and the `/catch-me-up` skill calling it.
+
+For these re-planned tasks the controller authors the task brief directly (the section text above is superseded). `package.json` gains a `"bin": { "ai-os": "ai-os.js", "ai-os-mcp": "server.js" }` entry.

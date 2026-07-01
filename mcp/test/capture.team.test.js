@@ -36,3 +36,21 @@ test("team capture writes one-file-per-note and pushes", () => {
   assert.match(readFileSync(res.path, "utf8"), /PingID cookies/);
   assert.equal(res.pushed, true);
 });
+
+test("non-slug team name resolves to the slugified clone dir and pushes", () => {
+  const remote = mkdtempSync(join(tmpdir(), "remote-"));
+  git(remote, "init", "--bare", "-q", "-b", "master");
+  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const clone = join(root, "team", "acme-corp");
+  execFileSync("git", ["clone", "-q", remote, clone], { stdio: ["ignore", "pipe", "pipe"] });
+  git(clone, "config", "user.email", "t@t");
+  git(clone, "config", "user.name", "t");
+  writeFileSync(join(clone, "seed.md"), "s");
+  git(clone, "add", ".");
+  git(clone, "commit", "-qm", "s");
+  git(clone, "branch", "-M", "master");
+  git(clone, "push", "-q", "-u", "origin", "master");
+  const res = capture(root, { content: "PingID", project: "unis", team: "Acme Corp", today: "2026-07-01", noteId: "z1" });
+  assert.match(res.path, /team[\\/]acme-corp[\\/]projects[\\/]unis[\\/]2026-07-01-z1\.md$/);
+  assert.equal(res.pushed, true);
+});

@@ -47,3 +47,6 @@ context/.backups/
 # ── Vendored third-party skill collections (re-fetchable; keep the repo lean) ──
 .agents/
 .superpowers/
+
+# MCP server deps (Node only lives in mcp/)
+mcp/node_modules/

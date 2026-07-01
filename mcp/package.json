@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "description": "Cortex brain — local MCP server (recall/capture over the vault).",
   "type": "module",
-  "bin": { "ai-os-mcp": "server.js" },
+  "bin": { "ai-os": "ai-os.js", "ai-os-mcp": "server.js" },
   "engines": { "node": ">=20" },
   "scripts": {
     "test": "node --test",

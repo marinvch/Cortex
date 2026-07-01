@@ -1,7 +1,8 @@
 {
   "marketplaces": {
     "claude-plugins-official": { "source": { "source": "github", "repo": "anthropics/claude-plugins-official" } },
-    "cloudflare": { "source": { "source": "github", "repo": "cloudflare/skills" } }
+    "cloudflare": { "source": { "source": "github", "repo": "cloudflare/skills" } },
+    "multica-ai": { "source": { "source": "github", "repo": "multica-ai/andrej-karpathy-skills" } }
   },
   "tiers": {
     "core": ["superpowers", "skill-creator", "claude-md-management", "claude-code-setup", "feature-dev", "code-review", "code-simplifier", "context7"],

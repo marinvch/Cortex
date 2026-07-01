@@ -132,6 +132,11 @@ skills/* .claude/skills/` to use them as `/slash` commands.
 | `/scope-area` | per critical part | Deep scoped `AGENTS.md` leaf + routing table |
 | `/analyze-spec` | per feature | Spec-Driven Development grounded by the brain |
 | `/scan-projects` | anytime | Register which local repos have a brain (metadata only) |
+| `/connect-brain` | once per machine | Register the live MCP brain (recall/capture) at user scope |
+| `/setup-plugins` | per machine/team | Install the Core plugin bundle; offer optional tiers by role |
+| `/team-init` | leader, once | Create + seed the shared team-brain repo and push |
+| `/team-add` | member, per repo | Clone the team-brain + drop a generic connector into the product repo |
+| `/catch-me-up` | after time away | Summarize what changed on a project since a date |
 
 ---
 

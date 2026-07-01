@@ -66,5 +66,14 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
   (`tools/cortex.sh` → `cortex.html`, an Obsidian-style force graph + search), nominate
   topics that need a **Map of Content**, and resolve genuine dead links. Navigate by MOCs + links,
   not folder depth.
+- `/connect-brain` (once per machine) — register the live **MCP brain** (`mcp/server.js`) at user scope
+  so every project on this machine can `recall`/`capture` against the vault with zero per-project setup.
+- `/setup-plugins` (per machine/team) — install the **Cortex Core plugin bundle** out-of-the-box
+  (analysis + skill/plugin creation) via `ai-os setup-plugins`; offer the optional tiers by role.
+- `/team-init` (leader, once) — create + seed the shared **team-brain** repo (one folder per project) and push.
+- `/team-add` (member, per product repo) — clone the team-brain locally + drop a generic `.cortex/connector.json`
+  so teammates inherit the wiring on clone. Never auto-commits the product repo.
+- `/catch-me-up` (after time away) — assemble brain notes + team-brain git history since a date via
+  `catch_me_up`, then summarize *what changed & why*.
 
 Each ritual

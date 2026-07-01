@@ -30,3 +30,16 @@ test("getProjectContext throws not_found", () => {
   const root = seed();
   assert.throws(() => getProjectContext(root, "ghost"), (e) => e.code === "not_found");
 });
+
+test("handles folder-form projects (listProjects + concatenated getProjectContext)", () => {
+  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  mkdirSync(join(root, "projects", "team"), { recursive: true });
+  writeFileSync(join(root, "projects", "team", "overview.md"), "# Team overview\n");
+  writeFileSync(join(root, "projects", "team", "notes.md"), "# Team notes\n");
+  const slugs = listProjects(root).map((p) => p.slug);
+  assert.ok(slugs.includes("team"));
+  const ctx = getProjectContext(root, "team");
+  assert.match(ctx.content, /Team overview/);
+  assert.match(ctx.content, /Team notes/);
+  assert.match(ctx.content, /\n\n---\n\n/);
+});

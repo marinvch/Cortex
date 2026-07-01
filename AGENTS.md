@@ -78,7 +78,7 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
 - `/skill-creator` (on request) — create a tailored new ritual: ask intent, write a plain
   `skills/<name>/SKILL.md`, and wire it into `AGENTS.md` + README + `.claude/skills/`. Cortex grows
   its own skills on demand. (Adapted from Anthropic's skill-creator; deeper rigor via `superpowers:writing-skills`.)
-- `/self-audit` (periodic) — the **vault architecture doctor**: scans *every* file for orphan
+- `/cortex-doctor` (periodic) — the **vault architecture doctor**: scans *every* file for orphan
   (non-connected) files, dead links, stale/old files, redundant duplicates, and misplaced/malformed
   files, then fixes them (wire in, archive, move — never delete) so Cortex stays structurally optimal.
   Structural health, distinct from `/audit` (content-layer scoring) and `/reindex` (graph regen).

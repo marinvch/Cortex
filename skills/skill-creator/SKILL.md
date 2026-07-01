@@ -41,5 +41,5 @@ one-off — if it's a single task, just do it; if you'd reach for it again, make
 
 ## Credits
 Adapted for Cortex's plain-files convention from Anthropic's `skill-creator`
-(github.com/anthropics/skills) and `superpowers:writing-skills`. Pairs with [[self-audit]] — which
-uses this skill to ship improvements to the operating system itself.
+(github.com/anthropics/skills) and `superpowers:writing-skills`. Pairs with [[cortex-doctor]], which
+keeps the vault's file structure healthy.

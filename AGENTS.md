@@ -6,8 +6,8 @@ The single source of truth for any AI agent working in this vault. Claude reads 
 ## What this is
 
 A **personal + business second brain** — a plain-markdown knowledge vault, Obsidian-style but
-app-optional. No build step, no engine, no Node. Just files you own, readable by any editor and
-by AI. Two systems share one folder: a **knowledge layer** (capture → notes → maps) and an
+app-optional. No build step, no engine — the core is just files you own, readable by any editor and
+by AI. (An **optional** Node MCP "brain" in `mcp/` adds live recall/capture; the vault works fully without it.) Two systems share one folder: a **knowledge layer** (capture → notes → maps) and an
 **operating layer** (who you are, what you can reach, and the rituals that keep it alive).
 
 ## The one rule (privacy)

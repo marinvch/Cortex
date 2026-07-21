@@ -312,7 +312,9 @@ code. Work out which signal misfired and fix the regex.
 
 - [ ] **Step 5: Verify the whole hook suite still passes**
 
-Run: `node --test .claude/hooks/`
+Run: `node --test ".claude/hooks/*.test.mjs"`
+(Quote the glob. On Node 24 / Windows, `node --test .claude/hooks/` tries to *load the directory as
+a module* and dies with `MODULE_NOT_FOUND` — it is not a real test failure.)
 Expected: PASS — including the pre-existing `reflect-session.test.mjs`.
 
 - [ ] **Step 6: Commit**
@@ -629,7 +631,9 @@ Expected: `AGENTS.md` ≥ 2 matches, `README.md` ≥ 1 match, all three files li
 
 - [ ] **Step 5: Run the full test suite one last time**
 
-Run: `node --test .claude/hooks/`
+Run: `node --test ".claude/hooks/*.test.mjs"`
+(Quote the glob. On Node 24 / Windows, `node --test .claude/hooks/` tries to *load the directory as
+a module* and dies with `MODULE_NOT_FOUND` — it is not a real test failure.)
 Expected: PASS, 0 failures.
 
 - [ ] **Step 6: Commit**

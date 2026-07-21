@@ -17,6 +17,14 @@ const COMPONENT_REF =
 /** Narrow "you named the exact file" signal — precise enough to skip the optimizer entirely. */
 const FILE_LOCATOR = /(\b[\w.-]+\/[\w./-]+\.\w+\b)|(\b[\w.-]+\.\w+:\d+\b)/;
 
+/**
+ * Pronoun-anchored status check ("is it done", "did it work"). Asking the user to clarify one of
+ * these improves nothing — it reports on work already in flight. Deliberately narrow: it requires a
+ * pronoun subject, so "why is auth broken" and "is the auth flow broken" still reach scoring.
+ */
+const STATUS_QUESTION =
+  /^(is|are|was|were|did|does|do|has|have)\s+(it|this|that|we|they|everything|all)\b/i;
+
 const BYPASS_WORDS = /\b(just|quickly|only|typo|rename)\b/i;
 const STEER_WORDS =
   /^(y|yes|no|ok|okay|sure|continue|go ahead|proceed|stop|undo|next|thanks|ty)\b/i;
@@ -33,6 +41,7 @@ export function shouldBypass(prompt, env = process.env) {
   if (p.length > 2000) return true;                        // whitespace-poor paste (base64/minified) — word count won't catch it
   if (wordCount(p) > 60) return true;                       // already detailed
   if (STEER_WORDS.test(p) && wordCount(p) <= 2) return true; // "yes", "continue" — SHORT mid-flow steering only
+  if (STATUS_QUESTION.test(p) && wordCount(p) <= 8) return true; // "is it done" — a status check, not a work request
   if (BYPASS_WORDS.test(p)) return true;                    // user signalled "small, don't ceremony this"
   if (FILE_LOCATOR.test(p)) return true;                    // exact target named
   return false;

@@ -82,5 +82,12 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
   (non-connected) files, dead links, stale/old files, redundant duplicates, and misplaced/malformed
   files, then fixes them (wire in, archive, move — never delete) so Cortex stays structurally optimal.
   Structural health, distinct from `/audit` (content-layer scoring) and `/reindex` (graph regen).
+- `/cortex-audit` (on request) — the **one-shot meta-audit**: dispatches the read-only
+  `cortex-auditor` subagent (`.claude/agents/cortex-auditor.md`) to scan the whole vault in an
+  isolated context — structure *and* a four-layer content-health signal — then applies the safe
+  fixes and surfaces the judgment calls. The subagent-driven superset of `/audit` + `/cortex-doctor`;
+  reach for it when you want "check everything and clean it up" in a single step.
 
-Each ritual
+Each ritual is a plain-markdown `SKILL.md` under `skills/` (the canonical copy). Expose them as
+`/slash` commands with `cp -r skills/* .claude/skills/`, or just say a ritual's name to any AI tool.
+The `cortex-auditor` custom subagent lives in `.claude/agents/` and is invoked by `/cortex-audit`.

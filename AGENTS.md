@@ -38,6 +38,31 @@ leaves the user's head). Before automating, eliminate waste first, then default 
 autonomy that works. Build the boring, deterministic version and validate each step. The four
 layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Context, Cadence.
 
+## Prompt Optimization Protocol
+
+Before acting on a prompt, score it: under 10 words `+2`; no action verb `+1`; no component
+reference `+1`; no domain keyword `+1`.
+
+- **Action verbs:** add, create, update, delete, fix, remove, migrate, refactor, write, build,
+  review, audit, explain, document, test(s), rename, move, debug, optimi[sz]e, install, scan,
+  implement, generate, wire, split, merge, run.
+- **Component reference:** a path (`a/b`), a `` `backticked` `` token, a `file.ext`, a `#123`, or a URL.
+- **Domain keywords:** auth, db, database, api, ui, schema, test(s), hook(s), skill(s), vault,
+  graph, mcp, git, ci, cli, doc(s), readme, agent(s), prompt(s).
+
+**Score 4 or higher → run `/optimize-prompt` first** — ask at most 2 questions grounded in this
+repo's real names, synthesize one precise prompt, confirm it, save it to `docs/prompts/`, then
+route to the named ritual. Below 4, act on the prompt as written and say nothing about scoring.
+
+**Bypass entirely (no score, no directive) when the prompt:** is empty; starts with `/`; is over
+2000 characters; is over 60 words; is a steer of two words or fewer (`yes`, `ok`, `go ahead`,
+`stop`, `continue`, …); is a status check of eight words or fewer opening with
+is/are/was/were/did/does/do/has/have + it/this/that/we/they/everything/all (`is it done`, `did it
+work` — clarifying these improves nothing); contains `just`, `quickly`, `only`, `typo`, or
+`rename`; or names an exact file path or `file:line`. In Claude Code a `UserPromptSubmit` hook enforces all of this
+automatically; every other agent applies it from this section. Set `CORTEX_NO_OPTIMIZE=1` to
+disable the optimizer entirely.
+
 ## The rituals (canonical in `skills/`; copy to `.claude/skills/` for `/slash` commands)
 
 - `/onboard` (once) — interview the user, fill `context/`, seed `home.md`, populate `connections.md`.
@@ -75,5 +100,23 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
   so teammates inherit the wiring on clone. Never auto-commits the product repo.
 - `/catch-me-up` (after time away) — assemble brain notes + team-brain git history since a date via
   `catch_me_up`, then summarize *what changed & why*.
+- `/skill-creator` (on request) — create a tailored new ritual: ask intent, write a plain
+  `skills/<name>/SKILL.md`, and wire it into `AGENTS.md` + README + `.claude/skills/`. Cortex grows
+  its own skills on demand. (Adapted from Anthropic's skill-creator; deeper rigor via `superpowers:writing-skills`.)
+- `/cortex-doctor` (periodic) — the **vault architecture doctor**: scans *every* file for orphan
+  (non-connected) files, dead links, stale/old files, redundant duplicates, and misplaced/malformed
+  files, then fixes them (wire in, archive, move — never delete) so Cortex stays structurally optimal.
+  Structural health, distinct from `/audit` (content-layer scoring) and `/reindex` (graph regen).
+- `/cortex-audit` (on request) — the **one-shot meta-audit**: dispatches the read-only
+  `cortex-auditor` subagent (`.claude/agents/cortex-auditor.md`) to scan the whole vault in an
+  isolated context — structure *and* a four-layer content-health signal — then applies the safe
+  fixes and surfaces the judgment calls. The subagent-driven superset of `/audit` + `/cortex-doctor`;
+  reach for it when you want "check everything and clean it up" in a single step.
+- `/optimize-prompt` (automatic) — the **prompt gate**: scores each incoming prompt and, when it's
+  vague, asks up to two grounded questions, synthesizes one precise prompt for confirmation, saves it
+  to `docs/prompts/` (gitignored), and routes the work to the right ritual. Enforced by a
+  `UserPromptSubmit` hook in Claude Code; by the protocol section above everywhere else.
 
-Each ritual
+Each ritual is a plain-markdown `SKILL.md` under `skills/` (the canonical copy). Expose them as
+`/slash` commands with `cp -r skills/* .claude/skills/`, or just say a ritual's name to any AI tool.
+The `cortex-auditor` custom subagent lives in `.claude/agents/` and is invoked by `/cortex-audit`.

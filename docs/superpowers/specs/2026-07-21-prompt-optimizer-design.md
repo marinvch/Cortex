@@ -107,9 +107,24 @@ without spawning a process.
 stdin, missing fields, unwritable disk. A broken optimizer must never block a prompt or cost a
 session.
 
-**Open item resolved during implementation:** confirm the exact `UserPromptSubmit` context-injection
-contract against the installed Claude Code version. If the JSON shape differs, fall back to plain
-stdout, which that event appends as context.
+**Verified payload shape** (captured 2026-07-21 from a live `UserPromptSubmit` fire; the published
+docs show no input example for this event, so this was confirmed empirically with a throwaway probe
+hook):
+
+```json
+{
+  "session_id": "eebe2a47-…",
+  "transcript_path": "C:\\Users\\…\\<session>.jsonl",
+  "cwd": "d:\\Projects\\Personal\\ai-os",
+  "prompt_id": "ae307245-…",
+  "permission_mode": "auto",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "ok i restarted"
+}
+```
+
+`prompt` is present and is a string — the deterministic gate is implementable as designed. Note
+there is no `effort` field on this event, and no `matcher` is honoured for it in `settings.json`.
 
 ---
 

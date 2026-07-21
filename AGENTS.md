@@ -38,6 +38,18 @@ leaves the user's head). Before automating, eliminate waste first, then default 
 autonomy that works. Build the boring, deterministic version and validate each step. The four
 layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Context, Cadence.
 
+## Prompt Optimization Protocol
+
+Before acting on a prompt, score it: under 10 words `+2`; no action verb `+1`; no component
+reference `+1`; no domain keyword `+1`. **Score 3 or higher → run [[optimize-prompt]] first** — ask
+at most 2 questions grounded in this repo's real names, synthesize one precise prompt, confirm it,
+save it to `docs/prompts/`, then route to the named ritual. Below 3, act on the prompt as written
+and say nothing about scoring.
+
+Skip entirely for slash commands, confirmations ("yes", "continue"), prompts naming an exact file,
+and prompts saying "just" or "quickly". In Claude Code a `UserPromptSubmit` hook enforces this
+automatically; every other agent applies it from this section.
+
 ## The rituals (canonical in `skills/`; copy to `.claude/skills/` for `/slash` commands)
 
 - `/onboard` (once) — interview the user, fill `context/`, seed `home.md`, populate `connections.md`.
@@ -87,6 +99,10 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
   isolated context — structure *and* a four-layer content-health signal — then applies the safe
   fixes and surfaces the judgment calls. The subagent-driven superset of `/audit` + `/cortex-doctor`;
   reach for it when you want "check everything and clean it up" in a single step.
+- `/optimize-prompt` (automatic) — the **prompt gate**: scores each incoming prompt and, when it's
+  vague, asks up to two grounded questions, synthesizes one precise prompt for confirmation, saves it
+  to `docs/prompts/` (gitignored), and routes the work to the right ritual. Enforced by a
+  `UserPromptSubmit` hook in Claude Code; by the protocol section above everywhere else.
 
 Each ritual is a plain-markdown `SKILL.md` under `skills/` (the canonical copy). Expose them as
 `/slash` commands with `cp -r skills/* .claude/skills/`, or just say a ritual's name to any AI tool.

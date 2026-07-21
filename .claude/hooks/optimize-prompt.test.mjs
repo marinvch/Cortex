@@ -65,6 +65,29 @@ test('shouldBypass: short steers (<=2 words) still bypass', () => {
   }
 });
 
+test('shouldBypass: short status questions bypass — clarifying them improves nothing', () => {
+  for (const p of [
+    'is it done',
+    'did it work',
+    'are we done',
+    'does it work now',
+    'has it finished yet',
+    'was that everything',
+  ]) {
+    assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
+  }
+});
+
+test('shouldBypass: real questions and long sentences still reach scoring', () => {
+  for (const p of [
+    'why is auth broken',                                   // not a status check — a real ask
+    'is the auth flow broken',                              // "is the" is not pronoun-anchored
+    'is that the reason the whole graph broke last week',    // over the word guard
+  ]) {
+    assert.equal(shouldBypass(p, {}), false, `expected "${p}" to reach scoring`);
+  }
+});
+
 test('shouldBypass: steer words embedded in a longer prompt no longer bypass', () => {
   for (const p of [
     'stop the crash',

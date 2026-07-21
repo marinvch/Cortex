@@ -22,8 +22,10 @@ ritual.
 
    Under 4 — act on the prompt as written, say nothing. **Bypass entirely** (no score, no
    directive) when the prompt: is empty; starts with `/`; is over 2000 characters; is over 60
-   words; is a steer of two words or fewer (`yes`, `ok`, `go ahead`, `stop`, …); contains `just`,
-   `quickly`, `only`, `typo`, or `rename`; or names an exact file path or `file:line`. Set
+   words; is a steer of two words or fewer (`yes`, `ok`, `go ahead`, `stop`, …); is a status check
+   of eight words or fewer opening with is/are/was/were/did/does/do/has/have + it/this/that/we/
+   they/everything/all (`is it done`, `did it work`); contains `just`, `quickly`, `only`, `typo`,
+   or `rename`; or names an exact file path or `file:line`. Set
    `CORTEX_NO_OPTIMIZE=1` to disable the optimizer entirely.
 2. **Ask at most 2 questions**, highest-value first, skipping any the prompt already answers:
    WHAT should happen (missing outcome), WHERE it lives (missing component), HOW it lands (new /

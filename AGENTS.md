@@ -56,8 +56,10 @@ route to the named ritual. Below 4, act on the prompt as written and say nothing
 
 **Bypass entirely (no score, no directive) when the prompt:** is empty; starts with `/`; is over
 2000 characters; is over 60 words; is a steer of two words or fewer (`yes`, `ok`, `go ahead`,
-`stop`, `continue`, …); contains `just`, `quickly`, `only`, `typo`, or `rename`; or names an exact
-file path or `file:line`. In Claude Code a `UserPromptSubmit` hook enforces all of this
+`stop`, `continue`, …); is a status check of eight words or fewer opening with
+is/are/was/were/did/does/do/has/have + it/this/that/we/they/everything/all (`is it done`, `did it
+work` — clarifying these improves nothing); contains `just`, `quickly`, `only`, `typo`, or
+`rename`; or names an exact file path or `file:line`. In Claude Code a `UserPromptSubmit` hook enforces all of this
 automatically; every other agent applies it from this section. Set `CORTEX_NO_OPTIMIZE=1` to
 disable the optimizer entirely.
 

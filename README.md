@@ -139,6 +139,7 @@ skills/* .claude/skills/` to use them as `/slash` commands.
 | `/catch-me-up` | after time away | Summarize what changed on a project since a date |
 | `/skill-creator` | on request | Create a tailored new ritual and wire it in |
 | `/cortex-doctor` | periodic | Find & fix orphan/stale/redundant/misplaced files + dead links (structure) |
+| `/cortex-audit` | on request | Dispatch the read-only `cortex-auditor` subagent to scan the whole vault (structure + content signal), then apply safe fixes — the superset of `/audit` + `/cortex-doctor` |
 
 ---
 

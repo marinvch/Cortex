@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /** Score at or above which the optimizer fires. Tune here after reviewing docs/prompts/. */
-export const THRESHOLD = 3;
+export const THRESHOLD = 4;
 
 const ACTION_VERBS =
   /\b(add|create|update|delete|fix|remove|migrate|refactor|write|build|review|audit|explain|document|test|tests|rename|move|debug|optimi[sz]e|install|scan|implement|generate|wire|split|merge|run)\b/i;
@@ -29,11 +29,12 @@ export function shouldBypass(prompt, env = process.env) {
   const p = String(prompt ?? '').trim();
   if (!p) return true;
   if (env.CORTEX_NO_OPTIMIZE === '1') return true;
-  if (p.startsWith('/')) return true;          // an explicit ritual is already named
-  if (STEER_WORDS.test(p)) return true;        // "yes", "continue" — mid-flow steering
-  if (BYPASS_WORDS.test(p)) return true;       // user signalled "small, don't ceremony this"
-  if (FILE_LOCATOR.test(p)) return true;       // exact target named
-  if (wordCount(p) > 60) return true;          // already detailed
+  if (p.startsWith('/')) return true;                     // an explicit ritual is already named
+  if (p.length > 2000) return true;                        // whitespace-poor paste (base64/minified) — word count won't catch it
+  if (wordCount(p) > 60) return true;                       // already detailed
+  if (STEER_WORDS.test(p) && wordCount(p) <= 2) return true; // "yes", "continue" — SHORT mid-flow steering only
+  if (BYPASS_WORDS.test(p)) return true;                    // user signalled "small, don't ceremony this"
+  if (FILE_LOCATOR.test(p)) return true;                    // exact target named
   return false;
 }
 

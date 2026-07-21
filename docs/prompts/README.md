@@ -1,6 +1,6 @@
 # docs/prompts/
 
-Optimized prompts, one file per sharpened ask, written by [[optimize-prompt]].
+Optimized prompts, one file per sharpened ask, written by `/optimize-prompt`.
 
 Filename: `YYYY-MM-DD-<slug>.md` — slug is kebab-case from the optimized prompt.
 

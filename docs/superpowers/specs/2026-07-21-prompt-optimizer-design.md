@@ -53,8 +53,8 @@ user prompt
    ▼
 .claude/hooks/optimize-prompt.mjs        (UserPromptSubmit, deterministic)
    │  bypass    → exit 0, emit nothing
-   │  score < 3 → exit 0, emit nothing        ← zero tokens, invisible
-   │  score ≥ 3 → stdout JSON { additionalContext: "<directive + score>" }
+   │  score < 4 → exit 0, emit nothing        ← zero tokens, invisible
+   │  score ≥ 4 → stdout JSON { additionalContext: "<directive + score>" }
    ▼
 skills/optimize-prompt/SKILL.md          (model judgment)
    ≤2 grounded questions → synthesize → confirm → save → route
@@ -81,7 +81,8 @@ without spawning a process.
 | no component reference (path-like token, `file.ext`, backticked token, `#123`, URL) | +1 |
 | no domain keyword (`auth, db, database, api, ui, schema, test, hook, skill, vault, graph, mcp, git, ci`) | +1 |
 
-**Threshold:** score ≥ 3 triggers. Score < 3 passes through silently.
+**Threshold:** score ≥ 4 triggers. Score < 4 passes through silently. (Raised from 3 to 4 post-review:
+at 3, clear prompts like "fix the bug in app.py" and "run the tests" fired the optimizer.)
 
 **Bypass — emit nothing regardless of score:**
 
@@ -196,7 +197,7 @@ ritual: superpowers:brainstorming
 `.gitignore` gains:
 
 ```gitignore
-docs/prompts/
+docs/prompts/*
 !docs/prompts/README.md
 ```
 
@@ -214,7 +215,7 @@ privacy rule.
 | `README.md` | One row in the rituals table |
 | `.claude/settings.json` | `UserPromptSubmit` hook entry beside the existing `SessionEnd` one |
 | `.claude/skills/optimize-prompt/SKILL.md` | Slash-command copy of the canonical skill |
-| `.gitignore` | `docs/prompts/` + `!docs/prompts/README.md` |
+| `.gitignore` | `docs/prompts/*` + `!docs/prompts/README.md` |
 
 ---
 
@@ -225,7 +226,7 @@ privacy rule.
 | Case | Expected |
 |---|---|
 | `"fix the null check in tools/cortex.sh:42"` | no output, exit 0 |
-| `"add the booking stuff"` | JSON emitted, score ≥ 3 |
+| `"add the booking stuff"` | JSON emitted, score ≥ 4 |
 | `"/capture buy milk"` | bypass, no output |
 | `"just rename this"` | bypass, no output |
 | 80-word detailed prompt | no output |
@@ -241,7 +242,8 @@ privacy rule.
 2. Typing a precise prompt produces no optimizer output of any kind.
 3. Each confirmed optimized prompt exists at `docs/prompts/YYYY-MM-DD-<slug>.md`.
 4. `git status` never shows a file under `docs/prompts/` except `README.md`.
-5. `node --test .claude/hooks/` passes.
+5. `node --test ".claude/hooks/*.test.mjs"` passes. (A bare directory arg loads it as a module and
+   fails on Node 24/Windows — the glob form is required.)
 6. `AGENTS.md`, `README.md`, and `.claude/skills/` all list the ritual (no skill-wiring drift, so
    `/cortex-doctor` stays clean).
 7. Deleting or breaking the hook degrades to the `AGENTS.md` protocol without blocking any prompt.

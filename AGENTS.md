@@ -41,14 +41,25 @@ layers you're maintaining are in [[vault-architecture]]: Capture, Knowledge, Con
 ## Prompt Optimization Protocol
 
 Before acting on a prompt, score it: under 10 words `+2`; no action verb `+1`; no component
-reference `+1`; no domain keyword `+1`. **Score 3 or higher → run [[optimize-prompt]] first** — ask
-at most 2 questions grounded in this repo's real names, synthesize one precise prompt, confirm it,
-save it to `docs/prompts/`, then route to the named ritual. Below 3, act on the prompt as written
-and say nothing about scoring.
+reference `+1`; no domain keyword `+1`.
 
-Skip entirely for slash commands, confirmations ("yes", "continue"), prompts naming an exact file,
-and prompts saying "just" or "quickly". In Claude Code a `UserPromptSubmit` hook enforces this
-automatically; every other agent applies it from this section.
+- **Action verbs:** add, create, update, delete, fix, remove, migrate, refactor, write, build,
+  review, audit, explain, document, test(s), rename, move, debug, optimi[sz]e, install, scan,
+  implement, generate, wire, split, merge, run.
+- **Component reference:** a path (`a/b`), a `` `backticked` `` token, a `file.ext`, a `#123`, or a URL.
+- **Domain keywords:** auth, db, database, api, ui, schema, test(s), hook(s), skill(s), vault,
+  graph, mcp, git, ci, cli, doc(s), readme, agent(s), prompt(s).
+
+**Score 4 or higher → run `/optimize-prompt` first** — ask at most 2 questions grounded in this
+repo's real names, synthesize one precise prompt, confirm it, save it to `docs/prompts/`, then
+route to the named ritual. Below 4, act on the prompt as written and say nothing about scoring.
+
+**Bypass entirely (no score, no directive) when the prompt:** is empty; starts with `/`; is over
+2000 characters; is over 60 words; is a steer of two words or fewer (`yes`, `ok`, `go ahead`,
+`stop`, `continue`, …); contains `just`, `quickly`, `only`, `typo`, or `rename`; or names an exact
+file path or `file:line`. In Claude Code a `UserPromptSubmit` hook enforces all of this
+automatically; every other agent applies it from this section. Set `CORTEX_NO_OPTIMIZE=1` to
+disable the optimizer entirely.
 
 ## The rituals (canonical in `skills/`; copy to `.claude/skills/` for `/slash` commands)
 

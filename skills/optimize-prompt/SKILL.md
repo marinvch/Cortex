@@ -13,15 +13,22 @@ ritual.
 
 1. **Score it** (the hook does this in Claude Code; do it yourself everywhere else):
    under 10 words `+2`; no action verb `+1`; no component reference `+1`; no domain keyword `+1`.
-   Under 3 — act on the prompt as written, say nothing. Skip entirely for slash commands,
-   confirmations ("yes", "continue"), anything naming an exact file, and prompts saying "just" or
-   "quickly".
+   - Action verbs: add, create, update, delete, fix, remove, migrate, refactor, write, build,
+     review, audit, explain, document, test(s), rename, move, debug, optimi[sz]e, install, scan,
+     implement, generate, wire, split, merge, run.
+   - Component reference: a path, a `` `backticked` `` token, a `file.ext`, a `#123`, or a URL.
+   - Domain keywords: auth, db, database, api, ui, schema, test(s), hook(s), skill(s), vault,
+     graph, mcp, git, ci, cli, doc(s), readme, agent(s), prompt(s).
+
+   Under 4 — act on the prompt as written, say nothing. **Bypass entirely** (no score, no
+   directive) when the prompt: is empty; starts with `/`; is over 2000 characters; is over 60
+   words; is a steer of two words or fewer (`yes`, `ok`, `go ahead`, `stop`, …); contains `just`,
+   `quickly`, `only`, `typo`, or `rename`; or names an exact file path or `file:line`. Set
+   `CORTEX_NO_OPTIMIZE=1` to disable the optimizer entirely.
 2. **Ask at most 2 questions**, highest-value first, skipping any the prompt already answers:
-   - WHAT should happen (missing outcome)
-   - WHERE it lives (missing component)
-   - HOW it lands (new / change / migration)
-   Ground every question in this repo's **real names** — "`skills/` or `tools/`?" beats "which
-   layer?". Generic questions are why the old engine-era booster was never worth using.
+   WHAT should happen (missing outcome), WHERE it lives (missing component), HOW it lands (new /
+   change / migration). Ground every question in this repo's **real names** — "`skills/` or
+   `tools/`?" beats "which layer?".
 3. **Synthesize one prompt:** `[ACTION] [COMPONENT] [in DOMAIN] [with CONSTRAINTS] -> [RITUAL]`
 4. **Confirm.** Show it, wait for a one-word yes or an adjustment. One adjustment round, then go.
    Never act on an unconfirmed prompt.

@@ -20,6 +20,21 @@ test('scoreVagueness scores a grounded prompt below threshold', () => {
   assert.ok(scoreVagueness(precise) < THRESHOLD);
 });
 
+test('scoreVagueness credits a bare filename with a non-whitelisted extension', () => {
+  assert.equal(scoreVagueness('fix the bug in app.py'), 3); // was 4 before this fix
+  assert.equal(
+    scoreVagueness('refactor the auth handler in server.py so tokens are cached'),
+    0,
+  );
+});
+
+test('scoreVagueness narrowing guards hold: e.g. is not a component reference', () => {
+  // e.g. must NOT count as a component reference (stem "e" is only 1 char, guard holds);
+  // score matches the plain 'make it faster' case (5): short +2, no action verb +1,
+  // no component ref +1, no domain word +1.
+  assert.equal(scoreVagueness('make it faster e.g. right now'), 5);
+});
+
 test('shouldBypass skips slash commands, steers and explicit opt-outs', () => {
   assert.equal(shouldBypass('/capture buy milk'), true);
   assert.equal(shouldBypass('yes'), true);
@@ -50,4 +65,12 @@ test('evaluate returns the hook payload only for vague, non-bypassed prompts', (
   assert.equal(evaluate('/capture buy milk', {}), null);
   assert.equal(evaluate('refactor the recall handler in mcp/server.js so queries are cached', {}), null);
   assert.equal(evaluate(undefined, {}), null);
+});
+
+test('evaluate returns null via the below-threshold scoring path, not just bypass', () => {
+  const prompt = 'update the readme.md documentation for skills';
+  // Proves this prompt reaches scoring (does not short-circuit via shouldBypass).
+  assert.equal(shouldBypass(prompt, {}), false);
+  // And that scoring itself lands below THRESHOLD, returning null on that path.
+  assert.equal(evaluate(prompt, {}), null);
 });

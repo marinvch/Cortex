@@ -12,7 +12,7 @@ const DOMAIN_WORDS =
 
 /** Broad "you named something concrete" signal: path, filename, `backtick`, #123, URL. */
 const COMPONENT_REF =
-  /(`[^`]+`)|(\b[\w.-]+\/[\w./-]+)|(\b\w[\w-]*\.(md|mjs|js|ts|json|sh|ya?ml|html)\b)|(#\d+)|(https?:\/\/)/i;
+  /(`[^`]+`)|(\b[\w.-]+\/[\w./-]+)|(\b\w[\w-]+\.[A-Za-z][A-Za-z0-9]{0,4}\b)|(#\d+)|(https?:\/\/)/i;
 
 /** Narrow "you named the exact file" signal — precise enough to skip the optimizer entirely. */
 const FILE_LOCATOR = /(\b[\w.-]+\/[\w./-]+\.\w+\b)|(\b[\w.-]+\.\w+:\d+\b)/;

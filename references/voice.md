@@ -9,6 +9,8 @@ tags: [reference, voice]
 
 How you sound, so the brain can draft *as you* — not in generic AI-speak. Filled by `/onboard`.
 
+> Sibling references frameworks: [[operating-principles]] · [[vault-architecture]].
+
 ## Register notes
 <!-- e.g. casual but precise; short sentences; no em dashes; bullets over paragraphs -->
 

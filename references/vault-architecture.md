@@ -30,14 +30,15 @@ PARA split) keep knowledge actionable: project = outcome + deadline, area = ongo
 resource = reference material.
 
 ## 3. Context
-`context/` + `connections.md`. Who you are, your business, your priorities, your voice, and every
+`context/` + `connections.md`. Who you are, your business, your priorities, your [[voice]], and every
 tool/data source the vault can reach. This is what lets the brain answer *as you* and pull *your*
 live data instead of guessing. Filled by `/onboard`, grown by `/level-up`.
 
 ## 4. Cadence
 The rituals and schedules that make the vault work while you don't: `/daily`, `/weekly-review`,
 `/audit`, `/level-up`, and any scheduled briefings. Don't automate a cadence until the manual
-version works — automating a broken process just breaks it faster.
+version works — automating a broken process just breaks it faster. The always-on build-out — the
+MCP brain plus server cron that runs these rituals while you're away — is wired in [[living-cortex]].
 
 ---
 

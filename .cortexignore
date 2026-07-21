@@ -15,6 +15,7 @@ skills/
 .backups/
 *.example.md
 README.md
+CHANGELOG.md
 CLAUDE.md
 GEMINI.md
 *.chatprompt.md

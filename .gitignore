@@ -23,6 +23,10 @@ archives/removed/
 !areas/README.md
 !resources/README.md
 
+# Optimized prompts (contain real project/client detail) — keep the convention, not the content
+docs/prompts/*
+!docs/prompts/README.md
+
 # ── Local tool state ───────────────────────────────────────────────────
 .env
 .env.local
@@ -50,3 +54,4 @@ context/.backups/
 
 # MCP server deps (Node only lives in mcp/)
 mcp/node_modules/
+

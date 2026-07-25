@@ -3,8 +3,9 @@ name: cortex-init test
 on:
   push:
     paths:
-      - "tools/cortex-init.sh"
-      - "tools/cortex.sh"
+      - "tools/**"
+      - "mcp/lib/cortexignore.js"
+      - ".cortexignore"
       - ".github/workflows/cortex-init-test.yml"
   pull_request:
   workflow_dispatch:
@@ -17,7 +18,57 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Lint scripts
-        run: bash -n tools/cortex-init.sh && bash -n tools/cortex.sh && bash -n tools/_cortex-lib.sh && bash -n tools/cortex-rm.sh
+        run: |
+          set -euo pipefail
+          # Glob rather than a hand-maintained list — a new tool was previously missed here.
+          for f in tools/*.sh; do bash -n "$f" && echo "parsed  $f"; done
+
+      - name: Shellcheck (errors block)
+        run: shellcheck -S error tools/*.sh
+
+      - name: Shellcheck (warnings, informational)
+        continue-on-error: true
+        run: shellcheck -S warning tools/*.sh
+
+      - name: knowledge_files() honours .cortexignore
+        run: |
+          set -euo pipefail
+          . tools/_cortex-lib.sh
+          WORK="$(mktemp -d)"
+          mkdir -p "$WORK/notes" "$WORK/docs" "$WORK/.agents/vendor" "$WORK/context/.backups"
+          printf 'docs/\n.agents/\n.backups/\n*.example.md\nREADME.md\n' > "$WORK/.cortexignore"
+          : > "$WORK/notes/keep.md"
+          : > "$WORK/notes/README.md"
+          : > "$WORK/home.example.md"
+          : > "$WORK/docs/drop.md"
+          : > "$WORK/.agents/vendor/drop.md"
+          : > "$WORK/context/.backups/drop.md"
+          : > "$WORK/AGENTS.md"
+          got="$(knowledge_files "$WORK" | tr '\n' ' ')"
+          echo "got: $got"
+          [ "$got" = "AGENTS.md notes/keep.md " ] || { echo "unexpected knowledge set" >&2; exit 1; }
+          echo "OK: .cortexignore filtering is correct"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: bash and the MCP brain agree on what counts as knowledge
+        run: |
+          set -euo pipefail
+          # The vault's contract is that .cortexignore is the single source of truth. The bash
+          # generators and mcp/lib/recall.js are two implementations of it; they must not diverge.
+          . tools/_cortex-lib.sh
+          knowledge_files . | sort > /tmp/from-bash.txt
+          node --input-type=module -e '
+            import { listMarkdown } from "./mcp/lib/recall.js";
+            import { sep } from "node:path";
+            const root = process.cwd();
+            console.log(listMarkdown(root).map((p) => p.slice(root.length + 1).split(sep).join("/")).sort().join("\n"));
+          ' | sort > /tmp/from-node.txt
+          echo "--- bash ($(wc -l < /tmp/from-bash.txt) files) ---"; cat /tmp/from-bash.txt
+          diff /tmp/from-bash.txt /tmp/from-node.txt \
+            && echo "OK: bash and node produce an identical knowledge set"
 
       - name: Run cortex-init.sh against a dummy repo
         run: |

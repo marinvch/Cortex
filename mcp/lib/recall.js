@@ -1,23 +1,25 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, sep } from "node:path";
-
-const SKIP_DIRS = new Set(["node_modules", ".git", "archives"]);
+import { makeIgnoreFilter } from "./cortexignore.js";
 
 export function listMarkdown(root) {
+  // `.cortexignore` decides what is knowledge — same contract the bash generators honour.
+  const { skipDir, skipFile } = makeIgnoreFilter(root);
   const out = [];
-  const walk = (dir) => {
+  const walk = (dir, relDir) => {
     let entries;
     try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
+      const rel = relDir ? `${relDir}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        if (SKIP_DIRS.has(e.name)) continue;
-        walk(join(dir, e.name));
-      } else if (e.isFile() && e.name.endsWith(".md")) {
+        if (skipDir(rel)) continue;
+        walk(join(dir, e.name), rel);
+      } else if (e.isFile() && e.name.endsWith(".md") && !skipFile(rel)) {
         out.push(join(dir, e.name));
       }
     }
   };
-  walk(root);
+  walk(root, "");
   return out;
 }
 

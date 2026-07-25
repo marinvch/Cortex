@@ -1,0 +1,45 @@
+name: hooks test
+on:
+  push:
+    paths: [".claude/hooks/**", ".github/workflows/hooks-test.yml"]
+  pull_request:
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    # These hooks run on every UserPromptSubmit and SessionEnd in this repo — a regression breaks
+    # every session, so they get the same matrix treatment as the MCP server.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test hooks
+        # Shell-expanded glob: `node --test <dir>` treats the path as a module to load, not a
+        # directory to scan, and fails with MODULE_NOT_FOUND.
+        run: node --test .claude/hooks/*.test.mjs
+      - name: Every hook wired in settings.json exists on disk
+        run: |
+          set -euo pipefail
+          missing=0
+          # Pull each hook path out of settings.json and confirm the file is actually there;
+          # a stale entry makes Claude Code spawn node against a missing script every turn.
+          for hook in $(grep -oE '\$CLAUDE_PROJECT_DIR/[^"]+\.mjs' .claude/settings.json | sort -u); do
+            path="${hook#\$CLAUDE_PROJECT_DIR/}"
+            if [ -f "$path" ]; then
+              echo "OK   $path"
+            else
+              echo "MISSING  $path (referenced by .claude/settings.json)" >&2
+              missing=1
+            fi
+          done
+          exit $missing

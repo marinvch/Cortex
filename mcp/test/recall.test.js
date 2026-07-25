@@ -34,3 +34,30 @@ test("limit caps result count", () => {
   const hits = recall(root, { query: "uses", limit: 1 });
   assert.equal(hits.length, 1);
 });
+
+test("respects .cortexignore — vendored/scaffolding files are not knowledge", () => {
+  const root = seed();
+  // Vendored third-party docs that would otherwise dominate a lexical search.
+  mkdirSync(join(root, ".agents", "vendor"), { recursive: true });
+  writeFileSync(
+    join(root, ".agents", "vendor", "guide.md"),
+    "PingID cookies PingID cookies PingID cookies PingID cookies PingID cookies\n",
+  );
+  writeFileSync(join(root, ".cortexignore"), ".agents/\n");
+
+  const hits = recall(root, { query: "PingID cookies" });
+  assert.ok(hits.length >= 1);
+  assert.ok(
+    hits.every((h) => !/[\\/]\.agents[\\/]/.test(h.path)),
+    "ignored paths must not appear even when they score highest",
+  );
+  assert.match(hits[0].path, /unis\.md$/);
+});
+
+test("without .cortexignore, recall still walks the vault (back-compat)", () => {
+  const root = seed();
+  mkdirSync(join(root, ".agents"), { recursive: true });
+  writeFileSync(join(root, ".agents", "guide.md"), "PingID cookies\n");
+  const hits = recall(root, { query: "PingID cookies" });
+  assert.ok(hits.some((h) => /guide\.md$/.test(h.path)));
+});

@@ -21,8 +21,14 @@ this project now versions independently of any package manager (see `VERSION`).
   second silently replaced the first in an append-only store.
 - **`.gitignore` negations now work.** `!context/.gitkeep` and friends could never re-include
   anything, because git does not descend into a fully-excluded directory; the personal folders now
-  use the `dir/*` form. The `inbox/`, `projects/`, `areas/` and `resources/` READMEs the rule
-  promised are committed, so a fresh clone has the vault skeleton.
+  use the `dir/*` form. The `inbox/`, `daily/`, `notes/`, `projects/`, `areas/` and `resources/`
+  READMEs the rule promised are committed, so a fresh clone has the **complete** vault skeleton —
+  all eight folders, including `notes/` (the knowledge graph) and `daily/`, which the first pass
+  missed.
+- **`tools/README.md` was corrupt.** 1252 trailing NUL bytes had been appended after the final
+  newline since the v1.0.0 release (`39e689e`), making the file register as *binary* — `grep`
+  skipped it, and diffs of it were unreadable. The content was intact; the NUL tail is gone. It
+  was the only tracked file in the repo carrying control bytes.
 - **Version is single-sourced** from the `VERSION` file (`mcp/lib/version.js`); `server.js` no
   longer hardcodes it. The README advertised **v1.0.0** for the whole of the 1.1.0 release.
 - Smoke test failures now report the server's stderr instead of a bare 5-second `timeout`.
@@ -38,6 +44,16 @@ this project now versions independently of any package manager (see `VERSION`).
   exists on disk.
 - **Drift guards as tests**: `VERSION`/`package.json`/README/CHANGELOG agreement, and parity
   between `cortex-init.sh`'s hardcoded `CORE_PLUGINS` and `plugins/cortex-core-plugins.json`.
+
+### Security
+- **`fast-uri` host-confusion advisory resolved** (GHSA-v2hh-gcrm-f6hx, high) via a lockfile bump —
+  `mcp/package.json` is unchanged, so this is not a breaking dependency change.
+- The two remaining moderate advisories are **upstream-blocked and unreachable here**:
+  `@hono/node-server` path traversal in `serve-static` (GHSA-frvp-7c67-39w9) arrives transitively
+  through `@modelcontextprotocol/sdk`, which at its latest release (1.29.0) pins `^1.19.9` and so
+  cannot reach the patched 2.0.5. The server connects over `StdioServerTransport` only and never
+  serves static files, so the vulnerable path does not exist in this codebase. Revisit when the SDK
+  bumps its dependency.
 
 ### Removed
 - **330 vendored files under `.agents/` and 5 stale `.claude/skills/` copies** were tracked despite

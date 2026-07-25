@@ -1,13 +1,15 @@
 # ── Personal layer (never committed) — the "one privacy rule" ───────────
-# Personal/business content stays local.
-context/
-inbox/
-daily/
-notes/
-projects/
-areas/
-resources/
-decisions/
+# Personal/business content stays local. NOTE the `dir/*` form (not `dir/`): git never descends
+# into a fully-excluded directory, so `!dir/placeholder` can only re-include a file when the
+# directory itself is still walked. Same trick as docs/prompts/* below.
+context/*
+inbox/*
+daily/*
+notes/*
+projects/*
+areas/*
+resources/*
+decisions/*
 brain/
 # Your personalized dashboard. Forkers start from home.example.md (cp home.example.md home.md).
 home.md

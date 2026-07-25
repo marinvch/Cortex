@@ -1,0 +1,7 @@
+# Git stores text as LF; working-copy endings stay platform-native.
+* text=auto
+
+# Shell scripts must be LF even in a Windows working copy. A CRLF `.sh` fails on Linux and in CI
+# with `bash: $'\r': command not found`, and this repo's core tooling is bash — the endings can't
+# be left to each contributor's local core.autocrlf setting.
+*.sh text eol=lf

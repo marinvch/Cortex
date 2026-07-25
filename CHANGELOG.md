@@ -25,6 +25,12 @@ this project now versions independently of any package manager (see `VERSION`).
   READMEs the rule promised are committed, so a fresh clone has the **complete** vault skeleton —
   all eight folders, including `notes/` (the knowledge graph) and `daily/`, which the first pass
   missed.
+- **Line endings normalized to match the stated policy.** `.gitattributes` declares "Git stores
+  text as LF", but `* text=auto` only normalizes on write, so 12 files committed before it existed
+  still carried **CRLF in the index** (11 historic `docs/superpowers/` plans and specs, plus
+  `.vscode/settings.json`). `git add --renormalize` brings them in line; the change is
+  byte-for-byte EOL-only (5896 insertions, 5896 deletions, zero content changes) and working
+  copies stay platform-native.
 - **`tools/README.md` was corrupt.** 1252 trailing NUL bytes had been appended after the final
   newline since the v1.0.0 release (`39e689e`), making the file register as *binary* — `grep`
   skipped it, and diffs of it were unreadable. The content was intact; the NUL tail is gone. It

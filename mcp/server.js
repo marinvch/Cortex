@@ -6,6 +6,8 @@ import { recall } from "./lib/recall.js";
 import { listProjects, getProjectContext } from "./lib/projects.js";
 import { capture } from "./lib/capture.js";
 import { catchMeUp } from "./lib/catchup.js";
+import { genNoteId } from "./lib/noteid.js";
+import { VERSION } from "./lib/version.js";
 
 const AI_OS_ROOT = process.env.AI_OS_ROOT;
 if (!AI_OS_ROOT) {
@@ -13,8 +15,6 @@ if (!AI_OS_ROOT) {
   process.exit(1);
 }
 const today = () => new Date().toISOString().slice(0, 10);
-// Filesystem-safe by construction (base36 → [0-9a-z] + hyphen).
-const genNoteId = () => Date.now().toString(36) + "-" + process.pid.toString(36);
 
 const TOOLS = [
   { name: "recall", description: "Lexical search over the vault; returns ranked snippets with file paths.",
@@ -29,7 +29,7 @@ const TOOLS = [
     inputSchema: { type: "object", properties: { project: { type: "string" }, since: { type: "string" }, team: { type: "string" } }, required: ["project", "since"] } },
 ];
 
-const server = new Server({ name: "ai-os", version: "1.1.0" }, { capabilities: { tools: {} } });
+const server = new Server({ name: "ai-os", version: VERSION }, { capabilities: { tools: {} } });
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
 server.setRequestHandler(CallToolRequestSchema, async (req) => {

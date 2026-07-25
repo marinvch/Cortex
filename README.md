@@ -1,10 +1,14 @@
 # 🧠 Cortex — your personal + business second brain (and a brain for every repo)
 
-**v1.0.0** · plain-files, bash-only · see [CHANGELOG.md](CHANGELOG.md)
+**v1.1.0** · plain-files core · optional live brain · see [CHANGELOG.md](CHANGELOG.md)
 
-A plain-markdown knowledge vault, Obsidian-style but **app-optional**. **No build step, no engine,
-no Node, no Python** — just files you own, readable by any editor and by any AI agent (Claude,
-Gemini, Copilot, Cursor). The only tooling is a few **bash** scripts.
+A plain-markdown knowledge vault, Obsidian-style but **app-optional**. **No build step, no engine**
+— just files you own, readable by any editor and by any AI agent (Claude, Gemini, Copilot, Cursor).
+The core tooling is a few **bash** scripts with zero runtime deps.
+
+Since v1.1.0 there is also an **optional** Node MCP server in `mcp/` that turns the vault into live
+`recall`/`capture` tools for MCP-speaking agents. It is strictly additive: everything below works
+without installing it, and nothing in the vault depends on it.
 
 Two systems share one folder:
 - a **personal brain** — who you are, what you're working on, your notes and decisions; and
@@ -178,10 +182,13 @@ clean and there's no per-script drift. `/audit` flags anything noisy that creeps
 | `cortex-init.sh` | Install a codebase brain into any repo |
 | `cortex.sh` | Build/open `cortex.html` — the viewer app |
 | `cortex-rm.sh` | Remove a note safely (archive + de-link + refresh) |
+| `cortex-scan-projects.sh` | List which local repos already have a codebase brain |
 | `_cortex-lib.sh` | Shared `knowledge_files()` (reads `.cortexignore`) |
 
-> The original Node installer is retired at `archives/cortex-init.mjs.legacy`. Everything is bash now.
+> The original Node installer is retired at `archives/cortex-init.mjs.legacy` — installing and
+> using the vault needs nothing but bash. The only Node in the repo is the **optional** MCP brain
+> under `mcp/`, which you can skip entirely.
 
 ## License
 
-MIT. Your notes are yours.
+MIT — see [LICENSE](LICENSE). Your notes are yours.

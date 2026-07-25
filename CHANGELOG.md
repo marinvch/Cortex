@@ -3,6 +3,48 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [Unreleased]
+
+**Repo health pass: contract enforcement, missing ritual, CI coverage.**
+
+### Fixed
+- **`recall` now honours `.cortexignore`** — `mcp/lib/recall.js` had its own hardcoded skip list, so
+  the live brain indexed scaffolding and vendored third-party docs as if they were knowledge (256
+  files indexed on this repo, 190 of them vendored; a search for "context engineering" returned
+  library docs as all five top hits). It now shares the vault's single source of truth and produces
+  a **byte-identical** knowledge set to `knowledge_files()` in `tools/_cortex-lib.sh`, guarded by a
+  CI parity check.
+- **`/daily` exists.** It was advertised in the README quick-start, the ritual table and `AGENTS.md`,
+  but `skills/daily/SKILL.md` was never written.
+- **Team captures can no longer overwrite each other.** The note id was `timestamp+pid`, so two
+  captures in the same millisecond from one server process produced the same filename and the
+  second silently replaced the first in an append-only store.
+- **`.gitignore` negations now work.** `!context/.gitkeep` and friends could never re-include
+  anything, because git does not descend into a fully-excluded directory; the personal folders now
+  use the `dir/*` form. The `inbox/`, `projects/`, `areas/` and `resources/` READMEs the rule
+  promised are committed, so a fresh clone has the vault skeleton.
+- **Version is single-sourced** from the `VERSION` file (`mcp/lib/version.js`); `server.js` no
+  longer hardcodes it. The README advertised **v1.0.0** for the whole of the 1.1.0 release.
+- Smoke test failures now report the server's stderr instead of a bare 5-second `timeout`.
+
+### Added
+- `LICENSE` (MIT) — the README promised it; the file did not exist.
+- `.gitattributes` pinning `*.sh` to LF, so a Windows working copy cannot commit CRLF scripts that
+  fail on Linux with `bash: $'\r': command not found`.
+- **CI coverage** for the surfaces that had none: a Windows matrix leg for the MCP server (the
+  primary dev platform, and `lib/capture.js` carries path-separator handling), a `hooks test`
+  workflow (they run on every prompt and session end), shellcheck over `tools/`, a behavioural
+  test for `knowledge_files()`, and a check that every hook wired in `.claude/settings.json`
+  exists on disk.
+- **Drift guards as tests**: `VERSION`/`package.json`/README/CHANGELOG agreement, and parity
+  between `cortex-init.sh`'s hardcoded `CORE_PLUGINS` and `plugins/cortex-core-plugins.json`.
+
+### Removed
+- **330 vendored files under `.agents/` and 5 stale `.claude/skills/` copies** were tracked despite
+  being gitignored — `git rm --cached` had never run, so "re-fetchable; keep the repo lean" was not
+  true. Untracked, not deleted from disk.
+- A stray `install.cmd` (Anthropic's Claude Code Windows installer, unrelated to this project).
+
 ## [1.1.0] — 2026-07-01
 
 **Live MCP brain + team engine + plugin bundle.**
@@ -65,4 +107,5 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[1.1.0]: https://github.com/marinvch/ai-os/releases/tag/v1.1.0
 [1.0.0]: https://github.com/marinvch/ai-os/releases/tag/v1.0.0

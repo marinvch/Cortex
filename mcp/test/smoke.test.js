@@ -15,6 +15,10 @@ test("server answers tools/list over stdio", async () => {
   const root = mkdtempSync(join(tmpdir(), "vault-"));
   const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: root } });
   let buf = "";
+  // Capture stderr: a server that dies on startup (missing dep, bad import) otherwise surfaces
+  // only as a bare 5s "timeout", hiding the actual cause.
+  let errBuf = "";
+  child.stderr.on("data", (d) => { errBuf += d.toString(); });
   const got = new Promise((resolve, reject) => {
     child.stdout.on("data", (d) => {
       buf += d.toString();
@@ -24,7 +28,15 @@ test("server answers tools/list over stdio", async () => {
       }
     });
     child.on("error", reject);
-    setTimeout(() => reject(new Error("timeout")), 5000);
+    child.on("exit", (code) => {
+      if (code !== 0 && code !== null) {
+        reject(new Error(`server exited with code ${code}\n${errBuf.trim() || "(no stderr)"}`));
+      }
+    });
+    setTimeout(() => {
+      const hint = errBuf.trim() ? `\nserver stderr:\n${errBuf.trim()}` : "\n(server produced no stderr — did you run `npm install` in mcp/?)";
+      reject(new Error(`timed out waiting for tools/list${hint}`));
+    }, 5000);
   });
   rpc(child, { jsonrpc: "2.0", id: 0, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "0" } } });
   rpc(child, { jsonrpc: "2.0", method: "notifications/initialized" });

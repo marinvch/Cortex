@@ -37,6 +37,20 @@ function directoriesSection(f) {
   );
 }
 
+/** Built-in capabilities. Lives inside the markers, so --refresh keeps it current. */
+function capabilitiesSection() {
+  return `This repo's brain can extend itself. Ask for any of these:
+
+- \`/cortex-skill\` — create a new skill scoped to this repo
+- \`/cortex-agent\` — create a subagent
+- \`/cortex-hook\` — create a hook
+- \`/cortex-mcp\` — scaffold an MCP server
+
+- Structural map: \`.cortex/map.md\` — where things live and how they connect
+- Memory: \`.cortex/memory/gotchas.md\`, \`.cortex/memory/decisions.md\`
+`;
+}
+
 /** The machine-owned block. Everything outside it survives `--refresh` untouched. */
 export function renderGeneratedBlock(f) {
   return `${GEN_START}
@@ -49,7 +63,10 @@ ${stackSection(f)}
 ${commandsSection(f)}
 ## Key directories
 
-${directoriesSection(f)}${GEN_END}`;
+${directoriesSection(f)}
+## Capabilities
+
+${capabilitiesSection()}${GEN_END}`;
 }
 
 /** A complete AGENTS.md for a repo that does not have one yet. */
@@ -61,6 +78,13 @@ This file is the single source of truth for every AI agent working in this repo.
 Gemini, Cursor and Codex all read it — the other files at the root are shims that point here.
 
 ${renderGeneratedBlock(f)}
+
+## Project skills
+
+Skills, agents and hooks this team created with the meta-skills above. This section sits outside the
+generated markers, so \`--refresh\` never touches it.
+
+_None yet._
 
 ## Conventions
 

@@ -158,7 +158,10 @@ only safe if they are exhaustive.
 
 ## Open questions
 
-- npm package name — `cortex-init` may be taken; needs a registry check before publish.
+- npm package name — **`cortex-init` is taken** (v1.0.0, and by an adjacent product: *"The collective
+  brain for Claude Code — shared learnings, rules, hooks, and skills across all your projects"*).
+  `repo-brain` and `codebase-brain` are both free. A scoped `@marinvch/cortex-init` is also always
+  available. Undecided.
 - Does `--refresh` rewrite stack facts in place, or write a diff for human review?
 - Should `.cortex/memory/` ship with a `.gitattributes` merge strategy? Append-only files from
   parallel branches will conflict constantly otherwise.

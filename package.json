@@ -15,7 +15,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test \"test/*.test.mjs\"",
+    "test": "node --test",
     "check:egress": "node scripts/assert-no-egress.mjs"
   },
   "keywords": [

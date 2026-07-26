@@ -9,6 +9,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      # Report every version's result. Fail-fast hides which versions are actually
+      # broken by cancelling the rest as soon as one fails.
+      fail-fast: false
       matrix:
         node: ['18', '20', '22']
     steps:

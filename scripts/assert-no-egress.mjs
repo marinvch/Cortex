@@ -8,9 +8,10 @@
  * company's repository.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { join, extname, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCANNED = ['src', 'bin', 'templates'];
 
 const FORBIDDEN = [

@@ -1,0 +1,34 @@
+{
+  "name": "@marinvch/cortex-init",
+  "version": "0.1.0",
+  "description": "Install a codebase brain into any repo — one AGENTS.md every AI agent reads, memory that accumulates with the project, and a secret guard that blocks writes.",
+  "type": "module",
+  "bin": {
+    "cortex-init": "bin/cortex-init.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "templates/"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "check:egress": "node scripts/assert-no-egress.mjs"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "agents-md",
+    "claude",
+    "copilot",
+    "codebase-context"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marinvch/ai-os.git"
+  }
+}

@@ -1,0 +1,117 @@
+/**
+ * Render `AGENTS.md` and the per-agent shims.
+ *
+ * `AGENTS.md` is the only file with real content. Shims point at it and hold nothing
+ * of their own — content kept in two places drifts, and a drifted brain is worse than
+ * no brain because agents act confidently on the stale copy.
+ */
+
+export const GEN_START = '<!-- cortex:generated:start — re-run `npx cortex-init --refresh` to update -->';
+export const GEN_END = '<!-- cortex:generated:end -->';
+
+const bullet = (label, value) => (value ? `- **${label}:** ${value}\n` : '');
+
+function stackSection(f) {
+  let out = '';
+  out += bullet('Languages', f.languages.length ? f.languages.join(', ') : null);
+  out += bullet('Framework', f.framework);
+  out += bullet('Package manager', f.packageManager);
+  out += bullet('Tests', f.testRunner);
+  out += bullet('Linting', f.linters.length ? f.linters.join(', ') : null);
+  out += bullet('CI', f.ci);
+  if (f.tsStrict === true) out += '- **TypeScript:** strict mode is on — keep it on\n';
+  return out || '- _Nothing detected automatically. Fill this in._\n';
+}
+
+function commandsSection(f) {
+  const rows = Object.entries(f.scripts).filter(([, v]) => v);
+  if (!rows.length) return '_No scripts detected — add the real commands here._\n';
+  return rows.map(([k, v]) => `- ${k}: \`${v}\``).join('\n') + '\n';
+}
+
+function directoriesSection(f) {
+  if (!f.directories.length) return '_Add the directories that matter and what lives in each._\n';
+  return (
+    f.directories.map((d) => `- \`${d}/\` — _what lives here_`).join('\n') +
+    '\n\n_Descriptions are for a human to fill in; the directory list is detected._\n'
+  );
+}
+
+/** The machine-owned block. Everything outside it survives `--refresh` untouched. */
+export function renderGeneratedBlock(f) {
+  return `${GEN_START}
+
+## Stack & tooling
+
+${stackSection(f)}
+## Run it
+
+${commandsSection(f)}
+## Key directories
+
+${directoriesSection(f)}${GEN_END}`;
+}
+
+/** A complete AGENTS.md for a repo that does not have one yet. */
+export function renderAgentsMd(f) {
+  return `# ${f.name} — Project Brain
+
+${f.purpose ? `> ${f.purpose}\n` : '> _One line: what this project does and who uses it._\n'}
+This file is the single source of truth for every AI agent working in this repo. Claude, Copilot,
+Gemini, Cursor and Codex all read it — the other files at the root are shims that point here.
+
+${renderGeneratedBlock(f)}
+
+## Conventions
+
+- _Naming, file layout, import rules, component patterns._
+- Never commit secrets.
+
+## Development cycle
+
+1. **Plan before implementing.** No code until there is a written plan.
+2. Break the plan into small, independently reviewable steps.
+3. Run tests and lint after each step.
+4. Self-review against the conventions above before opening a PR.
+
+## Gotchas / tribal knowledge
+
+Lives in \`.cortex/memory/gotchas.md\`, committed so the whole team inherits it.
+
+**Agents: when you learn something non-obvious about this codebase — a trap, a constraint, a
+surprising behaviour — write a line starting with \`GOTCHA:\` in your reply.** It is harvested at the
+end of the session, screened for secrets, and appended automatically. Never put a credential,
+token, or \`.env\` value in one; the guard blocks the write and the lesson is lost.
+
+## Glossary
+
+- _Domain terms specific to this codebase._
+`;
+}
+
+/**
+ * Refresh an existing AGENTS.md: swap the generated block, preserve every human word.
+ * If the markers are missing (someone removed them, or the file predates cortex), the
+ * file is returned unchanged and the caller reports it — silently rewriting a file a
+ * human owns is how a tool loses trust.
+ */
+export function refreshAgentsMd(existing, f) {
+  const start = existing.indexOf(GEN_START);
+  const end = existing.indexOf(GEN_END);
+  if (start === -1 || end === -1 || end < start) {
+    return { content: existing, refreshed: false };
+  }
+  const content =
+    existing.slice(0, start) + renderGeneratedBlock(f) + existing.slice(end + GEN_END.length);
+  return { content, refreshed: true };
+}
+
+/** Shims: one line of pointer each, never a copy of the content. */
+export const SHIMS = {
+  'CLAUDE.md': '@AGENTS.md\n',
+  'GEMINI.md': 'See AGENTS.md for all project context, architecture, and conventions.\n',
+  '.github/copilot-instructions.md':
+    'All project context and conventions live in AGENTS.md at the repo root. Follow it.\n',
+  '.cursor/rules/project.mdc':
+    '---\nalwaysApply: true\n---\n\nRead AGENTS.md at the repo root for architecture, conventions, and the development cycle.\n',
+};

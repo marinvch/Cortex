@@ -22,6 +22,7 @@ no network requests — [asserted in CI](scripts/assert-no-egress.mjs), not just
 | `.cortex/memory/gotchas.md` | Tribal knowledge, accumulated and committed |
 | `.cortex/memory/decisions.md` | Append-only decision log |
 | `.cortex/lib/` | The vendored secret guard |
+| `.claude/skills/cortex-{skill,agent,hook,mcp}/` | Meta-skills — the repo can author its own capabilities |
 | `.claude/hooks/cortex-reflect.mjs` | SessionEnd hook that harvests gotchas |
 
 Commit all of it. That is the point — a teammate who clones the repo inherits the brain without
@@ -43,6 +44,17 @@ session the hook harvests those lines, screens them, and appends the survivors t
 Extraction is deliberately deterministic — it reads explicit markers rather than inferring lessons
 from a transcript. A hook has no model available, and a guessed "lesson" committed to a team's repo
 is worse than none.
+
+## How the brain grows
+
+The repo ships with four meta-skills. When a developer needs a new capability they ask for it, and
+Cortex writes it into the repo — scoped to this codebase, not a generic marketplace copy.
+
+    /cortex-skill    create a skill        /cortex-hook   create a hook
+    /cortex-agent    create a subagent     /cortex-mcp    scaffold an MCP server
+
+Created capabilities register in the `## Project skills` section of `AGENTS.md`, which sits outside
+the generated markers — `--refresh` never destroys them.
 
 ## The secret guard
 

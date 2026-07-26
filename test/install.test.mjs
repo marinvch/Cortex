@@ -152,3 +152,11 @@ test('is idempotent — a second run does not duplicate the hook registration', 
   const s = JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8'));
   assert.equal(s.hooks.SessionEnd.length, 1);
 });
+
+test('install stamps the meta-skills so the repo can extend itself', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  install(root);
+  for (const name of ['cortex-skill', 'cortex-agent', 'cortex-hook', 'cortex-mcp']) {
+    assert.ok(existsSync(join(root, '.claude/skills', name, 'SKILL.md')), `missing ${name}`);
+  }
+});

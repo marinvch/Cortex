@@ -6,6 +6,7 @@ import { resolveInRepo } from './paths.mjs';
 import { detect } from './detect.mjs';
 import { renderAgentsMd, refreshAgentsMd, SHIMS } from './render.mjs';
 import { initMemory } from './memory.mjs';
+import { installMetaSkills } from './skills.mjs';
 
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK_REL = '.claude/hooks/cortex-reflect.mjs';
@@ -73,6 +74,9 @@ export function install(repoRoot, { refresh = false, dryRun = false } = {}) {
       'created',
     );
   }
+
+  // ── meta-skills ──────────────────────────────────────────────────────────
+  installMetaSkills(repoRoot, plan, dryRun);
 
   // ── vendored guard ───────────────────────────────────────────────────────
   vendorLib(repoRoot, plan, dryRun);

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 
 import { install } from '../src/install.mjs';
 import { detect } from '../src/detect.mjs';
+import { isStale } from '../src/map.mjs';
 
 function fixture({ pkg, files = {}, dirs = [] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'cortex-install-'));
@@ -186,4 +187,10 @@ test('a broken repo does not fail the install; the map degrades and says so', ()
   writeFileSync(join(root, 'package.json'), '{ this is not valid json');
   assert.doesNotThrow(() => install(root));
   assert.ok(existsSync(join(root, 'AGENTS.md')), 'install must still complete');
+});
+
+test('the map it writes is not already stale', () => {
+  const root = fixture({ pkg: NEXT_PKG, files: { 'src/a.ts': 'export const x = 1;' }, dirs: ['src'] });
+  install(root);
+  assert.equal(isStale(root), false, 'a fresh install must not ship a map that needs regenerating');
 });

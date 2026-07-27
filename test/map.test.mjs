@@ -47,6 +47,18 @@ test('skips node_modules, .git and build output', () => {
   }
 });
 
+test('does not map the agent scaffolding, only the project', () => {
+  const root = repoWith({
+    'src/a.ts': '',
+    '.claude/hooks/cortex-reflect.mjs': '',
+    '.cortex/lib/map.mjs': '',
+  });
+  const res = scanRepo(root);
+  assert.ok(res.files.includes('src/a.ts'));
+  assert.ok(!res.files.includes('.claude/hooks/cortex-reflect.mjs'), 'Cortex plumbing is not architecture');
+  assert.ok(!res.files.includes('.cortex/lib/map.mjs'));
+});
+
 test('honours .gitignore', () => {
   const root = repoWith({ 'src/a.ts': '', 'generated/big.ts': '', '.gitignore': 'generated/\n' });
   const res = scanRepo(root);

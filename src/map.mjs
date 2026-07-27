@@ -12,9 +12,15 @@ import { join, relative, sep } from 'node:path';
 
 export const MAX_FILES = 2000;
 
+/**
+ * `.cortex` and `.claude` are skipped for the same reason: they hold the agent scaffolding
+ * Cortex installs, not the project's own architecture. Mapping them would both mislead a
+ * reader and make every fresh install ship a map that is already stale, because the hook
+ * is written after the map is built.
+ */
 const ALWAYS_SKIP = new Set([
   '.git', 'node_modules', 'dist', 'build', 'out', 'coverage', '.next', '.nuxt',
-  'vendor', 'target', '__pycache__', '.venv', 'venv', '.cortex',
+  'vendor', 'target', '__pycache__', '.venv', 'venv', '.cortex', '.claude',
 ]);
 
 const SOURCE_EXT = new Set([

@@ -4,7 +4,16 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { scanRepo, MAX_FILES, extractorFor, EXTRACTORS } from '../src/map.mjs';
+import {
+  scanRepo,
+  MAX_FILES,
+  extractorFor,
+  EXTRACTORS,
+  buildMap,
+  isStale,
+  readMapHash,
+  MAP_REL,
+} from '../src/map.mjs';
 
 function repoWith(files) {
   const root = mkdtempSync(join(tmpdir(), 'cortex-map-'));
@@ -109,4 +118,60 @@ test('every extractor declares a name used in the coverage report', () => {
     assert.equal(typeof ex.match, 'function');
     assert.equal(typeof ex.extract, 'function');
   }
+});
+
+test('renders sections an agent can act on', () => {
+  const root = repoWith({
+    'package.json': JSON.stringify({ name: 'acme', main: 'src/index.ts' }),
+    'src/index.ts': "export function boot() {}\nimport './db';",
+    'src/db.ts': 'export const client = 1;',
+    'prisma/schema.prisma': 'model User {}',
+  });
+  const { markdown } = buildMap(root);
+  assert.match(markdown, /# Structural map/);
+  assert.match(markdown, /## Entry points/);
+  assert.match(markdown, /## Data layer/);
+  assert.match(markdown, /## Coverage/);
+  assert.match(markdown, /src\/index\.ts/);
+  assert.match(markdown, /boot/);
+});
+
+test('states which languages were parsed and which were only listed', () => {
+  const root = repoWith({ 'src/a.ts': 'export const x = 1;', 'main.go': 'package main' });
+  const { markdown, stats } = buildMap(root);
+  assert.ok(stats.parsed.includes('JavaScript/TypeScript'));
+  assert.ok(stats.listedOnly.length > 0, 'go should be listed but not parsed');
+  assert.match(markdown, /listed only/i);
+});
+
+test('records the cap in the map instead of pretending completeness', () => {
+  const files = {};
+  for (let i = 0; i < 12; i++) files[`src/f${i}.ts`] = 'export const x = 1;';
+  const root = repoWith(files);
+  const { markdown, stats } = buildMap(root, { maxFiles: 5 });
+  assert.equal(stats.capped, true);
+  assert.match(markdown, /5 of 12/);
+});
+
+test('the hash changes when structure changes but not on cosmetic edits', () => {
+  const root = repoWith({ 'src/a.ts': 'export function one() {}' });
+  const before = buildMap(root).hash;
+
+  writeFileSync(join(root, 'src/a.ts'), 'export function one() {}\n// a comment that changes nothing structural');
+  assert.equal(buildMap(root).hash, before, 'a comment must not invalidate the map');
+
+  writeFileSync(join(root, 'src/a.ts'), 'export function one() {}\nexport function two() {}');
+  assert.notEqual(buildMap(root).hash, before, 'a new export must invalidate the map');
+});
+
+test('isStale is true when no map exists and false right after writing one', () => {
+  const root = repoWith({ 'src/a.ts': 'export const x = 1;' });
+  assert.equal(isStale(root), true);
+
+  const { markdown, hash } = buildMap(root);
+  mkdirSync(join(root, '.cortex'), { recursive: true });
+  writeFileSync(join(root, MAP_REL), markdown);
+
+  assert.equal(readMapHash(root), hash);
+  assert.equal(isStale(root), false);
 });

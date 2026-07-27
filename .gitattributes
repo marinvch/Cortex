@@ -1,0 +1,8 @@
+# Cortex ships markdown and .mjs files verbatim into other people's repositories.
+# Without this, a Windows checkout (core.autocrlf=true) materialises CRLF and the
+# installer emits different bytes per platform — for a tool whose whole point is
+# committed, shared files, that is a defect. Normalise everything to LF.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gif binary

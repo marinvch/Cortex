@@ -126,6 +126,19 @@ test('finds a declaration that follows another statement on the same line', () =
   assert.ok(exports.includes('db'), `expected export db, got ${JSON.stringify(exports)}`);
 });
 
+test('does not report code that only appears inside a comment', () => {
+  const ex = extractorFor('src/a.ts');
+  const { imports, exports } = ex.extract(`
+// example: import './x'; export const phantom = 1;
+/** also fine: export function ghost() {} and require('haunted') */
+export const real = 1;
+`);
+  assert.ok(exports.includes('real'));
+  assert.ok(!exports.includes('phantom'), `comment leaked an export: ${JSON.stringify(exports)}`);
+  assert.ok(!exports.includes('ghost'), `comment leaked an export: ${JSON.stringify(exports)}`);
+  assert.ok(!imports.includes('haunted'), `comment leaked an import: ${JSON.stringify(imports)}`);
+});
+
 test('does not treat a non-JS file as parseable', () => {
   assert.equal(extractorFor('main.go'), null);
   assert.equal(extractorFor('schema.prisma'), null);

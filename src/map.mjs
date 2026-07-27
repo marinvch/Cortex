@@ -126,11 +126,20 @@ const all = (re, source, out) => {
   while ((m = re.exec(source)) !== null) if (m[1]) out.push(m[1]);
 };
 
+/**
+ * Drop comments before matching, so a code example in a doc block is not reported as real
+ * structure. Line comments are only stripped when they start the line: `//` also appears
+ * inside URLs, and truncating there would lose genuine imports.
+ */
+const stripComments = (source) =>
+  source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+
 export const EXTRACTORS = [
   {
     name: 'JavaScript/TypeScript',
     match: (rel) => JS_EXT.test(rel),
-    extract(source) {
+    extract(raw) {
+      const source = stripComments(raw);
       const imports = [];
       all(IMPORT_FROM, source, imports);
       all(IMPORT_BARE, source, imports);

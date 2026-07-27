@@ -12,6 +12,7 @@ const HELP = `
     --dry-run     print the plan, write nothing
     --refresh     re-scan and update only the generated block of AGENTS.md
     --with-plugins  also enable the recommended plugins in .claude/settings.json
+    --no-map        skip generating .cortex/map.md
     --cwd <path>  target a different repo (default: current directory)
     -h, --help    show this
 
@@ -19,12 +20,13 @@ const HELP = `
 `;
 
 function parseArgs(argv) {
-  const opts = { dryRun: false, refresh: false, withPlugins: false, cwd: process.cwd() };
+  const opts = { dryRun: false, refresh: false, withPlugins: false, noMap: false, cwd: process.cwd() };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') opts.dryRun = true;
     else if (a === '--refresh') opts.refresh = true;
     else if (a === '--with-plugins') opts.withPlugins = true;
+    else if (a === '--no-map') opts.noMap = true;
     else if (a === '--cwd') opts.cwd = argv[++i];
     else if (a.startsWith('--cwd=')) opts.cwd = a.slice(6);
     else if (a === '-h' || a === '--help') opts.help = true;
@@ -45,6 +47,7 @@ try {
     refresh: opts.refresh,
     dryRun: opts.dryRun,
     withPlugins: opts.withPlugins,
+    noMap: opts.noMap,
   });
 
   const detected = [facts.framework, facts.languages[0], facts.packageManager]

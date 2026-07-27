@@ -21,7 +21,8 @@ no network requests — [asserted in CI](scripts/assert-no-egress.mjs), not just
 | `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.cursor/rules/project.mdc` | One-line shims pointing at `AGENTS.md` |
 | `.cortex/memory/gotchas.md` | Tribal knowledge, accumulated and committed |
 | `.cortex/memory/decisions.md` | Append-only decision log |
-| `.cortex/lib/` | The vendored secret guard |
+| `.cortex/map.md` | Structural map — entry points, routes, module graph, coverage |
+| `.cortex/lib/` | The vendored secret guard and map generator |
 | `.claude/skills/cortex-{skill,agent,hook,mcp}/` | Meta-skills — the repo can author its own capabilities |
 | `.cortex/plugins.json` | Recommended plugins, declared rather than installed |
 | `.claude/hooks/cortex-reflect.mjs` | SessionEnd hook that harvests gotchas |
@@ -56,6 +57,17 @@ Cortex writes it into the repo — scoped to this codebase, not a generic market
 
 Created capabilities register in the `## Project skills` section of `AGENTS.md`, which sits outside
 the generated markers — `--refresh` never destroys them.
+
+## The structural map
+
+`.cortex/map.md` records where things live: entry points, routes, the data layer, what each module
+exports and imports, and the files that have grown too large. It is committed, so a teammate who
+clones inherits it and a Copilot user reads it without any tooling.
+
+Extraction is zero-dependency heuristics — no parser, no native bindings, nothing added to install
+weight. That means it is strong on JavaScript and TypeScript and weaker elsewhere, so **the map states
+its own coverage**: which languages it parsed, which it could only list, and whether the file cap was
+hit. A map that overstates itself is worse than no map, because agents trust it.
 
 ## Plugins are declared, not installed
 
@@ -96,6 +108,7 @@ npx @marinvch/cortex-init --dry-run    # print the plan, write nothing
 npx @marinvch/cortex-init --refresh    # re-scan; updates stack facts, preserves your prose
 npx @marinvch/cortex-init --cwd path   # target another repo
 npx @marinvch/cortex-init --with-plugins  # also enable the recommended plugins
+npx @marinvch/cortex-init --no-map     # skip generating .cortex/map.md
 ```
 
 `--refresh` only rewrites the block between the `cortex:generated` markers. Everything you wrote by

@@ -8,6 +8,7 @@ import { renderAgentsMd, refreshAgentsMd, SHIMS } from './render.mjs';
 import { initMemory } from './memory.mjs';
 import { installMetaSkills } from './skills.mjs';
 import { writePluginManifest } from './plugins.mjs';
+import { buildMap, MAP_REL } from './map.mjs';
 
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK_REL = '.claude/hooks/cortex-reflect.mjs';
@@ -16,7 +17,7 @@ const HOOK_REL = '.claude/hooks/cortex-reflect.mjs';
  * Orchestrate the install. Every path goes through resolveInRepo, so the installer
  * physically cannot write outside the repo it was invoked in (R2).
  */
-export function install(repoRoot, { refresh = false, dryRun = false, withPlugins = false } = {}) {
+export function install(repoRoot, { refresh = false, dryRun = false, withPlugins = false, noMap = false } = {}) {
   const facts = detect(repoRoot);
   const plan = [];
 
@@ -82,7 +83,18 @@ export function install(repoRoot, { refresh = false, dryRun = false, withPlugins
   // ── plugin recommendations ───────────────────────────────────────────────
   writePluginManifest(repoRoot, plan, { dryRun, withPlugins });
 
-  // ── vendored guard ───────────────────────────────────────────────────────
+  // ── structural map ───────────────────────────────────────────────────────
+  // Never fail the install over the map. A repo with an unreadable file still deserves a brain.
+  if (!noMap) {
+    try {
+      const { markdown, stats } = buildMap(repoRoot);
+      write(MAP_REL, markdown, `mapped ${stats.scanned} files${stats.capped ? ' (capped)' : ''}`);
+    } catch (err) {
+      plan.push({ rel: MAP_REL, note: `SKIPPED — map generation failed: ${err.message}`, skipped: true });
+    }
+  }
+
+  // ── vendored lib ─────────────────────────────────────────────────────────
   vendorLib(repoRoot, plan, dryRun);
 
   // ── reflect hook (Claude Code) ───────────────────────────────────────────
@@ -92,19 +104,19 @@ export function install(repoRoot, { refresh = false, dryRun = false, withPlugins
 }
 
 /**
- * Copy the guard and its dependencies into `.cortex/lib/`.
+ * Copy the guard, the map generator and their dependencies into `.cortex/lib/`.
  *
  * The hook runs inside the target repo long after `npx` has gone, and teammates who
- * pull the repo never run the installer at all. Vendoring means the guard travels with
- * the code and its version is committed alongside it, instead of depending on whoever
+ * pull the repo never run the installer at all. Vendoring means both travel with
+ * the code and their versions are committed alongside it, instead of depending on whoever
  * last ran the installer.
  */
-const VENDORED = ['guard.mjs', 'paths.mjs', 'memory.mjs'];
+const VENDORED = ['guard.mjs', 'paths.mjs', 'memory.mjs', 'map.mjs'];
 
 function vendorLib(repoRoot, plan, dryRun) {
   for (const name of VENDORED) {
     const rel = `.cortex/lib/${name}`;
-    plan.push({ rel, note: 'vendored guard' });
+    plan.push({ rel, note: 'vendored' });
     if (dryRun) continue;
     const abs = resolveInRepo(repoRoot, rel);
     mkdirSync(dirname(abs), { recursive: true });

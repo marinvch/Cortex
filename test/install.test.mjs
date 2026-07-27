@@ -160,3 +160,30 @@ test('install stamps the meta-skills so the repo can extend itself', () => {
     assert.ok(existsSync(join(root, '.claude/skills', name, 'SKILL.md')), `missing ${name}`);
   }
 });
+
+test('writes a structural map and vendors the generator that maintains it', () => {
+  const root = fixture({
+    pkg: NEXT_PKG,
+    files: { 'src/index.ts': "export function boot() {}\nimport './db';", 'src/db.ts': 'export const c = 1;' },
+    dirs: ['src'],
+  });
+  install(root);
+  assert.ok(existsSync(join(root, '.cortex/map.md')));
+  assert.ok(existsSync(join(root, '.cortex/lib/map.mjs')), 'hook needs the generator after npx is gone');
+  const map = readFileSync(join(root, '.cortex/map.md'), 'utf8');
+  assert.match(map, /cortex:map hash=/);
+  assert.match(map, /boot/);
+});
+
+test('--no-map opts out', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  install(root, { noMap: true });
+  assert.equal(existsSync(join(root, '.cortex/map.md')), false);
+});
+
+test('a broken repo does not fail the install; the map degrades and says so', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  writeFileSync(join(root, 'package.json'), '{ this is not valid json');
+  assert.doesNotThrow(() => install(root));
+  assert.ok(existsSync(join(root, 'AGENTS.md')), 'install must still complete');
+});

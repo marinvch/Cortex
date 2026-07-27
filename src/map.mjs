@@ -86,3 +86,56 @@ export function countLines(repoRoot, rel) {
     return 0;
   }
 }
+
+// ── Extractors ───────────────────────────────────────────────────────────────
+// Shaped as a registry so a second language is additive rather than a rewrite. Only
+// JS/TS ships until its fidelity is measured; everything else is listed, not parsed,
+// and the map says which is which.
+
+const JS_EXT = /\.(?:m|c)?[jt]sx?$/;
+
+const IMPORT_FROM = /(?:^|\n)\s*(?:import|export)\s[^;'"]*?from\s*['"]([^'"]+)['"]/g;
+const IMPORT_BARE = /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g;
+const REQUIRE = /require\(\s*['"]([^'"]+)['"]\s*\)/g;
+
+const EXPORT_DECL = /(?:^|\n)\s*export\s+(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)/g;
+const EXPORT_DEFAULT = /(?:^|\n)\s*export\s+default\s+(?:async\s+)?(?:function|class)\s+([A-Za-z_$][\w$]*)/g;
+const EXPORT_LIST = /(?:^|\n)\s*export\s*\{([^}]*)\}/g;
+
+const all = (re, source, out) => {
+  re.lastIndex = 0;
+  let m;
+  while ((m = re.exec(source)) !== null) if (m[1]) out.push(m[1]);
+};
+
+export const EXTRACTORS = [
+  {
+    name: 'JavaScript/TypeScript',
+    match: (rel) => JS_EXT.test(rel),
+    extract(source) {
+      const imports = [];
+      all(IMPORT_FROM, source, imports);
+      all(IMPORT_BARE, source, imports);
+      all(REQUIRE, source, imports);
+
+      const exports = [];
+      all(EXPORT_DECL, source, exports);
+      all(EXPORT_DEFAULT, source, exports);
+
+      EXPORT_LIST.lastIndex = 0;
+      let m;
+      while ((m = EXPORT_LIST.exec(source)) !== null) {
+        for (const part of m[1].split(',')) {
+          const name = part.trim().split(/\s+as\s+/).pop().trim();
+          if (name && /^[A-Za-z_$][\w$]*$/.test(name)) exports.push(name);
+        }
+      }
+
+      return { imports: [...new Set(imports)], exports: [...new Set(exports)] };
+    },
+  },
+];
+
+export function extractorFor(rel) {
+  return EXTRACTORS.find((e) => e.match(rel)) ?? null;
+}

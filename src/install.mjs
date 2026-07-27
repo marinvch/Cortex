@@ -7,6 +7,7 @@ import { detect } from './detect.mjs';
 import { renderAgentsMd, refreshAgentsMd, SHIMS } from './render.mjs';
 import { initMemory } from './memory.mjs';
 import { installMetaSkills } from './skills.mjs';
+import { writePluginManifest } from './plugins.mjs';
 
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK_REL = '.claude/hooks/cortex-reflect.mjs';
@@ -15,7 +16,7 @@ const HOOK_REL = '.claude/hooks/cortex-reflect.mjs';
  * Orchestrate the install. Every path goes through resolveInRepo, so the installer
  * physically cannot write outside the repo it was invoked in (R2).
  */
-export function install(repoRoot, { refresh = false, dryRun = false } = {}) {
+export function install(repoRoot, { refresh = false, dryRun = false, withPlugins = false } = {}) {
   const facts = detect(repoRoot);
   const plan = [];
 
@@ -77,6 +78,9 @@ export function install(repoRoot, { refresh = false, dryRun = false } = {}) {
 
   // ── meta-skills ──────────────────────────────────────────────────────────
   installMetaSkills(repoRoot, plan, dryRun);
+
+  // ── plugin recommendations ───────────────────────────────────────────────
+  writePluginManifest(repoRoot, plan, { dryRun, withPlugins });
 
   // ── vendored guard ───────────────────────────────────────────────────────
   vendorLib(repoRoot, plan, dryRun);

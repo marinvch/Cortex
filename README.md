@@ -23,6 +23,7 @@ no network requests — [asserted in CI](scripts/assert-no-egress.mjs), not just
 | `.cortex/memory/decisions.md` | Append-only decision log |
 | `.cortex/lib/` | The vendored secret guard |
 | `.claude/skills/cortex-{skill,agent,hook,mcp}/` | Meta-skills — the repo can author its own capabilities |
+| `.cortex/plugins.json` | Recommended plugins, declared rather than installed |
 | `.claude/hooks/cortex-reflect.mjs` | SessionEnd hook that harvests gotchas |
 
 Commit all of it. That is the point — a teammate who clones the repo inherits the brain without
@@ -56,6 +57,15 @@ Cortex writes it into the repo — scoped to this codebase, not a generic market
 Created capabilities register in the `## Project skills` section of `AGENTS.md`, which sits outside
 the generated markers — `--refresh` never destroys them.
 
+## Plugins are declared, not installed
+
+`cortex-init` runs inside other people's repositories. Writing `enabledPlugins` on their behalf would
+provision third-party code into a developer's environment without asking, so by default Cortex writes
+`.cortex/plugins.json` — a manifest saying what this project expects — and prints the install command.
+
+`--with-plugins` opts in, and even then only non-network plugins are enabled. Anything that leaves the
+machine is marked `"network": true` in the manifest and never enabled automatically.
+
 ## The secret guard
 
 Memory is **committed and ungated** — learnings go straight into git history with no human promotion
@@ -85,6 +95,7 @@ npx @marinvch/cortex-init              # install
 npx @marinvch/cortex-init --dry-run    # print the plan, write nothing
 npx @marinvch/cortex-init --refresh    # re-scan; updates stack facts, preserves your prose
 npx @marinvch/cortex-init --cwd path   # target another repo
+npx @marinvch/cortex-init --with-plugins  # also enable the recommended plugins
 ```
 
 `--refresh` only rewrites the block between the `cortex:generated` markers. Everything you wrote by

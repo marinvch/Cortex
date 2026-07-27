@@ -125,7 +125,7 @@ hand survives. If the markers are gone, the file is left alone entirely rather t
 ## Development
 
 ```bash
-npm test               # 21 tests
+npm test               # 61 tests
 npm run check:egress   # assert no network APIs and no runtime deps
 ```
 

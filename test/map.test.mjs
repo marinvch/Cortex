@@ -119,6 +119,13 @@ export async function slow() {}
   }
 });
 
+test('finds a declaration that follows another statement on the same line', () => {
+  const ex = extractorFor('src/db.ts');
+  const { imports, exports } = ex.extract("import './index'; export const db = 1;");
+  assert.ok(imports.includes('./index'), `expected the import, got ${JSON.stringify(imports)}`);
+  assert.ok(exports.includes('db'), `expected export db, got ${JSON.stringify(exports)}`);
+});
+
 test('does not treat a non-JS file as parseable', () => {
   assert.equal(extractorFor('main.go'), null);
   assert.equal(extractorFor('schema.prisma'), null);

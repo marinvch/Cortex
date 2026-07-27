@@ -40,6 +40,8 @@ accumulates the team's tribal knowledge automatically, and that cannot write a s
 | R5 | Memory accumulates automatically and is **committed** so the team inherits it | decision |
 | R6 | No secret can reach disk or git — **detection blocks the write** | decision |
 | R7 | Idempotent; re-runnable; never destroys human edits | operational |
+| R8 | The repo can extend itself — author its own skills, agents, hooks and MCP servers | capability layer |
+| R9 | The repo carries a committed structural map stating its own coverage | capability layer |
 
 ---
 
@@ -122,6 +124,25 @@ the guard, appends survivors to `.cortex/memory/gotchas.md`. Committed by the te
 For agents without a hook system, `AGENTS.md` instructs the agent to append a gotcha when it learns
 one — same file, same guard on the next `cortex-init` run.
 
+### Capability layer (R8, R9)
+
+Four meta-skills ship as plain markdown in `.claude/skills/cortex-{skill,agent,hook,mcp}/`. A skill
+that creates skills is itself just a skill, so there is no generator code and nothing to keep in sync.
+What they create registers in a `## Project skills` section of `AGENTS.md` that sits **outside** the
+`cortex:generated` markers — `--refresh` maintains the built-in list and never touches the team's.
+
+Plugins are **declared, not installed**. `.cortex/plugins.json` states what the project expects;
+`--with-plugins` is required to write `enabledPlugins`, and even then anything marked
+`"network": true` is excluded. Provisioning a developer's environment without asking is not ours to do.
+
+`.cortex/map.md` is a committed structural map: entry points, routes, data layer, per-module imports
+and exports. Extraction is zero-dependency heuristics, which are strong on JS/TS and thin elsewhere,
+so the map ends with a Coverage section naming what it parsed, what it could only list, and whether
+the file cap was hit. A map that overstates itself is worse than none, because agents trust it.
+A structural hash in the header lets the SessionEnd hook regenerate it on drift and stay silent on
+cosmetic edits. `.claude/` and `.cortex/` are excluded from the scan — that is Cortex's own
+scaffolding, not the project's architecture.
+
 ### Boundary enforcement (R2, R3)
 
 - Every write resolves through a path guard that realpaths the target and throws if it escapes
@@ -136,13 +157,17 @@ one — same file, same guard on the next `cortex-init` run.
 
 | Check | How |
 |---|---|
-| Installs clean on a foreign repo | `npx cortex-init --yes` against fixtures (Next.js, Django, Go, monorepo) |
+| Installs clean on a foreign repo | `npx cortex-init` against fixtures (Next.js, Django, Go, monorepo) |
 | Detection is right | fixture repos with asserted expected `AGENTS.md` stack facts |
 | **Guard blocks** | red-team corpus: real-shaped keys, credentialed URIs, `.env` values, high-entropy strings — every one must fail the write |
 | **Guard doesn't over-block** | benign corpus: hashes, UUIDs, lockfile digests, base64 images — none may trip it |
 | No escape | tests asserting `../`, absolute paths, and symlinks outside cwd all throw |
 | No egress | source grep + dependency-tree assertion in CI |
 | Idempotent | run twice, assert second run is a no-op; assert human prose survives `--refresh` |
+| Capabilities survive refresh | create a project skill, `--refresh`, assert it is still there |
+| Plugins not provisioned | default run asserts `enabledPlugins` is absent from `.claude/settings.json` |
+| Map is honest | assert the cap and the parsed/listed-only split are reported, not hidden |
+| Map is not born stale | assert `isStale()` is false the moment install finishes |
 
 The guard's two corpora are the most important tests in the project. Committed-ungated memory is
 only safe if they are exhaustive.
@@ -154,7 +179,8 @@ only safe if they are exhaustive.
 - The personal vault. It becomes a separate optional consumer that may *read* a repo's brain; it is
   never required to install one, and no automatic promotion crosses that boundary.
 - Team-brain sync / shared remote note repos.
-- MCP server. `AGENTS.md` is plain text; agents read it without one.
+- Cortex shipping *as* an MCP server. `AGENTS.md` is plain text; agents read it without one. (Scaffolding
+  an MCP server *for the host repo* is in scope — that is `/cortex-mcp`, and it only runs when asked.)
 
 ## Open questions
 

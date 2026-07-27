@@ -101,13 +101,24 @@ export function countLines(repoRoot, rel) {
 
 const JS_EXT = /\.(?:m|c)?[jt]sx?$/;
 
-const IMPORT_FROM = /(?:^|\n)\s*(?:import|export)\s[^;'"]*?from\s*['"]([^'"]+)['"]/g;
-const IMPORT_BARE = /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g;
+// A statement starts at the beginning of a line or after a `;`. Anchoring to line start alone
+// silently drops `import './x'; export const y = 1;` — and a map that omits an export without
+// saying so is the exact failure the Coverage section exists to prevent.
+const STMT = '(?:^|\\n|;)\\s*';
+
+const IMPORT_FROM = new RegExp(`${STMT}(?:import|export)\\s[^;'"]*?from\\s*['"]([^'"]+)['"]`, 'g');
+const IMPORT_BARE = new RegExp(`${STMT}import\\s*['"]([^'"]+)['"]`, 'g');
 const REQUIRE = /require\(\s*['"]([^'"]+)['"]\s*\)/g;
 
-const EXPORT_DECL = /(?:^|\n)\s*export\s+(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)/g;
-const EXPORT_DEFAULT = /(?:^|\n)\s*export\s+default\s+(?:async\s+)?(?:function|class)\s+([A-Za-z_$][\w$]*)/g;
-const EXPORT_LIST = /(?:^|\n)\s*export\s*\{([^}]*)\}/g;
+const EXPORT_DECL = new RegExp(
+  `${STMT}export\\s+(?:async\\s+)?(?:function|class|const|let|var)\\s+([A-Za-z_$][\\w$]*)`,
+  'g',
+);
+const EXPORT_DEFAULT = new RegExp(
+  `${STMT}export\\s+default\\s+(?:async\\s+)?(?:function|class)\\s+([A-Za-z_$][\\w$]*)`,
+  'g',
+);
+const EXPORT_LIST = new RegExp(`${STMT}export\\s*\\{([^}]*)\\}`, 'g');
 
 const all = (re, source, out) => {
   re.lastIndex = 0;

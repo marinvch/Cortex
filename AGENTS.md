@@ -100,6 +100,7 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
 | `/reindex` | periodic | regenerate the navigator graph, nominate MOCs, fix dead links |
 | `/cortex-doctor` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files |
 | `/cortex-audit` | on request | dispatch the `cortex-auditor` subagent, then apply its fixes |
+| `/optimize-context` | per repo | audit + slim that repo's agent context files |
 | `/install-project` | per repo | stamp a codebase brain into a repo — stays in that repo |
 | `/scope-area` | per critical dir | give it a scoped `AGENTS.md` leaf + a routing table in root |
 | `/analyze-spec` | per risky feature | brainstorm → design spec → plan. **No code.** |
@@ -125,5 +126,7 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
   firewall above, not a style preference.
 - `/scope-area` nests one filename (`AGENTS.md`), never a sprawl of per-topic files. Split only
   where a real invariant or gotcha lives.
+- `/optimize-context` targets **other repos**; `/cortex-doctor` targets this vault. Same instinct,
+  different subject. It never deletes prose on its own authority.
 
 The `cortex-auditor` subagent lives in `.claude/agents/` and is invoked by `/cortex-audit`.

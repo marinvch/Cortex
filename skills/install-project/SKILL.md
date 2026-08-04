@@ -42,7 +42,8 @@ Summarize the findings back in 5–8 lines and ask the user to correct anything 
 Back up any existing `AGENTS.md`/`CLAUDE.md` to `*.bak` first. Then write, in order:
 
 1. **`AGENTS.md`** — the canonical project manual. Fill `templates/AGENTS.md.template` from the
-   scan plus the user's corrections. Never invent stack details.
+   scan plus the user's corrections. Never invent stack details. Follow [[context-engineering]]
+   while writing it.
 2. **Cross-agent shims** — see `templates/cross-agent-shims.md`. Every teammate's tool reads the
    same brain.
 3. **Dev-cycle skills + decision log** — see `templates/dev-cycle-skills.md`.

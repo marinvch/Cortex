@@ -164,10 +164,26 @@ not deep folders — folders fight `[[wikilinks]]`. How the brain thinks:
 ## Privacy
 
 Personal/business content (`context/`, `inbox/`, `daily/`, `notes/`, `projects/`, `areas/`,
-`resources/`, `decisions/`) is **gitignored** — it never leaves your machine. The committed files
-(this README, `AGENTS.md`, `references/`, `templates/`) are data-free, so the vault stays
-shareable/forkable. When you install a brain into a work repo, **company code never enters this
-vault** — only opt-in, metadata-only registration.
+`resources/`, `decisions/`, plus dated folders under `archives/`) is **gitignored** — it never
+leaves your machine. The committed files (this README, `AGENTS.md`, `references/`, `templates/`)
+are data-free, so the vault stays shareable/forkable.
+
+Archived personal content must land in a gitignored path (`archives/removed/` or a dated
+`archives/<name>-YYYY-MM-DD/`). **Archiving is not sanitizing.**
+
+### The employer firewall
+
+**One vault instance holds exactly one world.** A personal vault stores personal projects and
+knowledge only — never employer or client names, day-job tickets, colleagues, or internal
+architecture. Even role-level detail counts ("front-end at a telecom provider"): the aggregate is
+the leak, and gitignore is not a security boundary.
+
+Work knowledge belongs in a **separate vault instance on the work machine** (the two never sync),
+or in the **work repo's own `AGENTS.md`** via `/install-project`, which stays inside that repo.
+Every ritual enforces this: `/capture` and `/daily` refuse the write, `/audit` and `/cortex-audit`
+treat a breach as a critical finding, `/scan-projects` skips repos under a work directory.
+
+Full rule: [`AGENTS.md`](AGENTS.md#the-employer-firewall-hard-rule--overrides-convenience).
 
 ## No noise = no drift
 

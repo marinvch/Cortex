@@ -22,14 +22,8 @@ one-off — if it's a single task, just do it; if you'd reach for it again, make
      will follow the description and skip the body). Keep it data-free (this file is committed).
    - Body: a short **## What to do** (numbered steps), a **## Don't** guardrail list, and *one*
      concrete example if it clarifies. Aim under ~500 words. Link related skills as `[[name]]`.
-   - **Keep long material out of `SKILL.md`.** The body loads in full every time the skill fires,
-     so file templates, reference tables, and worked examples belong in `skills/<name>/templates/`
-     (or `reference/`), referenced by the step that needs them — see `skills/install-project/`.
-     Detail should load at the moment it's used, not every session.
-   - **Trust the agent's judgment over exhaustive rules.** Write the principle ("match the
-     surrounding style"), not an enumeration of every case. Be prescriptive only where a mistake is
-     destructive or unrecoverable — `skills/migrate-engine/` is the example: harvest-before-delete
-     stays spelled out inline precisely because skipping it loses data.
+   - **Follow [[context-engineering]]** when shaping the body — Rules 1–3 especially: principles
+     over enumeration, long material in `templates/`, don't restate what the code already says.
 4. **Wire it in** so it's discoverable and runnable:
    - Add a row to the ritual **table** in `AGENTS.md` (`| /name | when | does |`). If the skill has a
      non-obvious gotcha — an ordering constraint, or an overlap with a sibling ritual — add it to the
@@ -52,4 +46,5 @@ one-off — if it's a single task, just do it; if you'd reach for it again, make
 ## Credits
 Adapted for Cortex's plain-files convention from Anthropic's `skill-creator`
 (github.com/anthropics/skills) and `superpowers:writing-skills`. Pairs with [[cortex-doctor]], which
-keeps the vault's file structure healthy.
+keeps the vault's file structure healthy, and [[optimize-context]], its per-repo counterpart for
+the agent context files skills like this one write into.

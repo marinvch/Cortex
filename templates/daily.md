@@ -21,4 +21,4 @@ tags: [daily]
 <!-- pull completed tasks here for a sense of progress -->
 
 ## 🔗 Links
-<!-- [[notes]] / [[projects]] touched today -->
+<!-- wikilink the notes/projects touched today -->

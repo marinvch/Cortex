@@ -15,6 +15,6 @@ Maintain a standard, not a finish line.
 
 
 ## Active threads
-<!-- link out to [[projects]] and [[notes]] under this area -->
+<!-- link out to the projects and notes under this area, using double-bracket wikilinks -->
 
 ## Review notes

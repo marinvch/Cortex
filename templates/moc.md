@@ -10,12 +10,15 @@ tags: [moc, <topic>]
 > A MOC is a hand-curated index note. Make one when a topic passes ~7 related notes, then link it
 > from `home.md`. It turns a pile into a navigable map.
 
+<!-- Replace every PLACEHOLDER below with a real wikilink to one of your notes.
+     Leaving placeholder text inside wikilink syntax ships dead edges into the graph. -->
+
 ## Start here
-- [[<the best entry-point note>]]
+- PLACEHOLDER — the best entry-point note
 
 ## Core notes
-- [[<note>]] — <one line>
-- [[<note>]] — <one line>
+- PLACEHOLDER — one line on why it matters
+- PLACEHOLDER — one line on why it matters
 
 ## Open questions / to capture
 - <what's still missing on this topic>

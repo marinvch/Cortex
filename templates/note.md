@@ -16,8 +16,10 @@ tags: []
 
 
 ## Connections
-<!-- link to related notes; this is what makes the brain a graph, not a pile -->
-- [[ ]]
+<!-- link to related notes; this is what makes the brain a graph, not a pile.
+     Replace the placeholder below with real wikilinks — an empty link
+     ships a permanent dead edge into the graph. -->
+- 
 
 ## Source
 <!-- where this came from, if anywhere -->

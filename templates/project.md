@@ -21,7 +21,7 @@ tags: [project]
 - [ ] 
 
 ## Notes & decisions
-<!-- link related [[notes]] and log key calls in decisions/log.md -->
+<!-- link related notes here, using double-bracket wikilinks; log key calls in decisions/log.md -->
 
 ## Done log
 <!-- when complete, set status: done and move to archives/ -->

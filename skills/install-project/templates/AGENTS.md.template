@@ -1,0 +1,30 @@
+# <Project> — Project Brain (codebase-scoped)
+
+## What this is
+<one paragraph: what the app does, who uses it>
+
+## Stack & tooling
+- Framework: <e.g. React 18 + Vite> · Pkg mgr: <npm/pnpm/yarn> · Language: <TS/JS>
+- Styling / state / data: <…>
+
+## Run it
+- install: `<cmd>` · dev: `<cmd>` · test: `<cmd>` · build: `<cmd>` · lint: `<cmd>`
+
+## Architecture (key directories)
+- `src/...` — <what lives where>  (only the dirs that matter)
+
+## Conventions
+- <naming, file structure, component patterns, import rules — from lint config + observed code>
+- Standard to hold: clear, maintainable, scalable code.
+
+## Development cycle (the hard rule)
+1. **Plan before implementing.** No code until there's a written plan (use `/plan-feature`).
+2. Break the plan into small, reviewable steps.
+3. Implement step by step; run tests/lint after each.
+4. Self-review against the conventions above before opening a PR.
+
+## Gotchas / tribal knowledge
+- <quirks, flaky areas, build traps — grows over time>
+
+## Glossary
+- <domain terms specific to this codebase>

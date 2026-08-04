@@ -17,7 +17,8 @@
 - **Ritual targets other repos, never this vault.** `/cortex-doctor` owns vault structure.
 - **Commits need `SKIP_SIMPLE_GIT_HOOKS=1`** (the root pre-commit hook is broken/orphaned).
 - Branch: `docs/context-engineering-followups`. Do not push to `master` directly.
-- Fixture lives in the scratchpad, never in the repo: `$SCRATCH` = `C:\Users\Marin\AppData\Local\Temp\claude\D--Projects-Personal-ai-os\2ae76365-ae43-4d36-bc90-e75bb76e1e11\scratchpad`
+- Fixture lives in the scratchpad, never in the repo: `$SCRATCH` = `<scratchpad>` (the agent's temp
+  scratchpad directory).
 
 ---
 
@@ -53,7 +54,7 @@ The fixture is the test. It must exist and its expected findings must be written
 - [ ] **Step 1: Create the fixture directory and a real `package.json`**
 
 ```bash
-SCRATCH="C:/Users/Marin/AppData/Local/Temp/claude/D--Projects-Personal-ai-os/2ae76365-ae43-4d36-bc90-e75bb76e1e11/scratchpad"
+SCRATCH="<scratchpad>"  # the agent's temp scratchpad directory
 mkdir -p "$SCRATCH/fixture-repo/src/api" "$SCRATCH/fixture-repo/.cursor/rules"
 cat > "$SCRATCH/fixture-repo/package.json" <<'EOF'
 {

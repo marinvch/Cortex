@@ -46,5 +46,5 @@ one-off — if it's a single task, just do it; if you'd reach for it again, make
 ## Credits
 Adapted for Cortex's plain-files convention from Anthropic's `skill-creator`
 (github.com/anthropics/skills) and `superpowers:writing-skills`. Pairs with [[cortex-doctor]], which
-keeps the vault's file structure healthy, and [[optimize-context]], its per-repo counterpart for
-the agent context files skills like this one write into.
+keeps the vault's file structure healthy, and [[optimize-context]], which audits agent context
+files in other repos against the same rules this skill follows when writing new ones.

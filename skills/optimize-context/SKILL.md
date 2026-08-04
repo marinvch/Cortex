@@ -31,11 +31,15 @@ Per file: bytes, estimated tokens (bytes ÷ 4 — do not add a tokenizer), and w
 bodies). Always-loaded bytes is the headline number; lead the report with it.
 
 ## Pass 2 — Find waste
-- **Discoverable from code** (Rule 3) — file trees, dep lists, script names, versions. Check each
-  claim against `package.json` and the actual tree. **Test per line:** keep any line carrying a fact
-  the code does not state, and quote what you kept.
+- **Discoverable from code** — cut what [[context-engineering]] Rule 3 covers. Check each claim
+  against the repo's manifest — `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, whatever
+  the stack uses — and the actual tree; anything recoverable from the manifest counts as stated by
+  the code, including script names. **Test per line, not per section:** keep any line carrying a
+  fact the code does not state, and quote what you kept.
 - **Duplicated across files** (Rule 4) — a shim holding its own copy; a convention stated in both
-  root and a leaf. Keep one canonical copy; point the rest at it.
+  root and a leaf. Keep one canonical copy; point the rest at it — **but only when the duplicate's
+  content is fully contained in the canonical file.** If it states anything the canonical file does
+  not (drift), it is not a safe repoint — quote the divergent lines and treat it as `[propose]`.
 - **Inlined bulk** (Rule 2) — file templates, long examples, reference tables inside an
   always-loaded body. Move to a file; reference it from the step that needs it.
 
@@ -46,7 +50,8 @@ the invariant is real. Do not nominate a directory with no invariant and no gotc
 
 ## Pass 4 — Report, then act
 Rank findings by always-loaded bytes recovered. Tag each:
-- **`[safe]`** — content-preserving (extract a template, repoint a drifted shim). Apply it.
+- **`[safe]`** — content-preserving (extract a template, repoint a shim whose content is fully
+  contained in the canonical file). Apply it.
 - **`[propose]`** — reduces information. Quote the exact lines, give the reason, wait for a yes.
 - **`[handoff]`** — an approved leaf nomination. Invoke `/scope-area <dir>`; do not write leaves
   here. Leaves are Rule 2 (progressive disclosure for directories); delegating rather than

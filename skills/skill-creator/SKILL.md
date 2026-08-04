@@ -22,11 +22,21 @@ one-off — if it's a single task, just do it; if you'd reach for it again, make
      will follow the description and skip the body). Keep it data-free (this file is committed).
    - Body: a short **## What to do** (numbered steps), a **## Don't** guardrail list, and *one*
      concrete example if it clarifies. Aim under ~500 words. Link related skills as `[[name]]`.
+   - **Keep long material out of `SKILL.md`.** The body loads in full every time the skill fires,
+     so file templates, reference tables, and worked examples belong in `skills/<name>/templates/`
+     (or `reference/`), referenced by the step that needs them — see `skills/install-project/`.
+     Detail should load at the moment it's used, not every session.
+   - **Trust the agent's judgment over exhaustive rules.** Write the principle ("match the
+     surrounding style"), not an enumeration of every case. Be prescriptive only where a mistake is
+     destructive or unrecoverable — `skills/migrate-engine/` is the example: harvest-before-delete
+     stays spelled out inline precisely because skipping it loses data.
 4. **Wire it in** so it's discoverable and runnable:
-   - Add a one-line bullet to the rituals list in `AGENTS.md` (match the existing style).
+   - Add a row to the ritual **table** in `AGENTS.md` (`| /name | when | does |`). If the skill has a
+     non-obvious gotcha — an ordering constraint, or an overlap with a sibling ritual — add it to the
+     "Gotchas worth knowing" list below that table instead of padding the row.
    - Add a row to the "## The rituals (skills)" table in `README.md`.
-   - Expose it as a slash command: `cp skills/<name>/SKILL.md .claude/skills/<name>/SKILL.md`
-     (create the dir first).
+   - Expose it as a slash command: `cp -r skills/<name>/ .claude/skills/<name>/` (`-r` so any
+     `templates/` directory comes along).
 5. **Verify.** Read it back with fresh eyes: does the description trigger on the right phrases? Are
    the steps followable by an agent with zero context? For a rigorous or discipline-enforcing skill,
    test it — **REQUIRED BACKGROUND for that: `superpowers:writing-skills`** (baseline → write → close

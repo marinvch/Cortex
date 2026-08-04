@@ -32,7 +32,8 @@ resource = reference material.
 ## 3. Context
 `context/` + `connections.md`. Who you are, your business, your priorities, your [[voice]], and every
 tool/data source the vault can reach. This is what lets the brain answer *as you* and pull *your*
-live data instead of guessing. Filled by `/onboard`, grown by `/level-up`.
+live data instead of guessing. Filled by `/onboard`, grown by `/level-up`. The same discipline
+applies to any AI-agent context file — see [[context-engineering]].
 
 ## 4. Cadence
 The rituals and schedules that make the vault work while you don't: `/daily`, `/weekly-review`,

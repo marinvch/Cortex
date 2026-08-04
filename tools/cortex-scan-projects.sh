@@ -18,8 +18,13 @@ mkdir -p "$VAULT/projects"
 
 slugify() { echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | sed 's/[^a-z0-9-]//g'; }
 
+# Repos with no commit in this many days are collapsed into a Projects Map row instead of
+# getting their own stub page. Override: DORMANT_DAYS=365 bash tools/cortex-scan-projects.sh
+DORMANT_DAYS="${DORMANT_DAYS:-180}"
+NOW_EPOCH="$(date +%s 2>/dev/null || echo 0)"
+
 declare -A SEEN
-MOC_PERSONAL=""; MOC_BRAIN=""; MOC_OTHER=""; COUNT=0; SKIP=0
+MOC_PERSONAL=""; MOC_BRAIN=""; MOC_OTHER=""; MOC_DORMANT=""; COUNT=0; SKIP=0; DORMANT=0; WORKSKIP=0
 
 detect_stack() {
   local repo="$1" fw="" lang="app"
@@ -45,6 +50,15 @@ while IFS= read -r gitdir; do
   [ "$repo" = "$VAULT" ] && continue
   url="$(git -C "$repo" remote get-url origin 2>/dev/null || echo '')"
   case "$url" in *flutter/flutter*) SKIP=$((SKIP+1)); continue;; esac
+  # ── Employer firewall (AGENTS.md) ────────────────────────────────────────
+  # A personal vault never registers work repos — not even name/path metadata.
+  # Override the folder list with: WORK_DIRS='Work|Employer|ClientX'
+  WORK_DIRS="${WORK_DIRS:-Work|work|Employer|employer|Clients|clients}"
+  if echo "$repo" | grep -qE "/($WORK_DIRS)/"; then
+    SKIP=$((SKIP+1)); WORKSKIP=$((WORKSKIP+1))
+    rm -f "$VAULT/projects/$(slugify "$(basename "$repo")").md"   # purge any prior registration
+    continue
+  fi
   name="$(basename "$repo")"; slug="$(slugify "$name")"
   [ -z "$slug" ] && continue
   if [ -n "${SEEN[$slug]:-}" ]; then SKIP=$((SKIP+1)); continue; fi   # dedup by slug (first wins)
@@ -56,13 +70,28 @@ while IFS= read -r gitdir; do
   last1="$(git -C "$repo" log -1 --format='%ad · %s' --date=short 2>/dev/null | cut -c1-70)"
   tags="[project, codebase]"; [ "$brain" = "yes" ] && tags="[project, codebase, brain]"
 
+  # ── Dormancy gate ────────────────────────────────────────────────────────
+  # A repo untouched for DORMANT_DAYS gets a ROW in the Projects Map, not a page of its own.
+  # Empty stub pages are pure graph noise: one node + one edge, zero knowledge. Rows keep the
+  # metadata discoverable at a fraction of the cost. Reactivate simply by committing to the repo.
+  lastepoch="$(git -C "$repo" log -1 --format='%at' 2>/dev/null || echo 0)"
+  age_days=$(( ( NOW_EPOCH - ${lastepoch:-0} ) / 86400 ))
+  if [ "${lastepoch:-0}" -gt 0 ] && [ "$age_days" -gt "$DORMANT_DAYS" ]; then
+    MOC_DORMANT="$MOC_DORMANT| $name | $stack | ${last1%% ·*} | ${age_days}d | \`$repo\` |"$'\n'
+    rm -f "$VAULT/projects/$slug.md"      # collapse a previously-generated stub
+    DORMANT=$((DORMANT+1)); continue
+  fi
+
   cat > "$VAULT/projects/$slug.md" <<EOF
 ---
-type: project
+id: $slug
 title: $name
+type: project
 status: active
 domain: personal
 created: $TODAY
+updated: $TODAY
+last_compiled: $TODAY
 tags: $tags
 ---
 # $name
@@ -94,22 +123,40 @@ done < <(find "$ROOT" -maxdepth 3 -type d -name .git -not -path '*/node_modules/
 # Projects Map of Content — connects every project stub into the graph
 cat > "$VAULT/projects/projects-map.md" <<EOF
 ---
-type: moc
+id: projects-map
 title: Projects Map
+type: hub
 created: $TODAY
+updated: $TODAY
+last_compiled: $TODAY
 tags: [moc, projects]
 ---
 # 🗂️ Projects Map
 
-Every code project Cortex knows about, auto-registered from \`$ROOT\`.
-Refresh with \`bash tools/cortex-scan-projects.sh\`. Linked from [[home]].
+## Executive Context
+Every personal code project Cortex tracks, auto-registered from \`$ROOT\` (metadata + git log only —
+never source). Active repos get a page; repos dormant >${DORMANT_DAYS}d are rows here instead.
+
+## High-Density Knowledge
+- Refresh with \`bash tools/cortex-scan-projects.sh\`. Tune with \`DORMANT_DAYS=365\`.
+- Active: $COUNT · Dormant: $DORMANT · Skipped (vault/SDK/dups): $SKIP.
+- Work repos are **never** registered here — see the employer firewall in \`AGENTS.md\`.
 
 ## With a codebase brain
 $MOC_BRAIN
 ## Personal projects
 $MOC_PERSONAL
-## Other / work
+## Other
 $MOC_OTHER
+## Dormant (>${DORMANT_DAYS}d — collapsed, no page)
+
+| Project | Stack | Last commit | Age | Path |
+|---|---|---|---|---|
+$MOC_DORMANT
+> Commit to any of these and the next scan restores its page automatically.
+
+## Downstream Connections
+- [[home]] · [[about-business]] — what these projects are for
 EOF
 
 # Link the MOC from home.md so it's reachable (append once)
@@ -117,5 +164,5 @@ if [ -f "$VAULT/home.md" ] && ! grep -q '\[\[projects-map\]\]' "$VAULT/home.md" 
   printf '\n## Projects\n- [[projects-map]] — all code projects Cortex knows (auto-registered).\n' >> "$VAULT/home.md"
 fi
 
-echo "✓ registered/refreshed $COUNT project(s), skipped $SKIP (vault/SDK/dups) from $ROOT"
+echo "✓ registered/refreshed $COUNT project(s), $DORMANT dormant (rows only), skipped $SKIP (vault/SDK/dups${WORKSKIP:+, $WORKSKIP work-firewalled}) from $ROOT"
 echo "  → projects/*.md + projects/projects-map.md (linked from home.md)"

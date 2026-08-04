@@ -11,11 +11,18 @@ areas/*
 resources/*
 decisions/*
 brain/
-# Your personalized dashboard. Forkers start from home.example.md (cp home.example.md home.md).
-home.md
+# Your personalized dashboard. Forkers start from the template (cp templates/home.md home.md).
+# Anchored to the root so the data-free templates/home.md stays tracked.
+/home.md
 
-# Removed notes are archived here by cortex-rm.sh; they may carry personal content — never commit.
+# Archived personal content — anything moved out of the personal layer keeps its privacy.
+# cortex-rm.sh writes to archives/removed/; dated archive folders come from /cortex-doctor
+# and /cortex-audit. The framework docs at archives/*.md stay tracked and shareable.
 archives/removed/
+archives/*/
+!archives/retired-views/
+!archives/stale-engine/
+archives/work-laptop-setup.*
 
 # Keep folder placeholders + README templates tracked so the vault stays shareable
 !context/.gitkeep

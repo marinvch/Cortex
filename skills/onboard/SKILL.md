@@ -8,12 +8,25 @@ description: One-time setup for the Cortex Vault. Interview the user, fill the c
 Warm, brief, one question at a time. Write ONLY to the personal layer (`context/`, `home.md`,
 `connections.md`). These are gitignored — tell the user their answers are private and not committed.
 
+## Step 0 — establish which world this vault holds (ask first, always)
+
+> "Is this vault on your **personal** machine or your **work** machine? They stay separate — one
+> vault, one world, and knowledge never crosses between them."
+
+- **Personal machine** → the employer firewall in `AGENTS.md` is active. Do **not** ask about their
+  employer, clients, day-job projects, tickets, or colleagues, and refuse to record any if
+  volunteered — point them to the work-machine vault or the work repo's own `AGENTS.md` instead.
+  In step 2, ask only about their **own** projects.
+- **Work machine** → keep it to *this employer's* work. No personal side projects, and never paste
+  company code into the vault (it belongs in the repo's `AGENTS.md` via `/install-project`).
+
 ## Steps
 
-1. **Identity** → `context/about-me.md`. Who they are, role, what they're good at, the task that
-   eats their week, how they learn.
-2. **Business / professional context** → `context/about-business.md`. What they do/sell, who they
-   serve, where revenue lands. (If no business, capture their main work context instead.)
+1. **Identity** → `context/about-me.md`. Who they are, discipline, what they're good at, how they
+   learn. On a personal install: no employer detail.
+2. **Own projects** → `context/about-business.md`. Their own projects/products, what's shipped,
+   what's parked. If they run a business, capture it here. On a personal install, day-job content
+   is out of scope — say so once and move on.
 3. **Priorities** → `context/priorities.md`. The 2-3 things that would make this quarter a waste
    if undone. Push for a number, deadline, or deliverable — refuse vague "grow my business".
 4. **How they work** → `context/how-i-work.md`. Communication style, tools, when they work best,

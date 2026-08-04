@@ -1,7 +1,9 @@
 ---
-type: reference
+id: connections
 title: Connections
-updated: 2026-06-26
+type: hub
+updated: 2026-08-03
+last_compiled: 2026-08-03
 tags: [reference, connections]
 ---
 
@@ -9,6 +11,9 @@ tags: [reference, connections]
 
 Every system the vault can reach. The brain is only as useful as the data it can pull.
 Filled during `/onboard`, grown whenever you wire a new tool. `/audit` checks coverage + freshness.
+
+> **Firewall:** never wire an employer or client system into this personal vault — no work
+> calendar, work mail, or company drive. See the employer firewall in `AGENTS.md`.
 
 | # | Domain | Tool | How it's reached | Status | Last checked |
 |---|---|---|---|---|---|
@@ -25,3 +30,9 @@ Filled during `/onboard`, grown whenever you wire a new tool. `/audit` checks co
 
 > When you wire a new tool, add its row here. If it has an API you figured out, save a short
 > note in `resources/` (endpoints + auth + common queries) so you never re-research it.
+
+## Downstream Connections
+- [[living-cortex]] — how to make row 1 live across machines via the MCP brain (`/connect-brain`)
+- [[cortex-plugins]] — the plugin tiers that add reach beyond this table
+- [[cross-agent-and-teams]] — reaching the same brain from Claude, Copilot, Gemini
+- [[home]] · [[vault-architecture]] — connections feed the Cadence layer

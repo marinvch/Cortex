@@ -33,6 +33,14 @@ old (5); voice captured (5); ≥1 decision logged (5).
 **Cadence (25)** — a recurring ritual runs (`/daily`/`/weekly-review` used recently) (10);
 activity in last 7 days (10); templates populated (5).
 
+## Step 2.4 — Firewall check (critical, runs before scoring is reported)
+Per the employer firewall in `AGENTS.md`, a personal vault must hold **no** employer content.
+Scan `context/`, `notes/`, `daily/`, `projects/`, `areas/`, `inbox/` for employer/client names,
+work tickets or features, colleagues, or internal architecture. Any hit is a **critical finding** —
+report it above the score, name the file and line, and recommend moving it to a gitignored
+`archives/<name>-YYYY-MM-DD/` folder. Also verify archived personal content is actually ignored
+(`git check-ignore`) — archiving into a tracked path is a leak, not a fix.
+
 ## Step 2.5 — Noise check (drift control)
 Noise is what drifts the brain over time, so flag it. Compare every `*.md` against `.cortexignore`
 (the single source of truth for "not knowledge"). Report:

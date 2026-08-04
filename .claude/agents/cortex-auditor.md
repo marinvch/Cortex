@@ -38,6 +38,14 @@ call, e.g. a merge or a "stale vs. just quiet" verdict).
    (privacy-firewall leak); a skill in `skills/` **not mirrored** into `.claude/skills/` or **not
    listed** in `AGENTS.md`/`README.md` (wiring drift); a custom agent in `.claude/agents/` not
    referenced anywhere; `.cortexignore` violations; files truncated mid-content or malformed.
+7. **Employer-firewall breach (critical — rank above everything else)** — day-job content anywhere
+   in a personal vault, *including gitignored paths*: employer or client names, work tickets /
+   features / sprints, colleague names, internal architecture, URLs, credentials, or company code.
+   Scan `context/`, `notes/`, `daily/`, `projects/`, `areas/`, `inbox/`, `home.md`, and
+   `connections.md`. Role-level detail counts ("front-end at a telecom provider") — the aggregate is
+   the leak. Also check that any `archives/` folder holding personal content is genuinely ignored
+   (`git check-ignore -v <path>`); archiving into a tracked path is a leak, not a fix. Report each
+   hit with file **and line**, tagged `[judgment]` — the fix is the user's call.
 
 **Content-health (lightweight, from [[vault-architecture]]'s four layers — signal, not a full score):**
 - **Capture** — is `daily/` used recently; is `inbox/` flowing or a deep untouched backlog?

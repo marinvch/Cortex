@@ -25,7 +25,7 @@ Two systems share one folder:
 ```bash
 git clone https://github.com/marinvch/ai-os.git
 cd ai-os
-cp home.example.md home.md           # your personal map (gitignored)
+cp templates/home.md home.md          # your personal map (gitignored)
 cp -r skills/* .claude/skills/        # expose the rituals as /slash commands
 ```
 

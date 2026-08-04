@@ -13,9 +13,37 @@ by AI. (An **optional** Node MCP "brain" in `mcp/` adds live recall/capture; the
 ## The one rule (privacy)
 
 Personal and business-sensitive content lives in **gitignored** folders: `context/`, `inbox/`,
-`daily/`, `notes/`, `projects/`, `areas/`, `decisions/`. Committed files (`README`, this manual,
-`references/` frameworks, `templates/`) stay **data-free** so the vault stays shareable/forkable.
-Never write personal facts into committed template files.
+`daily/`, `notes/`, `projects/`, `areas/`, `decisions/`, plus every dated folder under `archives/`.
+Committed files (`README`, this manual, `references/` frameworks, `templates/`) stay **data-free**
+so the vault stays shareable/forkable. Never write personal facts into committed template files.
+When you archive personal content, it must land in a gitignored path — `archives/removed/` or a
+dated `archives/<name>-YYYY-MM-DD/` folder. Archiving is not sanitizing.
+
+## The employer firewall (hard rule — overrides convenience)
+
+**One vault instance holds exactly one world.** This instance is the **personal machine**: it stores
+personal projects, principles, and knowledge only.
+
+**Never write into this vault:** employer or client names · day-job projects, tickets, features, or
+bugs · work deadlines, sprints, or standups · colleague names · internal architecture, URLs,
+credentials, or code. This holds even for seemingly harmless role-level detail ("front-end at a
+telecom provider") — the aggregate is the leak, and gitignore is not a security boundary.
+
+**Where work knowledge belongs instead:**
+- A **separate vault instance on the work machine** — the two never sync. Knowledge does not cross.
+- The **work repo's own `AGENTS.md`** (via `/install-project`), which stays inside that repo.
+
+**Enforcement — every ritual obeys this:**
+- `/onboard` — on a personal-machine install, do not ask for employer, client, or day-job detail.
+  Ask only about personal projects and working style.
+- `/capture`, `/daily` — if the content is day-job material, **refuse the write** and say where it
+  belongs (work vault, or the work repo's `AGENTS.md`). Do not "sanitize and file anyway."
+- `/audit`, `/cortex-doctor`, `/cortex-audit` — treat any employer content found as a **critical
+  finding**, not a style nit; archive it to a gitignored path and report it.
+- `/scan-projects` — register personal repos only; never repos under a work directory.
+
+Applied 2026-08-03: prior day-job content was stripped from `context/`, `home.md`, `daily/`, and
+`projects/` into `archives/work-content-removed-2026-08-03/` (gitignored, never committed).
 
 ## How the vault is organized
 

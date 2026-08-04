@@ -8,7 +8,7 @@ tags: [moc, home]
 <!--
   This is the data-free STARTER for your vault's home dashboard.
   Copy it to `home.md` (which is gitignored) and let `/onboard` personalize it:
-      cp home.example.md home.md
+      cp templates/home.md home.md
   Keep this example file data-free so the vault stays shareable/forkable.
 -->
 
@@ -29,7 +29,7 @@ links out to everything that matters. It is the one note you open every day.
 
 ## 🔥 Active now
 
-<!-- /onboard fills this with your live projects + areas, e.g. [[a-project]], [[an-area]] -->
+<!-- /onboard fills this with your live projects + areas -->
 
 ## 🗂 The vault
 
@@ -37,7 +37,7 @@ links out to everything that matters. It is the one note you open every day.
 |---|---|---|
 | Capture | `inbox/` | Raw, unsorted thoughts. Empty it weekly. |
 | Log | `daily/` | One note per day. Journal + work log. |
-| Knowledge | `notes/` | Permanent, atomic, [[wikilinked]] notes. |
+| Knowledge | `notes/` | Permanent, atomic, wikilinked notes. |
 | Action | `projects/` | Things with an outcome + a deadline. |
 | Action | `areas/` | Ongoing responsibilities, no end date. |
 | Reference | `resources/` | Topic material you collect. |
@@ -46,8 +46,8 @@ links out to everything that matters. It is the one note you open every day.
 
 Build a MOC note in `notes/` whenever a topic grows past ~7 related notes. Link them here:
 
-- [[_example-note|Example: how an atomic note works]]
-<!-- add your MOCs as the vault grows, e.g. [[ai-moc]], [[health-moc]] -->
+- _(your first atomic note lands here)_
+<!-- add your MOCs as the vault grows -->
 
 ## 👤 Who this brain serves
 

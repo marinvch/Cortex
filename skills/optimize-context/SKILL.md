@@ -49,7 +49,8 @@ Rank findings by always-loaded bytes recovered. Tag each:
 - **`[safe]`** — content-preserving (extract a template, repoint a drifted shim). Apply it.
 - **`[propose]`** — reduces information. Quote the exact lines, give the reason, wait for a yes.
 - **`[handoff]`** — an approved leaf nomination. Invoke `/scope-area <dir>`; do not write leaves
-  here (Rule 4 — `/scope-area` owns that job).
+  here. Leaves are Rule 2 (progressive disclosure for directories); delegating rather than
+  duplicating is Rule 4.
 
 Close with: measured always-loaded bytes before → projected after.
 

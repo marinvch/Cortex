@@ -22,11 +22,15 @@ one-off — if it's a single task, just do it; if you'd reach for it again, make
      will follow the description and skip the body). Keep it data-free (this file is committed).
    - Body: a short **## What to do** (numbered steps), a **## Don't** guardrail list, and *one*
      concrete example if it clarifies. Aim under ~500 words. Link related skills as `[[name]]`.
+   - **Follow [[context-engineering]]** when shaping the body — Rules 1–3 especially: principles
+     over enumeration, long material in `templates/`, don't restate what the code already says.
 4. **Wire it in** so it's discoverable and runnable:
-   - Add a one-line bullet to the rituals list in `AGENTS.md` (match the existing style).
+   - Add a row to the ritual **table** in `AGENTS.md` (`| /name | when | does |`). If the skill has a
+     non-obvious gotcha — an ordering constraint, or an overlap with a sibling ritual — add it to the
+     "Gotchas worth knowing" list below that table instead of padding the row.
    - Add a row to the "## The rituals (skills)" table in `README.md`.
-   - Expose it as a slash command: `cp skills/<name>/SKILL.md .claude/skills/<name>/SKILL.md`
-     (create the dir first).
+   - Expose it as a slash command: `cp -r skills/<name>/ .claude/skills/<name>/` (`-r` so any
+     `templates/` directory comes along).
 5. **Verify.** Read it back with fresh eyes: does the description trigger on the right phrases? Are
    the steps followable by an agent with zero context? For a rigorous or discipline-enforcing skill,
    test it — **REQUIRED BACKGROUND for that: `superpowers:writing-skills`** (baseline → write → close
@@ -42,4 +46,5 @@ one-off — if it's a single task, just do it; if you'd reach for it again, make
 ## Credits
 Adapted for Cortex's plain-files convention from Anthropic's `skill-creator`
 (github.com/anthropics/skills) and `superpowers:writing-skills`. Pairs with [[cortex-doctor]], which
-keeps the vault's file structure healthy.
+keeps the vault's file structure healthy, and [[optimize-context]], which audits agent context
+files in other repos against the same rules this skill follows when writing new ones.

@@ -13,7 +13,7 @@ a later layer is hollow without the ones beneath it.
 | # | Layer | One-liner | "This layer is real" test |
 |---|---|---|---|
 | 1 | **Capture** | Nothing is lost | A stray thought reliably ends up in `inbox/` or `daily/`, not forgotten |
-| 2 | **Knowledge** | Ideas connect | `notes/` holds atomic, `[[linked]]` notes; a topic with 7+ notes has a MOC |
+| 2 | **Knowledge** | Ideas connect | `notes/` holds atomic, wikilinked notes; a topic with 7+ notes has a MOC |
 | 3 | **Context** | The brain knows you | A fresh session answers "who is this, what do they do, what matters now" from `context/` |
 | 4 | **Cadence** | It runs without asking | A ritual fires on schedule; the inbox gets emptied; a brief lands without you starting it |
 

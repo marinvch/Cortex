@@ -1,0 +1,45 @@
+# mcp/ — the live brain
+
+An optional Node MCP server exposing Cortex over stdio, plus the `ai-os` CLI. The busiest part of
+the repo by commit count, and the only part with a runtime dependency
+(`@modelcontextprotocol/sdk`).
+
+## Invariants
+
+- **`server.js` stays a thin switch.** All logic lives in `lib/`; the transport layer is a
+  dispatch over tool names and nothing more.
+- **Two modes, decided by the root — never configured.** `AI_OS_ROOT` ending in `.cortex` is
+  **repo mode** (`recall`, `remember`, `recall_memory`); anything else is **vault mode** (the
+  personal-brain tools). Detection keeps the plugin manifest to one env var and makes a
+  misconfiguration visible as a changed tool list.
+- **Vault tools must stay hidden in repo mode.** Offering `capture` or `catch_me_up` there invites
+  an agent to write `inbox/` and `daily/` into someone's product repository. `mode.test.js` asserts
+  the exact tool list for both modes.
+- **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
+  notes into the wrong place.
+- **Every vault path goes through `resolveInRoot`** from `core/paths.js`.
+- **`mcp/` never imports from `index/`.**
+
+## Gotchas
+
+- **`lib/cortexignore.js` is a faithful port of `knowledge_files()` in `tools/_cortex-lib.sh`.**
+  The two must agree; CI diffs them in `cortex-init-test.yml`. Change one, change both.
+- **`test/manifest-parity.test.js` guards a deliberate duplication**: `tools/cortex-init.sh`
+  hardcodes `CORE_PLUGINS` to stay jq-free, and this test is the only thing preventing drift from
+  `plugins/cortex-core-plugins.json`.
+- `lib/gitsync.js` uses `execFileSync` with an argument array, never a shell string, so slugged
+  project and team names cannot inject. Keep it that way.
+- `lib/version.js` reads the repo-root `VERSION` file. It exists because `server.js`,
+  `package.json` and the docs actually drifted apart once between 1.0.0 and 1.1.0.
+- Path handling carries Windows-specific cases; this is the primary dev platform, and CI has a
+  Windows leg for exactly that reason.
+
+## Tests
+
+```bash
+cd mcp && npm install && npm test
+```
+
+Needs `npm install` first — this is the only part of the repo with dependencies. `smoke.test.js`
+and `mode.test.js` spawn the real server over stdio; if they time out, read the captured stderr in
+the failure message before assuming a test bug.

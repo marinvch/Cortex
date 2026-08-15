@@ -101,6 +101,7 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
 | `/cortex-doctor` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files |
 | `/cortex-audit` | on request | dispatch the `cortex-auditor` subagent, then apply its fixes |
 | `/cortex-install` | per repo | index a codebase, report findings, scaffold only what the user picks |
+| `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
 | `/cortex-brief` | per critical area | propose scoped `AGENTS.md` leaves from the index + wire the routing table |
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
@@ -143,8 +144,14 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
   `disable-model-invocation: true` — they are once-only or destructive, so an agent may never
   auto-fire them. The user invokes them by name. Keep the flag when editing their frontmatter.
 - `/cortex-install` **never modifies a target repo before the user chooses.** Indexing and the
-  findings report are read-only by construction — a different skill applies changes. If you are
-  editing source before the user picked something, you have left the skill.
+  findings report are read-only by construction — `/cortex-scaffold` is the separate skill that
+  applies changes. If you are editing source before the user picked something, you have left the
+  skill.
+- The MCP server has **two modes, decided by the root it is given**: point it at a repo's
+  `.cortex/` and it serves `recall` · `remember` · `recall_memory`; point it at a personal vault
+  and it serves the original `capture` · `catch_me_up` · project tools. The vault tools are hidden
+  in repo mode on purpose — offering them would invite an agent to write `inbox/` and `daily/`
+  into someone's product repository.
 - `.cortex/index/` and `.cortex/findings/` are generated and gitignored in a target repo.
   `.cortex/memory/` is **committed** — that is how several developers share one context. The
   asymmetry is deliberate, and it makes the privacy rule a hard requirement: `mcp/lib/scrub.js`

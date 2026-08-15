@@ -76,9 +76,26 @@ A user who wants only the report has been served completely. That is a successfu
 Never clobber a curated file. If `AGENTS.md` exists and has real content, write
 `AGENTS.generated.md` beside it and tell the user to diff.
 
+**Context layer, the writing itself** — hand off to `/cortex-scaffold`. It owns the templates, the
+never-clobber rules and the post-write verification; do not duplicate that logic here.
+
 **Scoped briefs** — hand off to `/cortex-brief` for each area they picked.
 
-**Bundle** — hand off to `/setup-plugins`.
+**Bundle** — hand off to `/setup-plugins`, which reads `plugins/cortex-core-plugins.json`:
+
+| Tier | Holds | When |
+|---|---|---|
+| `core` | superpowers, context7, skill-creator, claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier | always — this is the developer experience Cortex assumes |
+| `dev-tools` | typescript-lsp, github | opt-in |
+| `browser-qa` | playwright, chrome-devtools-mcp | opt-in; offer it when the index shows a frontend |
+| `platform` | vercel, cloudflare, karpathy skills | opt-in |
+
+Core carries **superpowers** because Cortex's workflow is spec- and test-driven and leans on it,
+and **Context7** because a context manager whose agents guess at library APIs from stale training
+data is not managing much.
+
+There is no Postman plugin in the official marketplace. If the user wants Postman, it is added as
+a plain MCP server in their own settings — say that rather than pretending a tier exists.
 
 **Memory** — create `.cortex/memory/` and tell the user it is committed on purpose: it is how
 several developers and their agents share one context. Then say the hard part out loud — nothing

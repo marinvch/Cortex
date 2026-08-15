@@ -37,20 +37,59 @@ export function testStem(path) {
   return name.toLowerCase();
 }
 
-/** Production modules that have no test file named after them, grouped by directory. */
-function untestedAreas(index) {
-  const covered = new Set();
-  for (const f of index.files) if (f.isTest) covered.add(testStem(f.path));
+/** Production modules that no test covers, grouped by directory. */
+function untestedAreas(index, root) {
+  // Three signals, because each alone misreports. Naming catches `paths.js` ← `paths.test.js` even
+  // when they sit in different directories; imports catch a module exercised by a test named after
+  // something else, which is how most integration tests are organised; mentions catch a CLI run as
+  // a subprocess, which neither of the others can see.
+  const coveredByName = new Set();
+  const testPaths = new Set();
+  for (const f of index.files) {
+    if (!f.isTest) continue;
+    coveredByName.add(testStem(f.path));
+    testPaths.add(f.path);
+  }
+  const coveredByImport = new Set();
+  for (const e of index.edges) {
+    if (testPaths.has(e.from)) coveredByImport.add(e.to);
+  }
+
+  // Third signal: a test that names the file in a string literal. CLIs are routinely tested by
+  // spawning them as a subprocess, which is invisible to both signals above — the test neither
+  // imports the module nor is named after it. Quoted-only, so a passing mention in a comment does
+  // not count as coverage.
+  const coveredByMention = new Set();
+  if (testPaths.size && root) {
+    const basenames = new Map();
+    for (const f of index.files) {
+      if (f.category === "code" && !f.isTest) basenames.set(f.path.split("/").pop(), f.path);
+    }
+    for (const t of testPaths) {
+      let text;
+      try {
+        text = readFileSync(join(root, t), "utf8");
+      } catch {
+        continue;
+      }
+      for (const [base, path] of basenames) {
+        if (text.includes(`"${base}"`) || text.includes(`'${base}'`) || text.includes(`\`${base}\``)) {
+          coveredByMention.add(path);
+        }
+      }
+    }
+  }
 
   const byDir = new Map();
   for (const f of index.files) {
     if (f.category !== "code" || f.isTest) continue;
     const stem = testStem(f.path);
+    const covered = coveredByName.has(stem) || coveredByImport.has(f.path) || coveredByMention.has(f.path);
     const dir = f.path.includes("/") ? f.path.split("/").slice(0, -1).join("/") : ".";
     if (!byDir.has(dir)) byDir.set(dir, { dir, code: 0, untested: 0, commits: 0, examples: [] });
     const d = byDir.get(dir);
     d.code++;
-    if (!covered.has(stem)) {
+    if (!covered) {
       d.untested++;
       d.commits += f.commits;
       if (d.examples.length < 4) d.examples.push(f.path);
@@ -111,7 +150,13 @@ export function analyse(index, root) {
   }
 
   // --- Secrets: the one thing that blocks committed memory ------------------------------------
+  //
+  // A file may opt out with a `cortex:allow-secrets` comment. Security test corpora and
+  // documentation of credential formats legitimately contain secret-shaped strings, and a scanner
+  // that cries wolf on its own fixtures teaches people to ignore every other finding. Exemptions
+  // are counted in the report, never silent.
   const leaky = [];
+  let exempted = 0;
   for (const f of index.files) {
     if (f.category === "docs" || f.bytes > 400_000) continue;
     let text;
@@ -121,7 +166,22 @@ export function analyse(index, root) {
       continue;
     }
     const hits = scan(text);
-    if (hits.length) leaky.push({ path: f.path, hits });
+    if (!hits.length) continue;
+    if (text.includes("cortex:allow-secrets")) {
+      exempted++;
+      continue;
+    }
+    leaky.push({ path: f.path, hits });
+  }
+  if (exempted) {
+    out.push(
+      finding(
+        "low",
+        "security",
+        `${exempted} file${exempted === 1 ? "" : "s"} exempted from the secret scan`,
+        "These carry a `cortex:allow-secrets` marker, so their secret-shaped strings are treated as fixtures. Worth re-reading occasionally: the marker is a claim by whoever added it, not a guarantee.",
+      ),
+    );
   }
   if (leaky.length) {
     out.push(
@@ -146,15 +206,15 @@ export function analyse(index, root) {
       ),
     );
   } else {
-    const untested = untestedAreas(index);
+    const untested = untestedAreas(index, root);
     if (untested.length) {
       const total = untested.reduce((a, d) => a + d.untested, 0);
       out.push(
         finding(
           untested[0].commits > 5 ? "high" : "medium",
           "tests",
-          `${total} module${total === 1 ? "" : "s"} have no matching test`,
-          "Production modules with no test file named after them, anywhere in the repo. Ranked by recent commit activity — the top entries change often and are unverified, which is where regressions come from.",
+          `${total} module${total === 1 ? "" : "s"} appear untested`,
+          "No test file is named after these, and no test imports them. Ranked by recent commit activity — the top entries change often and are unverified, which is where regressions come from. A module exercised only indirectly, through a helper a test imports, will show up here.",
           untested
             .slice(0, 8)
             .map((d) => `${d.dir} — ${d.untested}/${d.code} untested, ${d.commits} recent commits: ${d.examples.join(", ")}`),
@@ -207,7 +267,9 @@ export function analyse(index, root) {
   }
 
   // --- Scoped-brief proposals ----------------------------------------------------------------
-  const briefs = briefCandidates(index.files);
+  // A directory that already has a brief is done, not a candidate. Re-proposing finished work is
+  // how a report teaches people to stop reading it.
+  const briefs = briefCandidates(index.files).filter((b) => !has(join(b.dir, "AGENTS.md")));
   if (briefs.length) {
     out.push(
       finding(

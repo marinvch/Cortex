@@ -172,6 +172,20 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
  index/    mcp/      leaves — depend on core, never on each other
 ```
 
+### Where to look
+
+Read this file, match your work to a row, then open **one** leaf. Do not read all three.
+
+| Working in | Read first |
+|---|---|
+| `core/` — paths, scrub, memory, date | [`core/AGENTS.md`](core/AGENTS.md) |
+| `index/` — indexer, findings, enrichment | [`index/AGENTS.md`](index/AGENTS.md) |
+| `mcp/` — the live brain, the `ai-os` CLI | [`mcp/AGENTS.md`](mcp/AGENTS.md) |
+| `skills/`, `templates/`, `references/` | this file is enough |
+
+Domain terms are defined once in [`CONTEXT.md`](CONTEXT.md); decisions and their rejected
+alternatives are in [`docs/adr/`](docs/adr/).
+
 `core/test/architecture.test.js` enforces this: it fails if `core/` reaches upward, or if either
 leaf imports the other. It exists because the rule was already broken once — `index/` was pulling
 the secret scanner and a date helper straight out of `mcp/lib/`. Shared code goes in `core/`;

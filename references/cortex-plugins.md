@@ -68,4 +68,27 @@ Plugins are installed to `.claude/settings.json` (Core) and `.claude/plugins.jso
 
 ---
 
+## MCP servers that are not plugins
+
+Some capabilities people ask for have **no plugin in the official marketplace** — Postman is the
+recurring one. Cortex does not declare a tier for these: an entry naming a plugin that does not
+exist fails at install, and a bundle that half-installs is worse than one that never claimed the
+capability.
+
+They are added as plain MCP servers instead, in the user's own settings:
+
+```jsonc
+// ~/.claude/settings.json  (or the project's .mcp.json)
+{
+  "mcpServers": {
+    "postman": { "command": "npx", "args": ["-y", "@postman/postman-mcp-server"] }
+  }
+}
+```
+
+The rule: **declare only what resolves.** If a capability needs a server Cortex cannot install
+through the marketplace, say so plainly and show the config — do not invent a tier for it.
+
+---
+
 See: [[vault-architecture]] for how these plugins fit into the knowledge and operating layers.

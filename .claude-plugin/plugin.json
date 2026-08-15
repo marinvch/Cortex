@@ -1,11 +1,13 @@
 {
   "name": "cortex",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "A context manager for new and legacy codebases. Indexes a repo, reports issues and gaps, and scaffolds a layered AGENTS.md context tree — proposing, never deciding.",
   "mcpServers": {
     "cortex": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.js"],
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/mcp/server.js"
+      ],
       "env": {
         "AI_OS_ROOT": "${CLAUDE_PROJECT_DIR}/.cortex"
       }

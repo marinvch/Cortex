@@ -1,10 +1,17 @@
-# 🧠 Cortex — your personal + business second brain (and a brain for every repo)
+# 🧠 Cortex — a context manager for new and legacy codebases
 
-**v1.1.0** · plain-files core · optional live brain · see [CHANGELOG.md](CHANGELOG.md)
+**v2.0.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
-A plain-markdown knowledge vault, Obsidian-style but **app-optional**. **No build step, no engine**
-— just files you own, readable by any editor and by any AI agent (Claude, Gemini, Copilot, Cursor).
-The core tooling is a few **bash** scripts with zero runtime deps.
+Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
+where it is changing, and what is missing. Then it writes a context layer — a small root
+`AGENTS.md` with a routing table, scoped briefs where they are earned, a domain glossary, and a
+committed memory the whole team shares.
+
+**Every conclusion is a proposal.** Indexing and reporting cannot modify your repository; a
+separate, explicitly invoked skill applies what you choose. The user decides, not the AI.
+
+**No build step, no engine** — plain markdown and a little Node, readable by any editor and by any
+AI agent (Claude, Gemini, Copilot, Cursor).
 
 Since v1.1.0 there is also an **optional** Node MCP server in `mcp/` that turns the vault into live
 `recall`/`capture` tools for MCP-speaking agents. It is strictly additive: everything below works
@@ -71,12 +78,22 @@ node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pas
 
 ---
 
+---
+
 ## The personal vault (the other half)
 
-Cortex began as a personal second brain, and that half still works. It is being extracted into its
-own private repo — see `tools/cortex-vault-extract.sh`, which is dry-run by default.
+Cortex began as a personal second brain, and that half still works — the rituals below manage a
+markdown vault of your own notes, projects and daily logs.
 
-## Quick start (5 minutes)
+It is **being extracted into its own private repo**, so that this one is purely the shippable
+context manager. Everything from here down describes that half:
+
+```bash
+bash tools/cortex-vault-extract.sh --to ~/cortex-brain          # preview, changes nothing
+bash tools/cortex-vault-extract.sh --to ~/cortex-brain --apply  # copy it out
+```
+
+### Vault quick start (5 minutes)
 
 **1. Get the vault**
 ```bash

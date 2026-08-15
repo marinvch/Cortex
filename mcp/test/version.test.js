@@ -27,6 +27,24 @@ test("never throws on a vault with neither file", () => {
   assert.equal(readVersion(root), "0.0.0");
 });
 
+// Cortex ships as a Claude plugin, so the two manifests are a third and fourth place the version
+// is written down. Same drift guard, same reason: a stale plugin version installs the wrong thing.
+test("the plugin manifests agree with the VERSION file", () => {
+  const version = readFileSync(join(REPO_ROOT, "VERSION"), "utf8").trim();
+  const plugin = JSON.parse(readFileSync(join(REPO_ROOT, ".claude-plugin", "plugin.json"), "utf8"));
+  const marketplace = JSON.parse(
+    readFileSync(join(REPO_ROOT, ".claude-plugin", "marketplace.json"), "utf8"),
+  );
+
+  assert.equal(plugin.version, version, ".claude-plugin/plugin.json version must match VERSION");
+  assert.equal(marketplace.version, version, ".claude-plugin/marketplace.json version must match VERSION");
+  assert.equal(plugin.name, "cortex", "the installable plugin is named cortex");
+
+  // The marketplace must actually offer the plugin, or `/plugin install cortex` finds nothing.
+  const offered = marketplace.plugins.map((p) => p.name);
+  assert.ok(offered.includes("cortex"), "marketplace.json must list the cortex plugin");
+});
+
 // Drift guard: VERSION, mcp/package.json and the docs must agree. They did not between
 // 1.0.0 and 1.1.0 — the README shipped a stale version for a whole release.
 test("VERSION, package.json and README agree on the release", () => {

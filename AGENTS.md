@@ -100,6 +100,9 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
 | `/reindex` | periodic | regenerate the navigator graph, nominate MOCs, fix dead links |
 | `/cortex-doctor` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files |
 | `/cortex-audit` | on request | dispatch the `cortex-auditor` subagent, then apply its fixes |
+| `/cortex-install` | per repo | index a codebase, report findings, scaffold only what the user picks |
+| `/cortex-brief` | per critical area | propose scoped `AGENTS.md` leaves from the index + wire the routing table |
+| `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
 | `/install-project` | per repo | stamp a codebase brain into a repo — stays in that repo |
 | `/scope-area` | per critical dir | give it a scoped `AGENTS.md` leaf + a routing table in root |
@@ -139,6 +142,16 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
 - `/onboard`, `/migrate-engine`, `/team-init` and `/connect-brain` carry
   `disable-model-invocation: true` — they are once-only or destructive, so an agent may never
   auto-fire them. The user invokes them by name. Keep the flag when editing their frontmatter.
+- `/cortex-install` **never modifies a target repo before the user chooses.** Indexing and the
+  findings report are read-only by construction — a different skill applies changes. If you are
+  editing source before the user picked something, you have left the skill.
+- `.cortex/index/` and `.cortex/findings/` are generated and gitignored in a target repo.
+  `.cortex/memory/` is **committed** — that is how several developers share one context. The
+  asymmetry is deliberate, and it makes the privacy rule a hard requirement: `mcp/lib/scrub.js`
+  refuses any memory write carrying a credential, and never sanitises silently.
+- The indexer (`index/`) asks **git** what belongs to a repo, not `.cortexignore`. Those answer
+  different questions — `.cortexignore` says what is not *knowledge in a vault*, which would drop
+  a repo's own `tools/` and `skills/` from its index.
 - [[codebase-design]] is vocabulary, not a ritual — the words for *how code is shaped* (module,
   interface, depth, seam, adapter). [[operating-principles]] decides what to build; that decides
   what it looks like. `/analyze-spec` and `/scope-area` should both speak it.

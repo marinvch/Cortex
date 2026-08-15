@@ -69,3 +69,6 @@ mcp/node_modules/
 
 # Understand-Anything generated artifacts (knowledge graph, dashboard, scratch)
 .ua/
+
+# Cortex working artifacts in this repo (index/findings are generated; target repos commit .cortex/memory/)
+.cortex/

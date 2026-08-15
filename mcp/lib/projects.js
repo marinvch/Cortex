@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { resolveInRoot } from "./paths.js";
+import { resolveInRoot } from "../../core/paths.js";
 import { makeIgnoreFilter } from "./cortexignore.js";
 
 export function listProjects(root) {

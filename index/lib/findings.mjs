@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { briefCandidates } from "./layers.mjs";
-import { scan } from "../../mcp/lib/scrub.js";
+import { scan } from "../../core/scrub.js";
 
 // Findings are PROPOSALS. Nothing here edits a repository — this module returns data and the
 // caller writes exactly one report file. The skill that finds things and the skill that changes

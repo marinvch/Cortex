@@ -102,6 +102,7 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
 | `/cortex-audit` | on request | dispatch the `cortex-auditor` subagent, then apply its fixes |
 | `/cortex-install` | per repo | index a codebase, report findings, scaffold only what the user picks |
 | `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
+| `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
 | `/cortex-brief` | per critical area | propose scoped `AGENTS.md` leaves from the index + wire the routing table |
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
@@ -159,6 +160,22 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
 - The indexer (`index/`) asks **git** what belongs to a repo, not `.cortexignore`. Those answer
   different questions — `.cortexignore` says what is not *knowledge in a vault*, which would drop
   a repo's own `tools/` and `skills/` from its index.
+- Enrichment is **additive and optional**. `index.json` stays the source of truth for structure;
+  `enriched.json` only attaches prose. A missing or stale enrichment degrades Cortex to
+  deterministic behaviour — it must never break it, and must never edit `index.json`.
+
+## The code layers
+
+```
+      core/          shared kernel — depends on nothing else in this repo
+     /     \         paths (the root guard) · scrub (the secret gate) · memory · date
+ index/    mcp/      leaves — depend on core, never on each other
+```
+
+`core/test/architecture.test.js` enforces this: it fails if `core/` reaches upward, or if either
+leaf imports the other. It exists because the rule was already broken once — `index/` was pulling
+the secret scanner and a date helper straight out of `mcp/lib/`. Shared code goes in `core/`;
+convenience imports across leaves are how two packages get welded into one.
 - [[codebase-design]] is vocabulary, not a ritual — the words for *how code is shaped* (module,
   interface, depth, seam, adapter). [[operating-principles]] decides what to build; that decides
   what it looks like. `/analyze-spec` and `/scope-area` should both speak it.

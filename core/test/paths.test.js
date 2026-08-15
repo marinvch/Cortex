@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveInRoot, OutsideRootError } from "../lib/paths.js";
+import { resolveInRoot, OutsideRootError } from "../paths.js";
 
 test("resolves a normal relative path inside root", () => {
   const root = mkdtempSync(join(tmpdir(), "jail-"));

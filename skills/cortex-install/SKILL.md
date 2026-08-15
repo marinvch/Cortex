@@ -87,6 +87,7 @@ never-clobber rules and the post-write verification; do not duplicate that logic
 |---|---|---|
 | `core` | superpowers, context7, skill-creator, claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier | always — this is the developer experience Cortex assumes |
 | `dev-tools` | typescript-lsp, github | opt-in |
+| `api` | postman | opt-in; offer it when the index shows an API surface or a collection |
 | `browser-qa` | playwright, chrome-devtools-mcp | opt-in; offer it when the index shows a frontend |
 | `platform` | vercel, cloudflare, karpathy skills | opt-in |
 
@@ -94,8 +95,9 @@ Core carries **superpowers** because Cortex's workflow is spec- and test-driven 
 and **Context7** because a context manager whose agents guess at library APIs from stale training
 data is not managing much.
 
-There is no Postman plugin in the official marketplace. If the user wants Postman, it is added as
-a plain MCP server in their own settings — say that rather than pretending a tier exists.
+Offer a tier when the index gives you a reason to — an API surface, a frontend — not by reciting
+the whole list. Every declared name is verified against the marketplace by
+`core/test/bundle.test.js`, so if a tier fails to install, the manifest is stale rather than wrong.
 
 **Memory** — create `.cortex/memory/` and tell the user it is committed on purpose: it is how
 several developers and their agents share one context. Then say the hard part out loud — nothing

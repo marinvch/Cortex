@@ -1,6 +1,6 @@
 import { mkdirSync, appendFileSync, existsSync, writeFileSync } from "node:fs";
 import { dirname, relative, sep } from "node:path";
-import { resolveInRoot } from "./paths.js";
+import { resolveInRoot } from "../../core/paths.js";
 import { commitAndPush, teamCloneDir, pull } from "./gitsync.js";
 import { slugify } from "./slug.js";
 

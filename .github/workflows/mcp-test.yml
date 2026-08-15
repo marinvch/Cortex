@@ -32,6 +32,18 @@ jobs:
       - name: Install
         working-directory: mcp
         run: npm ci
-      - name: Test
+      - name: Test mcp
         working-directory: mcp
         run: npm test
+      # core/ and index/ have no dependencies of their own — they run straight off the checkout.
+      # Separate steps so a failure names the layer that broke.
+      #
+      # `shell: bash` on purpose: the shell expands the glob and Node receives explicit paths.
+      # `node --test <dir>` works on Node 20 but not 24, and Node's own glob expansion is the
+      # other way round — passing filenames sidesteps both.
+      - name: Test core
+        shell: bash
+        run: node --test core/test/*.test.js
+      - name: Test index
+        shell: bash
+        run: node --test index/test/*.test.mjs

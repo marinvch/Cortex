@@ -8,7 +8,7 @@ import { capture } from "./lib/capture.js";
 import { catchMeUp } from "./lib/catchup.js";
 import { genNoteId } from "./lib/noteid.js";
 import { VERSION } from "./lib/version.js";
-import { append as rememberNote, recent as recentMemory } from "./lib/memory.js";
+import { append as rememberNote, recent as recentMemory } from "../core/memory.js";
 import { isRepoMode } from "./lib/mode.js";
 
 const AI_OS_ROOT = process.env.AI_OS_ROOT;

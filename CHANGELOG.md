@@ -3,6 +3,22 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.1.0] — 2026-08-15
+
+### Added
+- **An `api` tier carrying the official Postman plugin** — full API lifecycle management, powered
+  by the Postman MCP Server. Offered when the index shows an API surface.
+- **`core/test/bundle.test.js`** — fetches the official marketplace manifest and asserts every
+  declared plugin really exists in it, so a bad name fails here rather than on a user's machine.
+  Skips cleanly when the marketplace is unreachable.
+
+### Fixed
+- **Corrected a false claim.** v2.0.0 stated in `references/cortex-plugins.md`, the
+  `/cortex-install` skill and its release notes that there was no Postman plugin in the official
+  marketplace. There is. The claim came from listing the local plugin *cache* — 15 installed
+  plugins — instead of the marketplace *catalog*, which holds 286. All three places are corrected,
+  and the new bundle test is the mechanism that stops the mistake recurring.
+
 ## [2.0.0] — 2026-08-15
 
 **Cortex becomes a context manager for new and legacy codebases, installable as a Claude plugin.**
@@ -176,6 +192,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.1.0]: https://github.com/marinvch/Cortex/releases/tag/v2.1.0
 [2.0.0]: https://github.com/marinvch/Cortex/releases/tag/v2.0.0
 [1.1.0]: https://github.com/marinvch/ai-os/releases/tag/v1.1.0
 [1.0.0]: https://github.com/marinvch/ai-os/releases/tag/v1.0.0

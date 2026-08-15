@@ -68,26 +68,29 @@ Plugins are installed to `.claude/settings.json` (Core) and `.claude/plugins.jso
 
 ---
 
-## MCP servers that are not plugins
+## Declare only what resolves
 
-Some capabilities people ask for have **no plugin in the official marketplace** — Postman is the
-recurring one. Cortex does not declare a tier for these: an entry naming a plugin that does not
-exist fails at install, and a bundle that half-installs is worse than one that never claimed the
-capability.
+Every name in a tier must exist in the marketplace it is declared against. An entry naming a
+plugin that does not exist fails at install, and a bundle that half-installs is worse than one
+that never claimed the capability.
 
-They are added as plain MCP servers instead, in the user's own settings:
+This is checked, not trusted: `core/test/bundle.test.js` fetches the official marketplace manifest
+and asserts every declared plugin is really in it. The test exists because this document once
+claimed there was **no** Postman plugin — a claim made by listing the local plugin *cache* (15
+installed plugins) instead of the marketplace *catalog* (286). Postman is in the official
+marketplace, and Cortex declares it in the `api` tier.
+
+If a capability genuinely has no plugin, do not invent a tier for it. Say so and show the plain
+MCP config instead:
 
 ```jsonc
 // ~/.claude/settings.json  (or the project's .mcp.json)
 {
   "mcpServers": {
-    "postman": { "command": "npx", "args": ["-y", "@postman/postman-mcp-server"] }
+    "example": { "command": "npx", "args": ["-y", "some-mcp-server"] }
   }
 }
 ```
-
-The rule: **declare only what resolves.** If a capability needs a server Cortex cannot install
-through the marketplace, say so plainly and show the config — do not invent a tier for it.
 
 ---
 

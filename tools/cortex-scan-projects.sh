@@ -9,6 +9,10 @@
 # Usage: bash tools/cortex-scan-projects.sh [CODE_ROOT]
 set -uo pipefail
 
+LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"
+# shellcheck source=/dev/null
+. "$LIB" || { echo "cortex: cannot load $LIB" >&2; exit 1; }
+
 VAULT="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="${1:-$(cd "$VAULT/.." && pwd)}"          # default: folder containing the vault (e.g. D:/Projects/Personal)
 # If the vault sits under D:/Projects/Personal, scan the whole D:/Projects tree:
@@ -16,7 +20,9 @@ case "$ROOT" in */Personal|*/personal) ROOT="$(cd "$ROOT/.." && pwd)";; esac
 TODAY="$(date +%Y-%m-%d 2>/dev/null || echo 2026-07-01)"
 mkdir -p "$VAULT/projects"
 
-slugify() { echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' _' '--' | sed 's/[^a-z0-9-]//g'; }
+# slugify() comes from _cortex-lib.sh. The local copy this replaced deleted non-alphanumerics
+# instead of collapsing them to `-`, so `my.app` slugged to `myapp` here and `my-app` everywhere
+# else — which made the firewall purge below delete a filename no writer ever produced.
 
 # Repos with no commit in this many days are collapsed into a Projects Map row instead of
 # getting their own stub page. Override: DORMANT_DAYS=365 bash tools/cortex-scan-projects.sh
@@ -89,6 +95,8 @@ title: $name
 type: project
 status: active
 domain: personal
+stack: $stack
+path: $repo
 created: $TODAY
 updated: $TODAY
 last_compiled: $TODAY

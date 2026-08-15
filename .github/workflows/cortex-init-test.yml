@@ -21,14 +21,16 @@ jobs:
         run: |
           set -euo pipefail
           # Glob rather than a hand-maintained list — a new tool was previously missed here.
-          for f in tools/*.sh; do bash -n "$f" && echo "parsed  $f"; done
+          # `tools/*.sh` alone does not match `tools/server/*.sh`, which left cortex-cron.sh and
+          # server-setup.sh unparsed and unchecked; both globs are needed.
+          for f in tools/*.sh tools/server/*.sh; do bash -n "$f" && echo "parsed  $f"; done
 
       - name: Shellcheck (errors block)
-        run: shellcheck -S error tools/*.sh
+        run: shellcheck -S error tools/*.sh tools/server/*.sh
 
       - name: Shellcheck (warnings, informational)
         continue-on-error: true
-        run: shellcheck -S warning tools/*.sh
+        run: shellcheck -S warning tools/*.sh tools/server/*.sh
 
       - name: knowledge_files() honours .cortexignore
         run: |

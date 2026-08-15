@@ -3,10 +3,14 @@
 # [[wikilinks]] so no dead links remain, and regenerate the viewer. Usage:
 #   bash tools/cortex-rm.sh <relative/path/to/note.md>
 set -u
+LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"
+# shellcheck source=/dev/null
+. "$LIB" || { echo "cortex: cannot load $LIB" >&2; exit 1; }
 ROOT="$(pwd)"; F="${1:-}"
 [ -z "$F" ] && { echo "usage: bash tools/cortex-rm.sh <relative-md-path>"; exit 1; }
 [ -f "$ROOT/$F" ] || { echo "not found: $F"; exit 1; }
-SLUG="$(basename "$F" .md | tr 'A-Z' 'a-z' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-+$//g')"
+# Same note id the viewer's graph uses, so the de-link pass below finds every inbound [[wikilink]].
+SLUG="$(note_id "$(basename "$F")")"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 mkdir -p archives/removed
 mv "$ROOT/$F" "archives/removed/$(basename "$F" .md).$STAMP.md"

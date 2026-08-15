@@ -1,7 +1,12 @@
 # cortex tools (bash, zero deps)
 
-Two small bash scripts. **No Node, no Python, nothing to install** — just bash (git-bash, zsh,
+Small bash scripts. **No Node, no Python, nothing to install** — just bash (git-bash, zsh,
 WSL, Linux, macOS). The original Node installer is retired at `../archives/cortex-init.mjs.legacy`.
+
+`cortex.sh`, `cortex-rm.sh` and `cortex-scan-projects.sh` share `_cortex-lib.sh` (`slugify`,
+`note_id`, `knowledge_files`). `cortex-init.sh` deliberately does not — it is a standalone
+installer copied into other repos — so it keeps its own copy of the slug rule, pinned against
+`mcp/lib/slug.js` by `mcp/test/slug-parity.test.js`.
 
 ## `cortex-init.sh` — install a codebase brain into any repo
 
@@ -67,9 +72,10 @@ bash tools/cortex.sh               # writes ./cortex.html and opens it
 ```
 
 It reads **`.cortexignore`** to decide what counts as knowledge, so scaffolding, backups, generated
-views and skills never show up as noise. That one file is the single source of truth — shared via
-`tools/_cortex-lib.sh` so there's no per-script drift. (The earlier `cortex-nav.sh` / `cortex-brain.sh`
-are retired in `archives/retired-views/`.)
+views and skills never show up as noise. That one file is the single source of truth — read through
+`knowledge_files()` in `tools/_cortex-lib.sh`, and ported to JS in `mcp/lib/cortexignore.js` so the
+live brain agrees with the generators. (The earlier `cortex-nav.sh` / `cortex-brain.sh` are retired
+in `archives/retired-views/`.)
 
 ## `cortex-rm.sh` — remove a note the safe way
 

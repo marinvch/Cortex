@@ -1,6 +1,7 @@
 ---
 name: migrate-engine
 description: Migrate a repo off the OLD engine-based AI OS (the retired `.ai-os/` MCP-server system) onto the new plain-files Cortex brain — WITHOUT losing memory. Use when a repo still has `.ai-os/`, `.github/ai-os/`, an `ai-os` MCP entry, or engine-generated `.github/agents`/`.github/copilot` artifacts, and the user says "remove the old ai-os", "migrate off the engine", "clean up the old brain", "move the old memory into Cortex". Plain files — no engine, no Node. Harvest first, delete second.
+disable-model-invocation: true
 ---
 
 # /migrate-engine — move the old brain into Cortex, then retire it safely

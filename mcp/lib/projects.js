@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { resolveInRoot } from "./paths.js";
 
 export function listProjects(root) {
   const dir = join(root, "projects");
@@ -15,8 +16,10 @@ export function listProjects(root) {
 }
 
 export function getProjectContext(root, slug) {
-  const file = join(root, "projects", `${slug}.md`);
-  const dir = join(root, "projects", slug);
+  // `slug` is caller-supplied, so both candidate paths go through the root guard.
+  // Without this, a slug like `../../secret` reads any file on disk (see projects.test.js).
+  const file = resolveInRoot(root, join("projects", `${slug}.md`));
+  const dir = resolveInRoot(root, join("projects", slug));
   if (existsSync(file) && statSync(file).isFile()) {
     return { slug, path: file, content: readFileSync(file, "utf8") };
   }

@@ -136,6 +136,9 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
   (your personal decisions). Same word, two different things; never merge them.
 - `/wizard` output handles credentials, so it lands in the target repo's `scripts/` or the
   scratchpad — **never in this vault**, and never committed with values baked in.
+- `/onboard`, `/migrate-engine`, `/team-init` and `/connect-brain` carry
+  `disable-model-invocation: true` — they are once-only or destructive, so an agent may never
+  auto-fire them. The user invokes them by name. Keep the flag when editing their frontmatter.
 - [[codebase-design]] is vocabulary, not a ritual — the words for *how code is shaped* (module,
   interface, depth, seam, adapter). [[operating-principles]] decides what to build; that decides
   what it looks like. `/analyze-spec` and `/scope-area` should both speak it.

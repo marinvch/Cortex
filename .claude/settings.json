@@ -24,5 +24,10 @@
   },
   "enabledPlugins": {
     "understand-anything@understand-anything": true
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }

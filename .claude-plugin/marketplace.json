@@ -1,0 +1,17 @@
+{
+  "name": "cortex",
+  "version": "1.1.0",
+  "description": "Cortex — a context manager for new and legacy codebases.",
+  "repository": "https://github.com/marinvch/Cortex",
+  "owner": {
+    "name": "Marin Cholakov",
+    "url": "https://github.com/marinvch"
+  },
+  "plugins": [
+    {
+      "name": "cortex",
+      "source": "./",
+      "description": "Index a codebase, report its issues and gaps, and scaffold a layered AGENTS.md context tree. Ships the rituals, the indexer and the recall/capture MCP brain. Run /cortex-install in a repo to begin."
+    }
+  ]
+}

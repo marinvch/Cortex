@@ -1,8 +1,15 @@
 # Cortex as a shippable framework — design
 
 **Date:** 2026-08-12
-**Status:** approved (design); not yet planned
-**Supersedes:** nothing. Extends `2026-06-22-ai-agnostic-core-design.md`.
+**Status:** **partly superseded** by `2026-08-15-cortex-context-manager-design.md`, which shipped
+in v2.0.0. Extends `2026-06-22-ai-agnostic-core-design.md`.
+**Supersedes:** nothing.
+
+> **What changed.** Decision 1 (one monorepo, two packages) and Decision 4's destination were
+> replaced: Cortex ships as **one repo, one plugin**, and the personal vault moves to a **separate
+> private repo** rather than a second package here. The seam, the phase loop and the gate model
+> below still describe the intended direction and were not superseded — read this for the *why*,
+> and the 2026-08-15 spec for what was actually built.
 
 ## Problem
 

@@ -19,6 +19,60 @@ Two systems share one folder:
 
 ---
 
+## Install as a Claude plugin ⭐
+
+Cortex is a **context manager for new and legacy codebases**. Install it once, run it in any repo:
+
+```
+/plugin marketplace add marinvch/Cortex
+/plugin install cortex
+```
+
+Then, inside the repo you want it to understand:
+
+```
+/cortex-install
+```
+
+It indexes the codebase, writes **one findings report** — issues, gaps, recommendations, ranked —
+and then **stops and asks**. Nothing in your repo is modified until you pick what to act on.
+Indexing and reporting are read-only by construction: a different skill applies changes.
+
+| Command | Does |
+|---|---|
+| `/cortex-install` | index → report → you choose → scaffold |
+| `/cortex-brief` | propose scoped `AGENTS.md` leaves for the areas that earn one |
+| `/dream` | end-of-day digest into the repo's committed `.cortex/memory/` |
+
+What lands in the target repo:
+
+```
+AGENTS.md          small root brief + a routing table
+CLAUDE.md GEMINI.md   one-line shims
+CONTEXT.md         the domain glossary
+docs/adr/          decisions, created lazily
+<area>/AGENTS.md   scoped leaves, only where you accepted one
+.cortex/
+  index/           generated, gitignored
+  findings/        generated, gitignored
+  memory/          COMMITTED — shared context, secrets refused at the gate
+```
+
+The indexer is deterministic and offline — it asks git what belongs to the repo, resolves imports,
+finds hot spots from history. Run it directly if you like:
+
+```bash
+node index/cortex-index.mjs .      # writes .cortex/index/index.json
+node index/cortex-findings.mjs .   # writes .cortex/findings/<date>.md
+```
+
+---
+
+## The personal vault (the other half)
+
+Cortex began as a personal second brain, and that half still works. It is being extracted into its
+own private repo — see `tools/cortex-vault-extract.sh`, which is dry-run by default.
+
 ## Quick start (5 minutes)
 
 **1. Get the vault**

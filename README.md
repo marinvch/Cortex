@@ -42,6 +42,8 @@ Indexing and reporting are read-only by construction: a different skill applies 
 |---|---|
 | `/cortex-install` | index → report → you choose → scaffold |
 | `/cortex-brief` | propose scoped `AGENTS.md` leaves for the areas that earn one |
+| `/cortex-scaffold` | write the context layer once you have chosen |
+| `/cortex-enrich` | add summaries on top of the index (optional, costs tokens) |
 | `/dream` | end-of-day digest into the repo's committed `.cortex/memory/` |
 
 What lands in the target repo:
@@ -64,6 +66,7 @@ finds hot spots from history. Run it directly if you like:
 ```bash
 node index/cortex-index.mjs .      # writes .cortex/index/index.json
 node index/cortex-findings.mjs .   # writes .cortex/findings/<date>.md
+node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 ```
 
 ---

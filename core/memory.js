@@ -2,6 +2,7 @@ import { appendFileSync, mkdirSync, readFileSync, readdirSync, existsSync } from
 import { join } from "node:path";
 import { resolveInRoot } from "./paths.js";
 import { assertWritable } from "./scrub.js";
+import { stamp, clock } from "./date.js";
 
 // Cortex's memory lives in <repo>/.cortex/memory/ and is COMMITTED, so every developer and every
 // agent working in the repo shares one context that travels with the code. Git is the sync
@@ -13,14 +14,9 @@ import { assertWritable } from "./scrub.js";
 
 export const MEMORY_DIR = "memory";
 
-function pad(n) {
-  return String(n).padStart(2, "0");
-}
-
-/** Date stamp for a memory file. Takes an explicit Date so callers and tests stay deterministic. */
-export function stamp(date = new Date()) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
+// Re-exported so existing callers keep working, but core/date.js owns the definition — one
+// spelling of a date format across memory files, findings reports and digests.
+export { stamp } from "./date.js";
 
 function ensureDir(root) {
   const dir = resolveInRoot(root, MEMORY_DIR);
@@ -42,7 +38,7 @@ export function append(root, text, { date = new Date(), kind = "note" } = {}) {
   const day = stamp(date);
   const file = resolveInRoot(root, join(MEMORY_DIR, `${day}.md`));
   const isNew = !existsSync(file);
-  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  const time = clock(date);
 
   let out = "";
   if (isNew) out += `# ${day}\n\n`;

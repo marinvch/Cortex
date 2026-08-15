@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { analyse, render } from "./lib/findings.mjs";
-import { stamp } from "../mcp/lib/memory.js";
+import { stamp } from "../core/date.js";
 
 function parseArgs(argv) {
   const args = { root: null, index: null, out: null, stdout: false };

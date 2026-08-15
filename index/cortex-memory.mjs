@@ -12,7 +12,7 @@
 // was found — never the secret itself.
 
 import { resolve } from "node:path";
-import { append, recent } from "../mcp/lib/memory.js";
+import { append, recent } from "../core/memory.js";
 
 function parse(argv) {
   const args = { cmd: argv[0], text: null, kind: "note", root: ".cortex", days: 7 };

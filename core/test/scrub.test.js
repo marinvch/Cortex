@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { scan, isClean, redact, assertWritable, RefusedWriteError } from "../lib/scrub.js";
+import { scan, isClean, redact, assertWritable, RefusedWriteError } from "../scrub.js";
 
 // Cortex memory is COMMITTED, so this gate is the only thing standing between a developer's note
 // and a secret in the repository's history. Each rule gets a test.

@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { append, list, recent, stamp } from "../lib/memory.js";
-import { RefusedWriteError } from "../lib/scrub.js";
-import { OutsideRootError } from "../lib/paths.js";
+import { append, list, recent, stamp } from "../memory.js";
+import { RefusedWriteError } from "../scrub.js";
+import { OutsideRootError } from "../paths.js";
 
 // Assembled at runtime so no secret-shaped literal ships in the repo — see scrub.test.js.
 const AWS_KEY = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");

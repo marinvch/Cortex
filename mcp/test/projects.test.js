@@ -80,3 +80,18 @@ test("handles folder-form projects (listProjects + concatenated getProjectContex
   assert.match(ctx.content, /Team notes/);
   assert.match(ctx.content, /\n\n---\n\n/);
 });
+
+test("listProjects honours .cortexignore instead of hand-coding exclusions", () => {
+  // projects.js used to carry `if (e.name === "README.md") continue;` — one vault-noise rule
+  // re-typed outside .cortexignore. The ignore file decides what is knowledge; listProjects
+  // now asks it, so a vault that ignores drafts does not see them as projects.
+  const root = mkdtempSync(join(tmpdir(), "vault-ignore-"));
+  mkdirSync(join(root, "projects"), { recursive: true });
+  writeFileSync(join(root, ".cortexignore"), "*.draft.md\nREADME.md\n");
+  writeFileSync(join(root, "projects", "real.md"), "# Real\n");
+  writeFileSync(join(root, "projects", "wip.draft.md"), "# Draft\n");
+  writeFileSync(join(root, "projects", "README.md"), "readme\n");
+
+  const slugs = listProjects(root).map((p) => p.slug);
+  assert.deepEqual(slugs, ["real"]);
+});

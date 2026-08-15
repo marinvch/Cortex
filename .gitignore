@@ -66,3 +66,6 @@ context/.backups/
 # MCP server deps (Node only lives in mcp/)
 mcp/node_modules/
 
+
+# Understand-Anything generated artifacts (knowledge graph, dashboard, scratch)
+.ua/

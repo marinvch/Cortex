@@ -51,6 +51,23 @@ test("without .cortexignore, falls back to pre-1.1 skip list", () => {
   assert.ok(!skipFile("anything.md"));
 });
 
+test("without .cortexignore, README.md is scaffolding, not knowledge", () => {
+  // A fresh vault ships no .cortexignore, and nothing seeds one. Without this fallback every
+  // consumer has to hand-code its own README exclusion — projects.js did exactly that.
+  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const { skipFile } = makeIgnoreFilter(root);
+  assert.ok(skipFile("README.md"));
+  assert.ok(skipFile("projects/README.md"));
+  assert.ok(!skipFile("readme-notes.md"));
+});
+
+test("a .cortexignore that omits README.md is respected — the file stays the source of truth", () => {
+  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  writeFileSync(join(root, ".cortexignore"), "docs/\n");
+  const { skipFile } = makeIgnoreFilter(root);
+  assert.ok(!skipFile("README.md"));
+});
+
 test("with .cortexignore, .git and node_modules are still always pruned", () => {
   const root = mkdtempSync(join(tmpdir(), "vault-"));
   // A .cortexignore that mentions neither of them.

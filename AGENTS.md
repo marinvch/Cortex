@@ -60,7 +60,7 @@ Applied 2026-08-03: prior day-job content was stripped into
 | `context/` | who the user is | about-me, priorities, how-i-work, values, current-focus |
 | `connections.md` | every tool/data source the vault can reach | |
 | `decisions/log.md` | append-only "what I decided and why" | |
-| `references/` | the frameworks | [[operating-principles]], [[vault-architecture]], voice |
+| `references/` | the frameworks | [[operating-principles]], [[vault-architecture]], [[codebase-design]], voice |
 | `templates/` | starters | copy to begin a new note |
 | `archives/` | old stuff | **move, never delete** |
 
@@ -103,8 +103,11 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
 | `/install-project` | per repo | stamp a codebase brain into a repo — stays in that repo |
 | `/scope-area` | per critical dir | give it a scoped `AGENTS.md` leaf + a routing table in root |
+| `/domain-modeling` | per repo, ongoing | sharpen that repo's glossary — write its `CONTEXT.md` + ADRs |
 | `/analyze-spec` | per risky feature | brainstorm → design spec → plan. **No code.** |
 | `/migrate-engine` | per repo, once | move off the retired `.ai-os/` engine |
+| `/resolving-merge-conflicts` | on conflict | resolve a stuck merge/rebase by intent, hunk by hunk. Never `--abort` |
+| `/wizard` | on request | generate a script that walks a *human* through steps only they can do |
 | `/scan-projects` | anytime | register personal repos into `projects/` — metadata only |
 | `/connect-brain` | once per machine | register `mcp/server.js` at user scope for recall/capture |
 | `/setup-plugins` | per machine | install the Cortex Core plugin bundle |
@@ -128,5 +131,16 @@ commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI 
   where a real invariant or gotcha lives.
 - `/optimize-context` targets **other repos**; `/cortex-doctor` targets this vault. Same instinct,
   different subject. It never deletes prose on its own authority.
+- `/domain-modeling` writes a `CONTEXT.md` **in the target repo** — that repo's glossary of terms.
+  It is *not* this vault's `context/` (who you are), and its ADRs are *not* `decisions/log.md`
+  (your personal decisions). Same word, two different things; never merge them.
+- `/wizard` output handles credentials, so it lands in the target repo's `scripts/` or the
+  scratchpad — **never in this vault**, and never committed with values baked in.
+- `/onboard`, `/migrate-engine`, `/team-init` and `/connect-brain` carry
+  `disable-model-invocation: true` — they are once-only or destructive, so an agent may never
+  auto-fire them. The user invokes them by name. Keep the flag when editing their frontmatter.
+- [[codebase-design]] is vocabulary, not a ritual — the words for *how code is shaped* (module,
+  interface, depth, seam, adapter). [[operating-principles]] decides what to build; that decides
+  what it looks like. `/analyze-spec` and `/scope-area` should both speak it.
 
 The `cortex-auditor` subagent lives in `.claude/agents/` and is invoked by `/cortex-audit`.

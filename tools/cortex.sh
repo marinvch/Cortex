@@ -4,11 +4,15 @@
 # (registered codebase brains) · Gaps (orphan notes + dead links to fix). No server, no runtime —
 # everything is embedded; just open the file. Run from the vault root:  bash tools/cortex.sh
 set -u
+# Resolve the shared lib against this script, not the cwd — the cd below moves us to the vault.
+# Loading it is mandatory: without knowledge_files() the walk finds nothing and we would happily
+# write a cortex.html with zero notes and exit 0.
+LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"
+# shellcheck source=/dev/null
+. "$LIB" || { echo "cortex: cannot load $LIB" >&2; exit 1; }
 ROOT="${1:-$(pwd)}"; cd "$ROOT" || { echo "no such dir: $ROOT"; exit 1; }
 OUT="$ROOT/cortex.html"; TMP="$(mktemp -d)"; NODES="$TMP/n"; EDGES="$TMP/e"; : >"$NODES"; : >"$EDGES"
-. tools/_cortex-lib.sh 2>/dev/null || true
 
-slug(){ printf '%s' "$1" | tr 'A-Z' 'a-z' | sed -E 's/\.md$//; s/[^a-z0-9]+/-/g; s/^-+|-+$//g'; }
 fmval(){ awk -v k="$2" 'BEGIN{f=0} /^---[[:space:]]*$/{f++; next} f==1 && $0 ~ "^"k":"{sub("^"k":[[:space:]]*",""); gsub(/^"|"$/,""); print; exit}' "$1"; }
 label_of(){ local t; t="$(fmval "$1" title)"; [ -z "$t" ] && t="$(fmval "$1" name)"; [ -z "$t" ] && t="$(basename "$1" .md)"; printf '%s' "$t"; }
 layer_of(){ case "$1" in context) echo Context;; notes) echo Knowledge;; projects) echo Projects;; areas) echo Areas;; references) echo References;; decisions) echo Decisions;; daily) echo Daily;; resources) echo Resources;; inbox) echo Inbox;; .) echo Map;; *) echo "$1";; esac; }
@@ -19,17 +23,17 @@ jesc(){ sed -e 's/\\/\\\\/g; s/"/\\"/g'; }
 FILES="$(knowledge_files "$ROOT")"
 
 while IFS= read -r f; do [ -z "$f" ] && continue
-  rel="${f#./}"; id="$(slug "$(basename "$f")")"; [ -z "$id" ] && continue
+  rel="${f#./}"; id="$(note_id "$(basename "$f")")"; [ -z "$id" ] && continue
   lab="$(label_of "$f")"; top="${rel%%/*}"; [ "$top" = "$rel" ] && top="."
   printf '%s\t%s\t%s\t%s\n' "$id" "$lab" "$rel" "$(layer_of "$top")" >> "$NODES"
 done <<< "$FILES"
 KNOWN="$TMP/k"; cut -f1 "$NODES" | sort -u > "$KNOWN"
 
 while IFS= read -r f; do [ -z "$f" ] && continue
-  sid="$(slug "$(basename "$f")")"
+  sid="$(note_id "$(basename "$f")")"
   awk '/^[[:space:]]*```/{fc=!fc;next} fc{next} /<!--/{next}
     { gsub(/`[^`]*`/,""); while(match($0,/\[\[[^]]+\]\]/)){ln=substr($0,RSTART+2,RLENGTH-4);sub(/\|.*/,"",ln);sub(/#.*/,"",ln);print ln;$0=substr($0,RSTART+RLENGTH)} }' "$f" \
-  | while IFS= read -r tgt; do tid="$(slug "$tgt")"; [ -z "$tid" ]&&continue; [ "$tid" = "$sid" ]&&continue; printf '%s\t%s\n' "$sid" "$tid" >>"$EDGES"; done
+  | while IFS= read -r tgt; do tid="$(note_id "$tgt")"; [ -z "$tid" ]&&continue; [ "$tid" = "$sid" ]&&continue; printf '%s\t%s\n' "$sid" "$tid" >>"$EDGES"; done
 done <<< "$FILES"
 sort -u "$EDGES" -o "$EDGES"
 outd(){ grep -c "^$1	" "$EDGES"; }; ind(){ grep -c "	$1\$" "$EDGES"; }

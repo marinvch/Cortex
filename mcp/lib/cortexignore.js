@@ -14,6 +14,10 @@ import { join } from "node:path";
 export const ALWAYS_SKIP_DIRS = ["node_modules", ".git"];
 // Used only when the vault has no .cortexignore, preserving pre-1.1 recall behaviour.
 export const FALLBACK_SKIP_DIRS = [...ALWAYS_SKIP_DIRS, "archives"];
+// Also fallback-only. A fresh vault ships no .cortexignore and nothing seeds one, so without this
+// every consumer hand-codes its own README exclusion — which is what projects.js did. A vault that
+// HAS a .cortexignore keeps full control: the file stays the single source of truth.
+export const FALLBACK_SKIP_FILES = ["README.md"];
 
 // Escape every regex metacharacter except `*`, which the caller turns into a segment wildcard.
 // The shell version escapes only `.`; escaping more is strictly safer and behaves identically for
@@ -65,7 +69,11 @@ export function makeIgnoreFilter(root) {
   const parsed = loadCortexignore(root);
   const skipNames = new Set(parsed ? ALWAYS_SKIP_DIRS : FALLBACK_SKIP_DIRS);
   if (!parsed) {
-    return { skipDir: (rel) => skipNames.has(rel.split("/").pop()), skipFile: () => false };
+    const skipFileNames = new Set(FALLBACK_SKIP_FILES);
+    return {
+      skipDir: (rel) => skipNames.has(rel.split("/").pop()),
+      skipFile: (rel) => skipFileNames.has(rel.split("/").pop()),
+    };
   }
   return {
     // Pruning a directory is equivalent to filtering every path beneath it, and much cheaper.

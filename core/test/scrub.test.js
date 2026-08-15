@@ -2,6 +2,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { scan, isClean, redact, assertWritable, RefusedWriteError } from "../scrub.js";
 
+// cortex:allow-secrets — this file is the scanner's own corpus. Every "secret" below is a fake
+// assembled for a test, and without this marker Cortex reports its own test suite as a critical
+// finding on every run.
+//
 // Cortex memory is COMMITTED, so this gate is the only thing standing between a developer's note
 // and a secret in the repository's history. Each rule gets a test.
 //

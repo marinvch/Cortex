@@ -104,8 +104,8 @@ personal or secret may go in it, and Cortex will refuse writes that carry creden
 ## 6. Close
 
 State what was written, as a list of paths. Suggest committing it so the team shares the context.
-Mention `/cortex-index` to refresh after significant changes, and `/dream` at the end of a working
-day.
+Mention that re-running `index/cortex-index.mjs` refreshes the index after significant changes,
+and `/dream` at the end of a working day.
 
 ## Gotchas
 

@@ -3,6 +3,53 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.0.0] — 2026-08-15
+
+**Cortex becomes a context manager for new and legacy codebases, installable as a Claude plugin.**
+
+### Added
+- **Installable as a plugin** — `.claude-plugin/{marketplace.json,plugin.json}`. `/plugin
+  marketplace add marinvch/Cortex` then `/plugin install cortex`, at user, project or global scope.
+- **A deterministic index** (`index/`) — asks git what belongs to a repo, resolves imports for
+  JS/TS, Python, Go, Rust and shell, infers layers from structure and hot spots from git history.
+  No LLM, no network: the same tree always yields the same output, so it is safe to re-run in CI.
+- **A findings report** — one ranked markdown artifact and nothing else. The module that finds has
+  no authority to change a repository; `/cortex-scaffold` is the separate skill that applies.
+- **Committed repo memory** (`.cortex/memory/`) — append-only dated files, so several developers
+  and their agents share one context with git as the sync mechanism.
+- **A secret gate** (`core/scrub.js`) — because memory is committed, any write carrying a
+  credential is refused outright rather than sanitised.
+- **Semantic enrichment** (`/cortex-enrich`) — optional summaries, roles and tags on top of the
+  index. Deterministic batching, and validation that assumes the model's output is wrong.
+- New rituals: `/cortex-install`, `/cortex-scaffold`, `/cortex-brief`, `/cortex-enrich`, `/dream`,
+  plus `/wizard`, `/domain-modeling` and `/resolving-merge-conflicts` ported from
+  `mattpocock/skills` (MIT).
+- `references/codebase-design.md` — vocabulary for how code is shaped.
+- `tools/cortex-vault-extract.sh` — moves the personal vault to its own repo. Dry run by default.
+
+### Changed
+- **The MCP server has two modes**, decided by the root it is given: a repo's `.cortex/` serves
+  `recall` · `remember` · `recall_memory`; a personal vault serves the original tools. The vault
+  tools are hidden in repo mode so an agent cannot write `inbox/` into a product repository.
+- **Code is layered `core/` ← `index/` + `mcp/`**, enforced by `core/test/architecture.test.js`.
+  `paths`, `scrub`, `memory` and `date` moved into the kernel.
+- `listProjects` honours `.cortexignore` instead of hard-coding a `README.md` skip.
+- `/analyze-spec` plans wide mechanical changes as expand → migrate → contract.
+- Once-only rituals (`/onboard`, `/migrate-engine`, `/team-init`, `/connect-brain`) carry
+  `disable-model-invocation`, so an agent can never auto-fire them.
+
+### Fixed
+- **`getProjectContext` read outside `AI_OS_ROOT`** — a slug like `../../secret` returned any file
+  on disk. Both candidate paths now go through the existing `resolveInRoot` guard.
+- **One slug rule** across `slug.js`, `cortex-init.sh` and `cortex-scan-projects.sh`, with a parity
+  test. The mismatch made the employer-firewall purge delete a filename nothing ever wrote.
+- **One project-stub contract** — the scanner wrote `**Local path:**` while the viewer selected on
+  `^path:`, so scanner-registered projects were invisible in `cortex.html`.
+
+### Note
+This release moves the project's centre of gravity. The personal-vault half still works and is
+being extracted into its own private repo — see `tools/cortex-vault-extract.sh`.
+
 ## [Unreleased]
 
 **Repo health pass: contract enforcement, missing ritual, CI coverage.**
@@ -129,5 +176,6 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.0.0]: https://github.com/marinvch/Cortex/releases/tag/v2.0.0
 [1.1.0]: https://github.com/marinvch/ai-os/releases/tag/v1.1.0
 [1.0.0]: https://github.com/marinvch/ai-os/releases/tag/v1.0.0

@@ -45,6 +45,21 @@ Tie every claim to the brain; if a fact is missing from the brain, that's a gap 
 Create `docs/plans/<YYYY-MM-DD>-<slug>.md`: small, ordered, independently testable steps; each
 names the files it touches and how it's verified (lint/test). Lowest autonomy that works.
 
+**Wide mechanical changes get expand–contract, not a vertical slice.** The default above assumes
+each step is a thin slice that ships on its own. When one change breaks hundreds or thousands of
+call sites — a renamed export, a changed signature, a moved module — forcing it into vertical
+slices produces a plan that cannot compile between steps. Plan three phases instead:
+
+1. **Expand** — add the new form alongside the old. Nothing is removed, so the tree stays green
+   and the change is independently reviewable and revertible.
+2. **Migrate** — move call sites in batches sized by blast radius, not by count. One batch per
+   area or per owning team, each verifiable on its own.
+3. **Contract** — remove the old form once nothing references it. Verify with a search, and put
+   that search command in the plan so the check is reproducible rather than remembered.
+
+Say in the plan which phase each step belongs to. The failure this avoids is a "small ordered
+step" that is actually 400 files and therefore neither small, reviewable, nor revertible.
+
 ## Step 5 — Route the knowledge back
 If the spec produced a durable invariant or gotcha, say where it belongs: the relevant **scoped
 `AGENTS.md`** (preferred) or root. Append the decision to `docs/decisions.md`. This is how the

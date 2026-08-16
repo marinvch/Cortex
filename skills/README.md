@@ -26,13 +26,17 @@ Each subfolder is a ritual the AI can run. They are plain `SKILL.md` files with 
 ## Activating them as slash commands (optional)
 
 In Cowork or Claude Code you can just say *"run my onboard skill"* and the agent will read the
-file here and follow it. To register them as real `/slash` commands, copy this folder's contents
-into `.claude/skills/`:
+file here and follow it. To register them as real `/slash` commands in this checkout:
 
 ```
-cp -r skills/* .claude/skills/
+bash tools/cortex-sync-skills.sh            # sync
+bash tools/cortex-sync-skills.sh --check    # report drift, change nothing
 ```
 
-The vault's `.claude/skills/` already holds older versions from the previous engine-based setup;
-overwriting them with these is safe. (This session couldn't write into `.claude/` directly because
-that path is protected, which is why the active definitions live here.)
+**This folder is canonical.** `.claude/skills/` is a gitignored, machine-local mirror, so nothing
+keeps it current: a plain `cp -r` never refreshes a changed skill and never removes a deleted one.
+It had drifted to 22 of 30 skills with 9 local copies stale — five v2.0 rituals were simply
+missing. The script replaces each skill wholesale and **reports mirror-only skills without
+deleting them**, since a directory that exists only there has no git history to recover from.
+
+An **installed plugin loads `skills/` directly** and needs no mirror at all.

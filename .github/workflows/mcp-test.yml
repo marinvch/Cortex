@@ -29,12 +29,13 @@ jobs:
         run: |
           git config --global user.email ci@example.com
           git config --global user.name CI
-      - name: Install
-        working-directory: mcp
-        run: npm ci
       - name: Test mcp
         working-directory: mcp
         run: npm test
+      # No install step anywhere: nothing in the repo has a runtime dependency, because a plugin
+      # install clones and never runs one. If a step ever needs `npm ci` again, the plugin is
+      # already broken on users' machines — see core/test/install.test.js.
+      #
       # core/ and index/ have no dependencies of their own — they run straight off the checkout.
       # Separate steps so a failure names the layer that broke.
       #

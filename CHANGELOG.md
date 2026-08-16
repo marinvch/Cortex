@@ -3,6 +3,36 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [Unreleased]
+
+### Fixed
+- **Re-planning an enrichment no longer discards it.** Batch indexes are positional, so adding or
+  removing a layer renumbers every batch after it and the `batch-N.json` files already on disk end
+  up describing a different batch. `validateBatch` treated that as a hallucinated path and dropped
+  every entry — turning a one-file change into a total loss of the enrichment, the opposite of the
+  resumability deterministic batching exists to provide. Found by dogfooding: deleting `.vscode/`
+  removed one layer and the next merge reported **379 issues against 210 summaries, none of which
+  were wrong**.
+
+  A path that is real and indexed is now **kept and reported** when it arrives against a moved
+  batch number; a path absent from the index is still dropped, because "landed in a renumbered
+  batch" and "names a file that does not exist" are different failures. Coverage moved to
+  `mergeEnrichment`, where it is computed across all batches at once — a per-batch gap is
+  meaningless once files can legitimately move between batches.
+
+  Verified by simulating the break: with every batch shifted by one, **198 of 198 surviving
+  summaries were kept and zero dropped**.
+
+### Changed
+- `tools/cortex-sync-skills.sh` — refreshes the gitignored `.claude/skills/` mirror from the
+  canonical `skills/`, with `--check` to report drift. The mirror had rotted to 22 of 30 skills
+  with 9 stale copies, leaving five v2.0 rituals unavailable as slash commands. Mirror-only skills
+  are reported and never removed: they have no git history to recover from.
+- Deleted `.vscode/` — `settings.json` pointed at a `node_modules/typescript/lib` that does not
+  exist, `tasks.json` ran npm scripts from a root `package.json` that does not exist, and
+  `toolsets.json` listed retired engine MCP tools. `/migrate-engine` already named
+  `.vscode/toolsets.json` as an engine artifact to delete.
+
 ## [2.2.0] — 2026-08-16
 
 **The plugin actually installs now.** A live install round-trip — clone the repo the way a plugin

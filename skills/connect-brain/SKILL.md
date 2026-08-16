@@ -10,7 +10,7 @@ Register the Cortex MCP server at **user scope** so every project on this machin
 
 ## What to do
 1. Resolve the vault path (this repo's root) → `AI_OS_ROOT`. Resolve the absolute path to `mcp/server.js`.
-2. Ensure deps are installed: `cd <vault>/mcp && npm install` (once).
+2. There is nothing to install — the server has no dependencies. Node 20+ is the only requirement.
 3. Print (and offer to run) the registration for the user's agent:
 
    **Claude Code:**

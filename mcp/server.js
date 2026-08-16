@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ListToolsRequestSchema, CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { serve } from "./lib/stdio.js";
 import { recall } from "./lib/recall.js";
 import { listProjects, getProjectContext } from "./lib/projects.js";
 import { capture } from "./lib/capture.js";
@@ -51,38 +49,30 @@ const SHARED_TOOLS = [
 
 const TOOLS = REPO_MODE ? [...SHARED_TOOLS, ...REPO_TOOLS] : [...SHARED_TOOLS, ...VAULT_TOOLS];
 
-const server = new Server({ name: "cortex", version: VERSION }, { capabilities: { tools: {} } });
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
-
-server.setRequestHandler(CallToolRequestSchema, async (req) => {
-  const { name, arguments: args = {} } = req.params;
-  const ok = (data) => ({ content: [{ type: "text", text: JSON.stringify(data, null, 2) }] });
-  const fail = (msg) => ({ content: [{ type: "text", text: msg }], isError: true });
-  try {
-    switch (name) {
-      case "recall": return ok(recall(AI_OS_ROOT, args));
-      case "remember": {
-        if (!REPO_MODE) return fail("remember is only available when Cortex is pointed at a repo's .cortex/");
-        const r = rememberNote(AI_OS_ROOT, args.content, { kind: args.kind || "note" });
-        return ok({ path: r.path, day: r.day });
-      }
-      case "recall_memory": {
-        if (!REPO_MODE) return fail("recall_memory is only available when Cortex is pointed at a repo's .cortex/");
-        return ok(recentMemory(AI_OS_ROOT, { days: args.days || 7 }));
-      }
-      case "list_projects": return ok(listProjects(AI_OS_ROOT));
-      case "get_project_context": return ok(getProjectContext(AI_OS_ROOT, args.project));
-      case "capture": {
-        const cargs = { ...args, today: today() };
-        if (args.team) cargs.noteId = genNoteId();
-        return ok(capture(AI_OS_ROOT, cargs));
-      }
-      case "catch_me_up": return ok(catchMeUp(AI_OS_ROOT, args));
-      default: return fail(`unknown tool: ${name}`);
+// Returning plain data; the transport serializes it. Throwing marks the result as an error —
+// which covers both a tool that is unavailable in this mode and one that failed outright.
+async function callTool(name, args) {
+  switch (name) {
+    case "recall": return recall(AI_OS_ROOT, args);
+    case "remember": {
+      if (!REPO_MODE) throw new Error("remember is only available when Cortex is pointed at a repo's .cortex/");
+      const r = rememberNote(AI_OS_ROOT, args.content, { kind: args.kind || "note" });
+      return { path: r.path, day: r.day };
     }
-  } catch (e) {
-    return fail(`${e.code || "error"}: ${e.message}`);
+    case "recall_memory": {
+      if (!REPO_MODE) throw new Error("recall_memory is only available when Cortex is pointed at a repo's .cortex/");
+      return recentMemory(AI_OS_ROOT, { days: args.days || 7 });
+    }
+    case "list_projects": return listProjects(AI_OS_ROOT);
+    case "get_project_context": return getProjectContext(AI_OS_ROOT, args.project);
+    case "capture": {
+      const cargs = { ...args, today: today() };
+      if (args.team) cargs.noteId = genNoteId();
+      return capture(AI_OS_ROOT, cargs);
+    }
+    case "catch_me_up": return catchMeUp(AI_OS_ROOT, args);
+    default: throw new Error(`unknown tool: ${name}`);
   }
-});
+}
 
-await server.connect(new StdioServerTransport());
+serve({ name: "cortex", version: VERSION, tools: TOOLS, call: callTool });

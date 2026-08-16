@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.1.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
+**v2.2.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
 where it is changing, and what is missing. Then it writes a context layer — a small root
@@ -133,7 +133,7 @@ etc.), you can also wire the vault up as a live server so `recall`/`capture` bec
 available in **every project on this machine**, not just this repo. One-time, user scope:
 
 ```bash
-cd /path/to/ai-os/mcp && npm install   # once, installs the server's deps
+# no install step — the server has no dependencies
 claude mcp add --scope user ai-os --env AI_OS_ROOT=/path/to/ai-os -- node /path/to/ai-os/mcp/server.js
 ```
 

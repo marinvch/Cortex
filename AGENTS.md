@@ -194,4 +194,6 @@ convenience imports across leaves are how two packages get welded into one.
   interface, depth, seam, adapter). [[operating-principles]] decides what to build; that decides
   what it looks like. `/analyze-spec` and `/scope-area` should both speak it.
 
-The `cortex-auditor` subagent lives in `.claude/agents/` and is invoked by `/cortex-audit`.
+The `cortex-auditor` subagent lives in **`agents/`** at the repo root — where an installed plugin
+loads subagents from — and is invoked by `/cortex-audit`. `.claude/agents/` would work in this
+checkout and ship to nobody.

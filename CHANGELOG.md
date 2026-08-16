@@ -3,6 +3,51 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.2.0] — 2026-08-16
+
+**The plugin actually installs now.** A live install round-trip — clone the repo the way a plugin
+install does, then run the rituals against a real unrelated repository — found three defects that
+166 passing tests could not, because every one of them was hidden by this development machine.
+
+### Fixed
+- **The MCP brain was dead on every fresh install.** `mcp/server.js` imported
+  `@modelcontextprotocol/sdk`, but installing a plugin *clones* the repository — nothing runs
+  `npm install` and no lockfile is honoured. Every user who installed Cortex from v2.0.0 onward
+  got `ERR_MODULE_NOT_FOUND` and no `recall`, `remember` or `recall_memory`. It passed here only
+  because `mcp/node_modules` existed on the machine the tests ran on.
+
+  The SDK is gone. `mcp/lib/stdio.js` implements the MCP stdio transport directly — about 100
+  lines of newline-delimited JSON-RPC replacing 22 MB across ~90 transitive packages, for the four
+  symbols Cortex used. **Cortex now has no runtime dependencies at all**; `git clone` is the whole
+  install. See [ADR 0004](docs/adr/0004-no-runtime-dependencies.md).
+- **`/cortex-audit` was broken for everyone who installed the plugin.** The `cortex-auditor`
+  subagent lived in `.claude/agents/`, which is project-local — an installed plugin loads
+  subagents from `agents/` at its root. The ritual dispatched a subagent that did not exist. Moved
+  to `agents/`.
+- **`core/*.js` relied on Node's ESM syntax-detection fallback.** No `package.json` above them
+  declared `"type": "module"`, so every run printed `MODULE_TYPELESS_PACKAGE_JSON` and resolved
+  against whatever `package.json` happened to sit above the install directory — which fails
+  outright, not merely noisily, if that one says `"commonjs"`. Added `core/package.json`.
+
+### Added
+- **`core/test/install.test.js`** — the guard that would have caught all three. It reads the source
+  of `core/`, `index/` and `mcp/` and fails on any non-builtin import, any declared runtime
+  dependency, any ESM `.js` file without a `"type": "module"` above it, and any subagent a ritual
+  dispatches that is not shipped in `agents/`. It reads source rather than attempting an import,
+  because the environment is exactly what could not be trusted.
+- **`mcp/test/stdio.test.js`** — pins the protocol edges an SDK used to own: notifications are
+  never answered, unknown methods return `-32601`, a message split across reads still parses, two
+  messages in one read are both handled, and a throwing tool produces `isError` instead of killing
+  the session.
+
+### Changed
+- CI no longer has an install step, and `mcp/package-lock.json` is deleted — there is nothing left
+  to lock. A future `npm ci` in the workflow would mean the plugin is already broken for users.
+- `README`, `mcp/AGENTS.md`, `/connect-brain` and `references/living-cortex.md` no longer tell
+  anyone to run `npm install`.
+
+**181 tests, 0 failures** (was 166).
+
 ## [2.1.0] — 2026-08-15
 
 ### Added
@@ -192,6 +237,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.2.0]: https://github.com/marinvch/Cortex/releases/tag/v2.2.0
 [2.1.0]: https://github.com/marinvch/Cortex/releases/tag/v2.1.0
 [2.0.0]: https://github.com/marinvch/Cortex/releases/tag/v2.0.0
 [1.1.0]: https://github.com/marinvch/ai-os/releases/tag/v1.1.0

@@ -87,7 +87,10 @@ exact word lists and bypass rules live in `skills/optimize-prompt/SKILL.md`. Set
 ## The rituals
 
 Each is a plain-markdown `SKILL.md` under `skills/` — the canonical copy. Expose them as `/slash`
-commands with `cp -r skills/* .claude/skills/`, or just name a ritual to any AI tool.
+commands with `bash tools/cortex-sync-skills.sh`, or just name a ritual to any AI tool. That
+mirror is gitignored, so nothing keeps it current — `--check` reports drift, and a plain `cp -r`
+never removes anything or refreshes a changed skill. An installed plugin loads `skills/` directly
+and needs no mirror at all.
 
 | Ritual | When | Does |
 |---|---|---|

@@ -28,7 +28,7 @@ One source of truth, no copies to drift. `/install-project` generates all of the
 
 ## New user — making it work on a project (zero prior knowledge)
 
-1. **Get Cortex** — clone the vault; run `cp -r skills/* .claude/skills/` to expose the rituals.
+1. **Get Cortex** — clone the vault; run `bash tools/cortex-sync-skills.sh` to expose the rituals.
 2. **Open the project repo** and run **`/install-project`**. This is the "discover the architecture"
    step — it scans `package.json`, folders, configs, tests, and writes the project brain
    (`AGENTS.md` + agent shims + `/plan-feature` + `/investigate-bug` + `docs/decisions.md`).

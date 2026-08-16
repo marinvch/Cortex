@@ -100,7 +100,7 @@ bash tools/cortex-vault-extract.sh --to ~/cortex-brain --apply  # copy it out
 git clone https://github.com/marinvch/ai-os.git
 cd ai-os
 cp templates/home.md home.md          # your personal map (gitignored)
-cp -r skills/* .claude/skills/        # expose the rituals as /slash commands
+bash tools/cortex-sync-skills.sh      # expose the rituals as /slash commands
 ```
 
 **2. Teach the brain who you are** — in Claude Code / Cowork, run:

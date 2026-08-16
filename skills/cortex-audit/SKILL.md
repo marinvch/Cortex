@@ -6,7 +6,7 @@ description: Use when the user says "cortex audit", "audit the project/vault", "
 # /cortex-audit — dispatch the auditor, then fix
 
 One command for a complete health pass. It **delegates the scan** to the `cortex-auditor` custom
-subagent (`.claude/agents/cortex-auditor.md`), which runs read-only in its own context so the heavy
+subagent (`agents/cortex-auditor.md`), which runs read-only in its own context so the heavy
 globbing/link-mapping never bloats this conversation — then **you apply the fixes** here.
 
 > Sits above its siblings: `/audit` scores content, `/cortex-doctor` fixes structure, `/reindex`

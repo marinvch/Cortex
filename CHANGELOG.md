@@ -24,6 +24,14 @@ install does, then run the rituals against a real unrelated repository — found
   subagent lived in `.claude/agents/`, which is project-local — an installed plugin loads
   subagents from `agents/` at its root. The ritual dispatched a subagent that did not exist. Moved
   to `agents/`.
+- **Repo mode was misdetected on POSIX, and CI had been red about it for five commits.**
+  `detectMode` delegated to `path.basename`, which resolves separators for the host it runs on —
+  and on POSIX a backslash is an ordinary character, so a Windows `AI_OS_ROOT` came back as one
+  long segment and every repo install looked like a vault. `path.win32.basename` understands both
+  separators, so the bug was invisible on Windows while `mcp test` failed on every ubuntu runner
+  from `bd51e11` onward. Which mode a root names is a fact about the string, not the host; both
+  separators are now split explicitly, and a new test reads the source so it fails on **either**
+  platform rather than only on Linux.
 - **`core/*.js` relied on Node's ESM syntax-detection fallback.** No `package.json` above them
   declared `"type": "module"`, so every run printed `MODULE_TYPELESS_PACKAGE_JSON` and resolved
   against whatever `package.json` happened to sit above the install directory — which fails
@@ -46,7 +54,7 @@ install does, then run the rituals against a real unrelated repository — found
 - `README`, `mcp/AGENTS.md`, `/connect-brain` and `references/living-cortex.md` no longer tell
   anyone to run `npm install`.
 
-**181 tests, 0 failures** (was 166).
+**182 tests, 0 failures** (was 166).
 
 ## [2.1.0] — 2026-08-15
 

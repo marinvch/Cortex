@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +16,19 @@ test("mode is decided by the root it is pointed at", () => {
   assert.equal(detectMode("/repo/.cortex/"), REPO, "a trailing separator must not change the mode");
   assert.equal(isRepoMode("/repo/.cortex"), true);
   assert.equal(isRepoMode("/repo"), false);
+});
+
+test("mode detection does not depend on the platform it runs on", () => {
+  // The Windows assertion above can only fail on POSIX — `path.win32.basename` understands both
+  // separators, so a `node:path` implementation looks correct on Windows and misdetects every
+  // Windows root on Linux. That is exactly what happened: `mcp test` was red on ubuntu for five
+  // commits while passing locally. Reading the source is the only check that fires on both.
+  const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "lib", "mode.js"), "utf8");
+  assert.doesNotMatch(
+    src,
+    /from\s+["']node:path["']/,
+    "which mode a root names is a fact about the string, not the host — split separators explicitly",
+  );
 });
 
 test("an empty or missing root is treated as a vault, not a repo", () => {

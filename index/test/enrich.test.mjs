@@ -150,3 +150,75 @@ test("staleness is detected by commit and by file count", () => {
   assert.equal(isStale({ ...index, commit: "different" }, fresh), true);
   assert.equal(isStale({ ...index, files: [...FILES, { path: "new.js" }] }, fresh), true);
 });
+
+// Batch indexes are POSITIONAL. Adding or removing a layer renumbers every batch after it, so the
+// batch-N.json files already on disk end up describing a different batch than the one they were
+// written for. Every entry then looks like "not in this batch" and is dropped — discarding the
+// whole enrichment on any structural change, which is the opposite of the resumability the
+// deterministic batching exists to provide.
+//
+// Found by dogfooding: deleting .vscode/ removed one layer, and the next merge reported 379 issues
+// against 210 summaries, not one of which was wrong.
+//
+// The anti-hallucination guard has to survive intact. "Landed in a renumbered batch" and "names a
+// file that does not exist" are different failures and must stay distinguishable.
+
+test("a re-plan that renumbers batches does not discard valid enrichment", () => {
+  const row = (p) => ({ path: p, summary: `about ${p}`, role: "core-logic", tags: ["x"] });
+
+  // This file was written when these two paths were batch 1. After a re-plan, batch 1 holds
+  // something else entirely — so under the positional check both entries are dropped.
+  const writtenUnderOldLayout = [row("src/a.js"), row("src/b.js")];
+  const renumbered = { batchIndex: 1, files: [{ path: "src/c.js" }] };
+  const indexed = new Set(["src/a.js", "src/b.js", "src/c.js"]);
+
+  const { entries, issues } = validateBatch(renumbered, writtenUnderOldLayout, indexed);
+
+  assert.deepEqual(
+    entries.map((e) => e.path).sort(),
+    ["src/a.js", "src/b.js"],
+    "summaries for real indexed files survive a renumbering",
+  );
+  assert.ok(
+    issues.some((i) => i.includes("src/a.js") && !i.includes("dropped")),
+    "the move is reported, not silently absorbed",
+  );
+});
+
+test("a path absent from the index is still dropped, even during a re-plan", () => {
+  const renumbered = { batchIndex: 1, files: [{ path: "src/c.js" }] };
+  const rows = [
+    { path: "src/a.js", summary: "real, just moved", role: "core-logic", tags: [] },
+    { path: "src/invented.js", summary: "hallucinated", role: "core-logic", tags: [] },
+  ];
+  const indexed = new Set(["src/a.js", "src/c.js"]);
+
+  const { entries, issues } = validateBatch(renumbered, rows, indexed);
+
+  assert.deepEqual(entries.map((e) => e.path), ["src/a.js"]);
+  assert.ok(
+    issues.some((i) => i.includes("src/invented.js") && i.includes("dropped")),
+    "an unknown path is still dropped, and said so",
+  );
+});
+
+test("per-batch coverage is not reported when the layout has shifted", () => {
+  // "'src/c.js' was not covered" is meaningless here: another renumbered batch file carries it.
+  // Coverage is a property of the whole merge, not of one batch, once numbering can move.
+  const renumbered = { batchIndex: 1, files: [{ path: "src/c.js" }] };
+  const rows = [{ path: "src/a.js", summary: "moved here", role: "core-logic", tags: [] }];
+  const indexed = new Set(["src/a.js", "src/c.js"]);
+
+  const { issues } = validateBatch(renumbered, rows, indexed);
+  assert.ok(!issues.some((i) => i.includes("was not covered")), "no spurious coverage complaint");
+});
+
+test("without an index, the strict positional check is unchanged", () => {
+  // Callers that do not pass the index keep the original behaviour, so nothing else shifts.
+  const batch = { batchIndex: 1, files: [{ path: "src/a.js" }] };
+  const rows = [{ path: "src/other.js", summary: "s", role: "core-logic", tags: [] }];
+  const { entries, issues } = validateBatch(batch, rows);
+  assert.deepEqual(entries, []);
+  assert.ok(issues.some((i) => i.includes("was not in this batch")));
+  assert.ok(issues.some((i) => i.includes("was not covered")));
+});

@@ -16,9 +16,14 @@ four `cortex-*.mjs` files at the top are the CLIs that skills invoke.
   `core/test/architecture.test.js`.
 - **Enrichment is additive.** It attaches summaries to files and never edits `index.json`, adds
   files, or removes them.
-- **Validate everything a model produced.** `enrich.mjs` assumes its input is wrong: a summary for
-  a file that was not in the batch is dropped *and reported*, uncovered files are named, unknown
-  roles cleared. Never let an unreported drop happen — a silently incomplete enrichment looks
+- **Validate everything a model produced, but only drop what is actually wrong.** `enrich.mjs`
+  assumes its input is wrong: a summary naming a file that is **not in the index** is dropped *and
+  reported*, unknown roles cleared. A path that is real but arrives against a different batch
+  number is **kept and reported** — batch indexes are positional, so adding or removing a layer
+  renumbers every batch after it, and treating that as a hallucination discarded 210 correct
+  summaries in one run. Coverage is therefore checked in `mergeEnrichment`, across all batches at
+  once; a per-batch gap means nothing once files can move. Never let an unreported drop happen —
+  a silently incomplete enrichment looks
   exactly like a complete one.
 
 ## Gotchas
@@ -33,6 +38,10 @@ four `cortex-*.mjs` files at the top are the CLIs that skills invoke.
   `mcp/lib` untested when its tests live in `mcp/test`.
 - Batching is deterministic so an interrupted enrichment resumes — re-run `plan`, and `status`
   still lists exactly what is pending. Do not make batch identity depend on anything but the index.
+  Note the limit that buys: identity is **positional**, so it is stable for an interrupted run
+  against the *same* index, not across a re-plan after files were added or removed. `merge`
+  absorbs that shift rather than discarding the work; `status` will still show the renumbered
+  batches as pending, which is cosmetic.
 - A single file over the line budget is allowed through as its own batch; only *accumulation* is
   bounded.
 

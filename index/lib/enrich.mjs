@@ -20,11 +20,16 @@ const MAX_SUMMARY = 400;
  * Check one batch result against the batch that was requested.
  * Returns { entries, issues } — issues are strings; entries are the survivors.
  */
-export function validateBatch(batch, result) {
+export function validateBatch(batch, result, indexedPaths = null) {
   const issues = [];
   const entries = [];
   const expected = new Set(batch.files.map((f) => f.path));
   const seen = new Set();
+  // Batch indexes are positional: adding or removing a layer renumbers every batch after it, so
+  // files written under an earlier layout arrive against a batch that never asked for them. With
+  // the index in hand we can tell that apart from a hallucination and keep the work; without it we
+  // fall back to the strict positional check.
+  const rebatched = indexedPaths !== null;
 
   const rows = Array.isArray(result) ? result : Array.isArray(result?.files) ? result.files : null;
   if (!rows) {
@@ -37,11 +42,20 @@ export function validateBatch(batch, result) {
       issues.push(`batch ${batch.batchIndex}: an entry has no path`);
       continue;
     }
-    // The single most important check: a summary for a file that was not in the batch is either a
-    // hallucinated path or another batch's work leaking in. Neither may reach the index.
+    // The single most important check: a summary for a file that does not exist is a hallucinated
+    // path and may never reach the index.
     if (!expected.has(path)) {
-      issues.push(`batch ${batch.batchIndex}: '${path}' was not in this batch — dropped`);
-      continue;
+      if (!rebatched) {
+        issues.push(`batch ${batch.batchIndex}: '${path}' was not in this batch — dropped`);
+        continue;
+      }
+      if (!indexedPaths.has(path)) {
+        issues.push(`batch ${batch.batchIndex}: '${path}' is not in the index — dropped`);
+        continue;
+      }
+      // Real, indexed, just filed under a number that has since moved. Keep it and say so: a
+      // human reading the merge output should see that the layout shifted underneath them.
+      issues.push(`batch ${batch.batchIndex}: '${path}' belongs to another batch now — kept`);
     }
     if (seen.has(path)) {
       issues.push(`batch ${batch.batchIndex}: '${path}' appears twice — kept the first`);
@@ -70,8 +84,13 @@ export function validateBatch(batch, result) {
     });
   }
 
-  for (const p of expected) {
-    if (!seen.has(p)) issues.push(`batch ${batch.batchIndex}: '${p}' was not covered`);
+  // Coverage is only a per-batch property while the numbering is stable. Once a re-plan can move
+  // files between batches, a gap here says nothing — another renumbered file almost certainly
+  // carries the path. mergeEnrichment reports real coverage across the whole set.
+  if (!rebatched) {
+    for (const p of expected) {
+      if (!seen.has(p)) issues.push(`batch ${batch.batchIndex}: '${p}' was not covered`);
+    }
   }
 
   return { entries, issues };
@@ -84,14 +103,23 @@ export function validateBatch(batch, result) {
 export function mergeEnrichment(index, results) {
   const files = {};
   const issues = [];
+  const indexed = new Set(index.files.map((f) => f.path));
 
   for (const { batch, result } of results) {
-    const { entries, issues: batchIssues } = validateBatch(batch, result);
+    // Passing the index lets validateBatch distinguish a renumbered batch from a hallucinated
+    // path, so a re-plan no longer throws away work that is entirely correct.
+    const { entries, issues: batchIssues } = validateBatch(batch, result, indexed);
     issues.push(...batchIssues);
     for (const e of entries) files[e.path] = e;
   }
 
-  const indexed = new Set(index.files.map((f) => f.path));
+  // Coverage is checked here, across every batch at once — the only place it means anything once
+  // a file can legitimately arrive from a differently-numbered batch.
+  const requested = new Set();
+  for (const { batch } of results) for (const f of batch.files) requested.add(f.path);
+  for (const p of requested) {
+    if (!files[p]) issues.push(`'${p}' was not covered by any batch`);
+  }
   for (const p of Object.keys(files)) {
     if (!indexed.has(p)) {
       // Belt and braces: a path can be in a stale batch but gone from the current index.

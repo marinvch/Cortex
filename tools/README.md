@@ -77,6 +77,23 @@ views and skills never show up as noise. That one file is the single source of t
 live brain agrees with the generators. (The earlier `cortex-nav.sh` / `cortex-brain.sh` are retired
 in `archives/retired-views/`.)
 
+## `cortex-sync-skills.sh` — refresh the local `/slash` command mirror
+
+`skills/` is canonical and is what an installed plugin loads. `.claude/skills/` is a **gitignored,
+machine-local mirror** that exposes the rituals as `/slash` commands in this checkout — and because
+it is gitignored, nothing keeps it current. The old advice (`cp -r skills/* .claude/skills/`) is run
+once, never re-run, never refreshes a changed skill and never removes a deleted one. In practice it
+had drifted to 22 of 30 skills with 9 stale local copies, so five v2.0 rituals were unavailable.
+
+```bash
+bash tools/cortex-sync-skills.sh            # sync, then report
+bash tools/cortex-sync-skills.sh --check    # report only; exit 1 if out of sync
+```
+
+Each skill is replaced wholesale so a file deleted upstream does not linger. **Mirror-only skills
+are reported and never removed** — a directory that exists only in the mirror is machine-local work
+with no git history to restore from, so deleting it would be unrecoverable.
+
 ## `cortex-rm.sh` — remove a note the safe way
 
 Used by the **🗑 Remove** button in the viewer (which copies this command for the exact note — no

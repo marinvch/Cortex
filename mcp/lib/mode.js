@@ -1,5 +1,3 @@
-import { basename } from "node:path";
-
 // The same MCP server serves two different worlds, and which one it is in is decided entirely by
 // the root it was pointed at:
 //
@@ -13,8 +11,13 @@ import { basename } from "node:path";
 export const REPO = "repo";
 export const VAULT = "vault";
 
+// Deliberately not `path.basename`: that resolves separators for the platform it runs on, and on
+// POSIX a backslash is an ordinary character — so a Windows `AI_OS_ROOT` came back as one long
+// segment and every repo install was misdetected as a vault. Which mode a root names is a fact
+// about the string, not about the host, so both separators are split here explicitly.
 export function detectMode(root) {
-  return basename(String(root ?? "").replace(/[\\/]+$/, "")) === ".cortex" ? REPO : VAULT;
+  const last = String(root ?? "").replace(/[\\/]+$/, "").split(/[\\/]/).pop();
+  return last === ".cortex" ? REPO : VAULT;
 }
 
 export function isRepoMode(root) {

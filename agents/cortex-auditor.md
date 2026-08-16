@@ -36,8 +36,9 @@ call, e.g. a merge or a "stale vs. just quiet" verdict).
    inconsistent naming.
 6. **Integrity bugs** — a **committed** (non-gitignored) file containing personal/business data
    (privacy-firewall leak); a skill in `skills/` **not mirrored** into `.claude/skills/` or **not
-   listed** in `AGENTS.md`/`README.md` (wiring drift); a custom agent in `.claude/agents/` not
-   referenced anywhere; `.cortexignore` violations; files truncated mid-content or malformed.
+   listed** in `AGENTS.md`/`README.md` (wiring drift); a custom agent in `agents/` not
+   referenced anywhere, or one parked in `.claude/agents/` where an installed plugin never sees
+   it; `.cortexignore` violations; files truncated mid-content or malformed.
 7. **Employer-firewall breach (critical — rank above everything else)** — day-job content anywhere
    in a personal vault, *including gitignored paths*: employer or client names, work tickets /
    features / sprints, colleague names, internal architecture, URLs, credentials, or company code.

@@ -70,9 +70,9 @@ cd team/cortex && git commit --allow-empty -m "init cortex-brain" && git push -u
 ```
 > `team/` is already gitignored in the vault, so this private clone never leaks into the public repo.
 
-### 3. Install MCP deps + register the connector with Claude
+### 3. Register the connector with Claude
 ```bash
-cd mcp && npm install && cd -
+# nothing to install — the server has no dependencies
 # register (Claude Code / Desktop). AI_OS_ROOT must be an absolute path.
 claude mcp add ai-os --env AI_OS_ROOT="/path/to/ai-os" -- node "/path/to/ai-os/mcp/server.js"
 ```

@@ -1,11 +1,17 @@
 # mcp/ — the live brain
 
 An optional Node MCP server exposing Cortex over stdio, plus the `ai-os` CLI. The busiest part of
-the repo by commit count, and the only part with a runtime dependency
-(`@modelcontextprotocol/sdk`).
+the repo by commit count, and — like every other part — **dependency-free**.
 
 ## Invariants
 
+- **No runtime dependencies, ever.** A plugin install clones the repo and never runs
+  `npm install`, so a declared dependency is simply absent on the user's machine. `lib/stdio.js`
+  is the ~100-line MCP transport that replaced `@modelcontextprotocol/sdk` for exactly this
+  reason. `core/test/install.test.js` fails the build if an import creeps back in. See
+  [ADR 0004](../docs/adr/0004-no-runtime-dependencies.md).
+- **Only protocol messages go to stdout.** A stray `console.log` corrupts the JSON-RPC stream and
+  the client reports something unrelated. Diagnostics go to stderr.
 - **`server.js` stays a thin switch.** All logic lives in `lib/`; the transport layer is a
   dispatch over tool names and nothing more.
 - **Two modes, decided by the root — never configured.** `AI_OS_ROOT` ending in `.cortex` is
@@ -37,9 +43,10 @@ the repo by commit count, and the only part with a runtime dependency
 ## Tests
 
 ```bash
-cd mcp && npm install && npm test
+cd mcp && npm test
 ```
 
-Needs `npm install` first — this is the only part of the repo with dependencies. `smoke.test.js`
-and `mode.test.js` spawn the real server over stdio; if they time out, read the captured stderr in
-the failure message before assuming a test bug.
+No install step — there is nothing to install. `smoke.test.js` and `mode.test.js` spawn the real
+server over stdio; if they time out, read the captured stderr in the failure message before
+assuming a test bug. `stdio.test.js` drives the transport over in-memory streams instead, so the
+protocol edges (notifications, framing, parse errors) are pinned without spawning anything.

@@ -34,7 +34,7 @@ test("server answers tools/list over stdio", async () => {
       }
     });
     setTimeout(() => {
-      const hint = errBuf.trim() ? `\nserver stderr:\n${errBuf.trim()}` : "\n(server produced no stderr — did you run `npm install` in mcp/?)";
+      const hint = errBuf.trim() ? `\nserver stderr:\n${errBuf.trim()}` : "\n(server produced no stderr — it started but never answered)";
       reject(new Error(`timed out waiting for tools/list${hint}`));
     }, 5000);
   });

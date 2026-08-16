@@ -1,6 +1,6 @@
 {
   "name": "ai-os-mcp",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Cortex brain — local MCP server (recall/capture over the vault).",
   "type": "module",
   "bin": {
@@ -13,8 +13,5 @@
   "scripts": {
     "test": "node --test",
     "smoke": "node test/smoke.test.js"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
   }
 }

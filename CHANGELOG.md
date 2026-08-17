@@ -5,6 +5,26 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Changed
+- **`/analyze-spec` gained the vocabulary for what it cannot yet see.** It could lock decisions and
+  rule work out of scope, but had no way to say "this is in scope and I cannot yet phrase the
+  question sharply" — so that material either hardened into confident detail nobody had decided, or
+  fell into `Out of scope` and was silently abandoned.
+
+  Now: **destination** (named first, because it fixes the scope every later decision is judged
+  against), **fog of war** (in scope, not yet sharp), and the test between them — can you state the
+  question *precisely now*, not can you answer it. The spec template gained **Not yet specified**
+  alongside `Out of scope`; the two are different rulings, one about sharpness and one about scope.
+  If naming the destination surfaces no fog at all, the ritual now says so and stops: that is
+  `/plan-feature` work, not a spec.
+
+  Harvested from upstream's `wayfinder`, which is **not** being ported. Reading it showed the
+  overlap concern was wrong — it is genuinely different — but it is hard-wired to an issue tracker
+  (map as a labelled issue, tickets as child issues, frontier from native blocking dependencies)
+  and cascades into `research` and `prototype`, both already skipped. This repo has zero issues and
+  runs on PRs, the same reason `to-tickets` and `triage` were skipped. Verdict and reasoning are
+  recorded in the harvest doc; revisit only if a tracker is adopted.
+
 ### Added
 - **`/handoff`** — compact the live conversation into a document another agent can pick up, written
   to the OS temp directory. Ported because Cortex's whole thesis is not losing context and this was

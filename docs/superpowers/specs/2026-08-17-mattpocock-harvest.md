@@ -72,6 +72,31 @@ plans per-feature (`/analyze-spec`) but has nothing for work spanning a whole le
 which is the audience Cortex claims. Lowest confidence of the four: it may overlap `/analyze-spec`
 more than the description suggests. Read it before committing.
 
+> **Verdict after reading it (2026-08-17): skipped, vocabulary harvested instead.**
+>
+> The overlap worry was wrong — it is genuinely different from `/analyze-spec`, which plans one
+> feature in one session, where wayfinder charts work too big for *any* single session. The blocker
+> is infrastructure, not redundancy:
+>
+> - **It is hard-wired to an issue tracker.** The map is an issue labelled `wayfinder:map`, tickets
+>   are child issues, and the frontier is computed from the tracker's **native blocking
+>   dependencies** so it renders in the tracker's own UI. With no tracker it defers to
+>   `/setup-matt-pocock-skills` — one of the two skills ruled "not ours to take" above. This repo
+>   has zero open issues and runs entirely on PRs, the same reason `to-tickets` and `triage` were
+>   skipped.
+> - **It cascades.** Its four ticket types invoke `grilling` and `domain-modeling` (both ported)
+>   but also `research` and `prototype` — both on the skip list. An honest port is four pieces of
+>   work plus a tracker-operations doc Cortex does not have.
+>
+> **What was taken instead:** its leading words, into `/analyze-spec` — *destination* (name it
+> first; it fixes scope), *fog of war* (in scope, not yet sharp enough to phrase), and the test
+> that separates them: can you state the question **precisely now**, not can you answer it. The
+> spec template gained a **Not yet specified** section, because it previously had `Out of scope`
+> — a ruling about *scope* — and nothing for in-scope-but-unsharp. Merging those two is how
+> in-scope work gets silently abandoned.
+>
+> Revisit the full port only if this repo adopts an issue tracker.
+
 ## Propose skipping, with reasons (9)
 
 - `to-tickets`, `triage` — both assume an issue tracker in active use. This repo runs on PRs with

@@ -109,6 +109,7 @@ and needs no mirror at all.
 | `/cortex-brief` | per critical area | propose scoped `AGENTS.md` leaves from the index + wire the routing table |
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
+| `/writing-for-agents` | writing any agent-facing doc | the authoring discipline behind every file Cortex writes |
 | `/install-project` | per repo | stamp a codebase brain into a repo — stays in that repo |
 | `/scope-area` | per critical dir | give it a scoped `AGENTS.md` leaf + a routing table in root |
 | `/domain-modeling` | per repo, ongoing | sharpen that repo's glossary — write its `CONTEXT.md` + ADRs |
@@ -141,6 +142,9 @@ and needs no mirror at all.
   where a real invariant or gotcha lives.
 - `/optimize-context` targets **other repos**; `/cortex-doctor` targets this vault. Same instinct,
   different subject. It never deletes prose on its own authority.
+- `/writing-for-agents` and `/optimize-context` are the two halves of one job: the first is how to
+  **write** an agent-facing document, the second **audits** one already written. Reach for the
+  discipline before authoring a brief or a skill, not after the audit says it is bloated.
 - `/domain-modeling` writes a `CONTEXT.md` **in the target repo** — that repo's glossary of terms.
   It is *not* this vault's `context/` (who you are), and its ADRs are *not* `decisions/log.md`
   (your personal decisions). Same word, two different things; never merge them.

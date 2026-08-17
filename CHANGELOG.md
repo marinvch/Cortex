@@ -6,6 +6,23 @@ this project now versions independently of any package manager (see `VERSION`).
 ## [Unreleased]
 
 ### Added
+- **`/writing-for-agents`** — the authoring discipline for documents an agent consumes, and the
+  vocabulary Cortex was missing for its own product: **context pointers** (a skill description, a
+  routing-table line — the wording, not the target, decides whether the material is ever reached),
+  the **two loads** (context load on the agent's window, cognitive load on the human), the
+  **information hierarchy** and progressive disclosure, **completion criteria** and premature
+  completion, **leading words**, and the pruning tests — duplication, relevance, sediment, no-ops.
+
+  Ported because it names what Cortex does for a living. Every ritual writes one of these
+  documents — root `AGENTS.md` and its routing table, scoped leaves, `CONTEXT.md`, skills,
+  `.cortex/memory/` digests — and `/optimize-context` could **audit** them while nothing described
+  how to **write** one. Those two are now wired as halves of one job, and `/skill-creator` points
+  at `SKILL-MECHANICS.md` for the model-invoked vs user-invoked choice it cannot make alone.
+
+  Cortex keeps one deliberate divergence: upstream weighs `disable-model-invocation` purely as
+  context load versus cognitive load, while `/onboard`, `/migrate-engine`, `/team-init` and
+  `/connect-brain` carry it because they are once-only or destructive. Safety outranks the load
+  trade, and the skill says so.
 - **`/grilling`** — the shared interview discipline: work a decision as a *design tree*, ask the
   whole settled *frontier* in one round with a recommended answer for each, and let every round of
   answers push the frontier outward until no branch is left silently assumed. Facts are the

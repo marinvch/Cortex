@@ -37,6 +37,21 @@ Deterministic and offline — parse, imports, inventory, layers, git hot spots. 
 If the repo is not a git checkout the indexer falls back to a filesystem walk; say so, because
 hot spots will be empty and that changes how the findings should be read.
 
+### The fork: greenfield or existing code
+
+The indexer prints the file count. **Zero files is the greenfield flow**, and it is a different
+sequence — not a degenerate case of the one below:
+
+- **Greenfield** — there is nothing to analyse, so skip the ceremony. Still generate the report
+  (it states plainly that the repo is greenfield and costs nothing), then go straight to offering
+  the context layer. **Do not** offer scoped briefs or enrichment: both describe code, and there is
+  none. Say the honest version — scaffolding now means the context layer grows *with* the code
+  instead of being reverse-engineered from it later.
+- **Existing code** — continue with step 3 below.
+
+The fork is on the index, not on a guess about the repo. A repo with a README and no source is
+greenfield; a repo whose only code is a build script is not.
+
 ## 3. Report
 
 ```bash

@@ -186,3 +186,61 @@ test("render always states that nothing was changed", () => {
   assert.match(out, /Nothing in this repository has been changed/);
   assert.match(out, /# Cortex findings — 2026-08-15/);
 });
+
+// A greenfield repo is the OTHER install flow the design specifies, and the report had no idea it
+// existed: an empty repo produced three ranked findings — one of them "high" — about missing
+// documentation for code that does not exist, then pointed at /cortex-brief for "the areas listed
+// above" when there were none. Absurd output on the first run teaches people the report is noise.
+
+function emptyIndex() {
+  return {
+    commit: "abc1234",
+    stats: { files: 0, lines: 0, edges: 0, tests: 0, languages: {}, categories: {} },
+    files: [],
+    edges: [],
+    layers: [],
+  };
+}
+
+test("an empty repo is reported as greenfield, not as a repo with problems", () => {
+  const idx = emptyIndex();
+  const out = analyse(idx, repo());
+
+  // Nothing may be ranked as a defect: there is no code to be missing context for.
+  assert.equal(
+    out.filter((f) => f.severity === "high" || f.severity === "medium").length,
+    0,
+    "a repo with no files has no high or medium findings",
+  );
+  assert.ok(
+    !out.some((f) => /highest-leverage file/.test(f.detail || "")),
+    "does not claim AGENTS.md is high-leverage for a repo with no code",
+  );
+  assert.ok(
+    !out.some((f) => /Domain terms are undefined/.test(f.detail || "")),
+    "does not claim domain terms drift when there is no domain",
+  );
+});
+
+test("the greenfield report says scaffolding is the whole job, and names no areas", () => {
+  const idx = emptyIndex();
+  const out = render(idx, analyse(idx, repo()), { day: "2026-08-15" });
+
+  assert.match(out, /greenfield/i, "names the flow the reader is actually in");
+  assert.doesNotMatch(
+    out,
+    /areas listed above/,
+    "never points at areas when the index found none",
+  );
+  // The stray bullet from an empty language list.
+  assert.doesNotMatch(out, /\n- \n/, "no empty bullet when there are no languages");
+});
+
+test("a repo with code is still reported the old way", () => {
+  const idx = index([{ path: "a.js" }]);
+  const out = analyse(idx, repo());
+  assert.ok(
+    out.some((f) => f.severity === "high" && /No agent context file/.test(f.title)),
+    "the legacy flow is untouched — missing AGENTS.md over real code is still high",
+  );
+});

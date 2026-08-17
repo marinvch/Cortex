@@ -5,6 +5,24 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Fixed
+- **The greenfield install flow existed in the design and nowhere in the code.** `/cortex-install`
+  claimed in its own description to work on "greenfield and legacy repos", and the design spec
+  specifies two distinct sequences — but only the legacy one was implemented. Running it on an
+  empty repo produced **three ranked findings, one of them `high`**, about missing documentation
+  for code that does not exist: AGENTS.md called "the single highest-leverage file" for a repo with
+  zero files, and a glossary demanded because "domain terms are undefined" where there is no
+  domain. It then closed by pointing at `/cortex-brief` for "the areas listed above" — naming areas
+  the index had explicitly found none of.
+
+  Absurd output on a first run is expensive: it teaches a new user the report is noise, and the
+  report is the entire product before anything is written.
+
+  Now `analyse` forks on `isGreenfield` and emits one honest `low` finding, `render` closes with
+  the matching instruction (scaffold; briefs and enrichment wait for code), and `/cortex-install`
+  carries the fork explicitly — on the index's file count, not on a guess about the repo. Also
+  fixes the stray `- ` bullet an empty language map rendered.
+
 ### Changed
 - **`/analyze-spec` gained the vocabulary for what it cannot yet see.** It could lock decisions and
   rule work out of scope, but had no way to say "this is in scope and I cannot yet phrase the

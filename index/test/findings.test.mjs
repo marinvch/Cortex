@@ -362,6 +362,101 @@ test("a greenfield repo produces an empty worklist", () => {
   assert.deepEqual(offers(analyse(emptyIndex(), repo())), []);
 });
 
+// --- The three offers no finding produced ------------------------------------------------------
+//
+// enrich, memory and bundle are repo-scale proposals rather than defects, so nothing in the report
+// spoke for them and the wizard had nothing to ask. They are all low: none of them is a problem,
+// and ranking an optional token spend as a defect is how a report loses its calibration.
+
+const BIG = Array.from({ length: 60 }, (_, i) => ({ path: `src/f${i}.js` }));
+
+test("a large repo offers enrichment, and says what it costs", () => {
+  const [f] = analyse(index(BIG), repo()).filter((x) => offerOf(x)?.action === "enrich");
+  assert.ok(f, "a big unfamiliar repo is exactly where enrichment pays");
+  assert.equal(f.severity, "low", "an optional token spend is not a defect");
+  assert.match(f.detail, /token/i, "the cost is stated before the question, never after");
+});
+
+test("a small repo is not asked to pay for enrichment", () => {
+  const work = offers(analyse(index([{ path: "a.js" }]), repo()));
+  assert.ok(!work.some((o) => o.action === "enrich"));
+});
+
+test("an already-enriched repo is not offered it again", () => {
+  const root = repo({ ".cortex/index/enriched.json": "{}" });
+  assert.ok(!offers(analyse(index(BIG), root)).some((o) => o.action === "enrich"));
+});
+
+test("a repo with no committed memory is offered one", () => {
+  const [f] = analyse(index([{ path: "a.js" }]), repo()).filter((x) => offerOf(x)?.action === "memory");
+  assert.ok(f, "shared memory is the point of the committed half of .cortex/");
+  assert.match(f.detail, /commit/i, "the committed/gitignored asymmetry is explained once");
+});
+
+test("an existing memory store is not offered again", () => {
+  const root = repo({ ".cortex/memory/2026-08-17.md": "# day\n" });
+  assert.ok(!offers(analyse(index([{ path: "a.js" }]), root)).some((o) => o.action === "memory"));
+});
+
+test("a frontend proposes the browser-qa tier, and only that", () => {
+  const idx = index([{ path: "src/App.tsx" }, { path: "src/app.css", category: "code" }]);
+  const [f] = analyse(idx, repo()).filter((x) => offerOf(x)?.action === "bundle");
+  assert.ok(f, "the index gave a reason, so the tier is offered");
+  assert.deepEqual(offerOf(f).targets, ["browser-qa"], "never recite the whole list");
+});
+
+test("an API surface proposes the api tier", () => {
+  const idx = index([{ path: "openapi.yaml", category: "config" }, { path: "src/server.js" }]);
+  const [f] = analyse(idx, repo()).filter((x) => offerOf(x)?.action === "bundle");
+  assert.deepEqual(offerOf(f).targets, ["api"]);
+});
+
+test("a repo that is neither is offered no tier at all", () => {
+  const work = offers(analyse(index([{ path: "lib/thing.js" }]), repo()));
+  assert.ok(!work.some((o) => o.action === "bundle"), "no reason from the index means no question");
+});
+
+test("greenfield still proposes nothing, including the three new offers", () => {
+  assert.deepEqual(offers(analyse(emptyIndex(), repo())), []);
+});
+
+// --- Re-run ------------------------------------------------------------------------------------
+//
+// ADR 0005 lets an established repo re-index freely, which means the wizard runs again over a repo
+// it already served. Work already done must not be offered a second time: re-proposing finished
+// work is how a report teaches people to stop reading it, and the second run is where that lands.
+
+test("a furnished repo offers no scaffolding", () => {
+  const furnished = repo({
+    "AGENTS.md": "# brief\nreal content\n",
+    "CONTEXT.md": "# glossary\n",
+    "docs/adr/TEMPLATE.md": "# adr\n",
+  });
+  const work = offers(analyse(index([{ path: "a.js" }]), furnished));
+  assert.ok(!work.some((o) => o.action === "scaffold"), "nothing to scaffold on a second run");
+});
+
+test("an area that already has a brief drops out of the targets, not just the report", () => {
+  const files = [
+    ...Array.from({ length: 8 }, (_, i) => ({ path: `billing/f${i}.js`, commits: 3 })),
+    ...Array.from({ length: 8 }, (_, i) => ({ path: `auth/f${i}.js`, commits: 2 })),
+  ];
+  const work = offers(analyse(index(files), repo({ "billing/AGENTS.md": "# billing\n" })));
+  const brief = work.find((o) => o.action === "brief");
+  assert.deepEqual(brief.targets, ["auth"], "a finished area is not offered again");
+});
+
+test("a repo Cortex has fully served asks nothing at all", () => {
+  const furnished = repo({
+    "AGENTS.md": "# brief\nreal content\n",
+    "CONTEXT.md": "# glossary\n",
+    "docs/adr/TEMPLATE.md": "# adr\n",
+    ".cortex/memory/2026-08-17.md": "# day\n",
+  });
+  const idx = index([{ path: "a.js" }, { path: "a.test.js", isTest: true }]);
+  assert.deepEqual(offers(analyse(idx, furnished)), [], "an empty worklist is a successful re-run");
+});
+
 test("offers are deterministic — same tree, same offers", () => {
   const files = Array.from({ length: 8 }, (_, i) => ({ path: `billing/f${i}.js`, commits: 3 }));
   const root = repo();

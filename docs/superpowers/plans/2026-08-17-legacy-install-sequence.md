@@ -60,6 +60,11 @@ existing `.cortex/memory/` suppresses `memory`, an area with a scoped `AGENTS.md
 **Verify:** the `baf8140` regression case still ranks a missing `AGENTS.md` high; the same fixture
 with an `AGENTS.md` present emits the finding without a `scaffold` offer.
 
+**Done — no code needed.** The suppression already existed at the finding level: missing-context
+findings only fire when the file is absent, and `briefCandidates` already filtered finished areas.
+The three tests added here are characterization, pinning it at the *offer* surface where the wizard
+reads it. Confirmed on this repo: fully served → 2 context-only findings, empty worklist.
+
 ## 3b. The three offers no finding produces yet
 
 **Touches:** `index/lib/findings.mjs`, `index/test/findings.test.mjs`
@@ -75,6 +80,11 @@ their own before the wizard can ask about them.
 
 **Verify:** each new finding is low severity and absent when already satisfied (an enriched repo
 proposes no `enrich`); the greenfield assertion from step 1 still returns zero offers.
+
+**Done** — index 89/89 green. The enrichment threshold is a named constant (`ENRICH_WORTH_IT = 50`)
+because it is a judgement call meant to be argued with, not a number buried in a conditional.
+Frontend detection keys on file extension, not language: `langs.mjs` maps `.tsx` to `typescript`, so
+language alone cannot tell a frontend from a TypeScript backend.
 
 ## 4. `/cortex-install` walks the offers
 

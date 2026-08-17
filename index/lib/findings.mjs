@@ -16,6 +16,11 @@ const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 // column would ask a question the index never earned.
 const ACTIONS = new Set(["scaffold", "brief", "enrich", "bundle", "triage-secrets", "memory"]);
 
+// Below this, enrichment is a token bill for a summary of code a person could just read. Stated as
+// a named constant because it is a judgement call, not a fact — the number is meant to be argued
+// with rather than discovered in a conditional.
+const ENRICH_WORTH_IT = 50;
+
 function offer(action, targets = []) {
   if (!ACTIONS.has(action)) throw new Error(`unknown offer action: ${action}`);
   return { action, targets };
@@ -344,6 +349,64 @@ export function analyse(index, root) {
         "Hot spots",
         "The files changing most often in the last three months. Effort spent on context, tests or refactoring pays off here first — this is where YAGNI applies to improvement work.",
         hot.map((f) => `${f.path} — ${f.commits} commits`),
+      ),
+    );
+  }
+
+  // --- Repo-scale offers ----------------------------------------------------------------------
+  //
+  // These three are not defects, so they are all low. Enrichment is optional and costs tokens,
+  // memory is a choice about sharing, and a plugin tier is a convenience — ranking any of them as
+  // a problem would spend the report's calibration on things that are working as intended.
+
+  // Enrichment pays on a repo too large to hold in one head. On a small one it is a token bill for
+  // a summary of code you could just read, so the threshold is stated rather than implied.
+  if (index.stats.files >= ENRICH_WORTH_IT && !has(".cortex/index/enriched.json")) {
+    out.push(
+      finding(
+        "low",
+        "enrichment",
+        `${index.stats.files} files — enrichment would make recall describe what code means`,
+        "The index knows how this repo is wired; enrichment adds what each file is for, so recall answers in meaning rather than structure. It costs tokens — one LLM pass over every file, in batches — and it is additive: the index stays the source of truth and a stale enrichment degrades Cortex to deterministic behaviour rather than breaking it.",
+        [],
+        offer("enrich"),
+      ),
+    );
+  }
+
+  if (!has(".cortex/memory")) {
+    out.push(
+      finding(
+        "low",
+        "memory",
+        "No committed memory store",
+        "`.cortex/memory/` is the one part of `.cortex/` that is committed, and that asymmetry is the point: it is how several developers and their agents share one context instead of each re-deriving it. Nothing personal or secret may go in it — Cortex refuses writes carrying credentials rather than sanitising them silently.",
+        [],
+        offer("memory"),
+      ),
+    );
+  }
+
+  // Offer a tier only where the index gives a reason for it. Reciting the whole list is how a
+  // wizard turns into a catalogue, and a tier nobody has a use for is a question that costs
+  // attention and returns nothing.
+  const tiers = [];
+  const ext = (p) => p.slice(p.lastIndexOf("."));
+  if (index.files.some((f) => [".tsx", ".jsx", ".vue", ".svelte"].includes(ext(f.path)) || ["css", "scss", "html", "vue", "svelte"].includes(f.lang))) {
+    tiers.push("browser-qa");
+  }
+  if (index.files.some((f) => /^(openapi|swagger)\.(ya?ml|json)$|\.postman_collection\.json$/.test(f.path.split("/").pop()))) {
+    tiers.push("api");
+  }
+  if (tiers.length) {
+    out.push(
+      finding(
+        "low",
+        "tooling",
+        `Plugin tier${tiers.length === 1 ? "" : "s"} worth offering: ${tiers.join(", ")}`,
+        "The index shows what this repo is, so these tiers have a use here. Core installs regardless; these are the opt-in ones the repo itself argues for.",
+        tiers,
+        offer("bundle", tiers),
       ),
     );
   }

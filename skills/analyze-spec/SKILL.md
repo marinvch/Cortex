@@ -27,17 +27,43 @@ Explore approaches with the user — one question at a time. Surface trade-offs,
 End by **locking the decisions** explicitly (strategy, scope, data boundaries, the autonomy level).
 Do not refine details of something that should be decomposed first.
 
+Use `/grilling` to work the decision tree: ask the whole settled frontier in one round, each with a
+recommended answer, and let the answers push the frontier outward.
+
+### Name the destination, and admit the fog
+
+Two words carry the weight here:
+
+- **Destination** — what reaching the end of this effort looks like. Name it *first*; it fixes the
+  scope, and every later decision is judged against it.
+- **Fog of war** — the questions you can tell are coming but cannot yet phrase sharply, because
+  they hang on decisions still open. Charting fog as though it were settled is how a spec acquires
+  confident detail about things nobody has decided.
+
+The test is whether you can state the question **precisely now** — not whether you can answer it
+now. A sharp question you cannot yet answer belongs in the spec as a decision. A question you
+cannot yet phrase belongs under **Not yet specified**, and graduates when the fog clears.
+
+Keep this distinct from **Out of scope**: that is a ruling about *scope* — beyond the destination,
+never graduates. Fog is about *sharpness* — inside the destination, waiting to be seen. Merging the
+two is how in-scope work gets silently abandoned.
+
+If naming the destination surfaces **no fog at all**, the way is already clear and this is
+`/plan-feature` work, not a spec. Say so and stop.
+
 ## Step 3 — Write the design spec
 Create `docs/specs/<YYYY-MM-DD>-<slug>-design.md`:
 ```markdown
 # Design: <title>
 Date · Status: Draft for review · Area: <critical area / scoped brief it belongs to>
 
+## Destination    — what reaching the end of this looks like; scope is judged against it
 ## Context        — what exists today (cite AGENTS.md + the scoped brief), why now
 ## Decisions locked — bullet the choices made in brainstorm
 ## Architecture   — data flow, components, the invariants this must NOT break
 ## Risks & edges  — failure modes, security/data-boundary concerns, rollback
-## Out of scope   — what this explicitly does not do
+## Not yet specified — in scope, not yet sharp enough to decide. Revisit as the fog clears
+## Out of scope   — beyond the destination. Ruled out, never graduates
 ```
 Tie every claim to the brain; if a fact is missing from the brain, that's a gap to capture.
 

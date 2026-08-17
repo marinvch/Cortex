@@ -46,6 +46,9 @@ same-action findings merged into one entry carrying all targets — five unteste
 **Verify:** test with five untested-area findings returns one `brief` offer with five targets, and
 severity ordering survives the merge (the merged entry takes its rank from its highest member).
 
+**Done** — 29 tests in `findings.test.mjs`, index 77/77 green. An entry also carries the titles that
+produced it, so the wizard can say *why* it is asking rather than naming a bare action.
+
 ## 3. Satisfied offers are suppressed on re-run
 
 **Touches:** `index/lib/findings.mjs`, `index/test/findings.test.mjs`

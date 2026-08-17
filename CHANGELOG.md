@@ -6,6 +6,18 @@ this project now versions independently of any package manager (see `VERSION`).
 ## [Unreleased]
 
 ### Fixed
+- **`/cortex-scaffold` had no source to write from on a greenfield repo.** It opens by refreshing
+  the index and warning that "a scaffold written from assumption is worse than none: it reads as
+  authoritative and is wrong" — then tells the agent to fill every `{{placeholder}}` from the index
+  and the code. On an empty repo there is no code, so following it means inventing a stack (the
+  exact failure it warns about) or leaving `{{placeholders}}` behind, which read as instructions to
+  the next agent and never get cleaned up.
+
+  The honest source on greenfield is the user, so it now **interviews instead of reading** — via
+  `/grilling`, asking the four questions the template needs in one round rather than one at a time.
+  Layout and `CONTEXT.md` behave differently there (no aspirational directories; seed the glossary
+  from the words the user actually used), and the result is labelled for what it is: a greenfield
+  brief is a **hypothesis**, and the first `/cortex-install` over real code is what tests it.
 - **The greenfield install flow existed in the design and nowhere in the code.** `/cortex-install`
   claimed in its own description to work on "greenfield and legacy repos", and the design spec
   specifies two distinct sequences — but only the legacy one was implemented. Running it on an

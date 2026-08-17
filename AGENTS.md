@@ -156,6 +156,12 @@ and needs no mirror at all.
   (your personal decisions). Same word, two different things; never merge them.
 - `/wizard` output handles credentials, so it lands in the target repo's `scripts/` or the
   scratchpad — **never in this vault**, and never committed with values baked in.
+- `/cortex-install` is **model-invocable on purpose** — an agent may start the sequence when a repo
+  plainly needs it. What protects the repo is the **consent gate**, not an invocation flag: with no
+  `.cortex/` yet, it asks before the first write; once `.cortex/` exists, re-indexing is free.
+  Do not re-add `disable-model-invocation` to it for consistency with the four below — that flag
+  marks *once-only or destructive*, not *read-only*. See
+  [ADR 0005](docs/adr/0005-the-install-sequence-may-start-itself.md).
 - `/onboard`, `/migrate-engine`, `/team-init` and `/connect-brain` carry
   `disable-model-invocation: true` — they are once-only or destructive, so an agent may never
   auto-fire them. The user invokes them by name. Keep the flag when editing their frontmatter.

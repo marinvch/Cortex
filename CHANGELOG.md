@@ -6,6 +6,56 @@ this project now versions independently of any package manager (see `VERSION`).
 ## [Unreleased]
 
 ### Changed
+- **The install sequence can finally start itself.** Cortex's design promises that landing on a repo
+  with code *fires* the sequence — index, report, user picks, apply. It never could:
+  `/cortex-install` carried `disable-model-invocation: true`, so only a human typing its name could
+  begin it. The flag had no stated reason — `AGENTS.md` justifies it for `/onboard`,
+  `/migrate-engine`, `/team-init` and `/connect-brain` (once-only or destructive) and the test guards
+  exactly those four. `/cortex-install` only reads. The flag was inherited, and it blocked the
+  sequence the whole design is built around.
+
+  Protection moves to where it belongs — a **consent gate on the first write**. With no `.cortex/`
+  yet it asks before writing anything, including the index, because generated-and-gitignored is not
+  the same as invisible: those are files appearing in a project on a run nobody asked for. Once
+  `.cortex/` exists, re-indexing needs no ceremony. Reading was never gated and still isn't.
+
+  Rejected: shipping a `SessionStart` hook (the plugin ships no hooks at all today, and it would run
+  before the user expressed any intent) and splitting off a read-only "orient" skill (a second
+  spelling of a shipped ritual, and useless for the motivating case — a repo with no index is
+  exactly where an agent needs to act). Recorded in
+  [ADR 0005](docs/adr/0005-the-install-sequence-may-start-itself.md).
+
+### Fixed
+- **`/cortex-scaffold` had no source to write from on a greenfield repo.** It opens by refreshing
+  the index and warning that "a scaffold written from assumption is worse than none: it reads as
+  authoritative and is wrong" — then tells the agent to fill every `{{placeholder}}` from the index
+  and the code. On an empty repo there is no code, so following it means inventing a stack (the
+  exact failure it warns about) or leaving `{{placeholders}}` behind, which read as instructions to
+  the next agent and never get cleaned up.
+
+  The honest source on greenfield is the user, so it now **interviews instead of reading** — via
+  `/grilling`, asking the four questions the template needs in one round rather than one at a time.
+  Layout and `CONTEXT.md` behave differently there (no aspirational directories; seed the glossary
+  from the words the user actually used), and the result is labelled for what it is: a greenfield
+  brief is a **hypothesis**, and the first `/cortex-install` over real code is what tests it.
+- **The greenfield install flow existed in the design and nowhere in the code.** `/cortex-install`
+  claimed in its own description to work on "greenfield and legacy repos", and the design spec
+  specifies two distinct sequences — but only the legacy one was implemented. Running it on an
+  empty repo produced **three ranked findings, one of them `high`**, about missing documentation
+  for code that does not exist: AGENTS.md called "the single highest-leverage file" for a repo with
+  zero files, and a glossary demanded because "domain terms are undefined" where there is no
+  domain. It then closed by pointing at `/cortex-brief` for "the areas listed above" — naming areas
+  the index had explicitly found none of.
+
+  Absurd output on a first run is expensive: it teaches a new user the report is noise, and the
+  report is the entire product before anything is written.
+
+  Now `analyse` forks on `isGreenfield` and emits one honest `low` finding, `render` closes with
+  the matching instruction (scaffold; briefs and enrichment wait for code), and `/cortex-install`
+  carries the fork explicitly — on the index's file count, not on a guess about the repo. Also
+  fixes the stray `- ` bullet an empty language map rendered.
+
+### Changed
 - **`/analyze-spec` gained the vocabulary for what it cannot yet see.** It could lock decisions and
   rule work out of scope, but had no way to say "this is in scope and I cannot yet phrase the
   question sharply" — so that material either hardened into confident detail nobody had decided, or

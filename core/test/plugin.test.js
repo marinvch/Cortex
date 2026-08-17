@@ -86,6 +86,24 @@ test("the once-only rituals stay user-invocable only", () => {
   }
 });
 
+test("/cortex-install is model-invocable, and its consent gate is what protects the repo", () => {
+  // It carried disable-model-invocation alongside the destructive rituals above, with no stated
+  // reason — it only reads. The flag was inherited, and it blocked the sequence from ever starting
+  // on its own. What protects a repo is not the flag but the gate: nothing is written until the
+  // user says yes. See docs/adr/0005-the-install-sequence-may-start-itself.md.
+  const src = readFileSync(join(REPO_ROOT, "skills", "cortex-install", "SKILL.md"), "utf8");
+  assert.doesNotMatch(
+    src,
+    /^disable-model-invocation:\s*true$/m,
+    "cortex-install must stay model-invocable — the consent gate is the control, not the flag",
+  );
+  assert.match(
+    src,
+    /ask before writing anything/i,
+    "the consent gate must be stated in the skill, since it replaces the flag as the protection",
+  );
+});
+
 test("skills referenced by other skills exist", () => {
   // A ritual that hands off to a skill nobody wrote is a broken promise in output users read —
   // exactly how /cortex-scaffold came to be referenced before it existed.

@@ -1,7 +1,6 @@
 ---
 name: cortex-install
-description: Install Cortex into a codebase — index it, report what it finds, and let the user choose what to act on. Use when someone says "install cortex here", "set up cortex on this repo", "give this codebase a context layer", or opens an unfamiliar repo and wants to understand it. Works on greenfield and legacy repos. Writes nothing to source code.
-disable-model-invocation: true
+description: Install Cortex into a codebase — index it, report what it finds, and let the user choose what to act on. Use when someone says "install cortex here", "set up cortex on this repo", "give this codebase a context layer", when opening an unfamiliar repo that needs understanding before work starts, or when a repo has no AGENTS.md and an agent is about to re-derive its architecture from scratch. Works on greenfield and legacy repos. Asks before writing anything, and never touches source code.
 ---
 
 # /cortex-install — give a codebase a context layer
@@ -25,6 +24,22 @@ Refuse to continue if this is the Cortex repo itself (`.claude-plugin/plugin.jso
 Note whether the repo already has `AGENTS.md`, `CONTEXT.md`, `docs/adr/`, `.cortex/`. An existing
 `.cortex/` means Cortex is already installed; offer to re-index instead of reinstalling.
 
+### The consent gate
+
+This skill is **model-invocable** — you may start it yourself when a repo plainly needs it. That
+makes the gate below the thing protecting the repository, not the invocation rules.
+
+**If `.cortex/` does not exist, ask before writing anything** — including the index. Say what you
+propose to do, that it writes only to `.cortex/` and never to source, and wait for a yes. Generated
+and gitignored is not the same as invisible: these are files appearing in someone's project, on a
+run they did not ask for.
+
+**If `.cortex/` already exists**, Cortex is established here and re-indexing needs no ceremony —
+refresh it and carry on.
+
+The gate is on the **first write**, not on reading. Orienting yourself — reading `AGENTS.md`, the
+tree, the manifest — needs no permission and never did.
+
 ## 2. Index
 
 ```bash
@@ -36,6 +51,22 @@ Deterministic and offline — parse, imports, inventory, layers, git hot spots. 
 
 If the repo is not a git checkout the indexer falls back to a filesystem walk; say so, because
 hot spots will be empty and that changes how the findings should be read.
+
+### The fork: greenfield or existing code
+
+The indexer prints the file count. **Zero files is the greenfield flow**, and it is a different
+sequence — not a degenerate case of the one below:
+
+- **Greenfield** — there is nothing to analyse, so skip the ceremony. Still generate the report
+  (it states plainly that the repo is greenfield and costs nothing), then go straight to offering
+  the context layer. **Do not** offer scoped briefs or enrichment: both describe code, and there is
+  none. Say the honest version — scaffolding now means the context layer grows *with* the code
+  instead of being reverse-engineered from it later. `/cortex-scaffold` interviews them for the
+  stack and commands, because there is no code to read them from.
+- **Existing code** — continue with step 3 below.
+
+The fork is on the index, not on a guess about the repo. A repo with a README and no source is
+greenfield; a repo whose only code is a build script is not.
 
 ## 3. Report
 

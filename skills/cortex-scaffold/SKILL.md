@@ -24,6 +24,36 @@ is wrong.
 Then read enough source to answer honestly: what does this project do, how is it run, how are its
 tests invoked, and what would a competent newcomer get wrong on day one.
 
+### Greenfield: ask, because there is nothing to read
+
+If the index reports **zero files**, the rule above has no source to satisfy — and inventing a
+stack is exactly the failure it warns about. The only honest source is the user, so **interview
+them instead of the code**.
+
+Use `/grilling`: ask the settled frontier in one round, each question with your recommended answer,
+rather than one at a time. Four questions cover the template:
+
+1. What is this project, in one sentence — the purpose, not the stack?
+2. What is the stack — language, framework, package manager, runtime version?
+3. What are the commands: install, dev, test, lint? (Say if they do not exist yet.)
+4. What must stay true that a newcomer could break without noticing?
+
+Then write **only what they answered**. A greenfield brief is short and that is correct — delete
+the sections nothing filled rather than leaving `{{placeholders}}`, which read as instructions to
+the next agent and never get cleaned up.
+
+Two sections behave differently here:
+
+- **Layout** — write the directories that exist *and are intended*, not aspirational ones. An empty
+  repo often has none; delete the table and let `/cortex-brief` add rows when structure appears.
+- **`CONTEXT.md`** — seed it from the domain words the user used answering question 1, and say the
+  glossary will sharpen through `/domain-modeling` as the code arrives. Do not invent terms the
+  project has not used yet.
+
+Say plainly what you did: the brief was written from what they told you, not from analysis, so it
+should be re-checked once there is code. A greenfield brief is a **hypothesis**, and the first
+`/cortex-install` run over real code is what tests it.
+
 ## 2. Never clobber
 
 For each target, check first:

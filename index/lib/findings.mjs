@@ -101,9 +101,33 @@ function untestedAreas(index, root) {
     .sort((a, b) => b.commits - a.commits || b.untested - a.untested);
 }
 
+/** A repo the indexer found no source files in — the greenfield install flow, not a broken repo. */
+export function isGreenfield(index) {
+  return index.stats.files === 0;
+}
+
 export function analyse(index, root) {
   const out = [];
   const has = (p) => existsSync(join(root, p));
+
+  // A greenfield repo has nothing to analyse, and ranking absent documentation as a defect is
+  // nonsense there: "no AGENTS.md" is only high-leverage when there is code to explain, and
+  // "domain terms drift" needs a domain. The design specifies two install flows; this is the
+  // other one. Say what it is and stop — scaffolding is the whole job.
+  if (isGreenfield(index)) {
+    out.push(
+      finding(
+        "low",
+        "greenfield",
+        "Greenfield repo — nothing to index yet",
+        "The indexer found no source files, so there is nothing to analyse and no findings to rank. " +
+          "This is the greenfield install flow: scaffold the context layer now and it grows with the " +
+          "code, rather than being reverse-engineered from it later. Re-run the index once there is " +
+          "code and this report becomes useful.",
+      ),
+    );
+    return out;
+  }
 
   // --- Context layer: the thing Cortex exists to manage -------------------------------------
   if (!has("AGENTS.md") && !has("CLAUDE.md")) {
@@ -306,7 +330,8 @@ export function render(index, findings, { day }) {
     "",
     `- **${s.files}** files, **${s.lines.toLocaleString()}** lines, **${s.edges}** resolved imports`,
     `- **${s.tests}** test files`,
-    `- ${langs}`,
+    // An empty language map rendered as a bare "- " bullet.
+    ...(langs ? [`- ${langs}`] : []),
     `- ${index.layers.length} structural areas`,
     index.commit ? `- indexed at \`${index.commit.slice(0, 7)}\`` : "- not a git repository",
     "",
@@ -333,6 +358,20 @@ export function render(index, findings, { day }) {
         lines.push("```", "");
       }
     }
+  }
+
+  // The closing instruction has to match the flow the reader is actually in. Pointing a greenfield
+  // repo at "the areas listed above" names areas that do not exist.
+  if (isGreenfield(index)) {
+    lines.push(
+      "## What happens next",
+      "",
+      "Nothing, until you say so. This is a **greenfield** repo, so scaffolding is the whole job —",
+      "run `/cortex-scaffold` to write the context layer (`AGENTS.md`, `CONTEXT.md`, `docs/adr/`).",
+      "Scoped briefs and enrichment wait until there is code to describe.",
+      "",
+    );
+    return lines.join("\n");
   }
 
   lines.push(

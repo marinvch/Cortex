@@ -6,6 +6,36 @@ this project now versions independently of any package manager (see `VERSION`).
 ## [Unreleased]
 
 ### Added
+- **`/handoff`** — compact the live conversation into a document another agent can pick up, written
+  to the OS temp directory. Ported because Cortex's whole thesis is not losing context and this was
+  a hole in it: `/dream` consolidates a day for the *team*, `/catch-me-up` reads git after time
+  *away*, and neither packages an **in-flight** session for a **different agent right now**.
+
+  Exactly the failure that produced today's work — a parallel session on 2026-08-15 was closed with
+  its skills survey unrecorded and `/improve-codebase-architecture` stranded on a gitignored path.
+
+  Cortex additions on top of the upstream body: a table cutting it against `/dream` and
+  `/catch-me-up` on **in-flight state versus durable knowledge** (a lesson learned belongs in the
+  committed digest, not a temp file gone by next week); redaction must **say what it redacted**, so
+  the next agent knows a value exists instead of inheriting a silent gap; and name the branch, or
+  the next agent goes to `master` looking for changes that are not there.
+- **`/writing-for-agents`** — the authoring discipline for documents an agent consumes, and the
+  vocabulary Cortex was missing for its own product: **context pointers** (a skill description, a
+  routing-table line — the wording, not the target, decides whether the material is ever reached),
+  the **two loads** (context load on the agent's window, cognitive load on the human), the
+  **information hierarchy** and progressive disclosure, **completion criteria** and premature
+  completion, **leading words**, and the pruning tests — duplication, relevance, sediment, no-ops.
+
+  Ported because it names what Cortex does for a living. Every ritual writes one of these
+  documents — root `AGENTS.md` and its routing table, scoped leaves, `CONTEXT.md`, skills,
+  `.cortex/memory/` digests — and `/optimize-context` could **audit** them while nothing described
+  how to **write** one. Those two are now wired as halves of one job, and `/skill-creator` points
+  at `SKILL-MECHANICS.md` for the model-invoked vs user-invoked choice it cannot make alone.
+
+  Cortex keeps one deliberate divergence: upstream weighs `disable-model-invocation` purely as
+  context load versus cognitive load, while `/onboard`, `/migrate-engine`, `/team-init` and
+  `/connect-brain` carry it because they are once-only or destructive. Safety outranks the load
+  trade, and the skill says so.
 - **`/grilling`** — the shared interview discipline: work a decision as a *design tree*, ask the
   whole settled *frontier* in one round with a recommended answer for each, and let every round of
   answers push the frontier outward until no branch is left silently assumed. Facts are the

@@ -11,6 +11,11 @@ everything else. The rules it applies are [[context-engineering]] Rules 1–5.
 
 > Not for this vault — `/cortex-doctor` owns vault structure.
 
+This is the **audit** half of the job. `/writing-for-agents` is the other half — the discipline for
+writing these documents in the first place, and the vocabulary this ritual's findings are named in
+(context load, disclosure, sprawl, duplication, no-ops, a weakly worded pointer). Rewriting a file
+this ritual flags means reaching for that skill, not improvising.
+
 ## The hard rule: never delete prose without a human yes
 
 You cannot mechanically tell *redundant* from *deliberately repeated because it is load-bearing*

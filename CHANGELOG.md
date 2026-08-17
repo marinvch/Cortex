@@ -5,6 +5,29 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Added
+- **`/grilling`** — the shared interview discipline: work a decision as a *design tree*, ask the
+  whole settled *frontier* in one round with a recommended answer for each, and let every round of
+  answers push the frontier outward until no branch is left silently assumed. Facts are the
+  agent's job (dispatch a sub-agent), decisions are the user's.
+
+  Ported because it was a **missing dependency**, not for completeness: `/improve-codebase-architecture`
+  shipped in 2.3.0 telling the reader to "run the `/grilling` skill" for the loop that does the
+  actual work after the report — and no such skill existed. `/analyze-spec`, `/level-up` and
+  `/onboard` all interview the user ad hoc and now have one spelling to borrow.
+
+### Fixed
+- **MIT attribution on `/improve-codebase-architecture`.** It was ported from
+  [mattpocock/skills](https://github.com/mattpocock/skills) by a parallel session without the
+  footer every other ported file carries. A licence obligation, not a style nit.
+
+### Documented
+- `docs/superpowers/specs/2026-08-17-mattpocock-harvest.md` — the full survey of upstream's 18
+  engineering + 7 productivity skills against what Cortex already ships: 5 already ported, 2 not
+  ours to take, 5 already covered by the bundle, 4 worth porting, 9 skipped with reasons. The
+  original survey was run by a parallel session on 2026-08-15 that recorded nothing and was closed,
+  so the work was lost. Writing it down is the point.
+
 ## [2.3.0] — 2026-08-17
 
 ### Added

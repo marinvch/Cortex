@@ -5,6 +5,26 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Changed
+- **The install sequence can finally start itself.** Cortex's design promises that landing on a repo
+  with code *fires* the sequence — index, report, user picks, apply. It never could:
+  `/cortex-install` carried `disable-model-invocation: true`, so only a human typing its name could
+  begin it. The flag had no stated reason — `AGENTS.md` justifies it for `/onboard`,
+  `/migrate-engine`, `/team-init` and `/connect-brain` (once-only or destructive) and the test guards
+  exactly those four. `/cortex-install` only reads. The flag was inherited, and it blocked the
+  sequence the whole design is built around.
+
+  Protection moves to where it belongs — a **consent gate on the first write**. With no `.cortex/`
+  yet it asks before writing anything, including the index, because generated-and-gitignored is not
+  the same as invisible: those are files appearing in a project on a run nobody asked for. Once
+  `.cortex/` exists, re-indexing needs no ceremony. Reading was never gated and still isn't.
+
+  Rejected: shipping a `SessionStart` hook (the plugin ships no hooks at all today, and it would run
+  before the user expressed any intent) and splitting off a read-only "orient" skill (a second
+  spelling of a shipped ritual, and useless for the motivating case — a repo with no index is
+  exactly where an agent needs to act). Recorded in
+  [ADR 0005](docs/adr/0005-the-install-sequence-may-start-itself.md).
+
 ### Fixed
 - **`/cortex-scaffold` had no source to write from on a greenfield repo.** It opens by refreshing
   the index and warning that "a scaffold written from assumption is worse than none: it reads as

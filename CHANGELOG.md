@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-08-17
+
+### Added
+- **`/improve-codebase-architecture` is now a real skill.** It surfaces deepening opportunities —
+  refactors that turn shallow modules into deep ones — reports them as HTML, then works through
+  whichever one you pick. It had been written by a parallel session on 2026-08-15 and only ever
+  existed in the **gitignored** `.claude/skills/` mirror, under a misspelled directory
+  (`improve-codebase-arhitecture`) that did not match its own frontmatter `name:`. It carried no
+  git history, so any mirror rebuild would have destroyed it silently. Promoted to canonical
+  `skills/`, spelling corrected, and listed in the ritual table.
+
+  Its three references to "the `/codebase-design` skill" were dead — `codebase-design` is a
+  reference document (`references/codebase-design.md`), not a ritual. Repointed.
+
 ### Fixed
 - **Re-planning an enrichment no longer discards it.** Batch indexes are positional, so adding or
   removing a layer renumbers every batch after it and the `batch-N.json` files already on disk end
@@ -275,6 +289,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.3.0]: https://github.com/marinvch/Cortex/releases/tag/v2.3.0
 [2.2.0]: https://github.com/marinvch/Cortex/releases/tag/v2.2.0
 [2.1.0]: https://github.com/marinvch/Cortex/releases/tag/v2.1.0
 [2.0.0]: https://github.com/marinvch/Cortex/releases/tag/v2.0.0

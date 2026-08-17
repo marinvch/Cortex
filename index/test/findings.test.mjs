@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { analyse, render, testStem, offerOf } from "../lib/findings.mjs";
+import { analyse, render, testStem, offerOf, offers } from "../lib/findings.mjs";
 
 // These tests were written because Cortex reported both of these bugs about ITSELF: it flagged its
 // own scanner test corpus as a critical secret leak, and it called `mcp/lib` untested when the
@@ -302,6 +302,64 @@ test("findings Cortex cannot act on carry no offer", () => {
 test("the greenfield finding proposes nothing here — scaffolding is already the whole job", () => {
   const out = analyse(emptyIndex(), repo());
   assert.deepEqual(offersIn(out), [], "greenfield has its own flow and does not walk offers");
+});
+
+// --- The worklist -----------------------------------------------------------------------------
+//
+// A repo with thirty findings must not become a thirty-question interview. Offers collapse by
+// action, so five areas needing briefs are one conversation naming five candidates — the wizard
+// asks per *decision*, not per finding.
+
+test("same-action findings collapse into one entry carrying every target", () => {
+  const root = repo({ "AGENTS.md": `${"line\n".repeat(300)}`, "CONTEXT.md": "x" });
+  const files = [
+    ...Array.from({ length: 8 }, (_, i) => ({ path: `billing/f${i}.js`, commits: 3 })),
+    ...Array.from({ length: 8 }, (_, i) => ({ path: `auth/f${i}.js`, commits: 2 })),
+  ];
+  const work = offers(analyse(index(files), root));
+
+  const brief = work.filter((o) => o.action === "brief");
+  assert.equal(brief.length, 1, "two findings both proposing briefs are one decision, not two");
+  assert.deepEqual([...brief[0].targets].sort(), ["auth", "billing"], "no target is lost in the merge");
+});
+
+test("a merged entry takes its rank from its highest member", () => {
+  const root = repo({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
+  const work = offers(analyse(index([{ path: "src/config.js" }]), root));
+  assert.equal(work[0].action, "triage-secrets", "critical leads the worklist, as the report requires");
+  assert.equal(work[0].severity, "critical");
+});
+
+test("the worklist is ranked, so the wizard asks the most severe question first", () => {
+  const work = offers(analyse(index([{ path: "a.js" }]), repo()));
+  const rank = { critical: 0, high: 1, medium: 2, low: 3 };
+  const ranks = work.map((o) => rank[o.severity]);
+  assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b), "severity order survives collapsing");
+  assert.equal(work[0].action, "scaffold", "a repo with no context layer is asked that first");
+});
+
+test("a worklist entry remembers which findings produced it", () => {
+  const work = offers(analyse(index([{ path: "a.js" }]), repo()));
+  const scaffold = work.find((o) => o.action === "scaffold");
+  assert.ok(scaffold.findings.length >= 2, "missing AGENTS.md and missing CONTEXT.md both fed it");
+  assert.ok(
+    scaffold.findings.every((t) => typeof t === "string"),
+    "titles, so the wizard can say why it is asking",
+  );
+});
+
+test("findings with no offer never reach the worklist", () => {
+  const idx = index([{ path: "a.js" }]);
+  idx.stats.tests = 0;
+  const work = offers(analyse(idx, repo()));
+  assert.ok(
+    !work.some((o) => /test/i.test(o.action)),
+    "an unactionable finding is reported, never asked about",
+  );
+});
+
+test("a greenfield repo produces an empty worklist", () => {
+  assert.deepEqual(offers(analyse(emptyIndex(), repo())), []);
 });
 
 test("offers are deterministic — same tree, same offers", () => {

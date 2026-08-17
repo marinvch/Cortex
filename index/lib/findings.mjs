@@ -30,6 +30,32 @@ export function offerOf(f) {
   return f.offer ?? null;
 }
 
+/**
+ * The ranked worklist the install wizard walks: one entry per action, most severe first.
+ *
+ * Collapsing is the point. A repo with thirty findings must not become a thirty-question
+ * interview — five areas that each want a brief are one decision naming five candidates. An entry
+ * inherits the severity of its highest-ranked member, so merging can never bury a critical finding
+ * behind a low one, and carries the titles that produced it so the wizard can say why it is asking.
+ */
+export function offers(findings) {
+  const byAction = new Map();
+  for (const f of findings) {
+    const o = offerOf(f);
+    if (!o) continue;
+    if (!byAction.has(o.action)) {
+      byAction.set(o.action, { action: o.action, severity: f.severity, targets: [], findings: [] });
+    }
+    const entry = byAction.get(o.action);
+    if (SEVERITY_ORDER[f.severity] < SEVERITY_ORDER[entry.severity]) entry.severity = f.severity;
+    for (const t of o.targets) if (!entry.targets.includes(t)) entry.targets.push(t);
+    entry.findings.push(f.title);
+  }
+  return [...byAction.values()].sort(
+    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.action.localeCompare(b.action),
+  );
+}
+
 /** Files that nothing imports and that are not entry points, tests, docs or config. */
 function orphans(index) {
   return index.files.filter(

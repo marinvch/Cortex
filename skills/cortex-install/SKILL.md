@@ -46,7 +46,8 @@ sequence — not a degenerate case of the one below:
   (it states plainly that the repo is greenfield and costs nothing), then go straight to offering
   the context layer. **Do not** offer scoped briefs or enrichment: both describe code, and there is
   none. Say the honest version — scaffolding now means the context layer grows *with* the code
-  instead of being reverse-engineered from it later.
+  instead of being reverse-engineered from it later. `/cortex-scaffold` interviews them for the
+  stack and commands, because there is no code to read them from.
 - **Existing code** — continue with step 3 below.
 
 The fork is on the index, not on a guess about the repo. A repo with a README and no source is

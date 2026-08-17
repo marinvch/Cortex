@@ -122,6 +122,7 @@ and needs no mirror at all.
 | `/team-init` | leader, once | create + seed the shared team-brain repo |
 | `/team-add` | per product repo | clone the team-brain; drop `.cortex/connector.json` |
 | `/catch-me-up` | after time away | brain notes + team-brain git history → what changed & why |
+| `/improve-codebase-architecture` | on request | find deepening opportunities in a repo, report them as HTML, work one |
 | `/skill-creator` | on request | write a new `skills/<name>/SKILL.md` and wire it in |
 | `/optimize-prompt` | automatic | the prompt gate (see the protocol above) |
 

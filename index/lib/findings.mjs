@@ -10,8 +10,24 @@ import { scan } from "../../core/scrub.js";
 
 const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 
-function finding(severity, kind, title, detail, evidence = []) {
-  return { severity, kind, title, detail, evidence };
+// The actions a finding is allowed to propose. Deliberately closed: an offer names a ritual Cortex
+// already ships, so the wizard can walk the ranked report and ask about each in turn. A finding
+// Cortex cannot act on carries no offer and is reported as context — inventing one to fill the
+// column would ask a question the index never earned.
+const ACTIONS = new Set(["scaffold", "brief", "enrich", "bundle", "triage-secrets", "memory"]);
+
+function offer(action, targets = []) {
+  if (!ACTIONS.has(action)) throw new Error(`unknown offer action: ${action}`);
+  return { action, targets };
+}
+
+function finding(severity, kind, title, detail, evidence = [], proposes = null) {
+  return { severity, kind, title, detail, evidence, offer: proposes };
+}
+
+/** What this finding proposes, or null when it proposes nothing. */
+export function offerOf(f) {
+  return f.offer ?? null;
 }
 
 /** Files that nothing imports and that are not entry points, tests, docs or config. */
@@ -137,6 +153,8 @@ export function analyse(index, root) {
         "context",
         "No agent context file",
         "This repo has no AGENTS.md, so every agent starts from zero and re-derives the same conclusions each session. This is the single highest-leverage file Cortex can add.",
+        [],
+        offer("scaffold"),
       ),
     );
   } else if (has("AGENTS.md")) {
@@ -148,6 +166,10 @@ export function analyse(index, root) {
           "context",
           `AGENTS.md is ${lines} lines`,
           "A single large context file is loaded in full on every turn, whether or not it is relevant. Splitting the area-specific parts into scoped leaves with a routing table keeps the root small and loads detail only where work happens.",
+          [],
+          // Split into leaves — never re-scaffold. The root file here is curated, and the
+          // never-clobber rule is the whole reason it survives a second install.
+          offer("brief"),
         ),
       );
     }
@@ -159,6 +181,8 @@ export function analyse(index, root) {
         "context",
         "No CONTEXT.md glossary",
         "Domain terms are undefined, so agents and new developers guess at what words mean and drift apart. A short glossary of the terms this repo uses — with the ones to avoid — costs little and stops a recurring class of confusion.",
+        [],
+        offer("scaffold"),
       ),
     );
   }
@@ -169,6 +193,8 @@ export function analyse(index, root) {
         "context",
         "No architecture decision records",
         "Decisions that were hard to reach are not written down, so they get re-litigated. ADRs are created lazily — only when a decision is hard to reverse, surprising without context, or a real trade-off.",
+        [],
+        offer("scaffold"),
       ),
     );
   }
@@ -215,6 +241,12 @@ export function analyse(index, root) {
         `Possible secrets in ${leaky.length} file${leaky.length === 1 ? "" : "s"}`,
         "Cortex refuses to write memory containing these patterns, and they should not be in the repo either. Verify each one — some will be test fixtures or examples, which is exactly why this is reported rather than acted on.",
         leaky.slice(0, 20).map((l) => `${l.path}: ${l.hits.map((h) => h.kind).join(", ")}`),
+        // Show and stop. There is deliberately no action here that edits a file: some hits are
+        // fixtures, and one false positive acted on destroys trust in every other finding.
+        offer(
+          "triage-secrets",
+          leaky.map((l) => l.path),
+        ),
       ),
     );
   }
@@ -302,6 +334,10 @@ export function analyse(index, root) {
         `${briefs.length} area${briefs.length === 1 ? "" : "s"} may deserve their own AGENTS.md`,
         "Ranked by size, churn and absence of tests. Each of these would get a scoped brief plus a line in the root routing table, so an agent working there loads narrow context instead of everything.",
         briefs.slice(0, 8).map((b) => `${b.dir} — ${b.reasons.join("; ")}`),
+        offer(
+          "brief",
+          briefs.map((b) => b.dir),
+        ),
       ),
     );
   }

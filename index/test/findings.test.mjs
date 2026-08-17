@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { analyse, render, testStem } from "../lib/findings.mjs";
+import { analyse, render, testStem, offerOf } from "../lib/findings.mjs";
 
 // These tests were written because Cortex reported both of these bugs about ITSELF: it flagged its
 // own scanner test corpus as a critical secret leak, and it called `mcp/lib` untested when the
@@ -242,5 +242,74 @@ test("a repo with code is still reported the old way", () => {
   assert.ok(
     out.some((f) => f.severity === "high" && /No agent context file/.test(f.title)),
     "the legacy flow is untouched — missing AGENTS.md over real code is still high",
+  );
+});
+
+// --- Offers -----------------------------------------------------------------------------------
+//
+// A finding says what is wrong; an offer says what Cortex can do about it. The wizard walks the
+// ranked report and asks about each offer in turn, so this mapping is what turns the report from a
+// document read beside the conversation into the script for it. It lives here, next to the finding
+// that earns it, because deriving it from prose in the skill would put it in two places.
+
+const offersIn = (out) => out.map(offerOf).filter(Boolean);
+
+test("a missing context layer offers to scaffold it", () => {
+  const out = analyse(index([{ path: "a.js" }]), repo());
+  const scaffold = out.filter((f) => offerOf(f)?.action === "scaffold");
+  assert.ok(
+    scaffold.some((f) => /No agent context file/.test(f.title)),
+    "the highest-leverage finding must carry the action that fixes it",
+  );
+  assert.ok(scaffold.some((f) => /No CONTEXT\.md/.test(f.title)));
+});
+
+test("an area that deserves a brief offers one, and names it as the target", () => {
+  const files = Array.from({ length: 8 }, (_, i) => ({ path: `billing/f${i}.js`, commits: 3 }));
+  const [f] = analyse(index(files), repo()).filter((x) => offerOf(x)?.action === "brief");
+  assert.ok(f, "a proposed area must carry a brief offer");
+  assert.deepEqual(offerOf(f).targets, ["billing"], "the offer names the directory, not just the action");
+});
+
+test("an oversized AGENTS.md offers splitting, not re-scaffolding", () => {
+  const root = repo({ "AGENTS.md": `${"line\n".repeat(300)}`, "CONTEXT.md": "x" });
+  const [f] = analyse(index([{ path: "a.js" }]), root).filter((x) => /AGENTS\.md is \d+ lines/.test(x.title));
+  assert.equal(offerOf(f)?.action, "brief", "a large root brief is split into leaves, not overwritten");
+});
+
+test("a possible secret offers triage and never remediation", () => {
+  const root = repo({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
+  const [f] = analyse(index([{ path: "src/config.js" }]), root).filter((x) => x.severity === "critical");
+  assert.equal(offerOf(f)?.action, "triage-secrets");
+  // Some hits are fixtures. An offer that edited the file would act on a guess, and one false
+  // positive acted on destroys trust in every other finding in the report.
+  assert.ok(
+    !offersIn(analyse(index([{ path: "src/config.js" }]), root)).some((o) => /fix|remove|redact/.test(o.action)),
+    "no offer may propose editing a source file",
+  );
+});
+
+test("findings Cortex cannot act on carry no offer", () => {
+  // "No test files found" is high severity and there is no Cortex action that writes tests.
+  // Inventing an offer to fill the column would be a question the index did not earn.
+  const idx = index([{ path: "a.js" }]);
+  idx.stats.tests = 0;
+  const [f] = analyse(idx, repo()).filter((x) => /No test files found/.test(x.title));
+  assert.ok(f, "the finding is still reported");
+  assert.equal(offerOf(f), null, "reported, but nothing is proposed");
+});
+
+test("the greenfield finding proposes nothing here — scaffolding is already the whole job", () => {
+  const out = analyse(emptyIndex(), repo());
+  assert.deepEqual(offersIn(out), [], "greenfield has its own flow and does not walk offers");
+});
+
+test("offers are deterministic — same tree, same offers", () => {
+  const files = Array.from({ length: 8 }, (_, i) => ({ path: `billing/f${i}.js`, commits: 3 }));
+  const root = repo();
+  assert.deepEqual(
+    offersIn(analyse(index(files), root)),
+    offersIn(analyse(index(files), root)),
+    "no LLM, no clock, no randomness — offers inherit the index's determinism",
   );
 });

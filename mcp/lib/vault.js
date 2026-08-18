@@ -27,37 +27,14 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
 import { resolveInRoot } from "../../core/paths.js";
-import {
-  ALWAYS_SKIP_DIRS,
-  FALLBACK_SKIP_DIRS,
-  FALLBACK_SKIP_FILES,
-  parseCortexignore,
-} from "./cortexignore.js";
+import { makeIgnoreFilter } from "./cortexignore.js";
 
 const IGNORE_FILE = ".cortexignore";
-
-// Built once per vault. `.cortexignore` is itself a vault path, so it is read through the same door
-// as everything else rather than by a second, unguarded readFileSync.
-function ignoreFilter(read, exists) {
-  const parsed = exists(IGNORE_FILE) ? parseCortexignore(read(IGNORE_FILE)) : null;
-  const skipNames = new Set(parsed ? ALWAYS_SKIP_DIRS : FALLBACK_SKIP_DIRS);
-  if (!parsed) {
-    const skipFileNames = new Set(FALLBACK_SKIP_FILES);
-    return {
-      skipDir: (rel) => skipNames.has(rel.split("/").pop()),
-      skipFile: (rel) => skipFileNames.has(rel.split("/").pop()),
-    };
-  }
-  return {
-    // Pruning a directory is equivalent to filtering every path beneath it, and much cheaper.
-    skipDir: (rel) => skipNames.has(rel.split("/").pop()) || parsed.dirs.some((re) => re.test(`${rel}/`)),
-    skipFile: (rel) => parsed.files.some((re) => re.test(rel)),
-  };
-}
 
 /**
  * Open a vault at `root`. Every returned operation takes a root-relative path and throws
@@ -71,8 +48,11 @@ export function openVault(root) {
   // callers that exists() is safe on untrusted input.
   const exists = (rel) => existsSync(abs(rel));
 
+  // Built once per vault, lazily — `read`/`write`/`append` never need it. `.cortexignore` is itself
+  // a vault path, so it goes through this module's own `read` rather than a second, unguarded
+  // readFileSync. What the patterns MEAN stays in cortexignore.js; only the fetching is here.
   let filter = null;
-  const getFilter = () => (filter ??= ignoreFilter(read, exists));
+  const getFilter = () => (filter ??= makeIgnoreFilter(exists(IGNORE_FILE) ? read(IGNORE_FILE) : null));
 
   function walk(relDir, ext, out) {
     let entries;
@@ -101,6 +81,67 @@ export function openVault(root) {
     abs,
     read,
     exists,
+
+    /**
+     * Type predicates. Both resolve first, so an escaping path is REFUSED rather than answered
+     * false — the same reasoning as `exists`. `getProjectContext` takes a caller-supplied slug and
+     * asks these two questions about it, which is precisely where the disclosure bug lived.
+     */
+    isFile(rel) {
+      try {
+        return statSync(abs(rel)).isFile();
+      } catch (e) {
+        if (e?.code === "outside_root") throw e;
+        return false;
+      }
+    },
+
+    isDirectory(rel) {
+      try {
+        return statSync(abs(rel)).isDirectory();
+      } catch (e) {
+        if (e?.code === "outside_root") throw e;
+        return false;
+      }
+    },
+
+    /** Modification time in ms, or 0 when unreadable. Recall uses it to break scoring ties. */
+    mtimeMs(rel) {
+      try {
+        return statSync(abs(rel)).mtimeMs;
+      } catch {
+        return 0;
+      }
+    },
+
+    /**
+     * One level only: `{ name, rel, isFile, isDirectory }` for each child of `scope`.
+     *
+     * Separate from `list` because shallow and recursive are genuinely different questions, and
+     * deriving one from the other changes meaning. `listProjects` wants the children of `projects/`
+     * — a folder-form project is one entry, not the notes inside it — so a recursive walk would
+     * make an empty project disappear and a project whose notes are all ignored disappear with it.
+     */
+    entries(scope = "", { ignore = true } = {}) {
+      const raw = String(scope).replace(/[\\/]+$/, "");
+      const rel = raw === "" || raw === "." ? "" : raw;
+      let found;
+      try {
+        found = readdirSync(abs(rel || "."), { withFileTypes: true });
+      } catch {
+        return [];
+      }
+      const { skipDir, skipFile } = ignore ? getFilter() : { skipDir: () => false, skipFile: () => false };
+      const out = [];
+      for (const e of found) {
+        const childRel = rel ? `${rel}/${e.name}` : e.name;
+        if (e.isDirectory()) {
+          if (skipDir(childRel)) continue;
+        } else if (skipFile(childRel)) continue;
+        out.push({ name: e.name, rel: childRel, isFile: e.isFile(), isDirectory: e.isDirectory() });
+      }
+      return out;
+    },
 
     /** Root-relative POSIX paths under `scope`, `.cortexignore` applied. Recursive. */
     list(scope = "", { ext = null } = {}) {

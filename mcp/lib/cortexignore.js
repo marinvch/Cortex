@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 // Faithful JS port of tools/_cortex-lib.sh's knowledge_files() filter, so the live MCP brain and
 // the bash generators agree on what counts as knowledge. `.cortexignore` is the single source of
 // truth; this file must not grow its own opinions.
@@ -50,23 +47,22 @@ export function parseCortexignore(text) {
   return { dirs, files };
 }
 
-export function loadCortexignore(root) {
-  let text;
-  try {
-    text = readFileSync(join(root, ".cortexignore"), "utf8");
-  } catch {
-    return null;
-  }
-  return parseCortexignore(text);
-}
+// No file reading here, on purpose. `.cortexignore` is a vault path, and vault paths are resolved
+// in exactly one place — see mcp/lib/vault.js and docs/adr/0007. This module owns what the patterns
+// MEAN; fetching the text is the Vault's job.
+//
+// The dependency also cannot run the other way: vault.list() applies .cortexignore, so vault.js
+// imports this module. If this module took a vault back, the two would import each other.
 
 /**
  * Build the predicate pair used to walk a vault.
  *   skipDir(relPosixPath)  → true when the directory must not be descended into
  *   skipFile(relPosixPath) → true when the file is not knowledge
+ *
+ * Takes the `.cortexignore` TEXT, or null when the vault has none (the fallback path).
  */
-export function makeIgnoreFilter(root) {
-  const parsed = loadCortexignore(root);
+export function makeIgnoreFilter(text) {
+  const parsed = text == null ? null : parseCortexignore(text);
   const skipNames = new Set(parsed ? ALWAYS_SKIP_DIRS : FALLBACK_SKIP_DIRS);
   if (!parsed) {
     const skipFileNames = new Set(FALLBACK_SKIP_FILES);

@@ -112,7 +112,17 @@ case "$MODE" in
 ENVTPL
       )
       chmod 600 "$ENV_FILE" 2>/dev/null || true
-      echo "created env file: $ENV_FILE (0600)"
+      # Report what the filesystem actually did, not what we asked for. Some filesystems (NTFS via
+      # Git Bash, some network mounts) accept chmod and umask silently without storing mode bits,
+      # and printing "(0600)" there would be a security claim this script cannot back up.
+      MODE="$(stat -c %a "$ENV_FILE" 2>/dev/null || echo unknown)"
+      if [ "$MODE" = "600" ]; then
+        echo "created env file: $ENV_FILE (0600)"
+      else
+        echo "created env file: $ENV_FILE"
+        echo "  WARNING: could not confirm 0600 permissions (this filesystem reports '$MODE')." >&2
+        echo "  It will hold an API key — check that only you can read it." >&2
+      fi
     fi
 
     CRON_DAILY="0 6 * * * . $ENV_FILE; BRAIN_DIR=$WORKDIR bash $CRON_SCRIPT --daily"

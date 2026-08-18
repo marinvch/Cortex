@@ -144,3 +144,27 @@ Cut **2.7.0** — new capability. Tag and release so the changelog link is not d
 - Running the rituals themselves (`/level-up`, `/cortex-audit`) on a schedule. That needs the declared
   minimum-model-capability work, still open, and guessing it here would ship a cron job that fails on
   a weak self-hosted model.
+
+---
+
+## Outcome — all tasks done, 2026-08-18
+
+Shipped as **2.7.0**. 23 new shell assertions (60 total). `server-setup.sh` now provisions both
+halves of server mode.
+
+**The security fix was the larger half of the work.** The plan set out to automate a documented
+procedure and found the procedure itself was wrong: it published a crontab line carrying a live API
+key, which `crontab -l` prints. Automating it faithfully would have industrialised the leak. Fixed in
+three places — the provisioning script, `references/living-cortex.md`, and `cortex-cron.sh`'s own
+usage comment, which was teaching the same pattern from a second direction.
+
+**One thing the end-to-end run caught that no test would have.** The script printed
+`created env file: … (0600)` unconditionally. On a filesystem that ignores mode bits — Git Bash on
+NTFS, some network mounts — that is a security claim the script cannot back up, printed to reassure
+someone about a file holding their API key. It now reads the mode back and warns when it cannot
+confirm it. The tests all passed while it was wrong, because they were asserting the *file's* mode
+via a capability probe, not the *message's* truthfulness.
+
+**Deliberately not absorbed:** running the rituals themselves on a schedule (`/level-up`,
+`/cortex-audit`). They assume a strong model, and scheduling them before the declared
+minimum-capability work exists would ship a cron job that fails on a weak self-hosted model.

@@ -3,6 +3,39 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.7.0] — 2026-08-18
+
+### Added
+- **`server-setup.sh` provisions the cron half.** It set up the git half of server mode and stopped;
+  scheduling was a section of `references/living-cortex.md` a human copied by hand.
+
+  `bash tools/server/server-setup.sh cron <clone-url> [work-dir]` clones the working brain, creates
+  the env file, and **prints** the two crontab lines it recommends — changing nothing else. Re-run
+  with `--install` to write them into a marked block (`# cortex-cron (managed)`) that replaces any
+  previous one and leaves every other cron line untouched.
+
+  **Printing is the default on purpose.** A crontab is user-global, easy to clobber and annoying to
+  reconstruct, and people run setup scripts speculatively. This is the consent structure Cortex
+  already uses (ADR 0005, ADR 0006) applied to a new surface: read and report, apply on request.
+
+  The cron script path is resolved from `server-setup.sh`'s own location. The docs hardcoded
+  `$HOME/ai-os`, which is wrong for anyone who cloned elsewhere — and a provisioning step that prints
+  a path which does not exist is worse than one that prints nothing, because it looks finished.
+
+### Fixed
+- **The documentation told operators to put a live API key in their crontab.** The published example
+  was `ANTHROPIC_API_KEY=sk-... bash cortex-cron.sh --daily` as a crontab line. `crontab -l` prints
+  it — the one command anyone runs to check their schedule — and it is carried into any backup of
+  `/var/spool/cron`. It also contradicted the rest of the repo, where `core/scrub.js` refuses a memory
+  write carrying a credential and `/wizard` output is never committed with values baked in. **The
+  docs were asking for exactly what the code refuses.**
+
+  The key now lives in `${XDG_CONFIG_HOME:-$HOME/.config}/cortex/cron.env` at mode `0600`, which the
+  crontab lines *source*. Created with `umask 077` rather than a `chmod` afterwards, so it is never
+  briefly world-readable, and never overwritten if it already exists. `cortex-cron.sh`'s own usage
+  comment stopped teaching the pattern too. Recorded in
+  [ADR 0009](docs/adr/0009-provisioning-prints-before-it-installs.md).
+
 ## [2.6.1] — 2026-08-18
 
 ### Added
@@ -591,6 +624,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.7.0]: https://github.com/marinvch/Cortex/releases/tag/v2.7.0
 [2.6.1]: https://github.com/marinvch/Cortex/releases/tag/v2.6.1
 [2.6.0]: https://github.com/marinvch/Cortex/releases/tag/v2.6.0
 [2.5.0]: https://github.com/marinvch/Cortex/releases/tag/v2.5.0

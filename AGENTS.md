@@ -185,6 +185,14 @@ and needs no mirror at all.
   The three allowlisted files join onto the **install** directory or a git clone, not a vault. The
   Vault does not scrub: secret refusal is policy and stays in `core/scrub.js`. See
   [ADR 0007](docs/adr/0007-the-vault-is-the-only-door.md).
+- **`mode` and `audience` are two different questions — never conflate them.** `mcp/lib/mode.js`
+  answers *what kind of brain this root is* (repo vs vault, decided by whether it ends in
+  `.cortex`). `mcp/lib/resolve.js` answers *who it serves* (solo · team · server). They are
+  orthogonal: a repo-mode brain can run on a server, a vault-mode brain can belong to a team. Solo
+  and team are **detected** from a `.cortex/connector.json` found by walking up from the cwd; server
+  is **declared** with `CORTEX_AUDIENCE=server`, because it leaves no filesystem trace and declaring
+  beats detecting. The resolver never invents a root — `AI_OS_ROOT` unset stays a hard exit. See
+  [ADR 0008](docs/adr/0008-three-audiences-one-seam.md).
 - The MCP server has **two modes, decided by the root it is given**: point it at a repo's
   `.cortex/` and it serves `recall` · `remember` · `recall_memory`; point it at a personal vault
   and it serves the original `capture` · `catch_me_up` · project tools. The vault tools are hidden

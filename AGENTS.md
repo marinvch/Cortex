@@ -176,6 +176,11 @@ and needs no mirror at all.
   severity never implies an offer (*no test files found* is high, and Cortex has no action for it).
   Read the worklist with `cortex-findings.mjs --offers`, which writes nothing. See
   [ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md).
+- **The shell half has behaviour tests now — `bash tools/test/run.sh`.** `bash -n` and shellcheck
+  never *run* a script, which is how four real bugs shipped in `tools/server/` and were found by
+  reading rather than by CI. Tests build real git repos in temp dirs (a bare repo on disk is a
+  complete remote, so no network), and every test touching `$HOME` must override it. They run in the
+  `cortex-init test` workflow. Add a case there when you touch anything under `tools/`.
 - **`mcp/lib/vault.js` is the only door onto a vault root.** Nothing else under `mcp/` may join a
   path onto one — ask the Vault (`list` · `entries` · `read` · `append` · `write` · `abs` ·
   `exists` · `isFile` · `isDirectory` · `mtimeMs`), which takes root-relative paths and resolves

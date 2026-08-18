@@ -80,3 +80,27 @@ err="$(env -u BRAIN_DIR -u AI_OS_ROOT bash "$CRON" --daily 2>&1)"
 assert_exit 1 "neither set is a hard failure" -- env -u BRAIN_DIR -u AI_OS_ROOT bash "$CRON" --daily
 assert_contains "$err" "BRAIN_DIR" "the error names BRAIN_DIR"
 assert_contains "$err" "AI_OS_ROOT" "and names AI_OS_ROOT, so either fix is discoverable"
+
+# --- the silent AI failure (the bug behind the stale model id) ---
+#
+# A bad key, a dead model id or an unreachable network all produce a digest with no summary, exit 0,
+# and no warning. The deterministic fallback is the design working as intended; the SILENCE is the
+# defect. A cron that appears to work while half of it is dead is worse than one that fails.
+#
+# Points at a closed local port, so this is a real failure of a real curl with no network involved.
+
+setup_brain "$WORK/aifail"
+out="$(BRAIN_DIR="$WORK/aifail" ANTHROPIC_API_KEY="test-key-not-real" \
+       CORTEX_API_URL="http://127.0.0.1:9/v1/messages" bash "$CRON" --daily 2>&1)"
+code=$?
+
+assert_eq "0" "$code" "a failed summary must NOT fail the cron run"
+assert_exit 0 "the deterministic digest is still written" -- test -f "$WORK/aifail/digests/$TODAY.md"
+assert_contains "$(cat "$WORK/aifail/digests/$TODAY.md" 2>/dev/null || true)" "## Files changed" \
+  "and still carries the change list"
+assert_contains "$out" "summary unavailable" "the failure is reported instead of swallowed"
+
+# With no key at all there is nothing to warn about — silence is correct here.
+setup_brain "$WORK/nokey"
+out="$(env -u ANTHROPIC_API_KEY BRAIN_DIR="$WORK/nokey" bash "$CRON" --daily 2>&1)"
+assert_not_contains "$out" "summary unavailable" "no key means no warning; that is the boring path"

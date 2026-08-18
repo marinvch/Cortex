@@ -274,3 +274,40 @@ the release afterwards so the link is not dead on arrival.
   separate change on a separate branch.
 - `core/paths.js` internals. The guard is correct; this plan changes who may call it, not what it
   does.
+
+---
+
+## Outcome — all tasks done, 2026-08-18
+
+Shipped as **2.5.0**. `mcp/lib/vault.js` is the only door; it is also the only importer of
+`core/paths.js` inside `mcp/`.
+
+**Where the plan was wrong, and what the work found instead:**
+
+- **The plan predicted three offenders; the honest answer was different.** A syntactic scan for
+  `join(root, …)` finds `cortexignore` and `projects` but is structurally blind to `recall`, which
+  reaches the same place through a closure variable. So the invariant is stated at two altitudes —
+  the scan, plus "the four converted modules import no `node:fs`". The second caught `recall`, and
+  caught `capture` too: guarded via `resolveInRoot`, but still writing the filesystem itself.
+- **Task 4 was smaller than planned and task 3 was larger.** `parseCortexignore(text)` was already
+  pure, so only `loadCortexignore` had to go. But `listProjects` is *shallow* while `list` recurses,
+  so the Vault grew `entries()` — deriving one from the other would make an empty folder-project
+  silently disappear. `isFile` / `isDirectory` / `mtimeMs` were pulled in the same way, by callers
+  that needed them rather than by design up front.
+- **Two bugs the tests caught in my own work.** `list("..")` normalised the leading dots away and
+  listed the root — neutralising an escape instead of refusing it. And the root-join scan flagged
+  the comment in `recall.js` explaining why the scan exists; it now skips comment lines. A rule that
+  cannot survive being written about is too brittle to keep.
+
+**Deliberately left outside the invariant, each checked rather than assumed:** `gitsync.teamCloneDir`
+(slugify cannot emit a traversal segment — verified against `slug.js`), `version.js` and
+`setup-plugins.js` (join onto the *install* directory), `catchup.js` and `team.js` (join onto the git
+clone), `digest.js` (writes to an `--out` path the user named on the CLI). Refusing these would be a
+category error, not extra safety.
+
+**Verification:** core 38 · index 90 · mcp 113 — 0 failures. Plus an end-to-end run against a real
+temp vault: capture → listProjects → recall (ranked and project-scoped) → getProjectContext all
+behave as before, and both `vault.read("../escape.md")` and `getProjectContext(root, "../../secret")`
+refuse with `outside_root`.
+
+**Next:** sequence item 10, the three-mode resolver, which sits behind this interface.

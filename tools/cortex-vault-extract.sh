@@ -99,7 +99,32 @@ for p in "${plan[@]}"; do
   fi
 done
 
-copied=$(find "$DEST" -type f ! -path '*/.git/*' | wc -l | tr -d ' ')
+# Verify THIS RUN's copy, path by path.
+#
+# This used to be `find "$DEST" -type f | wc -l` — a count of everything already in the destination.
+# Re-running into a non-empty destination (what you do after a first attempt goes wrong) inflated it,
+# so a partial copy still cleared the check below and --remove-source deleted a gitignored layer that
+# exists nowhere else. The guard is the one thing standing between a bad copy and permanent loss; it
+# has to count what was actually copied.
+#
+# The same .gitkeep/README.md exclusions as the plan phase, so both sides count like for like.
+copied=0
+short=()
+for p in "${plan[@]}"; do
+  if [ -d "$p" ]; then
+    want=$(find "$p" -type f ! -name '.gitkeep' ! -name 'README.md' | wc -l | tr -d ' ')
+    got=$(find "$DEST/$p" -type f ! -name '.gitkeep' ! -name 'README.md' 2>/dev/null | wc -l | tr -d ' ')
+  else
+    want=1
+    got=0
+    [ -f "$DEST/$p" ] && got=1
+  fi
+  copied=$((copied + got))
+  if [ "$got" -lt "$want" ]; then
+    short+=("$p ($got/$want copied)")
+  fi
+done
+
 echo
 echo "copied $copied files into $DEST"
 
@@ -115,6 +140,12 @@ IGNORE
 fi
 
 if [ "$REMOVE" -eq 1 ]; then
+  if [ ${#short[@]} -gt 0 ]; then
+    echo "refusing to remove the source: the copy is incomplete" >&2
+    for s in "${short[@]}"; do echo "  $s" >&2; done
+    echo "nothing has been deleted. Fix the copy, then re-run with --remove-source." >&2
+    exit 1
+  fi
   if [ "$copied" -lt "$total" ]; then
     echo "refusing to remove the source: copied $copied but expected at least $total" >&2
     exit 1

@@ -62,10 +62,107 @@ case "$MODE" in
     echo "next: register the MCP, then in a Claude session try  capture(team:\"$SLUG\", content:\"hello\")"
     ;;
 
+  cron)
+    # The scheduler half. This used to be a section of references/living-cortex.md that a human
+    # copied by hand, which is how its crontab example came to carry a live API key.
+    REMOTE="${2:?usage: server-setup.sh cron <clone-url> [work-dir] [--install]}"
+    WORKDIR="${3:-$HOME/cortex-work}"
+    case "${3:-}" in --install) WORKDIR="$HOME/cortex-work" ;; esac
+    INSTALL=0
+    for a in "$@"; do [ "$a" = "--install" ] && INSTALL=1; done
+
+    # Resolve the cron script from THIS script's own location. living-cortex.md hardcodes
+    # $HOME/ai-os, which is wrong for anyone who cloned anywhere else — and a provisioning step that
+    # prints a path which does not exist is worse than one that prints nothing, because it looks
+    # finished.
+    HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    CRON_SCRIPT="$HERE/cortex-cron.sh"
+    [ -f "$CRON_SCRIPT" ] || { echo "cannot find cortex-cron.sh next to this script" >&2; exit 1; }
+
+    if [ -d "$WORKDIR/.git" ]; then
+      echo "already cloned: $WORKDIR"
+    else
+      git clone "$REMOTE" "$WORKDIR"
+      echo "cloned working brain: $WORKDIR"
+    fi
+
+    # The key lives in a 0600 file the crontab SOURCES. Inlining it in the crontab — which is what
+    # the docs used to tell people to do — means `crontab -l` prints it, it lands in any backup of
+    # /var/spool/cron, and it is exposed by the one command people run to check whether cron is set
+    # up. core/scrub.js refuses a memory write carrying a credential; the docs should not ask for
+    # what the code refuses.
+    CFG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cortex"
+    ENV_FILE="$CFG_DIR/cron.env"
+    mkdir -p "$CFG_DIR"
+    if [ -f "$ENV_FILE" ]; then
+      echo "env file already present: $ENV_FILE (left untouched)"
+    else
+      # umask so the file is never briefly world-readable between creation and chmod.
+      ( umask 077
+        cat > "$ENV_FILE" <<'ENVTPL'
+# Cortex cron environment. Sourced by the crontab lines server-setup.sh prints.
+# This file holds a live credential — keep it 0600 and never commit it.
+#
+# Optional. Without a key, cortex-cron.sh writes a deterministic git-based digest,
+# which is the boring path and always works.
+#ANTHROPIC_API_KEY=
+
+# Optional. Model ids age out; if the log says "summary unavailable", check this first.
+#CORTEX_MODEL=claude-sonnet-5
+ENVTPL
+      )
+      chmod 600 "$ENV_FILE" 2>/dev/null || true
+      # Report what the filesystem actually did, not what we asked for. Some filesystems (NTFS via
+      # Git Bash, some network mounts) accept chmod and umask silently without storing mode bits,
+      # and printing "(0600)" there would be a security claim this script cannot back up.
+      MODE="$(stat -c %a "$ENV_FILE" 2>/dev/null || echo unknown)"
+      if [ "$MODE" = "600" ]; then
+        echo "created env file: $ENV_FILE (0600)"
+      else
+        echo "created env file: $ENV_FILE"
+        echo "  WARNING: could not confirm 0600 permissions (this filesystem reports '$MODE')." >&2
+        echo "  It will hold an API key — check that only you can read it." >&2
+      fi
+    fi
+
+    CRON_DAILY="0 6 * * * . $ENV_FILE; BRAIN_DIR=$WORKDIR bash $CRON_SCRIPT --daily"
+    CRON_WEEKLY="10 6 * * 1 . $ENV_FILE; BRAIN_DIR=$WORKDIR bash $CRON_SCRIPT --weekly"
+    MARKER="# cortex-cron (managed)"
+
+    if [ "$INSTALL" -eq 1 ]; then
+      # Replace the managed block; never touch anything outside it. The operator's other cron jobs
+      # are not ours to rewrite.
+      existing="$(crontab -l 2>/dev/null || true)"
+      kept="$(printf '%s\n' "$existing" | grep -vF "$MARKER" | grep -vF "$CRON_SCRIPT" || true)"
+      { [ -n "$kept" ] && printf '%s\n' "$kept"
+        printf '%s\n%s\n%s\n' "$MARKER" "$CRON_DAILY" "$CRON_WEEKLY"
+      } | crontab -
+      echo "installed: 2 cortex-cron entries (replacing any previous managed block)"
+      echo "check with: crontab -l"
+    else
+      # Printing is the default. A crontab is user-global, easy to clobber and annoying to rebuild;
+      # a setup script that rewrites it because someone ran it to see what it would do has broken
+      # something nobody asked it to touch. Same consent structure as ADR 0005/0006.
+      echo
+      echo "add these to your crontab (crontab -e), or re-run with --install:"
+      echo
+      echo "$MARKER"
+      echo "$CRON_DAILY"
+      echo "$CRON_WEEKLY"
+      echo
+      echo "for an AI summary, put your key in $ENV_FILE"
+      echo "without one, the digest is still written — deterministically, from git"
+    fi
+    ;;
+
   *)
     echo "usage:"
     echo "  bash server-setup.sh server [repo-name]                                    # on the server"
     echo "  bash server-setup.sh client ssh://USER@SERVER/~/git/cortex-brain.git [slug]  # in vault root"
+    echo "  bash server-setup.sh cron <clone-url> [work-dir] [--install]                # on the server"
+    echo
+    echo "cron mode prints the crontab lines it recommends and changes nothing;"
+    echo "pass --install to write them into a managed block in your crontab."
     exit 1
     ;;
 esac

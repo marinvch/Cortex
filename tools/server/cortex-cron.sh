@@ -5,9 +5,13 @@
 # AI summary is OPTIONAL: only used when ANTHROPIC_API_KEY is set — otherwise a plain, deterministic
 # git-based digest is written (boring is beautiful; it always works).
 #
-# Usage (from cron):
+# Usage (from cron — `server-setup.sh cron` writes these lines for you):
 #   BRAIN_DIR=$HOME/cortex-work bash cortex-cron.sh --daily
-#   AI_OS_ROOT=$HOME/cortex-work ANTHROPIC_API_KEY=sk-... bash cortex-cron.sh --weekly
+#   . ~/.config/cortex/cron.env; BRAIN_DIR=$HOME/cortex-work bash cortex-cron.sh --weekly
+#
+# The key is SOURCED from a 0600 env file, never written inline. A key on the command line lands in
+# shell history, in `ps` for the life of the process, and — if copied into a crontab — in the output
+# of `crontab -l`, which is the one command people run to check their schedule.
 #
 # Env:
 #   BRAIN_DIR           path to a git clone of the brain repo. Falls back to AI_OS_ROOT, which is

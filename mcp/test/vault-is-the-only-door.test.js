@@ -56,7 +56,12 @@ test("vault.js is the only door onto a vault root", () => {
     if (ALLOWED.has(rel)) continue;
     const src = readFileSync(file, "utf8");
     src.split("\n").forEach((line, i) => {
-      if (ROOT_JOIN.test(line)) offenders.push(`${rel}:${i + 1}  ${line.trim()}`);
+      // Comments are prose, not calls. Without this the check flags the very comment explaining why
+      // the check exists — which it did, in recall.js. A rule that cannot survive being written
+      // about is too brittle to keep.
+      const trimmed = line.trim();
+      if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) return;
+      if (ROOT_JOIN.test(line)) offenders.push(`${rel}:${i + 1}  ${trimmed}`);
     });
   }
 

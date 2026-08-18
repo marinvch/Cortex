@@ -1,42 +1,44 @@
-import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { resolveInRoot } from "../../core/paths.js";
-import { makeIgnoreFilter } from "./cortexignore.js";
+// Projects in a personal vault: `projects/<slug>.md` (flat) or `projects/<slug>/*.md` (folder).
+// This module owns that SHAPE. Filesystem access belongs to the Vault (docs/adr/0007) — it used to
+// join `projects` onto the root itself, one of the doors the guard did not cover.
+
+import { openVault } from "./vault.js";
 
 export function listProjects(root) {
-  const dir = join(root, "projects");
-  let entries;
-  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return []; }
-  // `.cortexignore` decides what is knowledge — the same contract recall.js and the bash
-  // generators honour. This used to be a hand-coded `README.md` check, which meant the vault had
-  // two different notions of noise and only one of them was configurable.
-  const { skipDir, skipFile } = makeIgnoreFilter(root);
+  const vault = openVault(root);
   const out = [];
-  for (const e of entries) {
-    const rel = `projects/${e.name}`;
-    if (e.isFile() && e.name.endsWith(".md")) {
-      if (skipFile(rel)) continue;
-      out.push({ slug: e.name.replace(/\.md$/, ""), path: join(dir, e.name) });
-    } else if (e.isDirectory() && !e.name.startsWith(".")) {
-      if (skipDir(rel)) continue;
-      out.push({ slug: e.name, path: join(dir, e.name) });
+  // Shallow on purpose: a folder-form project is ONE entry, not the notes inside it.
+  // `.cortexignore` decides what is knowledge — the same contract recall.js and the bash generators
+  // honour. This used to be a hand-coded `README.md` check, which meant the vault had two different
+  // notions of noise and only one of them was configurable.
+  for (const e of vault.entries("projects")) {
+    if (e.isFile && e.name.endsWith(".md")) {
+      out.push({ slug: e.name.replace(/\.md$/, ""), path: vault.abs(e.rel) });
+    } else if (e.isDirectory && !e.name.startsWith(".")) {
+      out.push({ slug: e.name, path: vault.abs(e.rel) });
     }
   }
   return out.sort((a, b) => a.slug.localeCompare(b.slug));
 }
 
 export function getProjectContext(root, slug) {
-  // `slug` is caller-supplied, so both candidate paths go through the root guard.
-  // Without this, a slug like `../../secret` reads any file on disk (see projects.test.js).
-  const file = resolveInRoot(root, join("projects", `${slug}.md`));
-  const dir = resolveInRoot(root, join("projects", slug));
-  if (existsSync(file) && statSync(file).isFile()) {
-    return { slug, path: file, content: readFileSync(file, "utf8") };
+  const vault = openVault(root);
+  // `slug` is caller-supplied, so both candidate paths go through the root guard — which is now
+  // unavoidable rather than remembered, since the Vault is the only way to touch either one.
+  // Without the guard, a slug like `../../secret` reads any file on disk (see projects.test.js).
+  const fileRel = `projects/${slug}.md`;
+  const dirRel = `projects/${slug}`;
+
+  if (vault.isFile(fileRel)) {
+    return { slug, path: vault.abs(fileRel), content: vault.read(fileRel) };
   }
-  if (existsSync(dir) && statSync(dir).isDirectory()) {
-    const notes = readdirSync(dir).filter((n) => n.endsWith(".md")).sort();
-    const content = notes.map((n) => readFileSync(join(dir, n), "utf8")).join("\n\n---\n\n");
-    return { slug, path: dir, content };
+  if (vault.isDirectory(dirRel)) {
+    const notes = vault
+      .entries(dirRel, { ignore: false })
+      .filter((e) => e.isFile && e.name.endsWith(".md"))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const content = notes.map((e) => vault.read(e.rel)).join("\n\n---\n\n");
+    return { slug, path: vault.abs(dirRel), content };
   }
   const err = new Error(`project not found: ${slug}`);
   err.code = "not_found";

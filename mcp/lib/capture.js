@@ -1,10 +1,17 @@
-import { mkdirSync, appendFileSync, existsSync, writeFileSync } from "node:fs";
-import { dirname, relative, sep } from "node:path";
-import { resolveInRoot } from "../../core/paths.js";
+// Capture: where a note lands. This module owns ROUTING — personal note versus team-brain clone,
+// project note versus dated inbox. The Vault owns touching the filesystem (docs/adr/0007).
+//
+// Note what did NOT move in here: scrubbing. Secret refusal is a policy decision that lives in
+// core/scrub.js with the callers that apply it. Folding it into the Vault would make every write
+// pay for it and would hide a refusal behind a path operation.
+
+import { relative, sep } from "node:path";
 import { commitAndPush, teamCloneDir, pull } from "./gitsync.js";
 import { slugify } from "./slug.js";
+import { openVault } from "./vault.js";
 
 export function capture(root, { content, project, tags, today, team, noteId }) {
+  const vault = openVault(root);
   const tagLine = tags && tags.length ? " " + tags.map((t) => `#${slugify(t)}`).join(" ") : "";
 
   // Team mode: one-file-per-note under the team-brain clone, then commit+push.
@@ -14,9 +21,8 @@ export function capture(root, { content, project, tags, today, team, noteId }) {
     pull(clone); // best-effort ff-only sync before committing/pushing (ignores failure)
     const slug = project ? slugify(project) : "inbox";
     const rel = `team/${teamSlug}/projects/${slug}/${today}-${noteId}.md`;
-    const abs = resolveInRoot(root, rel);
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, `---\ntype: brain-note\ncreated: ${today}\n---\n\n${content}${tagLine}\n`);
+    vault.write(rel, `---\ntype: brain-note\ncreated: ${today}\n---\n\n${content}${tagLine}\n`);
+    const abs = vault.abs(rel);
     const fileInClone = relative(clone, abs).split(sep).join("/"); // git wants forward slashes
     const res = commitAndPush(clone, [fileInClone], `capture: ${slug}`);
     return res.pushed ? { path: abs, pushed: true } : { path: abs, pushed: false, error: res.error };
@@ -24,10 +30,8 @@ export function capture(root, { content, project, tags, today, team, noteId }) {
 
   // Personal mode (unchanged): append to project note or dated inbox.
   const rel = project ? `projects/${slugify(project)}.md` : `inbox/${today}.md`;
-  const abs = resolveInRoot(root, rel);
-  mkdirSync(dirname(abs), { recursive: true });
   const line = `\n- ${today} — ${content}${tagLine}\n`;
-  if (!existsSync(abs)) appendFileSync(abs, `---\ntype: brain-note\ncreated: ${today}\n---\n`);
-  appendFileSync(abs, line);
-  return { path: abs, pushed: false };
+  if (!vault.exists(rel)) vault.append(rel, `---\ntype: brain-note\ncreated: ${today}\n---\n`);
+  vault.append(rel, line);
+  return { path: vault.abs(rel), pushed: false };
 }

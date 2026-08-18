@@ -1,10 +1,9 @@
 // mcp/test/cortexignore.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { parseCortexignore, makeIgnoreFilter, loadCortexignore } from "../lib/cortexignore.js";
+// No filesystem imports: this module is pure now. It decides what the patterns MEAN, and the Vault
+// fetches the text. A test that needed a temp directory to check a regex was telling us something.
+import { parseCortexignore, makeIgnoreFilter } from "../lib/cortexignore.js";
 
 test("parses the three pattern forms", () => {
   const p = parseCortexignore("docs/\n*.example.md\nREADME.md\n");
@@ -36,14 +35,18 @@ test("dots are literal, not regex wildcards", () => {
   assert.ok(!p.files[0].test("READMExmd"));
 });
 
-test("loadCortexignore returns null when the vault has none", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
-  assert.equal(loadCortexignore(root), null);
+// `loadCortexignore(root)` used to live here and read the file itself. It is gone: reading a vault
+// path is the Vault's job now (docs/adr/0007). What it actually verified — that a vault with no
+// .cortexignore falls back rather than failing — is covered from both sides: `makeIgnoreFilter(null)`
+// below is the null contract, and vault.test.js's "without a .cortexignore, list falls back to
+// skipping archives and README" is the end-to-end behaviour.
+test("a null text means 'this vault has no .cortexignore', not 'ignore nothing'", () => {
+  const { skipDir } = makeIgnoreFilter(null);
+  assert.ok(skipDir("archives"), "the fallback list applies; null is not an empty ruleset");
 });
 
 test("without .cortexignore, falls back to pre-1.1 skip list", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
-  const { skipDir, skipFile } = makeIgnoreFilter(root);
+  const { skipDir, skipFile } = makeIgnoreFilter(null);
   assert.ok(skipDir("archives"));
   assert.ok(skipDir(".git"));
   assert.ok(skipDir("node_modules"));
@@ -54,25 +57,20 @@ test("without .cortexignore, falls back to pre-1.1 skip list", () => {
 test("without .cortexignore, README.md is scaffolding, not knowledge", () => {
   // A fresh vault ships no .cortexignore, and nothing seeds one. Without this fallback every
   // consumer has to hand-code its own README exclusion — projects.js did exactly that.
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
-  const { skipFile } = makeIgnoreFilter(root);
+  const { skipFile } = makeIgnoreFilter(null);
   assert.ok(skipFile("README.md"));
   assert.ok(skipFile("projects/README.md"));
   assert.ok(!skipFile("readme-notes.md"));
 });
 
 test("a .cortexignore that omits README.md is respected — the file stays the source of truth", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
-  writeFileSync(join(root, ".cortexignore"), "docs/\n");
-  const { skipFile } = makeIgnoreFilter(root);
+  const { skipFile } = makeIgnoreFilter("docs/\n");
   assert.ok(!skipFile("README.md"));
 });
 
 test("with .cortexignore, .git and node_modules are still always pruned", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
   // A .cortexignore that mentions neither of them.
-  writeFileSync(join(root, ".cortexignore"), "docs/\n");
-  const { skipDir } = makeIgnoreFilter(root);
+  const { skipDir } = makeIgnoreFilter("docs/\n");
   assert.ok(skipDir(".git"));
   assert.ok(skipDir("node_modules"));
   assert.ok(skipDir("docs"));
@@ -80,18 +78,13 @@ test("with .cortexignore, .git and node_modules are still always pruned", () => 
 });
 
 test("nested directories match the dir form at any depth", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
-  writeFileSync(join(root, ".cortexignore"), ".backups/\n");
-  const { skipDir } = makeIgnoreFilter(root);
+  const { skipDir } = makeIgnoreFilter(".backups/\n");
   assert.ok(skipDir("context/.backups"));
   assert.ok(!skipDir("context"));
 });
 
 test("agrees with the bash knowledge_files() filter on a representative vault", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
-  writeFileSync(join(root, ".cortexignore"), "# noise\ndocs/\nskills/\n*.example.md\nREADME.md\n");
-  for (const d of ["docs", "skills", "notes"]) mkdirSync(join(root, d));
-  const { skipDir, skipFile } = makeIgnoreFilter(root);
+  const { skipDir, skipFile } = makeIgnoreFilter("# noise\ndocs/\nskills/\n*.example.md\nREADME.md\n");
   assert.ok(skipDir("docs"));
   assert.ok(skipDir("skills"));
   assert.ok(!skipDir("notes"));

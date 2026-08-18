@@ -169,6 +169,13 @@ and needs no mirror at all.
   findings report are read-only by construction — `/cortex-scaffold` is the separate skill that
   applies changes. If you are editing source before the user picked something, you have left the
   skill.
+- **The findings report is `/cortex-install`'s script, so `analyse()`'s ranking is control flow.**
+  The wizard walks `offers()` top-down — severity decides which question a user is asked first.
+  Re-rank a finding and you change the interview, not just a document. Offers also collapse by
+  action, which is what keeps a thirty-finding report from becoming a thirty-question interview; and
+  severity never implies an offer (*no test files found* is high, and Cortex has no action for it).
+  Read the worklist with `cortex-findings.mjs --offers`, which writes nothing. See
+  [ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md).
 - The MCP server has **two modes, decided by the root it is given**: point it at a repo's
   `.cortex/` and it serves `recall` · `remember` · `recall_memory`; point it at a personal vault
   and it serves the original `capture` · `catch_me_up` · project tools. The vault tools are hidden

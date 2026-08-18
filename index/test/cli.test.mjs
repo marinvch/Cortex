@@ -68,6 +68,21 @@ test("cortex-findings --stdout writes no file", () => {
   assert.ok(!existsSync(join(root, ".cortex", "findings")), "--stdout must not write a report");
 });
 
+test("cortex-findings --offers prints the wizard's script as JSON and writes nothing", () => {
+  // The report is prose for a human; --offers is the machine surface /cortex-install walks. It is
+  // read-only on purpose: a wizard that has already written something is not asking a question.
+  const root = fixture();
+  const out = run("cortex-findings.mjs", [".", "--offers"], root);
+  const worklist = JSON.parse(out);
+  assert.ok(Array.isArray(worklist), "--offers must emit a JSON array, parseable without a shim");
+  for (const entry of worklist) {
+    assert.ok(entry.action, "every entry names an action the wizard can dispatch on");
+    assert.ok(Array.isArray(entry.targets));
+    assert.ok(entry.findings?.length, "an entry carries the titles that produced it, so it can say why");
+  }
+  assert.ok(!existsSync(join(root, ".cortex", "findings")), "--offers must not write a report");
+});
+
 test("cortex-enrich plans, reports status, and merges", () => {
   const root = fixture();
   run("cortex-index.mjs", ["."], root);

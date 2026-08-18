@@ -8,12 +8,21 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"
 . "$LIB" || { echo "cortex: cannot load $LIB" >&2; exit 1; }
 ROOT="$(pwd)"; F="${1:-}"
 [ -z "$F" ] && { echo "usage: bash tools/cortex-rm.sh <relative-md-path>"; exit 1; }
-[ -f "$ROOT/$F" ] || { echo "not found: $F"; exit 1; }
+# The target must sit inside the vault. Without this, `cortex-rm.sh ../outside/secret.md` moved a
+# file from outside the vault into archives/removed/ — and the tool's whole promise is recovery
+# ("archive, don't delete"), which it cannot keep for a file whose original location it has just
+# erased from the record. Same invariant as ADR 0007, which the bash half never got.
+ABS="$(resolve_in_root "$ROOT" "$F")" || {
+  echo "refusing: '$F' resolves outside the vault root ($ROOT)" >&2
+  echo "cortex-rm only archives notes inside the vault — it cannot recover anything else." >&2
+  exit 1
+}
+[ -f "$ABS" ] || { echo "not found: $F"; exit 1; }
 # Same note id the viewer's graph uses, so the de-link pass below finds every inbound [[wikilink]].
 SLUG="$(note_id "$(basename "$F")")"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 mkdir -p archives/removed
-mv "$ROOT/$F" "archives/removed/$(basename "$F" .md).$STAMP.md"
+mv "$ABS" "archives/removed/$(basename "$F" .md).$STAMP.md"
 echo "✓ archived → archives/removed/$(basename "$F" .md).$STAMP.md"
 # de-link inbound references (alias kept; bare link → readable text). Skip archives/.git.
 touched=0

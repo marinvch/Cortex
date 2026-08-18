@@ -3,6 +3,51 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.8.0] — 2026-08-18
+
+### Fixed
+- **`cortex-rm.sh` would archive a file from outside the vault.** Verified, not theorised:
+
+  ```
+  $ cd vault && bash tools/cortex-rm.sh ../outside/secret.md
+  ✓ archived → archives/removed/secret.20260818-134621.md
+  ```
+
+  It did `ROOT="$(pwd)"` and then `[ -f "$ROOT/$F" ]`, which accepts `../` without complaint.
+  ADR 0007 made `mcp/lib/vault.js` the only door onto a vault root for exactly this reason; **the
+  bash half never got the same treatment.**
+
+  Not remote-exploitable — it is a local CLI run with a path someone typed. It was worth fixing
+  anyway because the tool cannot keep its own promise: it says *archive, don't delete* and prints
+  "recover from `archives/removed/`", and for a file dragged in from outside, the original location
+  is gone from the record. And because Cortex is driven by agents, which construct paths — "a person
+  would not type that" is not a property of this codebase.
+
+### Added
+- **`resolve_in_root` in `tools/_cortex-lib.sh`** — the shell counterpart of `core/paths.js`. It
+  lives in the shared lib, not in `cortex-rm.sh`, so the next destructive tool inherits the guard
+  instead of re-deriving it; "five modules each had to remember" is the failure ADR 0007 was written
+  about. Uses `cd` + `pwd -P` rather than `realpath` (absent on macOS by default, and ADR 0004 keeps
+  this repo dependency-free), and walks up to the deepest existing ancestor so a target that does not
+  exist yet still resolves. Not a string-prefix check: a symlink out of the root passes any prefix
+  comparison and is still an escape. Recorded in
+  [ADR 0010](docs/adr/0010-the-shell-half-gets-the-guard-too.md).
+- **Behavioural tests for `cortex-rm.sh` and `cortex-sync-skills.sh`** (72 shell assertions total).
+  Six `cortex-rm.sh` promises are pinned that never were: the note is moved rather than deleted,
+  `[[slug|alias]]` becomes the alias, a bare `[[slug]]` becomes plain text, `archives/` is not
+  rewritten, and **an unrelated link in the same file survives** — the de-link pass `sed -i`s every
+  note containing the slug, so a greedy pattern would quietly damage the whole vault, and two links
+  in two files would not catch it.
+
+  For `cortex-sync-skills.sh`, the test that matters is that a **mirror-only** skill survives a full
+  sync. `.claude/skills/` is gitignored, so deleting one is unrecoverable — which is exactly what
+  nearly happened on 2026-08-17 to a skill a parallel session had written there and nowhere else.
+
+  Checked and deliberately left alone: `cortex-vault-extract.sh` resolves its root from the script's
+  own location, and `cortex-scan-projects.sh` only removes inside `$VAULT/projects/` under a
+  slugified name, which cannot express a traversal segment. Adding a guard where there is no door is
+  noise, and noise is how a real guard stops being noticed.
+
 ## [2.7.0] — 2026-08-18
 
 ### Added
@@ -624,6 +669,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.8.0]: https://github.com/marinvch/Cortex/releases/tag/v2.8.0
 [2.7.0]: https://github.com/marinvch/Cortex/releases/tag/v2.7.0
 [2.6.1]: https://github.com/marinvch/Cortex/releases/tag/v2.6.1
 [2.6.0]: https://github.com/marinvch/Cortex/releases/tag/v2.6.0

@@ -130,3 +130,26 @@ Cut **2.8.0**.
   run, and the former writes one generated file.
 - Retrofitting `resolve_in_root` into scripts that do not need it. Two were checked and are safe;
   adding a guard where there is no door is noise.
+
+---
+
+## Outcome — all tasks done, 2026-08-18
+
+Shipped as **2.8.0**. 86 shell assertions across four files.
+
+**The finding held up under a real fixture.** `cortex-rm.sh ../outside/secret.md` archived a file
+from outside the vault; it now refuses and names the root. `resolve_in_root` lives in
+`_cortex-lib.sh` so the next destructive tool inherits it.
+
+**A capability had to be probed by its result for the second time this session.** The symlink case
+guards on `test -L`, not on `ln -s`'s exit status — Git Bash without `winsymlinks` reports success
+and silently makes a copy, so the "link" is a real directory inside the root and accepting it is
+correct. The `0600` env-file check had the identical shape a release earlier. Two instances is a
+pattern: **in shell tests, probe the result, never the command's exit code.** ADR 0010 records it.
+
+**Why the pass stopped where it did.** The originally-suggested next item was "declare a minimum
+model capability for rituals". Checking first showed **nothing runs rituals headlessly** —
+`cortex-cron.sh` does git plus one raw API call, and `cortex-init.sh` writes skill files without ever
+executing them. A capability declaration with no consumer is decoration, which this repo avoids on
+principle (the `offer` field exists only because the wizard reads it). That item stays blocked on a
+ritual runner, and is named rather than half-built.

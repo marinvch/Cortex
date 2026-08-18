@@ -176,6 +176,13 @@ and needs no mirror at all.
   severity never implies an offer (*no test files found* is high, and Cortex has no action for it).
   Read the worklist with `cortex-findings.mjs --offers`, which writes nothing. See
   [ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md).
+- **A destructive shell tool must route its target through `resolve_in_root` (`tools/_cortex-lib.sh`).**
+  It is the shell counterpart of `core/paths.js`, and it lives in the shared lib so the next tool
+  inherits it instead of re-deriving it. `cortex-rm.sh` would otherwise archive a file from outside
+  the vault — breaking the one promise it makes, since it cannot recover a file whose original path
+  it just erased. Not a string-prefix check: a symlink out of the root passes any prefix comparison.
+  `cortex-vault-extract.sh` and `cortex-scan-projects.sh` were checked and do not need it. See
+  [ADR 0010](docs/adr/0010-the-shell-half-gets-the-guard-too.md).
 - **The shell half has behaviour tests now — `bash tools/test/run.sh`.** `bash -n` and shellcheck
   never *run* a script, which is how four real bugs shipped in `tools/server/` and were found by
   reading rather than by CI. Tests build real git repos in temp dirs (a bare repo on disk is a

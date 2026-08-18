@@ -49,6 +49,17 @@ for f in "$HERE"/*.test.sh; do
 
   printf '%s\n' "$out" | grep -v '^COUNTS ' || true
   counts="$(printf '%s\n' "$out" | grep '^COUNTS ' | tail -1)"
+
+  # No COUNTS line means the file died before finishing — a stray `exit`, a `set -u` on an unset
+  # variable, a syntax error. Without this branch the run reported "0 passed, 0 failed" and exited
+  # 0, so a suite that crashed looked exactly like a suite that passed. That is the worst failure
+  # mode a test runner can have, and it is the one it shipped with.
+  if [ -z "$counts" ]; then
+    printf '  FAIL  <file did not finish — it exited early or crashed>\n'
+    total_fail=$((total_fail + 1))
+    continue
+  fi
+
   total_pass=$((total_pass + $(printf '%s' "$counts" | awk '{print $2+0}')))
   total_fail=$((total_fail + $(printf '%s' "$counts" | awk '{print $3+0}')))
 done

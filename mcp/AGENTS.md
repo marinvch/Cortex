@@ -22,7 +22,13 @@ the repo by commit count, and — like every other part — **dependency-free**.
   an agent to write `inbox/` and `daily/` into someone's product repository. `mode.test.js` asserts
   the exact tool list for both modes.
 - **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
-  notes into the wrong place.
+  notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
+  falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds
+  ([ADR 0008](../docs/adr/0008-three-audiences-one-seam.md)).
+- **`capture`'s `team` argument is an override, not the switch.** The team comes from
+  `lib/resolve.js` — a repo with a `.cortex/connector.json` writes to the team brain without the
+  caller knowing it is on a team. Requiring the agent to pass `team` was the seam leaking. Do not
+  reintroduce it as a required argument.
 - **Every vault path goes through `lib/vault.js`** — not through `resolveInRoot` directly. The Vault
   is the only module here that joins onto a vault root or calls `node:fs` on one; it wraps
   `core/paths.js` so the guard is unavoidable rather than remembered. If you need an operation it

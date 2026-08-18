@@ -46,3 +46,41 @@ test("server answers tools/list over stdio", async () => {
   assert.deepEqual(names, ["capture", "catch_me_up", "get_project_context", "list_projects", "recall"]);
   child.kill();
 });
+
+test("the startup line reports the audience on stderr, and stdout stays pure protocol", async () => {
+  // The audience is load-bearing now: if this says `solo` in a repo you expected to be connected,
+  // the connector is missing or unreadable. It must go to stderr — stdout is the MCP protocol
+  // channel, and one stray line there corrupts the stream for every client.
+  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const cwd = mkdtempSync(join(tmpdir(), "cwd-"));
+  const child = spawn(process.execPath, [serverPath], {
+    cwd,
+    env: { ...process.env, AI_OS_ROOT: root, CORTEX_AUDIENCE: "server" },
+  });
+  let out = "";
+  let err = "";
+  child.stdout.on("data", (d) => { out += d.toString(); });
+  child.stderr.on("data", (d) => { err += d.toString(); });
+
+  const got = new Promise((resolve, reject) => {
+    child.stdout.on("data", () => {
+      for (const line of out.split("\n")) {
+        if (!line.trim()) continue;
+        try { const m = JSON.parse(line); if (m.id === 1) resolve(m); } catch {}
+      }
+    });
+    child.on("error", reject);
+    setTimeout(() => reject(new Error(`timed out; stderr:\n${err.trim()}`)), 5000);
+  });
+  rpc(child, { jsonrpc: "2.0", id: 0, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "0" } } });
+  rpc(child, { jsonrpc: "2.0", method: "notifications/initialized" });
+  rpc(child, { jsonrpc: "2.0", id: 1, method: "tools/list" });
+  await got;
+  child.kill();
+
+  assert.match(err, /audience=server \(declared\)/, "the startup line must name the audience and how it was decided");
+  for (const line of out.split("\n")) {
+    if (!line.trim()) continue;
+    assert.doesNotThrow(() => JSON.parse(line), `stdout must be protocol only, got: ${line.slice(0, 80)}`);
+  }
+});

@@ -7,17 +7,23 @@
 #
 # Usage (from cron):
 #   BRAIN_DIR=$HOME/cortex-work bash cortex-cron.sh --daily
-#   BRAIN_DIR=$HOME/cortex-work ANTHROPIC_API_KEY=sk-... bash cortex-cron.sh --weekly
+#   AI_OS_ROOT=$HOME/cortex-work ANTHROPIC_API_KEY=sk-... bash cortex-cron.sh --weekly
 #
 # Env:
-#   BRAIN_DIR           path to a git clone of the brain repo (required)
+#   BRAIN_DIR           path to a git clone of the brain repo. Falls back to AI_OS_ROOT, which is
+#                       what the rest of Cortex uses — the two halves of server mode should not
+#                       need two different variable names to say the same thing. BRAIN_DIR still
+#                       wins when both are set, so existing crontabs keep working.
+#   AI_OS_ROOT          alias for BRAIN_DIR (see above)
 #   ANTHROPIC_API_KEY   optional; enables an AI summary of the changes
-#   CORTEX_MODEL        optional; Claude model id (default below) — check the current id
+#   CORTEX_MODEL        optional; Claude model id. Model ids age out — when a scheduled run starts
+#                       failing with a 404 from the API, this default is the first thing to check.
 set -euo pipefail
 
 MODE="${1:---daily}"
-BRAIN_DIR="${BRAIN_DIR:?set BRAIN_DIR to your brain clone}"
-MODEL="${CORTEX_MODEL:-claude-sonnet-4-6}"
+BRAIN_DIR="${BRAIN_DIR:-${AI_OS_ROOT:-}}"
+: "${BRAIN_DIR:?set BRAIN_DIR (or AI_OS_ROOT) to your brain clone}"
+MODEL="${CORTEX_MODEL:-claude-sonnet-5}"
 cd "$BRAIN_DIR"
 
 # 1. sync

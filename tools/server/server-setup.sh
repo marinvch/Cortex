@@ -21,8 +21,13 @@ case "$MODE" in
       git init --bare "$HOME/git/$NAME.git"
       echo "created bare repo: $HOME/git/$NAME.git"
     fi
+    # $USER is not guaranteed to be exported. It is absent under cron (which strips the environment),
+    # in minimal containers, and in Git Bash on Windows — and with `set -u` that killed this script
+    # one line before it printed the clone URL, which is the entire reason anyone runs it. It had
+    # already created the repo by then, so the operator saw a failure after a success.
+    WHO="${USER:-${USERNAME:-$(id -un 2>/dev/null || echo user)}}"
     echo "clone URL for your machines:"
-    echo "  ssh://$USER@$(hostname -f 2>/dev/null || hostname)/~/git/$NAME.git"
+    echo "  ssh://$WHO@$(hostname -f 2>/dev/null || hostname)/~/git/$NAME.git"
     ;;
 
   client)
@@ -40,6 +45,19 @@ case "$MODE" in
       git commit --allow-empty -q -m "init cortex-brain" 2>/dev/null || true
       git push -u origin HEAD -q 2>/dev/null || true
     )
+
+    # Both commands above are `|| true`, and on a machine with no git identity configured — a fresh
+    # server or container, exactly where this script runs — the commit fails, so no branch exists,
+    # so the push fails too. The clone is then left with no upstream and this script used to print
+    # "ready" anyway. The MCP's pull/push would fail later for a reason nobody could trace back here.
+    if ! git -C "team/$SLUG" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+      echo "server-setup: WARNING — team/$SLUG has no upstream branch, so the MCP cannot push to it." >&2
+      echo "server-setup: the usual cause is no git identity on this machine. Fix with:" >&2
+      echo "    git config --global user.email you@example.com && git config --global user.name 'Your Name'" >&2
+      echo "server-setup: then re-run this command." >&2
+      exit 1
+    fi
+
     echo "ready: team/$SLUG  ->  $REMOTE"
     echo "next: register the MCP, then in a Claude session try  capture(team:\"$SLUG\", content:\"hello\")"
     ;;

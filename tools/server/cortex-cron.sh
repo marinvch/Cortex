@@ -16,14 +16,17 @@
 #                       wins when both are set, so existing crontabs keep working.
 #   AI_OS_ROOT          alias for BRAIN_DIR (see above)
 #   ANTHROPIC_API_KEY   optional; enables an AI summary of the changes
-#   CORTEX_MODEL        optional; Claude model id. Model ids age out — when a scheduled run starts
-#                       failing with a 404 from the API, this default is the first thing to check.
+#   CORTEX_MODEL        optional; Claude model id. Model ids age out — when the log says "summary
+#                       unavailable", this default is the first thing to check.
+#   CORTEX_API_URL      optional; the messages endpoint. Overridable so the failure path is
+#                       testable — a hardcoded URL cannot be exercised without the network.
 set -euo pipefail
 
 MODE="${1:---daily}"
 BRAIN_DIR="${BRAIN_DIR:-${AI_OS_ROOT:-}}"
 : "${BRAIN_DIR:?set BRAIN_DIR (or AI_OS_ROOT) to your brain clone}"
 MODEL="${CORTEX_MODEL:-claude-sonnet-5}"
+API_URL="${CORTEX_API_URL:-https://api.anthropic.com/v1/messages}"
 cd "$BRAIN_DIR"
 
 # 1. sync
@@ -55,13 +58,28 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -n "$material" ]; then
     esc="$(printf '%s' "$prompt" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' 2>/dev/null || printf '""')"
     body="{\"model\":\"$MODEL\",\"max_tokens\":800,\"messages\":[{\"role\":\"user\",\"content\":$esc}]}"
   fi
-  resp="$(curl -sS https://api.anthropic.com/v1/messages \
+  resp="$(curl -sS "$API_URL" \
     -H "x-api-key: ${ANTHROPIC_API_KEY}" \
     -H "anthropic-version: 2023-06-01" \
     -H "content-type: application/json" \
     -d "$body" 2>/dev/null || true)"
   if command -v jq >/dev/null 2>&1; then
     summary="$(printf '%s' "$resp" | jq -r '.content[0].text // empty' 2>/dev/null || true)"
+  else
+    # The request was built and sent, and the answer cannot be read. Without jq the summary is
+    # unreachable even on a completely successful call.
+    echo "cortex-cron: summary unavailable — jq is not installed, so the API response cannot be parsed" >&2
+  fi
+
+  # The deterministic digest below is the intended fallback and still gets written. What must not
+  # happen is this failing quietly: a bad key, a retired model id or an unreachable network would
+  # otherwise produce a normal-looking digest, exit 0, and never tell anyone the AI half is dead.
+  # That silence is how CORTEX_MODEL sat on a nonexistent model id without anyone noticing.
+  if [ -z "$summary" ]; then
+    err_detail="$(printf '%s' "$resp" | head -c 200 | tr '\n' ' ')"
+    echo "cortex-cron: summary unavailable — the API call returned nothing usable (model: $MODEL)" >&2
+    [ -n "$err_detail" ] && echo "cortex-cron: response was: $err_detail" >&2
+    echo "cortex-cron: writing the deterministic digest instead; the run itself is fine" >&2
   fi
 fi
 

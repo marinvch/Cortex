@@ -32,6 +32,11 @@ jobs:
         continue-on-error: true
         run: shellcheck -S warning tools/*.sh tools/server/*.sh
 
+      # `bash -n` and shellcheck never RUN a script. The shell half went unexercised long enough for
+      # four real bugs to ship in tools/server/ and be found by reading rather than by CI.
+      - name: Shell behaviour tests
+        run: bash tools/test/run.sh
+
       - name: knowledge_files() honours .cortexignore
         run: |
           set -euo pipefail

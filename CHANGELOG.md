@@ -3,6 +3,47 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.6.1] — 2026-08-18
+
+### Added
+- **The shell half has behaviour tests.** `bash tools/test/run.sh` — a dependency-free harness
+  (ADR 0004: no bats, no shellspec) that discovers `tools/test/*.test.sh` and runs each in its own
+  subshell and temp directory. 43 assertions over `cortex-cron.sh` and `server-setup.sh`, wired into
+  the existing `cortex-init test` workflow.
+
+  CI already `bash -n`'d and shellchecked every script and ran `cortex-init.sh` end to end. What it
+  had none of was **behaviour** for `tools/server/`, and that is where every bug below lived. Tests
+  build real git repositories in temp directories — a bare repo on disk is a complete remote, so push
+  and pull are exercised honestly with no network.
+
+### Fixed
+- **A broken AI summary is no longer silent.** A bad key, a retired model id or an unreachable
+  network all produced a normal-looking digest, exit 0, and no warning. The deterministic fallback is
+  the design working as intended — the *silence* was the defect, and it is how a nonexistent
+  `CORTEX_MODEL` sat unnoticed. `cortex-cron.sh` now reports the failure on stderr, names the model,
+  echoes part of the response, and states plainly that the run itself is fine. **The exit code stays
+  0**: a failed optional summary must never fail the cron run, which would trade a silent bug for a
+  loud regression. It also warns when `jq` is missing, since the response is then unparseable even on
+  a successful call.
+- **`server-setup.sh` died on an unset `$USER`.** Not guaranteed to be exported — absent under cron
+  (which strips the environment), in minimal containers, and in Git Bash on Windows. Under `set -u`
+  that killed the script one line before printing the clone URL, which is the entire reason anyone
+  runs it, and *after* it had already created the repo. Falls back through `USERNAME` and `id -un`.
+- **`server-setup.sh client` reported success while producing an unusable clone.** Its commit and
+  push are both `|| true`, so on a machine with no git identity — a fresh server or container,
+  exactly where it runs — the commit failed, no branch existed, the push failed, and it printed
+  `ready` anyway. The MCP's pull/push would then fail later for a reason nobody could trace back. It
+  now verifies the upstream exists, names `git config user.email` as the fix, and exits non-zero.
+- **The test runner could not fail correctly.** Two bugs found while writing the first real test: a
+  test file that died mid-way reported `0 passed, 0 failed` and exited 0 — a crashed suite looking
+  exactly like a passing one — and `assert_exit` ended with a bare `set -e`, switching on a mode the
+  runner had deliberately switched off, so the first non-zero command after any assertion killed the
+  file. Both fixed before any test was trusted.
+
+### Changed
+- `cortex-cron.sh` accepts `CORTEX_API_URL`, so the API failure path is testable at all. A hardcoded
+  endpoint cannot be exercised without the network; the test points at a closed local port.
+
 ## [2.6.0] — 2026-08-18
 
 ### Added
@@ -48,10 +89,11 @@ this project now versions independently of any package manager (see `VERSION`).
   parses every stdout line as JSON to keep it that way.
 
 ### Fixed
-- **`tools/server/cortex-cron.sh` could not have worked.** `CORTEX_MODEL` defaulted to
-  `claude-sonnet-4-6`, a model id that no longer exists, so every scheduled run would fail against
-  the API. Now `claude-sonnet-5`, with a comment saying model ids age out and this is the first thing
-  to check when a cron run starts 404-ing.
+- **`tools/server/cortex-cron.sh` had a dead model id.** `CORTEX_MODEL` defaulted to
+  `claude-sonnet-4-6`, which no longer exists. The API call is `curl … || true`, so this never
+  aborted a run — it failed **silently**, producing a digest with no AI summary and exit 0. The
+  scheduler appeared to work while half of it was dead. Now `claude-sonnet-5`; the silence itself is
+  fixed in 2.6.1.
 - **The two halves of server mode shared no vocabulary.** `cortex-cron.sh` keyed on `BRAIN_DIR` while
   the rest of Cortex uses `AI_OS_ROOT`. `AI_OS_ROOT` is now accepted as a fallback; `BRAIN_DIR` still
   wins when both are set, so existing crontabs keep working. Neither bug was caught by a test,
@@ -549,6 +591,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.6.1]: https://github.com/marinvch/Cortex/releases/tag/v2.6.1
 [2.6.0]: https://github.com/marinvch/Cortex/releases/tag/v2.6.0
 [2.5.0]: https://github.com/marinvch/Cortex/releases/tag/v2.5.0
 [2.4.0]: https://github.com/marinvch/Cortex/releases/tag/v2.4.0

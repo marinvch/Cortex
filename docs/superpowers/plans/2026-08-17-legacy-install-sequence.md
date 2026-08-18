@@ -137,3 +137,33 @@ Cut 2.4.0 — it carries this plus the four already-merged harvest commits sitti
 
 **Verify:** `node --test core/test/*.test.js` — `version.test.js` guards all five places a version
 string lives, and has already caught two of them once.
+
+---
+
+## Outcome — all steps done, 2026-08-18
+
+**Step 4.** The plan listed only `SKILL.md` as touched, and that was a gap: the skill had no way to
+*read* `offers()`. `render()` was deliberately left alone, so the worklist reached the wizard through
+a new read-only `cortex-findings.mjs --offers` that prints JSON and writes nothing — two surfaces
+over one analysis. Parsing questions back out of rendered markdown was the alternative, and it would
+drift the moment either was reworded.
+
+Verified the way the plan demanded — a manual dry run, not reasoning. Indexed two real legacy repos
+to a scratch path (never into someone else's tree): 108 files and 70 files, dozens of findings,
+**five ranked questions each**. The collapse holds outside a fixture.
+
+**Step 5.** `plugin.test.js` now asserts the single-confirmation playback *and* the write-nothing
+offer walk beside ADR 0005's consent gate. Mutation-checked: deleting the playback sentence turns it
+red, restoring it turns it green.
+
+**Step 6.** [ADR 0006](../../adr/0006-the-report-is-the-wizards-script.md) — severity-ranked sequence
+over flat menu, propose-all-then-one-yes over per-write gates, with the rejected alternatives
+(`/cortex-onboard`, fixed pipeline order, per-write prompts, rendering the worklist into the report).
+Root `AGENTS.md` carries the consequence: `analyse()`'s ranking is now control flow, not
+presentation.
+
+**Step 7.** 2.4.0 cut. The plan said `version.test.js` guards five places a version string lives —
+it guards **six**. It caught the `CHANGELOG.md` link reference after the other five were already
+updated. Third time that test has paid for itself.
+
+Full suite: core 38/1 skipped, index 90, mcp 87 — 0 failures.

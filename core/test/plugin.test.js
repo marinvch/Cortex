@@ -102,6 +102,22 @@ test("/cortex-install is model-invocable, and its consent gate is what protects 
     /ask before writing anything/i,
     "the consent gate must be stated in the skill, since it replaces the flag as the protection",
   );
+
+  // The other half of ADR 0005's bargain. Letting an agent start the sequence is only tolerable
+  // because the sequence asks first and writes once — the offers are walked with nothing on disk,
+  // then a single playback gates every write. Drop the playback and "model-invocable" stops being
+  // a convenience and becomes an agent editing a repo it wandered into, so the two are tested
+  // together and fail together.
+  assert.match(
+    src,
+    /Take \*\*one\*\* confirmation for the whole set/,
+    "the single-confirmation playback must be stated — it is what makes walking the offers safe",
+  );
+  assert.match(
+    src,
+    /prints the \*\*ranked worklist\*\*[\s\S]*writes nothing at all/,
+    "the offer walk must state that it writes nothing; a wizard that already wrote is not asking",
+  );
 });
 
 test("skills referenced by other skills exist", () => {

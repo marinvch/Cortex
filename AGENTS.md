@@ -176,6 +176,15 @@ and needs no mirror at all.
   severity never implies an offer (*no test files found* is high, and Cortex has no action for it).
   Read the worklist with `cortex-findings.mjs --offers`, which writes nothing. See
   [ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md).
+- **`mcp/lib/vault.js` is the only door onto a vault root.** Nothing else under `mcp/` may join a
+  path onto one — ask the Vault (`list` · `entries` · `read` · `append` · `write` · `abs` ·
+  `exists` · `isFile` · `isDirectory` · `mtimeMs`), which takes root-relative paths and resolves
+  every one through `core/paths.js`. `mcp/test/vault-is-the-only-door.test.js` enforces it, twice:
+  a scan for `join(root, …)`, plus an assertion that the four converted modules import no `node:fs`
+  — because `recall` bypassed the guard through a closure variable without ever writing that call.
+  The three allowlisted files join onto the **install** directory or a git clone, not a vault. The
+  Vault does not scrub: secret refusal is policy and stays in `core/scrub.js`. See
+  [ADR 0007](docs/adr/0007-the-vault-is-the-only-door.md).
 - The MCP server has **two modes, decided by the root it is given**: point it at a repo's
   `.cortex/` and it serves `recall` · `remember` · `recall_memory`; point it at a personal vault
   and it serves the original `capture` · `catch_me_up` · project tools. The vault tools are hidden

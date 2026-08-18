@@ -83,3 +83,100 @@ assert_contains "$out" "clone already present" "a second client run leaves the c
 # The default slug is `cortex` when none is given.
 (cd "$VAULT" && HOME="$FAKE_HOME" bash "$SETUP" client "$BARE" >/dev/null 2>&1)
 assert_exit 0 "defaults the slug to 'cortex'" -- test -d "$VAULT/team/cortex/.git"
+
+# --- cron mode ---------------------------------------------------------------
+#
+# A fake `crontab` is prepended to PATH for every case below. The real binary is absent on CI and is
+# the developer's own on a workstation; invoking it for real in a test is unacceptable either way.
+# The fake records its stdin so the tests can assert what WOULD have been installed.
+
+FAKEBIN="$WORK/fakebin"
+mkdir -p "$FAKEBIN"
+cat > "$FAKEBIN/crontab" <<'FAKE'
+#!/usr/bin/env bash
+# Records stdin on `crontab -`, replays the recorded table on `crontab -l`.
+STORE="${FAKE_CRONTAB_STORE:?FAKE_CRONTAB_STORE must be set}"
+case "${1:-}" in
+  -l) [ -f "$STORE" ] && cat "$STORE" || { echo "no crontab" >&2; exit 1; } ;;
+  -)  cat > "$STORE" ;;
+  *)  echo "fake crontab: unsupported args: $*" >&2; exit 2 ;;
+esac
+FAKE
+chmod +x "$FAKEBIN/crontab"
+
+export FAKE_CRONTAB_STORE="$WORK/crontab.txt"
+CRONHOME="$WORK/cronhome"
+mkdir -p "$CRONHOME"
+cp "$FAKE_HOME/.gitconfig" "$CRONHOME/.gitconfig" 2>/dev/null || true
+
+run_cron() { # extra args...
+  ( export PATH="$FAKEBIN:$PATH" HOME="$CRONHOME" XDG_CONFIG_HOME="$CRONHOME/.config"
+    cd "$WORK" && bash "$SETUP" cron "$BARE" "$CRONHOME/cortex-work" "$@" 2>&1 )
+}
+
+out="$(run_cron)"
+assert_exit 0 "cron mode clones the working brain" -- test -d "$CRONHOME/cortex-work/.git"
+assert_contains "$out" "0 6 * * *" "prints the daily schedule"
+assert_contains "$out" "10 6 * * 1" "prints the weekly schedule"
+assert_contains "$out" "cortex-cron.sh" "names the script to run"
+
+# The docs hardcode $HOME/ai-os, which is wrong for anyone who cloned elsewhere. The path printed
+# must be the real one on disk — a provisioning step that prints a path that does not exist is worse
+# than one that prints nothing, because it looks finished.
+printed_path="$(printf '%s\n' "$out" | grep -o '[^ ]*cortex-cron\.sh' | head -1)"
+assert_exit 0 "and that path actually exists" -- test -f "$printed_path"
+
+# Printing must not install.
+assert_exit 1 "printing does not touch the crontab" -- test -f "$FAKE_CRONTAB_STORE"
+
+# Idempotent clone.
+out="$(run_cron)"
+assert_contains "$out" "already" "a second run does not re-clone"
+
+# --- the env file ---
+
+ENVFILE="$CRONHOME/.config/cortex/cron.env"
+assert_exit 0 "creates the env file" -- test -f "$ENVFILE"
+envbody="$(cat "$ENVFILE")"
+assert_not_contains "$envbody" "sk-ant" "the template carries no real key"
+assert_contains "$out" "cron.env" "and the output points at it"
+
+# Probe whether this host can express POSIX mode bits at all, rather than guessing from the platform
+# name. Git Bash on NTFS reports a working `stat` while silently ignoring both `chmod` and `umask`,
+# so checking for `stat` alone would assert something the filesystem cannot represent and fail for a
+# reason that has nothing to do with the script. On Linux (and CI) this probe passes and the real
+# assertion runs.
+_probe="$WORK/.modeprobe"
+( umask 077; : > "$_probe" ) 2>/dev/null
+chmod 600 "$_probe" 2>/dev/null || true
+if [ "$(stat -c %a "$_probe" 2>/dev/null || echo unknown)" = "600" ]; then
+  assert_eq "600" "$(stat -c %a "$ENVFILE")" "the env file is 0600 — it holds a live API key"
+else
+  # Skipping loudly beats asserting something weaker and calling it a pass.
+  echo "  skip  env-file mode check (this filesystem does not honour POSIX mode bits)"
+fi
+rm -f "$_probe"
+
+# An existing env file is never clobbered — it holds a key someone pasted.
+printf 'ANTHROPIC_API_KEY=already-here\n' > "$ENVFILE"
+run_cron >/dev/null
+assert_eq "ANTHROPIC_API_KEY=already-here" "$(cat "$ENVFILE")" "an existing env file is left alone"
+
+# The crontab line must SOURCE the env file rather than inline the key.
+out="$(run_cron)"
+assert_contains "$out" "cron.env" "the crontab line sources the env file"
+assert_not_contains "$out" "ANTHROPIC_API_KEY=sk-" "and never inlines a key"
+
+# --- --install ---
+
+printf '0 3 * * * echo unrelated-job\n' > "$FAKE_CRONTAB_STORE"
+run_cron --install >/dev/null
+installed="$(cat "$FAKE_CRONTAB_STORE")"
+assert_contains "$installed" "cortex-cron (managed)" "install writes a marked block"
+assert_contains "$installed" "unrelated-job" "and leaves unrelated cron lines untouched"
+
+# Second install replaces the managed block rather than appending a duplicate.
+run_cron --install >/dev/null
+installed="$(cat "$FAKE_CRONTAB_STORE")"
+assert_eq "2" "$(printf '%s\n' "$installed" | grep -c 'cortex-cron\.sh')" "a second install leaves exactly one pair of lines"
+assert_contains "$installed" "unrelated-job" "and still leaves the unrelated line"

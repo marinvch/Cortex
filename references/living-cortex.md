@@ -91,28 +91,49 @@ git --work-tree=/tmp/ck --git-dir=~/git/cortex-brain.git log --oneline -1   # sh
 
 The server keeps its own clone and runs rituals on a schedule, committing results back.
 
-### 1. Server-side working clone
+### One command
+
 ```bash
-cd ~ && git clone ~/git/cortex-brain.git cortex-work
+bash tools/server/server-setup.sh cron ~/git/cortex-brain.git
 ```
 
-### 2. Install the cron script
-Copy `tools/server/cortex-cron.sh` to the server (or clone the public `ai-os` repo there). It:
+It clones the working brain to `~/cortex-work`, creates a `0600` env file at
+`~/.config/cortex/cron.env`, and **prints** the two crontab lines it recommends. It changes nothing
+else. Re-run with `--install` to write them into your crontab as a managed block:
+
+```bash
+bash tools/server/server-setup.sh cron ~/git/cortex-brain.git --install
+```
+
+Printing is the default on purpose. A crontab is user-global and annoying to reconstruct, so a setup
+script run out of curiosity must not rewrite it. `--install` replaces only its own marked block and
+never touches your other jobs.
+
+### Where the API key goes — and where it must not
+
+Put the key in `~/.config/cortex/cron.env`, which the crontab lines *source*:
+
+```bash
+ANTHROPIC_API_KEY=...
+```
+
+**Never put it in the crontab line itself.** `crontab -l` prints it — the one command people run to
+check whether cron is set up — and it lands in any backup of `/var/spool/cron`. An earlier version of
+this page recommended exactly that; it was wrong, and it contradicted the rest of Cortex, where
+`core/scrub.js` refuses a memory write carrying a credential.
+
+The key is **optional**. Without one, `cortex-cron.sh` writes a deterministic git-based digest, which
+is the boring path and always works. If a key is set and the call fails, the script now says so on
+stderr instead of quietly writing a digest with no summary.
+
+### What the scheduled run does
+
 - `git pull` the brain,
 - gathers notes changed since the last run,
-- **optionally** summarizes them with the Claude API (only if `ANTHROPIC_API_KEY` is set — otherwise
-  it writes a plain git-based digest, no AI),
+- optionally summarizes them with the Claude API,
 - writes `digests/<date>.md` (daily) or `audits/<date>.md` (weekly),
 - `git commit` + `git push`.
 
-### 3. Schedule it
-```bash
-crontab -e
-# nightly digest at 06:00
-0 6 * * *  BRAIN_DIR=$HOME/cortex-work ANTHROPIC_API_KEY=sk-... bash $HOME/ai-os/tools/server/cortex-cron.sh --daily
-# weekly audit Monday 06:10
-10 6 * * 1 BRAIN_DIR=$HOME/cortex-work ANTHROPIC_API_KEY=sk-... bash $HOME/ai-os/tools/server/cortex-cron.sh --weekly
-```
 Next time you open the brain from any machine, `pull` brings the digest down. The AI "wrote something
 while you were away" — the living part.
 

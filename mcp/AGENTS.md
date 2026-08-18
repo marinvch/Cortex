@@ -23,13 +23,19 @@ the repo by commit count, and — like every other part — **dependency-free**.
   the exact tool list for both modes.
 - **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
   notes into the wrong place.
-- **Every vault path goes through `resolveInRoot`** from `core/paths.js`.
+- **Every vault path goes through `lib/vault.js`** — not through `resolveInRoot` directly. The Vault
+  is the only module here that joins onto a vault root or calls `node:fs` on one; it wraps
+  `core/paths.js` so the guard is unavoidable rather than remembered. If you need an operation it
+  does not have, add it to the Vault — do not reach around it.
+  `test/vault-is-the-only-door.test.js` fails the build otherwise. [ADR 0007](../docs/adr/0007-the-vault-is-the-only-door.md).
 - **`mcp/` never imports from `index/`.**
 
 ## Gotchas
 
 - **`lib/cortexignore.js` is a faithful port of `knowledge_files()` in `tools/_cortex-lib.sh`.**
-  The two must agree; CI diffs them in `cortex-init-test.yml`. Change one, change both.
+  The two must agree; CI diffs them in `cortex-init-test.yml`. Change one, change both. It is also
+  **pure** — it decides what the patterns mean and never reads a file; the Vault fetches the text
+  and passes it in. The dependency only runs one way: `vault.js` imports it, never the reverse.
 - **`test/manifest-parity.test.js` guards a deliberate duplication**: `tools/cortex-init.sh`
   hardcodes `CORE_PLUGINS` to stay jq-free, and this test is the only thing preventing drift from
   `plugins/cortex-core-plugins.json`.

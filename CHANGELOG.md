@@ -3,6 +3,46 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.5.0] — 2026-08-18
+
+### Changed
+- **The root guard became a door instead of a habit.** `core/paths.js` held a correct guard —
+  `resolveInRoot` refuses a path that escapes the vault root — and it was optional. Five modules
+  read and wrote vault content, each deciding for itself whether to call it. `projects.js` used it
+  for `getProjectContext`, added after a caller-supplied slug of `../../secret` was found to read any
+  file on disk, and then joined `projects` onto the root unguarded three lines earlier.
+  `cortexignore.js` read `join(root, ".cortexignore")` with a bare `readFileSync`. `recall.js` seeded
+  a recursive walk with `walk(root, "")` and joined onto a local variable on every entry — never
+  writing `join(root, …)` at all. The traversal patch that shipped standalone was a lock on one door
+  in a building with three.
+
+  Now `mcp/lib/vault.js` owns every filesystem operation on a vault root — `abs` · `exists` ·
+  `isFile` · `isDirectory` · `mtimeMs` · `entries` · `list` · `read` · `append` · `write` — each
+  taking a root-relative path and resolving it through the guard. **Nothing else under `mcp/` may
+  join onto a vault root**, and `vault.js` is now the only importer of `core/paths.js` there.
+
+  Enforced by a test rather than by convention, and stated at two altitudes because one is not
+  enough: a scan for `join(root, …)`, plus an assertion that the four converted modules import no
+  `node:fs` at all. The second exists because `recall` bypassed the guard through a closure variable
+  and the first is structurally blind to it. Teaching the regex to chase a variable through a closure
+  would have made the check clever and unreadable.
+
+  **No behaviour changes.** `recall` and `listProjects` still return absolute paths; `list` is
+  root-relative internally because that is the safer currency, and the conversion back is now an
+  explicit step rather than an accident of how a path was built. Characterization tests were written
+  and passing *before* any code moved, which is what caught the conversion the one time it slipped.
+
+  The Vault does **not** scrub — secret refusal is policy and stays in `core/scrub.js`; folding it in
+  would make every write pay for it and hide a policy refusal behind a path operation. It lives in
+  `mcp/lib/` rather than `core/` because `index/` has no use for vault semantics: it asks git what
+  belongs to a repo (ADR 0003) and deliberately does not read `.cortexignore`. Recorded in
+  [ADR 0007](docs/adr/0007-the-vault-is-the-only-door.md).
+- **`lib/cortexignore.js` is pure.** It decides what the patterns mean and no longer reads a file;
+  `makeIgnoreFilter` takes the `.cortexignore` text (or `null`) instead of a root, and
+  `loadCortexignore` is gone. Its test file imports no `node:fs` — a test that needed a temp
+  directory to check a regex was telling us something. The dependency runs one way only: `vault.js`
+  imports `cortexignore.js`, never the reverse, or the two would import each other.
+
 ## [2.4.0] — 2026-08-18
 
 ### Added
@@ -455,6 +495,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.5.0]: https://github.com/marinvch/Cortex/releases/tag/v2.5.0
 [2.4.0]: https://github.com/marinvch/Cortex/releases/tag/v2.4.0
 [2.3.0]: https://github.com/marinvch/Cortex/releases/tag/v2.3.0
 [2.2.0]: https://github.com/marinvch/Cortex/releases/tag/v2.2.0

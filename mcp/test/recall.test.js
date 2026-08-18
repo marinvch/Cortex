@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, sep } from "node:path";
 import { recall } from "../lib/recall.js";
 
 function seed() {
@@ -60,4 +60,47 @@ test("without .cortexignore, recall still walks the vault (back-compat)", () => 
   writeFileSync(join(root, ".agents", "guide.md"), "PingID cookies\n");
   const hits = recall(root, { query: "PingID cookies" });
   assert.ok(hits.some((h) => /guide\.md$/.test(h.path)));
+});
+
+// --- Characterization: pinned before the Vault module collapse (2026-08-18) ---
+// These describe what recall does TODAY. The collapse moves the tree walk behind vault.list(),
+// which returns ROOT-RELATIVE paths — so the conversion back to absolute is the exact step most
+// likely to be dropped silently. A refactor with no characterization tests is a rewrite.
+
+test("recall returns absolute paths, not root-relative ones", () => {
+  const root = seed();
+  const hits = recall(root, { query: "PingID cookies" });
+  assert.ok(hits.length >= 1);
+  for (const h of hits) {
+    assert.ok(isAbsolute(h.path), `expected an absolute path, got '${h.path}'`);
+    assert.ok(h.path.startsWith(root), `expected a path under the root, got '${h.path}'`);
+  }
+});
+
+test("recall prunes ignored directories AND ignored files, at any depth", () => {
+  const root = seed();
+  mkdirSync(join(root, "deep", "nested"), { recursive: true });
+  writeFileSync(join(root, "deep", "nested", "buried.md"), "PingID cookies buried deep\n");
+  mkdirSync(join(root, "vendor"), { recursive: true });
+  writeFileSync(join(root, "vendor", "dep.md"), "PingID cookies vendored\n");
+  writeFileSync(join(root, "scratch.tmp.md"), "PingID cookies scratch\n");
+  writeFileSync(join(root, ".cortexignore"), "vendor/\n*.tmp.md\n");
+
+  const hits = recall(root, { query: "PingID cookies" });
+  const names = hits.map((h) => h.path.split(sep).join("/"));
+  assert.ok(names.some((p) => p.endsWith("deep/nested/buried.md")), "recursion must reach any depth");
+  assert.ok(!names.some((p) => p.includes("/vendor/")), "an ignored directory is pruned");
+  assert.ok(!names.some((p) => p.endsWith("scratch.tmp.md")), "an ignored file glob is skipped");
+});
+
+test("recall skips node_modules and .git even with a .cortexignore present", () => {
+  const root = seed();
+  writeFileSync(join(root, ".cortexignore"), "nothing-real/\n");
+  for (const d of ["node_modules", ".git"]) {
+    mkdirSync(join(root, d), { recursive: true });
+    writeFileSync(join(root, d, "junk.md"), "PingID cookies PingID cookies PingID cookies\n");
+  }
+  const hits = recall(root, { query: "PingID cookies" });
+  const names = hits.map((h) => h.path.split(sep).join("/"));
+  assert.ok(!names.some((p) => /\/(node_modules|\.git)\//.test(p)), "always-skip dirs are never knowledge");
 });

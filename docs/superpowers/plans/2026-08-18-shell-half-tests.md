@@ -163,3 +163,42 @@ Cut **2.6.1** — a fix plus test coverage, no new capability. Six version sites
 - Behavioural tests for the other five `tools/*.sh`. `cortex-init.sh` already has an end-to-end CI
   run; the rest can follow the harness once it exists. Building the harness is the unlock.
 - Verifying the model id is current. Needs the network; the warning in task 3 is the answer instead.
+
+---
+
+## Outcome — all tasks done, 2026-08-18
+
+Shipped as **2.6.1**. 43 shell assertions across two files, running in CI.
+
+**The plan predicted one bug and the tests found four.** It set out to cover `BRAIN_DIR`/`AI_OS_ROOT`
+precedence and fix the silent AI failure. Writing the tests surfaced two more, both in
+`server-setup.sh` and both invisible to `bash -n` and shellcheck:
+
+- `$USER` is not guaranteed to be exported — absent under cron, in containers, in Git Bash. `set -u`
+  killed the script one line before the clone URL, after it had already created the repo.
+- `client` mode printed `ready` while producing a clone with no upstream, because its commit and push
+  are both `|| true` and a machine with no git identity fails both. The MCP could never push to it.
+
+That second one is the same disease as the cron silence: `|| true` swallowing a failure and reporting
+success. Three of the four bugs in this pass are that one pattern.
+
+**Two bugs were in the harness itself**, found because the fixture failed for its own reasons (it
+pushed to a hardcoded `main` while the local branch was `master`):
+
+- A test file that died mid-way reported `0 passed, 0 failed` and exited **0** — a crashed suite
+  indistinguishable from a passing one. The worst failure mode a runner can have, and it shipped with
+  it.
+- `assert_exit` ended with a bare `set -e`, enabling a mode the runner had deliberately disabled, so
+  the first non-zero command after any assertion killed the file.
+
+Neither would have been caught by the tests they were meant to run. A harness has to be shown it can
+fail before anything it reports means anything.
+
+**Also corrected here:** the 2.6.0 changelog entry and PR #333's description both said the dead model
+id meant "every scheduled run would fail". Reading the script in full showed the call is
+`curl … || true` — it never aborted, it failed silently. The corrected version is the sharper finding
+anyway.
+
+**Still not done:** `server-setup.sh` provisioning the cron half. This pass makes it testable, which
+was the honest prerequisite. The other five `tools/*.sh` have no behavioural tests either; the
+harness now exists for them.

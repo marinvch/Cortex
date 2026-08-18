@@ -3,6 +3,30 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.8.1] — 2026-08-18
+
+### Fixed
+- **`cortex-vault-extract.sh` could delete the personal layer after an incomplete copy.** The script
+  is careful by design — dry-run by default, `--apply` to copy, `--remove-source` as a separate
+  opt-in, and a verification before anything is deleted. Its own header says why: *the personal layer
+  is gitignored, so it exists only in your working tree, and a careless delete is unrecoverable.*
+
+  The verification counted the wrong set. `copied=$(find "$DEST" -type f | wc -l)` counts
+  **everything already in the destination**, not what this run copied. Verified: a destination
+  holding 8 unrelated files reported `copied 10 files` for a 2-file move. A non-empty destination —
+  what you have after a first attempt goes wrong — inflated the number enough for a partial copy to
+  clear the `-lt "$total"` guard, and `--remove-source` would then delete the source.
+
+  It now counts per planned path, comparing source and destination with the same
+  `.gitkeep`/`README.md` exclusions the plan phase uses, and refuses to remove anything if any path
+  is short — naming which. A test proves a copy that fails never reaches the delete.
+
+### Added
+- **Behavioural tests for `cortex-vault-extract.sh`** (21 assertions; 107 shell assertions total) —
+  the last untested destructive tool. Pins that the dry run writes nothing, `--to` is required, it
+  refuses outside the Cortex repo, an empty vault exits 0, `--apply` leaves the source in place, and
+  `--remove-source` keeps the `.gitkeep` and `README.md` placeholders.
+
 ## [2.8.0] — 2026-08-18
 
 ### Fixed
@@ -669,6 +693,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.8.1]: https://github.com/marinvch/Cortex/releases/tag/v2.8.1
 [2.8.0]: https://github.com/marinvch/Cortex/releases/tag/v2.8.0
 [2.7.0]: https://github.com/marinvch/Cortex/releases/tag/v2.7.0
 [2.6.1]: https://github.com/marinvch/Cortex/releases/tag/v2.6.1

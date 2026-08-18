@@ -1,25 +1,31 @@
 #!/usr/bin/env node
 // Produce the findings report for a repository.
 //
-//   node index/cortex-findings.mjs [repoRoot] [--index <path>] [--out <path>] [--stdout]
+//   node index/cortex-findings.mjs [repoRoot] [--index <path>] [--out <path>] [--stdout] [--offers]
 //
 // Reads (or builds) the index, then writes ONE markdown report to
 // <repoRoot>/.cortex/findings/<date>.md. This command has no authority to change anything else —
 // that separation is what makes "the user decides" structural rather than a promise.
+//
+// --offers prints the ranked worklist as JSON and writes nothing at all. The report is prose for a
+// human; the worklist is the script the install wizard walks. Keeping them two surfaces of one
+// analysis is deliberate — a wizard forced to parse its questions back out of rendered markdown
+// would drift from the findings the moment either was reworded.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
-import { analyse, render } from "./lib/findings.mjs";
+import { analyse, offers, render } from "./lib/findings.mjs";
 import { stamp } from "../core/date.js";
 
 function parseArgs(argv) {
-  const args = { root: null, index: null, out: null, stdout: false };
+  const args = { root: null, index: null, out: null, stdout: false, offers: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--index") args.index = argv[++i];
     else if (a === "--out") args.out = argv[++i];
     else if (a === "--stdout") args.stdout = true;
+    else if (a === "--offers") args.offers = true;
     else if (!a.startsWith("--") && args.root === null) args.root = a;
   }
   return args;
@@ -40,6 +46,13 @@ if (existsSync(indexPath)) {
 
 const day = stamp();
 const findings = analyse(index, root);
+
+if (args.offers) {
+  // Writes nothing, not even the report. A wizard asking what to do must not have already done it.
+  process.stdout.write(`${JSON.stringify(offers(findings), null, 2)}\n`);
+  process.exit(0);
+}
+
 const report = render(index, findings, { day });
 
 if (args.stdout) {

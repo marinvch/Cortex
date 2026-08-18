@@ -10,8 +10,55 @@ import { scan } from "../../core/scrub.js";
 
 const SEVERITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 
-function finding(severity, kind, title, detail, evidence = []) {
-  return { severity, kind, title, detail, evidence };
+// The actions a finding is allowed to propose. Deliberately closed: an offer names a ritual Cortex
+// already ships, so the wizard can walk the ranked report and ask about each in turn. A finding
+// Cortex cannot act on carries no offer and is reported as context — inventing one to fill the
+// column would ask a question the index never earned.
+const ACTIONS = new Set(["scaffold", "brief", "enrich", "bundle", "triage-secrets", "memory"]);
+
+// Below this, enrichment is a token bill for a summary of code a person could just read. Stated as
+// a named constant because it is a judgement call, not a fact — the number is meant to be argued
+// with rather than discovered in a conditional.
+const ENRICH_WORTH_IT = 50;
+
+function offer(action, targets = []) {
+  if (!ACTIONS.has(action)) throw new Error(`unknown offer action: ${action}`);
+  return { action, targets };
+}
+
+function finding(severity, kind, title, detail, evidence = [], proposes = null) {
+  return { severity, kind, title, detail, evidence, offer: proposes };
+}
+
+/** What this finding proposes, or null when it proposes nothing. */
+export function offerOf(f) {
+  return f.offer ?? null;
+}
+
+/**
+ * The ranked worklist the install wizard walks: one entry per action, most severe first.
+ *
+ * Collapsing is the point. A repo with thirty findings must not become a thirty-question
+ * interview — five areas that each want a brief are one decision naming five candidates. An entry
+ * inherits the severity of its highest-ranked member, so merging can never bury a critical finding
+ * behind a low one, and carries the titles that produced it so the wizard can say why it is asking.
+ */
+export function offers(findings) {
+  const byAction = new Map();
+  for (const f of findings) {
+    const o = offerOf(f);
+    if (!o) continue;
+    if (!byAction.has(o.action)) {
+      byAction.set(o.action, { action: o.action, severity: f.severity, targets: [], findings: [] });
+    }
+    const entry = byAction.get(o.action);
+    if (SEVERITY_ORDER[f.severity] < SEVERITY_ORDER[entry.severity]) entry.severity = f.severity;
+    for (const t of o.targets) if (!entry.targets.includes(t)) entry.targets.push(t);
+    entry.findings.push(f.title);
+  }
+  return [...byAction.values()].sort(
+    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.action.localeCompare(b.action),
+  );
 }
 
 /** Files that nothing imports and that are not entry points, tests, docs or config. */
@@ -137,6 +184,8 @@ export function analyse(index, root) {
         "context",
         "No agent context file",
         "This repo has no AGENTS.md, so every agent starts from zero and re-derives the same conclusions each session. This is the single highest-leverage file Cortex can add.",
+        [],
+        offer("scaffold"),
       ),
     );
   } else if (has("AGENTS.md")) {
@@ -148,6 +197,10 @@ export function analyse(index, root) {
           "context",
           `AGENTS.md is ${lines} lines`,
           "A single large context file is loaded in full on every turn, whether or not it is relevant. Splitting the area-specific parts into scoped leaves with a routing table keeps the root small and loads detail only where work happens.",
+          [],
+          // Split into leaves — never re-scaffold. The root file here is curated, and the
+          // never-clobber rule is the whole reason it survives a second install.
+          offer("brief"),
         ),
       );
     }
@@ -159,6 +212,8 @@ export function analyse(index, root) {
         "context",
         "No CONTEXT.md glossary",
         "Domain terms are undefined, so agents and new developers guess at what words mean and drift apart. A short glossary of the terms this repo uses — with the ones to avoid — costs little and stops a recurring class of confusion.",
+        [],
+        offer("scaffold"),
       ),
     );
   }
@@ -169,6 +224,8 @@ export function analyse(index, root) {
         "context",
         "No architecture decision records",
         "Decisions that were hard to reach are not written down, so they get re-litigated. ADRs are created lazily — only when a decision is hard to reverse, surprising without context, or a real trade-off.",
+        [],
+        offer("scaffold"),
       ),
     );
   }
@@ -215,6 +272,12 @@ export function analyse(index, root) {
         `Possible secrets in ${leaky.length} file${leaky.length === 1 ? "" : "s"}`,
         "Cortex refuses to write memory containing these patterns, and they should not be in the repo either. Verify each one — some will be test fixtures or examples, which is exactly why this is reported rather than acted on.",
         leaky.slice(0, 20).map((l) => `${l.path}: ${l.hits.map((h) => h.kind).join(", ")}`),
+        // Show and stop. There is deliberately no action here that edits a file: some hits are
+        // fixtures, and one false positive acted on destroys trust in every other finding.
+        offer(
+          "triage-secrets",
+          leaky.map((l) => l.path),
+        ),
       ),
     );
   }
@@ -290,6 +353,64 @@ export function analyse(index, root) {
     );
   }
 
+  // --- Repo-scale offers ----------------------------------------------------------------------
+  //
+  // These three are not defects, so they are all low. Enrichment is optional and costs tokens,
+  // memory is a choice about sharing, and a plugin tier is a convenience — ranking any of them as
+  // a problem would spend the report's calibration on things that are working as intended.
+
+  // Enrichment pays on a repo too large to hold in one head. On a small one it is a token bill for
+  // a summary of code you could just read, so the threshold is stated rather than implied.
+  if (index.stats.files >= ENRICH_WORTH_IT && !has(".cortex/index/enriched.json")) {
+    out.push(
+      finding(
+        "low",
+        "enrichment",
+        `${index.stats.files} files — enrichment would make recall describe what code means`,
+        "The index knows how this repo is wired; enrichment adds what each file is for, so recall answers in meaning rather than structure. It costs tokens — one LLM pass over every file, in batches — and it is additive: the index stays the source of truth and a stale enrichment degrades Cortex to deterministic behaviour rather than breaking it.",
+        [],
+        offer("enrich"),
+      ),
+    );
+  }
+
+  if (!has(".cortex/memory")) {
+    out.push(
+      finding(
+        "low",
+        "memory",
+        "No committed memory store",
+        "`.cortex/memory/` is the one part of `.cortex/` that is committed, and that asymmetry is the point: it is how several developers and their agents share one context instead of each re-deriving it. Nothing personal or secret may go in it — Cortex refuses writes carrying credentials rather than sanitising them silently.",
+        [],
+        offer("memory"),
+      ),
+    );
+  }
+
+  // Offer a tier only where the index gives a reason for it. Reciting the whole list is how a
+  // wizard turns into a catalogue, and a tier nobody has a use for is a question that costs
+  // attention and returns nothing.
+  const tiers = [];
+  const ext = (p) => p.slice(p.lastIndexOf("."));
+  if (index.files.some((f) => [".tsx", ".jsx", ".vue", ".svelte"].includes(ext(f.path)) || ["css", "scss", "html", "vue", "svelte"].includes(f.lang))) {
+    tiers.push("browser-qa");
+  }
+  if (index.files.some((f) => /^(openapi|swagger)\.(ya?ml|json)$|\.postman_collection\.json$/.test(f.path.split("/").pop()))) {
+    tiers.push("api");
+  }
+  if (tiers.length) {
+    out.push(
+      finding(
+        "low",
+        "tooling",
+        `Plugin tier${tiers.length === 1 ? "" : "s"} worth offering: ${tiers.join(", ")}`,
+        "The index shows what this repo is, so these tiers have a use here. Core installs regardless; these are the opt-in ones the repo itself argues for.",
+        tiers,
+        offer("bundle", tiers),
+      ),
+    );
+  }
+
   // --- Scoped-brief proposals ----------------------------------------------------------------
   // A directory that already has a brief is done, not a candidate. Re-proposing finished work is
   // how a report teaches people to stop reading it.
@@ -302,6 +423,10 @@ export function analyse(index, root) {
         `${briefs.length} area${briefs.length === 1 ? "" : "s"} may deserve their own AGENTS.md`,
         "Ranked by size, churn and absence of tests. Each of these would get a scoped brief plus a line in the root routing table, so an agent working there loads narrow context instead of everything.",
         briefs.slice(0, 8).map((b) => `${b.dir} — ${b.reasons.join("; ")}`),
+        offer(
+          "brief",
+          briefs.map((b) => b.dir),
+        ),
       ),
     );
   }

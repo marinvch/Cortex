@@ -3,79 +3,22 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
-## [Unreleased]
-
-### Changed
-- **The install sequence can finally start itself.** Cortex's design promises that landing on a repo
-  with code *fires* the sequence — index, report, user picks, apply. It never could:
-  `/cortex-install` carried `disable-model-invocation: true`, so only a human typing its name could
-  begin it. The flag had no stated reason — `AGENTS.md` justifies it for `/onboard`,
-  `/migrate-engine`, `/team-init` and `/connect-brain` (once-only or destructive) and the test guards
-  exactly those four. `/cortex-install` only reads. The flag was inherited, and it blocked the
-  sequence the whole design is built around.
-
-  Protection moves to where it belongs — a **consent gate on the first write**. With no `.cortex/`
-  yet it asks before writing anything, including the index, because generated-and-gitignored is not
-  the same as invisible: those are files appearing in a project on a run nobody asked for. Once
-  `.cortex/` exists, re-indexing needs no ceremony. Reading was never gated and still isn't.
-
-  Rejected: shipping a `SessionStart` hook (the plugin ships no hooks at all today, and it would run
-  before the user expressed any intent) and splitting off a read-only "orient" skill (a second
-  spelling of a shipped ritual, and useless for the motivating case — a repo with no index is
-  exactly where an agent needs to act). Recorded in
-  [ADR 0005](docs/adr/0005-the-install-sequence-may-start-itself.md).
-
-### Fixed
-- **`/cortex-scaffold` had no source to write from on a greenfield repo.** It opens by refreshing
-  the index and warning that "a scaffold written from assumption is worse than none: it reads as
-  authoritative and is wrong" — then tells the agent to fill every `{{placeholder}}` from the index
-  and the code. On an empty repo there is no code, so following it means inventing a stack (the
-  exact failure it warns about) or leaving `{{placeholders}}` behind, which read as instructions to
-  the next agent and never get cleaned up.
-
-  The honest source on greenfield is the user, so it now **interviews instead of reading** — via
-  `/grilling`, asking the four questions the template needs in one round rather than one at a time.
-  Layout and `CONTEXT.md` behave differently there (no aspirational directories; seed the glossary
-  from the words the user actually used), and the result is labelled for what it is: a greenfield
-  brief is a **hypothesis**, and the first `/cortex-install` over real code is what tests it.
-- **The greenfield install flow existed in the design and nowhere in the code.** `/cortex-install`
-  claimed in its own description to work on "greenfield and legacy repos", and the design spec
-  specifies two distinct sequences — but only the legacy one was implemented. Running it on an
-  empty repo produced **three ranked findings, one of them `high`**, about missing documentation
-  for code that does not exist: AGENTS.md called "the single highest-leverage file" for a repo with
-  zero files, and a glossary demanded because "domain terms are undefined" where there is no
-  domain. It then closed by pointing at `/cortex-brief` for "the areas listed above" — naming areas
-  the index had explicitly found none of.
-
-  Absurd output on a first run is expensive: it teaches a new user the report is noise, and the
-  report is the entire product before anything is written.
-
-  Now `analyse` forks on `isGreenfield` and emits one honest `low` finding, `render` closes with
-  the matching instruction (scaffold; briefs and enrichment wait for code), and `/cortex-install`
-  carries the fork explicitly — on the index's file count, not on a guess about the repo. Also
-  fixes the stray `- ` bullet an empty language map rendered.
-
-### Changed
-- **`/analyze-spec` gained the vocabulary for what it cannot yet see.** It could lock decisions and
-  rule work out of scope, but had no way to say "this is in scope and I cannot yet phrase the
-  question sharply" — so that material either hardened into confident detail nobody had decided, or
-  fell into `Out of scope` and was silently abandoned.
-
-  Now: **destination** (named first, because it fixes the scope every later decision is judged
-  against), **fog of war** (in scope, not yet sharp), and the test between them — can you state the
-  question *precisely now*, not can you answer it. The spec template gained **Not yet specified**
-  alongside `Out of scope`; the two are different rulings, one about sharpness and one about scope.
-  If naming the destination surfaces no fog at all, the ritual now says so and stops: that is
-  `/plan-feature` work, not a spec.
-
-  Harvested from upstream's `wayfinder`, which is **not** being ported. Reading it showed the
-  overlap concern was wrong — it is genuinely different — but it is hard-wired to an issue tracker
-  (map as a labelled issue, tickets as child issues, frontier from native blocking dependencies)
-  and cascades into `research` and `prototype`, both already skipped. This repo has zero issues and
-  runs on PRs, the same reason `to-tickets` and `triage` were skipped. Verdict and reasoning are
-  recorded in the harvest doc; revisit only if a tracker is adopted.
+## [2.4.0] — 2026-08-18
 
 ### Added
+
+- **`cortex-findings.mjs --offers`** — prints the ranked worklist as JSON and writes nothing at all,
+  not even the report. The report stays prose for a human; this is the machine surface the wizard
+  walks. Two surfaces over one analysis rather than one doing two jobs — a wizard forced to parse
+  its questions back out of rendered markdown would drift from the findings the moment either was
+  reworded.
+- Findings that propose the three repo-scale offers nothing produced before: `enrich` (a large repo
+  with no `enriched.json`, stating the token cost), `memory` (no committed `.cortex/memory/`,
+  explaining the committed/gitignored asymmetry once), and `bundle` (a tier the index gives a reason
+  for — a frontend proposes `browser-qa`). The enrichment threshold is a named constant
+  (`ENRICH_WORTH_IT = 50`) because it is a judgement call meant to be argued with, not a number
+  buried in a conditional. Frontend detection keys on file extension, not language: `langs.mjs` maps
+  `.tsx` to `typescript`, so language alone cannot tell a frontend from a TypeScript backend.
 - **`/handoff`** — compact the live conversation into a document another agent can pick up, written
   to the OS temp directory. Ported because Cortex's whole thesis is not losing context and this was
   a hole in it: `/dream` consolidates a day for the *team*, `/catch-me-up` reads git after time
@@ -116,12 +59,112 @@ this project now versions independently of any package manager (see `VERSION`).
   actual work after the report — and no such skill existed. `/analyze-spec`, `/level-up` and
   `/onboard` all interview the user ad hoc and now have one spelling to borrow.
 
+### Changed
+
+- **`/cortex-install` became the wizard it always described.** It presented four choices at once —
+  context layer, briefs, bundle, nothing — in a fixed order with no relation to what the repo
+  actually needed. `analyse()` already ranked every finding by severity and that ranking was thrown
+  away before reaching the only place it mattered, so a repo whose worst problem was a possible
+  secret and one whose worst problem was a missing `AGENTS.md` were asked the same four questions in
+  the same order.
+
+  Findings now carry an optional machine-readable **offer** — `scaffold` · `brief` · `enrich` ·
+  `bundle` · `triage-secrets` · `memory` — and `offers()` returns them as a ranked, de-duplicated
+  worklist the skill walks top-down. **The report is the wizard's script**; the repo's own state
+  chooses the running order.
+
+  Offers **collapse by action**, which is what keeps a thirty-finding report from becoming a
+  thirty-question interview: five areas that each want a brief are one question naming five
+  candidates. A merged entry inherits its highest member's severity, so collapsing can never bury a
+  critical finding, and carries the titles that produced it so the wizard can say *why* it is
+  asking. Severity does not imply an offer — *no test files found* is high and Cortex has no action
+  that writes tests, so it stays a finding with no question attached.
+
+  Consent is **propose-all-then-one-yes**: step 4 walks every offer with nothing on disk, step 5
+  plays the worklist back as a list of paths and takes one confirmation, step 6 applies in worklist
+  order. Rejected on both flanks — per-write prompts train users to click through the one prompt
+  that matters, and a single up-front yes stretched to cover files it never named is not consent
+  either. Enrichment states its token cost *before* its question and must be named in the playback;
+  it is the only offer that spends real money. `triage-secrets` shows and stops — no rotation, no
+  redaction, because some hits are fixtures and a false positive acted on destroys trust in every
+  other finding. "Later" is a real answer and survives into the close.
+
+  Verified against two real legacy repos (108 and 70 files): dozens of findings, five ranked
+  questions each. Recorded in
+  [ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md).
+- **The install sequence can finally start itself.** Cortex's design promises that landing on a repo
+  with code *fires* the sequence — index, report, user picks, apply. It never could:
+  `/cortex-install` carried `disable-model-invocation: true`, so only a human typing its name could
+  begin it. The flag had no stated reason — `AGENTS.md` justifies it for `/onboard`,
+  `/migrate-engine`, `/team-init` and `/connect-brain` (once-only or destructive) and the test guards
+  exactly those four. `/cortex-install` only reads. The flag was inherited, and it blocked the
+  sequence the whole design is built around.
+
+  Protection moves to where it belongs — a **consent gate on the first write**. With no `.cortex/`
+  yet it asks before writing anything, including the index, because generated-and-gitignored is not
+  the same as invisible: those are files appearing in a project on a run nobody asked for. Once
+  `.cortex/` exists, re-indexing needs no ceremony. Reading was never gated and still isn't.
+
+  Rejected: shipping a `SessionStart` hook (the plugin ships no hooks at all today, and it would run
+  before the user expressed any intent) and splitting off a read-only "orient" skill (a second
+  spelling of a shipped ritual, and useless for the motivating case — a repo with no index is
+  exactly where an agent needs to act). Recorded in
+  [ADR 0005](docs/adr/0005-the-install-sequence-may-start-itself.md).
+- **`/analyze-spec` gained the vocabulary for what it cannot yet see.** It could lock decisions and
+  rule work out of scope, but had no way to say "this is in scope and I cannot yet phrase the
+  question sharply" — so that material either hardened into confident detail nobody had decided, or
+  fell into `Out of scope` and was silently abandoned.
+
+  Now: **destination** (named first, because it fixes the scope every later decision is judged
+  against), **fog of war** (in scope, not yet sharp), and the test between them — can you state the
+  question *precisely now*, not can you answer it. The spec template gained **Not yet specified**
+  alongside `Out of scope`; the two are different rulings, one about sharpness and one about scope.
+  If naming the destination surfaces no fog at all, the ritual now says so and stops: that is
+  `/plan-feature` work, not a spec.
+
+  Harvested from upstream's `wayfinder`, which is **not** being ported. Reading it showed the
+  overlap concern was wrong — it is genuinely different — but it is hard-wired to an issue tracker
+  (map as a labelled issue, tickets as child issues, frontier from native blocking dependencies)
+  and cascades into `research` and `prototype`, both already skipped. This repo has zero issues and
+  runs on PRs, the same reason `to-tickets` and `triage` were skipped. Verdict and reasoning are
+  recorded in the harvest doc; revisit only if a tracker is adopted.
+
 ### Fixed
+
+- **`/cortex-scaffold` had no source to write from on a greenfield repo.** It opens by refreshing
+  the index and warning that "a scaffold written from assumption is worse than none: it reads as
+  authoritative and is wrong" — then tells the agent to fill every `{{placeholder}}` from the index
+  and the code. On an empty repo there is no code, so following it means inventing a stack (the
+  exact failure it warns about) or leaving `{{placeholders}}` behind, which read as instructions to
+  the next agent and never get cleaned up.
+
+  The honest source on greenfield is the user, so it now **interviews instead of reading** — via
+  `/grilling`, asking the four questions the template needs in one round rather than one at a time.
+  Layout and `CONTEXT.md` behave differently there (no aspirational directories; seed the glossary
+  from the words the user actually used), and the result is labelled for what it is: a greenfield
+  brief is a **hypothesis**, and the first `/cortex-install` over real code is what tests it.
+- **The greenfield install flow existed in the design and nowhere in the code.** `/cortex-install`
+  claimed in its own description to work on "greenfield and legacy repos", and the design spec
+  specifies two distinct sequences — but only the legacy one was implemented. Running it on an
+  empty repo produced **three ranked findings, one of them `high`**, about missing documentation
+  for code that does not exist: AGENTS.md called "the single highest-leverage file" for a repo with
+  zero files, and a glossary demanded because "domain terms are undefined" where there is no
+  domain. It then closed by pointing at `/cortex-brief` for "the areas listed above" — naming areas
+  the index had explicitly found none of.
+
+  Absurd output on a first run is expensive: it teaches a new user the report is noise, and the
+  report is the entire product before anything is written.
+
+  Now `analyse` forks on `isGreenfield` and emits one honest `low` finding, `render` closes with
+  the matching instruction (scaffold; briefs and enrichment wait for code), and `/cortex-install`
+  carries the fork explicitly — on the index's file count, not on a guess about the repo. Also
+  fixes the stray `- ` bullet an empty language map rendered.
 - **MIT attribution on `/improve-codebase-architecture`.** It was ported from
   [mattpocock/skills](https://github.com/mattpocock/skills) by a parallel session without the
   footer every other ported file carries. A licence obligation, not a style nit.
 
 ### Documented
+
 - `docs/superpowers/specs/2026-08-17-mattpocock-harvest.md` — the full survey of upstream's 18
   engineering + 7 productivity skills against what Cortex already ships: 5 already ported, 2 not
   ours to take, 5 already covered by the bundle, 4 worth porting, 9 skipped with reasons. The
@@ -412,6 +455,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.4.0]: https://github.com/marinvch/Cortex/releases/tag/v2.4.0
 [2.3.0]: https://github.com/marinvch/Cortex/releases/tag/v2.3.0
 [2.2.0]: https://github.com/marinvch/Cortex/releases/tag/v2.2.0
 [2.1.0]: https://github.com/marinvch/Cortex/releases/tag/v2.1.0

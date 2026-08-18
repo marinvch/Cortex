@@ -42,11 +42,20 @@ assert_exit() {
   local want="$1" msg="$2"
   shift 2
   [ "$1" = "--" ] && shift
+
+  # Save and RESTORE errexit rather than forcing it back on. An earlier version ended with a bare
+  # `set -e`, which switched on a mode the runner had deliberately switched off — so the first
+  # non-zero command after any assert_exit killed the whole test file, and the run reported it as a
+  # crash rather than as the passing assertions it had already made.
+  local errexit_was_on=0
+  case "$-" in *e*) errexit_was_on=1 ;; esac
+
   local got=0
   set +e
   "$@" >/dev/null 2>&1
   got=$?
-  set -e
+  [ "$errexit_was_on" -eq 1 ] && set -e
+
   assert_eq "$want" "$got" "$msg"
 }
 

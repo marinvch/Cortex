@@ -3,6 +3,60 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.6.0] — 2026-08-18
+
+### Added
+- **The three-audience resolver — the last open item of the big task.** Cortex claimed to serve solo
+  developers, teams and self-hosted setups, and only solo was ever exercised. `/team-init`,
+  `/team-add`, a connector file and `tools/server/` all existed; nothing tied them to the running
+  brain.
+
+  `mcp/lib/resolve.js` now answers where the brain is and who it serves —
+  `resolveBrain({ cwd, env }) → { audience, root, team, teamClone, source }`. `server.js` resolves
+  once at startup.
+
+  **Solo and team are detected**, from a `.cortex/connector.json` found by walking **up** from the
+  working directory — an agent runs in a subdirectory far more often than at a repo's top, and
+  without the walk-up team mode silently degrades to solo. **Server is declared** with
+  `CORTEX_AUDIENCE=server`, because it leaves no filesystem trace to detect: it is solo minus
+  interactive prompts, plus a scheduler, plus a model that is not Claude Code. Declaring beats
+  detecting, so a scheduled run inside a connected repo is still a server run.
+
+  A malformed `connector.json` resolves to solo with `source: "unreadable:<path>"` rather than
+  throwing. A brain that refuses to start because one JSON file is corrupt has turned a papercut
+  into an outage.
+
+  **The resolver never invents a root.** The three-mode spec described a fallback chain — connector,
+  then `AI_OS_ROOT`, then a repo-local `.cortex/memory/` — and `mcp/AGENTS.md` forbids exactly that:
+  an unset `AI_OS_ROOT` is a hard exit, because a guessed root can file a private note into a work
+  repository. The invariant won; the fallback is recorded as a rejected alternative in
+  [ADR 0008](docs/adr/0008-three-audiences-one-seam.md) so it is not re-proposed as an improvement.
+
+### Changed
+- **`capture` and `catch_me_up` stopped asking the caller which world it is in.** `team` was a tool
+  *argument*, so the calling agent had to know it was on a team before it could act like one — the
+  seam leaking in the one place the design says it must not. The team now comes from the resolution;
+  a repo with a connector writes to the team brain without anyone asking. The argument survives as an
+  explicit **override**, and its description says so.
+- **`audience` is a third axis, not a rename of `mode`.** `mcp/lib/mode.js` owns repo-vs-vault;
+  `resolve.js` owns solo/team/server. They are orthogonal — a repo-mode brain can run on a server, a
+  vault-mode brain can belong to a team — and welding them into one word would guarantee a future bug
+  where changing one silently changes the other. It also keeps `CORTEX_AUDIENCE` clear of the
+  `CORTEX_MODEL` that `cortex-cron.sh` already reads.
+- The startup line now reports `audience`, `source`, `mode` and `root` on **stderr** — never stdout,
+  which is the MCP protocol channel where one stray line corrupts the stream for every client. A test
+  parses every stdout line as JSON to keep it that way.
+
+### Fixed
+- **`tools/server/cortex-cron.sh` could not have worked.** `CORTEX_MODEL` defaulted to
+  `claude-sonnet-4-6`, a model id that no longer exists, so every scheduled run would fail against
+  the API. Now `claude-sonnet-5`, with a comment saying model ids age out and this is the first thing
+  to check when a cron run starts 404-ing.
+- **The two halves of server mode shared no vocabulary.** `cortex-cron.sh` keyed on `BRAIN_DIR` while
+  the rest of Cortex uses `AI_OS_ROOT`. `AI_OS_ROOT` is now accepted as a fallback; `BRAIN_DIR` still
+  wins when both are set, so existing crontabs keep working. Neither bug was caught by a test,
+  because nothing tests the shell half — which is worth knowing.
+
 ## [2.5.0] — 2026-08-18
 
 ### Changed
@@ -495,6 +549,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.6.0]: https://github.com/marinvch/Cortex/releases/tag/v2.6.0
 [2.5.0]: https://github.com/marinvch/Cortex/releases/tag/v2.5.0
 [2.4.0]: https://github.com/marinvch/Cortex/releases/tag/v2.4.0
 [2.3.0]: https://github.com/marinvch/Cortex/releases/tag/v2.3.0

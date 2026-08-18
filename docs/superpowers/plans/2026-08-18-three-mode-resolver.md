@@ -189,3 +189,32 @@ Cut 2.6.0, then tag and publish the release so the changelog link is not dead on
 - Declaring a minimum model capability for rituals that assume a strong model (`/level-up`,
   `/cortex-audit`). The spec raises it; it is a ritual-authoring question, not a resolver one.
 - Splitting the repo into packages. 2026-08-12 Decision 1 stays the target, not this pass's work.
+
+---
+
+## Outcome — all tasks done, 2026-08-18
+
+Shipped as **2.6.0**. This closes sequence item 10 and, with it, the last open item of the big task.
+
+**What the work confirmed:** the seam's real leak was not the missing resolver — it was `capture`
+taking `team` as an argument. A resolver that nobody consulted would have changed nothing; making
+the tools read it is what closed the seam.
+
+**Verification beyond the suite.** An end-to-end run over a real tree resolved all five cases: solo,
+team at a repo root, team from a nested `src/deep` cwd (the walk-up), server declared while a
+connector was present, and `no_root` refused rather than guessed.
+
+That run also caught something worth recording: my *first* attempt reported `solo` for every team
+case and I nearly filed it as a resolver bug. It was a mistake in the throwaway harness —
+`process.argv[0]` is the node executable, so the paths were shifted by one. The lesson is not about
+argv: an end-to-end check is only evidence if the harness itself is right, and a failing e2e run is
+a claim about *the whole setup*, not proof about the code.
+
+**Left named rather than smuggled in:**
+- `server-setup.sh` still provisions the git half of server mode and not the cron half it was written
+  to pair with. Real work, own design questions (which rituals, what schedule, what happens on
+  failure).
+- Nothing tests the shell half of server mode. Both `cortex-cron.sh` bugs survived because of it, and
+  they were found by reading rather than by CI.
+- A declared minimum model capability for rituals that assume a strong model (`/level-up`,
+  `/cortex-audit`). A ritual-authoring question, not a resolver one.

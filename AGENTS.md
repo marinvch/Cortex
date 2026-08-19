@@ -233,7 +233,7 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
   cannot cite the index does not belong in the list.
 - **`/cortex-impact` reads the graph backwards, and every number it prints is a floor.** Everything
   else downstream of the index asks *what does this file import*; this asks *who imports me, and is
-  any of it tested*. Import resolution is regex-based ([ADR 0004](docs/adr/0004-a-plugin-install-clones-the-repo.md)
+  any of it tested*. Import resolution is regex-based ([ADR 0004](docs/adr/0004-no-runtime-dependencies.md)
   rules out a parser), so dynamic imports are invisible — the field is `atLeast`, never `total`, and
   the output says so twice on purpose. The actionable half is the *unverified* list, not the count:
   a large radius that is covered is an ordinary change. Coverage lives in `index/lib/coverage.mjs`,
@@ -249,38 +249,10 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
   reading rather than by CI. Tests build real git repos in temp dirs (a bare repo on disk is a
   complete remote, so no network), and every test touching `$HOME` must override it. They run in the
   `cortex-init test` workflow. Add a case there when you touch anything under `tools/`.
-- **`mcp/lib/vault.js` is the only door onto a vault root.** Nothing else under `mcp/` may join a
-  path onto one — ask the Vault (`list` · `entries` · `read` · `append` · `write` · `abs` ·
-  `exists` · `isFile` · `isDirectory` · `mtimeMs`), which takes root-relative paths and resolves
-  every one through `core/paths.js`. `mcp/test/vault-is-the-only-door.test.js` enforces it, twice:
-  a scan for `join(root, …)`, plus an assertion that the four converted modules import no `node:fs`
-  — because `recall` bypassed the guard through a closure variable without ever writing that call.
-  The three allowlisted files join onto the **install** directory or a git clone, not a vault. The
-  Vault does not scrub: secret refusal is policy and stays in `core/scrub.js`. See
-  [ADR 0007](docs/adr/0007-the-vault-is-the-only-door.md).
-- **`mode` and `audience` are two different questions — never conflate them.** `mcp/lib/mode.js`
-  answers *what kind of brain this root is* (repo vs vault, decided by whether it ends in
-  `.cortex`). `mcp/lib/resolve.js` answers *who it serves* (solo · team · server). They are
-  orthogonal: a repo-mode brain can run on a server, a vault-mode brain can belong to a team. Solo
-  and team are **detected** from a `.cortex/connector.json` found by walking up from the cwd; server
-  is **declared** with `CORTEX_AUDIENCE=server`, because it leaves no filesystem trace and declaring
-  beats detecting. The resolver never invents a root — `AI_OS_ROOT` unset stays a hard exit. See
-  [ADR 0008](docs/adr/0008-three-audiences-one-seam.md).
-- The MCP server has **two modes, decided by the root it is given**: point it at a repo's
-  `.cortex/` and it serves `recall` · `remember` · `recall_memory`; point it at a personal vault
-  and it serves the original `capture` · `catch_me_up` · project tools. The vault tools are hidden
-  in repo mode on purpose — offering them would invite an agent to write `inbox/` and `daily/`
-  into someone's product repository.
 - `.cortex/index/` and `.cortex/findings/` are generated and gitignored in a target repo.
   `.cortex/memory/` is **committed** — that is how several developers share one context. The
-  asymmetry is deliberate, and it makes the privacy rule a hard requirement: `mcp/lib/scrub.js`
+  asymmetry is deliberate, and it makes the privacy rule a hard requirement: `core/scrub.js`
   refuses any memory write carrying a credential, and never sanitises silently.
-- The indexer (`index/`) asks **git** what belongs to a repo, not `.cortexignore`. Those answer
-  different questions — `.cortexignore` says what is not *knowledge in a vault*, which would drop
-  a repo's own `tools/` and `skills/` from its index.
-- Enrichment is **additive and optional**. `index.json` stays the source of truth for structure;
-  `enriched.json` only attaches prose. A missing or stale enrichment degrades Cortex to
-  deterministic behaviour — it must never break it, and must never edit `index.json`.
 
 ## The code layers
 
@@ -308,6 +280,12 @@ alternatives are in [`docs/adr/`](docs/adr/).
 leaf imports the other. It exists because the rule was already broken once — `index/` was pulling
 the secret scanner and a date helper straight out of `mcp/lib/`. Shared code goes in `core/`;
 convenience imports across leaves are how two packages get welded into one.
+- **Leaf-internal invariants live in the leaf, not here.** `mcp/AGENTS.md` owns the Vault door, the
+  two server modes and the mode/audience seam; `index/AGENTS.md` owns determinism, regex import
+  resolution, the three coverage signals, and why the walker asks git rather than `.cortexignore`.
+  This file used to restate all five, and the copies drifted — the mode/audience bullet here still
+  said *two questions* long after `profile` made it three. Read the leaf before changing behaviour
+  it governs, and write the detail there.
 - [[codebase-design]] is vocabulary, not a ritual — the words for *how code is shaped* (module,
   interface, depth, seam, adapter). [[operating-principles]] decides what to build; that decides
   what it looks like. `/analyze-spec` and `/cortex-brief` should both speak it.

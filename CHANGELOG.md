@@ -3,6 +3,62 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.18.0] — 2026-08-19
+
+Ruby, PHP and Java had *no import extraction at all* — not a resolution gap, an absent case in the
+switch. And `UNRESOLVED_LANGUAGES` had never named them, so all three reported blindness as
+absence. Measured against `sinatra/sinatra`, `slimphp/Slim` and `google/gson`:
+
+| repo | language | edges | unreferenced |
+|---|---|---|---|
+| gson | Java | 0 → **1018** | 122 → 15 |
+| Slim | PHP | 0 → **305** | 72 → 7 |
+| sinatra | Ruby | 0 → **109** | 56 → **0** |
+
+`/cortex-impact` on `Gson.java` — the library's central class — reported *"Nothing in the index
+imports these"*. It now reports **124 affected files**.
+
+### Added — Java, PHP and Ruby imports resolve
+
+- **Java.** A package is a directory, so `import com.google.gson.internal.Excluder` is
+  `com/google/gson/internal/Excluder.java` beneath a `src/main/java`-style root. Roots are matched
+  longest-first, because a multi-module build has one per module and the same package path can
+  exist under two. `import static a.b.C.member` names a member, so the path shortens until it lands
+  on a file.
+- **PHP.** PSR-4 maps a namespace prefix to a directory and `composer.json` declares it — read, not
+  guessed, for the same reason Go reads `go.mod`. Longest prefix wins, so a specific namespace beats
+  the umbrella one. `autoload-dev` counts too.
+- **Ruby.** `require_relative 'x'` is path-relative; `require 'sinatra/base'` searches the load path,
+  which for a gem is its `lib/`. Extraction tags the relative form so the resolver never has to
+  guess which one a line meant. A repo shipping several gems has several load paths — sinatra
+  carries three.
+
+Every candidate must exist in the index, so a wrong reading yields no edge rather than an invented
+one. Third-party namespaces (`java.util`, `Psr\Http`, the `rack` gem) resolve to nothing, correctly.
+
+**A stated limit:** Java classes in the *same package* need no import, so a class used only within
+its own package still shows as unreferenced. Resolving that means resolving unqualified type names,
+which needs a parser — ruled out by [ADR 0004](docs/adr/0004-no-runtime-dependencies.md). Most of
+gson's fifteen remaining orphans are that, plus `package-info.java` files and build-time templates.
+
+### Fixed — a language with a framework row but no language row
+`rails`, `laravel`, `django` and `flask` were signals; Ruby, PHP, Java and Python were not. A
+Sinatra app is not Rails and a Maven project is neither, so all four reported **no language at
+all** — and the skills chosen from an empty stack are the generic ones.
+
+Java is asserted from either build tool, since a Gradle project has no `pom.xml` and is no less
+Java for it.
+
+### Fixed — the reported manifest list had drifted from the manifest specs
+It is a second regex rather than something derived from `SIGNALS`, and it never learned about Maven
+or Gradle: gson detected Java *from* `pom.xml` while reporting zero manifests. It now lists all
+eight of gson's modules.
+
+### Tests
+Ten added, and the resolvers were **mutation-tested** — each rule deleted in turn to confirm
+something failed. No regression across the other four repositories: gin holds at 248 edges, ripgrep
+at 119, requests at 98, Cortex itself at 93.
+
 ## [2.17.0] — 2026-08-19
 
 ### Added — Rust imports resolve
@@ -1153,6 +1209,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.18.0]: https://github.com/marinvch/Cortex/releases/tag/v2.18.0
 [2.17.0]: https://github.com/marinvch/Cortex/releases/tag/v2.17.0
 [2.16.0]: https://github.com/marinvch/Cortex/releases/tag/v2.16.0
 [2.15.0]: https://github.com/marinvch/Cortex/releases/tag/v2.15.0

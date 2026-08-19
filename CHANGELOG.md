@@ -25,6 +25,12 @@ this project now versions independently of any package manager (see `VERSION`).
   It runs the real pipeline against your code and asserts your repo is left without a `.cortex/`.
 
 ### Fixed
+- **A v1.0.0 changelog entry named a private repository.** Cortex is public, and developing it by
+  testing against real repositories creates a standing temptation to write down what was learned in
+  the terms it was learned in — which ties a named account to a private codebase. The entry now
+  describes the shape and not the subject, and `tools/test/no-private-names.test.sh` keeps it that
+  way: it fails if any tracked file names a known private project, or if a test hardcodes an
+  absolute path to somebody’s repo instead of taking `CORTEX_E2E_REPO` at runtime.
 - **`.gitignore` said "dated archive folders come from `/cortex-audit` and `/cortex-audit`."** A
   find-and-replace in 2.9.0 renamed both halves of "`/cortex-doctor` and `/cortex-audit`" when only
   one of them was the collapsed ritual. The line is rewritten as part of the change above.
@@ -837,8 +843,8 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 ### Validated
 - Local CI green (12/12): every script parses, the installer smoke test passes, all 12 skills have
   valid frontmatter, the GitHub Actions workflow is bash-only.
-- Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
-  verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
+- Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
+  memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
 [2.10.1]: https://github.com/marinvch/Cortex/releases/tag/v2.10.1
 [2.10.0]: https://github.com/marinvch/Cortex/releases/tag/v2.10.0

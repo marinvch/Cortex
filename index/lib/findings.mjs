@@ -2,6 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { briefCandidates } from "./layers.mjs";
 import { scan } from "../../core/scrub.js";
+import { buildCoverage, testStem } from "./coverage.mjs";
 
 // Findings are PROPOSALS. Nothing here edits a repository — this module returns data and the
 // caller writes exactly one report file. The skill that finds things and the skill that changes
@@ -73,16 +74,7 @@ function orphans(index) {
  * Tests routinely live in a sibling directory rather than beside the code, so matching on the
  * containing directory reports false positives on the ordinary src/ + test/ layout.
  */
-export function testStem(path) {
-  let name = path.split("/").pop();
-  name = name.replace(/\.[a-z0-9]+$/i, "");
-  name = name
-    .replace(/\.(test|spec)$/i, "")
-    .replace(/_(test|spec)$/i, "")
-    .replace(/^(test|spec)_/i, "")
-    .replace(/(Test|Tests|Spec|Specs)$/, "");
-  return name.toLowerCase();
-}
+export { testStem };
 
 /** Production modules that no test covers, grouped by directory. */
 function untestedAreas(index, root) {
@@ -90,48 +82,14 @@ function untestedAreas(index, root) {
   // when they sit in different directories; imports catch a module exercised by a test named after
   // something else, which is how most integration tests are organised; mentions catch a CLI run as
   // a subprocess, which neither of the others can see.
-  const coveredByName = new Set();
-  const testPaths = new Set();
-  for (const f of index.files) {
-    if (!f.isTest) continue;
-    coveredByName.add(testStem(f.path));
-    testPaths.add(f.path);
-  }
-  const coveredByImport = new Set();
-  for (const e of index.edges) {
-    if (testPaths.has(e.from)) coveredByImport.add(e.to);
-  }
-
-  // Third signal: a test that names the file in a string literal. CLIs are routinely tested by
-  // spawning them as a subprocess, which is invisible to both signals above — the test neither
-  // imports the module nor is named after it. Quoted-only, so a passing mention in a comment does
-  // not count as coverage.
-  const coveredByMention = new Set();
-  if (testPaths.size && root) {
-    const basenames = new Map();
-    for (const f of index.files) {
-      if (f.category === "code" && !f.isTest) basenames.set(f.path.split("/").pop(), f.path);
-    }
-    for (const t of testPaths) {
-      let text;
-      try {
-        text = readFileSync(join(root, t), "utf8");
-      } catch {
-        continue;
-      }
-      for (const [base, path] of basenames) {
-        if (text.includes(`"${base}"`) || text.includes(`'${base}'`) || text.includes(`\`${base}\``)) {
-          coveredByMention.add(path);
-        }
-      }
-    }
-  }
+  // Three signals, each alone misreporting — see index/lib/coverage.mjs, which owns this because
+  // impact.mjs needs the same answer and a second copy would drift.
+  const coverage = buildCoverage(index, root);
 
   const byDir = new Map();
   for (const f of index.files) {
     if (f.category !== "code" || f.isTest) continue;
-    const stem = testStem(f.path);
-    const covered = coveredByName.has(stem) || coveredByImport.has(f.path) || coveredByMention.has(f.path);
+    const covered = coverage.isCovered(f.path);
     const dir = f.path.includes("/") ? f.path.split("/").slice(0, -1).join("/") : ".";
     if (!byDir.has(dir)) byDir.set(dir, { dir, code: 0, untested: 0, commits: 0, examples: [] });
     const d = byDir.get(dir);

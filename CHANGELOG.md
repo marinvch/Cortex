@@ -3,6 +3,42 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.14.0] — 2026-08-19
+
+### Added — `/cortex-impact`: what breaks if this changes
+The index has carried import edges since the first version, and everything read them forwards:
+*what does this file import*. Nobody asks that. The question before touching a file is the reverse
+one — **who depends on me, and is any of it tested?** Nothing could answer it.
+
+`node index/cortex-impact.mjs <paths|--staged|--since REF>` walks the graph backwards and prints the
+blast radius nearest-first: hop count, whether a test exercises each file, and churn as the tiebreak
+within a depth. Three sections carry the answer — paths the index does not know (reported, never
+dropped: a typo contributing nothing reads as *nothing depends on this*), files no test exercises,
+and the tests worth running. `--json` for a ritual to walk, `--depth N` to bound an enormous radius.
+
+Deterministic per `index/AGENTS.md` — no LLM, no network, no clock — so it sits in the `mechanical`
+capability tier and runs on any model, or none.
+
+**Every number is a floor.** Import resolution is regex-based ([ADR 0004](docs/adr/0004-a-plugin-install-clones-the-repo.md)
+rules out a parser, since a plugin install clones the repo and runs no build), so dynamic and
+computed imports are invisible. The field is `atLeast`, there is no `total`, and no flag turns it
+into one: "3 files affected" when the truth is 5 invites a reader to stop looking; "at least 3"
+does not. An empty radius prints *a floor, not a proof* — an entry point or a dynamically loaded
+module looks exactly like dead code here.
+
+### Changed — coverage detection has one home
+`index/lib/coverage.mjs`, extracted from `findings.mjs` where the three-signal heuristic (name ·
+import · string-mention) was computed inline. Impact needs the same answer, and a second copy would
+agree today and disagree in a month with nothing to say which was right. Behaviour is unchanged —
+all 41 findings tests pass against the extracted module.
+
+### Tests
+`index/test/impact.test.mjs` (15) covers the reverse walk, cycles, depth ordering, the churn
+tiebreak, unknown-path reporting and output stability. `tools/test/cortex-impact.test.sh` (20)
+covers the CLI against a real git fixture, and most of its assertions defend a *sentence* rather
+than a number — the failure mode here is a confident total, not a crash. Both were verified
+non-vacuous by planting regressions.
+
 ## [2.13.0] — 2026-08-19
 
 ### Added — every ritual declares what it needs from the setup running it
@@ -979,6 +1015,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.14.0]: https://github.com/marinvch/Cortex/releases/tag/v2.14.0
 [2.13.0]: https://github.com/marinvch/Cortex/releases/tag/v2.13.0
 [2.12.0]: https://github.com/marinvch/Cortex/releases/tag/v2.12.0
 [2.11.0]: https://github.com/marinvch/Cortex/releases/tag/v2.11.0

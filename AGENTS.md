@@ -120,6 +120,7 @@ and needs no mirror at all.
 | `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
 | `/cortex-brief` | per critical area | write scoped `AGENTS.md` leaves + wire the root routing table |
 | `/cortex-skills` | after scaffold | propose + write skills that fit the detected stack |
+| `/cortex-impact` | before a change | who depends on these files, and which of it no test covers |
 | `/cortex-profile` | per machine | show or set which world this install serves — home · work · lab |
 
 Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it.
@@ -230,6 +231,14 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
   row with its own `when()` — rather than improvising one inside the ritual, so the next repo with
   that stack gets it too. The evidence sentence must name what was **detected**; a candidate that
   cannot cite the index does not belong in the list.
+- **`/cortex-impact` reads the graph backwards, and every number it prints is a floor.** Everything
+  else downstream of the index asks *what does this file import*; this asks *who imports me, and is
+  any of it tested*. Import resolution is regex-based ([ADR 0004](docs/adr/0004-a-plugin-install-clones-the-repo.md)
+  rules out a parser), so dynamic imports are invisible — the field is `atLeast`, never `total`, and
+  the output says so twice on purpose. The actionable half is the *unverified* list, not the count:
+  a large radius that is covered is an ordinary change. Coverage lives in `index/lib/coverage.mjs`,
+  shared with `findings.mjs` — a second copy of that three-signal heuristic would agree today and
+  disagree in a month, with nothing to say which was right.
 - **`tools/test/install-on-a-project.test.sh` is the only test that asserts the *product* works.**
   Everything else points Cortex at fixtures shaped by whoever wrote the test. This one runs
   index → findings → `--offers` against a repo shaped like real product code, and asserts the target

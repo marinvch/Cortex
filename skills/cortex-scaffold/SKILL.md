@@ -1,6 +1,7 @@
 ---
 name: cortex-scaffold
 description: Write the context layer into a repo — root AGENTS.md, agent shims, CONTEXT.md glossary, docs/adr/ and .cortex/. Use after reading a findings report, or when the user says "add the context layer", "scaffold cortex here", "write the AGENTS.md". This is the apply step; it is invoked explicitly and never runs on its own.
+capability: judgment
 ---
 
 # /cortex-scaffold — write the context layer

@@ -1,6 +1,7 @@
 ---
 name: team-init
 description: Team leader — create and seed the shared team-brain repo. Use when a lead says "set up the team brain", "create the team context repo", "onboard my team to the shared brain". Creates one private team-brain repo, seeds per-project folders + team config, and pushes.
+capability: mechanical
 disable-model-invocation: true
 ---
 

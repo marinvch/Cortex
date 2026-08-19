@@ -1,6 +1,7 @@
 ---
 name: cortex-enrich
 description: Add semantic summaries, roles and tags on top of the deterministic index, so recall and findings describe what code MEANS and not just how it is wired. Use when the user says "enrich the index", "summarise the codebase", "what does each file do", or after a first /cortex-install on a large unfamiliar repo. Costs tokens — always say so before starting.
+capability: strong
 ---
 
 # /cortex-enrich — put meaning on top of structure
@@ -91,3 +92,9 @@ the findings report use enrichment when it is present.
   to extract and paying for it is waste.
 - If the user only wants one area, enrich its batches and leave the rest pending. Partial coverage
   is a supported state, not a failure.
+
+## When the floor is not met
+
+This is the one where a weak model does lasting damage. Enrichment writes a summary for every file, and those summaries feed `recall` — so a plausible-but-wrong summary is not a bad answer once, it is a bad answer every time anyone searches. It also costs tokens to produce.
+
+Below the floor: **skip it.** Enrichment is additive and optional by design (see `index/AGENTS.md`); a missing enrichment degrades Cortex to deterministic behaviour, which is the intended fallback. A wrong one does not degrade it — it poisons it.

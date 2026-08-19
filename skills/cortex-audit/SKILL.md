@@ -1,6 +1,7 @@
 ---
 name: cortex-audit
 description: Find and fix what is structurally wrong with a Cortex vault — orphan and non-connected files, dead links, stale, duplicate and misplaced files, wiring drift, privacy leaks. Dispatches the read-only `cortex-auditor` subagent to scan the whole vault in an isolated context, then applies the safe fixes here and surfaces the judgment calls. Triggers — "cortex audit", "diagnose the vault", "clean up cortex", "fix dead links", "is the file structure healthy", "find and fix the problems", "full health check".
+capability: strong
 ---
 
 # /cortex-audit — dispatch the auditor, then fix
@@ -50,3 +51,9 @@ to approve each edit, switch to proposing all fixes first.
 
 Pairs with [[reindex]] (regenerate the graph after cleanup) and complements [[audit]] (content
 scoring). Targets **this vault** — `/optimize-context` is the same instinct pointed at another repo.
+
+## When the floor is not met
+
+The scan itself is mechanical — globbing, link maps, `git check-ignore`. What needs the floor is **ranking** the findings and calling `[safe]` versus `[judgment]`, and mistaking a judgment call for a safe one means an automatic fix to something that needed a human.
+
+Below the floor: run it with **every finding treated as `[judgment]`** — report all of them and apply none automatically. The scan is still worth having; only the autonomy is withdrawn. The subagent fallback in step 1 is a separate concern: that is about the harness having subagents at all, not about model strength.

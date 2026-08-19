@@ -121,6 +121,8 @@ and needs no mirror at all.
 | `/cortex-brief` | per critical area | write scoped `AGENTS.md` leaves + wire the root routing table |
 | `/cortex-skills` | after scaffold | propose + write skills that fit the detected stack |
 | `/cortex-profile` | per machine | show or set which world this install serves — home · work · lab |
+
+Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it.
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/handoff` | leaving work mid-flight | compact this conversation to the OS temp dir for the next agent |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
@@ -204,6 +206,14 @@ and needs no mirror at all.
   not write — it refuses until you have, because a release entry says what changed and why. See
   [ADR 0013](docs/adr/0013-the-version-has-one-home.md), and
   [ADR 0014](docs/adr/0014-the-package-split-stays-rejected.md) before proposing a package split.
+- **Every ritual declares a `capability:` floor — `mechanical` · `judgment` · `strong`.**
+  `node tools/cortex-capability.mjs` prints the table, read from the frontmatter so it cannot drift.
+  Self-hosted and own-LLM setups are a stated audience and had nothing to consult: a ritual needing
+  multi-round judgment looked exactly like one that appends a line to a file. The failure is not a
+  crash — a weak model runs `/cortex-enrich`, writes plausible-but-wrong summaries for every file,
+  and those feed `recall`, so it is a bad answer *every* time anyone searches. A new ritual without
+  the key fails `core/test/plugin.test.js`, and every `strong` one must carry a
+  `## When the floor is not met` section — a declared floor with no way under it is a wall.
 - **`mode`, `audience` and `profile` are three questions, never two.** `mcp/lib/mode.js` answers
   repo-vs-vault, `mcp/lib/resolve.js` answers solo/team/server, and `core/profile.js` answers
   home/work/lab. A work laptop can run a repo brain on a team; a lab box can hold a personal vault.

@@ -1,6 +1,7 @@
 ---
 name: optimize-context
 description: Audit and slim the AI-agent context files in a repo — AGENTS.md, CLAUDE.md, shims, rules files, skill bodies. Use when a repo's AGENTS.md has grown large, when agents there feel slow or drift off-convention, or when the user says "optimize the context", "our AGENTS.md is bloated", "reduce context", "context engineering pass", "audit the agent instructions". Runs inside a target repo, not the vault.
+capability: judgment
 ---
 
 # /optimize-context — make a repo's agent context earn its tokens

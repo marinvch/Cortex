@@ -3,6 +3,53 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.11.0] — 2026-08-19
+
+### Added — skills chosen from the stack, not from a default list
+Every repo used to get the same two skills. A Next.js app with Prisma and no tests got exactly what
+a Rust CLI got, because nothing downstream of the index could tell them apart — the context layer
+was tailored and the skills were not.
+
+- **The index knows the stack now.** `index/lib/stack.mjs` detects runtime, frameworks, data layer,
+  services, test runner and delivery from manifests and file paths — deterministic, per
+  `index/AGENTS.md`: no network, no LLM, no clock. It reads dependency names as **keys**, so
+  `next-auth` never implies Next.js and `flask-admin` never implies Flask.
+  Two signal shapes, because the difference is load-bearing: a file can **confirm** a manifest hit
+  (a Prisma dependency without a `schema.prisma` is someone else's schema, and an `/add-migration`
+  skill pointing at it would be worse than no skill) or **stand alone** (a `tsconfig.json` is proof
+  of TypeScript by itself, since framework-compiled repos never name the compiler).
+- **`index/lib/skills.mjs` proposes from that stack** — declarative, the way `offers()` already is.
+  Each candidate declares its own `when()` and an evidence sentence naming what was *detected*, so
+  the set is enumerable without reading any bodies and a new stack is a row, not another branch.
+  Rank is control flow: the ritual walks it top-down, as in
+  [ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md).
+- **`index/cortex-skills.mjs`** prints the proposal, or `--offers` for the JSON worklist. It writes
+  **nothing at all**, not even under `.cortex/`.
+- **`/cortex-skills`** presents the proposals with their evidence, the user picks each one, and the
+  agent writes the bodies — because a useful body quotes this repo's real commands and real paths,
+  and inventing those is exactly the failure a deterministic module cannot detect in itself.
+
+On a real Next.js repo this now detects TypeScript · Next.js · React · Prisma · NextAuth · Stripe ·
+Supabase and proposes six skills, each with its reason: a webhook skill because Stripe is a
+dependency, a migration skill because the repo owns a Prisma schema, a first-test skill because it
+has none.
+
+### Fixed
+- **A stackless index now proposes nothing instead of guessing.** An index written before stack
+  detection has no `stack` key, and falling back to an empty one let candidates fire on `stats`
+  alone — telling a repo with Vitest configured that it had "no test runner in any manifest", when
+  nothing had read a manifest. Every candidate's evidence presumes detection ran; if it did not, the
+  honest answer is to say so and re-index.
+
+### Changed
+- `/cortex-scaffold` now offers `/cortex-skills` alongside `/cortex-brief` as the next step, and says
+  what it is for: the context layer it just wrote is tailored to the repo, and its skills are not.
+- `tools/test/install-on-a-project.test.sh` asserts the whole chain end to end — index detects the
+  stack, the proposal names the skills that stack implies, and the target repo is left untouched.
+  The fixture gained a `tsconfig.json` and declares `@prisma/client` rather than the CLI, which is
+  what a real Next.js repo looks like; both corrections came from the fixture failing and exposing
+  genuine detection gaps.
+
 ## [2.10.1] — 2026-08-19
 
 ### Fixed
@@ -857,6 +904,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.11.0]: https://github.com/marinvch/Cortex/releases/tag/v2.11.0
 [2.10.1]: https://github.com/marinvch/Cortex/releases/tag/v2.10.1
 [2.10.0]: https://github.com/marinvch/Cortex/releases/tag/v2.10.0
 [2.9.1]: https://github.com/marinvch/Cortex/releases/tag/v2.9.1

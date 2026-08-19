@@ -34,6 +34,11 @@ printf 'import { db } from "../../../lib/db";\nexport async function POST() { re
 printf 'export const Button = () => <button />;\n' > src/components/Button.tsx
 printf 'export const db = {};\n' > src/lib-db.ts
 printf 'generator client { provider = "prisma-client-js" }\n' > prisma/schema.prisma
+# A real Next.js repo carries a tsconfig and declares @prisma/client (the runtime) rather than the
+# prisma CLI. Both were wrong in the first version of this fixture, and both exposed real detection
+# gaps: the alias was unrecognised, and TypeScript was asserted only from a dependency that
+# framework-compiled repos never name.
+printf '{ "compilerOptions": { "strict": true } }\n' > tsconfig.json
 # Generated output and committed env files — the two things a real Next.js repo drags along, and
 # the reason the secrets finding is the one that fires first in practice.
 printf 'const secret = "sk_live_0000000000000000";\nmodule.exports = { secret };\n' > src/app/generated/prisma/index.js
@@ -85,6 +90,36 @@ assert_contains "$OFFERS" "critical" "and ranks that critical"
 # rather than assumed: critical must appear before any lower severity in the emitted worklist.
 first_sev="$(printf '%s' "$OFFERS" | grep -o '"severity": "[a-z]*"' | head -1)"
 assert_eq '"severity": "critical"' "$first_sev" "the worklist leads with the highest severity"
+
+# --- stack detection and the skills it implies ---------------------------------------------------
+
+# The bug this closes: every repo got the same two skills, because nothing downstream of the index
+# could tell a Next.js app with Prisma apart from a Rust CLI. The fixture above IS that Next.js
+# app, so the proposal it produces is the assertion.
+SKILLS="$REPO_ROOT/index/cortex-skills.mjs"
+
+IX="$(cat "$WORK/index.json")"
+assert_contains "$IX" '"next"' "the index detects the framework from the manifest"
+assert_contains "$IX" '"prisma"' "and the data layer from the schema"
+assert_contains "$IX" '"typescript"' "and the language"
+
+out="$(node "$SKILLS" "$PROJ" --index "$WORK/index.json" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "cortex-skills runs against a foreign repo"
+assert_contains "$out" "add-migration" "a repo owning a Prisma schema is offered the migration skill"
+assert_contains "$out" "write-first-test" "a repo with no tests is offered the first-test skill"
+assert_contains "$out" "add-route" "a repo with a web framework is offered the route skill"
+
+# Read-only in the strongest sense: it writes nothing at all, not even under .cortex/.
+[ -d "$PROJ/.cortex" ] && _fail "cortex-skills writes nothing into the target" \
+                       || _pass "cortex-skills writes nothing into the target"
+
+# Every proposal must carry evidence. A bare list is something a user cannot consent to.
+assert_contains "$out" "why:" "every proposal states why it was surfaced"
+
+# The offers form is what a ritual walks, so it must be parseable JSON with the ranked list.
+offers="$(node "$SKILLS" "$PROJ" --index "$WORK/index.json" --offers 2>&1)"
+first="$(printf '%s' "$offers" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).propose[0].id)}catch(e){console.log("UNPARSEABLE")}})')"
+assert_eq "write-first-test" "$first" "--offers is JSON and leads with the highest-ranked proposal"
 
 # --- opt-in: a real repository -----------------------------------------------------------------
 

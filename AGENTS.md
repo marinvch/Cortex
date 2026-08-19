@@ -111,6 +111,7 @@ and needs no mirror at all.
 | `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
 | `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
 | `/cortex-brief` | per critical area | write scoped `AGENTS.md` leaves + wire the root routing table |
+| `/cortex-skills` | after scaffold | propose + write skills that fit the detected stack |
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/handoff` | leaving work mid-flight | compact this conversation to the OS temp dir for the next agent |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
@@ -194,6 +195,13 @@ and needs no mirror at all.
   not write — it refuses until you have, because a release entry says what changed and why. See
   [ADR 0013](docs/adr/0013-the-version-has-one-home.md), and
   [ADR 0014](docs/adr/0014-the-package-split-stays-rejected.md) before proposing a package split.
+- **Skills are per-repo; rituals are per-machine — `/cortex-skills` writes the first kind.** The
+  plugin's rituals work in any repo once installed and are never copied into a project. What
+  `/cortex-skills` writes is `.claude/skills/` in the *target*, committed with its code, chosen
+  from `index.stack`. Add a new stack-specific candidate to `index/lib/skills.mjs` — a declarative
+  row with its own `when()` — rather than improvising one inside the ritual, so the next repo with
+  that stack gets it too. The evidence sentence must name what was **detected**; a candidate that
+  cannot cite the index does not belong in the list.
 - **`tools/test/install-on-a-project.test.sh` is the only test that asserts the *product* works.**
   Everything else points Cortex at fixtures shaped by whoever wrote the test. This one runs
   index → findings → `--offers` against a repo shaped like real product code, and asserts the target

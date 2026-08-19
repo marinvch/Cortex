@@ -13,8 +13,9 @@ import {
   resolveRubyImport,
   goModulePath,
 } from "./imports.mjs";
-import { inferLayers } from "./layers.mjs";
+import { inferAreas } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
+import { depthOf } from "./depth.mjs";
 
 export const INDEX_VERSION = "1";
 
@@ -191,6 +192,13 @@ export function buildIndex(root, opts = {}) {
   for (const e of edges) inbound.set(e.to, (inbound.get(e.to) || 0) + 1);
   for (const f of files) f.inbound = inbound.get(f.path) || 0;
 
+  // Needs the finished edge list, so it runs after the import pass rather than beside `areas`.
+  const depth = depthOf({ files, edges });
+  for (const f of files) {
+    const d = depth.byPath.get(f.path);
+    if (typeof d === "number") f.depth = d;
+  }
+
   const languages = {};
   const categories = {};
   for (const f of files) {
@@ -212,7 +220,13 @@ export function buildIndex(root, opts = {}) {
     },
     files: files.sort((a, b) => a.path.localeCompare(b.path)),
     edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
-    layers: inferLayers(files),
+    // Directory groupings. Named `areas` because that is what they are — the CLI and the
+    // findings report had said so for releases while the field still claimed to be layering.
+    areas: inferAreas(files),
+    // Actual layering, from the import graph: depth 0 is the foundation, the highest depth is an
+    // entry point. A floor, like every other number derived from regex-resolved imports.
+    layers: depth.layers,
+    cycles: depth.cyclic,
     // What the repo is built out of, so downstream can pick skills that fit it. Reading is
     // injected rather than done inside detectStack, which keeps that function a pure
     // transform of its inputs and testable from literals.

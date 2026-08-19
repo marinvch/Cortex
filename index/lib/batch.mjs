@@ -29,7 +29,7 @@ export function computeBatches(index, { maxLines = DEFAULT_MAX_LINES, maxFiles =
 
   // Layer assignment is already deterministic and already reflects directory structure.
   const layerOf = new Map();
-  for (const layer of index.layers) {
+  for (const layer of index.areas) {
     for (const p of layer.paths) layerOf.set(p, layer.name);
   }
 

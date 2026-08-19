@@ -122,6 +122,7 @@ and needs no mirror at all.
 | `/cortex-skills` | after scaffold | propose + write skills that fit the detected stack |
 | `/cortex-impact` | before a change | who depends on these files, and which of it no test covers |
 | `/cortex-review` | before committing | judge a change against the repo's own docs, and spot the ones it made wrong |
+| `/diagnosing-bugs` | on a hard bug | build a red-capable loop first, ranked against the repo’s own invariants |
 | `/cortex-profile` | per machine | show or set which world this install serves — home · work · lab |
 
 Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it.
@@ -147,6 +148,9 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
 | `/optimize-prompt` | automatic | the prompt gate (see the protocol above) |
 
 **Picking the right ritual:**
+- `/diagnosing-bugs` and `/cortex-review` both read the context layer and are not interchangeable:
+  review judges a **change** you already made, diagnosis hunts a **symptom** you cannot explain. The
+  overlap is Phase 0, where diagnosis borrows the review evidence to rank its hypotheses.
 - The three health rituals are not interchangeable — `/audit` scores *content* and writes nothing,
   `/cortex-audit` finds and fixes *structure*, `/reindex` rebuilds the *graph*.
 - `/migrate-engine` **harvests the old memory store into `AGENTS.md` before deleting anything.**

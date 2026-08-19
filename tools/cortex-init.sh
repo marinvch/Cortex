@@ -168,7 +168,7 @@ $RUN_LINES
 ## Architecture (key directories)
 $ARCH_LINES
 ## Area map (scoped briefs - load the brief for the part you touch)
-_None yet. Run /scope-area <dir> on a critical area (auth, billing, a pipeline) to add a deep AGENTS.md leaf, then list it here._
+_None yet. Run /cortex-brief <dir> on a critical area (auth, billing, a pipeline) to add a deep AGENTS.md leaf, then list it here._
 
 ## Conventions
 $RULE_LINE- Validate external inputs at the boundary; keep business logic out of UI components.
@@ -311,7 +311,7 @@ fi
 say ""; say "  ✅ Done. This repo now has a brain."
 say "  For a deep, AI-driven pass that fills Architecture/Conventions/Gotchas from the"
 say "  actual code, open this repo in Claude Code and run /install-project."
-  say "  For critical parts (auth, billing, a pipeline), run /scope-area to give them a deep brief."
+  say "  For critical parts (auth, billing, a pipeline), run /cortex-brief to give them a deep brief."
 if [ $PLUGIN_STAMPED -eq 1 ]; then
   say "  Stamped the Core plugin bundle into .claude/settings.json (superpowers, skill-creator,"
   say "  claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier, context7)."

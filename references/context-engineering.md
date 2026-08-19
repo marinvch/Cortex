@@ -38,6 +38,6 @@ what breaks if only one copy survives. Rules 1–4 never override this one.
 
 ## Applying it
 `/optimize-context` audits a repo against these rules. `/skill-creator` follows them when writing a
-new ritual. `/scope-area` is Rule 2 for directories.
+new ritual. `/cortex-brief` is Rule 2 for directories.
 
 Related: [[vault-architecture]] · [[nested-briefs]] · [[operating-principles]]

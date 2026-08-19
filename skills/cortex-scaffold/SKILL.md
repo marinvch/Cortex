@@ -95,6 +95,19 @@ to write anything carrying a credential into it.
 
 Do not report success without checking:
 
+- **Every file step 3 lists exists.** Run the check, do not recall it:
+
+  ```bash
+  for f in AGENTS.md CLAUDE.md GEMINI.md CONTEXT.md docs/adr/TEMPLATE.md .cortex/memory; do
+    [ -e "$f" ] && echo "  ok      $f" || echo "  MISSING $f"
+  done
+  ```
+
+  Step 3 is a bulleted list, and a bulleted list is easy to half-complete — the second shim is the
+  one that goes missing, because the first one satisfies the feeling of having written the shims.
+  A missing `GEMINI.md` fails silently and forever: Gemini reads no context, nothing errors, and
+  the gap only surfaces as that agent being inexplicably worse in this repo. Anything reported
+  MISSING gets written now, or named to the user in step 5 as deliberately skipped.
 - Every `{{placeholder}}` is gone. Grep for `{{` and fix what you find.
 - Every command in the *Running it* section actually exists — check `package.json` scripts, the
   Makefile, or whatever this repo uses. A wrong test command is the single most costly error here,

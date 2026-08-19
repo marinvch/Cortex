@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.10.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
+**v2.10.1** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
 where it is changing, and what is missing. Then it writes a context layer — a small root
@@ -237,12 +237,13 @@ not deep folders — folders fight `[[wikilinks]]`. How the brain thinks:
 ## Privacy
 
 Personal/business content (`context/`, `inbox/`, `daily/`, `notes/`, `projects/`, `areas/`,
-`resources/`, `decisions/`, plus dated folders under `archives/`) is **gitignored** — it never
+`resources/`, `decisions/`, and all of `archives/`) is **gitignored** — it never
 leaves your machine. The committed files (this README, `AGENTS.md`, `references/`, `templates/`)
 are data-free, so the vault stays shareable/forkable.
 
-Archived personal content must land in a gitignored path (`archives/removed/` or a dated
-`archives/<name>-YYYY-MM-DD/`). **Archiving is not sanitizing.**
+Archived personal content must land in a gitignored path — all of `archives/` is, except its
+`README.md`. **Archiving is not sanitizing.** The product's own retired pieces are not personal
+content and live in `docs/history/`.
 
 ### The employer firewall
 
@@ -274,7 +275,7 @@ clean and there's no per-script drift. `/audit` flags anything noisy that creeps
 | `cortex-scan-projects.sh` | List which local repos already have a codebase brain |
 | `_cortex-lib.sh` | Shared `knowledge_files()` (reads `.cortexignore`) |
 
-> The original Node installer is retired at `archives/cortex-init.mjs.legacy` — installing and
+> The original Node installer is retired at `docs/history/cortex-init.mjs.legacy` — installing and
 > using the vault needs nothing but bash. The only Node in the repo is the **optional** MCP brain
 > under `mcp/`, which you can skip entirely.
 

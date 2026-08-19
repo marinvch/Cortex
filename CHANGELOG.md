@@ -3,6 +3,49 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.10.1] — 2026-08-19
+
+### Fixed
+- **`/cortex-scaffold` could skip a file it was told to write, and report success.** Step 3 lists
+  the files as bullets, and a bulleted list is easy to half-complete — the second shim is the one
+  that goes missing, because writing the first satisfies the feeling of having written the shims.
+  Observed on a real install: `CLAUDE.md` was written and `GEMINI.md` was not. Nothing errored.
+  A missing shim fails silently and forever — that agent reads no context, and the gap only ever
+  surfaces as it being inexplicably worse in that repo.
+  Step 4 verified placeholders, commands and paths, but never that the files it had just been told
+  to write existed. It now runs an explicit existence check over the whole list, and anything
+  MISSING is written or named to the user as deliberately skipped.
+
+### Changed
+- **`archives/` holds one lifecycle now: your vault's, ignored in full.** It used to hold two — the
+  product's own retired pieces (the Node installer, the engine-era framework docs, the old view
+  scripts, the stale-engine prompts) sat next to personal removals, so the ignore rules needed six
+  lines and two negations to say which half was shareable. Every negation is a chance to get it
+  backwards, and getting it backwards *in this folder* means committing something that was archived
+  to keep it private. The rules are now `archives/*` plus `!archives/README.md`.
+- **The product half moved to `docs/history/`**, with a README saying what each retired piece was
+  and what replaced it. `.cortexignore` already excludes `docs/`, so none of it is loaded as
+  knowledge — retired instructions should not come back through recall as if they were current.
+- **`tools/test/archives-is-personal.test.sh`** pins both halves: everything under `archives/` is
+  ignored except the README, nothing but the README is tracked there, `docs/history/` is tracked and
+  excluded from the graph, and no file still points at a pre-move path.
+
+### Added
+- **`tools/README.md` documents how to try Cortex on your own repo without letting it write
+  anything** — `CORTEX_E2E_REPO=/path/to/your/repo bash tools/test/run.sh install-on-a-project`.
+  It runs the real pipeline against your code and asserts your repo is left without a `.cortex/`.
+
+### Fixed
+- **A v1.0.0 changelog entry named a private repository.** Cortex is public, and developing it by
+  testing against real repositories creates a standing temptation to write down what was learned in
+  the terms it was learned in — which ties a named account to a private codebase. The entry now
+  describes the shape and not the subject, and `tools/test/no-private-names.test.sh` keeps it that
+  way: it fails if any tracked file names a known private project, or if a test hardcodes an
+  absolute path to somebody’s repo instead of taking `CORTEX_E2E_REPO` at runtime.
+- **`.gitignore` said "dated archive folders come from `/cortex-audit` and `/cortex-audit`."** A
+  find-and-replace in 2.9.0 renamed both halves of "`/cortex-doctor` and `/cortex-audit`" when only
+  one of them was the collapsed ritual. The line is rewritten as part of the change above.
+
 ## [2.10.0] — 2026-08-19
 
 ### Added — the version fact has one home
@@ -811,9 +854,10 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 ### Validated
 - Local CI green (12/12): every script parses, the installer smoke test passes, all 12 skills have
   valid frontmatter, the GitHub Actions workflow is bash-only.
-- Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
-  verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
+- Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
+  memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.10.1]: https://github.com/marinvch/Cortex/releases/tag/v2.10.1
 [2.10.0]: https://github.com/marinvch/Cortex/releases/tag/v2.10.0
 [2.9.1]: https://github.com/marinvch/Cortex/releases/tag/v2.9.1
 [2.9.0]: https://github.com/marinvch/Cortex/releases/tag/v2.9.0

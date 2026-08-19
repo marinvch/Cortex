@@ -135,3 +135,46 @@ test("skills referenced by other skills exist", () => {
   }
   assert.deepEqual([...missing], []);
 });
+
+test("every ritual declares a capability floor", () => {
+  // Self-hosted and small-model setups were a stated audience with nothing to consult: a ritual that
+  // needs multi-round judgment looked exactly like one that appends a line to a file. The failure is
+  // not a crash — a weak model runs /cortex-enrich and writes plausible, wrong summaries into recall,
+  // and nobody notices. Declaring the floor is what lets a setup decide before running, rather than
+  // discovering afterwards.
+  //
+  // Asserted for EVERY skill rather than a named list, so a new ritual cannot ship undeclared.
+  const skillsDir = join(REPO_ROOT, "skills");
+  const names = readdirSync(skillsDir).filter((n) => statSync(join(skillsDir, n)).isDirectory());
+  const VALID = new Set(["mechanical", "judgment", "strong"]);
+  const bad = [];
+
+  for (const name of names) {
+    const src = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
+    const m = src.match(/^capability:\s*(\S+)\s*$/m);
+    if (!m) { bad.push(`${name}: no capability declared`); continue; }
+    if (!VALID.has(m[1])) bad.push(`${name}: unknown capability "${m[1]}"`);
+    // The key must live in the frontmatter, not in the body where nothing can read it.
+    const fmEnd = src.indexOf("\n---", 4);
+    if (fmEnd === -1 || src.indexOf(m[0]) > fmEnd) bad.push(`${name}: capability is outside the frontmatter`);
+  }
+
+  assert.deepEqual(bad, [], `capability floor problems:\n${bad.join("\n")}`);
+});
+
+test("a ritual above the mechanical floor says what to do when the floor is not met", () => {
+  // A declared floor that offers no alternative is a wall. `strong` rituals are the ones a
+  // self-hosted setup is most likely to fail, so each must either degrade or say plainly that it
+  // cannot — silence leaves the user to find out by reading bad output.
+  const skillsDir = join(REPO_ROOT, "skills");
+  const names = readdirSync(skillsDir).filter((n) => statSync(join(skillsDir, n)).isDirectory());
+  const missing = [];
+
+  for (const name of names) {
+    const src = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
+    if (!/^capability:\s*strong\s*$/m.test(src)) continue;
+    if (!/## When the floor is not met/m.test(src)) missing.push(name);
+  }
+
+  assert.deepEqual(missing, [], `these declare capability: strong but never say what a weaker setup should do:\n${missing.join("\n")}`);
+});

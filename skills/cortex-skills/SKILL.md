@@ -1,6 +1,7 @@
 ---
 name: cortex-skills
 description: Propose and write skills that fit THIS codebase — a webhook skill because the repo takes Stripe, a migration skill because it owns a Prisma schema, a first-test skill because it has none. Use after /cortex-scaffold, or when the user says "add skills for this project", "what skills should this repo have", "the skills here are generic". Proposes from the index; the user picks each one.
+capability: judgment
 ---
 
 # /cortex-skills — skills shaped by this repo, not by a default list

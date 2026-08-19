@@ -1,6 +1,7 @@
 ---
 name: improve-codebase-architecture
 description: Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.
+capability: strong
 disable-model-invocation: true
 ---
 
@@ -73,3 +74,9 @@ Side effects happen inline as decisions crystallize — run the `/domain-modelin
 ---
 
 Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT).
+
+## When the floor is not met
+
+Finding deepening opportunities means holding a whole codebase's shape at once and arguing about module boundaries. A weaker setup returns generic advice — 'consider splitting large files' — which costs tokens and teaches nothing.
+
+Below the floor: run **`/cortex-install`** and read the findings report. It is deterministic, it ranks by size, churn and absent tests, and it names real files. That is a smaller claim, honestly made.

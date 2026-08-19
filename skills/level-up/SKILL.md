@@ -1,6 +1,7 @@
 ---
 name: level-up
 description: Biweekly growth ritual for the Cortex Vault. Walks Notice → Decide → Build to surface one piece of leverage (an automation, a note worth writing, a connection worth wiring) and ship one artifact. Trigger on "level up", "what should I automate next", "find me leverage". One run = one shipped thing.
+capability: strong
 ---
 
 # /level-up — find one piece of leverage, ship it
@@ -51,3 +52,9 @@ remind the user to run it manually for a week before trusting it.
 - Notice always runs first, even if the user arrives with an idea.
 - Eliminate-first: if the answer is "stop doing it", that's success, not failure.
 - Boring is beautiful — bias to notes/templates/prompts over agents.
+
+## When the floor is not met
+
+Notice → Decide → Build asks the model to survey everything, pick the one piece of leverage, and ship it. The survey is the part that degrades: a weaker setup picks the most recent thing rather than the most leveraged, and the ritual becomes a to-do list.
+
+Below the floor: run **`/audit`** instead. It scores the four layers against fixed criteria and names the top three gaps by a stated weighting, so the ranking comes from the rubric rather than from judgment.

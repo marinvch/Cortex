@@ -1,6 +1,7 @@
 ---
 name: scan-projects
 description: Sync the personal vault with the code repos on your machine — list which have a cortex "codebase brain", which are registered in projects/, and offer to register the rest (metadata only). Trigger on "scan my projects", "which repos have a brain", "sync my projects to the vault". Read-mostly; only writes opt-in metadata stubs.
+capability: mechanical
 ---
 
 # /scan-projects — bridge repos ↔ vault (metadata only)

@@ -1,6 +1,7 @@
 ---
 name: cortex-install
 description: Install Cortex into a codebase — index it, report what it finds, and let the user choose what to act on. Use when someone says "install cortex here", "set up cortex on this repo", "give this codebase a context layer", when opening an unfamiliar repo that needs understanding before work starts, or when a repo has no AGENTS.md and an agent is about to re-derive its architecture from scratch. Works on greenfield and legacy repos. Asks before writing anything, and never touches source code.
+capability: mechanical
 ---
 
 # /cortex-install — give a codebase a context layer

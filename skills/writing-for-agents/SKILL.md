@@ -1,6 +1,7 @@
 ---
 name: writing-for-agents
 description: Writing documents an agent consumes. Use when creating or editing a skill, a root or scoped AGENTS.md, a CONTEXT.md, or any doc reached by a pointer. Triggers — "write the AGENTS.md", "this brief is bloated", "why doesn't the agent pick this up", "should this be its own skill".
+capability: judgment
 ---
 
 Reference for writing any document an agent consumes — a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable — the agent taking the same _process_ every run, not producing the same output.

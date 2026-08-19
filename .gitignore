@@ -72,3 +72,8 @@ mcp/node_modules/
 
 # Cortex working artifacts in this repo (index/findings are generated; target repos commit .cortex/memory/)
 .cortex/
+
+# A local, never-committed denylist of your own private project names, read by
+# tools/test/no-private-names.test.sh. It stays out of git on purpose: a denylist of private names
+# has to be published to work, which is the disclosure it exists to prevent.
+tools/test/private-names.local

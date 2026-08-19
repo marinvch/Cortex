@@ -145,7 +145,7 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
 | `/skill-creator` | on request | write a new `skills/<name>/SKILL.md` and wire it in |
 | `/optimize-prompt` | automatic | the prompt gate (see the protocol above) |
 
-**Gotchas worth knowing before you pick one:**
+**Picking the right ritual:**
 - The three health rituals are not interchangeable — `/audit` scores *content* and writes nothing,
   `/cortex-audit` finds and fixes *structure*, `/reindex` rebuilds the *graph*.
 - `/migrate-engine` **harvests the old memory store into `AGENTS.md` before deleting anything.**
@@ -156,99 +156,82 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
   firewall above, not a style preference.
 - `/cortex-brief` nests one filename (`AGENTS.md`), never a sprawl of per-topic files. Split only
   where a real invariant or gotcha lives.
-- `/optimize-context` targets **other repos**; `/cortex-audit` targets this vault. Same instinct,
-  different subject. It never deletes prose on its own authority.
-- `/writing-for-agents` and `/optimize-context` are the two halves of one job: the first is how to
-  **write** an agent-facing document, the second **audits** one already written. Reach for the
-  discipline before authoring a brief or a skill, not after the audit says it is bloated.
+- `/optimize-context` targets **other repos**; `/cortex-audit` targets this vault. It never deletes
+  prose on its own authority. `/writing-for-agents` is its other half — the discipline for **writing**
+  an agent-facing document, reached before authoring a brief or a skill, not after an audit calls it
+  bloated.
 - `/handoff`, `/dream` and `/catch-me-up` all move context across a gap and are **not**
   interchangeable. The cut is in-flight state versus durable knowledge: `/handoff` writes
-  ephemerally to the OS temp dir for the *next agent right now*; `/dream` commits what a future
-  reader of the codebase needs; `/catch-me-up` writes nothing and reads. A session that produced
-  both wants both — running `/handoff` alone on a day that taught you something loses the lesson.
+  ephemerally to the OS temp dir for the *next agent right now*, `/dream` commits what a future
+  reader of the codebase needs, `/catch-me-up` writes nothing and reads. Running `/handoff` alone on
+  a day that taught you something loses the lesson.
 - `/domain-modeling` writes a `CONTEXT.md` **in the target repo** — that repo's glossary of terms.
   It is *not* this vault's `context/` (who you are), and its ADRs are *not* `decisions/log.md`
   (your personal decisions). Same word, two different things; never merge them.
 - `/wizard` output handles credentials, so it lands in the target repo's `scripts/` or the
   scratchpad — **never in this vault**, and never committed with values baked in.
-- `/cortex-install` is **model-invocable on purpose** — an agent may start the sequence when a repo
-  plainly needs it. What protects the repo is the **consent gate**, not an invocation flag: with no
-  `.cortex/` yet, it asks before the first write; once `.cortex/` exists, re-indexing is free.
-  Do not re-add `disable-model-invocation` to it for consistency with the eight below — that flag
-  marks *once-only or destructive*, not *read-only*. See
+
+**Changing Cortex itself** — each rule below has an ADR holding the argument and the rejected
+alternatives. Read it before overturning one; the line here is the trigger, not the case.
+
+- **`/cortex-install` never modifies a target repo before the user chooses**, and is
+  model-invocable anyway. What protects the repo is the **consent gate**, not an invocation flag:
+  indexing and the findings report are read-only by construction, and `/cortex-scaffold` is the
+  separate skill that applies changes. If you are editing source before the user picked something,
+  you have left the skill. Do not add `disable-model-invocation` to it for consistency — that flag
+  marks *once-only or destructive*, not *read-only*.
   [ADR 0005](docs/adr/0005-the-install-sequence-may-start-itself.md).
-- Eight rituals carry `disable-model-invocation: true` — `/onboard`, `/migrate-engine`,
-  `/team-init`, `/connect-brain`, `/handoff`, `/skill-creator`, `/writing-for-agents` and
-  `/improve-codebase-architecture`. They are once-only, destructive, or reference an agent reaches
-  by name, so none may auto-fire. `grep -l disable-model-invocation skills/*/SKILL.md` is the list
-  of record; keep the flag when editing their frontmatter.
-- `/cortex-install` **never modifies a target repo before the user chooses.** Indexing and the
-  findings report are read-only by construction — `/cortex-scaffold` is the separate skill that
-  applies changes. If you are editing source before the user picked something, you have left the
-  skill.
+- Eight rituals do carry `disable-model-invocation: true` — once-only, destructive, or reached by
+  name — so none may auto-fire. `grep -l disable-model-invocation skills/*/SKILL.md` is the list of
+  record; keep the flag when editing their frontmatter.
 - **The findings report is `/cortex-install`'s script, so `analyse()`'s ranking is control flow.**
-  The wizard walks `offers()` top-down — severity decides which question a user is asked first.
-  Re-rank a finding and you change the interview, not just a document. Offers also collapse by
-  action, which is what keeps a thirty-finding report from becoming a thirty-question interview; and
-  severity never implies an offer (*no test files found* is high, and Cortex has no action for it).
-  Read the worklist with `cortex-findings.mjs --offers`, which writes nothing. See
+  The wizard walks `offers()` top-down, so re-ranking a finding changes the interview, not just a
+  document. Offers collapse by action; severity never implies an offer. Read the worklist with
+  `cortex-findings.mjs --offers`, which writes nothing.
   [ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md).
 - **A destructive shell tool must route its target through `resolve_in_root` (`tools/_cortex-lib.sh`).**
-  It is the shell counterpart of `core/paths.js`, and it lives in the shared lib so the next tool
-  inherits it instead of re-deriving it. `cortex-rm.sh` would otherwise archive a file from outside
-  the vault — breaking the one promise it makes, since it cannot recover a file whose original path
-  it just erased. Not a string-prefix check: a symlink out of the root passes any prefix comparison.
-  `cortex-vault-extract.sh` and `cortex-scan-projects.sh` were checked and do not need it. See
+  The shell counterpart of `core/paths.js`, in the shared lib so the next tool inherits it. Not a
+  string-prefix check — a symlink out of the root passes any prefix comparison.
   [ADR 0010](docs/adr/0010-the-shell-half-gets-the-guard-too.md).
 - **Never hand-edit a version. Run `node tools/cortex-version.mjs --set <x.y.z>`.** `VERSION` is the
-  interface; the seven sites holding a copy are implementation, and both the writer and the drift
-  check read one `SITES` list. Hand-editing is how `core/package.json` sat six releases behind while
-  four other sites were verified. The `## [x.y.z]` changelog entry is the one thing the tool will
-  not write — it refuses until you have, because a release entry says what changed and why. See
+  interface; the seven sites holding a copy are implementation, and the writer and the drift check
+  read one `SITES` list. The `## [x.y.z]` changelog entry is the one thing the tool will not write.
   [ADR 0013](docs/adr/0013-the-version-has-one-home.md), and
   [ADR 0014](docs/adr/0014-the-package-split-stays-rejected.md) before proposing a package split.
 - **Every ritual declares a `capability:` floor — `mechanical` · `judgment` · `strong`.**
-  `node tools/cortex-capability.mjs` prints the table, read from the frontmatter so it cannot drift.
-  Self-hosted and own-LLM setups are a stated audience and had nothing to consult: a ritual needing
-  multi-round judgment looked exactly like one that appends a line to a file. The failure is not a
-  crash — a weak model runs `/cortex-enrich`, writes plausible-but-wrong summaries for every file,
-  and those feed `recall`, so it is a bad answer *every* time anyone searches. A new ritual without
+  `node tools/cortex-capability.mjs` prints the table from the frontmatter, so it cannot drift. The
+  failure it prevents is not a crash: a weak model runs `/cortex-enrich`, writes plausible-but-wrong
+  summaries, and those feed `recall` — a bad answer *every* time anyone searches. A ritual missing
   the key fails `core/test/plugin.test.js`, and every `strong` one must carry a
   `## When the floor is not met` section — a declared floor with no way under it is a wall.
 - **`mode`, `audience` and `profile` are three questions, never two.** `mcp/lib/mode.js` answers
-  repo-vs-vault, `mcp/lib/resolve.js` answers solo/team/server, and `core/profile.js` answers
-  home/work/lab. A work laptop can run a repo brain on a team; a lab box can hold a personal vault.
-  `core/profile.js` reads **only** `CORTEX_PROFILE` — nothing about the root, the connector or the
-  cwd may move it, and a test asserts that. See [ADR 0015](docs/adr/0015-a-profile-is-the-world-an-install-serves.md)
-  and [ADR 0008](docs/adr/0008-three-audiences-one-seam.md).
+  repo-vs-vault, `mcp/lib/resolve.js` answers solo/team/server, `core/profile.js` answers
+  home/work/lab. A work laptop can run a repo brain on a team. `core/profile.js` reads **only**
+  `CORTEX_PROFILE` — nothing about the root, the connector or the cwd may move it, and a test
+  asserts that. [ADR 0015](docs/adr/0015-a-profile-is-the-world-an-install-serves.md),
+  [ADR 0008](docs/adr/0008-three-audiences-one-seam.md).
 - **`lab` refusing nothing and publishing nothing is ONE decision, stored as one policy object.** A
-  profile that refused nothing locally and still pushed would be a way to switch the firewall off and
-  keep leaking. If you ever add a fourth profile, decide both halves together.
-- **Skills are per-repo; rituals are per-machine — `/cortex-skills` writes the first kind.** The
-  plugin's rituals work in any repo once installed and are never copied into a project. What
-  `/cortex-skills` writes is `.claude/skills/` in the *target*, committed with its code, chosen
-  from `index.stack`. Add a new stack-specific candidate to `index/lib/skills.mjs` — a declarative
-  row with its own `when()` — rather than improvising one inside the ritual, so the next repo with
-  that stack gets it too. The evidence sentence must name what was **detected**; a candidate that
-  cannot cite the index does not belong in the list.
-- **`/cortex-impact` reads the graph backwards, and every number it prints is a floor.** Everything
-  else downstream of the index asks *what does this file import*; this asks *who imports me, and is
-  any of it tested*. Import resolution is regex-based ([ADR 0004](docs/adr/0004-no-runtime-dependencies.md)
-  rules out a parser), so dynamic imports are invisible — the field is `atLeast`, never `total`, and
-  the output says so twice on purpose. The actionable half is the *unverified* list, not the count:
-  a large radius that is covered is an ordinary change. Coverage lives in `index/lib/coverage.mjs`,
-  shared with `findings.mjs` — a second copy of that three-signal heuristic would agree today and
-  disagree in a month, with nothing to say which was right.
+  profile that refused nothing locally and still pushed would be a way to switch the firewall off
+  and keep leaking. If you add a fourth profile, decide both halves together.
+- **Skills are per-repo; rituals are per-machine — `/cortex-skills` writes the first kind.** What it
+  writes is `.claude/skills/` in the *target*, committed with that code and chosen from
+  `index.stack`. Add a new candidate as a declarative row with its own `when()` in
+  `index/lib/skills.mjs`, so the next repo with that stack gets it too. The evidence sentence must
+  name what was **detected**; a candidate that cannot cite the index does not belong in the list.
+- **`/cortex-impact` reads the graph backwards** — who imports me, and is any of it tested — and
+  every number it prints is a floor. Regex import resolution makes dynamic imports invisible, so the
+  field is `atLeast`, never `total`. The actionable half is the *unverified* list, not the count.
+  Coverage lives in `index/lib/coverage.mjs`, shared with `findings.mjs`; do not write a second copy
+  of that heuristic. [ADR 0004](docs/adr/0004-no-runtime-dependencies.md) rules out a parser.
 - **`tools/test/install-on-a-project.test.sh` is the only test that asserts the *product* works.**
   Everything else points Cortex at fixtures shaped by whoever wrote the test. This one runs
   index → findings → `--offers` against a repo shaped like real product code, and asserts the target
-  is left without a `.cortex/` — `/cortex-install`'s consent promise made executable. Point it at a
-  real project with `CORTEX_E2E_REPO=<path>`; that pass is read-only.
-- **The shell half has behaviour tests now — `bash tools/test/run.sh`.** `bash -n` and shellcheck
-  never *run* a script, which is how four real bugs shipped in `tools/server/` and were found by
-  reading rather than by CI. Tests build real git repos in temp dirs (a bare repo on disk is a
-  complete remote, so no network), and every test touching `$HOME` must override it. They run in the
-  `cortex-init test` workflow. Add a case there when you touch anything under `tools/`.
+  is left without a `.cortex/` — the consent promise made executable. Point it at a real project
+  with `CORTEX_E2E_REPO=<path>`; that pass is read-only.
+- **The shell half has behaviour tests — `bash tools/test/run.sh`.** `bash -n` and shellcheck never
+  *run* a script, which is how four real bugs shipped in `tools/server/`. Tests build real git repos
+  in temp dirs (a bare repo on disk is a complete remote, so no network), and every test touching
+  `$HOME` must override it. Add a case when you touch anything under `tools/`.
 - `.cortex/index/` and `.cortex/findings/` are generated and gitignored in a target repo.
   `.cortex/memory/` is **committed** — that is how several developers share one context. The
   asymmetry is deliberate, and it makes the privacy rule a hard requirement: `core/scrub.js`

@@ -1,6 +1,6 @@
 {
   "name": "cortex",
-  "version": "2.18.0",
+  "version": "2.19.0",
   "description": "A context manager for new and legacy codebases. Indexes a repo, reports issues and gaps, and scaffolds a layered AGENTS.md context tree — proposing, never deciding.",
   "mcpServers": {
     "cortex": {

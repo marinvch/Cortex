@@ -3,6 +3,46 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.19.0] — 2026-08-19
+
+### Fixed — the secrets finding cried wolf on well-maintained repositories
+Run against six respected open-source projects, **four came back with a `critical` secrets
+finding, and not one was a leak**:
+
+| repo | matched | what it actually was |
+|---|---|---|
+| gson | `token="$next-version$"` | a Maven antrun placeholder |
+| sinatra | `secret: 'CHANGEME…'` | a commented-out example in Rack's own docs |
+| requests | `http://{}:{}@{}:9000` | a Python format template |
+| gin, requests | `tests/certs/*.key` | test certificates |
+
+Severity is control flow ([ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md)) — the
+wizard walks `offers()` top-down — so **the first question Cortex asked a new user was a false
+alarm**. A tool that cries wolf on four of six respected repos teaches people to skip the section,
+and then it fails on the one that matters.
+
+Two rules, in `core/scrub.js` and `index/lib/findings.mjs`:
+
+- **A placeholder standing in for a credential is not a credential.** `${VAR}`, `{{var}}`, `{}`,
+  `$name$`, `<your-key>`, `process.env.X`, `CHANGEME`. This is not a loosening of the gate: there
+  is no secret in a reference to protect.
+- **A match only under a test or fixture path reports `medium`, not `critical`**, with wording that
+  says where it came from. A test certificate is a real private key and belongs in the report; it
+  is not the thing to deal with first. One match outside a test path and the finding is critical
+  again, so this cannot be used to hide a leak by filing it under `tests/`.
+
+All six repos now open the interview with `scaffold`, the question actually worth asking first.
+
+### Fixed — the scanner flagged its own documentation
+Writing those examples as literals set the scanner off against `core/scrub.js` itself. They are
+prose now: a file that must never hold credentials should not need an exemption marker to describe
+them, and reaching for the marker by reflex is how a real finding gets buried later.
+
+### Tests
+Four added, **mutation-tested in both directions** — the placeholder rule disabled *and* inverted,
+the severity rule removed *and* over-applied. Each mutation fails a different test, so neither rule
+can silently stop working or start swallowing real leaks.
+
 ## [2.18.0] — 2026-08-19
 
 Ruby, PHP and Java had *no import extraction at all* — not a resolution gap, an absent case in the
@@ -1209,6 +1249,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.19.0]: https://github.com/marinvch/Cortex/releases/tag/v2.19.0
 [2.18.0]: https://github.com/marinvch/Cortex/releases/tag/v2.18.0
 [2.17.0]: https://github.com/marinvch/Cortex/releases/tag/v2.17.0
 [2.16.0]: https://github.com/marinvch/Cortex/releases/tag/v2.16.0

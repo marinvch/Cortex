@@ -466,3 +466,24 @@ test("offers are deterministic — same tree, same offers", () => {
     "no LLM, no clock, no randomness — offers inherit the index's determinism",
   );
 });
+
+test("a test certificate does not open the interview", () => {
+  // Run against six respected open-source repositories, four came back CRITICAL and every match
+  // was a fixture or a placeholder. Severity is control flow (ADR 0006), so the wizard led with a
+  // false alarm — and a tool that cries wolf teaches people to skip the section entirely.
+  const key = ["-----BEGIN", " RSA PRIVATE KEY-----"].join("");
+  const root = repo({ "tests/certs/server.key": key });
+  const sec = findingsOfKind(analyse(index([{ path: "tests/certs/server.key" }]), root), "security");
+  assert.equal(sec.length, 1, "a fixture key is still reported");
+  assert.equal(sec[0].severity, "medium", "but not as the thing to deal with first");
+  assert.match(sec[0].title, /test file/, "and the title says where it came from");
+});
+
+test("a key outside a test path stays critical", () => {
+  // The rule must not become a way to hide a real leak by filing it under tests/.
+  const key = ["-----BEGIN", " RSA PRIVATE KEY-----"].join("");
+  const root = repo({ "src/config/server.key": key });
+  const sec = findingsOfKind(analyse(index([{ path: "src/config/server.key" }]), root), "security");
+  assert.equal(sec.length, 1);
+  assert.equal(sec[0].severity, "critical");
+});

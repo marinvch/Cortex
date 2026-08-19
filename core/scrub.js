@@ -35,6 +35,46 @@ const RULES = [
 ];
 
 /**
+ * A matched value that is a PLACEHOLDER or a REFERENCE is not a credential — it is a name standing
+ * in for one. Skipping these is not a loosening of the gate: there is no secret in `${DB_PASSWORD}`
+ * to protect.
+ *
+ * Every example below came from a real, well-maintained repository, and each one was reported as a
+ * CRITICAL finding. Because severity is control flow (ADR 0006), that made a false alarm the first
+ * question Cortex asked a new user:
+ *
+ *   a Maven antrun attribute whose value is a $version$ placeholder
+ *   a commented-out Rack example whose value is the word CHANGEME padded to length
+ *   a constant whose NAME ends in _TOKEN_IDENTIFIER, holding the name of a token rather than one
+ *   a Python format template of the shape scheme://{}:{}@{}
+ *
+ * Written as prose rather than as literal examples on purpose: the literals set this scanner off
+ * against its own source file, which is how the exemption marker gets reached for by reflex. A file
+ * that must not hold credentials should not need an exemption to describe them.
+ *
+ * A tool that cries wolf on four of six respected repositories teaches people to skip the section,
+ * and then it fails on the one that matters.
+ */
+const PLACEHOLDER = [
+  /\$\{[^}]*\}/,           // ${VAR} — shell, Maven, JS template
+  /\{\{[^}]*\}\}/,         // {{var}} — Handlebars, Jinja
+  /\{\}/,                  // {} — Python str.format, Rust format!
+  /^\$[\w.-]+\$/,          // $next-version$ — Maven antrun, IDE templates
+  /^<[^>]*>$/,             // <your-key-here>
+  /^%[sdv]$/,              // printf
+  /process\.env\b|os\.environ|System\.getenv|ENV\[/,  // a read of the real value, not the value
+  /^(?:changeme|change[-_]?me|xxx+|y{3,}|placeholder|example|dummy|redacted|todo|none|null|undefined|test|fake|sample|your[-_].*|my[-_]secret|\*+|\.{3,})/i,
+];
+
+/** Does this match consist only of a placeholder standing in for a credential? */
+function isPlaceholder(match) {
+  // The value is what sits inside the quotes; for a connection string it is the whole match.
+  const quoted = match.match(/['"]([^'"\n]*)['"]/);
+  const value = quoted ? quoted[1] : match;
+  return PLACEHOLDER.some((re) => re.test(value));
+}
+
+/**
  * Scan text for material that must never reach committed memory.
  * Returns [] when clean. Never throws — callers decide what to do with the findings.
  */
@@ -46,6 +86,10 @@ export function scan(text) {
     let m;
     while ((m = re.exec(src)) !== null) {
       const line = src.slice(0, m.index).split("\n").length;
+      if (isPlaceholder(m[0])) {
+        if (m[0].length === 0) re.lastIndex++;
+        continue;
+      }
       findings.push({ kind, line, match: redact(m[0]) });
       if (m[0].length === 0) re.lastIndex++; // guard against a zero-width match looping
     }

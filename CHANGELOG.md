@@ -3,6 +3,47 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.15.0] — 2026-08-19
+
+Found by pointing Cortex at two repositories on stacks it had never been tuned on — a mobile app,
+and a monorepo whose manifests live in subdirectories. Both passes were read-only: the index went
+to a temp file via `--out`, and neither target was left with a `.cortex/`.
+
+The monorepo passed cleanly, which is the more reassuring half. Cortex read all four nested
+`package.json` files, and reported Express, React, Mongoose, TypeScript and GitHub Actions with a
+correct evidence sentence for each. Nothing about that stack had been anticipated.
+
+### Added — React Native and Expo are detected
+The mobile app reported as `react`, full stop. Every skill proposed from that stack described a
+website, and nothing in the report hinted the answer was wrong — the failure `stack.mjs` warns
+about in its own header comment, reached from the outside for the first time.
+
+They are two rows, not one. A bare React Native app is not an Expo app — different build, different
+router, different commands — and collapsing them would put an `npx expo` instruction in front of
+someone with no `expo` CLI. A test pins that a bare RN app is *not* called an Expo app.
+
+### Fixed — a repo with a test runner and no tests fell between two candidates
+`write-first-test` required that *no* runner be declared; `add-test` fired whenever one was,
+regardless of whether a single test existed. A repo with jest in `devDependencies` and zero test
+files landed in the gap and was told **"jest already set up — new work should extend it, not invent
+a second way"**, when there was no convention to extend. That is `create-expo-app`, CRA, and most
+starters — not an edge case.
+
+Zero tests is now the whole trigger for `write-first-test`, and `add-test` requires a runner *and*
+an existing test to read the convention off.
+
+The offer had to become honest rather than merely present. Its old title — *Set up a test runner and
+write the first real test* — is visibly wrong to someone whose manifest already names one, and a
+report wrong on the part a reader can check is not trusted on the parts they cannot. That is exactly
+why the previous test forbade the offer here. It is now titled *Get a real test running for the first
+time*, true either way, with the evidence sentence naming which case the repo is in: "jest is in a
+manifest but no test file exists — the runner is installed, not used".
+
+### Tests
+Two added, both verified non-vacuous by planting regressions. The revised test pins the *wording* of
+the offer rather than its absence, and carries the old assertion's reasoning so the next person to
+widen a candidate knows what the constraint was protecting.
+
 ## [2.14.0] — 2026-08-19
 
 ### Added — `/cortex-impact`: what breaks if this changes
@@ -1015,6 +1056,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.15.0]: https://github.com/marinvch/Cortex/releases/tag/v2.15.0
 [2.14.0]: https://github.com/marinvch/Cortex/releases/tag/v2.14.0
 [2.13.0]: https://github.com/marinvch/Cortex/releases/tag/v2.13.0
 [2.12.0]: https://github.com/marinvch/Cortex/releases/tag/v2.12.0

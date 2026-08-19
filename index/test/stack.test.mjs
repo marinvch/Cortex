@@ -136,3 +136,18 @@ test("a confirming file signal still requires its dependency", () => {
   const [files, read] = repo({ "package.json": PKG({}), "prisma/schema.prisma": "" });
   assert.deepEqual(detectStack(files, read).data, []);
 });
+
+test("a mobile app is not reported as a website", () => {
+  // Found by pointing Cortex at a real Expo app: it reported `react` and nothing else, so the skills
+  // chosen from that stack described a website. React Native and Expo are separate rows because a bare
+  // React Native app is not an Expo app — different build, different router, different commands.
+  const [ef, er] = repo({ "package.json": PKG({ expo: "52", "expo-router": "4", "react-native": "0.76", react: "18" }) });
+  const expo = detectStack(ef, er);
+  assert.ok(expo.frameworks.includes("expo"), "expo is detected");
+  assert.ok(expo.frameworks.includes("reactNative"), "and react-native alongside it");
+
+  const [bf, br] = repo({ "package.json": PKG({ "react-native": "0.76", react: "18" }) });
+  const bare = detectStack(bf, br);
+  assert.ok(bare.frameworks.includes("reactNative"), "a bare RN app is detected");
+  assert.ok(!bare.frameworks.includes("expo"), "and is NOT called an Expo app — it has no expo CLI");
+});

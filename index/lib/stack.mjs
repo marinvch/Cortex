@@ -19,6 +19,12 @@ const SIGNALS = [
   { id: "remix", label: "Remix", kind: "framework", dep: "@remix-run/react", manifest: "package.json" },
   { id: "nest", label: "NestJS", kind: "framework", dep: "@nestjs/core", manifest: "package.json" },
   { id: "express", label: "Express", kind: "framework", dep: "express", manifest: "package.json" },
+  // React Native and Expo are separate rows on purpose. A bare React Native app is not an Expo app —
+  // different build, different router, different commands — and collapsing them would put an `npx expo`
+  // instruction in front of someone who has no expo CLI. Both matter because without them a mobile app
+  // reports as plain `react`, and the skills chosen from that describe a website.
+  { id: "reactNative", label: "React Native", kind: "framework", dep: "react-native", manifest: "package.json" },
+  { id: "expo", label: "Expo", kind: "framework", dep: ["expo", "expo-router"], manifest: "package.json" },
   // TypeScript is asserted by tsconfig.json OR the dependency, not both. Plenty of repos compile TS
   // through a framework without naming the compiler themselves, and a repo full of .ts files told it
   // has no TypeScript gets no type-check skill for no reason a reader could see.

@@ -3,6 +3,37 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.22.0] — 2026-08-19
+
+### Added — `/diagnosing-bugs`, ported and given the repo's map
+The last unharvested skill from [mattpocock/skills](https://github.com/mattpocock/skills) that fit
+Cortex. Phases 1–6 are upstream and sound: **build a red-capable feedback loop before forming any
+theory**, reproduce, minimise, generate 3–5 falsifiable hypotheses before testing one, instrument
+one variable at a time, fix with a regression test, clean up.
+
+Three additions, and each is only possible because the repo has an index and a context layer:
+
+- **Phase 0 — orient before guessing.** `cortex-impact` gives the blast radius and, more usefully,
+  *which of it no test covers* — a bug lives disproportionately in code nothing exercises, and the
+  uncovered dependent is where the Phase 5 regression test belongs. `cortex-review` gives the
+  documents that govern the suspect, which frequently *state* the bug outright: "the raw body is
+  required for signature verification". `index.layers` places it — a depth-0 failure implicates
+  everything above it; an entry point usually does not implicate the kernel.
+- **A violated invariant outranks a hunch.** Phase 3 ranks anything Phase 0 surfaced near the top,
+  because it is the only class of hypothesis that arrives with written evidence behind it.
+- **The regression test must fail for the right reason.** Upstream says *watch it fail*; that is not
+  enough. A test failing for an unrelated reason goes green on the fix and proves nothing. This repo
+  shipped four such assertions in a single week and found every one by making the code wrong on
+  purpose. Phase 6 also asks that a bug caused by a stale document gets the document fixed — that
+  one recurs otherwise.
+
+`capability: judgment`. Phase 0 is skipped when the repo has no `.cortex/` index; the rest works
+anywhere.
+
+`/diagnosing-bugs` and `/cortex-review` both read the context layer and are **not**
+interchangeable: review judges a *change* you already made, diagnosis hunts a *symptom* you cannot
+explain. Phase 0 is where the second borrows the first's evidence.
+
 ## [2.21.0] — 2026-08-19
 
 ### Fixed — `index.layers` was a list of directories
@@ -1338,6 +1369,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.22.0]: https://github.com/marinvch/Cortex/releases/tag/v2.22.0
 [2.21.0]: https://github.com/marinvch/Cortex/releases/tag/v2.21.0
 [2.20.0]: https://github.com/marinvch/Cortex/releases/tag/v2.20.0
 [2.19.0]: https://github.com/marinvch/Cortex/releases/tag/v2.19.0

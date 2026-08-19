@@ -182,6 +182,18 @@ and needs no mirror at all.
   it just erased. Not a string-prefix check: a symlink out of the root passes any prefix comparison.
   `cortex-vault-extract.sh` and `cortex-scan-projects.sh` were checked and do not need it. See
   [ADR 0010](docs/adr/0010-the-shell-half-gets-the-guard-too.md).
+- **Never hand-edit a version. Run `node tools/cortex-version.mjs --set <x.y.z>`.** `VERSION` is the
+  interface; the seven sites holding a copy are implementation, and both the writer and the drift
+  check read one `SITES` list. Hand-editing is how `core/package.json` sat six releases behind while
+  four other sites were verified. The `## [x.y.z]` changelog entry is the one thing the tool will
+  not write — it refuses until you have, because a release entry says what changed and why. See
+  [ADR 0013](docs/adr/0013-the-version-has-one-home.md), and
+  [ADR 0014](docs/adr/0014-the-package-split-stays-rejected.md) before proposing a package split.
+- **`tools/test/install-on-a-project.test.sh` is the only test that asserts the *product* works.**
+  Everything else points Cortex at fixtures shaped by whoever wrote the test. This one runs
+  index → findings → `--offers` against a repo shaped like real product code, and asserts the target
+  is left without a `.cortex/` — `/cortex-install`'s consent promise made executable. Point it at a
+  real project with `CORTEX_E2E_REPO=<path>`; that pass is read-only.
 - **The shell half has behaviour tests now — `bash tools/test/run.sh`.** `bash -n` and shellcheck
   never *run* a script, which is how four real bugs shipped in `tools/server/` and were found by
   reading rather than by CI. Tests build real git repos in temp dirs (a bare repo on disk is a

@@ -3,6 +3,52 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.10.0] — 2026-08-19
+
+### Added — the version fact has one home
+- **`tools/cortex-version.mjs` owns version propagation.** A release used to write the version by
+  hand into seven files and verify it in four, so releasing was a memory exercise with a test that
+  fired *after* the mistake — and two sites where it never fired at all. `VERSION` is now the
+  interface and the rest are implementation:
+  `node tools/cortex-version.mjs --set 2.10.0` stamps them all, a bare run checks for drift, and
+  `--list` shows what each site holds. Adding a site is one entry in `SITES`, which **both** the
+  writer and the checker read — a checker with its own private idea of where versions live is how
+  four of seven sites came to be verified.
+- **The `## [x.y.z]` changelog entry is checked, never generated.** A release entry says what
+  changed and why, which no string substitution knows; `--set` refuses and names the missing
+  heading. The link *reference* is fully derivable, so that one is generated — it was the site that
+  got missed by hand, because a missing one breaks no build and renders as literal text.
+- **`tools/test/version-sites.test.sh`** — the guard behind the generator, not instead of it. It
+  fails a build whose sites disagree, and exercises the writer against a scratch repo via
+  `CORTEX_VERSION_ROOT`, so the writer is never shipped having only ever been read.
+- [ADR 0013](docs/adr/0013-the-version-has-one-home.md).
+
+### Added — proof that Cortex works on somebody else's repo
+- **`tools/test/install-on-a-project.test.sh`** runs the whole install pipeline — index → findings →
+  the `--offers` worklist the wizard walks — against a repository shaped like real product code: a
+  Next.js app with TypeScript, an api directory, generated Prisma output, committed `.env` files and
+  no tests. Every other test in the suite points Cortex at fixtures shaped by the people who wrote
+  the tests; this one asserts the product works, not just the parts.
+  It **builds** that repo rather than pointing at a path on disk, so it runs on every machine. Set
+  `CORTEX_E2E_REPO=<path>` to additionally run a read-only pass against a real project — that mode
+  writes through `--out` and asserts the target repo is left without a `.cortex/`, which is
+  `/cortex-install`'s promise made executable.
+
+### Fixed
+- **`core/package.json` read `2.2.0` while the product shipped `2.9.1`** — six releases behind,
+  drifting in silence because nothing compared it to anything. It is in `SITES` now, so it cannot
+  rot again. This was the exact failure `mcp/test/version.test.js` exists to prevent, occurring in
+  the one site it does not cover.
+
+### Decided
+- [ADR 0014](docs/adr/0014-the-package-split-stays-rejected.md) — **Cortex is not being split into
+  published packages.** [ADR 0001](docs/adr/0001-two-repos-not-two-packages.md) set the test ("the
+  split is a directory boundary, not a distribution one") and
+  [ADR 0004](docs/adr/0004-no-runtime-dependencies.md) settles it: a plugin install clones the repo
+  and runs no `npm install`, so three manifests would be resolved by nobody. The rotted
+  `core/package.json` above is the empirical version of the same argument — a manifest nobody
+  resolves is a manifest nobody notices is wrong. Recorded so the next review stops here.
+
 ## [2.9.1] — 2026-08-19
 
 ### Fixed
@@ -768,6 +814,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.10.0]: https://github.com/marinvch/Cortex/releases/tag/v2.10.0
 [2.9.1]: https://github.com/marinvch/Cortex/releases/tag/v2.9.1
 [2.9.0]: https://github.com/marinvch/Cortex/releases/tag/v2.9.0
 [2.8.1]: https://github.com/marinvch/Cortex/releases/tag/v2.8.1

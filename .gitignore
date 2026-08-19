@@ -16,13 +16,13 @@ brain/
 /home.md
 
 # Archived personal content — anything moved out of the personal layer keeps its privacy.
-# cortex-rm.sh writes to archives/removed/; dated archive folders come from /cortex-audit
-# and /cortex-audit. The framework docs at archives/*.md stay tracked and shareable.
-archives/removed/
-archives/*/
-!archives/retired-views/
-!archives/stale-engine/
-archives/work-laptop-setup.*
+# cortex-rm.sh writes archives/removed/; /cortex-audit writes dated archives/<name>-YYYY-MM-DD/.
+# One folder, one lifecycle: everything in here is personal, so everything in here is ignored.
+# The product's own history (the retired Node installer, the old views, the stale-engine prompts)
+# used to live here too, which is why this block needed six lines and two negations to say which
+# half was shareable. That half is docs/history/ now.
+archives/*
+!archives/README.md
 
 # Keep folder placeholders + README templates tracked so the vault stays shareable
 !context/.gitkeep

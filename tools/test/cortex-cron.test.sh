@@ -1,3 +1,6 @@
+# cortex:allow-secrets — ANTHROPIC_API_KEY is set to "test-key-not-real" here so the failure path
+# has a key shaped like one. It reaches a closed local port on purpose and authenticates nothing.
+
 # tools/server/cortex-cron.sh — run for real against a local bare remote.
 #
 # No network anywhere in this file. A bare repo on disk is a complete git remote, so push and pull

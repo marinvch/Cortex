@@ -1,3 +1,8 @@
+# cortex:allow-secrets — the strings below are the fixture repo this test BUILDS, not credentials.
+# sk_live_0000000000000000 is sixteen zeroes and hunter2 is a punchline; both exist so the secrets
+# finding has something to find. Without this marker Cortex reports itself as leaking, and a
+# critical finding that is always wrong is how a team learns to skip the critical section.
+
 # Cortex works on somebody else's repository.
 #
 # Every other test in this suite points Cortex at fixtures shaped by the people who wrote the tests.

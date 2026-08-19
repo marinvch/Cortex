@@ -34,8 +34,14 @@ four `cortex-*.mjs` files at the top are the CLIs that skills invoke.
 - **Import resolution is regex-based**, so dynamic and computed imports are missed. That is a
   documented limit, not a bug — it is why the orphan finding says "worth checking", never "safe to
   delete".
-- **Coverage uses two signals**, name *and* import. Either alone misreports: naming alone called
-  `mcp/lib` untested when its tests live in `mcp/test`.
+- **Coverage uses three signals** — name, import, and a quoted string mention — and lives in
+  `lib/coverage.mjs`, shared by `findings.mjs` and `impact.mjs`. Each alone misreports: naming
+  alone called `mcp/lib` untested when its tests live in `mcp/test`; a CLI spawned as a subprocess
+  is invisible to both name and import, which is what the mention signal is for. Quoted-only, so a
+  file named in a comment is not counted as exercised. Do not copy this heuristic into a third
+  caller — two copies would agree today and disagree in a month, with nothing to say which is right.
+- **`cortex-impact.mjs` reads the graph backwards** — who imports me, not what do I import — and
+  every count it returns is a floor, named `atLeast` so a caller cannot print it as a total.
 - Batching is deterministic so an interrupted enrichment resumes — re-run `plan`, and `status`
   still lists exactly what is pending. Do not make batch identity depend on anything but the index.
   Note the limit that buys: identity is **positional**, so it is stable for an interrupted run
@@ -51,5 +57,7 @@ four `cortex-*.mjs` files at the top are the CLIs that skills invoke.
 node --test index/test/*.test.mjs
 ```
 
-The CLIs themselves have no tests — Cortex reports this about itself, and it is a true positive.
-`lib/` is well covered; the gap is argument parsing and file writing at the top level.
+`lib/` is well covered. Most CLIs at the top level are not — Cortex reports this about itself and
+it is a true positive; the gap is argument parsing and file writing. `cortex-impact.mjs` is the
+exception, covered by `tools/test/cortex-impact.test.sh` against a real git fixture, because its
+failure mode is a confident wrong sentence rather than a crash and only the CLI prints sentences.

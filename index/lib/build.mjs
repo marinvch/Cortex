@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { listFiles } from "./walk.mjs";
 import { detectLanguage, categoryOf, isTestPath, isEntryPath } from "./langs.mjs";
-import { extractImports, resolveImport } from "./imports.mjs";
+import { extractImports, resolveImport, resolveGoImport, goModulePath } from "./imports.mjs";
 import { inferLayers } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
 
@@ -56,6 +56,26 @@ export function buildIndex(root, opts = {}) {
   });
 
   const fileSet = new Set(files.map((f) => f.path));
+
+  // Go needs two things no other language here does: the module path (so an import can be told
+  // from an external package) and a directory index (because a Go import names a package, which
+  // is a directory of files). Both are computed once.
+  let goModule = null;
+  try {
+    goModule = goModulePath(readFileSync(join(root, "go.mod"), "utf8"));
+  } catch {
+    // no go.mod — not a Go module, and Go imports will simply not resolve
+  }
+  const goByDir = new Map();
+  if (goModule) {
+    for (const f of files) {
+      if (!f.path.endsWith(".go") || f.path.endsWith("_test.go")) continue;
+      const i = f.path.lastIndexOf("/");
+      const dir = i < 0 ? "" : f.path.slice(0, i);
+      if (!goByDir.has(dir)) goByDir.set(dir, []);
+      goByDir.get(dir).push(f.path);
+    }
+  }
   const byPath = new Map(files.map((f) => [f.path, f]));
   const edges = [];
 
@@ -69,11 +89,18 @@ export function buildIndex(root, opts = {}) {
     }
     const seen = new Set();
     for (const spec of extractImports(text, f.lang)) {
-      const target = resolveImport(spec, f.path, fileSet, f.lang);
-      if (!target || target === f.path || seen.has(target)) continue;
-      seen.add(target);
-      f.imports.push(target);
-      edges.push({ from: f.path, to: target, type: "imports" });
+      // Go alone resolves one specifier to many files, because it imports a package rather than
+      // a file. Everything else returns a single path or null.
+      const targets =
+        f.lang === "go"
+          ? resolveGoImport(spec, goModule, goByDir)
+          : [resolveImport(spec, f.path, fileSet, f.lang)];
+      for (const target of targets) {
+        if (!target || target === f.path || seen.has(target)) continue;
+        seen.add(target);
+        f.imports.push(target);
+        edges.push({ from: f.path, to: target, type: "imports" });
+      }
     }
     f.imports.sort();
   }

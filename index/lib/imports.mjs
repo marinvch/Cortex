@@ -133,8 +133,47 @@ export function resolveImport(spec, fromPath, fileSet, lang) {
     return fileSet.has(rel) ? rel : null;
   }
 
-  // Go and Rust resolve through module systems Cortex does not model; only same-repo path-like
-  // specifiers are attempted, and anything else is treated as external.
+  // Go is resolved by the caller, which has the module path from go.mod — see resolveGoImport.
+  // Rust still resolves through a module system Cortex does not model, so only a same-repo
+  // path-like specifier is attempted and anything else is external.
   if (fileSet.has(spec)) return spec;
   return null;
+}
+
+/**
+ * Languages whose imports Cortex extracts but cannot resolve to files.
+ *
+ * This is the difference between *I found no importers* and *I cannot read this language's
+ * imports*, and it matters because every consumer of the graph phrases its output as the first.
+ * Pointed at a real Rust workspace, the orphan finding called 59 of 130 files unreferenced and
+ * `/cortex-impact` said nothing imported the crate's central type. Both were technically hedged
+ * and both were useless — the report has to say it is blind rather than say it looked.
+ */
+export const UNRESOLVED_LANGUAGES = new Set(["rust"]);
+
+/** The module path declared by a go.mod, or null. `module github.com/x/y` → `github.com/x/y`. */
+export function goModulePath(goModText) {
+  if (!goModText) return null;
+  const m = goModText.match(/^\s*module\s+(\S+)/m);
+  return m ? m[1] : null;
+}
+
+/**
+ * Resolve a Go import to the files it pulls in.
+ *
+ * Go imports name a PACKAGE, and a package is a directory — so unlike every other language here
+ * one specifier resolves to many files, and the function returns an array. `byDir` maps a
+ * directory to its non-test .go files; the caller builds it once rather than rescanning per import.
+ *
+ * Only imports inside this module resolve. `github.com/other/pkg` is a real dependency but not a
+ * file in this repo, and inventing an edge for it would be a lie the graph cannot distinguish from
+ * a real one. Test files are excluded: importing a package does not give you its tests.
+ */
+export function resolveGoImport(spec, moduleName, byDir) {
+  if (!spec || !moduleName) return [];
+  let dir;
+  if (spec === moduleName) dir = "";
+  else if (spec.startsWith(moduleName + "/")) dir = spec.slice(moduleName.length + 1);
+  else return []; // external package
+  return byDir.get(dir) || [];
 }

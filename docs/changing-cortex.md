@@ -61,6 +61,15 @@ before overturning one; the line here is the trigger, not the case.
   field is `atLeast`, never `total`. The actionable half is the *unverified* list, not the count.
   Coverage lives in `index/lib/coverage.mjs`, shared with `findings.mjs`; do not write a second copy
   of that heuristic. [ADR 0004](adr/0004-no-runtime-dependencies.md) rules out a parser.
+- **`/cortex-review` is the only thing that reads the context layer back.** Everything else in
+  Cortex writes documents — `AGENTS.md`, `CONTEXT.md`, ADRs — or audits them for bloat. This one
+  judges a *change* against them, on two axes: does it break a documented rule, and did it just
+  make one of those documents wrong. The second is the half no other review tool looks for, and
+  the repo has shipped the failure twice: `index/AGENTS.md` said coverage used two signals while
+  it used three, and the root pointed at `mcp/lib/scrub.js` months after scrub moved to `core/`.
+  Neither broke a test. `index/lib/review.mjs` finds and cites; it never judges — a mention is
+  where a defect would hide, not a defect. Keep it that way: the moment it starts concluding, it
+  needs a model and stops being usable in CI.
 - **`tools/test/install-on-a-project.test.sh` is the only test that asserts the *product* works.**
   Everything else points Cortex at fixtures shaped by whoever wrote the test. This one runs
   index → findings → `--offers` against a repo shaped like real product code, and asserts the target

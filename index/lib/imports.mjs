@@ -18,7 +18,13 @@ const PY_PATTERNS = [
 const GO_BLOCK = /import\s*\(([\s\S]*?)\)/g;
 const GO_SINGLE = /^\s*import\s+"([^"]+)"/gm;
 
-const RUST_PATTERNS = [/^\s*(?:pub\s+)?use\s+crate::([\w:]+)/gm, /^\s*mod\s+(\w+)\s*;/gm];
+// `pub mod x;` and `pub(crate) mod x;` are how a library crate exposes its modules, so a pattern
+// matching only bare `mod x;` misses precisely the public surface of every lib crate. In ripgrep that
+// was three of the ignore crate's modules reported as unreferenced while lib.rs declared them.
+const RUST_PATTERNS = [
+  /^\s*(?:pub(?:\([^)]*\))?\s+)?use\s+crate::([\w:]+)/gm,
+  /^\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;/gm,
+];
 
 const SHELL_PATTERNS = [/^\s*(?:\.|source)\s+["']?([^\s"';]+)/gm];
 
@@ -149,7 +155,10 @@ export function resolveImport(spec, fromPath, fileSet, lang) {
  * `/cortex-impact` said nothing imported the crate's central type. Both were technically hedged
  * and both were useless — the report has to say it is blind rather than say it looked.
  */
-export const UNRESOLVED_LANGUAGES = new Set(["rust"]);
+// Empty today: JS/TS, Python, Go and Rust all resolve. The set stays because the DISTINCTION is
+// the point — the next language whose imports are extracted but not resolved must land here, or
+// its reports will say "nothing depends on this" when they mean "I did not look".
+export const UNRESOLVED_LANGUAGES = new Set([]);
 
 /** The module path declared by a go.mod, or null. `module github.com/x/y` → `github.com/x/y`. */
 export function goModulePath(goModText) {
@@ -176,4 +185,64 @@ export function resolveGoImport(spec, moduleName, byDir) {
   else if (spec.startsWith(moduleName + "/")) dir = spec.slice(moduleName.length + 1);
   else return []; // external package
   return byDir.get(dir) || [];
+}
+
+/**
+ * The directory a file's child modules live in.
+ *
+ * Rust's one real subtlety. A crate root (`lib.rs`, `main.rs`) and a `mod.rs` own the directory
+ * they sit in, so `mod color;` in `src/lib.rs` means `src/color.rs`. Any other file owns a
+ * subdirectory named after itself: the same line in `src/printer.rs` means `src/printer/color.rs`.
+ * Getting this backwards resolves half a crate to the wrong place.
+ */
+function rustModuleDir(fromPath) {
+  const i = fromPath.lastIndexOf("/");
+  const dir = i < 0 ? "" : fromPath.slice(0, i);
+  const base = fromPath.slice(i + 1).replace(/\.rs$/, "");
+  if (base === "lib" || base === "main" || base === "mod") return dir;
+  // A file sitting directly in tests/, benches/, examples/ or src/bin/ is its own crate root — cargo
+  // compiles each one as a separate binary. So `mod util;` in tests/cli.rs means tests/util.rs, not
+  // tests/cli/util.rs. Without this every integration test's helper module resolves to nothing.
+  if (/(^|\/)(tests|benches|examples|src\/bin)$/.test(dir)) return dir;
+  return dir ? `${dir}/${base}` : base;
+}
+
+/**
+ * Resolve a Rust `mod x;` or `use crate::a::b` to a file.
+ *
+ * `crateRoots` is every crate's source directory, longest first — a workspace has one per member
+ * (`crates/printer/src`), and `crate::` means the root of the crate the FILE belongs to, not the
+ * workspace. Resolving against the workspace would send every crate's imports to the same place.
+ *
+ * A path is tried longest-first and then shortened, because `use crate::json::Printer` names a
+ * TYPE inside `json.rs` — the last segment is usually a symbol, not a file, and only the filesystem
+ * can say where the module stops and the item begins.
+ *
+ * The extractor cannot tell a `mod` from a `use` (both arrive as bare segments), so both readings
+ * are tried. Every candidate must exist in `fileSet`, so a wrong reading resolves to nothing rather
+ * than to an invented edge.
+ */
+export function resolveRustImport(spec, fromPath, fileSet, crateRoots = []) {
+  if (!spec) return null;
+  const segs = spec.split("::").filter(Boolean);
+  if (!segs.length) return null;
+
+  const tryPath = (base) => {
+    for (const cand of [`${base}.rs`, `${base}/mod.rs`]) if (fileSet.has(cand)) return cand;
+    return null;
+  };
+
+  // `mod x;` — a child of the importing file's module directory.
+  const modDir = rustModuleDir(fromPath);
+  const asMod = tryPath(modDir ? `${modDir}/${segs.join("/")}` : segs.join("/"));
+  if (asMod) return asMod;
+
+  // `use crate::…` — from the root of the crate this file belongs to.
+  const root = crateRoots.find((r) => fromPath.startsWith(r + "/"));
+  if (root === undefined) return null;
+  for (let n = segs.length; n > 0; n--) {
+    const hit = tryPath(`${root}/${segs.slice(0, n).join("/")}`);
+    if (hit) return hit;
+  }
+  return null;
 }

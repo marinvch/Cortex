@@ -6,6 +6,7 @@ import {
   resolveGoImport,
   goModulePath,
   UNRESOLVED_LANGUAGES,
+  resolveRustImport,
 } from "../lib/imports.mjs";
 
 test("extracts every JS/TS import form", () => {
@@ -126,9 +127,96 @@ test("goModulePath reads the module line, and tolerates its absence", () => {
   assert.equal(goModulePath(null), null);
 });
 
-test("a language Cortex cannot resolve is named, not silently trusted", () => {
+test("no language is claimed as resolved when it is not", () => {
   // The set is what lets every consumer say "I did not look" instead of "nothing depends on this".
-  assert.ok(UNRESOLVED_LANGUAGES.has("rust"));
-  assert.ok(!UNRESOLVED_LANGUAGES.has("go"), "go resolves now — leaving it here would suppress a real graph");
-  assert.ok(!UNRESOLVED_LANGUAGES.has("javascript"));
+  // It is EMPTY now — JS/TS, Python, Go and Rust all resolve — and that is the point of asserting it
+  // rather than deleting it: a language listed here that actually resolves suppresses a real graph,
+  // and one missing from here that does not resolve reports blindness as absence. Both are silent.
+  for (const lang of ["javascript", "typescript", "python", "go", "rust"]) {
+    assert.ok(!UNRESOLVED_LANGUAGES.has(lang), `${lang} has a resolver, so it must not be listed blind`);
+  }
+  // The mechanism still works for whatever comes next.
+  assert.ok(UNRESOLVED_LANGUAGES instanceof Set);
+});
+
+test("mod resolves as a sibling from a crate root, and as a child from anywhere else", () => {
+  // Rust's one real subtlety, and getting it backwards resolves half a crate to the wrong place.
+  // `mod color;` in src/lib.rs means src/color.rs, because lib.rs OWNS src/. The same line in
+  // src/printer.rs means src/printer/color.rs.
+  const files = new Set(["src/lib.rs", "src/color.rs", "src/printer.rs", "src/printer/color.rs"]);
+  assert.equal(resolveRustImport("color", "src/lib.rs", files, ["src"]), "src/color.rs");
+  assert.equal(resolveRustImport("color", "src/printer.rs", files, ["src"]), "src/printer/color.rs");
+});
+
+test("a directory module resolves through its mod.rs", () => {
+  const files = new Set(["src/lib.rs", "src/hyperlink/mod.rs"]);
+  assert.equal(resolveRustImport("hyperlink", "src/lib.rs", files, ["src"]), "src/hyperlink/mod.rs");
+});
+
+test("a nested mod.rs owns its own directory, not the crate root", () => {
+  // ripgrep's real shape, and the case that proves the crate-root rule rather than assuming it.
+  //
+  // Both src/aliases.rs and src/hyperlink/aliases.rs exist here on purpose. If mod.rs were treated
+  // like an ordinary file its module dir would be src/hyperlink/mod/, that lookup would miss, and the
+  // crate-root fallback would quietly return the WRONG src/aliases.rs. Without the decoy file the
+  // fallback returns nothing and the test passes for the wrong reason — which it did, until a
+  // mutation run showed removing the rule broke nothing.
+  const files = new Set([
+    "src/lib.rs",
+    "src/aliases.rs",
+    "src/hyperlink/mod.rs",
+    "src/hyperlink/aliases.rs",
+  ]);
+  assert.equal(
+    resolveRustImport("aliases", "src/hyperlink/mod.rs", files, ["src"]),
+    "src/hyperlink/aliases.rs",
+  );
+});
+
+test("a use path is shortened until it lands on a file", () => {
+  // `use crate::json::Printer` names a TYPE inside json.rs. Only the filesystem can say where the
+  // module stops and the item begins, so the path is tried longest-first and then shortened.
+  const files = new Set(["src/lib.rs", "src/json.rs"]);
+  assert.equal(resolveRustImport("json::Printer", "src/lib.rs", files, ["src"]), "src/json.rs");
+  assert.equal(resolveRustImport("json::inner::Deep", "src/lib.rs", files, ["src"]), "src/json.rs");
+});
+
+test("crate:: means THIS crate, not the workspace", () => {
+  // A workspace has one root per member. Matching the shortest would send every crate's imports to
+  // the same place — the bug that made ripgrep resolve at 64% instead of 92%.
+  const files = new Set([
+    "crates/printer/src/lib.rs",
+    "crates/printer/src/json.rs",
+    "crates/grep/src/lib.rs",
+    "crates/grep/src/json.rs",
+  ]);
+  const roots = ["crates/printer/src", "crates/grep/src"].sort((a, b) => b.length - a.length);
+  assert.equal(resolveRustImport("json", "crates/printer/src/lib.rs", files, roots), "crates/printer/src/json.rs");
+  assert.equal(resolveRustImport("json", "crates/grep/src/lib.rs", files, roots), "crates/grep/src/json.rs");
+});
+
+test("an integration test file is its own crate root", () => {
+  // cargo compiles each file directly in tests/ as a separate binary, so `mod util;` in tests/cli.rs
+  // means tests/util.rs — not tests/cli/util.rs.
+  const files = new Set(["tests/cli.rs", "tests/util.rs", "src/lib.rs"]);
+  assert.equal(resolveRustImport("util", "tests/cli.rs", files, ["src"]), "tests/util.rs");
+});
+
+test("an inline mod resolves to nothing rather than to an invented file", () => {
+  // `#[cfg(test)] mod tests { ... }` has no file. Every candidate must exist in the file set, so a
+  // reading with no file behind it produces no edge.
+  const files = new Set(["src/lib.rs"]);
+  assert.equal(resolveRustImport("tests", "src/lib.rs", files, ["src"]), null);
+  assert.equal(resolveRustImport("std::collections::HashMap", "src/lib.rs", files, ["src"]), null);
+});
+
+test("pub mod and pub(crate) mod are extracted, not just bare mod", () => {
+  // How a library crate exposes its modules. A pattern matching only `mod x;` misses precisely the
+  // public surface of every lib crate — in ripgrep, three of the ignore crate's modules were reported
+  // unreferenced while lib.rs declared them one line apart from ones that resolved fine.
+  const src = ["mod dir;", "pub mod gitignore;", "pub(crate) mod pathutil;", "pub use crate::walk::Walk;"].join("\n");
+  const got = extractImports(src, "rust");
+  for (const want of ["dir", "gitignore", "pathutil", "walk::Walk"]) {
+    assert.ok(got.includes(want), `expected ${want} in ${JSON.stringify(got)}`);
+  }
 });

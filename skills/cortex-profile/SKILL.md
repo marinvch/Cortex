@@ -1,6 +1,7 @@
 ---
 name: cortex-profile
 description: Show or set which world this Cortex install serves — home, work or lab — which decides what the firewall refuses and whether anything is allowed to leave the machine. Use when setting up Cortex on a new machine, when a capture is refused and the user disagrees, or when they say "this is my work laptop", "which profile am I on", "why won't it let me write this", "set up cortex for work".
+capability: mechanical
 ---
 
 # /cortex-profile — which world this install serves

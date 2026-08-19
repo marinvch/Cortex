@@ -1,6 +1,7 @@
 ---
 name: catch-me-up
 description: Summarize what changed on a project since you were last active. Use when the user says "catch me up", "what did I miss", "what changed while I was away", "summarize recent activity on <project>". Assembles brain notes + git history, then you write the summary.
+capability: judgment
 ---
 
 # /catch-me-up — what changed since <since>

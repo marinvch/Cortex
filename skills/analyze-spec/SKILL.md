@@ -1,6 +1,7 @@
 ---
 name: analyze-spec
 description: Spec-Driven Development for a repo, grounded by its Cortex brain. Use when starting a non-trivial or risky feature/change and you want a rigorous brainstorm -> design spec -> plan BEFORE code. Bridges Cortex (long-run context) with Superpowers (SDD workflow). Triggers — "spec this", "design before building", "SDD", "write a design doc", "plan a big feature".
+capability: strong
 ---
 
 # /analyze-spec — design before you build, grounded by the brain
@@ -95,3 +96,9 @@ brain compounds. Then ask the user to approve the spec + plan before any impleme
 - Spec/plan only — never implement in this ritual.
 - Ground in the brain; don't re-derive what AGENTS.md already states.
 - One source of truth: durable facts go into AGENTS.md (root or scoped), decisions into the log.
+
+## When the floor is not met
+
+This is the heavyweight path on purpose: brainstorm, then a design spec, then a plan, with no code. A weaker setup produces a plan that reads well and skips the branch that mattered.
+
+Below the floor: use **`/plan-feature`** (written into the repo by `/install-project`), which is the lightweight path for routine tickets and expects far less. Reserve this ritual for the risky change, on a setup that can carry it.

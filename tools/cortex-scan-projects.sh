@@ -17,7 +17,7 @@ VAULT="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="${1:-$(cd "$VAULT/.." && pwd)}"          # default: folder containing the vault (e.g. D:/Projects/Personal)
 # If the vault sits under D:/Projects/Personal, scan the whole D:/Projects tree:
 case "$ROOT" in */Personal|*/personal) ROOT="$(cd "$ROOT/.." && pwd)";; esac
-TODAY="$(date +%Y-%m-%d 2>/dev/null || echo 2026-07-01)"
+TODAY="$(cortex_today)"
 mkdir -p "$VAULT/projects"
 
 # slugify() comes from _cortex-lib.sh. The local copy this replaced deleted non-alphanumerics
@@ -27,7 +27,7 @@ mkdir -p "$VAULT/projects"
 # Repos with no commit in this many days are collapsed into a Projects Map row instead of
 # getting their own stub page. Override: DORMANT_DAYS=365 bash tools/cortex-scan-projects.sh
 DORMANT_DAYS="${DORMANT_DAYS:-180}"
-NOW_EPOCH="$(date +%s 2>/dev/null || echo 0)"
+NOW_EPOCH="$(cortex_epoch)"
 
 declare -A SEEN
 MOC_PERSONAL=""; MOC_BRAIN=""; MOC_OTHER=""; MOC_DORMANT=""; COUNT=0; SKIP=0; DORMANT=0; WORKSKIP=0

@@ -19,7 +19,7 @@ and the tests worth running. `--json` for a ritual to walk, `--depth N` to bound
 Deterministic per `index/AGENTS.md` — no LLM, no network, no clock — so it sits in the `mechanical`
 capability tier and runs on any model, or none.
 
-**Every number is a floor.** Import resolution is regex-based ([ADR 0004](docs/adr/0004-a-plugin-install-clones-the-repo.md)
+**Every number is a floor.** Import resolution is regex-based ([ADR 0004](docs/adr/0004-no-runtime-dependencies.md)
 rules out a parser, since a plugin install clones the repo and runs no build), so dynamic and
 computed imports are invisible. The field is `atLeast`, there is no `total`, and no flag turns it
 into one: "3 files affected" when the truth is 5 invites a reader to stop looking; "at least 3"

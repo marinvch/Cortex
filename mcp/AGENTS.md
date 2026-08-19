@@ -33,7 +33,22 @@ the repo by commit count, and — like every other part — **dependency-free**.
   is the only module here that joins onto a vault root or calls `node:fs` on one; it wraps
   `core/paths.js` so the guard is unavoidable rather than remembered. If you need an operation it
   does not have, add it to the Vault — do not reach around it.
-  `test/vault-is-the-only-door.test.js` fails the build otherwise. [ADR 0007](../docs/adr/0007-the-vault-is-the-only-door.md).
+  The full surface is `list` · `entries` · `read` · `append` · `write` · `abs` · `exists` ·
+  `isFile` · `isDirectory` · `mtimeMs`, all taking root-relative paths.
+  `test/vault-is-the-only-door.test.js` fails the build otherwise, and it checks **twice**: a scan
+  for `join(root, …)`, plus an assertion that the converted modules import no `node:fs` at all —
+  because `recall` once bypassed the guard through a closure variable without ever writing that
+  call, so the scan alone was blind to it. The three allowlisted files join onto the **install**
+  directory or a git clone, never a vault. The Vault does not scrub: secret refusal is policy and
+  stays in `core/scrub.js`, so do not add filtering here.
+  [ADR 0007](../docs/adr/0007-the-vault-is-the-only-door.md).
+- **`mode` and `audience` are different questions.** `lib/mode.js` answers *what kind of brain this
+  root is* (repo vs vault); `lib/resolve.js` answers *who it serves* (solo · team · server). They
+  are orthogonal — a repo-mode brain can run on a server, a vault-mode brain can belong to a team.
+  Solo and team are **detected** from a `.cortex/connector.json` found by walking up from the cwd;
+  server is **declared** with `CORTEX_AUDIENCE=server`, because it leaves no filesystem trace and
+  declaring beats detecting. `core/profile.js` answers a third question (home · work · lab) and
+  reads only `CORTEX_PROFILE` — nothing here may move it.
 - **`mcp/` never imports from `index/`.**
 
 ## Gotchas

@@ -7,6 +7,7 @@ import { catchMeUp } from "./lib/catchup.js";
 import { genNoteId } from "./lib/noteid.js";
 import { VERSION } from "./lib/version.js";
 import { append as rememberNote, recent as recentMemory } from "../core/memory.js";
+import { stamp } from "../core/date.js";
 import { isRepoMode } from "./lib/mode.js";
 import { resolveBrain, NoRootError } from "./lib/resolve.js";
 
@@ -24,7 +25,6 @@ try {
   throw e;
 }
 const AI_OS_ROOT = brain.root;
-const today = () => new Date().toISOString().slice(0, 10);
 
 // Pointed at a repo's .cortex/, Cortex is a context manager for that codebase: memory is committed
 // and shared, and the vault's personal tools (projects, daily notes, team-brain) do not apply.
@@ -80,7 +80,10 @@ async function callTool(name, args) {
     // the resolver exists to prevent. The argument survives as an explicit override.
     case "capture": {
       const team = args.team ?? brain.team ?? undefined;
-      const cargs = { ...args, team, today: today() };
+      // stamp(), not toISOString().slice(0,10). The day a note is filed under is the day the
+      // person filing it is living in: at 01:00 in UTC+3 those are 2026-08-19 and 2026-08-18, and
+      // the UTC answer put the capture into yesterday's daily note. core/date.js is the only clock.
+      const cargs = { ...args, team, today: stamp() };
       if (team) cargs.noteId = genNoteId();
       return capture(AI_OS_ROOT, cargs);
     }

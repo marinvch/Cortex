@@ -14,6 +14,25 @@ slugify(){ printf '%s' "$1" | tr 'A-Z' 'a-z' | sed -E 's/[^a-z0-9]+/-/g; s/^-+|-
 # slug() into the generated HTML — that copy is pinned by the same parity test.
 note_id(){ printf '%s' "$1" | tr 'A-Z' 'a-z' | sed -E 's/\.md$//; s/[^a-z0-9]+/-/g; s/^-+|-+$//g'; }
 
+# The wall clock, taken in one place — the shell counterpart of core/date.js.
+#
+# Local time, deliberately. A note is filed under the day the person filing it is living in, which
+# is what core/date.js stamp() answers and what mcp/server.js got wrong by asking UTC: at 01:00 in
+# UTC+3 those are two different days, and a capture landed in yesterday's daily note.
+#
+# No `|| echo <literal>` fallback. The two that were here wrote `created: 2026-07-01` into project
+# frontmatter and set an epoch of 0 that made age_days go negative, so every dormant repo read as
+# active. Both are plausible wrong values a reader cannot spot, where a hard failure is one they
+# cannot miss. There is no system Cortex runs on without `date`.
+#
+# cortex-init.sh and tools/server/cortex-cron.sh cannot source this file — the first is a
+# zero-dependency installer (see the header above), the second lands on a server beside only
+# server-setup.sh — so they keep their own copy, pinned by tools/test/date-parity.test.sh. Same
+# arrangement as slugify(), and for the same reason.
+cortex_today(){ date +%Y-%m-%d || { echo "cortex: cannot read the date" >&2; return 1; }; }
+cortex_timestamp(){ date +%Y%m%d-%H%M%S || { echo "cortex: cannot read the date" >&2; return 1; }; }
+cortex_epoch(){ date +%s || { echo "cortex: cannot read the date" >&2; return 1; }; }
+
 # resolve_in_root <root> <path> — echo the absolute path, or exit non-zero if it escapes <root>.
 #
 # The shell counterpart of core/paths.js. ADR 0007 made mcp/lib/vault.js the only door onto a vault

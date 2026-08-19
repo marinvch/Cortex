@@ -88,7 +88,7 @@ behind the rituals that produce them:
 | Cortex writes | Written by | The lever that matters most |
 |---|---|---|
 | root `AGENTS.md` + the routing table | `/cortex-scaffold` | the table **is** a set of context pointers — their wording decides whether a leaf is ever reached |
-| scoped `AGENTS.md` leaves | `/cortex-brief`, `/scope-area` | disclosure: a leaf exists so the root stays legible |
+| scoped `AGENTS.md` leaves | `/cortex-brief` | disclosure: a leaf exists so the root stays legible |
 | `CONTEXT.md` | `/domain-modeling` | single source of truth — a term defined twice is defined nowhere |
 | `skills/<name>/SKILL.md` | `/skill-creator` | see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) |
 | `.cortex/memory/` digests | `/dream` | relevance — a digest that restates the diff is sediment on arrival |
@@ -103,6 +103,8 @@ Two Cortex-specific notes:
   as context load versus cognitive load. `/onboard`, `/migrate-engine`, `/team-init` and
   `/connect-brain` carry it because they are once-only or destructive and an agent must never
   auto-fire them. Safety outranks the load trade; keep the flag when editing their frontmatter.
+  (`grep -l disable-model-invocation skills/*/SKILL.md` is the full list — it is longer than these
+  four, and `AGENTS.md` names the rest.)
 
 ---
 

@@ -3,6 +3,44 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.9.0] — 2026-08-19
+
+### Changed — `/cortex-doctor` and `/scope-area` are gone
+Four rituals covered two jobs. Typing either removed name now resolves to nothing; reach for
+`/cortex-audit` and `/cortex-brief`, which absorbed them along with their trigger phrases.
+
+- **`/cortex-doctor` → `/cortex-audit`.** The doctor scanned six categories. The `cortex-auditor`
+  subagent that `/cortex-audit` dispatches scans the same six, plus employer-firewall breach, plus a
+  content-health signal — the doctor's scan was a strict subset of the auditor's, and
+  `/cortex-audit` already carried an inline fallback for when the subagent is unavailable, which is
+  the doctor's whole remit. That fallback is now a real pointer: it names `agents/cortex-auditor.md`
+  as the file to read and run, so the report comes out the same either way and only the context
+  isolation is lost.
+- **`/scope-area` → `/cortex-brief`.** Both wrote one `AGENTS.md` leaf into a critical directory and
+  wired a root routing table; their rules were the same sentence written twice. The only real
+  difference was where step 1 got its candidate, and `/cortex-brief` now has both entry points —
+  ranked from the index, or a directory you name, which skips the ranking. It also picked up the
+  three leaf conventions it lacked: a leaf points up to the root, a fact that moves into a leaf comes
+  out of the root, and a leaf ships in the same PR as the code it covers.
+- **The prose that told them apart is deleted, not rewritten.** Each sibling said "I am not my
+  sibling" in its own body, again in the other's, and a third time in `AGENTS.md` — 33 lines of a
+  file every agent loads on every run, and the second-most-churned file in the repo. Two ritual rows
+  and three gotchas are gone from `AGENTS.md`, two rows from `README.md`.
+- **`/audit` and `/reindex` were held to the same test and survived it.** Read-only scoring of
+  content, mutating repair of structure, and rebuilding the graph are three jobs, not one. Three
+  health rituals became two, not one.
+
+### Fixed
+- **`AGENTS.md` named four rituals as carrying `disable-model-invocation`; eight do.** The list was
+  never updated as rituals were added, so a gotcha written to prevent an agent auto-firing a
+  destructive ritual was silently describing half the set. It now names all eight and points at
+  `grep -l disable-model-invocation skills/*/SKILL.md` as the list of record.
+
+### Added
+- [ADR 0011](docs/adr/0011-four-rituals-covered-two-jobs.md) records the decision, what survived it,
+  and the test it establishes: when the prose separating two rituals grows longer than the
+  difference it describes, they are one ritual.
+
 ## [2.8.1] — 2026-08-18
 
 ### Fixed
@@ -693,6 +731,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo (`ai_saas`): brain installed, old engine migrated (10
   verified memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.9.0]: https://github.com/marinvch/Cortex/releases/tag/v2.9.0
 [2.8.1]: https://github.com/marinvch/Cortex/releases/tag/v2.8.1
 [2.8.0]: https://github.com/marinvch/Cortex/releases/tag/v2.8.0
 [2.7.0]: https://github.com/marinvch/Cortex/releases/tag/v2.7.0

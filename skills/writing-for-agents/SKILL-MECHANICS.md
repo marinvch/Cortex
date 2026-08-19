@@ -27,7 +27,10 @@ Cortex's ritual table in `AGENTS.md` is a router — one document naming 30-plus
 reach for each — but it is a *file*, not a skill, so it costs no invocation of its own. The
 "Gotchas worth knowing before you pick one" list under it exists because naming a ritual is not
 enough when two rituals sound interchangeable and are not (`/audit` scores content,
-`/cortex-doctor` fixes structure, `/reindex` rebuilds the graph).
+`/cortex-audit` fixes structure, `/reindex` rebuilds the graph). When the prose separating two
+rituals grows longer than the difference it describes, that is the signal they are one ritual —
+`/cortex-doctor` and `/scope-area` were deleted for exactly that reason. See
+[ADR 0011](../../docs/adr/0011-four-rituals-covered-two-jobs.md).
 
 The same shape appears one level down: the "Where to look" table routes to `core/`, `index/` and
 `mcp/` leaves, and says **read one**. A router that does not say how many targets to open invites

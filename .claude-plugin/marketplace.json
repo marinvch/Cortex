@@ -1,6 +1,6 @@
 {
   "name": "cortex",
-  "version": "2.8.1",
+  "version": "2.9.0",
   "description": "Cortex — a context manager for new and legacy codebases.",
   "repository": "https://github.com/marinvch/Cortex",
   "owner": {

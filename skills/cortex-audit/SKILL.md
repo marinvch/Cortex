@@ -1,6 +1,6 @@
 ---
 name: cortex-audit
-description: Use when the user says "cortex audit", "audit the project/vault", "run the auditor", "find and fix the problems", "full health check", or "run cortex-audit". One-shot meta-audit — dispatches the read-only `cortex-auditor` subagent to scan the WHOLE vault (structure + a content-health signal) in an isolated context, then applies the safe fixes and surfaces the judgment calls. Unifies /audit (content) and /cortex-doctor (structure) into one autonomous pass.
+description: Find and fix what is structurally wrong with a Cortex vault — orphan and non-connected files, dead links, stale, duplicate and misplaced files, wiring drift, privacy leaks. Dispatches the read-only `cortex-auditor` subagent to scan the whole vault in an isolated context, then applies the safe fixes here and surfaces the judgment calls. Triggers — "cortex audit", "diagnose the vault", "clean up cortex", "fix dead links", "is the file structure healthy", "find and fix the problems", "full health check".
 ---
 
 # /cortex-audit — dispatch the auditor, then fix
@@ -9,9 +9,8 @@ One command for a complete health pass. It **delegates the scan** to the `cortex
 subagent (`agents/cortex-auditor.md`), which runs read-only in its own context so the heavy
 globbing/link-mapping never bloats this conversation — then **you apply the fixes** here.
 
-> Sits above its siblings: `/audit` scores content, `/cortex-doctor` fixes structure, `/reindex`
-> rebuilds the graph. `/cortex-audit` runs the auditor once and acts on the whole report — reach for
-> it when you want "check everything and clean it up" in a single step.
+> Structure, not content. `/audit` scores the four knowledge layers and writes nothing; this finds
+> and fixes the files those scores are computed over.
 
 ## What to do
 
@@ -19,8 +18,9 @@ globbing/link-mapping never bloats this conversation — then **you apply the fi
    `subagent_type: cortex-auditor`) with the vault root as its target. It returns one ranked findings
    report: structural categories (orphans, dead links, stale, duplicate, misplaced, integrity/privacy,
    **skill-wiring drift**) + a four-layer content-health signal. Each finding is tagged `[safe]` or
-   `[judgment]`. If the subagent is unavailable, fall back to running the scan inline using the same
-   method in that agent file.
+   `[judgment]`. If the subagent is unavailable, **read `agents/cortex-auditor.md` and run its scan
+   inline** — it holds the categories, the method and the output shape, so the report comes out the
+   same either way. Only the isolation is lost.
 2. **Show the report** to the user — findings by category, plus the graph's node/link/**dead-link**
    counts.
 3. **Lead with the employer firewall.** Per `AGENTS.md`, day-job content in a personal vault is a
@@ -48,5 +48,5 @@ globbing/link-mapping never bloats this conversation — then **you apply the fi
 Default: auto-apply `[safe]` fixes, pause for the user on every `[judgment]` call. If the user asks
 to approve each edit, switch to proposing all fixes first.
 
-Pairs with [[reindex]] (regenerate the graph after cleanup). Complements `/audit` (content scoring)
-and `/cortex-doctor` (the manual structural pass); this is the subagent-driven superset.
+Pairs with [[reindex]] (regenerate the graph after cleanup) and complements [[audit]] (content
+scoring). Targets **this vault** — `/optimize-context` is the same instinct pointed at another repo.

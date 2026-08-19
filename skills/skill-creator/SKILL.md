@@ -18,7 +18,7 @@ description stays loaded every turn, and other skills can reach it) versus user-
 
 1. **Capture intent.** In one line, state what the skill should let the user do and *when* they'd
    reach for it. If that's genuinely unclear, ask **one or two** questions — no more. Speed matters.
-2. **Name it.** Verb-first kebab-case describing the action: `weekly-review`, `scope-area`,
+2. **Name it.** Verb-first kebab-case describing the action: `weekly-review`, `cortex-brief`,
    `catch-me-up` — not `review_helper`. Letters, numbers, hyphens only.
 3. **Write `skills/<name>/SKILL.md`** with frontmatter + a concise body:
    - `name:` the kebab name.
@@ -50,6 +50,6 @@ description stays loaded every turn, and other skills can reach it) versus user-
 
 ## Credits
 Adapted for Cortex's plain-files convention from Anthropic's `skill-creator`
-(github.com/anthropics/skills) and `superpowers:writing-skills`. Pairs with [[cortex-doctor]], which
+(github.com/anthropics/skills) and `superpowers:writing-skills`. Pairs with [[cortex-audit]], which
 keeps the vault's file structure healthy, and [[optimize-context]], which audits agent context
 files in other repos against the same rules this skill follows when writing new ones.

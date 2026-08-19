@@ -32,6 +32,6 @@ gotcha or invariant, don't split it.
   gotchas, change checklist). **No fact in two places** — move it, don't copy it.
 - Every leaf links UP to root and never restates it.
 - Update a leaf in the **same PR** as the code it documents — that's what stops it drifting.
-- Add one with `/scope-area <dir>`. `/install-project` nominates candidates on install.
+- Add one with `/cortex-brief <dir>`. `/install-project` nominates candidates on install.
 
 > See [[vault-architecture]] (the four layers) and [[operating-principles]] (split only what earns it).

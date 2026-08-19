@@ -53,7 +53,7 @@ Back up any existing `AGENTS.md`/`CLAUDE.md` to `*.bak` first. Then write, in or
 From the scan, nominate the directories that are high-churn, security/data sensitive, or hold
 invariants an agent could break (auth, billing/webhooks, the data layer, a pipeline). Present the
 shortlist and **ask which deserve their own deep brief.** For each one picked, run
-`/scope-area <dir>`.
+`/cortex-brief <dir>`.
 
 Keep the root lean — overview plus a `## Area map` routing table; depth lives in the leaves. Only
 areas with a real gotcha or invariant earn a leaf.

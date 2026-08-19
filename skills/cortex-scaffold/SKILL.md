@@ -117,7 +117,9 @@ Do not report success without checking:
 ## 5. Report
 
 List the files written, as paths. Suggest committing them so the whole team gets the context.
-Then offer the natural next step: `/cortex-brief` for the areas the findings report proposed.
+Then offer the two natural next steps: `/cortex-brief` for the areas the findings report proposed,
+and `/cortex-skills` for skills that fit this stack. Say what the second one is for — the context
+layer you just wrote is tailored to this repo, and its skills are not yet.
 
 ## Gotchas
 

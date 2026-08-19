@@ -5,6 +5,7 @@ import { listFiles } from "./walk.mjs";
 import { detectLanguage, categoryOf, isTestPath, isEntryPath } from "./langs.mjs";
 import { extractImports, resolveImport } from "./imports.mjs";
 import { inferLayers } from "./layers.mjs";
+import { detectStack } from "./stack.mjs";
 
 export const INDEX_VERSION = "1";
 
@@ -104,6 +105,16 @@ export function buildIndex(root, opts = {}) {
     files: files.sort((a, b) => a.path.localeCompare(b.path)),
     edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),
     layers: inferLayers(files),
+    // What the repo is built out of, so downstream can pick skills that fit it. Reading is
+    // injected rather than done inside detectStack, which keeps that function a pure
+    // transform of its inputs and testable from literals.
+    stack: detectStack(files, (rel) => {
+      try {
+        return readFileSync(join(root, rel), "utf8");
+      } catch {
+        return null;
+      }
+    }),
   };
 }
 

@@ -77,3 +77,9 @@ mcp/node_modules/
 # tools/test/no-private-names.test.sh. It stays out of git on purpose: a denylist of private names
 # has to be published to work, which is the disclosure it exists to prevent.
 tools/test/private-names.local
+
+# Scratch patch scripts. Editing a file through a throwaway Node script is a normal move here
+# (heredocs mangle backslashes in regexes); committing one is not.
+*.tmp.cjs
+*.tmp.mjs
+*.tmp.md

@@ -20,7 +20,7 @@ ABS="$(resolve_in_root "$ROOT" "$F")" || {
 [ -f "$ABS" ] || { echo "not found: $F"; exit 1; }
 # Same note id the viewer's graph uses, so the de-link pass below finds every inbound [[wikilink]].
 SLUG="$(note_id "$(basename "$F")")"
-STAMP="$(date +%Y%m%d-%H%M%S)"
+STAMP="$(cortex_timestamp)"
 mkdir -p archives/removed
 mv "$ABS" "archives/removed/$(basename "$F" .md).$STAMP.md"
 echo "✓ archived → archives/removed/$(basename "$F" .md).$STAMP.md"

@@ -3,6 +3,40 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.13.0] — 2026-08-19
+
+### Added — every ritual declares what it needs from the setup running it
+Cortex names self-hosted and own-LLM setups as an audience ([ADR 0008](docs/adr/0008-three-audiences-one-seam.md))
+and gave them nothing to consult. A ritual that needs multi-round judgment looked exactly like one
+that appends a line to a file.
+
+The failure this closes is not a crash. A weak model runs `/cortex-enrich`, writes plausible-but-wrong
+summaries for every file, and those summaries feed `recall` — so it is not a bad answer once, it is a
+bad answer **every time anyone searches**, and nothing announces it.
+
+- **`capability:` frontmatter on all 34 rituals** — `mechanical` (12), `judgment` (16), `strong` (6).
+  Assigned by asking one question each: what happens on a small model? "Still works" is mechanical;
+  "produces something plausible and wrong" is judgment, because plausible-and-wrong is the failure
+  nobody notices.
+- **`node tools/cortex-capability.mjs`** prints the table, filterable by tier. It reads the
+  frontmatter rather than restating it, so the table cannot drift from the rituals it describes.
+- **Every `strong` ritual carries a `## When the floor is not met` section** — a declared floor with
+  no way under it is a wall. Each names a real alternative rather than "use a better model":
+  `/level-up` → `/audit` (a fixed rubric instead of judgment); `/analyze-spec` → `/plan-feature`;
+  `/improve-codebase-architecture` → the deterministic findings report; `/grilling` → the same
+  interview conducted in writing, so the file carries the state the model cannot; `/cortex-audit` →
+  run it with every finding treated as `[judgment]`, withdrawing the autonomy but keeping the scan;
+  `/cortex-enrich` → **skip it**, because enrichment is additive by design and a missing one degrades
+  Cortex to deterministic behaviour while a wrong one poisons it.
+- **Two guards.** `core/test/plugin.test.js` asserts every skill declares a valid floor *in the
+  frontmatter* — checked across all skills, not a named list, so a new ritual cannot ship undeclared —
+  and that every `strong` one has its degraded section. `tools/test/capability-floor.test.sh` asserts
+  the CLI that reads them, because a table nobody can print is a table nobody consults.
+
+This was the last open item on the 2026-08-15 "big task" follow-on list, and it was blocked on the
+ritual collapse in 2.9.0: a floor declared on both `/cortex-doctor` and `/cortex-audit` would have
+described one job twice and hardened the duplication. Collapse first, declare second.
+
 ## [2.12.0] — 2026-08-19
 
 ### Added — a profile says which world an install serves
@@ -945,6 +979,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.13.0]: https://github.com/marinvch/Cortex/releases/tag/v2.13.0
 [2.12.0]: https://github.com/marinvch/Cortex/releases/tag/v2.12.0
 [2.11.0]: https://github.com/marinvch/Cortex/releases/tag/v2.11.0
 [2.10.1]: https://github.com/marinvch/Cortex/releases/tag/v2.10.1

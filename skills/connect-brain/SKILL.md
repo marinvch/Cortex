@@ -1,6 +1,7 @@
 ---
 name: connect-brain
 description: Connect this machine to the live Cortex MCP brain in one step. Use when the user says "connect the brain", "wire up recall/capture", "set up the MCP server", or opens a new machine and wants recall/capture in every project. One-time, user-scope.
+capability: mechanical
 disable-model-invocation: true
 ---
 

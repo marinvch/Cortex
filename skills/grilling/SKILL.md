@@ -1,6 +1,7 @@
 ---
 name: grilling
 description: Interview the user relentlessly about a plan, decision or idea until every branch of the design tree is resolved. Use when thinking needs stress-testing before it becomes work, or when another ritual reaches a decision it must not guess at. Triggers — "grill me", "stress-test this", "poke holes in this", "what am I missing", "interview me about this".
+capability: strong
 ---
 
 # /grilling — resolve the design tree before you build
@@ -60,3 +61,9 @@ Two Cortex rules apply while grilling, because a grilling session is where they 
 Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The design-tree and
 frontier method is upstream and unmodified; the "Where this fits in Cortex" section is a Cortex
 addition.
+
+## When the floor is not met
+
+Grilling is rounds of questions that each depend on the last answer. A model that cannot hold the thread asks the same question twice and stops before the tree is resolved, which reads as agreement — the failure looks like success.
+
+Below the floor: run it as a **written** interview instead. Ask three questions, have the user answer in the file, re-read the file, ask three more. The file carries the state the model cannot. Slower, and it converges.

@@ -10,6 +10,7 @@ import { append as rememberNote, recent as recentMemory } from "../core/memory.j
 import { stamp } from "../core/date.js";
 import { isRepoMode } from "./lib/mode.js";
 import { resolveBrain, NoRootError } from "./lib/resolve.js";
+import { resolveProfile, UnknownProfileError } from "../core/profile.js";
 
 // Two independent questions, answered by two modules. `mode` is repo-vs-vault — what KIND of brain
 // this root is. `audience` is solo/team/server — WHO it serves. A repo-mode brain can be on a
@@ -25,6 +26,21 @@ try {
   throw e;
 }
 const AI_OS_ROOT = brain.root;
+
+// The third axis: which WORLD this install belongs to. Declared, never detected — a work laptop and
+// a home laptop have the same shape on disk. A bad value is fatal rather than a fallback, because a
+// typo resolving quietly to `home` looks identical to a correct home install while the user
+// believes the firewall points the other way. See core/profile.js and docs/adr/0015.
+let world;
+try {
+  world = resolveProfile({ env: process.env });
+} catch (e) {
+  if (e instanceof UnknownProfileError) {
+    console.error("cortex: " + e.message);
+    process.exit(1);
+  }
+  throw e;
+}
 
 // Pointed at a repo's .cortex/, Cortex is a context manager for that codebase: memory is committed
 // and shared, and the vault's personal tools (projects, daily notes, team-brain) do not apply.
@@ -83,7 +99,10 @@ async function callTool(name, args) {
       // stamp(), not toISOString().slice(0,10). The day a note is filed under is the day the
       // person filing it is living in: at 01:00 in UTC+3 those are 2026-08-19 and 2026-08-18, and
       // the UTC answer put the capture into yesterday's daily note. core/date.js is the only clock.
-      const cargs = { ...args, team, today: stamp() };
+      // outwardSync is the one half of the profile that code can enforce; the firewall's direction
+      // is prose the rituals read. Passing it here rather than letting capture read the environment
+      // keeps capture a pure function of its arguments, which is what its tests rely on.
+      const cargs = { ...args, team, today: stamp(), outwardSync: world.policy.outwardSync };
       if (team) cargs.noteId = genNoteId();
       return capture(AI_OS_ROOT, cargs);
     }
@@ -96,6 +115,6 @@ async function callTool(name, args) {
 // stream. Worth saying out loud because the audience is now load-bearing: if this says `solo` in a
 // repo you expected to be connected, the connector is missing or unreadable, and `source` says
 // which.
-console.error(`cortex: audience=${brain.audience} (${brain.source}) mode=${REPO_MODE ? "repo" : "vault"} root=${AI_OS_ROOT}`);
+console.error(`cortex: profile=${world.profile} (${world.source}) audience=${brain.audience} (${brain.source}) mode=${REPO_MODE ? "repo" : "vault"} root=${AI_OS_ROOT}`);
 
 serve({ name: "cortex", version: VERSION, tools: TOOLS, call: callTool });

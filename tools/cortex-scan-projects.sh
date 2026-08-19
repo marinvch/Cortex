@@ -14,8 +14,10 @@ LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"
 . "$LIB" || { echo "cortex: cannot load $LIB" >&2; exit 1; }
 
 VAULT="$(cd "$(dirname "$0")/.." && pwd)"
-ROOT="${1:-$(cd "$VAULT/.." && pwd)}"          # default: folder containing the vault (e.g. D:/Projects/Personal)
-# If the vault sits under D:/Projects/Personal, scan the whole D:/Projects tree:
+ROOT="${1:-$(cd "$VAULT/.." && pwd)}"          # default: the folder containing the vault
+# A vault parked in a "personal" subfolder is a hint that the sibling folder is the whole code tree,
+# so scan one level up instead of only the personal half. Named generically on purpose: this file is
+# public, and a worked example using someone's real directory layout discloses their machine.
 case "$ROOT" in */Personal|*/personal) ROOT="$(cd "$ROOT/.." && pwd)";; esac
 TODAY="$(cortex_today)"
 mkdir -p "$VAULT/projects"

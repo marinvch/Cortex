@@ -5,6 +5,17 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [2.10.1] — 2026-08-19
 
+### Fixed
+- **`/cortex-scaffold` could skip a file it was told to write, and report success.** Step 3 lists
+  the files as bullets, and a bulleted list is easy to half-complete — the second shim is the one
+  that goes missing, because writing the first satisfies the feeling of having written the shims.
+  Observed on a real install: `CLAUDE.md` was written and `GEMINI.md` was not. Nothing errored.
+  A missing shim fails silently and forever — that agent reads no context, and the gap only ever
+  surfaces as it being inexplicably worse in that repo.
+  Step 4 verified placeholders, commands and paths, but never that the files it had just been told
+  to write existed. It now runs an explicit existence check over the whole list, and anything
+  MISSING is written or named to the user as deliberately skipped.
+
 ### Changed
 - **`archives/` holds one lifecycle now: your vault's, ignored in full.** It used to hold two — the
   product's own retired pieces (the Node installer, the engine-era framework docs, the old view

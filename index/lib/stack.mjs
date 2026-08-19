@@ -58,6 +58,13 @@ const SIGNALS = [
   { id: "rails", label: "Rails", kind: "framework", dep: "rails", manifest: "Gemfile" },
   { id: "laravel", label: "Laravel", kind: "framework", dep: "laravel/framework", manifest: "composer.json" },
   { id: "go", label: "Go", kind: "language", manifest: "go.mod" },
+  // Ruby, PHP and Java had framework rows (rails, laravel) but no LANGUAGE row, so a Sinatra app and
+  // a 264-file Maven project both reported no language at all. Asserted from the manifest, and for
+  // Java from either build tool — a Gradle project has no pom.xml and is no less Java for it.
+  { id: "python", label: "Python", kind: "language", manifest: /^(requirements\.txt|pyproject\.toml|setup\.py|setup\.cfg)$/ },
+  { id: "ruby", label: "Ruby", kind: "language", manifest: "Gemfile" },
+  { id: "php", label: "PHP", kind: "language", manifest: "composer.json" },
+  { id: "java", label: "Java", kind: "language", manifest: /(^|\/)(pom\.xml|build\.gradle(\.kts)?)$/ },
   { id: "rust", label: "Rust", kind: "language", manifest: "Cargo.toml" },
 
   // --- delivery ------------------------------------------------------------------------------
@@ -150,7 +157,11 @@ export function detectStack(files, readText) {
     // manifests here would report "none" for a monorepo whose stack was in fact read, which is the
     // one answer worse than an empty stack: it looks like the detector never ran.
     manifests: paths.filter((p) =>
-      /(^|\/)(package\.json|go\.mod|Cargo\.toml|Gemfile|composer\.json|requirements\.txt|pyproject\.toml)$/.test(p),
+      // Kept in step with the manifest specs above. A Maven project listing no manifests at all is
+      // how this drifted: Java was detected from pom.xml while the reported list stayed empty.
+      /(^|\/)(package\.json|go\.mod|Cargo\.toml|Gemfile|composer\.json|requirements\.txt|pyproject\.toml|pom\.xml|build\.gradle(\.kts)?)$/.test(
+        p,
+      ),
     ).sort(),
   };
 }

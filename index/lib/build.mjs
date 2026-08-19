@@ -8,6 +8,9 @@ import {
   resolveImport,
   resolveGoImport,
   resolveRustImport,
+  resolveJavaImport,
+  resolvePhpImport,
+  resolveRubyImport,
   goModulePath,
 } from "./imports.mjs";
 import { inferLayers } from "./layers.mjs";
@@ -86,6 +89,56 @@ export function buildIndex(root, opts = {}) {
     ),
   ].sort((a, b) => b.length - a.length);
 
+  // Java source roots — the `src/main/java` prefix a package path hangs off. Longest first, and the
+  // empty root lets a flat repo (no Maven layout) still resolve.
+  const javaSourceRoots = [
+    ...new Set(
+      files
+        .filter((f) => f.path.endsWith(".java"))
+        .map((f) => {
+          const m = f.path.match(/^(.*?src\/(?:main|test)\/java)\//);
+          return m ? m[1] : "";
+        }),
+    ),
+  ].sort((a, b) => b.length - a.length);
+
+  // PHP autoload prefixes from composer.json. PSR-4 maps a namespace to a directory, so this is
+  // declared rather than guessed — the same reason Go reads go.mod. Longest prefix wins, so a more
+  // specific namespace beats the umbrella one.
+  const phpPrefixes = [];
+  for (const f of files) {
+    if (f.path !== "composer.json" && !f.path.endsWith("/composer.json")) continue;
+    const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+    let json;
+    try {
+      json = JSON.parse(readFileSync(join(root, f.path), "utf8"));
+    } catch {
+      continue; // a malformed manifest costs us autoload data, never the whole index
+    }
+    for (const block of [json.autoload, json["autoload-dev"]]) {
+      for (const [prefix, target] of Object.entries(block?.["psr-4"] || block?.["psr-0"] || {})) {
+        for (const t of [].concat(target)) {
+          const clean = String(t).replace(/[\\/]+$/, "");
+          phpPrefixes.push([prefix, dir ? `${dir}/${clean}` : clean]);
+        }
+      }
+    }
+  }
+  phpPrefixes.sort((a, b) => b[0].length - a[0].length);
+
+  // Ruby load paths. `require 'sinatra/base'` searches $LOAD_PATH, which for a gem is its lib/ —
+  // and a repo holding several gems has several, which is why this is a list and not a constant.
+  const rubyLoadPaths = [
+    ...new Set(
+      files
+        .filter((f) => f.path.endsWith(".rb"))
+        .map((f) => {
+          const m = f.path.match(/^(.*?lib)\//);
+          return m ? m[1] : "";
+        }),
+    ),
+  ].sort((a, b) => b.length - a.length);
+
   const goByDir = new Map();
   if (goModule) {
     for (const f of files) {
@@ -116,6 +169,12 @@ export function buildIndex(root, opts = {}) {
           ? resolveGoImport(spec, goModule, goByDir)
           : f.lang === "rust"
             ? [resolveRustImport(spec, f.path, fileSet, rustCrateRoots)]
+            : f.lang === "java"
+              ? [resolveJavaImport(spec, fileSet, javaSourceRoots)]
+              : f.lang === "php"
+                ? [resolvePhpImport(spec, fileSet, phpPrefixes)]
+                : f.lang === "ruby"
+                  ? [resolveRubyImport(spec, f.path, fileSet, rubyLoadPaths)]
           : [resolveImport(spec, f.path, fileSet, f.lang)];
       for (const target of targets) {
         if (!target || target === f.path || seen.has(target)) continue;

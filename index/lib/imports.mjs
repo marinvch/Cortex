@@ -28,6 +28,21 @@ const RUST_PATTERNS = [
 
 const SHELL_PATTERNS = [/^\s*(?:\.|source)\s+["']?([^\s"';]+)/gm];
 
+// `import a.b.C;` and `import static a.b.C.member;`. The static form names a member, not a file, so
+// resolution shortens the path until it lands on one — same problem Rust `use` has.
+const JAVA_PATTERNS = [/^\s*import\s+(?:static\s+)?([\w.]+)\s*;/gm];
+
+// `use Slim\Routing\Route;` — grouped and aliased forms both start this way, and the alias after
+// `as` is a local name rather than a path, so it is deliberately not captured.
+const PHP_PATTERNS = [/^\s*use\s+(?:function\s+|const\s+)?\\?([A-Za-z_][\w\\]*)/gm];
+
+// `require_relative 'x'` is path-relative; `require 'sinatra/base'` searches the load path, which in
+// practice is lib/. Both are captured here and told apart at resolution by the leading marker.
+const RUBY_PATTERNS = [
+  /^\s*require_relative\s+['"]([^'"]+)['"]/gm,
+  /^\s*require\s+['"]([^'"]+)['"]/gm,
+];
+
 function collect(text, patterns) {
   const out = [];
   for (const re of patterns) {
@@ -63,6 +78,17 @@ export function extractImports(text, lang) {
     }
     case "rust":
       return collect(text, RUST_PATTERNS);
+    case "java":
+      return collect(text, JAVA_PATTERNS);
+    case "php":
+      return collect(text, PHP_PATTERNS);
+    case "ruby": {
+      // Tagged so the resolver can tell a path-relative require_relative from a load-path require;
+      // `require 'x'` and `require_relative 'x'` mean different files from the same directory.
+      const rel = collect(text, [RUBY_PATTERNS[0]]).map((x) => `./${x}`);
+      const abs = collect(text, [RUBY_PATTERNS[1]]);
+      return [...rel, ...abs.filter((a) => !rel.includes(`./${a}`))];
+    }
     case "shell":
       return collect(text, SHELL_PATTERNS);
     default:
@@ -222,6 +248,68 @@ function rustModuleDir(fromPath) {
  * are tried. Every candidate must exist in `fileSet`, so a wrong reading resolves to nothing rather
  * than to an invented edge.
  */
+/**
+ * Java: a package IS a directory, so `import com.google.gson.internal.Excluder` is
+ * `com/google/gson/internal/Excluder.java` beneath a source root.
+ *
+ * `sourceRoots` are the `src/main/java`-style prefixes, longest first. Everything outside them is a
+ * third-party package: `java.util.List` is real but not a file here, and an invented edge for it is
+ * indistinguishable from a true one.
+ *
+ * `import static a.b.C.method` names a member, so the path is shortened until it lands on a file.
+ */
+export function resolveJavaImport(spec, fileSet, sourceRoots = []) {
+  if (!spec) return null;
+  const segs = spec.split(".").filter(Boolean);
+  for (let n = segs.length; n > 0; n--) {
+    const rel = segs.slice(0, n).join("/") + ".java";
+    for (const root of sourceRoots) {
+      const cand = root ? `${root}/${rel}` : rel;
+      if (fileSet.has(cand)) return cand;
+    }
+  }
+  return null;
+}
+
+/**
+ * PHP: PSR-4 maps a namespace prefix to a directory, and composer.json declares it. Manifest-driven
+ * rather than guessed, which is the same reason Go reads go.mod.
+ *
+ * `prefixes` is [namespacePrefix, dir] pairs, longest prefix first — `Slim\Routing\` must beat
+ * `Slim\` when both are declared. A namespace with no declared prefix is a vendor package.
+ */
+export function resolvePhpImport(spec, fileSet, prefixes = []) {
+  if (!spec) return null;
+  const ns = spec.replace(/^\\+/, "");
+  for (const [prefix, dir] of prefixes) {
+    if (!ns.startsWith(prefix)) continue;
+    const rest = ns.slice(prefix.length).split("\\").filter(Boolean);
+    if (!rest.length) continue;
+    const base = [dir, ...rest].filter(Boolean).join("/");
+    if (fileSet.has(`${base}.php`)) return `${base}.php`;
+  }
+  return null;
+}
+
+/**
+ * Ruby: `require_relative 'x'` arrives tagged with `./` and resolves against the requiring file.
+ * A bare `require 'sinatra/base'` searches the load path — in practice `lib/`, which is what gems
+ * put on it — so that is tried, then the repo root. A gem name like `rack` matches neither and is
+ * correctly external.
+ */
+export function resolveRubyImport(spec, fromPath, fileSet, loadPaths = []) {
+  if (!spec) return null;
+  if (spec.startsWith("./")) {
+    const base = joinRel(fromPath, spec);
+    return fileSet.has(`${base}.rb`) ? `${base}.rb` : fileSet.has(base) ? base : null;
+  }
+  for (const lp of loadPaths) {
+    const cand = lp ? `${lp}/${spec}.rb` : `${spec}.rb`;
+    if (fileSet.has(cand)) return cand;
+  }
+  return null;
+}
+
 export function resolveRustImport(spec, fromPath, fileSet, crateRoots = []) {
   if (!spec) return null;
   const segs = spec.split("::").filter(Boolean);

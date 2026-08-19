@@ -14,12 +14,17 @@ layer** (who you are, what you can reach, the rituals that keep it alive). The N
 ## The one rule (privacy)
 
 Personal and business-sensitive content lives in **gitignored** folders: `context/`, `inbox/`,
-`daily/`, `notes/`, `projects/`, `areas/`, `decisions/`, plus every dated folder under `archives/`.
+`daily/`, `notes/`, `projects/`, `areas/`, `decisions/`, and all of `archives/`.
 Committed files (`README`, this manual, `references/`, `templates/`) stay **data-free** so the vault
 stays shareable/forkable. Never write personal facts into a committed file.
 
-Archived personal content must land in a gitignored path — `archives/removed/` or a dated
-`archives/<name>-YYYY-MM-DD/` folder. **Archiving is not sanitizing.**
+Archived personal content must land in a gitignored path. All of `archives/` is ignored except its
+`README.md`, so anything moved there keeps the privacy it had. **Archiving is not sanitizing** —
+confirm with `git check-ignore -v <path>`.
+
+The product's own history is not personal content and lives in [`docs/history/`](docs/history/).
+It used to sit in `archives/` alongside your vault's, which is why that folder's ignore rules
+needed six lines and two negations to say which half was shareable.
 
 ## The employer firewall (hard rule — overrides convenience)
 
@@ -62,7 +67,7 @@ Applied 2026-08-03: prior day-job content was stripped into
 | `decisions/log.md` | append-only "what I decided and why" | |
 | `references/` | the frameworks | [[operating-principles]], [[vault-architecture]], [[codebase-design]], voice |
 | `templates/` | starters | copy to begin a new note |
-| `archives/` | old stuff | **move, never delete** |
+| `archives/` | old stuff from your vault | **move, never delete**; gitignored in full |
 
 ## How this brain thinks
 

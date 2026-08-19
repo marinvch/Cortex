@@ -1,7 +1,7 @@
 # cortex tools (bash, zero deps)
 
 Small bash scripts. **No Node, no Python, nothing to install** — just bash (git-bash, zsh,
-WSL, Linux, macOS). The original Node installer is retired at `../archives/cortex-init.mjs.legacy`.
+WSL, Linux, macOS). The original Node installer is retired at `../docs/history/cortex-init.mjs.legacy`.
 
 `cortex.sh`, `cortex-rm.sh` and `cortex-scan-projects.sh` share `_cortex-lib.sh` (`slugify`,
 `note_id`, `knowledge_files`). `cortex-init.sh` deliberately does not — it is a standalone
@@ -75,7 +75,7 @@ It reads **`.cortexignore`** to decide what counts as knowledge, so scaffolding,
 views and skills never show up as noise. That one file is the single source of truth — read through
 `knowledge_files()` in `tools/_cortex-lib.sh`, and ported to JS in `mcp/lib/cortexignore.js` so the
 live brain agrees with the generators. (The earlier `cortex-nav.sh` / `cortex-brain.sh` are retired
-in `archives/retired-views/`.)
+in `docs/history/retired-views/`.)
 
 ## `cortex-sync-skills.sh` — refresh the local `/slash` command mirror
 
@@ -106,3 +106,25 @@ bash tools/cortex-rm.sh areas/some-note.md
 
 > Self-contained: copy `cortex.sh` + `_cortex-lib.sh` to any machine and it runs with just bash — no
 > install, no internet, no engine.
+
+## Trying Cortex on your own repo, without letting it write anything
+
+If you want to see what Cortex makes of a codebase before you let it touch one, point the test at
+it. This is the same pass CI runs, aimed at a repo you choose:
+
+```bash
+CORTEX_E2E_REPO=/path/to/your/repo bash tools/test/run.sh install-on-a-project
+```
+
+It indexes your repo, produces the findings report and the `--offers` worklist the install wizard
+walks — and asserts that **your repo is left without a `.cortex/` directory**. Everything is written
+through `--out` into a temp dir, so nothing lands in your project and nothing about your project
+lands in Cortex. That last part is checked, not promised: the assertion fails the run if a
+`.cortex/` appears.
+
+Without the variable the same file runs against a Next.js-shaped repo it builds in a temp directory,
+which is what keeps it working on every machine — a test that names a path on somebody's disk runs
+on exactly one.
+
+When you do want the real thing, `/cortex-install` is the ritual, and it asks before the first
+write.

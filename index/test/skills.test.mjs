@@ -38,12 +38,24 @@ test("a repo WITH tests is asked to extend them, not to start over", () => {
   assert.ok(!ids(r).includes("write-first-test"), "do not propose a first test to a tested repo");
 });
 
-test("a repo with zero tests AND a configured runner is not told it has none", () => {
-  // The runner is installed but nothing is written yet. Proposing "set up a test runner" here would
-  // be visibly wrong to the reader and would cost the whole report its credibility.
+test("a repo with a runner and zero tests is told to write the first one, accurately", () => {
+  // A scaffold that ships jest in devDependencies and no test files — create-expo-app, CRA, most
+  // starters. This case fell between the two candidates: add-test fired and told the reader
+  // "jest already set up — new work should extend it", when there was no convention to extend.
+  //
+  // The earlier version of this test forbade write-first-test here, and it was right about the
+  // reason: its title said "Set up a test runner", which is visibly wrong to someone whose manifest
+  // already names one, and a report wrong on the part you CAN check is not trusted on the parts you
+  // cannot. The fix was to make the offer honest rather than to withhold it — so the assertion now
+  // pins the wording instead of the absence.
   const r = proposeSkills(ix({ test: ["jest"] }, { tests: 0 }));
-  assert.ok(!ids(r).includes("write-first-test"));
-  assert.ok(ids(r).includes("add-test"));
+  assert.ok(ids(r).includes("write-first-test"), "zero tests is the trigger, runner or not");
+  assert.ok(!ids(r).includes("add-test"), "there is no existing convention to extend");
+
+  const first = r.find((c) => c.id === "write-first-test");
+  assert.match(first.why, /jest/, "the evidence names the runner it actually found");
+  assert.doesNotMatch(first.why, /no test runner/, "and never claims the runner is missing");
+  assert.doesNotMatch(first.title, /[Ss]et up a test runner/, "nor does the title");
 });
 
 test("a tiny repo is not lectured about tests", () => {

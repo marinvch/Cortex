@@ -29,20 +29,33 @@ const has = (list, id) => Array.isArray(list) && list.includes(id);
 export const SKILL_CANDIDATES = [
   {
     id: "write-first-test",
-    title: "Set up a test runner and write the first real test",
+    // Titled for both cases. "Set up a test runner" is visibly wrong to a reader whose package.json
+    // already names one, and a report that is visibly wrong once is not trusted on the parts the
+    // reader cannot check. The why says which case this repo is in.
+    title: "Get a real test running for the first time",
     rank: 10,
-    when: (s) => s.stats.tests === 0 && s.stack.test.length === 0 && s.stats.files > 5,
-    why: () => "no test files and no test runner in any manifest — every change here is unverified",
+    // Zero tests is the whole trigger — a declared runner does not change it. A scaffold that ships
+    // jest in devDependencies and no test files (create-expo-app, CRA, and most starters) used to
+    // fall past this row into add-test, and be told to extend a convention that does not exist yet.
+    when: (s) => s.stats.tests === 0 && s.stats.files > 5,
+    why: (s) =>
+      s.stack.test.length > 0
+        ? `${s.stack.test.join(", ")} is in a manifest but no test file exists — the runner is installed, not used`
+        : "no test files and no test runner in any manifest — every change here is unverified",
     brief:
-      "Pick the runner that matches the stack rather than a favourite, wire the script into the " +
-      "manifest, and write ONE real test against existing behaviour. A first test that asserts " +
-      "true === true passes forever and proves nothing; the goal is a red-green a human can watch.",
+      "If no runner is declared, pick the one that matches the stack rather than a favourite and wire " +
+      "the script into the manifest. If one IS declared, use it — a second runner alongside an unused " +
+      "first is worse than either. Either way write ONE real test against existing behaviour: a first " +
+      "test asserting true === true passes forever and proves nothing, and the goal is a red-green a " +
+      "human can watch.",
   },
   {
     id: "add-test",
     title: "Add a test using this repo's existing conventions",
     rank: 20,
-    when: (s) => s.stack.test.length > 0,
+    // Both halves matter: a runner to extend, AND an existing test to read the convention off.
+    // Without the second, there is no convention and write-first-test is the honest offer.
+    when: (s) => s.stack.test.length > 0 && s.stats.tests > 0,
     why: (s) => `${s.stack.test.join(", ")} already set up — new work should extend it, not invent a second way`,
     brief:
       "Name the runner, the exact command to run one file, and where tests live relative to source " +

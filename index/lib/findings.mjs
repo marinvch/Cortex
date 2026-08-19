@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { briefCandidates } from "./layers.mjs";
 import { scan } from "../../core/scrub.js";
 import { buildCoverage, testStem } from "./coverage.mjs";
+import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
 
 // Findings are PROPOSALS. Nothing here edits a repository — this module returns data and the
 // caller writes exactly one report file. The skill that finds things and the skill that changes
@@ -63,10 +64,31 @@ export function offers(findings) {
 }
 
 /** Files that nothing imports and that are not entry points, tests, docs or config. */
+/**
+ * Files nothing points at. Languages whose imports Cortex cannot resolve are excluded, because in
+ * those every file is an orphan by construction and the finding says nothing about the repo.
+ *
+ * Pointed at a real Rust workspace this reported 59 of 130 files as unreferenced. Each line was
+ * hedged and the aggregate was still misinformation — a reader either believes it and deletes
+ * live code, or learns the section is noise and stops reading the ones that are true.
+ */
 function orphans(index) {
   return index.files.filter(
-    (f) => f.category === "code" && !f.isTest && !f.isEntry && f.inbound === 0 && f.imports.length === 0,
+    (f) =>
+      f.category === "code" &&
+      !f.isTest &&
+      !f.isEntry &&
+      !UNRESOLVED_LANGUAGES.has(f.lang) &&
+      f.inbound === 0 &&
+      f.imports.length === 0,
   );
+}
+
+/** Languages present in this repo whose imports Cortex extracts but cannot resolve. */
+function blindLanguages(index) {
+  const out = new Set();
+  for (const f of index.files) if (f.category === "code" && UNRESOLVED_LANGUAGES.has(f.lang)) out.add(f.lang);
+  return [...out].sort();
 }
 
 /**
@@ -269,13 +291,26 @@ export function analyse(index, root) {
   }
 
   // --- Structure -----------------------------------------------------------------------------
+  const blind = blindLanguages(index);
+  if (blind.length) {
+    out.push(
+      finding(
+        "low",
+        "structure",
+        `Import graph does not cover ${blind.join(", ")}`,
+        "Cortex reads imports by convention rather than with a compiler, and it cannot resolve this language's module system. Files in it are left out of the unreferenced list, and `/cortex-impact` will report no dependents for them — that is Cortex being blind, not the files being unused. Treat any structural claim about them as absent rather than negative.",
+        [],
+      ),
+    );
+  }
+
   const orph = orphans(index);
   if (orph.length) {
     out.push(
       finding(
         "low",
         "structure",
-        `${orph.length} file${orph.length === 1 ? "" : "s"} appear unreferenced`,
+        `${orph.length} file${orph.length === 1 ? " appears" : "s appear"} unreferenced`,
         "No resolvable import points at these, and they import nothing themselves. Cortex resolves imports by convention, so dynamically loaded or framework-discovered files show up here too — treat this as a list to check, not to delete.",
         orph.slice(0, 15).map((f) => f.path),
       ),

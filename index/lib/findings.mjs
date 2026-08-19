@@ -245,12 +245,27 @@ export function analyse(index, root) {
     );
   }
   if (leaky.length) {
+    // A test certificate is a real private key and belongs in the report. It is not a leaked
+    // production credential, and ranking it `critical` makes it the FIRST thing the wizard asks
+    // about — severity is control flow here (ADR 0006).
+    //
+    // Run against six well-maintained open-source repositories, four came back critical and every
+    // single match was a test fixture, a placeholder or a comment. A tool that cries wolf on four
+    // of six respected repos teaches people to skip the section, and then it fails on the one that
+    // matters. So: critical only when something outside a test path matched.
+    const inTestPath = (p) => /(^|\/)(tests?|testdata|__tests__|spec|fixtures?|examples?|mocks?)(\/|$)/i.test(p);
+    const production = leaky.filter((l) => !inTestPath(l.path));
+    const allFixtures = production.length === 0;
     out.push(
       finding(
-        "critical",
+        allFixtures ? "medium" : "critical",
         "security",
-        `Possible secrets in ${leaky.length} file${leaky.length === 1 ? "" : "s"}`,
-        "Cortex refuses to write memory containing these patterns, and they should not be in the repo either. Verify each one — some will be test fixtures or examples, which is exactly why this is reported rather than acted on.",
+        allFixtures
+          ? `Secret-shaped strings in ${leaky.length} test file${leaky.length === 1 ? "" : "s"}`
+          : `Possible secrets in ${production.length} file${production.length === 1 ? "" : "s"}`,
+        allFixtures
+          ? "Every match sits under a test or fixture path, so this is very likely intentional — test certificates and dummy credentials are normal. Reported rather than hidden because Cortex cannot tell a fixture from a real key that was filed in the wrong place. Add a `cortex:allow-secrets` marker to settle it."
+          : "Cortex refuses to write memory containing these patterns, and they should not be in the repo either. Verify each one — some will be test fixtures or examples, which is exactly why this is reported rather than acted on.",
         leaky.slice(0, 20).map((l) => `${l.path}: ${l.hits.map((h) => h.kind).join(", ")}`),
         // Show and stop. There is deliberately no action here that edits a file: some hits are
         // fixtures, and one false positive acted on destroys trust in every other finding.

@@ -121,6 +121,7 @@ and needs no mirror at all.
 | `/cortex-brief` | per critical area | write scoped `AGENTS.md` leaves + wire the root routing table |
 | `/cortex-skills` | after scaffold | propose + write skills that fit the detected stack |
 | `/cortex-impact` | before a change | who depends on these files, and which of it no test covers |
+| `/cortex-review` | before committing | judge a change against the repo's own docs, and spot the ones it made wrong |
 | `/cortex-profile` | per machine | show or set which world this install serves — home · work · lab |
 
 Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it.

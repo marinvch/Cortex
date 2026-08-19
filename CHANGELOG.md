@@ -3,6 +3,49 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.20.0] — 2026-08-19
+
+### Added — `/cortex-review`: the context layer gets read back
+Cortex writes `AGENTS.md`, `CONTEXT.md` and ADRs. Nothing ever **read them back**. The context
+layer could be generated, and audited for bloat by `/optimize-context`, and never once consulted
+to judge a change — which made it write-only, and left the whole product one-directional.
+
+Two axes:
+
+- **Standards** — does the change break a rule this repo has *written down*? Quoted, with
+  `file:line`. A finding that cannot cite the document it rests on is an opinion, and is labelled
+  as one.
+- **Drift** — did the change just make one of those documents **wrong**? This is the half no other
+  review tool looks for, and this repo has shipped the failure twice: `index/AGENTS.md` said
+  *"Coverage uses two signals"* for weeks after it used three, and the root pointed at
+  `mcp/lib/scrub.js` months after scrub moved to `core/`. Neither broke a test. Both misled the
+  next agent that read them — the entire cost of a context layer being wrong rather than absent.
+
+`node index/cortex-review.mjs --staged | --since REF | <paths> [--json]` is the deterministic
+evidence pass: governing briefs nearest-scope-first, glossary terms, and every document that names
+something the change touched. It finds and cites; it never judges. The ritual does the judging, at
+the `judgment` capability floor.
+
+Three rules earn their keep, each found by running it rather than reasoning about it:
+
+- **The nearest brief first, and the root always too.** A review reading only the leaf misses the
+  repo-wide invariants. Sorting on the display label (`"(repo root)"`, eleven characters) put the
+  root ahead of every leaf — the exact opposite of the stated order.
+- **A shim is not a third authority.** `CLAUDE.md` and `GEMINI.md` hold one line, `@AGENTS.md`.
+- **A basename is evidence only when it identifies one file.** `coverage.mjs` occurs once, so a
+  document naming it means that file. `AGENTS.md` occurs in every package — matching it flagged
+  twenty documents the moment the root brief was edited. Length cannot see that; the index can.
+
+A repo with no context layer is told so, and pointed at `/cortex-install`. Improvising a review
+from general principles is how a tool that claims to check *documented* rules starts inventing
+them.
+
+### Tests
+14 unit and 16 CLI. The module was **mutation-tested** — all six rules deleted in turn, each
+caught. One CLI assertion was **vacuous on first writing**: it matched the phrase "two signals",
+which also appears in the tool's own cautionary footer, so it passed with the quoted line removed
+from the output entirely. It now asserts the rendered `:3  <text>` form.
+
 ## [2.19.0] — 2026-08-19
 
 ### Fixed — the secrets finding cried wolf on well-maintained repositories
@@ -1249,6 +1292,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.20.0]: https://github.com/marinvch/Cortex/releases/tag/v2.20.0
 [2.19.0]: https://github.com/marinvch/Cortex/releases/tag/v2.19.0
 [2.18.0]: https://github.com/marinvch/Cortex/releases/tag/v2.18.0
 [2.17.0]: https://github.com/marinvch/Cortex/releases/tag/v2.17.0

@@ -151,3 +151,31 @@ test("a mobile app is not reported as a website", () => {
   assert.ok(bare.frameworks.includes("reactNative"), "a bare RN app is detected");
   assert.ok(!bare.frameworks.includes("expo"), "and is NOT called an Expo app — it has no expo CLI");
 });
+
+test("python, ruby, php and java are languages, not just their frameworks", () => {
+  // rails, laravel, django and flask had rows; the languages under them did not. A Sinatra app and
+  // a 264-file Maven project both reported NO language, so skills chosen from that stack were generic.
+  const [yf, yr] = repo({ "pyproject.toml": "[project]", "src/a.py": "" });
+  assert.deepEqual(detectStack(yf, yr).languages, ["python"]);
+
+  const [rf, rr] = repo({ Gemfile: "source 'https://rubygems.org'", "lib/app.rb": "" });
+  assert.deepEqual(detectStack(rf, rr).languages, ["ruby"]);
+
+  const [pf, pr] = repo({ "composer.json": JSON.stringify({ name: "x/y" }), "src/App.php": "" });
+  assert.deepEqual(detectStack(pf, pr).languages, ["php"]);
+
+  // Either build tool proves Java — a Gradle project has no pom.xml and is no less Java for it.
+  const [mf, mr] = repo({ "pom.xml": "<project/>", "src/main/java/A.java": "" });
+  assert.deepEqual(detectStack(mf, mr).languages, ["java"]);
+  const [gf, gr] = repo({ "build.gradle.kts": "plugins {}", "src/main/java/A.java": "" });
+  assert.deepEqual(detectStack(gf, gr).languages, ["java"]);
+});
+
+test("the reported manifest list keeps step with the manifest specs", () => {
+  // These drifted: Java was detected from pom.xml while the reported list stayed empty, because the
+  // list is a second regex rather than derived from SIGNALS.
+  const [f, r] = repo({ "pom.xml": "<project/>", "sub/build.gradle": "", "src/main/java/A.java": "" });
+  const m = detectStack(f, r).manifests;
+  assert.ok(m.includes("pom.xml"), `expected pom.xml in ${JSON.stringify(m)}`);
+  assert.ok(m.includes("sub/build.gradle"), `expected sub/build.gradle in ${JSON.stringify(m)}`);
+});

@@ -3,6 +3,54 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.17.0] — 2026-08-19
+
+### Added — Rust imports resolve
+2.16.0 taught the reports to say *"Cortex cannot resolve rust imports"* rather than *"nothing
+depends on this"*. Saying it honestly was the floor, not the goal.
+
+`resolveRustImport` handles `mod x;` and `use crate::a::b`, measured against `BurntSushi/ripgrep`:
+**0 edges → 119**, and **92% of extracted specifiers resolve**. The remainder are inline
+`#[cfg(test)] mod tests { … }` blocks, which have no file to point at — an honest ceiling rather
+than a gap.
+
+Three rules carry it, each found by pointing it at a real workspace rather than reasoned out:
+
+- **A crate root owns its own directory.** `mod color;` in `src/lib.rs` means `src/color.rs`; the
+  same line in `src/printer.rs` means `src/printer/color.rs`. The same holds for a nested `mod.rs`,
+  which is where getting it wrong does damage — the crate-root fallback silently returns the wrong
+  file rather than nothing.
+- **`crate::` means the crate the FILE is in, not the workspace.** Roots are derived from where
+  `lib.rs`/`main.rs` actually sit, not from `Cargo.toml` + `/src`: ripgrep keeps its binary crate in
+  `crates/core/main.rs` with no `src/` at all, and the manifest-derived guess missed a third of the
+  workspace. Longest match wins.
+- **A file directly in `tests/`, `benches/`, `examples/` or `src/bin/` is its own crate root**, since
+  cargo compiles each as a separate binary. Without this every integration test's helper module
+  resolved to nothing.
+
+A use path is tried longest-first and shortened, because `use crate::json::Printer` names a type
+inside `json.rs` — only the filesystem knows where the module stops and the item begins. Every
+candidate must exist in the index, so a wrong reading yields no edge rather than an invented one.
+
+`UNRESOLVED_LANGUAGES` is now empty and stays in place. The distinction is the point: a language
+listed there that does resolve suppresses a real graph, and one missing that does not resolve
+reports blindness as absence. Both fail silently, so a test pins both directions.
+
+### Fixed — `pub mod x;` was never extracted
+The pattern matched bare `mod x;` only, so it missed precisely the public surface of every library
+crate. Three of ripgrep's `ignore` modules were reported unreferenced while `lib.rs` declared them
+one line away from ones that resolved fine. `pub(crate) mod` too.
+
+ripgrep's unreferenced list: **59 → 8**. What remains is `build.rs`, benches, examples, fuzz targets
+and a facade crate — all genuinely imported by nothing.
+
+### Tests
+Seven added, and the suite was **mutation-tested** rather than assumed. One rule — the crate-root
+module directory — could be deleted with nothing failing, because the fallback rescued the only case
+under test. The fix was a fixture where both candidate files exist, so the fallback returns the
+*wrong* one instead of nothing. No regression elsewhere: gin holds at 248 edges, requests at 98,
+Cortex itself at 93.
+
 ## [2.16.0] — 2026-08-19
 
 The Go, Rust and Python signal rows had only ever been exercised by fixtures written by whoever
@@ -1105,6 +1153,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.17.0]: https://github.com/marinvch/Cortex/releases/tag/v2.17.0
 [2.16.0]: https://github.com/marinvch/Cortex/releases/tag/v2.16.0
 [2.15.0]: https://github.com/marinvch/Cortex/releases/tag/v2.15.0
 [2.14.0]: https://github.com/marinvch/Cortex/releases/tag/v2.14.0

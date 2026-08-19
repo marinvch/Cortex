@@ -94,3 +94,33 @@ test("a line of ordinary code is not mistaken for a secret", () => {
   assert.equal(isClean("// the password field is validated below"), true);
   assert.equal(isClean("secret: process.env.SECRET"), true);
 });
+
+test("a placeholder standing in for a credential is not a credential", () => {
+  // Every shape below came from a real, well-maintained repository and was reported CRITICAL.
+  // Severity is control flow (ADR 0006), so a false alarm became the first question Cortex asked
+  // a new user. There is no secret in a ${VAR} reference to protect.
+  const notSecrets = [
+    "password = ${DB_PASSWORD}",
+    "api_key: {{ vault_api_key }}",
+    "token=$next-version$",
+    "secret: CHANGEMEaaaaaaaaaaaaaaaa",
+    "password = <your-password-here>",
+    "apiKey = process.env.SOME_LONG_KEY_NAME",
+    "http://{}:{}@{}:9000",
+  ];
+  for (const line of notSecrets) {
+    assert.deepEqual(scan(line), [], `reported a placeholder as a secret: ${line}`);
+  }
+});
+
+test("the placeholder rule does not blind the scanner to real values", () => {
+  // The whole risk of the rule above, so it is pinned rather than trusted.
+  const stripe = ["sk_", "live_", "4eC39HqLyjWDarjtT1zdp7dc"].join("");
+  assert.equal(scan(`key = "${stripe}"`).length, 1, "a real Stripe key still trips");
+  assert.equal(scan("password = \"hunter2-real-value-here\"").length, 1, "an assigned secret still trips");
+  assert.equal(
+    scan("postgres://admin:s3cr3t-real@db.example.com/app").length,
+    1,
+    "a real connection string still trips",
+  );
+});

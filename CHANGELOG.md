@@ -3,6 +3,52 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.21.0] — 2026-08-19
+
+### Fixed — `index.layers` was a list of directories
+It grouped files by top-level folder, so `.github`, `agents` and `docs` were reported as
+architectural strata. The CLI printed *"Areas: 23"* and the findings report said *"23 structural
+areas"* — only the field name still claimed to be layering, and anything reading `index.layers`
+for structure got folders.
+
+It is `index.areas` now, from `inferAreas`. Same data, honest name.
+
+### Added — real layering, from the import graph
+`index.layers` now means what it says: depth 0 imports nothing inside the repo, depth *n* is one
+more than the deepest in-repo file it imports. Every file carries `depth`, and `index.cycles` lists
+files with no order among themselves.
+
+This needed trustworthy edges across every language, which arrived in 2.18.0 — it was not
+computable before.
+
+It reproduces this repo's documented architecture without being told it: `core` avg depth 0.50,
+`index` 0.90, `mcp` 1.45 — the `core/ ← index/ + mcp/` that `AGENTS.md` claims and
+`core/test/architecture.test.js` enforces by hand.
+
+**Cycles are condensed, not skipped.** The first version memoised a depth-first walk and skipped
+back-edges: correct on a DAG, quietly wrong everywhere else, because a node finalised while a
+dependency was still on the stack keeps a depth computed without it and every dependent compounds
+the error. On gson that produced **fourteen levels with ninety-nine files sharing the deepest** — a
+number that looks like architecture and is arithmetic noise. Tarjan for strongly-connected
+components, then longest path over the condensation, gives gson seven levels and 31 files in
+cycles.
+
+An earlier draft also marked everything *downstream* of a cycle as cyclic, which on a Java repo —
+where mutually-referencing classes are ordinary — swallowed 163 of 313 files. Only the members of a
+cycle are in it.
+
+Documentation is excluded: a markdown file imports nothing and sat at depth 0 beside the kernel,
+which put 238 documents into "the foundation" and buried the handful actually there.
+
+Both numbers are printed by `cortex-index`, because a reader shown only one will assume it is the
+other — which is exactly what the old field name did.
+
+### Tests
+11 added and mutation-tested. One mutation was **missed and should have been**: removing the
+self-edge filter changes nothing, because the condensation already drops edges inside a component.
+The guard is defensive rather than load-bearing, and the test now says so instead of implying it
+protects something.
+
 ## [2.20.0] — 2026-08-19
 
 ### Added — `/cortex-review`: the context layer gets read back
@@ -1292,6 +1338,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.21.0]: https://github.com/marinvch/Cortex/releases/tag/v2.21.0
 [2.20.0]: https://github.com/marinvch/Cortex/releases/tag/v2.20.0
 [2.19.0]: https://github.com/marinvch/Cortex/releases/tag/v2.19.0
 [2.18.0]: https://github.com/marinvch/Cortex/releases/tag/v2.18.0

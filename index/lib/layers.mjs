@@ -20,7 +20,7 @@ export function layerKeyFor(path) {
  * Group files into layers. Returns a deterministic, sorted array; every indexed file lands in
  * exactly one layer, so the caller can rely on total coverage.
  */
-export function inferLayers(files) {
+export function inferAreas(files) {
   const byKey = new Map();
   for (const f of files) {
     const key = layerKeyFor(f.path);
@@ -31,7 +31,7 @@ export function inferLayers(files) {
   const layers = [];
   for (const [key, paths] of [...byKey.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     layers.push({
-      id: `layer:${kebab(key)}`,
+      id: `area:${kebab(key)}`,
       name: key,
       description: `Files under ${key === "root" ? "the repository root" : `${key}/`}`,
       paths: paths.sort(),

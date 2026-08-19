@@ -43,7 +43,12 @@ if (args.json) {
   process.stdout.write(
     `Indexed ${s.files} files (${s.lines.toLocaleString()} lines), ${s.edges} imports, ${s.tests} tests\n` +
       `Languages: ${top}\n` +
-      `Areas: ${index.layers.length}\n` +
+      `Areas: ${index.areas.length}\n` +
+      // Areas are directories; layers come from the import graph. Both are printed because a reader
+      // shown only one will assume it is the other — which is exactly what the old field name did.
+      `Layers: ${index.layers.length} (depth 0 = foundation)` +
+      (index.cycles.length ? `, ${index.cycles.length} files in import cycles` : "") +
+      `\n` +
       `Wrote ${out} in ${Date.now() - started}ms\n`,
   );
 }

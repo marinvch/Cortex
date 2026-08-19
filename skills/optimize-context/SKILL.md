@@ -9,7 +9,7 @@ Runs **inside a target repo** (Cortex-installed or not). Measures the files that
 there, ranks what costs context without earning it, fixes what is mechanically safe, and proposes
 everything else. The rules it applies are [[context-engineering]] Rules 1–5.
 
-> Not for this vault — `/cortex-doctor` owns vault structure.
+> Not for this vault — `/cortex-audit` owns vault structure.
 
 This is the **audit** half of the job. `/writing-for-agents` is the other half — the discipline for
 writing these documents in the first place, and the vocabulary this ritual's findings are named in
@@ -58,7 +58,7 @@ Rank findings by always-loaded bytes recovered. Tag each:
 - **`[safe]`** — content-preserving (extract a template, repoint a shim whose content is fully
   contained in the canonical file). Apply it.
 - **`[propose]`** — reduces information. Quote the exact lines, give the reason, wait for a yes.
-- **`[handoff]`** — an approved leaf nomination. Invoke `/scope-area <dir>`; do not write leaves
+- **`[handoff]`** — an approved leaf nomination. Invoke `/cortex-brief <dir>`; do not write leaves
   here. Leaves are Rule 2 (progressive disclosure for directories); delegating rather than
   duplicating is Rule 4.
 

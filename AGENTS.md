@@ -38,7 +38,7 @@ never sync), or the work repo's own `AGENTS.md` via `/install-project`, which st
 - `/onboard` — on a personal install, never ask for employer, client, or day-job detail.
 - `/capture`, `/daily` — day-job material: **refuse the write**, say where it belongs. Never
   "sanitize and file anyway."
-- `/audit`, `/cortex-doctor`, `/cortex-audit` — employer content is a **critical finding**, not a
+- `/audit`, `/cortex-audit` — employer content is a **critical finding**, not a
   style nit. Archive to a gitignored path and report it.
 - `/scan-projects` — personal repos only; never a repo under a work directory.
 
@@ -101,18 +101,16 @@ and needs no mirror at all.
 | `/audit` | weekly | read-only four-layer health score + top gaps |
 | `/level-up` | biweekly | Notice→Decide→Build interview; ship one artifact |
 | `/reindex` | periodic | regenerate the navigator graph, nominate MOCs, fix dead links |
-| `/cortex-doctor` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files |
-| `/cortex-audit` | on request | dispatch the `cortex-auditor` subagent, then apply its fixes |
+| `/cortex-audit` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files, privacy leaks |
 | `/cortex-install` | per repo | index a codebase, report findings, scaffold only what the user picks |
 | `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
 | `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
-| `/cortex-brief` | per critical area | propose scoped `AGENTS.md` leaves from the index + wire the routing table |
+| `/cortex-brief` | per critical area | write scoped `AGENTS.md` leaves + wire the root routing table |
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/handoff` | leaving work mid-flight | compact this conversation to the OS temp dir for the next agent |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
 | `/writing-for-agents` | writing any agent-facing doc | the authoring discipline behind every file Cortex writes |
 | `/install-project` | per repo | stamp a codebase brain into a repo — stays in that repo |
-| `/scope-area` | per critical dir | give it a scoped `AGENTS.md` leaf + a routing table in root |
 | `/domain-modeling` | per repo, ongoing | sharpen that repo's glossary — write its `CONTEXT.md` + ADRs |
 | `/analyze-spec` | per risky feature | brainstorm → design spec → plan. **No code.** |
 | `/migrate-engine` | per repo, once | move off the retired `.ai-os/` engine |
@@ -130,18 +128,17 @@ and needs no mirror at all.
 | `/optimize-prompt` | automatic | the prompt gate (see the protocol above) |
 
 **Gotchas worth knowing before you pick one:**
-- The three health rituals are not interchangeable — `/audit` scores *content*, `/cortex-doctor`
-  fixes *structure*, `/reindex` rebuilds the *graph*. `/cortex-audit` is the subagent-driven
-  superset; reach for it when you want "check everything and clean it up" in one step.
+- The three health rituals are not interchangeable — `/audit` scores *content* and writes nothing,
+  `/cortex-audit` finds and fixes *structure*, `/reindex` rebuilds the *graph*.
 - `/migrate-engine` **harvests the old memory store into `AGENTS.md` before deleting anything.**
   Harvest first, delete second — otherwise knowledge is lost across the breaking change.
 - `/analyze-spec` is the heavyweight path; `/plan-feature` (written by `/install-project`) stays the
   lightweight one for routine tickets.
 - `/scan-projects` and `/install-project` never let company code into this vault — that's the
   firewall above, not a style preference.
-- `/scope-area` nests one filename (`AGENTS.md`), never a sprawl of per-topic files. Split only
+- `/cortex-brief` nests one filename (`AGENTS.md`), never a sprawl of per-topic files. Split only
   where a real invariant or gotcha lives.
-- `/optimize-context` targets **other repos**; `/cortex-doctor` targets this vault. Same instinct,
+- `/optimize-context` targets **other repos**; `/cortex-audit` targets this vault. Same instinct,
   different subject. It never deletes prose on its own authority.
 - `/writing-for-agents` and `/optimize-context` are the two halves of one job: the first is how to
   **write** an agent-facing document, the second **audits** one already written. Reach for the
@@ -159,12 +156,14 @@ and needs no mirror at all.
 - `/cortex-install` is **model-invocable on purpose** — an agent may start the sequence when a repo
   plainly needs it. What protects the repo is the **consent gate**, not an invocation flag: with no
   `.cortex/` yet, it asks before the first write; once `.cortex/` exists, re-indexing is free.
-  Do not re-add `disable-model-invocation` to it for consistency with the four below — that flag
+  Do not re-add `disable-model-invocation` to it for consistency with the eight below — that flag
   marks *once-only or destructive*, not *read-only*. See
   [ADR 0005](docs/adr/0005-the-install-sequence-may-start-itself.md).
-- `/onboard`, `/migrate-engine`, `/team-init` and `/connect-brain` carry
-  `disable-model-invocation: true` — they are once-only or destructive, so an agent may never
-  auto-fire them. The user invokes them by name. Keep the flag when editing their frontmatter.
+- Eight rituals carry `disable-model-invocation: true` — `/onboard`, `/migrate-engine`,
+  `/team-init`, `/connect-brain`, `/handoff`, `/skill-creator`, `/writing-for-agents` and
+  `/improve-codebase-architecture`. They are once-only, destructive, or reference an agent reaches
+  by name, so none may auto-fire. `grep -l disable-model-invocation skills/*/SKILL.md` is the list
+  of record; keep the flag when editing their frontmatter.
 - `/cortex-install` **never modifies a target repo before the user chooses.** Indexing and the
   findings report are read-only by construction — `/cortex-scaffold` is the separate skill that
   applies changes. If you are editing source before the user picked something, you have left the
@@ -249,7 +248,7 @@ the secret scanner and a date helper straight out of `mcp/lib/`. Shared code goe
 convenience imports across leaves are how two packages get welded into one.
 - [[codebase-design]] is vocabulary, not a ritual — the words for *how code is shaped* (module,
   interface, depth, seam, adapter). [[operating-principles]] decides what to build; that decides
-  what it looks like. `/analyze-spec` and `/scope-area` should both speak it.
+  what it looks like. `/analyze-spec` and `/cortex-brief` should both speak it.
 
 The `cortex-auditor` subagent lives in **`agents/`** at the repo root — where an installed plugin
 loads subagents from — and is invoked by `/cortex-audit`. `.claude/agents/` would work in this

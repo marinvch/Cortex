@@ -16,7 +16,7 @@ brain/
 /home.md
 
 # Archived personal content — anything moved out of the personal layer keeps its privacy.
-# cortex-rm.sh writes to archives/removed/; dated archive folders come from /cortex-doctor
+# cortex-rm.sh writes to archives/removed/; dated archive folders come from /cortex-audit
 # and /cortex-audit. The framework docs at archives/*.md stay tracked and shareable.
 archives/removed/
 archives/*/

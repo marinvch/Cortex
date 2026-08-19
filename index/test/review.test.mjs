@@ -1,0 +1,146 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { reviewContext } from "../lib/review.mjs";
+
+/** An index carrying only paths — reviewContext reads nothing else off a file. */
+function ix(paths) {
+  return { files: paths.map((path) => ({ path, category: "code", lang: "javascript", isTest: false })) };
+}
+const reader = (docs) => (p) => (p in docs ? docs[p] : null);
+
+test("the nearest brief comes first, and the root still applies", () => {
+  // Both matter. A review consulting only the leaf misses the repo-wide invariants; one consulting
+  // only the root misses the rules written for exactly this directory.
+  const r = reviewContext(ix(["AGENTS.md", "src/lib/AGENTS.md", "src/lib/db.js"]), ["src/lib/db.js"], {
+    readText: reader({ "AGENTS.md": "root rules", "src/lib/AGENTS.md": "lib rules" }),
+  });
+  assert.deepEqual(r.briefs.map((b) => b.path), ["src/lib/AGENTS.md", "AGENTS.md"]);
+});
+
+test("a brief below the changed file does not govern it", () => {
+  const r = reviewContext(ix(["AGENTS.md", "src/deep/AGENTS.md", "src/db.js"]), ["src/db.js"], {
+    readText: reader({ "AGENTS.md": "root", "src/deep/AGENTS.md": "deep" }),
+  });
+  assert.deepEqual(r.briefs.map((b) => b.path), ["AGENTS.md"]);
+});
+
+test("the root brief sorts last, not first", () => {
+  // The display label is "(repo root)" — eleven characters. Sorting on it instead of the directory
+  // put the root ahead of every leaf, the exact opposite of "nearest scope first".
+  const r = reviewContext(ix(["AGENTS.md", "a/AGENTS.md", "a/x.js"]), ["a/x.js"], {
+    readText: reader({ "AGENTS.md": "root", "a/AGENTS.md": "leaf" }),
+  });
+  assert.equal(r.briefs[0].path, "a/AGENTS.md");
+  assert.equal(r.briefs.at(-1).path, "AGENTS.md");
+});
+
+test("a shim is not a third authority", () => {
+  // CLAUDE.md and GEMINI.md hold one line: @AGENTS.md. Listing all three makes the root look like
+  // three separate documents to read.
+  const r = reviewContext(ix(["AGENTS.md", "CLAUDE.md", "GEMINI.md", "x.js"]), ["x.js"], {
+    readText: reader({ "AGENTS.md": "the real rules", "CLAUDE.md": "@AGENTS.md\n", "GEMINI.md": "@AGENTS.md\n" }),
+  });
+  assert.deepEqual(r.briefs.map((b) => b.path), ["AGENTS.md"]);
+});
+
+test("a document naming a changed file is flagged, with the line", () => {
+  // The drift half. This is the finding the author cannot see for themselves: the code in front of
+  // them looks right and the sentence describing it lives somewhere else.
+  const docs = {
+    "AGENTS.md": "intro\n- coverage uses two signals, see index/lib/coverage.mjs\nmore\n",
+  };
+  const r = reviewContext(ix(["AGENTS.md", "index/lib/coverage.mjs"]), ["index/lib/coverage.mjs"], {
+    readText: reader(docs),
+  });
+  assert.equal(r.stale.length, 1);
+  assert.equal(r.stale[0].path, "AGENTS.md");
+  assert.equal(r.stale[0].mentions[0].line, 2);
+  assert.match(r.stale[0].mentions[0].text, /two signals/);
+});
+
+test("a document that never names the file is not flagged", () => {
+  const r = reviewContext(ix(["AGENTS.md", "src/db.js"]), ["src/db.js"], {
+    readText: reader({ "AGENTS.md": "nothing relevant here at all\n" }),
+  });
+  assert.deepEqual(r.stale, []);
+});
+
+test("a short basename does not match on its own", () => {
+  // "db.js" appears in half the repos on earth. A drift list full of coincidences is one nobody
+  // reads, which costs the entries that are real.
+  const r = reviewContext(ix(["AGENTS.md", "src/db.js"]), ["src/db.js"], {
+    readText: reader({ "AGENTS.md": "we talk about db.js a lot\n" }),
+  });
+  assert.deepEqual(r.stale, [], "too short to be evidence on its own");
+
+  const long = reviewContext(ix(["AGENTS.md", "src/coverage.mjs"]), ["src/coverage.mjs"], {
+    readText: reader({ "AGENTS.md": "see coverage.mjs\n" }),
+  });
+  assert.equal(long.stale.length, 1, "a distinctive basename is worth a look");
+});
+
+test("a changed document is not reported as stale against itself", () => {
+  // The author is already looking at it.
+  const r = reviewContext(ix(["AGENTS.md", "src/coverage.mjs"]), ["AGENTS.md", "src/coverage.mjs"], {
+    readText: reader({ "AGENTS.md": "see coverage.mjs\n" }),
+  });
+  assert.deepEqual(r.stale.map((s) => s.path), []);
+});
+
+test("ADRs count as governing context", () => {
+  const r = reviewContext(
+    ix(["docs/adr/0004-no-runtime-dependencies.md", "mcp/server.js"]),
+    ["mcp/server.js"],
+    { readText: reader({ "docs/adr/0004-no-runtime-dependencies.md": "mcp/server.js must not import\n" }) },
+  );
+  assert.deepEqual(r.adrs, ["docs/adr/0004-no-runtime-dependencies.md"]);
+});
+
+test("a repo with no context layer says so rather than reviewing against nothing", () => {
+  // The honest answer, and an actionable one. Improvising a review from general principles is how a
+  // tool that claims to check documented rules starts inventing them.
+  const r = reviewContext(ix(["src/a.js", "src/b.js"]), ["src/a.js"], { readText: () => null });
+  assert.equal(r.hasContextLayer, false);
+  assert.deepEqual(r.briefs, []);
+});
+
+test("unknown paths are reported, never dropped", () => {
+  const r = reviewContext(ix(["AGENTS.md", "src/a.js"]), ["src/a.js", "typo.js"], {
+    readText: reader({ "AGENTS.md": "rules" }),
+  });
+  assert.deepEqual(r.unknown, ["typo.js"]);
+  assert.deepEqual(r.changed, ["src/a.js"]);
+});
+
+test("glossary terms are matched from CONTEXT.md headings", () => {
+  const r = reviewContext(ix(["CONTEXT.md", "src/findings.mjs"]), ["src/findings.mjs"], {
+    readText: reader({ "CONTEXT.md": "# Terms\n\n## Findings\n\nWhat a report holds.\n\n## Vault\n\nElsewhere.\n" }),
+  });
+  assert.deepEqual(r.glossary, ["Findings"]);
+});
+
+test("output is stable across runs", () => {
+  const args = [
+    ix(["AGENTS.md", "a/AGENTS.md", "a/coverage.mjs"]),
+    ["a/coverage.mjs"],
+    { readText: reader({ "AGENTS.md": "see coverage.mjs", "a/AGENTS.md": "see coverage.mjs" }) },
+  ];
+  assert.equal(JSON.stringify(reviewContext(...args)), JSON.stringify(reviewContext(...args)));
+});
+
+test("a basename shared by many files is not evidence", () => {
+  // `AGENTS.md` occurs in every package, so matching on it flagged twenty documents the moment the
+  // root brief was edited. Length cannot see this — the index can. `coverage.mjs` occurs once, so a
+  // document naming it is talking about that file.
+  const files = ["AGENTS.md", "a/AGENTS.md", "b/AGENTS.md", "a/coverage.mjs", "docs/adr/0001-x.md"];
+  const docs = {
+    "docs/adr/0001-x.md": "we write an AGENTS.md into each package\nand a/coverage.mjs does the counting\n",
+  };
+
+  const common = reviewContext(ix(files), ["AGENTS.md"], { readText: reader(docs) });
+  assert.deepEqual(common.stale, [], "editing the root brief does not flag every doc that says AGENTS.md");
+
+  const unique = reviewContext(ix(files), ["a/coverage.mjs"], { readText: reader(docs) });
+  assert.equal(unique.stale.length, 1, "a one-of-a-kind basename still counts");
+  assert.equal(unique.stale[0].mentions[0].line, 2);
+});

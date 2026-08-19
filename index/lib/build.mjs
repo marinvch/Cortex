@@ -3,7 +3,13 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { listFiles } from "./walk.mjs";
 import { detectLanguage, categoryOf, isTestPath, isEntryPath } from "./langs.mjs";
-import { extractImports, resolveImport, resolveGoImport, goModulePath } from "./imports.mjs";
+import {
+  extractImports,
+  resolveImport,
+  resolveGoImport,
+  resolveRustImport,
+  goModulePath,
+} from "./imports.mjs";
 import { inferLayers } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
 
@@ -66,6 +72,20 @@ export function buildIndex(root, opts = {}) {
   } catch {
     // no go.mod — not a Go module, and Go imports will simply not resolve
   }
+  // Every crate root, longest first. `crate::` is relative to the crate a FILE belongs to, and a
+  // workspace has many — matching the shortest would point every member at the same root.
+  //
+  // Derived from where lib.rs/main.rs actually sit, not from Cargo.toml plus /src. ripgrep keeps its
+  // binary crate in crates/core/main.rs with no src/ directory at all, and the manifest-derived
+  // guess missed every import in it — a third of the workspace, silently.
+  const rustCrateRoots = [
+    ...new Set(
+      files
+        .filter((f) => /(^|\/)(lib|main)\.rs$/.test(f.path))
+        .map((f) => f.path.slice(0, Math.max(0, f.path.lastIndexOf("/")))),
+    ),
+  ].sort((a, b) => b.length - a.length);
+
   const goByDir = new Map();
   if (goModule) {
     for (const f of files) {
@@ -94,6 +114,8 @@ export function buildIndex(root, opts = {}) {
       const targets =
         f.lang === "go"
           ? resolveGoImport(spec, goModule, goByDir)
+          : f.lang === "rust"
+            ? [resolveRustImport(spec, f.path, fileSet, rustCrateRoots)]
           : [resolveImport(spec, f.path, fileSet, f.lang)];
       for (const target of targets) {
         if (!target || target === f.path || seen.has(target)) continue;

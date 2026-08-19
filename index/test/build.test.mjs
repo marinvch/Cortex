@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildIndex } from "../lib/build.mjs";
-import { inferLayers, layerKeyFor, briefCandidates } from "../lib/layers.mjs";
+import { inferAreas, layerKeyFor, briefCandidates } from "../lib/layers.mjs";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "cortex-idx-"));
@@ -52,14 +52,14 @@ test("is deterministic — two runs over one tree agree exactly", () => {
   const b = buildIndex(root);
   assert.deepEqual(a.files, b.files);
   assert.deepEqual(a.edges, b.edges);
-  assert.deepEqual(a.layers, b.layers);
+  assert.deepEqual(a.areas, b.areas);
 });
 
 test("every indexed file lands in exactly one layer", () => {
   const root = fixture();
   const idx = buildIndex(root);
   const seen = new Map();
-  for (const layer of idx.layers) {
+  for (const layer of idx.areas) {
     for (const p of layer.paths) {
       assert.ok(!seen.has(p), `${p} is in two layers`);
       seen.set(p, layer.id);
@@ -75,8 +75,8 @@ test("layer keys look through conventional wrapper directories", () => {
   assert.equal(layerKeyFor("src/index.js"), "src");
 });
 
-test("inferLayers is sorted and total", () => {
-  const layers = inferLayers([
+test("inferAreas is sorted and total", () => {
+  const layers = inferAreas([
     { path: "z/a.js" },
     { path: "a/b.js" },
     { path: "README.md" },

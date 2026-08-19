@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { computeBatches, isEnrichable, batchStats } from "../lib/batch.mjs";
 import { validateBatch, mergeEnrichment, applyEnrichment, isStale } from "../lib/enrich.mjs";
 
-function idx(files, layers, edges = [], commit = "abc123") {
-  return { commit, files, layers, edges };
+function idx(files, areas, edges = [], commit = "abc123") {
+  return { commit, files, areas, edges };
 }
 
 const FILES = [
@@ -14,7 +14,7 @@ const FILES = [
   { path: "tiny.txt", lang: "text", category: "docs", lines: 1, isTest: false, isEntry: false, imports: [], inbound: 0 },
 ];
 const LAYERS = [
-  { id: "layer:src", name: "src", paths: ["src/a.js", "src/b.js"] },
+  { id: "area:src", name: "src", paths: ["src/a.js", "src/b.js"] },
   { id: "layer:docs", name: "docs", paths: ["docs/x.md"] },
   { id: "layer:root", name: "root", paths: ["tiny.txt"] },
 ];
@@ -47,7 +47,7 @@ test("neighbours name what a batch touches without including it", () => {
   const files = [
     { path: "src/a.js", category: "code", lines: 10, imports: ["lib/z.js"], inbound: 0, isTest: false, isEntry: false, lang: "javascript" },
   ];
-  const layers = [{ id: "layer:src", name: "src", paths: ["src/a.js"] }];
+  const layers = [{ id: "area:src", name: "src", paths: ["src/a.js"] }];
   const edges = [{ from: "other/c.js", to: "src/a.js", type: "imports" }];
   const [batch] = computeBatches(idx(files, layers, edges));
   assert.deepEqual(batch.neighbours, ["lib/z.js", "other/c.js"]);

@@ -35,7 +35,7 @@ function index(files, edges = []) {
       isTest: false, isEntry: false, commits: 0, imports: [], inbound: 0, ...f,
     })),
     edges,
-    layers: [{ id: "layer:src", name: "src", paths: files.map((f) => f.path) }],
+    areas: [{ id: "area:src", name: "src", paths: files.map((f) => f.path) }],
   };
 }
 
@@ -198,7 +198,7 @@ function emptyIndex() {
     stats: { files: 0, lines: 0, edges: 0, tests: 0, languages: {}, categories: {} },
     files: [],
     edges: [],
-    layers: [],
+    areas: [],
   };
 }
 

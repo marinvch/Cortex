@@ -465,7 +465,7 @@ export function render(index, findings, { day }) {
     `- **${s.tests}** test files`,
     // An empty language map rendered as a bare "- " bullet.
     ...(langs ? [`- ${langs}`] : []),
-    `- ${index.layers.length} structural areas`,
+    `- ${index.areas.length} structural areas`,
     index.commit ? `- indexed at \`${index.commit.slice(0, 7)}\`` : "- not a git repository",
     "",
   ];

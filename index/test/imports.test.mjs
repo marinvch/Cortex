@@ -7,6 +7,9 @@ import {
   goModulePath,
   UNRESOLVED_LANGUAGES,
   resolveRustImport,
+  resolveJavaImport,
+  resolvePhpImport,
+  resolveRubyImport,
 } from "../lib/imports.mjs";
 
 test("extracts every JS/TS import form", () => {
@@ -219,4 +222,86 @@ test("pub mod and pub(crate) mod are extracted, not just bare mod", () => {
   for (const want of ["dir", "gitignore", "pathutil", "walk::Walk"]) {
     assert.ok(got.includes(want), `expected ${want} in ${JSON.stringify(got)}`);
   }
+});
+
+test("java: a package is a directory, under a source root", () => {
+  // gson indexed with 0 edges across 264 java files. /cortex-impact on Gson.java — the library's
+  // central class — reported that nothing imported it; it now reports 124 affected files.
+  const files = new Set([
+    "gson/src/main/java/com/google/gson/Gson.java",
+    "gson/src/main/java/com/google/gson/internal/Excluder.java",
+  ]);
+  const roots = ["gson/src/main/java"];
+  assert.equal(
+    resolveJavaImport("com.google.gson.internal.Excluder", files, roots),
+    "gson/src/main/java/com/google/gson/internal/Excluder.java",
+  );
+  // A static import names a MEMBER, so the path shortens until it lands on a file.
+  assert.equal(
+    resolveJavaImport("com.google.gson.Gson.fromJson", files, roots),
+    "gson/src/main/java/com/google/gson/Gson.java",
+  );
+  // The JDK and third-party packages are real dependencies but not files here.
+  assert.equal(resolveJavaImport("java.util.List", files, roots), null);
+});
+
+test("java: source roots are matched longest-first across modules", () => {
+  // A multi-module build has one root per module, and the same package path can exist under two of
+  // them. Matching the shortest would send every module's imports to whichever came first.
+  const files = new Set([
+    "a/src/main/java/com/x/Thing.java",
+    "b/src/test/java/com/x/Thing.java",
+  ]);
+  assert.equal(resolveJavaImport("com.x.Thing", files, ["b/src/test/java", "a/src/main/java"]), "b/src/test/java/com/x/Thing.java");
+  assert.equal(resolveJavaImport("com.x.Thing", files, ["a/src/main/java"]), "a/src/main/java/com/x/Thing.java");
+});
+
+test("php: PSR-4 maps a namespace prefix to a directory", () => {
+  // Declared in composer.json rather than guessed — the same reason Go reads go.mod.
+  const BS = String.fromCharCode(92);
+  const files = new Set(["Slim/Routing/Route.php", "Slim/App.php"]);
+  const prefixes = [[`Slim${BS}`, "Slim"]];
+  assert.equal(resolvePhpImport(`Slim${BS}Routing${BS}Route`, files, prefixes), "Slim/Routing/Route.php");
+  assert.equal(resolvePhpImport(`${BS}Slim${BS}App`, files, prefixes), "Slim/App.php", "a leading separator is optional");
+  assert.equal(resolvePhpImport(`Psr${BS}Http${BS}Message`, files, prefixes), null, "an undeclared namespace is a vendor package");
+});
+
+test("php: the longest declared prefix wins", () => {
+  // Both may be declared, and the specific one must beat the umbrella. Sorting the other way sends
+  // every Routing class to the wrong directory.
+  const BS = String.fromCharCode(92);
+  const files = new Set(["src/Routing/Route.php", "custom/Route.php"]);
+  const prefixes = [[`Slim${BS}Routing${BS}`, "custom"], [`Slim${BS}`, "src"]];
+  assert.equal(resolvePhpImport(`Slim${BS}Routing${BS}Route`, files, prefixes), "custom/Route.php");
+});
+
+test("ruby: require_relative is path-relative, require searches lib", () => {
+  // The two mean different files from the same line, which is why extraction tags the relative form
+  // rather than leaving the resolver to guess.
+  const files = new Set(["lib/sinatra/base.rb", "lib/sinatra/helpers.rb", "lib/other.rb"]);
+  assert.equal(resolveRubyImport("./helpers", "lib/sinatra/base.rb", files, ["lib"]), "lib/sinatra/helpers.rb");
+  assert.equal(resolveRubyImport("sinatra/base", "lib/other.rb", files, ["lib"]), "lib/sinatra/base.rb");
+  assert.equal(resolveRubyImport("rack", "lib/other.rb", files, ["lib"]), null, "a gem is external");
+});
+
+test("ruby: a repo holding several gems has several load paths", () => {
+  // sinatra ships rack-protection and sinatra-contrib alongside it, each with its own lib/.
+  const files = new Set(["lib/sinatra/base.rb", "rack-protection/lib/rack/protection.rb"]);
+  const paths = ["rack-protection/lib", "lib"];
+  assert.equal(resolveRubyImport("rack/protection", "lib/sinatra/base.rb", files, paths), "rack-protection/lib/rack/protection.rb");
+});
+
+test("extraction covers the forms each language actually writes", () => {
+  const BS = String.fromCharCode(92);
+  const java = extractImports("import static com.x.A.b;\nimport com.x.C;", "java");
+  assert.deepEqual(java, ["com.x.A.b", "com.x.C"]);
+
+  const php = extractImports(`use Slim${BS}Routing${BS}Route;\nuse function App${BS}helper;`, "php");
+  assert.ok(php.includes(`Slim${BS}Routing${BS}Route`));
+  assert.ok(php.includes(`App${BS}helper`), "use function is still a namespace path");
+
+  // require_relative must not also be collected as a bare require — that would resolve one line to
+  // two different files.
+  const ruby = extractImports("require_relative 'x'\nrequire 'sinatra/base'", "ruby");
+  assert.deepEqual(ruby, ["./x", "sinatra/base"]);
 });

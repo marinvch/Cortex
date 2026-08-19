@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.8.1** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
+**v2.9.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
 where it is changing, and what is missing. Then it writes a context layer — a small root
@@ -181,7 +181,7 @@ Now the repo shows up in the **Repos** tab of `cortex.html`.
 
 **Step 5 — commit the brain** (`AGENTS.md` + shims) so your whole team's agents share it.
 
-**Working in a critical area?** Run `/scope-area <dir>` to give it a deep, scoped `AGENTS.md` leaf
+**Working in a critical area?** Run `/cortex-brief <dir>` to give it a deep, scoped `AGENTS.md` leaf
 (auth, billing, a pipeline) so agents load narrow context — faster and less drift. Starting a risky
 feature? `/analyze-spec` runs a brainstorm → spec → plan grounded by the brain.
 
@@ -207,7 +207,6 @@ skills/* .claude/skills/` to use them as `/slash` commands.
 | `/reindex` | periodic | Rebuild `cortex.html`; nominate MOCs; fix dead links |
 | `/install-project` | per repo | Give a repo a codebase brain (AI-driven, deep) |
 | `/migrate-engine` | per repo, once | Move a repo off the old engine without losing memory |
-| `/scope-area` | per critical part | Deep scoped `AGENTS.md` leaf + routing table |
 | `/analyze-spec` | per feature | Spec-Driven Development grounded by the brain |
 | `/scan-projects` | anytime | Register which local repos have a brain (metadata only) |
 | `/connect-brain` | once per machine | Register the live MCP brain (recall/capture) at user scope |
@@ -216,8 +215,7 @@ skills/* .claude/skills/` to use them as `/slash` commands.
 | `/team-add` | member, per repo | Clone the team-brain + drop a generic connector into the product repo |
 | `/catch-me-up` | after time away | Summarize what changed on a project since a date |
 | `/skill-creator` | on request | Create a tailored new ritual and wire it in |
-| `/cortex-doctor` | periodic | Find & fix orphan/stale/redundant/misplaced files + dead links (structure) |
-| `/cortex-audit` | on request | Dispatch the read-only `cortex-auditor` subagent to scan the whole vault (structure + content signal), then apply safe fixes — the superset of `/audit` + `/cortex-doctor` |
+| `/cortex-audit` | periodic | Dispatch the read-only `cortex-auditor` subagent to scan the whole vault for orphan/stale/redundant/misplaced files, dead links, wiring drift and privacy leaks — then apply the safe fixes (structure) |
 | `/optimize-context` | per repo | Audit + slim a repo's agent context (AGENTS.md, shims, rules files) |
 | `/optimize-prompt` | automatic | Score each prompt; sharpen vague ones into a confirmed precise prompt, save to `docs/prompts/`, route to the right ritual |
 

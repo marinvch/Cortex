@@ -45,7 +45,7 @@ ritual.
 | new feature or non-trivial change | `superpowers:brainstorming`, then `/analyze-spec` if risky |
 | bug, test failure, surprise behavior | `superpowers:systematic-debugging` |
 | stray thought, link, task | `/capture` |
-| vault structure or health | `/cortex-doctor` or `/cortex-audit` |
+| vault structure or health | `/cortex-audit` |
 | "make a ritual for X" | `/skill-creator` |
 
 ## Record format

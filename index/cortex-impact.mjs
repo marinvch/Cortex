@@ -16,6 +16,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
 import { execFileSync } from "node:child_process";
 import { impactOf } from "./lib/impact.mjs";
+import { UNRESOLVED_LANGUAGES } from "./lib/imports.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, paths: [], staged: false, since: null, json: false, depth: Infinity, index: null };
@@ -92,6 +93,17 @@ if (r.unknown.length) {
 }
 
 if (!r.affected.length) {
+  // "Nothing imports this" and "I cannot read this language" are different answers, and only one
+  // of them is about the repo. Pointed at a Go repo before its resolver existed, this printed the
+  // first for a file the whole framework depends on.
+  const byPath = new Map(index.files.map((f) => [f.path, f]));
+  const blind = [...new Set(r.changed.map((c) => byPath.get(c)?.lang).filter((l) => UNRESOLVED_LANGUAGES.has(l)))];
+  if (blind.length) {
+    console.log(`\nCortex cannot resolve ${blind.join(", ")} imports, so it has no graph for these files.`);
+    console.log(`This is not "nothing depends on them" — it is "Cortex did not look". Find the`);
+    console.log(`dependents another way before treating this as a safe change.`);
+    process.exit(0);
+  }
   console.log(`\nNothing in the index imports these.`);
   console.log(`That is a floor, not a proof: imports are resolved by convention, so a dynamically`);
   console.log(`loaded or framework-discovered dependent would not appear here.`);

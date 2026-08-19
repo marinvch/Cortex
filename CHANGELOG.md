@@ -3,6 +3,55 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.16.0] — 2026-08-19
+
+The Go, Rust and Python signal rows had only ever been exercised by fixtures written by whoever
+wrote the test. Pointed at three real repositories — `gin-gonic/gin`, `BurntSushi/ripgrep` and
+`psf/requests` — two of them produced an empty import graph, and everything downstream reported
+that emptiness as fact.
+
+**gin: 130 files, 0 edges.** `/cortex-impact` on a file the whole framework depends on printed
+*"Nothing in the index imports these"*. The orphan finding called **59 of 130 files** unreferenced.
+Both outputs carried their honest hedge and both were useless.
+
+### Added — Go imports resolve
+A Go import names a *package*, and a package is a directory, so one specifier resolves to many
+files — the only language here that does. `resolveGoImport` reads the module path from `go.mod`,
+strips it to get a directory, and maps that to the non-test `.go` files in it. Manifest-driven and
+deterministic, like the rest of the index.
+
+Imports outside the module stay external. `net/http` is a real dependency but not a file in this
+repo, and an invented edge is indistinguishable from a true one for every consumer of the graph.
+The module boundary is checked on a path separator, not a string prefix: `github.com/x/y-extra` is
+not `github.com/x/y`.
+
+**gin now indexes 248 edges.** `/cortex-impact` reports 16 affected files with correct depths, and
+the orphan finding reports none.
+
+### Fixed — Cortex said "nothing depends on this" when it meant "I did not look"
+Rust still resolves through a module system Cortex does not model. That was already documented in
+`imports.mjs`; what was not handled is what the reports do with it. Every Rust file was an orphan
+by construction, and `/cortex-impact` reported no dependents for all of them.
+
+`UNRESOLVED_LANGUAGES` now names those languages so consumers can tell blindness from absence:
+
+- the orphan finding **excludes** them, and a separate finding says the graph does not cover them —
+  a quietly missing finding is indistinguishable from a clean bill of health
+- `/cortex-impact` prints *"Cortex cannot resolve rust imports, so it has no graph for these files.
+  This is not 'nothing depends on them' — it is 'Cortex did not look'."*
+
+On ripgrep the unreferenced list went from **59 files to one** — a Homebrew formula that genuinely
+is not imported.
+
+Also fixed: that finding read *"1 file appear unreferenced"*, visible only once the count dropped
+to one.
+
+### Tests
+Four added. One was **vacuous on first writing** — the module-boundary assertion passed even with
+the boundary check removed, because a loose prefix match sliced out a directory name that happened
+not to exist. It now uses a directory the loose match would find, and fails when the check is
+removed. Every new assertion was verified by planting a regression.
+
 ## [2.15.0] — 2026-08-19
 
 Found by pointing Cortex at two repositories on stacks it had never been tuned on — a mobile app,
@@ -1056,6 +1105,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.16.0]: https://github.com/marinvch/Cortex/releases/tag/v2.16.0
 [2.15.0]: https://github.com/marinvch/Cortex/releases/tag/v2.15.0
 [2.14.0]: https://github.com/marinvch/Cortex/releases/tag/v2.14.0
 [2.13.0]: https://github.com/marinvch/Cortex/releases/tag/v2.13.0

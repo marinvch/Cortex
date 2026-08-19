@@ -3,6 +3,47 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.12.0] — 2026-08-19
+
+### Added — a profile says which world an install serves
+The employer firewall always opened by asserting *"one vault instance holds exactly one world"* — and
+then hardcoded that world to *personal*. So a work machine could not say it was one, even though the
+manual's own answer to work knowledge is "a separate vault instance on the work machine". And the
+rule was prose everywhere and code nowhere: grepping `core/`, `index/` and `mcp/` for "firewall"
+returned one hit, in an unrelated test.
+
+- **`core/profile.js`** owns `home` · `work` · `lab`, declared with `CORTEX_PROFILE`.
+  `home` (the default) refuses employer and client material. `work` is the same rule read from the
+  other side — employer material is expected, personal notes are refused, because a private note in
+  a work brain is the mirror of the leak `home` guards against. `lab` refuses nothing.
+- **`lab` refusing nothing and publishing nothing is one decision, stored as one policy object.** A
+  profile that refused nothing locally and still pushed would be a way to switch the firewall off and
+  keep leaking. `mcp/lib/capture.js` still *writes* the team note — sealing must not lose work — and
+  returns `pushed: false, error: "outward_sync_disabled"` instead of a silent success.
+- **Declared, never detected.** A work laptop and a home laptop have the same shape on disk, so
+  there is nothing honest to infer; the same reasoning that made `server` a declared audience in
+  [ADR 0008](docs/adr/0008-three-audiences-one-seam.md). Inferring it from a hostname would be a
+  guess about which secrets are safe to write down.
+- **The default fails safe.** An undeclared work machine gets the strict-about-employer-content
+  firewall — worst case, a refused write someone wanted. The opposite default would let an
+  undeclared machine behave like a lab, which is a leak rather than an inconvenience.
+- **An unknown value is fatal.** `CORTEX_PROFILE=works` exits 1 and names the valid set. Falling back
+  quietly to `home` would look identical to a correct home install while the user believed the
+  firewall pointed the other way.
+- **`/cortex-profile`** reports and sets it, and is required to explain the consequence first — a
+  profile decides what Cortex will refuse to write. It also names the mismatch worth catching:
+  `work` left on a personal machine fills the brain with employer content on a box that may sync to
+  a personal remote.
+- The server's startup line now prints all three axes:
+  `cortex: profile=home (default) audience=solo (...) mode=vault root=...`
+- [ADR 0015](docs/adr/0015-a-profile-is-the-world-an-install-serves.md).
+
+### Changed
+- `AGENTS.md`'s firewall now says *which* profile it describes instead of asserting one world. It is
+  still `home` for this instance, and the twelve ritual restatements are unchanged — detecting
+  "employer content" deterministically is not possible, and pretending otherwise would be worse than
+  the honest prose. What moved into code is the axis and the one enforceable consequence.
+
 ## [2.11.0] — 2026-08-19
 
 ### Added — skills chosen from the stack, not from a default list
@@ -904,6 +945,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.12.0]: https://github.com/marinvch/Cortex/releases/tag/v2.12.0
 [2.11.0]: https://github.com/marinvch/Cortex/releases/tag/v2.11.0
 [2.10.1]: https://github.com/marinvch/Cortex/releases/tag/v2.10.1
 [2.10.0]: https://github.com/marinvch/Cortex/releases/tag/v2.10.0

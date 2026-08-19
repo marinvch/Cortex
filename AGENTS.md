@@ -28,8 +28,16 @@ needed six lines and two negations to say which half was shareable.
 
 ## The employer firewall (hard rule — overrides convenience)
 
-**One vault instance holds exactly one world.** This instance is the **personal machine**: personal
-projects, principles, and knowledge only.
+**One vault instance holds exactly one world**, and the **profile** says which — `home`, `work` or
+`lab`, declared with `CORTEX_PROFILE` and defaulting to `home`. The rule below is what `home` means;
+`work` is the same rule read from the other side, and `lab` refuses nothing and therefore publishes
+nothing. `core/profile.js` owns it, `/cortex-profile` reports and sets it, and
+[ADR 0015](docs/adr/0015-a-profile-is-the-world-an-install-serves.md) records why it is declared
+rather than detected. The server's startup line prints it, so a mismatch is visible rather than
+inferred.
+
+This instance is `home` — the **personal machine**: personal projects, principles, and knowledge
+only.
 
 **Never write into this vault:** employer or client names · day-job projects, tickets, features, or
 bugs · work deadlines, sprints, or standups · colleague names · internal architecture, URLs,
@@ -112,6 +120,7 @@ and needs no mirror at all.
 | `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
 | `/cortex-brief` | per critical area | write scoped `AGENTS.md` leaves + wire the root routing table |
 | `/cortex-skills` | after scaffold | propose + write skills that fit the detected stack |
+| `/cortex-profile` | per machine | show or set which world this install serves — home · work · lab |
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/handoff` | leaving work mid-flight | compact this conversation to the OS temp dir for the next agent |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
@@ -195,6 +204,15 @@ and needs no mirror at all.
   not write — it refuses until you have, because a release entry says what changed and why. See
   [ADR 0013](docs/adr/0013-the-version-has-one-home.md), and
   [ADR 0014](docs/adr/0014-the-package-split-stays-rejected.md) before proposing a package split.
+- **`mode`, `audience` and `profile` are three questions, never two.** `mcp/lib/mode.js` answers
+  repo-vs-vault, `mcp/lib/resolve.js` answers solo/team/server, and `core/profile.js` answers
+  home/work/lab. A work laptop can run a repo brain on a team; a lab box can hold a personal vault.
+  `core/profile.js` reads **only** `CORTEX_PROFILE` — nothing about the root, the connector or the
+  cwd may move it, and a test asserts that. See [ADR 0015](docs/adr/0015-a-profile-is-the-world-an-install-serves.md)
+  and [ADR 0008](docs/adr/0008-three-audiences-one-seam.md).
+- **`lab` refusing nothing and publishing nothing is ONE decision, stored as one policy object.** A
+  profile that refused nothing locally and still pushed would be a way to switch the firewall off and
+  keep leaking. If you ever add a fourth profile, decide both halves together.
 - **Skills are per-repo; rituals are per-machine — `/cortex-skills` writes the first kind.** The
   plugin's rituals work in any repo once installed and are never copied into a project. What
   `/cortex-skills` writes is `.claude/skills/` in the *target*, committed with its code, chosen

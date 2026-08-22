@@ -252,3 +252,31 @@ test("downgrading never hides a finding", () => {
   assert.equal(r.findings.length, 1, "historical still appears in the report");
   assert.equal(r.counts.historical, 1);
 });
+
+test("git proving where a file went makes the citation provable and suggests the fix", () => {
+  // The scrub.js shape: AGENTS.md pointed at mcp/lib/scrub.js for months after it moved to core/.
+  const r = citationDrift(ix(["AGENTS.md", "core/scrub.js"]), {
+    readText: reader({ "AGENTS.md": "the secret gate is `mcp/lib/scrub.js`\n" }),
+    findRename: (p) => (p === "mcp/lib/scrub.js" ? "core/scrub.js" : null),
+  });
+  assert.equal(r.findings[0].class, "provable");
+  assert.equal(r.findings[0].suggestion, "core/scrub.js");
+  assert.equal(r.counts.provable, 1);
+});
+
+test("a rename to a path that is also gone proves nothing", () => {
+  const r = citationDrift(ix(["AGENTS.md"]), {
+    readText: reader({ "AGENTS.md": "see `old/a.js`\n" }),
+    findRename: () => "also/missing.js",
+  });
+  assert.equal(r.findings[0].class, "suspected");
+  assert.equal(r.findings[0].suggestion, null);
+});
+
+test("history is never promoted, even when git can prove the move", () => {
+  const r = citationDrift(ix(["docs/adr/0011-x.md", "core/scrub.js"]), {
+    readText: reader({ "docs/adr/0011-x.md": "`mcp/lib/scrub.js` held the gate\n" }),
+    findRename: () => "core/scrub.js",
+  });
+  assert.equal(r.findings[0].class, "historical", "an ADR describing the past is still the past");
+});

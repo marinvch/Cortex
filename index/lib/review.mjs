@@ -209,13 +209,18 @@ export function citationDrift(index, { readText = () => null, findRename = () =>
           seen.add(cited);
           if (!looksLikePath(cited) || isExcludedCitation(cited)) continue;
           if (resolves(cited) || (home && resolves(`${home}/${cited}`))) continue;
+          const base = citationClass(doc, lines[i]);
+          // Only a brief or a glossary makes a present-tense claim. Git may know where the file
+          // went, but an ADR saying so is still recording history, so it is never promoted.
+          const moved = base === "suspected" ? findRename(cited) : null;
+          const proven = moved && resolves(moved) ? moved : null;
           findings.push({
             doc,
             line: i + 1,
             cited,
             text: lines[i].trim().slice(0, 120),
-            class: citationClass(doc, lines[i]),
-            suggestion: null,
+            class: proven ? "provable" : base,
+            suggestion: proven,
           });
         }
       }

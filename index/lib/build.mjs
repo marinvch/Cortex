@@ -46,7 +46,7 @@ export function hotspots(root, { since = "3 months ago" } = {}) {
  * output, which is what makes it safe to re-run in CI and cheap to run on every install.
  */
 export function buildIndex(root, opts = {}) {
-  const raw = listFiles(root, opts);
+  const { files: raw, skipped } = listFiles(root, opts);
   const commits = hotspots(root, opts);
   const head = (git(root, ["rev-parse", "HEAD"]) || "").trim() || null;
 
@@ -217,6 +217,10 @@ export function buildIndex(root, opts = {}) {
       tests: files.filter((f) => f.isTest).length,
       languages,
       categories,
+      // Readable files a directory *name* cost the index, one row per directory. Every other
+      // number here describes what was found; this is the only one that describes what was not,
+      // and it belongs beside them so a reader cannot see the count without seeing the gap.
+      skipped,
     },
     files: files.sort((a, b) => a.path.localeCompare(b.path)),
     edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),

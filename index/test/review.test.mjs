@@ -203,3 +203,52 @@ test("a repo with no context layer says so instead of reporting nothing", () => 
   const r = citationDrift(ix(["src/a.js"]), { readText: reader({}) });
   assert.equal(r.hasContextLayer, false);
 });
+
+test("an ADR citing a retired file is history, not drift", () => {
+  // docs/adr/0011 names skills/cortex-doctor/SKILL.md, a skill that was deliberately retired.
+  // An ADR records what was; gating on one would fail pull requests over correct prose.
+  const r = citationDrift(ix(["docs/adr/0011-x.md"]), {
+    readText: reader({ "docs/adr/0011-x.md": "`skills/cortex-doctor/SKILL.md` scanned six categories\n" }),
+  });
+  assert.equal(r.findings.length, 1);
+  assert.equal(r.findings[0].class, "historical");
+});
+
+test("prose describing a file's absence is correct because the path is gone", () => {
+  // docs/adr/0004: "...and `mcp/package-lock.json` is deleted."
+  const r = citationDrift(ix(["AGENTS.md"]), {
+    readText: reader({ "AGENTS.md": "the manifest declares nothing and `mcp/package-lock.json` is deleted\n" }),
+  });
+  assert.equal(r.findings[0].class, "historical");
+});
+
+test("the absence markers are a closed, tested list", () => {
+  for (const marker of ["deleted", "removed", "retired", "no longer", "used to"]) {
+    const r = citationDrift(ix(["AGENTS.md"]), {
+      readText: reader({ "AGENTS.md": `\`old/gone.js\` was ${marker} last year\n` }),
+    });
+    assert.equal(r.findings[0].class, "historical", `"${marker}" should downgrade`);
+  }
+});
+
+test("the two classes nothing can separate mechanically land in suspected, and never gate", () => {
+  // The spec names four false-positive classes. Two are detectable — an ADR, and a stated absence.
+  // The other two are not: a path can illustrate another ecosystem's convention (`bin/cli.js` in
+  // index/AGENTS.md), and a path can be absent from the index because git ignores it by design
+  // (`decisions/log.md` in the root brief). Neither is separable from real drift by regex. They are
+  // caught here as `suspected`, which reports and never fails the check — that is the whole reason
+  // the gate is narrowed to `provable`.
+  const r = citationDrift(ix(["AGENTS.md"]), {
+    readText: reader({ "AGENTS.md": "npm puts a CLI at `bin/cli.js`\ndecisions live in `decisions/log.md`\n" }),
+  });
+  assert.deepEqual(r.findings.map((f) => f.class), ["suspected", "suspected"]);
+  assert.equal(r.counts.provable, 0, "an unprovable finding must never reach the gate");
+});
+
+test("downgrading never hides a finding", () => {
+  const r = citationDrift(ix(["docs/adr/0011-x.md"]), {
+    readText: reader({ "docs/adr/0011-x.md": "`a/b.js` is gone\n" }),
+  });
+  assert.equal(r.findings.length, 1, "historical still appears in the report");
+  assert.equal(r.counts.historical, 1);
+});

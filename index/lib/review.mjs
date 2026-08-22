@@ -165,6 +165,18 @@ function looksLikePath(cited) {
   return cited.includes("/") && !cited.startsWith("#");
 }
 
+// A document may name a dead path on purpose. Two ways, both found on this repo: an ADR is a
+// historical record by definition, and any prose can state an absence ("...is deleted"), where the
+// sentence is correct BECAUSE the file is gone. Both are reported and neither ever gates — a check
+// that fails a build over accurate prose gets switched off, and then nothing is checked at all.
+const ABSENCE_MARKERS = /\b(deleted|removed|retired|no longer|used to)\b/i;
+
+function citationClass(doc, line) {
+  if (/(^|\/)docs\/adr\//i.test(doc)) return "historical";
+  if (ABSENCE_MARKERS.test(line)) return "historical";
+  return "suspected";
+}
+
 export function citationDrift(index, { readText = () => null, findRename = () => null } = {}) {
   const known = new Set(index.files.map((f) => f.path));
   const dirs = new Set();
@@ -202,7 +214,7 @@ export function citationDrift(index, { readText = () => null, findRename = () =>
             line: i + 1,
             cited,
             text: lines[i].trim().slice(0, 120),
-            class: "suspected",
+            class: citationClass(doc, lines[i]),
             suggestion: null,
           });
         }

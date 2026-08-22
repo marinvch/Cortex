@@ -161,8 +161,29 @@ function isExcludedCitation(cited) {
   return cited.startsWith(".cortex/") || /^[a-z]+:\/\//i.test(cited);
 }
 
+// A slash is not enough. Run against this repo's own documents, "contains a slash" returned 157
+// findings and almost none were drift: forty ritual names (`/cortex-audit`), JSON-RPC methods
+// (`tools/call`), repo slugs (`marinvch/Cortex`), and bare directory names. Two rules cut it back,
+// and both are about what a *claim on a file* looks like:
+//
+//   - it never starts with "/" — a repo-relative path cannot, and that alone removes every ritual
+//     name and every absolute system path
+//   - its last segment carries an extension — `tools/call` and `node_modules/` name a method and a
+//     directory, not a file, and a document naming a directory is far weaker evidence anyway
 function looksLikePath(cited) {
-  return cited.includes("/") && !cited.startsWith("#");
+  if (!cited.includes("/") || cited.startsWith("/") || cited.startsWith("#")) return false;
+  return /\.[A-Za-z0-9]{1,6}$/.test(cited);
+}
+
+/** Resolve `../` and `./` against the directory a citation was written in. */
+function normalizeFrom(home, cited) {
+  const out = [];
+  for (const part of `${home ? `${home}/` : ""}${cited}`.split("/")) {
+    if (part === "." || part === "") continue;
+    if (part === "..") out.pop();
+    else out.push(part);
+  }
+  return out.join("/");
 }
 
 // A document may name a dead path on purpose. Two ways, both found on this repo: an ADR is a
@@ -208,7 +229,8 @@ export function citationDrift(index, { readText = () => null, findRename = () =>
           if (seen.has(cited)) continue;
           seen.add(cited);
           if (!looksLikePath(cited) || isExcludedCitation(cited)) continue;
-          if (resolves(cited) || (home && resolves(`${home}/${cited}`))) continue;
+          // Doc-relative first (with `../` honoured), then repo-root.
+          if (resolves(normalizeFrom(home, cited)) || resolves(cited)) continue;
           const base = citationClass(doc, lines[i]);
           // Only a brief or a glossary makes a present-tense claim. Git may know where the file
           // went, but an ADR saying so is still recording history, so it is never promoted.

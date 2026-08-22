@@ -40,8 +40,15 @@ if (args.json) {
     .slice(0, 6)
     .map(([k, v]) => `${k} ${v}`)
     .join(", ");
+  // `bin/` and `obj/` are skipped on the strength of their name alone, and the name is sometimes
+  // wrong — bin/ holds the whole program in an ops repo. Printing the count is what stops the
+  // reader from taking an incomplete index for a complete one; without it the guess is invisible.
+  const skipped = s.skipped
+    .map((k) => `${k.files} file${k.files === 1 ? "" : "s"} under ${k.dir}/`)
+    .join(", ");
   process.stdout.write(
     `Indexed ${s.files} files (${s.lines.toLocaleString()} lines), ${s.edges} imports, ${s.tests} tests\n` +
+      (skipped ? `Skipped by name: ${skipped} — git-tracked files there are indexed as source\n` : "") +
       `Languages: ${top}\n` +
       `Areas: ${index.areas.length}\n` +
       // Areas are directories; layers come from the import graph. Both are printed because a reader

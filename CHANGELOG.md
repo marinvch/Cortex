@@ -32,6 +32,23 @@ Against two real repos, the files this was hiding are the ones that matter most:
 `test/bin/run-all-tests` shows the second half of the bug: the skip matched `bin` at *any* depth, so
 it also swallowed directories that merely had one inside them.
 
+**And the run now says what the guess cost it.** Resolving `bin/` through git fixes the common case,
+but a guess remains a guess: an untracked file there, or any repo with no git to ask, is still
+dropped on the strength of a directory name. That was the expensive half of the report — not that
+the number was wrong, but that it looked complete. `listFiles` returns `{ files, skipped }`, the
+index carries `stats.skipped`, and the CLI prints one line when there is anything to print:
+
+```
+Indexed 1 files (2 lines), 0 imports, 0 tests
+Skipped by name: 1 file under bin/ — git-tracked files there are indexed as source
+```
+
+It disappears once git can answer, so a repo where `bin/` genuinely is build output pays a single
+line and a repo where it is not gets told what to do about it. Only ambiguous names are counted, and
+only files that were **measured** as readable text — a count including `node_modules/` or compiled
+artefacts would bury the one number a reader can act on, in exactly the repos where the skip was
+right.
+
 **`test-*.sh` was not recognised as a test, which produced a false High finding.** `TEST_PATTERNS`
 knew `test_*.py` (pytest's underscore) but not the hyphenated form that shell and ops repos have
 used for decades — `test-foo.sh` beside `foo.sh`. A repo with a passing 17-assertion suite was told
@@ -44,7 +61,9 @@ Deliberately not for `ts`/`js`: `src/test-utils.ts` is a helper, not a test.
 ### Added
 - `index/test/walk.test.mjs` — the walker had no test file of its own. Covers the tracked-file
   override, the untracked file that must still be skipped, `node_modules/` staying out even when
-  committed, and the non-git fallback.
+  committed, the non-git fallback, and the four halves of the report — that a guess is counted,
+  that a certainty is not, that the non-git case is covered, and that a compiled artefact never
+  counts as hidden source.
 
 ## [2.22.0] — 2026-08-19
 

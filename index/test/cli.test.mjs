@@ -132,3 +132,14 @@ test("an unknown subcommand fails loudly", () => {
   }
   assert.equal(code, 1);
 });
+
+test("cortex-index says out loud what it skipped on a guess", () => {
+  const root = fixture();
+  mkdirSync(join(root, "bin"));
+  writeFileSync(join(root, "bin", "deploy.sh"), "#!/bin/sh\necho deploy\n");
+
+  const out = run("cortex-index.mjs", ["."], root);
+
+  assert.match(out, /Skipped by name/, "a silent gap is the part that costs the most");
+  assert.match(out, /1 file under bin\//, "and the reader is told how much, and where");
+});

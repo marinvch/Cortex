@@ -148,3 +148,70 @@ export function reviewContext(index, changed, { readText = () => null } = {}) {
     hasContextLayer: contextDocs.length > 0,
   };
 }
+
+// A citation is a path the document points at. When it stops resolving, the document is provably
+// stale — and unlike the `stale` pass above, this needs no diff: the file the document names is
+// gone, so no change can ever touch it and seed the check. That is the exact shape of the failure
+// this module's header cites (`mcp/lib/scrub.js`), and the shape the diff-driven pass cannot see.
+const CITATION_IN_CODE = /`([A-Za-z0-9_.\/-]+)`/g;
+const CITATION_IN_LINK = /\]\(([^)\s]+)\)/g;
+
+/** Paths that are absent by design rather than by drift. */
+function isExcludedCitation(cited) {
+  return cited.startsWith(".cortex/") || /^[a-z]+:\/\//i.test(cited);
+}
+
+function looksLikePath(cited) {
+  return cited.includes("/") && !cited.startsWith("#");
+}
+
+export function citationDrift(index, { readText = () => null, findRename = () => null } = {}) {
+  const known = new Set(index.files.map((f) => f.path));
+  const dirs = new Set();
+  for (const f of index.files) {
+    const parts = f.path.split("/");
+    for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join("/"));
+  }
+  const resolves = (p) => {
+    const clean = p.replace(/\/$/, "");
+    return known.has(clean) || dirs.has(clean);
+  };
+
+  const contextDocs = index.files
+    .map((f) => f.path)
+    .filter(isContextDoc)
+    .filter((p) => !p.startsWith("templates/"));
+
+  const findings = [];
+  for (const doc of contextDocs) {
+    const text = readText(doc);
+    if (text === null) continue;
+    const home = dirOf(doc);
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const seen = new Set();
+      for (const re of [CITATION_IN_CODE, CITATION_IN_LINK]) {
+        for (const m of lines[i].matchAll(re)) {
+          const cited = m[1].replace(/^\.\//, "");
+          if (seen.has(cited)) continue;
+          seen.add(cited);
+          if (!looksLikePath(cited) || isExcludedCitation(cited)) continue;
+          if (resolves(cited) || (home && resolves(`${home}/${cited}`))) continue;
+          findings.push({
+            doc,
+            line: i + 1,
+            cited,
+            text: lines[i].trim().slice(0, 120),
+            class: "suspected",
+            suggestion: null,
+          });
+        }
+      }
+    }
+  }
+
+  findings.sort((a, b) => a.doc.localeCompare(b.doc) || a.line - b.line || a.cited.localeCompare(b.cited));
+  const counts = { provable: 0, suspected: 0, historical: 0 };
+  for (const f of findings) counts[f.class]++;
+  return { hasContextLayer: contextDocs.length > 0, findings, counts };
+}

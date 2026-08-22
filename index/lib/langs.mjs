@@ -55,6 +55,10 @@ const TEST_PATTERNS = [
   /(^|\/)__tests__\//, /(^|\/)tests?\//, /(^|\/)spec\//,
   /\.test\.[a-z]+$/, /\.spec\.[a-z]+$/, /_test\.[a-z]+$/, /_spec\.[a-z]+$/,
   /(^|\/)test_[^/]+\.py$/, /(^|\/)conftest\.py$/,
+  // The hyphenated prefix is how shell and ops repos have named tests for decades — `test-foo.sh`
+  // next to `foo.sh` — and bats is the other shell convention. Restricted to these extensions on
+  // purpose: `src/test-utils.ts` is a helper, not a test.
+  /(^|\/)test-[^/]+\.(sh|bash|zsh|py)$/, /\.bats$/,
   /Test[s]?\.(java|kt|cs|scala)$/, /Spec\.(kt|scala)$/,
 ];
 

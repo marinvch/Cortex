@@ -3,6 +3,49 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.22.1] — 2026-08-22
+
+### Fixed — `bin/` hid a repo's source, and shell tests did not count as tests
+Two reports from a homelab install ([#360](https://github.com/marinvch/Cortex/issues/360),
+[#361](https://github.com/marinvch/Cortex/issues/361)), both in `index/`, both silent.
+
+**`bin/` and `obj/` were skipped by name, overruling git.** `CODE_SKIP_DIRS` treated them as build
+output unconditionally, so every file inside vanished from the index even when git tracked it — and
+the run printed a file count with no hint that anything was missing. The reporter's ops repo lost 12
+of its 38 files; `cortex-findings`, `cortex-review` and `cortex-impact` all then reasoned about a
+repo with a third of its code absent.
+
+The two names now live in `AMBIGUOUS_SKIP_DIRS`, resolved by asking git rather than by guessing from
+the name: a **tracked** file under `bin/` is source, an untracked one is still output. That is the
+same principle the file already opened with — "which files belong to a repository is a question git
+already answers" — applied to the one place it had been excepted. Outside a git repo the name is
+still all the evidence there is, so nothing changes there. The set stays at those two on purpose:
+`node_modules/` is committed in plenty of repos and must never be indexed.
+
+Against two real repos, the files this was hiding are the ones that matter most:
+
+| repo | recovered |
+|---|---|
+| `tj/n` | `bin/n` — the entire program — plus `bin/dev/release` and `test/bin/run-all-tests` |
+| `bats-core` | `bin/bats` — the tool's entry point |
+
+`test/bin/run-all-tests` shows the second half of the bug: the skip matched `bin` at *any* depth, so
+it also swallowed directories that merely had one inside them.
+
+**`test-*.sh` was not recognised as a test, which produced a false High finding.** `TEST_PATTERNS`
+knew `test_*.py` (pytest's underscore) but not the hyphenated form that shell and ops repos have
+used for decades — `test-foo.sh` beside `foo.sh`. A repo with a passing 17-assertion suite was told
+"No test files found", ranked **High**, as the first thing in its report. A false High is worse than
+a wrong count: it teaches the reader to discount everything under it. `*.bats` was unmatched too.
+
+The hyphenated prefix is now recognised for `sh`, `bash`, `zsh` and `py`, and `.bats` outright.
+Deliberately not for `ts`/`js`: `src/test-utils.ts` is a helper, not a test.
+
+### Added
+- `index/test/walk.test.mjs` — the walker had no test file of its own. Covers the tracked-file
+  override, the untracked file that must still be skipped, `node_modules/` staying out even when
+  committed, and the non-git fallback.
+
 ## [2.22.0] — 2026-08-19
 
 ### Added — `/diagnosing-bugs`, ported and given the repo's map
@@ -1369,6 +1412,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.22.1]: https://github.com/marinvch/Cortex/releases/tag/v2.22.1
 [2.22.0]: https://github.com/marinvch/Cortex/releases/tag/v2.22.0
 [2.21.0]: https://github.com/marinvch/Cortex/releases/tag/v2.21.0
 [2.20.0]: https://github.com/marinvch/Cortex/releases/tag/v2.20.0

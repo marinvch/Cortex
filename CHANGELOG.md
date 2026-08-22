@@ -3,6 +3,68 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.23.0] — 2026-08-22
+
+### Added — `--citations`: drift without a diff
+`/cortex-review` has always had a Drift axis: *did this change make one of these documents wrong?*
+It is change-triggered, and that turns out to make it **structurally blind to the second of the two
+failures its own header cites**:
+
+> `AGENTS.md` pointed at `mcp/lib/scrub.js` for months after scrub moved to `core/`
+
+The stale pass seeds only on files a diff touched. Once `mcp/lib/scrub.js` stopped existing, no diff
+could ever touch it, so the document naming it was never flagged. The tool could not see the example
+it was built for — and neither could anything else, which is the state of every repo that installed
+Cortex and then shipped for six months without running a review. Documents do not rot from one
+change; they rot from a hundred, each of which individually looked fine.
+
+A citation that no longer resolves is provable staleness, and it needs neither a diff nor a model.
+
+```
+node index/cortex-review.mjs --citations              # the whole layer, no diff
+node index/cortex-review.mjs --citations --since HEAD~20  # the CI gate
+node index/cortex-review.mjs --citations --fix        # a patch for the provable ones
+```
+
+**Three classes, because "wrong" is a claim the tool mostly cannot make:**
+
+| Class | Means | Gate |
+|---|---|---|
+| `provable` | The path is gone and **git recorded where it went** | fails |
+| `suspected` | The path is gone and nothing proves a destination | reports |
+| `historical` | An ADR, or prose stating an absence ("…is deleted") — correct as written | reports |
+
+Only `provable` exits non-zero, which is what makes it safe in CI. An ADR *should* name retired
+files; a check that fails a build over accurate prose gets switched off, and then nothing is checked
+at all.
+
+`--fix` emits a unified diff on stdout and **writes nothing** — `index/` may not modify a target repo
+outside `.cortex/`, and `cortex-review.mjs` promises in its header that it writes nothing at all.
+That is what "self-heal" reduces to once you refuse to guess: a small, provable subset, proposed in
+a form a human can reject in one command.
+
+### Fixed — what running it on a real repo taught, twice
+Both numbers below come from pointing the checker at this repository, not at fixtures.
+
+**Resolution is doc-relative first.** `mcp/AGENTS.md` saying `` `lib/resolve.js` `` means
+`mcp/lib/resolve.js`. Resolving only against the root reported 27 findings where 7 were plausible.
+
+**A slash is not enough to make a token a path.** The first working implementation returned **157**
+findings on this repo and almost none were drift: forty ritual names (`/cortex-audit`), JSON-RPC
+methods (`tools/call`), repo slugs (`marinvch/Cortex`), bare directory names. Two rules — a
+repo-relative path never starts with `/`, and its last segment carries an extension — brought it to
+7, the same seven the design predicted. `../` in a markdown link is now resolved too; it was
+reporting `mcp/AGENTS.md`'s own ADR links as dangling.
+
+Not one of these showed up in tests written from literals. Real prose was the only thing that
+surfaced them, which is now written into `index/AGENTS.md` as a rule for the next change here.
+
+### Not covered, on purpose
+It checks **pointers, not sentences**. `index/AGENTS.md` saying "Coverage uses two signals" while the
+code used three is real drift and invisible here — the path was never wrong. Catching that needs a
+model reading prose against code, which the ritual may do over this candidate list. The CLI must not:
+a deterministic tool that claims to find *all* drift is worse than one that states where it stops.
+
 ## [2.22.2] — 2026-08-22
 
 ### Added — the index says what a guessed skip cost it
@@ -1450,6 +1512,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.23.0]: https://github.com/marinvch/Cortex/releases/tag/v2.23.0
 [2.22.2]: https://github.com/marinvch/Cortex/releases/tag/v2.22.2
 [2.22.1]: https://github.com/marinvch/Cortex/releases/tag/v2.22.1
 [2.22.0]: https://github.com/marinvch/Cortex/releases/tag/v2.22.0

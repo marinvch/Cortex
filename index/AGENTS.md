@@ -53,6 +53,16 @@ four `cortex-*.mjs` files at the top are the CLIs that skills invoke.
   is invisible to both name and import, which is what the mention signal is for. Quoted-only, so a
   file named in a comment is not counted as exercised. Do not copy this heuristic into a third
   caller — two copies would agree today and disagree in a month, with nothing to say which is right.
+- **A citation is checkable; a claim is not.** `citationDrift` resolves the paths a context document
+  names — doc-relative first (honouring `../`), then root — and only tokens whose last segment has an
+  extension and which do not start with `/`. Those rules are not fussiness: without them, run against
+  this repo, "contains a slash" returned **157** findings and almost none were drift — forty ritual
+  names, JSON-RPC methods, repo slugs. With them, 7. Literal fixtures showed none of it; only real
+  prose did, so run it against a real repo before trusting a change here. And it deliberately does
+  not chase prose: `index/AGENTS.md` saying "Coverage uses two signals" while the code used three is
+  real drift and invisible here, because the path was never wrong. Do not extend the CLI to guess at
+  sentences — a deterministic tool claiming to find *all* drift is worse than one that states where
+  it stops.
 - **`cortex-impact.mjs` reads the graph backwards** — who imports me, not what do I import — and
   every count it returns is a floor, named `atLeast` so a caller cannot print it as a total.
 - Batching is deterministic so an interrupted enrichment resumes — re-run `plan`, and `status`

@@ -37,6 +37,13 @@ four `cortex-*.mjs` files at the top are the CLIs that skills invoke.
   file git *tracks* is source; an untracked one is output. Skipping them outright made `bin/n` —
   the whole of `tj/n` — invisible, with nothing in the report to say so. Keep the set to those two:
   a vendored `node_modules/` is committed too and must still never be indexed.
+- **What a guess drops gets counted; what a certainty drops does not.** `listFiles` returns
+  `{ files, skipped }`, and `skipped` carries only the ambiguous-directory losses — measured, so
+  the number means *readable source you cannot see* rather than compiled output. It reaches the
+  reader as `stats.skipped` and one CLI line. Do not extend it to `node_modules/`: a count nobody
+  can act on buries the one they can, and walking that tree to produce it costs more than the
+  index. This half is why the `bin/` bug was expensive rather than merely wrong — the run printed
+  a plausible number and nothing marked it incomplete.
 - **Import resolution is regex-based**, so dynamic and computed imports are missed. That is a
   documented limit, not a bug — it is why the orphan finding says "worth checking", never "safe to
   delete".

@@ -95,3 +95,18 @@ test("brief candidates surface untested, churning areas first and carry reasons"
   assert.ok(got[0].reasons.some((r) => /no tests/.test(r)));
   assert.ok(got[0].score > got[1].score);
 });
+
+test("the index reports what an ambiguous directory name cost it", () => {
+  const root = fixture();
+  mkdirSync(join(root, "bin"));
+  writeFileSync(join(root, "bin", "deploy.sh"), "#!/bin/sh\necho deploy\n");
+
+  const idx = buildIndex(root);
+
+  assert.deepEqual(idx.stats.skipped, [{ dir: "bin", files: 1 }]);
+  assert.ok(!idx.files.some((f) => f.path.startsWith("bin/")), "and it is still not indexed");
+});
+
+test("a repo with nothing guessed away reports an empty gap, not a missing field", () => {
+  assert.deepEqual(buildIndex(fixture()).stats.skipped, []);
+});

@@ -41,6 +41,20 @@ export function isSkippedPath(rel, { tracked = false } = {}) {
 }
 
 /**
+ * The ambiguous directory that alone accounts for this path being dropped, or null.
+ *
+ * Null when a certain name (`node_modules/`) or the file's own extension would have dropped it
+ * anyway: those are not guesses, and reporting them would bury the one number that is.
+ */
+export function ambiguousSkipReason(rel) {
+  const dirs = rel.split("/").slice(0, -1);
+  if (dirs.some((p) => CODE_SKIP_DIRS.has(p))) return null;
+  const dir = dirs.find((p) => AMBIGUOUS_SKIP_DIRS.has(p));
+  if (!dir) return null;
+  return isSkippedPath(rel, { tracked: true }) ? null : dir;
+}
+
+/**
  * What git considers part of the tree: `candidates` is tracked plus untracked that .gitignore
  * does not exclude; `tracked` is the committed half alone, which is what lets an ambiguous
  * directory name be overruled. Null outside a git repo.
@@ -75,8 +89,10 @@ function walkFiles(root) {
     for (const e of entries) {
       const rel = relDir ? `${relDir}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        // With no git to ask, an ambiguous name is all the evidence there is.
-        if (CODE_SKIP_DIRS.has(e.name) || AMBIGUOUS_SKIP_DIRS.has(e.name)) continue;
+        // An ambiguous directory is descended into and dropped later, per file, so the run can
+        // say how much it dropped. A certain one is pruned here: nobody needs a count of
+        // node_modules, and walking it to produce one would cost the whole tree.
+        if (CODE_SKIP_DIRS.has(e.name)) continue;
         walk(join(absDir, e.name), rel);
       } else if (e.isFile()) {
         out.push(rel);
@@ -107,17 +123,34 @@ function measure(root, rel, maxBytes) {
 }
 
 /**
- * Every indexable file, root-relative with POSIX separators, sorted.
- * Deterministic: the same tree always yields the same list.
+ * Every indexable file, root-relative with POSIX separators, sorted — and what a guess dropped.
+ * Deterministic: the same tree always yields the same result.
+ *
+ * `skipped` counts only the files an *ambiguous* directory name cost, one row per directory.
+ * A count the reader never sees is the expensive half of the `bin/` bug: the run printed a
+ * plausible number and nothing said part of the repo was missing from it.
  */
 export function listFiles(root, { maxBytes = 2_000_000 } = {}) {
   const git = gitFiles(root);
   const candidates = git ? git.candidates : walkFiles(root);
-  const out = [];
+  const files = [];
+  const skipped = new Map();
   for (const rel of candidates) {
-    if (isSkippedPath(rel, { tracked: git ? git.tracked.has(rel) : false })) continue;
+    if (isSkippedPath(rel, { tracked: git ? git.tracked.has(rel) : false })) {
+      const dir = ambiguousSkipReason(rel);
+      // Measured, not just counted: the number has to mean "readable source you cannot see".
+      // Counting compiled output as a hidden file would make it noise in exactly the repos
+      // where the skip was right.
+      if (dir && measure(root, rel, maxBytes)) skipped.set(dir, (skipped.get(dir) ?? 0) + 1);
+      continue;
+    }
     const m = measure(root, rel, maxBytes);
-    if (m) out.push(m);
+    if (m) files.push(m);
   }
-  return out.sort((a, b) => a.path.localeCompare(b.path));
+  return {
+    files: files.sort((a, b) => a.path.localeCompare(b.path)),
+    skipped: [...skipped]
+      .map(([dir, count]) => ({ dir, files: count }))
+      .sort((a, b) => a.dir.localeCompare(b.dir)),
+  };
 }

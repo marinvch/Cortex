@@ -3,6 +3,44 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.22.2] — 2026-08-22
+
+### Added — the index says what a guessed skip cost it
+[2.22.1](#2221--2026-08-22) stopped `bin/` from overruling git, which fixes the common case. But a
+guess remains a guess: an untracked file under `bin/`, or any repo with no git to ask, is still
+dropped on the strength of a directory name. That was the expensive half of
+[#360](https://github.com/marinvch/Cortex/issues/360) — not that the number was wrong, but that it
+*looked complete*. Every other number the indexer prints describes what it found; there was none
+for what it did not.
+
+`listFiles` now returns `{ files, skipped }`, the index carries `stats.skipped`, and `cortex-index`
+prints one line when there is anything to print:
+
+```
+Indexed 1 files (2 lines), 0 imports, 0 tests
+Skipped by name: 1 file under bin/ — git-tracked files there are indexed as source
+```
+
+The line disappears once git can answer, so a repo where `bin/` genuinely is build output pays a
+single line and a repo where it is not is told what to do about it.
+
+Two limits on the count, both deliberate, because a number nobody can act on buries the one they
+can:
+
+- **Only ambiguous names.** `node_modules/` is not a guess, so it is not a gap — and walking it to
+  produce a count would cost more than the index does.
+- **Only measured files.** A path is counted only if it was read as text under the size limit, so
+  the number means *readable source you cannot see* rather than compiled output. Otherwise it would
+  be loudest in exactly the repos where the skip was right.
+
+`walkFiles` now descends into an ambiguous directory and drops per file rather than pruning at the
+directory, so the git and non-git paths produce the same count. Certain names are still pruned where
+they were.
+
+`index/test/walk.test.mjs` gains the four halves of this: that a guess is counted, that a certainty
+is not, that the non-git case is covered, and that a compiled artefact never counts as hidden
+source. `build.test.mjs` and `cli.test.mjs` cover `stats.skipped` and the printed line.
+
 ## [2.22.1] — 2026-08-22
 
 ### Fixed — `bin/` hid a repo's source, and shell tests did not count as tests
@@ -1412,6 +1450,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.22.2]: https://github.com/marinvch/Cortex/releases/tag/v2.22.2
 [2.22.1]: https://github.com/marinvch/Cortex/releases/tag/v2.22.1
 [2.22.0]: https://github.com/marinvch/Cortex/releases/tag/v2.22.0
 [2.21.0]: https://github.com/marinvch/Cortex/releases/tag/v2.21.0

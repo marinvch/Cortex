@@ -280,3 +280,51 @@ test("history is never promoted, even when git can prove the move", () => {
   });
   assert.equal(r.findings[0].class, "historical", "an ADR describing the past is still the past");
 });
+
+// Everything below came from running the check against this repository and reading 157 findings,
+// almost all false. Literal fixtures did not surface any of it — real prose is the only source.
+
+test("a slash-command name is not a path", () => {
+  // `/cortex-audit` and `/dream` contain a slash and nothing else path-like. AGENTS.md names 40 of
+  // them, which alone produced most of the flood. A repo-relative citation never starts with "/".
+  const r = citationDrift(ix(["AGENTS.md"]), {
+    readText: reader({ "AGENTS.md": "run `/cortex-audit` weekly, then `/dream` at night\n" }),
+  });
+  assert.deepEqual(r.findings, []);
+});
+
+test("an absolute system path is not a repo citation either", () => {
+  const r = citationDrift(ix(["docs/adr/0009-x.md"]), {
+    readText: reader({ "docs/adr/0009-x.md": "carried into any backup of `/var/spool/cron`\n" }),
+  });
+  assert.deepEqual(r.findings, []);
+});
+
+test("a slash-separated name with no extension is not a citation", () => {
+  // JSON-RPC methods (`tools/call`), repo slugs (`marinvch/Cortex`, `tj/n`), and bare directory
+  // names (`node_modules/`, `scripts/`) all read as paths to a regex and are not claims about files.
+  const r = citationDrift(ix(["AGENTS.md"]), {
+    readText: reader({
+      "AGENTS.md": "it speaks `tools/call` and `tools/list`\nsee `marinvch/Cortex` and `tj/n`\nnot `node_modules/`\n",
+    }),
+  });
+  assert.deepEqual(r.findings, []);
+});
+
+test("a relative link climbing out of the document's directory resolves", () => {
+  // mcp/AGENTS.md links [ADR 0004](../docs/adr/0004-....md). That file exists; reporting it as
+  // drift is the checker being wrong about a document that is right.
+  const r = citationDrift(ix(["mcp/AGENTS.md", "docs/adr/0004-no-runtime-dependencies.md"]), {
+    readText: reader({
+      "mcp/AGENTS.md": "[ADR 0004](../docs/adr/0004-no-runtime-dependencies.md)\n",
+    }),
+  });
+  assert.deepEqual(r.findings, []);
+});
+
+test("a genuinely dangling relative link is still caught", () => {
+  const r = citationDrift(ix(["mcp/AGENTS.md"]), {
+    readText: reader({ "mcp/AGENTS.md": "[gone](../docs/adr/0099-never-written.md)\n" }),
+  });
+  assert.deepEqual(r.findings.map((f) => f.cited), ["../docs/adr/0099-never-written.md"]);
+});

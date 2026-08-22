@@ -40,8 +40,24 @@ test("recognises test paths across ecosystems", () => {
   }
 });
 
+test("recognises the hyphenated shell and python test conventions", () => {
+  for (const p of [
+    "tools/test-homelab-drift.sh",
+    "test-parser.bash",
+    "scripts/test-migrate.py",
+    "render.bats",
+  ]) {
+    assert.ok(isTestPath(p), `${p} should be a test`);
+  }
+});
+
 test("does not mistake production code for a test", () => {
-  for (const p of ["src/latest.ts", "src/contest.js", "lib/protest.py"]) {
+  for (const p of [
+    "src/latest.ts",
+    "src/contest.js",
+    "lib/protest.py",
+    "src/test-utils.ts",
+  ]) {
     assert.equal(isTestPath(p), false, `${p} should not be a test`);
   }
 });

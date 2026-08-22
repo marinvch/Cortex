@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { reviewContext } from "../lib/review.mjs";
+import { reviewContext, citationDrift } from "../lib/review.mjs";
 
 /** An index carrying only paths — reviewContext reads nothing else off a file. */
 function ix(paths) {
@@ -143,4 +143,63 @@ test("a basename shared by many files is not evidence", () => {
   const unique = reviewContext(ix(files), ["a/coverage.mjs"], { readText: reader(docs) });
   assert.equal(unique.stale.length, 1, "a one-of-a-kind basename still counts");
   assert.equal(unique.stale[0].mentions[0].line, 2);
+});
+
+test("a citation resolves against its own document's directory first", () => {
+  // mcp/AGENTS.md saying `lib/resolve.js` means mcp/lib/resolve.js. Resolving only against the
+  // repo root reported 20 false positives on this repo — the flood that gets a checker switched off.
+  const r = citationDrift(ix(["mcp/AGENTS.md", "mcp/lib/resolve.js"]), {
+    readText: reader({ "mcp/AGENTS.md": "the door is `lib/resolve.js`\n" }),
+  });
+  assert.deepEqual(r.findings, []);
+});
+
+test("a citation that resolves against the repo root is fine too", () => {
+  const r = citationDrift(ix(["mcp/AGENTS.md", "core/paths.js"]), {
+    readText: reader({ "mcp/AGENTS.md": "the guard lives in `core/paths.js`\n" }),
+  });
+  assert.deepEqual(r.findings, []);
+});
+
+test("a citation that resolves nowhere is reported with its line and text", () => {
+  const r = citationDrift(ix(["AGENTS.md", "core/scrub.js"]), {
+    readText: reader({ "AGENTS.md": "intro\nscrub lives in `mcp/lib/scrub.js`\n" }),
+  });
+  assert.equal(r.findings.length, 1);
+  assert.equal(r.findings[0].doc, "AGENTS.md");
+  assert.equal(r.findings[0].line, 2);
+  assert.equal(r.findings[0].cited, "mcp/lib/scrub.js");
+  assert.match(r.findings[0].text, /scrub lives in/);
+});
+
+test("a citation naming a directory resolves", () => {
+  const r = citationDrift(ix(["AGENTS.md", "docs/adr/0001-x.md"]), {
+    readText: reader({ "AGENTS.md": "decisions live in `docs/adr/`\n" }),
+  });
+  assert.deepEqual(r.findings, []);
+});
+
+test("markdown link targets are citations too; URLs are not", () => {
+  const r = citationDrift(ix(["AGENTS.md"]), {
+    readText: reader({
+      "AGENTS.md": "see [ADR 15](docs/adr/0015-gone.md) and [home](https://example.com/a.md)\n",
+    }),
+  });
+  assert.deepEqual(r.findings.map((f) => f.cited), ["docs/adr/0015-gone.md"]);
+});
+
+test("generated and fictional paths are not drift", () => {
+  // .cortex/ is generated and gitignored by construction; templates/ ships deliberate examples.
+  const r = citationDrift(ix(["AGENTS.md", "templates/CONTEXT.md"]), {
+    readText: reader({
+      "AGENTS.md": "the index is `.cortex/index/index.json`\n",
+      "templates/CONTEXT.md": "an order is `src/billing/order.ts`\n",
+    }),
+  });
+  assert.deepEqual(r.findings, []);
+});
+
+test("a repo with no context layer says so instead of reporting nothing", () => {
+  const r = citationDrift(ix(["src/a.js"]), { readText: reader({}) });
+  assert.equal(r.hasContextLayer, false);
 });

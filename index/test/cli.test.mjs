@@ -199,3 +199,28 @@ test("cortex-review --citations exits zero on a repo whose citations all resolve
   const out = run("cortex-review.mjs", ["--citations"], root);
   assert.match(out, /No unresolved citations/);
 });
+
+test("--citations --fix emits an appliable patch and changes nothing on disk", () => {
+  const root = gitFixtureWithMovedFile();
+  run("cortex-index.mjs", ["."], root);
+  const before = readFileSync(join(root, "AGENTS.md"), "utf8");
+
+  const patch = run("cortex-review.mjs", ["--citations", "--fix"], root);
+
+  assert.match(patch, /^--- a\/AGENTS\.md$/m);
+  assert.match(patch, /^-.*mcp\/lib\/scrub\.js/m);
+  assert.match(patch, /^\+.*core\/scrub\.js/m);
+  assert.equal(readFileSync(join(root, "AGENTS.md"), "utf8"), before, "index/ never writes to a target repo");
+
+  writeFileSync(join(root, "p.diff"), patch);
+  execFileSync("git", ["apply", "p.diff"], { cwd: root, stdio: "ignore" });
+  assert.match(readFileSync(join(root, "AGENTS.md"), "utf8"), /core\/scrub\.js/, "the patch must actually apply");
+});
+
+test("--fix declines to touch anything it cannot prove", () => {
+  const root = fixture();
+  writeFileSync(join(root, "AGENTS.md"), "# Brief\n\nSee `never/existed.js`.\n");
+  run("cortex-index.mjs", ["."], root);
+  const out = run("cortex-review.mjs", ["--citations", "--fix"], root);
+  assert.match(out, /nothing to fix/i);
+});

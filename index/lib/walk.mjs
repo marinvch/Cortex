@@ -10,9 +10,17 @@ import { join } from "node:path";
 export const CODE_SKIP_DIRS = new Set([
   ".git", "node_modules", "dist", "build", "out", "target", "vendor", "coverage",
   ".next", ".nuxt", ".svelte-kit", ".turbo", ".cache", ".venv", "venv", "__pycache__",
-  ".pytest_cache", ".mypy_cache", ".gradle", ".idea", "bin", "obj",
+  ".pytest_cache", ".mypy_cache", ".gradle", ".idea",
   ".cortex", ".ua", ".understand-anything",
 ]);
+
+// These two names mean build output in some ecosystems and hand-written source in others —
+// `bin/cli.js` in an npm package, `bin/rails`, an ops repo's shell tools, C# `obj/`. The name
+// alone cannot tell them apart, so git decides: a file git *tracks* is source; an untracked one
+// is output. Skipping them outright dropped a third of a real repo's code, and the report said
+// nothing about it — a silent gap is the part that costs the most. Keep this set narrow: a
+// vendored `node_modules/` is committed too, and still must never be indexed.
+export const AMBIGUOUS_SKIP_DIRS = new Set(["bin", "obj"]);
 
 export const BINARY_EXT = new Set([
   "png", "jpg", "jpeg", "gif", "webp", "ico", "pdf", "zip", "gz", "tar", "bz2",
@@ -20,25 +28,34 @@ export const BINARY_EXT = new Set([
   "dylib", "exe", "class", "jar", "pyc", "bin", "db", "sqlite",
 ]);
 
-export function isSkippedPath(rel) {
+export function isSkippedPath(rel, { tracked = false } = {}) {
   const parts = rel.split("/");
-  for (const p of parts.slice(0, -1)) if (CODE_SKIP_DIRS.has(p)) return true;
+  for (const p of parts.slice(0, -1)) {
+    if (CODE_SKIP_DIRS.has(p)) return true;
+    if (!tracked && AMBIGUOUS_SKIP_DIRS.has(p)) return true;
+  }
   const ext = rel.split(".").pop().toLowerCase();
   if (BINARY_EXT.has(ext)) return true;
   if (rel.endsWith(".lock") || rel.endsWith("-lock.json") || rel.endsWith(".min.js")) return true;
   return false;
 }
 
-/** Files git considers part of the tree: tracked, plus untracked that .gitignore does not exclude. */
+/**
+ * What git considers part of the tree: `candidates` is tracked plus untracked that .gitignore
+ * does not exclude; `tracked` is the committed half alone, which is what lets an ambiguous
+ * directory name be overruled. Null outside a git repo.
+ */
 function gitFiles(root) {
+  const ls = (args) =>
+    execFileSync("git", ["ls-files", "-z", ...args], {
+      cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024,
+    })
+      .split("\0")
+      .filter(Boolean);
   try {
-    const out = execFileSync(
-      "git",
-      ["ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-      { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 },
-    );
-    const paths = out.split("\0").filter(Boolean);
-    return [...new Set(paths)];
+    const candidates = ls(["--cached", "--others", "--exclude-standard"]);
+    const tracked = new Set(ls(["--cached"]));
+    return { candidates: [...new Set(candidates)], tracked };
   } catch {
     return null;
   }
@@ -58,7 +75,8 @@ function walkFiles(root) {
     for (const e of entries) {
       const rel = relDir ? `${relDir}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        if (CODE_SKIP_DIRS.has(e.name)) continue;
+        // With no git to ask, an ambiguous name is all the evidence there is.
+        if (CODE_SKIP_DIRS.has(e.name) || AMBIGUOUS_SKIP_DIRS.has(e.name)) continue;
         walk(join(absDir, e.name), rel);
       } else if (e.isFile()) {
         out.push(rel);
@@ -93,10 +111,11 @@ function measure(root, rel, maxBytes) {
  * Deterministic: the same tree always yields the same list.
  */
 export function listFiles(root, { maxBytes = 2_000_000 } = {}) {
-  const candidates = gitFiles(root) ?? walkFiles(root);
+  const git = gitFiles(root);
+  const candidates = git ? git.candidates : walkFiles(root);
   const out = [];
   for (const rel of candidates) {
-    if (isSkippedPath(rel)) continue;
+    if (isSkippedPath(rel, { tracked: git ? git.tracked.has(rel) : false })) continue;
     const m = measure(root, rel, maxBytes);
     if (m) out.push(m);
   }

@@ -31,6 +31,12 @@ four `cortex-*.mjs` files at the top are the CLIs that skills invoke.
 - **`walk.mjs` asks git, not `.cortexignore`.** Those answer different questions:
   `.cortexignore` says what is not *knowledge in a vault*, and honouring it here dropped this
   repo's own `tools/` and `skills/` from its index. Do not "fix" this by reading it again.
+- **`bin/` and `obj/` are skipped by name only until git contradicts it.** Those two live in
+  `AMBIGUOUS_SKIP_DIRS`, not `CODE_SKIP_DIRS`, because the name means build output in one ecosystem
+  and hand-written source in the next — `bin/cli.js`, `bin/rails`, an ops repo's shell tools. A
+  file git *tracks* is source; an untracked one is output. Skipping them outright made `bin/n` —
+  the whole of `tj/n` — invisible, with nothing in the report to say so. Keep the set to those two:
+  a vendored `node_modules/` is committed too and must still never be indexed.
 - **Import resolution is regex-based**, so dynamic and computed imports are missed. That is a
   documented limit, not a bug — it is why the orphan finding says "worth checking", never "safe to
   delete".

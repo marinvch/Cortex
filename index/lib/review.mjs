@@ -148,3 +148,109 @@ export function reviewContext(index, changed, { readText = () => null } = {}) {
     hasContextLayer: contextDocs.length > 0,
   };
 }
+
+// A citation is a path the document points at. When it stops resolving, the document is provably
+// stale — and unlike the `stale` pass above, this needs no diff: the file the document names is
+// gone, so no change can ever touch it and seed the check. That is the exact shape of the failure
+// this module's header cites (`mcp/lib/scrub.js`), and the shape the diff-driven pass cannot see.
+const CITATION_IN_CODE = /`([A-Za-z0-9_.\/-]+)`/g;
+const CITATION_IN_LINK = /\]\(([^)\s]+)\)/g;
+
+/** Paths that are absent by design rather than by drift. */
+function isExcludedCitation(cited) {
+  return cited.startsWith(".cortex/") || /^[a-z]+:\/\//i.test(cited);
+}
+
+// A slash is not enough. Run against this repo's own documents, "contains a slash" returned 157
+// findings and almost none were drift: forty ritual names (`/cortex-audit`), JSON-RPC methods
+// (`tools/call`), repo slugs (`marinvch/Cortex`), and bare directory names. Two rules cut it back,
+// and both are about what a *claim on a file* looks like:
+//
+//   - it never starts with "/" — a repo-relative path cannot, and that alone removes every ritual
+//     name and every absolute system path
+//   - its last segment carries an extension — `tools/call` and `node_modules/` name a method and a
+//     directory, not a file, and a document naming a directory is far weaker evidence anyway
+function looksLikePath(cited) {
+  if (!cited.includes("/") || cited.startsWith("/") || cited.startsWith("#")) return false;
+  return /\.[A-Za-z0-9]{1,6}$/.test(cited);
+}
+
+/** Resolve `../` and `./` against the directory a citation was written in. */
+function normalizeFrom(home, cited) {
+  const out = [];
+  for (const part of `${home ? `${home}/` : ""}${cited}`.split("/")) {
+    if (part === "." || part === "") continue;
+    if (part === "..") out.pop();
+    else out.push(part);
+  }
+  return out.join("/");
+}
+
+// A document may name a dead path on purpose. Two ways, both found on this repo: an ADR is a
+// historical record by definition, and any prose can state an absence ("...is deleted"), where the
+// sentence is correct BECAUSE the file is gone. Both are reported and neither ever gates — a check
+// that fails a build over accurate prose gets switched off, and then nothing is checked at all.
+const ABSENCE_MARKERS = /\b(deleted|removed|retired|no longer|used to)\b/i;
+
+function citationClass(doc, line) {
+  if (/(^|\/)docs\/adr\//i.test(doc)) return "historical";
+  if (ABSENCE_MARKERS.test(line)) return "historical";
+  return "suspected";
+}
+
+export function citationDrift(index, { readText = () => null, findRename = () => null } = {}) {
+  const known = new Set(index.files.map((f) => f.path));
+  const dirs = new Set();
+  for (const f of index.files) {
+    const parts = f.path.split("/");
+    for (let i = 1; i < parts.length; i++) dirs.add(parts.slice(0, i).join("/"));
+  }
+  const resolves = (p) => {
+    const clean = p.replace(/\/$/, "");
+    return known.has(clean) || dirs.has(clean);
+  };
+
+  const contextDocs = index.files
+    .map((f) => f.path)
+    .filter(isContextDoc)
+    .filter((p) => !p.startsWith("templates/"));
+
+  const findings = [];
+  for (const doc of contextDocs) {
+    const text = readText(doc);
+    if (text === null) continue;
+    const home = dirOf(doc);
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const seen = new Set();
+      for (const re of [CITATION_IN_CODE, CITATION_IN_LINK]) {
+        for (const m of lines[i].matchAll(re)) {
+          const cited = m[1].replace(/^\.\//, "");
+          if (seen.has(cited)) continue;
+          seen.add(cited);
+          if (!looksLikePath(cited) || isExcludedCitation(cited)) continue;
+          // Doc-relative first (with `../` honoured), then repo-root.
+          if (resolves(normalizeFrom(home, cited)) || resolves(cited)) continue;
+          const base = citationClass(doc, lines[i]);
+          // Only a brief or a glossary makes a present-tense claim. Git may know where the file
+          // went, but an ADR saying so is still recording history, so it is never promoted.
+          const moved = base === "suspected" ? findRename(cited) : null;
+          const proven = moved && resolves(moved) ? moved : null;
+          findings.push({
+            doc,
+            line: i + 1,
+            cited,
+            text: lines[i].trim().slice(0, 120),
+            class: proven ? "provable" : base,
+            suggestion: proven,
+          });
+        }
+      }
+    }
+  }
+
+  findings.sort((a, b) => a.doc.localeCompare(b.doc) || a.line - b.line || a.cited.localeCompare(b.cited));
+  const counts = { provable: 0, suspected: 0, historical: 0 };
+  for (const f of findings) counts[f.class]++;
+  return { hasContextLayer: contextDocs.length > 0, findings, counts };
+}

@@ -28,6 +28,26 @@ history, both found by a human reading rather than by any check:
 Neither broke a test. Both misled the next agent that read them — the entire cost of a context
 layer being *wrong* rather than merely absent.
 
+### Drift without a diff — `--citations`
+
+The pass above seeds only on files the change touched, so it is **structurally blind to the second
+example**: once `mcp/lib/scrub.js` stopped existing, no diff could touch it, and the document naming
+it was never flagged. `--citations` asks the question without a diff — it resolves the paths every
+context document names — and classes each answer by how much is proven:
+
+| Class | Means | Gate |
+|---|---|---|
+| `provable` | The path is gone and **git recorded where it went** | fails |
+| `suspected` | The path is gone and nothing proves a destination | reports |
+| `historical` | An ADR, or prose stating an absence ("…is deleted") — correct as written | reports |
+
+Only `provable` fails, which is what makes it safe in CI. `--fix` emits a patch for that class and
+nothing else; it writes no file. Run `--citations` bare on a repo that has had Cortex installed for
+a while and never reviewed — that is the case this exists for.
+
+It checks **pointers, not sentences**. "Coverage uses two signals" while the code used three is real
+drift and invisible here, because the path was never wrong. That half still needs you.
+
 ## Run the evidence pass first
 
 ```bash
@@ -35,6 +55,10 @@ node index/cortex-review.mjs --staged        # what you are about to commit
 node index/cortex-review.mjs --since HEAD~3  # a range
 node index/cortex-review.mjs path/to/file.ts # named files
 node index/cortex-review.mjs --staged --json # to walk it yourself
+
+node index/cortex-review.mjs --citations              # the whole layer, no diff needed
+node index/cortex-review.mjs --citations --since HEAD~20 --json
+node index/cortex-review.mjs --citations --fix        # a patch for the provable ones
 ```
 
 Deterministic and read-only. It finds and cites; it never judges. It gives you:

@@ -131,6 +131,35 @@ if (args.citations) {
     for (const f of c.findings) c.counts[f.class]++;
   }
 
+  if (args.fix) {
+    // A patch, not a write. index/ may not modify a target repo outside .cortex/, and this file
+    // promises in its header that it writes nothing at all — so the heal is proposed in the one
+    // form a human can read, reject, and apply in a single command.
+    const provable = c.findings.filter((f) => f.class === "provable");
+    if (!provable.length) {
+      console.log(`\nNothing to fix — no citation has a destination git can prove.`);
+      process.exit(0);
+    }
+    const byDoc = new Map();
+    for (const f of provable) {
+      if (!byDoc.has(f.doc)) byDoc.set(f.doc, []);
+      byDoc.get(f.doc).push(f);
+    }
+    let patch = "";
+    for (const [doc, group] of [...byDoc].sort((a, b) => a[0].localeCompare(b[0]))) {
+      const lines = (readText(doc) ?? "").split("\n");
+      patch += `--- a/${doc}\n+++ b/${doc}\n`;
+      for (const f of group.sort((a, b) => a.line - b.line)) {
+        const old = lines[f.line - 1];
+        // Replace only the cited token, never the surrounding prose.
+        const next = old.split(f.cited).join(f.suggestion);
+        patch += `@@ -${f.line},1 +${f.line},1 @@\n-${old}\n+${next}\n`;
+      }
+    }
+    process.stdout.write(patch);
+    process.exit(0);
+  }
+
   if (args.json) {
     console.log(JSON.stringify(c, null, 2));
     process.exit(c.counts.provable ? 1 : 0);

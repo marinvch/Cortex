@@ -15,7 +15,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
 import { execFileSync } from "node:child_process";
-import { impactOf } from "./lib/impact.mjs";
+import { impactOf, groupUnknown } from "./lib/impact.mjs";
 import { UNRESOLVED_LANGUAGES } from "./lib/imports.mjs";
 
 function parseArgs(argv) {
@@ -88,8 +88,25 @@ if (r.changed.length > 12) console.log(`  ... and ${r.changed.length - 12} more`
 if (r.unknown.length) {
   // Reported, never dropped. A path the index does not know contributes nothing to the walk, and
   // silently ignoring it reads as "nothing depends on this" — the most dangerous wrong answer here.
+  //
+  // But "never dropped" is not the same as "printed one per line". On a repo with a DeepZoom tile
+  // set this section returned 2,483 entries, 2,478 of them tile PNGs, and the two staged source
+  // deletions a reader genuinely had to resolve were buried under it — the terminal never even
+  // reached the affected / unverified / suggested-tests sections. A section nobody can read has the
+  // same effect as one that was dropped, while looking like diligence.
+  //
+  // So: assets are counted by directory and extension, source is still listed one per line. The
+  // total is unchanged and every path stays reachable with --json.
+  const groups = groupUnknown(r.unknown);
   console.log(`\nNot in the index (${r.unknown.length}) — new, ignored, or a typo:`);
-  for (const u of r.unknown) console.log(`  ${u}`);
+  for (const u of groups.source.slice(0, 40)) console.log(`  ${u}`);
+  if (groups.source.length > 40) console.log(`  ... and ${groups.source.length - 40} more source paths (--json for all)`);
+  for (const a of groups.assets) {
+    console.log(`  ${a.count} ${a.ext} under ${a.dir}/ — assets, never indexed`);
+  }
+  if (!groups.source.length && groups.assets.length) {
+    console.log(`  (nothing here is source; assets are expected to be absent from the index)`);
+  }
 }
 
 if (!r.affected.length) {

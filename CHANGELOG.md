@@ -3,6 +3,45 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.27.1] — 2026-08-23
+
+### Fixed — the answer was buried under 2,478 image tiles ([#367](https://github.com/marinvch/Cortex/issues/367))
+
+`/cortex-impact`'s "Not in the index" section is the one the skill is most emphatic about, because a
+path the graph does not know contributes nothing to the walk and silently ignoring it reads as
+"nothing depends on this". So it printed every unknown path, one per line.
+
+On a repo with a DeepZoom tile set that came to **2,483 entries, 2,478 of them tile PNGs**. The
+actual signal — two staged source deletions a reader genuinely had to resolve — was buried, and the
+terminal never reached the affected / unverified / suggested-tests sections at all. **A section
+nobody can read has the same effect as one that was dropped, while looking like diligence.**
+
+Assets are now counted by directory and extension; source is still listed one per line. The total is
+unchanged, and `--json` still carries every path. The asset list is a **closed set** of binary media
+and archives rather than "anything that does not look like code" — an unfamiliar extension is still
+shown individually, because surfacing the path nobody expected is the whole job of the section.
+
+Grouping is by nested map rather than a joined string key: the first version used a space, which
+would have split a directory named `my assets` into a bogus path on any repo that uses spaces.
+
+### Fixed — `/optimize-context` classified by location, halving its headline number ([#372](https://github.com/marinvch/Cortex/issues/372))
+
+Pass 1 decided "always-loaded" vs "on demand" by where a file sits — root versus nested. For
+`.github/instructions/*.md` that is wrong: Copilot decides by `applyTo` frontmatter, so two files
+with `applyTo: "**"` load on **every** file while sitting in a directory the skill treated as
+on-demand. On the repo that reported this, the headline number the skill says to lead with was
+understated by roughly half.
+
+The error ran in the dangerous direction — a repo looks leaner than it is, so the findings that
+would recover the most context rank lowest or get dropped. There was a second-order effect too: two
+always-loaded files are co-loaded, and that is what makes repointing one at the other
+content-preserving rather than lossy. Without reading the frontmatter, a safe repoint was
+indistinguishable from an unsafe one.
+
+Pass 1 now carries a signal table (`applyTo`, `alwaysApply`, `globs`, location as the fallback) and
+requires stating which signal was used per file, so the classification can be checked rather than
+trusted.
+
 ## [2.27.0] — 2026-08-23
 
 ### Added — vendored code is declared, and stops skewing everything that ranks by size ([#369](https://github.com/marinvch/Cortex/issues/369), [#368](https://github.com/marinvch/Cortex/issues/368))
@@ -1779,6 +1818,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.27.1]: https://github.com/marinvch/Cortex/releases/tag/v2.27.1
 [2.27.0]: https://github.com/marinvch/Cortex/releases/tag/v2.27.0
 [2.26.0]: https://github.com/marinvch/Cortex/releases/tag/v2.26.0
 [2.25.1]: https://github.com/marinvch/Cortex/releases/tag/v2.25.1

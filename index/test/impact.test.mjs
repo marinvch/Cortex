@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { impactOf } from "../lib/impact.mjs";
+import { impactOf , groupUnknown } from "../lib/impact.mjs";
 
 /** A minimal index: files as [path, {isTest, commits}], edges as "from>to". */
 function ix(files, edges) {
@@ -123,4 +123,48 @@ test("an empty change set is not an error, just an empty answer", () => {
 test("output is stable across runs", () => {
   const args = [ix([["a.js"], ["b.js"], ["c.js"]], ["b.js>a.js", "c.js>a.js"]), ["a.js"]];
   assert.equal(JSON.stringify(impactOf(...args)), JSON.stringify(impactOf(...args)));
+});
+
+// --- the unknown list, made readable --------------------------------------------------------
+
+test("assets are counted by directory, source is still listed one per line", () => {
+  // On a repo with a DeepZoom tile set this section returned 2,483 entries, 2,478 of them tile
+  // PNGs, and the two staged source deletions a reader had to resolve were buried under them — the
+  // terminal never reached the affected / unverified / suggested-tests sections at all. A section
+  // nobody can read has the same effect as one that was dropped, while looking like diligence.
+  const paths = [
+    "src/App.jsx",
+    "lib/helper.ts",
+    ...Array.from({ length: 300 }, (_, i) => `public/dz/0/${i}_0.png`),
+    ...Array.from({ length: 12 }, (_, i) => `assets/fonts/f${i}.woff2`),
+  ];
+  const g = groupUnknown(paths);
+  assert.deepEqual(g.source, ["lib/helper.ts", "src/App.jsx"], "the real signal, in full");
+  assert.deepEqual(g.assets, [
+    { dir: "public/dz/0", ext: "png", count: 300 },
+    { dir: "assets/fonts", ext: "woff2", count: 12 },
+  ]);
+  // Nothing is lost: the counts still add up to every path that came in.
+  const total = g.source.length + g.assets.reduce((a, x) => a + x.count, 0);
+  assert.equal(total, paths.length, "grouping summarises, it never drops");
+});
+
+test("an unfamiliar extension is treated as source, not swallowed as an asset", () => {
+  // The whole job of this section is surfacing the path nobody expected, so the asset list is a
+  // closed set of binary media rather than "anything that does not look like code".
+  const g = groupUnknown(["weird/thing.qqq", "x/y.png"]);
+  assert.deepEqual(g.source, ["weird/thing.qqq"]);
+  assert.equal(g.assets.length, 1);
+});
+
+test("a directory containing a space groups correctly", () => {
+  // The first version joined directory and extension into one string key with a space, which would
+  // have split "my assets" into a bogus directory on any repo that uses spaces in paths.
+  const g = groupUnknown(["my assets/a.png", "my assets/b.png"]);
+  assert.deepEqual(g.assets, [{ dir: "my assets", ext: "png", count: 2 }]);
+});
+
+test("extensionless paths are source — a Makefile is not an asset", () => {
+  const g = groupUnknown(["Makefile", "scripts/deploy", "img/x.png"]);
+  assert.deepEqual(g.source, ["Makefile", "scripts/deploy"]);
 });

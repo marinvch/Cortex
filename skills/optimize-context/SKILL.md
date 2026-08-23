@@ -33,8 +33,29 @@ Root and nested `AGENTS.md` · `CLAUDE.md` · `GEMINI.md` · `.github/copilot-in
 
 ## Pass 1 — Measure
 Per file: bytes, estimated tokens (bytes ÷ 4 — do not add a tokenizer), and whether it loads
-**every session** (root `AGENTS.md`, `CLAUDE.md`, shims) or **on demand** (nested leaves, skill
-bodies). Always-loaded bytes is the headline number; lead the report with it.
+**every session** or **on demand**. Always-loaded bytes is the headline number; lead the report
+with it.
+
+**Read the frontmatter before you classify — location is not the answer.** A file's own header
+decides when its host loads it, and classifying by path understates the headline number in the
+dangerous direction: the repo looks leaner than it is, so the findings that would recover the most
+context rank lowest or get dropped. On one real repo that error halved the number.
+
+| Signal | Loads |
+|---|---|
+| `applyTo: "**"` in `.github/instructions/*.md` | **every session** — Copilot applies it to every file |
+| `applyTo: "src/pages/**, src/components/**"` | on demand, for those globs only |
+| `alwaysApply: true` in `.cursor/rules/*.mdc` | **every session** |
+| `globs:` in `.cursor/rules/*.mdc`, no `alwaysApply` | on demand |
+| root `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, shims | every session |
+| no frontmatter, nested leaf or skill body | on demand |
+
+Two files that are both always-loaded are **co-loaded**, and that is what makes repointing one at
+the other content-preserving rather than lossy. Without reading the frontmatter a safe `[safe]`
+repoint is indistinguishable from an unsafe one, and the hard rule below — never delete prose
+without a human yes — has no way to be applied correctly.
+
+State the signal you used per file, so the classification can be checked rather than trusted.
 
 ## Pass 2 — Find waste
 - **Discoverable from code** — cut what [[context-engineering]] Rule 3 covers. Check each claim

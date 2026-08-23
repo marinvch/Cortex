@@ -91,3 +91,30 @@ rm -rf "$WORK/proj/.cortex"
 out="$(run src/db.js)"; rc=$?
 assert_eq "2" "$rc" "a missing index is a refusal, not an empty radius"
 assert_contains "$out" "cortex-index.mjs" "and names the command that builds one"
+
+# --- the unknown list has to stay readable ---------------------------------------------------------
+
+# A repo with a tile pyramid returned 2,483 "not in the index" entries, 2,478 of them PNGs, and the
+# two staged source deletions that actually needed resolving were buried under them — the terminal
+# never reached the affected / unverified / suggested-tests sections. The total must stay honest and
+# every path must stay reachable with --json; what changes is that assets are counted, not listed.
+#
+# The previous section deleted the index on purpose, so rebuild the fixture before using it.
+fixture
+mkdir -p "$WORK/proj/public/tiles" "$WORK/proj/lib"
+i=0; while [ "$i" -lt 60 ]; do printf 'x' > "$WORK/proj/public/tiles/t$i.png"; i=$((i+1)); done
+printf 'export const helper = 1;\n' > "$WORK/proj/lib/helper.ts"
+# Staged, not merely present: --staged reads the index, and untracked files are invisible to it.
+# Only what this section created — `git add -A` would also stage the .gitignore the indexer writes
+# on first creating .cortex/, making the total depend on an unrelated behaviour.
+( cd "$WORK/proj" && git add public lib >/dev/null 2>&1 )
+
+out="$(run --staged)"
+assert_contains "$out" "Not in the index (61)" "the total counts every unknown path"
+assert_contains "$out" "lib/helper.ts" "an unknown SOURCE file is named"
+assert_contains "$out" "60 png under public/tiles/" "and sixty assets collapse to one line"
+assert_not_contains "$out" "public/tiles/t7.png" "no asset is listed individually"
+
+# --json is the escape hatch, so summarising in the terminal loses nothing.
+out="$(run --staged --json)"
+assert_contains "$out" "public/tiles/t7.png" "--json still carries every path"

@@ -17,6 +17,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { analyse, offers, render } from "./lib/findings.mjs";
 import { stamp } from "../core/date.js";
+import { nextLine } from "./lib/next.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, index: null, out: null, stdout: false, offers: false };
@@ -69,4 +70,6 @@ if (args.stdout) {
     .map((s) => `${counts[s]} ${s}`)
     .join(", ");
   process.stdout.write(`${findings.length} findings${summary ? ` (${summary})` : ""}\nWrote ${out}\n`);
+  // The report is the wizard's script, so the reader needs to know which step it feeds next.
+  process.stdout.write(`\n${nextLine(root, index)}\n`);
 }

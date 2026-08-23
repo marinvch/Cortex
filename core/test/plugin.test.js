@@ -178,3 +178,33 @@ test("a ritual above the mechanical floor says what to do when the floor is not 
 
   assert.deepEqual(missing, [], `these declare capability: strong but never say what a weaker setup should do:\n${missing.join("\n")}`);
 });
+
+test("a skill invokes Cortex's own scripts through the plugin root, never a repo-relative path", () => {
+  // Rituals run INSIDE a target repo, where `index/` does not exist — the plugin lives in the
+  // plugin cache. A skill telling the agent to run `node index/cortex-impact.mjs` fails with
+  // MODULE_NOT_FOUND, and the agent that does not silently substitute an absolute path reports the
+  // ritual as broken. Five skills carried 21 of these; two were added the same week, which is why
+  // this is a test and not a note. The check is on the invocation, so a prose mention of a filename
+  // is unaffected.
+  const skillsDir = join(REPO_ROOT, "skills");
+  const offenders = [];
+  for (const name of readdirSync(skillsDir)) {
+    const file = join(skillsDir, name, "SKILL.md");
+    let src;
+    try {
+      src = readFileSync(file, "utf8");
+    } catch {
+      continue; // not a skill directory
+    }
+    src.split(/\r?\n/).forEach((line, i) => {
+      // `node <dir>/x.mjs` where <dir> is one of ours and the path is not rooted at the plugin.
+      const m = line.match(/node\s+"?(?!\$\{CLAUDE_PLUGIN_ROOT\})(index|core|mcp|tools)\/[\w.-]+\.(mjs|js)/);
+      if (m) offenders.push(`${name}/SKILL.md:${i + 1}  ${line.trim()}`);
+    });
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `these invoke a Cortex script by a path that does not exist inside a target repo:\n${offenders.join("\n")}`,
+  );
+});

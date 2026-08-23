@@ -64,7 +64,13 @@ if (existsSync(enrichPath)) {
   }
 }
 
-const view = buildView(index, root, { enrichment, next: nextSteps(root, index) });
+// The page carries the sequence, and one of its steps is "see the repo as a graph" — the page
+// itself. Reading that off disk made the output depend on whether a previous run had left a file
+// behind: the same index rendered different bytes twice, and the first run always showed a stale
+// answer about itself. It is being written right now, so say so.
+// `--json` renders nothing, so it gets the state as it actually is on disk.
+const seq = nextSteps(root, index, args.json ? {} : { view: true });
+const view = buildView(index, root, { enrichment, next: seq });
 
 if (args.json) {
   console.log(JSON.stringify(view, null, 2));

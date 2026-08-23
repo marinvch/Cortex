@@ -22,7 +22,10 @@ git log --since=midnight --pretty='%h %s' --stat
 git status --porcelain
 ```
 
-If the index exists, re-run it and compare — new files, new areas, structure that moved:
+If the index exists, re-run it and compare — new files, new areas, structure that moved. The guard
+is deliberate: `/dream` never creates `.cortex/`, so it can never be the first write
+[ADR 0005](../../docs/adr/0005-the-install-sequence-may-start-itself.md) gates. On a repo with no
+index, skip straight to the digest.
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-index.mjs" .

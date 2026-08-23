@@ -18,6 +18,7 @@ import { buildIndex } from "./lib/build.mjs";
 import { analyse, offers, render } from "./lib/findings.mjs";
 import { stamp } from "../core/date.js";
 import { nextLine } from "./lib/next.mjs";
+import { ensureGeneratedFileDir } from "./lib/generated.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, index: null, out: null, stdout: false, offers: false };
@@ -30,6 +31,16 @@ function parseArgs(argv) {
     else if (!a.startsWith("--") && args.root === null) args.root = a;
   }
   return args;
+}
+
+// A directory appearing in someone's project on a run they did not explicitly ask for should be
+// visible. ADR 0005 puts the consent gate in the skill; this is the other half — saying what
+// landed, so "generated and gitignored" never quietly means "invisible".
+function generatedNotice(gen) {
+  const out = [];
+  if (gen.created) out.push("Created .cortex/ — generated artifacts live here; .cortex/memory/ is committed on purpose.");
+  if (gen.ignored.length) out.push("Added to .gitignore: " + gen.ignored.join(", "));
+  return out.length ? out.join("\n") + "\n" : "";
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -62,14 +73,16 @@ if (args.stdout) {
   const out = args.out
     ? isAbsolute(args.out) ? args.out : resolve(args.out)
     : join(root, ".cortex", "findings", `${day}.md`);
-  mkdirSync(dirname(out), { recursive: true });
+  const gen = ensureGeneratedFileDir(root, out);
   writeFileSync(out, report);
   const counts = findings.reduce((a, f) => ({ ...a, [f.severity]: (a[f.severity] || 0) + 1 }), {});
   const summary = ["critical", "high", "medium", "low"]
     .filter((s) => counts[s])
     .map((s) => `${counts[s]} ${s}`)
     .join(", ");
-  process.stdout.write(`${findings.length} findings${summary ? ` (${summary})` : ""}\nWrote ${out}\n`);
+  process.stdout.write(
+    `${findings.length} findings${summary ? ` (${summary})` : ""}\nWrote ${out}\n${generatedNotice(gen)}`,
+  );
   // The report is the wizard's script, so the reader needs to know which step it feeds next.
   process.stdout.write(`\n${nextLine(root, index)}\n`);
 }

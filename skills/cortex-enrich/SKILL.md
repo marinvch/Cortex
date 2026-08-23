@@ -21,6 +21,12 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-enrich.mjs" plan .
 Prints how many batches and files, and writes `.cortex/index/batches.json`. Batching is
 deterministic — same index, same batches — which is what makes an interrupted run resumable.
 
+**If `.cortex/` does not exist, ask before that write.** This skill is separately invocable, so it
+can be the first thing to create the directory — the write
+[ADR 0005](../../docs/adr/0005-the-install-sequence-may-start-itself.md) gates. Generated and
+gitignored is not the same as invisible; the `.gitignore` entry is written for you at creation time,
+the asking is not.
+
 **Tell the user the size before doing anything.** Roughly one model call per batch. Forty batches
 is a real cost; offer to enrich only the areas that matter if the repo is large. Wait for a yes.
 

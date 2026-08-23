@@ -3,6 +3,46 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.26.0] — 2026-08-23
+
+### Fixed — the protection was attached to a skill, not to the act ([#366](https://github.com/marinvch/Cortex/issues/366), [#370](https://github.com/marinvch/Cortex/issues/370))
+
+Two issues, one root cause. `/cortex-scaffold` was the only place that added `.cortex/` to
+`.gitignore`, and `/cortex-install` was the only place that stated the consent gate — but neither is
+the only place that **creates** `.cortex/`. `/cortex-brief` re-indexes when the index is stale,
+`/cortex-enrich plan` writes batches, `/cortex-scaffold` and `/cortex-skills` re-index, and an
+install a user stops halfway through has already written one. Each left a directory of generated
+artifacts in `git status`, and one of them created it on a user who was never asked.
+
+**The mechanical half moved into code.** `index/lib/generated.mjs` ignores the generated
+directories at the moment `.cortex/` first exists, by whichever entry point got there first — no
+skill has to remember. Append-only and never clobbering: a broader `.cortex/` the user wrote
+themselves is honoured rather than duplicated, and `.cortex/memory/` is never ignored, because it is
+committed on purpose.
+
+**The gate stayed in the skills, and is now checked.** ADR 0005 says the missing invocation flag
+"is only safe while the gate is present"; `core/test/plugin.test.js` now fails if a skill that can
+create `.cortex/` does not say the user must be asked first. A machine can be relied on to remember
+a `.gitignore` line. It cannot be relied on to ask, so that half is tested rather than assumed.
+
+Every CLI now prints what it created and what it ignored — "generated and gitignored" must never
+quietly mean "invisible".
+
+`/cortex-brief` also gained the step it was missing: **if there is no root `AGENTS.md`, hand off to
+`/cortex-scaffold`.** Every leaf opens by pointing up at a root, and step 3 wires a routing table
+into it, but no step said what to do when there is none — so the agent improvised a spine, which is
+exactly what `/cortex-install` step 6 forbids.
+
+### Fixed — `--out` had quietly stopped meaning it
+
+Caught while writing the above. `--out` exists so Cortex can be pointed at a project someone cares
+about without modifying it, and the new gitignore write used the repo root rather than the output
+path — so `--out` began editing the target's `.gitignore` while leaving no `.cortex/` behind.
+
+The read-only test could not see it: it checked for a stray `.cortex/` directory and nothing else.
+It now fingerprints the **whole tree** before and after, so a write to somewhere the author did not
+think to name still fails. Verified by disabling the fix and watching both assertions fail.
+
 ## [2.25.1] — 2026-08-23
 
 ### Fixed — churn silently reported zero on any repo younger than the window ([#365](https://github.com/marinvch/Cortex/issues/365))
@@ -1694,6 +1734,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.26.0]: https://github.com/marinvch/Cortex/releases/tag/v2.26.0
 [2.25.1]: https://github.com/marinvch/Cortex/releases/tag/v2.25.1
 [2.25.0]: https://github.com/marinvch/Cortex/releases/tag/v2.25.0
 [2.24.2]: https://github.com/marinvch/Cortex/releases/tag/v2.24.2

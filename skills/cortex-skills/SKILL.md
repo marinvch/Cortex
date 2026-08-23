@@ -26,6 +26,12 @@ If it reports no index, or one older than the working tree, re-index first:
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-index.mjs" .
 ```
 
+**If `.cortex/` does not exist, ask before running that** — it is the first write, and this skill is
+separately invocable on a repo where no other ritual has run. That is the write
+[ADR 0005](../../docs/adr/0005-the-install-sequence-may-start-itself.md) gates: generated and
+gitignored is not the same as invisible. The `.gitignore` entry is written for you at creation time;
+the asking is not.
+
 Show the detected stack and the proposals **with the reason each was surfaced** — the tool prints
 them. Never present a bare list: a user cannot consent to a proposal they cannot evaluate, and the
 reason is what lets them say "that one's wrong, we do use a test runner."

@@ -222,11 +222,11 @@ function buildGaps(){const g=DATA.gaps;
    +'<div class="k"><b>'+DATA.stats.edges+'</b><span>import edges</span></div>'
    +'<div class="k"><b>'+DATA.stats.tests+'</b><span>tests</span></div>'
    +'<div class="k'+(g.orphans.length?' warn':'')+'"><b>'+g.orphans.length+'</b><span>orphans</span></div>'
-   +'<div class="k'+(g.cycles.length?' bad':'')+'"><b>'+g.cycles.length+'</b><span>cycles</span></div></div>';
+   +'<div class="k'+(g.cyclicFiles.length?' bad':'')+'"><b>'+g.cyclicFiles.length+'</b><span>in cycles</span></div></div>';
   h+='<h2 class="vh">Orphans</h2><div class="hint">Code files nothing imports and which import nothing. Import resolution is regex-based, so dynamic and computed imports are invisible — treat every row as a question, never a delete list.</div>';
   h+=g.orphans.length?g.orphans.map(p=>'<span class="chip" data-go="'+esc(p)+'"><span class="mono">'+esc(p)+'</span></span>').join(''):'<div class="hint">None.</div>';
-  h+='<h2 class="vh">Import cycles</h2><div class="hint">A cycle is a group of files that cannot be understood — or tested — one at a time.</div>';
-  h+=g.cycles.length?g.cycles.map(c=>'<div class="card"><div class="mono" style="color:var(--ink-2)">'+c.map(esc).join(' → ')+'</div></div>').join(''):'<div class="hint">None.</div>';
+  h+='<h2 class="vh">Files in import cycles</h2><div class="hint">These import each other, directly or through a chain, so they cannot be understood — or tested — one at a time. They also share one layer depth, because mutually importing files genuinely have no order among themselves.</div>';
+  h+=g.cyclicFiles.length?g.cyclicFiles.map(p=>'<span class="chip" data-go="'+esc(p)+'"><span class="mono">'+esc(p)+'</span></span>').join(''):'<div class="hint">None.</div>';
   h+='<h2 class="vh">Busiest code with no test found</h2><div class="hint">Ranked by commits, because churn is where an untested file actually costs you. Coverage uses three signals — a test named for the file, a test importing it, or a test naming it in a quoted string — so a file exercised only through a subprocess reads as untested here. That is the safe direction to be wrong in.</div>';
   h+=g.untested.length?'<table><tr><th>file</th><th>commits</th></tr>'+g.untested.map(u=>'<tr><td><span class="chip" data-go="'+esc(u.path)+'"><span class="mono">'+esc(u.path)+'</span></span></td><td class="num">'+u.commits+'</td></tr>').join('')+'</table>':'<div class="hint">None.</div>';
   h+='<h2 class="vh">Hot spots</h2><div class="hint">The most-changed code in this repo\\'s history — what a new agent, or a new hire, should read first, and where a scoped brief pays for itself.</div>';

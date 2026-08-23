@@ -110,3 +110,44 @@ export function impactOf(index, changed, { root, maxDepth = Infinity } = {}) {
     truncated: maxDepth !== Infinity,
   };
 }
+
+// Extensions a repo commits by the thousand and Cortex never indexes. Deliberately a closed list of
+// binary media and lockfiles rather than "anything not source": a reader must be able to trust that
+// an unfamiliar extension is still shown one per line, because the whole job of this section is to
+// surface the path nobody expected.
+const ASSET_EXT = new Set([
+  "png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "ico", "svg", "tif", "tiff",
+  "mp4", "webm", "mov", "avi", "mp3", "wav", "ogg", "flac",
+  "woff", "woff2", "ttf", "otf", "eot",
+  "pdf", "zip", "gz", "tar", "7z", "rar", "bin", "wasm", "map",
+]);
+
+/**
+ * Split unknown paths into source (listed) and assets (counted by directory and extension).
+ *
+ * Grouping is by directory + extension because that is the shape the noise actually takes — a tile
+ * pyramid, an icon set, a font directory. Deterministic ordering, largest group first.
+ */
+export function groupUnknown(paths) {
+  const source = [];
+  // Nested map, not a joined string key: a directory name may contain a space, and any single-char
+  // separator is a bug waiting for the repo that uses it in a path.
+  const byDir = new Map();
+  for (const p of paths) {
+    const ext = (p.split(".").pop() || "").toLowerCase();
+    if (!p.includes(".") || !ASSET_EXT.has(ext)) {
+      source.push(p);
+      continue;
+    }
+    const dir = p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : ".";
+    if (!byDir.has(dir)) byDir.set(dir, new Map());
+    const byExt = byDir.get(dir);
+    byExt.set(ext, (byExt.get(ext) ?? 0) + 1);
+  }
+  const assets = [];
+  for (const [dir, byExt] of byDir) {
+    for (const [ext, count] of byExt) assets.push({ dir, ext, count });
+  }
+  assets.sort((a, b) => b.count - a.count || a.dir.localeCompare(b.dir) || a.ext.localeCompare(b.ext));
+  return { source: source.sort(), assets };
+}

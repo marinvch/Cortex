@@ -47,17 +47,41 @@ function git(root, args) {
   }
 }
 
-/** Commit counts per file over a recent window. Absent git, every file simply scores 0. */
+/**
+ * Commit counts per file, and the window they were counted over.
+ *
+ * The window is recent by design — churn matters because it is *current*. But a repo whose whole
+ * history predates it scored 0 everywhere, and nothing said so: `/cortex-brief`'s "ranked by size,
+ * churn and absence of tests" quietly degraded to ranking by size, `/cortex-impact` lost its
+ * tiebreak, and the viewer's hot spots emptied. A real repo with 11 commits hit this — no error, no
+ * warning, just a signal that had silently become a constant.
+ *
+ * So: if the window finds nothing and the repo does have history, count all of it and say which
+ * window was used. A stated wider window is honest; a silent zero is not. Absent git entirely,
+ * every file scores 0 and `window` is null — the caller can tell "no churn" from "no git", which
+ * is the same distinction UNRESOLVED_LANGUAGES exists to preserve for imports.
+ *
+ * Returns `{ counts, window }`. The window is not decoration: it is printed, so a reader knows
+ * whether "12 commits" means twelve this quarter or twelve ever.
+ */
 export function hotspots(root, { since = "3 months ago" } = {}) {
-  const out = git(root, ["log", `--since=${since}`, "--name-only", "--pretty=format:"]);
+  let window = since;
+  let out = git(root, ["log", `--since=${since}`, "--name-only", "--pretty=format:"]);
+  if (out !== null && !out.trim()) {
+    const all = git(root, ["log", "--name-only", "--pretty=format:"]);
+    if (all && all.trim()) {
+      out = all;
+      window = "all history";
+    }
+  }
   const counts = new Map();
-  if (!out) return counts;
+  if (!out) return { counts, window: out === null ? null : window };
   for (const line of out.split("\n")) {
     const p = line.trim();
     if (!p) continue;
     counts.set(p, (counts.get(p) || 0) + 1);
   }
-  return counts;
+  return { counts, window };
 }
 
 /**
@@ -66,7 +90,7 @@ export function hotspots(root, { since = "3 months ago" } = {}) {
  */
 export function buildIndex(root, opts = {}) {
   const { files: raw, skipped } = listFiles(root, opts);
-  const commits = hotspots(root, opts);
+  const { counts: commits, window: churnWindow } = hotspots(root, opts);
   const head = (git(root, ["rev-parse", "HEAD"]) || "").trim() || null;
 
   const files = raw.map((f) => {
@@ -293,6 +317,11 @@ export function buildIndex(root, opts = {}) {
       // number here describes what was found; this is the only one that describes what was not,
       // and it belongs beside them so a reader cannot see the count without seeing the gap.
       skipped,
+      // Which window the `commits` numbers were counted over: the recent one, "all history" when
+      // the repo is younger than it, or null when there is no git at all. Every consumer prints a
+      // sentence about churn, and without this they all print the same sentence whether the number
+      // means twelve commits this quarter or twelve ever.
+      churnWindow,
     },
     files: files.sort((a, b) => a.path.localeCompare(b.path)),
     edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),

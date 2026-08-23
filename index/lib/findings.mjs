@@ -299,7 +299,12 @@ export function analyse(index, root) {
           "No test file is named after these, and no test imports them. Ranked by recent commit activity — the top entries change often and are unverified, which is where regressions come from. A module exercised only indirectly, through a helper a test imports, will show up here.",
           untested
             .slice(0, 8)
-            .map((d) => `${d.dir} — ${d.untested}/${d.code} untested, ${d.commits} recent commits: ${d.examples.join(", ")}`),
+            .map(
+              (d) =>
+                `${d.dir} — ${d.untested}/${d.code} untested, ${d.commits} ${
+                  index.stats?.churnWindow === "all history" ? "commits ever" : "recent commits"
+                }: ${d.examples.join(", ")}`,
+            ),
         ),
       );
     }
@@ -355,7 +360,7 @@ export function analyse(index, root) {
         "low",
         "structure",
         "Hot spots",
-        "The files changing most often in the last three months. Effort spent on context, tests or refactoring pays off here first — this is where YAGNI applies to improvement work.",
+        `The files changing most often ${index.stats?.churnWindow === "all history" ? "in this repo's whole history — its history is shorter than the usual three-month window" : "in the last three months"}. Effort spent on context, tests or refactoring pays off here first — this is where YAGNI applies to improvement work.`,
         hot.map((f) => `${f.path} — ${f.commits} commits`),
       ),
     );

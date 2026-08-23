@@ -27,10 +27,10 @@ turns that into a complete answer. "3 files affected" when the truth is 5 is wor
 ## Run it
 
 ```bash
-node index/cortex-impact.mjs src/lib/db.ts        # named files
-node index/cortex-impact.mjs --staged             # what you are about to commit
-node index/cortex-impact.mjs --since HEAD~3       # what changed over a range
-node index/cortex-impact.mjs --staged --json      # machine-readable, for a ritual to walk
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" src/lib/db.ts        # named files
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --staged             # what you are about to commit
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --since HEAD~3       # what changed over a range
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --staged --json      # machine-readable, for a ritual to walk
 ```
 
 `--depth N` bounds the walk when the radius is enormous; the output says it stopped.

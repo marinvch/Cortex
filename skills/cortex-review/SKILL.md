@@ -51,14 +51,14 @@ drift and invisible here, because the path was never wrong. That half still need
 ## Run the evidence pass first
 
 ```bash
-node index/cortex-review.mjs --staged        # what you are about to commit
-node index/cortex-review.mjs --since HEAD~3  # a range
-node index/cortex-review.mjs path/to/file.ts # named files
-node index/cortex-review.mjs --staged --json # to walk it yourself
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" --staged        # what you are about to commit
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" --since HEAD~3  # a range
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" path/to/file.ts # named files
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" --staged --json # to walk it yourself
 
-node index/cortex-review.mjs --citations              # the whole layer, no diff needed
-node index/cortex-review.mjs --citations --since HEAD~20 --json
-node index/cortex-review.mjs --citations --fix        # a patch for the provable ones
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" --citations              # the whole layer, no diff needed
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" --citations --since HEAD~20 --json
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" --citations --fix        # a patch for the provable ones
 ```
 
 Deterministic and read-only. It finds and cites; it never judges. It gives you:
@@ -74,7 +74,7 @@ If it reports no context layer, say so and stop. There is nothing to review agai
 ## Then do the judging
 
 1. **Read every governing document.** Not skim — the rules are prose, and the one that matters is
-   rarely the one with a heading. Pair this with `node index/cortex-impact.mjs` when the change
+   rarely the one with a heading. Pair this with `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs"` when the change
    touches something widely imported; a documented rule about a module matters more when twenty
    files depend on it.
 2. **For each documented rule the change touches, decide: followed, broken, or not applicable.**

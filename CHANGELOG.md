@@ -3,6 +3,40 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.25.1] — 2026-08-23
+
+### Fixed — churn silently reported zero on any repo younger than the window ([#365](https://github.com/marinvch/Cortex/issues/365))
+
+`hotspots()` counted commits over a hardcoded three-month window. A repo whose entire history
+predates it scored `commits: 0` for **every** file, and nothing said so — not an error, not a
+warning, just a signal that had quietly become a constant. Found on a real repo with 11 commits and
+120 files.
+
+The damage was downstream and invisible: `/cortex-brief`'s "ranked by size, churn and absence of
+tests" degraded to ranking by size alone, `/cortex-impact` lost its tiebreak, and the viewer's hot
+spots emptied. Every one of them printed its usual confident sentence.
+
+When the window finds nothing and the repo does have history, all of it is counted and the index
+records which window was used — `stats.churnWindow` is `"3 months ago"`, `"all history"`, or `null`
+when there is no git at all. That last distinction is the one `UNRESOLVED_LANGUAGES` exists to keep
+for imports: *I looked and found nothing* must not print the same sentence as *I could not look*.
+The findings report now says "in this repo's whole history" when that is what it means, rather than
+claiming three months.
+
+### Fixed — skills invoked Cortex's scripts by a path that does not exist in a target repo ([#371](https://github.com/marinvch/Cortex/issues/371))
+
+Rituals run **inside a target repo**, where `index/` does not exist — the plugin lives in the plugin
+cache. `skills/cortex-impact/SKILL.md` told the agent to run `node index/cortex-impact.mjs`, which
+fails with `MODULE_NOT_FOUND` unless the agent silently substitutes an absolute path; one that does
+not reports the ritual as broken.
+
+The issue named one skill. There were **21 occurrences across five** — `cortex-impact`,
+`cortex-review`, `diagnosing-bugs`, and `cortex-install` and `cortex-next`, both of which acquired
+theirs earlier the same week. All now use `${CLAUDE_PLUGIN_ROOT}`, and `core/test/plugin.test.js`
+fails on any skill that invokes an `index/`, `core/`, `mcp/` or `tools/` script by a bare path — the
+lint the issue asked for, so this cannot come back. The README's plugin-facing commands are fixed
+too, with its clone-only block labelled as such.
+
 ## [2.25.0] — 2026-08-23
 
 ### Added — TypeScript path aliases resolve, so modern repos stop reading as empty
@@ -1660,6 +1694,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.25.1]: https://github.com/marinvch/Cortex/releases/tag/v2.25.1
 [2.25.0]: https://github.com/marinvch/Cortex/releases/tag/v2.25.0
 [2.24.2]: https://github.com/marinvch/Cortex/releases/tag/v2.24.2
 [2.24.1]: https://github.com/marinvch/Cortex/releases/tag/v2.24.1

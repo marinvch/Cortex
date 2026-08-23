@@ -10,6 +10,9 @@ import {
   resolveJavaImport,
   resolvePhpImport,
   resolveRubyImport,
+  parseJsonc,
+  tsAliasTable,
+  resolveTsAlias,
 } from "../lib/imports.mjs";
 
 test("extracts every JS/TS import form", () => {
@@ -304,4 +307,83 @@ test("extraction covers the forms each language actually writes", () => {
   // two different files.
   const ruby = extractImports("require_relative 'x'\nrequire 'sinatra/base'", "ruby");
   assert.deepEqual(ruby, ["./x", "sinatra/base"]);
+});
+
+// --- tsconfig path aliases -------------------------------------------------------------------
+//
+// Found by running the indexer against a real Next.js app rather than a fixture: 428 imports were
+// written `@/components/…` against 104 relative ones, so the graph held about a fifth of its edges
+// and 154 files read as orphans. The alias is declared in the repo, exactly like go.mod's module
+// path — reading it is not a guess.
+
+test("jsonc: tsconfigs are JSON with comments and trailing commas", () => {
+  const parsed = parseJsonc(`{
+    // the generator writes these
+    "compilerOptions": {
+      /* and these */
+      "baseUrl": ".",
+      "paths": { "@/*": ["./src/*"], },
+    },
+  }`);
+  assert.equal(parsed.compilerOptions.baseUrl, ".");
+  assert.deepEqual(parsed.compilerOptions.paths["@/*"], ["./src/*"]);
+});
+
+test("jsonc: a // inside a string is not a comment", () => {
+  const parsed = parseJsonc('{ "url": "https://example.com/x", "a": 1 }');
+  assert.equal(parsed.url, "https://example.com/x");
+  assert.equal(parsed.a, 1);
+});
+
+test("jsonc: unparseable input yields null rather than throwing", () => {
+  // A config Cortex cannot read costs that config's aliases. It must never cost the run.
+  assert.equal(parseJsonc("{ this is not json"), null);
+});
+
+test("a wildcard alias resolves through to the file, index files included", () => {
+  const table = tsAliasTable({ compilerOptions: { baseUrl: ".", paths: { "@/*": ["./src/*"] } } });
+  const files = new Set(["src/components/Header/index.tsx", "src/utils/format.ts"]);
+  assert.equal(resolveTsAlias("@/components/Header", files, table), "src/components/Header/index.tsx");
+  assert.equal(resolveTsAlias("@/utils/format", files, table), "src/utils/format.ts");
+});
+
+test("an exact alias beats the wildcard that would also match it", () => {
+  // Real tsconfigs carry both. "@/payload-types" must not be swallowed by "@/*" pointing elsewhere.
+  const table = tsAliasTable({
+    compilerOptions: {
+      baseUrl: ".",
+      paths: { "@/*": ["./src/*"], "@/payload-types": ["./generated/types.ts"] },
+    },
+  });
+  const files = new Set(["generated/types.ts", "src/payload-types.ts"]);
+  assert.equal(resolveTsAlias("@/payload-types", files, table), "generated/types.ts");
+});
+
+test("a package that no alias claims stays external", () => {
+  // The whole value of the graph is that an edge means something. Resolving react to a local file
+  // because a baseUrl happened to sit above one would be worse than missing the edge.
+  const table = tsAliasTable({ compilerOptions: { baseUrl: ".", paths: { "@/*": ["./src/*"] } } });
+  const files = new Set(["src/a.ts"]);
+  assert.equal(resolveTsAlias("react", files, table), null);
+  assert.equal(resolveTsAlias("@/nope", files, table), null);
+});
+
+test("baseUrl alone resolves a bare specifier, and only to a file that exists", () => {
+  const table = tsAliasTable({ compilerOptions: { baseUrl: "./src" } });
+  const files = new Set(["src/components/Button.tsx"]);
+  assert.equal(resolveTsAlias("components/Button", files, table), "src/components/Button.tsx");
+  assert.equal(resolveTsAlias("lodash", files, table), null);
+});
+
+test("aliases in a nested package are rooted at that package, not at the repo", () => {
+  // A monorepo's apps/web/tsconfig.json says "./src/*" and means apps/web/src.
+  const table = tsAliasTable({ compilerOptions: { paths: { "@/*": ["./src/*"] } } }, "apps/web");
+  const files = new Set(["apps/web/src/app.ts", "src/app.ts"]);
+  assert.equal(resolveTsAlias("@/app", files, table), "apps/web/src/app.ts");
+});
+
+test("multiple targets for one alias are tried in order", () => {
+  const table = tsAliasTable({ compilerOptions: { paths: { "~/*": ["./missing/*", "./src/*"] } } });
+  const files = new Set(["src/thing.ts"]);
+  assert.equal(resolveTsAlias("~/thing", files, table), "src/thing.ts");
 });

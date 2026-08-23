@@ -3,6 +3,46 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.25.0] — 2026-08-23
+
+### Added — TypeScript path aliases resolve, so modern repos stop reading as empty
+
+`index/lib/imports.mjs` resolved relative specifiers and treated everything else as an external
+package. On a modern TypeScript repo that is most of the graph. Measured on a real Next.js app:
+
+| | before | after |
+|---|---|---|
+| resolved imports | 116 | **589** |
+| orphans reported | 154 | **20** |
+| layer depth | 4 | **11** |
+
+428 of that repo's imports were written `@/components/…` against 104 relative ones. The index held
+about a fifth of its edges, and **every consumer was confidently wrong** — the orphan finding named
+134 files that are imported constantly, `/cortex-impact` under-reported blast radius on all of them,
+`depth.mjs` flattened the architecture to four levels, and the viewer drew a scatter of unconnected
+dots. Each output was correctly hedged and each was useless.
+
+`tsconfig.json` / `jsconfig.json` `paths` and `baseUrl` are **declared**, exactly like `go.mod`'s
+module path and `composer.json`'s PSR-4 prefixes, so reading them is not a guess. `build.mjs`
+follows the `extends` chain — splitting options into a base config is the normal layout, and a
+resolver that stops at `extends` sees nothing — and matches the nearest config per file, so a
+monorepo package's own aliases beat the root's.
+
+Two properties keep it honest. The alias pass runs **only after** the relative resolver returns
+null, so it is strictly additive: a repo declaring nothing cannot get a different graph because of
+it. And a bare specifier no alias claims stays external — resolving `react` to a local file because
+a `baseUrl` sat above one would be worse than missing the edge.
+
+`parseJsonc` handles what these files actually contain: `//` and `/* */` comments, which every
+TypeScript generator writes, and the trailing comma a real config carried after its last `paths`
+entry. Strings are respected, so a `//` inside a URL survives. Unparseable input returns `null` —
+a config that cannot be read costs its aliases, never the run.
+
+**Validated against six cloned and local repos**, not fixtures: across all of them, **every one of
+the newly resolved targets exists on disk** — zero false edges — and the two with no `tsconfig`
+produced byte-identical indexes to before. Nothing in the existing test suite could have found this
+gap, which is the argument for the rule.
+
 ## [2.24.2] — 2026-08-23
 
 ### Fixed — the viewer crashed on the first repo that had an import cycle
@@ -1620,6 +1660,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.25.0]: https://github.com/marinvch/Cortex/releases/tag/v2.25.0
 [2.24.2]: https://github.com/marinvch/Cortex/releases/tag/v2.24.2
 [2.24.1]: https://github.com/marinvch/Cortex/releases/tag/v2.24.1
 [2.24.0]: https://github.com/marinvch/Cortex/releases/tag/v2.24.0

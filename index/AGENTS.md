@@ -47,6 +47,24 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - **Import resolution is regex-based**, so dynamic and computed imports are missed. That is a
   documented limit, not a bug — it is why the orphan finding says "worth checking", never "safe to
   delete".
+- **A path alias is read from the repo, never guessed.** `tsconfig.json` / `jsconfig.json` `paths`
+  and `baseUrl` are declared, exactly like `go.mod`'s module path and `composer.json`'s PSR-4
+  prefixes, and `build.mjs` follows the `extends` chain because splitting options into a base config
+  is the normal layout. Aliases are tried **only after** the relative resolver returns null, so the
+  pass is strictly additive: a repo declaring nothing cannot get a different graph because of it.
+  Never widen this into inferring an alias from directory names — the value of an edge is that it
+  means something, and resolving `react` to a local file because a `baseUrl` sat above one is worse
+  than missing the edge.
+- **Those configs are JSON with Comments.** Every generator TypeScript ships writes `//` lines into
+  them, and a real one carried a trailing comma after its last `paths` entry. `parseJsonc` strips
+  both — respecting strings, so a `//` inside a URL survives — and returns `null` rather than
+  throwing. A config that cannot be read costs its aliases, never the run.
+- **This gap was invisible to fixtures and obvious on one real repo.** A Next.js app wrote 428
+  imports as `@/…` against 104 relative ones: the index held a fifth of its edges and called 154
+  files orphans, and *every* consumer — orphans, impact, depth, the viewer — was confidently wrong.
+  Nothing in the test suite could have found it. Validate resolver changes against cloned repos,
+  and check that every resolved target actually exists on disk; more edges is not the same as
+  correct edges.
 - **Coverage uses three signals** — name, import, and a quoted string mention — and lives in
   `lib/coverage.mjs`, shared by `findings.mjs` and `impact.mjs`. Each alone misreports: naming
   alone called `mcp/lib` untested when its tests live in `mcp/test`; a CLI spawned as a subprocess

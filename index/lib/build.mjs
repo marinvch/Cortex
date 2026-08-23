@@ -19,6 +19,7 @@ import {
 import { inferAreas } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
 import { depthOf } from "./depth.mjs";
+import { vendoredPaths, vendoredStats } from "./vendored.mjs";
 
 export const INDEX_VERSION = "1";
 
@@ -104,11 +105,19 @@ export function buildIndex(root, opts = {}) {
       isTest: isTestPath(f.path),
       isEntry: isEntryPath(f.path),
       commits: commits.get(f.path) || 0,
+      // Declared in .gitattributes, never inferred from a directory name. A vendored file stays in
+      // the index — git-truth is the point — but every consumer that ranks or costs by size can now
+      // tell somebody else's code from this team's. Filled in just below, in one git call.
+      vendored: false,
       imports: [],
     };
   });
 
   const fileSet = new Set(files.map((f) => f.path));
+
+  // One `git check-attr` for the whole tree. Per-file calls cost more than the rest of the index.
+  const marked = vendoredPaths(root, files.map((f) => f.path));
+  for (const f of files) f.vendored = marked.has(f.path);
 
   // Go needs two things no other language here does: the module path (so an import can be told
   // from an external package) and a directory index (because a Go import names a package, which
@@ -322,6 +331,10 @@ export function buildIndex(root, opts = {}) {
       // sentence about churn, and without this they all print the same sentence whether the number
       // means twelve commits this quarter or twelve ever.
       churnWindow,
+      // What was declared as somebody else's. Reported beside the totals for the same reason
+      // `skipped` is: a reader who sees "13,532 lines" must be able to see that 11,600 of them are
+      // vendored, or they will read a number about another team's code as a number about theirs.
+      vendored: vendoredStats(files),
     },
     files: files.sort((a, b) => a.path.localeCompare(b.path)),
     edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to)),

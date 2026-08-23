@@ -9,6 +9,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
+import { nextLine } from "./lib/next.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, out: null, json: false };
@@ -56,6 +57,9 @@ if (args.json) {
       `Layers: ${index.layers.length} (depth 0 = foundation)` +
       (index.cycles.length ? `, ${index.cycles.length} files in import cycles` : "") +
       `\n` +
-      `Wrote ${out} in ${Date.now() - started}ms\n`,
+      `Wrote ${out} in ${Date.now() - started}ms\n` +
+      // An index answers nothing a user actually asked. Without this line the sequence is
+      // invisible and they are left holding a menu of eleven commands sorted by nothing.
+      `\n${nextLine(root, index)}\n`,
   );
 }

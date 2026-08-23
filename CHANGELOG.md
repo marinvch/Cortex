@@ -3,6 +3,58 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.24.0] — 2026-08-23
+
+### Added — the sequence, and a picture of the repo
+
+Cortex had an ordering problem, not a capability one. Every ritual knew its own job and none of them
+knew what came after, so the honest answer to *"I installed the plugin, now what"* was a table of
+eleven commands sorted by nothing. A user who ran `/cortex-install` was handed a menu and left to
+guess which row applied to them — and the one row that had to come **before** `/cortex-scaffold`
+(`/optimize-context`, on a repo that already had an `AGENTS.md`) was indistinguishable from the ten
+that did not.
+
+**`/cortex-next` answers it, from the filesystem rather than from memory.**
+
+```
+node index/cortex-next.mjs .          # the ordered runbook, ✓ / → / ·
+node index/cortex-next.mjs . --line   # one line, for a footer
+node index/cortex-next.mjs . --json   # for a ritual to walk
+```
+
+Every ✓ names its evidence — `.cortex/index/index.json`, a report under `.cortex/findings/`,
+`CONTEXT.md`, a `<dir>/AGENTS.md`, a `SKILL.md` under `.claude/skills/`. A step nothing on disk can
+settle is `optional`: it never becomes "next" and never blocks, so nothing is ever ticked silently.
+This is a script and not a judgment call for the same reason the index is deterministic — the
+sequence is a fact about the repository, and a model re-deriving it each session hands the user a
+different answer every time they ask.
+
+`cortex-index`, `cortex-findings` and `cortex-view` now end with the same `Next →` line, so the
+order is never something you have to go back to the README to look up.
+
+### Added — `cortex-view`: the repo as one offline page
+
+The vault has had a force-graph viewer since v1, but `tools/cortex.sh` walks vault folders and
+follows `[[wikilinks]]`. Pointed at a codebase it found nothing and cheerfully wrote an empty graph.
+This is the codebase half:
+
+```
+node index/cortex-view.mjs .     # writes .cortex/view/repo.html and opens it
+```
+
+One self-contained page — no server, no CDN, no runtime, data inlined, works offline. **Next steps**
+(the sequence above, with this repo's position), **Map** (files coloured by area, laid out by import
+depth so it reads top-down rather than as a hairball), **Files** (who imports it, what it imports,
+both clickable), **Areas**, **Gaps** (orphans, cycles, busiest untested code).
+
+Three things it deliberately does not do. It does not draw markdown or config: they have no imports,
+and on this repo 171 isolated nodes pushed the 98 connected ones off screen. It does not call an
+orphan dead — regex import resolution makes dynamic imports invisible, so every row is a question.
+And it does not invent a coverage number: it reuses `lib/coverage.mjs`, so a file exercised only
+through a subprocess reads as untested, which is the safe direction to be wrong in.
+
+It follows the viewer's system theme and renders at device resolution.
+
 ## [2.23.0] — 2026-08-22
 
 ### Added — `--citations`: drift without a diff
@@ -1512,6 +1564,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.24.0]: https://github.com/marinvch/Cortex/releases/tag/v2.24.0
 [2.23.0]: https://github.com/marinvch/Cortex/releases/tag/v2.23.0
 [2.22.2]: https://github.com/marinvch/Cortex/releases/tag/v2.22.2
 [2.22.1]: https://github.com/marinvch/Cortex/releases/tag/v2.22.1

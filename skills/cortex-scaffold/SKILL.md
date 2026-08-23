@@ -86,6 +86,7 @@ From `${CLAUDE_PLUGIN_ROOT}/templates/`:
 ```
 .cortex/index/
 .cortex/findings/
+.cortex/view/
 ```
 
 `.cortex/memory/` is deliberately **not** ignored. Say this out loud to the user: memory is

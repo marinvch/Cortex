@@ -3,6 +3,34 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.24.1] — 2026-08-23
+
+### Fixed — the page disagreed with itself between runs
+
+`cortex-view` read "see the repo as a graph" off the filesystem while writing the very page that
+step refers to. The first run therefore rendered a stale answer about itself, and a second run
+produced different bytes from the same index — which breaks the determinism the rest of `index/`
+promises, and makes the page undiffable. It now states the fact it is in the middle of making.
+`readState` grew a narrow `overrides` seam for exactly this case: a caller mid-write that knows
+something the filesystem does not have yet. It is not for assuming a step someone else must run.
+
+### Added — CLI tests for the two CLIs that print instructions
+
+`index/AGENTS.md` already set the standard: a CLI earns a shell test when its failure mode is a
+confident wrong sentence rather than a crash, which is why `cortex-impact.mjs` has one. Both CLIs
+added in 2.24.0 meet that bar and shipped without one.
+
+`tools/test/cortex-next.test.sh` (24 assertions) and `tools/test/cortex-view.test.sh` (17) run
+against real git fixtures. They defend the sentences, not the numbers: that a bare repo is told the
+entry point by name, that an optional step never becomes "next", that a retired `.ai-os/` engine
+outranks every finished step, that `/optimize-context` is offered before `/cortex-scaffold` no
+matter which file was written first — and, for the viewer, that it refuses rather than rendering an
+empty page, writes nothing outside `.cortex/`, leaves tracked files byte-identical, and emits a page
+with no remote script. The determinism regression above is the assertion that caught it.
+
+`cortex-next` also asserts the thing worth asserting about a read-only tool: run on a bare repo, it
+leaves no `.cortex/` behind. That is the product's central claim, made executable.
+
 ## [2.24.0] — 2026-08-23
 
 ### Added — the sequence, and a picture of the repo
@@ -1564,6 +1592,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.24.1]: https://github.com/marinvch/Cortex/releases/tag/v2.24.1
 [2.24.0]: https://github.com/marinvch/Cortex/releases/tag/v2.24.0
 [2.23.0]: https://github.com/marinvch/Cortex/releases/tag/v2.23.0
 [2.22.2]: https://github.com/marinvch/Cortex/releases/tag/v2.22.2

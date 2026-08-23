@@ -115,6 +115,7 @@ and needs no mirror at all.
 | `/level-up` | biweekly | Notice→Decide→Build interview; ship one artifact |
 | `/reindex` | periodic | regenerate the navigator graph, nominate MOCs, fix dead links |
 | `/cortex-audit` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files, privacy leaks |
+| `/cortex-next` | any time you are lost | where this repo is in the sequence, and the one command to run now |
 | `/cortex-install` | per repo | index a codebase, report findings, scaffold only what the user picks |
 | `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
 | `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
@@ -148,6 +149,11 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
 | `/optimize-prompt` | automatic | the prompt gate (see the protocol above) |
 
 **Picking the right ritual:**
+- **When you do not know which one, that is `/cortex-next`.** It reads the target repo's state off
+  disk and names the single next command. The table above is a menu and a menu is not an answer —
+  the ordering used to live nowhere, so a user who ran `/cortex-install` was handed eleven commands
+  sorted by nothing. `node index/cortex-view.mjs .` shows the same sequence as a **Next steps** tab
+  beside the repo's import graph.
 - `/diagnosing-bugs` and `/cortex-review` both read the context layer and are not interchangeable:
   review judges a **change** you already made, diagnosis hunts a **symptom** you cannot explain. The
   overlap is Phase 0, where diagnosis borrows the review evidence to rank its hypotheses.

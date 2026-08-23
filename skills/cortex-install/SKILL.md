@@ -199,6 +199,12 @@ Suggest committing what was written so the team shares the context. Mention that
 `index/cortex-index.mjs` refreshes the index after significant changes, and `/dream` at the end of a
 working day.
 
+**End with one next command, not a menu.** Run `node index/cortex-next.mjs . --line` and print what
+it says. This is the last thing the user reads, and a list of eleven commands sorted by nothing is
+where an install stops being useful — they leave holding options instead of a step. If they want the
+whole sequence, that is `/cortex-next`; if they would rather see the repo than read about it,
+`node index/cortex-view.mjs .` renders the index as one offline page.
+
 ## Gotchas
 
 - `.cortex/index/` and `.cortex/findings/` are generated — gitignore them. `.cortex/memory/` is

@@ -1,0 +1,96 @@
+#!/usr/bin/env node
+// cortex-view.mjs — render the index as one self-contained page you can open in a browser.
+//
+//   node index/cortex-view.mjs .            # writes .cortex/view/repo.html and opens it
+//   node index/cortex-view.mjs . --no-open  # write only
+//   node index/cortex-view.mjs . --json     # the view data, for something else to render
+//
+// Five tabs: Next steps (where this repo is in the sequence), Map (force graph of files and
+// imports), Files (every file with who imports it), Areas, Gaps (orphans, cycles, untested hot
+// spots). No server, no CDN, no runtime — the data is inlined, so the file works offline and
+// copies anywhere.
+//
+// Writes ONLY under .cortex/, like everything else in index/. It never touches source.
+
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { join, resolve, isAbsolute, dirname } from "node:path";
+import { execFile } from "node:child_process";
+import { platform } from "node:process";
+import { buildView } from "./lib/view.mjs";
+import { renderHtml } from "./lib/view-html.mjs";
+import { nextSteps, nextLine } from "./lib/next.mjs";
+
+function parseArgs(argv) {
+  const args = { root: null, index: null, out: null, open: true, json: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--no-open") args.open = false;
+    else if (a === "--json") { args.json = true; args.open = false; }
+    else if (a === "--index") args.index = argv[++i];
+    else if (a === "--out") args.out = argv[++i];
+    else if (a === "--help" || a === "-h") { args.help = true; }
+    else if (!a.startsWith("--")) args.root = a;
+  }
+  return args;
+}
+
+const args = parseArgs(process.argv.slice(2));
+if (args.help) {
+  console.log("usage: node index/cortex-view.mjs [root] [--out FILE] [--index FILE] [--no-open] [--json]");
+  process.exit(0);
+}
+
+const root = resolve(args.root || process.cwd());
+const indexPath = args.index
+  ? (isAbsolute(args.index) ? args.index : resolve(args.index))
+  : join(root, ".cortex", "index", "index.json");
+
+if (!existsSync(indexPath)) {
+  console.error(`no index at ${indexPath}`);
+  console.error(`Run first: node index/cortex-index.mjs ${args.root || "."}`);
+  process.exit(2);
+}
+
+const index = JSON.parse(readFileSync(indexPath, "utf8"));
+
+// Enrichment is optional and additive — its absence changes nothing but the detail on a card.
+let enrichment = null;
+const enrichPath = join(root, ".cortex", "index", "enrichment.json");
+if (existsSync(enrichPath)) {
+  try {
+    enrichment = JSON.parse(readFileSync(enrichPath, "utf8"));
+  } catch {
+    enrichment = null;
+  }
+}
+
+const view = buildView(index, root, { enrichment, next: nextSteps(root, index) });
+
+if (args.json) {
+  console.log(JSON.stringify(view, null, 2));
+  process.exit(0);
+}
+
+const out = args.out
+  ? (isAbsolute(args.out) ? args.out : resolve(args.out))
+  : join(root, ".cortex", "view", "repo.html");
+mkdirSync(dirname(out), { recursive: true });
+writeFileSync(out, renderHtml(view), "utf8");
+
+const g = view.gaps;
+console.log(`✓ ${out}`);
+console.log(
+  `  ${view.stats.files} files · ${view.stats.edges} import edges · ${view.areas.length} areas · ` +
+    `${g.orphans.length} orphans · ${g.cycles.length} cycles · ${g.untested.length} busiest untested`
+);
+if (!enrichment) console.log("  (no enrichment — run /cortex-enrich to put summaries on the file cards)");
+console.log("");
+console.log(nextLine(root, index));
+
+if (args.open) {
+  const [cmd, argv] =
+    platform === "win32" ? ["cmd", ["/c", "start", "", out]]
+    : platform === "darwin" ? ["open", [out]]
+    : ["xdg-open", [out]];
+  execFile(cmd, argv, () => {});
+}

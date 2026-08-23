@@ -36,8 +36,14 @@ working tree, re-run:
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-index.mjs" .
 ```
 
-The index ranks candidate directories by size, churn and absence of tests. Present the top
-candidates with **the reason each was surfaced** — never a bare list. A user cannot consent to a
+The index ranks candidate directories by size, churn and absence of tests, and skips anything
+declared `linguist-vendored` or `linguist-generated` in `.gitattributes` — nobody edits vendored
+code, so a brief for it is context every session pays for and no one uses. **If a vendored tree
+ranks anyway, it has not been declared**: say so and offer the one-line `.gitattributes` entry
+rather than briefing it. On one repo the top three candidates were a plugin cache, a generated
+server and another tool's instruction files, with the application fourth.
+
+Present the top candidates with **the reason each was surfaced** — never a bare list. A user cannot consent to a
 proposal they cannot evaluate.
 
 Then wait. The user picks which areas get a brief. Some will be declined; that is a correct

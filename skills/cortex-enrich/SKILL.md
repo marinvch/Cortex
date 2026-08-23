@@ -30,6 +30,23 @@ the asking is not.
 **Tell the user the size before doing anything.** Roughly one model call per batch. Forty batches
 is a real cost; offer to enrich only the areas that matter if the repo is large. Wait for a yes.
 
+**Scope the plan itself — never skip batches by hand.** `--include` and `--exclude` take
+comma-separated path prefixes:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-enrich.mjs" plan . --include src/
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-enrich.mjs" plan . --exclude .github/,.vscode/
+```
+
+The scope is recorded in `batches.json` and replayed by `status`, which is the point: eyeballing
+`batches.json` and skipping `batchIndex` values leaves a large pending set with nothing to say the
+skipping was deliberate, so the next agent cannot tell a partial run from an interrupted one.
+
+Material declared `linguist-vendored` or `linguist-generated` in `.gitattributes` is already out of
+the plan, and `plan` prints how much it skipped. If a repo has vendored trees that are *not*
+declared, say so — one line in `.gitattributes` is cheaper than enriching another tool's code, and
+it fixes the scoped-brief ranking at the same time.
+
 ## 2. Work the batches
 
 ```bash

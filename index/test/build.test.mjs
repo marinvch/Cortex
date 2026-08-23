@@ -110,3 +110,50 @@ test("the index reports what an ambiguous directory name cost it", () => {
 test("a repo with nothing guessed away reports an empty gap, not a missing field", () => {
   assert.deepEqual(buildIndex(fixture()).stats.skipped, []);
 });
+
+test("tsconfig path aliases resolve, including through an extends chain", () => {
+  // The failure this covers was invisible in fixtures and obvious on a real repo: a Next.js app
+  // wrote 428 of its imports as `@/...` and the index resolved none of them, so four fifths of the
+  // graph was missing and 154 files reported as orphans. Splitting options into a base config and
+  // extending it is the normal layout, and a resolver that stops at `extends` sees nothing.
+  const root = mkdtempSync(join(tmpdir(), "cortex-ts-"));
+  mkdirSync(join(root, "src", "components", "Header"), { recursive: true });
+  mkdirSync(join(root, "src", "utils"), { recursive: true });
+
+  writeFileSync(
+    join(root, "tsconfig.base.json"),
+    `{
+      // generators write comments into these, and a real one had a trailing comma
+      "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["./src/*"], } }
+    }`,
+  );
+  writeFileSync(join(root, "tsconfig.json"), '{ "extends": "./tsconfig.base.json" }');
+  writeFileSync(
+    join(root, "src", "app.ts"),
+    'import { Header } from "@/components/Header";\nimport { fmt } from "@/utils/fmt";\nimport React from "react";\n',
+  );
+  writeFileSync(join(root, "src", "components", "Header", "index.tsx"), "export const Header = 1;\n");
+  writeFileSync(join(root, "src", "utils", "fmt.ts"), "export const fmt = 1;\n");
+
+  const idx = buildIndex(root);
+  const app = idx.files.find((f) => f.path === "src/app.ts");
+
+  assert.deepEqual(app.imports, ["src/components/Header/index.tsx", "src/utils/fmt.ts"]);
+  assert.ok(!app.imports.some((p) => p.includes("react")), "a real package stays external");
+
+  // The edge has to reach the graph, not just the file record — orphans and impact read edges.
+  assert.ok(idx.edges.some((e) => e.from === "src/app.ts" && e.to === "src/utils/fmt.ts"));
+  assert.equal(idx.files.find((f) => f.path === "src/utils/fmt.ts").inbound, 1);
+});
+
+test("a repo with no tsconfig resolves exactly as before", () => {
+  // Alias resolution is strictly additive: it runs only after the relative resolver returns null,
+  // so a repo that declares nothing can never see a different graph because of it.
+  const root = mkdtempSync(join(tmpdir(), "cortex-nots-"));
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src", "a.js"), 'import "./b.js";\nimport "@/ghost";\n');
+  writeFileSync(join(root, "src", "b.js"), "export const b = 1;\n");
+
+  const idx = buildIndex(root);
+  assert.deepEqual(idx.files.find((f) => f.path === "src/a.js").imports, ["src/b.js"]);
+});

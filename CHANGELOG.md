@@ -3,6 +3,34 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.24.2] — 2026-08-23
+
+### Fixed — the viewer crashed on the first repo that had an import cycle
+
+`index.cycles` is `depth.cyclic`: a **flat list of the paths** sitting in a strongly connected
+component, not a list of cycles. `buildGaps` read it as an array of arrays, so `c.map` threw and
+blanked **every tab** — Map, Files, Areas, the sequence, all of it. The page loaded its chrome and
+nothing else.
+
+It survived review, unit tests and CI because this repo has zero import cycles and the fixture
+passed `cycles: []`. The branch had never executed. It took pointing the tool at somebody else's
+codebase to run it once — which is the whole reason
+[the standing rule](AGENTS.md) is to validate `index/` against real repos rather than fixtures:
+a fixture is written by the same person as the code, and it inherits their blind spots.
+
+The count was also mislabelled. Three files in one cycle were reported as "3 cycles", which
+disagreed with what `cortex-index` prints for the same repo — it says "3 files in import cycles".
+Both now say the same thing. `tools/test/cortex-view.test.sh` grew a real two-file cycle in its git
+fixture, so the branch runs on every CI job from here.
+
+### Fixed — a dozen nodes all called `index.jsx`
+
+On a React app the map drew twelve nodes reading `index.jsx`, every one a different component and
+none of them identifiable. A basename is only a name when it is unique. Barrel and route files
+(`index`, `main`, `mod`, `__init__`, `route`, `page`, `layout`) now carry their directory —
+`Modal/index.jsx`, `Header/index.jsx` — which is what a developer calls them anyway. Ordinary files
+keep their plain name.
+
 ## [2.24.1] — 2026-08-23
 
 ### Fixed — the page disagreed with itself between runs
@@ -1592,6 +1620,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.24.2]: https://github.com/marinvch/Cortex/releases/tag/v2.24.2
 [2.24.1]: https://github.com/marinvch/Cortex/releases/tag/v2.24.1
 [2.24.0]: https://github.com/marinvch/Cortex/releases/tag/v2.24.0
 [2.23.0]: https://github.com/marinvch/Cortex/releases/tag/v2.23.0

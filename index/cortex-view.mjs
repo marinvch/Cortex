@@ -87,7 +87,10 @@ const g = view.gaps;
 console.log(`✓ ${out}`);
 console.log(
   `  ${view.stats.files} files · ${view.stats.edges} import edges · ${view.areas.length} areas · ` +
-    `${g.orphans.length} orphans · ${g.cycles.length} cycles · ${g.untested.length} busiest untested`
+    // "in cycles" and not "cycles": the index reports the FILES that sit in a strongly connected
+    // component, which is what cortex-index prints too. Calling three files three cycles inflates
+    // the number and makes the two tools disagree about the same repo.
+    `${g.orphans.length} orphans · ${g.cyclicFiles.length} in cycles · ${g.untested.length} busiest untested`
 );
 if (!enrichment) console.log("  (no enrichment — run /cortex-enrich to put summaries on the file cards)");
 console.log("");

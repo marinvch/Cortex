@@ -55,6 +55,14 @@ cd "$WORK" || exit 1
 
 # --- index ---------------------------------------------------------------------------------------
 
+# Snapshot the whole tree, not just .cortex/. The read-only assertions below used to check for a
+# stray .cortex/ directory and nothing else, so when the indexer started appending generated
+# directories to .gitignore, --out silently began modifying a repo this mode promises not to touch
+# and every test still passed. A whole-tree fingerprint cannot be fooled by writing somewhere the
+# author did not think to name.
+tree_state() { ( cd "$1" && find . -path ./.git -prune -o -type f -print0 2>/dev/null | sort -z | xargs -0 -r ls -l 2>/dev/null | awk '{print $5, $NF}' ); }
+BEFORE="$(tree_state "$PROJ")"
+
 out="$(node "$INDEX" "$PROJ" --out "$WORK/index.json" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "cortex-index runs on a foreign repo"
 assert_contains "$out" "Indexed" "and reports what it indexed"
@@ -64,6 +72,7 @@ assert_contains "$out" "Indexed" "and reports what it indexed"
 # /cortex-install promises to change nothing before the user picks something.
 [ -d "$PROJ/.cortex" ] && _fail "indexing with --out leaves the target repo untouched" "created $PROJ/.cortex" \
                        || _pass "indexing with --out leaves the target repo untouched"
+assert_eq "$BEFORE" "$(tree_state "$PROJ")" "and no file in the target changed at all, .gitignore included"
 
 IX="$(cat "$WORK/index.json")"
 assert_contains "$IX" "src/app/api/billing/route.ts" "the index knows the repo's real files"
@@ -76,6 +85,7 @@ out="$(node "$FINDINGS" "$PROJ" --out "$WORK/findings.md" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "cortex-findings runs on a foreign repo"
 [ -d "$PROJ/.cortex" ] && _fail "findings with --out leaves the target repo untouched" \
                        || _pass "findings with --out leaves the target repo untouched"
+assert_eq "$BEFORE" "$(tree_state "$PROJ")" "and findings changed no file in the target either"
 
 REPORT="$(cat "$WORK/findings.md")"
 assert_contains "$REPORT" "proposal" "the report says nothing was changed"

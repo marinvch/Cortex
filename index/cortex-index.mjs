@@ -10,6 +10,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { nextLine } from "./lib/next.mjs";
+import { ensureGeneratedFileDir } from "./lib/generated.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, out: null, json: false };
@@ -22,6 +23,16 @@ function parseArgs(argv) {
   return args;
 }
 
+// A directory appearing in someone's project on a run they did not explicitly ask for should be
+// visible. ADR 0005 puts the consent gate in the skill; this is the other half — saying what
+// landed, so "generated and gitignored" never quietly means "invisible".
+function generatedNotice(gen) {
+  const out = [];
+  if (gen.created) out.push("Created .cortex/ — generated artifacts live here; .cortex/memory/ is committed on purpose.");
+  if (gen.ignored.length) out.push("Added to .gitignore: " + gen.ignored.join(", "));
+  return out.length ? out.join("\n") + "\n" : "";
+}
+
 const args = parseArgs(process.argv.slice(2));
 const root = resolve(args.root || process.cwd());
 const out = args.out ? (isAbsolute(args.out) ? args.out : resolve(args.out)) : join(root, ".cortex", "index", "index.json");
@@ -29,7 +40,7 @@ const out = args.out ? (isAbsolute(args.out) ? args.out : resolve(args.out)) : j
 const started = Date.now();
 const index = buildIndex(root);
 
-mkdirSync(dirname(out), { recursive: true });
+const gen = ensureGeneratedFileDir(root, out);
 writeFileSync(out, JSON.stringify(index, null, 2));
 
 if (args.json) {
@@ -58,6 +69,7 @@ if (args.json) {
       (index.cycles.length ? `, ${index.cycles.length} files in import cycles` : "") +
       `\n` +
       `Wrote ${out} in ${Date.now() - started}ms\n` +
+      generatedNotice(gen) +
       // An index answers nothing a user actually asked. Without this line the sequence is
       // invisible and they are left holding a menu of eleven commands sorted by nothing.
       `\n${nextLine(root, index)}\n`,

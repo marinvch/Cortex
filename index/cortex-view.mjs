@@ -19,6 +19,7 @@ import { platform } from "node:process";
 import { buildView } from "./lib/view.mjs";
 import { renderHtml } from "./lib/view-html.mjs";
 import { nextSteps, nextLine } from "./lib/next.mjs";
+import { ensureGeneratedFileDir } from "./lib/generated.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, index: null, out: null, open: true, json: false };
@@ -32,6 +33,16 @@ function parseArgs(argv) {
     else if (!a.startsWith("--")) args.root = a;
   }
   return args;
+}
+
+// A directory appearing in someone's project on a run they did not explicitly ask for should be
+// visible. ADR 0005 puts the consent gate in the skill; this is the other half — saying what
+// landed, so "generated and gitignored" never quietly means "invisible".
+function generatedNotice(gen) {
+  const out = [];
+  if (gen.created) out.push("Created .cortex/ — generated artifacts live here; .cortex/memory/ is committed on purpose.");
+  if (gen.ignored.length) out.push("Added to .gitignore: " + gen.ignored.join(", "));
+  return out.length ? out.join("\n") + "\n" : "";
 }
 
 const args = parseArgs(process.argv.slice(2));
@@ -80,11 +91,12 @@ if (args.json) {
 const out = args.out
   ? (isAbsolute(args.out) ? args.out : resolve(args.out))
   : join(root, ".cortex", "view", "repo.html");
-mkdirSync(dirname(out), { recursive: true });
+const gen = ensureGeneratedFileDir(root, out);
 writeFileSync(out, renderHtml(view), "utf8");
 
 const g = view.gaps;
 console.log(`✓ ${out}`);
+process.stdout.write(generatedNotice(gen));
 console.log(
   `  ${view.stats.files} files · ${view.stats.edges} import edges · ${view.areas.length} areas · ` +
     // "in cycles" and not "cycles": the index reports the FILES that sit in a strongly connected

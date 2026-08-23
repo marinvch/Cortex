@@ -15,7 +15,34 @@ export const DEFAULT_MAX_FILES = 12;
 export function isEnrichable(f) {
   if (!f.lines || f.lines < 3) return false;
   if (f.category === "other") return false;
+  // Enrichment is roughly one model call per batch, and summarising somebody else's vendored code
+  // is money spent on material nobody will edit. On a real repo 13 of 21 batches were a plugin
+  // cache, a generated MCP server and another tool's instruction files. Declared in .gitattributes,
+  // so a repo that declares nothing plans exactly as before.
+  if (f.vendored) return false;
   return true;
+}
+
+/**
+ * Path-prefix scoping for a plan. `--include` narrows to the given prefixes; `--exclude` removes
+ * them; include is applied first.
+ *
+ * The skill has always told the agent to "offer to enrich only the areas that matter if the repo is
+ * large", and there was no flag to express that — so the only way to obey it was to eyeball
+ * batches.json and skip batchIndex values by hand, leaving `status` permanently reporting a large
+ * pending set with nothing to say the skipping was deliberate. A deliberately partial run and an
+ * interrupted one looked identical.
+ */
+export function scopeFilter({ include = [], exclude = [] } = {}) {
+  const norm = (p) => p.replace(/^\.\//, "").replace(/\/+$/, "");
+  const inc = include.map(norm).filter(Boolean);
+  const exc = exclude.map(norm).filter(Boolean);
+  const under = (path, prefix) => path === prefix || path.startsWith(`${prefix}/`);
+  return (path) => {
+    if (inc.length && !inc.some((p) => under(path, p))) return false;
+    if (exc.some((p) => under(path, p))) return false;
+    return true;
+  };
 }
 
 /**
@@ -23,8 +50,12 @@ export function isEnrichable(f) {
  * size. Cohesion matters more than perfect packing — a batch whose files import each other gets
  * better summaries than one assembled by size alone.
  */
-export function computeBatches(index, { maxLines = DEFAULT_MAX_LINES, maxFiles = DEFAULT_MAX_FILES } = {}) {
-  const enrichable = index.files.filter(isEnrichable);
+export function computeBatches(
+  index,
+  { maxLines = DEFAULT_MAX_LINES, maxFiles = DEFAULT_MAX_FILES, include = [], exclude = [] } = {},
+) {
+  const inScope = scopeFilter({ include, exclude });
+  const enrichable = index.files.filter((f) => isEnrichable(f) && inScope(f.path));
   const byPath = new Map(enrichable.map((f) => [f.path, f]));
 
   // Layer assignment is already deterministic and already reflects directory structure.

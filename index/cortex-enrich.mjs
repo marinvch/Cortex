@@ -18,6 +18,21 @@ import { mergeEnrichment, isStale } from "./lib/enrich.mjs";
 
 const cmd = process.argv[2];
 const root = resolve(process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : process.cwd());
+
+// --include / --exclude take comma-separated path prefixes, and repeat. The skill has always said
+// to offer a subset on a large repo; with no flag to express it, the only way to obey was to skip
+// batchIndex values by hand — which left `status` reporting a large pending set and nothing to say
+// the skipping was a decision.
+function listFlag(name) {
+  const out = [];
+  const argv = process.argv;
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === name) out.push(...String(argv[++i] ?? "").split(","));
+    else if (argv[i].startsWith(`${name}=`)) out.push(...argv[i].slice(name.length + 1).split(","));
+  }
+  return out.map((s) => s.trim()).filter(Boolean);
+}
+const scope = { include: listFlag("--include"), exclude: listFlag("--exclude") };
 const dir = join(root, ".cortex", "index");
 const batchDir = join(dir, "enrich");
 const indexPath = join(dir, "index.json");
@@ -52,20 +67,38 @@ function doneBatches() {
 
 if (cmd === "plan") {
   const index = loadIndex();
-  const batches = computeBatches(index);
+  const batches = computeBatches(index, scope);
   mkdirSync(batchDir, { recursive: true });
-  writeFileSync(batchesPath, JSON.stringify({ indexCommit: index.commit ?? null, batches }, null, 2));
+  // The scope is recorded, not just applied. `status` reads it back, so a deliberately partial run
+  // is distinguishable from an interrupted one — otherwise the next agent sees pending batches and
+  // has no way to know that skipping them was a decision someone already made.
+  writeFileSync(
+    batchesPath,
+    JSON.stringify({ indexCommit: index.commit ?? null, scope, batches }, null, 2),
+  );
   const s = batchStats(batches);
+  const vendored = index.stats?.vendored;
   process.stdout.write(
     `Planned ${s.batches} batches covering ${s.files} files (${s.lines.toLocaleString()} lines)\n` +
+      (scope.include.length ? `Included: ${scope.include.join(", ")}\n` : "") +
+      (scope.exclude.length ? `Excluded: ${scope.exclude.join(", ")}\n` : "") +
+      // Naming what was left out is the point. A cost estimate that silently omits half a repo
+      // reads exactly like one that covers it.
+      (vendored?.files
+        ? `Skipped ${vendored.files} vendored files (${vendored.lines.toLocaleString()} lines) declared in .gitattributes\n`
+        : "") +
       `Wrote ${batchesPath}\n` +
       `Write each result to ${join(batchDir, "batch-<n>.json")}\n`,
   );
 } else if (cmd === "status") {
-  const { batches } = loadBatches();
+  const { batches, scope: planned } = loadBatches();
   const done = doneBatches();
   const pending = batches.filter((b) => !done.has(b.batchIndex));
   process.stdout.write(`${done.size}/${batches.length} batches complete\n`);
+  // Say what the plan was scoped to. Pending batches under a narrowed plan mean "still to do";
+  // material outside it was never planned, and a reader must be able to tell those apart.
+  if (planned?.include?.length) process.stdout.write(`planned only for: ${planned.include.join(", ")}\n`);
+  if (planned?.exclude?.length) process.stdout.write(`deliberately excluded: ${planned.exclude.join(", ")}\n`);
   if (pending.length) {
     process.stdout.write("pending:\n");
     for (const b of pending.slice(0, 40)) {

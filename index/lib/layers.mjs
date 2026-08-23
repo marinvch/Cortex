@@ -47,6 +47,11 @@ export function inferAreas(files) {
 export function briefCandidates(files, { minFiles = 5 } = {}) {
   const byDir = new Map();
   for (const f of files) {
+    // A scoped brief is context an agent loads before touching an area. Nobody touches vendored
+    // code, so ranking it here wasted the top three slots on a real repo — a plugin cache, a
+    // generated server and another tool's instruction files, with the actual application fourth.
+    // Declared in .gitattributes; a repo that declares nothing is unaffected.
+    if (f.vendored) continue;
     const parts = f.path.split("/");
     if (parts.length < 2) continue;
     const dir = TRANSPARENT.has(parts[0]) && parts.length > 2 ? `${parts[0]}/${parts[1]}` : parts[0];

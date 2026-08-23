@@ -28,6 +28,18 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 
 ## Gotchas
 
+- **Vendored is declared in `.gitattributes`, never inferred from a directory name.** `linguist-vendored`
+  and `linguist-generated` are the standard vocabulary and the one GitHub already uses, so a repo
+  that has marked its vendored trees gets this for free and one that has not says so in a file its
+  other tools already read. Same rule as `go.mod` and `composer.json`: declared beats guessed,
+  because a directory a team genuinely writes can be called `vendor/` and guessing would drop it
+  from every ranking. **Nothing is excluded from the index by this** — git-truth stands, and a file
+  you cannot see is worse than one you can rank correctly. What changes is that `briefCandidates`
+  and `isEnrichable` skip it and `stats.vendored` names what was skipped. A consumer that ranks or
+  costs by size must use it *and* say which side it counted: silently dropping half a repo reads
+  exactly like covering it. The gap this closed was real — on one repo the top three scoped-brief
+  candidates were a plugin cache, a generated server and another tool's instruction files, with the
+  application fourth, and enrichment planned 13 of 21 batches over that material.
 - **`walk.mjs` asks git, not `.cortexignore`.** Those answer different questions:
   `.cortexignore` says what is not *knowledge in a vault*, and honouring it here dropped this
   repo's own `tools/` and `skills/` from its index. Do not "fix" this by reading it again.

@@ -3,6 +3,51 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.27.0] — 2026-08-23
+
+### Added — vendored code is declared, and stops skewing everything that ranks by size ([#369](https://github.com/marinvch/Cortex/issues/369), [#368](https://github.com/marinvch/Cortex/issues/368))
+
+`walk.mjs` asks git what exists and nothing else, and that stays right. The gap was afterwards: a
+legitimately committed vendored tree — a plugin cache, a generated server, another tool's
+instruction files — was indistinguishable from hand-written source. On a real repo with ~1,900 lines
+of application TypeScript, the index reported 13,532 lines, the **top three** scoped-brief candidates
+were all vendored with the actual application fourth, and `/cortex-enrich` planned 13 of 21 batches
+over that material.
+
+The mechanism is **declared, never guessed** — the same rule as `go.mod`, `composer.json` and
+`tsconfig`. `.gitattributes` already has the vocabulary, and it is the one GitHub itself uses:
+
+```
+.agents/**  linguist-vendored
+.ai-os/**   linguist-generated
+```
+
+A repo that has already marked its vendored trees gets this for free; one that has not says so in a
+file its other tools already read, rather than learning a Cortex-only format. A repo that declares
+nothing is completely unaffected — asserted by a test, because that is the property that makes this
+safe to ship.
+
+**Nothing is excluded from the index.** Git-truth stands: a file you cannot see is worse than one
+you can rank correctly. What changes is that `briefCandidates` and `isEnrichable` skip vendored
+material, and `stats.vendored` names what was skipped — a cost estimate that silently omits half a
+repo reads exactly like one that covers it.
+
+### Added — `/cortex-enrich plan` can finally scope itself ([#368](https://github.com/marinvch/Cortex/issues/368))
+
+The skill has always told the agent to "offer to enrich only the areas that matter if the repo is
+large". There was no flag to express that, so the only way to obey it was to eyeball `batches.json`
+and skip `batchIndex` values by hand — leaving `status` reporting a large pending set with nothing
+to say the skipping was deliberate. **A partial run and an interrupted one looked identical.**
+
+```bash
+cortex-enrich.mjs plan . --include src/
+cortex-enrich.mjs plan . --exclude .github/,.vscode/
+```
+
+The scope is written into `batches.json` and replayed by `status`, so "still to do" and "never
+planned" are finally different states. Prefix matching is on path segments, so `--include src` does
+not sweep in `srcextra/`.
+
 ## [2.26.0] — 2026-08-23
 
 ### Fixed — the protection was attached to a skill, not to the act ([#366](https://github.com/marinvch/Cortex/issues/366), [#370](https://github.com/marinvch/Cortex/issues/370))
@@ -1734,6 +1779,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.27.0]: https://github.com/marinvch/Cortex/releases/tag/v2.27.0
 [2.26.0]: https://github.com/marinvch/Cortex/releases/tag/v2.26.0
 [2.25.1]: https://github.com/marinvch/Cortex/releases/tag/v2.25.1
 [2.25.0]: https://github.com/marinvch/Cortex/releases/tag/v2.25.0

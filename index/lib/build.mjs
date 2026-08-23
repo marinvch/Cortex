@@ -12,12 +12,31 @@ import {
   resolvePhpImport,
   resolveRubyImport,
   goModulePath,
+  parseJsonc,
+  tsAliasTable,
+  resolveTsAlias,
 } from "./imports.mjs";
 import { inferAreas } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
 import { depthOf } from "./depth.mjs";
 
 export const INDEX_VERSION = "1";
+
+// The languages a tsconfig/jsconfig alias table applies to. Vue and Svelte single-file components
+// import through the same resolver and the same aliases, so they belong here too.
+const JS_LANGS = new Set(["javascript", "typescript", "vue", "svelte"]);
+
+// Join a root-relative directory with a relative specifier, staying root-relative. Used for the
+// tsconfig `extends` chain, which points at sibling and parent files.
+function normalizeRel(dir, spec) {
+  const out = [];
+  for (const part of [...dir.split("/"), ...spec.split("/")]) {
+    if (part === "." || part === "") continue;
+    if (part === "..") out.pop();
+    else out.push(part);
+  }
+  return out.join("/");
+}
 
 function git(root, args) {
   try {
@@ -127,6 +146,52 @@ export function buildIndex(root, opts = {}) {
   }
   phpPrefixes.sort((a, b) => b[0].length - a[0].length);
 
+  // TypeScript/JavaScript path aliases, from tsconfig.json / jsconfig.json. Declared, not guessed —
+  // the same reason Go reads go.mod and PHP reads composer.json.
+  //
+  // Without this a modern TS repo reads as an almost empty graph. On a real Next.js app 428 imports
+  // were written `@/components/…` against 104 relative ones: the index saw about a fifth of the
+  // edges and reported 154 orphans, nearly all false. Every consumer of the graph — orphans,
+  // impact, depth, the viewer — was wrong on that repo, and each of them was confidently wrong.
+  //
+  // A monorepo has several configs, so this is a list keyed by directory and matched nearest-first.
+  const tsConfigs = [];
+  for (const f of files) {
+    const base = f.path.split("/").pop();
+    if (base !== "tsconfig.json" && base !== "jsconfig.json") continue;
+    const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+
+    // `extends` is common — a repo splits its options into tsconfig.base.json and the child holds
+    // only overrides. Following it is what makes those repos resolve at all. Depth-capped because
+    // a cycle in the chain must cost a config, never the whole index.
+    let json = null;
+    let rel = f.path;
+    let dirOf = dir;
+    const merged = { compilerOptions: {} };
+    const seenCfg = new Set();
+    for (let hop = 0; hop < 8 && rel && !seenCfg.has(rel); hop++) {
+      seenCfg.add(rel);
+      try {
+        json = parseJsonc(readFileSync(join(root, rel), "utf8"));
+      } catch {
+        break; // a config we cannot read costs its aliases, never the run
+      }
+      if (!json) break;
+      // The nearest config wins on every key, so only fill what is still missing as we walk up.
+      for (const [k, v] of Object.entries(json.compilerOptions ?? {})) {
+        if (!(k in merged.compilerOptions)) merged.compilerOptions[k] = v;
+      }
+      if (!json.extends || typeof json.extends !== "string" || !json.extends.startsWith(".")) break;
+      const parent = normalizeRel(dirOf, json.extends);
+      rel = parent.endsWith(".json") ? parent : `${parent}.json`;
+      dirOf = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "";
+    }
+    if (Object.keys(merged.compilerOptions).length) tsConfigs.push(tsAliasTable(merged, dir));
+  }
+  // Nearest config wins: a package's own tsconfig must beat the repo root's.
+  tsConfigs.sort((a, b) => b.dir.length - a.dir.length);
+  const tsTableFor = (path) => tsConfigs.find((c) => c.dir === "" || path.startsWith(`${c.dir}/`)) ?? null;
+
   // Ruby load paths. `require 'sinatra/base'` searches $LOAD_PATH, which for a gem is its lib/ —
   // and a repo holding several gems has several, which is why this is a list and not a constant.
   const rubyLoadPaths = [
@@ -176,7 +241,14 @@ export function buildIndex(root, opts = {}) {
                 ? [resolvePhpImport(spec, fileSet, phpPrefixes)]
                 : f.lang === "ruby"
                   ? [resolveRubyImport(spec, f.path, fileSet, rubyLoadPaths)]
-          : [resolveImport(spec, f.path, fileSet, f.lang)];
+                  : // Relative first, alias second. A relative specifier is unambiguous, so an alias
+                    // table can only ever add edges the plain resolver could not find — it never
+                    // reinterprets one it could. `resolveTsAlias` returns null for a genuine package,
+                    // which is why a bare specifier still costs nothing when no config declares it.
+                    [
+                      resolveImport(spec, f.path, fileSet, f.lang) ??
+                        (JS_LANGS.has(f.lang) ? resolveTsAlias(spec, fileSet, tsTableFor(f.path)) : null),
+                    ];
       for (const target of targets) {
         if (!target || target === f.path || seen.has(target)) continue;
         seen.add(target);

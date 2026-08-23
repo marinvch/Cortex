@@ -115,6 +115,135 @@ function joinRel(fromPath, spec) {
 }
 
 /**
+ * Parse a tsconfig/jsconfig. They are JSON with Comments — every generator TypeScript ships writes
+ * `//` lines into them, and a real one in the wild had a trailing comma after its last `paths`
+ * entry. `JSON.parse` rejects all of that, and a config Cortex cannot read is a repo whose graph is
+ * mostly missing, so tolerate both rather than lose the file.
+ *
+ * Deliberately small: strings are respected so a `//` inside one survives, and nothing else is
+ * interpreted. This is not a JSON parser, it is a preprocessor in front of one.
+ */
+export function parseJsonc(text) {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '"') {
+      out += c;
+      i++;
+      while (i < text.length) {
+        if (text[i] === "\\") {
+          out += text[i] + (text[i + 1] ?? "");
+          i += 2;
+          continue;
+        }
+        out += text[i];
+        if (text[i] === '"') { i++; break; }
+        i++;
+      }
+      continue;
+    }
+    if (c === "/" && text[i + 1] === "/") {
+      while (i < text.length && text[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && text[i + 1] === "*") {
+      i += 2;
+      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  // Trailing commas, once the strings that might contain one are already past.
+  out = out.replace(/,(\s*[}\]])/g, "$1");
+  try {
+    return JSON.parse(out);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Turn one parsed tsconfig into an alias table rooted at the repo.
+ *
+ * `configDir` is the tsconfig's own directory, root-relative ("" at the root). TypeScript resolves
+ * `paths` against `baseUrl`, and against the config's own directory when there is no `baseUrl`
+ * (allowed since TS 4.1). `baseUrl` alone also makes bare specifiers resolvable, which is why it is
+ * returned even when `paths` is empty.
+ */
+export function tsAliasTable(json, configDir = "") {
+  const co = json?.compilerOptions ?? {};
+  const under = (p) => normalize([...configDir.split("/"), ...String(p).split("/")]).join("/");
+  const baseUrl = co.baseUrl ? under(co.baseUrl) : configDir;
+  const entries = [];
+  for (const [key, targets] of Object.entries(co.paths ?? {})) {
+    const list = [].concat(targets).map((t) => {
+      const s = String(t);
+      // A target starting with "./" or "../" is relative to the config; anything else hangs off
+      // baseUrl. Both end up root-relative here, so the matcher never has to know which it was.
+      return s.startsWith(".") ? under(s) : normalize([...baseUrl.split("/"), ...s.split("/")]).join("/");
+    });
+    entries.push({ key, targets: list, star: key.includes("*") });
+  }
+  // Longest literal prefix first: "@/payload-types" must beat "@/*", or the umbrella swallows it.
+  entries.sort((a, b) => b.key.replace("*", "").length - a.key.replace("*", "").length);
+  return { dir: configDir, baseUrl, entries };
+}
+
+// Try every extension and index form for an already root-relative base. Shared by the relative and
+// the aliased paths so the two cannot drift into resolving differently.
+function tryJsPath(base, fileSet) {
+  for (const ext of JS_EXT) {
+    if (fileSet.has(base + ext)) return base + ext;
+  }
+  for (const idx of JS_INDEX) {
+    if (fileSet.has(base + idx)) return base + idx;
+  }
+  if (base.endsWith(".js")) {
+    const stem = base.slice(0, -3);
+    for (const ext of [".ts", ".tsx", ".mts"]) if (fileSet.has(stem + ext)) return stem + ext;
+  }
+  return null;
+}
+
+/**
+ * Resolve a bare specifier through a tsconfig alias table, or null.
+ *
+ * Without this, a Next.js repo reads as an empty graph: on a real one, 428 imports were written
+ * `@/components/…` against 104 relative ones, so the indexer saw about a fifth of the edges and
+ * called 154 files orphans. The alias is declared in the repo, exactly like go.mod's module path
+ * and composer.json's PSR-4 prefixes — reading it is not a guess.
+ */
+export function resolveTsAlias(spec, fileSet, table) {
+  if (!spec || !table) return null;
+  for (const { key, targets, star } of table.entries) {
+    if (star) {
+      const [head, tail = ""] = key.split("*");
+      if (!spec.startsWith(head) || !spec.endsWith(tail)) continue;
+      const captured = spec.slice(head.length, spec.length - tail.length);
+      for (const t of targets) {
+        const hit = tryJsPath(t.replace("*", captured), fileSet);
+        if (hit) return hit;
+      }
+    } else if (spec === key) {
+      for (const t of targets) {
+        const hit = tryJsPath(t, fileSet);
+        if (hit) return hit;
+      }
+    }
+  }
+  // `baseUrl` with no matching alias: TypeScript still resolves a bare specifier from it. Tried
+  // last, so a real package is only shadowed when a file of that name genuinely exists in the repo.
+  if (table.baseUrl !== undefined && !spec.startsWith(".")) {
+    const base = normalize([...table.baseUrl.split("/"), ...spec.split("/")]).join("/");
+    return tryJsPath(base, fileSet);
+  }
+  return null;
+}
+
+/**
  * Resolve a specifier to a path inside the repo, or null when it is external (a package) or
  * unresolvable. `fileSet` is a Set of every root-relative path in the index.
  */

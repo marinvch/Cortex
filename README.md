@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.23.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
+**v2.24.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
 where it is changing, and what is missing. Then it writes a context layer — a small root
@@ -45,13 +45,54 @@ It indexes the codebase, writes **one findings report** — issues, gaps, recomm
 and then **stops and asks**. Nothing in your repo is modified until you pick what to act on.
 Indexing and reporting are read-only by construction: a different skill applies changes.
 
-| Command | Does |
+### The order, and how to stop guessing at it
+
+A list of commands is a menu, not an answer. **`/cortex-next` reads the repo you are standing in
+and tells you the one command to run now** — every ✓ traced to a file on disk, never to something
+a model thinks it did last session:
+
+```
+/cortex-next
+```
+
+```
+  ✓ Index the codebase              .cortex/index/index.json is present
+  ✓ Read the ranked findings        .cortex/findings/2026-08-23.md
+  · See the repo as a graph         (optional)  node index/cortex-view.mjs .
+  → Write the context layer         root AGENTS.md, the shims, CONTEXT.md, docs/adr/
+                                    /cortex-scaffold
+    Give critical areas a brief     /cortex-brief <dir>
+    Add skills that fit this stack  /cortex-skills
+```
+
+Every CLI prints that same `Next →` line when it finishes, so the sequence is never something you
+have to come back here to look up. The full sequence, in order:
+
+| # | Command | Does | Skip it when |
+|---|---|---|---|
+| 0 | `/migrate-engine` | harvest a retired `.ai-os/` engine's memory first | there is no `.ai-os/` |
+| 1 | `/cortex-install` | index → ranked findings report → you choose → scaffold | never — this is the entry point |
+| 2 | `node index/cortex-view.mjs .` | the repo as one offline HTML page: map, files, areas, gaps | you would rather read the report |
+| 3 | `/optimize-context` | slim the `AGENTS.md`/`CLAUDE.md`/`.cursorrules` that were already here | the repo had none |
+| 4 | `/cortex-scaffold` | write the context layer you picked | — |
+| 5 | `/cortex-brief <dir>` | a scoped `AGENTS.md` leaf per area that earns one | no area holds real invariants |
+| 6 | `/cortex-skills` | skills proposed from what the index detected | — |
+| 7 | `/cortex-enrich` | semantic summaries on top of the index (costs tokens) | you already know the repo |
+| 8 | `/dream` | end-of-day digest into the repo's committed `.cortex/memory/` | — |
+
+**Step 3 goes before step 4, not after.** `/cortex-scaffold` is brownfield-safe and will not
+clobber a curated `AGENTS.md` — which means you end up with your file *plus* an
+`AGENTS.generated.md` and a merge to do by hand. Slimming first leaves one file.
+
+And per change, which is a lookup rather than a sequence:
+
+| When | Run |
 |---|---|
-| `/cortex-install` | index → report → you choose → scaffold |
-| `/cortex-brief` | propose scoped `AGENTS.md` leaves for the areas that earn one |
-| `/cortex-scaffold` | write the context layer once you have chosen |
-| `/cortex-enrich` | add summaries on top of the index (optional, costs tokens) |
-| `/dream` | end-of-day digest into the repo's committed `.cortex/memory/` |
+| starting a risky feature | `/analyze-spec` |
+| before touching files | `/cortex-impact <files>` |
+| before committing | `/cortex-review` |
+| chasing a bug you cannot explain | `/diagnosing-bugs` |
+| back after time away | `/catch-me-up` |
 
 What lands in the target repo:
 
@@ -64,15 +105,43 @@ docs/adr/          decisions, created lazily
 .cortex/
   index/           generated, gitignored
   findings/        generated, gitignored
+  view/            generated, gitignored — the HTML graph
   memory/          COMMITTED — shared context, secrets refused at the gate
 ```
+
+### See the repo, don't read about it
+
+```bash
+node index/cortex-view.mjs .     # writes .cortex/view/repo.html and opens it
+```
+
+One self-contained page — no server, no CDN, no runtime. The data is inlined, so it works offline
+and copies anywhere. Five tabs:
+
+- **Next steps** — the sequence above, with your repo's position marked.
+- **Map** — a force graph of every code file, coloured by area, laid out by import depth so it
+  reads top-down instead of as a hairball. Click an area in the legend to hide it; a red ring means
+  no test was found. Markdown and config stay out of the Map on purpose: they have no imports to
+  draw, and on this repo 171 of them buried the 98 files that do.
+- **Files** — every file with who imports it and what it imports, both clickable.
+- **Areas** — the top-level shape, and which areas already have a scoped brief.
+- **Gaps** — orphans, import cycles, and the busiest code with no test found, ranked by commits.
+
+Orphans are stated as questions, never as a delete list: import resolution is regex-based
+(ADR 0004 — a plugin install runs no build, so there is no parser), which makes dynamic imports
+invisible. Same for coverage — a file exercised only through a subprocess reads as untested, which
+is the safe direction to be wrong in.
+
+Run `/cortex-enrich` first and each file card also carries what that file *does*.
 
 The indexer is deterministic and offline — it asks git what belongs to the repo, resolves imports,
 finds hot spots from history. Run it directly if you like:
 
 ```bash
+node index/cortex-next.mjs .       # where this repo is; writes nothing at all
 node index/cortex-index.mjs .      # writes .cortex/index/index.json
 node index/cortex-findings.mjs .   # writes .cortex/findings/<date>.md
+node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 ```
 

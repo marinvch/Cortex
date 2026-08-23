@@ -27,8 +27,8 @@ Cheap, deterministic, and it routinely re-ranks the hypotheses before any exist.
 the repo has no `.cortex/` index.
 
 ```bash
-node index/cortex-impact.mjs <suspect files>   # who depends on this, and what no test covers
-node index/cortex-review.mjs <suspect files>   # which documents govern it, and which name it
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" <suspect files>   # who depends on this, and what no test covers
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" <suspect files>   # which documents govern it, and which name it
 ```
 
 Read four things off that:

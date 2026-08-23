@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildIndex } from "../lib/build.mjs";
+import { execFileSync } from "node:child_process";
+import { buildIndex, hotspots } from "../lib/build.mjs";
 import { inferAreas, layerKeyFor, briefCandidates } from "../lib/layers.mjs";
 
 function fixture() {
@@ -156,4 +157,60 @@ test("a repo with no tsconfig resolves exactly as before", () => {
 
   const idx = buildIndex(root);
   assert.deepEqual(idx.files.find((f) => f.path === "src/a.js").imports, ["src/b.js"]);
+});
+
+// --- churn window ------------------------------------------------------------------------------
+
+function gitRepo(build) {
+  const root = mkdtempSync(join(tmpdir(), "cortex-churn-"));
+  execFileSync("git", ["init", "-q", "."], { cwd: root });
+  execFileSync("git", ["config", "user.email", "t@t"], { cwd: root });
+  execFileSync("git", ["config", "user.name", "t"], { cwd: root });
+  build(root);
+  return root;
+}
+
+function commitAt(root, date) {
+  execFileSync("git", ["add", "-A"], { cwd: root });
+  execFileSync("git", ["commit", "-qm", "c"], {
+    cwd: root,
+    env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date },
+  });
+}
+
+test("churn falls back to all history rather than silently scoring every file zero", () => {
+  // A real repo with 11 commits, all older than the window, reported commits: 0 for all 120 files.
+  // Nothing said so, and /cortex-brief's "ranked by size, churn and absence of tests" quietly
+  // became ranked by size. A silent constant is worse than a wider window that names itself.
+  const root = gitRepo((r) => writeFileSync(join(r, "a.js"), "export const a = 1;\n"));
+  commitAt(root, "2020-01-01T00:00:00");
+
+  const { counts, window } = hotspots(root);
+  assert.equal(window, "all history", "the window says it widened");
+  assert.equal(counts.get("a.js"), 1, "and the file actually has churn");
+
+  const idx = buildIndex(root);
+  assert.equal(idx.stats.churnWindow, "all history", "the index carries it, so reports can say it");
+  assert.ok(idx.files.find((f) => f.path === "a.js").commits > 0);
+});
+
+test("a repo with recent history keeps the recent window", () => {
+  // The window is recent by design — churn matters because it is current. The fallback must not
+  // quietly turn every repo into an all-time count.
+  const root = gitRepo((r) => writeFileSync(join(r, "a.js"), "export const a = 1;\n"));
+  execFileSync("git", ["add", "-A"], { cwd: root });
+  execFileSync("git", ["commit", "-qm", "now"], { cwd: root });
+
+  const { window } = hotspots(root);
+  assert.equal(window, "3 months ago");
+});
+
+test("no git at all is distinguishable from no churn", () => {
+  // The same distinction UNRESOLVED_LANGUAGES keeps for imports: "I looked and found nothing" and
+  // "I could not look" must not print the same sentence.
+  const root = mkdtempSync(join(tmpdir(), "cortex-nogit-"));
+  writeFileSync(join(root, "a.js"), "export const a = 1;\n");
+  const { counts, window } = hotspots(root);
+  assert.equal(window, null, "null means there was nothing to ask");
+  assert.equal(counts.size, 0);
 });

@@ -64,6 +64,49 @@ test("no two drawn areas share a swatch while the palette has room", () => {
   assert.equal(new Set(byArea.values()).size, 3, "three drawn areas, three distinct colours");
 });
 
+test("cycles are a flat list of paths, not a list of cycles", () => {
+  // index.cycles is depth.cyclic — every path sitting in a strongly connected component. Reading it
+  // as an array of arrays threw `c.map is not a function` and blanked the whole page on the first
+  // real repo that had one. ai-os has zero cycles and this fixture used to pass `[]`, so the branch
+  // had never executed. Fixtures share the code's blind spots; only a real repo found this.
+  const cyclic = idx({ cycles: ["src/a.js", "src/b.js"] });
+  const v = buildView(cyclic, "/tmp/x");
+  assert.deepEqual(v.gaps.cyclicFiles, ["src/a.js", "src/b.js"]);
+  const html = renderHtml(v);
+  assert.ok(html.includes("src/a.js"), "the page names them");
+  // The KPI counts FILES in cycles, so it must not be labelled "cycles" — two files in one cycle
+  // read as two cycles, and the viewer then disagrees with what cortex-index prints for that repo.
+  assert.ok(html.includes("<span>in cycles</span>"), "the tile says what it counts");
+  assert.ok(!html.includes(">cycles</span>"), "and never calls a file count a cycle count");
+});
+
+test("a nested cycle shape still renders — the page never crashes on this field", () => {
+  // Defensive rather than speculative: whichever shape reaches it, the field is normalised to
+  // strings. A crash here takes down every other tab with it, which is what made this expensive.
+  const nested = idx({ cycles: [["src/a.js", "src/b.js"], ["src/c.js"]] });
+  const v = buildView(nested, "/tmp/x");
+  assert.deepEqual(v.gaps.cyclicFiles, ["src/a.js", "src/b.js", "src/c.js"]);
+  assert.ok(renderHtml(v).includes("src/c.js"));
+});
+
+test("a barrel file is labelled by its directory, not by index.js", () => {
+  // On a React app the map drew a dozen nodes all reading "index.jsx" — every one of them a
+  // different component, none of them identifiable. The basename is only a name when it is unique.
+  const barrels = idx({
+    files: [
+      { path: "src/components/Button/index.jsx", lang: "javascript", category: "code", lines: 5, commits: 1, isTest: false, isEntry: false, imports: [], inbound: 1 },
+      { path: "src/components/Modal/index.jsx", lang: "javascript", category: "code", lines: 5, commits: 1, isTest: false, isEntry: false, imports: [], inbound: 1 },
+      { path: "src/utils/format.js", lang: "javascript", category: "code", lines: 5, commits: 1, isTest: false, isEntry: false, imports: [], inbound: 1 },
+    ],
+    edges: [],
+    areas: [],
+  });
+  const label = (p) => buildView(barrels, "/tmp/x").nodes.find((n) => n.id === p).label;
+  assert.equal(label("src/components/Button/index.jsx"), "Button/index.jsx");
+  assert.equal(label("src/components/Modal/index.jsx"), "Modal/index.jsx");
+  assert.equal(label("src/utils/format.js"), "format.js", "an ordinary file keeps its plain name");
+});
+
 test("links are dropped when either end is not a node", () => {
   const bad = idx({ edges: [{ from: "src/a.js", to: "vendor/ghost.js", type: "imports" }] });
   const v = buildView(bad, "/tmp/x");

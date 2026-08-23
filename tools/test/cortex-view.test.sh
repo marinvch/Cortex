@@ -18,6 +18,12 @@ fixture() { # a small real repo, indexed the way a user would index it
   printf 'export const q = 1;\n'                                  > src/db.js
   printf 'import { q } from "./db.js";\nexport const user = q;\n' > src/user.js
   printf 'import { user } from "../src/user.js";\n'               > test/user.test.js
+
+  # A REAL import cycle. The viewer read index.cycles as a list of cycles when it is a flat list of
+  # paths, so `c.map` threw and blanked every tab — and neither this fixture nor ai-os itself had a
+  # cycle, so nothing executed that branch until the tool met somebody else's repo.
+  printf 'import { b } from "./b.js";\nexport const a = b;\n'     > src/a.js
+  printf 'import { a } from "./a.js";\nexport const b = a;\n'     > src/b.js
   printf '# readme\n'                                             > README.md
   printf '{ "name": "p", "version": "1.0.0" }\n'                  > package.json
 
@@ -76,6 +82,17 @@ assert_exit 0 "two runs of the same index produce identical bytes" -- cmp -s "$W
 out="$(run)"
 assert_contains "$out" "Next →" "it ends with the next step, like the other CLIs"
 assert_contains "$out" "orphans" "and summarises the gaps it found"
+
+# --- a repo with a cycle renders instead of blanking -------------------------------------------------
+
+# The fixture's src/a.js and src/b.js import each other. The count is FILES in cycles, which is what
+# cortex-index prints for the same repo; calling two files two cycles makes the two tools disagree.
+assert_contains "$out" "2 in cycles" "files in cycles are counted, and named as files"
+assert_not_contains "$out" "2 cycles" "never restated as a cycle count"
+
+page="$(cat "$WORK/proj/.cortex/view/repo.html")"
+assert_contains "$page" "src/a.js" "and the cyclic files reach the page"
+assert_contains "$page" "Files in import cycles" "under a heading that says what the list holds"
 
 # --- --json is the read-only door ------------------------------------------------------------------------
 

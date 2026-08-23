@@ -26,6 +26,17 @@ function areaOf(path) {
   return cut === -1 ? "(root)" : path.slice(0, cut);
 }
 
+// A basename is a useless label when the convention is `index.*`: a React app drew a dozen nodes all
+// reading "index.jsx" and the map became unreadable. Barrel and route files get their directory,
+// which is the name a developer actually calls them by.
+const BARREL = /^(index|main|mod|__init__|route|page|layout)\.[^.]+$/;
+function labelOf(path) {
+  const parts = path.split("/");
+  const base = parts[parts.length - 1];
+  if (parts.length > 1 && BARREL.test(base)) return parts[parts.length - 2] + "/" + base;
+  return base;
+}
+
 /**
  * Orphans the index can prove: nothing imports them, they import nothing, they are not entry
  * points and not tests. Every one is "worth checking", never "safe to delete" — import resolution
@@ -89,7 +100,7 @@ export function buildView(index, root, opts = {}) {
       const enr = summaries.get(f.path) ?? null;
       return {
         id: f.path,
-        label: f.path.split("/").pop(),
+        label: labelOf(f.path),
         path: f.path,
         area,
         lang: f.lang,
@@ -169,7 +180,11 @@ export function buildView(index, root, opts = {}) {
     },
     gaps: {
       orphans,
-      cycles: index.cycles ?? [],
+      // `index.cycles` is `depth.cyclic` — a FLAT list of the paths that sit in some strongly
+      // connected component, not a list of cycles. Reading it as an array of arrays crashed the
+      // page on the first real repo that had one: ai-os has zero cycles and the unit fixture used
+      // `[]`, so the branch had never run. Normalised here, and named for what it holds.
+      cyclicFiles: (index.cycles ?? []).flat().filter((p) => typeof p === "string"),
       untested,
       hot,
       coverage: coverage ? { known: true } : { known: false },

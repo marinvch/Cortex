@@ -94,6 +94,16 @@ node --test index/test/*.test.mjs
 ```
 
 `lib/` is well covered. Most CLIs at the top level are not — Cortex reports this about itself and
-it is a true positive; the gap is argument parsing and file writing. `cortex-impact.mjs` is the
-exception, covered by `tools/test/cortex-impact.test.sh` against a real git fixture, because its
-failure mode is a confident wrong sentence rather than a crash and only the CLI prints sentences.
+it is a true positive; the gap is argument parsing and file writing.
+
+Three are exceptions, each covered by a `tools/test/cortex-*.test.sh` against a real git fixture.
+The rule for which CLI earns one: **does it print a sentence a user will act on, or write into
+their repo?** A CLI whose only failure mode is a crash does not need one — a stack trace is its own
+report.
+
+- `cortex-impact.mjs` — a confident total instead of a floor tells someone to stop looking.
+- `cortex-next.mjs` — a wrong "next", or a ✓ on a step nobody ran, walks the user past the step
+  that writes their context layer.
+- `cortex-view.mjs` — it writes into a target repo, so *where* it writes is the invariant, and its
+  determinism is only observable from outside. A first run did once disagree with the second,
+  because the page reported on its own existence.

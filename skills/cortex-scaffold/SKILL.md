@@ -22,6 +22,12 @@ Refresh the index if it is missing or stale — everything below is filled in fr
 in the repo. A scaffold written from assumption is worse than none: it reads as authoritative and
 is wrong.
 
+**If `.cortex/` does not exist, ask before that run.** Being invoked by name covers the scaffold;
+it does not cover creating a generated directory the user has never seen. That is the write
+[ADR 0005](../../docs/adr/0005-the-install-sequence-may-start-itself.md) gates, and generated and
+gitignored is not the same as invisible. The `.gitignore` entry is written at creation time by the
+indexer itself, so step 3 no longer has to remember it — the asking is what remains yours.
+
 Then read enough source to answer honestly: what does this project do, how is it run, how are its
 tests invoked, and what would a competent newcomer get wrong on day one.
 
@@ -81,12 +87,12 @@ From `${CLAUDE_PLUGIN_ROOT}/templates/`:
   sharp entries beat twenty obvious ones. Delete the worked example.
 - **`docs/adr/`** — copy `adr.md` as `docs/adr/TEMPLATE.md`. Do **not** invent records; ADRs are
   written when a decision happens.
-- **`.cortex/`** — create `memory/` and add the generated dirs to `.gitignore`:
+- **`.cortex/`** — create `memory/`. The generated dirs are already ignored: whichever CLI first
+  created `.cortex/` wrote them, because attaching that to this skill meant every other entry point
+  left a directory of artifacts untracked in someone's repo. Verify rather than repeat it:
 
-```
-.cortex/index/
-.cortex/findings/
-.cortex/view/
+```bash
+grep -c '^\.cortex/' .gitignore   # expect 3: index/, findings/, view/
 ```
 
 `.cortex/memory/` is deliberately **not** ignored. Say this out loud to the user: memory is

@@ -208,3 +208,34 @@ test("a skill invokes Cortex's own scripts through the plugin root, never a repo
     `these invoke a Cortex script by a path that does not exist inside a target repo:\n${offenders.join("\n")}`,
   );
 });
+
+test("every skill that can create .cortex/ states the consent gate", () => {
+  // ADR 0005 moved the protection from an invocation flag to "a consent gate on the first write",
+  // and says plainly that the missing flag "is only safe while the gate is present". The gate was
+  // written into /cortex-install and nowhere else, while /cortex-brief, /cortex-skills and
+  // /cortex-enrich can all reach that first write on a repo where nothing has run — and one of them
+  // did, creating .cortex/ on a user who was never asked.
+  //
+  // The .gitignore half now happens in code (index/lib/generated.mjs), because a machine can be
+  // relied on to remember it. The asking cannot be, so it is checked here instead.
+  const skillsDir = join(REPO_ROOT, "skills");
+  const GATE = /`\.cortex\/` does not exist|never creates `\.cortex\/`/;
+  const silent = [];
+  for (const name of readdirSync(skillsDir)) {
+    const file = join(skillsDir, name, "SKILL.md");
+    let src;
+    try {
+      src = readFileSync(file, "utf8");
+    } catch {
+      continue;
+    }
+    // Anything that runs the indexer, or writes under .cortex/ itself, can be the first write.
+    const canCreate = /cortex-index\.mjs|writes `\.cortex\//.test(src);
+    if (canCreate && !GATE.test(src)) silent.push(name);
+  }
+  assert.deepEqual(
+    silent,
+    [],
+    `these can create .cortex/ without saying the user must be asked first:\n${silent.join("\n")}`,
+  );
+});

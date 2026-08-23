@@ -9,6 +9,21 @@ capability: judgment
 One large `AGENTS.md` is loaded in full on every turn whether or not it is relevant. A routing
 table plus scoped leaves loads detail **only where work happens**.
 
+## 0. Check there is a spine, and ask before the first write
+
+**If there is no root `AGENTS.md`, stop and hand off to `/cortex-scaffold`.** Every leaf opens by
+pointing up at the root, and step 3 wires a routing table into it — both need a root that exists.
+Do **not** improvise one here: `/cortex-scaffold` owns the templates, the never-clobber rules and
+the post-write verification, and duplicating that logic is exactly what `/cortex-install` step 6
+forbids. Say plainly that the leaves are deferred until the spine exists, then run the handoff.
+
+**If `.cortex/` does not exist, ask before writing anything** — including the index. This skill is
+reachable on a repo where no Cortex ritual has ever run, so it can be the first thing to create that
+directory, which is the write [ADR 0005](../../docs/adr/0005-the-install-sequence-may-start-itself.md)
+gates. Generated and gitignored is not the same as invisible: these are files appearing in someone's
+project on a run they did not ask for. The `.gitignore` entry is written for you at creation time —
+the *asking* is still yours.
+
 ## 1. Pick the areas
 
 **If the user named a directory, use it** — they have already done the picking. Confirm it, then go

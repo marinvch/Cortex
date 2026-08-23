@@ -78,6 +78,19 @@ test("agent docs that predate the index are flagged for reconciling BEFORE scaff
   rmSync(root, { recursive: true, force: true });
 });
 
+test("classifying a prior agent doc does not depend on write order or a filesystem clock", () => {
+  // The first version compared mtimes against the index and passed on Windows while failing on
+  // Linux, where both writes land in the same millisecond. Writing the doc AFTER the index — the
+  // order that made the mtime check say "Cortex wrote this" — must still flag it.
+  const root = repo(({ put }) => {
+    put(".cortex/index/index.json", INDEX);
+    put(".cortex/findings/2026-01-01.md");
+    put("CLAUDE.md", "# hand-written, saved last");
+  });
+  assert.equal(nextSteps(root).next.id, "reconcile");
+  rmSync(root, { recursive: true, force: true });
+});
+
 test("once the context layer exists, an old AGENTS.md is Cortex's own and not a reconcile job", () => {
   const root = repo(({ put }) => {
     put("AGENTS.md");

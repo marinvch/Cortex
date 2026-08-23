@@ -8,7 +8,7 @@
 // checked is reported `optional` and stays visible — claiming a step is finished when nothing on
 // disk says so is worse than admitting the sequence cannot tell.
 
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 const AGENT_DOCS = [
@@ -76,17 +76,16 @@ function repoSkills(root) {
   }
 }
 
-// An agent doc that predates the index needs reconciling BEFORE scaffold rather than after —
-// otherwise the target ends up with a curated file plus an AGENTS.generated.md to merge by hand.
-function priorAgentDocs(root, indexedAt) {
-  return AGENT_DOCS.filter((d) => has(root, d)).filter((d) => {
-    if (!indexedAt) return true;
-    try {
-      return statSync(join(root, d)).mtimeMs < indexedAt;
-    } catch {
-      return true;
-    }
-  });
+// An agent doc that predates Cortex needs reconciling BEFORE scaffold rather than after — otherwise
+// the target ends up with a curated file plus an AGENTS.generated.md to merge by hand.
+//
+// "Predates" is decided by CONTEXT.md at the call site, NOT by comparing mtimes against the index.
+// The mtime version passed on Windows and failed on Linux: both files land in the same millisecond
+// there, so `mtime < indexedAt` was false and a hand-written CLAUDE.md read as Cortex's own. A
+// filesystem clock is the wrong witness for "who wrote this" — the scaffold writes CONTEXT.md, so
+// its absence is the durable fact, and it cannot be raced.
+function priorAgentDocs(root) {
+  return AGENT_DOCS.filter((d) => has(root, d));
 }
 
 /**
@@ -96,19 +95,10 @@ function priorAgentDocs(root, indexedAt) {
 export function readState(root, index = null) {
   const indexPath = join(root, ".cortex", "index", "index.json");
   const indexed = existsSync(indexPath);
-  let indexedAt = null;
-  if (indexed) {
-    try {
-      indexedAt = statSync(indexPath).mtimeMs;
-    } catch {
-      indexedAt = null;
-    }
-  }
   return {
     root,
     legacyEngine: LEGACY_ENGINES.filter((d) => has(root, d)),
     indexed,
-    indexedAt,
     findings: filesIn(root, ".cortex/findings"),
     view: has(root, ".cortex/view/repo.html"),
     enriched: has(root, ".cortex/index/enrichment.json"),
@@ -118,7 +108,7 @@ export function readState(root, index = null) {
     briefs: scopedBriefs(root, index),
     skills: repoSkills(root),
     memory: filesIn(root, ".cortex/memory"),
-    priorDocs: priorAgentDocs(root, indexedAt),
+    priorDocs: priorAgentDocs(root),
   };
 }
 
@@ -170,15 +160,15 @@ function steps(s) {
       : "an Obsidian-style map of the index: files, imports, layers, gaps",
   });
 
-  // Only while the context layer is still unwritten. Once CONTEXT.md exists the scaffold has run,
-  // and an AGENTS.md older than the last re-index is Cortex's own — not a doc to reconcile.
+  // Only while the context layer is still unwritten. CONTEXT.md is the witness: the scaffold writes
+  // it, so once it exists an AGENTS.md here is Cortex's own and not a doc to reconcile.
   if (s.priorDocs.length && !(s.rootBrief && s.glossary)) {
     rows.push({
       id: "reconcile",
       title: "Reconcile the agent docs that were already here",
       cmd: "/optimize-context",
       done: false,
-      why: s.priorDocs.join(", ") + " predate the index — slim them BEFORE scaffold, or you get two files to merge by hand",
+      why: s.priorDocs.join(", ") + " was not written by Cortex — slim it BEFORE scaffold, or you get two files to merge by hand",
     });
   }
 

@@ -27,6 +27,17 @@ before overturning one; the line here is the trigger, not the case.
   document. Offers collapse by action; severity never implies an offer. Read the worklist with
   `cortex-findings.mjs --offers`, which writes nothing.
   [ADR 0006](adr/0006-the-report-is-the-wizards-script.md).
+- **A guarantee attaches to the act, not to the skill that performs it.** If a promise can be kept
+  by code, put it in code — the `.gitignore` write for `.cortex/` happens in `index/lib/generated.mjs`
+  at first creation, so no skill has to remember it. If it genuinely needs judgment, leave it in
+  prose and **test that the prose is there**: `core/test/plugin.test.js` fails when a skill that can
+  create `.cortex/` does not state the consent gate. Five entry points could perform that first write
+  and one carried each promise, which is how a repo ended up with untracked artifacts created by a
+  ritual that never asked. [ADR 0016](adr/0016-a-guarantee-belongs-to-the-act-not-to-the-skill.md).
+- **Assert the property, not the symptom you thought of.** The read-only test for `--out` checked
+  for a stray `.cortex/` directory, so when a change started editing the target's `.gitignore`
+  instead, CI stayed green while the promise was broken. It fingerprints the whole tree now. A test
+  naming one symptom passes for every other way of failing.
 - **A destructive shell tool must route its target through `resolve_in_root` (`tools/_cortex-lib.sh`).**
   The shell counterpart of `core/paths.js`, in the shared lib so the next tool inherits it. Not a
   string-prefix check — a symlink out of the root passes any prefix comparison.

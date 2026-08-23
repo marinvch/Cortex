@@ -91,8 +91,13 @@ function priorAgentDocs(root) {
 /**
  * Read a target repo's Cortex state off disk.
  * Pure observation — it opens nothing it does not need and writes nothing at all.
+ *
+ * `overrides` is for a caller that is mid-write and knows a fact the filesystem does not have yet —
+ * `cortex-view` rendering the sequence into the very page it is about to save. That is still a
+ * fact, not a guess, and it is the only kind of override allowed here: never use it to assume a
+ * step someone else is supposed to run.
  */
-export function readState(root, index = null) {
+export function readState(root, index = null, overrides = {}) {
   const indexPath = join(root, ".cortex", "index", "index.json");
   const indexed = existsSync(indexPath);
   return {
@@ -109,6 +114,7 @@ export function readState(root, index = null) {
     skills: repoSkills(root),
     memory: filesIn(root, ".cortex/memory"),
     priorDocs: priorAgentDocs(root),
+    ...overrides,
   };
 }
 
@@ -242,8 +248,8 @@ export const PER_CHANGE = [
  * The ordered runbook plus the single next command.
  * `next` is the first blocking step, else the first unfinished non-optional step, else null.
  */
-export function nextSteps(root, index = null) {
-  const state = readState(root, index);
+export function nextSteps(root, index = null, overrides = {}) {
+  const state = readState(root, index, overrides);
   const rows = steps(state);
   const blocking = rows.find((r) => r.blocking && !r.done);
   const next = blocking ?? rows.find((r) => !r.done && !r.optional) ?? null;

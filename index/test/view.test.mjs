@@ -185,3 +185,23 @@ test("the band says what it is, and hedges what it means", () => {
   // file, so an empty edge list is a question. A silent band would read as a verdict.
   assert.ok(html.includes("a question, not a verdict"));
 });
+
+test("a node is a labelled chip, not an anonymous dot", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(html.includes("function chip("), "chips are drawn");
+  assert.ok(html.includes("scale>=CHIP_LOD"), "and fall back to dots when too small to read");
+  // Hit-testing has to follow what is drawn. A radius test against a 200px-wide chip leaves most of
+  // the card unclickable, which is the kind of bug a screenshot never shows.
+  assert.ok(html.includes("Math.abs(dx)<=n.w/2"), "picking uses the chip rectangle");
+});
+
+test("the layout cools, and the fit never zooms past legibility", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  // A graph that never settles cannot be fitted — every fit is undone by the next frame.
+  assert.ok(html.includes("1-frames/760"), "the simulation cools to a stop");
+  assert.ok(
+    html.includes("Math.max(CHIP_LOD+.08"),
+    "fitting stops at the point the chips stop being readable",
+  );
+  assert.ok(html.includes("!touched"), "and never moves a camera the user has already touched");
+});

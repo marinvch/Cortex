@@ -3,6 +3,34 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.33.1] — 2026-08-24
+
+### Fixed — half the ritual table in `AGENTS.md` was not a table
+
+Found by `/cortex-audit`. A bare sentence — *"Run `node tools/cortex-capability.mjs` for what each
+ritual needs"* — sat **inside** the ritual table, between the `/cortex-profile` and `/dream` rows.
+Markdown terminates a table at the first non-row line, so the twenty rituals below it — `/dream`,
+`/handoff`, `/install-project`, `/analyze-spec` and `/skill-creator` among them — rendered as raw
+pipe-delimited text rather than as a table.
+
+This is the single source of truth every agent working in this repo reads first, and half its ritual
+menu was malformed. The sentence now sits after the table ends; the table is one contiguous block of
+39 rows again.
+
+### Fixed — the README taught the drift mechanism the manual warns about
+
+`README.md` told readers to run `cp -r skills/* .claude/skills/` to get slash commands. `AGENTS.md`
+explains, two hundred lines away, that a plain `cp -r` "never removes anything or refreshes a changed
+skill" — which is exactly how the local mirror had drifted to **34 of 39 skills, 5 missing and 7
+stale**, with `/cortex-next` and `/cortex-view` among the missing. The README now points at
+`bash tools/cortex-sync-skills.sh` and says why, naming `--check` for reporting drift without writing.
+
+### Fixed — the privacy rule under-stated its own boundary
+
+`AGENTS.md`'s list of gitignored personal folders omitted `resources/`, though `.gitignore` ignores it
+and `README.md` lists it correctly. An agent trusting the manual alone could have treated
+`resources/` as shareable.
+
 ## [2.33.0] — 2026-08-24
 
 ### Fixed — a finished enrichment showed up as no enrichment at all
@@ -2004,6 +2032,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.33.1]: https://github.com/marinvch/Cortex/releases/tag/v2.33.1
 [2.33.0]: https://github.com/marinvch/Cortex/releases/tag/v2.33.0
 [2.32.0]: https://github.com/marinvch/Cortex/releases/tag/v2.32.0
 [2.31.0]: https://github.com/marinvch/Cortex/releases/tag/v2.31.0

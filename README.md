@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.33.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
+**v2.33.1** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
 where it is changing, and what is missing. Then it writes a context layer — a small root
@@ -269,8 +269,10 @@ feature? `/analyze-spec` runs a brainstorm → spec → plan grounded by the bra
 
 ## The rituals (skills)
 
-Plain `SKILL.md` files in `skills/`. Say "run my onboard skill" in Cowork/Claude Code, or `cp -r
-skills/* .claude/skills/` to use them as `/slash` commands.
+Plain `SKILL.md` files in `skills/`. Say "run my onboard skill" in Cowork/Claude Code, or run
+`bash tools/cortex-sync-skills.sh` to expose them as `/slash` commands. Use the script rather than
+`cp -r`: the mirror is gitignored, so nothing keeps it current, and a copy never removes anything
+or refreshes a skill that changed. `--check` reports the drift without writing.
 
 | Ritual | When | What it does |
 |---|---|---|

@@ -9,6 +9,7 @@
 // from a fixed palette indexed by sorted area order, never from a hash of a name.
 
 import { buildCoverage } from "./coverage.mjs";
+import { findOrphans } from "./orphans.mjs";
 
 // Enough hues to separate the areas a reader can hold at once; past that they repeat, which is
 // honest — a repo with 30 top-level areas has a structure problem the colours should not hide.
@@ -37,18 +38,9 @@ function labelOf(path) {
   return base;
 }
 
-/**
- * Orphans the index can prove: nothing imports them, they import nothing, they are not entry
- * points and not tests. Every one is "worth checking", never "safe to delete" — import resolution
- * is regex-based, so a dynamically-imported file looks exactly like a dead one.
- */
-function orphansOf(files) {
-  return files
-    .filter((f) => f.category === "code")
-    .filter((f) => !f.isTest && !f.isEntry)
-    .filter((f) => (f.inbound ?? 0) === 0 && (f.imports ?? []).length === 0)
-    .map((f) => f.path);
-}
+// Orphans come from lib/orphans.mjs, shared with findings.mjs. There used to be a copy here, and
+// the two would have drifted the moment either learned something — which is exactly what happened
+// when the shared version learned that a file named by an ADR or a shell test is not unreferenced.
 
 export function buildView(index, root, opts = {}) {
   const files = index.files ?? [];
@@ -136,7 +128,9 @@ export function buildView(index, root, opts = {}) {
     .filter((e) => nodeIds.has(e.from) && nodeIds.has(e.to))
     .map((e) => ({ source: e.from, target: e.to }));
 
-  const orphans = orphansOf(files).filter((p) => inGraph.has(p));
+  const orphans = findOrphans(index, root)
+    .map((f) => f.path)
+    .filter((p) => inGraph.has(p));
   const untested = files
     .filter((f) => f.category === "code" && !f.isTest && !tested.has(f.path))
     .sort((a, b) => (b.commits ?? 0) - (a.commits ?? 0))

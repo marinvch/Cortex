@@ -4,6 +4,7 @@ import { briefCandidates } from "./layers.mjs";
 import { scan } from "../../core/scrub.js";
 import { buildCoverage, testStem } from "./coverage.mjs";
 import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
+import { findOrphans } from "./orphans.mjs";
 
 // Findings are PROPOSALS. Nothing here edits a repository — this module returns data and the
 // caller writes exactly one report file. The skill that finds things and the skill that changes
@@ -60,27 +61,6 @@ export function offers(findings) {
   }
   return [...byAction.values()].sort(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.action.localeCompare(b.action),
-  );
-}
-
-/** Files that nothing imports and that are not entry points, tests, docs or config. */
-/**
- * Files nothing points at. Languages whose imports Cortex cannot resolve are excluded, because in
- * those every file is an orphan by construction and the finding says nothing about the repo.
- *
- * Pointed at a real Rust workspace this reported 59 of 130 files as unreferenced. Each line was
- * hedged and the aggregate was still misinformation — a reader either believes it and deletes
- * live code, or learns the section is noise and stops reading the ones that are true.
- */
-function orphans(index) {
-  return index.files.filter(
-    (f) =>
-      f.category === "code" &&
-      !f.isTest &&
-      !f.isEntry &&
-      !UNRESOLVED_LANGUAGES.has(f.lang) &&
-      f.inbound === 0 &&
-      f.imports.length === 0,
   );
 }
 
@@ -217,7 +197,7 @@ export function analyse(index, root) {
   // that cries wolf on its own fixtures teaches people to ignore every other finding. Exemptions
   // are counted in the report, never silent.
   const leaky = [];
-  let exempted = 0;
+  const exempt = [];
   for (const f of index.files) {
     if (f.category === "docs" || f.bytes > 400_000) continue;
     let text;
@@ -229,18 +209,22 @@ export function analyse(index, root) {
     const hits = scan(text);
     if (!hits.length) continue;
     if (text.includes("cortex:allow-secrets")) {
-      exempted++;
+      exempt.push({ path: f.path, hits: hits.length });
       continue;
     }
     leaky.push({ path: f.path, hits });
   }
-  if (exempted) {
+  if (exempt.length) {
     out.push(
       finding(
         "low",
         "security",
-        `${exempted} file${exempted === 1 ? "" : "s"} exempted from the secret scan`,
-        "These carry a `cortex:allow-secrets` marker, so their secret-shaped strings are treated as fixtures. Worth re-reading occasionally: the marker is a claim by whoever added it, not a guarantee.",
+        `${exempt.length} file${exempt.length === 1 ? "" : "s"} exempted from the secret scan`,
+        "These carry a `cortex:allow-secrets` marker, so their secret-shaped strings are treated as fixtures. Worth re-reading occasionally: the marker is a claim by whoever added it, not a guarantee — and a file that later gains a real credential keeps the exemption it was granted for a fixture.",
+        // Named, not merely counted. "Worth re-reading" is not an instruction anyone can act on
+        // against a number, and the entire reason an exemption is surfaced instead of applied
+        // silently is so a human can go and check it.
+        exempt.map((e) => `${e.path} — ${e.hits} secret-shaped ${e.hits === 1 ? "string" : "strings"}`),
       ),
     );
   }
@@ -324,14 +308,14 @@ export function analyse(index, root) {
     );
   }
 
-  const orph = orphans(index);
+  const orph = findOrphans(index, root);
   if (orph.length) {
     out.push(
       finding(
         "low",
         "structure",
         `${orph.length} file${orph.length === 1 ? " appears" : "s appear"} unreferenced`,
-        "No resolvable import points at these, and they import nothing themselves. Cortex resolves imports by convention, so dynamically loaded or framework-discovered files show up here too — treat this as a list to check, not to delete.",
+        "No resolvable import points at these, they import nothing themselves, and no other file in the repo names their path — so a script invoked from CI, a shell test or a doc is not listed here. What remains can still be a false positive: Cortex resolves imports by convention, so a dynamically loaded or framework-discovered file has no visible pointer. Treat this as a list to check, not to delete.",
         orph.slice(0, 15).map((f) => f.path),
       ),
     );

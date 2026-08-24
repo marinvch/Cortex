@@ -5,6 +5,7 @@ import { scan } from "../../core/scrub.js";
 import { buildCoverage, testStem } from "./coverage.mjs";
 import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
 import { findOrphans } from "./orphans.mjs";
+import { ENRICHED_REL } from "./enrich.mjs";
 
 // Findings are PROPOSALS. Nothing here edits a repository — this module returns data and the
 // caller writes exactly one report file. The skill that finds things and the skill that changes
@@ -358,7 +359,7 @@ export function analyse(index, root) {
 
   // Enrichment pays on a repo too large to hold in one head. On a small one it is a token bill for
   // a summary of code you could just read, so the threshold is stated rather than implied.
-  if (index.stats.files >= ENRICH_WORTH_IT && !has(".cortex/index/enriched.json")) {
+  if (index.stats.files >= ENRICH_WORTH_IT && !has(ENRICHED_REL)) {
     out.push(
       finding(
         "low",

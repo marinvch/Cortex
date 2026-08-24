@@ -3,6 +3,44 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.28.0] — 2026-08-24
+
+### Fixed — "unreferenced" meant "unimported", and Cortex reported it about itself
+
+Run against this repo, the orphan finding named `tools/cortex-version.mjs` and
+`tools/cortex-capability.mjs` — the script that releases Cortex and the script that proves its
+capability table. Both are invoked by ADRs, by `docs/changing-cortex.md`, by `AGENTS.md` and by a
+shell test. Neither is `import`ed by anything, so both were listed as unreferenced.
+
+That is how repo tooling is normally wired, and it is the failure mode the finding's own docstring
+warns about: *"a reader either believes it and deletes live code, or learns the section is noise and
+stops reading the ones that are true."*
+
+A file whose path another file names literally is referenced. The signal is the most checkable one
+available — the literal repo-relative path appearing in the text of some other indexed file, the
+same standard `citationDrift` holds itself to, run in reverse. **The direction of error is chosen:**
+this can only ever *remove* entries from the list. Missing a true orphan costs a suggestion nobody
+was obliged to act on; inventing one costs trust in every other line of the report.
+
+Validated against three real repos rather than fixtures: apex-engine 20 → 17, and **no change** on
+`token-dashbord` or `expressjs/express`, whose remaining orphans are Jest `__mocks__` and standalone
+`examples/` — genuinely unimported, correctly still listed. It suppresses where there is evidence
+and nowhere else.
+
+Orphan detection now lives in `index/lib/orphans.mjs`, shared by `findings.mjs` and the viewer. There
+were two copies; they would have drifted the moment either learned something, which is precisely what
+just happened.
+
+### Fixed — the secret-scan exemption told you to re-read files it never named
+
+The finding said *"worth re-reading occasionally: the marker is a claim by whoever added it, not a
+guarantee"* — against a bare count. That is not an instruction anyone can follow, and the entire
+reason an exemption is surfaced rather than applied silently is so a human can go and check it.
+
+It now names each file and how many secret-shaped strings it carries. Both of this repo's were
+checked while making the change and are honest: scanner test assertions (`hunter2`,
+`correcthorsebattery`) and a fixture repo built from sixteen zeroes.
+
 ## [2.27.1] — 2026-08-23
 
 ### Fixed — the answer was buried under 2,478 image tiles ([#367](https://github.com/marinvch/Cortex/issues/367))
@@ -1818,6 +1856,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.28.0]: https://github.com/marinvch/Cortex/releases/tag/v2.28.0
 [2.27.1]: https://github.com/marinvch/Cortex/releases/tag/v2.27.1
 [2.27.0]: https://github.com/marinvch/Cortex/releases/tag/v2.27.0
 [2.26.0]: https://github.com/marinvch/Cortex/releases/tag/v2.26.0

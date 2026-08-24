@@ -14,7 +14,8 @@ layer** (who you are, what you can reach, the rituals that keep it alive). The N
 ## The one rule (privacy)
 
 Personal and business-sensitive content lives in **gitignored** folders: `context/`, `inbox/`,
-`daily/`, `notes/`, `projects/`, `areas/`, `decisions/`, and all of `archives/`.
+`daily/`, `notes/`, `projects/`, `areas/`, `resources/`, `decisions/`, and all of
+`archives/`.
 Committed files (`README`, this manual, `references/`, `templates/`) stay **data-free** so the vault
 stays shareable/forkable. Never write personal facts into a committed file.
 
@@ -126,8 +127,6 @@ and needs no mirror at all.
 | `/cortex-review` | before committing | judge a change against the repo's own docs, and spot the ones it made wrong |
 | `/diagnosing-bugs` | on a hard bug | build a red-capable loop first, ranked against the repo’s own invariants |
 | `/cortex-profile` | per machine | show or set which world this install serves — home · work · lab |
-
-Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it.
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/handoff` | leaving work mid-flight | compact this conversation to the OS temp dir for the next agent |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
@@ -148,6 +147,8 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
 | `/improve-codebase-architecture` | on request | find deepening opportunities in a repo, report them as HTML, work one |
 | `/skill-creator` | on request | write a new `skills/<name>/SKILL.md` and wire it in |
 | `/optimize-prompt` | automatic | the prompt gate (see the protocol above) |
+
+Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it.
 
 **Picking the right ritual:**
 - **When you do not know which one, that is `/cortex-next`.** It reads the target repo's state off

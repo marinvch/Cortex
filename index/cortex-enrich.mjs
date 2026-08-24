@@ -10,11 +10,11 @@
 // grouping, and whether the result is acceptable — lives in code, so an interrupted run resumes
 // by simply re-running `plan` and doing what `status` still lists as pending.
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { computeBatches, batchStats } from "./lib/batch.mjs";
-import { mergeEnrichment, isStale } from "./lib/enrich.mjs";
+import { mergeEnrichment, isStale, classifyBatches } from "./lib/enrich.mjs";
 
 const cmd = process.argv[2];
 const root = resolve(process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : process.cwd());
@@ -55,14 +55,9 @@ function loadBatches() {
   return JSON.parse(readFileSync(batchesPath, "utf8"));
 }
 
-function doneBatches() {
-  if (!existsSync(batchDir)) return new Set();
-  return new Set(
-    readdirSync(batchDir)
-      .map((n) => n.match(/^batch-(\d+)\.json$/))
-      .filter(Boolean)
-      .map((m) => Number(m[1])),
-  );
+function readBatchResult(n) {
+  const p = join(batchDir, `batch-${n}.json`);
+  return existsSync(p) ? readFileSync(p, "utf8") : null;
 }
 
 if (cmd === "plan") {
@@ -92,9 +87,21 @@ if (cmd === "plan") {
   );
 } else if (cmd === "status") {
   const { batches, scope: planned } = loadBatches();
-  const done = doneBatches();
-  const pending = batches.filter((b) => !done.has(b.batchIndex));
-  process.stdout.write(`${done.size}/${batches.length} batches complete\n`);
+  const { done, stale, pending } = classifyBatches(batches, readBatchResult);
+  process.stdout.write(`${done.length}/${batches.length} batches complete\n`);
+  // Stale is its own state, listed before pending and named batch by batch. Folding it into either
+  // of the others is the bug: counted as done it is skipped, counted as pending it looks like fresh
+  // work when there is a wrong answer already on disk waiting to be merged.
+  if (stale.length) {
+    process.stdout.write(
+      `\n${stale.length} batch result${stale.length === 1 ? "" : "s"} answer a different plan — redo or delete:\n`,
+    );
+    for (const s of stale.slice(0, 40)) {
+      process.stdout.write(`  batch ${s.batch.batchIndex} — ${s.batch.layer}: ${s.why}\n`);
+    }
+    if (stale.length > 40) process.stdout.write(`  … and ${stale.length - 40} more\n`);
+    process.stdout.write("\n");
+  }
   // Say what the plan was scoped to. Pending batches under a narrowed plan mean "still to do";
   // material outside it was never planned, and a reader must be able to tell those apart.
   if (planned?.include?.length) process.stdout.write(`planned only for: ${planned.include.join(", ")}\n`);

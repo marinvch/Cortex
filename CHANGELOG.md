@@ -3,6 +3,36 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.31.0] — 2026-08-24
+
+### Changed — a node is a file, so it now says which file
+
+The Map drew every file as a coloured dot with its name floating above it. At any real repo size the
+names collided with each other, belonged to nothing in particular, and the only way to identify
+anything was to hover it one at a time.
+
+A node is now a **chip**: a rounded card with the area colour as a left bar and a wash across the
+card, the category glyph the dots used to carry alone, and the filename set in the mono face the
+rest of the page already uses for paths — a filename is code, not prose. Hit-testing follows the
+rectangle, because a radius test against a 200px-wide card leaves most of it unclickable.
+
+Three things had to change with it, each of which was its own bug:
+
+- **Overlap.** Radial repulsion keeps *centres* apart, which is not the same as keeping wide cards
+  apart. A separation pass on the actual rectangles now runs three times a frame — once is not
+  enough, because resolving A against B pushes A into C.
+- **The layout never settled.** It drifted forever, so every attempt to fit it to the window was
+  undone by the next frame. It now cools to a stop.
+- **The view did not fit.** The graph opened with a third of itself past the edge. It fits after the
+  simulation settles — but never below the zoom where the chips stop being readable, because a page
+  that fits perfectly and cannot be read has optimised the wrong thing, and never after the user has
+  touched the view, because moving someone's camera out from under them is worse than a bad first
+  frame.
+
+**Zoomed out, the dots come back.** Below that threshold the labels would be illegible anyway, and
+the loose organic shape of the whole repo is what that zoom level is good for. Chips to read, dots
+to see the shape.
+
 ## [2.30.0] — 2026-08-24
 
 ### Fixed — the Map drew a halo of disconnected files, and some of them were not disconnected
@@ -1908,6 +1938,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.31.0]: https://github.com/marinvch/Cortex/releases/tag/v2.31.0
 [2.30.0]: https://github.com/marinvch/Cortex/releases/tag/v2.30.0
 [2.29.0]: https://github.com/marinvch/Cortex/releases/tag/v2.29.0
 [2.28.0]: https://github.com/marinvch/Cortex/releases/tag/v2.28.0

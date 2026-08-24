@@ -230,7 +230,7 @@ test("without an index, the strict positional check is unchanged", () => {
 // commits, while `status` — which counted filenames — reported all 39 complete. An agent following
 // the skill would have skipped them all and merged summaries describing the wrong files.
 
-import { classifyBatches } from "../lib/enrich.mjs";
+import { classifyBatches, ENRICHED_REL } from "../lib/enrich.mjs";
 
 const batch = (i, ...paths) => ({
   batchIndex: i,
@@ -268,4 +268,11 @@ test("a result missing files from its batch is stale and says how many", () => {
 test("unreadable or wrongly-shaped results are stale rather than crashing the run", () => {
   assert.equal(classifyBatches([batch(1, "a.js")], () => "{not json").stale[0].why, "invalid JSON");
   assert.equal(classifyBatches([batch(1, "a.js")], () => '{"path":"a.js"}').stale[0].why, "not an array of entries");
+});
+
+test("one constant names the merged enrichment, because four sites disagreed", () => {
+  // merge wrote enriched.json; cortex-view.mjs and next.mjs both read enrichment.json. A finished
+  // enrichment therefore produced no summaries and left the sequence reporting the step as never
+  // run. Same argument as ADR 0013 for the version: the fact has one home.
+  assert.equal(ENRICHED_REL, ".cortex/index/enriched.json");
 });

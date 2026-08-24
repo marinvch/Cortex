@@ -19,6 +19,7 @@ import { platform } from "node:process";
 import { buildView } from "./lib/view.mjs";
 import { renderHtml } from "./lib/view-html.mjs";
 import { nextSteps, nextLine } from "./lib/next.mjs";
+import { ENRICHED_REL } from "./lib/enrich.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
 
 function parseArgs(argv) {
@@ -66,7 +67,7 @@ const index = JSON.parse(readFileSync(indexPath, "utf8"));
 
 // Enrichment is optional and additive — its absence changes nothing but the detail on a card.
 let enrichment = null;
-const enrichPath = join(root, ".cortex", "index", "enrichment.json");
+const enrichPath = join(root, ...ENRICHED_REL.split("/"));
 if (existsSync(enrichPath)) {
   try {
     enrichment = JSON.parse(readFileSync(enrichPath, "utf8"));

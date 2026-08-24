@@ -43,6 +43,8 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - **`walk.mjs` asks git, not `.cortexignore`.** Those answer different questions:
   `.cortexignore` says what is not *knowledge in a vault*, and honouring it here dropped this
   repo's own `tools/` and `skills/` from its index. Do not "fix" this by reading it again.
+  [ADR 0003](../docs/adr/0003-git-decides-what-belongs-to-a-repo.md) holds the argument and what it
+  rules out — read it before proposing a second ignore source.
 - **`bin/` and `obj/` are skipped by name only until git contradicts it.** Those two live in
   `AMBIGUOUS_SKIP_DIRS`, not `CODE_SKIP_DIRS`, because the name means build output in one ecosystem
   and hand-written source in the next — `bin/cli.js`, `bin/rails`, an ops repo's shell tools. A

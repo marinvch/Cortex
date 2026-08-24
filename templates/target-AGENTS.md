@@ -4,6 +4,11 @@
   Keep this file SHORT — it loads on every turn. Aim under ~120 lines. Anything that only matters
   in one area belongs in that area's own AGENTS.md, reached through the routing table below.
   Replace every {{placeholder}}; delete sections that do not apply rather than leaving them empty.
+
+  No YAML frontmatter, deliberately: this template is stamped into ANOTHER repo, where it is a
+  source file read by developers and agents — not a note filed in this vault graph. The vault
+  templates beside it all carry frontmatter; these three are the exception, and the reason is here
+  rather than inferred from their absence.
 -->
 
 # {{PROJECT}} — agent brief

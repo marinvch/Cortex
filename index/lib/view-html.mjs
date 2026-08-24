@@ -265,6 +265,15 @@ addEventListener('resize',resize);
 // Deterministic seeding: index-derived, never Math.random, so the same index opens the same way.
 const N=DATA.nodes.filter(n=>n.inMap).map((n,i)=>({...n,x:520+Math.cos(i*2.399)*(60+i%180),y:340+Math.sin(i*2.399)*(60+i%150),vx:0,vy:0,a:0}));
 const M=new Map(N.map(n=>[n.id,n]));
+// A node is a filename, and a filename is code — so it is set in the mono face the rest of the
+// page uses for paths, not in the UI sans. The dot-with-a-floating-label had the labels colliding
+// with each other and belonging to nothing; a chip is one object you can read without hovering.
+const MONO='ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace';
+const CHIP_H=24,CHIP_PAD=9,BAR=4,GLY=7;
+function measure(){ctx.font='500 11.5px '+MONO;
+  for(const n of N){n.text=n.label.length>24?n.label.slice(0,23)+'…':n.label;
+    n.w=Math.min(210,Math.max(86,Math.round(ctx.measureText(n.text).width)+BAR+CHIP_PAD*2+GLY+6));
+    n.h=CHIP_H;}}
 const E=DATA.links.map(l=>({s:M.get(l.source),t:M.get(l.target)})).filter(e=>e.s&&e.t);
 const hidden=new Set();
 const vis=n=>!hidden.has(n.area);
@@ -278,25 +287,80 @@ const WIRED=new Set();for(const e of E){WIRED.add(e.s.id);WIRED.add(e.t.id);}
 const LOOSE=N.filter(n=>!WIRED.has(n.id))
   .sort((a,b)=>a.area<b.area?-1:a.area>b.area?1:a.path<b.path?-1:1);
 const MAXD=N.reduce((m,n)=>n.depth===null?m:Math.max(m,n.depth),0);
-const TRAY_Y=90+(MAXD+2)*140,TRAY_COLS=Math.max(6,Math.ceil(Math.sqrt(LOOSE.length*1.6)));
+const TRAY_Y=90+(MAXD+2)*140,TRAY_COLS=Math.max(5,Math.ceil(Math.sqrt(LOOSE.length))),TRAY_W=224;
 LOOSE.forEach((n,i)=>{n.pin=1;
-  n.x=520+((i%TRAY_COLS)-(TRAY_COLS-1)/2)*150;n.y=TRAY_Y+Math.floor(i/TRAY_COLS)*36;});
-function step(){const k=.016,rep=2200,cx=W/2,cy=H/2;const A=N.filter(n=>vis(n)&&!n.pin);
+  n.x=520+((i%TRAY_COLS)-(TRAY_COLS-1)/2)*TRAY_W;n.y=TRAY_Y+Math.floor(i/TRAY_COLS)*34;});
+function step(){const k=.016,rep=1150,cx=W/2,cy=H/2;const A=N.filter(n=>vis(n)&&!n.pin);
+  // The layout cools to a stop instead of drifting forever. A graph that never settles cannot be
+  // fitted to the window — every fit is undone by the next frame — and a picture that keeps moving
+  // under the cursor is harder to read than one that is merely imperfect.
+  const cool=Math.max(0,1-frames/760);
   for(let i=0;i<A.length;i++){const a=A[i];
     for(let j=i+1;j<A.length;j++){const b=A[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||.01,d=Math.sqrt(d2),f=rep/d2,ux=dx/d,uy=dy/d;
       a.vx+=ux*f;a.vy+=uy*f;b.vx-=ux*f;b.vy-=uy*f;}
     a.vx+=(cx-a.x)*.0015;a.vy+=(cy-a.y)*.0015;
     // Layer depth pulls vertically, so the picture reads top-down instead of as a hairball.
-    if(a.depth!==null)a.vy+=((90+a.depth*140)-a.y)*.006;}
+    if(a.depth!==null)a.vy+=((90+a.depth*140)-a.y)*.006*cool;}
   for(const e of E){if(!vis(e.s)||!vis(e.t))continue;
-    let dx=e.t.x-e.s.x,dy=e.t.y-e.s.y,d=Math.sqrt(dx*dx+dy*dy)||.01,f=(d-84)*k,ux=dx/d,uy=dy/d;
-    e.s.vx+=ux*f;e.s.vy+=uy*f;e.t.vx-=ux*f;e.t.vy-=uy*f;}
-  for(const n of A){if(n===drag)continue;n.x+=n.vx*=.85;n.y+=n.vy*=.85;}}
-function path(n,r){ctx.beginPath();
-  if(n.shape==='square')ctx.roundRect(n.x-r,n.y-r,r*2,r*2,r*.42);
-  else if(n.shape==='diamond'){ctx.moveTo(n.x,n.y-r);ctx.lineTo(n.x+r,n.y);ctx.lineTo(n.x,n.y+r);ctx.lineTo(n.x-r,n.y);ctx.closePath();}
-  else if(n.shape==='triangle'){ctx.moveTo(n.x,n.y-r);ctx.lineTo(n.x+r*.92,n.y+r*.72);ctx.lineTo(n.x-r*.92,n.y+r*.72);ctx.closePath();}
-  else ctx.arc(n.x,n.y,r,0,7);}
+    let dx=e.t.x-e.s.x,dy=e.t.y-e.s.y,d=Math.sqrt(dx*dx+dy*dy)||.01,f=(d-108)*k,ux=dx/d,uy=dy/d;
+    e.s.vx+=ux*f*cool;e.s.vy+=uy*f*cool;e.t.vx-=ux*f*cool;e.t.vy-=uy*f*cool;}
+  for(const n of A){if(n===drag)continue;n.x+=n.vx*=.85;n.y+=n.vy*=.85;}
+  // Chips are wide and points are not, so radial repulsion alone lets two labels sit on top of each
+  // other while their centres are comfortably apart. One separation pass on the actual rectangles,
+  // resolved along the shallower axis so a near-miss nudges sideways instead of jumping.
+  // Three passes: one is not enough, because resolving A against B routinely pushes A into C. Three
+  // settles the dense middle without the cost of iterating to a fixed point every frame.
+  for(let pass=0;pass<3;pass++)
+    for(let i=0;i<A.length;i++){const a=A[i];
+      for(let j=i+1;j<A.length;j++){const b=A[j];
+        const ox=(a.w+b.w)/2+10-Math.abs(a.x-b.x),oy=(a.h+b.h)/2+8-Math.abs(a.y-b.y);
+        if(ox<=0||oy<=0)continue;
+        if(ox/(a.w+b.w)<oy/(a.h+b.h)){const s=(a.x<b.x?-1:1)*ox*.5;
+          if(a!==drag)a.x+=s;if(b!==drag)b.x-=s;}
+        else{const s=(a.y<b.y?-1:1)*oy*.5;if(a!==drag)a.y+=s;if(b!==drag)b.y-=s;}}}}
+
+// A graph laid out in its own coordinates has no reason to match the window, and this one opened
+// with a third of itself past the edge. Fit once, after the simulation has settled — and never
+// after the user has touched the view, because moving someone's camera out from under them is worse
+// than a bad first frame.
+let frames=0,touched=false;
+function fit(){const A=N.filter(n=>vis(n)&&!n.pin);if(!A.length||!W)return;
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const n of A){x0=Math.min(x0,n.x-n.w/2);x1=Math.max(x1,n.x+n.w/2);
+    y0=Math.min(y0,n.y-n.h/2);y1=Math.max(y1,n.y+n.h/2);}
+  // Never fit below the point where the chips stop being readable: a page that fits
+  // perfectly and cannot be read has optimised the wrong thing. Past that, panning is the answer.
+  const pad=48,s=Math.max(CHIP_LOD+.08,Math.min((W-pad*2)/(x1-x0||1),(H-pad*2)/(y1-y0||1),1.15));
+  scale=s;tx=(W-(x1-x0)*s)/2-x0*s;ty=(H-(y1-y0)*s)/2-y0*s;}
+function shapePath(shape,x,y,r){ctx.beginPath();
+  if(shape==='square')ctx.roundRect(x-r,y-r,r*2,r*2,r*.42);
+  else if(shape==='diamond'){ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);ctx.closePath();}
+  else if(shape==='triangle'){ctx.moveTo(x,y-r);ctx.lineTo(x+r*.92,y+r*.72);ctx.lineTo(x-r*.92,y+r*.72);ctx.closePath();}
+  else ctx.arc(x,y,r,0,7);}
+function path(n,r){shapePath(n.shape,n.x,n.y,r);}
+
+// One chip = one file, readable without hovering. The accent bar carries the area colour, the
+// glyph keeps the category encoding the dots used to carry alone, and the name is set in the mono
+// face because a filename is code. Below CHIP_LOD the labels would be illegible anyway, so the
+// graph falls back to dots — which is also the view that shows the repo's overall shape.
+const CHIP_LOD=.55;
+function chip(n,focus){
+  const w=n.w,h=n.h,x=n.x-w/2,y=n.y-h/2,rad=7;
+  if(focus){ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=16;ctx.shadowOffsetY=3;}
+  ctx.beginPath();ctx.roundRect(x,y,w,h,rad);
+  ctx.fillStyle=css('--raised');ctx.fill();
+  ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+  // The accent bar, clipped to the chip's own rounding so it reads as part of the card.
+  ctx.save();ctx.clip();ctx.globalAlpha=n.a*.08;ctx.fillStyle=n.color;ctx.fillRect(x,y,w,h);
+  ctx.globalAlpha=n.a;ctx.fillRect(x,y,BAR+(n.deg>5?2:0),h);ctx.restore();
+  const untested=n.category==='code'&&!n.isTest&&!n.tested;
+  ctx.lineWidth=focus?1.6:1;
+  ctx.strokeStyle=focus?css('--ink'):(untested?css('--bad'):css('--line'));
+  ctx.beginPath();ctx.roundRect(x,y,w,h,rad);ctx.stroke();
+  ctx.fillStyle=n.color;shapePath(n.shape,x+BAR+9,n.y,GLY/2);ctx.fill();
+  ctx.fillStyle=css('--ink');ctx.font='500 11.5px '+MONO;ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillText(n.text,x+BAR+CHIP_PAD+GLY+2,n.y+.5);
+  ctx.textBaseline='alphabetic';}
 function draw(){if(!W)return;ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(tx,ty);ctx.scale(scale,scale);
   const q=query.trim().toLowerCase(),EC=css('--edge');
   const nb=new Set();if(hover){nb.add(hover.id);for(const e of E){if(e.s===hover)nb.add(e.t.id);if(e.t===hover)nb.add(e.s.id);}}
@@ -315,35 +379,44 @@ function draw(){if(!W)return;ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(tx,
       ctx.moveTo(ax,ay);ctx.lineTo(ax-Math.cos(ang-.42)*7,ay-Math.sin(ang-.42)*7);
       ctx.lineTo(ax-Math.cos(ang+.42)*7,ay-Math.sin(ang+.42)*7);ctx.closePath();ctx.fill();}}
   if(LOOSE.length){ // the band's own caption, so a parked node is never mistaken for a stray one
-    const w=(TRAY_COLS*150)/2;ctx.globalAlpha=.42;ctx.strokeStyle=css('--ink-2');ctx.lineWidth=1;
+    const w=(TRAY_COLS*TRAY_W)/2;ctx.globalAlpha=.42;ctx.strokeStyle=css('--ink-2');ctx.lineWidth=1;
     ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(520-w,TRAY_Y-40);ctx.lineTo(520+w,TRAY_Y-40);
     ctx.stroke();ctx.setLineDash([]);
     ctx.fillStyle=css('--ink-2');ctx.font='600 12px ui-sans-serif,system-ui,sans-serif';
     ctx.textAlign='center';ctx.fillText(LOOSE.length+' files with no import edge found',520,TRAY_Y-50);
     ctx.globalAlpha=1;}
+  const chips=scale>=CHIP_LOD;
   for(const n of N){if(!vis(n))continue;
     const mt=q&&n.path.toLowerCase().includes(q);
     const want=((hover&&!nb.has(n.id))||(q&&!mt))?.13:1;
     n.a+=(want-n.a)*.22;                       // eased focus, so hovering does not strobe
     ctx.globalAlpha=n.a;
+    if(chips){chip(n,hover===n||mt);continue;}
     const lift=(hover===n)?1.35:1,r=n.r*lift;
     if(hover===n||mt){ctx.shadowColor=n.color;ctx.shadowBlur=18;}
     path(n,r);ctx.fillStyle=n.color;ctx.fill();ctx.shadowBlur=0;
     if(n.category==='code'&&!n.isTest&&!n.tested){ctx.lineWidth=1.4;ctx.strokeStyle=css('--bad');ctx.stroke();}
     if(mt){ctx.lineWidth=2;ctx.strokeStyle=css('--ink');ctx.stroke();}
-    // Parked nodes are always labelled: the band is a list, and an anonymous dot in it is worse
-    // than no dot. Its grid spacing is what keeps that from becoming clutter.
-    if(scale>.72||n.deg>3||mt||n.pin||(hover&&nb.has(n.id))){ctx.globalAlpha=n.a*.94;ctx.fillStyle=css('--ink-2');
-      ctx.font='500 11px ui-sans-serif,system-ui,sans-serif';ctx.textAlign='center';
-      const cap=n.pin?18:24;
-      ctx.fillText(n.label.length>cap?n.label.slice(0,cap-1)+'…':n.label,n.x,n.y-r-6);}}
+    // Zoomed out the chips are gone, so a match still needs to be findable by its name alone.
+    if(n.deg>3||mt||(hover&&nb.has(n.id))){ctx.globalAlpha=n.a*.94;ctx.fillStyle=css('--ink-2');
+      ctx.font='500 11px '+MONO;ctx.textAlign='center';
+      ctx.fillText(n.label.length>24?n.label.slice(0,23)+'…':n.label,n.x,n.y-r-6);}}
   ctx.globalAlpha=1;ctx.restore();}
-function loop(){step();draw();requestAnimationFrame(loop);}
+function loop(){step();frames++;
+  if(!touched&&(frames===200||frames===480||frames===800))fit();
+  draw();requestAnimationFrame(loop);}
 function tw(mx,my){return{x:(mx-tx)/scale,y:(my-ty)/scale};}
+// Hit-testing follows what is actually drawn: the chip's rectangle when chips are showing, the dot
+// otherwise. A radius test against a 200px-wide chip means most of the card is not clickable.
 function pick(mx,my){const p=tw(mx,my);let b=null,bd=1e9;
-  for(const n of N){if(!vis(n))continue;const dx=n.x-p.x,dy=n.y-p.y,d=dx*dx+dy*dy;if(d<bd&&d<(n.r+7)*(n.r+7)){bd=d;b=n;}}return b;}
+  const chips=scale>=CHIP_LOD;
+  for(const n of N){if(!vis(n))continue;
+    const dx=n.x-p.x,dy=n.y-p.y;
+    if(chips){if(Math.abs(dx)<=n.w/2&&Math.abs(dy)<=n.h/2){const d=dx*dx+dy*dy;if(d<bd){bd=d;b=n;}}}
+    else{const d=dx*dx+dy*dy;if(d<bd&&d<(n.r+7)*(n.r+7)){bd=d;b=n;}}}
+  return b;}
 cv.addEventListener('mousedown',e=>{const n=pick(e.offsetX,e.offsetY);
-  if(n){drag=n;drag._dn=0;}else{pan=true;px=e.offsetX;py=e.offsetY;}});
+  touched=true;if(n){drag=n;drag._dn=0;}else{pan=true;px=e.offsetX;py=e.offsetY;}});
 addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;
   if(drag){const p=tw(mx,my);drag.x=p.x;drag.y=p.y;drag.vx=drag.vy=0;drag._dn=1;}
   else if(pan){tx+=mx-px;ty+=my-py;px=mx;py=my;}
@@ -358,7 +431,7 @@ addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();const mx=e.c
         +(n.summary?'<br>'+esc(n.summary.slice(0,150)):'')+'<br>click to open</div>';}
     else tip.style.display='none';}});
 addEventListener('mouseup',()=>{if(drag&&!drag._dn)openFile(drag.id);drag=null;pan=false;});
-cv.addEventListener('wheel',e=>{e.preventDefault();const f=e.deltaY<0?1.1:.9;const mx=e.offsetX,my=e.offsetY;
+cv.addEventListener('wheel',e=>{e.preventDefault();touched=true;const f=e.deltaY<0?1.1:.9;const mx=e.offsetX,my=e.offsetY;
   tx=mx-(mx-tx)*f;ty=my-(my-ty)*f;scale*=f;},{passive:false});
 function buildHud(){$('hud').innerHTML='<span><b>'+N.length+'</b> files</span><span class="sep"></span>'
   +'<span><b>'+E.length+'</b> imports</span><span class="sep"></span><span>scroll to zoom · drag to pan</span>';}
@@ -374,7 +447,7 @@ function buildLegend(){const L=$('legend');const shown=new Set(N.map(n=>n.area))
 $('q').addEventListener('input',e=>{query=e.target.value;buildList(query.trim().toLowerCase());});
 addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement!==$('q')){e.preventDefault();$('q').focus();}
   if(e.key==='Escape'){$('q').blur();}});
-buildList('');buildAreas();buildGaps();buildNext();buildLegend();buildHud();resize();loop();
+buildList('');buildAreas();buildGaps();buildNext();buildLegend();buildHud();resize();measure();loop();
 `;
 
 // Inlined JSON sits inside a <script> element, where the parser looks for "</script" before it

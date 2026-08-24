@@ -53,7 +53,7 @@ assert_contains "$out" "Next → /cortex-scaffold" "the next unfinished required
 
 # The optional graph step sits ABOVE scaffold in the list and is unfinished here. A sequence that
 # let an optional step become "next" would stall the user on something that never had to happen.
-assert_not_contains "$out" "Next → node index/cortex-view.mjs" "an optional step never becomes next"
+assert_not_contains "$out" "Next → /cortex-view" "an optional step never becomes next"
 
 # --- the step that must come first ----------------------------------------------------------------
 

@@ -117,6 +117,7 @@ and needs no mirror at all.
 | `/cortex-audit` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files, privacy leaks |
 | `/cortex-next` | any time you are lost | where this repo is in the sequence, and the one command to run now |
 | `/cortex-install` | per repo | index a codebase, report findings, scaffold only what the user picks |
+| `/cortex-view` | after install | render the index as one offline HTML page — map, files, areas, gaps |
 | `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
 | `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
 | `/cortex-brief` | per critical area | write scoped `AGENTS.md` leaves + wire the root routing table |

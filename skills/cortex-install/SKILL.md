@@ -203,7 +203,7 @@ working day.
 it says. This is the last thing the user reads, and a list of eleven commands sorted by nothing is
 where an install stops being useful — they leave holding options instead of a step. If they want the
 whole sequence, that is `/cortex-next`; if they would rather see the repo than read about it,
-`node "${CLAUDE_PLUGIN_ROOT}/index/cortex-view.mjs" .` renders the index as one offline page.
+`/cortex-view` renders the index as one offline page.
 
 ## Gotchas
 

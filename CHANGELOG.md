@@ -3,6 +3,28 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.29.0] — 2026-08-24
+
+### Added — `/cortex-view`, because the documented command did not work for anyone who installed the plugin
+
+The viewer shipped with one address: `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-view.mjs" .`. That
+variable is set **inside a skill and nowhere else**, so a user who installed Cortex as a plugin and
+typed the documented line into their own terminal got `node "/index/cortex-view.mjs" .` and a
+missing file. Verified, not assumed: in a plain shell here, `CLAUDE_PLUGIN_ROOT` is unset.
+
+Their only working alternative was a path into the plugin cache pinned to the installed version —
+which breaks on the next update. So the feature Cortex advertises as *"see the repo instead of
+reading about it"* was reachable only from a clone of Cortex itself.
+
+`skills/cortex-view/SKILL.md` gives it an address a person can remember. The skill carries the
+consent gate (`.cortex/` may not appear in someone's project on a run they did not ask for) and the
+four hedges the picture needs more than the prose did — an orphan is a question, "no test found" is
+a floor, markdown is not drawn, depth is a floor too.
+
+`/cortex-next`, `/cortex-install`, the README and the `AGENTS.md` ritual table now all name
+`/cortex-view` rather than the node line. The sequence step that told users to run something that
+could not work was the last one it printed.
+
 ## [2.28.0] — 2026-08-24
 
 ### Fixed — "unreferenced" meant "unimported", and Cortex reported it about itself
@@ -1856,6 +1878,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.29.0]: https://github.com/marinvch/Cortex/releases/tag/v2.29.0
 [2.28.0]: https://github.com/marinvch/Cortex/releases/tag/v2.28.0
 [2.27.1]: https://github.com/marinvch/Cortex/releases/tag/v2.27.1
 [2.27.0]: https://github.com/marinvch/Cortex/releases/tag/v2.27.0

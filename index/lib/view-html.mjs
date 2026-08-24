@@ -268,7 +268,20 @@ const M=new Map(N.map(n=>[n.id,n]));
 const E=DATA.links.map(l=>({s:M.get(l.source),t:M.get(l.target)})).filter(e=>e.s&&e.t);
 const hidden=new Set();
 const vis=n=>!hidden.has(n.area);
-function step(){const k=.016,rep=2200,cx=W/2,cy=H/2;const A=N.filter(vis);
+// Files with no import edge Cortex could resolve. Simulated alongside everything else they had
+// nothing but repulsion acting on them, so they were flung outward into a halo of loose labels
+// orbiting the structure — the picture said "half this repo is disconnected" when the truth was
+// narrower: shell tests sourced through a loop variable, and tests that read files instead of
+// importing them. Parked in a labelled band below the graph instead. Still drawn, still clickable,
+// still searchable; they have simply stopped pretending to be part of the layout.
+const WIRED=new Set();for(const e of E){WIRED.add(e.s.id);WIRED.add(e.t.id);}
+const LOOSE=N.filter(n=>!WIRED.has(n.id))
+  .sort((a,b)=>a.area<b.area?-1:a.area>b.area?1:a.path<b.path?-1:1);
+const MAXD=N.reduce((m,n)=>n.depth===null?m:Math.max(m,n.depth),0);
+const TRAY_Y=90+(MAXD+2)*140,TRAY_COLS=Math.max(6,Math.ceil(Math.sqrt(LOOSE.length*1.6)));
+LOOSE.forEach((n,i)=>{n.pin=1;
+  n.x=520+((i%TRAY_COLS)-(TRAY_COLS-1)/2)*150;n.y=TRAY_Y+Math.floor(i/TRAY_COLS)*36;});
+function step(){const k=.016,rep=2200,cx=W/2,cy=H/2;const A=N.filter(n=>vis(n)&&!n.pin);
   for(let i=0;i<A.length;i++){const a=A[i];
     for(let j=i+1;j<A.length;j++){const b=A[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||.01,d=Math.sqrt(d2),f=rep/d2,ux=dx/d,uy=dy/d;
       a.vx+=ux*f;a.vy+=uy*f;b.vx-=ux*f;b.vy-=uy*f;}
@@ -301,6 +314,13 @@ function draw(){if(!W)return;ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(tx,
       ctx.fillStyle='rgba('+EC+',.7)';ctx.beginPath();
       ctx.moveTo(ax,ay);ctx.lineTo(ax-Math.cos(ang-.42)*7,ay-Math.sin(ang-.42)*7);
       ctx.lineTo(ax-Math.cos(ang+.42)*7,ay-Math.sin(ang+.42)*7);ctx.closePath();ctx.fill();}}
+  if(LOOSE.length){ // the band's own caption, so a parked node is never mistaken for a stray one
+    const w=(TRAY_COLS*150)/2;ctx.globalAlpha=.42;ctx.strokeStyle=css('--ink-2');ctx.lineWidth=1;
+    ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(520-w,TRAY_Y-40);ctx.lineTo(520+w,TRAY_Y-40);
+    ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=css('--ink-2');ctx.font='600 12px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign='center';ctx.fillText(LOOSE.length+' files with no import edge found',520,TRAY_Y-50);
+    ctx.globalAlpha=1;}
   for(const n of N){if(!vis(n))continue;
     const mt=q&&n.path.toLowerCase().includes(q);
     const want=((hover&&!nb.has(n.id))||(q&&!mt))?.13:1;
@@ -311,9 +331,12 @@ function draw(){if(!W)return;ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(tx,
     path(n,r);ctx.fillStyle=n.color;ctx.fill();ctx.shadowBlur=0;
     if(n.category==='code'&&!n.isTest&&!n.tested){ctx.lineWidth=1.4;ctx.strokeStyle=css('--bad');ctx.stroke();}
     if(mt){ctx.lineWidth=2;ctx.strokeStyle=css('--ink');ctx.stroke();}
-    if(scale>.72||n.deg>3||mt||(hover&&nb.has(n.id))){ctx.globalAlpha=n.a*.94;ctx.fillStyle=css('--ink-2');
+    // Parked nodes are always labelled: the band is a list, and an anonymous dot in it is worse
+    // than no dot. Its grid spacing is what keeps that from becoming clutter.
+    if(scale>.72||n.deg>3||mt||n.pin||(hover&&nb.has(n.id))){ctx.globalAlpha=n.a*.94;ctx.fillStyle=css('--ink-2');
       ctx.font='500 11px ui-sans-serif,system-ui,sans-serif';ctx.textAlign='center';
-      ctx.fillText(n.label.length>24?n.label.slice(0,23)+'…':n.label,n.x,n.y-r-6);}}
+      const cap=n.pin?18:24;
+      ctx.fillText(n.label.length>cap?n.label.slice(0,cap-1)+'…':n.label,n.x,n.y-r-6);}}
   ctx.globalAlpha=1;ctx.restore();}
 function loop(){step();draw();requestAnimationFrame(loop);}
 function tw(mx,my){return{x:(mx-tx)/scale,y:(my-ty)/scale};}
@@ -344,7 +367,8 @@ function buildLegend(){const L=$('legend');const shown=new Set(N.map(n=>n.area))
     +'<span class="sw" style="background:'+a.color+'"></span>'+esc(a.name)
     +'<span class="ct">'+N.filter(n=>n.area===a.name).length+'</span></div>').join('')
    +'<div class="note">Click an area to hide it. A red outline means no test was found. '
-   +(DATA.nodes.length-N.length)+' docs and config files live in <b>Files</b>, not here — they have no imports to draw.</div>';
+   +(DATA.nodes.length-N.length)+' docs and config files live in <b>Files</b>, not here — they have no imports to draw.'
+   +(LOOSE.length?' The '+LOOSE.length+' files in the band below the graph have no import edge Cortex could resolve — which is a question, not a verdict: a file loaded dynamically, or sourced through a variable, looks exactly like an unused one.':'')+'</div>';
   L.querySelectorAll('.lg[data-a]').forEach(el=>el.onclick=()=>{const a=el.dataset.a;
     if(hidden.has(a)){hidden.delete(a);el.classList.remove('off');}else{hidden.add(a);el.classList.add('off');}});}
 $('q').addEventListener('input',e=>{query=e.target.value;buildList(query.trim().toLowerCase());});

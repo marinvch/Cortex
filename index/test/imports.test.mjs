@@ -387,3 +387,63 @@ test("multiple targets for one alias are tried in order", () => {
   const files = new Set(["src/thing.ts"]);
   assert.equal(resolveTsAlias("~/thing", files, table), "src/thing.ts");
 });
+
+// ── shell: a library sourced through a variable ────────────────────────────────────────────────
+// The idiom below is how a portable script finds its own library, and it is what 28 of this repo's
+// 30 shell files were doing when the graph drew every one of them as isolated. The specifier
+// reaching the resolver is `$LIB`, which matches nothing.
+
+const SOURCE_IDIOM = 'LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"\n. "$LIB"\n';
+
+test("a library sourced through a variable resolves to the file", () => {
+  const files = new Set(["tools/_cortex-lib.sh", "tools/cortex.sh"]);
+  const spec = extractImports(SOURCE_IDIOM, "shell")[0];
+  assert.equal(resolveImport(spec, "tools/cortex.sh", files, "shell"), "tools/_cortex-lib.sh");
+});
+
+test("a computed prefix never reaches across the repo on a basename", () => {
+  // The whole risk of the tail fallback: two unrelated `setup.sh` files must not become one edge.
+  // It is tried ONLY against the sourcing script's own directory.
+  const files = new Set(["a/setup.sh", "b/setup.sh", "c/run.sh"]);
+  const spec = extractImports('X="$(pwd)/setup.sh"\n. "$X"\n', "shell")[0];
+  assert.equal(resolveImport(spec, "c/run.sh", files, "shell"), null, "no sibling — no edge");
+  assert.equal(resolveImport(spec, "a/run.sh", files, "shell"), "a/setup.sh");
+});
+
+test("a variable with no literal assignment stays unresolved", () => {
+  // `for f in …; do . "$f"; done` is a runner sourcing whatever it was handed. There is no answer
+  // here, and inventing one would wire the runner to an arbitrary file.
+  const files = new Set(["tools/test/run.sh", "tools/test/a.test.sh"]);
+  assert.equal(resolveImport("$f", "tools/test/run.sh", files, "shell"), null);
+});
+
+test("only a specifier that is entirely one variable is substituted", () => {
+  // `$HERE/_helpers.sh` already resolves by prefix stripping; substituting into it would replace a
+  // working answer with a guess.
+  const files = new Set(["tools/test/_helpers.sh", "tools/test/run.sh", "elsewhere/_helpers.sh"]);
+  const spec = extractImports('HERE="elsewhere"\n. "$HERE/_helpers.sh"\n', "shell")[0];
+  assert.equal(spec, "$HERE/_helpers.sh");
+  assert.equal(resolveImport(spec, "tools/test/run.sh", files, "shell"), "tools/test/_helpers.sh");
+});
+
+test("the first assignment wins, so the answer never depends on read order", () => {
+  const files = new Set(["tools/one.sh", "tools/two.sh", "tools/run.sh"]);
+  const text = 'LIB="one.sh"\nLIB="two.sh"\n. "$LIB"\n';
+  assert.equal(resolveImport(extractImports(text, "shell")[0], "tools/run.sh", files, "shell"), "tools/one.sh");
+});
+
+test("zsh's ${0:A:h} — the directory of this file — resolves against that directory", () => {
+  // Found on ohmyzsh, not invented here: `source "${0:A:h}/git-prompt.sh"` is how a zsh plugin
+  // loads a file that sits beside it. Six real edges in that repo were missing because of it.
+  const files = new Set([
+    "plugins/gitfast/gitfast.plugin.zsh",
+    "plugins/gitfast/git-prompt.sh",
+    "elsewhere/git-prompt.sh",
+  ]);
+  const spec = extractImports('source "${0:A:h}/git-prompt.sh"\n', "shell")[0];
+  assert.equal(
+    resolveImport(spec, "plugins/gitfast/gitfast.plugin.zsh", files, "shell"),
+    "plugins/gitfast/git-prompt.sh",
+    "beside the plugin, not the same basename elsewhere in the repo",
+  );
+});

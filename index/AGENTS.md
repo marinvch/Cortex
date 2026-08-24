@@ -59,6 +59,17 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - **Import resolution is regex-based**, so dynamic and computed imports are missed. That is a
   documented limit, not a bug — it is why the orphan finding says "worth checking", never "safe to
   delete".
+- **"Unreferenced" means more than "unimported", and lives in `lib/orphans.mjs`.** A file whose
+  path another file names literally — a CI workflow, a shell test, a README, an ADR — is referenced;
+  that is how repo tooling is normally wired. Cortex reported the false positive about itself:
+  `tools/cortex-version.mjs` and `tools/cortex-capability.mjs`, the two scripts it cannot release or
+  verify itself without, were listed as unreferenced because nothing `import`s them. The signal is
+  the most checkable one available — the literal repo-relative path appears in another indexed
+  file — and it is the same standard `citationDrift` holds itself to, run in reverse. **The
+  direction of error is chosen:** this can only ever *remove* entries. Missing a true orphan costs a
+  suggestion nobody had to act on; inventing one costs trust in every other line of the report.
+  `findings.mjs` and `view.mjs` both call it — there is no second copy, for the reason
+  `coverage.mjs` says.
 - **A path alias is read from the repo, never guessed.** `tsconfig.json` / `jsconfig.json` `paths`
   and `baseUrl` are declared, exactly like `go.mod`'s module path and `composer.json`'s PSR-4
   prefixes, and `build.mjs` follows the `extends` chain because splitting options into a base config

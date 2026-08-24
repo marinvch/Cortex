@@ -161,3 +161,27 @@ test("enrichment is additive — its absence changes only the detail on a card",
   assert.equal(rich.nodes.find((n) => n.id === "src/a.js").summary, "the entry point");
   assert.equal(rich.stats.enriched, 1);
 });
+
+// ── the band of unconnected files ──────────────────────────────────────────────────────────────
+// Simulated alongside everything else, a node with no edges has only repulsion acting on it, so it
+// drifts outward — 34 loose labels orbiting this repo's graph, reading as "half of it is
+// disconnected". They are parked in a captioned band instead. These are lint-style assertions on
+// the browser script, which has no DOM to run in here; the behaviour itself is a design decision
+// and this is the guard that it was not quietly reverted.
+
+test("the layout parks unconnected files instead of simulating them", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(html.includes("n.pin=1"), "loose nodes are pinned");
+  assert.ok(
+    html.includes("vis(n)&&!n.pin"),
+    "the force step excludes them — otherwise pinning them is undone every frame",
+  );
+});
+
+test("the band says what it is, and hedges what it means", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(html.includes("files with no import edge found"), "the band is captioned");
+  // The hedge is the point: regex resolution cannot see a dynamically loaded or variable-sourced
+  // file, so an empty edge list is a question. A silent band would read as a verdict.
+  assert.ok(html.includes("a question, not a verdict"));
+});

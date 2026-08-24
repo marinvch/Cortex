@@ -28,6 +28,41 @@ const RUST_PATTERNS = [
 
 const SHELL_PATTERNS = [/^\s*(?:\.|source)\s+["']?([^\s"';]+)/gm];
 
+// A shell script names its library through a variable far more often than by literal path — the
+// portable idiom is `LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"` and then
+// `. "$LIB"`. The specifier reaching the resolver is `$LIB`, which matches no file, so every script
+// in a repo that uses it draws as isolated. In this repo six scripts source one library and the
+// graph showed none of those edges: 28 of 30 shell files had no edge at all.
+//
+// One hop, same file, literal right-hand sides. Nothing is executed and nothing is chased: an
+// assignment whose value is itself just another variable expands to that variable and stops there.
+const SHELL_ASSIGN =
+  /^[ \t]*(?:export[ \t]+|readonly[ \t]+|local[ \t]+|declare[ \t]+-\w+[ \t]+)?([A-Za-z_]\w*)=(.+?)[ \t]*$/gm;
+
+/**
+ * Variable → literal value, for the assignments a shell script makes to itself.
+ * First assignment wins. A script that reassigns the same name is choosing between two files this
+ * cannot tell apart, and the definition is nearly always the first one; picking deterministically
+ * matters more than picking cleverly.
+ */
+export function shellAssignments(text) {
+  const out = new Map();
+  SHELL_ASSIGN.lastIndex = 0;
+  let m;
+  while ((m = SHELL_ASSIGN.exec(text)) !== null) if (!out.has(m[1])) out.set(m[1], m[2]);
+  return out;
+}
+
+// Only a specifier that is ENTIRELY one variable. `$HERE/_helpers.sh` already resolves by prefix
+// stripping, and a partial substitution there would replace a working answer with a guess.
+function expandShellSpec(spec, assigns) {
+  const m = spec.match(/^\$\{?([A-Za-z_]\w*)\}?$/);
+  if (!m) return spec;
+  const value = assigns.get(m[1]);
+  if (!value) return spec;
+  return value.replace(/^["']/, "").replace(/["']$/, "");
+}
+
 // `import a.b.C;` and `import static a.b.C.member;`. The static form names a member, not a file, so
 // resolution shortens the path until it lands on one — same problem Rust `use` has.
 const JAVA_PATTERNS = [/^\s*import\s+(?:static\s+)?([\w.]+)\s*;/gm];
@@ -89,8 +124,10 @@ export function extractImports(text, lang) {
       const abs = collect(text, [RUBY_PATTERNS[1]]);
       return [...rel, ...abs.filter((a) => !rel.includes(`./${a}`))];
     }
-    case "shell":
-      return collect(text, SHELL_PATTERNS);
+    case "shell": {
+      const assigns = shellAssignments(text);
+      return collect(text, SHELL_PATTERNS).map((s) => expandShellSpec(s, assigns));
+    }
     default:
       return [];
   }
@@ -289,9 +326,21 @@ export function resolveImport(spec, fromPath, fileSet, lang) {
 
   if (lang === "shell") {
     const cleaned = spec.replace(/^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?\//, "");
-    if (fileSet.has(cleaned)) return cleaned;
-    const rel = joinRel(fromPath, cleaned);
-    return fileSet.has(rel) ? rel : null;
+    for (const cand of cleaned === spec ? [spec] : [cleaned, spec]) {
+      if (fileSet.has(cand)) return cand;
+      const rel = joinRel(fromPath, cand);
+      if (fileSet.has(rel)) return rel;
+    }
+    // A computed prefix — `$(cd "$(dirname …)" && pwd)/lib.sh` — cannot be resolved as written, but
+    // the tail after the last slash is a real filename and in this idiom it is anchored to the
+    // sourcing script's own directory. Tried last, and ONLY against that directory: a bare basename
+    // matched against the whole repo would happily connect two unrelated `setup.sh` files.
+    const tail = spec.slice(spec.lastIndexOf("/") + 1);
+    if (/[$(]/.test(spec) && tail && tail !== spec) {
+      const rel = joinRel(fromPath, tail);
+      if (fileSet.has(rel)) return rel;
+    }
+    return null;
   }
 
   // Go is resolved by the caller, which has the module path from go.mod — see resolveGoImport.

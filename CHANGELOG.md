@@ -3,6 +3,36 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.30.0] — 2026-08-24
+
+### Fixed — the Map drew a halo of disconnected files, and some of them were not disconnected
+
+Two separate causes, found by looking at the picture rather than at the code.
+
+**Shell libraries were invisible.** A script names its library through a variable far more often
+than by literal path — `LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"` and then
+`. "$LIB"`. The specifier reaching the resolver was `$LIB`, which matched no file, so **28 of this
+repo's 30 shell files had no edge at all**. Resolution now substitutes same-file literal
+assignments (one hop, first assignment wins, nothing executed and nothing chased), and falls back to
+the tail after the last slash of a computed prefix — tried **only** against the sourcing script's
+own directory, so two unrelated `setup.sh` files can never become one edge.
+
+Validated against real repos rather than fixtures, and it found a form nobody here anticipated:
+**ohmyzsh 10 → 16 edges**, the six new ones all zsh's `source "${0:A:h}/file"` — *the directory of
+this file* — every one of them true, none lost. **nvm 0 → 0**, which sources through its own
+function: it suppresses nothing and invents nothing. This repo: 121 → 126 edges.
+
+**The rest were parked, not hidden.** A node with no edges has only repulsion acting on it, so the
+simulation flung it outward — 34 loose labels orbiting the structure, reading as *half this repo is
+disconnected*. They now sit in a captioned band below the graph: still drawn, still clickable, still
+searchable, no longer pretending to be part of the layout. The remaining ones are honest — shell
+tests sourced through a loop variable (`. "$f"`, which has no answer), and tests that read files
+instead of importing them.
+
+The legend says what the band means, and hedges it the way the orphan finding does: **no resolvable
+import edge is a question, not a verdict.** A dynamically loaded file looks exactly like an unused
+one.
+
 ## [2.29.0] — 2026-08-24
 
 ### Added — `/cortex-view`, because the documented command did not work for anyone who installed the plugin
@@ -1878,6 +1908,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.30.0]: https://github.com/marinvch/Cortex/releases/tag/v2.30.0
 [2.29.0]: https://github.com/marinvch/Cortex/releases/tag/v2.29.0
 [2.28.0]: https://github.com/marinvch/Cortex/releases/tag/v2.28.0
 [2.27.1]: https://github.com/marinvch/Cortex/releases/tag/v2.27.1

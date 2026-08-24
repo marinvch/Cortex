@@ -162,3 +162,60 @@ export function isStale(index, enrichment) {
   if (enrichment.indexCommit && index.commit && enrichment.indexCommit !== index.commit) return true;
   return enrichment.coverage.indexed !== index.files.length;
 }
+
+/**
+ * Sort a plan's batches into done, stale and pending — by reading each result, never by trusting a
+ * filename.
+ *
+ * `batch-<n>.json` records which batch it answered only by its number, and the numbering belongs to
+ * the plan. Re-plan after the repo has moved and the same filename is a complete, careful answer to
+ * a batch that no longer exists: on this repo, eight days of commits left 33 of 39 result files
+ * answering different batches while `status` — which counted filenames — reported all 39 complete.
+ *
+ * `merge` already validates and reports, but `status` is what an agent reads to decide what work is
+ * left, so an agent following the skill would have skipped every one of those batches and merged
+ * the stale summaries. A stale answer is worse than a missing one: it is prose about the wrong file,
+ * and it reads as authoritative.
+ *
+ * The test is exact set equality against the batch's own file list. A result that also answers paths
+ * this batch does not contain answered a different question, whatever its coverage looks like.
+ *
+ * `read(batchIndex)` returns the raw file contents, or null when there is none — passed in so this
+ * stays a pure function over the plan rather than a second place that knows the directory layout.
+ */
+export function classifyBatches(batches, read) {
+  const done = [];
+  const stale = [];
+  const pending = [];
+  for (const batch of batches) {
+    const raw = read(batch.batchIndex);
+    if (raw === null || raw === undefined) {
+      pending.push(batch);
+      continue;
+    }
+    let result;
+    try {
+      result = JSON.parse(raw);
+    } catch {
+      stale.push({ batch, why: "invalid JSON" });
+      continue;
+    }
+    if (!Array.isArray(result)) {
+      stale.push({ batch, why: "not an array of entries" });
+      continue;
+    }
+    const want = new Set(batch.files.map((f) => f.path));
+    const got = new Set(result.map((r) => r && r.path).filter(Boolean));
+    const unanswered = [...want].filter((p) => !got.has(p)).length;
+    const foreign = [...got].filter((p) => !want.has(p)).length;
+    if (!unanswered && !foreign) {
+      done.push(batch);
+      continue;
+    }
+    const parts = [];
+    if (unanswered) parts.push(`${unanswered} of ${want.size} files unanswered`);
+    if (foreign) parts.push(`${foreign} path${foreign === 1 ? "" : "s"} this batch does not contain`);
+    stale.push({ batch, why: parts.join(", ") });
+  }
+  return { done, stale, pending };
+}

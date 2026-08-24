@@ -3,6 +3,42 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.32.0] — 2026-08-24
+
+### Fixed — `cortex-enrich status` counted filenames, so 33 stale results read as complete
+
+Found by running `/cortex-enrich` on this repo. `status` reported **39/53 batches complete**. Six
+were. The other 33 were careful, complete answers written eight days earlier — to a *different plan*.
+
+`batch-<n>.json` records which batch it answered only by its number, and the numbering is a property
+of the plan. Re-index after the repo has moved and batch 26 is no longer the same seven files, so
+every result file after the first drift point answers a question that no longer exists. `status`
+decided completeness with `readdirSync` and a filename regex — it never opened one.
+
+`merge` validates and would have reported it, but **`status` is what an agent reads to decide what
+work is left**. An agent following the skill would have skipped all 39 as done and merged summaries
+describing the wrong files. That is worse than no enrichment: enrichment feeds `recall`, so a stale
+summary is not a wrong answer once, it is a wrong answer every time anyone searches — and it reads
+as authoritative.
+
+Batches are now sorted into **done, stale and pending** by reading each result and comparing its
+paths to the batch's own file list, exact set equality both ways. Stale is its own state, listed
+before pending and named batch by batch with what is wrong:
+
+```
+6/53 batches complete
+
+33 batch results answer a different plan — redo or delete:
+  batch 7 — core: 2 of 12 files unanswered, 2 paths this batch does not contain
+```
+
+Folding it into either neighbour is the bug in miniature: counted as done it is skipped, counted as
+pending it looks like fresh work when a wrong answer is already on disk waiting to be merged.
+
+`classifyBatches` lives in `index/lib/enrich.mjs` rather than the CLI — importing the CLI runs its
+top-level command dispatch and calls `process.exit`, which silently killed the test process after one
+test when the function was exported from there.
+
 ## [2.31.0] — 2026-08-24
 
 ### Changed — a node is a file, so it now says which file
@@ -1938,6 +1974,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.32.0]: https://github.com/marinvch/Cortex/releases/tag/v2.32.0
 [2.31.0]: https://github.com/marinvch/Cortex/releases/tag/v2.31.0
 [2.30.0]: https://github.com/marinvch/Cortex/releases/tag/v2.30.0
 [2.29.0]: https://github.com/marinvch/Cortex/releases/tag/v2.29.0

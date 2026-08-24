@@ -222,3 +222,50 @@ test("without an index, the strict positional check is unchanged", () => {
   assert.ok(issues.some((i) => i.includes("was not in this batch")));
   assert.ok(issues.some((i) => i.includes("was not covered")));
 });
+
+// ── stale batch results ────────────────────────────────────────────────────────────────────────
+// `batch-<n>.json` records which batch it answered only by its number, and the numbering belongs to
+// the plan. Re-plan after the repo moves and the same filename is a complete, careful answer to a
+// batch that no longer exists. On this repo that was 33 of 39 result files after eight days of
+// commits, while `status` — which counted filenames — reported all 39 complete. An agent following
+// the skill would have skipped them all and merged summaries describing the wrong files.
+
+import { classifyBatches } from "../lib/enrich.mjs";
+
+const batch = (i, ...paths) => ({
+  batchIndex: i,
+  layer: "x",
+  files: paths.map((p) => ({ path: p, lines: 10 })),
+});
+const answer = (...paths) => JSON.stringify(paths.map((p) => ({ path: p, summary: "s", role: "utility" })));
+
+test("a result that exactly answers its batch is done", () => {
+  const { done, stale, pending } = classifyBatches([batch(1, "a.js", "b.js")], () => answer("a.js", "b.js"));
+  assert.deepEqual([done.length, stale.length, pending.length], [1, 0, 0]);
+});
+
+test("no result at all is pending, not stale", () => {
+  const { stale, pending } = classifyBatches([batch(1, "a.js")], () => null);
+  assert.equal(pending.length, 1);
+  assert.equal(stale.length, 0, "nothing on disk is work to do, not work to redo");
+});
+
+test("a result answering paths this batch does not contain is stale, not done", () => {
+  // The exact shape of the drift here: the file is complete and careful, and it answers a batch
+  // that no longer exists. Coverage alone would call this done.
+  const { done, stale } = classifyBatches([batch(1, "a.js")], () => answer("a.js", "old/gone.js"));
+  assert.equal(done.length, 0);
+  assert.equal(stale.length, 1);
+  assert.match(stale[0].why, /1 path this batch does not contain/);
+});
+
+test("a result missing files from its batch is stale and says how many", () => {
+  const { done, stale } = classifyBatches([batch(1, "a.js", "b.js", "c.js")], () => answer("a.js"));
+  assert.equal(done.length, 0);
+  assert.match(stale[0].why, /2 of 3 files unanswered/);
+});
+
+test("unreadable or wrongly-shaped results are stale rather than crashing the run", () => {
+  assert.equal(classifyBatches([batch(1, "a.js")], () => "{not json").stale[0].why, "invalid JSON");
+  assert.equal(classifyBatches([batch(1, "a.js")], () => '{"path":"a.js"}').stale[0].why, "not an array of entries");
+});

@@ -83,6 +83,16 @@ Say "index layer" or "code layer" when it is not obvious which.
 
 ---
 
+## Related
+
+- [[codebase-design]] — the vocabulary for how code is *shaped*: module, interface, depth, seam,
+  adapter. This file names the domain; that one names the structure.
+- [[vault-architecture]] — the four layers the knowledge half is built from.
+- [[operating-principles]] — Notice → Decide → Build, which decides what gets built at all.
+
+Until 2026-08-24 this file had no wikilink in or out, so it was an island in `cortex.html` — the
+glossary every other document leans on, reachable only by someone who already knew it was there.
+
 ## Notes
 
 - Terms only. Decisions go in `docs/adr/`.

@@ -3,6 +3,79 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.34.0] — 2026-08-24
+
+The remaining `/cortex-audit` findings — the ones held back last release because they were judgment
+calls rather than mechanical fixes. Each is a document making a claim that stopped being true.
+
+### Fixed — the README's ritual table was a second, incomplete copy
+
+It listed 20 rituals and read as *the* list. Ten were missing from it entirely: `/cortex-brief`,
+`/cortex-impact`, `/cortex-profile`, `/domain-modeling`, `/grilling`, `/handoff`,
+`/improve-codebase-architecture`, `/resolving-merge-conflicts`, `/wizard`, `/writing-for-agents`.
+Nothing detected the gap, because a partial copy and a complete one look identical until someone
+counts — there is no error state, only a reader who never learns that `/cortex-impact` exists.
+
+Syncing the two tables would have bought a few months. Two maintained copies drift; that is what
+they do. README now carries a **declared subset of six** with its size and the total written in
+numerals, and points at `AGENTS.md` for the complete table. A subset that says it is a subset cannot
+fail the way an undeclared one does.
+
+`tools/test/ritual-table.test.sh` holds it: one row per `skills/*/SKILL.md` and one skill per row,
+every row naming a skill that exists, and the README's "6 of 39" checked against both. It also fails
+if the subset grows past ten rows — at that size it has stopped being a taste and become a second
+table again.
+
+### Fixed — the README described a repo that no longer exists
+
+Two claims in the tools section, both false since `core/` and `index/` shipped: the heading said
+*"all bash, zero deps"*, and a note said *"the only Node in the repo is the optional MCP brain"*.
+There are three Node scripts in `tools/` alone, plus `core/`, `index/` and two Claude Code hooks.
+
+The half that was still true is the half worth keeping, so it is now stated directly: nine scripts,
+six bash and three Node, none of which need `npm install` — the guarantee is
+[ADR 0004](docs/adr/0004-no-runtime-dependencies.md), and "all bash" was only ever shorthand for it.
+Four scripts missing from the table (`cortex-sync-skills.sh`, `cortex-vault-extract.sh`,
+`cortex-capability.mjs`, `cortex-version.mjs`) are listed.
+
+### Fixed — a committed file linked a gitignored one
+
+`connections.md` cited `[[home]]`. `home.md` is the personal vault's entry point and this repo
+gitignores it, so that link was dead in every fork and the single dead link in the graph the viewer
+draws. Removed, with the direction that does work — link *from* `home.md` to the committed file —
+written down beside it. The regression check lives in the ritual-table test.
+
+### Fixed — `CONTEXT.md` was an island
+
+The glossary every other document leans on had no wikilink in or out, so it was reachable in
+`cortex.html` only by someone who already knew it was there. It now links `[[codebase-design]]`,
+`[[vault-architecture]]` and `[[operating-principles]]`, and says what separates it from each.
+
+### Fixed — two ADRs nothing cited
+
+`0002-committed-repo-memory.md` and `0003-git-decides-what-belongs-to-a-repo.md` were the only two
+with no inbound link from any committed document. Both are now cited from the file that states
+their rule — 0002 beside the `core/scrub.js` requirement in `docs/changing-cortex.md`, 0003 beside
+`walk.mjs`'s "asks git, not `.cortexignore`" in `index/AGENTS.md`. An ADR nobody links is an
+argument nobody reaches when they go to overturn it.
+
+### Fixed — three templates' missing frontmatter was undocumented
+
+`templates/adr.md`, `templates/CONTEXT.md` and `templates/target-AGENTS.md` are the only files in
+`templates/` with no YAML frontmatter. That is correct — they are stamped into *another* repo, where
+they are source files rather than notes filed in this vault's graph — but it was inferable only from
+the absence. Each now says so in its header comment, so the next audit reads it as a decision.
+
+### Housekeeping
+
+`fixt.tmp.cjs`, a spent one-shot patch script from 2026-08-19 that throws on its first line, moved
+to `archives/spent-scripts-2026-08-24/` (gitignored, confirmed with `git check-ignore -v`).
+
+One audit finding was **not** acted on. The retired-`engine/` link at
+`docs/superpowers/plans/2026-06-11-personal-ai-os-fusion.md:466` sits inside a fenced
+```` ```markdown ```` block — it is a quoted draft README the plan proposed, not a live link.
+Rewriting it would falsify what the plan said in exchange for fixing nothing.
+
 ## [2.33.1] — 2026-08-24
 
 ### Fixed — half the ritual table in `AGENTS.md` was not a table
@@ -2032,6 +2105,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.34.0]: https://github.com/marinvch/Cortex/releases/tag/v2.34.0
 [2.33.1]: https://github.com/marinvch/Cortex/releases/tag/v2.33.1
 [2.33.0]: https://github.com/marinvch/Cortex/releases/tag/v2.33.0
 [2.32.0]: https://github.com/marinvch/Cortex/releases/tag/v2.32.0

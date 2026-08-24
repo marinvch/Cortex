@@ -6,6 +6,11 @@
 
   Seed it from terms that actually appear in the code, then sharpen as arguments arise. A term
   nobody disputes does not need an entry.
+
+  No YAML frontmatter, deliberately: this template is stamped into ANOTHER repo, where it is a
+  source file read by developers and agents — not a note filed in this vault graph. The vault
+  templates beside it all carry frontmatter; these three are the exception, and the reason is here
+  rather than inferred from their absence.
 -->
 
 # Domain glossary

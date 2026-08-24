@@ -47,7 +47,7 @@ each time they ask.
 |---|---|---|
 | Index the codebase | `.cortex/index/index.json` exists | `/cortex-install` |
 | Read the findings | a report in `.cortex/findings/` | `/cortex-install` |
-| See it as a graph | `.cortex/view/repo.html` exists | `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-view.mjs" .` |
+| See it as a graph | `.cortex/view/repo.html` exists | `/cortex-view` |
 | Reconcile prior agent docs | *not checkable — offered only while `CONTEXT.md` is missing* | `/optimize-context` |
 | Write the context layer | `AGENTS.md` **and** `CONTEXT.md` | `/cortex-scaffold` |
 | Scoped briefs | any `<dir>/AGENTS.md` | `/cortex-brief <dir>` |
@@ -71,5 +71,5 @@ that point the scaffold has run and an `AGENTS.md` older than the index is Corte
 ## Related
 
 - `/cortex-install` is step one and prints this same next line when it finishes.
-- `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-view.mjs" .` renders the whole sequence as a **Next steps** tab in the graph
+- `/cortex-view` renders the whole sequence as a **Next steps** tab in the graph
   viewer, for a user who would rather see it than read it.

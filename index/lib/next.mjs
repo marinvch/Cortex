@@ -158,7 +158,10 @@ function steps(s) {
   rows.push({
     id: "view",
     title: "See the repo as a graph",
-    cmd: "node index/cortex-view.mjs .",
+    // The slash command, not the node line. `${CLAUDE_PLUGIN_ROOT}` is set inside a skill and
+    // nowhere else, so a plugin user who types the raw command in their own terminal gets nothing —
+    // and the path into the plugin cache is version-pinned, so it breaks on the next update.
+    cmd: "/cortex-view",
     done: s.view,
     optional: true,
     why: s.view

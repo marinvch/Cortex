@@ -10,6 +10,7 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { ENRICHED_REL } from "./enrich.mjs";
 
 const AGENT_DOCS = [
   "AGENTS.md",
@@ -106,7 +107,7 @@ export function readState(root, index = null, overrides = {}) {
     indexed,
     findings: filesIn(root, ".cortex/findings"),
     view: has(root, ".cortex/view/repo.html"),
-    enriched: has(root, ".cortex/index/enrichment.json"),
+    enriched: has(root, ENRICHED_REL),
     rootBrief: has(root, "AGENTS.md"),
     glossary: has(root, "CONTEXT.md"),
     adrs: filesIn(root, "docs/adr"),
@@ -219,7 +220,7 @@ function steps(s) {
     done: s.enriched,
     optional: true,
     why: s.enriched
-      ? ".cortex/index/enrichment.json is present"
+      ? ENRICHED_REL + " is present"
       : "costs tokens; worth it on a large unfamiliar repo",
   });
 

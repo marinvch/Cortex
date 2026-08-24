@@ -205,3 +205,34 @@ test("the layout cools, and the fit never zooms past legibility", () => {
   );
   assert.ok(html.includes("!touched"), "and never moves a camera the user has already touched");
 });
+
+// ── enrichment reaches the cards ───────────────────────────────────────────────────────────────
+// Two mismatches in one seam, both silent. `merge` writes `.cortex/index/enriched.json` while the
+// viewer and the sequence looked for `enrichment.json`; and `mergeEnrichment` writes `files` as an
+// object keyed by path while buildView read `summaries`, an array. Neither errored, because
+// enrichment is OPTIONAL — an empty result is indistinguishable from a repo that never ran it,
+// which is exactly what let a completed 307-file enrichment show up as no enrichment at all.
+
+test("summaries from the shape merge actually writes reach the cards", () => {
+  const enrichment = {
+    files: {
+      "src/a.js": { path: "src/a.js", summary: "does the thing", role: "core-logic", tags: ["x"] },
+    },
+  };
+  const v = buildView(idx(), "/tmp/x", { enrichment });
+  const card = v.nodes.find((n) => n.path === "src/a.js");
+  assert.equal(card.summary, "does the thing", "the object-keyed form is what merge produces");
+  assert.equal(v.stats.enriched, 1);
+});
+
+test("the older array form still works, so an existing enrichment is not orphaned", () => {
+  const enrichment = { summaries: [{ path: "src/a.js", summary: "legacy shape", role: "utility" }] };
+  const v = buildView(idx(), "/tmp/x", { enrichment });
+  assert.equal(v.nodes.find((n) => n.path === "src/a.js").summary, "legacy shape");
+});
+
+test("no enrichment is still the normal optional case", () => {
+  const v = buildView(idx(), "/tmp/x");
+  assert.equal(v.stats.enriched, 0);
+  assert.equal(v.nodes.find((n) => n.path === "src/a.js").summary ?? "", "");
+});

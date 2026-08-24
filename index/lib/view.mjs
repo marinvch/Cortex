@@ -47,8 +47,17 @@ export function buildView(index, root, opts = {}) {
   const edges = (index.edges ?? []).filter((e) => e.type === "imports");
   const enrichment = opts.enrichment ?? null;
 
+  // `mergeEnrichment` writes `files` as an object keyed by path. This read the shape it expected
+  // rather than the shape that exists — `summaries`, an array — so a complete enrichment attached
+  // nothing and the cards stayed bare. Nothing errored: enrichment is optional, so an empty result
+  // is indistinguishable from a repo that never ran it, which is what let the mismatch survive
+  // alongside the filename one above it. Both forms are accepted now, and the object form is what
+  // is actually produced.
   const summaries = new Map();
-  for (const s of enrichment?.summaries ?? []) {
+  const rows = enrichment?.files
+    ? (Array.isArray(enrichment.files) ? enrichment.files : Object.values(enrichment.files))
+    : (enrichment?.summaries ?? []);
+  for (const s of rows) {
     if (s?.path) summaries.set(s.path, { summary: s.summary ?? "", role: s.role ?? "", tags: s.tags ?? [] });
   }
 

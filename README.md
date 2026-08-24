@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.33.1** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
+**v2.34.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
 where it is changing, and what is missing. Then it writes a context layer — a small root
@@ -276,26 +276,21 @@ or refreshes a skill that changed. `--check` reports the drift without writing.
 
 | Ritual | When | What it does |
 |---|---|---|
+| `/cortex-next` | whenever you are lost | Reads this repo off disk and names the **one** command to run now |
+| `/cortex-install` | per repo | Index a codebase, report findings, scaffold only what you pick |
+| `/cortex-view` | after install | Render the index as one offline HTML page — map, files, areas, gaps |
 | `/onboard` | once | Interview you; fill `context/`, seed `home.md`, `connections.md` |
 | `/capture` | anytime | One-line drop to the inbox |
 | `/daily` | each morning | Today's note + priorities + due items |
-| `/weekly-review` | weekly | Empty inbox, update projects, archive stale |
-| `/audit` | weekly | Four-layer health score + **noise check** (drift control) |
-| `/level-up` | biweekly | Find one piece of leverage; ship one artifact |
-| `/reindex` | periodic | Rebuild `cortex.html`; nominate MOCs; fix dead links |
-| `/install-project` | per repo | Give a repo a codebase brain (AI-driven, deep) |
-| `/migrate-engine` | per repo, once | Move a repo off the old engine without losing memory |
-| `/analyze-spec` | per feature | Spec-Driven Development grounded by the brain |
-| `/scan-projects` | anytime | Register which local repos have a brain (metadata only) |
-| `/connect-brain` | once per machine | Register the live MCP brain (recall/capture) at user scope |
-| `/setup-plugins` | per machine/team | Install the Core plugin bundle; offer optional tiers by role |
-| `/team-init` | leader, once | Create + seed the shared team-brain repo and push |
-| `/team-add` | member, per repo | Clone the team-brain + drop a generic connector into the product repo |
-| `/catch-me-up` | after time away | Summarize what changed on a project since a date |
-| `/skill-creator` | on request | Create a tailored new ritual and wire it in |
-| `/cortex-audit` | periodic | Dispatch the read-only `cortex-auditor` subagent to scan the whole vault for orphan/stale/redundant/misplaced files, dead links, wiring drift and privacy leaks — then apply the safe fixes (structure) |
-| `/optimize-context` | per repo | Audit + slim a repo's agent context (AGENTS.md, shims, rules files) |
-| `/optimize-prompt` | automatic | Score each prompt; sharpen vague ones into a confirmed precise prompt, save to `docs/prompts/`, route to the right ritual |
+
+**That is 6 of 39.** The complete table — every ritual, when to run it, and the notes on which
+pairs are *not* interchangeable — lives in [`AGENTS.md`](AGENTS.md#the-rituals) and is the single
+source of truth. This README used to carry a second table of 20 rows that read as the list. Ten
+skills were missing from it and nothing caught that, because a partial copy and a complete one look
+identical until you count them. A subset that says it is a subset cannot drift that way; one that
+does not, always does.
+
+When you do not know which ritual you want, that is `/cortex-next` — the whole reason it exists.
 
 ---
 
@@ -343,19 +338,28 @@ Full rule: [`AGENTS.md`](AGENTS.md#the-employer-firewall-hard-rule--overrides-co
 generated views, skills). Every generator reads it (via `tools/_cortex-lib.sh`), so the graph stays
 clean and there's no per-script drift. `/audit` flags anything noisy that creeps in.
 
-## Tools (`tools/`, all bash, zero deps)
+## Tools (`tools/`)
+
+Nine scripts: six bash, three Node. Every one of them runs on a stock machine — no `npm install`,
+no lockfile, no runtime dependency at all ([ADR 0004](docs/adr/0004-no-runtime-dependencies.md)).
+That is the promise; "all bash" was the old shorthand for it, and it stopped being true the moment
+`core/` and `index/` shipped.
 
 | Script | Does |
 |---|---|
 | `cortex-init.sh` | Install a codebase brain into any repo |
-| `cortex.sh` | Build/open `cortex.html` — the viewer app |
+| `cortex.sh` | Build/open `cortex.html` — the vault viewer |
 | `cortex-rm.sh` | Remove a note safely (archive + de-link + refresh) |
 | `cortex-scan-projects.sh` | List which local repos already have a codebase brain |
+| `cortex-sync-skills.sh` | Mirror `skills/` into `.claude/skills/`; `--check` reports drift |
+| `cortex-vault-extract.sh` | Lift the personal-vault half out into its own repo |
 | `_cortex-lib.sh` | Shared `knowledge_files()` (reads `.cortexignore`) |
+| `cortex-capability.mjs` | What each ritual needs from the setup running it |
+| `cortex-version.mjs` | `--set X.Y.Z` — stamp the version at all seven sites, refuse without a changelog entry |
 
-> The original Node installer is retired at `docs/history/cortex-init.mjs.legacy` — installing and
-> using the vault needs nothing but bash. The only Node in the repo is the **optional** MCP brain
-> under `mcp/`, which you can skip entirely.
+Node also runs the codebase half (`core/`, `index/`), the optional MCP brain (`mcp/`), and two
+Claude Code hooks in `.claude/hooks/`. The original Node installer is retired at
+`docs/history/cortex-init.mjs.legacy`.
 
 ## License
 

@@ -4,6 +4,11 @@
   Write one ONLY when the decision is hard to reverse, surprising without context, or a real
   trade-off. A record of an obvious choice is noise, and noise is what stops people reading the
   records that matter.
+
+  No YAML frontmatter, deliberately: this template is stamped into ANOTHER repo, where it is a
+  source file read by developers and agents — not a note filed in this vault graph. The vault
+  templates beside it all carry frontmatter; these three are the exception, and the reason is here
+  rather than inferred from their absence.
 -->
 
 # {{NNNN}}. {{Decision, as a statement — "Use X for Y", not "Choosing a Y"}}

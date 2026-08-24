@@ -2,7 +2,7 @@
 id: connections
 title: Connections
 type: hub
-updated: 2026-08-03
+updated: 2026-08-24
 last_compiled: 2026-08-03
 tags: [reference, connections]
 ---
@@ -35,4 +35,8 @@ Filled during `/onboard`, grown whenever you wire a new tool. `/audit` checks co
 - [[living-cortex]] — how to make row 1 live across machines via the MCP brain (`/connect-brain`)
 - [[cortex-plugins]] — the plugin tiers that add reach beyond this table
 - [[cross-agent-and-teams]] — reaching the same brain from Claude, Copilot, Gemini
-- [[home]] · [[vault-architecture]] — connections feed the Cadence layer
+- [[vault-architecture]] — connections feed the Cadence layer
+
+> This file is committed, so it links only to committed notes. `home.md` is your vault entry point
+> and is gitignored, so a `[[home]]` link here is a dead link in every fork — which is what it was
+> until 2026-08-24. Link *from* `home.md` to this file instead; that direction resolves.

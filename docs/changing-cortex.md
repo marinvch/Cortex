@@ -94,6 +94,8 @@ before overturning one; the line here is the trigger, not the case.
   `.cortex/memory/` is **committed** — that is how several developers share one context. The
   asymmetry is deliberate, and it makes the privacy rule a hard requirement: `core/scrub.js`
   refuses any memory write carrying a credential, and never sanitises silently.
+  [ADR 0002](adr/0002-committed-repo-memory.md) — the gate is mandatory *because* the store is
+  committed; the two cannot be reasoned about apart.
 
 ## The rules that are not here
 

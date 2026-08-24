@@ -74,7 +74,7 @@ Applied 2026-08-03: prior day-job content was stripped into
 | `context/` | who the user is | about-me, priorities, how-i-work, values, current-focus |
 | `connections.md` | every tool/data source the vault can reach | |
 | `decisions/log.md` | append-only "what I decided and why" | |
-| `references/` | the frameworks | [[operating-principles]], [[vault-architecture]], [[codebase-design]], voice |
+| `references/` | the frameworks | [[operating-principles]], [[vault-architecture]], [[codebase-design]], [[context-engineering]], [[nested-briefs]], voice |
 | `templates/` | starters | copy to begin a new note |
 | `archives/` | old stuff from your vault | **move, never delete**; gitignored in full |
 

@@ -3,6 +3,48 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.34.1] — 2026-08-24
+
+The re-audit that verified v2.34.0 found the graph itself was modelling the wrong repo. Cortex
+stopped being a personal vault at v2.0.0; `.cortexignore` never noticed.
+
+### Fixed — every orphan the viewer reported was a generated file
+
+All eight came from `.cortex/` — four `findings/` and four `memory/` notes. The Gaps tab is where a
+reader looks for a note nothing links to, and it was reporting build output. A real orphan appearing
+tomorrow would have landed ninth in a list of eight false ones, which is the same as not reporting
+it.
+
+`.cortex/index/`, `.cortex/findings/` and `.cortex/view/` are now excluded. `.cortex/memory/` is
+deliberately **not**: it is authored knowledge ([ADR 0002](docs/adr/0002-committed-repo-memory.md)),
+so a memory note nothing links to is a genuine orphan. The list went from eight entries to four, and
+all four are real.
+
+### Fixed — four files shared one graph id
+
+A note id is a slug of the **basename**, so the root `AGENTS.md` and the three package briefs in
+`core/`, `index/` and `mcp/` all claimed the id `agents` — six of 24 nodes were ambiguous once the
+`findings/`/`memory/` date collisions are counted. A `[[AGENTS]]` wikilink resolved to whichever the
+walker reached first, and the dead-link check can be satisfied by the wrong file.
+
+`core/`, `index/`, `mcp/` and `agents/` now sit in `.cortexignore` beside `tools/` and `skills/`,
+which were already there for the same reason: they are source, not vault knowledge. The collision
+goes with them.
+
+**The sharp edge is still in `tools/_cortex-lib.sh`** — `note_id()` slugs on basename, so any two
+same-named notes in different directories still collide. Fixing that properly means moving three
+pinned copies of the slug rule together (`_cortex-lib.sh`, `mcp/lib/slug.js`, and the copy embedded
+in the generated HTML, held in step by `mcp/test/slug-parity.test.js`). Recorded rather than done,
+because nothing in the graph collides today.
+
+Graph after: **16 notes · 27 links · 0 dead · 4 orphans, all real.**
+
+### Fixed — the `references/` row was a subset that did not say so
+
+`AGENTS.md` named four of the six frameworks; `context-engineering` and `nested-briefs` were absent
+though both are live nodes with inbound links. The same shape v2.34.0 just fixed in the README's
+ritual table, two rows further down the same file. Both added.
+
 ## [2.34.0] — 2026-08-24
 
 The remaining `/cortex-audit` findings — the ones held back last release because they were judgment
@@ -2105,6 +2147,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.34.1]: https://github.com/marinvch/Cortex/releases/tag/v2.34.1
 [2.34.0]: https://github.com/marinvch/Cortex/releases/tag/v2.34.0
 [2.33.1]: https://github.com/marinvch/Cortex/releases/tag/v2.33.1
 [2.33.0]: https://github.com/marinvch/Cortex/releases/tag/v2.33.0

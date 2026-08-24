@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.28.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
+**v2.29.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
 where it is changing, and what is missing. Then it writes a context layer — a small root
@@ -72,7 +72,7 @@ have to come back here to look up. The full sequence, in order:
 |---|---|---|---|
 | 0 | `/migrate-engine` | harvest a retired `.ai-os/` engine's memory first | there is no `.ai-os/` |
 | 1 | `/cortex-install` | index → ranked findings report → you choose → scaffold | never — this is the entry point |
-| 2 | `cortex-view` (below) | the repo as one offline HTML page: map, files, areas, gaps | you would rather read the report |
+| 2 | `/cortex-view` | the repo as one offline HTML page: map, files, areas, gaps | you would rather read the report |
 | 3 | `/optimize-context` | slim the `AGENTS.md`/`CLAUDE.md`/`.cursorrules` that were already here | the repo had none |
 | 4 | `/cortex-scaffold` | write the context layer you picked | — |
 | 5 | `/cortex-brief <dir>` | a scoped `AGENTS.md` leaf per area that earns one | no area holds real invariants |
@@ -111,13 +111,15 @@ docs/adr/          decisions, created lazily
 
 ### See the repo, don't read about it
 
-```bash
-node "${CLAUDE_PLUGIN_ROOT}/index/cortex-view.mjs" .    # writes .cortex/view/repo.html, opens it
+```
+/cortex-view
 ```
 
-`${CLAUDE_PLUGIN_ROOT}` is set inside a Cortex skill, because the plugin lives in the plugin cache
-and not in your project. From a clone of this repo, `node index/cortex-view.mjs .` is the same
-command.
+That is the whole command, in any repo where the plugin is installed. It is a skill rather than a
+node line because `${CLAUDE_PLUGIN_ROOT}` is only set *inside* a skill — typed in your own terminal
+it expands to nothing, and the real path underneath it is pinned to the installed version, so it
+breaks on the next update. From a clone of this repo, `node index/cortex-view.mjs .` is the same
+thing.
 
 One self-contained page — no server, no CDN, no runtime. The data is inlined, so it works offline
 and copies anywhere. Five tabs:

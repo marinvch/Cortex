@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { computeBatches, batchStats } from "./lib/batch.mjs";
-import { mergeEnrichment, isStale, classifyBatches } from "./lib/enrich.mjs";
+import { mergeEnrichment, isStale, classifyBatches, ENRICHED_REL } from "./lib/enrich.mjs";
 
 const cmd = process.argv[2];
 const root = resolve(process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : process.cwd());
@@ -37,7 +37,7 @@ const dir = join(root, ".cortex", "index");
 const batchDir = join(dir, "enrich");
 const indexPath = join(dir, "index.json");
 const batchesPath = join(dir, "batches.json");
-const enrichedPath = join(dir, "enriched.json");
+const enrichedPath = join(root, ...ENRICHED_REL.split("/"));
 
 function loadIndex() {
   if (existsSync(indexPath)) return JSON.parse(readFileSync(indexPath, "utf8"));

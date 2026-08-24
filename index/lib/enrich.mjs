@@ -219,3 +219,17 @@ export function classifyBatches(batches, read) {
   }
   return { done, stale, pending };
 }
+
+/**
+ * Where a merged enrichment lives, repo-relative.
+ *
+ * One constant because the name was written down in four places and two of them were wrong: `merge`
+ * wrote `enriched.json` while `cortex-view.mjs` and `next.mjs` both looked for `enrichment.json`.
+ * A completed enrichment therefore produced no summaries on the file cards and left the sequence
+ * reporting the step as never run — nothing errored, because both readers treat absence as the
+ * normal optional case, which is exactly what made it survive.
+ *
+ * Same argument as ADR 0013 for the version: the fact has one home, and every site reads it from
+ * there rather than restating it.
+ */
+export const ENRICHED_REL = ".cortex/index/enriched.json";

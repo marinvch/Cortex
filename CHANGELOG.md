@@ -3,6 +3,36 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.33.0] — 2026-08-24
+
+### Fixed — a finished enrichment showed up as no enrichment at all
+
+Running `/cortex-enrich` to completion on this repo — 53 batches, 307 of 318 files, zero validation
+issues — produced a viewer that still printed *"no enrichment — run /cortex-enrich"* and a sequence
+that still listed the step as never run. Two mismatches in one seam, neither of which errored.
+
+**The filename.** `merge` writes `.cortex/index/enriched.json`. `cortex-view.mjs` and
+`index/lib/next.mjs` both looked for `enrichment.json`. Three readers, two spellings, and only
+`findings.mjs` had the right one.
+
+**The shape.** `mergeEnrichment` writes `files` as an object keyed by path; `buildView` read
+`summaries`, an array. So even with the filename fixed, every card stayed bare.
+
+Both survived for the same reason, and it is worth naming: **enrichment is optional by design**, so
+every reader treats absence as the normal case. An empty result is indistinguishable from a repo
+that never ran the pass — which makes a wiring bug in an optional feature invisible in exactly the
+way a wiring bug in a required one is not.
+
+`ENRICHED_REL` now names the file once in `index/lib/enrich.mjs` and all four sites read it from
+there — the same argument [ADR 0013](docs/adr/0013-the-version-has-one-home.md) makes for the
+version. `buildView` accepts the object form merge actually produces, and still accepts the array
+form so an existing enrichment is not orphaned.
+
+### Added — this repo's own enrichment
+
+307 files now carry a summary, a role and tags, written from reading each file rather than from its
+path. They show on the Map's file cards and feed `recall`.
+
 ## [2.32.0] — 2026-08-24
 
 ### Fixed — `cortex-enrich status` counted filenames, so 33 stale results read as complete
@@ -1974,6 +2004,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.33.0]: https://github.com/marinvch/Cortex/releases/tag/v2.33.0
 [2.32.0]: https://github.com/marinvch/Cortex/releases/tag/v2.32.0
 [2.31.0]: https://github.com/marinvch/Cortex/releases/tag/v2.31.0
 [2.30.0]: https://github.com/marinvch/Cortex/releases/tag/v2.30.0

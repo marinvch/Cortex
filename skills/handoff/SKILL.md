@@ -51,6 +51,10 @@ something is how the lesson gets lost.
   agent a description of uncommitted work is strictly worse than handing it the commit.
 - **Name the branch and the working-tree state.** A handoff that omits which branch the work sits
   on sends the next agent to `master` to look for changes that are not there.
+- **Write it for `/resume`, because that is what reads it.** The next session establishes the repo's
+  state from git and `.cortex/memory/` on its own; what it cannot recover is the part only you know —
+  what you were about to try, what you already ruled out and why. Spend the words there and let the
+  deterministic half stay deterministic.
 
 ---
 

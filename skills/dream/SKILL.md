@@ -78,3 +78,12 @@ memory is chronological, an ADR is findable.
 - One digest per session, not per commit. A memory file with thirty entries is a log, not a memory.
 - If nothing notable happened, write nothing and say so. An honest empty day beats filler that
   future readers must wade through.
+
+## Not the same as /handoff
+
+If the day is ending mid-task, you likely need both. `/handoff` writes in-flight state to the OS temp
+dir for the next agent — the branch, the half-applied change, what you were about to try — and it is
+deliberately ephemeral. This writes what a future reader of the codebase needs, months from now, and
+it is committed. Running `/handoff` alone on a day that taught you something parks the work and loses
+the lesson; the temp file is gone by the time anyone would have wanted it. `/catch-me-up` is what
+reads this back.

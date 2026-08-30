@@ -142,6 +142,28 @@ week's instructions against this week's code — so a fix that was correct looks
 marketplace alone does **not** move the installed cache, which is why each stage is reported
 separately instead of as one version number. Read-only. `/plugin-sync` is the ritual around it.
 
+## `cortex-skill-usage.mjs` — which skills anyone actually reached
+
+Every other audit reads the skills. This reads the **session record**, because a skill's real defect
+is usually invisible in its own file: well written, correct, wired in, and never reached. The first
+run here found 28 of 42 skills untouched across 51 sessions.
+
+```bash
+node tools/cortex-skill-usage.mjs             # typed vs auto, per skill
+node tools/cortex-skill-usage.mjs --unused    # the never-reached list
+node tools/cortex-skill-usage.mjs --days 60   # a window instead of all history
+```
+
+Two counts, kept separate on purpose — the gap is the diagnosis. `typed > 0, auto = 0` means the
+description does not match how the work arrives; `typed = 0, auto > 0` means the slash command is
+decoration; both zero sends you to `cortex-skill-graph.mjs` to find out whether it is a wiring
+problem or a missing front door.
+
+**It reads a directory holding everything the user has ever typed, and extracts skill names and
+timestamps only** — no prompt text, in any output mode. `tools/test/skill-usage.test.sh` asserts that
+first, before it asserts any counting, and points every case at `CORTEX_SESSIONS_DIR` so no test ever
+reads real transcripts. `/skill-audit` is the ritual around it.
+
 ## `cortex-skill-graph.mjs` — which rituals reach which
 
 The rituals are meant to compose: define a thing once, point at it from everywhere else. This

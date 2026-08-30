@@ -69,6 +69,7 @@ about itself, so nothing surfaces until a reader is misled.
 | `cortex-version.mjs --check` | the seven version sites disagree. Never hand-edit one; `--set` writes them all |
 | `cortex-capability.mjs` | a ritual declares no capability floor |
 | `cortex-skill-graph.mjs --check` | a ritual is isolated in both directions — unreachable except by someone who already knows it exists |
+| `cortex-skill-usage.mjs --unused` | (reports, does not fail) which skills the session record shows nobody ever reached |
 | `cortex-plugin-check.mjs --check` | the running plugin is behind the repo, so a correct fix looks broken |
 | `cortex-sync-skills.sh --check` | the gitignored `.claude/skills/` mirror has drifted from `skills/` |
 

@@ -3,6 +3,102 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.35.0] — 2026-08-30
+
+The rituals were meant to compose — define a thing once, point at it from everywhere else. Nobody
+had ever measured whether that held. Two of them turned out to be unreachable, and the ten rituals
+covering "where did we leave off" had been invoked zero times in 51 sessions.
+
+### Added — `cortex-skill-graph.mjs`, and the rule it makes checkable
+
+A ritual nothing points at is not broken. It runs when you type its name — so only a user who
+already knows it exists ever gets there, and the work it would have done gets done again, worse, by
+whoever went second. `/team-init` created a team-brain and never named the command a member runs to
+join it. Every ritual that scaffolded a repo needing manual credential setup re-explained the steps
+instead of handing off to `/wizard`, which writes the script.
+
+The tool reads the skill bodies rather than a maintained list of edges, because a maintained list is
+a second copy and second copies drift — which is the failure it exists to catch. Both link syntaxes
+count: an earlier hand count read only `/slash` and reported `/resolving-merge-conflicts` as reaching
+nothing, when it points at `[[domain-modeling]]` in its second step.
+
+Isolated in one direction is normal and often correct: a router is nearly all outbound, a shared
+discipline nearly all inbound. Isolated in **both** is the defect. `--check` fails on it, and
+`tools/test/skill-graph.test.sh` plants a stranded fixture to prove the guard can actually fail — a
+guard nobody has seen fail is indistinguishable from one that cannot.
+
+The escape hatch is declared, not hardcoded: `reached-by: <what triggers it>` in the frontmatter, for
+the two rituals genuinely reached by something other than a ritual — `/optimize-prompt` by the
+`UserPromptSubmit` hook, `/resolving-merge-conflicts` by an interrupted rebase. It has to name the
+trigger; a bare `true` is the check switched off wearing the check's clothes.
+
+### Added — `cortex-preflight.mjs`, asked once instead of restated everywhere
+
+Root, profile and index freshness are the three facts nearly every ritual needs before it may write,
+and each restated them in prose. Prose copies drift: `AGENTS.md` described the mode/audience seam as
+*two* questions long after `profile` made it three. One call now answers all three, plus the
+`git check-ignore` the privacy rule demands before archiving anything personal.
+
+The profile half is **not** re-derived — it comes from `core/profile.js`, which reads only
+`CORTEX_PROFILE`. A bash reimplementation would have been a fourth copy of the firewall rule.
+
+Staleness is mtime-based, so a fresh clone reads as stale. That error points at re-running a cheap
+deterministic index; the opposite error hands someone a confident map of code that has moved.
+
+### Added — `/resume`, and the ten rituals it exists to reach
+
+A month of session history shows the same ask across **6 projects and 12 separate days**: *continue
+the last session · what's left to be done · продължи работата*. Meanwhile `/handoff`,
+`/catch-me-up`, `/cortex-next`, `/cortex-review`, `/cortex-audit`, `/weekly-review`, `/daily`,
+`/capture`, `/grilling` and `/wizard` had **zero invocations in 51 sessions** — typed or
+auto-triggered. The rituals existed; nothing reached them.
+
+`/resume` is the front door. It reads the state off disk — branches, open PRs, `.cortex/memory/`,
+`cortex-next` — states committed / uncommitted / diverged / remaining, and only then routes. It
+never reconstructs what a previous session decided: a plausible invented decision is
+indistinguishable from a real one, which is the single failure that would make it worse than
+nothing.
+
+### Added — `/ship`
+
+Shipping fails two ways. A bad change landing is the loud one. A good change never landing — parked
+on a branch, stacked behind a PR that merged first — is quieter and happens more. One PR at a time,
+because a stack whose base merges first strands everything above it. When several are already open,
+merge order is ranked rather than arbitrary: anything another PR is based on, then anything touching
+shared files, then the rest. Deletes only `--merged` branches; "looks old" is exactly where
+abandoned-but-wanted work lives.
+
+### Added — `/plugin-sync` and `cortex-plugin-check.mjs`
+
+A plugin reaches a session through three copies — repo `VERSION`, marketplace clone, installed cache
+— and nothing announces a mismatch. Every command is present, every skill loads, and the model
+follows last week's instructions against this week's code, so a correct fix looks broken and the
+obvious conclusion is the wrong one. Updating the marketplace alone does **not** move the installed
+cache; that is the step people skip, which is why each stage is reported separately instead of as one
+version number.
+
+It found live drift on the machine it was written on: repo at 2.34.1, installed cache at 2.33.0.
+
+### Fixed — two skills named a script by a path that does not exist in a target repo
+
+`core/test/plugin.test.js` caught it: `node tools/cortex-version.mjs` and
+`node tools/cortex-skill-graph.mjs` are repo-relative, and a skill runs inside somebody else's
+checkout. Both go through `${CLAUDE_PLUGIN_ROOT}` now. The test was already there and already
+correct — this is the first change it stopped.
+
+### Changed — the rituals now reach each other
+
+`/team-init` ↔ `/team-add`, `/dream` ↔ `/handoff` (running one is not running the other, and
+`/handoff` alone on a day that taught you something loses the lesson), `/setup-plugins` →
+`/connect-brain`, `/onboard` → `/scan-projects`, `/install-project` → `/wizard`,
+`/catch-me-up` → the two rituals whose output it reads.
+
+`/skill-creator` now requires a new ritual to carry at least one edge, and stops recommending a
+hand-rolled `cp -r` for the slash-command mirror — that copies once and thereafter never refreshes a
+changed skill or removes a deleted one, which is how the mirror drifted to 22 of 30 skills.
+
+**42 rituals. No ritual isolated in both directions.**
+
 ## [2.34.1] — 2026-08-24
 
 The re-audit that verified v2.34.0 found the graph itself was modelling the wrong repo. Cortex
@@ -2147,6 +2243,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.35.0]: https://github.com/marinvch/Cortex/releases/tag/v2.35.0
 [2.34.1]: https://github.com/marinvch/Cortex/releases/tag/v2.34.1
 [2.34.0]: https://github.com/marinvch/Cortex/releases/tag/v2.34.0
 [2.33.1]: https://github.com/marinvch/Cortex/releases/tag/v2.33.1

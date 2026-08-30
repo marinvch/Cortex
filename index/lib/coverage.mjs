@@ -61,11 +61,28 @@ export function buildCoverage(index, root) {
 
   // mention: a test that names the file in a STRING literal. Quoted-only, so a passing reference in
   // a comment does not count as coverage — a comment mentioning a file does not exercise it.
+  //
+  // The quoted string may be a PATH ending in the basename, not only the bare basename. This signal
+  // exists for CLIs spawned as subprocesses, and it was blind to the most common way to spawn one:
+  // every shell test in this repo writes `VER="$REPO_ROOT/tools/cortex-capability.mjs"`, so the
+  // slash before the name defeated a bare `"<base>"` match. Four CLIs covered by a 312-assertion
+  // suite were reported as untested — a false positive in the report that IS the install wizard's
+  // script (ADR 0006), where it changes the interview rather than merely reading wrong.
+  //
+  // The boundary is `/` or the opening quote, never nothing: without it, `helper-build.mjs` would
+  // match a test naming `build.mjs` and the signal would start inventing coverage. Reporting a
+  // covered file as uncovered costs a re-read; the reverse tells someone a risk is verified when it
+  // is not, so the boundary stays strict.
   const byMention = new Map();
   if (testPaths.size && root) {
     const basenames = new Map();
     for (const f of index.files) {
       if (f.category === "code" && !f.isTest) basenames.set(f.path.split("/").pop(), f.path);
+    }
+    const quoted = new Map(); // base → RegExp, built once rather than per test file
+    for (const base of basenames.keys()) {
+      const esc = base.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      quoted.set(base, new RegExp(`["'\`](?:[^"'\`]*/)?${esc}["'\`]`));
     }
     for (const t of testPaths) {
       let text;
@@ -75,7 +92,7 @@ export function buildCoverage(index, root) {
         continue;
       }
       for (const [base, path] of basenames) {
-        if (text.includes(`"${base}"`) || text.includes(`'${base}'`) || text.includes(`\`${base}\``)) {
+        if (quoted.get(base).test(text)) {
           if (!byMention.has(path)) byMention.set(path, []);
           byMention.get(path).push(t);
         }

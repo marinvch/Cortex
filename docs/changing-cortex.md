@@ -97,6 +97,20 @@ before overturning one; the line here is the trigger, not the case.
   [ADR 0002](adr/0002-committed-repo-memory.md) — the gate is mandatory *because* the store is
   committed; the two cannot be reasoned about apart.
 
+- **A ritual must be reachable from another ritual, or say what reaches it.**
+  `node tools/cortex-skill-graph.mjs --check` fails when one is isolated in both directions, and
+  `tools/test/skill-graph.test.sh` runs it. The failure has no error state: a ritual nothing points at
+  still runs when you type its name, so only a user who already knows it exists ever gets there.
+  `/wizard` and `/team-add` each sat that way — `/team-init` created a team-brain and never named the
+  command a member runs to join it. A ritual genuinely triggered from outside (a hook, a git state)
+  declares `reached-by: <what triggers it>` in its frontmatter; the hatch has to name the trigger,
+  because a bare `true` is the check switched off wearing the check's clothes.
+- **Before a ritual writes, it asks `tools/cortex-preflight.mjs` rather than re-deriving the answer.**
+  Root, profile and index freshness are the three facts every ritual needs first, and each prose copy
+  of them is a copy that drifts — the mode/audience bullet in `AGENTS.md` still said *two questions*
+  long after `profile` made it three. The profile half comes from `core/profile.js` and is not
+  reimplemented anywhere, in bash or otherwise.
+
 ## The rules that are not here
 
 Two neighbours own material this file deliberately does not duplicate:

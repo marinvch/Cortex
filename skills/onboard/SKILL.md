@@ -53,6 +53,11 @@ Then: /daily each morning, /weekly-review on Fridays, /audit weekly.
 When they ask the focus question, answer using ONLY the new context files: 3 bullets in their
 voice, each tied to a stated priority, ending with the one thing to do first and why.
 
+Then offer `/scan-projects` once. The interview establishes who the user is; that establishes what
+they are actually working on, by reading the repos already on the machine instead of asking them to
+recite a list from memory. It registers metadata only, and it obeys the same world boundary Step 0
+just settled — personal repos on a personal install, never a repo under a work directory.
+
 ## Rules
 - Idempotent — re-run any time. If a `context/*` file already has real content, ask before
   overwriting; back up the old one to `archives/onboard-{date}/`.

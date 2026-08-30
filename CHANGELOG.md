@@ -3,6 +3,79 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.36.0] — 2026-08-30
+
+Three prompts arrived as candidate additions. One was already 90% covered by an existing ritual and
+became an extension of it instead; one asked for a criterion that measures the wrong thing; one was
+genuinely new. The result is a ritual that judges the skill collection by what it did for someone
+rather than by reading it.
+
+### Added — `cortex-skill-usage.mjs` and `/skill-audit`
+
+Every other audit in Cortex reads the skills. This reads the **session record**, because a skill's
+real defect is usually invisible in its own file: well written, correct, wired in, and never reached.
+The first run found **28 of 42 skills untouched across 51 sessions** — including `/handoff` and
+`/catch-me-up`, both of which read perfectly well.
+
+Two counts, kept separate on purpose, because the gap between them is the diagnosis:
+
+| typed | auto | Means |
+|---|---|---|
+| > 0 | 0 | the description does not match how the work actually arrives |
+| 0 | > 0 | it triggers on its own — the slash command is decoration |
+| 0 | 0 | nothing reaches it; `cortex-skill-graph.mjs` says whether that is wiring or a missing front door |
+
+**Privacy is the first thing the test asserts, before any counting.** The tool reads a directory
+holding everything the user has ever typed and extracts skill names and timestamps only — no prompt
+text, in any output mode. A marker string is planted in the fixture and asserted absent from both the
+report and the JSON. `CORTEX_SESSIONS_DIR` exists so no test ever reads a real transcript.
+
+`/skill-audit` carries the nuance that keeps the finding from doing damage: `/dream`, `/handoff` and
+`/team-init` are **deliberate acts**. Zero automatic invocations is correct for those, and optimising
+them into triggering themselves would be a defect rather than a fix. The ritual has to say which
+skills it placed in that category, so the judgment is visible instead of assumed.
+
+**Staleness is deliberately not a verdict.** It was the criterion originally asked for; nothing in
+this repo is older than 30 days, and mtime runs backwards as a signal — a skill that is correct does
+not get edited, so age measures stability as often as rot. It prompts a re-read of a skill's *claims*
+(a named file, flag or command that no longer exists), never a conclusion from the date.
+
+### Changed — `/optimize-context` gains a machine scope
+
+Rather than a third near-duplicate ritual for the same job. `~/.claude/CLAUDE.md`, `agents/` and
+`skills/` load in **every session on every project**, so a paragraph nobody needs there is paid for
+on every turn of every task — the most expensive and least examined context in the setup.
+
+It also inverts the main trim, which is why it needed writing down rather than assuming the repo
+rules carry over. A rule moved out of a repo file into a skill survives, because something routes
+back to it. A rule moved out of a global `CLAUDE.md` **stops applying in every session where that
+skill does not trigger** — and triggering is description matching, exactly the thing that cannot be
+guaranteed. So machine scope keeps the *invariant* and moves only the *method*, and safety or privacy
+rules do not move at all. The honest outcome is often a file shorter in method and no shorter
+overall; the ritual is told to report it that way instead of quoting a line count as if it were the
+goal.
+
+### Added — `agents/cortex-role-reviewer.md`
+
+A second subagent, dispatched by `/cortex-review` with one angle: `security`, `performance`,
+`accessibility`, `data-integrity`, `operability` or `dx`.
+
+The failure it is built against is the ungrounded expert persona. A "security expert" that has not
+read the repo returns the OWASP top ten — true everywhere, actionable nowhere, and authoritative
+enough to cost the reader a careful pass for nothing. So each reviewer grounds itself in
+`cortex-impact.mjs` first (who depends on the changed files, and which of them no test covers) and
+**must cite `path:line`**; a claim it cannot anchor is a topic, not a finding. The generic-advice trap
+is named per role in the brief, and the reviewer compares against the repo's own patterns rather than
+its defaults — a route guarded differently from the others is a finding, one guarded the same way is
+not, whatever the reviewer would have chosen.
+
+`/cortex-review` picks one or two roles by what the diff actually touches. Six reviewers produce a
+report nobody reads, and the one real finding drowns. "Nothing in my angle" is an explicitly correct
+result, and the return shape includes what was checked and cleared — a review listing only problems
+leaves the reader unable to tell "fine" from "never looked".
+
+**43 rituals. 351 shell assertions.**
+
 ## [2.35.1] — 2026-08-30
 
 Cortex run against itself, and the findings report was wrong about Cortex.
@@ -2309,6 +2382,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.36.0]: https://github.com/marinvch/Cortex/releases/tag/v2.36.0
 [2.35.1]: https://github.com/marinvch/Cortex/releases/tag/v2.35.1
 [2.35.0]: https://github.com/marinvch/Cortex/releases/tag/v2.35.0
 [2.34.1]: https://github.com/marinvch/Cortex/releases/tag/v2.34.1

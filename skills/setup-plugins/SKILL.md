@@ -15,6 +15,17 @@ capability: mechanical
 3. If the `claude` CLI is unavailable, the command prints the exact commands instead of failing — relay them for guided setup.
 4. Confirm which tiers were installed in one line.
 
+## Then
+
+Installing is not staying current: an update to the marketplace does not move the installed plugin,
+so a machine can sit for weeks running a version nobody meant to run. `/plugin-sync` is that check,
+and it is the first thing to suspect when a skill edit appears to have no effect.
+
+Plugins give this machine the tools; they do not give it recall. `/connect-brain` registers
+`mcp/server.js` so capture and recall actually work, and is the step people skip after a clean
+plugin install — the commands are all there and nothing remembers anything. Inside a repo,
+`/cortex-next` names what that repo is waiting on.
+
 ## Don't
 - Don't auto-install the heavy/platform tiers — offer them by role.
 - Don't fail hard if the CLI is missing; the command degrades to printing commands.

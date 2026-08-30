@@ -35,10 +35,21 @@ description stays loaded every turn, and other skills can reach it) versus user-
      non-obvious gotcha — an ordering constraint, or an overlap with a sibling ritual — add it to the
      "Gotchas worth knowing" list below that table instead of padding the row.
    - Add a row to the "## The rituals (skills)" table in `README.md`.
-   - Expose it as a slash command: `cp -r skills/<name>/ .claude/skills/<name>/` (`-r` so any
-     `templates/` directory comes along).
-5. **Verify.** Read it back with fresh eyes: does the description trigger on the right phrases? Are
-   the steps followable by an agent with zero context? For a rigorous or discipline-enforcing skill,
+   - Expose it as a slash command: `bash tools/cortex-sync-skills.sh`. Not a hand-rolled `cp -r` —
+     that copies once and thereafter never refreshes a changed skill or removes a deleted one, which
+     is how the mirror drifted to 22 of 30 skills with 9 stale copies.
+   - **Give it at least one edge.** A ritual that names no other ritual and is named by none is
+     unreachable in practice: it runs when you type its name, so only someone who already knows it
+     exists ever gets there. Name the ritual it hands off to, or add the handoff to the ritual that
+     should reach it — in the body, where a reader arrives, not only in the table.
+     `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-skill-graph.mjs" --check` fails until one of those is true. If nothing honestly
+     reaches it because a hook or a git state does, declare that: `reached-by: <the trigger>` in the
+     frontmatter. Do not invent a decorative link to turn the check green — that makes the graph agree
+     with itself while telling the next reader something false.
+5. **Verify.** Run `bash tools/test/run.sh` — `plugin.test.js` and `skill-graph.test.sh` catch a
+   missing capability floor, a table row that names no skill, and a stranded ritual. Then read it
+   back with fresh eyes: does the description trigger on the right phrases? Are the steps followable
+   by an agent with zero context? For a rigorous or discipline-enforcing skill,
    test it — **REQUIRED BACKGROUND for that: `superpowers:writing-skills`** (baseline → write → close
    loopholes). Confirm in one line what you created and how to run it.
 

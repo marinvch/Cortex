@@ -1,7 +1,15 @@
-# cortex tools (bash, zero deps)
+# cortex tools (zero deps)
 
-Small bash scripts. **No Node, no Python, nothing to install** — just bash (git-bash, zsh,
-WSL, Linux, macOS). The original Node installer is retired at `../docs/history/cortex-init.mjs.legacy`.
+**Nothing to install.** The `.sh` half needs only bash (git-bash, zsh, WSL, Linux, macOS); the
+`.mjs` half needs only the Node that already ships with the plugin — no packages either way, per
+[ADR 0004](../docs/adr/0004-no-runtime-dependencies.md). The original Node installer is retired at
+`../docs/history/cortex-init.mjs.legacy`.
+
+The split is by reader, not by taste. A tool a *user* runs on a machine that may not have Node is
+bash (`cortex-init.sh` is curl-pipeable into any repo). A tool that reads structured state the code
+already models — the version sites, the capability floors, the profile policy — is `.mjs`, so it
+imports that model instead of re-deriving it in shell. `cortex-preflight.mjs` is the clearest case:
+re-implementing `core/profile.js` in bash would be a fourth copy of the firewall rule.
 
 `cortex.sh`, `cortex-rm.sh` and `cortex-scan-projects.sh` share `_cortex-lib.sh` (`slugify`,
 `note_id`, `knowledge_files`). `cortex-init.sh` deliberately does not — it is a standalone
@@ -93,6 +101,68 @@ bash tools/cortex-sync-skills.sh --check    # report only; exit 1 if out of sync
 Each skill is replaced wholesale so a file deleted upstream does not linger. **Mirror-only skills
 are reported and never removed** — a directory that exists only in the mirror is machine-local work
 with no git history to restore from, so deleting it would be unrecoverable.
+
+## `cortex-preflight.mjs` — where am I, and what may I write here
+
+The three facts nearly every ritual re-derives before it may touch anything: which root it is standing
+in, which world this install serves, and whether the index it is about to read still describes the
+code. Each ritual used to restate those in prose, and prose copies drift — AGENTS.md described the
+mode/audience seam as two questions long after `profile` made it three.
+
+```bash
+node tools/cortex-preflight.mjs                 # root, kind, profile, index freshness
+node tools/cortex-preflight.mjs notes/foo.md    # ...and would that path be committed?
+node tools/cortex-preflight.mjs --json
+```
+
+It writes nothing. The profile half is **not** re-derived here — it comes from `core/profile.js`,
+which reads only `CORTEX_PROFILE` and is the one place that rule lives. Exit 1 means a path you named
+would be committed, which is the answer `/capture`, `/wizard` and `/cortex-audit` each need before
+writing anything sensitive; with no paths it always exits 0.
+
+Staleness is mtime-based, so a fresh clone reads as stale. That error points at re-running a cheap
+deterministic index; the opposite error hands someone a confident map of code that has moved.
+
+## `cortex-plugin-check.mjs` — is the Cortex you run the Cortex you edit
+
+A plugin reaches a session through three copies, each able to sit at a different version:
+
+```
+repo VERSION  →  marketplace clone  →  installed cache  →  this session
+(what you edit)  (what update pulls)   (what actually runs)
+```
+
+```bash
+node tools/cortex-plugin-check.mjs           # all three stages, and where they diverge
+node tools/cortex-plugin-check.mjs --check   # exit 1 if the running copy is behind
+```
+
+Nothing announces a mismatch: every command is present, every skill loads, and the model follows last
+week's instructions against this week's code — so a fix that was correct looks broken. Updating the
+marketplace alone does **not** move the installed cache, which is why each stage is reported
+separately instead of as one version number. Read-only. `/plugin-sync` is the ritual around it.
+
+## `cortex-skill-graph.mjs` — which rituals reach which
+
+The rituals are meant to compose: define a thing once, point at it from everywhere else. This
+measures whether that held, by reading the skill bodies rather than a maintained list of edges — a
+maintained list would be a second copy, which is the failure it exists to catch.
+
+```bash
+node tools/cortex-skill-graph.mjs               # in/out counts, plus anything stranded
+node tools/cortex-skill-graph.mjs --check       # exit 1 if a ritual is isolated both ways
+node tools/cortex-skill-graph.mjs cortex-brief  # one ritual's neighbourhood
+```
+
+Isolated in one direction is normal — a router is nearly all outbound, a shared discipline nearly
+all inbound. Isolated in **both** is the defect, and it has no error state: the ritual still works
+when you type its name, it is just never reached. `/wizard` and `/team-add` each sat that way, so
+every ritual that scaffolded a repo needing manual credential setup re-explained the steps instead of
+handing off to the skill that writes the script.
+
+A ritual genuinely triggered from outside declares `reached-by: <what triggers it>` in its
+frontmatter and is reported rather than failed. `tools/test/skill-graph.test.sh` pins all of it,
+including that the hatch cannot be a bare `true`.
 
 ## `cortex-rm.sh` — remove a note the safe way
 

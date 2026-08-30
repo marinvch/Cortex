@@ -2,6 +2,7 @@
 name: optimize-prompt
 description: Use when a prompt is vague, short, or missing its target — "fix it", "make it faster", "add the booking stuff" — or when the UserPromptSubmit hook reports a vagueness score of 4 or higher. Also use when the user says "optimize this prompt", "sharpen this", "what should I have asked".
 capability: mechanical
+reached-by: the UserPromptSubmit hook, on a vagueness score of 4 or higher
 ---
 
 # /optimize-prompt — sharpen a prompt before acting on it

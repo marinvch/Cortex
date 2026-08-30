@@ -117,6 +117,9 @@ and needs no mirror at all.
 | `/reindex` | periodic | regenerate the navigator graph, nominate MOCs, fix dead links |
 | `/cortex-audit` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files, privacy leaks |
 | `/cortex-next` | any time you are lost | where this repo is in the sequence, and the one command to run now |
+| `/resume` | starting on work already in flight | committed · uncommitted · diverged, then what is left — before touching anything |
+| `/ship` | work is finished | judge it against the repo's docs, one PR at a time, merge in an order that strands nothing |
+| `/plugin-sync` | a skill edit had no effect | make the Cortex this session runs the one you edited |
 | `/cortex-install` | per repo | index a codebase, report findings, scaffold only what the user picks |
 | `/cortex-view` | after install | render the index as one offline HTML page — map, files, areas, gaps |
 | `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
@@ -148,7 +151,10 @@ and needs no mirror at all.
 | `/skill-creator` | on request | write a new `skills/<name>/SKILL.md` and wire it in |
 | `/optimize-prompt` | automatic | the prompt gate (see the protocol above) |
 
-Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it.
+Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it, and
+`node tools/cortex-skill-graph.mjs` for how they reach each other — which ritual hands off to which,
+and whether anything is stranded. A ritual nothing points at is not broken, it is unreachable except
+by a user who already knows it exists, which is the same failure as it not being there.
 
 **Picking the right ritual:**
 - **When you do not know which one, that is `/cortex-next`.** It reads the target repo's state off
@@ -173,6 +179,11 @@ Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup
   prose on its own authority. `/writing-for-agents` is its other half — the discipline for **writing**
   an agent-facing document, reached before authoring a brief or a skill, not after an audit calls it
   bloated.
+- **`/resume` is the front door to the context-gap rituals**, and it exists because they were not
+  being reached. A session that opens on work in flight asks "what's left" as a question to the
+  model, when it is a question for the repo — the branches, the open PRs, `.cortex/memory/` and
+  `cortex-next.mjs` all answer it off disk. Resume reads those, states the state, and routes to
+  whichever of `/dream`, `/handoff`, `/catch-me-up` or `/ship` the answer calls for.
 - `/handoff`, `/dream` and `/catch-me-up` all move context across a gap and are **not**
   interchangeable. The cut is in-flight state versus durable knowledge: `/handoff` writes
   ephemerally to the OS temp dir for the *next agent right now*, `/dream` commits what a future

@@ -25,12 +25,24 @@ consistency is the point. Never hand-edit it.
 Never split admin work across several scripts or several elevation prompts. One script, one
 elevation, a summary table at the end.
 
-## The privacy rule (this vault, hard)
+## The privacy rule (hard)
 
-A wizard handles credentials. **It never lands in the vault.** Write it to the target repo's
-`scripts/`, or to the scratchpad for a one-run job. Captured values go to that repo's `.env` or a
-secret store — never into `context/`, `notes/`, `daily/`, or any file here. Do not echo a captured
-secret back to the terminal, and never commit a wizard that has values baked into it.
+A wizard handles credentials, so before writing one, ask where you are and whether the destination
+is safe:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-preflight.mjs" <path you intend to write>
+```
+
+**A wizard never lands in the vault.** Write it to the target repo's `scripts/`, or to the scratchpad
+for a one-run job. Captured values go to that repo's `.env` or a secret store — never into
+`context/`, `notes/`, `daily/`, or any file here. Do not echo a captured secret back to the terminal,
+and never commit a wizard with values baked into it.
+
+Preflight answers both halves in one call: `kind: cortex-source` means you are standing in the vault
+and the destination is wrong, and a `COMMITTED` verdict on the script path means a file about to hold
+credentials is tracked. `/cortex-profile` is where a disputed answer gets settled — the firewall is
+one declared policy, not a judgment each ritual makes for itself.
 
 ## Process
 

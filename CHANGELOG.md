@@ -3,6 +3,72 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.35.1] — 2026-08-30
+
+Cortex run against itself, and the findings report was wrong about Cortex.
+
+### Fixed — the coverage signal for subprocess-tested CLIs was blind to the usual way of naming one
+
+`mention` exists precisely for a CLI spawned as a subprocess: the test neither imports the module nor
+is named after it, so the other two signals cannot see it. It matched only a **bare** quoted basename
+— `"cortex-capability.mjs"` — while every shell test in this repo names the CLI by its path:
+
+```bash
+VER="$REPO_ROOT/tools/cortex-capability.mjs"
+```
+
+The slash defeated the match. Four CLIs covered by a 338-assertion suite were reported untested, and
+`tools/` was ranked as an area needing its own brief partly *because* of that miscount.
+
+Not cosmetic: the findings report is the install wizard's script
+([ADR 0006](docs/adr/0006-the-report-is-the-wizards-script.md)), so a false "untested" changes the
+interview a user is walked through, not just a document they read.
+
+A quoted string may now be a **path ending in** the basename. The boundary is `/` or the opening
+quote, never nothing — without it `helper-build.mjs` would borrow coverage from a test naming
+`build.mjs`. Reporting a covered file as uncovered costs a re-read; the reverse tells someone a risk
+is verified when it is not, so the boundary stays strict. `index/test/coverage.test.mjs` pins both
+directions, including that a genuinely untested module stays untested — a signal that never says
+"no" is not a signal.
+
+### Added — the two tools shipped in 2.35.0 without tests now have them
+
+`cortex-preflight.mjs` (12 assertions) and `cortex-plugin-check.mjs` (14). Both were real gaps, not
+artefacts of the miscount above: with the signal fixed, `cortex-capability`, `cortex-skill-graph` and
+`cortex-version` read as covered and these two correctly did not.
+
+The preflight tests assert the **gate**, not the report: a path that would be committed exits
+non-zero, because a caller that only reads stdout will not read a warning. Plus the property, not the
+symptom — the whole tree is fingerprinted before and after, so "it writes nothing" cannot pass by
+avoiding one artefact someone thought of.
+
+The plugin-check tests cover the trap the tool exists for: a marketplace clone that is current while
+the installed cache is stale must still **fail**, because the installed copy is what runs.
+
+### Fixed — a test that overrode `HOME` was reading the real machine on Windows
+
+Found by writing the above. `os.homedir()` answers `USERPROFILE` on Windows and `HOME` elsewhere, so
+a fixture setting only `HOME` passed against the developer's actual plugin registry — passing for the
+wrong reason, which is worse than failing. One `as_home()` helper now sets both and hands node a
+native path, since node resolves a bare `/tmp/...` against the current drive there.
+
+Exactly the class of bug `bash -n` and shellcheck cannot reach, which is why the shell half has
+behaviour tests at all.
+
+### Added — `tools/AGENTS.md`
+
+The last area without a leaf brief, at 75 recent commits and 20 test files. It holds what is specific
+to this directory: why a script is `.sh` or `.mjs` (decided by the reader — a user who may not have
+Node, versus structured state the product already models), the three rules deliberately duplicated
+across files that cannot share code and the parity tests that pin them, `resolve_in_root` for
+anything destructive, the home-directory rule above, and the five `--check` modes that guard failures
+with no error state.
+
+`core/test/architecture.test.js` does not walk `tools/`, so the layering test will not catch a
+mistake here. That is the reason these rules are written down rather than assumed.
+
+**Findings on this repo: 4 → 2, both Low and informational.**
+
 ## [2.35.0] — 2026-08-30
 
 The rituals were meant to compose — define a thing once, point at it from everywhere else. Nobody
@@ -2243,6 +2309,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.35.1]: https://github.com/marinvch/Cortex/releases/tag/v2.35.1
 [2.35.0]: https://github.com/marinvch/Cortex/releases/tag/v2.35.0
 [2.34.1]: https://github.com/marinvch/Cortex/releases/tag/v2.34.1
 [2.34.0]: https://github.com/marinvch/Cortex/releases/tag/v2.34.0

@@ -87,6 +87,26 @@ If it reports no context layer, say so and stop. There is nothing to review agai
 4. **Say what you could not check.** Rules described in prose without naming a path are invisible to
    the evidence pass, and a change can violate one without ever appearing in the drift list.
 
+## Optional — a second opinion from one angle
+
+The two axes above are about the repo's **documents**: did this break a stated rule, and did it make
+a document wrong. That is deliberately narrow, and it is blind to whole classes of defect that no
+document happens to mention.
+
+When a change touches something with a specialist failure mode — auth, a request path, a migration,
+a UI control, anything operational — dispatch the `cortex-role-reviewer` subagent with a role and the
+diff. Useful roles: `security`, `performance`, `accessibility`, `data-integrity`, `operability`,
+`dx`.
+
+Pick roles by what the diff actually touches, not by running all six. A reviewer with nothing to say
+for its angle is a correct outcome, but six of them produce a report nobody reads, and the one real
+finding drowns. One or two, chosen because the change earns them.
+
+Each reviewer grounds itself in `cortex-impact.mjs` and must cite `path:line` — the whole point is to
+avoid a generic checklist that is true everywhere and actionable nowhere. Findings come back to you;
+fold them in below the document axes, which stay first because they are the ones nothing else looks
+for.
+
 ## Reporting
 
 Lead with drift, then broken rules, then everything else. Drift comes first because it is the

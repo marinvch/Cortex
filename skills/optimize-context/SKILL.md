@@ -1,6 +1,6 @@
 ---
 name: optimize-context
-description: Audit and slim the AI-agent context files in a repo — AGENTS.md, CLAUDE.md, shims, rules files, skill bodies. Use when a repo's AGENTS.md has grown large, when agents there feel slow or drift off-convention, or when the user says "optimize the context", "our AGENTS.md is bloated", "reduce context", "context engineering pass", "audit the agent instructions". Runs inside a target repo, not the vault.
+description: Audit and slim the AI-agent context files in a repo — AGENTS.md, CLAUDE.md, shims, rules files, skill bodies. Two scopes: a repo's files, or the machine-wide ones under ~/.claude that load in EVERY session. Use when a repo's AGENTS.md has grown large, when agents feel slow or drift off-convention, and on "optimize the context", "our AGENTS.md is bloated", "reduce context", "context engineering pass", "audit the agent instructions", "clean up my global CLAUDE.md", "remove what's outdated or contradictory from my instructions", "my personal rules have grown".
 capability: judgment
 ---
 
@@ -27,9 +27,36 @@ would silently remove a safety control.
 So: automatic changes are limited to moves that **preserve total information**. Anything that
 reduces it is quoted, reasoned, and waits for a yes.
 
-## Files in scope
-Root and nested `AGENTS.md` · `CLAUDE.md` · `GEMINI.md` · `.github/copilot-instructions.md` ·
-`.github/instructions/*.md` · `.cursor/rules/*.mdc` · `.claude/skills/*/SKILL.md`
+## Two scopes — say which one you are in before Pass 1
+
+**Repo scope** (the default): root and nested `AGENTS.md` · `CLAUDE.md` · `GEMINI.md` ·
+`.github/copilot-instructions.md` · `.github/instructions/*.md` · `.cursor/rules/*.mdc` ·
+`.claude/skills/*/SKILL.md`. Costs context only in that repo.
+
+**Machine scope** — `~/.claude/CLAUDE.md`, `~/.claude/agents/*.md`, `~/.claude/skills/*/SKILL.md`,
+and the `settings.json` that steers behaviour. Run this when the user says "my global CLAUDE.md",
+"the rules I have everywhere", "my personal instructions".
+
+The machine scope is where bloat is most expensive and least examined: those files load in **every
+session on every project**, so a paragraph nobody needs is paid for on every turn of every task,
+forever. A repo's `AGENTS.md` is at least paid for only by people working in that repo.
+
+It also inverts the main trim. A rule can move out of a repo file into a skill and be no worse off,
+because something will route back to it. A rule removed from a global `CLAUDE.md` and left only in a
+skill **stops applying in every session where that skill does not trigger** — and skills trigger on
+description match, which is exactly the thing you cannot guarantee. So in machine scope:
+
+- Keep the **invariant** — the sentence that must hold even when no skill loads. One line.
+- Move the **method** — the ordering, the checklists, the templates — into the skill, and point at
+  it by name from the line you kept.
+- Never move a safety or privacy rule out of a global file at all. Those are exactly the rules whose
+  failure mode is silent.
+
+The honest result of a machine-scope pass is often a file that is *shorter in method and no shorter
+overall*. Report it that way rather than reporting a line count as if it were the goal.
+
+A machine-scope run pairs with `/skill-audit`: this one judges the always-loaded prose, that one
+judges whether the skills it points at are ever reached.
 
 ## Pass 1 — Measure
 Per file: bytes, estimated tokens (bytes ÷ 4 — do not add a tokenizer), and whether it loads

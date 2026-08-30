@@ -15,7 +15,14 @@ keeping personally, tell the user — they add it by hand. No automatic promotio
 
 ## Step 1 — Point at the repo
 
-Confirm the target repo path (default: cwd). Everything below is relative to that root.
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-preflight.mjs"
+```
+
+`root` is the target repo — confirm it is the one the user meant, since everything below is relative
+to it, and a ritual invoked one directory off writes a plausible-looking brain into the wrong repo.
+`profile` says which world this machine serves; on `home` a work repo is refused here, and
+`/cortex-profile` is where that gets settled rather than re-argued in every ritual.
 
 ## Step 2 — Check for an OLD engine first
 
@@ -66,6 +73,13 @@ shares them; if this repo should keep them private, tell the user to gitignore t
 
 Confirm what was written, then: *"Open this repo in Claude Code and run `/plan-feature` when the
 ticket lands."* Suggest growing `## Gotchas` as they learn the codebase.
+
+**If the scan turned up setup a human has to do by hand** — `.env.example` keys with no values, a
+`secrets.*` reference in `.github/workflows/`, a third-party dashboard the README sends you to —
+offer `/wizard`. It writes one script that walks a person through those steps and captures the
+values, which beats this brain describing them in prose that goes stale the first time a dashboard
+moves. Documenting a manual procedure and automating it are different jobs; doing the first here is
+not doing the second.
 
 ## Rules
 

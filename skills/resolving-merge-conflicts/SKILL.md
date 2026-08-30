@@ -2,6 +2,7 @@
 name: resolving-merge-conflicts
 description: Work through an in-progress git merge or rebase conflict hunk by hunk, resolving by intent traced back to each side's primary source, then finish the operation. Use when a merge or rebase has stopped with conflicts. Triggers — "resolve these conflicts", "the rebase is stuck", "CONFLICT (content)", "help me merge this branch". Never aborts.
 capability: judgment
+reached-by: git — an interrupted merge or rebase, not another ritual
 ---
 
 # /resolving-merge-conflicts — resolve by intent, never by `--abort`

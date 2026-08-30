@@ -1,3 +1,9 @@
+# cortex:allow-secrets — the one secret-shaped string below is a canary, not a credential. It is the
+# marker this test plants in a fake transcript and then asserts is ABSENT from every output mode.
+#
+# The scanner flagging it is the gate working, not a false positive: it cannot tell a canary from a
+# key filed in the wrong place, and it is not supposed to guess.
+
 # A skill's most common defect is invisible in its own file: correct, wired in, never reached.
 #
 # This is the only tool in Cortex that reads the session record rather than the repo, so two things

@@ -272,6 +272,28 @@ test('a SessionEnd entry that merely mentions the hook does not count as registe
   );
 });
 
+test('a wrapper that really does invoke the hook is left alone, not registered twice', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  mkdirSync(join(root, '.claude'), { recursive: true });
+
+  // The other side of the same boundary. The failure directions are asymmetric — a false
+  // "already registered" silently costs the repo its only learning mechanism, while a
+  // double registration costs one wasted hook run that dedupes by fingerprint anyway. So
+  // the skip has to be earned: this entry genuinely runs the hook, so skipping is correct.
+  const wrapper = 'node "$CLAUDE_PROJECT_DIR/.claude/hooks/cortex-reflect.mjs" --verbose';
+  writeFileSync(
+    join(root, '.claude/settings.json'),
+    JSON.stringify({ hooks: { SessionEnd: [{ hooks: [{ type: 'command', command: wrapper }] }] } }, null, 2),
+  );
+
+  install(root);
+
+  const commands = readJson(root, '.claude/settings.json').hooks.SessionEnd.flatMap((e) =>
+    (e.hooks ?? []).map((h) => h.command ?? ''),
+  );
+  assert.deepEqual(commands, [wrapper], 'an entry that already invokes the hook must not be duplicated');
+});
+
 test('install stamps the capability skill so the repo can extend itself', () => {
   const root = fixture({ pkg: NEXT_PKG });
   install(root);

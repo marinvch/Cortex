@@ -17,7 +17,7 @@
  *
  * Vendored into the repo by `npx cortex-init` — edit `.cortex/lib/` to change the guard.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -34,7 +34,32 @@ function readStdin() {
   }
 }
 
-const MARKER = /(?:^|\s)GOTCHA:\s*(.+?)\s*$/;
+/**
+ * The marker must OPEN the line, allowing markdown emphasis, bullets and blockquotes around it.
+ *
+ * Matching it mid-line recorded sentences *about* the convention — "I will use GOTCHA: markers
+ * next time" committed `markers next time.` as tribal knowledge — while requiring whitespace
+ * before it lost `**GOTCHA: the build needs Node 18**` entirely. Same root cause, both directions.
+ */
+const MARKER = /^[\s>*_+#-]*GOTCHA:\s*(.+?)\s*$/;
+
+/**
+ * One entry is one line, because `.cortex/memory/*.md` merges with `merge=union`. Without a cap a
+ * pasted stack trace commits a single 20,000-character line into a file people have to read.
+ *
+ * 500 is far above a real lesson — they run well under 200 — and far below any paste. Truncated
+ * rather than dropped: losing the opening of a genuine gotcha is the worse of the two failures,
+ * and the ellipsis leaves the cut visible to whoever prunes the file later.
+ */
+const MAX_GOTCHA_LENGTH = 500;
+
+function cleanGotcha(text) {
+  const trimmed = text.replace(/[*_\s]+$/, '').trim();
+  if (trimmed.length <= MAX_GOTCHA_LENGTH) return trimmed;
+  const cut = trimmed.slice(0, MAX_GOTCHA_LENGTH);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > MAX_GOTCHA_LENGTH / 2 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
 
 /** Pull `GOTCHA:` lines out of a Claude Code transcript (JSONL). */
 export function extractGotchas(transcriptText) {
@@ -59,7 +84,9 @@ export function extractGotchas(transcriptText) {
 
     for (const line of text.split('\n')) {
       const m = line.match(MARKER);
-      if (m?.[1]) found.push(m[1].trim());
+      if (!m?.[1]) continue;
+      const entry = cleanGotcha(m[1]);
+      if (entry) found.push(entry);
     }
   }
   return found;
@@ -139,8 +166,28 @@ async function main() {
   }
 }
 
+/**
+ * True only when this file is the script Node was told to run.
+ *
+ * `argv[1]` is the path as invoked, but `import.meta.url` is the realpath — Node resolves the
+ * main module through symlinks unless `--preserve-symlinks-main`. Comparing them raw makes this
+ * guard false for any repo reached through a symlink or a Windows junction, and the hook then
+ * exits 0 having done nothing: no gotchas harvested, no map refresh, no error anywhere.
+ *
+ * `realpathSync` throws on a path that does not exist, which cannot happen for a script Node is
+ * executing — but it must not turn an ordinary import into a crash, so it fails closed.
+ */
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url;
+  } catch {
+    return false;
+  }
+}
+
 // Run only when executed as a hook. Importing this file for its functions must be side-effect free.
-if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+if (isMainModule()) {
   await main();
   process.exit(0);
 }

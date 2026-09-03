@@ -33,10 +33,17 @@ const SOURCE_EXT = new Set([
  * than half-supported, because a glob we parse wrongly excludes files the reader expects
  * to see, and the map has no way to signal that it happened.
  *
+ * Two entry shapes, matching git's own rule:
+ *  - a bare name (`lib`) matches that name at any depth — `src/lib/` really is ignored;
+ *  - an entry containing a slash (`src/generated`) is anchored to the repo root and matches
+ *    only there. Testing those against path *segments* meant they could never match at all.
+ *
  * Reads `.gitignore` and `.cortexignore`; entries from either exclude a path.
  */
 function ignoreFilter(repoRoot) {
   const names = new Set();
+  const paths = new Set();
+  let unsupported = 0;
   for (const file of ['.gitignore', '.cortexignore']) {
     const path = join(repoRoot, file);
     if (!existsSync(path)) continue;
@@ -48,18 +55,42 @@ function ignoreFilter(repoRoot) {
     }
     for (const raw of lines) {
       const line = raw.trim();
-      if (!line || line.startsWith('#') || line.startsWith('!') || line.includes('*')) continue;
-      names.add(line.replace(/^\/+/, '').replace(/\/+$/, ''));
+      if (!line || line.startsWith('#')) continue;
+      if (line.startsWith('!') || line.includes('*')) {
+        unsupported += 1;
+        continue;
+      }
+      const entry = line.replace(/^\/+/, '').replace(/\/+$/, '');
+      if (!entry) continue;
+      if (entry.includes('/')) paths.add(entry);
+      else names.add(entry);
     }
   }
-  return (rel) => rel.split('/').some((part) => names.has(part));
+  const match = (rel) => {
+    if (rel.split('/').some((part) => names.has(part))) return true;
+    for (const anchored of paths) {
+      if (rel === anchored || rel.startsWith(`${anchored}/`)) return true;
+    }
+    return false;
+  };
+  match.unsupported = unsupported;
+  return match;
 }
 
+/**
+ * Walk the repo for source files.
+ *
+ * Ignored files are still *counted*, because `total` must mean everything found rather than
+ * everything kept: counting after the filter let Coverage print "Scanned 2 of 2" while two
+ * files had been dropped, and a map that overstates itself is worse than no map. The
+ * always-skipped directories are excluded from both numbers — they are not project source.
+ */
 export function scanRepo(repoRoot, { maxFiles = MAX_FILES } = {}) {
-  const ignored = ignoreFilter(repoRoot);
+  const isIgnored = ignoreFilter(repoRoot);
   const found = [];
+  let ignored = 0;
 
-  const walk = (dir) => {
+  const walk = (dir, underIgnored) => {
     let entries;
     try {
       entries = readdirSync(dir, { withFileTypes: true });
@@ -70,19 +101,28 @@ export function scanRepo(repoRoot, { maxFiles = MAX_FILES } = {}) {
       if (ALWAYS_SKIP.has(entry.name)) continue;
       const abs = join(dir, entry.name);
       const rel = relative(repoRoot, abs).split(sep).join('/');
-      if (ignored(rel)) continue;
+      const skipped = underIgnored || isIgnored(rel);
       if (entry.isDirectory()) {
-        walk(abs);
+        walk(abs, skipped);
       } else {
         const dot = entry.name.lastIndexOf('.');
-        if (dot > -1 && SOURCE_EXT.has(entry.name.slice(dot))) found.push(rel);
+        if (dot > -1 && SOURCE_EXT.has(entry.name.slice(dot))) {
+          if (skipped) ignored += 1;
+          else found.push(rel);
+        }
       }
     }
   };
 
-  walk(repoRoot);
+  walk(repoRoot, false);
   found.sort();
-  return { files: found.slice(0, maxFiles), total: found.length, capped: found.length > maxFiles };
+  return {
+    files: found.slice(0, maxFiles),
+    total: found.length + ignored,
+    ignored,
+    unsupportedPatterns: isIgnored.unsupported,
+    capped: found.length > maxFiles,
+  };
 }
 
 /** Line count, used for the size signal in the map. */
@@ -127,12 +167,71 @@ const all = (re, source, out) => {
 };
 
 /**
+ * Find the end of a string literal opened at `i`, or -1 if it is not one after all.
+ *
+ * `'` and `"` cannot span a line, so an apostrophe in a trailing comment (`// don't`) opens
+ * nothing — without that rule it would swallow the rest of the file and every later comment
+ * with it. Template literals may span lines, so only EOF closes them.
+ */
+function literalEnd(source, i) {
+  const quote = source[i];
+  for (let j = i + 1; j < source.length; j++) {
+    const c = source[j];
+    if (c === '\\') {
+      j += 1;
+      continue;
+    }
+    if (c === quote) return j + 1;
+    if (c === '\n' && quote !== '`') return -1;
+  }
+  return quote === '`' ? source.length : -1;
+}
+
+/**
  * Drop comments before matching, so a code example in a doc block is not reported as real
  * structure. Line comments are only stripped when they start the line: `//` also appears
  * inside URLs, and truncating there would lose genuine imports.
+ *
+ * Scanned rather than matched by regex, because a regex cannot tell a comment from its own
+ * text inside a string. `const glob = "/*"` opened a block comment that ran to the next
+ * `*` + `/` in the file, silently deleting every import in between while Coverage still
+ * reported the file as parsed. Glob patterns and a following doc block are enough to trigger it.
  */
-const stripComments = (source) =>
-  source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+function stripComments(source) {
+  let out = '';
+  let atLineStart = true;
+  let i = 0;
+  while (i < source.length) {
+    const c = source[i];
+    const next = source[i + 1];
+
+    if (c === '/' && next === '*') {
+      const end = source.indexOf('*/', i + 2);
+      i = end === -1 ? source.length : end + 2;
+      continue;
+    }
+    if (c === '/' && next === '/' && atLineStart) {
+      const end = source.indexOf('\n', i);
+      i = end === -1 ? source.length : end; // keep the newline; line numbers are not our concern
+      continue;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      const end = literalEnd(source, i);
+      if (end !== -1) {
+        out += source.slice(i, end);
+        atLineStart = false;
+        i = end;
+        continue;
+      }
+    }
+
+    if (c === '\n') atLineStart = true;
+    else if (c !== ' ' && c !== '\t') atLineStart = false;
+    out += c;
+    i += 1;
+  }
+  return out;
+}
 
 export const EXTRACTORS = [
   {
@@ -201,7 +300,7 @@ function entryPoints(repoRoot, files) {
  * comment or a renamed local does not invalidate it and the committed map stays quiet in diffs.
  */
 export function buildMap(repoRoot, { maxFiles = MAX_FILES } = {}) {
-  const { files, total, capped } = scanRepo(repoRoot, { maxFiles });
+  const { files, total, ignored, unsupportedPatterns, capped } = scanRepo(repoRoot, { maxFiles });
 
   const parsed = new Set();
   const listedOnly = new Set();
@@ -286,6 +385,12 @@ export function buildMap(repoRoot, { maxFiles = MAX_FILES } = {}) {
   lines.push('## Coverage');
   lines.push('');
   lines.push(`- Scanned ${files.length} of ${total} source files.${capped ? ' **Capped — this list is partial.**' : ''}`);
+  lines.push(`- Excluded by .gitignore/.cortexignore: ${ignored ? `${ignored} source files` : 'none'}`);
+  if (unsupportedPatterns) {
+    lines.push(
+      `- ${unsupportedPatterns} ignore pattern(s) not supported (globs and \`!\` negations), so files they cover are still listed here.`,
+    );
+  }
   lines.push(`- Parsed: ${parsed.size ? [...parsed].join(', ') : 'nothing'}`);
   lines.push(
     `- Listed only (not parsed): ${listedOnly.size ? [...listedOnly].sort().join(', ') : 'none'}`,
@@ -295,7 +400,15 @@ export function buildMap(repoRoot, { maxFiles = MAX_FILES } = {}) {
   return {
     markdown: lines.join('\n'),
     hash,
-    stats: { scanned: files.length, total, capped, parsed: [...parsed], listedOnly: [...listedOnly] },
+    stats: {
+      scanned: files.length,
+      total,
+      ignored,
+      unsupportedPatterns,
+      capped,
+      parsed: [...parsed],
+      listedOnly: [...listedOnly],
+    },
   };
 }
 

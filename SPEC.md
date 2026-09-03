@@ -279,6 +279,18 @@ guarded. Loosening it fails three tests, deliberately.
 The general rule for this codebase: **a file Cortex writes into a repo it does not control is input on
 the next run.** `resolveInRepo` is a containment boundary, not a validator.
 
+Applied to `.claude/settings.json`: a shape we cannot merge into — `hooks` a string, `SessionEnd` an
+object, the document `null` — is **reported and skipped, never coerced.** Replacing a bad value means
+deleting whatever a teammate put there to make room for ours, and their committed file is input, not
+ours. The cost is real and accepted: those repos do not get the SessionEnd harvester. They are told so
+on the plan row, which is the whole distinction — a degraded install that says it degraded, rather than
+one that reports success while wiring nothing. Shapes we *can* merge into (absent keys, a null entry, a
+non-array `entry.hooks`, a non-string `command`) register normally rather than being treated as hostile.
+
+The same rule governs `.cortex/config.json`, which is also committed, also parsed, and also acted on.
+Neither is a delete path, so neither is urgent, but an audit of what Cortex trusts from those two files
+is outstanding work, not settled work.
+
 **D10 — orphan pruning ships before it is needed, not after.** When a module leaves `VENDORED` in
 version N, only the manifest written by N-1 still lists it, so only N's installer can prove the file on
 disk is an untouched copy of ours and remove it safely. Ship the sweep in N+1 and provenance is already

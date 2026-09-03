@@ -121,6 +121,12 @@ npx @marinvch/cortex-init --cwd path   # target another repo
 npx @marinvch/cortex-init --no-map     # record "map": false in .cortex/config.json, skip the map
 ```
 
+`--no-map` is the one flag that outlives its run: it writes the setting into `.cortex/config.json`,
+which you commit, so a teammate's next install skips the map too. That is deliberate — as a per-run
+flag it was not an opt-out at all, since the next person to run the installer brought the map back.
+Turn it back on by editing that file. An unknown flag is refused rather than ignored, so a typo like
+`--dryrun` exits non-zero instead of quietly performing a real install.
+
 `--refresh` only rewrites the block between the `cortex:generated` markers. Everything you wrote by
 hand survives. If the markers are gone, the file is left alone entirely rather than overwritten.
 

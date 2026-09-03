@@ -173,9 +173,23 @@ scaffolding, not the project's architecture.
 | No egress | source grep + dependency-tree assertion in CI |
 | Idempotent | run twice, assert second run is a no-op; assert human prose survives `--refresh` |
 | Capabilities survive refresh | create a project skill, `--refresh`, assert it is still there |
-| Plugins not provisioned | default run asserts `enabledPlugins` is absent from `.claude/settings.json` |
+| Nothing provisions a dev environment | default run asserts `enabledPlugins` is absent from `.claude/settings.json` — unconditionally, since the installer always writes that file to register the hook |
 | Map is honest | assert the cap and the parsed/listed-only split are reported, not hidden |
 | Map is not born stale | assert `isStale()` is false the moment install finishes |
+| **The guard is wired in** | delete the `scan()` call from the memory append path and assert tests fail — the choke point proven, not assumed |
+| **Every rule has a fixture** | assert each name in `RULE_NAMES` is triggered by at least one MUST_BLOCK entry, so a rule added without corpus coverage fails CI |
+| The hook actually runs | assert a SessionEnd entry exists that *invokes* the hook — a mention of the path must not count as registration |
+| No edit is destroyed | hand-edit each file Cortex owns, re-run, assert the `.bak` holds the edit and not the fresh content |
+| Provenance is recorded | assert `.cortex/lib/.manifest.json` names every vendored file with a hash matching the bytes on disk, and reports a version change |
+| The sweep cannot be steered | record hostile keys (`../../AGENTS.md`, `*.mjs.bak`, nested paths) in the manifest and assert none is deleted — shape guards before provenance (D11) |
+| Memory survives a merge | construct two real branches appending different gotchas and assert the union merge keeps both, with no conflict markers |
+| Assertions are not vacuous | run coverage with `src/` excluded so it lands on the test files; an unexecuted line in a test is a vacuous assertion |
+
+The last row is method, not a single test. It found four false greens in one pass, including one guarding a
+requirement — that `## Project skills` survives `--refresh` — which was never actually tested. Note its
+limit: inverting coverage tells you which existing assertions are lying, and finds nothing about the gaps
+*between* them. Both real defects that sweep produced came from new tests asserting claims nothing had
+tested at all, which still requires reading a row above and asking what checks it.
 
 The guard's two corpora are the most important tests in the project. Committed-ungated memory is
 only safe if they are exhaustive.
@@ -287,9 +301,24 @@ on the plan row, which is the whole distinction — a degraded install that says
 one that reports success while wiring nothing. Shapes we *can* merge into (absent keys, a null entry, a
 non-array `entry.hooks`, a non-string `command`) register normally rather than being treated as hostile.
 
-The same rule governs `.cortex/config.json`, which is also committed, also parsed, and also acted on.
-Neither is a delete path, so neither is urgent, but an audit of what Cortex trusts from those two files
-is outstanding work, not settled work.
+`.cortex/config.json` has since had the same audit, and it was not academic — the old code **destroyed**
+committed files while reporting success. Measured against the unmodified code before changing it: a
+config of `null` was replaced wholesale, `[1,2]` became `{"0":1,"1":2,"map":true}`, `"hello"` was
+exploded character by character into an object, and `42` or `true` wiped every key. Each printed
+`recorded "map": true`.
+
+The mechanism is worth keeping, because it is three innocuous lines composing into data loss:
+`config?.map` on an **array** does not read a missing key — it reads `Array.prototype.map`, a function.
+So `!== false` passes, a function never equals a boolean at the later comparison, the file is rewritten
+every run, and the object spread that does the rewriting flattens whatever was there. The shape check
+must therefore precede the key check rather than leaning on `?.`.
+
+`readConfig` now applies the settings.json policy: an unusable shape is reported and skipped with the
+file left byte-identical, an incomplete one gets defaults. Only `map` is ever read; `version`, `name`
+and `guard.enabled` are written and read by nothing — and `guard.enabled` is being removed rather than
+honoured, because a supported off switch for the guard would let one commit disable the product's
+central safety claim for a whole team in a file nobody reviews closely. The escape hatch for a genuine
+false positive is editing the vendored `.cortex/lib/guard.mjs`, which shows up in a diff.
 
 **D10 — orphan pruning ships before it is needed, not after.** When a module leaves `VENDORED` in
 version N, only the manifest written by N-1 still lists it, so only N's installer can prove the file on

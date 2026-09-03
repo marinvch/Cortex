@@ -70,6 +70,48 @@ function hashOnDisk(abs) {
 }
 
 /**
+ * Read `.cortex/config.json` as untrusted input, returning either a config we can act on
+ * or the plan note explaining why we will not touch the file.
+ *
+ * It is committed, so on the next run its contents are input, not something we wrote (D11) —
+ * the same rule `.claude/settings.json` follows in installHook. A shape we cannot use is
+ * reported and skipped, never coerced; a shape that is merely incomplete gets sane defaults.
+ *
+ * Coercion here was not hypothetical. `{ ...config, map }` over an array or a string spread
+ * it into `{"0": …}`, and over a number or a boolean produced a bare `{ map: true }` — every
+ * key the team had written, gone, on a plan row that said "recorded". And the shape had to be
+ * checked before the key rather than trusted through `?.`, because `config?.map` on an array
+ * reads `Array.prototype.map`: a function, so `!== false` is true and `!== mapEnabled` is
+ * also true, which is what drove the rewrite that destroyed the file.
+ */
+function readConfig(abs) {
+  if (!existsSync(abs)) return { config: null, note: null };
+
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(abs, 'utf8'));
+  } catch {
+    return { config: null, note: 'SKIPPED — existing config.json is not valid JSON' };
+  }
+
+  // `null`, an array, a string, a number, a boolean: all valid JSON, none of them something
+  // we can merge a key into. A null document in particular used to be indistinguishable from
+  // an absent file, so it was replaced wholesale by a freshly created config.
+  if (!isPlainObject(parsed)) {
+    return { config: null, note: 'SKIPPED — config.json has an unexpected shape at the document root' };
+  }
+
+  // Absent is incomplete and gets backfilled; present-but-not-a-boolean is unreadable. We
+  // cannot tell whether `"false"` meant off or was a stray edit, and picking one silently
+  // overwrites what they wrote.
+  if ('map' in parsed && typeof parsed.map !== 'boolean') {
+    return { config: null, note: 'SKIPPED — config.json has an unexpected shape at map' };
+  }
+
+  return { config: parsed, note: null };
+}
+
+/**
  * Orchestrate the install. Every path goes through resolveInRepo, so the installer
  * physically cannot write outside the repo it was invoked in (R2).
  */
@@ -136,26 +178,29 @@ export function install(repoRoot, { refresh = false, dryRun = false, noMap = fal
   // config.json is committed, so the decision travels with the repo. `--no-map` sets it.
   const configRel = '.cortex/config.json';
   const configAbs = resolveInRepo(repoRoot, configRel);
-  let config = null;
-  let configUsable = true;
-  if (existsSync(configAbs)) {
-    try {
-      config = JSON.parse(readFileSync(configAbs, 'utf8'));
-    } catch {
-      configUsable = false;
-      plan.push({ rel: configRel, note: 'SKIPPED — existing config.json is not valid JSON', skipped: true });
-    }
-  }
+  const { config, note: configNote } = readConfig(configAbs);
 
+  // Safe as a `!== false` test only because readConfig has proved `map` is a boolean or
+  // absent. On a raw parse it also passes for every array and every non-object document.
+  // A config we skipped reads as no config at all — the installer's own default — so the
+  // map still gets built; what we do not do is write to the file to say so.
   const mapEnabled = noMap ? false : config?.map !== false;
 
-  if (configUsable && config === null) {
+  if (configNote) {
+    // The cost of not coercing, stated on the row: with the file untouched, `--no-map`
+    // governs this run only, which is exactly what folding it into config was meant to fix.
+    plan.push({
+      rel: configRel,
+      note: noMap ? `${configNote} (--no-map could not be recorded)` : configNote,
+      skipped: true,
+    });
+  } else if (config === null) {
     write(
       configRel,
       serializeConfig({ version: 1, name: facts.name, guard: { enabled: true }, map: mapEnabled }),
       'created',
     );
-  } else if (configUsable && config.map !== mapEnabled) {
+  } else if (config.map !== mapEnabled) {
     // Either --no-map just flipped it, or this config predates the key and gets it backfilled.
     write(
       configRel,
@@ -177,7 +222,16 @@ export function install(repoRoot, { refresh = false, dryRun = false, noMap = fal
       plan.push({ rel: MAP_REL, note: `SKIPPED — map generation failed: ${err.message}`, skipped: true });
     }
   } else {
-    plan.push({ rel: MAP_REL, note: 'SKIPPED — "map": false in .cortex/config.json', skipped: true });
+    // Normally the config is the reason, because --no-map records itself there. When the
+    // config was skipped it cannot be, and the row has to say the flag governs this run
+    // rather than claim a setting that is not in the file.
+    plan.push({
+      rel: MAP_REL,
+      note: configNote
+        ? 'SKIPPED — --no-map for this run; .cortex/config.json could not be updated'
+        : 'SKIPPED — "map": false in .cortex/config.json',
+      skipped: true,
+    });
   }
 
   // ── vendored lib ─────────────────────────────────────────────────────────

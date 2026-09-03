@@ -182,12 +182,67 @@ only safe if they are exhaustive.
 - Cortex shipping *as* an MCP server. `AGENTS.md` is plain text; agents read it without one. (Scaffolding
   an MCP server *for the host repo* is in scope — that is `/cortex-mcp`, and it only runs when asked.)
 
+## Decisions
+
+Resolved 2026-09-03 after a full-team audit (auditor, qa, product-manager, refactorer). Each
+supersedes the corresponding open question.
+
+**D1 — npm name: keep the scoped `@marinvch/cortex-init`.** Nobody discovers a CLI installer by
+guessing a package name; the invocation is copy-pasted from a README. An unscoped `repo-brain` would
+not fix the real risk, which is brand collision with an adjacent product in the same category.
+*Trade-off:* a scoped name reads as one person's side project — a marginal first-contact trust cost.
+Free to reverse at v0.1.0 with no users, so it blocks nothing.
+
+**D2 — `--refresh` rewrites stack facts in place and prints what changed.** Git is already the human
+review surface; a `.patch` artifact would add a format, a step, and a second renderer to keep in sync.
+*Trade-off:* a mis-detected fact lands unreviewed in the working tree. Mitigated by printing the facts
+that moved (`Tests: Vitest → Jest`), not by a diff file. Additionally, the rewrite must be **gated
+behind the flag** — today it happens on any run when `AGENTS.md` exists, which is the silent
+stack-fact rewrite this tool exists to prevent.
+
+**D3 — memory merge strategy: `merge=union` via a stamped `.gitattributes`, which requires a format
+change first.** Custom merge drivers live in `.git/config` and do not survive a clone, which
+disqualifies them outright for a tool whose premise is "clone the repo, inherit the brain". Union
+merge is line-based, so it is only safe if every entry is exactly one line with no shared trailing
+footer — the blank line written at `src/memory.mjs:80` must go. Rejected: one-file-per-entry, which is
+conflict-free by construction but trades a solved merge problem for an unreadable directory and breaks
+"the brain is a file you can read". *Trade-off:* union merge silently yields duplicates and
+non-chronological order. A duplicate costs a line; a recurring conflict costs the feature, because
+people delete files that fight them.
+
+**D4 — `decisions.md` and the merge strategy are one decision, not two.** Union merge would interleave
+multi-line ADRs into garbage. So `decisions.md` either gains a writer and a one-line-per-entry format
+(a `DECISION:` marker, symmetrical with `GOTCHA:`, same harvester and guard) or it is cut. Shipping a
+permanently empty file that the README calls an "append-only decision log" is not an option — it is
+exactly the noise this project claims to hate.
+
+**D5 — the vendored `.cortex/lib/` gains a `.manifest.json` before any guard fix ships.** `VENDORED`
+(`src/install.mjs:114,123`) is a raw byte copy with no version stamp, no manifest, and no hash;
+`config.json`'s `version: 1` is a config-schema number never read back. Nothing detects or repairs a
+stale copy, so a repo that installed at v0.1.0 runs that guard forever. `.cortex/lib/.manifest.json`
+(`{cortexVersion, files:{name:sha256}}`) yields version-change reporting, local-edit detection before
+overwrite, and an offline `MIN_GUARD_VERSION` warning from the hook. Rejected: a version comment
+stamped into each copy (breaks byte-identity, killing `diff src/guard.mjs .cortex/lib/guard.mjs` as an
+audit), and npm `postinstall` (target repos have no dependency on us). **This lands before the guard
+fixes**, or 0.2.0 ships with no way to tell which repos received it.
+
+**D6 — drop interactive mode and `--yes` from this spec.** Lines below previously documented
+`npx cortex-init` as interactive with `--yes` to accept defaults. Neither exists, and the CLI is
+unconditionally non-interactive by design. The spec follows the code here rather than the reverse.
+Separately, an unknown flag must exit non-zero: `--dryrun` currently warns on stderr and then performs
+a real install with exit 0.
+
+**D7 — the guard's entropy threshold stays at 4.5.** `ENTROPY_THRESHOLD` (`src/guard.mjs:39`) exceeds
+log2(16) = 4.0, so layer 4 can never catch a hex-encoded secret at any length. The repair belongs in
+layer 1 (known shapes plus key-name adjacency for long hex runs), **not** in the threshold — 4.5 is
+precisely what keeps commit SHAs and `sha512-` integrity digests from over-firing.
+
+**D8 — "exhaustive" corpora get a definition and a meta-test.** `MUST_BLOCK` grows 18 → ~40 and
+`MUST_NOT_BLOCK` 11 → ~30, each entry labelled with the class it exercises, plus a test asserting every
+named detection rule has at least one blocking entry — so a rule added without corpus coverage fails
+CI instead of shipping untested. Without this, "exhaustive" in the Verification section is an
+aspiration rather than a claim.
+
 ## Open questions
 
-- npm package name — **`cortex-init` is taken** (v1.0.0, and by an adjacent product: *"The collective
-  brain for Claude Code — shared learnings, rules, hooks, and skills across all your projects"*).
-  `repo-brain` and `codebase-brain` are both free. A scoped `@marinvch/cortex-init` is also always
-  available. Undecided.
-- Does `--refresh` rewrite stack facts in place, or write a diff for human review?
-- Should `.cortex/memory/` ship with a `.gitattributes` merge strategy? Append-only files from
-  parallel branches will conflict constantly otherwise.
+- None outstanding. See Decisions above.

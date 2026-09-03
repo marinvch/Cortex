@@ -126,6 +126,45 @@ export function refreshAgentsMd(existing, f) {
   return { content, refreshed: true };
 }
 
+/**
+ * The stack facts a document states, read back out of its generated block as label → value.
+ *
+ * Only the `- **Label:** value` bullets of the stack section have this shape; the run
+ * commands, the directory list and the capabilities are rendered differently and are
+ * deliberately not facts for this purpose. Reading is scoped to the block, so a human
+ * bullet of the same shape in their own prose is never mistaken for a detected fact.
+ */
+const STACK_BULLET = /^- \*\*([^*]+):\*\* (.+)$/gm;
+
+function generatedFacts(text) {
+  const start = text.indexOf(GEN_START);
+  const end = text.indexOf(GEN_END);
+  const block = start === -1 || end === -1 || end < start ? '' : text.slice(start, end);
+  const facts = new Map();
+  for (const m of block.matchAll(STACK_BULLET)) facts.set(m[1], m[2].trim());
+  return facts;
+}
+
+/**
+ * What moved between two AGENTS.md documents — `Tests: Vitest → Jest`, one entry per fact.
+ *
+ * D2 chose rewriting in place over emitting a patch file, on the grounds that git is already
+ * the review surface. That choice is only defensible if the run says what it did, so this is
+ * what the installer reports rather than leaving it to be discovered in a diff. A fact that
+ * appeared or vanished reads as `none` on the side it is missing from.
+ */
+export function factChanges(before, after) {
+  const a = generatedFacts(before);
+  const b = generatedFacts(after);
+  const changes = [];
+  for (const label of new Set([...a.keys(), ...b.keys()])) {
+    const from = a.get(label) ?? 'none';
+    const to = b.get(label) ?? 'none';
+    if (from !== to) changes.push(`${label}: ${from} → ${to}`);
+  }
+  return changes;
+}
+
 /** Shims: one line of pointer each, never a copy of the content. */
 export const SHIMS = {
   'CLAUDE.md': '@AGENTS.md\n',

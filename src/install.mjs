@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { resolveInRepo } from './paths.mjs';
 import { detect } from './detect.mjs';
-import { renderAgentsMd, refreshAgentsMd, SHIMS } from './render.mjs';
+import { renderAgentsMd, refreshAgentsMd, factChanges, SHIMS } from './render.mjs';
 import { initMemory } from './memory.mjs';
 import { installMetaSkills } from './skills.mjs';
 import { buildMap, MAP_REL } from './map.mjs';
@@ -140,14 +140,33 @@ export function install(repoRoot, { refresh = false, dryRun = false, noMap = fal
   if (existsSync(agentsAbs)) {
     const existing = readFileSync(agentsAbs, 'utf8');
     const { content, refreshed } = refreshAgentsMd(existing, facts);
-    if (refreshed) {
-      write('AGENTS.md', content, 'refreshed generated block; human prose preserved');
-    } else {
+    const moved = refreshed ? factChanges(existing, content) : [];
+    if (!refreshed) {
       plan.push({
         rel: 'AGENTS.md',
         note: 'SKIPPED — no cortex markers found; not overwriting a file you own',
         skipped: true,
       });
+    } else if (content === existing) {
+      plan.push({ rel: 'AGENTS.md', note: 'unchanged', skipped: true });
+    } else if (!refresh) {
+      // The rewrite is gated behind the flag (D2). Re-detecting a repo and overwriting stack
+      // facts a human has come to rely on, without being asked, is the silent rewrite this
+      // tool exists to prevent — so a plain run reports the drift and changes nothing.
+      plan.push({
+        rel: 'AGENTS.md',
+        note: `SKIPPED — ${moved.length ? `stack facts have moved (${moved.join('; ')})` : 'the generated block is out of date'}; re-run with --refresh to update`,
+        skipped: true,
+      });
+    } else {
+      // D2 chose in-place rewriting over a patch file because git is already the review
+      // surface. That only holds if the run says what it did, so the facts that moved go on
+      // the row rather than waiting to be discovered in a diff.
+      write(
+        'AGENTS.md',
+        content,
+        `refreshed generated block; human prose preserved${moved.length ? ` — ${moved.join('; ')}` : ''}`,
+      );
     }
   } else if (refresh) {
     plan.push({ rel: 'AGENTS.md', note: 'SKIPPED — --refresh but no AGENTS.md exists', skipped: true });
@@ -197,16 +216,25 @@ export function install(repoRoot, { refresh = false, dryRun = false, noMap = fal
   } else if (config === null) {
     write(
       configRel,
-      serializeConfig({ version: 1, name: facts.name, guard: { enabled: true }, map: mapEnabled }),
+      // No `guard` key. Nothing has ever read one — `scan()` takes no such option — and a
+      // boolean is the wrong shape for that decision anyway: memory is committed and
+      // ungated, so a supported off switch would let one commit disable the product's
+      // central safety claim for a whole team, in a file nobody reviews closely. A team with
+      // genuine false positives edits the vendored `.cortex/lib/guard.mjs`, which vendoring
+      // explicitly invites and which shows up in a PR diff where weakening the guard is
+      // visible. Existing configs keep the key: removing it would mean rewriting a file the
+      // user owns to delete something harmless.
+      serializeConfig({ version: 1, name: facts.name, map: mapEnabled }),
       'created',
     );
-  } else if (config.map !== mapEnabled) {
-    // Either --no-map just flipped it, or this config predates the key and gets it backfilled.
-    write(
-      configRel,
-      serializeConfig({ ...config, map: mapEnabled }),
-      noMap ? 'map disabled — recorded so it survives the next run' : 'recorded "map": true',
-    );
+  } else if (noMap && config.map !== false) {
+    // Only a setting the user actually asked for is written back. An absent `map` already
+    // means true, so backfilling it changed no behaviour while modifying a committed file in
+    // every existing repo on its next upgrade — a diff to review and a `.bak` to clean up,
+    // to record a default that was already in force. A config Cortex creates carries the key
+    // because we are writing the file anyway; a config that already exists is read, not
+    // rewritten. `--no-map` is the exception, because it is a real change the user requested.
+    write(configRel, serializeConfig({ ...config, map: false }), 'map disabled — recorded so it survives the next run');
   }
 
   // ── meta-skills ──────────────────────────────────────────────────────────

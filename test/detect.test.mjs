@@ -291,8 +291,10 @@ test('odd dependency and script shapes are ignored rather than crashing', () => 
 });
 
 test('a directory that is missing and a notable name that is a file are both skipped', () => {
-  const f = factsFor({ 'package.json': { name: 'x' }, src: 'this is a file, not a directory\n' });
-  assert.ok(!f.directories.includes('src'), 'a file named src is not a source directory');
+  // `lib/` is a real directory and is here as the positive control: without it, an empty
+  // `directories` would satisfy "does not include src" while detecting nothing at all.
+  const f = factsFor({ 'package.json': { name: 'x' }, src: 'this is a file, not a directory\n', lib: DIR });
+  assert.deepEqual(f.directories.slice().sort(), ['lib'], 'a file named src is not a source directory');
 });
 
 test('a script that does not exist yields no command for it', () => {
@@ -404,8 +406,19 @@ test('the unit test runner wins over the e2e one', () => {
 });
 
 test('a repo that tests with node --test is not credited with a runner it does not use', () => {
-  // The honest requirement is only that no *wrong* runner is claimed. Whether `node --test`
-  // should be positively identified is a separate question, raised in the report.
+  // Positive control first: the same fixture shape with a real runner dependency must
+  // detect it. Without this, a detector that returned null for everything would satisfy
+  // the negative assertion below and the test would be measuring nothing.
+  const withVitest = factsFor({
+    'package.json': { name: 'x', scripts: { test: 'vitest run' }, devDependencies: { vitest: '1.4.0' } },
+    'package-lock.json': '{}',
+  });
+  assert.equal(withVitest.testRunner, 'Vitest');
+
+  // Whether `node --test` should be positively identified is a separate question — the
+  // `node:test` entry in TEST_RUNNERS can never match a dependency name, so it is dead
+  // today. This asserts only what holds either way: no *wrong* runner is claimed. When
+  // that entry is fixed, this becomes `assert.equal(f.testRunner, 'node:test')`.
   const f = factsFor({
     'package.json': { name: 'x', scripts: { test: 'node --test' } },
     'package-lock.json': '{}',
@@ -460,22 +473,82 @@ test('a polyglot repo reports every language it has evidence for', () => {
 
 // ── tsStrict ───────────────────────────────────────────────────────────────────
 
+// Every assertion below pins an exact value, deliberately. An earlier version of this
+// block asserted `notEqual(tsStrict, true)` for the commented-out case, which `null`
+// satisfies as readily as `false` does — so when the fix started returning `null` for the
+// most common real tsconfig there was, the test stayed green. "Not the wrong answer" is
+// not an assertion; there are two ways to be wrong here and only one to be right.
+
+const tsStrictOf = (tsconfig) => factsFor({ 'package.json': { name: 'x' }, 'tsconfig.json': tsconfig }).tsStrict;
+
 test('tsStrict reflects the setting that is actually in force', () => {
-  assert.equal(factsFor({ 'tsconfig.json': '{ "compilerOptions": { "strict": true } }' }).tsStrict, true);
-  assert.equal(factsFor({ 'tsconfig.json': '{ "compilerOptions": { "strict": false } }' }).tsStrict, false);
+  assert.equal(tsStrictOf('{ "compilerOptions": { "strict": true } }'), true);
+  assert.equal(tsStrictOf('{ "compilerOptions": { "strict": false } }'), false);
   assert.equal(factsFor({ 'package.json': { name: 'x' } }).tsStrict, null, 'no tsconfig means no opinion');
 });
 
-test('a commented-out "strict" does not become a strict-mode fact', () => {
-  // tsconfig.json is JSONC and comments are idiomatic there — `tsc --init` emits a file
-  // that is almost entirely commented-out options. Reading the raw text means a line
-  // someone disabled still reports as in force, and AGENTS.md then instructs every agent
-  // to "keep it on" in a repo where it is off.
-  const f = factsFor({
-    'package.json': { name: 'x' },
-    'tsconfig.json': '{\n  // "strict": true,  // TODO: turn this on once the any-s are gone\n  "compilerOptions": { "strict": false }\n}\n',
-  });
-  assert.notEqual(f.tsStrict, true, 'a commented-out option is not an enabled option');
+test('an absent strict is null, never false', () => {
+  // `strict` may be arriving through `extends`, which detection deliberately does not
+  // follow. Null and false render identically today, so the distinction costs the
+  // document nothing — but reporting `false` would be stating a setting we never read.
+  assert.equal(tsStrictOf('{ "extends": "./tsconfig.base.json", "compilerOptions": { "target": "es2022" } }'), null);
+  assert.equal(tsStrictOf('{ "files": [] }'), null, 'no compilerOptions is no answer');
+  assert.equal(tsStrictOf('{ "compilerOptions": { "strict": "true" } }'), null, 'a string is not a boolean');
+});
+
+test('comments do not change the answer, in either direction', () => {
+  const strict = [
+    '// project config\n{ "compilerOptions": { "strict": true } }',
+    '{\n  "compilerOptions": {\n    // Type checking\n    "strict": true\n  }\n}\n',
+    '{\n  "$schema": "https://json.schemastore.org/tsconfig",\n  // the // in that URL is a value, not a comment\n  "compilerOptions": { "strict": true }\n}\n',
+    '{\n  "compilerOptions": {\n    /* Type Checking */\n    "strict": true\n  }\n}\n',
+  ];
+  for (const src of strict) assert.equal(tsStrictOf(src), true, `expected strict mode on for:\n${src}`);
+
+  const loose = [
+    '// project config\n{ "compilerOptions": { "strict": false } }',
+    '{\n  "compilerOptions": {\n    // Type checking\n    "strict": false\n  }\n}\n',
+  ];
+  for (const src of loose) assert.equal(tsStrictOf(src), false, `expected strict mode off for:\n${src}`);
+});
+
+test('a commented-out "strict" reports the setting that is really in force', () => {
+  // The original defect: the raw text was regexed, so a line someone had disabled still
+  // reported the mode as on and AGENTS.md told every agent to "keep it on" in a repo
+  // where it was off. The right answer here is exactly `false` — the value the file sets.
+  assert.equal(
+    tsStrictOf('{\n  // "strict": true,  // TODO: turn this on once the any-s are gone\n  "compilerOptions": { "strict": false }\n}\n'),
+    false,
+  );
+});
+
+test('a tsc --init tsconfig reports its strict setting', () => {
+  // `tsc --init` emits exactly this shape: a real option, a trailing comma, then a run of
+  // commented-out options up to the closing brace. It is the single most common tsconfig
+  // in existence, so it is the one case that must not degrade to "we cannot tell".
+  //
+  // Both directions, because a fix that returns `true` unless it can prove otherwise is
+  // the original defect wearing a different hat.
+  assert.equal(
+    tsStrictOf('{\n  "compilerOptions": {\n    /* Type Checking */\n    "strict": true,\n    // "noImplicitAny": true,\n    // "strictNullChecks": true,\n  }\n}\n'),
+    true,
+  );
+  assert.equal(
+    tsStrictOf('{\n  "compilerOptions": {\n    "strict": false,\n    // "noImplicitAny": true,\n  }\n}\n'),
+    false,
+  );
+});
+
+test('a comment between a trailing comma and its closing brace is still just a comment', () => {
+  // Same class as the case above, generalised: whenever a comment follows a trailing comma
+  // the comma has to be gone by the time the parse runs, whichever brace it precedes and
+  // whichever comment syntax is used. Comments strip first, trailing commas second.
+  assert.equal(tsStrictOf('{\n  "compilerOptions": {\n    "strict": true,\n    /* more options later */\n  }\n}\n'), true);
+  assert.equal(tsStrictOf('{\n  "compilerOptions": { "strict": true },\n  // "include": ["src"]\n}\n'), true);
+  assert.equal(
+    tsStrictOf('{\n  "$schema": "https://json.schemastore.org/tsconfig",\n  "compilerOptions": {\n    "strict": true,\n    // "exactOptionalPropertyTypes": true,\n  },\n  /* what we compile */\n}\n'),
+    true,
+  );
 });
 
 // ── purpose ────────────────────────────────────────────────────────────────────

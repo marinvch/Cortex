@@ -61,12 +61,12 @@ const FRAMEWORKS = [
   ['Hono', 'hono'],
 ];
 
+/** Runners that arrive as a dependency. node's builtin does not, and is found in `detect`. */
 const TEST_RUNNERS = [
   ['Vitest', 'vitest'],
   ['Jest', 'jest'],
   ['Playwright', '@playwright/test'],
   ['Mocha', 'mocha'],
-  ['node:test', 'node:test'],
 ];
 
 const NOTABLE_DIRS = [
@@ -82,10 +82,31 @@ function detectPackageManager(root) {
   return null;
 }
 
-function detectLanguages(root) {
+/**
+ * Is this the root of a workspace — an npm/yarn/bun `workspaces` field, or pnpm's file?
+ *
+ * It matters because the root of a monorepo is the one place where the root manifest is
+ * least representative of the code: the stacks live one or more levels down, they differ per
+ * package, and reading them is not on the table. Real monorepos nest and mix, so a
+ * root-plus-one-level scan would produce a half-right stack — worse than an acknowledged
+ * gap for a file whose entire value is that agents trust it.
+ */
+function detectWorkspaceRoot(root, pkg) {
+  if (has(root, 'pnpm-workspace.yaml')) return true;
+  const ws = pkg?.workspaces;
+  if (Array.isArray(ws)) return ws.length > 0;
+  if (isPlainObject(ws)) return Array.isArray(ws.packages) && ws.packages.length > 0;
+  return false;
+}
+
+function detectLanguages(root, workspaceRoot) {
   const langs = [];
+  // `tsconfig.json` is a file we read; `package.json` exists ⇒ JavaScript is the only
+  // inference in this module, and the contract at the top of the file forbids exactly that.
+  // At a workspace root it is also usually wrong — the packages beneath are TypeScript, Go,
+  // Python, anything — so a root manifest there is evidence of a workspace, not of a stack.
   if (has(root, 'tsconfig.json')) langs.push('TypeScript');
-  else if (has(root, 'package.json')) langs.push('JavaScript');
+  else if (!workspaceRoot && has(root, 'package.json')) langs.push('JavaScript');
   if (has(root, 'pyproject.toml') || has(root, 'requirements.txt')) langs.push('Python');
   if (has(root, 'go.mod')) langs.push('Go');
   if (has(root, 'Cargo.toml')) langs.push('Rust');
@@ -147,10 +168,6 @@ function detectLinters(root, deps) {
  * String-aware, because `//` is also how every `"$schema": "https://…"` value begins — the
  * same hazard `src/map.mjs` documents at its own comment strip, except that a truncated URL
  * there loses an import while here it would break the parse of the whole file.
- *
- * Known limit, and it degrades the honest way: a comment sitting *between* a trailing comma
- * and its closing brace leaves the comma in place, the parse fails, and the caller reports
- * null rather than a guess.
  */
 function stripJsonc(text) {
   let out = '';
@@ -179,11 +196,13 @@ function stripJsonc(text) {
       i++;
       continue;
     }
-    if (c === ',') {
-      let j = i + 1;
-      while (j < text.length && /\s/.test(text[j])) j++;
-      if (text[j] === '}' || text[j] === ']') continue;
-    }
+    // A trailing comma is decided by looking *behind* at what has already been emitted,
+    // never ahead at the raw text. By this point the comments between the comma and its
+    // brace are gone, so the two are adjacent but for whitespace — which is what makes the
+    // `tsc --init` shape (a real option, a comma, then a run of commented-out options up to
+    // the closing brace) parse rather than degrade to "we cannot tell". A comma inside a
+    // string can never match: `out` ends with the closing quote, not the comma.
+    if (c === '}' || c === ']') out = out.replace(/,\s*$/, '');
     out += c;
   }
   return out;
@@ -289,21 +308,32 @@ export function detect(repoRoot) {
   const deps = allDeps(pkg);
   const scripts = isPlainObject(pkg?.scripts) ? pkg.scripts : {};
   const pm = detectPackageManager(repoRoot) ?? (pkg ? 'npm' : null);
+  const workspaceRoot = detectWorkspaceRoot(repoRoot, pkg);
 
   const framework = FRAMEWORKS.find(([, dep]) => dep in deps)?.[0] ?? null;
-  const testRunner = TEST_RUNNERS.find(([, dep]) => dep in deps)?.[0] ?? null;
+
+  // The dependency lists cannot find node's own runner: `TEST_RUNNERS` matches on `dep in
+  // deps`, and no manifest ever declares a dependency named `node:test`. The signal is the
+  // test script, which is where a builtin runner is invoked from — Cortex's own repo being
+  // one such, so the tool could not previously detect its own test runner.
+  const testScript = str(scripts.test) ?? '';
+  const testRunner =
+    TEST_RUNNERS.find(([, dep]) => dep in deps)?.[0] ??
+    (/\bnode\b[^&|]*\s--test\b/.test(testScript) ? 'node:test' : null);
 
   // A script is a command only if it is a non-empty string. `"dev": 42` names nothing a
   // developer can run, so printing `pnpm run dev` would be a command we never verified.
+  // `pm` needs no check: `scripts` is only non-empty when `pkg` is an object, and that is
+  // exactly the case in which `pm` falls back to 'npm'.
   const run = (name) => {
-    if (!str(scripts[name]) || !pm) return null;
+    if (!str(scripts[name])) return null;
     return name === 'test' && pm === 'npm' ? 'npm test' : `${pm} run ${name}`;
   };
 
   return {
     name: str(pkg?.name) ?? basename(repoRoot),
     purpose: str(pkg?.description) ?? firstProseLine(read(repoRoot, 'README.md')),
-    languages: detectLanguages(repoRoot),
+    languages: detectLanguages(repoRoot, workspaceRoot),
     packageManager: pm,
     framework,
     testRunner,
@@ -318,5 +348,6 @@ export function detect(repoRoot) {
     linters: detectLinters(repoRoot, deps),
     ci: detectCI(repoRoot),
     tsStrict: detectTsStrict(repoRoot),
+    workspaceRoot,
   };
 }

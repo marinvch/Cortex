@@ -368,18 +368,65 @@ test('config.json governs the map, so editing it by hand turns the map back on',
   assert.ok(existsSync(join(root, '.cortex/map.md')), 'flipping the config back on must regenerate the map');
 });
 
-test('a config written before the map key existed is backfilled rather than ignored', () => {
+/**
+ * The three tests below are one contract, and any one of them alone permits a wrong
+ * implementation: leave an existing config alone, still honour an opt-out the user
+ * actually asked for, and write the full shape when we create the file ourselves.
+ *
+ * An absent `map` key already means `true`. Backfilling it therefore changed nothing
+ * functionally while modifying a committed file in every existing repo on upgrade —
+ * a diff to review and an ungitignored `.bak`, to record a default that was already
+ * in force. A no-op run has to stay a no-op.
+ */
+
+/** A repo installed before the map opt-out folded into config: no `map` key at all. */
+function repoWithPreMapConfig() {
   const root = fixture({ pkg: NEXT_PKG, files: { 'src/a.ts': 'export const x = 1;' } });
   install(root);
-
-  // Exactly the state of a repo installed before the flag folded into config.
-  const configAbs = join(root, '.cortex/config.json');
   const { map, ...withoutMap } = readJson(root, '.cortex/config.json');
-  assert.equal(map, true, 'precondition: a fresh install records map: true');
-  writeFileSync(configAbs, JSON.stringify(withoutMap, null, 2) + '\n');
+  assert.equal(map, true, 'precondition: a fresh install records the key');
+  writeFileSync(join(root, '.cortex/config.json'), JSON.stringify(withoutMap, null, 2) + '\n');
+  return root;
+}
 
+test('a config written before the map key existed is left exactly as it is', () => {
+  const root = repoWithPreMapConfig();
+  const configAbs = join(root, '.cortex/config.json');
+  const before = readFileSync(configAbs);
+
+  const { plan } = install(root);
+
+  // Byte-identity rather than a deep-equal on the parsed value: a rewrite that produced
+  // equivalent JSON with different key order or indentation is still a diff in someone's
+  // repo, and still the thing this rule exists to prevent.
+  assert.deepEqual(readFileSync(configAbs), before, 'an existing config must not be rewritten');
+  assert.equal(
+    plan.find((s) => s.rel === '.cortex/config.json'),
+    undefined,
+    'a file we did not touch must not appear in the plan',
+  );
+  assert.equal(existsSync(`${configAbs}.bak`), false, 'nothing was overwritten, so nothing to back up');
+  assert.ok(existsSync(join(root, '.cortex/map.md')), 'an absent key still means the map is on');
+});
+
+test('--no-map writes the key into a config that lacks it, because that setting was asked for', () => {
+  // The rule removes the *unrequested* write only. An opt-out the user typed is a real
+  // setting, and it has to survive into the committed file or the flag opts out of nothing.
+  const root = repoWithPreMapConfig();
+  const configAbs = join(root, '.cortex/config.json');
+
+  install(root, { noMap: true });
+
+  assert.equal(readJson(root, '.cortex/config.json').map, false, 'the opt-out must be recorded');
+  assert.ok(existsSync(`${configAbs}.bak`), 'a file we own was overwritten, so it keeps its backup');
+});
+
+test('a config Cortex creates carries the map key, so the control surface is visible', () => {
+  // Free to include when we are writing the file anyway, and it is what tells a reader
+  // the setting exists at all.
+  const root = fixture({ pkg: NEXT_PKG });
   install(root);
-  assert.equal(readJson(root, '.cortex/config.json').map, true, 'the missing key must be backfilled');
+  assert.equal(readJson(root, '.cortex/config.json').map, true);
 });
 
 test('the plan says why the map was skipped instead of silently omitting it', () => {

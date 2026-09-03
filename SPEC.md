@@ -267,6 +267,69 @@ in-scope, so deleting the capability would break a stated requirement to solve a
 about namespace slots and docs burden. The branch keeps the text that talks a user out of an MCP server
 when a plain `AGENTS.md` would do — that honesty is the useful part.
 
+**D12 — every fact in the generated block is read from a file, or carries a marker naming what was
+missing.** One acceptance criterion: *`AGENTS.md` never contains an unmarked fact that was not read.*
+
+This is the map's Coverage move applied one level up, and Coverage is the right precedent — it is the
+part of this product that most earns the trust the rest of the pitch asks for. A fallback rendered as
+evidence is the failure; it has already happened twice, and stating the rule once is what prevents the
+third.
+
+The two instances, which look like different bugs and are not. `packageManager` falls back to `npm`
+when no lockfile is found, and `render.mjs` prints it in the same bullet list as `Languages`,
+`Framework` and `CI` — all genuinely read — so a default is indistinguishable from a detection at the
+point a reader sees it. Separately, a workspace root yields `Languages: JavaScript` inferred from the
+mere existence of a `package.json`, which `detect.mjs`'s own contract forbids.
+
+**Scope is the whole file, not the generated block.** Two of the six sites — the H1 and the blockquote
+description — sit *outside* the `cortex:generated` markers, where `--refresh` can never correct them.
+A block-scoped rule would exempt precisely the two least-correctable sites.
+
+**Six sites, measured, not two.** A repo where nothing is readable — `{"private":true}`, no lockfile,
+no scripts, an empty `.github/workflows/`, a README whose first prose line is not a description — still
+renders a confident H1, description, `Languages`, `Package manager`, `CI`, and `install:`. The
+genuinely-read fields (`Framework`, `Tests`, `Linting`, `TypeScript`) correctly stay absent, so the
+read/inferred split is clean and the rule is enforceable.
+
+**Three treatments, not one.** Marking all six is its own failure: a block where every line carries a
+parenthetical reads as unreliable everywhere, readers stop seeing the markers, and the honesty budget
+is spent on the weak cases. The map's Coverage section works *because* it is one section rather than a
+suffix on every line.
+
+1. **Fix into a read — do these first, they shrink the marker bucket.** `CI` requires at least one
+   `.yml`/`.yaml` under `.github/workflows/`, so an empty directory yields null and renders nothing.
+   `packageManager` reads `pkg.packageManager` before falling back. Marking weak evidence when strong
+   evidence is one condition away is the lazy option.
+2. **Mark with provenance — languages, package manager when still unknown, and the description.** The
+   marker names *where the value came from*, not how confident we are: "assumed" is a judgement,
+   provenance is a fact, and it tells the reader what to go fix.
+   `_(first line of README.md — replace with a real one-liner)_` keeps a useful value while being
+   self-evidently replaceable. That site matters most: it puts words in the project's mouth in the
+   field agents reason from hardest, but dropping it costs real value in Go/Python/Rust repos with no
+   manifest description.
+3. **Leave unmarked — the H1, and `install:` by inheritance.** A title is an identifier, not a claim
+   about the code; a wrong one costs nothing an agent acts on, and a permanent parenthetical on the
+   most visible line in the file is worse than the error. `install: npm install` inherits the package
+   manager's marker rather than carrying its own — the manager is the fact, the commands are its
+   consequence.
+
+Net: two fixes, three markers, one accepted. After the fixes the markers fire only on genuinely
+unknowable things, which is the condition under which a reader still believes them.
+
+**Mark, do not drop.** Dropping a bullet while `npm install` still appears under scripts leaves a
+reader unable to tell an omission from a bug.
+
+The two are not equally harmful, and the asymmetry is worth recording because it decides how hard to
+work on each: a wrong package manager yields a command that fails in one second, while a wrong language
+yields a description an agent silently reasons from — it writes `.js`, skips type checking, never looks
+for the tsconfig. Nobody executes a language bullet and discovers it was wrong. So the inferred language
+is removed outright while the package-manager default is kept and marked.
+
+Better than disclosing an assumption is not needing one: `pkg.packageManager`, the corepack field, is a
+**read** and is not consulted anywhere today. It covers the case where the fallback is actually
+destructive — a repo that gitignores its lockfile, where `npm install` in a pnpm workspace writes
+`package-lock.json` and flattens `node_modules`.
+
 **D11 — `.manifest.json` is committed, therefore its contents are untrusted input.** The manifest
 travels through merges, rebases and human edits like any other committed file, so its keys are data
 supplied by the repo, not a delete list Cortex may act on. The sweep guards on **shape before

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, copyFileSync, unlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, copyFileSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -30,14 +30,45 @@ export const META_SKILLS = [CAPABILITY];
  */
 export const SUPERSEDED_SKILLS = ['cortex-skill', 'cortex-agent', 'cortex-hook', 'cortex-mcp'];
 
+/**
+ * True only when both paths exist and hold exactly the same bytes.
+ *
+ * Bytes, not a decoded string: `readFileSync(abs, 'utf8')` maps invalid sequences to
+ * U+FFFD, so two files that differ on disk can decode equal and a team's edit would be
+ * missed — the one case this comparison exists to catch.
+ *
+ * This is `holds()` from `src/install.mjs`, adapted to compare two files rather than a
+ * file against a string already in memory. It is not imported: `install.mjs` imports this
+ * module, so the dependency would be circular, and `holds` is private there besides.
+ */
+function sameBytes(a, b) {
+  try {
+    return readFileSync(a).equals(readFileSync(b));
+  } catch {
+    return false;
+  }
+}
+
 export function installMetaSkills(repoRoot, plan, dryRun) {
   for (const name of META_SKILLS) {
     const rel = `.claude/skills/${name}/SKILL.md`;
-    plan.push({ rel, note: 'meta-skill' });
-    if (dryRun) continue;
+    const src = join(PKG_ROOT, 'templates', 'skills', name, 'SKILL.md');
     const abs = resolveInRepo(repoRoot, rel);
+
+    // A team may have edited the meta-skill to fit their conventions. We cannot prove they
+    // did not, so an overwrite always leaves a `.bak` — the same bargain the migration above
+    // makes, and the one R7 requires of every file we did not write on this run.
+    if (sameBytes(src, abs)) {
+      plan.push({ rel, note: 'unchanged', skipped: true });
+      continue;
+    }
+
+    const existing = existsSync(abs);
+    plan.push({ rel, note: existing ? 'meta-skill — local copy differs, old → .bak' : 'meta-skill' });
+    if (dryRun) continue;
     mkdirSync(dirname(abs), { recursive: true });
-    copyFileSync(join(PKG_ROOT, 'templates', 'skills', name, 'SKILL.md'), abs);
+    if (existing) copyFileSync(abs, `${abs}.bak`);
+    copyFileSync(src, abs);
   }
   retireSupersededSkills(repoRoot, plan, dryRun);
 }

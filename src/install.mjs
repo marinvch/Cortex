@@ -25,7 +25,7 @@ const serializeConfig = (value) => JSON.stringify(value, null, 2) + '\n';
  */
 function holds(abs, content) {
   try {
-    return readFileSync(abs).equals(Buffer.from(content));
+    return readFileSync(abs).equals(Buffer.isBuffer(content) ? content : Buffer.from(content));
   } catch {
     return false;
   }
@@ -323,11 +323,26 @@ function sweepLib(repoRoot, plan, dryRun, previousManifest) {
  */
 function installHook(repoRoot, plan, dryRun) {
   const hookAbs = resolveInRepo(repoRoot, HOOK_REL);
-  if (!dryRun) {
-    mkdirSync(dirname(hookAbs), { recursive: true });
-    copyFileSync(join(PKG_ROOT, 'templates', 'cortex-reflect.mjs'), hookAbs);
+  const hookSrc = join(PKG_ROOT, 'templates', 'cortex-reflect.mjs');
+
+  // The same bargain the vendored lib makes. This file used to be copied unconditionally,
+  // which silently destroyed any edit to it — while the header of that very template tells
+  // people to edit the guard it loads. Inviting edits on one side of the boundary and
+  // erasing them on the other is the failure D5 exists to prevent, one directory over.
+  if (holds(hookAbs, readFileSync(hookSrc))) {
+    plan.push({ rel: HOOK_REL, note: 'unchanged', skipped: true });
+  } else {
+    const existed = existsSync(hookAbs);
+    plan.push({
+      rel: HOOK_REL,
+      note: existed ? 'session reflection hook — local copy differs, old → .bak' : 'session reflection hook',
+    });
+    if (!dryRun) {
+      mkdirSync(dirname(hookAbs), { recursive: true });
+      if (existed) copyFileSync(hookAbs, `${hookAbs}.bak`);
+      copyFileSync(hookSrc, hookAbs);
+    }
   }
-  plan.push({ rel: HOOK_REL, note: 'session reflection hook' });
 
   const settingsRel = '.claude/settings.json';
   const settingsAbs = resolveInRepo(repoRoot, settingsRel);

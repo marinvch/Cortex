@@ -266,6 +266,16 @@ the repo and says nothing about traversal *within* it, so a key of `../../IMPORT
 real path, passed the guard, and was deleted. Manifest keys naming `guard.mjs.bak` deleted the very
 backup the manifest feature exists to create. Found by a test, not by review.
 
+**The hash is not the guard, and must never be mistaken for one.** Deletion is gated on the file's hash
+matching the recorded entry, which reads like a security control and is not one: the hash of a stock
+`AGENTS.md`, a lockfile, or a committed `.env.example` is trivially computable by anyone writing a
+hostile manifest. The hash distinguishes *our untouched copy* from *a file someone edited* — a safety
+property, not a security one. Shape is the only control, so it is checked first and independently.
+
+The regex must reject path separators, not merely check an extension: a version testing `/[.]mjs$/`
+alone would still admit `../../src/boot.mjs` while the `.md` and `.env` cases continued to look
+guarded. Loosening it fails three tests, deliberately.
+
 The general rule for this codebase: **a file Cortex writes into a repo it does not control is input on
 the next run.** `resolveInRepo` is a containment boundary, not a validator.
 

@@ -96,9 +96,14 @@ Four layers:
    integrity hashes. Entropy alone cannot tell a random secret from an npm lockfile digest — both sit
    near 5.9 bits per character — so shape does that work.
 
-The two test corpora are the most important tests in the project: 18 entries that must always be
-blocked, 10 legitimate engineering notes that must never be. A guard that fires on a commit SHA is a
+The two test corpora are the most important tests in the project: 46 entries that must always be
+blocked, 38 legitimate engineering notes that must never be. A guard that fires on a commit SHA is a
 guard developers rip out.
+
+Both directions are load-bearing, and they are held apart deliberately. `cache key: <sha256>` is an
+ordinary engineering note and must pass; `the cache token = <hex>` is plausibly a Redis password and
+must block. A meta-test asserts every named detection rule has at least one entry that triggers it,
+so a rule added without a fixture fails CI rather than shipping as an unverified claim.
 
 ## Commands
 
@@ -125,7 +130,7 @@ hand survives. If the markers are gone, the file is left alone entirely rather t
 ## Development
 
 ```bash
-npm test               # 61 tests
+npm test               # 72 tests
 npm run check:egress   # assert no network APIs and no runtime deps
 ```
 

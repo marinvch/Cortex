@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,8 +15,22 @@ import {
   MAP_REL,
 } from '../src/map.mjs';
 
+/** Every temp dir this file creates, removed at exit. */
+const TEMP_DIRS = [];
+
+process.on('exit', () => {
+  for (const dir of TEMP_DIRS) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // a leftover temp dir is not worth failing a run over
+    }
+  }
+});
+
 function repoWith(files) {
   const root = mkdtempSync(join(tmpdir(), 'cortex-map-'));
+  TEMP_DIRS.push(root);
   for (const [rel, body] of Object.entries(files)) {
     const abs = join(root, rel);
     mkdirSync(join(abs, '..'), { recursive: true });
@@ -31,6 +45,9 @@ test('finds source files and reports the total', () => {
   assert.equal(res.capped, false);
   assert.ok(res.files.includes('src/a.ts'));
   assert.ok(res.files.includes('src/b.ts'));
+  // The title promises a total, so assert one. Uncapped, scanned and total must agree —
+  // a total that silently drifts from the file list is how a truncated scan reads as complete.
+  assert.equal(res.total, res.files.length);
 });
 
 test('skips node_modules, .git and build output', () => {
@@ -145,6 +162,9 @@ test('does not treat a non-JS file as parseable', () => {
 });
 
 test('every extractor declares a name used in the coverage report', () => {
+  // Asserted before the loop: an empty EXTRACTORS would satisfy every assertion below
+  // while the map parsed nothing at all, and the Coverage section would still render.
+  assert.ok(EXTRACTORS.length > 0, 'the map must have at least one extractor');
   for (const ex of EXTRACTORS) {
     assert.ok(ex.name, 'extractor needs a name');
     assert.equal(typeof ex.match, 'function');

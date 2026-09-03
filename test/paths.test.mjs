@@ -1,13 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { resolveInRepo, OutsideRepoError } from '../src/paths.mjs';
 
+/** Every temp dir this file creates, removed at exit. */
+const TEMP_DIRS = [];
+
+process.on('exit', () => {
+  for (const dir of TEMP_DIRS) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // a leftover temp dir is not worth failing a run over
+    }
+  }
+});
+
 function tempRepo() {
-  return mkdtempSync(join(tmpdir(), 'cortex-paths-'));
+  const dir = mkdtempSync(join(tmpdir(), 'cortex-paths-'));
+  TEMP_DIRS.push(dir);
+  return dir;
 }
 
 test('resolves a normal path inside the repo', () => {

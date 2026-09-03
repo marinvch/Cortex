@@ -11,7 +11,10 @@ import { scan, collectEnvValues } from './guard.mjs';
  */
 
 export const GOTCHAS = '.cortex/memory/gotchas.md';
-export const DECISIONS = '.cortex/memory/decisions.md';
+export const GITATTRIBUTES = '.gitattributes';
+
+/** The one line that makes parallel branches merge instead of conflict (D3). */
+export const MEMORY_MERGE_ATTRIBUTE = '.cortex/memory/*.md merge=union';
 
 /** Entries appended per session, so an over-eager agent cannot bury the file. */
 export const MAX_ENTRIES_PER_SESSION = 5;
@@ -32,23 +35,58 @@ const GOTCHAS_HEADER = `# Gotchas — tribal knowledge
 
 Accumulated as work happens and committed, so the team inherits it instead of relearning it.
 Every entry passed the secret guard before it was written. Prune freely; this file is for humans too.
+
+**One entry per line.** \`.gitattributes\` marks this file \`merge=union\`, so two branches that each
+recorded a gotcha merge into both lines instead of conflicting. That only holds while every entry
+stays on a single line — an entry that wraps will interleave with someone else's on a merge.
+
 `;
 
-const DECISIONS_HEADER = `# Decision log
-
-Append-only. Newest at the bottom. Why a technical call was made, so it is not re-litigated.
+const GITATTRIBUTES_BLOCK = `# Cortex memory is append-only and every entry is exactly one line, so a union merge of two
+# branches keeps both entries instead of raising a conflict at the tail of the file on every
+# parallel branch. Unlike a custom merge driver — which lives in .git/config and does not survive
+# a clone — this travels with the repo and needs no per-developer setup.
+${MEMORY_MERGE_ATTRIBUTE}
 `;
 
-export function initMemory(repoRoot) {
-  const written = [];
-  for (const [rel, header] of [[GOTCHAS, GOTCHAS_HEADER], [DECISIONS, DECISIONS_HEADER]]) {
-    const abs = resolveInRepo(repoRoot, rel);
-    if (existsSync(abs)) continue;
-    mkdirSync(dirname(abs), { recursive: true });
-    writeFileSync(abs, header);
-    written.push(rel);
+/**
+ * Create or extend the target repo's `.gitattributes` so memory merges by union.
+ *
+ * Never clobbers: an existing file is appended to, and a file that already carries the
+ * attribute is left exactly as it is.
+ */
+export function ensureMemoryMergeAttribute(repoRoot) {
+  const abs = resolveInRepo(repoRoot, GITATTRIBUTES);
+  if (!existsSync(abs)) {
+    writeFileSync(abs, GITATTRIBUTES_BLOCK);
+    return { rel: GITATTRIBUTES, note: 'created — merge=union for .cortex/memory' };
   }
-  return written;
+
+  const existing = readFileSync(abs, 'utf8');
+  if (existing.includes(MEMORY_MERGE_ATTRIBUTE)) return null;
+
+  // A file whose last line lacks a newline would otherwise swallow our first comment line.
+  const lead = existing === '' || existing.endsWith('\n') ? '' : '\n';
+  appendFileSync(abs, `${lead}\n${GITATTRIBUTES_BLOCK}`);
+  return { rel: GITATTRIBUTES, note: 'appended merge=union for .cortex/memory' };
+}
+
+/**
+ * Seed the memory files and the merge attribute they depend on.
+ *
+ * @returns {{rel: string, note: string}[]} what was actually touched, for the install plan.
+ */
+export function initMemory(repoRoot) {
+  const touched = [];
+  const abs = resolveInRepo(repoRoot, GOTCHAS);
+  if (!existsSync(abs)) {
+    mkdirSync(dirname(abs), { recursive: true });
+    writeFileSync(abs, GOTCHAS_HEADER);
+    touched.push({ rel: GOTCHAS, note: 'created' });
+  }
+  const attr = ensureMemoryMergeAttribute(repoRoot);
+  if (attr) touched.push(attr);
+  return touched;
 }
 
 /** Normalize for dedupe: an entry that only differs in casing or spacing is the same entry. */
@@ -61,7 +99,9 @@ const fingerprint = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
  * @returns {{written: boolean, reason?: string}}
  */
 export function appendGotcha(repoRoot, text, { date, source = 'manual' } = {}) {
-  const entry = String(text).trim();
+  // Collapse to one line before anything else. Union merge is line-based, so a multi-line
+  // entry would interleave with a teammate's on the next merge (D3).
+  const entry = String(text).replace(/\s+/g, ' ').trim();
   if (!entry) return { written: false, reason: 'empty' };
 
   const findings = scan(entry, { envValues: collectEnvValues(repoRoot) });
@@ -77,7 +117,10 @@ export function appendGotcha(repoRoot, text, { date, source = 'manual' } = {}) {
   }
 
   const stamp = date ?? new Date().toISOString().slice(0, 10);
-  appendFileSync(abs, `\n- ${stamp} — ${entry} _(${source})_\n`);
+  // No blank line between entries, or union merge would keep two copies of it. If a human
+  // left the file without a trailing newline, add one first rather than joining two entries.
+  const lead = existing === '' || existing.endsWith('\n') ? '' : '\n';
+  appendFileSync(abs, `${lead}- ${stamp} — ${entry} _(${source})_\n`);
   return { written: true };
 }
 

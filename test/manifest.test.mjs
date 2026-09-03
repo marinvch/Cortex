@@ -306,6 +306,66 @@ test('a differing cortexVersion is reported in the plan and then re-stamped', ()
     assert.equal(readManifest(root).manifest.cortexVersion, PKG_VERSION, 'the manifest must be re-stamped');
   }));
 
+test('a version bump alone does not churn files that did not change', () =>
+  withRepo((root) => {
+    install(root);
+    const { abs } = readManifest(root);
+
+    // Old version AND hashes that vouch for nothing — yet the bytes on disk are current.
+    // Each file is compared against the SOURCE, not gated on the manifest agreeing, so the
+    // right answer is four untouched files and a manifest rewrite. Gating the whole step on
+    // "version matches and every hash matches" would rewrite all four here for no reason,
+    // and worse, would .bak them: four junk files in every repo on every release.
+    writeFileSync(
+      abs,
+      JSON.stringify(
+        { cortexVersion: '0.0.9', files: Object.fromEntries(VENDORED.map((n) => [n, sha256(Buffer.from(`bogus ${n}`))])) },
+        null,
+        2,
+      ) + '\n',
+    );
+
+    const past = new Date('2020-01-01T00:00:00Z');
+    for (const name of VENDORED) utimesSync(join(root, LIB, name), past, past);
+
+    const { plan } = install(root);
+
+    for (const name of VENDORED) {
+      assert.equal(
+        statSync(join(root, LIB, name)).mtimeMs,
+        past.getTime(),
+        `${name} is byte-current; a version bump must not rewrite it`,
+      );
+    }
+    assert.deepEqual(baksIn(root), [], 'a version bump must not back up files that did not change');
+
+    const libRows = plan.filter((s) => s.rel && s.rel.startsWith(`${LIB}/`) && s.rel !== MANIFEST_REL);
+    assert.equal(libRows.length, VENDORED.length);
+    assert.ok(libRows.every((s) => s.skipped), `every byte-current file must report skipped; got ${JSON.stringify(libRows)}`);
+
+    // but the manifest itself is not skipped — it genuinely changed
+    const manifestRow = plan.find((s) => s.rel === MANIFEST_REL);
+    assert.ok(manifestRow, 'the plan must carry a row for the manifest');
+    // Truthiness, not === false: bin/cortex-init.mjs:59 reads ` + '`step.skipped`' + ` as a boolean, and
+    // every row the installer writes omits the key entirely. Pinning the encoding rather than
+    // the contract would fail on a cosmetic normalisation that changes nothing for a reader.
+    assert.ok(!manifestRow.skipped, 'the manifest was rewritten, so its row must not say skipped');
+    assert.equal(readManifest(root).manifest.cortexVersion, PKG_VERSION);
+  }));
+
+test('the manifest plan row reports whether it actually wrote', () =>
+  withRepo((root) => {
+    // This flag is what the CLI renders as "wrote" vs "skipped". A row that always claims a
+    // write teaches people to ignore the output; one that always claims skipped hides the
+    // upgrade this feature exists to make visible.
+    const first = install(root).plan.find((s) => s.rel === MANIFEST_REL);
+    assert.ok(first, 'a fresh install must report the manifest');
+    assert.ok(!first.skipped, 'a fresh install writes the manifest');
+
+    const second = install(root).plan.find((s) => s.rel === MANIFEST_REL);
+    assert.ok(second.skipped, 'an unchanged re-run must not claim it wrote the manifest');
+  }));
+
 test('an upgrade from a stale version leaves every copy matching the shipped source', () =>
   withRepo((root) => {
     install(root);
@@ -356,20 +416,53 @@ test('a manifest recording an older copy is replaced without a .bak; only real e
     );
   }));
 
-test('an unparseable manifest is treated as unknown provenance, not a crash', () =>
-  withRepo((root) => {
-    install(root);
-    writeFileSync(join(root, MANIFEST_REL), '{ truncated mid-write');
+// A manifest is a committed file, so it arrives damaged in ordinary ways: an interrupted
+// install truncates it, a bad merge leaves conflict markers, someone "fixes" it by hand.
+// None of these may take the installer down, and none may be trusted.
+for (const [label, body] of [
+  ['truncated mid-write', '{ "cortexVersion": "0.0.9", "files"'],
+  ['not JSON at all', '<<<<<<< HEAD\nmerge conflict\n>>>>>>> theirs\n'],
+  ['a JSON array', '[]'],
+  ['JSON null', 'null'],
+  ['a bare string', '"0.0.9"'],
+  ['an empty object', '{}'],
+  ['files is not an object', '{ "cortexVersion": "0.0.9", "files": "guard.mjs" }'],
+]) {
+  test(`a damaged manifest (${label}) degrades to unknown provenance, not a crash`, () =>
+    withRepo((root) => {
+      install(root);
+      writeFileSync(join(root, MANIFEST_REL), body);
 
-    // A half-written manifest (interrupted install, bad merge) must not take the installer
-    // down, and must not be trusted either.
-    assert.doesNotThrow(() => install(root));
-    const { manifest } = readManifest(root);
-    assert.equal(manifest.cortexVersion, PKG_VERSION, 'the damaged manifest must be rewritten');
-    for (const [name, recorded] of Object.entries(manifest.files)) {
-      assert.equal(digestOf(recorded), sha256(readFileSync(join(root, LIB, name))));
-    }
-  }));
+      assert.doesNotThrow(() => install(root), `install threw on a manifest that was ${label}`);
+
+      const { manifest } = readManifest(root);
+      assert.equal(manifest.cortexVersion, PKG_VERSION, 'the damaged manifest must be repaired');
+      for (const [name, recorded] of Object.entries(manifest.files)) {
+        assert.equal(digestOf(recorded), sha256(readFileSync(join(root, LIB, name))));
+      }
+      // Unknown provenance must not be read as "this file is edited" — the copies are
+      // byte-current, so nothing may be backed up over a file the manifest simply failed to
+      // describe. Otherwise one bad merge sprays .bak files across the repo.
+      assert.deepEqual(baksIn(root), [], 'a damaged manifest must not trigger backups of byte-current files');
+    }));
+
+  test(`a damaged manifest (${label}) plus a local edit still preserves the edit`, () =>
+    withRepo((root) => {
+      install(root);
+
+      // The test above never reaches the vouching check, because byte-current files short
+      // out first. This one forces it: the installer must ask a degraded manifest whether it
+      // vouches for a differing file, get "no", and back the file up — without tripping over
+      // a `files` key that a hand-damaged manifest may not have at all.
+      const guardAbs = join(root, LIB, 'guard.mjs');
+      const edited = `${readFileSync(guardAbs, 'utf8')}\n// TEAM RULE: survive a bad merge.\n`;
+      writeFileSync(guardAbs, edited);
+      writeFileSync(join(root, MANIFEST_REL), body);
+
+      assert.doesNotThrow(() => install(root), `install threw on a differing file with a ${label} manifest`);
+      assert.equal(readFileSync(`${guardAbs}.bak`, 'utf8'), edited, 'the edit must survive a damaged manifest');
+    }));
+}
 
 // ── migration: an already-installed repo with no manifest ──────────────────
 
@@ -398,22 +491,36 @@ test('a pre-manifest install gains a manifest without clobbering a local edit', 
     assert.equal(readFileSync(guardAbs, 'utf8'), pristine);
   }));
 
-test('migration does not back up vendored files the user never touched', () =>
+test('the common migration — byte-current copies, no manifest — is silent', () =>
   withRepo((root) => {
     install(root);
     unlinkSync(join(root, MANIFEST_REL));
     for (const b of baksIn(root)) unlinkSync(join(root, LIB, b));
 
-    install(root);
+    const past = new Date('2020-01-01T00:00:00Z');
+    for (const name of VENDORED) utimesSync(join(root, LIB, name), past, past);
+
+    const { plan } = install(root);
 
     // Hashing against the shipped source tells the installer these are untouched, so there
     // is nothing to preserve. Backing them up anyway drops four junk files into every
     // already-installed repo on upgrade — the .bak churn this feature is meant to stop.
-    assert.deepEqual(
-      baksIn(root),
-      [],
-      'untouched copies match src/ byte for byte; a .bak for them is pure churn',
-    );
+    assert.deepEqual(baksIn(root), [], 'untouched copies match src/ byte for byte; a .bak for them is pure churn');
+
+    for (const name of VENDORED) {
+      assert.equal(
+        statSync(join(root, LIB, name)).mtimeMs,
+        past.getTime(),
+        `${name} is byte-current; migration must not rewrite it`,
+      );
+    }
+
+    const libRows = plan.filter((s) => s.rel && s.rel.startsWith(`${LIB}/`) && s.rel !== MANIFEST_REL);
+    assert.equal(libRows.length, VENDORED.length);
+    assert.ok(libRows.every((s) => s.skipped), `migration must report skipped rows; got ${JSON.stringify(libRows)}`);
+
+    const manifestRow = plan.find((s) => s.rel === MANIFEST_REL);
+    assert.ok(!manifestRow.skipped, 'the manifest is the only thing that changed, and it did change');
   }));
 
 // ── dry run ────────────────────────────────────────────────────────────────
@@ -423,6 +530,23 @@ test('dry run writes no manifest', () =>
     const { plan } = install(root, { dryRun: true });
     assert.equal(existsSync(join(root, MANIFEST_REL)), false, 'dry run must not write the manifest');
     assert.ok(plan.length > 0);
+  }));
+
+test('dry run still reports the upgrade it would perform', () =>
+  withRepo((root) => {
+    install(root);
+    const { manifest, abs } = readManifest(root);
+    writeFileSync(abs, JSON.stringify({ ...manifest, cortexVersion: '0.0.9' }, null, 2) + '\n');
+
+    const { plan } = install(root, { dryRun: true });
+
+    // --dry-run exists to be reviewed before a real run. A dry run that omits the version
+    // change hides the single fact the reviewer is there to see.
+    assert.ok(
+      plan.some((s) => s.note && s.note.includes('0.0.9') && s.note.includes(PKG_VERSION)),
+      `dry run must report 0.0.9 → ${PKG_VERSION}; lib rows were ${JSON.stringify(plan.filter((s) => s.rel.startsWith(LIB)))}`,
+    );
+    assert.equal(readManifest(root).manifest.cortexVersion, '0.0.9', 'dry run must not re-stamp');
   }));
 
 test('dry run against an installed repo neither rewrites nor backs up the manifest', () =>
@@ -435,4 +559,191 @@ test('dry run against an installed repo neither rewrites nor backs up the manife
 
     assert.deepEqual(readManifest(root).bytes, before, 'dry run rewrote the manifest');
     assert.deepEqual(baksIn(root), baksBefore, 'dry run created a backup');
+  }));
+
+// ── orphan sweep ──────────────────────────────────────────────────────────
+//
+// When a Cortex version stops shipping a vendored file, the copy already sitting in a repo
+// would otherwise be never mentioned, repaired, or removed: a stale copy nobody can detect,
+// which is the exact thing D5 exists to end, displaced one level.
+//
+// Only the manifest written by version N-1 can vouch for a file that version N stops
+// shipping, so the sweep has to exist before the first drop rather than after it. `VENDORED`
+// has not shrunk yet, which is precisely why these fixtures build the N-1 state by hand.
+//
+// Deletion is gated on a hash match, and a hash is a capability: it proves the bytes are ours
+// and therefore recoverable from a published npm version. Everything below tests the boundary
+// of that capability — what it does NOT license the sweep to touch.
+
+/** The orphan's name: a real `src/` module that `VENDORED` has never included. */
+const ORPHAN = 'detect.mjs';
+
+/**
+ * Put the repo into the state version N-1 leaves behind: a vendored file this version no
+ * longer ships, recorded in the manifest that shipped it.
+ *
+ * `recorded` is what the manifest claims the bytes hash to. Pass the same text as `body` for
+ * an untouched copy of ours; pass different text for one the team edited afterwards.
+ */
+function plantOrphan(root, { name = ORPHAN, body, recorded = body } = {}) {
+  writeFileSync(join(root, LIB, name), body);
+  const { manifest, abs } = readManifest(root);
+  manifest.files[name] = sha256(Buffer.from(recorded));
+  writeFileSync(abs, JSON.stringify(manifest, null, 2) + '\n');
+}
+
+/** The plan row for a path under `.cortex/lib/`, or undefined. */
+const rowFor = (plan, name) => plan.find((s) => s.rel === `${LIB}/${name}`);
+
+test('an orphan the manifest vouches for is removed, and named in the plan', () =>
+  withRepo((root) => {
+    install(root);
+    const body = '// cortex 0.0.9 vendored this; this version does not\nexport const detect = () => ({});\n';
+    plantOrphan(root, { body });
+
+    const { plan } = install(root);
+
+    // A hash match proves these bytes are byte-identical to a file we published to npm, so
+    // the content is recoverable from any prior package version — which is why deleting it
+    // without a .bak is safe regardless of whether the user committed `.cortex/lib/`.
+    assert.equal(existsSync(join(root, LIB, ORPHAN)), false, 'a vouched-for orphan must be removed');
+    assert.ok(rowFor(plan, ORPHAN), 'a silent delete is worse than the orphan; the plan must name it');
+
+    // no collateral: the files we still ship are untouched and the manifest stays honest
+    for (const name of VENDORED) {
+      assert.deepEqual(
+        readFileSync(join(root, LIB, name)),
+        readFileSync(new URL(`../src/${name}`, import.meta.url)),
+        `${name} must survive the sweep intact`,
+      );
+    }
+    const { manifest } = readManifest(root);
+    assert.equal(ORPHAN in manifest.files, false, 'the removed file must leave the manifest');
+    assert.deepEqual(Object.keys(manifest.files).sort(), vendoredOnDisk(root));
+  }));
+
+test('an orphan whose bytes differ from the manifest is kept and reported', () =>
+  withRepo((root) => {
+    install(root);
+    const edited = '// cortex 0.0.9 shipped this and then WE EDITED IT\nexport const detect = () => ({ ours: true });\n';
+    plantOrphan(root, { body: edited, recorded: '// the pristine 0.0.9 bytes\n' });
+
+    const { plan } = install(root);
+
+    // This is the case a presence-only check would delete — and a delete leaves no .bak, so
+    // it destroys the edit more completely than the overwrite bug D5 was built to fix.
+    assert.equal(readFileSync(join(root, LIB, ORPHAN), 'utf8'), edited, 'an edited orphan must be left alone');
+    assert.ok(rowFor(plan, ORPHAN), 'a file we decline to remove must still be reported');
+    assert.deepEqual(baksIn(root), [], 'leaving a file alone means leaving it alone, not backing it up');
+  }));
+
+test('an .mjs the manifest never recorded is kept and reported', () =>
+  withRepo((root) => {
+    install(root);
+    // Not ours: a helper someone dropped in beside the vendored files. We have no provenance
+    // for it, so we have no standing to delete it.
+    const mine = 'export const helper = () => "written by the team, not by cortex";\n';
+    writeFileSync(join(root, LIB, 'helper.mjs'), mine);
+
+    const { plan } = install(root);
+
+    assert.equal(readFileSync(join(root, LIB, 'helper.mjs'), 'utf8'), mine, 'never delete what we cannot vouch for');
+    assert.ok(rowFor(plan, 'helper.mjs'), 'an unrecorded .mjs must be reported, not silently ignored');
+  }));
+
+test('dry run reports every sweep decision and performs none of them', () =>
+  withRepo((root) => {
+    install(root);
+    const vouched = '// removable\n';
+    plantOrphan(root, { body: vouched });
+    const edited = '// edited\n';
+    plantOrphan(root, { name: 'render.mjs', body: edited, recorded: '// pristine\n' });
+    writeFileSync(join(root, LIB, 'helper.mjs'), '// unrecorded\n');
+
+    const { plan } = install(root, { dryRun: true });
+
+    for (const [name, body] of [[ORPHAN, vouched], ['render.mjs', edited], ['helper.mjs', '// unrecorded\n']]) {
+      assert.equal(readFileSync(join(root, LIB, name), 'utf8'), body, `dry run must not touch ${name}`);
+      assert.ok(rowFor(plan, name), `dry run must still report the decision for ${name}`);
+    }
+  }));
+
+test('the sweep only ever considers direct .mjs children of .cortex/lib/', () =>
+  withRepo((root) => {
+    install(root);
+
+    // Everything here is recorded in the manifest on purpose. If the sweep's allowlist were
+    // only "is a manifest key", each of these would qualify — so this pins that shape does
+    // the guarding, not provenance alone. Deleting `.manifest.json` would erase the very
+    // provenance the next run needs; deleting a `.bak` would destroy a preserved user edit.
+    mkdirSync(join(root, LIB, 'vendor'), { recursive: true });
+    const decoys = {
+      'notes.md': '# why we edited the guard\n',
+      'guard.mjs.bak': '// a preserved user edit\n',
+      'vendor/old.mjs': '// nested, not a direct child\n',
+    };
+    for (const [rel, body] of Object.entries(decoys)) writeFileSync(join(root, LIB, rel), body);
+
+    const { manifest, abs } = readManifest(root);
+    for (const [rel, body] of Object.entries(decoys)) manifest.files[rel] = sha256(Buffer.from(body));
+    manifest.files['.manifest.json'] = sha256(Buffer.from('anything'));
+    writeFileSync(abs, JSON.stringify(manifest, null, 2) + '\n');
+
+    install(root);
+
+    for (const [rel, body] of Object.entries(decoys)) {
+      assert.equal(readFileSync(join(root, LIB, rel), 'utf8'), body, `${rel} is outside the sweep's remit`);
+    }
+    assert.ok(existsSync(join(root, MANIFEST_REL)), 'the sweep must never delete the manifest');
+  }));
+
+test('a manifest key that points outside .cortex/lib/ can never delete anything', () =>
+  withRepo((root) => {
+    install(root);
+
+    // `.manifest.json` is COMMITTED, so its contents are whatever a merge, a pull, or a
+    // pull request produced — it is untrusted input, not our own state. `resolveInRepo`
+    // stops a key escaping the repo, but the sweep must also refuse one that stays inside
+    // the repo and points outside `.cortex/lib/`. Deletion is gated on a hash match, and the
+    // hash of a stock AGENTS.md, a lockfile, or a committed `.env.example` is trivially
+    // computable, so without a shape check the sweep is an arbitrary in-repo delete.
+    const agents = join(root, 'AGENTS.md');
+    const env = join(root, '.env');
+    writeFileSync(env, 'API_KEY=whatever\n');
+    // A `.mjs` target too. A shape check that tests only the extension and forgets to reject
+    // path separators would let this one through while the two above still looked guarded.
+    mkdirSync(join(root, 'src'), { recursive: true });
+    const boot = join(root, 'src/boot.mjs');
+    writeFileSync(boot, 'export const boot = () => {};\n');
+
+    const { manifest, abs } = readManifest(root);
+    for (const [key, target] of [
+      ['../../AGENTS.md', agents],
+      ['../../.env', env],
+      ['../../src/boot.mjs', boot],
+      ['..\\..\\AGENTS.md', agents],
+      ['./../../AGENTS.md', agents],
+    ]) {
+      manifest.files[key] = sha256(readFileSync(target));
+    }
+    writeFileSync(abs, JSON.stringify(manifest, null, 2) + '\n');
+
+    assert.doesNotThrow(() => install(root), 'a damaged manifest must not crash the installer');
+    assert.ok(existsSync(agents), 'the sweep deleted AGENTS.md through a manifest key');
+    assert.ok(existsSync(env), 'the sweep deleted .env through a manifest key');
+    assert.ok(existsSync(boot), 'the sweep deleted src/boot.mjs through a manifest key');
+  }));
+
+test('a manifest key that escapes the repo is refused without taking the install down', () =>
+  withRepo((root) => {
+    install(root);
+    const { manifest, abs } = readManifest(root);
+    // resolveInRepo throws OutsideRepoError here. Thrown out of vendorLib it kills the whole
+    // install — a committed file must never be able to do that, so the sweep has to decline
+    // the key rather than hand it to the path guard and let the error escape.
+    manifest.files['../../../../escape.mjs'] = sha256(Buffer.from('anything'));
+    writeFileSync(abs, JSON.stringify(manifest, null, 2) + '\n');
+
+    assert.doesNotThrow(() => install(root), 'a manifest key that escapes the repo must not crash the install');
+    assert.ok(existsSync(join(root, 'AGENTS.md')), 'the install must still complete');
   }));

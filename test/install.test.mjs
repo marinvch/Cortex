@@ -1,15 +1,31 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { install } from '../src/install.mjs';
 import { detect } from '../src/detect.mjs';
 import { isStale } from '../src/map.mjs';
 
+/** Every temp dir this file creates, removed at exit — the suite used to leave hundreds behind. */
+const TEMP_DIRS = [];
+
+process.on('exit', () => {
+  for (const dir of TEMP_DIRS) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      // a leftover temp dir is not worth failing a run over
+    }
+  }
+});
+
 function fixture({ pkg, files = {}, dirs = [] } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'cortex-install-'));
+  TEMP_DIRS.push(root);
   if (pkg) writeFileSync(join(root, 'package.json'), JSON.stringify(pkg, null, 2));
   for (const d of dirs) mkdirSync(join(root, d), { recursive: true });
   for (const [rel, body] of Object.entries(files)) {
@@ -18,6 +34,8 @@ function fixture({ pkg, files = {}, dirs = [] } = {}) {
   }
   return root;
 }
+
+const readJson = (root, rel) => JSON.parse(readFileSync(join(root, rel), 'utf8'));
 
 const NEXT_PKG = {
   name: 'acme-storefront',
@@ -63,7 +81,6 @@ test('a fresh install writes the brain, the shims, memory and the vendored guard
     '.cursor/rules/project.mdc',
     '.cortex/config.json',
     '.cortex/memory/gotchas.md',
-    '.cortex/memory/decisions.md',
     '.cortex/lib/guard.mjs',
     '.cortex/lib/memory.mjs',
     '.cortex/lib/paths.mjs',
@@ -154,11 +171,23 @@ test('is idempotent — a second run does not duplicate the hook registration', 
   assert.equal(s.hooks.SessionEnd.length, 1);
 });
 
-test('install stamps the meta-skills so the repo can extend itself', () => {
+test('install stamps the capability skill so the repo can extend itself', () => {
   const root = fixture({ pkg: NEXT_PKG });
   install(root);
-  for (const name of ['cortex-skill', 'cortex-agent', 'cortex-hook', 'cortex-mcp']) {
-    assert.ok(existsSync(join(root, '.claude/skills', name, 'SKILL.md')), `missing ${name}`);
+  assert.ok(
+    existsSync(join(root, '.claude/skills/cortex-capability/SKILL.md')),
+    'the consolidated meta-skill must be installed',
+  );
+
+  // The four separate meta-skills folded into one (SPEC R8's capability layer is unchanged;
+  // only its packaging is). A stale directory left behind would give the repo two competing
+  // instruction sets for the same job.
+  for (const gone of ['cortex-skill', 'cortex-agent', 'cortex-hook', 'cortex-mcp']) {
+    assert.equal(
+      existsSync(join(root, '.claude/skills', gone)),
+      false,
+      `${gone} was consolidated into cortex-capability and must no longer be installed`,
+    );
   }
 });
 
@@ -176,10 +205,106 @@ test('writes a structural map and vendors the generator that maintains it', () =
   assert.match(map, /boot/);
 });
 
-test('--no-map opts out', () => {
+// ── the map opt-out lives in config, not in a flag ──────────────────────────
+// A flag governs one run on one machine. The next teammate to run the installer brought
+// the map straight back, so `--no-map` was never an opt-out — it was a pause. The whole
+// point of moving it into committed config is that the decision survives a re-run.
+
+test('--no-map opts out, and records the decision in .cortex/config.json', () => {
   const root = fixture({ pkg: NEXT_PKG });
   install(root, { noMap: true });
+
   assert.equal(existsSync(join(root, '.cortex/map.md')), false);
+  assert.equal(readJson(root, '.cortex/config.json').map, false, 'config must record the opt-out');
+});
+
+test('the opt-out survives a plain re-run — the failure the flag had', () => {
+  const root = fixture({ pkg: NEXT_PKG, files: { 'src/a.ts': 'export const x = 1;' } });
+  install(root, { noMap: true });
+
+  // A teammate clones and runs `npx cortex-init` with no flags at all.
+  install(root);
+
+  assert.equal(
+    existsSync(join(root, '.cortex/map.md')),
+    false,
+    'a re-run without --no-map must respect "map": false in the committed config',
+  );
+  assert.equal(readJson(root, '.cortex/config.json').map, false, 'the setting must not be flipped back');
+});
+
+test('config.json governs the map, so editing it by hand turns the map back on', () => {
+  const root = fixture({ pkg: NEXT_PKG, files: { 'src/a.ts': 'export const x = 1;' } });
+  install(root, { noMap: true });
+
+  // The config is committed and human-editable; that is what makes it the control surface.
+  const configAbs = join(root, '.cortex/config.json');
+  writeFileSync(configAbs, JSON.stringify({ ...readJson(root, '.cortex/config.json'), map: true }, null, 2) + '\n');
+  install(root);
+
+  assert.ok(existsSync(join(root, '.cortex/map.md')), 'flipping the config back on must regenerate the map');
+});
+
+test('a config written before the map key existed is backfilled rather than ignored', () => {
+  const root = fixture({ pkg: NEXT_PKG, files: { 'src/a.ts': 'export const x = 1;' } });
+  install(root);
+
+  // Exactly the state of a repo installed before the flag folded into config.
+  const configAbs = join(root, '.cortex/config.json');
+  const { map, ...withoutMap } = readJson(root, '.cortex/config.json');
+  assert.equal(map, true, 'precondition: a fresh install records map: true');
+  writeFileSync(configAbs, JSON.stringify(withoutMap, null, 2) + '\n');
+
+  install(root);
+  assert.equal(readJson(root, '.cortex/config.json').map, true, 'the missing key must be backfilled');
+});
+
+test('the plan says why the map was skipped instead of silently omitting it', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  const { plan } = install(root, { noMap: true });
+  const row = plan.find((s) => s.rel === '.cortex/map.md');
+  assert.ok(row, 'a skipped map must still appear in the plan; a missing row reads as a bug');
+  assert.equal(row.skipped, true);
+  assert.match(row.note, /config\.json/, `the note must point at the control surface, got: ${row.note}`);
+});
+
+// ── the plugins layer is gone ───────────────────────────────────────────────
+// It was declared-not-installed, which meant its only artefact was a manifest nobody
+// consumed and a flag that provisioned third-party code into someone else's environment.
+
+test('a default install writes no plugin manifest', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  install(root);
+  assert.equal(existsSync(join(root, '.cortex/plugins.json')), false, '.cortex/plugins.json is gone');
+});
+
+test('a default install never provisions a developer environment', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  install(root);
+
+  // The old plugins suite asserted this inside an `if (existsSync(settings))` that never
+  // fired, so the SPEC row was green while checking nothing. Read unconditionally: the
+  // installer always writes settings.json to register the hook, so there is no branch here.
+  const settings = readJson(root, '.claude/settings.json');
+  assert.equal(settings.enabledPlugins, undefined, 'must not enable plugins on a developer’s behalf');
+});
+
+test('withPlugins is inert — the opt-in it belonged to no longer exists', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  // A stale caller (or a stale script) passing the old option must not resurrect the layer.
+  install(root, { withPlugins: true });
+
+  assert.equal(existsSync(join(root, '.cortex/plugins.json')), false);
+  assert.equal(readJson(root, '.claude/settings.json').enabledPlugins, undefined);
+});
+
+test('the CLI no longer advertises --with-plugins', () => {
+  const bin = fileURLToPath(new URL('../bin/cortex-init.mjs', import.meta.url));
+  const help = execFileSync(process.execPath, [bin, '--help'], { encoding: 'utf8' });
+
+  assert.doesNotMatch(help, /--with-plugins/, 'the removed flag must be gone from the help text');
+  assert.doesNotMatch(help, /plugin/i, 'no plugin vocabulary survives in the CLI surface');
+  assert.match(help, /--no-map/, 'the flags that remain must still be documented');
 });
 
 test('a broken repo does not fail the install; the map degrades and says so', () => {

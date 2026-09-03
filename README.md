@@ -19,12 +19,12 @@ no network requests — [asserted in CI](scripts/assert-no-egress.mjs), not just
 |------|---------|
 | `AGENTS.md` | The brain. The only file with real content. |
 | `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.cursor/rules/project.mdc` | One-line shims pointing at `AGENTS.md` |
-| `.cortex/memory/gotchas.md` | Tribal knowledge, accumulated and committed |
-| `.cortex/memory/decisions.md` | Append-only decision log |
+| `.cortex/memory/gotchas.md` | Tribal knowledge, accumulated and committed — one entry per line |
+| `.gitattributes` | Marks `.cortex/memory/*.md` `merge=union` so parallel branches don't conflict |
 | `.cortex/map.md` | Structural map — entry points, routes, module graph, coverage |
 | `.cortex/lib/` | The vendored secret guard and map generator |
-| `.claude/skills/cortex-{skill,agent,hook,mcp}/` | Meta-skills — the repo can author its own capabilities |
-| `.cortex/plugins.json` | Recommended plugins, declared rather than installed |
+| `.cortex/lib/.manifest.json` | Which version wrote those copies, and a hash of each |
+| `.claude/skills/cortex-capability/` | The meta-skill — the repo can author its own skills, subagents, hooks and MCP servers |
 | `.claude/hooks/cortex-reflect.mjs` | SessionEnd hook that harvests gotchas |
 
 Commit all of it. That is the point — a teammate who clones the repo inherits the brain without
@@ -49,11 +49,14 @@ is worse than none.
 
 ## How the brain grows
 
-The repo ships with four meta-skills. When a developer needs a new capability they ask for it, and
+The repo ships with one meta-skill. When a developer needs a new capability they ask for it, and
 Cortex writes it into the repo — scoped to this codebase, not a generic marketplace copy.
 
-    /cortex-skill    create a skill        /cortex-hook   create a hook
-    /cortex-agent    create a subagent     /cortex-mcp    scaffold an MCP server
+    /cortex-capability    author a skill, a subagent, a hook, or an MCP server
+
+It asks which shape the work wants before writing anything, because the wrong shape is the expensive
+mistake: if the answer is "read these files and follow these steps," it is a skill, not an agent and
+certainly not an MCP server. One entry point rather than four, because your skill namespace is yours.
 
 Created capabilities register in the `## Project skills` section of `AGENTS.md`, which sits outside
 the generated markers — `--refresh` never destroys them.
@@ -69,14 +72,17 @@ weight. That means it is strong on JavaScript and TypeScript and weaker elsewher
 its own coverage**: which languages it parsed, which it could only list, and whether the file cap was
 hit. A map that overstates itself is worse than no map, because agents trust it.
 
-## Plugins are declared, not installed
+## Memory that survives a merge
 
-`cortex-init` runs inside other people's repositories. Writing `enabledPlugins` on their behalf would
-provision third-party code into a developer's environment without asking, so by default Cortex writes
-`.cortex/plugins.json` — a manifest saying what this project expects — and prints the install command.
+Two developers who each learn something on parallel branches would conflict at the end of
+`gotchas.md` every single time, and a file that fights you is a file people delete. So every entry is
+exactly one line, and Cortex stamps `.cortex/memory/*.md merge=union` into your `.gitattributes` —
+creating it if absent, appending to it if not, never clobbering rules you already had.
 
-`--with-plugins` opts in, and even then only non-network plugins are enabled. Anything that leaves the
-machine is marked `"network": true` in the manifest and never enabled automatically.
+`merge=union` is the only strategy that needs no per-developer setup: a custom merge driver lives in
+`.git/config` and does not survive a clone, which rules it out for a tool whose whole premise is that
+cloning the repo is enough. The trade is that union merge can leave a duplicate line after a merge.
+A duplicate costs one line to prune; a recurring conflict costs the feature.
 
 ## The secret guard
 
@@ -112,8 +118,7 @@ npx @marinvch/cortex-init              # install
 npx @marinvch/cortex-init --dry-run    # print the plan, write nothing
 npx @marinvch/cortex-init --refresh    # re-scan; updates stack facts, preserves your prose
 npx @marinvch/cortex-init --cwd path   # target another repo
-npx @marinvch/cortex-init --with-plugins  # also enable the recommended plugins
-npx @marinvch/cortex-init --no-map     # skip generating .cortex/map.md
+npx @marinvch/cortex-init --no-map     # record "map": false in .cortex/config.json, skip the map
 ```
 
 `--refresh` only rewrites the block between the `cortex:generated` markers. Everything you wrote by
@@ -130,7 +135,7 @@ hand survives. If the markers are gone, the file is left alone entirely rather t
 ## Development
 
 ```bash
-npm test               # 72 tests
+npm test               # the suite, including the two guard corpora
 npm run check:egress   # assert no network APIs and no runtime deps
 ```
 

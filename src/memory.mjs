@@ -93,35 +93,58 @@ export function initMemory(repoRoot) {
 const fingerprint = (text) => text.toLowerCase().replace(/\s+/g, ' ').trim();
 
 /**
- * Append one gotcha. Throws SecretBlockedError if the guard objects — the caller is
- * expected to surface that, not swallow it.
- *
- * @returns {{written: boolean, reason?: string}}
+ * What every entry in one batch shares: the repo's `.env` values, and gotchas.md with its
+ * dedupe fingerprint. A batch whose candidates all dedupe never reaches the session cap, so
+ * reading these per candidate meant re-reading and re-normalizing the whole memory file once
+ * per candidate — the case that arises on exactly the repos that have accumulated gotchas.
+ * Filled on first use; the fingerprint is recomputed only when an entry is actually appended.
  */
-export function appendGotcha(repoRoot, text, { date, source = 'manual' } = {}) {
+const newBatch = () => ({ envValues: null, existing: null, mark: null });
+
+function appendOne(repoRoot, text, { date, source = 'manual' }, batch) {
   // Collapse to one line before anything else. Union merge is line-based, so a multi-line
   // entry would interleave with a teammate's on the next merge (D3).
   const entry = String(text).replace(/\s+/g, ' ').trim();
   if (!entry) return { written: false, reason: 'empty' };
 
-  const findings = scan(entry, { envValues: collectEnvValues(repoRoot) });
+  batch.envValues ??= collectEnvValues(repoRoot);
+  const findings = scan(entry, { envValues: batch.envValues });
   if (!findings.ok) throw new SecretBlockedError(findings.findings);
 
   const abs = resolveInRepo(repoRoot, GOTCHAS);
   mkdirSync(dirname(abs), { recursive: true });
-  if (!existsSync(abs)) writeFileSync(abs, GOTCHAS_HEADER);
+  if (!existsSync(abs)) {
+    writeFileSync(abs, GOTCHAS_HEADER);
+    batch.existing = null; // whatever we cached described a file that is no longer there
+  }
 
-  const existing = readFileSync(abs, 'utf8');
-  if (fingerprint(existing).includes(fingerprint(entry))) {
+  if (batch.existing === null) {
+    batch.existing = readFileSync(abs, 'utf8');
+    batch.mark = fingerprint(batch.existing);
+  }
+  if (batch.mark.includes(fingerprint(entry))) {
     return { written: false, reason: 'duplicate' };
   }
 
   const stamp = date ?? new Date().toISOString().slice(0, 10);
   // No blank line between entries, or union merge would keep two copies of it. If a human
   // left the file without a trailing newline, add one first rather than joining two entries.
-  const lead = existing === '' || existing.endsWith('\n') ? '' : '\n';
-  appendFileSync(abs, `${lead}- ${stamp} — ${entry} _(${source})_\n`);
+  const lead = batch.existing === '' || batch.existing.endsWith('\n') ? '' : '\n';
+  const line = `${lead}- ${stamp} — ${entry} _(${source})_\n`;
+  appendFileSync(abs, line);
+  batch.existing += line;
+  batch.mark = fingerprint(batch.existing);
   return { written: true };
+}
+
+/**
+ * Append one gotcha. Throws SecretBlockedError if the guard objects — the caller is
+ * expected to surface that, not swallow it.
+ *
+ * @returns {{written: boolean, reason?: string}}
+ */
+export function appendGotcha(repoRoot, text, opts = {}) {
+  return appendOne(repoRoot, text, opts, newBatch());
 }
 
 /**
@@ -130,13 +153,14 @@ export function appendGotcha(repoRoot, text, { date, source = 'manual' } = {}) {
  */
 export function appendGotchas(repoRoot, entries, opts = {}) {
   const result = { written: [], blocked: [], skipped: [] };
+  const batch = newBatch();
   for (const entry of entries) {
     if (result.written.length >= MAX_ENTRIES_PER_SESSION) {
       result.skipped.push({ entry, reason: 'session cap' });
       continue;
     }
     try {
-      const res = appendGotcha(repoRoot, entry, opts);
+      const res = appendOne(repoRoot, entry, opts, batch);
       if (res.written) result.written.push(entry);
       else result.skipped.push({ entry, reason: res.reason });
     } catch (err) {

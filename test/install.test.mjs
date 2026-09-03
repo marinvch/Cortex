@@ -197,6 +197,81 @@ test('is idempotent — a second run creates no file at all, .bak included', () 
   );
 });
 
+// ── the skip must never be wrong in the dangerous direction ────────────────
+// Skipping a write is only safe when the file really is the one we shipped. Every skip
+// below is content-derived, so these pin the smallest difference each guard must still
+// see — a guard that decides "unchanged" on a file it did not really compare leaves a
+// corrupted copy in place forever while the plan reports everything is fine.
+
+test('a single differing byte is enough to stop the installer reporting unchanged', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  install(root);
+
+  for (const rel of ['.claude/hooks/cortex-reflect.mjs', '.cortex/lib/guard.mjs']) {
+    const abs = join(root, rel);
+    const original = readFileSync(abs);
+    // Same length, same prefix, one byte apart: what a length or prefix check waves through.
+    const corrupted = Buffer.from(original);
+    corrupted[corrupted.length - 1] ^= 0x01;
+    writeFileSync(abs, corrupted);
+
+    const { plan } = install(root);
+    const row = plan.find((s) => s.rel === rel);
+    assert.ok(row, `${rel} must appear in the plan`);
+    assert.notEqual(row.note, 'unchanged', `${rel} differs on disk but was reported unchanged`);
+    assert.ok(existsSync(`${abs}.bak`), `${rel} was overwritten without a backup`);
+    assert.deepEqual(readFileSync(`${abs}.bak`), corrupted, 'the backup must hold what was there before');
+  }
+});
+
+test('the vendored guard is repaired back to the shipped source after corruption', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  install(root);
+
+  const abs = join(root, '.cortex/lib/guard.mjs');
+  writeFileSync(abs, Buffer.concat([readFileSync(abs), Buffer.from('\n// drifted\n')]));
+  install(root);
+
+  assert.deepEqual(
+    readFileSync(abs),
+    readFileSync(new URL('../src/guard.mjs', import.meta.url)),
+    'a drifted guard must be restored; the guard is the one thing between memory and git',
+  );
+});
+
+test('a SessionEnd entry that merely mentions the hook does not count as registering it', () => {
+  const root = fixture({ pkg: NEXT_PKG });
+  mkdirSync(join(root, '.claude'), { recursive: true });
+
+  // The skip is a substring match over the serialised SessionEnd array, so any entry that
+  // names the path suppresses registration — including one that deliberately does not run
+  // it. The installer then reports "hook already registered" and the harvester never runs,
+  // which silently costs the repo the only thing that makes the brain accumulate.
+  writeFileSync(
+    join(root, '.claude/settings.json'),
+    JSON.stringify(
+      {
+        hooks: {
+          SessionEnd: [
+            { hooks: [{ type: 'command', command: "echo 'we turned off .claude/hooks/cortex-reflect.mjs for now'" }] },
+          ],
+        },
+      },
+      null,
+      2,
+    ),
+  );
+
+  install(root);
+
+  const s = readJson(root, '.claude/settings.json');
+  const commands = s.hooks.SessionEnd.flatMap((e) => (e.hooks ?? []).map((h) => h.command ?? ''));
+  assert.ok(
+    commands.some((c) => c.startsWith('node ') && c.includes('.claude/hooks/cortex-reflect.mjs')),
+    `no SessionEnd entry actually runs the hook; commands were ${JSON.stringify(commands)}`,
+  );
+});
+
 test('install stamps the capability skill so the repo can extend itself', () => {
   const root = fixture({ pkg: NEXT_PKG });
   install(root);

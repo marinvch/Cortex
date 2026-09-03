@@ -13,6 +13,32 @@ import { MANIFEST_REL, readManifest, readPackageVersion, serializeManifest, sha2
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK_REL = '.claude/hooks/cortex-reflect.mjs';
 
+const isArray = Array.isArray;
+const isPlainObject = (v) => v !== null && typeof v === 'object' && !isArray(v);
+
+/**
+ * Does this command actually *run* the hook?
+ *
+ * The old test was `JSON.stringify(SessionEnd).includes(HOOK_REL)`, so any entry naming the
+ * path counted — including `echo 'we turned off .claude/hooks/cortex-reflect.mjs'`. The
+ * installer then reported success, wrote nothing, and the harvester never ran, which costs
+ * the repo the one thing that makes the brain accumulate (R5).
+ *
+ * So: `node` with nothing but quoting and a path prefix before the hook path. That still
+ * matches our own `node "$CLAUDE_PROJECT_DIR/…"` and a wrapper like `bash -c "node …"`,
+ * and no longer matches a mention inside a message or a pasted `.bak` path.
+ *
+ * The two failure directions are not symmetric, and this errs deliberately. A false
+ * "already registered" means the brain silently never learns while the run reports success.
+ * A false "not registered" appends another entry on every run, so the hook runs twice and
+ * settings.json grows — noisy, but visible in the file and deduped by fingerprint in
+ * `src/memory.mjs`. When in doubt, fail towards registering; hence flags are allowed
+ * between `node` and the path, so a real invocation is not re-added on each run.
+ */
+const INVOKES_HOOK = new RegExp(
+  `\\bnode\\b(?:\\s+-\\S+)*\\s+["']?\\S*?${HOOK_REL.replace(/[.]/g, '\\$&').replace(/\//g, '[/\\\\]')}`,
+);
+
 const serializeConfig = (value) => JSON.stringify(value, null, 2) + '\n';
 
 /**
@@ -356,11 +382,23 @@ function installHook(repoRoot, plan, dryRun) {
     }
   }
 
+  // settings.json is committed in the target repo, so on the next run its contents are
+  // input, not something we wrote (D11). Merge only into a shape we actually recognise;
+  // coercing an unexpected one would destroy a teammate's file to make room for our entry.
+  if (!isPlainObject(settings) || !isPlainObject(settings.hooks ?? {}) || !isArray(settings.hooks?.SessionEnd ?? [])) {
+    plan.push({ rel: settingsRel, note: 'SKIPPED — settings.json has an unexpected shape at hooks.SessionEnd', skipped: true });
+    return;
+  }
+
   const command = `node "$CLAUDE_PROJECT_DIR/${HOOK_REL}"`;
   settings.hooks ??= {};
   settings.hooks.SessionEnd ??= [];
 
-  const already = JSON.stringify(settings.hooks.SessionEnd).includes(HOOK_REL);
+  const already = settings.hooks.SessionEnd.some(
+    (entry) =>
+      isArray(entry?.hooks) &&
+      entry.hooks.some((h) => typeof h?.command === 'string' && INVOKES_HOOK.test(h.command)),
+  );
   if (already) {
     plan.push({ rel: settingsRel, note: 'hook already registered', skipped: true });
     return;

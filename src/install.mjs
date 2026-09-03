@@ -9,6 +9,7 @@ import { initMemory } from './memory.mjs';
 import { installMetaSkills } from './skills.mjs';
 import { writePluginManifest } from './plugins.mjs';
 import { buildMap, MAP_REL } from './map.mjs';
+import { MANIFEST_REL, readManifest, readPackageVersion, serializeManifest, sha256 } from './manifest.mjs';
 
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK_REL = '.claude/hooks/cortex-reflect.mjs';
@@ -110,18 +111,68 @@ export function install(repoRoot, { refresh = false, dryRun = false, withPlugins
  * pull the repo never run the installer at all. Vendoring means both travel with
  * the code and their versions are committed alongside it, instead of depending on whoever
  * last ran the installer.
+ *
+ * `.manifest.json` beside them records the version and a hash per file, which is what lets a
+ * re-run report an upgrade, skip a copy that would change nothing, and back up a file the
+ * team edited rather than silently overwriting it (D5).
  */
 const VENDORED = ['guard.mjs', 'paths.mjs', 'memory.mjs', 'map.mjs'];
 
 function vendorLib(repoRoot, plan, dryRun) {
+  const version = readPackageVersion(PKG_ROOT);
+  const manifest = readManifest(repoRoot);
+  const files = {};
+  let anyExisting = false;
+  let changed = false;
+
   for (const name of VENDORED) {
     const rel = `.cortex/lib/${name}`;
-    plan.push({ rel, note: 'vendored' });
-    if (dryRun) continue;
+    const src = join(PKG_ROOT, 'src', name);
+    const sourceHash = sha256(readFileSync(src));
+    files[name] = sourceHash;
+
     const abs = resolveInRepo(repoRoot, rel);
+    const currentHash = existsSync(abs) ? sha256(readFileSync(abs)) : null;
+    if (currentHash) anyExisting = true;
+
+    if (currentHash === sourceHash) {
+      plan.push({ rel, note: 'unchanged', skipped: true });
+      continue;
+    }
+    changed = true;
+
+    // A copy whose hash still matches the manifest is an older Cortex and ours to replace.
+    // Anything else is either a local edit or a pre-manifest install we cannot vouch for,
+    // so it gets a .bak first — the same bargain write() makes for the files we own.
+    const vouched = currentHash !== null && manifest !== null && manifest.files[name] === currentHash;
+    plan.push({
+      rel,
+      note: currentHash === null ? 'vendored' : vouched ? 'vendored — replaced older copy' : 'vendored — local copy differs, old → .bak',
+    });
+    if (dryRun) continue;
     mkdirSync(dirname(abs), { recursive: true });
-    copyFileSync(join(PKG_ROOT, 'src', name), abs);
+    if (currentHash !== null && !vouched) copyFileSync(abs, `${abs}.bak`);
+    copyFileSync(src, abs);
   }
+
+  // The version change is the whole point: it is how a maintainer tells which repos
+  // received a guard fix. A pre-manifest install cannot report one, and says so.
+  const previous = manifest ? manifest.cortexVersion : null;
+  const note =
+    previous === version
+      ? `cortex ${version}`
+      : previous
+        ? `updated ${previous} → ${version}`
+        : anyExisting
+          ? `cortex ${version} — previous version unknown`
+          : `cortex ${version}`;
+
+  const stale = changed || manifest === null || previous !== version;
+  plan.push({ rel: MANIFEST_REL, note, skipped: !stale });
+  if (dryRun || !stale) return;
+  const abs = resolveInRepo(repoRoot, MANIFEST_REL);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, serializeManifest({ cortexVersion: version, files }));
 }
 
 /**

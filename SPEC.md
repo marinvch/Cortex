@@ -55,11 +55,17 @@ motivated splitting the products is solved by the distribution channel itself, s
 enough**; no second public repo is needed.
 
 ```
-npx cortex-init              # interactive
-npx cortex-init --yes        # accept detected defaults
+npx cortex-init              # install; never prompts
 npx cortex-init --dry-run    # print the plan, write nothing
 npx cortex-init --refresh    # re-scan, update stack facts, preserve human prose
+npx cortex-init --no-map     # record "map": false in .cortex/config.json
+npx cortex-init --cwd path   # target another repo
 ```
+
+**Non-interactive by design, not by omission (D6).** A prompt breaks `npx` in CI, in Docker builds and
+in `--cwd` batch use, and `detect()` is built to need no answers — so there is nothing to ask. An
+unknown flag is refused with a non-zero exit rather than ignored, because a typo one keystroke from
+`--dry-run` used to perform a real install and report success.
 
 ### What gets stamped into the target repo
 
@@ -71,7 +77,7 @@ GEMINI.md                        shim → see AGENTS.md
 .cursor/rules/project.mdc        shim → see AGENTS.md
 .gitattributes                   marks memory merge=union (created or extended, never clobbered)
 .cortex/
-  config.json                    version, slug, guard settings, map on/off
+  config.json                    version, slug, map on/off — no guard switch, deliberately
   memory/
     gotchas.md                   accumulated tribal knowledge — COMMITTED, one entry per line
   map.md                         structural map — COMMITTED
@@ -267,8 +273,25 @@ in-scope, so deleting the capability would break a stated requirement to solve a
 about namespace slots and docs burden. The branch keeps the text that talks a user out of an MCP server
 when a plain `AGENTS.md` would do — that honesty is the useful part.
 
-**D12 — every fact in the generated block is read from a file, or carries a marker naming what was
-missing.** One acceptance criterion: *`AGENTS.md` never contains an unmarked fact that was not read.*
+**D12 — every fact is read from a file, or carries a marker naming where it came from.** Two clauses:
+
+1. ***`AGENTS.md` never contains an unmarked fact that was not read.*** Scope is the whole file, not
+   the generated block.
+2. ***A marker replaces a suppressed inference, not an absent fact.*** An absent fact renders nothing,
+   which is what `Framework`, `Tests` and `Linting` already do correctly. Markers appear only where we
+   would otherwise have guessed.
+
+Clause 2 is stated explicitly because it was lost the first time it was implied. The rule's first
+reader concluded "mark every null field", and derived from it that the
+`- _Nothing detected automatically. Fill this in._` fallback in `stackSection` had become unreachable
+dead code. It has not: a directory containing only a `README.md` has no inference to suppress, so every
+bullet is absent, the fallback fires, and it is the correct output. The examples alone did not carry
+the distinction — the sentence has to.
+
+**Acceptance criterion, as one fixture:** a directory holding only a `README.md` renders the fallback
+text **and contains no `_(` marker anywhere**. That pins the fallback's reachability and the negative
+case for the rule — the repo in which no marker may appear — which is the cheapest guard against the
+broad version being implemented by mistake.
 
 This is the map's Coverage move applied one level up, and Coverage is the right precedent — it is the
 part of this product that most earns the trust the rest of the pitch asks for. A fallback rendered as

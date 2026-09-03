@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { META_SKILLS, installMetaSkills } from '../src/skills.mjs';
+import { META_SKILLS, SUPERSEDED_SKILLS, installMetaSkills } from '../src/skills.mjs';
 
 /**
  * The four meta-skills consolidated into one `cortex-capability` with four branches.
@@ -112,4 +112,104 @@ test('dry run writes nothing but still reports a plan', () => {
     'the plan must name the file it would write',
   );
   assert.equal(existsSync(join(root, '.claude')), false);
+});
+
+// ── migrating a repo that installed before the consolidation ────────────────
+// Every existing consumer carries the four old SKILL.md files. Left in place they sit in
+// the same namespace as cortex-capability describing a shape Cortex no longer ships, and
+// an agent reads whichever it matches first.
+
+/** Plant the four pre-consolidation meta-skills, each with distinguishable content. */
+function withSupersededSkills(root) {
+  for (const name of SUPERSEDED_SKILLS) {
+    const dir = join(root, '.claude/skills', name);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'SKILL.md'), `---\nname: ${name}\n---\n\n# /${name}\n\nthe old ${name} body\n`);
+  }
+}
+
+test('the four superseded meta-skills stop competing after a re-run', () => {
+  const root = repo();
+  withSupersededSkills(root);
+
+  installMetaSkills(root, [], false);
+
+  assert.ok(existsSync(join(root, '.claude/skills', SKILL, 'SKILL.md')), 'the new skill must be installed');
+  for (const name of SUPERSEDED_SKILLS) {
+    assert.equal(
+      existsSync(join(root, '.claude/skills', name, 'SKILL.md')),
+      false,
+      `${name}/SKILL.md still competes with ${SKILL} in the same namespace`,
+    );
+  }
+});
+
+test('retiring a superseded skill preserves whatever the team had written in it', () => {
+  const root = repo();
+  withSupersededSkills(root);
+
+  // A team edited one of them to match their conventions. Cortex never recorded a hash for
+  // these files, so it cannot tell an edit from a pristine copy and must assume the worst.
+  const edited = join(root, '.claude/skills/cortex-hook/SKILL.md');
+  const theirs = `${readFileSync(edited, 'utf8')}\n# TEAM RULE: hooks must be reviewed by the platform team.\n`;
+  writeFileSync(edited, theirs);
+
+  installMetaSkills(root, [], false);
+
+  // Assert on content, not existence: a .bak written after the delete would exist and still
+  // have lost the edit, which is the failure mode worth catching.
+  assert.equal(readFileSync(`${edited}.bak`, 'utf8'), theirs, 'the team edit must survive in the .bak');
+  for (const name of SUPERSEDED_SKILLS) {
+    const bak = join(root, '.claude/skills', name, 'SKILL.md.bak');
+    assert.ok(existsSync(bak), `${name} was removed without leaving a backup`);
+  }
+});
+
+test('a second run reports nothing to retire and creates no further backups', () => {
+  const root = repo();
+  withSupersededSkills(root);
+  installMetaSkills(root, [], false);
+
+  const plan = [];
+  installMetaSkills(root, plan, false);
+
+  const retired = plan.filter((s) => /superseded/.test(s.note ?? ''));
+  assert.deepEqual(retired, [], `a settled repo must report no migration, got ${JSON.stringify(retired)}`);
+  for (const name of SUPERSEDED_SKILLS) {
+    assert.equal(
+      existsSync(join(root, '.claude/skills', name, 'SKILL.md.bak.bak')),
+      false,
+      `${name} backed up its own backup on a second run`,
+    );
+  }
+});
+
+test('migration touches only what Cortex installed, never the team’s own skills', () => {
+  const root = repo();
+  withSupersededSkills(root);
+
+  const ours = join(root, '.claude/skills/deploy-preview');
+  mkdirSync(ours, { recursive: true });
+  const body = '---\nname: deploy-preview\n---\n\n# /deploy-preview\n';
+  writeFileSync(join(ours, 'SKILL.md'), body);
+
+  installMetaSkills(root, [], false);
+
+  assert.equal(readFileSync(join(ours, 'SKILL.md'), 'utf8'), body, 'a team skill must not be touched');
+  assert.equal(existsSync(join(ours, 'SKILL.md.bak')), false, 'and must not be backed up either');
+});
+
+test('a dry run migrates nothing', () => {
+  const root = repo();
+  withSupersededSkills(root);
+  const before = readFileSync(join(root, '.claude/skills/cortex-hook/SKILL.md'), 'utf8');
+
+  const plan = [];
+  installMetaSkills(root, plan, true);
+
+  assert.equal(readFileSync(join(root, '.claude/skills/cortex-hook/SKILL.md'), 'utf8'), before);
+  assert.ok(
+    plan.some((s) => /superseded/.test(s.note ?? '')),
+    'a dry run must still say what it would retire',
+  );
 });

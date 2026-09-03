@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -109,6 +109,9 @@ test('dry run writes nothing at all', () => {
   assert.ok(plan.length > 0);
   assert.equal(existsSync(join(root, 'AGENTS.md')), false);
   assert.equal(existsSync(join(root, '.cortex')), false);
+  // .gitattributes lives at the repo root, outside .cortex/, so it needs asserting by name —
+  // a dry run that stamps a merge rule into someone's repo is still a write.
+  assert.equal(existsSync(join(root, '.gitattributes')), false);
 });
 
 test('refresh updates stack facts but preserves every human word', () => {
@@ -169,6 +172,29 @@ test('is idempotent — a second run does not duplicate the hook registration', 
   install(root);
   const s = JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8'));
   assert.equal(s.hooks.SessionEnd.length, 1);
+});
+
+test('is idempotent — a second run creates no file at all, .bak included', () => {
+  const root = fixture({ pkg: NEXT_PKG, files: { 'src/a.ts': 'export const x = 1;' } });
+
+  const walk = (rel) =>
+    readdirSync(join(root, rel), { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(join(rel, e.name)) : [join(rel, e.name)],
+    );
+
+  install(root);
+  const before = walk('.').sort();
+  install(root);
+
+  // The hook-count assertion above is the narrow reading of "idempotent". This is the
+  // one SPEC states: a second run is a no-op. It was not true — every re-run dropped
+  // AGENTS.md.bak and .cortex/map.md.bak into the consumer's repo because write() copied
+  // to .bak whenever the target existed, identical bytes or not.
+  assert.deepEqual(
+    walk('.').sort().filter((f) => !before.includes(f)),
+    [],
+    'a second run must write nothing; .bak churn in a committed repo is a defect, not a safety net',
+  );
 });
 
 test('install stamps the capability skill so the repo can extend itself', () => {

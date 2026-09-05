@@ -4,12 +4,14 @@
 # that matter are both about honesty rather than crashes: claiming a rule exists when the repo has no
 # context layer, and staying quiet about documents the change may have just made wrong.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 REVIEW="$REPO_ROOT/index/cortex-review.mjs"
 
 fixture() {
   rm -rf "$WORK/proj"
   mkdir -p "$WORK/proj/src/lib" "$WORK/proj/docs/adr"
-  cd "$WORK/proj"
+  cd "$WORK/proj" || exit 1
   git init -q .; git config user.email t@t; git config user.name t
 
   printf 'export const coverage = 1;\n'                 > src/lib/coverage.mjs
@@ -23,7 +25,7 @@ fixture() {
 
   git add -A && git commit -qm init
   node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1
-  cd "$REPO_ROOT"
+  cd "$REPO_ROOT" || exit 1
 }
 
 fixture
@@ -65,13 +67,13 @@ assert_contains "$out2" "not proof" "and is not dressed up as a clean bill of he
 
 # Improvising a review from general principles is how a tool that claims to check DOCUMENTED rules
 # starts inventing them.
-rm -rf "$WORK/bare"; mkdir -p "$WORK/bare/src"; cd "$WORK/bare"
+rm -rf "$WORK/bare"; mkdir -p "$WORK/bare/src"; cd "$WORK/bare" || exit 1
 git init -q .; git config user.email t@t; git config user.name t
 printf 'export const a = 1;\n' > src/a.js
 printf '{ "name": "b", "version": "1.0.0" }\n' > package.json
 git add -A && git commit -qm init
 node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 out3="$(node "$REVIEW" --root "$WORK/bare" src/a.js 2>&1)"
 assert_contains "$out3" "no context layer" "a repo with no documents says so"
 assert_contains "$out3" "cortex-install" "and names what would create one"

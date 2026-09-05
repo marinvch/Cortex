@@ -13,6 +13,8 @@
 #      A repo with no code must get a different report AND a different closing instruction; pointing
 #      it at "the areas listed above" names areas that do not exist.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 FINDINGS="$REPO_ROOT/index/cortex-findings.mjs"
 INDEX="$REPO_ROOT/index/cortex-index.mjs"
 

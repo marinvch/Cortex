@@ -36,11 +36,13 @@ for f in "$HERE"/*.test.sh; do
   # A subshell per file: an `exit` or a stray `cd` inside one test must not take the runner with it.
   out="$(
     set +e
-    # shellcheck disable=SC1090
-    . "$HERE/_helpers.sh"
+    # $WORK before the helpers, not after: _helpers.sh refuses to load without it, which is what
+    # makes running a fragment on its own stop instead of building fixtures in the current repo.
     WORK="$(mktemp -d)"
     export WORK
     cd "$WORK" || exit 1
+    # shellcheck disable=SC1090
+    . "$HERE/_helpers.sh"
     # shellcheck disable=SC1090
     . "$f"
     rm -rf "$WORK"

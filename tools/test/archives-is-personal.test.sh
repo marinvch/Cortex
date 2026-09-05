@@ -8,6 +8,8 @@
 #
 # The product half is docs/history/ now. This pins both halves.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 cd "$REPO_ROOT" || exit 1
 
 # --- the personal half is ignored, with exactly one exception -----------------------------------

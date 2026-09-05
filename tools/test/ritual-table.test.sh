@@ -10,6 +10,8 @@
 # both halves of the sentence are assertions rather than prose. AGENTS.md holds the complete table
 # and is the only place a new ritual has to be added.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 ROOT_MD="$REPO_ROOT/AGENTS.md"
 READ_ME="$REPO_ROOT/README.md"
 

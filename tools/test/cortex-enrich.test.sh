@@ -11,6 +11,8 @@
 # pass and neither raised an error, so every assertion below is about what the CLI *says*, not
 # whether it exits zero.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 ENRICH="$REPO_ROOT/index/cortex-enrich.mjs"
 INDEX="$REPO_ROOT/index/cortex-index.mjs"
 

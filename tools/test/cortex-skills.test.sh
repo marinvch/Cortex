@@ -12,6 +12,8 @@
 # The evidence sentence is the fourth. A proposal a user cannot check is one they cannot consent to,
 # and it must name what was DETECTED in the words the rest of the output uses.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 SKILLS="$REPO_ROOT/index/cortex-skills.mjs"
 INDEX="$REPO_ROOT/index/cortex-index.mjs"
 

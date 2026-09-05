@@ -4,6 +4,8 @@
 # that creates directories in a developer's real home is a bug in the test — a silent one, because
 # it would still pass.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 SETUP="$REPO_ROOT/tools/server/server-setup.sh"
 
 # --- usage ---

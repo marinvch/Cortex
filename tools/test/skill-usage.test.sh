@@ -16,6 +16,8 @@
 # CORTEX_SESSIONS_DIR exists for this test. Without it every case would read the developer's real
 # transcripts, which is both a privacy problem and a test that passes for reasons nobody controls.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 USAGE="$REPO_ROOT/tools/cortex-skill-usage.mjs"
 
 work="$(mktemp -d)"

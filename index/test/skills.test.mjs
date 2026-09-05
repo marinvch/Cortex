@@ -150,3 +150,19 @@ test("partitionExisting tolerates a missing list", () => {
   const r = proposeSkills(ix({ languages: ["typescript"] }));
   assert.deepEqual(ids(partitionExisting(r, undefined).missing), ids(r));
 });
+
+test("a server framework outside the JS world gets the route skill too", () => {
+  // stack.mjs learned Spring Boot, ASP.NET Core and Phoenix; this row did not, so the framework
+  // became visible and the proposal stayed absent — the exact half-fix worth a test, because
+  // nothing about the output said a framework had been detected and ignored.
+  for (const [fw, label] of [["spring", "Spring Boot"], ["aspnetcore", "ASP.NET Core"], ["phoenix", "Phoenix"]]) {
+    const r = proposeSkills(ix({ frameworks: [fw] }, { files: 120, tests: 20 }));
+    assert.ok(ids(r).includes("add-route"), `${fw} is a server framework and earns the route skill`);
+    assert.match(r.find((p) => p.id === "add-route").why, new RegExp(label.replace(".", "\.")),
+      "and the evidence names it the way the stack block does");
+  }
+});
+
+test("a repo with no server framework is still not offered a route skill", () => {
+  assert.ok(!ids(proposeSkills(ix({ languages: ["rust"] }, { files: 40, tests: 9 }))).includes("add-route"));
+});

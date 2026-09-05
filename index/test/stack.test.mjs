@@ -179,3 +179,115 @@ test("the reported manifest list keeps step with the manifest specs", () => {
   assert.ok(m.includes("pom.xml"), `expected pom.xml in ${JSON.stringify(m)}`);
   assert.ok(m.includes("sub/build.gradle"), `expected sub/build.gradle in ${JSON.stringify(m)}`);
 });
+
+// ---------------------------------------------------------------------------------------------
+// The rows below were added because `langs.mjs` indexes 17 languages while this table could name
+// 7. Every fixture here is a VERBATIM line from a real cloned repository, named in the comment,
+// because a stack row is a claim about what real projects look like on disk and a fixture I write
+// myself agrees with whatever I already believed. Two of these rows could not have been written
+// from a fixture at all — see "the boundary" test.
+// ---------------------------------------------------------------------------------------------
+
+test("Spring Boot, from Maven — the line spring-petclinic actually carries", () => {
+  const [files, read] = repo({
+    "pom.xml": `<project>\n  <parent>\n    <groupId>org.springframework.boot</groupId>\n    <artifactId>spring-boot-starter-parent</artifactId>\n  </parent>\n</project>`,
+    "src/main/java/org/springframework/samples/petclinic/PetClinicApplication.java": "",
+  });
+  const s = detectStack(files, read);
+  assert.deepEqual(s.frameworks, ["spring"]);
+  assert.deepEqual(s.languages, ["java"], "and it is still Java — the framework row does not replace the language row");
+});
+
+test("Spring Boot, from both Gradle DSLs — spring-guides/gs-spring-boot carries both", () => {
+  // Groovy: id 'org.springframework.boot' version '4.0.8'
+  const groovy = detectStack(...repo({ "build.gradle": `plugins {\n  id 'org.springframework.boot' version '4.0.8'\n}` }));
+  assert.deepEqual(groovy.frameworks, ["spring"]);
+  // Kotlin DSL: id("org.springframework.boot") version "4.0.1"
+  const kts = detectStack(...repo({ "build.gradle.kts": `plugins {\n  id("org.springframework.boot") version "4.0.1"\n  kotlin("jvm") version "2.2.21"\n}` }));
+  assert.deepEqual(kts.frameworks, ["spring"]);
+});
+
+test("a Gradle build with no Spring in it stays a framework-less Java repo", () => {
+  const s = detectStack(...repo({ "build.gradle.kts": `plugins {\n  id("java-library")\n}` }));
+  assert.deepEqual(s.languages, ["java"]);
+  assert.deepEqual(s.frameworks, [], "a row that fires on every Gradle project would be worse than no row");
+});
+
+test("ASP.NET Core, from the Web SDK — and NOT from an Azure package that merely says AspNetCore", () => {
+  // Both lines are verbatim from jasontaylordev/CleanArchitecture. The second is the trap: keying
+  // on a bare `AspNetCore` reports a web framework for a configuration package.
+  const web = detectStack(...repo({
+    "src/Web/Web.csproj": `<Project Sdk="Microsoft.NET.Sdk.Web">\n  <ItemGroup>\n    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />\n  </ItemGroup>\n</Project>`,
+  }));
+  assert.deepEqual(web.languages, ["csharp"]);
+  assert.deepEqual(web.frameworks, ["aspnetcore"]);
+
+  const lib = detectStack(...repo({
+    "src/Infrastructure/Infrastructure.csproj": `<Project Sdk="Microsoft.NET.Sdk">\n  <ItemGroup>\n    <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" />\n  </ItemGroup>\n</Project>`,
+  }));
+  assert.deepEqual(lib.languages, ["csharp"], "a class library is still C#");
+  assert.deepEqual(lib.frameworks, [], "but it is not an ASP.NET Core app");
+});
+
+test("a C# solution is not reported as the small React app bundled inside it", () => {
+  // The real misreport, on a 247-file repo: the only manifest this table could see was
+  // src/Web/ClientApp/package.json, so a .NET solution came back as `typescript` + `react`.
+  // C# must appear; React may too, because it genuinely is in there.
+  const [files, read] = repo({
+    "CleanArchitecture.slnx": "<Solution />",
+    "src/Domain/Domain.csproj": `<Project Sdk="Microsoft.NET.Sdk"></Project>`,
+    "src/Web/ClientApp/package.json": PKG({ react: "19", typescript: "5" }),
+  });
+  const s = detectStack(files, read);
+  assert.ok(s.languages.includes("csharp"), "the language the repo is actually written in");
+  assert.ok(s.languages.includes("typescript"), "and the one it also contains");
+});
+
+test("Elixir and Phoenix, from mix.exs — dwyl/phoenix-chat-example", () => {
+  const [files, read] = repo({
+    "mix.exs": `  defp deps do\n    [\n      {:phoenix, "~> 1.8.1", override: true},\n      {:phoenix_ecto, "~> 4.4"},\n      {:postgrex, ">= 0.0.0"}\n    ]\n  end`,
+    "lib/app_web/router.ex": "",
+  });
+  const s = detectStack(files, read);
+  assert.deepEqual(s.languages, ["elixir"]);
+  assert.deepEqual(s.frameworks, ["phoenix"]);
+  assert.ok(s.manifests.includes("mix.exs"), "and mix.exs counts as a manifest, or the repo is told its stack is unknowable");
+});
+
+test("a plain Mix project is Elixir with no framework", () => {
+  const s = detectStack(...repo({ "mix.exs": `  defp deps do\n    [{:jason, "~> 1.4"}]\n  end` }));
+  assert.deepEqual(s.languages, ["elixir"]);
+  assert.deepEqual(s.frameworks, []);
+});
+
+test("Swift from Package.swift, Scala from build.sbt", () => {
+  const sw = detectStack(...repo({ "Package.swift": "// swift-tools-version:6.0\nimport PackageDescription\n" }));
+  assert.deepEqual(sw.languages, ["swift"]);
+  assert.ok(sw.manifests.includes("Package.swift"));
+
+  // playframework/playframework: a build.sbt at the root, and Java files alongside the Scala.
+  const sc = detectStack(...repo({ "build.sbt": "import java.io.StringWriter\n", "build.gradle.kts": "" }));
+  assert.ok(sc.languages.includes("scala"));
+  assert.ok(sc.languages.includes("java"), "a repo can be both, and reporting only one was the bug");
+});
+
+test("the boundary is 'not an identifier character', which is what makes a structured manifest readable", () => {
+  // Neither of these could match before, and neither failed — the rows simply never fired, so the
+  // table looked as though it had no Java frameworks rather than as though it could not read one.
+  // Maven puts `>` before the name; Mix puts `:`. The old rule listed [\s"'\[,] and neither is in it.
+  assert.deepEqual(detectStack(...repo({ "pom.xml": "<groupId>org.springframework.boot</groupId>" })).frameworks, ["spring"]);
+  assert.deepEqual(detectStack(...repo({ "mix.exs": "{:phoenix, \"~> 1.8\"}" })).frameworks, ["phoenix"]);
+
+  // And the identifier characters still hold the line. `-` and `.` are part of a name, so a longer
+  // artifact is a DIFFERENT artifact.
+  assert.deepEqual(
+    detectStack(...repo({ "pom.xml": "<artifactId>org.springframework.bootstrapper</artifactId>" })).frameworks,
+    [],
+    "a longer name that merely starts with the key is not the key",
+  );
+  assert.deepEqual(
+    detectStack(...repo({ "mix.exs": "{:phoenix_live_view, \"~> 1.0\"}" })).frameworks,
+    [],
+    "phoenix_live_view is not phoenix",
+  );
+});

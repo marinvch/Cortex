@@ -164,6 +164,83 @@ mkdir -p "$WORK/elsewhere"
 # And the flag's VALUE is not mistaken for the root either — `--include src` must not plan ./src.
 assert_contains "$(run status)" "planned only for: src" "the scope survives, so the value was consumed as a value"
 
+# The inline form carries its value in the same token, so the NEXT argument is the root and must
+# not be stepped over. Getting this wrong swaps the two failure modes rather than fixing either.
+fixture
+out="$(node "$ENRICH" plan --include=src "$PROJ" 2>&1)"
+assert_contains "$out" "Included: src" "--include=src is read as a scope"
+assert_contains "$out" "Planned 1 batches" "and the root after it is still the root"
+
+# --- a single dash is a flag, and an unknown flag is refused rather than reinterpreted -------------
+
+# `--`-only was the sibling convention and it left a hole: `-v` was taken as a repo ROOT, so the run
+# created a directory literally named `-v` and exited 0. The realistic trigger is a typo of the very
+# flag this command exists to support — `-include src <repo>` wrote .cortex/ into <cwd>/-include,
+# left the named repo untouched, AND got an empty scope, because listFlag("--include") matches
+# nothing. Nothing errored, because buildIndex on a directory that does not exist returns zero files.
+fixture
+mkdir -p "$WORK/elsewhere"
+out="$( cd "$WORK/elsewhere" && node "$ENRICH" plan -v 2>&1 )"; rc=$?
+assert_eq "1" "$rc" "a single-dash argument is refused, not read as a path"
+assert_contains "$out" "unknown flag: -v" "and named"
+[ -d "$WORK/elsewhere/-v" ] && _fail "no directory is created from a mangled flag" \
+                            || _pass "no directory is created from a mangled flag"
+
+out="$( cd "$WORK/elsewhere" && node "$ENRICH" plan -include src "$PROJ" 2>&1 )"; rc=$?
+assert_eq "1" "$rc" "a one-dash typo of --include fails loudly"
+assert_contains "$out" "unknown flag: -include" "rather than silently planning nothing, somewhere else"
+[ -d "$WORK/elsewhere/-include" ] && _fail "and writes nothing" || _pass "and writes nothing"
+
+# The allowlist is also what stops a flag added later from having its value promoted to the root.
+# An unregistered `--out foo` would otherwise plan ./foo; here it is refused until registered.
+out="$(node "$ENRICH" plan --out somewhere "$PROJ" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "an unregistered flag is refused, so its value cannot become the root"
+
+# --- the property, not the one symptom ---------------------------------------------------------------
+
+# Every shape of the bug above ends the same way: a root that is not a directory, buildIndex
+# returning zero files rather than throwing, and "Planned 0 batches" printed with exit 0. Assert
+# against that, and the routes nobody has enumerated are covered too.
+out="$(node "$ENRICH" plan "$WORK/no-such-repo" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "a root that does not exist is a refusal"
+assert_contains "$out" "not a directory" "which says what is wrong"
+assert_contains "$out" "Nothing was written" "and that nothing happened"
+assert_not_contains "$out" "Planned 0 batches" "never a confident empty plan"
+
+printf 'x\n' > "$WORK/afile"
+out="$(node "$ENRICH" plan "$WORK/afile" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "a file passed as a root is refused too"
+
+# --- ADR 0016: the guarantee attaches to the act ------------------------------------------------------
+
+# `/cortex-enrich plan` is named in ADR 0016 among the entry points that create `.cortex/`, and it
+# was the only one of the four that never ignored or announced what it wrote — so it left a
+# directory of generated artifacts in someone's `git status` with nothing to say where it came from.
+fixture
+rm -rf "$PROJ/.cortex" "$PROJ/.gitignore"
+out="$(run plan)"
+assert_contains "$out" "Created .cortex/" "creating the directory is announced"
+assert_contains "$out" "Added to .gitignore" "and the ignore write is reported, not silent"
+assert_contains "$(cat "$PROJ/.gitignore")" ".cortex/index/" "the generated index directory really is ignored"
+# The asymmetry that makes the memory store work: it is committed, so it must never be ignored.
+grep -v '^[[:space:]]*#' "$PROJ/.gitignore" | grep -qx ".cortex/memory/" \
+  && _fail "memory/ is committed on purpose and must never be ignored" \
+  || _pass "memory/ is committed on purpose and must never be ignored"
+
+# Announcing it twice would be a lie the second time.
+out="$(run plan)"
+assert_not_contains "$out" "Created .cortex/" "a second plan created nothing and says nothing"
+assert_not_contains "$out" "Added to .gitignore" "and adds no duplicate entry"
+
+# merge writes enriched.json, so it carries the same guarantee — the promise is on the act, not on
+# whichever subcommand happened to get there first.
+fixture
+rm -rf "$PROJ/.cortex" "$PROJ/.gitignore"
+run plan >/dev/null
+rm -f "$PROJ/.gitignore"
+out="$(run merge)"
+assert_contains "$out" "Added to .gitignore" "merge re-establishes the ignore entry it depends on"
+
 # --- refusing to guess ------------------------------------------------------------------------------
 
 fixture

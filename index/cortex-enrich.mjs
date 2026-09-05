@@ -17,7 +17,26 @@ import { computeBatches, batchStats } from "./lib/batch.mjs";
 import { mergeEnrichment, isStale, classifyBatches, ENRICHED_REL } from "./lib/enrich.mjs";
 
 const cmd = process.argv[2];
-const root = resolve(process.argv[3] && !process.argv[3].startsWith("--") ? process.argv[3] : process.cwd());
+
+// The repo root is the first bare argument after the subcommand, wherever it sits — not
+// `process.argv[3]`.
+//
+// That positional read meant a flag written before the root ate it: `plan --include src <repo>`
+// left argv[3] as `--include`, fell back to `process.cwd()`, and wrote `.cortex/` into whatever
+// directory the caller happened to be standing in while the named repo went untouched. Every other
+// CLI here already scans for the first non-flag argument; this one did not, and no test passed a
+// flag before the root. `--include` and `--exclude` take a value, so their argument is stepped over
+// rather than mistaken for the root — `plan --include src <repo>` must not index `./src`.
+const VALUED_FLAGS = new Set(["--include", "--exclude"]);
+function rootArg(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (VALUED_FLAGS.has(a)) i++;
+    else if (!a.startsWith("--")) return a;
+  }
+  return null;
+}
+const root = resolve(rootArg(process.argv.slice(3)) ?? process.cwd());
 
 // --include / --exclude take comma-separated path prefixes, and repeat. The skill has always said
 // to offer a subset on a large repo; with no flag to express it, the only way to obey was to skip

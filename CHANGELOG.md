@@ -3,6 +3,87 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.37.1] — 2026-09-05
+
+2.37.0 shipped with a paragraph about bugs that fail open. Both fixes here were found the same
+day by *using* it: one by pointing 2.37.0 at a real React app, the other by an agent running a
+test the way the documentation says to run it and destroying this repository's `README.md` in the
+process.
+
+### Fixed — a `tsconfig.json` holding only `references` made every alias invisible
+
+Alias discovery read files named exactly `tsconfig.json` / `jsconfig.json` and followed `extends`
+**upward**. It never followed `references`.
+
+The Vite React-TS template — the output of `npm create vite@latest -- --template react-ts` — is
+**solution-style**: the root `tsconfig.json` is `{ "files": [], "references": [...] }` and the
+`paths` live in `tsconfig.app.json`. The root contributed no aliases because its `compilerOptions`
+is empty; `tsconfig.app.json` was skipped on the filename check. Every `@/…` import in such a repo
+was invisible.
+
+Measured on one, same tree both runs: **13 resolved imports became 109**, and **30 files reported
+unreferenced became 1** — the survivor being `vite-env.d.ts`, which is the right answer. Layers went
+from 3 to 8. Every consumer of the graph — orphans, impact, depth, the viewer, the untested-module
+ranking — had been confidently wrong on that repo, and the report it produced looked clean.
+
+Two decisions inside the fix are worth knowing:
+
+- **A referenced config's alias table is keyed at that config's own directory**, not the referrer's.
+  Its `paths` resolve against its own `baseUrl`, so keying at the referrer hands every package in a
+  workspace the first-listed package's files.
+- **Configs governing the same directory are merged, not raced.** The Vite layout puts three configs
+  at the root and only one declares `paths`; a first-match lookup would drop aliases by declaration
+  order. The specificity comparator was hoisted so the merge and the single-table case cannot rank
+  the same aliases differently.
+
+The comment above this code already described the identical symptom on a Next.js app. The `extends`
+half was fixed then and `references` was never considered — `index/AGENTS.md` now records that it
+happened twice, the same way, because the fixtures shared the code's blind spot both times.
+
+### Fixed — a shell test run outside the runner built its fixtures in this repository
+
+A `*.test.sh` under `tools/test/` is a **fragment** that `run.sh` sources, not a script. The runner
+makes a temp directory and exports `$WORK` and `$REPO_ROOT`. Run a fragment on its own and both are
+empty:
+
+```sh
+cd "$WORK/proj"     # becomes `cd ""` — fails, and does not stop the script
+git config user.email t@t
+> README.md ; git add -A && git commit -qm init    # ...in whatever directory you were standing in
+```
+
+On 2026-09-05 an agent ran `bash tools/test/cortex-view.test.sh` from the repository root — **the
+exact form the leaf briefs print** — and the fixture rewrote the git identity, overwrote `README.md`
+with `# readme`, overwrote `package.json` and committed twice on `master`. Nothing failed. The
+damage was the test passing.
+
+`docs/changing-cortex.md` already required a destructive shell *tool* to route through
+`resolve_in_root`. The shell *tests* had no equivalent, so one half of `tools/` was guarded and the
+other was not.
+
+The obvious fix — a check inside `_helpers.sh` — would never have fired, because **none of the 26
+fragments sourced it.** So `_helpers.sh` gained a top-level gate that refuses to load unless `$WORK`
+and `$REPO_ROOT` are set and `$WORK` is a real directory, and every fragment gained one line making
+it the first thing reached. One guard, 27 call sites. `run.sh` exports before sourcing, so the gate
+never fires under the runner.
+
+All 26 fragments got it, not only the ten with a bare `cd "$WORK`: five others build fixtures under
+`$WORK` without cd'ing at all, which with `$WORK` empty writes to the **filesystem root**.
+Separately, ten bare `cd` lines gained `|| exit 1` — the missing `||` was the root cause, not just
+the unset variable.
+
+`tools/test/fragment-guard.test.sh` asserts it in two halves, because either alone fails open. The
+**behavioural** half builds a real git repo, runs every fragment inside it with the variables unset,
+and requires each to exit non-zero with the tree fingerprint — files, sizes, `git log`,
+`git config --local` — byte-identical. The **structural** half checks that every fragment sources
+the helpers first and no fragment `cd`s without `|| exit 1`; under the runner a missing guard line is
+invisible, so that is what stops a fragment written tomorrow from skipping it.
+
+It was mutation-tested against a scratch copy: with the gate removed, the incident reproduces
+exactly, and all three behavioural assertions catch it.
+
+**43 rituals. 529 shell assertions.**
+
 ## [2.37.0] — 2026-09-05
 
 An agent team with an owner per layer read this repo against its own documents. One failure class
@@ -2502,6 +2583,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.37.1]: https://github.com/marinvch/Cortex/releases/tag/v2.37.1
 [2.37.0]: https://github.com/marinvch/Cortex/releases/tag/v2.37.0
 [2.36.0]: https://github.com/marinvch/Cortex/releases/tag/v2.36.0
 [2.35.1]: https://github.com/marinvch/Cortex/releases/tag/v2.35.1

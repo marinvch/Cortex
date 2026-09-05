@@ -599,3 +599,50 @@ test("a key outside a test path stays critical", () => {
   assert.equal(sec.length, 1);
   assert.equal(sec[0].severity, "critical");
 });
+
+test("one reader: a repo whose only agent doc is another tool's is not told it has none", () => {
+  // The contradiction, reproduced. cortex-findings prints nextLine() as its footer, so BOTH of
+  // these reached the user from one command:
+  //   #### No agent context file
+  //   Next → /optimize-context (reconcile the agent docs that were already here)
+  // findings.mjs knew two agent-doc names; readState knew six. The narrow answer was not merely
+  // strict, it was false — an agent does load .cursorrules.
+  const root = repo({ ".cursorrules": "# Rules\nAlways use tabs.\n", "a.js": "" });
+  const [f] = analyse(index([{ path: "a.js" }]), root).filter((x) => /agent context|AGENTS\.md/i.test(x.title));
+
+  assert.ok(f, "the finding still fires — there is still no AGENTS.md");
+  assert.equal(f.severity, "high", "and it is still the highest-leverage thing Cortex can add");
+  assert.equal(offerOf(f)?.action, "scaffold");
+  assert.match(f.title, /another tool's file/, "but it says what is actually there");
+  assert.deepEqual(f.evidence, [".cursorrules"], "and names it, because the reader has to go and read it");
+  assert.match(f.detail, /reconcile/i, "pointing at the same action the footer does");
+  assert.doesNotMatch(f.detail, /starts from zero/, "never the claim that is false when a brief exists");
+});
+
+test("a repo with no agent doc of any kind keeps the original wording", () => {
+  const root = repo({ "a.js": "" });
+  const [f] = analyse(index([{ path: "a.js" }]), root).filter((x) => /agent context/i.test(x.title));
+  assert.equal(f.title, "No agent context file");
+  assert.match(f.detail, /starts from zero/, "where it is true, it is still said");
+  assert.deepEqual(f.evidence, []);
+});
+
+test("all six agent-doc names are recognised, not just the two Cortex writes", () => {
+  for (const name of [".cursorrules", ".windsurfrules", ".github/copilot-instructions.md"]) {
+    const [f] = analyse(index([{ path: "a.js" }]), repo({ [name]: "x", "a.js": "" }))
+      .filter((x) => /AGENTS\.md/i.test(x.title));
+    assert.deepEqual(f.evidence, [name], `${name} is context, and must be named`);
+  }
+});
+
+test("an EMPTY docs/adr is not a record of anything", () => {
+  // has("docs/adr") tested the directory; readState lists the .md files in it. A scaffold that
+  // created the directory and wrote nothing used to silence this finding.
+  const root = repo({ "a.js": "", "docs/adr/.gitkeep": "" });
+  const titles = analyse(index([{ path: "a.js" }]), root).map((f) => f.title);
+  assert.ok(titles.includes("No architecture decision records"), "an empty directory is not an ADR");
+
+  const withOne = repo({ "a.js": "", "docs/adr/0001-a-decision.md": "# adr\n" });
+  const titles2 = analyse(index([{ path: "a.js" }]), withOne).map((f) => f.title);
+  assert.ok(!titles2.includes("No architecture decision records"));
+});

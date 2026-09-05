@@ -18,9 +18,13 @@ the repo by commit count, and — like every other part — **dependency-free**.
   **repo mode** (`recall`, `remember`, `recall_memory`); anything else is **vault mode** (the
   personal-brain tools). Detection keeps the plugin manifest to one env var and makes a
   misconfiguration visible as a changed tool list.
-- **Vault tools must stay hidden in repo mode.** Offering `capture` or `catch_me_up` there invites
-  an agent to write `inbox/` and `daily/` into someone's product repository. `mode.test.js` asserts
-  the exact tool list for both modes.
+- **Vault tools are hidden *and* refused in repo mode.** Offering `capture` or `catch_me_up` there
+  invites an agent to write `inbox/` and `daily/` into someone's product repository — and a client
+  that already knows the name never reads `tools/list`, so hiding is not refusing. Which mode a tool
+  runs in is a field on its declaration in `lib/tools.js`; `toolsFor()` derives the advertised list
+  and `assertAvailable()` derives the guard, so the two cannot disagree and a new tool cannot be
+  added without saying where it runs. `mode.test.js` asserts the exact list for both modes **and**
+  that a vault tool invoked in repo mode comes back refused with nothing written.
 - **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
   notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
   falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds

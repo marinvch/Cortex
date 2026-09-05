@@ -107,3 +107,21 @@ assert_contains "$out" "Nothing was changed" "and that nothing happened"
 # existsSync would pass a file. Walking one as though it were a repository is the same bug.
 out="$(node "${REVIEW}" --root "$WORK/a-file" --staged 2>&1)"; rc=$?
 assert_eq "1" "$rc" "a file passed as a root is refused too"
+
+# --- git failing is not a branch with no changes -------------------------------------------------
+#
+# Same reader as cortex-impact, now shared. The maxBuffer fix lived in THIS file and not in that
+# one for exactly as long as there were two copies of it.
+
+fixture
+out="$(run --since definitely-not-a-ref)"; rc=$?
+assert_eq "2" "$rc" "an unreadable change set is a refusal"
+assert_contains "$out" "git could not resolve --since" "and names the source that failed"
+assert_contains "$out" "git failing, not a branch with no changes" "and refuses to read as an empty diff"
+assert_not_contains "$out" "nothing to review" "never the wording used for a genuinely clean branch"
+
+out="$(run --since HEAD)"; rc=$?
+assert_eq "2" "$rc" "an empty diff is still nothing to review"
+assert_contains "$out" "nothing to review" "and is described as such"
+assert_not_contains "$out" "git could not resolve" "with no fault reported, because there was none"
+

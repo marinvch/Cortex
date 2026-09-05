@@ -104,9 +104,14 @@ export const SKILL_CANDIDATES = [
     id: "add-route",
     title: "Add an API route end to end",
     rank: 50,
-    when: (s) => has(s.stack.frameworks, "next") || has(s.stack.frameworks, "express") ||
-                 has(s.stack.frameworks, "nest") || has(s.stack.frameworks, "fastapi") ||
-                 has(s.stack.frameworks, "flask") || has(s.stack.frameworks, "django"),
+    // Every server-side framework this table can detect, not every one someone thought of while
+    // writing the row. Adding Spring Boot, ASP.NET Core and Phoenix to stack.mjs made the framework
+    // visible and changed nothing here, so a Spring Boot repo still got no framework-shaped
+    // proposal — the stack stopped being blind and its consumer carried on being blind. The brief
+    // below is deliberately about tracing an EXISTING endpoint in the repo, so it reads the same
+    // against a Spring controller, an ASP.NET route and a Phoenix router.
+    when: (s) => ["next", "express", "nest", "fastapi", "flask", "django", "spring", "aspnetcore", "phoenix"]
+      .some((f) => has(s.stack.frameworks, f)),
     why: (s) => `${named(s.stack.frameworks)} — a new endpoint touches routing, validation and the data layer together`,
     brief:
       "Trace one EXISTING endpoint in this repo and describe that path, so the skill teaches the " +

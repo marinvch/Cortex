@@ -20,7 +20,15 @@ failure than a quality one, and the fix is usually one line in a neighbouring sk
 node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-skill-usage.mjs"            # typed vs auto, per skill
 node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-skill-usage.mjs" --unused   # the never-reached list
 node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-skill-graph.mjs"            # who reaches whom
+
+# exposure — when each skill first existed, against the window the sessions cover
+for d in skills/*/; do echo "$(git log --format=%ad --date=short -- "$d" | tail -1)  $(basename "$d")"; done | sort
 ```
+
+**Read the exposure dates first.** A skill added on the last recorded day has had no chance to fire,
+so its zero is arithmetic and not evidence. Cortex's second run reported `/skill-audit` itself as
+never reached — four of the 28 were younger than the newest session in the record. Judge only the
+skills that were present for most of the window, and say which ones you set aside.
 
 The two counts are separate on purpose, and the gap between them is the diagnosis:
 
@@ -91,6 +99,13 @@ is what wires a changed skill back in.
 - **A short history proves nothing.** Fewer than ~20 sessions, and "never reached" mostly means "not
   yet". Say the sample size in the report; a confident verdict on eight sessions is noise with a
   table around it.
+- **A hook that injects prose is invisible to the tool**, which sees a typed `<command-name>` and a
+  `Skill` call and nothing else. `/optimize-prompt` is reached by a `UserPromptSubmit` hook emitting
+  `additionalContext`, so it reads 0/0 however often it fires. Check every ritual declaring
+  `reached-by:` against its actual trigger before calling it unreached.
+- **The work has to have occurred.** A ritual scores zero when its job never came up, which looks
+  identical to a description that never matched. Separate them from artifacts on disk rather than
+  from the transcripts: an ADR written in the window is `/domain-modeling`'s trigger having fired.
 - **Skills from other plugins are counted but not shipped here.** The tool lists them separately.
   A ritual you renamed still being typed under its old name shows up there, and looks identical to a
   skill that vanished.

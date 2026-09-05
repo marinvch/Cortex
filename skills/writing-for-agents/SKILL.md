@@ -78,6 +78,18 @@ You win twice: fewer tokens, and a sharper hook for the agent to hang its thinki
 
 - Keep each meaning in a **single source of truth**: one authoritative place, so changing the behaviour is a one-place edit. **Duplication** — the same meaning in more than one place — costs maintenance and tokens, and inflates a meaning's prominence on the ladder past its real rank. (The accidental inverse of a leading word, which repeats a token on purpose, never the meaning.)
 - The **environment** is a source of truth too — `package.json` scripts, config files, the directory layout, `--help` output — and a document that restates it is a **cache**: a copy of a lookup, earning its load only when the lookup is expensive. Cache what the agent cannot find by looking: the unwritten convention, the reason behind a choice, the gotcha no config confesses. Leave the one-file, one-command lookups to the environment, where they cannot go stale.
+- **Cite a name, not a line number** — a `path:line` is a cache whose half-life is one edit *anywhere
+  above* the thing it points at, and the split is by **lifespan** rather than by document type. A
+  **finding** is consumed within hours and never re-read, so `path:line` stays correct and required
+  there: a review comment or a grounded role reviewer must keep giving it, because staleness cannot
+  reach what nobody reads twice. A **durable** document — a brief, a skill, a comment meant to outlive
+  its commit — is re-read for months, so it points at a function, a constant or a heading:
+  `markerLine`, not `findings.mjs:196`. The load-bearing half is that this one is checkable: tooling
+  validates paths because a path **is** a name, so a line number is the citation form that opts out of
+  verification. A rename is loud and shows up in a diff; a line moving from 196 to 218 is silent. Not
+  hypothetical — this repo shipped exactly that inside one PR on one day, when an edit to an unrelated
+  finding above the target shifted the cited line and left no trace. *(Cortex addition to this
+  section.)*
 - Check every line for **relevance**: does it still bear on what the document does? A line loses relevance by never bearing on the task (mere exposition, or a branch that should be disclosed) or by going stale as the behaviour or world it describes changes. Shorter documents are easier to keep relevant. Without a pruning discipline the default fate is **sediment**: stale layers that settle because adding feels safe and removing feels risky, until you must core down through them to find what is still live.
 - Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test — does it change behaviour versus the default? — is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a stronger word (_relentless_), not a different technique.
 
@@ -101,14 +113,15 @@ Two Cortex-specific notes:
   no-ops, a must-have target behind a weakly worded pointer. It never deletes prose on its own
   authority, so the judgement calls come back to the user.
 - **Cortex sets `disable-model-invocation: true` for a second reason.** Upstream weighs it purely
-  as context load versus cognitive load. `/onboard`, `/migrate-engine`, `/team-init` and
-  `/connect-brain` carry it because they are once-only or destructive and an agent must never
-  auto-fire them. Safety outranks the load trade; keep the flag when editing their frontmatter.
-  (`grep -l disable-model-invocation skills/*/SKILL.md` is the full list — it is longer than these
-  four, and `AGENTS.md` names the rest.)
+  as context load versus cognitive load. Cortex adds safety: a once-only or destructive ritual must
+  never auto-fire, and that outranks the load trade. Keep the flag when editing their frontmatter.
+  `grep -l '^disable-model-invocation: true' skills/*/SKILL.md` is the list of record — anchor it,
+  because this page and `/skill-creator` discuss the flag in prose and an unanchored grep counts
+  them as carrying it.
 
 ---
 
 Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The reference body
-and `SKILL-MECHANICS.md` are upstream and unmodified; "What this governs in Cortex" is a Cortex
+and `SKILL-MECHANICS.md` are upstream and unmodified apart from the citation bullet under Pruning,
+which is marked in place so a re-sync can tell it apart; "What this governs in Cortex" is a Cortex
 addition.

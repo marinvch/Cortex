@@ -43,12 +43,14 @@ done <<'KEYS'
 cortex-version.mjs|never hand-edit a version
 resolve_in_root|a destructive shell tool routes through the guard
 capability:|every ritual declares a floor
-disable-model-invocation|the eight rituals that may not auto-fire
+disable-model-invocation|the rituals that may not auto-fire
 --offers|the worklist is the wizard's script
 install-on-a-project.test.sh|the one test that asserts the product works
 coverage.mjs|coverage has a single home
 CORTEX_PROFILE|profile is declared, never detected
 consent gate|cortex-install never writes before the user chooses
+cortex-skill-graph.mjs|a ritual must be reachable, or declare what reaches it
+A pass is weaker|and that a green graph check does not prove it — only one outbound edge is needed
 KEYS
 
 # --- and are no longer in two places ---------------------------------------------------------------

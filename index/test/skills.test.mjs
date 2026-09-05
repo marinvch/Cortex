@@ -53,7 +53,7 @@ test("a repo with a runner and zero tests is told to write the first one, accura
   assert.ok(!ids(r).includes("add-test"), "there is no existing convention to extend");
 
   const first = r.find((c) => c.id === "write-first-test");
-  assert.match(first.why, /jest/, "the evidence names the runner it actually found");
+  assert.match(first.why, /Jest/, "the evidence names the runner it actually found");
   assert.doesNotMatch(first.why, /no test runner/, "and never claims the runner is missing");
   assert.doesNotMatch(first.title, /[Ss]et up a test runner/, "nor does the title");
 });
@@ -84,6 +84,30 @@ test("every proposal carries evidence naming what was detected", () => {
     assert.ok(p.brief && p.brief.length > 40, `${p.id} must tell the writer what belongs in the body`);
     assert.ok(p.title, `${p.id} must have a title`);
   }
+});
+
+test("evidence names the detection in the words the reader is shown, not the internal id", () => {
+  // Found by running cortex-skills against a real Next.js app, not by any fixture: the CLI printed
+  // "framework   Next.js · React" and, three lines below, "why: next, react" — and the delivery row
+  // shipped the raw camelCase identifier, "why: githubActions — the path from a green local run…".
+  // stack.mjs already owns the id → label map and the CLI already uses it above; the evidence
+  // sentences did not. Four ids differ from their label (next, nest, reactNative, githubActions),
+  // so this is a class of defect, not one typo.
+  const r = proposeSkills(ix(
+    { languages: ["typescript"], frameworks: ["next", "react"], delivery: ["githubActions"], test: ["jest"] },
+    { files: 120, tests: 0 },
+  ));
+  const why = (id) => r.find((p) => p.id === id).why;
+
+  assert.match(why("add-route"), /Next\.js/, "the framework is named the way the reader saw it named");
+  assert.doesNotMatch(why("add-route"), /(^|\W)next(\W|$)/, "never the bare id");
+  assert.match(why("ship-it"), /GitHub Actions/);
+  assert.doesNotMatch(why("ship-it"), /githubActions/, "a camelCase id in prose reads as a bug");
+
+  // An id with no label of its own still comes through — labelsFor falls back to the id, and a
+  // signal whose label is just its name (docker, prisma) must not become blank.
+  const d = proposeSkills(ix({ delivery: ["docker"] }, { files: 20, tests: 5 }));
+  assert.match(d.find((p) => p.id === "ship-it").why, /docker/i);
 });
 
 test("ranking is deterministic and drives the interview order", () => {

@@ -137,6 +137,13 @@ export function analyse(index, root) {
     return out;
   }
 
+  // Areas that would take a scoped brief and do not have one. Computed once, up here, because two
+  // findings need the same answer: the one below asks whether a large root has anywhere to be cut
+  // into, and the scoped-brief proposal further down names the candidates. A directory that already
+  // has a brief is done, not a candidate — re-proposing finished work is how a report teaches
+  // people to stop reading it.
+  const briefs = briefCandidates(index.files).filter((b) => !has(join(b.dir, "AGENTS.md")));
+
   // --- Context layer: the thing Cortex exists to manage -------------------------------------
   if (!has("AGENTS.md") && !has("CLAUDE.md")) {
     out.push(
@@ -152,16 +159,31 @@ export function analyse(index, root) {
   } else if (has("AGENTS.md")) {
     const lines = readFileSync(join(root, "AGENTS.md"), "utf8").split("\n").length;
     if (lines > 250) {
+      // The measurement is right either way; the REMEDY depends on whether there is anywhere left
+      // to cut. This offered `brief` unconditionally, so on a repo whose areas all already have
+      // leaves it emitted `{"action":"brief","targets":[]}` — the detector saying in its own output
+      // that its proposed remedy has no candidate. offers() is the wizard's script (ADR 0006), so
+      // that walks the interview into a step asking the user to choose among nothing.
+      //
+      // `briefs` is the same list the scoped-brief proposal below names, so the two producers of a
+      // `brief` offer can only ever collapse onto real targets.
+      const canCut = briefs.length > 0;
       out.push(
         finding(
           "medium",
           "context",
           `AGENTS.md is ${lines} lines`,
-          "A single large context file is loaded in full on every turn, whether or not it is relevant. Splitting the area-specific parts into scoped leaves with a routing table keeps the root small and loads detail only where work happens.",
+          canCut
+            ? "A single large context file is loaded in full on every turn, whether or not it is relevant. Splitting the area-specific parts into scoped leaves with a routing table keeps the root small and loads detail only where work happens."
+            : "A single large context file is loaded in full on every turn, whether or not it is relevant. This root already routes to a leaf for every area that wants one, so there is nothing left to split out — what has grown is the root's own prose. That is a reading job rather than a structural one: run `/optimize-context` on this file. Cortex does not offer to do it here, because measuring the size of a document is not the same as knowing which of its sentences is redundant.",
           [],
           // Split into leaves — never re-scaffold. The root file here is curated, and the
           // never-clobber rule is the whole reason it survives a second install.
-          offer("brief"),
+          //
+          // No offer in the other branch, deliberately. A finding Cortex cannot act on is reported
+          // as context; inventing an action to fill the column asks a question the index never
+          // earned, and every action in ACTIONS names something the wizard has a row for.
+          canCut ? offer("brief", briefs.map((b) => b.dir)) : null,
         ),
       );
     }
@@ -197,8 +219,33 @@ export function analyse(index, root) {
   // documentation of credential formats legitimately contain secret-shaped strings, and a scanner
   // that cries wolf on its own fixtures teaches people to ignore every other finding. Exemptions
   // are counted in the report, never silent.
+  //
+  // Two rules make that counting mean something, and they were hiding each other.
+  //
+  // **A claim is positional; a mention is not.** The marker is a statement about the file that
+  // carries it, so it counts only in the header. A bare `includes` reads any occurrence as a claim,
+  // which exempts every file that merely *discusses* the mechanism — on this repo, `findings.mjs`
+  // itself and its own test. Same distinction `citationDrift` draws, and the same trap the
+  // `disable-model-invocation` grep fell into (unanchored 8, frontmatter-anchored 6).
+  //
+  // **A marker is checked before the scan result, not after.** The old order bailed on an empty
+  // scan first, so a file whose fixtures stopped matching kept a blanket opt-out that could never
+  // appear in any report — and it was the empty-scan bail that kept the over-matching above
+  // invisible. Fixing either alone makes the report worse: the ordering alone surfaces every
+  // discussion file as an exemption, and the narrowing alone leaves dormant markers unlistable.
+  const MARKER = "cortex:allow-secrets";
+  const MARKER_HEADER_LINES = 10;
+  // Kept in step with tools/test/dormant-exemptions.test.sh, which enforces the same rule on this
+  // repo. Two different answers to "is this file exempt" is the drift /cortex-review exists to find.
+  const markerLine = (text) => {
+    const head = text.split("\n", MARKER_HEADER_LINES);
+    const i = head.findIndex((l) => l.includes(MARKER));
+    return i === -1 ? null : i + 1;
+  };
+
   const leaky = [];
   const exempt = [];
+  const dormant = [];
   for (const f of index.files) {
     if (f.category === "docs" || f.bytes > 400_000) continue;
     let text;
@@ -207,12 +254,16 @@ export function analyse(index, root) {
     } catch {
       continue;
     }
+    const marker = markerLine(text);
     const hits = scan(text);
-    if (!hits.length) continue;
-    if (text.includes("cortex:allow-secrets")) {
-      exempt.push({ path: f.path, hits: hits.length });
+    if (marker !== null) {
+      // An exemption with hits is doing a job; one without is a standing opt-out over nothing.
+      // They are different facts with different actions, so they are never merged into one list.
+      if (hits.length) exempt.push({ path: f.path, hits: hits.length });
+      else dormant.push({ path: f.path, line: marker });
       continue;
     }
+    if (!hits.length) continue;
     leaky.push({ path: f.path, hits });
   }
   if (exempt.length) {
@@ -221,11 +272,28 @@ export function analyse(index, root) {
         "low",
         "security",
         `${exempt.length} file${exempt.length === 1 ? "" : "s"} exempted from the secret scan`,
-        "These carry a `cortex:allow-secrets` marker, so their secret-shaped strings are treated as fixtures. Worth re-reading occasionally: the marker is a claim by whoever added it, not a guarantee — and a file that later gains a real credential keeps the exemption it was granted for a fixture.",
+        "These carry a `cortex:allow-secrets` marker in their header, so their secret-shaped strings are treated as fixtures. Worth re-reading occasionally: the marker is a claim by whoever added it, not a guarantee — and a file that later gains a real credential keeps the exemption it was granted for a fixture.",
         // Named, not merely counted. "Worth re-reading" is not an instruction anyone can act on
         // against a number, and the entire reason an exemption is surfaced instead of applied
         // silently is so a human can go and check it.
         exempt.map((e) => `${e.path} — ${e.hits} secret-shaped ${e.hits === 1 ? "string" : "strings"}`),
+      ),
+    );
+  }
+  if (dormant.length) {
+    // Its own finding, not a row in the list above. Rendering it there would read
+    // "path — 0 secret-shaped strings", which looks like a bug in the report rather than a fact
+    // about the repo — and the action is the opposite one. An active exemption is re-read; a
+    // dormant one is deleted. A finding's detail is a single recommended action, so two actions
+    // are two findings.
+    out.push(
+      finding(
+        "low",
+        "security",
+        `${dormant.length} secrets exemption${dormant.length === 1 ? "" : "s"} no longer exempt${dormant.length === 1 ? "s" : ""} anything`,
+        "These carry a `cortex:allow-secrets` marker in their header, and the scanner now finds nothing in them to exempt — the fixture was deleted, moved, or stopped matching. The marker is dormant in what it hides, not in what it covers: it opts the whole file out of the secret scan, so a real credential added here later would never be reported, and nothing would say so. An exemption with nothing to exempt is deleted rather than kept for a rainy day; re-adding one costs a line.",
+        // The line number, because the action is to go and delete that line.
+        dormant.map((e) => `${e.path}:${e.line} — marker present, scan is clean`),
       ),
     );
   }
@@ -249,7 +317,7 @@ export function analyse(index, root) {
           ? `Secret-shaped strings in ${leaky.length} test file${leaky.length === 1 ? "" : "s"}`
           : `Possible secrets in ${production.length} file${production.length === 1 ? "" : "s"}`,
         allFixtures
-          ? "Every match sits under a test or fixture path, so this is very likely intentional — test certificates and dummy credentials are normal. Reported rather than hidden because Cortex cannot tell a fixture from a real key that was filed in the wrong place. Add a `cortex:allow-secrets` marker to settle it."
+          ? "Every match sits under a test or fixture path, so this is very likely intentional — test certificates and dummy credentials are normal. Reported rather than hidden because Cortex cannot tell a fixture from a real key that was filed in the wrong place. Add a `cortex:allow-secrets` marker in the file's first 10 lines to settle it — a marker further down is read as prose about the mechanism, not as a claim about the file."
           : "Cortex refuses to write memory containing these patterns, and they should not be in the repo either. Verify each one — some will be test fixtures or examples, which is exactly why this is reported rather than acted on.",
         leaky.slice(0, 20).map((l) => `${l.path}: ${l.hits.map((h) => h.kind).join(", ")}`),
         // Show and stop. There is deliberately no action here that edits a file: some hits are
@@ -410,9 +478,8 @@ export function analyse(index, root) {
   }
 
   // --- Scoped-brief proposals ----------------------------------------------------------------
-  // A directory that already has a brief is done, not a candidate. Re-proposing finished work is
-  // how a report teaches people to stop reading it.
-  const briefs = briefCandidates(index.files).filter((b) => !has(join(b.dir, "AGENTS.md")));
+  // `briefs` is computed at the top of this function, because the root-size finding needs the same
+  // answer to know whether cutting a leaf is even available as a remedy.
   if (briefs.length) {
     out.push(
       finding(

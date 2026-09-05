@@ -136,17 +136,36 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 node --test index/test/*.test.mjs
 ```
 
-`lib/` is well covered. Most CLIs at the top level are not — Cortex reports this about itself and
-it is a true positive; the gap is argument parsing and file writing.
+`lib/` is well covered. So is `cortex-memory.mjs`, whose whole surface is one write and one
+refusal — `index/test/cli.test.mjs` asserts the exit code and that the refusal never echoes the
+secret, and the judgement it forwards to lives in `core/scrub.js`. It is the only CLI here that
+needs nothing more.
 
-Three are exceptions, each covered by a `tools/test/cortex-*.test.sh` against a real git fixture.
-The rule for which CLI earns one: **does it print a sentence a user will act on, or write into
-their repo?** A CLI whose only failure mode is a crash does not need one — a stack trace is its own
-report.
+Every other one earns a `tools/test/cortex-*.test.sh` against a **real git fixture**, by the rule:
+**does it print a sentence a user will act on, or write into their repo?** A CLI whose only failure
+mode is a crash does not need one — a stack trace is its own report. The reason these must be git
+fixtures and not `mkdtemp` directories is that git is what decides the answer: `walk.mjs` asks it
+(ADR 0003), churn drives severity, and a non-git fixture can only ever execute one side of both.
 
+- `cortex-index.mjs` — the `Skipped by name` count is what stops an incomplete index from reading
+  as a complete one, and only git can overrule the `bin/` guess. It also writes `.gitignore`, where
+  `.cortex/memory/` must stay *un*ignored because it is committed.
+- `cortex-findings.mjs` — the report is the wizard's script (ADR 0006), so severity is control flow,
+  and the branch that promotes a finding to `high` is reachable only from a real commit history.
+- `cortex-enrich.mjs` — the one place a model wrote the input. Every drop must be reported, and
+  `status` and `merge` must agree about what a batch result looks like: they did not, so `status`
+  told agents to redo work `merge` accepted without a single issue.
+- `cortex-skills.mjs` — it writes nothing, so everything it is worth is in the sentences it prints,
+  including the three refusals: no index, no manifest, already present.
 - `cortex-impact.mjs` — a confident total instead of a floor tells someone to stop looking.
 - `cortex-next.mjs` — a wrong "next", or a ✓ on a step nobody ran, walks the user past the step
   that writes their context layer.
+- `cortex-review.mjs` — the only thing that reads the context layer back, and its two honest
+  failures are claiming a rule exists where there is no context layer, and staying quiet about a
+  document the change just made wrong.
 - `cortex-view.mjs` — it writes into a target repo, so *where* it writes is the invariant, and its
   determinism is only observable from outside. A first run did once disagree with the second,
   because the page reported on its own existence.
+
+`tools/test/install-on-a-project.test.sh` is not one of these and does not replace them: it asserts
+the *pipeline* works on a repo shaped like product code, so a red there names three CLIs at once.

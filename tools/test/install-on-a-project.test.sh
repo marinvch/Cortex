@@ -1,7 +1,9 @@
 # cortex:allow-secrets — the strings below are the fixture repo this test BUILDS, not credentials.
-# sk_live_0000000000000000 is sixteen zeroes and hunter2 is a punchline; both exist so the secrets
-# finding has something to find. Without this marker Cortex reports itself as leaking, and a
-# critical finding that is always wrong is how a team learns to skip the critical section.
+# The Stripe-shaped value is a live-key prefix followed by sixteen zeroes and the password is the
+# hunter2 punchline; both exist so the secrets finding has something to find. Named in prose, never
+# written out here — a literal in this header is one more hit to clear in the very file whose
+# exemption is under review. Without the marker Cortex reports itself as leaking, and a critical
+# finding that is always wrong is how a team learns to skip the critical section.
 
 # Cortex works on somebody else's repository.
 #

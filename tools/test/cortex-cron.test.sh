@@ -1,5 +1,7 @@
-# cortex:allow-secrets — ANTHROPIC_API_KEY is set to "test-key-not-real" here so the failure path
-# has a key shaped like one. It reaches a closed local port on purpose and authenticates nothing.
+# ANTHROPIC_API_KEY is set to "test-key-not-real" here so the failure path has a key shaped like
+# one. It reaches a closed local port on purpose and authenticates nothing. It carries no
+# secrets-exemption marker: the value reads as a placeholder so the scan finds nothing, and a
+# blanket exemption over a clean file has no hits to surface it for the periodic re-read.
 
 # tools/server/cortex-cron.sh — run for real against a local bare remote.
 #

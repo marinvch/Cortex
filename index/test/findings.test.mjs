@@ -139,6 +139,70 @@ test("the exemption is never silent", () => {
   assert.ok(out.some((f) => /exempted/.test(f.title)), "an exemption must appear in the report");
 });
 
+// The marker is written by concatenation in the two tests below, because they assert what happens
+// when a file MENTIONS it — spelled out, the fixture would be making the claim it is meant to be
+// merely discussing, which is the self-matching trap in miniature.
+const MARK = ["cortex:", "allow-secrets"].join("");
+
+test("a marker with nothing left to exempt is reported, not swallowed", () => {
+  // The defect: the loop bailed on an empty scan BEFORE testing for the marker, so a file whose
+  // fixture was deleted or stopped matching the scanner kept a blanket opt-out that could never
+  // appear in any report. tools/test/cortex-cron.test.sh sat that way for real — its fake key began
+  // with "test", core/scrub.js added "test" to PLACEHOLDER, the hits went to zero, and the marker
+  // stayed. Invisible in both directions, because the marker also suppresses the secrets finding.
+  const root = repo({ "test/cron.test.js": `// ${MARK}\nconst key = "nothing secret here";\n` });
+  const sec = findingsOfKind(analyse(index([{ path: "test/cron.test.js", isTest: true }]), root), "security");
+
+  assert.equal(sec.length, 1, "a dormant marker is the whole security story for this repo");
+  assert.match(sec[0].title, /no longer exempts anything/);
+  assert.equal(sec[0].severity, "low", "no secret is leaking — this is hygiene, not an alarm");
+  assert.match(sec[0].evidence[0], /^test\/cron\.test\.js:1 /, "the line to delete is named");
+
+  // Its own finding, with its own action. Rendered as a row in the exemptions list it would read
+  // "0 secret-shaped strings", which looks like a bug in the report; and the action is the
+  // opposite one — an active exemption is re-read, a dormant one is deleted.
+  assert.doesNotMatch(sec[0].title, /exempted from the secret scan/);
+  assert.match(sec[0].detail, /deleted/, "the detail names the action, and it is not 're-read'");
+  assert.ok(!sec[0].evidence.some((e) => /\b0 secret-shaped/.test(e)), "and never counts zero of anything");
+});
+
+test("a file that only DISCUSSES the marker is not exempt, and is not dormant either", () => {
+  // The trap the ordering fix walks into on its own. `text.includes(...)` matches anywhere, so
+  // every file explaining the mechanism claims the exemption — on this repo, findings.mjs itself
+  // and this very test file. That was invisible only because the empty-scan bail ran first, so the
+  // two bugs hid each other: fix the order without narrowing the claim and five discussion files
+  // immediately surface as dormant exemptions, which is a worse report than the one we started
+  // with. A claim is positional, a mention is not — the same rule citationDrift holds itself to.
+  const prose = `${"\n".repeat(30)}// The scanner honours a ${MARK} comment.\n`;
+  const root = repo({ "src/doc.js": prose });
+  assert.equal(
+    findingsOfKind(analyse(index([{ path: "src/doc.js" }]), root), "security").length,
+    0,
+    "a mention below the header is prose about the mechanism, not an exemption",
+  );
+
+  // And the narrowing must not blind the scanner: a real secret beside a late mention is still a
+  // leak. This is the direction of error that matters — a marker out of place costs a finding the
+  // report tells you to verify by hand; a marker honoured anywhere costs the finding entirely.
+  const leaky = repo({
+    "src/conf.js": `${"\n".repeat(30)}// see ${MARK}\nconst k = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";`,
+  });
+  const sec = findingsOfKind(analyse(index([{ path: "src/conf.js" }]), leaky), "security");
+  assert.equal(sec.length, 1);
+  assert.equal(sec[0].severity, "critical", "a mention does not exempt a real credential");
+});
+
+test("a marker in the header still exempts, so the narrowing costs nothing real", () => {
+  // The rule is positional, not first-line-only: a shebang, a licence line or a file docstring
+  // routinely sits above the marker. Line 5 of 10 must still be a claim.
+  const key = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
+  const root = repo({ "test/corpus.test.js": `#!/usr/bin/env node\n//\n// Scanner corpus.\n//\n// ${MARK}\nconst fake = "${key}";\n` });
+  const sec = findingsOfKind(analyse(index([{ path: "test/corpus.test.js", isTest: true }]), root), "security");
+  assert.equal(sec.length, 1);
+  assert.match(sec[0].title, /exempted from the secret scan/, "a header marker below line 1 still exempts");
+  assert.match(sec[0].evidence[0], /1 secret-shaped string$/, "and the active list still counts what it hides");
+});
+
 test("missing context files are reported, and present ones are not", () => {
   const bare = analyse(index([{ path: "a.js" }]), repo());
   assert.ok(bare.some((f) => /No agent context file/.test(f.title)));
@@ -271,10 +335,58 @@ test("an area that deserves a brief offers one, and names it as the target", () 
   assert.deepEqual(offerOf(f).targets, ["billing"], "the offer names the directory, not just the action");
 });
 
+// Five code files in a directory is what briefCandidates asks for, so a repo that genuinely has
+// somewhere to cut needs one. The earlier version of the test below used a single root-level file,
+// which is why it passed while the offer it asserted carried no candidates at all.
+const anAreaWorthABrief = () =>
+  ["src/a.js", "src/b.js", "src/c.js", "src/d.js", "src/e.js"].map((path) => ({ path }));
+
 test("an oversized AGENTS.md offers splitting, not re-scaffolding", () => {
   const root = repo({ "AGENTS.md": `${"line\n".repeat(300)}`, "CONTEXT.md": "x" });
-  const [f] = analyse(index([{ path: "a.js" }]), root).filter((x) => /AGENTS\.md is \d+ lines/.test(x.title));
+  const [f] = analyse(index(anAreaWorthABrief()), root).filter((x) => /AGENTS\.md is \d+ lines/.test(x.title));
   assert.equal(offerOf(f)?.action, "brief", "a large root brief is split into leaves, not overwritten");
+  assert.deepEqual(offerOf(f).targets, ["src"], "and the offer names where to cut");
+});
+
+test("an oversized root with nowhere left to cut offers nothing, and says what to do instead", () => {
+  // The defect: `offer("brief")` fired on size alone, so a repo whose areas all already have leaves
+  // emitted {"action":"brief","targets":[]} — the detector reporting, in its own output, that its
+  // remedy has no candidate. offers() is the wizard's script (ADR 0006), so an empty-target entry
+  // walks the interview into a question with nothing to choose between.
+  const root = repo({
+    "AGENTS.md": `${"line\n".repeat(300)}`,
+    "CONTEXT.md": "x",
+    "src/AGENTS.md": "# the leaf that already exists\n",
+  });
+  const all = analyse(index(anAreaWorthABrief()), root);
+  const [f] = all.filter((x) => /AGENTS\.md is \d+ lines/.test(x.title));
+
+  assert.ok(f, "the measurement still stands — the root really is too long");
+  assert.equal(offerOf(f), null, "but a remedy with no candidate is not offered");
+  assert.match(f.detail, /optimize-context/, "the reader is still told what to run");
+  assert.match(f.detail, /nothing left to split out/, "and why cutting a leaf is not it");
+
+  // The whole point: the wizard's script must not contain a step with nothing to choose between.
+  // `scaffold`, `enrich` and `memory` legitimately carry no targets — the question is whole-repo.
+  // `brief` is the one whose entire question is "which of these", so an empty list there is a
+  // dead end rather than a shape.
+  assert.ok(
+    !offers(all).some((o) => o.action === "brief"),
+    "no brief entry reaches the wizard with nothing to name",
+  );
+});
+
+test("the two producers of a brief offer collapse onto one set of real targets", () => {
+  // Both the root-size finding and the scoped-brief proposal emit `brief`, and offers() merges by
+  // action. They must name the same candidates, or the merged entry's targets depend on which
+  // finding happened to be seen first.
+  const root = repo({ "AGENTS.md": `${"line\n".repeat(300)}`, "CONTEXT.md": "x" });
+  const all = analyse(index([...anAreaWorthABrief(), ...["lib/a.js", "lib/b.js", "lib/c.js", "lib/d.js", "lib/e.js"].map((path) => ({ path }))]), root);
+  const brief = offers(all).filter((o) => o.action === "brief");
+
+  assert.equal(brief.length, 1, "two findings, one question");
+  assert.deepEqual([...brief[0].targets].sort(), ["lib", "src"], "carrying every candidate, listed once each");
+  assert.ok(brief[0].findings.length >= 2, "and remembering both findings that asked for it");
 });
 
 test("a possible secret offers triage and never remediation", () => {

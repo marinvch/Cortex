@@ -23,7 +23,7 @@ before overturning one; the line here is the trigger, not the case.
   reached by name, so none may auto-fire. `grep -l '^disable-model-invocation: true' skills/*/SKILL.md`
   is the list of record; keep the flag when editing their frontmatter. Anchor the grep — the flag is
   discussed in prose too, and the unanchored version counts a skill that merely mentions it, which is
-  how this line spent two releases naming the wrong number.
+  how this line carried the wrong number from 2.14.0 until 2.36.0.
 - **The findings report is `/cortex-install`'s script, so `analyse()`'s ranking is control flow.**
   The wizard walks `offers()` top-down, so re-ranking a finding changes the interview, not just a
   document. Offers collapse by action; severity never implies an offer. Read the worklist with

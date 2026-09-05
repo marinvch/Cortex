@@ -95,6 +95,52 @@ const SIGNALS = [
   { id: "githubActions", label: "GitHub Actions", kind: "delivery", file: /^\.github\/workflows\/.+\.ya?ml$/ },
 ];
 
+// --- Considered and declined ------------------------------------------------------------------
+//
+// A row that is NOT here is a decision, and a decision nobody wrote down gets re-litigated. Same
+// reason this repo keeps ADRs. Each of the following was looked at against a real cloned repository
+// and left out; the reason is the part that should stop it being re-proposed.
+//
+// The standard every row above meets: a manifest string that is DECLARED, that means one thing, and
+// that was seen in a real project. A row that never fires is worse than an absent one, because it
+// makes the table look complete.
+//
+// - **C and C++.** No manifest identifies either. `CMakeLists.txt` and `meson.build` say "this is a
+//   C-family build" and cannot separate the two; `Makefile` appears in repos of every ecosystem.
+//   They could only ever both fire or both be wrong. `langs.mjs` already counts the files by
+//   extension, which is the honest answer available.
+//
+// - **Kotlin.** There is no Kotlin-specific manifest — it shares Gradle and Maven with Java.
+//   `build.gradle.kts` is the Gradle *Kotlin DSL* and proves nothing about the source: a Java
+//   project may use it, and `playframework` (Scala) does. The fallback of keying on the Kotlin
+//   plugin id misses `square/okhttp` — 573 `.kt` files — which declares it through a Gradle version
+//   catalog as `alias(libs.plugins.kotlin.jvm)`, with no literal id anywhere in the build file.
+//
+// - **Go, Rust and Scala frameworks.** Genuinely fragmented, with no dominant one to key on. For Go
+//   the most common "framework" is the standard library's `net/http`; gin, echo, fiber and chi split
+//   the rest. axum/actix/rocket and Play/Akka/http4s are the same shape. Picking one would report a
+//   stack most repos in that language do not have.
+//
+// - **Swift frameworks.** SwiftUI and UIKit are imported in code and never declared in
+//   `Package.swift`. Detecting them means inferring a stack from source, which is exactly what the
+//   header of this file rules out — a guess here becomes a skill telling someone to run a command
+//   their repo does not have.
+//
+// - **Data-layer rows: EF Core, JPA, Ecto.** Deliberately deferred rather than rejected. The
+//   evidence exists and is worth starting from — `Include="Microsoft.EntityFrameworkCore"` in a
+//   `.csproj`, `spring-boot-starter-data-jpa` in a `pom.xml`, `{:ecto_sql` in `mix.exs` — but each
+//   was seen in exactly ONE repository, and EF Core has a failure mode a single sample cannot
+//   settle: a project that declares only `Microsoft.EntityFrameworkCore.SqlServer` and gets the base
+//   package transitively would silently miss. Partial-and-silent is the worst state a detector can
+//   be in, because a repo with a data layer and no `add-migration` proposal looks exactly like a
+//   repo without one. Validate against a second and third repo per ecosystem before adding these.
+//
+// Widening a matcher to make a row fit is the move to be most careful about. The leading-boundary
+// change below was made because no dependency in an XML or Elixir manifest could match at ALL, and
+// it was checked against five previously-indexed repositories that all produced a byte-identical
+// stack. Compare `citationDrift` in review.mjs, where a loosening that looked harmless took this
+// repo from 7 real findings to 157. Measure against real repos before and after, or do not widen.
+
 /**
  * A dependency name appearing as a KEY in the manifest, not anywhere in its text. `"next"` occurs
  * inside `"next-auth"` and inside a hundred description strings; matching loosely reports a stack

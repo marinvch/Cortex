@@ -204,7 +204,7 @@ assert_eq "1" "$rc" "an unregistered flag is refused, so its value cannot become
 out="$(node "$ENRICH" plan "$WORK/no-such-repo" 2>&1)"; rc=$?
 assert_eq "1" "$rc" "a root that does not exist is a refusal"
 assert_contains "$out" "not a directory" "which says what is wrong"
-assert_contains "$out" "Nothing was written" "and that nothing happened"
+assert_contains "$out" "Nothing was changed" "and that nothing happened"
 assert_not_contains "$out" "Planned 0 batches" "never a confident empty plan"
 
 printf 'x\n' > "$WORK/afile"

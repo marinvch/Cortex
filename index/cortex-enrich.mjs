@@ -10,12 +10,13 @@
 // grouping, and whether the result is acceptable — lives in code, so an interrupted run resumes
 // by simply re-running `plan` and doing what `status` still lists as pending.
 
-import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { computeBatches, batchStats } from "./lib/batch.mjs";
 import { mergeEnrichment, isStale, classifyBatches, ENRICHED_REL } from "./lib/enrich.mjs";
 import { ensureGeneratedDir } from "./lib/generated.mjs";
+import { rootProblem } from "./lib/root.mjs";
 
 const cmd = process.argv[2];
 
@@ -67,18 +68,10 @@ const root = resolve(rootArg(argv) ?? process.cwd());
 // arrive by a mangled flag, a typo in the path, or a shape nobody has thought of yet — and the
 // damage is the same every time: `buildIndex` returns zero files rather than throwing, so the run
 // reports "Planned 0 batches" and exits 0. A confident empty answer is the defect; the argument
-// that produced it is only one route to it.
-let rootStat = null;
-try {
-  rootStat = statSync(root);
-} catch {
-  /* reported below */
-}
-if (!rootStat?.isDirectory()) {
-  process.stderr.write(
-    `not a directory: ${root}\n` +
-      "Nothing was written. Pass the repository root, or run from inside it with no path argument.\n",
-  );
+// that produced it is only one route to it. Shared with every other CLI here — see lib/root.mjs.
+const rootIssue = rootProblem(root);
+if (rootIssue) {
+  process.stderr.write(rootIssue);
   process.exit(1);
 }
 

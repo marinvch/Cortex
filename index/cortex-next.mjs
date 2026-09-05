@@ -16,6 +16,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
 import { nextSteps, nextLine } from "./lib/next.mjs";
+import { rootProblem } from "./lib/root.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, json: false, line: false, index: null };
@@ -37,6 +38,15 @@ if (args.help) {
 }
 
 const root = resolve(args.root || process.cwd());
+
+// A root that is not a directory produces a confident empty answer, not an error: buildIndex
+// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
+// a stale path in a script) does not matter, the output does.
+const rootIssue = rootProblem(root);
+if (rootIssue) {
+  process.stderr.write(rootIssue);
+  process.exit(1);
+}
 const indexPath = args.index
   ? (isAbsolute(args.index) ? args.index : resolve(args.index))
   : join(root, ".cortex", "index", "index.json");

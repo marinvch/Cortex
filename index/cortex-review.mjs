@@ -17,6 +17,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
 import { execFileSync } from "node:child_process";
 import { reviewContext, citationDrift } from "./lib/review.mjs";
+import { rootProblem } from "./lib/root.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, paths: [], staged: false, since: null, json: false, index: null, citations: false, fix: false };
@@ -36,6 +37,15 @@ function parseArgs(argv) {
 
 const args = parseArgs(process.argv.slice(2));
 const root = resolve(args.root || process.cwd());
+
+// A root that is not a directory produces a confident empty answer, not an error: buildIndex
+// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
+// a stale path in a script) does not matter, the output does.
+const rootIssue = rootProblem(root);
+if (rootIssue) {
+  process.stderr.write(rootIssue);
+  process.exit(1);
+}
 const indexPath = args.index
   ? isAbsolute(args.index)
     ? args.index

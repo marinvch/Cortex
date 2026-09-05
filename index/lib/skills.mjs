@@ -14,7 +14,21 @@
 // surfaced; the ritual writes the body, because a useful body quotes this repo's real commands and
 // real paths, and inventing those is exactly the failure a deterministic module cannot detect.
 
+import { labelsFor } from "./stack.mjs";
+
 const has = (list, id) => Array.isArray(list) && list.includes(id);
+
+/**
+ * The detected ids, written the way a person reads them.
+ *
+ * `stack.mjs` already owns the id → label mapping and `cortex-skills.mjs` already uses it for the
+ * "Detected stack" block; the evidence sentences did not, so the same run printed "Next.js · React"
+ * two lines above "why: next, react", and the delivery row shipped the raw camelCase identifier:
+ * "why: githubActions — the path from a green local run…". Seen on a real Next.js app, not on any
+ * fixture. The rule is that the evidence names what was **detected** — one vocabulary, or the
+ * sentence names the same fact twice in two spellings and one of them looks like a bug.
+ */
+const named = (ids) => labelsFor(ids ?? []).join(", ");
 
 /**
  * Every skill Cortex can propose. Each row is:
@@ -40,7 +54,7 @@ export const SKILL_CANDIDATES = [
     when: (s) => s.stats.tests === 0 && s.stats.files > 5,
     why: (s) =>
       s.stack.test.length > 0
-        ? `${s.stack.test.join(", ")} is in a manifest but no test file exists — the runner is installed, not used`
+        ? `${named(s.stack.test)} is in a manifest but no test file exists — the runner is installed, not used`
         : "no test files and no test runner in any manifest — every change here is unverified",
     brief:
       "If no runner is declared, pick the one that matches the stack rather than a favourite and wire " +
@@ -56,7 +70,7 @@ export const SKILL_CANDIDATES = [
     // Both halves matter: a runner to extend, AND an existing test to read the convention off.
     // Without the second, there is no convention and write-first-test is the honest offer.
     when: (s) => s.stack.test.length > 0 && s.stats.tests > 0,
-    why: (s) => `${s.stack.test.join(", ")} already set up — new work should extend it, not invent a second way`,
+    why: (s) => `${named(s.stack.test)} already set up — new work should extend it, not invent a second way`,
     brief:
       "Name the runner, the exact command to run one file, and where tests live relative to source " +
       "in THIS repo (co-located vs a test/ directory — read it, do not assume). A second testing " +
@@ -80,7 +94,7 @@ export const SKILL_CANDIDATES = [
     title: "Change the database schema and migrate",
     rank: 40,
     when: (s) => s.stack.data.length > 0,
-    why: (s) => `${s.stack.data.join(", ")} owns the schema — schema edits and migrations must move together`,
+    why: (s) => `${named(s.stack.data)} owns the schema — schema edits and migrations must move together`,
     brief:
       "The exact generate/migrate commands from this repo's manifest scripts, the real schema path " +
       "(read it — a generated client is often NOT at the library default), and the rule that a " +
@@ -93,7 +107,7 @@ export const SKILL_CANDIDATES = [
     when: (s) => has(s.stack.frameworks, "next") || has(s.stack.frameworks, "express") ||
                  has(s.stack.frameworks, "nest") || has(s.stack.frameworks, "fastapi") ||
                  has(s.stack.frameworks, "flask") || has(s.stack.frameworks, "django"),
-    why: (s) => `${s.stack.frameworks.join(", ")} — a new endpoint touches routing, validation and the data layer together`,
+    why: (s) => `${named(s.stack.frameworks)} — a new endpoint touches routing, validation and the data layer together`,
     brief:
       "Trace one EXISTING endpoint in this repo and describe that path, so the skill teaches the " +
       "convention already in use rather than the framework's tutorial. Name where validation " +
@@ -104,7 +118,7 @@ export const SKILL_CANDIDATES = [
     title: "Work on authentication without weakening it",
     rank: 60,
     when: (s) => has(s.stack.services, "nextauth") || has(s.stack.services, "supabase"),
-    why: (s) => `${s.stack.services.filter((x) => x === "nextauth" || x === "supabase").join(", ")} handles sessions — auth edits fail open if the guard is wrong`,
+    why: (s) => `${named(s.stack.services.filter((x) => x === "nextauth" || x === "supabase"))} handles sessions — auth edits fail open if the guard is wrong`,
     brief:
       "Where the session is read, which routes are protected and by what mechanism, and the " +
       "failure mode that matters: an auth bug fails OPEN and looks like a working page. Say how to " +
@@ -126,7 +140,7 @@ export const SKILL_CANDIDATES = [
     title: "Get a change through CI and out",
     rank: 80,
     when: (s) => has(s.stack.delivery, "githubActions") || has(s.stack.delivery, "docker"),
-    why: (s) => `${s.stack.delivery.join(", ")} — the path from a green local run to a deployed change is worth writing down once`,
+    why: (s) => `${named(s.stack.delivery)} — the path from a green local run to a deployed change is worth writing down once`,
     brief:
       "The actual workflow files and what each gate checks, in order. If the pipeline has a step " +
       "that commonly fails, name it and its fix — that is the whole value of the skill.",

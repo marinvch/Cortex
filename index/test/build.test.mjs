@@ -147,6 +147,148 @@ test("tsconfig path aliases resolve, including through an extends chain", () => 
   assert.equal(idx.files.find((f) => f.path === "src/utils/fmt.ts").inbound, 1);
 });
 
+test("a solution-style tsconfig resolves the aliases its references declare", () => {
+  // The exact three-file layout `npm create vite@latest -- --template react-ts` generates. The root
+  // config holds no options at all, so a resolver that only opens files named tsconfig.json sees an
+  // empty table and stops; every `paths` entry lives in tsconfig.app.json, whose name fails that
+  // check. On a real Vite repo that cost 96 of 109 internal imports and produced 30 orphans.
+  //
+  // tsconfig.node.json matters here too: it sits in the same directory and declares no `paths`, so
+  // a lookup returning the first table for a directory could pick it and hide the app's aliases.
+  const root = mkdtempSync(join(tmpdir(), "cortex-tssol-"));
+  mkdirSync(join(root, "src", "shared"), { recursive: true });
+
+  writeFileSync(join(root, "tsconfig.json"), '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }');
+  writeFileSync(
+    join(root, "tsconfig.app.json"),
+    '{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["./src/*"] } }, "include": ["src"] }',
+  );
+  writeFileSync(join(root, "tsconfig.node.json"), '{ "compilerOptions": { "target": "ES2023" }, "include": ["vite.config.ts"] }');
+  writeFileSync(join(root, "src", "main.tsx"), 'import { fmt } from "@/shared/fmt";\nimport React from "react";\n');
+  writeFileSync(join(root, "src", "shared", "fmt.ts"), "export const fmt = 1;\n");
+
+  const idx = buildIndex(root);
+  assert.deepEqual(idx.files.find((f) => f.path === "src/main.tsx").imports, ["src/shared/fmt.ts"]);
+  assert.ok(idx.edges.some((e) => e.from === "src/main.tsx" && e.to === "src/shared/fmt.ts"));
+});
+
+test("a workspace reference names a directory, and each package keeps its own aliases", () => {
+  // TypeScript lets a reference name a directory, meaning that directory's tsconfig.json, and that
+  // is the usual form in a workspace. Handling it is not optional: `readFileSync` on a directory
+  // throws, so the alternative is a config silently lost inside the catch.
+  //
+  // The keying is the part most easily got wrong. Both packages declare the same `~/*` key against
+  // `./src/*`, so a table keyed where the *referrer* sits would point both at a root `src/` that
+  // does not exist — or, worse, at each other's files.
+  const root = mkdtempSync(join(tmpdir(), "cortex-tsrefdir-"));
+  mkdirSync(join(root, "packages", "app", "src"), { recursive: true });
+  mkdirSync(join(root, "packages", "ui", "src"), { recursive: true });
+
+  writeFileSync(join(root, "tsconfig.json"), '{ "files": [], "references": [{ "path": "./packages/ui" }, { "path": "./packages/app/" }] }');
+  const solution = '{ "files": [], "references": [{ "path": "./tsconfig.lib.json" }] }';
+  const lib = '{ "compilerOptions": { "paths": { "~/*": ["./src/*"] } } }';
+  for (const pkg of ["app", "ui"]) {
+    writeFileSync(join(root, "packages", pkg, "tsconfig.json"), solution);
+    writeFileSync(join(root, "packages", pkg, "tsconfig.lib.json"), lib);
+  }
+  writeFileSync(join(root, "packages", "app", "src", "main.ts"), 'import { util } from "~/util";\n');
+  writeFileSync(join(root, "packages", "app", "src", "util.ts"), "export const util = 1;\n");
+  writeFileSync(join(root, "packages", "ui", "src", "util.ts"), "export const util = 2;\n");
+  writeFileSync(join(root, "packages", "ui", "src", "button.ts"), 'import { util } from "~/util";\n');
+
+  const idx = buildIndex(root);
+  const imports = (p) => idx.files.find((f) => f.path === p).imports;
+  assert.deepEqual(imports("packages/app/src/main.ts"), ["packages/app/src/util.ts"]);
+  assert.deepEqual(imports("packages/ui/src/button.ts"), ["packages/ui/src/util.ts"]);
+});
+
+test("a referenced config never outranks a nearer or equal config of the repo's own", () => {
+  // Two halves of the same rule. At the root, the repo's own `@/*` must beat the one a referenced
+  // config declares for the same directory — they are merged, and the nearer claim is tried first.
+  // Below it, the package's aliases must still win for the package's files, even though the only
+  // config declaring them was reached through a reference.
+  const root = mkdtempSync(join(tmpdir(), "cortex-tsrank-"));
+  mkdirSync(join(root, "src"), { recursive: true });
+  mkdirSync(join(root, "other"), { recursive: true });
+  mkdirSync(join(root, "packages", "app", "src"), { recursive: true });
+
+  writeFileSync(
+    join(root, "tsconfig.json"),
+    `{
+      "compilerOptions": { "paths": { "@/*": ["./src/*"] } },
+      "references": [{ "path": "./tsconfig.extra.json" }, { "path": "./packages/app" }]
+    }`,
+  );
+  writeFileSync(join(root, "tsconfig.extra.json"), '{ "compilerOptions": { "paths": { "@/*": ["./other/*"] } } }');
+  writeFileSync(join(root, "packages", "app", "tsconfig.json"), '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }] }');
+  writeFileSync(join(root, "packages", "app", "tsconfig.app.json"), '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } } }');
+  writeFileSync(join(root, "src", "thing.ts"), "export const thing = 1;\n");
+  writeFileSync(join(root, "other", "thing.ts"), "export const thing = 2;\n");
+  writeFileSync(join(root, "packages", "app", "src", "thing.ts"), "export const thing = 3;\n");
+  writeFileSync(join(root, "src", "app.ts"), 'import { thing } from "@/thing";\n');
+  writeFileSync(join(root, "packages", "app", "src", "main.ts"), 'import { thing } from "@/thing";\n');
+
+  const idx = buildIndex(root);
+  const imports = (p) => idx.files.find((f) => f.path === p).imports;
+  assert.deepEqual(imports("src/app.ts"), ["src/thing.ts"]);
+  assert.deepEqual(imports("packages/app/src/main.ts"), ["packages/app/src/thing.ts"]);
+});
+
+test("a reference cycle costs a config, never the run", () => {
+  const root = mkdtempSync(join(tmpdir(), "cortex-tscycle-"));
+  mkdirSync(join(root, "src"), { recursive: true });
+
+  writeFileSync(
+    join(root, "tsconfig.json"),
+    '{ "files": [], "references": [{ "path": "./tsconfig.a.json" }] }',
+  );
+  writeFileSync(
+    join(root, "tsconfig.a.json"),
+    '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } }, "references": [{ "path": "./tsconfig.b.json" }] }',
+  );
+  writeFileSync(join(root, "tsconfig.b.json"), '{ "references": [{ "path": "./tsconfig.a.json" }, { "path": "./tsconfig.json" }] }');
+  writeFileSync(join(root, "src", "a.ts"), 'import { b } from "@/b";\n');
+  writeFileSync(join(root, "src", "b.ts"), "export const b = 1;\n");
+
+  const idx = buildIndex(root);
+  assert.deepEqual(idx.files.find((f) => f.path === "src/a.ts").imports, ["src/b.ts"]);
+});
+
+test("a malformed referenced config loses its own aliases and nothing else", () => {
+  // Same discipline the extends walk already keeps: a config that cannot be parsed costs its
+  // aliases, never the index. The sibling reference must still be read.
+  const root = mkdtempSync(join(tmpdir(), "cortex-tsbad-"));
+  mkdirSync(join(root, "src"), { recursive: true });
+  mkdirSync(join(root, "lib"), { recursive: true });
+
+  writeFileSync(
+    join(root, "tsconfig.json"),
+    '{ "files": [], "references": [{ "path": "./tsconfig.broken.json" }, { "path": "./tsconfig.ok.json" }] }',
+  );
+  writeFileSync(join(root, "tsconfig.broken.json"), '{ "compilerOptions": { "paths": { "#lib/*": ["./lib/*"] } }');
+  writeFileSync(join(root, "tsconfig.ok.json"), '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } } }');
+  writeFileSync(join(root, "src", "a.ts"), 'import { b } from "@/b";\nimport { c } from "#lib/c";\n');
+  writeFileSync(join(root, "src", "b.ts"), "export const b = 1;\n");
+  writeFileSync(join(root, "lib", "c.ts"), "export const c = 1;\n");
+
+  const idx = buildIndex(root);
+  assert.deepEqual(idx.files.find((f) => f.path === "src/a.ts").imports, ["src/b.ts"]);
+});
+
+test("a reference to a config that is not there costs nothing", () => {
+  const root = mkdtempSync(join(tmpdir(), "cortex-tsmissing-"));
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(
+    join(root, "tsconfig.json"),
+    '{ "compilerOptions": { "paths": { "@/*": ["./src/*"] } }, "references": [{ "path": "./packages/gone" }, {}] }',
+  );
+  writeFileSync(join(root, "src", "a.ts"), 'import { b } from "@/b";\n');
+  writeFileSync(join(root, "src", "b.ts"), "export const b = 1;\n");
+
+  const idx = buildIndex(root);
+  assert.deepEqual(idx.files.find((f) => f.path === "src/a.ts").imports, ["src/b.ts"]);
+});
+
 test("a repo with no tsconfig resolves exactly as before", () => {
   // Alias resolution is strictly additive: it runs only after the relative resolver returns null,
   // so a repo that declares nothing can never see a different graph because of it.

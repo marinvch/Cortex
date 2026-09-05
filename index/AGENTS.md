@@ -74,8 +74,12 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   `coverage.mjs` says.
 - **A path alias is read from the repo, never guessed.** `tsconfig.json` / `jsconfig.json` `paths`
   and `baseUrl` are declared, exactly like `go.mod`'s module path and `composer.json`'s PSR-4
-  prefixes, and `build.mjs` follows the `extends` chain because splitting options into a base config
-  is the normal layout. Aliases are tried **only after** the relative resolver returns null, so the
+  prefixes, and `build.mjs` follows both links a config can carry: `extends` upward, because splitting
+  options into a base config is the normal layout, and `references` sideways, because a solution-style
+  repo puts every option somewhere the name `tsconfig.json` never reaches. A reference names a file
+  or a directory; the table it yields is keyed at **that config's own directory**, since its `paths`
+  are relative to it, and several configs governing one directory are merged rather than raced — the
+  nearest claim tried first. Aliases are tried **only after** the relative resolver returns null, so the
   pass is strictly additive: a repo declaring nothing cannot get a different graph because of it.
   Never widen this into inferring an alias from directory names — the value of an edge is that it
   means something, and resolving `react` to a local file because a `baseUrl` sat above one is worse
@@ -87,7 +91,10 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - **This gap was invisible to fixtures and obvious on one real repo.** A Next.js app wrote 428
   imports as `@/…` against 104 relative ones: the index held a fifth of its edges and called 154
   files orphans, and *every* consumer — orphans, impact, depth, the viewer — was confidently wrong.
-  Nothing in the test suite could have found it. Validate resolver changes against cloned repos,
+  Nothing in the test suite could have found it. It happened a second time, the same way: the
+  `extends` half was fixed and `references` was never considered, so a stock Vite React-TS app —
+  the layout `npm create vite` generates — resolved **13** of its 109 imports and reported **30**
+  unreferenced files. Validate resolver changes against cloned repos,
   and check that every resolved target actually exists on disk; more edges is not the same as
   correct edges.
 - **Coverage uses three signals** — name, import, and a quoted string mention — and lives in

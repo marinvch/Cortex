@@ -12,6 +12,7 @@ import {
   resolveRubyImport,
   parseJsonc,
   tsAliasTable,
+  mergeAliasTables,
   resolveTsAlias,
 } from "../lib/imports.mjs";
 
@@ -386,6 +387,31 @@ test("multiple targets for one alias are tried in order", () => {
   const table = tsAliasTable({ compilerOptions: { paths: { "~/*": ["./missing/*", "./src/*"] } } });
   const files = new Set(["src/thing.ts"]);
   assert.equal(resolveTsAlias("~/thing", files, table), "src/thing.ts");
+});
+
+test("merging two tables for one directory keeps every alias, nearest claim first", () => {
+  // The Vite solution layout puts three configs in one directory and only one of them declares
+  // `paths`. Whichever a first-match lookup picked, it would drop the others' aliases.
+  const near = tsAliasTable({ compilerOptions: { paths: { "@/*": ["./src/*"] } } });
+  const far = tsAliasTable({ compilerOptions: { paths: { "@/*": ["./other/*"], "#lib/*": ["./lib/*"] } } });
+  const table = mergeAliasTables(near, far);
+  const files = new Set(["src/a.ts", "other/a.ts", "lib/b.ts"]);
+
+  assert.equal(resolveTsAlias("@/a", files, table), "src/a.ts", "the nearer claim is tried first");
+  assert.equal(resolveTsAlias("#lib/b", files, table), "lib/b.ts", "and the other's aliases survive");
+  assert.equal(table.dir, "");
+});
+
+test("merging keeps a declared baseUrl over a merely defaulted one", () => {
+  // `baseUrl` defaults to the config's own directory, so the value alone cannot say whether the
+  // config declared it. Only a config that did should be able to move it.
+  const silent = tsAliasTable({ compilerOptions: { paths: { "@/*": ["./src/*"] } } });
+  const declared = tsAliasTable({ compilerOptions: { baseUrl: "./src" } });
+  const files = new Set(["src/components/Button.tsx"]);
+
+  assert.equal(resolveTsAlias("components/Button", files, mergeAliasTables(silent, declared)), "src/components/Button.tsx");
+  assert.equal(resolveTsAlias("components/Button", files, mergeAliasTables(declared, silent)), "src/components/Button.tsx");
+  assert.equal(mergeAliasTables(declared, tsAliasTable({ compilerOptions: { baseUrl: "./other" } })).baseUrl, "src");
 });
 
 // ── shell: a library sourced through a variable ────────────────────────────────────────────────

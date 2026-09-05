@@ -137,3 +137,33 @@ assert_contains "$out" "Nothing was changed" "and that nothing happened"
 # existsSync would pass a file. Walking one as though it were a repository is the same bug.
 out="$(node "${IMPACT}" --root "$WORK/a-file" --staged 2>&1)"; rc=$?
 assert_eq "1" "$rc" "a file passed as a root is refused too"
+
+# --- git failing is not a repository with no changes ---------------------------------------------
+#
+# This CLI and cortex-review.mjs each carried their own copy of the change-set reader, and they
+# differed in one thing: review passed maxBuffer, this one did not. A wide --since on a long-lived
+# repo overflowed the 1 MB default, threw, became null, became an empty change set — and this
+# command printed "nothing to analyse". A confident zero, in the command whose whole contract is
+# that a confident total tells someone to stop looking.
+
+fixture
+out="$(run --since definitely-not-a-ref)"; rc=$?
+assert_eq "2" "$rc" "an unreadable change set is a refusal"
+assert_contains "$out" "git could not resolve --since" "and names the source that failed"
+assert_contains "$out" "unknown revision" "carrying git's own reason, not a generic one"
+assert_contains "$out" "git failing, not a repository with no changes" "and refuses to read as an empty diff"
+assert_not_contains "$out" "nothing to analyse" "never the wording used for a genuinely clean tree"
+
+# The other half of the same distinction: a real ref with a real empty diff must still say the
+# ordinary thing. A module that reported every empty answer as a fault would be the same bug.
+out="$(run --since HEAD)"; rc=$?
+assert_eq "2" "$rc" "an empty diff is still nothing to analyse"
+assert_contains "$out" "nothing to analyse" "and is described as such"
+assert_not_contains "$out" "git could not resolve" "with no fault reported, because there was none"
+
+# A source that fails must not discard what another source found — and the floor has to say it,
+# at the bottom, where the reader who acts on the number actually is.
+out="$(run src/db.js --since definitely-not-a-ref)"
+assert_contains "$out" "src/user.js" "the paths that WERE readable still produce a radius"
+assert_contains "$out" "incomplete change set" "and the floor says it was computed from a partial set"
+

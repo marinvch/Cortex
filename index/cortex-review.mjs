@@ -15,8 +15,8 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
-import { execFileSync } from "node:child_process";
 import { reviewContext, citationDrift } from "./lib/review.mjs";
+import { changedFiles, failureLines, gitReader } from "./lib/changed.mjs";
 import { rootProblem } from "./lib/root.mjs";
 
 function parseArgs(argv) {
@@ -57,36 +57,29 @@ if (!existsSync(indexPath)) {
   process.exit(2);
 }
 
-function git(a) {
-  try {
-    return execFileSync("git", a, {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-      // The whole rename log of a long-lived repo overflows the 1MB default, and the failure is
-      // silent here: a throw becomes null, which reads as "git recorded no rename".
-      maxBuffer: 64 * 1024 * 1024,
-    });
-  } catch {
-    return null;
-  }
-}
+// The rename log below and the change set share one runner, so they share one buffer size. The
+// maxBuffer fix lived here and not in cortex-impact.mjs for exactly as long as there were two
+// copies of this code — see lib/changed.mjs.
+const run = gitReader(root);
+const git = (a) => run(a).out ?? null;
 
-let changed = args.paths;
-if (args.staged) {
-  const out = git(["diff", "--cached", "--name-only"]) ?? "";
-  const wt = out.trim() ? out : (git(["diff", "--name-only"]) ?? "");
-  changed = changed.concat(wt.split("\n").filter(Boolean));
-}
-if (args.since) {
-  const out =
-    git(["diff", "--name-only", `${args.since}...HEAD`]) ?? git(["diff", "--name-only", args.since]) ?? "";
-  changed = changed.concat(out.split("\n").filter(Boolean));
-}
-changed = [...new Set(changed)];
+const { files: changed, failures } = changedFiles(root, {
+  paths: args.paths,
+  staged: args.staged,
+  since: args.since,
+  git: run,
+});
+
+for (const line of failureLines(failures)) console.error(line);
 
 if (!changed.length && !args.citations) {
-  console.error("nothing to review. Pass file paths, or --staged, or --since <ref>.");
+  console.error(
+    failures.length
+      // Deliberately not "there is nothing to review": that is the sentence for a clean branch, and
+      // a reader scanning output must not have to parse a clause to tell the two apart.
+      ? "The change set could not be read, so nothing was reviewed. This is git failing, not a branch with no changes."
+      : "nothing to review. Pass file paths, or --staged, or --since <ref>.",
+  );
   process.exit(2);
 }
 
@@ -131,11 +124,10 @@ if (args.citations) {
   };
   const c = citationDrift(index, { readText, findRename });
 
-  // --since narrows to citations this range could have broken: only docs or paths it touched.
+  // --since narrows to citations this range could have broken: only docs or paths it touched. This
+  // was a THIRD copy of the same fallback chain, in the same file as one of the other two.
   if (args.since) {
-    const out =
-      git(["diff", "--name-only", `${args.since}...HEAD`]) ?? git(["diff", "--name-only", args.since]) ?? "";
-    const touched = new Set(out.split("\n").filter(Boolean));
+    const touched = new Set(changedFiles(root, { since: args.since, git: run }).files);
     c.findings = c.findings.filter((f) => touched.has(f.doc) || touched.has(f.cited) || touched.has(f.suggestion));
     c.counts = { provable: 0, suspected: 0, historical: 0 };
     for (const f of c.findings) c.counts[f.class]++;

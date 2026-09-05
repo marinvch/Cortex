@@ -48,4 +48,8 @@ test("a lab profile writes the team note but does not push it", () => {
   assert.equal(res.error, "outward_sync_disabled");
   assert.ok(existsSync(res.path), "the note is written, not discarded");
   assert.match(readFileSync(res.path, "utf8"), /an experiment/);
+  // The same file, in the same place, as a pushing capture would write — sealing outward sync
+  // changes whether it is published, and nothing else.
+  assert.match(res.path, /team[\\/]acme[\\/]projects[\\/]unis[\\/]2026-07-01-lab1\.md$/);
+  assert.match(readFileSync(res.path, "utf8"), /^---\ntype: brain-note\ncreated: 2026-07-01\n---/);
 });

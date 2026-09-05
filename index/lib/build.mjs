@@ -14,6 +14,7 @@ import {
   goModulePath,
   parseJsonc,
   tsAliasTable,
+  mergeAliasTables,
   resolveTsAlias,
 } from "./imports.mjs";
 import { inferAreas } from "./layers.mjs";
@@ -37,6 +38,51 @@ function normalizeRel(dir, spec) {
     else out.push(part);
   }
   return out.join("/");
+}
+
+// The directory a root-relative path sits in — "" at the repo root.
+function dirOfPath(path) {
+  return path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+}
+
+/**
+ * Read one tsconfig/jsconfig, following `extends` upward, and return its merged `compilerOptions`
+ * together with the `references` the config itself declares.
+ *
+ * `extends` is common — a repo splits its options into tsconfig.base.json and the child holds only
+ * overrides. Following it is what makes those repos resolve at all. Depth-capped and cycle-guarded
+ * because a loop in the chain must cost a config, never the whole index; likewise a config that
+ * cannot be read or parsed costs its aliases and stops the walk.
+ *
+ * `references` is *not* inherited (TypeScript excludes it from `extends`), so it is taken from the
+ * entry config alone. Returns null when the entry config could not be read at all.
+ */
+function readTsConfigChain(root, entryRel) {
+  const merged = { compilerOptions: {} };
+  let references = null;
+  let rel = entryRel;
+  let dir = dirOfPath(rel);
+  const seen = new Set();
+  for (let hop = 0; hop < 8 && rel && !seen.has(rel); hop++) {
+    seen.add(rel);
+    let json = null;
+    try {
+      json = parseJsonc(readFileSync(join(root, rel), "utf8"));
+    } catch {
+      break; // a config we cannot read costs its aliases, never the run
+    }
+    if (!json) break;
+    if (references === null) references = Array.isArray(json.references) ? json.references : [];
+    // The nearest config wins on every key, so only fill what is still missing as we walk up.
+    for (const [k, v] of Object.entries(json.compilerOptions ?? {})) {
+      if (!(k in merged.compilerOptions)) merged.compilerOptions[k] = v;
+    }
+    if (!json.extends || typeof json.extends !== "string" || !json.extends.startsWith(".")) break;
+    const parent = normalizeRel(dir, json.extends);
+    rel = parent.endsWith(".json") ? parent : `${parent}.json`;
+    dir = dirOfPath(rel);
+  }
+  return references === null ? null : { merged, references };
 }
 
 function git(root, args) {
@@ -188,38 +234,49 @@ export function buildIndex(root, opts = {}) {
   // impact, depth, the viewer — was wrong on that repo, and each of them was confidently wrong.
   //
   // A monorepo has several configs, so this is a list keyed by directory and matched nearest-first.
-  const tsConfigs = [];
+  //
+  // Discovery starts at every `tsconfig.json` / `jsconfig.json` and walks two links: `extends`
+  // upward, and `references` sideways. Solution-style configs are what make the second one
+  // necessary — the Vite React-TS template writes a root `tsconfig.json` holding nothing but
+  // `{ "files": [], "references": [...] }` and puts every option, `paths` included, in
+  // `tsconfig.app.json`, which no basename check will ever open. On one such repo that cost the
+  // index 70 of its 82 internal imports and produced 30 orphans, nearly all false.
+  const found = [];
+  const seenConfigs = new Set();
+  const addConfig = (rel, depth) => {
+    if (seenConfigs.has(rel)) return; // also what terminates a reference cycle
+    seenConfigs.add(rel);
+    const chain = readTsConfigChain(root, rel);
+    if (!chain) return; // unreadable or malformed: it costs its own aliases and nothing else
+    const dir = dirOfPath(rel);
+    // A referenced config's `paths` are relative to *its* directory and govern *its* directory, so
+    // that is where the table is keyed — not where the config that pointed at it sits. Getting this
+    // wrong in a monorepo hands every package the first-listed package's aliases.
+    if (Object.keys(chain.merged.compilerOptions).length) found.push(tsAliasTable(chain.merged, dir));
+    if (depth >= 8) return;
+    for (const ref of chain.references) {
+      const p = typeof ref?.path === "string" ? ref.path : null;
+      if (!p) continue;
+      // A reference names either a config file or a directory holding a `tsconfig.json` —
+      // TypeScript accepts both, and `packages/foo` is the common form in a workspace.
+      const target = normalizeRel(dir, p);
+      if (!target) continue;
+      addConfig(target.endsWith(".json") ? target : `${target}/tsconfig.json`, depth + 1);
+    }
+  };
   for (const f of files) {
     const base = f.path.split("/").pop();
     if (base !== "tsconfig.json" && base !== "jsconfig.json") continue;
-    const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
-
-    // `extends` is common — a repo splits its options into tsconfig.base.json and the child holds
-    // only overrides. Following it is what makes those repos resolve at all. Depth-capped because
-    // a cycle in the chain must cost a config, never the whole index.
-    let json = null;
-    let rel = f.path;
-    let dirOf = dir;
-    const merged = { compilerOptions: {} };
-    const seenCfg = new Set();
-    for (let hop = 0; hop < 8 && rel && !seenCfg.has(rel); hop++) {
-      seenCfg.add(rel);
-      try {
-        json = parseJsonc(readFileSync(join(root, rel), "utf8"));
-      } catch {
-        break; // a config we cannot read costs its aliases, never the run
-      }
-      if (!json) break;
-      // The nearest config wins on every key, so only fill what is still missing as we walk up.
-      for (const [k, v] of Object.entries(json.compilerOptions ?? {})) {
-        if (!(k in merged.compilerOptions)) merged.compilerOptions[k] = v;
-      }
-      if (!json.extends || typeof json.extends !== "string" || !json.extends.startsWith(".")) break;
-      const parent = normalizeRel(dirOf, json.extends);
-      rel = parent.endsWith(".json") ? parent : `${parent}.json`;
-      dirOf = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "";
-    }
-    if (Object.keys(merged.compilerOptions).length) tsConfigs.push(tsAliasTable(merged, dir));
+    addConfig(f.path, 0);
+  }
+  // Several configs can govern one directory — the Vite layout has three at the root, and only one
+  // of them declares `paths`. Merge them, because a lookup returning the first match would
+  // otherwise pick whichever was declared first and silently drop the other's aliases.
+  const tsConfigs = [];
+  for (const table of found) {
+    const at = tsConfigs.findIndex((c) => c.dir === table.dir);
+    if (at < 0) tsConfigs.push(table);
+    else tsConfigs[at] = mergeAliasTables(tsConfigs[at], table);
   }
   // Nearest config wins: a package's own tsconfig must beat the repo root's.
   tsConfigs.sort((a, b) => b.dir.length - a.dir.length);

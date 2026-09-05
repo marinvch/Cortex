@@ -101,11 +101,11 @@ Two Cortex-specific notes:
   no-ops, a must-have target behind a weakly worded pointer. It never deletes prose on its own
   authority, so the judgement calls come back to the user.
 - **Cortex sets `disable-model-invocation: true` for a second reason.** Upstream weighs it purely
-  as context load versus cognitive load. `/onboard`, `/migrate-engine`, `/team-init` and
-  `/connect-brain` carry it because they are once-only or destructive and an agent must never
-  auto-fire them. Safety outranks the load trade; keep the flag when editing their frontmatter.
-  (`grep -l disable-model-invocation skills/*/SKILL.md` is the full list — it is longer than these
-  four, and `AGENTS.md` names the rest.)
+  as context load versus cognitive load. Cortex adds safety: a once-only or destructive ritual must
+  never auto-fire, and that outranks the load trade. Keep the flag when editing their frontmatter.
+  `grep -l '^disable-model-invocation: true' skills/*/SKILL.md` is the list of record — anchor it,
+  because this page and `/skill-creator` discuss the flag in prose and an unanchored grep counts
+  them as carrying it.
 
 ---
 

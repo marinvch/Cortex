@@ -42,8 +42,9 @@ result bloated.
   error state — an unreachable ritual still runs when you type its name, so only someone who already
   knows it exists ever gets there. A bare `reached-by: true` is the check switched off wearing the
   check's clothes; name the actual trigger.
-- **Eight rituals carry `disable-model-invocation: true`** — once-only, destructive, or reached by
-  name. `grep -l disable-model-invocation skills/*/SKILL.md` is the list of record. Do not add it to
+- **The `disable-model-invocation: true` rituals are once-only, destructive, or reached by name.**
+  `grep -l '^disable-model-invocation: true' skills/*/SKILL.md` is the list of record — anchored,
+  because the flag is discussed in prose and the loose grep counts those too. Do not add it to
   `/cortex-install` "for consistency": that flag marks once-only or destructive, not read-only, and
   what protects a target repo is the consent gate, not an invocation flag.
   [ADR 0005](../../docs/adr/0005-the-install-sequence-may-start-itself.md).

@@ -6,6 +6,7 @@ import { buildCoverage, testStem } from "./coverage.mjs";
 import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
 import { findOrphans } from "./orphans.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
+import { readState } from "./next.mjs";
 
 // Findings are PROPOSALS. Nothing here edits a repository — this module returns data and the
 // caller writes exactly one report file. The skill that finds things and the skill that changes
@@ -145,18 +146,34 @@ export function analyse(index, root) {
   const briefs = briefCandidates(index.files).filter((b) => !has(join(b.dir, "AGENTS.md")));
 
   // --- Context layer: the thing Cortex exists to manage -------------------------------------
-  if (!has("AGENTS.md") && !has("CLAUDE.md")) {
+  //
+  // One reader. `readState` already answers this for `cortex-next`, from the filesystem for root
+  // documents and from the index for scoped briefs, and it knew six agent-doc names while this
+  // function knew two. Both answers reached the user from ONE command, because cortex-findings
+  // prints `nextLine()` as its footer — so a repo whose only agent doc was `.cursorrules` was told
+  // "No agent context file" and, four lines later, "Reconcile the agent docs that were already
+  // here". The claim was not merely narrow, it was false: an agent does load that file.
+  const layer = readState(root, index);
+
+  if (!layer.rootBrief && !has("CLAUDE.md")) {
+    // A repo carrying another tool's brief is not starting from zero, and the offer is not the same
+    // one. Scaffolding over the top of a hand-written `.cursorrules` is how a target ends up with
+    // two files to merge by hand — which is exactly what next.mjs's `reconcile` step exists to
+    // prevent, and it can only prevent it if this finding stops contradicting it.
+    const prior = layer.priorDocs.filter((d) => d !== "AGENTS.md" && d !== "CLAUDE.md");
     out.push(
       finding(
         "high",
         "context",
-        "No agent context file",
-        "This repo has no AGENTS.md, so every agent starts from zero and re-derives the same conclusions each session. This is the single highest-leverage file Cortex can add.",
-        [],
+        prior.length ? "No AGENTS.md — this repo's agent context is in another tool's file" : "No agent context file",
+        prior.length
+          ? `Cortex routes \`AGENTS.md\`, and this repo does not have one. It is not starting from zero — the file${prior.length === 1 ? "" : "s"} below already carr${prior.length === 1 ? "ies" : "y"} context for another tool — so the job is to reconcile that into an \`AGENTS.md\` rather than to write a second brief beside it. Read it first; scaffolding over the top leaves two files to merge by hand.`
+          : "This repo has no AGENTS.md, so every agent starts from zero and re-derives the same conclusions each session. This is the single highest-leverage file Cortex can add.",
+        prior,
         offer("scaffold"),
       ),
     );
-  } else if (has("AGENTS.md")) {
+  } else if (layer.rootBrief) {
     const lines = readFileSync(join(root, "AGENTS.md"), "utf8").split("\n").length;
     if (lines > 250) {
       // The measurement is right either way; the REMEDY depends on whether there is anywhere left
@@ -188,7 +205,7 @@ export function analyse(index, root) {
       );
     }
   }
-  if (!has("CONTEXT.md")) {
+  if (!layer.glossary) {
     out.push(
       finding(
         "medium",
@@ -200,7 +217,9 @@ export function analyse(index, root) {
       ),
     );
   }
-  if (!has("docs/adr")) {
+  // `adrs` is the list of .md files, not the directory: an empty docs/adr/ is not a record of
+  // anything, and has("docs/adr") called it done. readState already made that distinction.
+  if (!layer.adrs.length) {
     out.push(
       finding(
         "low",

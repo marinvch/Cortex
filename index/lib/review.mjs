@@ -18,10 +18,11 @@
 // Deterministic, per index/AGENTS.md: this finds and cites, it never judges. Deciding whether a
 // change actually violates a documented rule is the ritual's job, and it needs a model.
 
-/** Context documents Cortex recognises as governing: agent briefs, the glossary, and ADRs. */
-function isContextDoc(path) {
-  return /(^|\/)(AGENTS|CLAUDE|GEMINI|CONTEXT)\.md$/i.test(path) || /(^|\/)docs\/adr\/.+\.md$/i.test(path);
-}
+import { isContextDoc } from "./context-docs.mjs";
+
+// isContextDoc is imported from context-docs.mjs, which owns the vocabulary for all three readers.
+// This module keeps its purity: it classifies INDEXED PATHS and never touches the filesystem, which
+// is why it consumes the predicate rather than `readState`. See the note at the top of that file.
 
 /** The directory a path sits in, "" for repo root. */
 function dirOf(path) {

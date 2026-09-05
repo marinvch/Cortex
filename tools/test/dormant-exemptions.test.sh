@@ -21,11 +21,16 @@ cd "$REPO_ROOT" || exit 1
 MARKER="cortex:""allow-secrets"
 
 # Only a marker in the file's HEADER is a claim about that file. Further down it is prose about the
-# mechanism — core/AGENTS.md explains it at line 28, index/lib/findings.mjs implements it at 196,
-# index/test/findings.test.mjs builds it into a fixture at 125. `findings.mjs` matches on a bare
-# `includes`, so by its rule those files are exempt too; harmless, because none of them holds a
-# secret-shaped string. Judging them here would report five permanent failures nobody can fix, and a
-# check that always fails is a check people learn to ignore.
+# mechanism — core/AGENTS.md explains it, index/lib/findings.mjs implements it in `markerLine`, and
+# index/test/findings.test.mjs builds it into a fixture. Those three would be judged exempt by a bare
+# `includes`; harmless, because none of them holds a secret-shaped string. Judging them here would
+# report five permanent failures nobody can fix, and a check that always fails is a check people
+# learn to ignore.
+#
+# Named, not numbered, on purpose: the first version of this comment cited findings.mjs:196, which
+# was true when written and became line 218 the same day, when an unrelated finding was edited above
+# it. A line number in a durable comment has a half-life of one edit anywhere above the thing it
+# points at. `markerLine` survives that, and a rename is loud where a shifted line is silent.
 HEADER_LINES=10
 
 marked=""

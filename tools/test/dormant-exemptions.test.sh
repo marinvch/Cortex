@@ -16,6 +16,8 @@
 # This file names the marker by concatenation on purpose. Written out, it would exempt this test
 # from the rule the test enforces — the same self-matching trap no-private-names.test.sh fell into.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 cd "$REPO_ROOT" || exit 1
 
 MARKER="cortex:""allow-secrets"

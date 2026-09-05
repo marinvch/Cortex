@@ -20,6 +20,8 @@
 #
 #   CORTEX_E2E_REPO=/path/to/a/real/repo bash tools/test/run.sh install-on-a-project
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 INDEX="$REPO_ROOT/index/cortex-index.mjs"
 FINDINGS="$REPO_ROOT/index/cortex-findings.mjs"
 

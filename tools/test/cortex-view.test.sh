@@ -6,12 +6,14 @@
 # promise), and emitting a page that quietly needs the network — an offline artefact that fetches is
 # worse than no artefact, because it looks fine on the machine that made it.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 VIEW="$REPO_ROOT/index/cortex-view.mjs"
 
 fixture() { # a small real repo, indexed the way a user would index it
   rm -rf "$WORK/proj"
   mkdir -p "$WORK/proj/src" "$WORK/proj/test"
-  cd "$WORK/proj"
+  cd "$WORK/proj" || exit 1
   git init -q .
   git config user.email t@t; git config user.name t
 
@@ -29,7 +31,7 @@ fixture() { # a small real repo, indexed the way a user would index it
 
   git add -A && git commit -qm init
   node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1
-  cd "$REPO_ROOT"
+  cd "$REPO_ROOT" || exit 1
 }
 
 run() { node "$VIEW" "$WORK/proj" --no-open "$@" 2>&1; }
@@ -115,7 +117,7 @@ assert_exit 0 "docs are present as files but excluded from the map" -- node -e '
   if (!v.nodes.some(n => n.id === "src/db.js" && n.inMap)) throw new Error("code must be drawn");
 ' "$WORK/view.json"
 
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 1
 
 # --- a root that is not a directory ------------------------------------------------------------
 #

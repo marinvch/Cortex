@@ -6,6 +6,8 @@
 # ran sends them past the step that writes their context layer. Every assertion below defends a
 # sentence, not a number — the same reason cortex-impact.mjs has a CLI test of its own.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 NEXT="$REPO_ROOT/index/cortex-next.mjs"
 
 INDEX_JSON='{"version":"1","files":[],"edges":[],"areas":[],"layers":[],"cycles":[],"stats":{}}'

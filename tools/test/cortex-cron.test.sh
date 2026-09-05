@@ -9,6 +9,8 @@
 # are exercised honestly rather than stubbed. The one test that involves the Anthropic API points at
 # a closed local port on purpose (see the silent-failure case).
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 CRON="$REPO_ROOT/tools/server/cortex-cron.sh"
 TODAY="$(date +%F)"
 

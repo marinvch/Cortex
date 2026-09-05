@@ -20,6 +20,8 @@
 # path arrives at runtime through CORTEX_E2E_REPO and is therefore never committable. A denylist can
 # still run locally, from a gitignored file that CI does not have — see the last block.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 cd "$REPO_ROOT" || exit 1
 
 # --- the seam: no tracked file carries an absolute path into somebody's checkout ------------------

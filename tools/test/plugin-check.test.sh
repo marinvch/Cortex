@@ -9,6 +9,8 @@
 # The registry lives under $HOME, so every case here overrides it (run.sh's rule) and none of them can
 # read the real machine.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 PC="$REPO_ROOT/tools/cortex-plugin-check.mjs"
 
 work="$(mktemp -d)"

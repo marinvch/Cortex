@@ -7,6 +7,8 @@
 #
 # So the test that matters most here is the one asserting a mirror-only skill SURVIVES a full sync.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 SYNC_SRC="$REPO_ROOT/tools/cortex-sync-skills.sh"
 
 # The script resolves its root from its own location, so the fixture is a miniature checkout.

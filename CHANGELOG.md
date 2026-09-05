@@ -3,6 +3,126 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.37.0] — 2026-09-05
+
+An agent team with an owner per layer read this repo against its own documents. One failure class
+dominated the findings, and it is the reason this release is mostly `Fixed`: **a bug that fails open
+and silently.** Not a crash, not a stack trace — a confident, plausible, wrong answer that every
+test agreed with. Seven of the fixes below are that shape, and in three of them the wrong answer was
+`0`, which reads as good news.
+
+### Fixed — a flag written before the root sent `.cortex/` into the caller's own directory
+
+`cortex-enrich.mjs plan --include src /path/to/repo` took `--include` as the root, resolved nothing,
+fell through to `process.cwd()` and wrote `.cortex/` **into whatever directory the user happened to
+be standing in**. It never failed; it succeeded somewhere else.
+
+The first fix stepped over known valued flags, and was still wrong: `-include` (one dash) is not
+`--include`, so it sailed past the guard and became the root again. The rule is now that **any**
+leading `-` is a flag, `FLAGS` is a name → takes-a-value allowlist, and a flag not in it is a usage
+error rather than a silent root. The same parser now rejects an unknown subcommand instead of
+treating it as a path.
+
+### Fixed — eight CLIs answered confidently about a directory that was not there
+
+`index/lib/root.mjs` is new: one pure predicate, `rootProblem(root)`, returning a message or `null`.
+A CLI handed a path that does not resolve to a readable directory now exits **1** — a usage error,
+distinct from **2**, which means a precondition was not met — and says *"Nothing was changed."*
+
+Before it, a typo in the path produced an index of zero files, zero findings and zero coverage gaps,
+reported as a clean result. Eight CLIs adopted it (`index`, `findings`, `enrich`, `impact`, `next`,
+`review`, `skills`, `view`). `cortex-memory` deliberately did **not** — its `--root` names the memory
+store, and `append` creates that store by design, so the guard would break the one CLI whose job is
+to make the directory exist.
+
+This is not `core/paths.js`. That one asks whether a path stays inside the root; this one asks
+whether the root is a thing at all.
+
+### Fixed — no dependency in an XML or Elixir manifest could ever be found
+
+The largest find in the release. `declaresDependency` matched a dependency name only when the
+character before it was one of a hand-listed set covering JSON, TOML and YAML delimiters — and
+nothing else. Maven writes `<groupId>org.springframework.boot</groupId>`; Mix writes
+`{:phoenix, "~> 1.7"}`. The preceding character is `>` or `:`, so **every dependency in every
+`pom.xml`, `build.gradle`, `.csproj` and `mix.exs` was invisible**, and had been for as long as those
+manifests were listed. The boundary is now the negated set `[^A-Za-z0-9_.-]` — what a word boundary
+actually means, rather than a list of the delimiters someone remembered.
+
+Seven rows follow it, each validated against a cloned public repository rather than a fixture:
+`spring`, `aspnetcore`, `phoenix` (frameworks) and `csharp`, `elixir`, `swift`, `scala` (languages).
+Java, Python, PHP/Laravel and Express were already listed and, for the JVM half, already broken.
+
+A comment block now records what was **considered and declined** — C/C++, Kotlin, framework rows for
+Go/Rust/Scala/Swift, data-layer rows — because a row not added is a decision, and an unrecorded
+decision gets re-litigated by the next reader who notices the gap.
+
+### Fixed — "nothing changed" and "git could not answer" were the same sentence
+
+`cortex-review.mjs` passed a 64 MB `maxBuffer` to its git call. `cortex-impact.mjs`, doing the same
+job, did not — so a wide enough `--since` overflowed the default buffer, threw, was caught, and
+returned an empty list that printed as **"nothing changed"**. The two are now one module,
+`index/lib/changed.mjs`, returning `{ files, failures }`: a git command that could not answer is
+reported as a failure, never as an empty result.
+
+### Fixed — the report could not see a dormant exemption, and offered a split with nothing to split
+
+Two defects in `index/lib/findings.mjs` that were hiding each other. The dormant-exemption check sat
+*after* an early `continue` that fired whenever a pattern had no hits — so an exemption that had
+stopped matching anything, the exact thing the check exists to surface, could never be reported. And
+the brief offer was emitted unconditionally, including when it had no targets, so the report
+proposed splitting a file into nothing.
+
+Fixing the ordering alone would have made it worse: `findings.mjs` and its own test would both
+surface as false rows, because the marker match had to be narrowed to a ten-line header window
+first. Each bug was the other's cover.
+
+### Fixed — `status` condemned the batches that `merge` had already accepted
+
+`validateBatch` and `classifyBatches` each read the shape of an enrichment result their own way, and
+disagreed. `batchRows()` is now the single reader for both.
+
+The comment above it says only what is true: one reader, so the two can no longer disagree **about
+the shape of a result**. They can still disagree about its content, and that part is deliberate.
+
+### Changed — the MCP tool list is enforcement, not advertising
+
+`mcp/lib/tools.js` is new: one table where each tool declares `mode: repo | vault | any`, with
+`toolsFor(repoMode)` and `assertAvailable(name, repoMode)`. The list a client is shown and the check
+a call passes now come from the same place — previously the list was filtered by mode and the call
+was not, so a vault-only tool named directly by a client in repo mode still ran. `server.js` went
+from 120 lines to 97.
+
+### Fixed — three documents claimed more than the checks beneath them enforce
+
+`index/AGENTS.md`, `docs/changing-cortex.md` and `tools/AGENTS.md` each described a guarantee in
+stronger terms than the code provides. This is the drift axis of `/cortex-review` finding exactly
+what it was built for — and the same overclaiming turned up **inside the commit that fixed the first
+round of it**, in the sentences explaining a fix rather than in the fixes themselves.
+
+Related: a line number is now avoided as a citation form in agent-facing prose. `file.mjs:211` is
+the one citation a reader cannot verify without opening the file and counting, and it rots on the
+next edit — one of the miscitations found here was correct when written and was broken by a later
+commit touching a different concern.
+
+### Added — an owner per layer
+
+`.claude/agents/{core,index,mcp,docs}-owner.md`. Four teammate briefs, one per layer of
+`core/ ← index/ + mcp/`, each carrying its boundary, its tripwires and its test command. The
+architecture rule already had a test in `core/test/architecture.test.js`; it now also has a reader.
+
+They live in `.claude/agents/` rather than `agents/`, and the footer of each says why: `agents/` is
+what an installed plugin loads, so a teammate brief placed there would ship to every Cortex user as a
+subagent they never asked for. These are for working **on** this repo.
+
+### Added — tests at the level the tools are actually used from
+
+Five new shell suites — `cortex-enrich`, `cortex-findings`, `cortex-index`, `cortex-skills` and
+`dormant-exemptions` — plus unit tests for the three new modules. Two of the CLIs that write into a
+repo had no test at the level they write from, which is precisely why the `.cortex/`-in-the-wrong-
+directory bug survived a suite that was otherwise passing.
+
+**43 rituals. 521 shell assertions.**
+
 ## [2.36.0] — 2026-08-30
 
 Three prompts arrived as candidate additions. One was already 90% covered by an existing ritual and
@@ -2382,6 +2502,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.37.0]: https://github.com/marinvch/Cortex/releases/tag/v2.37.0
 [2.36.0]: https://github.com/marinvch/Cortex/releases/tag/v2.36.0
 [2.35.1]: https://github.com/marinvch/Cortex/releases/tag/v2.35.1
 [2.35.0]: https://github.com/marinvch/Cortex/releases/tag/v2.35.0

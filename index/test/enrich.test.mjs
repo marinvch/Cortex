@@ -270,6 +270,40 @@ test("unreadable or wrongly-shaped results are stale rather than crashing the ru
   assert.equal(classifyBatches([batch(1, "a.js")], () => '{"path":"a.js"}').stale[0].why, "not an array of entries");
 });
 
+test("status accepts every shape merge accepts, or it condemns correct work", () => {
+  // `merge` has always taken `{ "batchIndex": n, "files": [...] }` as well as the bare array the
+  // skill documents — a model that echoes the batch number back has still answered the question.
+  // `classifyBatches` took only the array, so `status` printed "answers a different plan — redo or
+  // delete" for a batch that `merge`, run on the identical file, enriched with no issue at all.
+  // status is what an agent reads to decide what work is left, so the disagreement costs either a
+  // re-run of a paid model pass or the deletion of correct output — the 210-summaries failure in a
+  // new place. One shape reader, so the two cannot disagree again.
+  const wrapped = JSON.stringify({
+    batchIndex: 1,
+    files: [
+      { path: "a.js", summary: "s", role: "utility" },
+      { path: "b.js", summary: "s", role: "utility" },
+    ],
+  });
+  const { done, stale, pending } = classifyBatches([batch(1, "a.js", "b.js")], () => wrapped);
+  assert.deepEqual([done.length, stale.length, pending.length], [1, 0, 0]);
+
+  // And the leniency stops there: an object that carries no entries is still the wrong shape.
+  const bad = classifyBatches([batch(1, "a.js")], () => '{"batchIndex":1,"files":"a.js"}');
+  assert.equal(bad.stale[0].why, "not an array of entries");
+});
+
+test("the wrapped shape is still judged on its content, not waved through", () => {
+  // Accepting the wrapper must not accept the answer. A wrapped result that answers a foreign path
+  // is exactly the drift classifyBatches exists to catch, and unwrapping it is how that check would
+  // quietly stop running.
+  const wrapped = JSON.stringify({ batchIndex: 1, files: [{ path: "old/gone.js", summary: "s" }] });
+  const { done, stale } = classifyBatches([batch(1, "a.js")], () => wrapped);
+  assert.equal(done.length, 0);
+  assert.match(stale[0].why, /1 of 1 files unanswered/);
+  assert.match(stale[0].why, /1 path this batch does not contain/);
+});
+
 test("one constant names the merged enrichment, because four sites disagreed", () => {
   // merge wrote enriched.json; cortex-view.mjs and next.mjs both read enrichment.json. A finished
   // enrichment therefore produced no summaries and left the sequence reporting the step as never

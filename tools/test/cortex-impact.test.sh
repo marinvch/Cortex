@@ -6,6 +6,8 @@
 # are invisible. A CLI that prints "3 files affected" when the truth is 5 invites someone to stop
 # looking; "at least 3" does not. Every assertion below defends a sentence, not a number.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 IMPACT="$REPO_ROOT/index/cortex-impact.mjs"
 
 # --- a repo with an index, built the way a user would ---------------------------------------------
@@ -13,7 +15,7 @@ IMPACT="$REPO_ROOT/index/cortex-impact.mjs"
 fixture() {
   rm -rf "$WORK/proj"
   mkdir -p "$WORK/proj/src" "$WORK/proj/test"
-  cd "$WORK/proj"
+  cd "$WORK/proj" || exit 1
   git init -q .
   git config user.email t@t; git config user.name t
 
@@ -26,7 +28,7 @@ fixture() {
 
   git add -A && git commit -qm init
   node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1
-  cd "$REPO_ROOT"
+  cd "$REPO_ROOT" || exit 1
 }
 
 fixture

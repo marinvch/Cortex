@@ -9,6 +9,8 @@
 # whose sites disagree, and the rest exercise the writer against a scratch copy so it is never
 # shipped having only ever been read.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 VER="$REPO_ROOT/tools/cortex-version.mjs"
 
 # --- the guard on the live tree -----------------------------------------------------------------

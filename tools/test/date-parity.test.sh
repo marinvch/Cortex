@@ -11,6 +11,8 @@
 # format written two ways, so the check normalises that equivalence rather than pretending the
 # strings must match character for character.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 LIB="$REPO_ROOT/tools/_cortex-lib.sh"
 # shellcheck disable=SC1090
 . "$LIB"

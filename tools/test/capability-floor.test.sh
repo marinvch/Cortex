@@ -9,6 +9,8 @@
 # core/test/plugin.test.js asserts the frontmatter. This asserts the CLI that reads it, because a
 # table nobody can print is a table nobody consults.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 VER="$REPO_ROOT/tools/cortex-capability.mjs"
 
 out="$(node "$VER" 2>&1)"; rc=$?

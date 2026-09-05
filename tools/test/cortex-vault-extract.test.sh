@@ -5,6 +5,8 @@
 # dry-run by default, --apply copies, --remove-source is a separate opt-in, and a verification runs
 # before anything is deleted. These tests pin that machinery, and the verification hardest of all.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 EX="$REPO_ROOT/tools/cortex-vault-extract.sh"
 
 mkvault() { # dir [n-notes]

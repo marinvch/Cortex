@@ -130,3 +130,22 @@ mkdir -p "$WORK/elsewhere"
 # An index answers nothing anybody asked. Without this line the reader is left holding a menu of
 # eleven commands sorted by nothing, which is the state /cortex-next exists to end.
 assert_contains "$(run)" "Next →" "the run ends by naming the single next command"
+
+# --- a root that is not a directory ------------------------------------------------------------
+#
+# The check has no error state without it: buildIndex on a directory that does not exist returns
+# zero files rather than throwing, so this command answered confidently about a repository that
+# was never there — and two of its siblings wrote into one they invented from a mangled flag.
+# index/test/root.test.mjs covers the predicate; this covers that THIS command consults it.
+
+mkdir -p "$WORK/guard" && printf 'x
+' > "$WORK/a-file"
+out="$(cd "$WORK/guard" && node "${INDEX}" "$WORK/no-such-repo" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "a root that does not exist is refused"
+assert_contains "$out" "not a directory" "and says what is wrong with it"
+assert_contains "$out" "Nothing was changed" "and that nothing happened"
+[ -n "$(ls -A "$WORK/guard" 2>/dev/null)" ] && _fail "and nothing is created anywhere" || _pass "and nothing is created anywhere"
+
+# existsSync would pass a file. Walking one as though it were a repository is the same bug.
+out="$(node "${INDEX}" "$WORK/a-file" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "a file passed as a root is refused too"

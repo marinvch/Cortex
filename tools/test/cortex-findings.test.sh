@@ -106,3 +106,22 @@ assert_contains "$out" "Greenfield repo" "an empty repo is named as the greenfie
 assert_contains "$out" "scaffolding is the whole job" "and the closing instruction matches the flow"
 assert_not_contains "$out" "the areas listed above" "never pointing at areas that do not exist"
 assert_not_contains "$out" "No agent context file" "and missing docs are not defects where there is no code"
+
+# --- a root that is not a directory ------------------------------------------------------------
+#
+# The check has no error state without it: buildIndex on a directory that does not exist returns
+# zero files rather than throwing, so this command answered confidently about a repository that
+# was never there — and two of its siblings wrote into one they invented from a mangled flag.
+# index/test/root.test.mjs covers the predicate; this covers that THIS command consults it.
+
+mkdir -p "$WORK/guard" && printf 'x
+' > "$WORK/a-file"
+out="$(cd "$WORK/guard" && node "${FINDINGS}" "$WORK/no-such-repo" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "a root that does not exist is refused"
+assert_contains "$out" "not a directory" "and says what is wrong with it"
+assert_contains "$out" "Nothing was changed" "and that nothing happened"
+[ -n "$(ls -A "$WORK/guard" 2>/dev/null)" ] && _fail "and nothing is created anywhere" || _pass "and nothing is created anywhere"
+
+# existsSync would pass a file. Walking one as though it were a repository is the same bug.
+out="$(node "${FINDINGS}" "$WORK/a-file" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "a file passed as a root is refused too"

@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.37.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
+**v2.37.1** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
 where it is changing, and what is missing. Then it writes a context layer — a small root

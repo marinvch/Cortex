@@ -74,7 +74,7 @@ about itself, so nothing surfaces until a reader is misled.
 | `cortex-sync-skills.sh --check` | the gitignored `.claude/skills/` mirror has drifted from `skills/` |
 
 **The graph check cannot see a front door.** It fails only on `out.length === 0 && in.length === 0`
-(`cortex-skill-graph.mjs:105`), so a ritual keeps passing however thoroughly its *inbound* edges are
+(`cortex-skill-graph.mjs:106`), so a ritual keeps passing however thoroughly its *inbound* edges are
 stripped — one outbound edge is enough. Keep that `&&`: a router like `/cortex-next` is nearly all
 outbound and a shared discipline like `/writing-for-agents` nearly all inbound, so failing on a low
 inbound count would force exactly the decorative "see also" edges that make a graph look healthier

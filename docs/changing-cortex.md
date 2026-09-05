@@ -19,9 +19,11 @@ before overturning one; the line here is the trigger, not the case.
   you have left the skill. Do not add `disable-model-invocation` to it for consistency — that flag
   marks *once-only or destructive*, not *read-only*.
   [ADR 0005](adr/0005-the-install-sequence-may-start-itself.md).
-- Eight rituals do carry `disable-model-invocation: true` — once-only, destructive, or reached by
-  name — so none may auto-fire. `grep -l disable-model-invocation skills/*/SKILL.md` is the list of
-  record; keep the flag when editing their frontmatter.
+- The rituals that **do** carry `disable-model-invocation: true` are once-only, destructive, or
+  reached by name, so none may auto-fire. `grep -l '^disable-model-invocation: true' skills/*/SKILL.md`
+  is the list of record; keep the flag when editing their frontmatter. Anchor the grep — the flag is
+  discussed in prose too, and the unanchored version counts a skill that merely mentions it, which is
+  how this line carried the wrong number from 2.14.0 until 2.36.0.
 - **The findings report is `/cortex-install`'s script, so `analyse()`'s ranking is control flow.**
   The wizard walks `offers()` top-down, so re-ranking a finding changes the interview, not just a
   document. Offers collapse by action; severity never implies an offer. Read the worklist with
@@ -99,7 +101,10 @@ before overturning one; the line here is the trigger, not the case.
 
 - **A ritual must be reachable from another ritual, or say what reaches it.**
   `node tools/cortex-skill-graph.mjs --check` fails when one is isolated in both directions, and
-  `tools/test/skill-graph.test.sh` runs it. The failure has no error state: a ritual nothing points at
+  `tools/test/skill-graph.test.sh` runs it. **A pass is weaker than this rule** — one outbound edge
+  clears the check, so it cannot see a front door that has been stripped, only total disconnection
+  ([`tools/AGENTS.md`](../tools/AGENTS.md)). Read the inbound edges; do not infer them from green.
+  The failure has no error state: a ritual nothing points at
   still runs when you type its name, so only a user who already knows it exists ever gets there.
   `/wizard` and `/team-add` each sat that way — `/team-init` created a team-brain and never named the
   command a member runs to join it. A ritual genuinely triggered from outside (a hook, a git state)

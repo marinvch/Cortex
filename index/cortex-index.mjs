@@ -11,6 +11,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { nextLine } from "./lib/next.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
+import { rootProblem } from "./lib/root.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, out: null, json: false };
@@ -35,6 +36,15 @@ function generatedNotice(gen) {
 
 const args = parseArgs(process.argv.slice(2));
 const root = resolve(args.root || process.cwd());
+
+// A root that is not a directory produces a confident empty answer, not an error: buildIndex
+// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
+// a stale path in a script) does not matter, the output does.
+const rootIssue = rootProblem(root);
+if (rootIssue) {
+  process.stderr.write(rootIssue);
+  process.exit(1);
+}
 const out = args.out ? (isAbsolute(args.out) ? args.out : resolve(args.out)) : join(root, ".cortex", "index", "index.json");
 
 const started = Date.now();

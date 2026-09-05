@@ -17,6 +17,34 @@ export const ROLES = new Set([
 const MAX_SUMMARY = 400;
 
 /**
+ * The file entries in a batch result, or null when the shape is not one Cortex accepts.
+ *
+ * The skill documents a bare array. A model that also echoes the batch number back — writing
+ * `{ "batchIndex": 2, "files": [...] }` — has still answered the question, so `merge` has always
+ * taken both. `classifyBatches` took only the array, and `status` therefore reported a complete,
+ * correct object-form batch as "answers a different plan — redo or delete" while `merge` on the
+ * very same file enriched every one of its files without a single issue.
+ *
+ * That is the tripwire in reverse: only drop what is actually wrong, and a wrapped array is not
+ * wrong — merge already ruled on it. `status` is what an agent reads to decide what work is left,
+ * so the disagreement costs a re-run of an expensive model pass, or the deletion of correct output.
+ * One reader, so the two can no longer disagree **about the shape of a result**.
+ *
+ * They can still disagree about its CONTENT, and that part is deliberate rather than left over.
+ * A real, indexed path arriving against a renumbered batch is kept by `validateBatch`'s rebatched
+ * branch below and counted as `foreign` by `classifyBatches`, so `status` lists the batch as stale
+ * while `merge` absorbs the work. The two are answering different questions — "does this file
+ * answer the plan I am holding" and "is this summary true of a file that exists" — and index/
+ * AGENTS.md records the residue as cosmetic. Do not reconcile it here by teaching one reader the
+ * other's rule; that is how status came to condemn work merge accepts.
+ */
+export function batchRows(result) {
+  if (Array.isArray(result)) return result;
+  if (Array.isArray(result?.files)) return result.files;
+  return null;
+}
+
+/**
  * Check one batch result against the batch that was requested.
  * Returns { entries, issues } — issues are strings; entries are the survivors.
  */
@@ -31,7 +59,7 @@ export function validateBatch(batch, result, indexedPaths = null) {
   // fall back to the strict positional check.
   const rebatched = indexedPaths !== null;
 
-  const rows = Array.isArray(result) ? result : Array.isArray(result?.files) ? result.files : null;
+  const rows = batchRows(result);
   if (!rows) {
     return { entries: [], issues: [`batch ${batch.batchIndex}: expected an array of file entries`] };
   }
@@ -200,12 +228,15 @@ export function classifyBatches(batches, read) {
       stale.push({ batch, why: "invalid JSON" });
       continue;
     }
-    if (!Array.isArray(result)) {
+    // The same shape reader `validateBatch` uses. Two copies of "what does a batch result look
+    // like" is how status came to condemn work merge accepted.
+    const rows = batchRows(result);
+    if (!rows) {
       stale.push({ batch, why: "not an array of entries" });
       continue;
     }
     const want = new Set(batch.files.map((f) => f.path));
-    const got = new Set(result.map((r) => r && r.path).filter(Boolean));
+    const got = new Set(rows.map((r) => r && r.path).filter(Boolean));
     const unanswered = [...want].filter((p) => !got.has(p)).length;
     const foreign = [...got].filter((p) => !want.has(p)).length;
     if (!unanswered && !foreign) {

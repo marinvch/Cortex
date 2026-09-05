@@ -68,10 +68,24 @@ about itself, so nothing surfaces until a reader is misled.
 |---|---|
 | `cortex-version.mjs --check` | the seven version sites disagree. Never hand-edit one; `--set` writes them all |
 | `cortex-capability.mjs` | a ritual declares no capability floor |
-| `cortex-skill-graph.mjs --check` | a ritual is isolated in both directions — unreachable except by someone who already knows it exists |
+| `cortex-skill-graph.mjs --check` | a ritual has no edges at all, in either direction, and declares no `reached-by:` |
 | `cortex-skill-usage.mjs --unused` | (reports, does not fail) which skills the session record shows nobody ever reached |
 | `cortex-plugin-check.mjs --check` | the running plugin is behind the repo, so a correct fix looks broken |
 | `cortex-sync-skills.sh --check` | the gitignored `.claude/skills/` mirror has drifted from `skills/` |
+
+**The graph check cannot see a front door.** It fails only on `out.length === 0 && in.length === 0`
+(`cortex-skill-graph.mjs:106`), so a ritual keeps passing however thoroughly its *inbound* edges are
+stripped — one outbound edge is enough. Keep that `&&`: a router like `/cortex-next` is nearly all
+outbound and a shared discipline like `/writing-for-agents` nearly all inbound, so failing on a low
+inbound count would force exactly the decorative "see also" edges that make a graph look healthier
+than it is. The consequence is worth stating plainly, because the surrounding prose implies more:
+the check proves a ritual is **wired to something**, not that anything leads **to** it. It catches
+total disconnection, which is real and worth catching, and nothing short of it.
+
+Inbound edges are also not equal, and counting them hides that. `/connect-brain` and
+`/migrate-engine` have one each — from `/setup-plugins` and `/install-project`, both causally
+correct, and both from rituals the session record shows at 0/0. A door behind a door nobody opens.
+`cortex-skill-usage.mjs` is the instrument for that half; no static graph can answer it.
 
 A tool added here that answers a question about the repo should get a `--check` mode and a test. The
 report is the point; the exit code is what lets CI or a ritual act on it.

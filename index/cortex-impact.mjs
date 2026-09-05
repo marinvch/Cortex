@@ -14,10 +14,10 @@
 
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
-import { execFileSync } from "node:child_process";
 import { impactOf, groupUnknown } from "./lib/impact.mjs";
 import { UNRESOLVED_LANGUAGES } from "./lib/imports.mjs";
 import { rootProblem } from "./lib/root.mjs";
+import { changedFiles, failureLines } from "./lib/changed.mjs";
 
 function parseArgs(argv) {
   const args = { root: null, paths: [], staged: false, since: null, json: false, depth: Infinity, index: null };
@@ -54,30 +54,25 @@ if (!existsSync(indexPath)) {
   process.exit(2);
 }
 
-function git(a) {
-  try {
-    return execFileSync("git", a, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
-  } catch {
-    return null;
-  }
-}
+const { files: changed, failures } = changedFiles(root, {
+  paths: args.paths,
+  staged: args.staged,
+  since: args.since,
+});
 
-let changed = args.paths;
-if (args.staged) {
-  const out = git(["diff", "--cached", "--name-only"]) ?? "";
-  // Fall back to unstaged when nothing is staged: someone mid-edit asking "what does this touch"
-  // means their working tree, and an empty answer would look like "nothing depends on this".
-  const wt = out.trim() ? out : (git(["diff", "--name-only"]) ?? "");
-  changed = changed.concat(wt.split("\n").filter(Boolean));
-}
-if (args.since) {
-  const out = git(["diff", "--name-only", `${args.since}...HEAD`]) ?? git(["diff", "--name-only", args.since]) ?? "";
-  changed = changed.concat(out.split("\n").filter(Boolean));
-}
-changed = [...new Set(changed)];
+// A failure is not an empty diff, and this is the command where confusing the two costs the most:
+// every number here is a floor, and a floor computed from a change set git could not read is not a
+// floor at all. This copy of the git call had no maxBuffer, so a wide --since on a long-lived repo
+// overflowed, threw, and printed "nothing to analyse" — the exact confident zero the command exists
+// to avoid. Say it out loud, before anything else reaches the terminal.
+for (const line of failureLines(failures)) console.error(line);
 
 if (!changed.length) {
-  console.error("nothing to analyse. Pass file paths, or --staged, or --since <ref>.");
+  console.error(
+    failures.length
+      ? "The change set could not be read, so nothing was analysed. This is git failing, not a repository with no changes."
+      : "nothing to analyse. Pass file paths, or --staged, or --since <ref>.",
+  );
   process.exit(2);
 }
 
@@ -163,3 +158,9 @@ if (r.truncated) {
 
 console.log(`\nA floor, not a total — imports are resolved by convention, so treat this as the`);
 console.log(`smallest honest answer rather than the complete one.`);
+if (failures.length) {
+  // The floor is only a floor over the change set it was given. Repeating it here is deliberate:
+  // the reader who acts on this number is at the BOTTOM of the output, and a warning printed before
+  // sixty lines of radius has already scrolled off the top of the terminal.
+  console.log(`\nAnd this radius was computed from an incomplete change set — see the git error above.`);
+}

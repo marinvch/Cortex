@@ -57,6 +57,17 @@ const SIGNALS = [
   { id: "pytest", label: "pytest", kind: "test", dep: "pytest", manifest: /^(requirements\.txt|pyproject\.toml)$/ },
   { id: "rails", label: "Rails", kind: "framework", dep: "rails", manifest: "Gemfile" },
   { id: "laravel", label: "Laravel", kind: "framework", dep: "laravel/framework", manifest: "composer.json" },
+  // Spring Boot, from the one string both build tools share. Maven writes
+  // `<groupId>org.springframework.boot</groupId>`; Gradle writes `id 'org.springframework.boot'`
+  // (Groovy) or `id("org.springframework.boot")` (Kotlin DSL). Keyed on the group rather than on a
+  // starter artifact, because which starter a project uses varies — web, webmvc, webflux, batch —
+  // and the group does not.
+  { id: "spring", label: "Spring Boot", kind: "framework", dep: "org.springframework.boot", manifest: /(^|\/)(pom\.xml|build\.gradle(\.kts)?)$/ },
+  // The Web SDK is what makes a .csproj an ASP.NET Core app, and it is exact. Keying on a bare
+  // `AspNetCore` would fire on `Azure.Extensions.AspNetCore.Configuration.Secrets`, which is a
+  // config package and not a web framework — one real repo carries exactly that line.
+  { id: "aspnetcore", label: "ASP.NET Core", kind: "framework", dep: ["Microsoft.NET.Sdk.Web", "Microsoft.AspNetCore.App"], manifest: /(^|\/)[^/]+\.csproj$/ },
+  { id: "phoenix", label: "Phoenix", kind: "framework", dep: "phoenix", manifest: /(^|\/)mix\.exs$/ },
   { id: "go", label: "Go", kind: "language", manifest: "go.mod" },
   // Ruby, PHP and Java had framework rows (rails, laravel) but no LANGUAGE row, so a Sinatra app and
   // a 264-file Maven project both reported no language at all. Asserted from the manifest, and for
@@ -66,6 +77,18 @@ const SIGNALS = [
   { id: "php", label: "PHP", kind: "language", manifest: "composer.json" },
   { id: "java", label: "Java", kind: "language", manifest: /(^|\/)(pom\.xml|build\.gradle(\.kts)?)$/ },
   { id: "rust", label: "Rust", kind: "language", manifest: "Cargo.toml" },
+  // The same fix in the other direction. `langs.mjs` indexes 17 languages; this table could name 7,
+  // so a repo could be read correctly and described as nothing. Worse than nothing, twice, on real
+  // repos: a 247-file ASP.NET Core solution reported `typescript` + `react`, because the only
+  // manifest it could see was the small React client bundled inside it.
+  //
+  // Each of these is a manifest that means ONE language and nothing else — a `.csproj` is a C#
+  // project, `mix.exs` is Mix, `Package.swift` is SwiftPM, `build.sbt` is sbt. That is the same
+  // standard the rows above hold: declared, not inferred.
+  { id: "csharp", label: "C#", kind: "language", manifest: /(^|\/)[^/]+\.(csproj|sln|slnx)$/ },
+  { id: "elixir", label: "Elixir", kind: "language", manifest: /(^|\/)mix\.exs$/ },
+  { id: "swift", label: "Swift", kind: "language", manifest: /(^|\/)Package\.swift$/ },
+  { id: "scala", label: "Scala", kind: "language", manifest: /(^|\/)build\.sbt$/ },
 
   // --- delivery ------------------------------------------------------------------------------
   { id: "docker", label: "Docker", kind: "delivery", file: /^Dockerfile$|(^|\/)Dockerfile$/ },
@@ -86,10 +109,24 @@ function declaresDependency(manifestText, manifestPath, dep) {
     // `"dep":` — a key, so a substring of another package name cannot match.
     return new RegExp('"' + dep.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&") + '"\\s*:').test(manifestText);
   }
-  // requirements.txt / pyproject.toml / Gemfile: the name at a token boundary, case-insensitive,
-  // before any version specifier.
+  // requirements.txt / pyproject.toml / Gemfile / pom.xml / build.gradle / mix.exs: the name at a
+  // token boundary, case-insensitive, before any version specifier.
+  //
+  // The LEADING side is "not an identifier character" rather than a list of the punctuation someone
+  // thought of. The list was written against flat text manifests and silently could not match the
+  // structured ones: Maven writes `<groupId>org.springframework.boot</groupId>` and Mix writes
+  // `{:phoenix, "~> 1.8"}`, so the character before the name is `>` or `:` — neither was a boundary,
+  // and no dependency in an XML or Elixir manifest could ever be found. Nothing failed; the rows
+  // just never fired, which is why the table looked like it had no Java frameworks rather than like
+  // it could not read one.
+  //
+  // The TRAILING side is left exactly as it was. It already admits `<`, `:` and the version
+  // operators, which is everything the structured manifests need, and widening a side that is not
+  // the problem only buys false positives. `-` and `.` are identifier characters on purpose:
+  // `spring-boot-starter` must not match `spring-boot-starter-web`, and `Microsoft.AspNetCore` must
+  // not match `Microsoft.AspNetCore.Diagnostics`.
   const esc = dep.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
-  return new RegExp("(^|[\\s\"'\\[,])" + esc + "($|[\\s\"'\\],=<>~!;:])", "im").test(manifestText);
+  return new RegExp("(^|[^A-Za-z0-9_.-])" + esc + "($|[\\s\"'\\],=<>~!;:])", "im").test(manifestText);
 }
 
 function matchesManifest(spec, path) {
@@ -158,8 +195,10 @@ export function detectStack(files, readText) {
     // one answer worse than an empty stack: it looks like the detector never ran.
     manifests: paths.filter((p) =>
       // Kept in step with the manifest specs above. A Maven project listing no manifests at all is
-      // how this drifted: Java was detected from pom.xml while the reported list stayed empty.
-      /(^|\/)(package\.json|go\.mod|Cargo\.toml|Gemfile|composer\.json|requirements\.txt|pyproject\.toml|pom\.xml|build\.gradle(\.kts)?)$/.test(
+      // how this drifted: Java was detected from pom.xml while the reported list stayed empty. The
+      // same omission is what made `cortex-skills` tell a Phoenix app it had "no dependency manifest
+      // found, so the stack is unknown" while `mix.exs` sat in the index.
+      /(^|\/)([^/]+\.(csproj|sln|slnx)|package\.json|go\.mod|Cargo\.toml|Gemfile|composer\.json|requirements\.txt|pyproject\.toml|pom\.xml|build\.gradle(\.kts)?|build\.sbt|mix\.exs|Package\.swift)$/.test(
         p,
       ),
     ).sort(),

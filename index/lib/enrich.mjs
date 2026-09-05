@@ -28,7 +28,15 @@ const MAX_SUMMARY = 400;
  * That is the tripwire in reverse: only drop what is actually wrong, and a wrapped array is not
  * wrong — merge already ruled on it. `status` is what an agent reads to decide what work is left,
  * so the disagreement costs a re-run of an expensive model pass, or the deletion of correct output.
- * One reader, so the two can no longer disagree.
+ * One reader, so the two can no longer disagree **about the shape of a result**.
+ *
+ * They can still disagree about its CONTENT, and that part is deliberate rather than left over.
+ * A real, indexed path arriving against a renumbered batch is kept by `validateBatch`'s rebatched
+ * branch below and counted as `foreign` by `classifyBatches`, so `status` lists the batch as stale
+ * while `merge` absorbs the work. The two are answering different questions — "does this file
+ * answer the plan I am holding" and "is this summary true of a file that exists" — and index/
+ * AGENTS.md records the residue as cosmetic. Do not reconcile it here by teaching one reader the
+ * other's rule; that is how status came to condemn work merge accepts.
  */
 export function batchRows(result) {
   if (Array.isArray(result)) return result;

@@ -11,15 +11,11 @@
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { ENRICHED_REL } from "./enrich.mjs";
+import { AGENT_DOC_NAMES } from "./context-docs.mjs";
 
-const AGENT_DOCS = [
-  "AGENTS.md",
-  "CLAUDE.md",
-  "GEMINI.md",
-  ".cursorrules",
-  ".github/copilot-instructions.md",
-  ".windsurfrules",
-];
+// The list moved to context-docs.mjs. This file knew six names and findings.mjs knew two, and both
+// answers reached one user from one command — `cortex-findings` prints `nextLine()` as its footer.
+const AGENT_DOCS = AGENT_DOC_NAMES;
 
 const LEGACY_ENGINES = [".ai-os", ".github/ai-os"];
 

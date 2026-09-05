@@ -9,6 +9,8 @@
 # If you are splitting a document again, copy this shape. The rule is not "keep a file"; it is
 # "keep the pointer, on the path the reader actually walks, and keep what it points at".
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 DOC="$REPO_ROOT/docs/changing-cortex.md"
 ROOT_MD="$REPO_ROOT/AGENTS.md"
 
@@ -46,6 +48,7 @@ capability:|every ritual declares a floor
 disable-model-invocation|the rituals that may not auto-fire
 --offers|the worklist is the wizard's script
 install-on-a-project.test.sh|the one test that asserts the product works
+fragment-guard.test.sh|a shell test fragment may only be run by the runner
 coverage.mjs|coverage has a single home
 CORTEX_PROFILE|profile is declared, never detected
 consent gate|cortex-install never writes before the user chooses

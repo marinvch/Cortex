@@ -53,6 +53,18 @@ so no network.
 Four assertions in `_helpers.sh`, deliberately. A test framework that grows features is a dependency
 by another name; if a test wants a fifth helper, it is usually the test that wants simplifying.
 
+**A `*.test.sh` file is a fragment `run.sh` sources, not a script — and it refuses to run alone.**
+The runner exports `$WORK` and `$REPO_ROOT` and cds into a fresh temp dir. Standalone, both are
+empty: `cd "$WORK/proj"` becomes `cd ""`, which fails without stopping the script, so the `git
+init`, the `> README.md` and the `git add -A && git commit` after it run against the repository you
+are in. That is not a hypothetical — on 2026-09-05 `bash tools/test/cortex-view.test.sh`, typed in
+exactly the form the briefs above print, put two fixture commits on `master`, replaced `README.md`
+with `# readme` and rewrote the git identity, all while reporting nothing. So the gate is the first
+thing in `_helpers.sh`, every fragment sources it as its first line of code, and every `cd` carries
+`|| exit 1`. `fragment-guard.test.sh` runs every fragment the wrong way on purpose, in a throwaway
+git repo, and asserts the tree is untouched — plus that a fragment written tomorrow cannot skip the
+line, which under the runner would otherwise be invisible.
+
 **Every test touching the home directory must override the variable the platform actually reads.**
 `os.homedir()` answers `USERPROFILE` on Windows and `HOME` elsewhere, so a fixture that sets only
 `HOME` leaves a Windows run reading the developer's real machine — and passing for the wrong reason.

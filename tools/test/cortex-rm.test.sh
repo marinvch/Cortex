@@ -4,6 +4,8 @@
 # onto a vault root; the bash half kept a bare $(pwd) and would archive a file it was never pointed
 # at. These tests pin the refusal and the promises the tool already makes.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 LIB="$REPO_ROOT/tools/_cortex-lib.sh"
 RM="$REPO_ROOT/tools/cortex-rm.sh"
 

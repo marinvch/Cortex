@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assertions for the shell tests. Four of them, deliberately.
+# The runner gate, then four assertions. Deliberately four.
 #
 # A test framework that grows features becomes a dependency by another name, and ADR 0004 says this
 # repo has none. If a test needs a fifth helper, it is usually the test that wants simplifying.
@@ -7,8 +7,37 @@
 # Each assertion prints one line and increments a counter. Nothing exits early: a run that stops at
 # the first failure tells you about one bug when it could have told you about four.
 
-CORTEX_TEST_PASS=0
-CORTEX_TEST_FAIL=0
+# --- the gate ----------------------------------------------------------------
+#
+# A *.test.sh file here is a FRAGMENT that run.sh sources, not a script you run. The runner makes a
+# fresh temp dir, exports $WORK and $REPO_ROOT, and cds into $WORK; every fixture builds under
+# $WORK from there. Run a fragment on its own and both are empty — `cd "$WORK/proj"` becomes
+# `cd ""`, which fails, does not stop the script, and leaves the `git init`, the `> README.md` and
+# the `git add -A && git commit` after it running in whatever directory you were standing in.
+#
+# That is not hypothetical. On 2026-09-05 an agent ran `bash tools/test/cortex-view.test.sh`
+# directly from the repo root — the exact form the leaf briefs print — and the fixture rewrote the
+# git identity, overwrote README.md with `# readme`, overwrote package.json and committed twice on
+# master. Nothing failed; the damage was the test passing.
+#
+# So every fragment sources this file as its first line of code, and this is where the run stops.
+if [ -z "${WORK:-}" ] || [ -z "${REPO_ROOT:-}" ] || [ ! -d "${WORK:-}" ]; then
+  _frag="$(basename "${BASH_SOURCE[1]:-}" .test.sh 2>/dev/null)"
+  {
+    printf 'tools/test: refusing to run — $WORK and $REPO_ROOT come from tools/test/run.sh.\n'
+    printf 'A *.test.sh file is a fragment the runner sources, not a script. Run alone, its\n'
+    printf 'fixtures build in the current directory and commit to the repository you are in.\n'
+    printf '\n  bash tools/test/run.sh %s\n' "$_frag"
+  } >&2
+  exit 1
+fi
+
+# --- assertions --------------------------------------------------------------
+#
+# Idempotent, because a fragment re-sources this file after run.sh already did. Resetting here
+# would zero the counters of a fragment that sourced it twice.
+CORTEX_TEST_PASS=${CORTEX_TEST_PASS:-0}
+CORTEX_TEST_FAIL=${CORTEX_TEST_FAIL:-0}
 
 _pass() { CORTEX_TEST_PASS=$((CORTEX_TEST_PASS + 1)); printf '  ok    %s\n' "$1"; }
 _fail() {

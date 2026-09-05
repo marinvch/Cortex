@@ -12,6 +12,8 @@
 #      run they did not explicitly ask for has to be visible. `.cortex/memory/` is deliberately NOT
 #      ignored, because it is committed; that asymmetry is the whole design of the memory store.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 INDEX="$REPO_ROOT/index/cortex-index.mjs"
 
 PROJ="$WORK/proj"

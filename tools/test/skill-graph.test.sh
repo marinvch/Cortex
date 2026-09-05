@@ -10,6 +10,8 @@
 # This is the same rule AGENTS.md applies to prose — define a thing once and point at it from
 # everywhere else — measured on the rituals rather than asserted about them.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 GRAPH="$REPO_ROOT/tools/cortex-skill-graph.mjs"
 
 out="$(node "$GRAPH" 2>&1)"; rc=$?

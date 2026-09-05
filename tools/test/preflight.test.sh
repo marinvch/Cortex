@@ -6,6 +6,8 @@
 # wrong writes a private note into a tracked file. So a COMMITTED verdict has to be a non-zero exit
 # and not merely a line of output, because a caller that only reads stdout will not read it.
 
+. "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
+
 PF="$REPO_ROOT/tools/cortex-preflight.mjs"
 
 # A real git repo in a temp dir: the tool asks git for the toplevel and for check-ignore, so a fake
@@ -16,7 +18,7 @@ mkdir -p "$HOME"
 repo="$work/repo"
 mkdir -p "$repo/sub/deep"
 (
-  cd "$repo"
+  cd "$repo" || exit 1
   git init -q .
   git config user.email t@example.com
   git config user.name Test

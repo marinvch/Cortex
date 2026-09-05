@@ -9,10 +9,15 @@ import { scan, isClean, redact, assertWritable, RefusedWriteError } from "../scr
 // Cortex memory is COMMITTED, so this gate is the only thing standing between a developer's note
 // and a secret in the repository's history. Each rule gets a test.
 //
-// Every fixture below is ASSEMBLED AT RUNTIME rather than written as a literal. These strings are
-// fake, but they are shaped exactly like the real thing — which is the point — and a literal in
-// the source trips GitHub push protection and every other scanner pointed at this repo. Joining
-// the pieces keeps the test honest without shipping something that reads as a live credential.
+// Every PROVIDER-SHAPED fixture below is ASSEMBLED AT RUNTIME rather than written as a literal.
+// These strings are fake, but they carry the real prefix — which is the point — and a literal one
+// trips GitHub push protection and every other scanner pointed at this repo. Joining the pieces
+// keeps the test honest without shipping something that reads as a live credential.
+//
+// The generic fixtures — a config-shaped assignment, a connection string — stay literal on
+// purpose: no provider pattern matches them, so there is nothing for push protection to catch,
+// and splitting them would hide the very shape under test. Those are the hits Cortex reports
+// against this file, and they are why the marker above is needed at all.
 const fake = (...parts) => parts.join("");
 
 const AWS_KEY = fake("AKIA", "IOSFODNN7", "EXAMPLE");

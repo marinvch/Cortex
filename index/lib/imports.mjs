@@ -202,13 +202,19 @@ export function parseJsonc(text) {
   }
 }
 
+// Longest literal prefix first: "@/payload-types" must beat "@/*", or the umbrella swallows it.
+// One comparator, because `mergeAliasTables` re-sorts a combined list and a second copy of this
+// rule would rank the same two keys differently the day one of them changed.
+const byKeySpecificity = (a, b) => b.key.replace("*", "").length - a.key.replace("*", "").length;
+
 /**
  * Turn one parsed tsconfig into an alias table rooted at the repo.
  *
  * `configDir` is the tsconfig's own directory, root-relative ("" at the root). TypeScript resolves
  * `paths` against `baseUrl`, and against the config's own directory when there is no `baseUrl`
  * (allowed since TS 4.1). `baseUrl` alone also makes bare specifiers resolvable, which is why it is
- * returned even when `paths` is empty.
+ * returned even when `paths` is empty — `hasBaseUrl` records whether it was *declared*, which is
+ * what a merge needs to know, since the default is indistinguishable from `baseUrl: "."`.
  */
 export function tsAliasTable(json, configDir = "") {
   const co = json?.compilerOptions ?? {};
@@ -224,9 +230,34 @@ export function tsAliasTable(json, configDir = "") {
     });
     entries.push({ key, targets: list, star: key.includes("*") });
   }
-  // Longest literal prefix first: "@/payload-types" must beat "@/*", or the umbrella swallows it.
-  entries.sort((a, b) => b.key.replace("*", "").length - a.key.replace("*", "").length);
-  return { dir: configDir, baseUrl, entries };
+  entries.sort(byKeySpecificity);
+  return { dir: configDir, baseUrl, hasBaseUrl: Boolean(co.baseUrl), entries };
+}
+
+/**
+ * Combine two tables that govern the *same* directory into one.
+ *
+ * Solution-style repos put several configs side by side — the Vite React-TS template ships
+ * `tsconfig.json` (references only), `tsconfig.app.json` (which declares `paths`) and
+ * `tsconfig.node.json` (which does not). All three sit at the root, so a lookup that returns the
+ * first table matching a directory has to pick one, and picking `tsconfig.node.json` hides every
+ * alias the repo declared. Merging is the only answer that cannot depend on declaration order.
+ *
+ * `a` is the nearer claim and wins: its entries are tried first, and its `baseUrl` stands unless it
+ * never declared one. Tables for *different* directories are never merged — nearest-config-wins is
+ * what keeps one package in a monorepo from resolving through another's aliases.
+ */
+export function mergeAliasTables(a, b) {
+  if (!a) return b ?? null;
+  if (!b) return a;
+  const takeB = !a.hasBaseUrl && b.hasBaseUrl;
+  return {
+    dir: a.dir,
+    baseUrl: takeB ? b.baseUrl : a.baseUrl,
+    hasBaseUrl: a.hasBaseUrl || b.hasBaseUrl,
+    // Stable sort, so equally specific keys keep `a` ahead of `b`.
+    entries: [...a.entries, ...b.entries].sort(byKeySpecificity),
+  };
 }
 
 // Try every extension and index form for an already root-relative base. Shared by the relative and

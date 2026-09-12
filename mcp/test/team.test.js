@@ -51,7 +51,7 @@ test("cloneTeamBrain clones a local bare repo, and is a no-op if present", () =>
 test("initTeamBrain seeds, commits, and pushes to the remote", () => {
   const remote = bareRemote();
   const root = mkdtempSync(join(tmpdir(), "vault-"));
-  const dir = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
+  const { dir } = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
   assert.ok(existsSync(join(dir, "team.md")));
   // verify the push landed: clone the remote fresh and check team.md arrived
   const verify = mkdtempSync(join(tmpdir(), "verify-"));
@@ -63,7 +63,26 @@ test("initTeamBrain seeds, commits, and pushes to the remote", () => {
 test("initTeamBrain is idempotent (safe to re-run after a prior init)", () => {
   const remote = bareRemote();
   const root = mkdtempSync(join(tmpdir(), "vault-"));
-  const dir = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
+  const { dir } = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
   assert.doesNotThrow(() => initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] }));
   assert.ok(existsSync(join(dir, "team.md")));
+});
+
+// core/profile.js:48-51 argues that sealing outward sync is the load-bearing half of `lab`:
+// "Without this, `lab` would just be a way to switch the firewall off and keep pushing — which is
+// the leak with extra steps." The push here was unconditional, so that is exactly what /team-init
+// did on a lab install. capture.js already had the shape: write locally, decline the push, and
+// tell the caller which, rather than reporting a silent success.
+test("initTeamBrain refuses to push when outward sync is sealed", () => {
+  const remote = bareRemote();
+  const root = mkdtempSync(join(tmpdir(), "vault-"));
+
+  const res = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"], outwardSync: false });
+
+  assert.equal(res.pushed, false);
+  assert.equal(res.error, "outward_sync_disabled");
+  assert.ok(existsSync(join(res.dir, "team.md")), "the seed is still written locally");
+
+  const refs = execFileSync("git", ["for-each-ref"], { cwd: remote }).toString().trim();
+  assert.equal(refs, "", "nothing may reach the remote on a sealed profile");
 });

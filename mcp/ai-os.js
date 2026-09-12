@@ -6,6 +6,7 @@ import { loadManifest, buildPlan, formatCommands } from "./lib/setup-plugins.js"
 import { initTeamBrain, cloneTeamBrain, writeConnector } from "./lib/team.js";
 import { digest } from "./lib/digest.js";
 import { catchMeUp } from "./lib/catchup.js";
+import { resolveProfile } from "../core/profile.js";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
 const WIN = process.platform === "win32";
@@ -51,7 +52,18 @@ function cmdTeam(teamSub, args) {
   if (teamSub === "init") {
     if (!args.name || !args.repo) throw new Error("usage: ai-os team init --name <team> --repo <git-url> [--projects a,b]");
     const projects = typeof args.projects === "string" ? args.projects.split(",").map((s) => s.trim()).filter(Boolean) : [];
-    const dir = initTeamBrain(root, { name: args.name, repo: args.repo, projects });
+    // The CLI is the second adapter over this operation and it used to read neither the profile
+    // nor the policy, so `lab` — which exists to seal outward sync — published anyway. Resolving
+    // here also makes a misspelt CORTEX_PROFILE a named failure rather than a silent default,
+    // which is what the server has always done.
+    const world = resolveProfile({ env: process.env });
+    const { dir, pushed, error } = initTeamBrain(root, {
+      name: args.name, repo: args.repo, projects, outwardSync: world.policy.outwardSync,
+    });
+    if (!pushed) {
+      console.log(`Team-brain seeded at ${dir}, but NOT pushed: ${error} (profile ${world.profile}).`);
+      return 0;
+    }
     console.log(`Team-brain initialized at ${dir} and pushed to ${args.repo}.`);
     return 0;
   }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { append, list, recent, stamp } from "../memory.js";
@@ -92,3 +92,24 @@ test("list() on a vault with no memory yet is empty, not an error", () => {
 });
 
 export { OutsideRootError };
+
+// The contract "`root` is the .cortex directory" lived only in a doc comment, so passing a repo
+// root — the reading the word "root" invites — wrote a dated file to <repo>/memory/ and returned
+// exit 0. Nothing reads that path: it is not the committed .cortex/memory/, and generated.mjs
+// ignores only .cortex/index|findings|view, so it is not even gitignored. A confident wrong
+// output, which is the failure index/lib/root.mjs exists to prevent.
+test("append refuses a root that is not the .cortex directory", () => {
+  const repo = mkdtempSync(join(tmpdir(), "cortex-mem-"));
+  mkdirSync(join(repo, ".cortex"), { recursive: true });
+
+  assert.throws(
+    () => append(repo, "a note that must not land", { date: DAY }),
+    (e) => e.code === "not_cortex_root",
+  );
+  assert.equal(existsSync(join(repo, "memory")), false, "nothing may be written on a refused root");
+});
+
+test("append names the root it was given when it refuses", () => {
+  const repo = mkdtempSync(join(tmpdir(), "cortex-mem-"));
+  assert.throws(() => append(repo, "x", { date: DAY }), (e) => e.message.includes(repo));
+});

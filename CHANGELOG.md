@@ -3,6 +3,113 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [2.38.0] — 2026-09-13
+
+The previous two releases were found by *using* Cortex. This one was found by reading someone
+else's. A full audit of a peer agent harness assessed thirty-two of its mechanisms; six were taken,
+and two candidates were dropped after verification rather than shipped on the audit's word — the
+create-only write primitive had no clobber to prevent here, because `core/memory.js` appends and
+never replaces.
+
+The two most valuable findings were not imports at all. Looking for the peer's guards is what made
+anyone look at ours, and both were failing open.
+
+### Fixed — the root guard walked up on errors that were not "it isn't there"
+
+`realpathOfNearestExisting` walks up to the nearest existing ancestor so a create target that does
+not exist yet can still be guarded. Its `catch` was bare, so it swallowed every error and kept
+walking.
+
+Only absence earns a walk up: `ENOENT`, and `ENOTDIR` for a file used as a directory. `EACCES`,
+`ELOOP`, `EPERM`, a poisoned argument — each means the guard **could not answer the question**, and
+the bare catch answered it anyway. It walked up to an ancestor that *does* resolve inside the root,
+so `resolveInRoot` returned success and the guard passed. Demonstrated against the old code: a path
+carrying a NUL byte returned a result instead of throwing.
+
+This is the primitive `mcp/lib/vault.js` and `core/memory.js` are both built on, so the blast radius
+was every door onto a vault.
+
+### Fixed — `cortex-sync-skills.sh` ran `rm -rf` on a path it never resolved
+
+`docs/changing-cortex.md` has stated for a year that a destructive shell tool routes its target
+through `resolve_in_root`. This tool never sourced the library. `${DST:?}` stops an empty variable;
+it does not resolve symlinks.
+
+Not theoretical. With `.claude/skills` as a junction pointing out of the checkout, the old script
+**deleted content outside the repository** and copied canonical into the hole. The first test
+written for it asserted the outside file still existed — and passed, because the file did exist,
+holding someone else's content. It fingerprints the whole outside tree now. That is this repo's own
+"assert the property, not the symptom" rule catching the test written to enforce it.
+
+### Added — the guard rule is now scanned, not claimed
+
+`tools/test/destructive-guard.test.sh` reads every shipped shell tool for a delete **or a move** —
+`mv` counts, because ADR 0010's original finding was a `mv` — and fails one that neither calls
+`resolve_in_root` nor declares a `cortex:no-root-guard` exemption **with its reason** in its own
+header. A canary fixture proves the detector fires before its silence is trusted.
+
+It found a second offender immediately: `cortex-vault-extract.sh` carried its "checked and not
+affected" justification in a planning document, where no reader of the script would ever meet it.
+
+ADR 0010 is amended rather than rewritten. Its rejected alternative held that guarding every tool
+was noise because "two were checked and do not need it" — true the day it was written, and it
+silently stopped being the whole list. The rejection still holds on its own terms; what was wrong
+was making the claim once instead of making it checkable.
+
+### Added — the skills mirror records what it wrote
+
+`.claude/skills/` is gitignored, so a directory existing only there has no history and deleting it
+is unrecoverable. That is why mirror-only directories were reported and never removed. But two
+situations were indistinguishable: a skill the tool mirrored and canonical has since deleted, versus
+a directory you created locally that exists nowhere else.
+
+A ledger of what the sync itself wrote separates them. Only the first is ever removable, behind an
+opt-in `--prune-mirrored`, and **every way of not knowing** — absent ledger, wrong header, truncated
+line, a digest that no longer matches — resolves to the second. `--check` stays read-only and writes
+no ledger either.
+
+### Added — MCP tools declare whether they return other people's text
+
+`recall`, `recall_memory`, `get_project_context`, `catch_me_up` and `list_projects` now carry a
+trust boundary in the tool **description**, where the model reads it, rather than in documentation it
+never sees. A `returns: FOREIGN | OWN` field sits beside `mode`, and a row that omits it — or claims
+`FOREIGN` without the sentence — fails at import, so the eighth tool cannot ship unmarked.
+
+`list_projects` is marked foreign deliberately: it returns no file bodies, but its slugs are
+user-authored filenames, and `ignore-previous-instructions.md` is a legal project name.
+
+### Added — a handoff note says it is a record, not instructions
+
+`/handoff` writes in-flight state that a fresh agent reads whole, and its content is inherently
+command-shaped — the skill requires a suggested-skills section. "Ran `/ship` on the release branch"
+reads to a reader with no memory exactly like an instruction to run `/ship`. The peer harness shipped
+that failure and re-ran a recalled command, duplicating issues and branches.
+
+The frame travels **inside the artifact**, because the artifact is what gets read; a warning living
+only in `SKILL.md` is one the next agent never sees. `/dream` got a source-side rule instead — its
+file is append-only and multi-author, so a per-entry banner would repeat all day — and
+`/catch-me-up` got the read-end rule, since that is where a recorded command becomes a replayed one.
+
+### Added — `cortex-role-reviewer` defends against its own findings
+
+Grounding the reviewer in the index fixes *where* a finding points, not *whether* it should exist. A
+grounded reviewer can cite a real line for a problem nobody has, and six angles dispatched on one
+diff each feel obliged to produce something.
+
+It gains a six-question pre-report gate, proof required for High (the quoted line, a concrete
+failure, and the named guard that fails to stop it), an explicit licence to return zero findings, and
+a false-positive table derived from this repo's own ADRs rather than a generic list — a library
+suggestion against ADR 0004, an N+1 warning about a single offline pass, a DRY complaint about the
+copies that parity tests exist to pin.
+
+### Fixed — a dispatched subagent nothing proved exists
+
+`core/test/install.test.js` collects dispatched agents by matching `subagent_type:` in skills, and
+`/cortex-review` named its subagent in prose. So the assertion covered `cortex-auditor` and silently
+skipped `cortex-role-reviewer`: deleting that file left the suite green while the ritual broke for
+the user, at the moment they ran it. The skill changed, not the test — widening the regex to match
+prose makes the test weaker and invites the next unmatched phrasing.
+
 ## [2.37.1] — 2026-09-05
 
 2.37.0 shipped with a paragraph about bugs that fail open. Both fixes here were found the same
@@ -2583,6 +2690,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.38.0]: https://github.com/marinvch/Cortex/releases/tag/v2.38.0
 [2.37.1]: https://github.com/marinvch/Cortex/releases/tag/v2.37.1
 [2.37.0]: https://github.com/marinvch/Cortex/releases/tag/v2.37.0
 [2.36.0]: https://github.com/marinvch/Cortex/releases/tag/v2.36.0

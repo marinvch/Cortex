@@ -51,7 +51,7 @@ export function seedTeamBrain(cloneDir, { name, projects = [] }) {
   return written;
 }
 
-export function initTeamBrain(root, { name, repo, projects = [] }) {
+export function initTeamBrain(root, { name, repo, projects = [], outwardSync = true }) {
   const { dir } = cloneTeamBrain(root, name, repo);
   seedTeamBrain(dir, { name, projects });
   ensureIdentity(dir);
@@ -59,6 +59,14 @@ export function initTeamBrain(root, { name, repo, projects = [] }) {
   const pending = git(dir, ["status", "--porcelain"]).trim();
   if (pending) git(dir, ["commit", "-q", "-m", `chore: seed team-brain ${name}`]);
   git(dir, ["branch", "-M", "master"]);
-  git(dir, ["push", "-q", "-u", "origin", "master"]); // always push (retry-safe if a prior commit was unpushed)
-  return dir;
+
+  // What makes "no firewall" safe on a lab machine: permissive locally is only defensible where
+  // nothing can publish, which is why core/profile.js calls sealed-outward the load-bearing half
+  // of `lab`. The seed is still written and committed locally so nothing is lost; only the publish
+  // is declined, and the caller is told which so it can say so rather than reporting a silent
+  // success. capture.js made the same choice at the same seam.
+  if (!outwardSync) return { dir, pushed: false, error: "outward_sync_disabled" };
+
+  git(dir, ["push", "-q", "-u", "origin", "master"]); // retry-safe if a prior commit was unpushed
+  return { dir, pushed: true };
 }

@@ -53,6 +53,14 @@ the repo by commit count, and — like every other part — **dependency-free**.
   server is **declared** with `CORTEX_AUDIENCE=server`, because it leaves no filesystem trace and
   declaring beats detecting. `core/profile.js` answers a third question (home · work · lab) and
   reads only `CORTEX_PROFILE` — nothing here may move it.
+- **Every path that publishes must consult `policy.outwardSync` — including the CLI.** `lab` exists
+  to be permissive locally *because* it is sealed outward, so the seal is the load-bearing half;
+  `core/profile.js` calls a `lab` that still pushes "the leak with extra steps". For a while that is
+  what `initTeamBrain` was: `capture()` honoured the policy and the team-brain push did not, and
+  `ai-os.js` imported `core/profile.js` nowhere, so a misspelt `CORTEX_PROFILE` was a hard exit in
+  the server and a silent default in the CLI. Both adapters now resolve the profile. A new publish
+  path that does not is the same bug again — write locally, decline the push, and tell the caller
+  which, the way `capture()` does.
 - **`mcp/` never imports from `index/`.**
 
 ## Gotchas

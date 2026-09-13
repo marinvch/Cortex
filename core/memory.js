@@ -24,6 +24,22 @@ function ensureDir(root) {
   return dir;
 }
 
+// The layout is this module's to own, and it used to be owned by a doc comment. `root` means the
+// .cortex directory; pass a repo root — the reading the word invites — and the write landed in
+// <repo>/memory/, reported the path it had written, and exited 0. Nothing reads there, and
+// generated.mjs ignores only .cortex/index|findings|view, so it was not even gitignored: a
+// confident wrong output rather than a failure. Refuse and name what was passed, the way the
+// shell clock in ADR 0012 chose a named failure over a plausible wrong value.
+// Split on both separators so it stays correct on Windows, as mcp/lib/mode.js learned to.
+function assertCortexRoot(root) {
+  const last = String(root ?? "").split(/[\\/]/).filter(Boolean).pop();
+  if (last === ".cortex") return;
+  throw Object.assign(
+    new Error(`refusing to write memory: root must be the .cortex directory, got ${root}`),
+    { code: "not_cortex_root", root },
+  );
+}
+
 /**
  * Append one entry to today's memory file.
  * `root` is the .cortex directory. Refuses the write when the text carries a secret.
@@ -33,6 +49,7 @@ export function append(root, text, { date = new Date(), kind = "note" } = {}) {
   if (!body) throw Object.assign(new Error("refusing to write an empty memory entry"), { code: "empty" });
 
   assertWritable(body); // throws RefusedWriteError — the one gate, before anything touches disk
+  assertCortexRoot(root); // throws not_cortex_root — before anything touches disk
 
   ensureDir(root);
   const day = stamp(date);

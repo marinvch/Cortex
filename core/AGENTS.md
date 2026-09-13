@@ -18,6 +18,13 @@ here, which is why the directory is small and stays small.
 - **Memory is append-only.** `append()` never rewrites an existing entry. Two developers writing
   on the same day append to one file and git merges it as text; there is no lost-update case, and
   introducing one would break the whole shared-memory model.
+- **`root` means the `.cortex` directory, and `append()` enforces it.** The contract used to live
+  in a doc comment, so passing a repo root — the reading the word invites — wrote a dated file to
+  `<repo>/memory/`, returned the path it had written and exited 0. Nothing reads there, and
+  `generated.mjs` ignores only `.cortex/index|findings|view`, so it was not even gitignored: a
+  confident wrong output rather than a failure. `assertCortexRoot()` refuses and names what it was
+  given. Keep the check on the write path — it is the reason `cortex-memory.mjs` can rejoin the
+  `rootProblem` check the other eight `index/` CLIs share.
 
 ## Gotchas
 

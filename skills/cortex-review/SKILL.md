@@ -94,7 +94,8 @@ a document wrong. That is deliberately narrow, and it is blind to whole classes 
 document happens to mention.
 
 When a change touches something with a specialist failure mode — auth, a request path, a migration,
-a UI control, anything operational — dispatch the `cortex-role-reviewer` subagent with a role and the
+a UI control, anything operational — dispatch the role reviewer
+(`subagent_type: cortex-role-reviewer`) with a role and the
 diff. Useful roles: `security`, `performance`, `accessibility`, `data-integrity`, `operability`,
 `dx`.
 

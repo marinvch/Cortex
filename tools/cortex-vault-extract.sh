@@ -12,6 +12,10 @@
 #
 # The personal layer is gitignored here, so it exists only in your working tree. That means a
 # careless delete is unrecoverable — hence copy first, verify, and remove as a separate opt-in.
+#
+# cortex:no-root-guard — --remove-source walks PERSONAL_DIRS and PERSONAL_FILES, two fixed lists
+# in this file, relative to a $ROOT taken from the script's own location. The one caller-supplied
+# path, --to, names a copy DESTINATION and is never deleted from.
 
 set -euo pipefail
 

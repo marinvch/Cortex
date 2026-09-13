@@ -25,6 +25,16 @@ the repo by commit count, and — like every other part — **dependency-free**.
   and `assertAvailable()` derives the guard, so the two cannot disagree and a new tool cannot be
   added without saying where it runs. `mode.test.js` asserts the exact list for both modes **and**
   that a vault tool invoked in repo mode comes back refused with nothing written.
+- **A tool that returns someone else's text says so in its description.** `recall`,
+  `recall_memory`, `get_project_context`, `list_projects` and `catch_me_up` all hand the model text
+  written outside the conversation — a teammate's committed `.cortex/memory/`, a note in a shared
+  vault — and the result itself carries nothing marking it as data rather than instruction, which is
+  the standard prompt-injection path through a retrieval tool. The description is the one place the
+  model reliably reads, so `UNTRUSTED_NOTE` in `lib/tools.js` is stated **once** and interpolated,
+  and `returns: FOREIGN | OWN` is a field on the declaration next to `mode`. `assertWellFormed()`
+  runs at import and refuses a row that skips the question or claims `FOREIGN` without the sentence,
+  so the next tool cannot ship unmarked. Do not add it to `remember` or `capture`: they take input
+  and hand back a path, and a warning on every tool is a warning on none.
 - **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
   notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
   falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds

@@ -70,6 +70,18 @@ recoverability it cannot deliver outside the root — and because agents constru
 express a traversal segment. Adding a guard where there is no door is noise, and noise is how a real
 guard stops being noticed.
 
+> **Amended 2026-09-13 — the inspection was right about those two and wrong to be a one-off.**
+> "Two were checked" was true when written and load-bearing for the rejection, and it silently
+> stopped being the whole list: `cortex-sync-skills.sh` ran `rm -rf` on a path it never resolved for
+> a year, and the escape was real — with `.claude/skills` a junction out of the checkout it deleted
+> content outside the repo. A manual check names the tools that existed the day someone looked.
+> The rejection above still holds on its own terms — a guard where there is no door is noise — so the
+> fix is not to guard everything but to make the *claim* checkable: `tools/test/destructive-guard.test.sh`
+> scans every shipped shell tool for a delete or a move and fails on one that neither calls
+> `resolve_in_root` nor declares a `cortex:no-root-guard` exemption **with its reason** in its own
+> header. Both tools named above now carry that exemption where a reader of the script finds it;
+> one of them had been carrying its justification in a planning document instead.
+
 ## Consequences
 
 `_cortex-lib.sh` now carries a security primitive alongside its formatting helpers. That is the right

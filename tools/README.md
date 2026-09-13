@@ -94,13 +94,33 @@ once, never re-run, never refreshes a changed skill and never removes a deleted 
 had drifted to 22 of 30 skills with 9 stale local copies, so five v2.0 rituals were unavailable.
 
 ```bash
-bash tools/cortex-sync-skills.sh            # sync, then report
-bash tools/cortex-sync-skills.sh --check    # report only; exit 1 if out of sync
+bash tools/cortex-sync-skills.sh                  # sync, then report
+bash tools/cortex-sync-skills.sh --check          # report only; exit 1 if out of sync
+bash tools/cortex-sync-skills.sh --prune-mirrored # also remove directories THIS tool wrote that
+                                                  # canonical has since deleted, and only those
 ```
 
 Each skill is replaced wholesale so a file deleted upstream does not linger. **Mirror-only skills
-are reported and never removed** — a directory that exists only in the mirror is machine-local work
-with no git history to restore from, so deleting it would be unrecoverable.
+are reported and never removed by default** — a directory that exists only in the mirror may be
+machine-local work with no git history to restore from, so deleting it would be unrecoverable.
+
+Two mirror-only directories are not the same thing, though, and until the ledger they were
+indistinguishable: one this tool wrote that canonical has since deleted (recoverable — the deletion
+is in git) and one a person or a parallel session created here and nowhere else (not recoverable at
+all). So a sync records what it mirrored, with a cksum digest, in
+`.claude/skills/.cortex-sync-state` — inside the gitignored mirror, so it never enters git. The
+report then names three groups, and only the first is ever removable:
+
+| Reported as | Means | `--prune-mirrored` |
+|---|---|---|
+| `mirrored by this tool; canonical deleted it` | we wrote it and it still matches our digest | removes it |
+| `mirrored then edited here` | we wrote it, someone has changed it since | refuses |
+| `not mirrored by this tool` | nothing in the ledger claims it | refuses |
+
+No ledger, an unreadable one, or a digest that no longer matches all mean **not mine** — the tool
+never widens its claim when it is unsure. That direction is deliberate: the failure worth designing
+against is an installer recording ownership of a file it did not write and later deleting the
+user's work.
 
 ## `cortex-preflight.mjs` — where am I, and what may I write here
 

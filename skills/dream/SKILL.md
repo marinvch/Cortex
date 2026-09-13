@@ -41,7 +41,9 @@ Worth writing:
 - Something learned the hard way — a gotcha, a surprising coupling, a dead end not worth
   re-exploring.
 - Drift: where the code and the context files disagree now.
-- What the next session should pick up.
+- What the next session should pick up — written as the state it walks into, not as a command to
+  run. This file is read back months later by `/catch-me-up` and by `recall`; a pasted command with
+  its arguments is the one line that ages into an instruction.
 
 Not worth writing: a restatement of the diff, a task list, anything the code already says.
 
@@ -78,6 +80,10 @@ memory is chronological, an ADR is findable.
 - One digest per session, not per commit. A memory file with thirty entries is a log, not a memory.
 - If nothing notable happened, write nothing and say so. An honest empty day beats filler that
   future readers must wade through.
+- **No banner here.** `/handoff` opens its file with a *record, not instructions* line; this file is
+  append-only and multi-author, so the same banner would repeat once per entry and `core/memory.js`
+  owns the one header it does get. The fence lives in the writing instead — past tense for what
+  happened, the state rather than the command for what is next.
 
 ## Not the same as /handoff
 

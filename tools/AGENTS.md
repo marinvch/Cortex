@@ -43,6 +43,27 @@ were written about.
 symlink out of the root passes any prefix comparison and is still an escape.
 [ADR 0010](../docs/adr/0010-the-shell-half-gets-the-guard-too.md).
 
+`destructive-guard.test.sh` asserts that over **every** script here, not over the one the ADR was
+written about. `cortex-sync-skills.sh` did `rm -rf "${DST:?}/$name"` and never sourced the lib; the
+`:?` proves the variable is non-empty and resolves nothing, so with `.claude/skills` pointing out of
+the repo the loop deleted a directory outside the root and copied canonical into the hole. The test
+counts a **move** as destructive too — ADR 0010's original finding was a `mv`, and a scan watching
+only `rm` would have missed the case the rule was written about.
+
+A tool whose deletions cannot take a caller-supplied path opts out in its own header:
+
+```sh
+# cortex:no-root-guard — <why no path here needs resolving>
+```
+
+The reason is the point, and the test requires one. Four scripts carry it today and each argues a
+different case (the lib defines the guard; `cortex.sh` deletes its own `mktemp -d`; scan-projects
+deletes `$VAULT/projects/$slug.md` where `slugify()` cannot emit a `/`; vault-extract walks two
+fixed in-file lists). That last claim used to live in a plan document from 2026-08-18, where no
+reader of the script would ever find it. A marker on a file that has stopped deleting anything is a
+failure too — a blanket permission nobody re-reads, the same rule `dormant-exemptions.test.sh`
+applies to the secrets marker.
+
 ## Tests: behaviour, not syntax
 
 `bash tools/test/run.sh` (add `<filter>` for one file). **Add a case when you touch anything here.**

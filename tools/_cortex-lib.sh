@@ -3,6 +3,10 @@
 # cortex-scan-projects.sh). cortex-init.sh deliberately does NOT source this — it is a standalone
 # installer with zero runtime deps — so it keeps its own copy of the slug rule, pinned by
 # mcp/test/slug-parity.test.js.
+#
+# cortex:no-root-guard — this file DEFINES resolve_in_root and cannot route through itself. Its
+# one deletion is the mktemp scratch file knowledge_files() created a few lines earlier; no
+# caller-supplied path reaches it.
 
 # The canonical Cortex slug rule: lowercase, every run of non-alphanumerics becomes one `-`, and
 # leading/trailing `-` are trimmed. Must stay behaviourally identical to mcp/lib/slug.js; the

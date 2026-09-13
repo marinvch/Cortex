@@ -43,7 +43,11 @@ before overturning one; the line here is the trigger, not the case.
 - **A destructive shell tool must route its target through `resolve_in_root` (`tools/_cortex-lib.sh`).**
   The shell counterpart of `core/paths.js`, in the shared lib so the next tool inherits it. Not a
   string-prefix check — a symlink out of the root passes any prefix comparison.
-  [ADR 0010](adr/0010-the-shell-half-gets-the-guard-too.md).
+  [ADR 0010](adr/0010-the-shell-half-gets-the-guard-too.md). `tools/test/destructive-guard.test.sh`
+  scans every shipped shell tool for a delete or a move and fails on one that neither calls the
+  guard nor declares a `cortex:no-root-guard` exemption **with its reason** in the file header. It
+  exists because for a year the only test of this rule tested `cortex-rm.sh` — so
+  `cortex-sync-skills.sh` ran `rm -rf` on a path it never resolved, and nothing noticed.
 - **A `tools/test/*.test.sh` file is a fragment, and only `tools/test/run.sh` may run it.** The
   runner exports `$WORK` and `$REPO_ROOT` and cds into a fresh temp dir; the fixtures build there.
   Run a fragment on its own and both are empty, `cd "$WORK/proj"` becomes `cd ""` — which fails

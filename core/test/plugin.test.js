@@ -120,6 +120,30 @@ test("/cortex-install is model-invocable, and its consent gate is what protects 
   );
 });
 
+test("/handoff makes its artifact say it is a record, not instructions", () => {
+  // The handoff note is written in one session and read whole by a fresh agent in the next, and
+  // its content is inherently command-shaped — the skill requires a "suggested skills" section.
+  // "ran /ship on the release branch" reads to a reader with no memory exactly like an instruction
+  // to run /ship; a peer harness shipped that failure and re-ran a recalled command, duplicating
+  // branches. The fence therefore has to travel INSIDE the artifact, because the artifact is what
+  // gets read — a warning living only here in SKILL.md is one the next agent never sees.
+  //
+  // This is ADR 0016's second case: the promise needs judgment, so it stays prose and the prose is
+  // tested. The assertion is on the two properties the frame must carry, not on the sentence's
+  // wording, so rephrasing it stays legal and deleting its meaning does not.
+  const src = readFileSync(join(REPO_ROOT, "skills", "handoff", "SKILL.md"), "utf8");
+  assert.match(
+    src,
+    /already happened/i,
+    "the handoff artifact must state that its content is a past record, not a live instruction",
+  );
+  assert.match(
+    src,
+    /stale[\s\S]{0,120}let them decide|let them decide[\s\S]{0,120}stale/i,
+    "it must mark commands in it stale AND hand the decision to the user; either half alone re-runs",
+  );
+});
+
 test("skills referenced by other skills exist", () => {
   // A ritual that hands off to a skill nobody wrote is a broken promise in output users read —
   // exactly how /cortex-scaffold came to be referenced before it existed.

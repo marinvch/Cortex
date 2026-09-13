@@ -301,6 +301,52 @@ test("a repo with no tsconfig resolves exactly as before", () => {
   assert.deepEqual(idx.files.find((f) => f.path === "src/a.js").imports, ["src/b.js"]);
 });
 
+test("a go import names a package, so one specifier reaches every file in that directory", () => {
+  // The one language whose specifier resolves to many files, and the reason `resolve` returns an
+  // array for everyone. The alias tests above cover JS twelve times over; this side of the seam had
+  // no end-to-end coverage at all, which is where both known resolver bugs lived.
+  const root = mkdtempSync(join(tmpdir(), "cortex-go-"));
+  mkdirSync(join(root, "cmd", "serve"), { recursive: true });
+  writeFileSync(join(root, "go.mod"), "module github.com/acme/tool\n\ngo 1.22\n");
+  writeFileSync(
+    join(root, "main.go"),
+    'package main\n\nimport (\n\t"fmt"\n\t"github.com/acme/tool/cmd/serve"\n\t"github.com/spf13/cobra"\n)\n',
+  );
+  writeFileSync(join(root, "cmd", "serve", "serve.go"), "package serve\n");
+  writeFileSync(join(root, "cmd", "serve", "flags.go"), "package serve\n");
+  writeFileSync(join(root, "cmd", "serve", "serve_test.go"), "package serve\n");
+
+  const idx = buildIndex(root);
+  assert.deepEqual(idx.files.find((f) => f.path === "main.go").imports, [
+    "cmd/serve/flags.go",
+    "cmd/serve/serve.go",
+  ]);
+  assert.equal(
+    idx.files.find((f) => f.path === "cmd/serve/serve_test.go").inbound,
+    0,
+    "importing a package does not give you its tests",
+  );
+  assert.ok(!idx.edges.some((e) => e.to.includes("cobra")), "another module is a dependency, not a file here");
+});
+
+test("a rust workspace resolves each crate against its own root, including one with no src/", () => {
+  // ripgrep's layout: `crates/core/main.rs` has no src/ directory, so a crate root derived from
+  // Cargo.toml + "/src" missed every import in it. And `crate::` must mean the crate the file
+  // belongs to — resolving against the workspace points every member at one place.
+  const root = mkdtempSync(join(tmpdir(), "cortex-rs-"));
+  mkdirSync(join(root, "crates", "core"), { recursive: true });
+  mkdirSync(join(root, "crates", "printer", "src"), { recursive: true });
+  writeFileSync(join(root, "crates", "core", "main.rs"), "mod args;\nuse crate::args::Args;\n");
+  writeFileSync(join(root, "crates", "core", "args.rs"), "pub struct Args;\n");
+  writeFileSync(join(root, "crates", "printer", "src", "lib.rs"), "pub mod color;\nuse crate::color::Printer;\n");
+  writeFileSync(join(root, "crates", "printer", "src", "color.rs"), "pub struct Printer;\n");
+
+  const idx = buildIndex(root);
+  const imports = (p) => idx.files.find((f) => f.path === p).imports;
+  assert.deepEqual(imports("crates/core/main.rs"), ["crates/core/args.rs"]);
+  assert.deepEqual(imports("crates/printer/src/lib.rs"), ["crates/printer/src/color.rs"]);
+});
+
 // --- churn window ------------------------------------------------------------------------------
 
 function gitRepo(build) {

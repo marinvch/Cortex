@@ -5,7 +5,9 @@ import { mkdtempSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readdirSync } from "node:fs";
 import { detectMode, isRepoMode, REPO, VAULT } from "../lib/mode.js";
+import { TOOL_TABLE, PUBLISHED, REPO as REPO_TOOL } from "../lib/tools.js";
 
 const serverPath = join(dirname(fileURLToPath(import.meta.url)), "..", "server.js");
 
@@ -131,6 +133,41 @@ test("a vault tool INVOKED in repo mode is refused, not merely absent from the l
   // Assert the property, not the message: nothing was written either way.
   assert.equal(existsSync(join(cortex, "inbox")), false, "a refused capture must not create inbox/");
 });
+
+// The other guard derived from the same table, proven the same way: over the wire, against the real
+// server, because a unit test of `assertPublishable` passes just as happily when `server.js` never
+// calls it. That is the whole defect this closes — `core/scrub.js` was the declared "single point
+// at which anything entering memory is checked" and had one caller, so `capture` committed and
+// PUSHED notes to a shared team remote unscanned.
+//
+// Driven off the table: the property is "every tool that publishes is gated", not "capture is".
+//
+// Assembled at runtime so no realistic key literal sits in the file — see tools.test.js.
+const FAKE_AWS_KEY = ["AKIA", "Q7X2M4N8P1R5T9V3"].join("");
+
+for (const tool of TOOL_TABLE.filter((t) => t.writes === PUBLISHED)) {
+  test(`${tool.name} publishes, so an invoked credential is refused and nothing is written`, async () => {
+    // Each tool gets the root its declared mode requires; otherwise assertAvailable refuses first
+    // and the test would pass for the wrong reason.
+    const base = mkdtempSync(join(tmpdir(), "cortex-gate-"));
+    let root = base;
+    if (tool.mode === REPO_TOOL) {
+      root = join(base, ".cortex");
+      mkdirSync(root, { recursive: true });
+    }
+
+    const res = await callOn(root, tool.name, { content: `deploy key ${FAKE_AWS_KEY} for staging` });
+    assert.equal(res.isError, true, `${tool.name} must refuse content carrying a credential`);
+    const text = res.content[0].text;
+    assert.match(text, /refused_write/, "the refusal must arrive as the scrub gate's own code");
+    assert.match(text, /AWS access key id/, "the refusal must name the kind of secret");
+    // Refusing and then echoing the credential back is the same leak by another route.
+    assert.ok(!text.includes(FAKE_AWS_KEY), "the refusal echoed the credential");
+    // Assert the property, not the message: a refused write leaves nothing behind, whichever
+    // directory this tool would have created.
+    assert.deepEqual(readdirSync(root), [], `${tool.name} wrote something despite refusing`);
+  });
+}
 
 test("a repo tool invoked in vault mode is refused the same way", async () => {
   const vault = mkdtempSync(join(tmpdir(), "vault-"));

@@ -48,7 +48,11 @@ export function append(root, text, { date = new Date(), kind = "note" } = {}) {
   const body = String(text ?? "").trim();
   if (!body) throw Object.assign(new Error("refusing to write an empty memory entry"), { code: "empty" });
 
-  assertWritable(body); // throws RefusedWriteError — the one gate, before anything touches disk
+  // Throws RefusedWriteError, before anything touches disk. This covers every caller of `append()`
+  // and nothing beyond it — a write that publishes without entering memory is gated where it is
+  // declared, not here. See CONTEXT.md, "The gate": the pair is the guarantee, and reading this
+  // call as the whole of it is what kept the other half missing.
+  assertWritable(body);
   assertCortexRoot(root); // throws not_cortex_root — before anything touches disk
 
   ensureDir(root);

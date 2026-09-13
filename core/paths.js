@@ -17,7 +17,16 @@ function realpathOfNearestExisting(absPath) {
   while (true) {
     try {
       return realpathSync(cur);
-    } catch {
+    } catch (e) {
+      // Only "it isn't there" earns a walk up. ENOENT is the create target that does not
+      // exist yet; ENOTDIR is a file used as a directory (root/afile.txt/child) and says
+      // the same thing about the child. Every other error — EACCES, ELOOP, EPERM,
+      // ENAMETOOLONG, a poisoned argument — means we could not answer the question, and a
+      // bare catch answered it anyway: it walked up to an ancestor that *does* resolve
+      // inside the root, so resolveInRoot returned success and the guard passed. A guard
+      // that fails open on a path it cannot read is worse than no guard. Rethrow instead,
+      // so the caller sees the real error rather than a false pass.
+      if (e?.code !== "ENOENT" && e?.code !== "ENOTDIR") throw e;
       const parent = resolve(cur, "..");
       if (parent === cur) return cur; // filesystem root
       cur = parent;

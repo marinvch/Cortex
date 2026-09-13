@@ -10,6 +10,8 @@ set -u
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"
 # shellcheck source=/dev/null
 . "$LIB" || { echo "cortex: cannot load $LIB" >&2; exit 1; }
+# cortex:no-root-guard — the one deletion here is `rm -rf "$TMP"`, a mktemp -d this script made
+# itself. The vault ($ROOT) is only ever read; no caller-supplied path reaches a delete.
 ROOT="${1:-$(pwd)}"; cd "$ROOT" || { echo "no such dir: $ROOT"; exit 1; }
 OUT="$ROOT/cortex.html"; TMP="$(mktemp -d)"; NODES="$TMP/n"; EDGES="$TMP/e"; : >"$NODES"; : >"$EDGES"
 

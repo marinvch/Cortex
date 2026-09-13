@@ -38,3 +38,27 @@ test("rejects symlink that escapes root", (t) => {
   }
   assert.throws(() => resolveInRoot(root, "sub/link/secret.md"), OutsideRootError);
 });
+
+// ENOTDIR — a file used as a directory. POSIX reports ENOTDIR here, Windows reports ENOENT;
+// both mean "the child isn't there", so both must still walk up to the nearest existing
+// ancestor. A catch that only forgave ENOENT would throw on POSIX for a legal create target.
+test("resolves through a file used as a directory", () => {
+  const root = mkdtempSync(join(tmpdir(), "jail-"));
+  writeFileSync(join(root, "afile.txt"), "x");
+  const p = resolveInRoot(root, "afile.txt/child");
+  assert.ok(p.startsWith(root));
+  assert.ok(p.endsWith("child"));
+});
+
+// The fail-open case: an error that is not "absent" means we could not answer the question.
+// A bare catch walked up past it to an ancestor inside the root and returned success, so the
+// guard passed on a path it had never managed to read. A NUL byte is the one such error that
+// is reproducible on every platform without admin rights or exotic permissions.
+test("rethrows an error that is not 'path absent' instead of walking up", () => {
+  const root = mkdtempSync(join(tmpdir(), "jail-"));
+  const poisoned = "bad" + String.fromCharCode(0) + "name/child";
+  assert.throws(
+    () => resolveInRoot(root, poisoned),
+    (e) => !(e instanceof OutsideRootError) && e.code !== "ENOENT" && e.code !== "ENOTDIR",
+  );
+});

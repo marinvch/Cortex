@@ -7,6 +7,10 @@
 # commit. Metadata + git log only — never opens source files (privacy firewall).
 #
 # Usage: bash tools/cortex-scan-projects.sh [CODE_ROOT]
+#
+# cortex:no-root-guard — every deletion is "$VAULT/projects/$slug.md", and $slug comes from
+# slugify(), which cannot emit `/`, `.` or `..`. There is no caller-supplied path to resolve, and
+# $VAULT is taken from this script's own location.
 set -uo pipefail
 
 LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_cortex-lib.sh"

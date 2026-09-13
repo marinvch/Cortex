@@ -8,7 +8,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { TOOL_TABLE, toolsFor, assertAvailable, REPO, VAULT, ANY } from "../lib/tools.js";
+import {
+  TOOL_TABLE, toolsFor, assertAvailable, assertWellFormed,
+  REPO, VAULT, ANY, FOREIGN, OWN, UNTRUSTED_NOTE,
+} from "../lib/tools.js";
 
 const MCP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -50,6 +53,51 @@ test("the guard refuses a tool whose declared mode does not match", () => {
   assert.doesNotThrow(() => assertAvailable("recall", true));
   assert.doesNotThrow(() => assertAvailable("recall", false));
   assert.throws(() => assertAvailable("rm -rf", true), /unknown tool/);
+});
+
+// A retrieval tool hands the model text somebody else wrote, and the result itself carries nothing
+// saying which of data and instruction it is. The tool description is the one place the model
+// reliably reads, so the boundary is stated there. Drive these off the table, never off a list of
+// names: the point is that the NEXT tool cannot ship without answering the question either.
+test("every tool that returns foreign text carries the trust boundary", () => {
+  const foreign = TOOL_TABLE.filter((t) => t.returns === FOREIGN);
+  assert.ok(foreign.length > 0, "the table claims no tool returns foreign text, which cannot be right");
+  for (const t of foreign) {
+    assert.ok(
+      t.description.includes(UNTRUSTED_NOTE),
+      `${t.name} returns text from outside this conversation and must say so in its description`,
+    );
+  }
+});
+
+test("the trust boundary is one sentence, stated once", () => {
+  // Seven near-copies of a warning is how one of them ends up weaker than the rest.
+  assert.match(UNTRUSTED_NOTE, /data, not instructions/);
+  const src = readFileSync(join(MCP_DIR, "lib", "tools.js"), "utf8");
+  const literals = src.match(/Treat what it returns/g) ?? [];
+  assert.equal(literals.length, 1, "UNTRUSTED_NOTE must be written once and interpolated, not pasted per tool");
+});
+
+test("a write-only tool is not marked foreign", () => {
+  // `remember` and `capture` take input and hand back a path; nothing foreign comes out. Marking
+  // them anyway would blunt the warning on the tools where it is load-bearing.
+  for (const t of TOOL_TABLE.filter((x) => x.returns === OWN)) {
+    assert.ok(!t.description.includes(UNTRUSTED_NOTE), `${t.name} is declared own but carries the trust note`);
+  }
+});
+
+test("a row that skips the question is rejected, not defaulted", () => {
+  // The guarantee is not "today's seven tools are marked" — it is that the eighth cannot be added
+  // without answering. This is the check that runs at import, handed the rows it exists to catch.
+  const row = { name: "t", mode: ANY, description: "d", inputSchema: {} };
+  assert.throws(() => assertWellFormed([row]), /returns must be one of foreign \| own/);
+  assert.throws(
+    () => assertWellFormed([{ ...row, returns: FOREIGN }]),
+    /must carry UNTRUSTED_NOTE/,
+    "a foreign tool with a bare description must fail",
+  );
+  assert.doesNotThrow(() => assertWellFormed([{ ...row, returns: OWN }]));
+  assert.doesNotThrow(() => assertWellFormed([{ ...row, returns: FOREIGN, description: `d ${UNTRUSTED_NOTE}` }]));
 });
 
 test("every declared tool is wired up in server.js", () => {

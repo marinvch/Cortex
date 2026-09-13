@@ -10,6 +10,7 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES } from "./context-docs.mjs";
 
@@ -95,7 +96,7 @@ function priorAgentDocs(root) {
  * step someone else is supposed to run.
  */
 export function readState(root, index = null, overrides = {}) {
-  const indexPath = join(root, ".cortex", "index", "index.json");
+  const indexPath = defaultIndexPath(root);
   const indexed = existsSync(indexPath);
   return {
     root,

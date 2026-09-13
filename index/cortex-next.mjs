@@ -13,52 +13,21 @@
 // sequence is a fact about the filesystem, and asking a model to re-derive it every session is how
 // a user gets a different answer each time.
 
-import { readFileSync, existsSync } from "node:fs";
-import { join, resolve, isAbsolute } from "node:path";
 import { nextSteps, nextLine } from "./lib/next.mjs";
-import { rootProblem } from "./lib/root.mjs";
+import { openTarget } from "./lib/open.mjs";
 
-function parseArgs(argv) {
-  const args = { root: null, json: false, line: false, index: null };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--json") args.json = true;
-    else if (a === "--line") args.line = true;
-    else if (a === "--index") args.index = argv[++i];
-    else if (a === "--help" || a === "-h") args.help = true;
-    else if (!a.startsWith("--")) args.root = a;
-  }
-  return args;
-}
-
-const args = parseArgs(process.argv.slice(2));
-if (args.help) {
-  console.log("usage: node index/cortex-next.mjs [root] [--line] [--json]");
-  process.exit(0);
-}
-
-const root = resolve(args.root || process.cwd());
-
-// A root that is not a directory produces a confident empty answer, not an error: buildIndex
-// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
-// a stale path in a script) does not matter, the output does.
-const rootIssue = rootProblem(root);
-if (rootIssue) {
-  process.stderr.write(rootIssue);
-  process.exit(1);
-}
-const indexPath = args.index
-  ? (isAbsolute(args.index) ? args.index : resolve(args.index))
-  : join(root, ".cortex", "index", "index.json");
-
-let index = null;
-if (existsSync(indexPath)) {
-  try {
-    index = JSON.parse(readFileSync(indexPath, "utf8"));
-  } catch {
-    index = null;
-  }
-}
+// `index: "optional"` — this command's whole job is answering on a repo where nothing has been run
+// yet, so a missing index is the ordinary case and not an error. One that exists and cannot be read
+// still gets said out loud on stderr: a file the user can see, silently ignored, is how a ✓ ends up
+// next to a step nobody ran.
+const { root, args, index } = openTarget(process.argv.slice(2), {
+  usage: "usage: node index/cortex-next.mjs [root] [--line] [--json]",
+  flags: { "--json": "boolean", "--line": "boolean", "--index": "value" },
+  root: "positional",
+  index: "optional",
+  // --line is another tool's footer and --json is a ritual's input. Neither has room for an advisory.
+  freshness: (a) => !a.json && !a.line,
+});
 
 const plan = nextSteps(root, index);
 

@@ -12,59 +12,28 @@
 // analysis is deliberate — a wizard forced to parse its questions back out of rendered markdown
 // would drift from the findings the moment either was reworded.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { writeFileSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { analyse, offers, render } from "./lib/findings.mjs";
 import { stamp } from "../core/date.js";
 import { nextLine } from "./lib/next.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
-import { rootProblem } from "./lib/root.mjs";
+import { generatedNotice, openTarget } from "./lib/open.mjs";
 
-function parseArgs(argv) {
-  const args = { root: null, index: null, out: null, stdout: false, offers: false };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--index") args.index = argv[++i];
-    else if (a === "--out") args.out = argv[++i];
-    else if (a === "--stdout") args.stdout = true;
-    else if (a === "--offers") args.offers = true;
-    else if (!a.startsWith("--") && args.root === null) args.root = a;
-  }
-  return args;
-}
-
-// A directory appearing in someone's project on a run they did not explicitly ask for should be
-// visible. ADR 0005 puts the consent gate in the skill; this is the other half — saying what
-// landed, so "generated and gitignored" never quietly means "invisible".
-function generatedNotice(gen) {
-  const out = [];
-  if (gen.created) out.push("Created .cortex/ — generated artifacts live here; .cortex/memory/ is committed on purpose.");
-  if (gen.ignored.length) out.push("Added to .gitignore: " + gen.ignored.join(", "));
-  return out.length ? out.join("\n") + "\n" : "";
-}
-
-const args = parseArgs(process.argv.slice(2));
-const root = resolve(args.root || process.cwd());
-
-// A root that is not a directory produces a confident empty answer, not an error: buildIndex
-// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
-// a stale path in a script) does not matter, the output does.
-const rootIssue = rootProblem(root);
-if (rootIssue) {
-  process.stderr.write(rootIssue);
-  process.exit(1);
-}
-const indexPath = args.index
-  ? isAbsolute(args.index) ? args.index : resolve(args.index)
-  : join(root, ".cortex", "index", "index.json");
-
-let index;
-if (existsSync(indexPath)) {
-  index = JSON.parse(readFileSync(indexPath, "utf8"));
-} else {
-  index = buildIndex(root);
-}
+// `index: "build"` is this command's declared error mode: a repo with no stored index still gets a
+// report, built in memory and never written. An index that EXISTS but cannot be read is a different
+// answer — rebuilding over it would hide a file the user still has and report on something they
+// never inspected — so that refuses.
+const { root, args, index } = openTarget(process.argv.slice(2), {
+  usage: "usage: node index/cortex-findings.mjs [root] [--index FILE] [--out FILE] [--stdout] [--offers]",
+  flags: { "--index": "value", "--out": "value", "--stdout": "boolean", "--offers": "boolean" },
+  root: "positional",
+  index: "build",
+  buildIndex,
+  // --offers is JSON a wizard parses; everything else is prose for a person.
+  freshness: (a) => !a.offers,
+});
 
 const day = stamp();
 const findings = analyse(index, root);

@@ -9,44 +9,22 @@
 // commands and real paths — and inventing those is precisely the failure a deterministic module
 // cannot detect in itself.
 
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { join, resolve, isAbsolute } from "node:path";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { proposeSkills, partitionExisting } from "./lib/skills.mjs";
 import { labelsFor } from "./lib/stack.mjs";
-import { rootProblem } from "./lib/root.mjs";
+import { openTarget } from "./lib/open.mjs";
 
-function parseArgs(argv) {
-  const args = { root: null, offers: false, index: null };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--offers") args.offers = true;
-    else if (a === "--index") args.index = argv[++i];
-    else if (!a.startsWith("--") && args.root === null) args.root = a;
-  }
-  return args;
-}
-
-const args = parseArgs(process.argv.slice(2));
-const root = resolve(args.root || process.cwd());
-
-// A root that is not a directory produces a confident empty answer, not an error: buildIndex
-// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
-// a stale path in a script) does not matter, the output does.
-const rootIssue = rootProblem(root);
-if (rootIssue) {
-  process.stderr.write(rootIssue);
-  process.exit(1);
-}
-const indexPath = args.index
-  ? (isAbsolute(args.index) ? args.index : resolve(args.index))
-  : join(root, ".cortex", "index", "index.json");
-
-if (!existsSync(indexPath)) {
-  console.error(`no index at ${indexPath}\nRun: node index/cortex-index.mjs ${args.root || "."}`);
-  process.exit(2);
-}
-
-const index = JSON.parse(readFileSync(indexPath, "utf8"));
+// Every proposal cites something the index detected, so the index is required. "No index" is one of
+// this command's three refusals, and the other two are below.
+const { root, args, index } = openTarget(process.argv.slice(2), {
+  usage: "usage: node index/cortex-skills.mjs [root] [--index FILE] [--offers]",
+  flags: { "--offers": "boolean", "--index": "value" },
+  root: "positional",
+  index: "require",
+  // --offers is JSON a ritual walks.
+  freshness: (a) => !a.offers,
+});
 
 /** Skills the repo already has, so present ones are reported rather than silently dropped. */
 function existingSkills(r) {

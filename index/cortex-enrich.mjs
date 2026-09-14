@@ -11,87 +11,35 @@
 // by simply re-running `plan` and doing what `status` still lists as pending.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { computeBatches, batchStats } from "./lib/batch.mjs";
 import { mergeEnrichment, isStale, classifyBatches, ENRICHED_REL } from "./lib/enrich.mjs";
 import { ensureGeneratedDir } from "./lib/generated.mjs";
-import { rootProblem } from "./lib/root.mjs";
+import { defaultIndexPath, generatedNotice, openTarget, readIndex, staleNote } from "./lib/open.mjs";
 
 const cmd = process.argv[2];
 
-// Every flag this command accepts, and whether it takes a separate value. ONE declaration, because
-// two lists disagree and this one has already cost a bug.
-//
-// `rootArg` must step over a valued flag's argument or it promotes it to the repo root, and a flag
-// added later without being registered here recreates that exactly. So the table is also the
-// allowlist: an unrecognised flag is refused rather than reinterpreted. That is what catches the
-// shapes nobody enumerated — `-include` (one dash, a typo of the flag this file exists to support)
-// used to be read as the ROOT, writing `.cortex/` into `<cwd>/-include`, leaving the named repo
-// untouched, and silently getting an empty include scope because `listFlag("--include")` matched
-// nothing. Nothing errored: `buildIndex` on a directory that does not exist returns zero files.
-const FLAGS = new Map([
-  ["--include", true],
-  ["--exclude", true],
-]);
-const flagName = (a) => a.split("=")[0];
-
-// The repo root is the first bare argument after the subcommand, wherever it sits — not
-// `process.argv[3]`. That positional read meant a flag written before the root ate it:
-// `plan --include src <repo>` left argv[3] as `--include` and fell back to `process.cwd()`.
-//
-// Anything starting with a single `-` is a flag, not a path. The sibling CLIs test `--` only; here
-// that let `-v` through as a repo root and produced a directory literally named `-v`.
-function rootArg(argv) {
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (!a.startsWith("-")) return a;
-    // `--include=src` carries its value inline, so the next argument is not part of it.
-    if (!a.includes("=") && FLAGS.get(flagName(a))) i++;
-  }
-  return null;
-}
-
-const argv = process.argv.slice(3);
-const unknown = argv.filter((a) => a.startsWith("-") && !FLAGS.has(flagName(a)));
-if (unknown.length) {
-  process.stderr.write(
-    `unknown flag: ${unknown.join(", ")}\n` +
-      `usage: cortex-enrich.mjs ${cmd ?? "plan|status|merge"} [repoRoot] [--include a,b] [--exclude c]\n`,
-  );
-  process.exit(1);
-}
-
-const root = resolve(rootArg(argv) ?? process.cwd());
-
-// Assert the property, not the one symptom we found. A root that is not a readable directory can
-// arrive by a mangled flag, a typo in the path, or a shape nobody has thought of yet — and the
-// damage is the same every time: `buildIndex` returns zero files rather than throwing, so the run
-// reports "Planned 0 batches" and exits 0. A confident empty answer is the defect; the argument
-// that produced it is only one route to it. Shared with every other CLI here — see lib/root.mjs.
-const rootIssue = rootProblem(root);
-if (rootIssue) {
-  process.stderr.write(rootIssue);
-  process.exit(1);
-}
+// The flag allowlist that was invented here is now lib/open.mjs's, and every sibling inherits it.
+// What stays local is the SUBCOMMAND: `plan`, `status` and `merge` want different things, and only
+// two of them read an index at all — `status` answers entirely from batches.json, so loading one
+// eagerly would invent a requirement that was never there. Hence `index: "none"` and the explicit
+// `loadIndex()` below, which routes through the shared reader for the one error mode.
+const { root, rootArg, args } = openTarget(process.argv.slice(3), {
+  usage: `usage: cortex-enrich.mjs ${cmd ?? "plan|status|merge"} [repoRoot] [--include a,b] [--exclude c]`,
+  flags: { "--include": "list", "--exclude": "list" },
+  root: "positional",
+  index: "none",
+});
 
 // --include / --exclude take comma-separated path prefixes, and repeat. The skill has always said
 // to offer a subset on a large repo; with no flag to express it, the only way to obey was to skip
 // batchIndex values by hand — which left `status` reporting a large pending set and nothing to say
 // the skipping was a decision.
-function listFlag(name) {
-  const out = [];
-  const argv = process.argv;
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === name) out.push(...String(argv[++i] ?? "").split(","));
-    else if (argv[i].startsWith(`${name}=`)) out.push(...argv[i].slice(name.length + 1).split(","));
-  }
-  return out.map((s) => s.trim()).filter(Boolean);
-}
-const scope = { include: listFlag("--include"), exclude: listFlag("--exclude") };
+const scope = { include: args.include, exclude: args.exclude };
 const dir = join(root, ".cortex", "index");
 const batchDir = join(dir, "enrich");
-const indexPath = join(dir, "index.json");
+const indexPath = defaultIndexPath(root);
 const batchesPath = join(dir, "batches.json");
 const enrichedPath = join(root, ...ENRICHED_REL.split("/"));
 
@@ -106,15 +54,23 @@ function generated(subdir) {
   created.created = created.created || g.created;
   for (const i of g.ignored) if (!created.ignored.includes(i)) created.ignored.push(i);
 }
-function generatedNotice() {
-  const out = [];
-  if (created.created) out.push("Created .cortex/ — generated artifacts live here; .cortex/memory/ is committed on purpose.");
-  if (created.ignored.length) out.push("Added to .gitignore: " + created.ignored.join(", "));
-  return out.length ? out.join("\n") + "\n" : "";
-}
 
+// A model is about to summarise whatever this returns, so what it reads has to be the repo as it is
+// now. An index that exists but cannot be read — bad JSON, or a format this build does not speak —
+// is refused rather than rebuilt over: silently replacing a file the user still has would answer
+// from something they never inspected. A stale one is a note, not a refusal, because the work is
+// resumable and telling them is what lets them decide.
 function loadIndex() {
-  if (existsSync(indexPath)) return JSON.parse(readFileSync(indexPath, "utf8"));
+  if (existsSync(indexPath)) {
+    const read = readIndex(indexPath, { rootArg });
+    if (read.problem) {
+      process.stderr.write(read.problem);
+      process.exit(2);
+    }
+    const note = staleNote(root, indexPath, { rootArg });
+    if (note) process.stderr.write(note);
+    return read.index;
+  }
   const idx = buildIndex(root);
   generated(dir);
   writeFileSync(indexPath, JSON.stringify(idx, null, 2));
@@ -158,7 +114,7 @@ if (cmd === "plan") {
         : "") +
       `Wrote ${batchesPath}\n` +
       `Write each result to ${join(batchDir, "batch-<n>.json")}\n` +
-      generatedNotice(),
+      generatedNotice(created),
   );
 } else if (cmd === "status") {
   const { batches, scope: planned } = loadBatches();
@@ -214,7 +170,7 @@ if (cmd === "plan") {
   writeFileSync(enrichedPath, JSON.stringify(enrichment, null, 2));
 
   const { enriched, indexed } = enrichment.coverage;
-  process.stdout.write(`Enriched ${enriched}/${indexed} indexed files\nWrote ${enrichedPath}\n${generatedNotice()}`);
+  process.stdout.write(`Enriched ${enriched}/${indexed} indexed files\nWrote ${enrichedPath}\n${generatedNotice(created)}`);
   if (missing.length) {
     process.stdout.write(`${missing.length} batches had no result: ${missing.slice(0, 20).join(", ")}\n`);
   }

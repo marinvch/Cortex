@@ -13,49 +13,33 @@
 // It finds and cites. It never judges — deciding whether a change actually violates a documented
 // rule needs a model, and that is `/cortex-review`'s job rather than this file's.
 
-import { readFileSync, existsSync } from "node:fs";
-import { join, resolve, isAbsolute } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { reviewContext, citationDrift } from "./lib/review.mjs";
 import { changedFiles, failureLines, gitReader } from "./lib/changed.mjs";
-import { rootProblem } from "./lib/root.mjs";
+import { openTarget } from "./lib/open.mjs";
 
-function parseArgs(argv) {
-  const args = { root: null, paths: [], staged: false, since: null, json: false, index: null, citations: false, fix: false };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--staged") args.staged = true;
-    else if (a === "--citations") args.citations = true;
-    else if (a === "--fix") args.fix = true;
-    else if (a === "--json") args.json = true;
-    else if (a === "--since") args.since = argv[++i];
-    else if (a === "--index") args.index = argv[++i];
-    else if (a === "--root") args.root = argv[++i];
-    else if (!a.startsWith("--")) args.paths.push(a);
-  }
-  return args;
-}
-
-const args = parseArgs(process.argv.slice(2));
-const root = resolve(args.root || process.cwd());
-
-// A root that is not a directory produces a confident empty answer, not an error: buildIndex
-// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
-// a stale path in a script) does not matter, the output does.
-const rootIssue = rootProblem(root);
-if (rootIssue) {
-  process.stderr.write(rootIssue);
-  process.exit(1);
-}
-const indexPath = args.index
-  ? isAbsolute(args.index)
-    ? args.index
-    : resolve(args.index)
-  : join(root, ".cortex", "index", "index.json");
-
-if (!existsSync(indexPath)) {
-  console.error(`no index at ${indexPath}\nRun: node index/cortex-index.mjs ${args.root || "."}`);
-  process.exit(2);
-}
+// Bare arguments are FILE PATHS, so the root comes from `--root`. The index is required: this
+// command reads the context layer back against the graph, and there is no honest half-answer.
+const { root, args, paths, index } = openTarget(process.argv.slice(2), {
+  usage:
+    "usage: node index/cortex-review.mjs [paths...] [--staged] [--since REF] " +
+    "[--citations] [--fix] [--root DIR] [--index FILE] [--json]",
+  flags: {
+    "--staged": "boolean",
+    "--citations": "boolean",
+    "--fix": "boolean",
+    "--json": "boolean",
+    "--since": "value",
+    "--index": "value",
+    "--root": "value",
+  },
+  root: "flag",
+  index: "require",
+  // --json is walked by a ritual and --fix is a patch someone pipes into `git apply`. Prose on
+  // either stream would be a parse error, not a warning.
+  freshness: (a) => !a.json && !a.fix,
+});
 
 // The rename log below and the change set share one runner, so they share one buffer size. The
 // maxBuffer fix lived here and not in cortex-impact.mjs for exactly as long as there were two
@@ -64,7 +48,7 @@ const run = gitReader(root);
 const git = (a) => run(a).out ?? null;
 
 const { files: changed, failures } = changedFiles(root, {
-  paths: args.paths,
+  paths,
   staged: args.staged,
   since: args.since,
   git: run,
@@ -83,7 +67,6 @@ if (!changed.length && !args.citations) {
   process.exit(2);
 }
 
-const index = JSON.parse(readFileSync(indexPath, "utf8"));
 const readText = (p) => {
   try {
     return readFileSync(join(root, p), "utf8");

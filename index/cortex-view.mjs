@@ -12,8 +12,8 @@
 //
 // Writes ONLY under .cortex/, like everything else in index/. It never touches source.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
-import { join, resolve, isAbsolute, dirname } from "node:path";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { join, resolve, isAbsolute } from "node:path";
 import { execFile } from "node:child_process";
 import { platform } from "node:process";
 import { buildView } from "./lib/view.mjs";
@@ -21,59 +21,20 @@ import { renderHtml } from "./lib/view-html.mjs";
 import { nextSteps, nextLine } from "./lib/next.mjs";
 import { ENRICHED_REL } from "./lib/enrich.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
-import { rootProblem } from "./lib/root.mjs";
+import { generatedNotice, openTarget } from "./lib/open.mjs";
 
-function parseArgs(argv) {
-  const args = { root: null, index: null, out: null, open: true, json: false };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--no-open") args.open = false;
-    else if (a === "--json") { args.json = true; args.open = false; }
-    else if (a === "--index") args.index = argv[++i];
-    else if (a === "--out") args.out = argv[++i];
-    else if (a === "--help" || a === "-h") { args.help = true; }
-    else if (!a.startsWith("--")) args.root = a;
-  }
-  return args;
-}
+// No index, no data. Inventing an empty page is the failure the vault's viewer actually shipped:
+// pointed at a codebase it found nothing and cheerfully drew a graph with zero nodes.
+const { root, args, index } = openTarget(process.argv.slice(2), {
+  usage: "usage: node index/cortex-view.mjs [root] [--out FILE] [--index FILE] [--no-open] [--json]",
+  flags: { "--no-open": "boolean", "--json": "boolean", "--index": "value", "--out": "value" },
+  root: "positional",
+  index: "require",
+  freshness: (a) => !a.json,
+});
 
-// A directory appearing in someone's project on a run they did not explicitly ask for should be
-// visible. ADR 0005 puts the consent gate in the skill; this is the other half — saying what
-// landed, so "generated and gitignored" never quietly means "invisible".
-function generatedNotice(gen) {
-  const out = [];
-  if (gen.created) out.push("Created .cortex/ — generated artifacts live here; .cortex/memory/ is committed on purpose.");
-  if (gen.ignored.length) out.push("Added to .gitignore: " + gen.ignored.join(", "));
-  return out.length ? out.join("\n") + "\n" : "";
-}
-
-const args = parseArgs(process.argv.slice(2));
-if (args.help) {
-  console.log("usage: node index/cortex-view.mjs [root] [--out FILE] [--index FILE] [--no-open] [--json]");
-  process.exit(0);
-}
-
-const root = resolve(args.root || process.cwd());
-
-// A root that is not a directory produces a confident empty answer, not an error: buildIndex
-// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
-// a stale path in a script) does not matter, the output does.
-const rootIssue = rootProblem(root);
-if (rootIssue) {
-  process.stderr.write(rootIssue);
-  process.exit(1);
-}
-const indexPath = args.index
-  ? (isAbsolute(args.index) ? args.index : resolve(args.index))
-  : join(root, ".cortex", "index", "index.json");
-
-if (!existsSync(indexPath)) {
-  console.error(`no index at ${indexPath}`);
-  console.error(`Run first: node index/cortex-index.mjs ${args.root || "."}`);
-  process.exit(2);
-}
-
-const index = JSON.parse(readFileSync(indexPath, "utf8"));
+// --json renders nothing to open, so it implies --no-open.
+const wantOpen = !args.noOpen && !args.json;
 
 // Enrichment is optional and additive — its absence changes nothing but the detail on a card.
 let enrichment = null;
@@ -119,7 +80,7 @@ if (!enrichment) console.log("  (no enrichment — run /cortex-enrich to put sum
 console.log("");
 console.log(nextLine(root, index));
 
-if (args.open) {
+if (wantOpen) {
   const [cmd, argv] =
     platform === "win32" ? ["cmd", ["/c", "start", "", out]]
     : platform === "darwin" ? ["open", [out]]

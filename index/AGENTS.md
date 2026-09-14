@@ -14,6 +14,21 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   runs agree exactly.
 - **`index/` never imports from `mcp/`.** Shared code goes in `core/`. Enforced by
   `core/test/architecture.test.js`.
+- **Every CLI here opens through `lib/open.mjs`, and declares its flags rather than testing for
+  them.** The declaration *is* the allowlist: an unregistered or misspelled flag is refused with a
+  message naming it, never reinterpreted as a path. Do not write a ninth `parseArgs` — there were
+  seven, and each one was a different subset of the same bugs. `cortex-enrich` found that
+  `!a.startsWith("--")` reads `-v` as a repo ROOT and writes into a directory invented from a
+  mangled flag; it fixed its own copy and left the bug live in the rest. The undashed shape was
+  live everywhere until the front door: `cortex-index.mjs . --ouput x.json` matched no branch, so
+  the typo was dropped, `x.json` was ignored because the root was already set, and the index went
+  to the default path. A confident wrong destination with no error.
+- **Whether a command refuses, degrades or builds when the index is unreadable is `spec.index` —
+  declared by the caller, executed by the front door.** Four CLIs used to hand the user a raw
+  `SyntaxError`, one rebuilt in silence and one degraded to `null`: three answers to one question,
+  and none of them chosen. `readIndex` also checks `INDEX_VERSION`, which for one release was
+  written into every index and read by no consumer at all — so an index in an older format was read
+  confidently rather than refused.
 - **Enrichment is additive.** It attaches summaries to files and never edits `index.json`, adds
   files, or removes them.
 - **Validate everything a model produced, but only drop what is actually wrong.** `enrich.mjs`
@@ -58,9 +73,28 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   can act on buries the one they can, and walking that tree to produce it costs more than the
   index. This half is why the `bin/` bug was expensive rather than merely wrong — the run printed
   a plausible number and nothing marked it incomplete.
+- **"Stale" has exactly one definition, and it is `indexFreshness` here.** mtime, tracked files
+  only, capped at five. `tools/cortex-preflight.mjs` — the definition every ritual is told to
+  consult — imports it rather than carrying its own; that is why `indexFreshness` accepts a
+  directory as well as a file. It briefly meant two things, which is worth remembering because
+  neither copy was wrong: preflight's was written when it was the only reachable definition, and the
+  CLIs grew one because they could not reach `tools/`. Two right answers to one question still
+  disagree the moment one of them changes. Do not add a second.
 - **Import resolution is regex-based**, so dynamic and computed imports are missed. That is a
   documented limit, not a bug — it is why the orphan finding says "worth checking", never "safe to
   delete".
+- **One slot per language, in `lib/resolvers.mjs`: `prepare(env) → ctx` and
+  `resolve(spec, from, ctx) → string[]`.** A language's own knowledge — that Go reads `go.mod`, that
+  `crate::` is relative to the crate a file belongs to, that a JS alias is consulted only after the
+  relative resolver fails — belongs in its adapter, not in `buildIndex`. `resolve` always returns an
+  array: Go alone resolves one specifier to many files, because it imports a package, and when that
+  asymmetry was the builder's problem it read as a six-deep ternary that had to know, per language,
+  what to precompute, in what order to pass it, and whether to wrap the answer. Adding a language
+  means adding a row to `ADAPTERS`.
+  **`prepare` is pure and reading is injected**, for the same reason `repo-text.mjs` injects it:
+  every derivation — crate roots, Java source roots, PSR-4 prefixes, the module path, the alias
+  tables — is then testable from a literal file list with no tree on disk, and *that* is where both
+  resolver bugs this repo has shipped actually lived.
 - **"Unreferenced" means more than "unimported", and lives in `lib/orphans.mjs`.** A file whose
   path another file names literally — a CI workflow, a shell test, a README, an ADR — is referenced;
   that is how repo tooling is normally wired. Cortex reported the false positive about itself:
@@ -74,7 +108,7 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   `coverage.mjs` says.
 - **A path alias is read from the repo, never guessed.** `tsconfig.json` / `jsconfig.json` `paths`
   and `baseUrl` are declared, exactly like `go.mod`'s module path and `composer.json`'s PSR-4
-  prefixes, and `build.mjs` follows both links a config can carry: `extends` upward, because splitting
+  prefixes, and the JS adapter follows both links a config can carry: `extends` upward, because splitting
   options into a base config is the normal layout, and `references` sideways, because a solution-style
   repo puts every option somewhere the name `tsconfig.json` never reaches. A reference names a file
   or a directory; the table it yields is keyed at **that config's own directory**, since its `paths`
@@ -143,7 +177,14 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 node --test index/test/*.test.mjs
 ```
 
-`lib/` is well covered. So is `cortex-memory.mjs`, whose whole surface is one write and one
+`lib/` is well covered, and since `lib/open.mjs` exists that now includes **argument handling**:
+`open.test.mjs` drives the unknown flag, the `-v`-shaped root, the corrupt index and the version
+mismatch from literals, with a fake io so a refusal is an observation rather than a dead test
+runner. It used to be reachable only by spawning a real process from a shell fragment, which is why
+seven copies of it went unexercised.
+
+`cortex-memory.mjs` is the one CLI here that does not come through the front door — it takes a
+subcommand and a `--root` that means `.cortex`, not a repo. Its whole surface is one write and one
 refusal — `index/test/cli.test.mjs` asserts the exit code and that the refusal never echoes the
 secret, and the judgement it forwards to lives in `core/scrub.js`. It is the only CLI here that
 needs nothing more.

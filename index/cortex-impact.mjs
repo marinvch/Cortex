@@ -12,50 +12,37 @@
 // missed — the files named will be affected, and others may be. The output says "at least" for that
 // reason, and no flag turns it into a total.
 
-import { readFileSync, existsSync } from "node:fs";
-import { join, resolve, isAbsolute } from "node:path";
 import { impactOf, groupUnknown } from "./lib/impact.mjs";
 import { UNRESOLVED_LANGUAGES } from "./lib/imports.mjs";
-import { rootProblem } from "./lib/root.mjs";
+import { openTarget } from "./lib/open.mjs";
 import { changedFiles, failureLines } from "./lib/changed.mjs";
 
-function parseArgs(argv) {
-  const args = { root: null, paths: [], staged: false, since: null, json: false, depth: Infinity, index: null };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--staged") args.staged = true;
-    else if (a === "--json") args.json = true;
-    else if (a === "--since") args.since = argv[++i];
-    else if (a === "--depth") args.depth = Number(argv[++i]);
-    else if (a === "--index") args.index = argv[++i];
-    else if (a === "--root") args.root = argv[++i];
-    else if (!a.startsWith("--")) args.paths.push(a);
-  }
-  return args;
-}
+// Bare arguments here are FILE PATHS, so the root comes from `--root` — a command that took both
+// positionally could not tell one from the other, and the one it guessed wrong is the one that
+// decides where it looks.
+const { root, args, paths, index } = openTarget(process.argv.slice(2), {
+  usage:
+    "usage: node index/cortex-impact.mjs [paths...] [--staged] [--since REF] " +
+    "[--depth N] [--root DIR] [--index FILE] [--json]",
+  flags: {
+    "--staged": "boolean",
+    "--json": "boolean",
+    "--since": "value",
+    "--depth": "value",
+    "--index": "value",
+    "--root": "value",
+  },
+  root: "flag",
+  // No index, no graph — and a blast radius guessed without one is the confident wrong answer this
+  // whole command exists to avoid.
+  index: "require",
+  freshness: (a) => !a.json,
+});
 
-const args = parseArgs(process.argv.slice(2));
-const root = resolve(args.root || process.cwd());
-
-// A root that is not a directory produces a confident empty answer, not an error: buildIndex
-// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
-// a stale path in a script) does not matter, the output does.
-const rootIssue = rootProblem(root);
-if (rootIssue) {
-  process.stderr.write(rootIssue);
-  process.exit(1);
-}
-const indexPath = args.index
-  ? (isAbsolute(args.index) ? args.index : resolve(args.index))
-  : join(root, ".cortex", "index", "index.json");
-
-if (!existsSync(indexPath)) {
-  console.error(`no index at ${indexPath}\nRun: node index/cortex-index.mjs ${args.root || "."}`);
-  process.exit(2);
-}
+const depth = args.depth === null ? Infinity : Number(args.depth);
 
 const { files: changed, failures } = changedFiles(root, {
-  paths: args.paths,
+  paths,
   staged: args.staged,
   since: args.since,
 });
@@ -76,8 +63,7 @@ if (!changed.length) {
   process.exit(2);
 }
 
-const index = JSON.parse(readFileSync(indexPath, "utf8"));
-const r = impactOf(index, changed, { root, maxDepth: args.depth });
+const r = impactOf(index, changed, { root, maxDepth: depth });
 
 if (args.json) {
   console.log(JSON.stringify(r, null, 2));
@@ -153,7 +139,7 @@ if (r.suggestedTests.length) {
 if (r.truncated) {
   // Said out loud: a bounded walk and an exhausted one print the same shape, so a reader who forgot
   // the flag would take the smaller number for the whole radius.
-  console.log(`\nStopped at depth ${args.depth}. Anything further out was not walked.`);
+  console.log(`\nStopped at depth ${depth}. Anything further out was not walked.`);
 }
 
 console.log(`\nA floor, not a total — imports are resolved by convention, so treat this as the`);

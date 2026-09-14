@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { buildCoverage, testStem } from "../lib/coverage.mjs";
+import { textFrom } from "../lib/repo-text.mjs";
 
 // The three signals, and the one that was blind.
 //
@@ -104,4 +105,34 @@ test("without a root the mention signal is simply off, and the other two still a
   assert.ok(c.isCovered("lib/paths.js"), "name signal works without a root");
   assert.equal(c.isCovered("lib/cli.mjs"), false, "mention is off, so the CLI reads as uncovered");
   f.cleanup();
+});
+
+test("the mention signal reads injected text, so a temp tree is not the price of testing it", () => {
+  // Same three signals, no filesystem. `buildCoverage` is now a pure transform of the Index plus
+  // the text it is given — the convention build.mjs already applied to `detectStack`.
+  const index = {
+    files: [
+      { path: "lib/cli.mjs", category: "code", isTest: false, commits: 0 },
+      { path: "test/spawn.test.js", category: "code", isTest: true, commits: 0 },
+    ],
+    edges: [],
+  };
+  const c = buildCoverage(index, textFrom({ "test/spawn.test.js": 'run("lib/cli.mjs")' }));
+  assert.deepEqual(c.testsFor("lib/cli.mjs"), ["test/spawn.test.js"]);
+});
+
+test("a test file over the cap reads as unread, not as a test that mentions nothing", () => {
+  // This signal had NO cap at all while its two neighbours had two different ones. It has the same
+  // one now, and the difference between "opened and found nothing" and "never opened" is a record
+  // on the source rather than a silent `continue`.
+  const index = {
+    files: [
+      { path: "lib/cli.mjs", category: "code", isTest: false, commits: 0 },
+      { path: "test/spawn.test.js", category: "code", isTest: true, commits: 0 },
+    ],
+    edges: [],
+  };
+  const text = textFrom({ "test/spawn.test.js": 'run("lib/cli.mjs")' }, { cap: 4 });
+  assert.equal(buildCoverage(index, text).isCovered("lib/cli.mjs"), false);
+  assert.deepEqual(text.oversized, [{ path: "test/spawn.test.js", reason: "too-large" }]);
 });

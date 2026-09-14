@@ -19,16 +19,23 @@
 // Missing a true orphan costs a suggestion nobody was obliged to act on. Inventing one costs trust
 // in every other line of the report, and eventually gets live code deleted.
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
+import { textSource } from "./repo-text.mjs";
 
-// Files worth reading to look for an invocation. Docs count: a README, an ADR or a contributor
-// guide naming a script is exactly how repo tooling is normally wired, and pretending otherwise is
-// what produced the false positives.
-const SEARCHABLE = new Set(["code", "script", "config", "docs"]);
-const MAX_SEARCH_BYTES = 512 * 1024;
+// Everything in the Index is worth reading to look for an invocation, and everything in the Index
+// is text — `walk.mjs` already dropped binaries, lockfiles and anything over its ceiling. The old
+// four-category list (code, script, config, docs) was a fourth guess on top of that: a Dockerfile's
+// COPY, an HTML `src=`, a `.npmrc` comment and a SQL header all name paths, and `infra`, `markup`,
+// `schema` and `other` were unreadable here for no stated reason. The cap and the reading rule now
+// live in `lib/repo-text.mjs`, which is also where the 512 KB that used to sit here is accounted
+// for.
+//
+// What widening actually turned up, measured on a cloned Next.js app, is worth knowing before
+// trusting this signal: six of its fourteen "unreferenced" files were named by `tsconfig.tsbuildinfo`
+// — a committed compiler cache — and on another repo five more were named by a committed
+// `repomix-output.xml`. Both name every path in the repo by construction, so they can silence this
+// finding entirely rather than answer it. It is the safe direction (see below) and it is a real
+// blind spot: the lever is `linguist-generated` in `.gitattributes`, which the index already reads.
 
 /** Candidates by the import graph alone — the old definition, kept separate so it stays testable. */
 export function unimported(index) {
@@ -49,22 +56,19 @@ export function unimported(index) {
  * One pass over the repo's text, not one pass per candidate: a repo with 40 candidates and 3,000
  * files would otherwise read 120,000 times. A file naming itself does not count.
  */
-export function namedElsewhere(index, root, paths) {
+export function namedElsewhere(index, text, paths) {
   const named = new Set();
-  if (!root || !paths.length) return named;
+  const source = textSource(text);
+  if (!source.available || !paths.length) return named;
   const wanted = [...paths];
   for (const f of index.files) {
-    if (!SEARCHABLE.has(f.category)) continue;
-    if ((f.bytes ?? 0) > MAX_SEARCH_BYTES) continue;
-    let text;
-    try {
-      text = readFileSync(join(root, f.path), "utf8");
-    } catch {
-      continue; // unreadable file costs its mentions, never the finding
-    }
+    // An unread file costs its mentions, never the finding. It is recorded on the source with a
+    // reason, so what the loss was stays countable instead of reading as "nothing named this".
+    const body = source.read(f.path);
+    if (body === null) continue;
     for (const p of wanted) {
       if (p === f.path || named.has(p)) continue;
-      if (text.includes(p)) named.add(p);
+      if (body.includes(p)) named.add(p);
     }
     if (named.size === wanted.length) break;
   }
@@ -78,12 +82,14 @@ export function namedElsewhere(index, root, paths) {
  * by construction and the finding says nothing about the repo — pointed at a real Rust workspace the
  * old version reported 59 of 130 files, each line hedged and the aggregate still misinformation.
  *
- * `root` is optional. Without it only the import graph is consulted, which is the old behaviour and
- * strictly noisier — a caller that has the root should pass it.
+ * `text` is a repo-text source or a root string, and is optional. Without it only the import graph
+ * is consulted, which is the old behaviour and strictly noisier — a caller that can read the repo
+ * should pass it. A caller that wants to know what the read cost should build the source itself
+ * and inspect `source.unread` afterwards; passing a bare root throws that record away.
  */
-export function findOrphans(index, root = null) {
+export function findOrphans(index, text = null) {
   const candidates = unimported(index);
   if (!candidates.length) return [];
-  const named = namedElsewhere(index, root, candidates.map((f) => f.path));
+  const named = namedElsewhere(index, text, candidates.map((f) => f.path));
   return candidates.filter((f) => !named.has(f.path));
 }

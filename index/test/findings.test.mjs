@@ -4,10 +4,23 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyse, render, testStem, offerOf, offers } from "../lib/findings.mjs";
+import { textFrom } from "../lib/repo-text.mjs";
 
 // These tests were written because Cortex reported both of these bugs about ITSELF: it flagged its
 // own scanner test corpus as a critical secret leak, and it called `mcp/lib` untested when the
 // tests live in `mcp/test`. Dogfooding found them; these keep them found.
+
+// `analyse` asks a repository two different kinds of question, and they now have two different
+// answers. STATE — does AGENTS.md exist, what is under `.cortex/` — comes from the root and is a
+// real path. TEXT — what does this file say — comes from an injected source, which is why the
+// cases below stopped building a temp tree each: most of them never cared that the files existed,
+// only that they had contents. Every state read in `readState` is guarded, so a root that does not
+// exist answers exactly what an empty directory answered, which is what `repo()` was for.
+//
+// A case that genuinely needs a file to EXIST still gets `repo({...})`. A case that only needs one
+// to have CONTENTS gets `withText`.
+const NO_LAYER = join(tmpdir(), "cortex-findings-no-such-root");
+const withText = (files) => ({ text: textFrom(files) });
 
 function repo(files = {}) {
   const root = mkdtempSync(join(tmpdir(), "cortex-find-"));
@@ -50,7 +63,7 @@ test("a module is covered when a test is NAMED after it, even in another directo
     { path: "test/scrub.test.js", isTest: true },
     { path: "test/memory.test.js", isTest: true },
   ]);
-  const tests = findingsOfKind(analyse(idx, repo()), "tests");
+  const tests = findingsOfKind(analyse(idx, NO_LAYER), "tests");
   assert.deepEqual(tests, [], "src/ + test/ is the ordinary layout, not an untested repo");
 });
 
@@ -68,35 +81,35 @@ test("a module is covered when a test IMPORTS it, whatever the test is called", 
       { from: "test/integration.test.js", to: "lib/c.js", type: "imports" },
     ],
   );
-  assert.deepEqual(findingsOfKind(analyse(idx, repo()), "tests"), []);
+  assert.deepEqual(findingsOfKind(analyse(idx, NO_LAYER), "tests"), []);
 });
 
 test("a CLI spawned by a test counts as covered, when named in a string literal", () => {
   // The blind spot this closes: a subprocess test neither imports the module nor is named after
   // it, so both other signals miss it and a tested CLI reads as untested.
-  const root = repo({
-    "test/cli.test.js": 'run("cortex-index.mjs"); run("cortex-findings.mjs"); run("cortex-memory.mjs");',
-  });
   const idx = index([
     { path: "cortex-index.mjs" },
     { path: "cortex-findings.mjs" },
     { path: "cortex-memory.mjs" },
     { path: "test/cli.test.js", isTest: true },
   ]);
-  assert.deepEqual(findingsOfKind(analyse(idx, root), "tests"), []);
+  const text = withText({
+    "test/cli.test.js": 'run("cortex-index.mjs"); run("cortex-findings.mjs"); run("cortex-memory.mjs");',
+  });
+  assert.deepEqual(findingsOfKind(analyse(idx, NO_LAYER, text), "tests"), []);
 });
 
 test("an unquoted mention in a comment does NOT count as coverage", () => {
-  const root = repo({
-    "test/other.test.js": "// see cortex-index.mjs and cortex-findings.mjs and cortex-memory.mjs\n",
-  });
   const idx = index([
     { path: "cortex-index.mjs" },
     { path: "cortex-findings.mjs" },
     { path: "cortex-memory.mjs" },
     { path: "test/other.test.js", isTest: true },
   ]);
-  const [f] = findingsOfKind(analyse(idx, root), "tests");
+  const text = withText({
+    "test/other.test.js": "// see cortex-index.mjs and cortex-findings.mjs and cortex-memory.mjs\n",
+  });
+  const [f] = findingsOfKind(analyse(idx, NO_LAYER, text), "tests");
   assert.ok(f, "a passing mention in prose is not a test");
   assert.match(f.title, /3 modules appear untested/);
 });
@@ -108,25 +121,28 @@ test("genuinely untested modules are still reported", () => {
     { path: "lib/c.js" },
     { path: "test/other.test.js", isTest: true },
   ]);
-  const [f] = findingsOfKind(analyse(idx, repo()), "tests");
+  const [f] = findingsOfKind(analyse(idx, NO_LAYER), "tests");
   assert.ok(f, "three uncovered modules should be reported");
   assert.match(f.title, /3 modules appear untested/);
   assert.equal(f.severity, "high", "recent commits on untested code raises severity");
 });
 
 test("a secret in a source file is critical", () => {
-  const root = repo({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
-  const sec = findingsOfKind(analyse(index([{ path: "src/config.js" }]), root), "security");
+  const text = withText({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
+  const sec = findingsOfKind(analyse(index([{ path: "src/config.js" }]), NO_LAYER, text), "security");
   assert.equal(sec.length, 1);
   assert.equal(sec[0].severity, "critical");
   assert.match(sec[0].title, /Possible secrets/);
 });
 
 test("cortex:allow-secrets exempts a fixture file, and says so", () => {
-  const root = repo({
+  const text = withText({
     "test/scanner.test.js": `// cortex:allow-secrets\nconst fake = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";`,
   });
-  const sec = findingsOfKind(analyse(index([{ path: "test/scanner.test.js", isTest: true }]), root), "security");
+  const sec = findingsOfKind(
+    analyse(index([{ path: "test/scanner.test.js", isTest: true }]), NO_LAYER, text),
+    "security",
+  );
   assert.equal(sec.length, 1);
   assert.equal(sec[0].severity, "low", "an exemption is a note, not an alarm");
   assert.match(sec[0].title, /exempted from the secret scan/);
@@ -134,8 +150,8 @@ test("cortex:allow-secrets exempts a fixture file, and says so", () => {
 });
 
 test("the exemption is never silent", () => {
-  const root = repo({ "a.js": `// cortex:allow-secrets\n${["sk_", "live_", "abcdefghijklmnop1234"].join("")}` });
-  const out = analyse(index([{ path: "a.js" }]), root);
+  const text = withText({ "a.js": `// cortex:allow-secrets\n${["sk_", "live_", "abcdefghijklmnop1234"].join("")}` });
+  const out = analyse(index([{ path: "a.js" }]), NO_LAYER, text);
   assert.ok(out.some((f) => /exempted/.test(f.title)), "an exemption must appear in the report");
 });
 
@@ -150,8 +166,11 @@ test("a marker with nothing left to exempt is reported, not swallowed", () => {
   // appear in any report. tools/test/cortex-cron.test.sh sat that way for real — its fake key began
   // with "test", core/scrub.js added "test" to PLACEHOLDER, the hits went to zero, and the marker
   // stayed. Invisible in both directions, because the marker also suppresses the secrets finding.
-  const root = repo({ "test/cron.test.js": `// ${MARK}\nconst key = "nothing secret here";\n` });
-  const sec = findingsOfKind(analyse(index([{ path: "test/cron.test.js", isTest: true }]), root), "security");
+  const text = withText({ "test/cron.test.js": `// ${MARK}\nconst key = "nothing secret here";\n` });
+  const sec = findingsOfKind(
+    analyse(index([{ path: "test/cron.test.js", isTest: true }]), NO_LAYER, text),
+    "security",
+  );
 
   assert.equal(sec.length, 1, "a dormant marker is the whole security story for this repo");
   assert.match(sec[0].title, /no longer exempts anything/);
@@ -174,9 +193,9 @@ test("a file that only DISCUSSES the marker is not exempt, and is not dormant ei
   // immediately surface as dormant exemptions, which is a worse report than the one we started
   // with. A claim is positional, a mention is not — the same rule citationDrift holds itself to.
   const prose = `${"\n".repeat(30)}// The scanner honours a ${MARK} comment.\n`;
-  const root = repo({ "src/doc.js": prose });
   assert.equal(
-    findingsOfKind(analyse(index([{ path: "src/doc.js" }]), root), "security").length,
+    findingsOfKind(analyse(index([{ path: "src/doc.js" }]), NO_LAYER, withText({ "src/doc.js": prose })), "security")
+      .length,
     0,
     "a mention below the header is prose about the mechanism, not an exemption",
   );
@@ -184,10 +203,10 @@ test("a file that only DISCUSSES the marker is not exempt, and is not dormant ei
   // And the narrowing must not blind the scanner: a real secret beside a late mention is still a
   // leak. This is the direction of error that matters — a marker out of place costs a finding the
   // report tells you to verify by hand; a marker honoured anywhere costs the finding entirely.
-  const leaky = repo({
+  const leaky = withText({
     "src/conf.js": `${"\n".repeat(30)}// see ${MARK}\nconst k = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";`,
   });
-  const sec = findingsOfKind(analyse(index([{ path: "src/conf.js" }]), leaky), "security");
+  const sec = findingsOfKind(analyse(index([{ path: "src/conf.js" }]), NO_LAYER, leaky), "security");
   assert.equal(sec.length, 1);
   assert.equal(sec[0].severity, "critical", "a mention does not exempt a real credential");
 });
@@ -196,15 +215,18 @@ test("a marker in the header still exempts, so the narrowing costs nothing real"
   // The rule is positional, not first-line-only: a shebang, a licence line or a file docstring
   // routinely sits above the marker. Line 5 of 10 must still be a claim.
   const key = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
-  const root = repo({ "test/corpus.test.js": `#!/usr/bin/env node\n//\n// Scanner corpus.\n//\n// ${MARK}\nconst fake = "${key}";\n` });
-  const sec = findingsOfKind(analyse(index([{ path: "test/corpus.test.js", isTest: true }]), root), "security");
+  const text = withText({ "test/corpus.test.js": `#!/usr/bin/env node\n//\n// Scanner corpus.\n//\n// ${MARK}\nconst fake = "${key}";\n` });
+  const sec = findingsOfKind(
+    analyse(index([{ path: "test/corpus.test.js", isTest: true }]), NO_LAYER, text),
+    "security",
+  );
   assert.equal(sec.length, 1);
   assert.match(sec[0].title, /exempted from the secret scan/, "a header marker below line 1 still exempts");
   assert.match(sec[0].evidence[0], /1 secret-shaped string$/, "and the active list still counts what it hides");
 });
 
 test("missing context files are reported, and present ones are not", () => {
-  const bare = analyse(index([{ path: "a.js" }]), repo());
+  const bare = analyse(index([{ path: "a.js" }]), NO_LAYER);
   assert.ok(bare.some((f) => /No agent context file/.test(f.title)));
   assert.ok(bare.some((f) => /No CONTEXT\.md/.test(f.title)));
 
@@ -226,7 +248,7 @@ test("an oversized AGENTS.md is reported as a splitting candidate", () => {
 test("a directory that already has a brief is not proposed again", () => {
   const files = Array.from({ length: 8 }, (_, i) => ({ path: `billing/f${i}.js`, commits: 3 }));
 
-  const without = analyse(index(files), repo());
+  const without = analyse(index(files), NO_LAYER);
   assert.ok(
     without.some((f) => /deserve their own AGENTS\.md/.test(f.title)),
     "an area with no brief should be proposed",
@@ -246,7 +268,7 @@ test("testStem strips the conventions it claims to", () => {
 
 test("render always states that nothing was changed", () => {
   const idx = index([{ path: "a.js" }]);
-  const out = render(idx, analyse(idx, repo()), { day: "2026-08-15" });
+  const out = render(idx, analyse(idx, NO_LAYER), { day: "2026-08-15" });
   assert.match(out, /Nothing in this repository has been changed/);
   assert.match(out, /# Cortex findings — 2026-08-15/);
 });
@@ -268,7 +290,7 @@ function emptyIndex() {
 
 test("an empty repo is reported as greenfield, not as a repo with problems", () => {
   const idx = emptyIndex();
-  const out = analyse(idx, repo());
+  const out = analyse(idx, NO_LAYER);
 
   // Nothing may be ranked as a defect: there is no code to be missing context for.
   assert.equal(
@@ -288,7 +310,7 @@ test("an empty repo is reported as greenfield, not as a repo with problems", () 
 
 test("the greenfield report says scaffolding is the whole job, and names no areas", () => {
   const idx = emptyIndex();
-  const out = render(idx, analyse(idx, repo()), { day: "2026-08-15" });
+  const out = render(idx, analyse(idx, NO_LAYER), { day: "2026-08-15" });
 
   assert.match(out, /greenfield/i, "names the flow the reader is actually in");
   assert.doesNotMatch(
@@ -302,7 +324,7 @@ test("the greenfield report says scaffolding is the whole job, and names no area
 
 test("a repo with code is still reported the old way", () => {
   const idx = index([{ path: "a.js" }]);
-  const out = analyse(idx, repo());
+  const out = analyse(idx, NO_LAYER);
   assert.ok(
     out.some((f) => f.severity === "high" && /No agent context file/.test(f.title)),
     "the legacy flow is untouched — missing AGENTS.md over real code is still high",
@@ -319,7 +341,7 @@ test("a repo with code is still reported the old way", () => {
 const offersIn = (out) => out.map(offerOf).filter(Boolean);
 
 test("a missing context layer offers to scaffold it", () => {
-  const out = analyse(index([{ path: "a.js" }]), repo());
+  const out = analyse(index([{ path: "a.js" }]), NO_LAYER);
   const scaffold = out.filter((f) => offerOf(f)?.action === "scaffold");
   assert.ok(
     scaffold.some((f) => /No agent context file/.test(f.title)),
@@ -330,7 +352,7 @@ test("a missing context layer offers to scaffold it", () => {
 
 test("an area that deserves a brief offers one, and names it as the target", () => {
   const files = Array.from({ length: 8 }, (_, i) => ({ path: `billing/f${i}.js`, commits: 3 }));
-  const [f] = analyse(index(files), repo()).filter((x) => offerOf(x)?.action === "brief");
+  const [f] = analyse(index(files), NO_LAYER).filter((x) => offerOf(x)?.action === "brief");
   assert.ok(f, "a proposed area must carry a brief offer");
   assert.deepEqual(offerOf(f).targets, ["billing"], "the offer names the directory, not just the action");
 });
@@ -390,13 +412,15 @@ test("the two producers of a brief offer collapse onto one set of real targets",
 });
 
 test("a possible secret offers triage and never remediation", () => {
-  const root = repo({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
-  const [f] = analyse(index([{ path: "src/config.js" }]), root).filter((x) => x.severity === "critical");
+  const text = withText({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
+  const [f] = analyse(index([{ path: "src/config.js" }]), NO_LAYER, text).filter((x) => x.severity === "critical");
   assert.equal(offerOf(f)?.action, "triage-secrets");
   // Some hits are fixtures. An offer that edited the file would act on a guess, and one false
   // positive acted on destroys trust in every other finding in the report.
   assert.ok(
-    !offersIn(analyse(index([{ path: "src/config.js" }]), root)).some((o) => /fix|remove|redact/.test(o.action)),
+    !offersIn(analyse(index([{ path: "src/config.js" }]), NO_LAYER, text)).some((o) =>
+      /fix|remove|redact/.test(o.action),
+    ),
     "no offer may propose editing a source file",
   );
 });
@@ -406,13 +430,13 @@ test("findings Cortex cannot act on carry no offer", () => {
   // Inventing an offer to fill the column would be a question the index did not earn.
   const idx = index([{ path: "a.js" }]);
   idx.stats.tests = 0;
-  const [f] = analyse(idx, repo()).filter((x) => /No test files found/.test(x.title));
+  const [f] = analyse(idx, NO_LAYER).filter((x) => /No test files found/.test(x.title));
   assert.ok(f, "the finding is still reported");
   assert.equal(offerOf(f), null, "reported, but nothing is proposed");
 });
 
 test("the greenfield finding proposes nothing here — scaffolding is already the whole job", () => {
-  const out = analyse(emptyIndex(), repo());
+  const out = analyse(emptyIndex(), NO_LAYER);
   assert.deepEqual(offersIn(out), [], "greenfield has its own flow and does not walk offers");
 });
 
@@ -436,14 +460,14 @@ test("same-action findings collapse into one entry carrying every target", () =>
 });
 
 test("a merged entry takes its rank from its highest member", () => {
-  const root = repo({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
-  const work = offers(analyse(index([{ path: "src/config.js" }]), root));
+  const text = withText({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
+  const work = offers(analyse(index([{ path: "src/config.js" }]), NO_LAYER, text));
   assert.equal(work[0].action, "triage-secrets", "critical leads the worklist, as the report requires");
   assert.equal(work[0].severity, "critical");
 });
 
 test("the worklist is ranked, so the wizard asks the most severe question first", () => {
-  const work = offers(analyse(index([{ path: "a.js" }]), repo()));
+  const work = offers(analyse(index([{ path: "a.js" }]), NO_LAYER));
   const rank = { critical: 0, high: 1, medium: 2, low: 3 };
   const ranks = work.map((o) => rank[o.severity]);
   assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b), "severity order survives collapsing");
@@ -451,7 +475,7 @@ test("the worklist is ranked, so the wizard asks the most severe question first"
 });
 
 test("a worklist entry remembers which findings produced it", () => {
-  const work = offers(analyse(index([{ path: "a.js" }]), repo()));
+  const work = offers(analyse(index([{ path: "a.js" }]), NO_LAYER));
   const scaffold = work.find((o) => o.action === "scaffold");
   assert.ok(scaffold.findings.length >= 2, "missing AGENTS.md and missing CONTEXT.md both fed it");
   assert.ok(
@@ -463,7 +487,7 @@ test("a worklist entry remembers which findings produced it", () => {
 test("findings with no offer never reach the worklist", () => {
   const idx = index([{ path: "a.js" }]);
   idx.stats.tests = 0;
-  const work = offers(analyse(idx, repo()));
+  const work = offers(analyse(idx, NO_LAYER));
   assert.ok(
     !work.some((o) => /test/i.test(o.action)),
     "an unactionable finding is reported, never asked about",
@@ -471,7 +495,7 @@ test("findings with no offer never reach the worklist", () => {
 });
 
 test("a greenfield repo produces an empty worklist", () => {
-  assert.deepEqual(offers(analyse(emptyIndex(), repo())), []);
+  assert.deepEqual(offers(analyse(emptyIndex(), NO_LAYER)), []);
 });
 
 // --- The three offers no finding produced ------------------------------------------------------
@@ -483,14 +507,14 @@ test("a greenfield repo produces an empty worklist", () => {
 const BIG = Array.from({ length: 60 }, (_, i) => ({ path: `src/f${i}.js` }));
 
 test("a large repo offers enrichment, and says what it costs", () => {
-  const [f] = analyse(index(BIG), repo()).filter((x) => offerOf(x)?.action === "enrich");
+  const [f] = analyse(index(BIG), NO_LAYER).filter((x) => offerOf(x)?.action === "enrich");
   assert.ok(f, "a big unfamiliar repo is exactly where enrichment pays");
   assert.equal(f.severity, "low", "an optional token spend is not a defect");
   assert.match(f.detail, /token/i, "the cost is stated before the question, never after");
 });
 
 test("a small repo is not asked to pay for enrichment", () => {
-  const work = offers(analyse(index([{ path: "a.js" }]), repo()));
+  const work = offers(analyse(index([{ path: "a.js" }]), NO_LAYER));
   assert.ok(!work.some((o) => o.action === "enrich"));
 });
 
@@ -500,7 +524,7 @@ test("an already-enriched repo is not offered it again", () => {
 });
 
 test("a repo with no committed memory is offered one", () => {
-  const [f] = analyse(index([{ path: "a.js" }]), repo()).filter((x) => offerOf(x)?.action === "memory");
+  const [f] = analyse(index([{ path: "a.js" }]), NO_LAYER).filter((x) => offerOf(x)?.action === "memory");
   assert.ok(f, "shared memory is the point of the committed half of .cortex/");
   assert.match(f.detail, /commit/i, "the committed/gitignored asymmetry is explained once");
 });
@@ -512,24 +536,24 @@ test("an existing memory store is not offered again", () => {
 
 test("a frontend proposes the browser-qa tier, and only that", () => {
   const idx = index([{ path: "src/App.tsx" }, { path: "src/app.css", category: "code" }]);
-  const [f] = analyse(idx, repo()).filter((x) => offerOf(x)?.action === "bundle");
+  const [f] = analyse(idx, NO_LAYER).filter((x) => offerOf(x)?.action === "bundle");
   assert.ok(f, "the index gave a reason, so the tier is offered");
   assert.deepEqual(offerOf(f).targets, ["browser-qa"], "never recite the whole list");
 });
 
 test("an API surface proposes the api tier", () => {
   const idx = index([{ path: "openapi.yaml", category: "config" }, { path: "src/server.js" }]);
-  const [f] = analyse(idx, repo()).filter((x) => offerOf(x)?.action === "bundle");
+  const [f] = analyse(idx, NO_LAYER).filter((x) => offerOf(x)?.action === "bundle");
   assert.deepEqual(offerOf(f).targets, ["api"]);
 });
 
 test("a repo that is neither is offered no tier at all", () => {
-  const work = offers(analyse(index([{ path: "lib/thing.js" }]), repo()));
+  const work = offers(analyse(index([{ path: "lib/thing.js" }]), NO_LAYER));
   assert.ok(!work.some((o) => o.action === "bundle"), "no reason from the index means no question");
 });
 
 test("greenfield still proposes nothing, including the three new offers", () => {
-  assert.deepEqual(offers(analyse(emptyIndex(), repo())), []);
+  assert.deepEqual(offers(analyse(emptyIndex(), NO_LAYER)), []);
 });
 
 // --- Re-run ------------------------------------------------------------------------------------
@@ -571,10 +595,10 @@ test("a repo Cortex has fully served asks nothing at all", () => {
 
 test("offers are deterministic — same tree, same offers", () => {
   const files = Array.from({ length: 8 }, (_, i) => ({ path: `billing/f${i}.js`, commits: 3 }));
-  const root = repo();
+  const run = () => offersIn(analyse(index(files), NO_LAYER, withText({})));
   assert.deepEqual(
-    offersIn(analyse(index(files), root)),
-    offersIn(analyse(index(files), root)),
+    run(),
+    run(),
     "no LLM, no clock, no randomness — offers inherit the index's determinism",
   );
 });
@@ -584,8 +608,8 @@ test("a test certificate does not open the interview", () => {
   // was a fixture or a placeholder. Severity is control flow (ADR 0006), so the wizard led with a
   // false alarm — and a tool that cries wolf teaches people to skip the section entirely.
   const key = ["-----BEGIN", " RSA PRIVATE KEY-----"].join("");
-  const root = repo({ "tests/certs/server.key": key });
-  const sec = findingsOfKind(analyse(index([{ path: "tests/certs/server.key" }]), root), "security");
+  const text = withText({ "tests/certs/server.key": key });
+  const sec = findingsOfKind(analyse(index([{ path: "tests/certs/server.key" }]), NO_LAYER, text), "security");
   assert.equal(sec.length, 1, "a fixture key is still reported");
   assert.equal(sec[0].severity, "medium", "but not as the thing to deal with first");
   assert.match(sec[0].title, /test file/, "and the title says where it came from");
@@ -594,8 +618,8 @@ test("a test certificate does not open the interview", () => {
 test("a key outside a test path stays critical", () => {
   // The rule must not become a way to hide a real leak by filing it under tests/.
   const key = ["-----BEGIN", " RSA PRIVATE KEY-----"].join("");
-  const root = repo({ "src/config/server.key": key });
-  const sec = findingsOfKind(analyse(index([{ path: "src/config/server.key" }]), root), "security");
+  const text = withText({ "src/config/server.key": key });
+  const sec = findingsOfKind(analyse(index([{ path: "src/config/server.key" }]), NO_LAYER, text), "security");
   assert.equal(sec.length, 1);
   assert.equal(sec[0].severity, "critical");
 });
@@ -645,4 +669,36 @@ test("an EMPTY docs/adr is not a record of anything", () => {
   const withOne = repo({ "a.js": "", "docs/adr/0001-a-decision.md": "# adr\n" });
   const titles2 = analyse(index([{ path: "a.js" }]), withOne).map((f) => f.title);
   assert.ok(!titles2.includes("No architecture decision records"));
+});
+
+test("a file the scan could not open is reported, never counted as clean", () => {
+  // The whole reason a cap is a finding. A file nobody opened reaches every scanner as "no secret,
+  // no mention, no coverage" — which reads exactly like a clean file. Neither of the two caps this
+  // replaced had a test, so nothing said what they were hiding.
+  const key = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
+  const text = textFrom({ "src/generated.js": `const k = "${key}";` }, { cap: 8 });
+  const out = analyse(index([{ path: "src/generated.js" }]), NO_LAYER, { text });
+
+  assert.deepEqual(findingsOfKind(out, "security"), [], "it was never read, so no claim is made about it");
+  const [f] = findingsOfKind(out, "scan");
+  assert.ok(f, "but the report says it was not read");
+  assert.match(f.title, /1 file was too large to read/);
+  assert.deepEqual(f.evidence, ["src/generated.js"]);
+  assert.equal(f.severity, "low");
+  assert.equal(offerOf(f), null, "there is nothing Cortex can do about it, so it asks nothing");
+});
+
+test("nothing skipped, nothing reported — the finding exists only when the cap bit", () => {
+  const out = analyse(index([{ path: "a.js" }]), NO_LAYER, withText({ "a.js": "const x = 1;\n" }));
+  assert.deepEqual(findingsOfKind(out, "scan"), []);
+});
+
+test("a root brief too large to read is still reported as too large", () => {
+  // The regression this forecloses: routing the line count through a capped reader would have made
+  // the biggest AGENTS.md in existence the one file that escapes the finding about big AGENTS.md.
+  const root = repo({ "AGENTS.md": "# brief\n", "CONTEXT.md": "x" });
+  const text = textFrom({ "AGENTS.md": `${"line\n".repeat(300)}` }, { cap: 16 });
+  const [f] = analyse(index([{ path: "a.js" }]), root, { text }).filter((x) => /AGENTS\.md is/.test(x.title));
+  assert.ok(f, "an unreadable brief is evidence for the finding, not a reason to drop it");
+  assert.match(f.title, /over the readable size limit/);
 });

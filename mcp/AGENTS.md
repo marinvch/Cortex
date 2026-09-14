@@ -35,6 +35,21 @@ the repo by commit count, and — like every other part — **dependency-free**.
   runs at import and refuses a row that skips the question or claims `FOREIGN` without the sentence,
   so the next tool cannot ship unmarked. Do not add it to `remember` or `capture`: they take input
   and hand back a path, and a warning on every tool is a warning on none.
+- **A tool that publishes is gated by its declaration, not by its caller.** `writes: LOCAL |
+  PUBLISHED` is the third field on a row in `lib/tools.js`, and `assertPublishable()` in
+  `server.js`'s dispatch applies `core/scrub.js` to the `content` of every `PUBLISHED` one — the
+  same shape as `mode`/`assertAvailable()` beside it. `remember` was gated inside `core/memory.js`
+  because `.cortex/memory/` is committed; `capture` on a team commits and **pushes** a note to a
+  remote other people pull and was not, because `assertWritable` had exactly one caller and being
+  the second was a thing you had to remember. That is the shape [ADR 0007](../docs/adr/0007-the-vault-is-the-only-door.md)
+  rejected for path safety. `assertWellFormed()` refuses a row that omits `writes`, **and** a
+  `PUBLISHED` row that does not take its payload in `content` — otherwise the gate reads a field
+  that is not the one being written. A **personal, non-team** capture is gated too: where a capture
+  lands is decided at runtime by a connector found by walking up from the cwd, so the call site
+  cannot know whether it publishes, and a gate conditional on that is off exactly when nobody can
+  see that it is off. `tools.test.js` drives the property off the table and `mode.test.js` proves
+  it over a spawned server — the unit test alone passes happily when the dispatch never calls it.
+  The refusal stays in `core/scrub.js`: it refuses rather than sanitises and names only the kind.
 - **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
   notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
   falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds
@@ -63,12 +78,29 @@ the repo by commit count, and — like every other part — **dependency-free**.
   server is **declared** with `CORTEX_AUDIENCE=server`, because it leaves no filesystem trace and
   declaring beats detecting. `core/profile.js` answers a third question (home · work · lab) and
   reads only `CORTEX_PROFILE` — nothing here may move it.
+- **Every adapter opens the brain at entry, through `lib/brain.js`.** `server.js` and `ai-os.js` are
+  two adapters over the same operations, so the seam between them is real and therefore a module:
+  `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · profile ·
+  policy · sources · describe()`, and throws `NoRootError` / `UnknownProfileError` **before** a
+  command picks a branch. Neither adapter may read `env.AI_OS_ROOT` or call `resolve.js`,
+  `mode.js` or `core/profile.js` itself — `brain.test.js` scans both for that, because the way this
+  rule broke was a second adapter re-deriving the answer by hand: `ai-os catch-up` read the root raw
+  and passed `args.team` alone, so inside a repo with a `.cortex/connector.json` it consulted no
+  connector, reached no team clone, and printed `commits: []` as a success. That is the `capture`
+  invariant below, arriving through the other door. `ai-os.js` resolving the profile inside `team
+  init` only is the same shape: `team add` took a typo as `home` while the server exited on it.
+  The record **composes three answers and never merges the three questions** — mode from the root
+  string, audience from the connector or `CORTEX_AUDIENCE`, profile from `CORTEX_PROFILE` alone.
+  Three fields, never one enum; ADR 0008 and ADR 0015 stand unchanged. A command that reads no
+  brain (`digest`, `setup-plugins`) does not open one — demanding a root there would be a new
+  requirement wearing a fix's clothes.
 - **Every path that publishes must consult `policy.outwardSync` — including the CLI.** `lab` exists
   to be permissive locally *because* it is sealed outward, so the seal is the load-bearing half;
   `core/profile.js` calls a `lab` that still pushes "the leak with extra steps". For a while that is
   what `initTeamBrain` was: `capture()` honoured the policy and the team-brain push did not, and
   `ai-os.js` imported `core/profile.js` nowhere, so a misspelt `CORTEX_PROFILE` was a hard exit in
-  the server and a silent default in the CLI. Both adapters now resolve the profile. A new publish
+  the server and a silent default in the CLI. Both adapters now take the policy off the record
+  `lib/brain.js` opens at entry, which is where the profile is resolved once. A new publish
   path that does not is the same bug again — write locally, decline the push, and tell the caller
   which, the way `capture()` does.
 - **`mcp/` never imports from `index/`.**

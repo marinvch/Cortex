@@ -152,6 +152,17 @@ function joinRel(fromPath, spec) {
 }
 
 /**
+ * Join a root-relative DIRECTORY with a relative specifier, staying root-relative. "" is the root.
+ *
+ * The tsconfig side needs this twice — once to follow an `extends`/`references` link to a sibling
+ * or parent config, and once to place a `paths` target under the config's own directory — and the
+ * two had grown separate copies of the same three lines, in two files.
+ */
+export function normalizeRel(dir, spec) {
+  return normalize([...String(dir).split("/"), ...String(spec).split("/")]).join("/");
+}
+
+/**
  * Parse a tsconfig/jsconfig. They are JSON with Comments — every generator TypeScript ships writes
  * `//` lines into them, and a real one in the wild had a trailing comma after its last `paths`
  * entry. `JSON.parse` rejects all of that, and a config Cortex cannot read is a repo whose graph is
@@ -218,7 +229,7 @@ const byKeySpecificity = (a, b) => b.key.replace("*", "").length - a.key.replace
  */
 export function tsAliasTable(json, configDir = "") {
   const co = json?.compilerOptions ?? {};
-  const under = (p) => normalize([...configDir.split("/"), ...String(p).split("/")]).join("/");
+  const under = (p) => normalizeRel(configDir, p);
   const baseUrl = co.baseUrl ? under(co.baseUrl) : configDir;
   const entries = [];
   for (const [key, targets] of Object.entries(co.paths ?? {})) {
@@ -226,7 +237,7 @@ export function tsAliasTable(json, configDir = "") {
       const s = String(t);
       // A target starting with "./" or "../" is relative to the config; anything else hangs off
       // baseUrl. Both end up root-relative here, so the matcher never has to know which it was.
-      return s.startsWith(".") ? under(s) : normalize([...baseUrl.split("/"), ...s.split("/")]).join("/");
+      return s.startsWith(".") ? under(s) : normalizeRel(baseUrl, s);
     });
     entries.push({ key, targets: list, star: key.includes("*") });
   }
@@ -305,7 +316,7 @@ export function resolveTsAlias(spec, fileSet, table) {
   // `baseUrl` with no matching alias: TypeScript still resolves a bare specifier from it. Tried
   // last, so a real package is only shadowed when a file of that name genuinely exists in the repo.
   if (table.baseUrl !== undefined && !spec.startsWith(".")) {
-    const base = normalize([...table.baseUrl.split("/"), ...spec.split("/")]).join("/");
+    const base = normalizeRel(table.baseUrl, spec);
     return tryJsPath(base, fileSet);
   }
   return null;

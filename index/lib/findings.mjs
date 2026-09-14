@@ -1,7 +1,8 @@
-import { readFileSync, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { briefCandidates } from "./layers.mjs";
 import { scan } from "../../core/scrub.js";
+import { MAX_TEXT_BYTES, scannedForSecrets, textSource } from "./repo-text.mjs";
 import { buildCoverage, testStem } from "./coverage.mjs";
 import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
 import { findOrphans } from "./orphans.mjs";
@@ -81,14 +82,14 @@ function blindLanguages(index) {
 export { testStem };
 
 /** Production modules that no test covers, grouped by directory. */
-function untestedAreas(index, root) {
+function untestedAreas(index, text) {
   // Three signals, because each alone misreports. Naming catches `paths.js` ← `paths.test.js` even
   // when they sit in different directories; imports catch a module exercised by a test named after
   // something else, which is how most integration tests are organised; mentions catch a CLI run as
   // a subprocess, which neither of the others can see.
   // Three signals, each alone misreporting — see index/lib/coverage.mjs, which owns this because
   // impact.mjs needs the same answer and a second copy would drift.
-  const coverage = buildCoverage(index, root);
+  const coverage = buildCoverage(index, text);
 
   const byDir = new Map();
   for (const f of index.files) {
@@ -115,7 +116,16 @@ export function isGreenfield(index) {
   return index.stats.files === 0;
 }
 
-export function analyse(index, root) {
+/**
+ * analyse(index, root, { text }) → the ranked findings.
+ *
+ * `root` answers filesystem STATE — does `CONTEXT.md` exist, what is under `.cortex/` — which is
+ * `readState`'s question and stays a real path. Every read of the repo's TEXT goes through `text`,
+ * one injected source (`lib/repo-text.mjs`) shared by the secret scan, the orphan mention scan and
+ * the coverage mention scan. Those three each carried their own cap and their own silent skip;
+ * sharing one source is also what lets this function report, in one place, what the cap cost.
+ */
+export function analyse(index, root, { text = textSource(root, { index }) } = {}) {
   const out = [];
   const has = (p) => existsSync(join(root, p));
 
@@ -174,8 +184,13 @@ export function analyse(index, root) {
       ),
     );
   } else if (layer.rootBrief) {
-    const lines = readFileSync(join(root, "AGENTS.md"), "utf8").split("\n").length;
+    // A brief too large to read is the strongest possible evidence for the finding below, so it
+    // must not become a skipped read that quietly drops it. `text.read` returns null over the cap;
+    // the reason tells this branch which of the two answers it is holding.
+    const brief = text.read("AGENTS.md");
+    const lines = brief === null ? Infinity : brief.split("\n").length;
     if (lines > 250) {
+      const size = brief === null ? "over the readable size limit" : `${lines} lines`;
       // The measurement is right either way; the REMEDY depends on whether there is anywhere left
       // to cut. This offered `brief` unconditionally, so on a repo whose areas all already have
       // leaves it emitted `{"action":"brief","targets":[]}` — the detector saying in its own output
@@ -189,7 +204,7 @@ export function analyse(index, root) {
         finding(
           "medium",
           "context",
-          `AGENTS.md is ${lines} lines`,
+          `AGENTS.md is ${size}`,
           canCut
             ? "A single large context file is loaded in full on every turn, whether or not it is relevant. Splitting the area-specific parts into scoped leaves with a routing table keeps the root small and loads detail only where work happens."
             : "A single large context file is loaded in full on every turn, whether or not it is relevant. This root already routes to a leaf for every area that wants one, so there is nothing left to split out — what has grown is the root's own prose. That is a reading job rather than a structural one: run `/optimize-context` on this file. Cortex does not offer to do it here, because measuring the size of a document is not the same as knowing which of its sentences is redundant.",
@@ -266,15 +281,15 @@ export function analyse(index, root) {
   const exempt = [];
   const dormant = [];
   for (const f of index.files) {
-    if (f.category === "docs" || f.bytes > 400_000) continue;
-    let text;
-    try {
-      text = readFileSync(join(root, f.path), "utf8");
-    } catch {
-      continue;
-    }
-    const marker = markerLine(text);
-    const hits = scan(text);
+    // What is worth scanning for a credential, and what may be read at all, are two questions.
+    // The first is `scannedForSecrets` — prose about a key is not a key. The second belongs to
+    // the text source, which owns the one cap and records what it could not deliver, so a file
+    // this scan never opened can no longer reach the report as a clean one.
+    if (!scannedForSecrets(f)) continue;
+    const body = text.read(f.path);
+    if (body === null) continue;
+    const marker = markerLine(body);
+    const hits = scan(body);
     if (marker !== null) {
       // An exemption with hits is doing a job; one without is a standing opt-out over nothing.
       // They are different facts with different actions, so they are never merged into one list.
@@ -360,7 +375,7 @@ export function analyse(index, root) {
       ),
     );
   } else {
-    const untested = untestedAreas(index, root);
+    const untested = untestedAreas(index, text);
     if (untested.length) {
       const total = untested.reduce((a, d) => a + d.untested, 0);
       out.push(
@@ -396,7 +411,7 @@ export function analyse(index, root) {
     );
   }
 
-  const orph = findOrphans(index, root);
+  const orph = findOrphans(index, text);
   if (orph.length) {
     out.push(
       finding(
@@ -511,6 +526,26 @@ export function analyse(index, root) {
           "brief",
           briefs.map((b) => b.dir),
         ),
+      ),
+    );
+  }
+
+  // Last, because it reports on the three scans above and can only be counted once they have run.
+  //
+  // A file the scanners never opened reaches every one of them as "no match found" — no secret, no
+  // mention, no coverage — which is indistinguishable from a clean file. The cap is this tool's own
+  // choice (`lib/repo-text.mjs`), so the tool has to say when it bound the answer it just gave.
+  // Carries no offer: there is nothing Cortex can do about it, and inventing one would put a
+  // question with no action behind it into the install interview (ADR 0006).
+  const oversized = text.oversized;
+  if (oversized.length) {
+    out.push(
+      finding(
+        "low",
+        "scan",
+        `${oversized.length} file${oversized.length === 1 ? " was" : "s were"} too large to read`,
+        `Above ${MAX_TEXT_BYTES.toLocaleString()} bytes Cortex does not read a file back, so these were not scanned for credentials, not searched for the paths they might name, and — if any is a test — not credited with covering anything. Nothing above is a statement about them. They are usually generated: a bundled client, a data dump, a compiled schema. Marking them \`linguist-generated\` in \`.gitattributes\` says so where Cortex and GitHub both read it.`,
+        oversized.map((u) => u.path),
       ),
     );
   }

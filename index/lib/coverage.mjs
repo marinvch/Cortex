@@ -18,8 +18,7 @@
 // it says are covered are covered; files it says are not may still be exercised in a way the index
 // cannot see. Every caller must phrase its output that way.
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { textSource } from "./repo-text.mjs";
 
 /** The bare module name a test file is testing: `mcp/test/paths.test.js` → `paths`. */
 export function testStem(path) {
@@ -34,13 +33,19 @@ export function testStem(path) {
 }
 
 /**
- * buildCoverage(index, root) → { isCovered(path), testsFor(path), testPaths }
+ * buildCoverage(index, text) → { isCovered(path), testsFor(path), testPaths }
  *
- * `root` is optional and only enables the mention signal, which has to read test files. Without it
- * the other two still work — a subprocess-tested CLI simply reads as uncovered, which is the safe
- * direction for a report that says "these may be unverified".
+ * `text` is a repo-text source (`lib/repo-text.mjs`) or, for a caller that holds one, a root
+ * string this coerces. It is optional and only enables the mention signal, which has to read test
+ * files. Without it the other two still work — a subprocess-tested CLI simply reads as uncovered,
+ * which is the safe direction for a report that says "these may be unverified".
+ *
+ * Reading is injected for the reason `build.mjs` gives about `detectStack`: everything below
+ * becomes a pure transform of the Index plus that text, so the three signals are testable from
+ * literals instead of from a temp tree built to satisfy one `readFileSync`.
  */
-export function buildCoverage(index, root) {
+export function buildCoverage(index, text) {
+  const source = textSource(text);
   const testPaths = new Set();
   const byStem = new Map(); // stem → [test paths]
   for (const f of index.files) {
@@ -74,7 +79,7 @@ export function buildCoverage(index, root) {
   // covered file as uncovered costs a re-read; the reverse tells someone a risk is verified when it
   // is not, so the boundary stays strict.
   const byMention = new Map();
-  if (testPaths.size && root) {
+  if (testPaths.size && source.available) {
     const basenames = new Map();
     for (const f of index.files) {
       if (f.category === "code" && !f.isTest) basenames.set(f.path.split("/").pop(), f.path);
@@ -85,14 +90,13 @@ export function buildCoverage(index, root) {
       quoted.set(base, new RegExp(`["'\`](?:[^"'\`]*/)?${esc}["'\`]`));
     }
     for (const t of testPaths) {
-      let text;
-      try {
-        text = readFileSync(join(root, t), "utf8");
-      } catch {
-        continue;
-      }
+      // A test file that could not be read costs its mentions, never the run — and the source
+      // records why, so "this test mentions nothing" and "this test could not be opened" stay
+      // two different facts for whoever holds the source.
+      const body = source.read(t);
+      if (body === null) continue;
       for (const [base, path] of basenames) {
-        if (quoted.get(base).test(text)) {
+        if (quoted.get(base).test(body)) {
           if (!byMention.has(path)) byMention.set(path, []);
           byMention.get(path).push(t);
         }

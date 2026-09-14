@@ -20,10 +20,11 @@
 // place anyone would look for a surprise write.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveProfile, UnknownProfileError } from "../core/profile.js";
+import { indexFreshness } from "../index/lib/open.mjs";
 
 const args = process.argv.slice(2);
 const asJson = args.includes("--json");
@@ -72,47 +73,29 @@ try {
 
 // --- index freshness ----------------------------------------------------------------------------
 
-// "Re-run the index first if it is stale" is advice six rituals give and none can act on, because
-// none of them defines stale. It is defined here: the index is stale when a tracked source file has
-// been modified since the index was written. A picture of a repo that no longer exists is worse than
-// no picture — the reader trusts it.
+// "Re-run the index first if it is stale" is advice six rituals give and none could act on, because
+// none of them defined stale. The definition — the index is stale when a tracked source file has been
+// modified since the index was written — now lives in `index/lib/open.mjs`, where the eight CLIs read
+// it through the front door. A picture of a repo that no longer exists is worse than no picture,
+// because the reader trusts it.
 //
 // mtime, not git history, because an uncommitted edit is exactly the case a pre-write check must
 // catch. The known cost: a `git checkout` or a fresh clone rewrites mtimes and reads as stale when
 // nothing changed. That error points at re-running a deterministic index — cheap and correct — while
 // the opposite error hands someone a confident map of code that moved. Prefer the cheap one.
+//
+// Freshness is NOT defined here. `indexFreshness` in index/lib/open.mjs is the one definition, and
+// the eight CLIs read it through the front door — so the answer a ritual gets from preflight and the
+// answer a command prints are the same answer, not two implementations that agree today.
+//
+// This file used to carry its own copy. It was the only reachable definition at the time, which is
+// why it was written here; when the CLIs gained one too, "stale" briefly meant two things. The
+// profile half already travels this direction (`core/profile.js` above), and `docs/changing-cortex.md`
+// asks for exactly that: ask rather than re-derive.
 function indexState() {
-  const dir = join(root, ".cortex", "index");
-  if (!existsSync(dir)) return { present: false };
-
-  let newest = 0;
-  for (const name of readdirSync(dir)) {
-    try {
-      newest = Math.max(newest, statSync(join(dir, name)).mtimeMs);
-    } catch { /* a file that vanished mid-walk is not a freshness signal */ }
-  }
-  if (!newest) return { present: false };
-
-  const ageDays = Math.floor((Date.now() - newest) / 86_400_000);
-  if (!inGit) return { present: true, ageDays, stale: null, staleReason: "not a git repo — cannot tell" };
-
-  // Only tracked files count. A node_modules refresh or a build artifact is not a reason to re-index,
-  // and treating it as one trains the reader to ignore the warning.
-  const tracked = git("ls-files") || "";
-  const changed = [];
-  for (const rel of tracked.split("\n").filter(Boolean)) {
-    if (rel.startsWith(".cortex/")) continue;
-    try {
-      if (statSync(join(root, rel)).mtimeMs > newest) changed.push(rel);
-    } catch { /* deleted-but-tracked; the index cannot be stale because of a file that is gone */ }
-    if (changed.length >= 5) break;
-  }
-  return {
-    present: true,
-    ageDays,
-    stale: changed.length > 0,
-    changedSince: changed,
-  };
+  const f = indexFreshness(root, join(root, ".cortex", "index"));
+  // `reason` is this file's `staleReason`; the shape below is what the report block already prints.
+  return { ...f, staleReason: f.reason };
 }
 
 const index = indexState();

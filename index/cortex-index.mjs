@@ -6,46 +6,23 @@
 // Writes <repoRoot>/.cortex/index/index.json unless --out says otherwise. No LLM, no network:
 // the same tree always produces the same file, so this is safe to run in CI and on every install.
 
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { writeFileSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { nextLine } from "./lib/next.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
-import { rootProblem } from "./lib/root.mjs";
+import { defaultIndexPath, generatedNotice, openTarget } from "./lib/open.mjs";
 
-function parseArgs(argv) {
-  const args = { root: null, out: null, json: false };
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--out") args.out = argv[++i];
-    else if (a === "--json") args.json = true;
-    else if (!a.startsWith("--") && args.root === null) args.root = a;
-  }
-  return args;
-}
+// This command WRITES the index, so it never reads one — `index: "none"`. Everything else about
+// opening a target (the flag allowlist, the root check, the default path) is lib/open.mjs's.
+const { root, args } = openTarget(process.argv.slice(2), {
+  usage: "usage: node index/cortex-index.mjs [root] [--out FILE] [--json]",
+  flags: { "--out": "value", "--json": "boolean" },
+  root: "positional",
+  index: "none",
+});
 
-// A directory appearing in someone's project on a run they did not explicitly ask for should be
-// visible. ADR 0005 puts the consent gate in the skill; this is the other half — saying what
-// landed, so "generated and gitignored" never quietly means "invisible".
-function generatedNotice(gen) {
-  const out = [];
-  if (gen.created) out.push("Created .cortex/ — generated artifacts live here; .cortex/memory/ is committed on purpose.");
-  if (gen.ignored.length) out.push("Added to .gitignore: " + gen.ignored.join(", "));
-  return out.length ? out.join("\n") + "\n" : "";
-}
-
-const args = parseArgs(process.argv.slice(2));
-const root = resolve(args.root || process.cwd());
-
-// A root that is not a directory produces a confident empty answer, not an error: buildIndex
-// returns zero files rather than throwing. Refuse instead — the route in (a mangled flag, a typo,
-// a stale path in a script) does not matter, the output does.
-const rootIssue = rootProblem(root);
-if (rootIssue) {
-  process.stderr.write(rootIssue);
-  process.exit(1);
-}
-const out = args.out ? (isAbsolute(args.out) ? args.out : resolve(args.out)) : join(root, ".cortex", "index", "index.json");
+const out = args.out ? (isAbsolute(args.out) ? args.out : resolve(args.out)) : defaultIndexPath(root);
 
 const started = Date.now();
 const index = buildIndex(root);

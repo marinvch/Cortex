@@ -1,89 +1,20 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
-import { listFiles } from "./walk.mjs";
+import { listFiles, MAX_INDEXED_BYTES } from "./walk.mjs";
+import { repoText } from "./repo-text.mjs";
 import { detectLanguage, categoryOf, isTestPath, isEntryPath } from "./langs.mjs";
-import {
-  extractImports,
-  resolveImport,
-  resolveGoImport,
-  resolveRustImport,
-  resolveJavaImport,
-  resolvePhpImport,
-  resolveRubyImport,
-  goModulePath,
-  parseJsonc,
-  tsAliasTable,
-  mergeAliasTables,
-  resolveTsAlias,
-} from "./imports.mjs";
+import { extractImports } from "./imports.mjs";
+import { importResolver } from "./resolvers.mjs";
 import { inferAreas } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
 import { depthOf } from "./depth.mjs";
 import { vendoredPaths, vendoredStats } from "./vendored.mjs";
+import { INDEX_VERSION } from "./format.mjs";
 
-export const INDEX_VERSION = "1";
-
-// The languages a tsconfig/jsconfig alias table applies to. Vue and Svelte single-file components
-// import through the same resolver and the same aliases, so they belong here too.
-const JS_LANGS = new Set(["javascript", "typescript", "vue", "svelte"]);
-
-// Join a root-relative directory with a relative specifier, staying root-relative. Used for the
-// tsconfig `extends` chain, which points at sibling and parent files.
-function normalizeRel(dir, spec) {
-  const out = [];
-  for (const part of [...dir.split("/"), ...spec.split("/")]) {
-    if (part === "." || part === "") continue;
-    if (part === "..") out.pop();
-    else out.push(part);
-  }
-  return out.join("/");
-}
-
-// The directory a root-relative path sits in — "" at the repo root.
-function dirOfPath(path) {
-  return path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
-}
-
-/**
- * Read one tsconfig/jsconfig, following `extends` upward, and return its merged `compilerOptions`
- * together with the `references` the config itself declares.
- *
- * `extends` is common — a repo splits its options into tsconfig.base.json and the child holds only
- * overrides. Following it is what makes those repos resolve at all. Depth-capped and cycle-guarded
- * because a loop in the chain must cost a config, never the whole index; likewise a config that
- * cannot be read or parsed costs its aliases and stops the walk.
- *
- * `references` is *not* inherited (TypeScript excludes it from `extends`), so it is taken from the
- * entry config alone. Returns null when the entry config could not be read at all.
- */
-function readTsConfigChain(root, entryRel) {
-  const merged = { compilerOptions: {} };
-  let references = null;
-  let rel = entryRel;
-  let dir = dirOfPath(rel);
-  const seen = new Set();
-  for (let hop = 0; hop < 8 && rel && !seen.has(rel); hop++) {
-    seen.add(rel);
-    let json = null;
-    try {
-      json = parseJsonc(readFileSync(join(root, rel), "utf8"));
-    } catch {
-      break; // a config we cannot read costs its aliases, never the run
-    }
-    if (!json) break;
-    if (references === null) references = Array.isArray(json.references) ? json.references : [];
-    // The nearest config wins on every key, so only fill what is still missing as we walk up.
-    for (const [k, v] of Object.entries(json.compilerOptions ?? {})) {
-      if (!(k in merged.compilerOptions)) merged.compilerOptions[k] = v;
-    }
-    if (!json.extends || typeof json.extends !== "string" || !json.extends.startsWith(".")) break;
-    const parent = normalizeRel(dir, json.extends);
-    rel = parent.endsWith(".json") ? parent : `${parent}.json`;
-    dir = dirOfPath(rel);
-  }
-  return references === null ? null : { merged, references };
-}
+// The index format version. It is defined in format.mjs so a consumer can check what it is reading
+// without importing the builder, and re-exported here because this is where callers look for it.
+export { INDEX_VERSION } from "./format.mjs";
 
 function git(root, args) {
   try {
@@ -159,187 +90,46 @@ export function buildIndex(root, opts = {}) {
     };
   });
 
-  const fileSet = new Set(files.map((f) => f.path));
+  // Every read of the repo's text from here down — the import scan and the stack manifests — goes
+  // through one source with one cap. The cap is the walker's own ceiling, so the builder can never
+  // read less than the file list it is building from without saying so.
+  const text = repoText(root, { index: { files }, cap: opts.maxBytes ?? MAX_INDEXED_BYTES });
 
   // One `git check-attr` for the whole tree. Per-file calls cost more than the rest of the index.
   const marked = vendoredPaths(root, files.map((f) => f.path));
   for (const f of files) f.vendored = marked.has(f.path);
 
-  // Go needs two things no other language here does: the module path (so an import can be told
-  // from an external package) and a directory index (because a Go import names a package, which
-  // is a directory of files). Both are computed once.
-  let goModule = null;
-  try {
-    goModule = goModulePath(readFileSync(join(root, "go.mod"), "utf8"));
-  } catch {
-    // no go.mod — not a Go module, and Go imports will simply not resolve
-  }
-  // Every crate root, longest first. `crate::` is relative to the crate a FILE belongs to, and a
-  // workspace has many — matching the shortest would point every member at the same root.
+  // Every language's resolution context, prepared once, behind one seam — see lib/resolvers.mjs.
+  // What a language needs precomputed (go.mod's module path, Rust's crate roots, composer.json's
+  // PSR-4 prefixes, the tsconfig alias tables) and how it turns one specifier into files are both
+  // that language's business, not the builder's. Reading is injected for the same reason it is in
+  // repo-text.mjs: it keeps every one of those derivations a pure function of its inputs.
   //
-  // Derived from where lib.rs/main.rs actually sit, not from Cargo.toml plus /src. ripgrep keeps its
-  // binary crate in crates/core/main.rs with no src/ directory at all, and the manifest-derived
-  // guess missed every import in it — a third of the workspace, silently.
-  const rustCrateRoots = [
-    ...new Set(
-      files
-        .filter((f) => /(^|\/)(lib|main)\.rs$/.test(f.path))
-        .map((f) => f.path.slice(0, Math.max(0, f.path.lastIndexOf("/")))),
-    ),
-  ].sort((a, b) => b.length - a.length);
-
-  // Java source roots — the `src/main/java` prefix a package path hangs off. Longest first, and the
-  // empty root lets a flat repo (no Maven layout) still resolve.
-  const javaSourceRoots = [
-    ...new Set(
-      files
-        .filter((f) => f.path.endsWith(".java"))
-        .map((f) => {
-          const m = f.path.match(/^(.*?src\/(?:main|test)\/java)\//);
-          return m ? m[1] : "";
-        }),
-    ),
-  ].sort((a, b) => b.length - a.length);
-
-  // PHP autoload prefixes from composer.json. PSR-4 maps a namespace to a directory, so this is
-  // declared rather than guessed — the same reason Go reads go.mod. Longest prefix wins, so a more
-  // specific namespace beats the umbrella one.
-  const phpPrefixes = [];
-  for (const f of files) {
-    if (f.path !== "composer.json" && !f.path.endsWith("/composer.json")) continue;
-    const dir = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
-    let json;
+  // Raw reads, not `text.read`: these are the repo's declared manifests, which may sit outside the
+  // indexed set entirely — an untracked `go.mod` still names the module every import is measured
+  // against.
+  const readText = (rel) => {
     try {
-      json = JSON.parse(readFileSync(join(root, f.path), "utf8"));
+      return readFileSync(join(root, rel), "utf8");
     } catch {
-      continue; // a malformed manifest costs us autoload data, never the whole index
-    }
-    for (const block of [json.autoload, json["autoload-dev"]]) {
-      for (const [prefix, target] of Object.entries(block?.["psr-4"] || block?.["psr-0"] || {})) {
-        for (const t of [].concat(target)) {
-          const clean = String(t).replace(/[\\/]+$/, "");
-          phpPrefixes.push([prefix, dir ? `${dir}/${clean}` : clean]);
-        }
-      }
-    }
-  }
-  phpPrefixes.sort((a, b) => b[0].length - a[0].length);
-
-  // TypeScript/JavaScript path aliases, from tsconfig.json / jsconfig.json. Declared, not guessed —
-  // the same reason Go reads go.mod and PHP reads composer.json.
-  //
-  // Without this a modern TS repo reads as an almost empty graph. On a real Next.js app 428 imports
-  // were written `@/components/…` against 104 relative ones: the index saw about a fifth of the
-  // edges and reported 154 orphans, nearly all false. Every consumer of the graph — orphans,
-  // impact, depth, the viewer — was wrong on that repo, and each of them was confidently wrong.
-  //
-  // A monorepo has several configs, so this is a list keyed by directory and matched nearest-first.
-  //
-  // Discovery starts at every `tsconfig.json` / `jsconfig.json` and walks two links: `extends`
-  // upward, and `references` sideways. Solution-style configs are what make the second one
-  // necessary — the Vite React-TS template writes a root `tsconfig.json` holding nothing but
-  // `{ "files": [], "references": [...] }` and puts every option, `paths` included, in
-  // `tsconfig.app.json`, which no basename check will ever open. On one such repo that cost the
-  // index 70 of its 82 internal imports and produced 30 orphans, nearly all false.
-  const found = [];
-  const seenConfigs = new Set();
-  const addConfig = (rel, depth) => {
-    if (seenConfigs.has(rel)) return; // also what terminates a reference cycle
-    seenConfigs.add(rel);
-    const chain = readTsConfigChain(root, rel);
-    if (!chain) return; // unreadable or malformed: it costs its own aliases and nothing else
-    const dir = dirOfPath(rel);
-    // A referenced config's `paths` are relative to *its* directory and govern *its* directory, so
-    // that is where the table is keyed — not where the config that pointed at it sits. Getting this
-    // wrong in a monorepo hands every package the first-listed package's aliases.
-    if (Object.keys(chain.merged.compilerOptions).length) found.push(tsAliasTable(chain.merged, dir));
-    if (depth >= 8) return;
-    for (const ref of chain.references) {
-      const p = typeof ref?.path === "string" ? ref.path : null;
-      if (!p) continue;
-      // A reference names either a config file or a directory holding a `tsconfig.json` —
-      // TypeScript accepts both, and `packages/foo` is the common form in a workspace.
-      const target = normalizeRel(dir, p);
-      if (!target) continue;
-      addConfig(target.endsWith(".json") ? target : `${target}/tsconfig.json`, depth + 1);
+      return null;
     }
   };
-  for (const f of files) {
-    const base = f.path.split("/").pop();
-    if (base !== "tsconfig.json" && base !== "jsconfig.json") continue;
-    addConfig(f.path, 0);
-  }
-  // Several configs can govern one directory — the Vite layout has three at the root, and only one
-  // of them declares `paths`. Merge them, because a lookup returning the first match would
-  // otherwise pick whichever was declared first and silently drop the other's aliases.
-  const tsConfigs = [];
-  for (const table of found) {
-    const at = tsConfigs.findIndex((c) => c.dir === table.dir);
-    if (at < 0) tsConfigs.push(table);
-    else tsConfigs[at] = mergeAliasTables(tsConfigs[at], table);
-  }
-  // Nearest config wins: a package's own tsconfig must beat the repo root's.
-  tsConfigs.sort((a, b) => b.dir.length - a.dir.length);
-  const tsTableFor = (path) => tsConfigs.find((c) => c.dir === "" || path.startsWith(`${c.dir}/`)) ?? null;
+  const resolver = importResolver(files, root, readText);
 
-  // Ruby load paths. `require 'sinatra/base'` searches $LOAD_PATH, which for a gem is its lib/ —
-  // and a repo holding several gems has several, which is why this is a list and not a constant.
-  const rubyLoadPaths = [
-    ...new Set(
-      files
-        .filter((f) => f.path.endsWith(".rb"))
-        .map((f) => {
-          const m = f.path.match(/^(.*?lib)\//);
-          return m ? m[1] : "";
-        }),
-    ),
-  ].sort((a, b) => b.length - a.length);
-
-  const goByDir = new Map();
-  if (goModule) {
-    for (const f of files) {
-      if (!f.path.endsWith(".go") || f.path.endsWith("_test.go")) continue;
-      const i = f.path.lastIndexOf("/");
-      const dir = i < 0 ? "" : f.path.slice(0, i);
-      if (!goByDir.has(dir)) goByDir.set(dir, []);
-      goByDir.get(dir).push(f.path);
-    }
-  }
-  const byPath = new Map(files.map((f) => [f.path, f]));
   const edges = [];
 
   for (const f of files) {
     if (f.category !== "code" && f.category !== "script") continue;
-    let text;
-    try {
-      text = readFileSync(join(root, f.path), "utf8");
-    } catch {
-      continue;
-    }
+    // One reading rule for the whole product, in lib/repo-text.mjs. A file that cannot be read
+    // costs its edges — and since an edge is missing rather than wrong, everything downstream
+    // (orphans, impact, depth, the viewer) reads it as a file nothing points at. The source
+    // records which file and why, so that loss is countable rather than invisible.
+    const body = text.read(f.path);
+    if (body === null) continue;
     const seen = new Set();
-    for (const spec of extractImports(text, f.lang)) {
-      // Go alone resolves one specifier to many files, because it imports a package rather than
-      // a file. Everything else returns a single path or null.
-      const targets =
-        f.lang === "go"
-          ? resolveGoImport(spec, goModule, goByDir)
-          : f.lang === "rust"
-            ? [resolveRustImport(spec, f.path, fileSet, rustCrateRoots)]
-            : f.lang === "java"
-              ? [resolveJavaImport(spec, fileSet, javaSourceRoots)]
-              : f.lang === "php"
-                ? [resolvePhpImport(spec, fileSet, phpPrefixes)]
-                : f.lang === "ruby"
-                  ? [resolveRubyImport(spec, f.path, fileSet, rubyLoadPaths)]
-                  : // Relative first, alias second. A relative specifier is unambiguous, so an alias
-                    // table can only ever add edges the plain resolver could not find — it never
-                    // reinterprets one it could. `resolveTsAlias` returns null for a genuine package,
-                    // which is why a bare specifier still costs nothing when no config declares it.
-                    [
-                      resolveImport(spec, f.path, fileSet, f.lang) ??
-                        (JS_LANGS.has(f.lang) ? resolveTsAlias(spec, fileSet, tsTableFor(f.path)) : null),
-                    ];
-      for (const target of targets) {
+    for (const spec of extractImports(body, f.lang)) {
+      for (const target of resolver.resolve(spec, f)) {
         if (!target || target === f.path || seen.has(target)) continue;
         seen.add(target);
         f.imports.push(target);
@@ -404,14 +194,9 @@ export function buildIndex(root, opts = {}) {
     cycles: depth.cyclic,
     // What the repo is built out of, so downstream can pick skills that fit it. Reading is
     // injected rather than done inside detectStack, which keeps that function a pure
-    // transform of its inputs and testable from literals.
-    stack: detectStack(files, (rel) => {
-      try {
-        return readFileSync(join(root, rel), "utf8");
-      } catch {
-        return null;
-      }
-    }),
+    // transform of its inputs and testable from literals — the convention lib/repo-text.mjs
+    // now applies to every scanner that reads a repo back.
+    stack: detectStack(files, (rel) => text.read(rel)),
   };
 }
 

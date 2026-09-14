@@ -130,7 +130,15 @@ function measure(root, rel, maxBytes) {
  * A count the reader never sees is the expensive half of the `bin/` bug: the run printed a
  * plausible number and nothing said part of the repo was missing from it.
  */
-export function listFiles(root, { maxBytes = 2_000_000 } = {}) {
+/**
+ * The largest file the Index will hold. Exported because it is the repo's ONE size ceiling: every
+ * consumer that reads a tracked file back is reading something this number already bounded, and a
+ * second, smaller cap downstream makes a scanner see less than the Index it is scanning without
+ * saying so. `lib/repo-text.mjs` reads it rather than inventing a number of its own.
+ */
+export const MAX_INDEXED_BYTES = 2_000_000;
+
+export function listFiles(root, { maxBytes = MAX_INDEXED_BYTES } = {}) {
   const git = gitFiles(root);
   const candidates = git ? git.candidates : walkFiles(root);
   const files = [];

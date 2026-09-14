@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { unimported, namedElsewhere, findOrphans } from "../lib/orphans.mjs";
+import { textFrom } from "../lib/repo-text.mjs";
 
 function repo(files) {
   const root = mkdtempSync(join(tmpdir(), "cortex-orph-"));
@@ -105,4 +106,57 @@ test("namedElsewhere reports only what it was asked about", () => {
   const index = { files: [file("a.js"), file("tools/b.mjs"), file("tools/c.mjs")] };
   const named = namedElsewhere(index, root, ["tools/b.mjs", "tools/c.mjs"]);
   assert.deepEqual([...named], ["tools/b.mjs"]);
+});
+
+test("every indexed category is searched, because every indexed file is text", () => {
+  // The old list was code/script/config/docs, a fourth guess under a walker that had already
+  // dropped binaries: `infra`, `markup`, `schema` and `other` hold paths too, and each of the four
+  // below is how a real repo wires one up. On a cloned Next.js app the widening removed six of
+  // fourteen "unreferenced" entries. Widening can only ever REMOVE orphans, which is the direction
+  // of error this module states it chose.
+  const root = repo({
+    "Dockerfile": "COPY scripts/entrypoint.sh /app/\n",
+    "public/index.html": '<script src="src/boot.js"></script>\n',
+    "db/schema.sql": "-- generated from db/seed.js\n",
+    ".npmrc": "# see tools/publish.mjs\n",
+    "scripts/entrypoint.sh": "",
+    "src/boot.js": "",
+    "db/seed.js": "",
+    "tools/publish.mjs": "",
+  });
+  const index = {
+    files: [
+      file("Dockerfile", { category: "infra", lang: "dockerfile" }),
+      file("public/index.html", { category: "markup", lang: "html" }),
+      file("db/schema.sql", { category: "schema", lang: "sql" }),
+      file(".npmrc", { category: "other", lang: "other" }),
+      file("scripts/entrypoint.sh"),
+      file("src/boot.js"),
+      file("db/seed.js"),
+      file("tools/publish.mjs"),
+    ],
+  };
+  assert.deepEqual(findOrphans(index, root), [], "a path named by a Dockerfile is wired up, not dead");
+});
+
+test("a file too large to read cannot settle an orphan question, and says so", () => {
+  // The cap used to be 512 * 1024 here and nothing tested it, so nobody could see this happen.
+  // Injecting the source makes it an assertion instead of a half-megabyte fixture.
+  const text = textFrom({ "docs/map.md": "names src/dead.js", "src/dead.js": "" }, { cap: 8 });
+  const index = { files: [file("docs/map.md", { category: "docs" }), file("src/dead.js")] };
+
+  assert.deepEqual(
+    findOrphans(index, text).map((f) => f.path),
+    ["src/dead.js"],
+    "the only file that named it was never opened, so the question is unsettled, not answered",
+  );
+  assert.deepEqual(text.oversized, [{ path: "docs/map.md", reason: "too-large" }]);
+});
+
+test("findOrphans is a pure transform of the index plus injected text", () => {
+  // No root, no temp tree: the same inputs, twice, byte for byte.
+  const index = { files: [file("a.js"), file("src/dead.js")] };
+  const run = () => findOrphans(index, textFrom({ "a.js": "// nothing here\n" })).map((f) => f.path);
+  assert.deepEqual(run(), ["a.js", "src/dead.js"]);
+  assert.deepEqual(run(), run());
 });

@@ -39,9 +39,15 @@ authored, not derived, and is never regenerated).
 
 ## The gate
 
-`core/scrub.js`. The single point at which anything entering memory is checked for credentials.
-It **refuses** rather than sanitises, because silently rewriting someone's note is a worse failure
-than declining it with a reason.
+`core/scrub.js`. The check every write makes before content is committed, pushed, or otherwise
+leaves this machine. It **refuses** rather than sanitises, because silently rewriting someone's note
+is a worse failure than declining it with a reason.
+
+Two callers apply it, and the pair is the guarantee: `core/memory.js` covers every caller of
+`append()`, and `mcp/server.js` covers every tool whose declaration says it publishes. This entry
+used to read "anything entering memory", which is how the hole stayed invisible — `capture` pushed a
+note to a shared remote without ever entering memory, so the sentence stayed true while the
+guarantee it implied was not. A definition wider than its callers is a claim, not a gate.
 
 _Avoid_: "filter", "sanitiser" — both imply the content is modified and let through.
 

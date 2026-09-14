@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { buildView } from "../lib/view.mjs";
 import { renderHtml } from "../lib/view-html.mjs";
+import { runPage } from "./browser.mjs";
 
 function idx(over = {}) {
   return {
@@ -204,6 +205,154 @@ test("the layout cools, and the fit never zooms past legibility", () => {
     "fitting stops at the point the chips stop being readable",
   );
   assert.ok(html.includes("!touched"), "and never moves a camera the user has already touched");
+});
+
+// ── the graph is layered, because the docs say it is ───────────────────────────────────────────
+// `skills/cortex-view/SKILL.md` told readers the nodes were "laid out by import depth so it reads
+// top-down". They were not: depth was read once to size the loose-file tray and never positioned
+// anything, so the page was a plain force hairball making a claim only prose could keep. These
+// assert the claim is in the code. They are lint-style, like the tray ones above — the script has
+// no DOM to run in here — and the geometry itself is checked by running the emitted script against
+// cloned repositories, which is where every layout defect in this file has actually been found.
+
+test("depth places a node; nothing else is allowed to", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(html.includes("n.x=x+slot(n)/2;n.y=ly;"), "pack() is the only thing that writes x or y");
+  // A velocity on either axis and a node drifts off the layer it is supposed to name. The fields
+  // are gone rather than merely unused, so neither can come back by accident.
+  const graph = html.slice(html.indexOf("---- graph"));
+  assert.ok(!/\bvy\b/.test(graph), "there is no y velocity");
+  assert.ok(!/\bvx\b/.test(graph), "and no x velocity — pack() assigns, it does not integrate");
+  assert.ok(html.includes("0 · foundation"), "band 0 is named for what it means");
+  assert.ok(html.includes("--band:"), "and the bands have a token in both themes");
+});
+
+test("nothing in the page rolls a die", () => {
+  // Determinism is the index's central promise and the viewer is a consumer of it: the same index
+  // must open the same way, on every machine, every time. Seeding is index-derived.
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(!/Math\.random\s*\(/.test(html), "no randomness — the word survives only in comments");
+  assert.ok(!/Date\.now\s*\(|new Date\b/.test(html), "and no clock");
+});
+
+test("prominence follows inbound count, so the map is not a wall of labels", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  // Every node drawing a full chip put 162 labels on screen at equal weight, which says nothing
+  // about structure: the file a third of the repo imports looked exactly like a leaf test.
+  assert.ok(html.includes("HUB_MIN"), "there is an inbound threshold");
+  assert.ok(html.includes("Math.sqrt(n.ind)"), "and the radius scale is compressed, not linear");
+  const rule = html.slice(html.indexOf("const wantChip="), html.indexOf("function bands("));
+  for (const clause of ["HUB.has(n.id)", "n.pin", "NB.has(n.id)", "MT.has(n.id)"]) {
+    assert.ok(rule.includes(clause), `a chip is wanted for ${clause}`);
+  }
+  assert.ok(rule.includes("scale>=CHIP_LOD"), "and nothing is labelled below the legibility floor");
+  // Picking reads the same predicate rather than a copy of it. Two copies is how you get a chip
+  // that is visible and not clickable, which no screenshot shows.
+  assert.ok(html.includes("if(showChip(n)){if(Math.abs(dx)<=n.w/2"), "picking asks showChip too");
+});
+
+test("reduced motion settles rather than animating", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(html.includes("prefers-reduced-motion"), "the preference is read");
+  assert.ok(html.includes("if(REDUCED)settle()"), "and the same steps run before the first frame");
+});
+
+test("an edge carries its source area's colour", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(html.includes("'rgba('+e.s.rgb+'"), "so a bundle can be traced across rows");
+  assert.ok(html.includes("rgba('+EC+',.13)"), "and everything else dims out of the way on hover");
+});
+
+// ── the settled layout, measured ───────────────────────────────────────────────────────────────
+// Everything above asserts that a decision is still written in the source. None of it can see what
+// a reader sees, and the first layered version shipped with `cort|di|m|setup|s|s|version.js` across
+// its top band — 43 chips on one line at 1900px is 44px each, against the 86-210px a filename
+// needs, so every chip clipped its neighbour into a sliver. Every test in this file passed. These
+// run the page's own script (see `browser.mjs`) and measure what the draw loop actually paints.
+
+function bigView(n = 60) {
+  // One crowded band is the shape that broke: many files at the same depth, all competing for one
+  // line. Fixtures with four files cannot express it, which is why the defect reached a screenshot.
+  const files = Array.from({ length: n }, (_, i) => ({
+    path: `pkg/mod${i}-with-a-longish-name.js`, lang: "javascript", category: "code",
+    lines: 10 + i, commits: n - i, isTest: false, isEntry: false,
+    imports: i < n - 1 ? ["pkg/core.js"] : [], inbound: 0,
+  }));
+  files.push({ path: "pkg/core.js", lang: "javascript", category: "code", lines: 5, commits: 99,
+    isTest: false, isEntry: false, imports: [], inbound: n - 1 });
+  return buildView(idx({
+    files,
+    edges: files.filter((f) => f.imports.length).map((f) => ({ from: f.path, to: "pkg/core.js", type: "imports" })),
+    layers: [{ depth: 0, paths: ["pkg/core.js"] }, { depth: 1, paths: files.slice(0, n - 1).map((f) => f.path) }],
+    areas: [],
+  }), "/tmp/x");
+}
+
+test("no two drawn chips overlap, however crowded the band", () => {
+  const page = runPage(bigView(60), { width: 1900, height: 1000 });
+  assert.deepEqual(page.overlaps(), [], "chip rectangles must not intersect");
+  assert.ok(page.chips.length > 0, "and some chips are actually drawn, or this proves nothing");
+});
+
+test("a crowded band wraps onto sub-rows instead of crushing one line", () => {
+  const page = runPage(bigView(60), { width: 1900, height: 1000 });
+  const lanes = new Set(page.ROWS[1].map((n) => n.y));
+  assert.ok(lanes.size > 1, `59 files on one depth need more than one sub-row, got ${lanes.size}`);
+  // Wrapping is worth nothing if a node escapes the band its depth names.
+  page.ROWS.forEach((r, i) => {
+    for (const n of r) {
+      assert.ok(n.y >= page.BTOP[i] && n.y <= page.BTOP[i] + page.BH[i], `${n.label} is inside band ${i}`);
+    }
+  });
+});
+
+test("the chip budget is a cap, not a target", () => {
+  const page = runPage(bigView(60), { width: 1900, height: 1000 });
+  const graphChips = page.chips.filter((n) => !n.pin);
+  assert.ok(graphChips.length <= page.HUB_MAX,
+    `${graphChips.length} labels drawn against a budget of ${page.HUB_MAX}`);
+});
+
+test("nothing is drawn outside the band box, so no label is clipped", () => {
+  // The band's own label lives inside that box at its left edge. Fitting the nodes instead of the
+  // box put the left edge off screen and band 0's label rendered as "ounda…".
+  const page = runPage(bigView(60), { width: 1900, height: 1000 });
+  for (const n of page.chips) {
+    assert.ok(n.x - n.w / 2 >= page.bandL, `${n.label} starts inside the band box`);
+    assert.ok(n.x + n.w / 2 <= page.bandR, `${n.label} ends inside the band box`);
+  }
+  assert.ok(page.bandL * page.scale + page.tx >= 0, "and the box itself is on screen");
+});
+
+test("hovering names the neighbourhood without stacking labels", () => {
+  // The hub budget reserves chip-width room for its own; a hovered node's neighbours are promoted
+  // onto positions that only ever reserved a dot. This is the case the demotion rule exists for —
+  // and the one place a screenshot will not help, because it needs a cursor.
+  const page = runPage(bigView(60), { width: 1900, height: 1000, hover: "pkg/core.js" });
+  assert.deepEqual(page.overlaps(), [], "promoted neighbours must not collide with anything");
+  assert.ok(page.CHIPS.has("pkg/core.js"), "what the cursor is on always keeps its label");
+  assert.ok(page.chips.length > page.HUB.size, "and the neighbourhood adds some");
+});
+
+test("the same index settles to the same layout", () => {
+  // Determinism is only observable from outside, and a layout is the part of this page that could
+  // most easily stop being deterministic without anything else noticing.
+  const a = runPage(bigView(30)), b = runPage(bigView(30));
+  assert.deepEqual(a.N.map((n) => [n.id, n.x, n.y]), b.N.map((n) => [n.id, n.x, n.y]));
+});
+
+test("the light theme cannot rot while the dark one is tuned", () => {
+  // The page declares color-scheme:light dark and is opened next to an editor that already made
+  // that choice. A token added to one block and not the other renders as an empty string on canvas
+  // — which is not an error, just an invisible node. Both blocks must define the same names.
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  const names = (block) => new Set([...block.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+  const light = html.slice(html.indexOf(":root{"), html.indexOf("@media (prefers-color-scheme:dark)"));
+  const dark = html.slice(html.indexOf("@media (prefers-color-scheme:dark)"), html.indexOf("*{box-sizing"));
+  const l = names(light), d = names(dark);
+  assert.ok(l.size > 10, "the light palette is a full palette, not a stub");
+  assert.deepEqual([...l].filter((n) => !d.has(n)), [], "every light token has a dark counterpart");
+  assert.deepEqual([...d].filter((n) => !l.has(n)), [], "and every dark token has a light one");
 });
 
 // ── enrichment reaches the cards ───────────────────────────────────────────────────────────────

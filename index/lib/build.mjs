@@ -199,8 +199,3 @@ export function buildIndex(root, opts = {}) {
     stack: detectStack(files, (rel) => text.read(rel)),
   };
 }
-
-export { byPathHelper };
-function byPathHelper(index) {
-  return new Map(index.files.map((f) => [f.path, f]));
-}

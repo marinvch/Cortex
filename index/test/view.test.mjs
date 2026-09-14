@@ -372,6 +372,10 @@ test("summaries from the shape merge actually writes reach the cards", () => {
   const card = v.nodes.find((n) => n.path === "src/a.js");
   assert.equal(card.summary, "does the thing", "the object-keyed form is what merge produces");
   assert.equal(v.stats.enriched, 1);
+  // A partial enrichment leaves the rest bare rather than inventing prose for them. This used to
+  // be asserted against `applyEnrichment`, a function nothing in the product called; it belongs
+  // here, at the interface the viewer actually crosses.
+  assert.equal(v.nodes.find((n) => n.path === "src/b.js").summary, "", "no summary stays no summary");
 });
 
 test("the older array form still works, so an existing enrichment is not orphaned", () => {

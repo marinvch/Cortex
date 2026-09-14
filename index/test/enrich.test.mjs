@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeBatches, isEnrichable, batchStats } from "../lib/batch.mjs";
-import { validateBatch, mergeEnrichment, applyEnrichment, isStale } from "../lib/enrich.mjs";
+import { validateBatch, mergeEnrichment, isStale, readEnrichment, stalenessReason } from "../lib/enrich.mjs";
 
 function idx(files, areas, edges = [], commit = "abc123") {
   return { commit, files, areas, edges };
@@ -129,17 +129,15 @@ test("merge keys by path, reports coverage, and drops paths absent from the inde
   assert.equal(enrichment.indexCommit, "abc123");
 });
 
-test("applying enrichment leaves unenriched files untouched", () => {
-  const index = idx(FILES, LAYERS);
-  const enrichment = mergeEnrichment(index, [
-    { batch: BATCH, result: [{ path: "src/a.js", summary: "A." }, { path: "src/b.js", summary: "B." }] },
-  ]);
-  const applied = applyEnrichment(index, enrichment);
-  const byPath = new Map(applied.files.map((f) => [f.path, f]));
-  assert.equal(byPath.get("src/a.js").summary, "A.");
-  assert.equal(byPath.get("docs/x.md").summary, undefined, "no summary is left as no summary");
-  assert.equal(applied.files.length, index.files.length, "enrichment never adds or removes files");
-});
+// `applyEnrichment` — attach an enrichment onto an index in memory — was deleted with this test.
+// Nothing in the product ever called it: its only caller was the assertion that used to sit here,
+// and the deletion test in references/codebase-design.md says a module whose removal makes no
+// complexity reappear across callers was never earning its keep. It had also drifted unchecked,
+// which is what an uncalled function does — it spread `role: undefined` and `tags: undefined` onto
+// every enriched file, a shape `buildView` happens to absorb with `?? ""` and any other reader
+// would not. The property it asserted did not go with it: `buildView` attaches summaries by path
+// and leaves unenriched files bare, and view.test.mjs holds that from the outside, through the
+// interface the product actually crosses.
 
 test("staleness is detected by commit and by file count", () => {
   const index = idx(FILES, LAYERS);
@@ -309,4 +307,140 @@ test("one constant names the merged enrichment, because four sites disagreed", (
   // enrichment therefore produced no summaries and left the sequence reporting the step as never
   // run. Same argument as ADR 0013 for the version: the fact has one home.
   assert.equal(ENRICHED_REL, ".cortex/index/enriched.json");
+});
+
+// ── one reader for the enrichment layer ────────────────────────────────────────────────────────
+// `cortex-view.mjs` was the only thing that opened enriched.json for its CONTENT, and it did it
+// inline: existsSync → JSON.parse → catch { enrichment = null }. Three different conditions came
+// out the same silent null — never enriched, enriched and damaged, enriched and describing a tree
+// that has moved — so a page rendered from a truncated file looked exactly like a page for a repo
+// that had never paid for a model pass. `lib/open.mjs` fixed that shape for index.json; this is
+// its counterpart for the layer on top.
+
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+/** A repo root with `content` at .cortex/index/enriched.json, or nothing there at all. */
+function enrichedRepo(content) {
+  const root = mkdtempSync(join(tmpdir(), "cortex-enr-"));
+  if (content !== undefined) {
+    mkdirSync(join(root, ".cortex", "index"), { recursive: true });
+    writeFileSync(join(root, ".cortex", "index", "enriched.json"), content);
+  }
+  return root;
+}
+
+const INDEX = idx(FILES, LAYERS);
+const GOOD = JSON.stringify(mergeEnrichment(INDEX, [
+  { batch: { batchIndex: 0, files: [{ path: "src/a.js" }] }, result: [{ path: "src/a.js", summary: "A." }] },
+]));
+
+test("a repo that never enriched is absent, and absent is not an error", () => {
+  // CONTEXT.md: enrichment is optional and "its absence degrades Cortex to deterministic behaviour
+  // rather than breaking it". A reader that made a missing file a failure would break that.
+  const r = readEnrichment(enrichedRepo(undefined), INDEX);
+  assert.equal(r.state, "absent");
+  assert.equal(r.enrichment, null);
+  assert.equal(r.note, null, "nothing to warn about — there is nothing there");
+});
+
+test("a fresh enrichment is ok, and ok is the only state a caller may trust", () => {
+  const r = readEnrichment(enrichedRepo(GOOD), INDEX);
+  assert.equal(r.state, "ok");
+  assert.equal(r.enrichment.files["src/a.js"].summary, "A.");
+  assert.equal(r.note, null);
+});
+
+test("a truncated enrichment is unreadable, not absent, and says so", () => {
+  // The failure that pays for this whole function: a user paid tokens, the file is right there on
+  // disk, and the old reader turned it into the same `null` as never having run. Telling them it
+  // is damaged points at `merge`, which costs nothing; telling them nothing points at the model.
+  const r = readEnrichment(enrichedRepo(GOOD.slice(0, GOOD.length / 2)), INDEX);
+  assert.equal(r.state, "unreadable");
+  assert.equal(r.enrichment, null, "an unparseable document is never handed to a consumer");
+  assert.match(r.note, /not readable JSON/);
+  assert.match(r.note, /cortex-enrich\.mjs merge/, "the note names the command that rewrites it");
+});
+
+test("JSON that is not an enrichment document is invalid, not silently empty", () => {
+  // `{}` parses. The inline reader accepted it, attached nothing, and then skipped its own
+  // "no enrichment" line because the value was truthy — a bare page with no explanation for it.
+  const r = readEnrichment(enrichedRepo("{}"), INDEX);
+  assert.equal(r.state, "invalid");
+  assert.equal(r.enrichment, null);
+  assert.match(r.note, /not an enrichment document/);
+
+  // Only the two fields a consumer cannot do without. Summaries with no coverage cannot be checked
+  // for staleness, and coverage with no summaries is nothing to render.
+  assert.equal(readEnrichment(enrichedRepo('{"files":{}}'), INDEX).state, "invalid");
+  assert.equal(readEnrichment(enrichedRepo('{"coverage":{"indexed":4}}'), INDEX).state, "invalid");
+  assert.equal(readEnrichment(enrichedRepo('[]'), INDEX).state, "invalid", "an array is not the document");
+});
+
+test("an enrichment describing another commit is stale, and the document still comes back", () => {
+  // cortex-enrich has asked isStale since it was written; the viewer never asked at all, so it
+  // rendered summaries about files that had moved on a page whose argument is that it is a picture.
+  const r = readEnrichment(enrichedRepo(GOOD), { ...INDEX, commit: "deadbee1" });
+  assert.equal(r.state, "stale");
+  assert.ok(r.enrichment, "the caller owns the policy, so it is handed the facts to apply one to");
+  assert.match(r.note, /does not describe this index/);
+  assert.match(r.note, /abc123/, "the note names the commit the summaries were written against");
+});
+
+test("an index that grew since the merge is stale too, and the reason says which", () => {
+  const bigger = { ...INDEX, files: [...FILES, { path: "src/c.js", lines: 5 }] };
+  const r = readEnrichment(enrichedRepo(GOOD), bigger);
+  assert.equal(r.state, "stale");
+  assert.match(r.note, /merged against 4 indexed files, the index now holds 5/);
+});
+
+test("a stale note never sends the user to `merge`, which would restamp the old prose as current", () => {
+  // The property, not the wording: `mergeEnrichment` takes indexCommit and coverage.indexed from
+  // the index it is handed, so re-merging yesterday's batch results against today's index writes a
+  // document isStale calls fresh. Advising `merge` here would launder exactly what the viewer
+  // declines, by following our own instruction — and it shipped that way until someone read the
+  // two functions together. A damaged document is the opposite case and `merge` is right for it,
+  // so this is asserted per state rather than globally.
+  for (const index of [{ ...INDEX, commit: "deadbee1" }, { ...INDEX, files: [...FILES, { path: "src/c.js", lines: 5 }] }]) {
+    const r = readEnrichment(enrichedRepo(GOOD), index);
+    assert.equal(r.state, "stale");
+    assert.doesNotMatch(r.note, /cortex-enrich\.mjs merge/, "merge would mark the stale summaries fresh");
+    assert.match(r.note, /costs tokens/, "the honest recovery is a model pass, and the note says so");
+  }
+  // The damaged states keep it: there the batches still describe this index and only the merged
+  // artifact is broken, so re-merging is both correct and free.
+  for (const bad of [GOOD.slice(0, GOOD.length / 2), "{}"]) {
+    assert.match(readEnrichment(enrichedRepo(bad), INDEX).note, /cortex-enrich\.mjs merge/);
+  }
+});
+
+test("staleness has one definition — isStale is stalenessReason with the answer thrown away", () => {
+  // Two rules that agree today and disagree the moment one is edited is the failure this repo has
+  // shipped more than once. The viewer needs the sentence and cortex-enrich needs the boolean, so
+  // the sentence is the definition and the boolean asks it.
+  const fresh = JSON.parse(GOOD);
+  for (const [index, enrichment] of [
+    [INDEX, fresh],
+    [INDEX, null],
+    [{ ...INDEX, commit: "different" }, fresh],
+    [{ ...INDEX, files: [...FILES, { path: "new.js" }] }, fresh],
+  ]) {
+    assert.equal(
+      isStale(index, enrichment),
+      stalenessReason(index, enrichment) !== null,
+      "the boolean and the sentence cannot disagree",
+    );
+  }
+});
+
+test("the note names a repo-relative path, so the same tree reads the same on any machine", () => {
+  // Determinism is the index's whole claim and the reader inherits it: pure over (disk, index),
+  // no clock, no randomness, and nothing machine-specific in what it says.
+  const root = enrichedRepo("{oops");
+  const r = readEnrichment(root, INDEX);
+  assert.ok(r.note.startsWith(".cortex/index/enriched.json"));
+  assert.ok(!r.note.includes(root), "an absolute temp path in the sentence would differ per run");
+  assert.equal(r.path, join(root, ".cortex", "index", "enriched.json"), "the absolute path is a field");
+  assert.deepEqual(readEnrichment(root, INDEX), r, "two reads of one tree agree exactly");
 });

@@ -13,10 +13,15 @@ import { findOrphans } from "./orphans.mjs";
 
 // Enough hues to separate the areas a reader can hold at once; past that they repeat, which is
 // honest — a repo with 30 top-level areas has a structure problem the colours should not hide.
+// Mid-luminance on purpose: the same swatch has to hold on a deep blue-slate canvas and on a white
+// one, because the page follows the OS theme. Saturated-dark hues vanish on the first and pastels
+// vanish on the second, and a brighter set measured 1.7:1 against the light ground — a dot nobody
+// could find. Every entry here clears 2.6:1 on both. The first eight are also the most separated
+// from each other, because a repo with eight top-level areas uses exactly those and no more; the
+// pairs that are hard to tell apart (sky/periwinkle, amber/olive) are pushed past that mark.
 const PALETTE = [
-  "#6ea8fe", "#f97316", "#a855f7", "#14b8a6", "#eab308",
-  "#ec4899", "#22c55e", "#06b6d4", "#f43f5e", "#8b5cf6",
-  "#84cc16", "#fb923c",
+  "#3d8bf2", "#e07d1e", "#1a9d5a", "#8b4ef0", "#e0417e", "#0f8fa8",
+  "#6fa314", "#bd40c9", "#5f6df0", "#8a7f3d", "#e0523a", "#1aa6d8",
 ];
 const GREY = "#8b97ab";
 

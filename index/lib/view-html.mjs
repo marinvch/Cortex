@@ -11,23 +11,32 @@
 const CSS = `
 :root{
   color-scheme:light dark;
-  --bg:#fbfbfd; --surface:#ffffff; --surface-2:#f4f4f7; --raised:#ffffff;
-  --ink:#16161a; --ink-2:#5b5b66; --ink-3:#8a8a96;
-  --line:rgba(16,16,22,.10); --line-2:rgba(16,16,22,.06);
-  --acc:#5b5bd6; --acc-soft:rgba(91,91,214,.10);
-  --ok:#1a7f52; --bad:#c2334d; --warn:#b06d10;
-  --shadow:0 1px 2px rgba(16,16,22,.05),0 8px 24px -12px rgba(16,16,22,.16);
-  --edge:120,124,150;
+  --bg:#f6f7fb; --surface:#ffffff; --surface-2:#edf0f7; --raised:#ffffff;
+  --ink:#111623; --ink-2:#515c72; --ink-3:#7b869c;
+  --line:rgba(22,34,64,.13); --line-2:rgba(22,34,64,.07);
+  --acc:#4661e6; --acc-soft:rgba(70,97,230,.10);
+  --ok:#11835a; --bad:#d1395c; --warn:#a96c0c;
+  --shadow:0 1px 2px rgba(22,34,64,.06),0 10px 28px -14px rgba(22,34,64,.22);
+  --edge:110,130,175;
+  /* Canvas cannot read a CSS class, so the two things drawn on it that must follow the theme get
+     tokens of their own: the depth band (two steps off the ground, never a visible box) and the
+     drop shadow under a node chip. A near-black shadow on a white page is a smudge. */
+  --band:rgba(22,34,64,.035); --cvshadow:rgba(22,34,64,.16);
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#0c0c0f; --surface:#131317; --surface-2:#191920; --raised:#1c1c23;
-  --ink:#ececf1; --ink-2:#a1a1ad; --ink-3:#6e6e7c;
-  --line:rgba(255,255,255,.10); --line-2:rgba(255,255,255,.05);
-  --acc:#a5a3ff; --acc-soft:rgba(165,163,255,.12);
-  --ok:#5ddba0; --bad:#ff8095; --warn:#f0b354;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px -16px rgba(0,0,0,.7);
-  --edge:150,155,190;
+  /* Deep blue-slate rather than flat near-black: the surfaces have to be layerable, and a ground
+     with no hue turns every raised panel into the same grey. */
+  --bg:#0b0e14; --surface:#0f131c; --surface-2:#151a25; --raised:#161b26;
+  --ink:#e8edf7; --ink-2:#9aa7bd; --ink-3:#63708a;
+  --line:rgba(150,170,210,.13); --line-2:rgba(150,170,210,.07);
+  --acc:#6e8bff; --acc-soft:rgba(110,139,255,.14);
+  --ok:#4ade9b; --bad:#ff6b8a; --warn:#f5b950;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 14px 36px -18px rgba(0,0,0,.8);
+  --edge:130,150,200;
+  --band:rgba(150,170,210,.035); --cvshadow:rgba(0,0,0,.45);
 }}
+/* The cooling animation settles instantly under this too — see REDUCED in the script. */
+@media (prefers-reduced-motion:reduce){*{transition-duration:0s!important;animation-duration:0s!important}}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
   font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Inter,Roboto,sans-serif;
@@ -39,7 +48,7 @@ code,.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,mono
 #top{display:flex;align-items:center;gap:16px;padding:0 18px;height:56px;
   border-bottom:1px solid var(--line-2);background:var(--surface);position:sticky;top:0;z-index:20}
 #brand{display:flex;align-items:center;gap:9px;font-weight:640;letter-spacing:-.015em;font-size:14.5px;white-space:nowrap}
-#brand .glyph{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--acc),#00c2b8);
+#brand .glyph{width:22px;height:22px;border-radius:7px;background:linear-gradient(140deg,var(--acc),#2dbfb0);
   display:grid;place-items:center;font-size:11px;color:#fff;flex:0 0 22px}
 #brand .sub{color:var(--ink-3);font-weight:450}
 #tabs{display:flex;gap:2px;padding:3px;background:var(--surface-2);border-radius:10px}
@@ -48,7 +57,7 @@ code,.mono{font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,mono
 .tab:hover{color:var(--ink)}
 .tab.on{background:var(--raised);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 #q{margin-left:auto;width:270px;padding:8px 12px 8px 32px;border-radius:9px;border:1px solid var(--line);
-  background:var(--surface-2) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a96' stroke-width='2.2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") no-repeat 9px 50%/14px;
+  background:var(--surface-2) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237b869c' stroke-width='2.2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='M20 20l-3.5-3.5'/></svg>") no-repeat 9px 50%/14px;
   color:var(--ink);font-size:13px;outline:none;transition:border-color .12s,box-shadow .12s}
 #q:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-soft);background-color:var(--surface)}
 #q::placeholder{color:var(--ink-3)}
@@ -141,7 +150,7 @@ td.num{font-variant-numeric:tabular-nums;color:var(--ink-2);width:1%;white-space
 
 /* ── the sequence ────────────────────────────────────────────────────── */
 .prog{height:4px;border-radius:99px;background:var(--surface-2);overflow:hidden;max-width:660px;margin:14px 0 26px}
-.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),#00c2b8);border-radius:99px}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),#2dbfb0);border-radius:99px}
 .step{display:flex;gap:14px;padding:15px 18px;border:1px solid var(--line-2);border-radius:14px;
   margin-bottom:9px;background:var(--surface);max-width:720px;align-items:flex-start}
 .step.next{border-color:var(--acc);background:var(--acc-soft);box-shadow:var(--shadow)}
@@ -254,17 +263,37 @@ function buildNext(){const n=DATA.next;const p=$('npane');
   p.innerHTML=h+'</div>';}
 
 // ---- graph -------------------------------------------------------------------------------
+// Layered, and wrapped. The index knows each file's import depth and the page used to throw that
+// away: depth sized the loose-file tray and positioned nothing, so the map was a force hairball
+// while the docs claimed it read top-down. A band is now a horizontal *region* owned by one depth,
+// and its files fill it in wrapped sub-rows the way words fill a paragraph. One line per depth was
+// the first attempt and it does not survive real data — 43 files on one line at 1900px is 44px
+// each, against the 86-210px a filename needs, so every chip clipped its neighbour into an
+// unreadable sliver while the two sparse bands below sat empty. Wrapping spends that dead height
+// on the crowded layers, which is also the honest shape: most files live at depth 0-2.
 const cv=$('cv'),ctx=cv.getContext('2d'),tip=$('tip');
 let W,H,tx=0,ty=0,scale=1,query='',hover=null,drag=null,pan=false,px=0,py=0,dpr=1;
+// Settle instead of animate when the reader has asked for that. Same steps, same cooling, same
+// final layout — the only difference is that none of it happens on screen.
+const REDUCED=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion:reduce)').matches;
 function resize(){const r=cv.getBoundingClientRect();if(!r.width)return;
   // Back the canvas with device pixels and draw in CSS pixels. Without this the whole graph is
   // soft on every HiDPI screen, which is most of them.
   dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;
-  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+  // Re-fit a window that changed shape, but only once there is a layout to fit — the first call
+  // runs before pack() has placed anything, and fitting an empty box sets a camera the opening
+  // frames then have to undo.
+  // Re-wrap as well as re-fit. A band is as wide as the window, so a window that changed shape
+  // needs a new BW and a new pack(); fitting alone would just scale yesterday's wrap.
+  if(frames){BW=bandWidth();pack();chipSet();if(!touched)fit();}}
 addEventListener('resize',resize);
 // Deterministic seeding: index-derived, never Math.random, so the same index opens the same way.
-const N=DATA.nodes.filter(n=>n.inMap).map((n,i)=>({...n,x:520+Math.cos(i*2.399)*(60+i%180),y:340+Math.sin(i*2.399)*(60+i%150),vx:0,vy:0,a:0}));
+// There is no y to seed — pack() derives it from depth, and nothing else ever writes it.
+const N=DATA.nodes.filter(n=>n.inMap).map(n=>({...n,x:0,y:0,u:0,a:0}));
 const M=new Map(N.map(n=>[n.id,n]));
+const RGB=h=>{const v=parseInt(String(h).slice(1),16);return (v>>16&255)+','+(v>>8&255)+','+(v&255);};
+for(const n of N)n.rgb=RGB(n.color);
 // A node is a filename, and a filename is code — so it is set in the mono face the rest of the
 // page uses for paths, not in the UI sans. The dot-with-a-floating-label had the labels colliding
 // with each other and belonging to nothing; a chip is one object you can read without hovering.
@@ -277,6 +306,17 @@ function measure(){ctx.font='500 11.5px '+MONO;
 const E=DATA.links.map(l=>({s:M.get(l.source),t:M.get(l.target)})).filter(e=>e.s&&e.t);
 const hidden=new Set();
 const vis=n=>!hidden.has(n.area);
+
+// Prominence follows inbound count. Drawing every node as a chip put 162 labels on screen at equal
+// weight, which says nothing about structure: the file a third of the repo imports looked exactly
+// like a leaf test. The budget is a hard cap and it does NOT grow with zoom — a chip overlaps in
+// graph coordinates or it does not, and zooming changes neither, so "zoom in to read the rest" was
+// a promise the geometry could not keep. Hover and search reach the other names instead.
+const IND=new Map();for(const e of E)IND.set(e.t.id,(IND.get(e.t.id)||0)+1);
+const HUB_MIN=2,HUB_MAX=20;
+for(const n of N){n.ind=IND.get(n.id)||0;n.r=3.2+3.1*Math.sqrt(n.ind);}
+const byRank=(a,b)=>b.ind-a.ind||b.commits-a.commits||(a.path<b.path?-1:1);
+
 // Files with no import edge Cortex could resolve. Simulated alongside everything else they had
 // nothing but repulsion acting on them, so they were flung outward into a halo of loose labels
 // orbiting the structure — the picture said "half this repo is disconnected" when the truth was
@@ -286,52 +326,145 @@ const vis=n=>!hidden.has(n.area);
 const WIRED=new Set();for(const e of E){WIRED.add(e.s.id);WIRED.add(e.t.id);}
 const LOOSE=N.filter(n=>!WIRED.has(n.id))
   .sort((a,b)=>a.area<b.area?-1:a.area>b.area?1:a.path<b.path?-1:1);
-const MAXD=N.reduce((m,n)=>n.depth===null?m:Math.max(m,n.depth),0);
-const TRAY_Y=90+(MAXD+2)*140,TRAY_COLS=Math.max(5,Math.ceil(Math.sqrt(LOOSE.length))),TRAY_W=224;
-LOOSE.forEach((n,i)=>{n.pin=1;
-  n.x=520+((i%TRAY_COLS)-(TRAY_COLS-1)/2)*TRAY_W;n.y=TRAY_Y+Math.floor(i/TRAY_COLS)*34;});
-function step(){const k=.016,rep=1150,cx=W/2,cy=H/2;const A=N.filter(n=>vis(n)&&!n.pin);
+const GRAPH=N.filter(n=>WIRED.has(n.id));
+const MAXD=GRAPH.reduce((m,n)=>n.depth===null?m:Math.max(m,n.depth),0);
+// A wired file the layer pass could not place gets a band of its own under the deepest one. Folding
+// it into band 0 would claim it is foundation, which is a different statement from "not known".
+const rowOf=n=>n.depth===null?MAXD+1:n.depth;
+const ROWS=[];for(let i=0;i<=MAXD+1;i++)ROWS.push([]);
+for(const n of GRAPH)ROWS[rowOf(n)].push(n);
+while(ROWS.length&&!ROWS[ROWS.length-1].length)ROWS.pop();
+const RLBL=ROWS.map((r,i)=>r.some(n=>n.depth===null)?'· no layer found':(i===0?'0 · foundation':String(i)));
+// The budget is spent per band, not globally. Ranked across the whole graph it all went to bands 0
+// and 1 — every hub is foundation, by definition — and the deeper layers rendered as rows of
+// anonymous dots, which is where a reader most wants a name: those are the files that DO the work.
+// A band small enough to name outright gets named outright; otherwise a file has to be imported by
+// something to be worth a label, and every declared entry point gets one wherever it sits.
+const RANKED=ROWS.map(r=>[...r].sort(byRank));
+const PER_BAND=Math.max(1,Math.min(3,Math.floor(HUB_MAX/Math.max(1,ROWS.length))));
+const HUB=new Set(),addHub=n=>{if(n&&HUB.size<HUB_MAX)HUB.add(n.id);};
+for(const n of [...GRAPH].sort(byRank))if(n.isEntry)addHub(n);
+// Round-robin by rank position, so a tight budget gives every band its most-imported file before
+// any band gets its second. HUB_MAX is a hard cap — addHub is the only way in, and it stops.
+for(let k=0;k<PER_BAND;k++)for(const R of RANKED){const n=R[k];if(n&&(n.ind>=1||R.length<=6))addHub(n);}
+for(const n of [...GRAPH].sort(byRank))if(n.ind>=HUB_MIN)addHub(n);
+// Which nodes sit above and below this one. The ordering inside a band is a barycentre pass.
+const UPN=new Map(),DNN=new Map();
+for(const e of E){if(!UPN.has(e.s.id))UPN.set(e.s.id,[]);UPN.get(e.s.id).push(e.t);
+  if(!DNN.has(e.t.id))DNN.set(e.t.id,[]);DNN.get(e.t.id).push(e.s);}
+
+// The room a node takes along its sub-row: a hub takes its whole chip, everything else takes its
+// dot. Reserving a chip for all 162 was what made the slivers — the drawn width has to be the
+// reserved width or the packing below is solving the wrong problem.
+const slot=n=>HUB.has(n.id)?n.w+14:Math.max(30,n.r*2+16);
+const CX=520;
+const LANE_H=34,LABEL_H=28,PAD_B=12,AREA_GAP=16,BPAD=24,TOP=40,LEGEND_GUTTER=300;
+let BW=1200,TRAY_Y=0,TRAY_COLS=6;const TRAY_W=224;
+const BTOP=ROWS.map(()=>0),BH=ROWS.map(()=>LABEL_H+LANE_H+PAD_B);
+const bandL=()=>CX-BW/2-BPAD,bandR=()=>CX+BW/2+BPAD;
+// A band is as wide as the window, so fit() below lands near 1:1 and a chip is drawn at the size
+// it was measured at. Wrapping means width is never what overflows — height is, and height is the
+// axis this graph is read along anyway.
+const bandWidth=()=>Math.max(520,(W||1400)-150);
+
+// pack() is the whole layout, and it is a projection rather than a force: given an order, it
+// assigns every position. Nothing downstream can move a node, so two nodes cannot overlap —
+// non-overlap is a post-condition here, not something the simulation is asked to achieve.
+function pack(){let y=TOP;
+  for(let i=0;i<ROWS.length;i++){
+    // Ordered by n.u, a rank in [0,1], never by x. Sorting by pixel x looks equivalent and is not:
+    // every lane is packed from the centre outwards, so the first node of lane 2 has a smaller x
+    // than the middle of lane 1, and re-sorting by x next frame interleaves the two. The order
+    // never settled and the barycentre below had nothing stable to converge on.
+    const R=ROWS[i].filter(vis).sort((a,b)=>a.u-b.u||(a.path<b.path?-1:1));
+    BTOP[i]=y;
+    // Wrap like a paragraph: fill a sub-row up to the band's width, then start another. An extra
+    // gap where the area changes is what repulsion used to buy — a visible seam between clusters —
+    // except this one cannot push anything off screen.
+    const lanes=[];let cur=[],w=0;
+    for(const n of R){const g=cur.length&&cur[cur.length-1].area!==n.area?AREA_GAP:0,s=slot(n);
+      if(cur.length&&w+g+s>BW){lanes.push(cur);cur=[n];w=s;}
+      else{cur.push(n);w+=g+s;}}
+    if(cur.length)lanes.push(cur);
+    if(!lanes.length)lanes.push([]);
+    for(let li=0;li<lanes.length;li++){const L=lanes[li];
+      let tw=0;for(let k=0;k<L.length;k++)tw+=slot(L[k])+(k&&L[k-1].area!==L[k].area?AREA_GAP:0);
+      let x=CX-tw/2;const ly=y+LABEL_H+li*LANE_H+LANE_H/2;
+      for(let k=0;k<L.length;k++){const n=L[k];
+        if(k&&L[k-1].area!==n.area)x+=AREA_GAP;
+        n.x=x+slot(n)/2;n.y=ly;x+=slot(n);}}
+    // Re-rank, so u stays monotone in reading order and comparable across bands of different size.
+    R.forEach((n,k)=>{n.u=(k+.5)/R.length;});
+    BH[i]=LABEL_H+lanes.length*LANE_H+PAD_B;
+    y+=BH[i];}
+  // The tray is a list, so it is set left-aligned rather than centred, and it stops short of the
+  // right edge: the legend is an overlay pinned to the bottom right, which is exactly where a long
+  // tray ends up. Centred and full width, its last column rendered under the legend and four
+  // filenames were cut off — invisible in every measurement, obvious in a screenshot.
+  TRAY_Y=y+110;TRAY_COLS=Math.max(3,Math.floor((BW-LEGEND_GUTTER)/TRAY_W));
+  LOOSE.forEach((n,i)=>{n.pin=1;
+    n.x=bandL()+BPAD+(i%TRAY_COLS)*TRAY_W+TRAY_W/2;n.y=TRAY_Y+Math.floor(i/TRAY_COLS)*34;});}
+
+function layout(){
+  // Seed sorted by area then path, so files that belong together begin together and the barycentre
+  // only has to refine an ordering rather than discover one. Deterministic, like everything else
+  // here: there is no Math.random in this file.
+  ROWS.forEach(r=>{r.sort((a,b)=>a.area<b.area?-1:a.area>b.area?1:a.path<b.path?-1:1);
+    r.forEach((n,i)=>{n.u=(i+.5)/r.length;});});
+  BW=bandWidth();
+  pack();}
+
+function step(){const A=N.filter(n=>vis(n)&&!n.pin);
   // The layout cools to a stop instead of drifting forever. A graph that never settles cannot be
   // fitted to the window — every fit is undone by the next frame — and a picture that keeps moving
   // under the cursor is harder to read than one that is merely imperfect.
   const cool=Math.max(0,1-frames/760);
-  for(let i=0;i<A.length;i++){const a=A[i];
-    for(let j=i+1;j<A.length;j++){const b=A[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||.01,d=Math.sqrt(d2),f=rep/d2,ux=dx/d,uy=dy/d;
-      a.vx+=ux*f;a.vy+=uy*f;b.vx-=ux*f;b.vy-=uy*f;}
-    a.vx+=(cx-a.x)*.0015;a.vy+=(cy-a.y)*.0015;
-    // Layer depth pulls vertically, so the picture reads top-down instead of as a hairball.
-    if(a.depth!==null)a.vy+=((90+a.depth*140)-a.y)*.006*cool;}
-  for(const e of E){if(!vis(e.s)||!vis(e.t))continue;
-    let dx=e.t.x-e.s.x,dy=e.t.y-e.s.y,d=Math.sqrt(dx*dx+dy*dy)||.01,f=(d-108)*k,ux=dx/d,uy=dy/d;
-    e.s.vx+=ux*f*cool;e.s.vy+=uy*f*cool;e.t.vx-=ux*f*cool;e.t.vy-=uy*f*cool;}
-  for(const n of A){if(n===drag)continue;n.x+=n.vx*=.85;n.y+=n.vy*=.85;}
-  // Chips are wide and points are not, so radial repulsion alone lets two labels sit on top of each
-  // other while their centres are comfortably apart. One separation pass on the actual rectangles,
-  // resolved along the shallower axis so a near-miss nudges sideways instead of jumping.
-  // Three passes: one is not enough, because resolving A against B routinely pushes A into C. Three
-  // settles the dense middle without the cost of iterating to a fixed point every frame.
-  for(let pass=0;pass<3;pass++)
-    for(let i=0;i<A.length;i++){const a=A[i];
-      for(let j=i+1;j<A.length;j++){const b=A[j];
-        const ox=(a.w+b.w)/2+10-Math.abs(a.x-b.x),oy=(a.h+b.h)/2+8-Math.abs(a.y-b.y);
-        if(ox<=0||oy<=0)continue;
-        if(ox/(a.w+b.w)<oy/(a.h+b.h)){const s=(a.x<b.x?-1:1)*ox*.5;
-          if(a!==drag)a.x+=s;if(b!==drag)b.x-=s;}
-        else{const s=(a.y<b.y?-1:1)*oy*.5;if(a!==drag)a.y+=s;if(b!==drag)b.y-=s;}}}}
+  if(cool){const move=[];
+    // The only force left, and it settles an ORDER rather than a position: a node drifts toward
+    // the mean rank of what it imports, and what imports it pulls back at about half that, so
+    // related files end up at the same place along their bands and the edges between them stay
+    // short. Repulsion and centring went when pack() took over placement — a force that can only
+    // reshuffle the order can only move it away from the barycentre, which is the one thing the
+    // order is there to say. Ranks, not pixels, so a 43-file band and a 3-file band are on the
+    // same scale; targets are read for the whole graph before any of them is written, or a band
+    // would be chasing the half of its neighbour that already moved this frame.
+    for(const a of A){const up=UPN.get(a.id),dn=DNN.get(a.id);let su=0,sw=0;
+      if(up)for(const m of up){if(vis(m)){su+=m.u;sw+=1;}}
+      if(dn)for(const m of dn){if(vis(m)){su+=m.u*.55;sw+=.55;}}
+      if(sw)move.push([a,su/sw]);}
+    for(const [a,t] of move)a.u+=(t-a.u)*.6*cool;}
+  pack();chipSet();}
 
 // A graph laid out in its own coordinates has no reason to match the window, and this one opened
 // with a third of itself past the edge. Fit once, after the simulation has settled — and never
 // after the user has touched the view, because moving someone's camera out from under them is worse
 // than a bad first frame.
 let frames=0,touched=false;
-function fit(){const A=N.filter(n=>vis(n)&&!n.pin);if(!A.length||!W)return;
-  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
-  for(const n of A){x0=Math.min(x0,n.x-n.w/2);x1=Math.max(x1,n.x+n.w/2);
-    y0=Math.min(y0,n.y-n.h/2);y1=Math.max(y1,n.y+n.h/2);}
+function fit(){if(!ROWS.length||!W)return;
+  // The bands ARE the bounding box, and the band label lives inside one. Fitting the nodes instead
+  // put the left edge of the box off screen and the row-0 label rendered as "ounda…".
+  const x0=bandL(),x1=bandR(),y0=BTOP[0],y1=BTOP[ROWS.length-1]+BH[ROWS.length-1];
+  const pad=Math.max(22,Math.min(W,H)*.035);
+  // The HUD is an overlay pinned to the top left of the canvas, which is also where band 0 puts its
+  // label. Reserve the room rather than letting the two share it — a band label under a floating
+  // panel is a band label nobody can read.
+  const padT=Math.max(pad,74),availW=W-pad*2,availH=H-padT-pad;
   // Never fit below the point where the chips stop being readable: a page that fits
   // perfectly and cannot be read has optimised the wrong thing. Past that, panning is the answer.
-  const pad=48,s=Math.max(CHIP_LOD+.08,Math.min((W-pad*2)/(x1-x0||1),(H-pad*2)/(y1-y0||1),1.15));
-  scale=s;tx=(W-(x1-x0)*s)/2-x0*s;ty=(H-(y1-y0)*s)/2-y0*s;}
+  const s=Math.max(CHIP_LOD+.08,Math.min(availW/(x1-x0||1),availH/(y1-y0||1),1.15));
+  // The scale comes from the bands alone — a long tray must never shrink the graph — but the
+  // tray counts for where the picture sits, because it is part of the answer and on a short graph
+  // it is a section of the page nobody knows is there. Taking it into the scale only when it
+  // happened to fit produced a cliff: one extra row of loose files and the tray dropped out of the
+  // extent, the bands re-centred, and the page opened with 270px of nothing above them.
+  const bottom=LOOSE.length?TRAY_Y+Math.ceil(LOOSE.length/TRAY_COLS)*34+24:y1;
+  const gw=(x1-x0)*s,gh=(bottom-y0)*s;
+  scale=s;
+  // Centre what fits; anchor what does not to the top left. When the floor above wins, something
+  // has to go off screen, and centring it cropped both ends — including band 0's label, which is
+  // where the reading starts. Overflow belongs at the end you pan towards, not at the start.
+  tx=(gw<=availW?(W-gw)/2:pad)-x0*s;
+  ty=(gh<=availH?padT+(availH-gh)/2:padT)-y0*s;}
 function shapePath(shape,x,y,r){ctx.beginPath();
   if(shape==='square')ctx.roundRect(x-r,y-r,r*2,r*2,r*.42);
   else if(shape==='diamond'){ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);ctx.closePath();}
@@ -339,115 +472,170 @@ function shapePath(shape,x,y,r){ctx.beginPath();
   else ctx.arc(x,y,r,0,7);}
 function path(n,r){shapePath(n.shape,n.x,n.y,r);}
 
-// One chip = one file, readable without hovering. The accent bar carries the area colour, the
-// glyph keeps the category encoding the dots used to carry alone, and the name is set in the mono
-// face because a filename is code. Below CHIP_LOD the labels would be illegible anyway, so the
-// graph falls back to dots — which is also the view that shows the repo's overall shape.
+// One chip = one file, readable without hovering. The accent bar carries the area colour and
+// thickens with inbound count, the glyph keeps the category encoding the dots used to carry alone,
+// and the name is set in the mono face because a filename is code. Below CHIP_LOD nothing is
+// labelled at all, because nothing would be legible.
 const CHIP_LOD=.55;
 function chip(n,focus){
-  const w=n.w,h=n.h,x=n.x-w/2,y=n.y-h/2,rad=7;
-  if(focus){ctx.shadowColor='rgba(0,0,0,.45)';ctx.shadowBlur=16;ctx.shadowOffsetY=3;}
+  const w=n.w,h=n.h,x=n.x-w/2,y=n.y-h/2,rad=8;
+  // Glow is focus only. Everything else gets a shadow, which is depth rather than light: ambient
+  // glow on 160 nodes is the cheap-futuristic look, and it flattens the one thing being pointed at.
+  if(focus){ctx.shadowColor='rgba('+n.rgb+',.55)';ctx.shadowBlur=20;ctx.shadowOffsetY=0;}
+  else{ctx.shadowColor=css('--cvshadow');ctx.shadowBlur=8;ctx.shadowOffsetY=2;}
   ctx.beginPath();ctx.roundRect(x,y,w,h,rad);
   ctx.fillStyle=css('--raised');ctx.fill();
   ctx.shadowBlur=0;ctx.shadowOffsetY=0;
   // The accent bar, clipped to the chip's own rounding so it reads as part of the card.
-  ctx.save();ctx.clip();ctx.globalAlpha=n.a*.08;ctx.fillStyle=n.color;ctx.fillRect(x,y,w,h);
-  ctx.globalAlpha=n.a;ctx.fillRect(x,y,BAR+(n.deg>5?2:0),h);ctx.restore();
+  ctx.save();ctx.clip();ctx.globalAlpha=n.a*.10;ctx.fillStyle=n.color;ctx.fillRect(x,y,w,h);
+  ctx.globalAlpha=n.a;ctx.fillRect(x,y,BAR+(n.ind>=5?3:n.ind>=2?1.5:0),h);ctx.restore();
   const untested=n.category==='code'&&!n.isTest&&!n.tested;
   ctx.lineWidth=focus?1.6:1;
   ctx.strokeStyle=focus?css('--ink'):(untested?css('--bad'):css('--line'));
   ctx.beginPath();ctx.roundRect(x,y,w,h,rad);ctx.stroke();
   ctx.fillStyle=n.color;shapePath(n.shape,x+BAR+9,n.y,GLY/2);ctx.fill();
-  ctx.fillStyle=css('--ink');ctx.font='500 11.5px '+MONO;ctx.textAlign='left';ctx.textBaseline='middle';
+  ctx.fillStyle=css('--ink');ctx.font=(n.ind>=5?'600 ':'500 ')+'11.5px '+MONO;
+  ctx.textAlign='left';ctx.textBaseline='middle';
   ctx.fillText(n.text,x+BAR+CHIP_PAD+GLY+2,n.y+.5);
   ctx.textBaseline='alphabetic';}
+
+// Hover and search state are kept as sets rather than recomputed in two places, because picking has
+// to agree with drawing about which nodes are chips — a chip you can see and cannot click is worse
+// than no chip at all.
+let NB=new Set(),MT=new Set(),CHIPS=new Set(),qOn=false;
+function setHover(n){if(hover===n)return;hover=n;NB=new Set();
+  if(n){NB.add(n.id);for(const e of E){if(e.s===n)NB.add(e.t.id);if(e.t===n)NB.add(e.s.id);}}
+  chipSet();}
+function setQuery(v){query=v;const q=v.trim().toLowerCase();qOn=!!q;MT=new Set();
+  if(q)for(const n of N)if(n.path.toLowerCase().includes(q))MT.add(n.id);
+  chipSet();}
+// A parked node keeps its chip. The tray is a list, not a picture: naming the files with no
+// resolvable edge is its whole purpose, and 48 anonymous dots on a 224px grid name none of them.
+const wantChip=n=>HUB.has(n.id)||n.pin||NB.has(n.id)||MT.has(n.id);
+// The overlap rule, enforced rather than hoped for. Candidates are taken in priority order — what
+// the cursor is on first, then by inbound count — and one that would intersect a chip already
+// placed is demoted to its dot. A legible dot beats a chip clipped to an 8px sliver, which is what
+// shipped when the reserved width and the drawn width disagreed. Cheap: the budget is ~20, plus a
+// hovered neighbourhood.
+function chipSet(){CHIPS=new Set();if(scale<CHIP_LOD)return;
+  const cand=N.filter(n=>vis(n)&&wantChip(n))
+    .sort((a,b)=>(a===hover?-1:b===hover?1:0)||byRank(a,b));
+  const ok=[];
+  for(const n of cand){let clash=false;
+    for(const m of ok){if(Math.abs(n.x-m.x)<(n.w+m.w)/2+2&&Math.abs(n.y-m.y)<(n.h+m.h)/2+2){clash=true;break;}}
+    if(!clash){ok.push(n);CHIPS.add(n.id);}}}
+const showChip=n=>scale>=CHIP_LOD&&CHIPS.has(n.id);
+
+function bands(){if(!ROWS.length)return;
+  const x0=bandL(),x1=bandR(),tint=css('--band'),lab=css('--ink-2');
+  // The bands are what make the layering legible. Without them a reader sees sub-rows and has no
+  // way to know which layer they belong to — and "laid out by import depth" is a claim the picture
+  // has to keep, not one the docs can keep for it.
+  for(let i=0;i<ROWS.length;i++){
+    if(i%2===0){ctx.fillStyle=tint;ctx.beginPath();ctx.roundRect(x0,BTOP[i],x1-x0,BH[i],18);ctx.fill();}
+    ctx.fillStyle=lab;ctx.font='600 11px ui-sans-serif,system-ui,sans-serif';ctx.textAlign='left';
+    ctx.fillText(RLBL[i],x0+18,BTOP[i]+22);}}
+
 function draw(){if(!W)return;ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(tx,ty);ctx.scale(scale,scale);
-  const q=query.trim().toLowerCase(),EC=css('--edge');
-  const nb=new Set();if(hover){nb.add(hover.id);for(const e of E){if(e.s===hover)nb.add(e.t.id);if(e.t===hover)nb.add(e.s.id);}}
+  const EC=css('--edge');
+  bands();
   ctx.lineCap='round';
   for(const e of E){if(!vis(e.s)||!vis(e.t))continue;const on=hover?(e.s===hover||e.t===hover):true;
     // A slight curve keeps parallel edges from stacking into one thick line, and reads as a
     // relationship rather than a wire.
     const mx=(e.s.x+e.t.x)/2,my=(e.s.y+e.t.y)/2,dx=e.t.x-e.s.x,dy=e.t.y-e.s.y;
     const qx=mx-dy*.09,qy=my+dx*.09;
-    ctx.strokeStyle='rgba('+EC+','+(on?.55:.13)+')';ctx.lineWidth=on?1.5:.8;
+    // Each edge carries its source area's colour, so a bundle can be traced across bands. One flat
+    // grey for 154 edges says only "there are edges here". They dim to a neutral when something
+    // else has focus, so the hovered pair is the only colour left on screen.
+    // Quiet at rest. Wrapping puts related files on different sub-rows, so 154 edges drawn at any
+    // real weight read as a thicket laid over the thing you came to look at. At rest they are a
+    // texture that says where the traffic is; hover is what traces one.
+    ctx.strokeStyle=hover?(on?'rgba('+e.s.rgb+',.7)':'rgba('+EC+',.13)'):'rgba('+e.s.rgb+',.12)';
+    ctx.lineWidth=on&&hover?1.7:.7;
     ctx.beginPath();ctx.moveTo(e.s.x,e.s.y);ctx.quadraticCurveTo(qx,qy,e.t.x,e.t.y);ctx.stroke();
     if(on&&hover){ // direction only where the eye is, so the picture stays calm
       const ang=Math.atan2(e.t.y-qy,e.t.x-qx),r=e.t.r+3.5;
       const ax=e.t.x-Math.cos(ang)*r,ay=e.t.y-Math.sin(ang)*r;
-      ctx.fillStyle='rgba('+EC+',.7)';ctx.beginPath();
+      ctx.fillStyle='rgba('+e.s.rgb+',.8)';ctx.beginPath();
       ctx.moveTo(ax,ay);ctx.lineTo(ax-Math.cos(ang-.42)*7,ay-Math.sin(ang-.42)*7);
       ctx.lineTo(ax-Math.cos(ang+.42)*7,ay-Math.sin(ang+.42)*7);ctx.closePath();ctx.fill();}}
   if(LOOSE.length){ // the band's own caption, so a parked node is never mistaken for a stray one
-    const w=(TRAY_COLS*TRAY_W)/2;ctx.globalAlpha=.42;ctx.strokeStyle=css('--ink-2');ctx.lineWidth=1;
-    ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(520-w,TRAY_Y-40);ctx.lineTo(520+w,TRAY_Y-40);
+    const l=bandL()+BPAD,r=l+TRAY_COLS*TRAY_W;ctx.globalAlpha=.42;
+    ctx.strokeStyle=css('--ink-2');ctx.lineWidth=1;
+    ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(l,TRAY_Y-40);ctx.lineTo(r,TRAY_Y-40);
     ctx.stroke();ctx.setLineDash([]);
     ctx.fillStyle=css('--ink-2');ctx.font='600 12px ui-sans-serif,system-ui,sans-serif';
-    ctx.textAlign='center';ctx.fillText(LOOSE.length+' files with no import edge found',520,TRAY_Y-50);
+    ctx.textAlign='left';ctx.fillText(LOOSE.length+' files with no import edge found',l,TRAY_Y-50);
     ctx.globalAlpha=1;}
-  const chips=scale>=CHIP_LOD;
-  for(const n of N){if(!vis(n))continue;
-    const mt=q&&n.path.toLowerCase().includes(q);
-    const want=((hover&&!nb.has(n.id))||(q&&!mt))?.13:1;
-    n.a+=(want-n.a)*.22;                       // eased focus, so hovering does not strobe
+  // The hovered node goes last, so its glow and its border are not painted over by a neighbouring
+  // chip that happens to come later in the file order.
+  for(const n of (hover?[...N.filter(n=>n!==hover),hover]:N)){if(!vis(n))continue;
+    const mt=MT.has(n.id);
+    const want=((hover&&!NB.has(n.id))||(qOn&&!mt))?.13:1;
+    n.a=REDUCED?want:n.a+(want-n.a)*.22;       // eased focus, so hovering does not strobe
     ctx.globalAlpha=n.a;
-    if(chips){chip(n,hover===n||mt);continue;}
+    if(showChip(n)){chip(n,hover===n||mt);continue;}
     const lift=(hover===n)?1.35:1,r=n.r*lift;
-    if(hover===n||mt){ctx.shadowColor=n.color;ctx.shadowBlur=18;}
+    if(hover===n||mt){ctx.shadowColor='rgba('+n.rgb+',.7)';ctx.shadowBlur=14;}
     path(n,r);ctx.fillStyle=n.color;ctx.fill();ctx.shadowBlur=0;
-    if(n.category==='code'&&!n.isTest&&!n.tested){ctx.lineWidth=1.4;ctx.strokeStyle=css('--bad');ctx.stroke();}
-    if(mt){ctx.lineWidth=2;ctx.strokeStyle=css('--ink');ctx.stroke();}
-    // Zoomed out the chips are gone, so a match still needs to be findable by its name alone.
-    if(n.deg>3||mt||(hover&&nb.has(n.id))){ctx.globalAlpha=n.a*.94;ctx.fillStyle=css('--ink-2');
-      ctx.font='500 11px '+MONO;ctx.textAlign='center';
-      ctx.fillText(n.label.length>24?n.label.slice(0,23)+'…':n.label,n.x,n.y-r-6);}}
+    if(n.category==='code'&&!n.isTest&&!n.tested){ctx.lineWidth=1.3;ctx.strokeStyle=css('--bad');ctx.stroke();}}
   ctx.globalAlpha=1;ctx.restore();}
-function loop(){step();frames++;
-  if(!touched&&(frames===200||frames===480||frames===800))fit();
+function settle(){for(let i=0;i<800;i++){step();frames++;}fit();chipSet();}
+function loop(){if(!REDUCED){step();frames++;
+    if(!touched&&(frames===200||frames===480||frames===800))fit();}
   draw();requestAnimationFrame(loop);}
 function tw(mx,my){return{x:(mx-tx)/scale,y:(my-ty)/scale};}
-// Hit-testing follows what is actually drawn: the chip's rectangle when chips are showing, the dot
+// Hit-testing follows what is actually drawn: the chip's rectangle when this node has one, the dot
 // otherwise. A radius test against a 200px-wide chip means most of the card is not clickable.
 function pick(mx,my){const p=tw(mx,my);let b=null,bd=1e9;
-  const chips=scale>=CHIP_LOD;
   for(const n of N){if(!vis(n))continue;
     const dx=n.x-p.x,dy=n.y-p.y;
-    if(chips){if(Math.abs(dx)<=n.w/2&&Math.abs(dy)<=n.h/2){const d=dx*dx+dy*dy;if(d<bd){bd=d;b=n;}}}
-    else{const d=dx*dx+dy*dy;if(d<bd&&d<(n.r+7)*(n.r+7)){bd=d;b=n;}}}
+    if(showChip(n)){if(Math.abs(dx)<=n.w/2&&Math.abs(dy)<=n.h/2){const d=dx*dx+dy*dy;if(d<bd){bd=d;b=n;}}}
+    else{const d=dx*dx+dy*dy;if(d<bd&&d<(n.r+9)*(n.r+9)){bd=d;b=n;}}}
   return b;}
 cv.addEventListener('mousedown',e=>{const n=pick(e.offsetX,e.offsetY);
   touched=true;if(n){drag=n;drag._dn=0;}else{pan=true;px=e.offsetX;py=e.offsetY;}});
 addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;
-  if(drag){const p=tw(mx,my);drag.x=p.x;drag.y=p.y;drag.vx=drag.vy=0;drag._dn=1;}
+  // Only a parked node drags freely. A wired one is placed by pack(), and a node you could drag out
+  // of its band would be a node claiming a layer it is not on.
+  if(drag){const p=tw(mx,my);if(drag.pin){drag.x=p.x;drag.y=p.y;}drag._dn=1;}
   else if(pan){tx+=mx-px;ty+=my-py;px=mx;py=my;}
-  else{const n=pick(mx,my);hover=n;
+  else{const n=pick(mx,my);setHover(n);
     if(n){tip.style.display='block';
       const flip=e.clientX>innerWidth-360;
       tip.style.left=(flip?e.clientX-350:e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px';
       tip.innerHTML='<div class="t">'+esc(n.path)+'</div><div class="m">'
         +esc(n.area)+' · '+esc(n.lang)+' · <b>'+n.lines+'</b> lines · <b>'+n.commits+'</b> commits<br>'
+        +(n.depth!==null?'layer <b>'+n.depth+'</b> · ':'')
         +'<b>'+n.in+'</b> imported by · <b>'+n.out+'</b> imports'
         +(n.category==='code'&&!n.isTest?(n.tested?'<br>✓ test found':'<br>✗ no test found'):'')
         +(n.summary?'<br>'+esc(n.summary.slice(0,150)):'')+'<br>click to open</div>';}
     else tip.style.display='none';}});
 addEventListener('mouseup',()=>{if(drag&&!drag._dn)openFile(drag.id);drag=null;pan=false;});
 cv.addEventListener('wheel',e=>{e.preventDefault();touched=true;const f=e.deltaY<0?1.1:.9;const mx=e.offsetX,my=e.offsetY;
-  tx=mx-(mx-tx)*f;ty=my-(my-ty)*f;scale*=f;},{passive:false});
+  tx=mx-(mx-tx)*f;ty=my-(my-ty)*f;scale*=f;chipSet();},{passive:false});
 function buildHud(){$('hud').innerHTML='<span><b>'+N.length+'</b> files</span><span class="sep"></span>'
-  +'<span><b>'+E.length+'</b> imports</span><span class="sep"></span><span>scroll to zoom · drag to pan</span>';}
+  +'<span><b>'+E.length+'</b> imports</span><span class="sep"></span>'
+  +'<span><b>'+ROWS.length+'</b> layers</span><span class="sep"></span><span>scroll to zoom · drag to pan</span>';}
 function buildLegend(){const L=$('legend');const shown=new Set(N.map(n=>n.area));
   L.innerHTML=DATA.areas.filter(a=>shown.has(a.name)).map(a=>'<div class="lg" data-a="'+esc(a.name)+'">'
     +'<span class="sw" style="background:'+a.color+'"></span>'+esc(a.name)
     +'<span class="ct">'+N.filter(n=>n.area===a.name).length+'</span></div>').join('')
-   +'<div class="note">Click an area to hide it. A red outline means no test was found. '
+   +'<div class="note">Click an area to hide it. Each band is one import depth — band 0 is what the '
+   +'rest is built on, and a band wraps onto as many sub-rows as it needs. A dot grows with how many '
+   +'files import it; the '+HUB.size+' most-imported are named, and hover or search reaches the rest. '
+   +'A red outline means no test was found. '
    +(DATA.nodes.length-N.length)+' docs and config files live in <b>Files</b>, not here — they have no imports to draw.'
    +(LOOSE.length?' The '+LOOSE.length+' files in the band below the graph have no import edge Cortex could resolve — which is a question, not a verdict: a file loaded dynamically, or sourced through a variable, looks exactly like an unused one.':'')+'</div>';
   L.querySelectorAll('.lg[data-a]').forEach(el=>el.onclick=()=>{const a=el.dataset.a;
-    if(hidden.has(a)){hidden.delete(a);el.classList.remove('off');}else{hidden.add(a);el.classList.add('off');}});}
-$('q').addEventListener('input',e=>{query=e.target.value;buildList(query.trim().toLowerCase());});
+    if(hidden.has(a)){hidden.delete(a);el.classList.remove('off');}else{hidden.add(a);el.classList.add('off');}
+    pack();chipSet();});}
+$('q').addEventListener('input',e=>{setQuery(e.target.value);buildList(query.trim().toLowerCase());});
 addEventListener('keydown',e=>{if(e.key==='/'&&document.activeElement!==$('q')){e.preventDefault();$('q').focus();}
   if(e.key==='Escape'){$('q').blur();}});
-buildList('');buildAreas();buildGaps();buildNext();buildLegend();buildHud();resize();measure();loop();
+buildList('');buildAreas();buildGaps();buildNext();buildLegend();buildHud();
+resize();measure();layout();if(REDUCED)settle();loop();
 `;
 
 // Inlined JSON sits inside a <script> element, where the parser looks for "</script" before it

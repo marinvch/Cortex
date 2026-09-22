@@ -40,8 +40,14 @@ assert_eq "absent" "$([ -e "$WORK/bare/.cortex" ] && echo present || echo absent
 
 # --- the entry point ------------------------------------------------------------------------------
 
+# `/cortex`, not `/cortex-install`. The sequence is what a user gets when they walk it one command
+# at a time, and the front door exists so they do not have to: one run satisfies index, findings,
+# scaffold, brief and skills. Naming the sub-step here would send someone who asked "what now" back
+# to the menu this file was written to replace. Pinned because it is a contract, not a wording
+# choice — /cortex-install stays callable and stays correct, it is just not where you start.
 out="$(run bare)"
-assert_contains "$out" "Next → /cortex-install" "a bare repo is told the entry point, by name"
+assert_contains "$out" "Next → /cortex" "a bare repo is told the entry point, by name"
+assert_not_contains "$out" "Next → /cortex-install" "and it is the front door, not the read half of it"
 assert_contains "$out" "0 of" "and that nothing is done yet"
 assert_not_contains "$out" "Next → /cortex-scaffold" "never a step that cannot run yet"
 

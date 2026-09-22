@@ -1,0 +1,21 @@
+# Control bands: when production drifts, this is what turns the drift into the next intent.md.
+#
+# Deciding THAT a band was breached is arithmetic — a rolling mean and deviation, checked by a
+# script that is committed and unit tested. No model is involved in that decision. A model is only
+# asked afterwards, to explain the breach, and each tier caps what it may do about it.
+#
+# Fill in one metric that has a stable history. Add more only once this one is quiet.
+watch:
+  metric: {{METRIC}}
+  window: 30d
+  drift_rules: western_electric
+
+respond:
+  - at: 1sigma
+    do: record            # log only; no agent runs
+  - at: 2sigma
+    do: explain           # agent runs read-only and writes intent.md
+    allowed_tools: "Read,Grep,Bash({{READONLY_CMD}})"
+  - at: 3sigma
+    do: propose           # agent may open a PR or run a runbook approved in advance — nothing else
+    routes: [pull_request, "runbook:{{RUNBOOK}}"]

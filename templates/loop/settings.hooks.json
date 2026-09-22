@@ -1,0 +1,27 @@
+{
+  "//": "Written by /cortex. These run on every matching edit, so each must finish in well under a second and look only at the file that changed; the full test suite belongs at commit or PR time. Nothing here asks a person for approval — a prompt mid-build stalls every session running at once. Approval gates live at the release step.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/protected-paths.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/format-changed.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

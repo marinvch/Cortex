@@ -171,6 +171,31 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - A single file over the line budget is allowed through as its own batch; only *accumulation* is
   bounded.
 
+### The loop reader — `lib/loop.mjs`
+
+`/cortex`'s script, the way `findings.mjs` is `/cortex-install`'s. It answers "which artifacts of the
+SDLC loop does this repo have" from files on disk, with no model and no clock, and `next.mjs`
+borrows its three numbers rather than keeping a second list.
+
+- **An unbuilt index is an unanswered question, never an answer.** `greenfield` requires an index
+  that reports zero files; a missing index makes it `false`. The first run said "no code yet" over
+  this repository's several hundred files because `stats.files ?? 0` read absence as zero.
+- **Commands are detected, never assumed.** `detectCommands` reads `package.json` scripts and real
+  Makefile targets — not `.PHONY`, not assignments, not an empty script string — and Make wins where
+  both exist. A Python or Go repo with neither returns nulls on purpose: the ritual asks. Adding a
+  source means adding a detector that can be wrong in only one direction, toward "not found".
+- **Every `why` goes through `evidence()`, and every blocked row's `needs` through `unmet()`.** Both
+  rules were written after a real run: `null` printed inside a sentence, and a row claimed to need
+  the CI system that its own evidence said was present. `unmet` returns only prerequisites that
+  fail *now* — a static list is true of the row and false of the repo.
+- **Presence is a file fact, not a grade.** A hollow `REVIEW.md` is `present` and is never offered
+  for rewrite; an empty `intent/` is `missing`. Blocked rows never hold `complete` open — a repo
+  with no CI is finished without an eval suite.
+- **Rank is control flow and ranks are unique.** Re-ranking a row changes the interview's order.
+- Validated on `got` (npm), `fzf` (Make, Go) and `flask` (Python, nested example manifests), and
+  mutation-tested: nine guards broken one at a time, nine test failures. Do both again when a row
+  or a detector changes — fixtures here share the author's blind spots.
+
 ## Tests
 
 ```bash

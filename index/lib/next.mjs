@@ -13,6 +13,23 @@ import { join } from "node:path";
 import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES } from "./context-docs.mjs";
+import { loopPlan } from "./loop.mjs";
+
+// Three numbers about the artifact chain, borrowed rather than recomputed. `loop.mjs` owns which
+// artifacts a repo is missing and why; this file owns the order of the sequence. Two modules each
+// keeping their own list is how the same run prints two answers, so the sequence asks.
+//
+// `loopServed: null` is a third state and not a zero: it means the plan could not be read at all,
+// which the row renders as a description of the step rather than as a score of 0. A repo told it
+// has 0 of 0 loop artifacts has been given a number that looks like a measurement.
+function loopFacts(root, index) {
+  try {
+    const plan = loopPlan(root, index);
+    return { loopServed: plan.served, loopTotal: plan.total, loopComplete: plan.complete };
+  } catch {
+    return { loopServed: null, loopTotal: null, loopComplete: false };
+  }
+}
 
 // The list moved to context-docs.mjs. This file knew six names and findings.mjs knew two, and both
 // answers reached one user from one command — `cortex-findings` prints `nextLine()` as its footer.
@@ -112,6 +129,7 @@ export function readState(root, index = null, overrides = {}) {
     skills: repoSkills(root),
     memory: filesIn(root, ".cortex/memory"),
     priorDocs: priorAgentDocs(root),
+    ...loopFacts(root, index),
     ...overrides,
   };
 }
@@ -133,10 +151,16 @@ function steps(s) {
     });
   }
 
+  // Both name `/cortex`, not `/cortex-install`. The sequence below is what a user gets when they
+  // walk it a command at a time, and the whole point of the front door is that they do not have
+  // to: one run of `/cortex` satisfies index, findings, scaffold, brief and skills in one pass.
+  // Naming the sub-step here would send a user who asked "what now" back to the menu this file
+  // exists to replace. `/cortex-install` is still callable and still correct; it is just no longer
+  // the answer to "where do I start".
   rows.push({
     id: "index",
     title: "Index the codebase",
-    cmd: "/cortex-install",
+    cmd: "/cortex",
     done: s.indexed,
     why: s.indexed
       ? ".cortex/index/index.json is present"
@@ -146,7 +170,7 @@ function steps(s) {
   rows.push({
     id: "findings",
     title: "Read the ranked findings report",
-    cmd: "/cortex-install",
+    cmd: "/cortex",
     done: s.findings.length > 0,
     why: s.findings.length
       ? ".cortex/findings/" + s.findings[s.findings.length - 1]
@@ -208,6 +232,22 @@ function steps(s) {
     why: s.skills.length
       ? plural(s.skills.length, "skill") + " in .claude/skills/: " + s.skills.join(", ")
       : "proposed from what the index actually detected, not from a template",
+  });
+
+  // The loop, as one row rather than eight. `loop.mjs` owns which artifacts a repo is missing and
+  // why; duplicating those rows here would give the user two lists that disagree the first time one
+  // of them changed. This row says only whether the chain is closed, and hands off for the detail.
+  rows.push({
+    id: "loop",
+    title: "Close the artifact chain — intent → spec → plan → diff → PR → breach",
+    cmd: "/cortex",
+    done: s.loopComplete,
+    why:
+      s.loopServed === null
+        ? "the SDLC loop artifacts: REVIEW.md, the verification block, the verifier, intent/, hooks"
+        : s.loopComplete
+          ? `all ${s.loopTotal} loop artifacts that apply here are in place`
+          : `${s.loopServed} of ${s.loopTotal} in place — run \`cortex-loop.mjs .\` for which and why`,
   });
 
   rows.push({

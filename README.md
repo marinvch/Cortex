@@ -35,14 +35,16 @@ Cortex is a **context manager for new and legacy codebases**. Install it once, r
 /plugin install cortex
 ```
 
-Then, inside the repo you want it to understand:
+Then, inside the repo you want it to serve — a working project or an empty one:
 
 ```
-/cortex-install
+/cortex
 ```
 
 It indexes the codebase, writes **one findings report** — issues, gaps, recommendations, ranked —
-and then **stops and asks**. Nothing in your repo is modified until you pick what to act on.
+works out which parts of the development loop the repo is missing (a verification block in
+`CLAUDE.md`, a verifier subagent, `REVIEW.md`, hooks, an `intent/` home, evals, control bands), and
+then **stops and asks once**. Nothing in your repo is modified until you pick what to act on.
 Indexing and reporting are read-only by construction: a different skill applies changes.
 
 ### The order, and how to stop guessing at it
@@ -71,13 +73,14 @@ have to come back here to look up. The full sequence, in order:
 | # | Command | Does | Skip it when |
 |---|---|---|---|
 | 0 | `/migrate-engine` | harvest a retired `.ai-os/` engine's memory first | there is no `.ai-os/` |
-| 1 | `/cortex-install` | index → ranked findings report → you choose → scaffold | never — this is the entry point |
+| 1 | `/cortex` | index → findings → the loop → one confirmation → everything below, in one pass | never — this is the entry point |
 | 2 | `/cortex-view` | the repo as one offline HTML page: map, files, areas, gaps | you would rather read the report |
 | 3 | `/optimize-context` | slim the `AGENTS.md`/`CLAUDE.md`/`.cursorrules` that were already here | the repo had none |
 | 4 | `/cortex-scaffold` | write the context layer you picked | — |
 | 5 | `/cortex-brief <dir>` | a scoped `AGENTS.md` leaf per area that earns one | no area holds real invariants |
 | 6 | `/cortex-skills` | skills proposed from what the index detected | — |
 | 7 | `/cortex-enrich` | semantic summaries on top of the index (costs tokens) | you already know the repo |
+| — | `/cortex-install` | the read half of step 1 alone: index, report, offer the context layer | you want the whole pass |
 | 8 | `/dream` | end-of-day digest into the repo's committed `.cortex/memory/` | — |
 
 **Step 3 goes before step 4, not after.** `/cortex-scaffold` is brownfield-safe and will not
@@ -277,13 +280,13 @@ or refreshes a skill that changed. `--check` reports the drift without writing.
 | Ritual | When | What it does |
 |---|---|---|
 | `/cortex-next` | whenever you are lost | Reads this repo off disk and names the **one** command to run now |
-| `/cortex-install` | per repo | Index a codebase, report findings, scaffold only what you pick |
+| `/cortex` | per repo — start here | Index, report, and set up the whole development loop in one pass, after one confirmation |
 | `/cortex-view` | after install | Render the index as one offline HTML page — map, files, areas, gaps |
 | `/onboard` | once | Interview you; fill `context/`, seed `home.md`, `connections.md` |
 | `/capture` | anytime | One-line drop to the inbox |
 | `/daily` | each morning | Today's note + priorities + due items |
 
-**That is 6 of 43.** The complete table — every ritual, when to run it, and the notes on which
+**That is 6 of 44.** The complete table — every ritual, when to run it, and the notes on which
 pairs are *not* interchangeable — lives in [`AGENTS.md`](AGENTS.md#the-rituals) and is the single
 source of truth. This README used to carry a second table of 20 rows that read as the list. Ten
 skills were missing from it and nothing caught that, because a partial copy and a complete one look

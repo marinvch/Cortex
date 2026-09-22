@@ -45,13 +45,14 @@ each time they ask.
 
 | Step | Done when | Run |
 |---|---|---|
-| Index the codebase | `.cortex/index/index.json` exists | `/cortex-install` |
-| Read the findings | a report in `.cortex/findings/` | `/cortex-install` |
+| Index the codebase | `.cortex/index/index.json` exists | `/cortex` |
+| Read the findings | a report in `.cortex/findings/` | `/cortex` |
 | See it as a graph | `.cortex/view/repo.html` exists | `/cortex-view` |
 | Reconcile prior agent docs | *not checkable — offered only while `CONTEXT.md` is missing* | `/optimize-context` |
 | Write the context layer | `AGENTS.md` **and** `CONTEXT.md` | `/cortex-scaffold` |
 | Scoped briefs | any `<dir>/AGENTS.md` | `/cortex-brief <dir>` |
 | Skills for this stack | any `.claude/skills/*/SKILL.md` | `/cortex-skills` |
+| Close the artifact chain | every loop artifact that applies here exists — `index/cortex-loop.mjs` says which | `/cortex` |
 | Semantic summaries | `.cortex/index/enrichment.json` | `/cortex-enrich` |
 | Shared memory | anything in `.cortex/memory/` | `/dream` |
 
@@ -70,6 +71,8 @@ that point the scaffold has run and an `AGENTS.md` older than the index is Corte
 
 ## Related
 
-- `/cortex-install` is step one and prints this same next line when it finishes.
+- `/cortex` is step one: a single run satisfies index through the loop, so on a fresh repo this
+  sequence mostly matters for what was deferred. `/cortex-install` is its read-only half and prints
+  this same next line when it finishes.
 - `/cortex-view` renders the whole sequence as a **Next steps** tab in the graph
   viewer, for a user who would rather see it than read it.

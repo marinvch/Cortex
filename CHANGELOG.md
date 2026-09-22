@@ -3,6 +3,44 @@
 All notable changes to Cortex. Format based on [Keep a Changelog](https://keepachangelog.com);
 this project now versions independently of any package manager (see `VERSION`).
 
+## [Unreleased]
+
+**One install: `/cortex`.** Working project or brand new, a repo now goes from nothing to served in
+one command and one confirmation. Before, "installed" meant a context layer and a menu of eleven
+more commands in no stated order; `/cortex-next` existed to paper over that. Now the install owns
+the *shape* a served repo ends up in — the artifact chain an AI-native team runs on, where an idea
+becomes `intent.md`, then `spec.md`, then `plan.md`, then a tested diff, then a reviewed PR, and a
+production breach writes the next `intent.md`.
+
+### Added
+
+- **`/cortex`** — the front door. Indexes, reports, reads what the loop is missing, merges that with
+  the findings worklist into one interview, plays everything back grouped by stage, and applies it in
+  one pass behind a single `[a]ll / [p]ick / [n]one`. Hands off to `/cortex-scaffold`,
+  `/cortex-brief`, `/cortex-skills` and `/setup-plugins` where they already own the writing.
+- **`index/lib/loop.mjs`** and **`index/cortex-loop.mjs`** — which of eight loop artifacts a repo has,
+  which it is missing, and which are blocked and on what. Deterministic, read-only, no clock.
+  Detects the repo's real build/test/lint commands from `package.json` scripts and Makefile targets,
+  and reports none rather than guess.
+- **`templates/loop/`** — the verification block for `CLAUDE.md`, a report-only verifier subagent,
+  `REVIEW.md`, build-time hooks with a protected-paths guard, the `intent/` home and its template,
+  an agent-eval workflow, and control bands.
+- `cortex-next` gains a **loop** step, and names `/cortex` as the entry point.
+
+### Changed
+
+- **"Finished" now means the chain is closed**, not that a context layer exists. A repo with
+  `AGENTS.md` and no `REVIEW.md` or `intent/` is reported mid-sequence. Blocked artifacts — evals
+  without CI, bands without a review gate — never hold completion open.
+- `/cortex-install` is documented as the read half of `/cortex`, and still works alone.
+
+### Found by running it, not by writing it
+
+Validated on `got`, `fzf` and `flask`, then mutation-tested — nine guards, nine failing tests. The
+first real runs found four defects no fixture had: a missing index read as "greenfield, no code yet"
+over hundreds of files; `null` printed inside an evidence sentence; a blocked row naming the one
+prerequisite that was already met; and `flask`'s stack attributed to a nested example's manifest.
+
 ## [2.38.0] — 2026-09-13
 
 The previous two releases were found by *using* Cortex. This one was found by reading someone

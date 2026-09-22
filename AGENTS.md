@@ -108,6 +108,7 @@ and needs no mirror at all.
 
 | Ritual | When | Does |
 |---|---|---|
+| `/cortex` | **per repo — start here** | the single install: index, report, and stamp the whole SDLC loop in one pass, after one confirmation |
 | `/onboard` | once | interview the user; fill `context/`, `home.md`, `connections.md` |
 | `/capture` | anytime | one-line drop to `inbox/` or today's daily note |
 | `/daily` | each day | open today's note; surface priorities + due items |
@@ -120,7 +121,7 @@ and needs no mirror at all.
 | `/resume` | starting on work already in flight | committed · uncommitted · diverged, then what is left — before touching anything |
 | `/ship` | work is finished | judge it against the repo's docs, one PR at a time, merge in an order that strands nothing |
 | `/plugin-sync` | a skill edit had no effect | make the Cortex this session runs the one you edited |
-| `/cortex-install` | per repo | index a codebase, report findings, scaffold only what the user picks |
+| `/cortex-install` | when you want the read half alone | index a codebase and report findings, scaffolding only what the user picks. `/cortex` runs this and keeps going |
 | `/cortex-view` | after install | render the index as one offline HTML page — map, files, areas, gaps |
 | `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
 | `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
@@ -158,11 +159,19 @@ and whether anything is stranded. A ritual nothing points at is not broken, it i
 by a user who already knows it exists, which is the same failure as it not being there.
 
 **Picking the right ritual:**
-- **When you do not know which one, that is `/cortex-next`.** It reads the target repo's state off
-  disk and names the single next command. The table above is a menu and a menu is not an answer —
-  the ordering used to live nowhere, so a user who ran `/cortex-install` was handed eleven commands
-  sorted by nothing. `node index/cortex-view.mjs .` shows the same sequence as a **Next steps** tab
-  beside the repo's import graph.
+- **On a repo that has never seen Cortex, that is `/cortex`** — working project or brand new, the
+  same command. It indexes, reports, and stamps the whole artifact chain in one pass behind one
+  confirmation, handing off to `/cortex-scaffold`, `/cortex-brief` and `/cortex-skills` where those
+  already own the writing. The table above is a menu and a menu is not an answer; the front door
+  is. `index/lib/loop.mjs` decides what a repo is missing and `index/cortex-loop.mjs` prints it.
+- **When you are mid-sequence and lost, that is `/cortex-next`.** It reads state off disk and names
+  the single next command, which is the right question once `/cortex` has run and something was
+  deferred. `node index/cortex-view.mjs .` shows the same sequence as a **Next steps** tab beside
+  the repo's import graph.
+- **`/cortex` and `/cortex-install` are the whole pass and its read half.** Install indexes,
+  reports and offers; `/cortex` does that and then closes the artifact chain — `REVIEW.md`, the
+  verification block, the verifier subagent, `intent/`, the hooks, the evals, the bands. Reach for
+  install alone when you want to *look* at a repo without being walked to a served one.
 - `/diagnosing-bugs` and `/cortex-review` both read the context layer and are not interchangeable:
   review judges a **change** you already made, diagnosis hunts a **symptom** you cannot explain. The
   overlap is Phase 0, where diagnosis borrows the review evidence to rank its hypotheses.

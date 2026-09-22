@@ -6,7 +6,12 @@ capability: mechanical
 
 # /cortex-install — give a codebase a context layer
 
-The entry point. Runs in a **target repo**, never in the Cortex repo itself.
+The read half of `/cortex`. Runs in a **target repo**, never in the Cortex repo itself.
+
+**If the user wants the repo set up, not just looked at, run `/cortex` instead.** It does everything
+below and then keeps going: it stamps the SDLC loop — `REVIEW.md`, the verification block, the
+verifier subagent, `intent/`, hooks, evals, control bands — behind the same single confirmation.
+This skill stays for the narrower job of indexing, reporting and offering the context layer alone.
 
 > **The rule that governs this whole skill:** steps 1–5 read, report and *ask*. They do not modify
 > one line of the repository. Writing happens in step 6, only for the items the user confirmed. If

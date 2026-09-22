@@ -44,16 +44,14 @@ docs/prompts/*
 # Local /slash-command copies of the rituals; canonical skills live in skills/
 .claude/skills/
 
-# ── Legacy engine (retired, kept on disk; ignore its build output if run) ─
 node_modules/
-engine/node_modules/
-engine/coverage/
 
 # Generated views (contain personal note titles) — regenerate locally, never commit
 cortex.html
-brain.html
-navigator.html
-cortex-graph.html
+
+# A private team-brain clone (references/living-cortex.md). It must never be committed beside
+# public code — the doc said this was already ignored, and it was not.
+team/
 
 # Backups (auto-created; noise — never commit)
 *.bak

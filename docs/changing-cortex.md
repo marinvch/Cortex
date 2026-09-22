@@ -12,8 +12,8 @@ in front of them cost attention on every turn and pushed the root past its own s
 Every rule below has an ADR holding the argument and the rejected alternatives. Read the ADR
 before overturning one; the line here is the trigger, not the case.
 
-- **`/cortex-install` never modifies a target repo before the user chooses**, and is
-  model-invocable anyway. What protects the repo is the **consent gate**, not an invocation flag:
+- **`/cortex` and `/cortex-install` never modify a target repo before the user chooses**, and both
+  are model-invocable anyway. What protects the repo is the **consent gate**, not an invocation flag:
   indexing and the findings report are read-only by construction, and `/cortex-scaffold` is the
   separate skill that applies changes. If you are editing source before the user picked something,
   you have left the skill. Do not add `disable-model-invocation` to it for consistency — that flag
@@ -24,7 +24,8 @@ before overturning one; the line here is the trigger, not the case.
   is the list of record; keep the flag when editing their frontmatter. Anchor the grep — the flag is
   discussed in prose too, and the unanchored version counts a skill that merely mentions it, which is
   how this line carried the wrong number from 2.14.0 until 2.36.0.
-- **The findings report is `/cortex-install`'s script, so `analyse()`'s ranking is control flow.**
+- **The findings report is the install's script, so `analyse()`'s ranking is control flow.** `/cortex`
+  walks it merged with `loop.mjs`'s worklist, whose rank is control flow for the same reason.
   The wizard walks `offers()` top-down, so re-ranking a finding changes the interview, not just a
   document. Offers collapse by action; severity never implies an offer. Read the worklist with
   `cortex-findings.mjs --offers`, which writes nothing.

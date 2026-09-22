@@ -26,7 +26,7 @@ Run one command inside a target repo and it scaffolds an `AGENTS.md` + agent shi
 bash /path/to/ai-os/tools/cortex-init.sh
 
 # or one-liner, no clone:
-curl -fsSL https://raw.githubusercontent.com/marinvch/ai-os/main/tools/cortex-init.sh | bash
+curl -fsSL https://raw.githubusercontent.com/marinvch/Cortex/master/tools/cortex-init.sh | bash
 ```
 
 ### Non-interactive (CI, scripts, no TTY)

@@ -35,8 +35,8 @@ call, e.g. a merge or a "stale vs. just quiet" verdict).
    project without proper frontmatter, wrong PARA bucket (`projects`/`areas`/`resources`),
    inconsistent naming.
 6. **Integrity bugs** — a **committed** (non-gitignored) file containing personal/business data
-   (privacy-firewall leak); a skill in `skills/` **not mirrored** into `.claude/skills/` or **not
-   listed** in `AGENTS.md`/`README.md` (wiring drift); a custom agent in `agents/` not
+   (privacy-firewall leak); a skill in `skills/` **not listed** in the `AGENTS.md` ritual table (wiring drift — an
+   installed plugin loads `skills/` directly, so a missing `.claude/skills/` mirror is not a finding); a custom agent in `agents/` not
    referenced anywhere, or one parked in `.claude/agents/` where an installed plugin never sees
    it; `.cortexignore` violations; files truncated mid-content or malformed.
 7. **Employer-firewall breach (critical — rank above everything else)** — day-job content anywhere
@@ -58,13 +58,14 @@ Keep this to a few bullets — deep scoring is `/audit`'s job. Flag only clear g
 ## Method (all read-only)
 
 1. **Read `AGENTS.md`** and `.cortexignore` to load the rules and the "not knowledge" list.
-2. **Run `bash tools/cortex.sh`** if present — it prints node/link counts and the **dead-link
-   count**. Capture those numbers for the report. (Read-only build of the viewer; safe to run.)
+2. **Do not run `bash tools/cortex.sh`** — it writes `cortex.html` and may open a browser, so it is
+   not read-only. Compute node, link and **dead-link** counts yourself from the link map in step 3.
 3. **Glob the vault** (respecting `.cortexignore` — skip scaffolding, backups, generated views).
    Build the in/out `[[wikilink]]` map with Grep to find orphans and dead links. Check frontmatter
    and folder placement. Use `git status`/mtimes for staleness and untracked-file signal.
-4. **Verify skill wiring**: every `skills/<name>/` should have a `.claude/skills/<name>/` mirror and
-   an entry in both `AGENTS.md` and `README.md`. Report any mismatch.
+4. **Verify skill wiring**: every `skills/<name>/` has a row in the `AGENTS.md` ritual table, and
+   every row names a real skill. `README.md` carries a declared subset, not the full list. Report any
+   mismatch.
 
 ## Output format (return exactly this shape)
 

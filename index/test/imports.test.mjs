@@ -50,6 +50,41 @@ test("resolves the ESM-on-TypeScript .js specifier back to its .ts source", () =
   assert.equal(resolveImport("./b.js", "src/a.ts", files, "typescript"), "src/b.ts");
 });
 
+test("a declaration file resolves without its extension, as a file and as a directory index", () => {
+  // shadcn-ui/taxonomy keeps its shared types as types/index.d.ts and types/next-auth.d.ts. With no
+  // .d.ts candidate, an import naming them could only ever hit nothing.
+  const files = new Set(["src/a.ts", "src/env.d.ts", "src/types/index.d.ts"]);
+  assert.equal(resolveImport("./env", "src/a.ts", files, "typescript"), "src/env.d.ts");
+  assert.equal(resolveImport("./types", "src/a.ts", files, "typescript"), "src/types/index.d.ts");
+});
+
+test("an implementation beats its declaration file, whichever form the import takes", () => {
+  // .d.ts is tried after every implementation extension: a repo holding both x.ts and x.d.ts means
+  // x.ts, and the directory form follows the same order.
+  const files = new Set([
+    "src/a.ts",
+    "src/x.ts",
+    "src/x.d.ts",
+    "src/y.js",
+    "src/y.d.ts",
+    "src/dir/index.ts",
+    "src/dir/index.d.ts",
+  ]);
+  assert.equal(resolveImport("./x", "src/a.ts", files, "typescript"), "src/x.ts");
+  assert.equal(resolveImport("./y", "src/a.ts", files, "typescript"), "src/y.js");
+  assert.equal(resolveImport("./dir", "src/a.ts", files, "typescript"), "src/dir/index.ts");
+});
+
+test("a declaration file is reached through baseUrl too — the shape taxonomy actually writes", () => {
+  // Eleven `import … from "types"` in taxonomy, resolved through baseUrl ".", hit nothing, and both
+  // declaration files were reported as orphans.
+  const table = tsAliasTable({ compilerOptions: { baseUrl: "." } });
+  const files = new Set(["types/index.d.ts", "types/next-auth.d.ts", "lib/x.ts"]);
+  assert.equal(resolveTsAlias("types", files, table), "types/index.d.ts");
+  assert.equal(resolveTsAlias("types/next-auth", files, table), "types/next-auth.d.ts");
+  assert.equal(resolveTsAlias("next-auth", files, table), null, "a package of the same name stays external");
+});
+
 test("walks up out of a subdirectory", () => {
   const files = new Set(["src/deep/a.ts", "src/b.ts"]);
   assert.equal(resolveImport("../b", "src/deep/a.ts", files, "typescript"), "src/b.ts");
@@ -207,6 +242,36 @@ test("an integration test file is its own crate root", () => {
   // means tests/util.rs — not tests/cli/util.rs.
   const files = new Set(["tests/cli.rs", "tests/util.rs", "src/lib.rs"]);
   assert.equal(resolveRustImport("util", "tests/cli.rs", files, ["src"]), "tests/util.rs");
+});
+
+test("a use path from a file that is its own crate root is shortened too", () => {
+  // ripgrep's tests/regression.rs writes `use crate::hay::SHERLOCK`, and tests/hay.rs is indexed.
+  // tests/ sits under no lib.rs/main.rs, so the shortening loop was skipped entirely and the only
+  // attempt was tests/hay/SHERLOCK.rs. A file no crate root contains is rooted at its own directory.
+  const roots = ["crates/core"];
+  const files = new Set(["tests/regression.rs", "tests/hay.rs", "crates/core/main.rs"]);
+  assert.equal(resolveRustImport("hay::SHERLOCK", "tests/regression.rs", files, roots), "tests/hay.rs");
+  assert.equal(
+    resolveRustImport("hay::SHERLOCK", "benches/b.rs", new Set(["benches/b.rs", "benches/hay.rs"]), roots),
+    "benches/hay.rs",
+  );
+  // At the repo root the directory is "", and the candidate must not grow a leading slash.
+  assert.equal(resolveRustImport("hay::SHERLOCK", "build.rs", new Set(["build.rs", "hay.rs"]), roots), "hay.rs");
+  assert.equal(resolveRustImport("nope::X", "tests/regression.rs", files, roots), null);
+});
+
+test("a file under a real crate root never falls back to its own directory", () => {
+  // The fallback is for files NO crate root contains. src/printer/json.rs belongs to the crate at
+  // src, so crate::util is src/util.rs — src/printer/util.rs is the decoy a fallback applied too
+  // widely would land on. Without the decoy this test would pass for the wrong reason.
+  const files = new Set([
+    "src/lib.rs",
+    "src/util.rs",
+    "src/printer.rs",
+    "src/printer/json.rs",
+    "src/printer/util.rs",
+  ]);
+  assert.equal(resolveRustImport("util::Helper", "src/printer/json.rs", files, ["src"]), "src/util.rs");
 });
 
 test("an inline mod resolves to nothing rather than to an invented file", () => {

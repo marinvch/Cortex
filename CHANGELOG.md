@@ -47,6 +47,19 @@ first real runs found four defects no fixture had: a missing index read as "gree
 over hundreds of files; `null` printed inside an evidence sentence; a blocked row naming the one
 prerequisite that was already met; and `flask`'s stack attributed to a nested example's manifest.
 
+### Fixed
+
+- **A declaration file is now an import target.** JS/TS resolution never tried `.d.ts` or
+  `/index.d.ts`, so a shared-types module written as declaration files could only be reached by a
+  specifier spelling the whole extension. On `shadcn-ui/taxonomy`, eleven `import … from "types"`
+  hit nothing and `types/index.d.ts` carried no inbound edge; now it carries eleven. `.d.ts` is tried
+  after every implementation extension, so `x.ts` still wins over `x.d.ts`. (#411)
+- **Rust: a file that is its own crate root now reaches the path-shortening loop.** Anything
+  directly in `tests/`, `benches/`, `examples/` or `src/bin/` sits under no `lib.rs`/`main.rs`, so
+  `use crate::hay::SHERLOCK` in ripgrep's `tests/regression.rs` tried `tests/hay/SHERLOCK.rs` and
+  stopped. Such a file is now rooted at its own directory — only when no crate root contains it.
+  Edges: ripgrep 119 → 122, tokio 1151 → 1154, none lost. (#412)
+
 ## [2.38.0] — 2026-09-13
 
 The previous two releases were found by *using* Cortex. This one was found by reading someone

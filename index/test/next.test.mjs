@@ -154,3 +154,63 @@ test("every step carries a command and a reason", () => {
   }
   rmSync(root, { recursive: true, force: true });
 });
+
+// --- the shared memory reports its currency, not just its count ---------------------------------
+//
+// `done: s.memory.length > 0` is correct and stays: "was the shared memory ever started" is settled
+// by a file existing, which is the rule this module is built on. What was missing is the other
+// half. The evidence read `4 digests in .cortex/memory/ (committed)` and stopped there, so a repo
+// whose newest digest was 27 days old and one written this morning printed the same green tick and
+// the same sentence. That is the shape of the enrichment bug this package just fixed one layer up —
+// `absent`, `stale` and `ok` arriving as one silent value — and memory is where it bites hardest,
+// because memory is a CADENCE step. Enrichment is run once on an unfamiliar repo; a digest is
+// supposed to land at the end of a working day, so "started" and "current" are different questions
+// and only one of them was being answered.
+//
+// The fix has to name the date rather than compute an age. A clock in here would mean the same tree
+// answers differently tomorrow, which `index/AGENTS.md` forbids for this module by name. So the
+// sequence states the fact and the reader supplies today — the same division readEnrichment makes,
+// where the reader owns the fact and the caller owns the policy.
+
+test("a started memory names its newest digest, so currency is visible", () => {
+  const root = repo(({ put }) => {
+    put(".cortex/memory/2026-08-15.md");
+    put(".cortex/memory/2026-08-23.md");
+    put(".cortex/memory/2026-08-17.md");
+  });
+  const step = nextSteps(root).steps.find((s) => s.id === "memory");
+
+  assert.equal(step.done, true, "three digests exist, so the step is started");
+  assert.match(step.why, /2026-08-23/, "the evidence names the newest digest");
+  assert.equal(readState(root).memoryLatest, "2026-08-23", "and the fact is on state for callers");
+  rmSync(root, { recursive: true, force: true });
+});
+
+// A test asserting the maximum against sort order was written here and removed. `filesIn` sorts
+// and ISO dates sort lexically, so `at(-1)` and the maximum are the same value for every input that
+// can reach `readState` — it passed under both implementations, pinned nothing, and would have read
+// as coverage. The date filter below is the half that does carry weight.
+
+test("an unstarted memory has no newest digest and still invites the first one", () => {
+  // Absence is not staleness. Enrichment's reader charges nothing for `absent` and neither does
+  // this: a repo that never dreamt gets the invitation it always got, and `memoryLatest` is null
+  // rather than a placeholder date a caller could subtract from.
+  const root = repo(() => {});
+  const step = nextSteps(root).steps.find((s) => s.id === "memory");
+
+  assert.equal(step.done, false);
+  assert.equal(readState(root).memoryLatest, null);
+  assert.doesNotMatch(step.why, /\d{4}-\d{2}-\d{2}/, "no date is invented for a memory that has none");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a digest whose name is not a date does not become the newest one", () => {
+  // `.cortex/memory/` is one file per day, but nothing stops a stray README landing there, and a
+  // non-date sorting above every real digest would pin the evidence to a file that is not a digest.
+  const root = repo(({ put }) => {
+    put(".cortex/memory/README.md");
+    put(".cortex/memory/2026-08-23.md");
+  });
+  assert.equal(readState(root).memoryLatest, "2026-08-23");
+  rmSync(root, { recursive: true, force: true });
+});

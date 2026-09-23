@@ -155,6 +155,20 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   about the repository, and a model re-deriving it each session hands the user a different answer
   every time. A step nothing on disk can settle is `optional`, which never becomes "next" and never
   blocks — never a silent tick.
+- **A cadence step answers two questions, and `done` is only the first.** `done` means *started* —
+  a file exists — and that is right for `enrich`, which is run once on an unfamiliar repo. It is
+  half an answer for `memory`, which is a **cadence**: a digest is meant to land at the end of a
+  working day, so a store last written weeks ago and one written this morning are not the same
+  state. They printed the same green tick and the same sentence — `4 digests in .cortex/memory/
+  (committed)` — which is the enrichment defect one layer down, three conditions arriving as one
+  value. The evidence therefore names the newest digest, and `readState` carries `memoryLatest` so
+  a caller reads the fact instead of re-deriving it from the listing.
+- **The currency is a date, never an age — `next.mjs` has no clock.** "27 days stale" cannot be
+  computed here: a duration needs `now`, and the same tree would answer differently tomorrow, which
+  is the determinism rule at the top of this file. `latestDigest` returns the date the filename
+  carries and stops. A caller that legitimately owns a clock may subtract; this module states the
+  fact, exactly as `readEnrichment` returns a state and lets `cortex-view` own the decline policy.
+  If you are about to add `daysSince` here, you are moving a policy into a reader.
 - **The viewer draws only what can have an edge.** `view.mjs` marks a node `inMap` for `code` and
   `script` alone. Docs and config stay in the Files tab: on this repo 171 of them are isolated
   nodes that pushed the 98 connected ones off screen. If you widen it, the legend swatch and the

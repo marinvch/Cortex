@@ -6,7 +6,8 @@
 # chance to get it backwards, and getting it backwards in THIS folder means committing something
 # that was archived to keep it private.
 #
-# The product half is docs/history/ now. This pins both halves.
+# The product half is its git log and CHANGELOG.md now, so this folder has one lifecycle again.
+# This pins it.
 
 . "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
 
@@ -29,29 +30,24 @@ fi
 tracked="$(git ls-files archives | grep -v '^archives/README.md$' || true)"
 assert_eq "" "$tracked" "nothing but the README is tracked under archives/"
 
-# --- the product half is tracked and is NOT loaded as knowledge ---------------------------------
+# --- product docs are NOT loaded as knowledge ---------------------------------------------------
 
-[ -f docs/history/README.md ] && _pass "docs/history/ explains itself" || _fail "docs/history/ explains itself"
-
-count="$(git ls-files docs/history | wc -l | tr -d ' ')"
-if [ "$count" -gt 1 ]; then _pass "docs/history/ is tracked ($count files)"; else _fail "docs/history/ is tracked" "only $count file(s)"; fi
-
-# .cortexignore is the single source of truth for "not knowledge". Product history must not be
-# indexed as vault knowledge — it describes a Cortex that no longer exists, so recalling it would
-# hand an agent retired instructions as if they were current.
+# .cortexignore is the single source of truth for "not knowledge". Product docs must not be indexed
+# as vault knowledge — recalling an ADR or a changelog line as a note would hand an agent product
+# instructions as if they were the user's own.
 assert_contains "$(cat "$REPO_ROOT/.cortexignore")" "docs/" "docs/ is excluded from the knowledge graph"
 
 # Nothing may point at the old locations.
-stale="$(git grep -ln 'archives/retired-views\|archives/stale-engine\|archives/cortex-init.mjs.legacy\|archives/alive-os-framework\|archives/getting-started\|archives/quick-reference' -- ':!CHANGELOG.md' ':!*/plans/*' ':!*/specs/*' ':!docs/history/*' ':!tools/test/*' || true)"
+stale="$(git grep -ln 'archives/retired-views\|archives/stale-engine\|archives/cortex-init.mjs.legacy\|archives/alive-os-framework\|archives/getting-started\|archives/quick-reference' -- ':!CHANGELOG.md' ':!tools/test/*' || true)"
 assert_eq "" "$stale" "no file still points at the pre-move archive paths"
 
-# --- the retired generators still write personal pages ------------------------------------------
+# --- pages the retired generators wrote stay ignored ---------------------------------------------
 #
-# cortex-brain.sh and cortex-nav.sh are history, but they still run, and what they write lists the
-# vault's note titles. An audit read the matching ignore rules as dead because the generators were
-# retired, removed them, and three such pages already on disk went untracked in the same commit.
-# The generator being retired does not retire its output.
+# cortex-brain.sh and cortex-nav.sh are gone, but what they wrote lists the vault's note titles and
+# an old checkout still has it on disk. An audit read the matching ignore rules as dead because the
+# generators were retired, removed them, and three such pages already on disk went untracked in the
+# same commit (#420). Deleting the generator does not delete its output.
 
-for p in brain.html navigator.html cortex-graph.html docs/history/retired-views/brain.html; do
+for p in brain.html navigator.html cortex-graph.html; do
   if git check-ignore -q "$p"; then _pass "generated view $p is ignored"; else _fail "generated view $p is ignored" "it is NOT ignored — a page of personal note titles is committable"; fi
 done

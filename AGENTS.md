@@ -1,89 +1,36 @@
-# Cortex Vault — Operating Manual
+# Cortex — Agent Brief
 
-The single source of truth for any AI agent working in this vault. Claude reads `CLAUDE.md`,
-Gemini reads `GEMINI.md` — both are shims importing this file. Other tools read it natively.
+The single source of truth for any AI agent working in **this repository**. Claude reads
+`CLAUDE.md`, Gemini reads `GEMINI.md` — both are shims importing this file. Other tools read it
+natively.
 
 ## What this is
 
-A **personal + business second brain**: a plain-markdown knowledge vault, Obsidian-style but
-app-optional. No build step, no engine — just files you own, readable by any editor and by AI.
-One folder holds two systems: a **knowledge layer** (capture → notes → maps) and an **operating
-layer** (who you are, what you can reach, the rituals that keep it alive). The Node MCP brain in
-`mcp/` adds live recall/capture and is **optional** — the vault works fully without it.
+**Cortex is a project: a context manager for new and legacy codebases**, shipped as a Claude plugin
+and as a clone-and-run repo. People point it at *their* codebases — personal repos, and team repos
+at work where several developers share one committed context layer (`AGENTS.md`, scoped briefs,
+`CONTEXT.md`, `docs/adr/`, `.cortex/memory/`). The rituals below are its interface; `core/`,
+`index/` and `mcp/` are its implementation.
 
-## The one rule (privacy)
+Treat this repository the way its users treat theirs — as source code with contributors, tests, CI
+and releases. It is not anybody's second brain.
 
-Personal and business-sensitive content lives in **gitignored** folders: `context/`, `inbox/`,
-`daily/`, `notes/`, `projects/`, `areas/`, `resources/`, `decisions/`, and all of
-`archives/`.
-Committed files (`README`, this manual, `references/`, `templates/`) stay **data-free** so the vault
-stays shareable/forkable. Never write personal facts into a committed file.
+## The one rule (data-free)
 
-Archived personal content must land in a gitignored path. All of `archives/` is ignored except its
-`README.md`, so anything moved there keeps the privacy it had. **Archiving is not sanitizing** —
-confirm with `git check-ignore -v <path>`.
+**This repository holds the product and nothing else.** No user's content lives here — committed
+or untracked — because the product is cloned, forked and read by strangers, and gitignore is not a
+security boundary. That covers personal notes, employer or client names, work tickets, colleague
+names, and any team's internal architecture. Examples in docs and fixtures stay generic.
 
-The product's own history is not personal content and lives in [`docs/history/`](docs/history/).
-It used to sit in `archives/` alongside your vault's, which is why that folder's ignore rules
-needed six lines and two negations to say which half was shareable.
+A **vault** — the optional personal second brain the capture rituals serve — lives in its own
+private repository and is reached through `AI_OS_ROOT`. Its operating manual, including the
+firewall that keeps a `home` vault and a `work` vault apart, is
+[`templates/vault-AGENTS.md`](templates/vault-AGENTS.md); a vault carries a copy as its own
+`AGENTS.md`. When a ritual says "the firewall", that file holds the rule and
+[ADR 0015](docs/adr/0015-a-profile-is-the-world-an-install-serves.md) the reasoning.
 
-## The employer firewall (hard rule — overrides convenience)
-
-**One vault instance holds exactly one world**, and the **profile** says which — `home`, `work` or
-`lab`, declared with `CORTEX_PROFILE` and defaulting to `home`. The rule below is what `home` means;
-`work` is the same rule read from the other side, and `lab` refuses nothing and therefore publishes
-nothing. `core/profile.js` owns it, `/cortex-profile` reports and sets it, and
-[ADR 0015](docs/adr/0015-a-profile-is-the-world-an-install-serves.md) records why it is declared
-rather than detected. The server's startup line prints it, so a mismatch is visible rather than
-inferred.
-
-This instance is `home` — the **personal machine**: personal projects, principles, and knowledge
-only.
-
-**Never write into this vault:** employer or client names · day-job projects, tickets, features, or
-bugs · work deadlines, sprints, or standups · colleague names · internal architecture, URLs,
-credentials, or code. This holds even for seemingly harmless role-level detail ("front-end at a
-telecom provider") — the aggregate is the leak, and gitignore is not a security boundary.
-
-**Where work knowledge belongs instead:** a separate vault instance on the work machine (the two
-never sync), or the work repo's own `AGENTS.md` via `/install-project`, which stays in that repo.
-
-**Enforcement — every ritual obeys this:**
-- `/onboard` — on a personal install, never ask for employer, client, or day-job detail.
-- `/capture`, `/daily` — day-job material: **refuse the write**, say where it belongs. Never
-  "sanitize and file anyway."
-- `/audit`, `/cortex-audit` — employer content is a **critical finding**, not a
-  style nit. Archive to a gitignored path and report it.
-- `/scan-projects` — personal repos only; never a repo under a work directory.
-
-Applied 2026-08-03: prior day-job content was stripped into
-`archives/work-content-removed-2026-08-03/` (gitignored, never committed).
-
-## How the vault is organized
-
-`home.md` is the entry point — a Map of Content linking out to everything that matters.
-
-| Path | Holds | Note |
-|---|---|---|
-| `inbox/` | raw capture | everything lands here first; empty it weekly |
-| `daily/` | one note per day | `YYYY-MM-DD.md`; log + journal |
-| `notes/` | the knowledge graph | permanent, atomic, wikilinked |
-| `projects/` | outcome + deadline | PARA |
-| `areas/` | ongoing responsibility, no end date | PARA |
-| `resources/` | topic reference material | PARA |
-| `context/` | who the user is | about-me, priorities, how-i-work, values, current-focus |
-| `connections.md` | every tool/data source the vault can reach | |
-| `decisions/log.md` | append-only "what I decided and why" | |
-| `references/` | the frameworks | [[operating-principles]], [[vault-architecture]], [[codebase-design]], [[context-engineering]], [[nested-briefs]], voice |
-| `templates/` | starters | copy to begin a new note |
-| `archives/` | old stuff from your vault | **move, never delete**; gitignored in full |
-
-## How this brain thinks
-
-Follow [[operating-principles]]: **Notice → Decide → Build.** Capture relentlessly so knowledge
-leaves the user's head. Before automating, eliminate the waste first, then default to the lowest
-autonomy that works. Build the boring, deterministic version and validate each step. The four
-layers you maintain are in [[vault-architecture]]: Capture, Knowledge, Context, Cadence.
+The product's own history lives in [`docs/history/`](docs/history/); `archives/` is kept only
+for a vault and is ignored in full here.
 
 ## Prompt Optimization Protocol
 
@@ -181,11 +128,11 @@ by a user who already knows it exists, which is the same failure as it not being
   Harvest first, delete second — otherwise knowledge is lost across the breaking change.
 - `/analyze-spec` is the heavyweight path; `/plan-feature` (written by `/install-project`) stays the
   lightweight one for routine tickets.
-- `/scan-projects` and `/install-project` never let company code into this vault — that's the
-  firewall above, not a style preference.
+- `/scan-projects` and `/install-project` never let company code into a `home` vault — that's the
+  vault firewall in [`templates/vault-AGENTS.md`](templates/vault-AGENTS.md), not a style preference.
 - `/cortex-brief` nests one filename (`AGENTS.md`), never a sprawl of per-topic files. Split only
   where a real invariant or gotcha lives.
-- `/optimize-context` targets **other repos**; `/cortex-audit` targets this vault. It never deletes
+- `/optimize-context` targets **other repos**; `/cortex-audit` targets a vault. It never deletes
   prose on its own authority. `/writing-for-agents` is its other half — the discipline for **writing**
   an agent-facing document, reached before authoring a brief or a skill, not after an audit calls it
   bloated.
@@ -200,10 +147,10 @@ by a user who already knows it exists, which is the same failure as it not being
   reader of the codebase needs, `/catch-me-up` writes nothing and reads. Running `/handoff` alone on
   a day that taught you something loses the lesson.
 - `/domain-modeling` writes a `CONTEXT.md` **in the target repo** — that repo's glossary of terms.
-  It is *not* this vault's `context/` (who you are), and its ADRs are *not* `decisions/log.md`
+  It is *not* a vault's `context/` (who you are), and its ADRs are *not* `decisions/log.md`
   (your personal decisions). Same word, two different things; never merge them.
 - `/wizard` output handles credentials, so it lands in the target repo's `scripts/` or the
-  scratchpad — **never in this vault**, and never committed with values baked in.
+  scratchpad — **never in a vault or in this repo**, and never committed with values baked in.
 
 **Changing Cortex itself** — the contributor invariants (version stamping, the capability floor,
 the consent gate, the shell path guard, the two tests that matter) live in

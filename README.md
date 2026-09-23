@@ -17,10 +17,10 @@ Since v1.1.0 there is also an **optional** Node MCP server in `mcp/` that turns 
 `recall`/`capture` tools for MCP-speaking agents. It is strictly additive: everything below works
 without installing it, and nothing in the vault depends on it.
 
-Two systems share one folder:
-- a **personal brain** — who you are, what you're working on, your notes and decisions; and
-- a **codebase-brain installer** — drop an `AGENTS.md` (+ agent shims + dev-cycle skills) into any
-  repo so every AI tool understands that project the same way.
+Use it alone on your own repos, or on a team: the context layer is committed with the code, so
+every developer's agent reads the same map and `.cortex/memory/` carries what one person learned to
+the rest. An optional **personal vault** — notes, decisions, a daily log — is served by the same
+rituals, and lives in its own private repo, never in this one.
 
 > One rule: capture first, organize later. Nothing lives only in your head.
 
@@ -312,28 +312,29 @@ not deep folders — folders fight `[[wikilinks]]`. How the brain thinks:
 
 ## Privacy
 
-Personal/business content (`context/`, `inbox/`, `daily/`, `notes/`, `projects/`, `areas/`,
-`resources/`, `decisions/`, and all of `archives/`) is **gitignored** — it never
-leaves your machine. The committed files (this README, `AGENTS.md`, `references/`, `templates/`)
-are data-free, so the vault stays shareable/forkable.
+This repository is **data-free**: it holds the product and nothing else, because it is cloned,
+forked and read by strangers. A vault (`context/`, `inbox/`, `daily/`, `notes/`, `projects/`,
+`areas/`, `resources/`, `decisions/`, `archives/`) lives in **its own private repo** — move one out
+with `tools/cortex-vault-extract.sh` — and the paths stay gitignored here as a backstop, not as the
+boundary. **Archiving is not sanitizing.** The product's own retired pieces live in `docs/history/`.
 
-Archived personal content must land in a gitignored path — all of `archives/` is, except its
-`README.md`. **Archiving is not sanitizing.** The product's own retired pieces are not personal
-content and live in `docs/history/`.
+On a team, what is shared is the target repo's context layer — `AGENTS.md`, `.cortex/memory/` —
+committed with that code. `core/scrub.js` refuses any memory write carrying a credential.
 
-### The employer firewall
+### The vault firewall
 
-**One vault instance holds exactly one world.** A personal vault stores personal projects and
-knowledge only — never employer or client names, day-job tickets, colleagues, or internal
-architecture. Even role-level detail counts ("front-end at a telecom provider"): the aggregate is
-the leak, and gitignore is not a security boundary.
+**One vault holds exactly one world** — `home`, `work` or `lab`, set with `CORTEX_PROFILE`. A `home`
+vault stores personal projects and knowledge only — never employer or client names, day-job
+tickets, colleagues, or internal architecture. Even role-level detail counts ("front-end at a
+telecom provider"): the aggregate is the leak. A `work` vault is the same rule from the other side.
 
-Work knowledge belongs in a **separate vault instance on the work machine** (the two never sync),
-or in the **work repo's own `AGENTS.md`** via `/install-project`, which stays inside that repo.
-Every ritual enforces this: `/capture` and `/daily` refuse the write, `/audit` and `/cortex-audit`
-treat a breach as a critical finding, `/scan-projects` skips repos under a work directory.
+Work knowledge a team shares belongs in the **work repo's own context layer**, which stays inside that
+repo. Every ritual enforces this: `/capture` and `/daily` refuse the write, `/audit` and
+`/cortex-audit` treat a breach as a critical finding, `/scan-projects` skips repos under a work
+directory.
 
-Full rule: [`AGENTS.md`](AGENTS.md#the-employer-firewall-hard-rule--overrides-convenience).
+Full rule: [`templates/vault-AGENTS.md`](templates/vault-AGENTS.md) — the manual a vault carries as
+its own `AGENTS.md`.
 
 ## No noise = no drift
 

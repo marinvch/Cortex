@@ -110,3 +110,22 @@ assert_exit 1 "--remove-source clears the notes" -- test -f "$V/notes/n1.md"
 assert_exit 0 "but keeps .gitkeep, so the repo structure still reads" -- test -f "$V/notes/.gitkeep"
 assert_exit 0 "and keeps README.md" -- test -f "$V/notes/README.md"
 assert_exit 0 "and the copy is safe at the destination" -- test -f "$D/notes/n1.md"
+
+# --- the vault leaves with its manual ---
+#
+# The firewall every ritual enforces used to be this repo's root AGENTS.md. Cortex is a project now
+# and its root describes the project, so the vault's manual ships as templates/vault-AGENTS.md and
+# the extractor hands it over — once, and never over a manual the user already has.
+
+V="$WORK/ex-manual"; mkvault "$V"
+mkdir -p "$V/templates"; printf '# Cortex Vault manual\n' > "$V/templates/vault-AGENTS.md"
+D="$WORK/ex-manual-dest"
+run_ex "$V" --to "$D" --apply --no-git >/dev/null
+assert_eq "# Cortex Vault manual" "$(cat "$D/AGENTS.md")" "the vault receives the manual as its AGENTS.md"
+assert_eq "@AGENTS.md" "$(cat "$D/CLAUDE.md")" "with a CLAUDE.md shim beside it"
+
+V="$WORK/ex-manual-keep"; mkvault "$V"
+mkdir -p "$V/templates"; printf '# Cortex Vault manual\n' > "$V/templates/vault-AGENTS.md"
+D="$WORK/ex-manual-keep-dest"; mkdir -p "$D"; printf 'mine\n' > "$D/AGENTS.md"
+run_ex "$V" --to "$D" --apply --no-git >/dev/null
+assert_eq "mine" "$(cat "$D/AGENTS.md")" "an existing vault manual is never overwritten"

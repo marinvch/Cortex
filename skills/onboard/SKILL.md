@@ -8,14 +8,19 @@ disable-model-invocation: true
 # /onboard — teach the brain who you are
 
 Warm, brief, one question at a time. Write ONLY to the personal layer (`context/`, `home.md`,
-`connections.md`). These are gitignored — tell the user their answers are private and not committed.
+`connections.md`) and, once, the vault's `AGENTS.md` + `CLAUDE.md` from the template (Step 0). These are gitignored — tell the user their answers are private and not committed.
 
 ## Step 0 — establish which world this vault holds (ask first, always)
 
 > "Is this vault on your **personal** machine or your **work** machine? They stay separate — one
 > vault, one world, and knowledge never crosses between them."
 
-- **Personal machine** → the employer firewall in `AGENTS.md` is active. Do **not** ask about their
+If the vault root has no `AGENTS.md`, copy Cortex's `templates/vault-AGENTS.md` there first, with a
+`CLAUDE.md` containing `@AGENTS.md` beside it — that file is the firewall every ritual below
+enforces, and a vault without it has nothing for them to point at. Never write it into the Cortex
+repository itself; the vault is a separate, private repo.
+
+- **Personal machine** → the firewall in the vault's `AGENTS.md` is active. Do **not** ask about their
   employer, clients, day-job projects, tickets, or colleagues, and refuse to record any if
   volunteered — point them to the work-machine vault or the work repo's own `AGENTS.md` instead.
   In step 2, ask only about their **own** projects.

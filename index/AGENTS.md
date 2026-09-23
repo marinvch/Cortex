@@ -123,6 +123,16 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   every derivation — crate roots, Java source roots, PSR-4 prefixes, the module path, the alias
   tables — is then testable from a literal file list with no tree on disk, and *that* is where both
   resolver bugs this repo has shipped actually lived.
+- **JS/TS tries `.d.ts` and `/index.d.ts` last**, after every implementation extension, so `x.ts`
+  beats `x.d.ts`. Without them `shadcn-ui/taxonomy`'s `types/index.d.ts` — imported eleven times as
+  `"types"` — had no inbound edge at all.
+- **Rust: a file no crate root contains is rooted at its own directory**, which is what a file in
+  `tests/`, `benches/`, `examples/` or `src/bin/` is — its own crate. Before, `crate::` paths from
+  those files never reached the shortening loop, so `use crate::hay::SHERLOCK` missed `tests/hay.rs`.
+  The fallback is reached **only** when `crateRoots.find` comes back empty; widening it for a file
+  under a real root would resolve `crate::` against the wrong crate, and a test holds a decoy file
+  for exactly that. Known limit: a nested helper (`tests/index/basic.rs` in ripgrep) roots at its own
+  directory rather than at the test crate's, so its `crate::util` finds nothing.
 - **"Unreferenced" means more than "unimported", and lives in `lib/orphans.mjs`.** A file whose
   path another file names literally — a CI workflow, a shell test, a README, an ADR — is referenced;
   that is how repo tooling is normally wired. Cortex reported the false positive about itself:

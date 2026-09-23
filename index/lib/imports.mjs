@@ -133,8 +133,12 @@ export function extractImports(text, lang) {
   }
 }
 
-const JS_EXT = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"];
-const JS_INDEX = ["/index.ts", "/index.tsx", "/index.js", "/index.jsx", "/index.mjs"];
+// `.d.ts` comes LAST in both lists: a repo holding x.ts and x.d.ts means x.ts. Without it a shared
+// types module written as declaration files — taxonomy's types/index.d.ts, imported as "types" — was
+// reachable only by a specifier spelling the whole extension, which nobody writes, and read as an
+// orphan.
+const JS_EXT = ["", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".d.ts"];
+const JS_INDEX = ["/index.ts", "/index.tsx", "/index.js", "/index.jsx", "/index.mjs", "/index.d.ts"];
 
 function normalize(parts) {
   const out = [];
@@ -545,11 +549,17 @@ export function resolveRustImport(spec, fromPath, fileSet, crateRoots = []) {
   const asMod = tryPath(modDir ? `${modDir}/${segs.join("/")}` : segs.join("/"));
   if (asMod) return asMod;
 
-  // `use crate::…` — from the root of the crate this file belongs to.
-  const root = crateRoots.find((r) => fromPath.startsWith(r + "/"));
-  if (root === undefined) return null;
+  // `use crate::…` — from the root of the crate this file belongs to. A file NO crate root contains
+  // is its own crate root — tests/, benches/, examples/, src/bin/ — and is rooted at its own
+  // directory. Only then: widening this for a file under a real root would resolve `crate::` to the
+  // wrong crate. Without it the shortening loop never ran for those files, so ripgrep's
+  // `use crate::hay::SHERLOCK` in tests/regression.rs tried tests/hay/SHERLOCK.rs and nothing else.
+  const root =
+    crateRoots.find((r) => fromPath.startsWith(r + "/")) ??
+    fromPath.slice(0, Math.max(0, fromPath.lastIndexOf("/")));
   for (let n = segs.length; n > 0; n--) {
-    const hit = tryPath(`${root}/${segs.slice(0, n).join("/")}`);
+    const rel = segs.slice(0, n).join("/");
+    const hit = tryPath(root ? `${root}/${rel}` : rel);
     if (hit) return hit;
   }
   return null;

@@ -66,9 +66,9 @@ difference that exists.
   out at the top of the changelog entry.
 - `core/test/plugin.test.js:123` — "skills referenced by other skills exist" — pins the repoint: a
   cross-reference left pointing at a deleted ritual fails the suite instead of shipping.
-- `CHANGELOG.md` and `docs/superpowers/specs/` keep their references. They are history, and a
-  document describing a ritual that existed when it was written is accurate; rewriting it would be
-  the lie.
+- `CHANGELOG.md` and `docs/superpowers/specs/` (the folder was removed in 2.39; git history keeps
+  it) keep their references. They are history, and a document describing a ritual that existed when
+  it was written is accurate; rewriting it would be the lie.
 
 ## The test this establishes
 

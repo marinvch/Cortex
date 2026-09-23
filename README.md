@@ -316,7 +316,8 @@ This repository is **data-free**: it holds the product and nothing else, because
 forked and read by strangers. A vault (`context/`, `inbox/`, `daily/`, `notes/`, `projects/`,
 `areas/`, `resources/`, `decisions/`, `archives/`) lives in **its own private repo** — move one out
 with `tools/cortex-vault-extract.sh` — and the paths stay gitignored here as a backstop, not as the
-boundary. **Archiving is not sanitizing.** The product's own retired pieces live in `docs/history/`.
+boundary. **Archiving is not sanitizing.** The product's own history is its git log and
+`CHANGELOG.md`.
 
 On a team, what is shared is the target repo's context layer — `AGENTS.md`, `.cortex/memory/` —
 committed with that code. `core/scrub.js` refuses any memory write carrying a credential.
@@ -366,9 +367,8 @@ That is the promise; "all bash" was the old shorthand for it, and it stopped bei
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |
 | `cortex-skill-usage.mjs` | Which rituals your sessions have actually reached |
 
-Node also runs the codebase half (`core/`, `index/`), the optional MCP brain (`mcp/`), and two
-Claude Code hooks in `.claude/hooks/`. The original Node installer is retired at
-`docs/history/cortex-init.mjs.legacy`.
+Node also runs the codebase half (`core/`, `index/`), the optional MCP brain (`mcp/`), and the
+prompt-gate hook in `.claude/hooks/`.
 
 ## License
 

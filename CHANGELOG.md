@@ -54,6 +54,25 @@ production breach writes the next `intent.md`.
   `templates/vault-AGENTS.md`, and a vault carries a copy as its own `AGENTS.md`: `/onboard` and
   `cortex-vault-extract.sh` write it when it is missing and never over an existing one.
 
+### Removed
+
+What nothing read, ran or linked to. Each was checked with `git grep` first, and every pointer to
+it was repointed or dropped in the same change.
+
+- **`docs/superpowers/`** — about 17,000 lines of plans and specs for work that has shipped. The
+  changelog and ADRs that cite them stay as written; git history keeps the files. (#405)
+- **`docs/history/`** — the retired Node installer, the old view generators, the engine-era docs.
+  The product's history is its git log and this file. The ignore rules for the pages those
+  generators wrote stay, because an old checkout can still have them on disk (#420).
+- **`skills/README.md`** — a partial ritual list that had fallen behind `AGENTS.md`'s table.
+- **`references/cortex-plugins.md`** — an untested prose copy of
+  `plugins/cortex-core-plugins.json` that had already drifted from it. `cortex-init.sh` now points
+  at the JSON.
+- **`templates/meeting.md`, `templates/connector.json`** — nothing referenced either.
+- **The `reflect-session` SessionEnd hook** in this repo's `.claude/` — it appended to
+  `brain/candidates.jsonl`, which nothing has read since June.
+- The `mcp/node_modules/` ignore line, which `node_modules/` already covers.
+
 ### Fixed
 
 - **Four ritual descriptions were not valid YAML.** `/cortex`, `/cortex-review`, `/install-project`

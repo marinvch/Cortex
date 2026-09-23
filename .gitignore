@@ -18,9 +18,8 @@ brain/
 # Archived personal content — anything moved out of the personal layer keeps its privacy.
 # cortex-rm.sh writes archives/removed/; /cortex-audit writes dated archives/<name>-YYYY-MM-DD/.
 # One folder, one lifecycle: everything in here is personal, so everything in here is ignored.
-# The product's own history (the retired Node installer, the old views, the stale-engine prompts)
-# used to live here too, which is why this block needed six lines and two negations to say which
-# half was shareable. That half is docs/history/ now.
+# The product's own history used to live here too, which is why this block needed six lines and
+# two negations to say which half was shareable. That history is the git log and CHANGELOG.md now.
 archives/*
 !archives/README.md
 
@@ -48,8 +47,9 @@ node_modules/
 
 # Generated views (contain personal note titles) — regenerate locally, never commit
 cortex.html
-# The retired generators in docs/history/retired-views/ still run and still write these at the
-# root. An audit called the three lines dead and removed them; they were not.
+# The generators that wrote these three are gone, but an old checkout can still have the pages on
+# disk, listing the vault's note titles. An audit called the three lines dead and removed them, and
+# pages already on disk went untracked in the same commit (#420). The rules stay as the backstop.
 brain.html
 navigator.html
 cortex-graph.html
@@ -65,9 +65,6 @@ context/.backups/
 # ── Vendored third-party skill collections (re-fetchable; keep the repo lean) ──
 .agents/
 .superpowers/
-
-# MCP server deps (Node only lives in mcp/)
-mcp/node_modules/
 
 
 # Understand-Anything generated artifacts (knowledge graph, dashboard, scratch)

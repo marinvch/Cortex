@@ -33,6 +33,12 @@ production breach writes the next `intent.md`.
   `AGENTS.md` and no `REVIEW.md` or `intent/` is reported mid-sequence. Blocked artifacts — evals
   without CI, bands without a review gate — never hold completion open.
 - `/cortex-install` is documented as the read half of `/cortex`, and still works alone.
+- **The root `AGENTS.md` describes Cortex as a project**, used solo and by teams, not as a personal
+  vault. It opened as "Cortex Vault — Operating Manual" and declared "this instance is `home`", so
+  an agent working on the product was told to refuse the very work context teams install it for.
+  The vault's manual — privacy, the `home`/`work`/`lab` firewall, the folder map — moved to
+  `templates/vault-AGENTS.md`, and a vault carries a copy as its own `AGENTS.md`: `/onboard` and
+  `cortex-vault-extract.sh` write it when it is missing and never over an existing one.
 
 ### Found by running it, not by writing it
 

@@ -4,10 +4,10 @@
 matter which package you are in — `AGENTS.md` routes you to a leaf by directory, and these rules
 sit above that routing.
 
-It lives here rather than in `AGENTS.md` because it has a different reader. That file is the
-operating manual for *using* Cortex — the rituals, the vault, the firewall — and most of the people
-and agents reading it are not changing the product. Keeping sixty lines of contributor invariants
-in front of them cost attention on every turn and pushed the root past its own size finding.
+It lives here rather than in `AGENTS.md` because the root is the map — what Cortex is, the rituals,
+the routing table — and it is loaded on every turn, whatever the task. Keeping sixty lines of
+contributor invariants there cost attention on every turn and pushed the root past its own size
+finding.
 
 Every rule below has an ADR holding the argument and the rejected alternatives. Read the ADR
 before overturning one; the line here is the trigger, not the case.

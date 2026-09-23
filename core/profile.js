@@ -1,6 +1,6 @@
 // Which world this install serves — home, work, or lab.
 //
-// The employer firewall in AGENTS.md already presupposes exactly this: "One vault instance holds
+// The vault firewall (templates/vault-AGENTS.md; once the root AGENTS.md) already presupposes exactly this: "One vault instance holds
 // exactly one world." It then hardcodes that world to *personal*, and every ritual restates the
 // consequence in prose. So the profile is not a new concept — it is the one the firewall has always
 // assumed, made declarable, with the single piece a machine can actually enforce moved into code.

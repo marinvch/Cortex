@@ -17,7 +17,7 @@ The whole point is speed. Don't ask clarifying questions. File it and confirm in
 4. Reply with one line: *"Captured → daily note"* or *"Captured → inbox/<file>"*. Nothing more.
 
 ## The one hard stop — the employer firewall
-Before writing, check the content against the firewall in `AGENTS.md`. If this is a **personal**
+Before writing, check the content against the firewall in the vault's `AGENTS.md` (`templates/vault-AGENTS.md`). If this is a **personal**
 vault and the capture is day-job material — employer/client name, a work ticket or feature, a
 colleague, internal architecture, work code — **do not write it**. Reply in one line:
 

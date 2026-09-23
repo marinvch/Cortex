@@ -24,7 +24,7 @@ globbing/link-mapping never bloats this conversation — then **you apply the fi
    same either way. Only the isolation is lost.
 2. **Show the report** to the user — findings by category, plus the graph's node/link/**dead-link**
    counts.
-3. **Lead with the employer firewall.** Per `AGENTS.md`, day-job content in a personal vault is a
+3. **Lead with the employer firewall.** Per the vault's `AGENTS.md` (`templates/vault-AGENTS.md`), day-job content in a `home` vault is a
    **critical finding**, not a style nit — report it *above* the structural findings and the health
    signal, naming file and line. The fix is to move the file into a gitignored
    `archives/<name>-YYYY-MM-DD/` folder and confirm with `git check-ignore -v` that it landed there

@@ -35,7 +35,7 @@ old (5); voice captured (5); ≥1 decision logged (5).
 activity in last 7 days (10); templates populated (5).
 
 ## Step 2.4 — Firewall check (critical, runs before scoring is reported)
-Per the employer firewall in `AGENTS.md`, a personal vault must hold **no** employer content.
+Per the firewall in the vault's `AGENTS.md` (Cortex ships it as `templates/vault-AGENTS.md`), a `home` vault must hold **no** employer content.
 Scan `context/`, `notes/`, `daily/`, `projects/`, `areas/`, `inbox/` for employer/client names,
 work tickets or features, colleagues, or internal architecture. Any hit is a **critical finding** —
 report it above the score, name the file and line, and recommend moving it to a gitignored

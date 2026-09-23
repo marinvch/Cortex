@@ -103,6 +103,15 @@ for p in "${plan[@]}"; do
   fi
 done
 
+# The vault's operating manual — the firewall every ritual enforces. It used to be this repo's root
+# AGENTS.md, so a vault moved out without it arrives with rituals pointing at nothing. Never over an
+# existing one: a vault's manual is the user's to edit.
+if [ -f "templates/vault-AGENTS.md" ] && [ ! -f "$DEST/AGENTS.md" ]; then
+  echo "adding the vault manual as AGENTS.md"
+  cp "templates/vault-AGENTS.md" "$DEST/AGENTS.md"
+  [ -f "$DEST/CLAUDE.md" ] || printf '@AGENTS.md\n' > "$DEST/CLAUDE.md"
+fi
+
 # Verify THIS RUN's copy, path by path.
 #
 # This used to be `find "$DEST" -type f | wc -l` — a count of everything already in the destination.

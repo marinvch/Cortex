@@ -57,7 +57,7 @@ user believed the firewall pointed the other way.
 
 Do not just set it. Say what changes, because a profile decides what Cortex will refuse to write:
 
-- **home** — the firewall in `AGENTS.md`. Day-job material is refused and named, never sanitised and
+- **home** — the firewall in the vault's `AGENTS.md` (`templates/vault-AGENTS.md`). Day-job material is refused and named, never sanitised and
   filed anyway. If they want work knowledge kept, it goes in a work install or the work repo's own
   `AGENTS.md` via `/install-project`.
 - **work** — the same rule read from the other side. Employer material is expected; personal notes

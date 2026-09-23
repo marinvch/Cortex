@@ -26,6 +26,20 @@ production breach writes the next `intent.md`.
   `REVIEW.md`, build-time hooks with a protected-paths guard, the `intent/` home and its template,
   an agent-eval workflow, and control bands.
 - `cortex-next` gains a **loop** step, and names `/cortex` as the entry point.
+- **`tools/cortex-frontmatter.mjs`** — a strict, dependency-free check of every `skills/*/SKILL.md`
+  frontmatter: flat `key: value`, `name` and `description` present and non-empty, no block-scalar
+  description (it parses to `|` and the skill is never suggested), no unquoted `": "` or `" #"`, no
+  value opening on `@`, a backtick or another YAML indicator. No warn mode. It is the one frontmatter
+  parser in `tools/` — `cortex-capability.mjs` imports it, and `core/test/plugin.test.js` runs it in
+  place of its own looser regex. `tools/test/skill-frontmatter.test.sh` pins each rule on a fixture.
+  (#406)
+- **`.cortex/local-paths`** — an install can exempt a folder that is local by design (a machine's
+  own cron and watchdog scripts) from the absolute-path privacy check without editing the test. One
+  literal repo-relative path per line; each applied exemption is printed on every run. A line naming
+  the whole repo, climbing out of it, using a glob or pathspec magic, or covering no tracked file
+  fails the suite. The file is caught by the `.cortex/` ignore rule, so upstream cannot ship one on a
+  plain `git add -A`; a clone commits its own with `git add -f`. Absent — as upstream — the check is
+  unchanged. (#419)
 
 ### Changed
 
@@ -39,6 +53,17 @@ production breach writes the next `intent.md`.
   The vault's manual — privacy, the `home`/`work`/`lab` firewall, the folder map — moved to
   `templates/vault-AGENTS.md`, and a vault carries a copy as its own `AGENTS.md`: `/onboard` and
   `cortex-vault-extract.sh` write it when it is missing and never over an existing one.
+
+### Fixed
+
+- **Four ritual descriptions were not valid YAML.** `/cortex`, `/cortex-review`, `/install-project`
+  and `/optimize-context` each carried an unquoted `": "` in `description:`, which a strict YAML
+  parser rejects as a second mapping. Reworded, not quoted, so the one-line readers in `tools/` and
+  the shell tests still see the text they always did. Found by the new frontmatter check. (#406)
+- **The ADR template prescribed a title style no ADR uses** ("Use X for Y"). It now describes the
+  practice — a short claim that states the decision, not the topic — with three real examples.
+  Both copies: `docs/adr/TEMPLATE.md` and `templates/adr.md`, which is what `/cortex-scaffold` stamps
+  into a target repo. Existing ADRs keep their names; their inbound links are the asset. (#404)
 
 ### Found by running it, not by writing it
 

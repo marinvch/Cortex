@@ -15,6 +15,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseFrontmatter } from "./cortex-frontmatter.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILLS = join(REPO_ROOT, "skills");
@@ -39,7 +40,8 @@ for (const name of readdirSync(SKILLS)) {
   } catch { continue; }
   let src;
   try { src = readFileSync(p, "utf8"); } catch { continue; }
-  const cap = (src.match(/^capability:\s*(\S+)\s*$/m) || [])[1] || "undeclared";
+  // Read from the frontmatter, not the whole file: a `capability:` line in the body is prose.
+  const cap = parseFrontmatter(src).data.capability?.trim() || "undeclared";
   const degraded = /## When the floor is not met/m.test(src);
   rows.push({ name, cap, degraded });
 }

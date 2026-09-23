@@ -11,7 +11,20 @@
   rather than inferred from their absence.
 -->
 
-# {{NNNN}}. {{Decision, as a statement — "Use X for Y", not "Choosing a Y"}}
+# {{NNNN}}. {{A short claim that states the decision, not the topic it is about}}
+
+<!--
+  The title — and the file slug after the number — is the decision itself, so a reader who meets
+  the record cited mid-sentence gets the verdict without opening it. From Cortex's own records:
+
+    0004-no-runtime-dependencies            "Cortex ships with no runtime dependencies"
+    0010-the-shell-half-gets-the-guard-too  "The shell half gets the root guard too"
+    0013-the-version-has-one-home           "The version has one home"
+
+  Not the topic: `0010-guard-destructive-shell-tools` says what the record is about; the claim says
+  what was decided. Keep it plain enough to survive being read cold — if the title only makes sense
+  after the Context section, it is a riddle, not a claim.
+-->
 
 **Date:** {{YYYY-MM-DD}}
 **Status:** {{proposed | accepted | superseded by [NNNN](NNNN-slug.md)}}

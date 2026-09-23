@@ -176,8 +176,8 @@ bash tools/cortex-vault-extract.sh --to ~/cortex-brain --apply  # copy it out
 
 **1. Get the vault**
 ```bash
-git clone https://github.com/marinvch/ai-os.git
-cd ai-os
+git clone https://github.com/marinvch/Cortex.git
+cd Cortex
 cp templates/home.md home.md          # your personal map (gitignored)
 bash tools/cortex-sync-skills.sh      # expose the rituals as /slash commands
 ```
@@ -343,7 +343,7 @@ clean and there's no per-script drift. `/audit` flags anything noisy that creeps
 
 ## Tools (`tools/`)
 
-Nine scripts: six bash, three Node. Every one of them runs on a stock machine — no `npm install`,
+Every script here runs on a stock machine — no `npm install`,
 no lockfile, no runtime dependency at all ([ADR 0004](docs/adr/0004-no-runtime-dependencies.md)).
 That is the promise; "all bash" was the old shorthand for it, and it stopped being true the moment
 `core/` and `index/` shipped.
@@ -359,6 +359,10 @@ That is the promise; "all bash" was the old shorthand for it, and it stopped bei
 | `_cortex-lib.sh` | Shared `knowledge_files()` (reads `.cortexignore`) |
 | `cortex-capability.mjs` | What each ritual needs from the setup running it |
 | `cortex-version.mjs` | `--set X.Y.Z` — stamp the version at all seven sites, refuse without a changelog entry |
+| `cortex-preflight.mjs` | Root, profile and index freshness — what every ritual asks before it writes |
+| `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
+| `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |
+| `cortex-skill-usage.mjs` | Which rituals your sessions have actually reached |
 
 Node also runs the codebase half (`core/`, `index/`), the optional MCP brain (`mcp/`), and two
 Claude Code hooks in `.claude/hooks/`. The original Node installer is retired at

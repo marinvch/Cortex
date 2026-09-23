@@ -174,19 +174,23 @@ bash tools/cortex-vault-extract.sh --to ~/cortex-brain --apply  # copy it out
 
 ### Vault quick start (5 minutes)
 
-**1. Get the vault**
+**1. Get the vault** — its own folder, never the Cortex checkout
 ```bash
 git clone https://github.com/marinvch/Cortex.git
-cd Cortex
-cp templates/home.md home.md          # your personal map (gitignored)
-bash tools/cortex-sync-skills.sh      # expose the rituals as /slash commands
+mkdir ~/cortex-brain
+cp -r Cortex/templates/vault/. ~/cortex-brain/       # the empty skeleton: folders, connections, voice
+cp Cortex/templates/home.md ~/cortex-brain/home.md   # your personal map
 ```
+The rituals come from the plugin (`/plugin install cortex`, above), so they are available in the
+vault folder without copying anything else in.
 
-**2. Teach the brain who you are** — in Claude Code / Cowork, run:
+**2. Teach the brain who you are** — in Claude Code / Cowork, from the vault folder, run:
 ```
 /onboard
 ```
-It interviews you and fills `context/` (about you, priorities, how you work, voice).
+It interviews you and fills `context/` (about you, priorities, how you work), `connections.md` and
+`references/voice.md`. It copies in any part of the skeleton the vault is missing, and the vault's
+`AGENTS.md` manual, so step 1's `cp -r` is a head start rather than a requirement.
 
 **3. Use it daily**
 ```

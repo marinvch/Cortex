@@ -29,7 +29,7 @@ not 50 items deep and untouched (10).
 have real content (5).
 
 **Context (25)** — all `context/*` filled, not placeholders (10); `current-focus.md` < 14 days
-old (5); voice captured (5); ≥1 decision logged (5).
+old (5); voice captured in `references/voice.md` (5); ≥1 decision logged (5).
 
 **Cadence (25)** — a recurring ritual runs (`/daily`/`/weekly-review` used recently) (10);
 activity in last 7 days (10); templates populated (5).

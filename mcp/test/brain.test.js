@@ -271,12 +271,15 @@ test("a command that does not talk to the brain still runs without AI_OS_ROOT", 
 });
 
 test("an unset AI_OS_ROOT names the command that needed it", () => {
+  // `team` writes a clone under the vault, so it genuinely needs one. `catch-up` used to be the
+  // example here and no longer is: it reads the repo it stands in when no vault is named
+  // (test/rituals-on-a-plugin-install.test.js).
   const f = fixture();
   const e = envFor(f);
   delete e.AI_OS_ROOT;
-  const r = spawnSync(process.execPath, [CLI, "catch-up", "--project", "unis", "--since", "2000-01-01"], {
+  const r = spawnSync(process.execPath, [CLI, "team", "add"], {
     cwd: f.cwd, env: e, encoding: "utf8",
   });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /AI_OS_ROOT is not set \(required for catch-up\)/);
+  assert.match(r.stderr, /AI_OS_ROOT is not set \(required for team operations\)/);
 });

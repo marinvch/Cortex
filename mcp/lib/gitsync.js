@@ -26,3 +26,33 @@ export function commitAndPush(cloneDir, files, message) {
   try { git(cloneDir, ["push", "-q"]); return { ok: true, pushed: true }; }
   catch (e) { return { ok: true, pushed: false, error: "push_failed: " + String(e.stderr || e.message) }; }
 }
+
+/**
+ * The top of the git work tree `cwd` sits in, or null when it sits in none (or git is absent).
+ * Asked of git rather than found by walking up for `.git`: a worktree or a submodule has a `.git`
+ * FILE, and git already knows every shape that directory can take.
+ */
+export function repoTop(cwd) {
+  try {
+    const top = git(cwd, ["rev-parse", "--show-toplevel"]).trim();
+    return top || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `- <hash> <date> <subject>` for each commit in `dir` since `since`, newest first, at most `max`.
+ * `truncated` says the cap was hit, so a caller never mistakes the first page for the whole story.
+ * A repo with no commits yet is an empty list rather than an error.
+ */
+export function logSince(dir, since, { max = 200 } = {}) {
+  let lines;
+  try {
+    lines = git(dir, ["log", `--since=${since}`, `--max-count=${max + 1}`, "--date=short", "--pretty=- %h %ad %s"])
+      .split("\n").filter(Boolean);
+  } catch {
+    return { commits: [], truncated: false };
+  }
+  return { commits: lines.slice(0, max), truncated: lines.length > max };
+}

@@ -55,8 +55,12 @@ export { NoRootError, UnknownProfileError };
  * @throws {UnknownProfileError} CORTEX_PROFILE set to something that is not a profile
  */
 export function openBrain({ cwd, env }) {
-  const located = resolveBrain({ cwd, env });
+  // The profile first. It needs no root, so settling it before the root means a misspelt
+  // CORTEX_PROFILE is reported even by a caller that goes on to treat a missing root as a
+  // degradation rather than a fatal — `ai-os catch-up`, which reads a plain repo without a vault.
+  // Otherwise NoRootError would short-circuit it and the typo would ride along unnoticed.
   const world = resolveProfile({ env });
+  const located = resolveBrain({ cwd, env });
   const mode = detectMode(located.root);
 
   const brain = {

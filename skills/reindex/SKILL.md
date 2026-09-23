@@ -11,8 +11,7 @@ vault is outgrowing its structure, and fixes broken links. No engine — bash + 
 
 ## Step 1 — Regenerate the views
 Run the generators so the visual map reflects reality:
-- `bash tools/cortex.sh` → `cortex.html` (Obsidian-style force graph + type-to-find search).
-- `bash tools/cortex.sh` → `cortex.html` (repos + vault dashboard).
+- `bash tools/cortex.sh` → `cortex.html` (force graph, type-to-find search, repos + vault dashboard).
 Report the counts (notes, links, dead, orphans).
 
 ## Step 2 — Nominate Maps of Content (the "levels" that scale)

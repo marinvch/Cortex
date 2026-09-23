@@ -138,6 +138,20 @@ briefs, the plugin bundle, enrichment, the memory store, and secrets triage.
 Merge it with the loop worklist into **one** list of questions. The user is being asked once; they
 should not be able to tell which of two modules produced which question.
 
+**Agent docs that were already here go first.** If `CLAUDE.md`, `.cursorrules` or another agent
+doc exists and `CONTEXT.md` does not, a human wrote it before Cortex arrived. Ask `cortex-next.mjs`
+rather than re-deriving it — a `reconcile` step in its `--json` output is the signal:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --json
+```
+
+When it is there, the **first** question is whether to slim that doc with `/optimize-context`
+before the scaffold runs. Scaffold never clobbers a curated file, so skipping this does not lose
+anything — it leaves the user with their file *plus* an `AGENTS.generated.md` to merge by hand,
+which is the double-file a single install exists to avoid. The first version of this skill left
+the step out and produced exactly that.
+
 Two rules survive the merge intact:
 
 - **`enrich` states its token cost before the question, not after.** It is the only offer that

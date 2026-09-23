@@ -256,8 +256,6 @@ Two subagents live in **`agents/`** — `cortex-auditor` (dispatched by `/cortex
 `cortex-role-reviewer` (dispatched by `/cortex-review`, once per angle: security, performance,
 accessibility, data-integrity, operability, dx). A role reviewer grounds itself in the target repo's
 index and must cite `path:line`; an ungrounded expert persona returns advice that is true everywhere
-and actionable nowhere, which costs a careful read and returns nothing.
-
-The `cortex-auditor` subagent lives in **`agents/`** at the repo root — where an installed plugin
-loads subagents from — and is invoked by `/cortex-audit`. `.claude/agents/` would work in this
-checkout and ship to nobody.
+and actionable nowhere, which costs a careful read and returns nothing. Both live in `agents/`
+because that is where an installed plugin loads subagents from; `.claude/agents/` would work in
+this checkout and ship to nobody.

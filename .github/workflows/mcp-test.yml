@@ -1,7 +1,7 @@
 name: mcp test
 on:
   push:
-    paths: ["mcp/**", "plugins/**", "tools/cortex-init.sh", "VERSION", ".github/workflows/mcp-test.yml"]
+    paths: ["core/**", "index/**", "mcp/**", "plugins/**", "tools/cortex-init.sh", "VERSION", ".github/workflows/mcp-test.yml"]
   pull_request:
   workflow_dispatch:
 

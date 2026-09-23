@@ -149,3 +149,19 @@ assert_eq "2" "$(hook_exit nojq '{"tool_input":{"file_path": 42}}')" \
 blocked_msg="$(printf '%s' '{"tool_input":{"file_path":"src/gen/api.ts"}}' | bash "$WORK/hook-default.sh" 2>&1 >/dev/null)"
 assert_contains "$blocked_msg" "Change the source it is generated from" \
   "hook: a block explains itself and names the route forward"
+
+# --- /cortex reconciles an existing agent doc before it scaffolds ----------------------------------
+#
+# The first /cortex left this out. On a repo with a hand-written CLAUDE.md the scaffold, which never
+# clobbers, wrote AGENTS.generated.md beside it — the double-file a single install exists to avoid.
+# The step lives in prose, so the test is that the prose is there and routes to the right ritual.
+
+cortex_skill="$(cat "$REPO_ROOT/skills/cortex/SKILL.md")"
+assert_contains "$cortex_skill" "/optimize-context" "/cortex routes a pre-existing agent doc to /optimize-context"
+assert_contains "$cortex_skill" "reconcile" "and reads the reconcile step off cortex-next rather than re-deriving it"
+
+# The trigger collision: only /cortex may claim "set up". /cortex-install used to carry the same
+# install phrases, and two model-invocable skills on one trigger means the model picks at random.
+install_desc="$(sed -n 's/^description: //p' "$REPO_ROOT/skills/cortex-install/SKILL.md")"
+assert_not_contains "$install_desc" "set up cortex" "/cortex-install no longer claims the set-up trigger"
+assert_not_contains "$install_desc" "install cortex here" "nor the install trigger"

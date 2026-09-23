@@ -57,7 +57,11 @@ function readSkills() {
 // only the first and reported /resolving-merge-conflicts as reaching nothing, when it points at
 // [[domain-modeling]] in its second step — the kind of wrong answer that gets a healthy edge
 // "fixed" into a duplicate.
-const SLASH_RE = /\/([a-z][a-z0-9-]+)/g;
+// The lookbehind is what keeps a PATH from reading as a ritual: `tools/cortex.sh` and
+// `index/cortex-view.mjs` both contain `/cortex…`, and before it they were counted as edges into
+// `/cortex` and `/cortex-view`. A slash preceded by a word character, a dot, a brace, another
+// slash or a hyphen is inside a path or a URL; a ritual reference is not.
+const SLASH_RE = /(?<![\w.}/-])\/([a-z][a-z0-9-]+)/g;
 const WIKI_RE = /\[\[([a-z][a-z0-9-]+)\]\]/g;
 
 // A ritual nothing in this repo reaches is not automatically broken. /resolving-merge-conflicts is

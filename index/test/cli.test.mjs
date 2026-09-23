@@ -1,8 +1,8 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,7 +14,7 @@ const cli = (name) => join(INDEX_DIR, name);
 // command for real against a fixture repo and check the artifact it promised to write.
 
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), "cortex-cli-"));
+  const root = tempDir("cortex-cli-");
   mkdirSync(join(root, "src"), { recursive: true });
   writeFileSync(join(root, "src", "index.js"), 'import { a } from "./a.js";\na();\n');
   writeFileSync(join(root, "src", "a.js"), "export function a() { return 1; }\n");
@@ -145,7 +145,7 @@ test("cortex-index says out loud what it skipped on a guess", () => {
 });
 
 function gitFixtureWithMovedFile() {
-  const root = mkdtempSync(join(tmpdir(), "cortex-cit-"));
+  const root = tempDir("cortex-cit-");
   const g = (...a) =>
     execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...a], { cwd: root, stdio: "ignore" });
   mkdirSync(join(root, "mcp", "lib"), { recursive: true });

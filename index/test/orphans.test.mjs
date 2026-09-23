@@ -1,14 +1,14 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { unimported, namedElsewhere, findOrphans } from "../lib/orphans.mjs";
 import { textFrom } from "../lib/repo-text.mjs";
 
 function repo(files) {
-  const root = mkdtempSync(join(tmpdir(), "cortex-orph-"));
+  const root = tempDir("cortex-orph-");
   for (const [rel, body] of Object.entries(files)) {
     mkdirSync(join(root, rel, ".."), { recursive: true });
     writeFileSync(join(root, rel), body);

@@ -13,7 +13,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -88,7 +88,7 @@ function run(f, argv, { cwd = f.cwd, env = {} } = {}) {
 // The prose
 // ---------------------------------------------------------------------------------------------
 
-for (const skill of ["setup-plugins", "catch-me-up"]) {
+for (const skill of ["setup-plugins", "catch-me-up", "team-add", "team-init"]) {
   test(`/${skill} reaches ai-os.js through the plugin root, never a vault path`, () => {
     const { text, found } = commandsIn(skill);
     assert.ok(found.length > 0, `${skill} names no ai-os.js command`);
@@ -96,6 +96,27 @@ for (const skill of ["setup-plugins", "catch-me-up"]) {
     for (const c of found) assert.match(c, /"\$\{CLAUDE_PLUGIN_ROOT\}\/mcp\/ai-os\.js"/, c);
   });
 }
+
+// The rule, not the list above: /team-add, /team-init and /connect-brain carried the same
+// `<vault>/mcp/` path a release after /catch-me-up was fixed, because the fix named two skills.
+// The code lives in the plugin (mcp/, tools/); a vault holds notes. No ritual may look for code there.
+test("no ritual looks for Cortex's code inside a vault", () => {
+  const offenders = [];
+  for (const d of readdirSync(join(REPO, "skills"), { withFileTypes: true })) {
+    if (!d.isDirectory()) continue;
+    const text = readFileSync(join(REPO, "skills", d.name, "SKILL.md"), "utf8");
+    for (const [i, line] of text.split(/\r?\n/).entries()) {
+      if (/<vault>\/(mcp|tools|core|index)\//.test(line)) offenders.push(`skills/${d.name}/SKILL.md:${i + 1}: ${line.trim()}`);
+    }
+  }
+  assert.deepEqual(offenders, [], "use ${CLAUDE_PLUGIN_ROOT}/…, and AI_OS_ROOT for the vault itself");
+});
+
+test("/connect-brain registers the plugin's server, not a vault path", () => {
+  const text = readFileSync(join(REPO, "skills", "connect-brain", "SKILL.md"), "utf8");
+  assert.match(text, /node "\$\{CLAUDE_PLUGIN_ROOT\}\/mcp\/server\.js"/);
+  assert.match(text, /AI_OS_ROOT=<vault>/, "the vault is still named, as AI_OS_ROOT");
+});
 
 // ---------------------------------------------------------------------------------------------
 // The commands, as printed, on a plugin install
@@ -190,4 +211,21 @@ test("/setup-plugins' command runs on a plugin install with no AI_OS_ROOT", () =
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /claude plugin install superpowers@/);
   assert.doesNotMatch(r.stderr, /AI_OS_ROOT/);
+});
+
+test("/team-add's command joins a team-brain from a plugin install, cloning into the vault", () => {
+  // A bare repo on disk is a complete remote, so no network. The script comes from the plugin; the
+  // vault is only where the clone lands — which is what the skill now says, and what it runs.
+  const f = fixture();
+  const vault = join(f.base, "vault");
+  mkdirSync(vault, { recursive: true });
+  const remote = join(f.base, "team-brain.git");
+  execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
+  const [line] = commandsIn("team-add").found;
+  const argv = argvOf(line, f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
+  const r = run(f, argv, { cwd: f.proj, env: { AI_OS_ROOT: vault } });
+  assert.equal(r.status, 0, `team add failed on a plugin install:\n${r.stderr}`);
+  assert.ok(existsSync(join(vault, "team", "core", ".git")), "the team-brain is cloned under the vault");
+  const conn = JSON.parse(readFileSync(join(f.proj, ".cortex", "connector.json"), "utf8"));
+  assert.deepEqual(conn, { slug: "product", teamBrainRepo: remote });
 });

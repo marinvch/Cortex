@@ -26,8 +26,10 @@ Here it is the requirement, and it holds only because the connector carries no l
 
 ## What to do
 
-1. From the product repo root, run
-   `node <vault>/mcp/ai-os.js team add --name <team> --repo <team-brain-git-url> --slug <this-project-slug>`.
+1. From the product repo root, with `AI_OS_ROOT` set to your vault, run
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team add --name <team> --repo <team-brain-git-url> --slug <this-project-slug>`.
+   The script ships with the plugin; the vault is only where the clone goes. From a clone of the
+   Cortex repo rather than the plugin, use that clone's path.
 2. It clones the team-brain under your local vault and writes a generic `.cortex/connector.json`
    (slug + team-brain URL only).
 3. Offer to commit the connector so teammates inherit the wiring:

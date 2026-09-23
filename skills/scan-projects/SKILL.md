@@ -67,5 +67,5 @@ after installing new brains.
 ## Rules
 - Read-only **except** the opt-in `projects/*.md` stubs and the one `connections.md` row.
 - Metadata only — the firewall stays intact; company code never enters the vault.
-- A repo with no brain → suggest running `/install-project` (or `bash <vault>/tools/cortex-init.sh`) there.
+- A repo with no brain → suggest running `/install-project` (or `bash "${CLAUDE_PLUGIN_ROOT}/tools/cortex-init.sh"`) there.
 - One repo = one stub. Re-running refreshes the metadata (path/stack/date), never deletes notes.

@@ -78,7 +78,14 @@ assert_contains "$readme" "AGENTS.md#the-rituals" "and points at the complete ta
 #
 # Link LINES only, not prose: the note explaining the fix quotes the broken link on purpose, and a
 # check that cannot tell a link from a mention of one forces you to delete the explanation.
-if grep -q '^- .*\[\[home\]\]' "$REPO_ROOT/connections.md"; then
+#
+# The file lives in the vault skeleton now. A missing file FAILS: `grep -q` on a path that is not
+# there exits non-zero, which the old form read as "no bad link" — so moving the file would have
+# turned this check into a pass that checked nothing.
+CONNECTIONS="$REPO_ROOT/templates/vault/connections.md"
+if [ ! -f "$CONNECTIONS" ]; then
+  _fail "the vault skeleton's connections.md exists" "no file at templates/vault/connections.md — this check would pass on nothing"
+elif grep -q '^- .*\[\[home\]\]' "$CONNECTIONS"; then
   _fail "connections.md does not link the gitignored home.md" "a list item still links [[home]]"
 else
   _pass "connections.md does not link the gitignored home.md"

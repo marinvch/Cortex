@@ -1,7 +1,8 @@
 # ── Personal layer (never committed) — the "one privacy rule" ───────────
-# Personal/business content stays local. NOTE the `dir/*` form (not `dir/`): git never descends
-# into a fully-excluded directory, so `!dir/placeholder` can only re-include a file when the
-# directory itself is still walked. Same trick as docs/prompts/* below.
+# A vault lives in its own private repo; its skeleton ships as templates/vault/. These rules are
+# the backstop for a checkout that still holds vault folders at its root. A pattern with a slash
+# in it is anchored to this directory, so `inbox/*` never reaches templates/vault/inbox/ or
+# skills/daily/ — tools/test/vault-skeleton.test.sh pins both.
 context/*
 inbox/*
 daily/*
@@ -22,16 +23,6 @@ brain/
 # two negations to say which half was shareable. That history is the git log and CHANGELOG.md now.
 archives/*
 !archives/README.md
-
-# Keep folder placeholders + README templates tracked so the vault stays shareable
-!context/.gitkeep
-!decisions/.gitkeep
-!inbox/README.md
-!daily/README.md
-!notes/README.md
-!projects/README.md
-!areas/README.md
-!resources/README.md
 
 # Optimized prompts (contain real project/client detail) — keep the convention, not the content
 docs/prompts/*

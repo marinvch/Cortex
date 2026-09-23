@@ -53,6 +53,13 @@ production breach writes the next `intent.md`.
   The vault's manual — privacy, the `home`/`work`/`lab` firewall, the folder map — moved to
   `templates/vault-AGENTS.md`, and a vault carries a copy as its own `AGENTS.md`: `/onboard` and
   `cortex-vault-extract.sh` write it when it is missing and never over an existing one.
+- **The vault skeleton moved out of the product root into `templates/vault/`** — `connections.md`,
+  `references/voice.md` and the placeholder READMEs of the eight vault folders, which `.gitignore`
+  re-included one `!` line at a time. `/onboard` and `cortex-vault-extract.sh` copy in whatever a
+  vault is missing and never overwrite; the extractor also carries a filled root `connections.md`
+  or `references/voice.md` out of an older checkout. The root's vault-folder ignore rules stay as a
+  backstop. `tools/test/vault-skeleton.test.sh` pins the layout, and the `[[home]]` check on
+  `connections.md` now fails when the file is missing instead of passing on nothing.
 
 ### Removed
 

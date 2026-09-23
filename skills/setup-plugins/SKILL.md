@@ -7,7 +7,13 @@ capability: mechanical
 # /setup-plugins — provision the Cortex plugin bundle
 
 ## What to do
-1. Run `node <vault>/mcp/ai-os.js setup-plugins --tier core --scope user` — installs the Core tier (superpowers, skill-creator, claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier, context7).
+1. Run this — it installs the Core tier (superpowers, skill-creator, claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier, context7):
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --tier core --scope user
+   ```
+   `${CLAUDE_PLUGIN_ROOT}` is the installed plugin; from a clone of the Cortex repo, use that
+   clone's path instead. No vault and no `AI_OS_ROOT` are needed — this reads only the bundle
+   manifest shipped with Cortex.
 2. Then ask the user their role / stack and OFFER optional tiers (do not auto-install):
    - Frontend/QA → `--tier browser-qa` (playwright, chrome-devtools-mcp; heavy: downloads browsers).
    - TS repos / lots of PRs → `--tier dev-tools` (typescript-lsp, github).

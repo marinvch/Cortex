@@ -64,16 +64,6 @@ production breach writes the next `intent.md`.
   practice — a short claim that states the decision, not the topic — with three real examples.
   Both copies: `docs/adr/TEMPLATE.md` and `templates/adr.md`, which is what `/cortex-scaffold` stamps
   into a target repo. Existing ADRs keep their names; their inbound links are the asset. (#404)
-
-### Found by running it, not by writing it
-
-Validated on `got`, `fzf` and `flask`, then mutation-tested — nine guards, nine failing tests. The
-first real runs found four defects no fixture had: a missing index read as "greenfield, no code yet"
-over hundreds of files; `null` printed inside an evidence sentence; a blocked row naming the one
-prerequisite that was already met; and `flask`'s stack attributed to a nested example's manifest.
-
-### Fixed
-
 - **A declaration file is now an import target.** JS/TS resolution never tried `.d.ts` or
   `/index.d.ts`, so a shared-types module written as declaration files could only be reached by a
   specifier spelling the whole extension. On `shadcn-ui/taxonomy`, eleven `import … from "types"`
@@ -93,6 +83,13 @@ prerequisite that was already met; and `flask`'s stack attributed to a nested ex
   repo's `.cortex/` it reads that repo. It writes nothing, and a misspelt `CORTEX_PROFILE` still
   fails at entry. `mcp/test/rituals-on-a-plugin-install.test.js` runs each command as its SKILL.md
   prints it, from a copy laid out like the plugin cache.
+
+### Found by running it, not by writing it
+
+Validated on `got`, `fzf` and `flask`, then mutation-tested — nine guards, nine failing tests. The
+first real runs found four defects no fixture had: a missing index read as "greenfield, no code yet"
+over hundreds of files; `null` printed inside an evidence sentence; a blocked row naming the one
+prerequisite that was already met; and `flask`'s stack attributed to a nested example's manifest.
 
 ## [2.38.0] — 2026-09-13
 

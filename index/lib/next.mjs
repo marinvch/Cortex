@@ -51,6 +51,29 @@ function filesIn(root, rel, ext = ".md") {
   }
 }
 
+// The newest digest in .cortex/memory/, as the date its filename carries, or null for a memory
+// nobody has started. One file per day is the store's whole shape (ADR 0002), so the name IS the
+// date and reading it costs no clock.
+//
+// A maximum rather than the last element. Note honestly what that buys: `filesIn` sorts and ISO
+// dates sort lexically, so today `at(-1)` returns the same value for every input that can reach
+// here — the two are indistinguishable from outside this module and no test can tell them apart.
+// The maximum is kept because it survives `filesIn` ever returning unsorted, not because anything
+// currently proves it. The filter is the half that does carry weight: a stray README.md sorts above
+// every real digest, and without it the evidence would name a file that is not a digest.
+//
+// It does NOT return an age. A duration needs `now`, and this module is deterministic by the same
+// rule as the index: same tree, same answer, tomorrow included. The sequence states the date and
+// the reader supplies today — the division `readEnrichment` already draws, where the reader owns
+// the fact and the caller owns the policy.
+function latestDigest(files) {
+  const dates = files
+    .map((f) => /^(\d{4}-\d{2}-\d{2})\.md$/.exec(f))
+    .filter(Boolean)
+    .map((m) => m[1]);
+  return dates.length ? dates.reduce((a, b) => (b > a ? b : a)) : null;
+}
+
 // Scoped briefs are <dir>/AGENTS.md anywhere but the root. Prefer the index over the filesystem so
 // a brief under an ignored directory is not counted as coverage that agents will never load.
 function scopedBriefs(root, index) {
@@ -115,6 +138,7 @@ function priorAgentDocs(root) {
 export function readState(root, index = null, overrides = {}) {
   const indexPath = defaultIndexPath(root);
   const indexed = existsSync(indexPath);
+  const memory = filesIn(root, ".cortex/memory");
   return {
     root,
     legacyEngine: LEGACY_ENGINES.filter((d) => has(root, d)),
@@ -127,7 +151,8 @@ export function readState(root, index = null, overrides = {}) {
     adrs: filesIn(root, "docs/adr"),
     briefs: scopedBriefs(root, index),
     skills: repoSkills(root),
-    memory: filesIn(root, ".cortex/memory"),
+    memory,
+    memoryLatest: latestDigest(memory),
     priorDocs: priorAgentDocs(root),
     ...loopFacts(root, index),
     ...overrides,
@@ -267,8 +292,12 @@ function steps(s) {
     cmd: "/dream",
     done: s.memory.length > 0,
     optional: true,
+    // `done` stays a file fact — "was this ever started" is settled by a file existing, which is
+    // this module's rule. Currency is the other question and it belongs in the evidence: a memory
+    // last written weeks ago and one written this morning printed the same sentence, so the one
+    // number a reader needed was the one number missing.
     why: s.memory.length
-      ? plural(s.memory.length, "digest") + " in .cortex/memory/ (committed)"
+      ? plural(s.memory.length, "digest") + " in .cortex/memory/ (committed), newest " + s.memoryLatest
       : "end-of-day digest the whole team reads tomorrow",
   });
 

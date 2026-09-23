@@ -59,6 +59,15 @@ prerequisite that was already met; and `flask`'s stack attributed to a nested ex
   `use crate::hay::SHERLOCK` in ripgrep's `tests/regression.rs` tried `tests/hay/SHERLOCK.rs` and
   stopped. Such a file is now rooted at its own directory — only when no crate root contains it.
   Edges: ripgrep 119 → 122, tokio 1151 → 1154, none lost. (#412)
+- **`/catch-me-up` and `/setup-plugins` failed on their first command on a plugin install.** Both
+  told the agent to run `node <vault>/mcp/ai-os.js`, and a plugin install has no vault checkout —
+  and even pointed at the plugin, `catch-up` demanded `AI_OS_ROOT` and exited 1. Both now run
+  `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js"`, and `catch-up` with no root reads the repo it is run
+  in — its committed `.cortex/memory/` since `--since` and its git log — naming the vault half it
+  skipped. With `AI_OS_ROOT` at a vault it adds that vault's notes and team-brain commits; at a
+  repo's `.cortex/` it reads that repo. It writes nothing, and a misspelt `CORTEX_PROFILE` still
+  fails at entry. `mcp/test/rituals-on-a-plugin-install.test.js` runs each command as its SKILL.md
+  prints it, from a copy laid out like the plugin cache.
 
 ## [2.38.0] — 2026-09-13
 

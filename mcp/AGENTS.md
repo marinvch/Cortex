@@ -53,7 +53,15 @@ the repo by commit count, and — like every other part — **dependency-free**.
 - **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
   notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
   falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds
-  ([ADR 0008](../docs/adr/0008-three-audiences-one-seam.md)).
+  ([ADR 0008](../docs/adr/0008-three-audiences-one-seam.md)). **One CLI command degrades instead:
+  `ai-os catch-up`.** It writes nothing, and with no root it reads only the git repository the cwd
+  sits in — that repo's committed `.cortex/memory/` and its log — never a vault, and says in
+  `skipped` which half it did not read. That is what a plugin install has: no vault, only the repo
+  it was opened in, and `/catch-me-up` failed on its first command there. It does not open a brain
+  with an inferred root; it opens none (`open(…, { rootOptional })` in `ai-os.js`), so nothing
+  downstream can mistake the repo for a place to write. `openBrain` resolves the profile *before*
+  the root for this reason — a misspelt `CORTEX_PROFILE` still fails at entry. A second command
+  wanting the same exemption must also write nothing; anything that writes stays a hard exit.
 - **`capture`'s `team` argument is an override, not the switch.** The team comes from
   `lib/resolve.js` — a repo with a `.cortex/connector.json` writes to the team brain without the
   caller knowing it is on a team. Requiring the agent to pass `team` was the seam leaking. Do not
@@ -93,7 +101,10 @@ the repo by commit count, and — like every other part — **dependency-free**.
   string, audience from the connector or `CORTEX_AUDIENCE`, profile from `CORTEX_PROFILE` alone.
   Three fields, never one enum; ADR 0008 and ADR 0015 stand unchanged. A command that reads no
   brain (`digest`, `setup-plugins`) does not open one — demanding a root there would be a new
-  requirement wearing a fix's clothes.
+  requirement wearing a fix's clothes. Skills reach the CLI as
+  `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js"`, never `<vault>/mcp/…`: a plugin install has no vault
+  checkout, and `test/rituals-on-a-plugin-install.test.js` runs each command as its SKILL.md prints
+  it, from a copy laid out like the plugin cache.
 - **Every path that publishes must consult `policy.outwardSync` — including the CLI.** `lab` exists
   to be permissive locally *because* it is sealed outward, so the seal is the load-bearing half;
   `core/profile.js` calls a `lab` that still pushes "the leak with extra steps". For a while that is

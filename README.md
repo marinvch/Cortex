@@ -359,6 +359,7 @@ That is the promise; "all bash" was the old shorthand for it, and it stopped bei
 | `cortex-vault-extract.sh` | Lift the personal-vault half out into its own repo |
 | `_cortex-lib.sh` | Shared `knowledge_files()` (reads `.cortexignore`) |
 | `cortex-capability.mjs` | What each ritual needs from the setup running it |
+| `cortex-frontmatter.mjs` | Is every ritual's frontmatter readable by a router; `--check` fails on the first bad line, strictly |
 | `cortex-version.mjs` | `--set X.Y.Z` — stamp the version at all seven sites, refuse without a changelog entry |
 | `cortex-preflight.mjs` | Root, profile and index freshness — what every ritual asks before it writes |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |

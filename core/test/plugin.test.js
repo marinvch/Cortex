@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,33 +49,18 @@ test("every mcpServers entry points at a file that exists", () => {
   }
 });
 
-test("every skill has usable frontmatter", () => {
+// Run, not imported: core/ — tests included — may not reach outside core/ (architecture.test.js),
+// and the validator is not kernel code. It is the one strict frontmatter reader; this test used to
+// carry a second, looser regex that read a block-scalar description as present and long enough.
+test("every skill has frontmatter a router can read (tools/cortex-frontmatter.mjs)", () => {
   const skillsDir = join(REPO_ROOT, "skills");
   const names = readdirSync(skillsDir).filter((n) => statSync(join(skillsDir, n)).isDirectory());
   assert.ok(names.length > 10, "expected the ritual set to be present");
 
-  const problems = [];
-  for (const name of names) {
-    const file = join(skillsDir, name, "SKILL.md");
-    if (!existsSync(file)) {
-      problems.push(`${name}: no SKILL.md`);
-      continue;
-    }
-    const src = readFileSync(file, "utf8");
-    const fm = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-    if (!fm) {
-      problems.push(`${name}: no frontmatter block`);
-      continue;
-    }
-    const body = fm[1];
-    const declared = body.match(/^name:\s*(.+)$/m)?.[1]?.trim();
-    if (!declared) problems.push(`${name}: no name:`);
-    else if (declared !== name) problems.push(`${name}: declares name '${declared}' — must match its directory`);
-    const desc = body.match(/^description:\s*([\s\S]+?)(?:\n[a-z-]+:|$)/m)?.[1]?.trim();
-    if (!desc) problems.push(`${name}: no description:`);
-    else if (desc.length < 40) problems.push(`${name}: description is too short to trigger on`);
-  }
-  assert.deepEqual(problems, []);
+  const r = spawnSync(process.execPath, [join(REPO_ROOT, "tools", "cortex-frontmatter.mjs"), "--check"], {
+    encoding: "utf8",
+  });
+  assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
 });
 
 test("the once-only rituals stay user-invocable only", () => {

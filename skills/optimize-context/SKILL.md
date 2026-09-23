@@ -1,6 +1,6 @@
 ---
 name: optimize-context
-description: Audit and slim the AI-agent context files in a repo — AGENTS.md, CLAUDE.md, shims, rules files, skill bodies. Two scopes: a repo's files, or the machine-wide ones under ~/.claude that load in EVERY session. Use when a repo's AGENTS.md has grown large, when agents feel slow or drift off-convention, and on "optimize the context", "our AGENTS.md is bloated", "reduce context", "context engineering pass", "audit the agent instructions", "clean up my global CLAUDE.md", "remove what's outdated or contradictory from my instructions", "my personal rules have grown".
+description: Audit and slim the AI-agent context files in a repo — AGENTS.md, CLAUDE.md, shims, rules files, skill bodies. Two scopes — a repo's files, or the machine-wide ones under ~/.claude that load in EVERY session. Use when a repo's AGENTS.md has grown large, when agents feel slow or drift off-convention, and on "optimize the context", "our AGENTS.md is bloated", "reduce context", "context engineering pass", "audit the agent instructions", "clean up my global CLAUDE.md", "remove what's outdated or contradictory from my instructions", "my personal rules have grown".
 capability: judgment
 ---
 

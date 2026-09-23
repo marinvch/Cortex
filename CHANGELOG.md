@@ -117,6 +117,12 @@ it was repointed or dropped in the same change.
   registration made from it needs re-running after an update. The plugin-install test now covers
   `/team-add` and `/team-init`, runs `team add` as printed against an on-disk remote, and fails on
   any `SKILL.md` naming `<vault>/mcp/`, `tools/`, `core/` or `index/`.
+- **The `index/` tests left every fixture repo behind in the OS temp dir.** Twelve files made
+  `cortex-idx-`, `cortex-find-`, `cortex-open-`, `cortex-walk-` and similar dirs with `mkdtempSync`
+  and never removed one — 7,500+ on the machine that found it, about 130 per full run. They now go
+  through `index/test/tmp.mjs`, which registers one root-level `after` hook per file, so the
+  cleanup runs even when an assertion fails first. A full `node --test index/test/*.test.mjs` run
+  leaves the `cortex-*` count unchanged.
 
 ### Found by running it, not by writing it
 

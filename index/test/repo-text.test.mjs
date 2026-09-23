@@ -1,7 +1,7 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -21,7 +21,7 @@ import { MAX_INDEXED_BYTES } from "../lib/walk.mjs";
 // than by writing half a megabyte to disk.
 
 function repo(files = {}) {
-  const root = mkdtempSync(join(tmpdir(), "cortex-text-"));
+  const root = tempDir("cortex-text-");
   for (const [p, content] of Object.entries(files)) {
     const abs = join(root, p);
     mkdirSync(join(abs, ".."), { recursive: true });

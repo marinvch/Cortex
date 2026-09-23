@@ -1,3 +1,4 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { computeBatches, isEnrichable, batchStats } from "../lib/batch.mjs";
@@ -317,13 +318,12 @@ test("one constant names the merged enrichment, because four sites disagreed", (
 // that had never paid for a model pass. `lib/open.mjs` fixed that shape for index.json; this is
 // its counterpart for the layer on top.
 
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 /** A repo root with `content` at .cortex/index/enriched.json, or nothing there at all. */
 function enrichedRepo(content) {
-  const root = mkdtempSync(join(tmpdir(), "cortex-enr-"));
+  const root = tempDir("cortex-enr-");
   if (content !== undefined) {
     mkdirSync(join(root, ".cortex", "index"), { recursive: true });
     writeFileSync(join(root, ".cortex", "index", "enriched.json"), content);

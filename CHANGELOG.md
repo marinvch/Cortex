@@ -109,6 +109,14 @@ it was repointed or dropped in the same change.
   repo's `.cortex/` it reads that repo. It writes nothing, and a misspelt `CORTEX_PROFILE` still
   fails at entry. `mcp/test/rituals-on-a-plugin-install.test.js` runs each command as its SKILL.md
   prints it, from a copy laid out like the plugin cache.
+- **`/team-add`, `/team-init` and `/connect-brain` still looked for Cortex's code in a vault.** The
+  fix above named two skills; three more told the agent to run `<vault>/mcp/…`, and `/scan-projects`
+  pointed at `<vault>/tools/cortex-init.sh`. All now reach the script through
+  `${CLAUDE_PLUGIN_ROOT}` and keep `AI_OS_ROOT` for the vault, which the team commands still need
+  as the place the clone lands. `/connect-brain` says the plugin path carries its version, so a
+  registration made from it needs re-running after an update. The plugin-install test now covers
+  `/team-add` and `/team-init`, runs `team add` as printed against an on-disk remote, and fails on
+  any `SKILL.md` naming `<vault>/mcp/`, `tools/`, `core/` or `index/`.
 
 ### Found by running it, not by writing it
 

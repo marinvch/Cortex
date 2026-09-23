@@ -74,6 +74,9 @@ mcp/node_modules/
 .ua/
 
 # Cortex working artifacts in this repo (index/findings are generated; target repos commit .cortex/memory/)
+# This also covers .cortex/local-paths, on purpose: it is how an install exempts a local-only folder
+# from the absolute-path check (tools/test/no-private-names.test.sh), and upstream must never ship
+# one. A clone that wants its CI to see its declaration commits it with `git add -f`.
 .cortex/
 
 # A local, never-committed denylist of your own private project names, read by

@@ -1,6 +1,6 @@
 ---
 name: cortex
-description: The single install. Give a repo — working or brand new — the whole AI-native SDLC loop in one pass: the root brief, the verification block, the verifier subagent, REVIEW.md, hooks, the intent home, evals and the control bands. Use on "install cortex", "set this repo up", "give this codebase a context layer", "set up the loop", "onboard this project", when opening an unfamiliar repo before work starts, or when a repo has no AGENTS.md and an agent is about to re-derive its architecture from scratch. Works on greenfield and legacy repos. Asks once, writes once, never touches source code.
+description: The single install. Give a repo — working or brand new — the whole AI-native SDLC loop in one pass (the root brief, the verification block, the verifier subagent, REVIEW.md, hooks, the intent home, evals and the control bands). Use on "install cortex", "set this repo up", "give this codebase a context layer", "set up the loop", "onboard this project", when opening an unfamiliar repo before work starts, or when a repo has no AGENTS.md and an agent is about to re-derive its architecture from scratch. Works on greenfield and legacy repos. Asks once, writes once, never touches source code.
 capability: judgment
 ---
 

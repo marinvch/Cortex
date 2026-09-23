@@ -31,6 +31,34 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   confidently rather than refused.
 - **Enrichment is additive.** It attaches summaries to files and never edits `index.json`, adds
   files, or removes them.
+- **`enriched.json` has one reader — `readEnrichment` in `lib/enrich.mjs` — and it returns a state,
+  not a document.** `absent` · `unreadable` · `invalid` · `stale` · `ok`, and **`ok` is the only one
+  a caller may trust**. This is `spec.index`'s argument one layer up: `cortex-view` opened the file
+  inline and collapsed *never enriched*, *enriched and truncated* and *enriched against a tree that
+  has moved* into the same silent `null` — so on a 638-file repo it rendered **625 summaries about
+  the wrong commit and said nothing**, and told a user whose file was damaged to go re-run the model
+  pass. Absence stays free of charge: enrichment is optional by definition (`CONTEXT.md`), so
+  `absent` carries no note and nothing fails. Every other state carries one sentence naming the
+  file, the reason, and what to run — and **what to run is not the same for damage as for
+  staleness.** A damaged document points at `merge`, which rebuilds it from the batch results
+  already on disk for no model pass. A stale one must never point there: `mergeEnrichment` stamps
+  `indexCommit` and `coverage.indexed` from the index it is handed, so re-merging yesterday's
+  batches against today's index writes a document `isStale` calls **fresh**, laundering the exact
+  prose the viewer just declined — by following our own advice. Staleness costs a real enrichment
+  pass and the note says so. `enrich.test.mjs` asserts that per state, because the first draft of
+  this reader gave the stale advice and the whole suite stayed green — the note is the entire
+  deliverable of a state nothing else can observe, so it is the one thing that must be pinned.
+  **Staleness is answered at the read, through `stalenessReason`**, which is what `isStale` now asks
+  rather than a second copy of the same two comparisons.
+- **The viewer declines stale enrichment rather than marking it.** The policy is in
+  `cortex-view.mjs` with its argument: the page is self-contained and copies anywhere, so the reader
+  who acts on a summary is often not the person who saw the terminal; and staleness is a property of
+  the document while the damage is per-card, since a summary attaches wherever the path survived and
+  may describe a version of that file that did not. There is deliberately no flag to override it — a
+  flag here would be the decision not taken.
+- `findings.mjs` and `next.mjs` ask `has(ENRICHED_REL)` and that is correct — "was this step ever
+  run" is a question about a file existing, and `next.mjs` may only tick a step on the strength of
+  one. Do not route them through the content reader to make the caller count come out at one.
 - **Validate everything a model produced, but only drop what is actually wrong.** `enrich.mjs`
   assumes its input is wrong: a summary naming a file that is **not in the index** is dropped *and
   reported*, unknown roles cleared. A path that is real but arrives against a different batch

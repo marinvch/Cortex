@@ -137,3 +137,55 @@ assert_contains "$out" "Nothing was changed" "and that nothing happened"
 # existsSync would pass a file. Walking one as though it were a repository is the same bug.
 out="$(node "${VIEW}" "$WORK/a-file" 2>&1)"; rc=$?
 assert_eq "1" "$rc" "a file passed as a root is refused too"
+
+# --- stale enrichment is declined, not drawn -----------------------------------------------------
+#
+# The policy line in cortex-view.mjs — `enrich.state === "ok" ? enrich.enrichment : null` — survived
+# mutation. Flipped to use the document unconditionally, every Node test and every other shell test
+# stayed green while the viewer inlined 625 summaries about the wrong commit onto a real repo's page.
+# A guarantee nothing executes is a promise, and this one is load-bearing: the page is self-contained
+# and copies anywhere, so the reader acting on a summary is usually not the person who saw stderr.
+#
+# It has to live here rather than in index/test/. The unit tests hold readEnrichment's states and
+# buildView's cards; what went untested is the CLI wiring the two together, which is only observable
+# by running the command and reading the file it wrote.
+
+fixture
+
+# An enrichment written the way `cortex-enrich merge` writes one: stamped with the index's own
+# commit and file count, which is exactly what makes it fresh right now.
+node -e '
+const fs = require("fs"), p = process.argv[1];
+const idx = JSON.parse(fs.readFileSync(p + "/.cortex/index/index.json", "utf8"));
+const files = {};
+for (const f of idx.files) files[f.path] = { path: f.path, summary: "SENTINEL-SUMMARY", role: "core-logic", tags: [] };
+fs.writeFileSync(p + "/.cortex/index/enriched.json", JSON.stringify({
+  version: "1", indexCommit: idx.commit ?? null,
+  coverage: { enriched: idx.files.length, indexed: idx.files.length }, files, issues: [],
+}));
+' "$WORK/proj"
+
+out="$(run)"
+assert_not_contains "$out" "no enrichment" "a fresh enrichment is used without comment"
+grep -q "SENTINEL-SUMMARY" "$WORK/proj/.cortex/view/repo.html" \
+  && _pass "and its summaries reach the page" \
+  || _fail "and its summaries reach the page"
+
+# Now move the tree underneath it — a new file AND a new commit, so both halves of stalenessReason
+# fire. This is the ordinary case: someone enriched last week and has been working since.
+cd "$WORK/proj" || exit 1
+printf 'export const c = 2;\n' > src/c.js
+git add -A && git commit -qm "work happened"
+node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1
+cd "$REPO_ROOT" || exit 1
+
+out="$(run)"
+assert_contains "$out" "does not describe this index" "a stale enrichment is reported on stderr"
+assert_not_contains "$out" "cortex-enrich.mjs merge" \
+  "and is NOT sent to merge, which would restamp the old summaries as current"
+
+# The one that matters: the artifact itself. stderr is seen once by one person; the page is what
+# travels.
+grep -q "SENTINEL-SUMMARY" "$WORK/proj/.cortex/view/repo.html" \
+  && _fail "and no stale summary reaches the page" \
+  || _pass "and no stale summary reaches the page"

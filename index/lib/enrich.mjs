@@ -9,6 +9,9 @@
 // only attaches summaries, tags and roles. A missing or stale enrichment degrades Cortex to the
 // deterministic behaviour, never breaks it.
 
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 export const ROLES = new Set([
   "entrypoint", "core-logic", "adapter", "config", "test", "docs",
   "infrastructure", "types", "utility", "generated",
@@ -167,18 +170,24 @@ export function mergeEnrichment(index, results) {
 }
 
 /**
- * Attach enrichment onto an index, in memory. Unenriched files are simply left as they are — the
- * caller must never assume every file has a summary.
+ * Why an enrichment no longer describes the index it is attached to, or `null` when it still does.
+ *
+ * This is `isStale` with its answer written out. There is exactly one definition of stale for the
+ * enrichment layer and it is here — `isStale` is now a question asked of this function, not a
+ * second copy of the same two comparisons. A caller that has to tell a human *why* it declined
+ * their paid-for summaries needs the sentence, and a caller deciding whether to use them needs the
+ * boolean; deriving the sentence separately would be two rules that agree until one is edited.
  */
-export function applyEnrichment(index, enrichment) {
-  if (!enrichment?.files) return index;
-  return {
-    ...index,
-    files: index.files.map((f) => {
-      const e = enrichment.files[f.path];
-      return e ? { ...f, summary: e.summary, role: e.role, tags: e.tags } : f;
-    }),
-  };
+export function stalenessReason(index, enrichment) {
+  if (!enrichment) return "there is no enrichment";
+  if (enrichment.indexCommit && index.commit && enrichment.indexCommit !== index.commit) {
+    return `it describes commit ${String(enrichment.indexCommit).slice(0, 8)}, the index is at ${String(index.commit).slice(0, 8)}`;
+  }
+  const indexed = enrichment.coverage?.indexed;
+  if (indexed !== index.files.length) {
+    return `it was merged against ${indexed} indexed files, the index now holds ${index.files.length}`;
+  }
+  return null;
 }
 
 /**
@@ -186,9 +195,7 @@ export function applyEnrichment(index, enrichment) {
  * enforced: a slightly stale enrichment is still useful, a silently stale one is not.
  */
 export function isStale(index, enrichment) {
-  if (!enrichment) return true;
-  if (enrichment.indexCommit && index.commit && enrichment.indexCommit !== index.commit) return true;
-  return enrichment.coverage.indexed !== index.files.length;
+  return stalenessReason(index, enrichment) !== null;
 }
 
 /**
@@ -264,3 +271,118 @@ export function classifyBatches(batches, read) {
  * there rather than restating it.
  */
 export const ENRICHED_REL = ".cortex/index/enriched.json";
+
+/**
+ * The command that writes one, quoted back with the root the user actually typed.
+ *
+ * Only ever offered for a DAMAGED document, never a stale one, and the difference is not cosmetic.
+ * `mergeEnrichment` stamps `indexCommit` and `coverage.indexed` from the index it is handed, so
+ * merging yesterday's batch results against today's index produces a document `isStale` calls
+ * fresh — carrying prose about the previous commit with every trust signal intact. Pointing a user
+ * at `merge` to fix staleness would launder the exact thing `cortex-view` declines, by following
+ * our own instruction. Damage is different: the batch results on disk still describe this index,
+ * and only the merged artifact is broken, so re-merging is both correct and free.
+ */
+function remergeHint(rootArg) {
+  return `node index/cortex-enrich.mjs merge ${rootArg || "."}`;
+}
+
+/**
+ * Is this document the shape `mergeEnrichment` writes?
+ *
+ * Deliberately the two fields a consumer cannot do without — the summaries themselves, and the
+ * `coverage.indexed` that staleness is measured against — and no more. The tripwire this package
+ * is built around cuts both ways: validate what was produced, but only reject what is actually
+ * wrong. A document carrying extra keys, or written by a later Cortex, is not this function's
+ * business.
+ *
+ * `{}` is the case that matters. It parses, so the old inline reader accepted it, attached nothing,
+ * and then skipped the "no enrichment" line because the value was truthy — a page with no summaries
+ * and no explanation for it. `isStale` would also have read `.coverage.indexed` straight off it.
+ */
+function isEnrichmentShape(doc) {
+  if (!doc || typeof doc !== "object" || Array.isArray(doc)) return false;
+  if (!doc.files || typeof doc.files !== "object") return false;
+  return typeof doc.coverage?.indexed === "number";
+}
+
+/**
+ * Read the enrichment layer for a repo, and say what state it is in.
+ *
+ * **One reader.** `cortex-view.mjs` was the only thing that opened `enriched.json` for its content,
+ * and it did it inline: `existsSync` → `JSON.parse` → `catch { enrichment = null }`. Three distinct
+ * conditions — never enriched, enriched and damaged, enriched and out of date — arrived at the same
+ * silent `null`, and a page rendered from a truncated file was indistinguishable from one rendered
+ * for a repo that had never paid for a model pass. That is the same shape `lib/open.mjs` exists to
+ * fix for `index.json`, and this is its counterpart for the layer on top; the vocabulary is
+ * deliberately `readIndex`'s, because a package with one answer to "this generated artifact is
+ * unreadable" should not grow a second.
+ *
+ * Returns one record, always the same fields:
+ * - `state`      — `absent` · `unreadable` · `invalid` · `stale` · `ok`. **`ok` is the only state in
+ *                  which the document may be trusted**, which is the single check a caller needs.
+ * - `enrichment` — the document, or `null`. Populated for `stale` as well as `ok`, so a caller that
+ *                  decides to render stale summaries with a marker can; the policy is the caller's,
+ *                  the fact is this function's.
+ * - `path`       — the absolute path looked at.
+ * - `note`       — one sentence for a human, or `null`. `null` for `ok` and for `absent`: **absence
+ *                  is not an error**. Enrichment is optional by definition (`CONTEXT.md`), and a
+ *                  reader that turned a missing file into a failure would break the guarantee that
+ *                  its absence degrades Cortex to deterministic behaviour rather than stopping it.
+ *
+ * Pure over (what is on disk, the index): no clock, no network, no randomness, and the note names a
+ * repo-relative path so the same tree produces the same sentence on any machine.
+ */
+export function readEnrichment(root, index, { rootArg = "" } = {}) {
+  const path = join(root, ...ENRICHED_REL.split("/"));
+  const base = { enrichment: null, path };
+
+  if (!existsSync(path)) return { ...base, state: "absent", note: null };
+
+  let doc;
+  try {
+    doc = JSON.parse(readFileSync(path, "utf8"));
+  } catch (e) {
+    return {
+      ...base,
+      state: "unreadable",
+      // Someone paid tokens for this file and it is sitting right there. Saying "no enrichment"
+      // would send them to re-run the model pass; saying it is damaged sends them to `merge`, which
+      // rebuilds it from the batch results already on disk for nothing.
+      note:
+        `${ENRICHED_REL} is present but not readable JSON — ${e.message}\n` +
+        `Summaries are left off. It is generated, so the fix is to write it again: ${remergeHint(rootArg)}\n`,
+    };
+  }
+
+  if (!isEnrichmentShape(doc)) {
+    return {
+      ...base,
+      state: "invalid",
+      note:
+        `${ENRICHED_REL} is JSON but not an enrichment document — it is missing 'files' or 'coverage.indexed'.\n` +
+        `Summaries are left off. Re-run: ${remergeHint(rootArg)}\n`,
+    };
+  }
+
+  const why = stalenessReason(index, doc);
+  if (why) {
+    return {
+      ...base,
+      enrichment: doc,
+      state: "stale",
+      // NOT `merge`. See remergeHint: merging the existing batch results against the current index
+      // restamps them as fresh, so the one command that would make this warning go away is also the
+      // one that turns stale prose into trusted prose. The batch results themselves are what went
+      // out of date, so closing the gap means planning the changed files again and paying for them.
+      // That is a real cost and the note says so rather than offering a cheaper thing that lies.
+      note:
+        `${ENRICHED_REL} does not describe this index — ${why}.\n` +
+        `Its summaries are prose about files that may have moved or gone, so they are left off.\n` +
+        `To restore them, enrich against the current index: /cortex-enrich (this costs tokens —\n` +
+        `re-merging the existing batches would only restamp the old summaries as current).\n`,
+    };
+  }
+
+  return { ...base, enrichment: doc, state: "ok", note: null };
+}

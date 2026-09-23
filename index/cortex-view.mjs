@@ -12,20 +12,20 @@
 //
 // Writes ONLY under .cortex/, like everything else in index/. It never touches source.
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join, resolve, isAbsolute } from "node:path";
 import { execFile } from "node:child_process";
 import { platform } from "node:process";
 import { buildView } from "./lib/view.mjs";
 import { renderHtml } from "./lib/view-html.mjs";
 import { nextSteps, nextLine } from "./lib/next.mjs";
-import { ENRICHED_REL } from "./lib/enrich.mjs";
+import { readEnrichment } from "./lib/enrich.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
 import { generatedNotice, openTarget } from "./lib/open.mjs";
 
 // No index, no data. Inventing an empty page is the failure the vault's viewer actually shipped:
 // pointed at a codebase it found nothing and cheerfully drew a graph with zero nodes.
-const { root, args, index } = openTarget(process.argv.slice(2), {
+const { root, rootArg, args, index } = openTarget(process.argv.slice(2), {
   usage: "usage: node index/cortex-view.mjs [root] [--out FILE] [--index FILE] [--no-open] [--json]",
   flags: { "--no-open": "boolean", "--json": "boolean", "--index": "value", "--out": "value" },
   root: "positional",
@@ -36,16 +36,27 @@ const { root, args, index } = openTarget(process.argv.slice(2), {
 // --json renders nothing to open, so it implies --no-open.
 const wantOpen = !args.noOpen && !args.json;
 
-// Enrichment is optional and additive — its absence changes nothing but the detail on a card.
-let enrichment = null;
-const enrichPath = join(root, ...ENRICHED_REL.split("/"));
-if (existsSync(enrichPath)) {
-  try {
-    enrichment = JSON.parse(readFileSync(enrichPath, "utf8"));
-  } catch {
-    enrichment = null;
-  }
-}
+// Enrichment is optional and additive — its absence changes nothing but the detail on a card. What
+// it must never do is put prose on a card about a file that has moved.
+//
+// THE POLICY: stale enrichment is DECLINED, not marked. The page is the one Cortex artifact whose
+// whole argument is that a picture beats prose, and /cortex-view's own skill says a stale picture is
+// worse than no picture *because the reader trusts it*. Three things make a marker the weaker
+// answer here. The page is self-contained and copies anywhere, so the reader who acts on a summary
+// is often not the person who saw the warning in the terminal. And staleness is a property of the
+// document while the damage is per-card — a summary still attaches wherever the path survives, and
+// describes a version of that file that may not — so no legend swatch could say which cards are
+// wrong.
+//
+// This is NOT free, and the note is honest about that: the batch results are what went out of
+// date, so recovering the summaries means enriching against the current index and paying for it.
+// The trade is taken anyway. Declining degrades the page to the deterministic layer, which is the
+// guarantee CONTEXT.md already makes about enrichment and the direction this package always
+// chooses; rendering keeps a prettier page by making it unfalsifiable.
+//
+// A flag to override this would be the decision not taken, so there is none.
+const enrich = readEnrichment(root, index, { rootArg });
+const enrichment = enrich.state === "ok" ? enrich.enrichment : null;
 
 // The page carries the sequence, and one of its steps is "see the repo as a graph" — the page
 // itself. Reading that off disk made the output depend on whether a previous run had left a file
@@ -56,6 +67,10 @@ const seq = nextSteps(root, index, args.json ? {} : { view: true });
 const view = buildView(index, root, { enrichment, next: seq });
 
 if (args.json) {
+  // A machine-readable mode gets no prose on either stream — the same rule the front door applies
+  // to the stale-index note, and for the same reason: callers pipe this with `2>&1` into a parser.
+  // The honest machine-readable answer to a declined enrichment is `stats.enriched: 0`, which is
+  // what a null enrichment produces. Do not add a field for the distinction until a caller needs it.
   console.log(JSON.stringify(view, null, 2));
   process.exit(0);
 }
@@ -76,7 +91,14 @@ console.log(
     // the number and makes the two tools disagree about the same repo.
     `${g.orphans.length} orphans · ${g.cyclicFiles.length} in cycles · ${g.untested.length} busiest untested`
 );
-if (!enrichment) console.log("  (no enrichment — run /cortex-enrich to put summaries on the file cards)");
+// Absent is the ordinary case and gets the invitation it always got. Anything else is a file that
+// exists and was not used, and the user is told which and why — the silent `null` this replaced
+// made "never enriched" and "enriched, then damaged" the same page.
+if (enrich.state === "absent") {
+  console.log("  (no enrichment — run /cortex-enrich to put summaries on the file cards)");
+} else if (enrich.note) {
+  process.stderr.write(enrich.note);
+}
 console.log("");
 console.log(nextLine(root, index));
 

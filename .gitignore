@@ -48,6 +48,11 @@ node_modules/
 
 # Generated views (contain personal note titles) — regenerate locally, never commit
 cortex.html
+# The retired generators in docs/history/retired-views/ still run and still write these at the
+# root. An audit called the three lines dead and removed them; they were not.
+brain.html
+navigator.html
+cortex-graph.html
 
 # A private team-brain clone (references/living-cortex.md). It must never be committed beside
 # public code — the doc said this was already ignored, and it was not.

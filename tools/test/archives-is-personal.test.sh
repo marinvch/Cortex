@@ -44,3 +44,14 @@ assert_contains "$(cat "$REPO_ROOT/.cortexignore")" "docs/" "docs/ is excluded f
 # Nothing may point at the old locations.
 stale="$(git grep -ln 'archives/retired-views\|archives/stale-engine\|archives/cortex-init.mjs.legacy\|archives/alive-os-framework\|archives/getting-started\|archives/quick-reference' -- ':!CHANGELOG.md' ':!*/plans/*' ':!*/specs/*' ':!docs/history/*' ':!tools/test/*' || true)"
 assert_eq "" "$stale" "no file still points at the pre-move archive paths"
+
+# --- the retired generators still write personal pages ------------------------------------------
+#
+# cortex-brain.sh and cortex-nav.sh are history, but they still run, and what they write lists the
+# vault's note titles. An audit read the matching ignore rules as dead because the generators were
+# retired, removed them, and three such pages already on disk went untracked in the same commit.
+# The generator being retired does not retire its output.
+
+for p in brain.html navigator.html cortex-graph.html docs/history/retired-views/brain.html; do
+  if git check-ignore -q "$p"; then _pass "generated view $p is ignored"; else _fail "generated view $p is ignored" "it is NOT ignored — a page of personal note titles is committable"; fi
+done

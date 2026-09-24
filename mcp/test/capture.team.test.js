@@ -1,10 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, existsSync, writeFileSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { capture } from "../lib/capture.js";
+import { tempDir } from "./tmp.js";
 
 function git(cwd, ...a) {
   return execFileSync("git", a, { cwd, stdio: ["ignore", "pipe", "pipe"] }).toString();
@@ -13,9 +13,9 @@ function git(cwd, ...a) {
 // A vault whose team-brain clone (root/team/acme) is wired to a local bare remote,
 // branch pinned to master so commitAndPush's `git push` succeeds under push.default=simple.
 function vaultWithTeam() {
-  const remote = mkdtempSync(join(tmpdir(), "remote-"));
+  const remote = tempDir("remote-");
   git(remote, "init", "--bare", "-q", "-b", "master");
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   const clone = join(root, "team", "acme");
   execFileSync("git", ["clone", "-q", remote, clone], { stdio: ["ignore", "pipe", "pipe"] });
   git(clone, "config", "user.email", "t@t");
@@ -38,9 +38,9 @@ test("team capture writes one-file-per-note and pushes", () => {
 });
 
 test("non-slug team name resolves to the slugified clone dir and pushes", () => {
-  const remote = mkdtempSync(join(tmpdir(), "remote-"));
+  const remote = tempDir("remote-");
   git(remote, "init", "--bare", "-q", "-b", "master");
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   const clone = join(root, "team", "acme-corp");
   execFileSync("git", ["clone", "-q", remote, clone], { stdio: ["ignore", "pipe", "pipe"] });
   git(clone, "config", "user.email", "t@t");

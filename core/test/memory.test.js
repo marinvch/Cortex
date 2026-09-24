@@ -1,17 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { append, list, recent, stamp } from "../memory.js";
 import { RefusedWriteError } from "../scrub.js";
 import { OutsideRootError } from "../paths.js";
+import { tempDir } from "./tmp.js";
 
 // Assembled at runtime so no secret-shaped literal ships in the repo — see scrub.test.js.
 const AWS_KEY = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
 
 function cortexRoot() {
-  const root = mkdtempSync(join(tmpdir(), "cortex-mem-"));
+  const root = tempDir("cortex-mem-");
   mkdirSync(join(root, ".cortex"), { recursive: true });
   return join(root, ".cortex");
 }
@@ -99,7 +99,7 @@ export { OutsideRootError };
 // ignores only .cortex/index|findings|view, so it is not even gitignored. A confident wrong
 // output, which is the failure index/lib/root.mjs exists to prevent.
 test("append refuses a root that is not the .cortex directory", () => {
-  const repo = mkdtempSync(join(tmpdir(), "cortex-mem-"));
+  const repo = tempDir("cortex-mem-");
   mkdirSync(join(repo, ".cortex"), { recursive: true });
 
   assert.throws(
@@ -110,6 +110,6 @@ test("append refuses a root that is not the .cortex directory", () => {
 });
 
 test("append names the root it was given when it refuses", () => {
-  const repo = mkdtempSync(join(tmpdir(), "cortex-mem-"));
+  const repo = tempDir("cortex-mem-");
   assert.throws(() => append(repo, "x", { date: DAY }), (e) => e.message.includes(repo));
 });

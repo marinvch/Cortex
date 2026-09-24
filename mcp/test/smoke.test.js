@@ -2,17 +2,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tempDir } from "./tmp.js";
 
 const serverPath = join(dirname(fileURLToPath(import.meta.url)), "..", "server.js");
 
 function rpc(child, msg) { child.stdin.write(JSON.stringify(msg) + "\n"); }
 
 test("server answers tools/list over stdio", async () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: root } });
   let buf = "";
   // Capture stderr: a server that dies on startup (missing dep, bad import) otherwise surfaces
@@ -51,8 +50,8 @@ test("the startup line reports the audience on stderr, and stdout stays pure pro
   // The audience is load-bearing now: if this says `solo` in a repo you expected to be connected,
   // the connector is missing or unreadable. It must go to stderr — stdout is the MCP protocol
   // channel, and one stray line there corrupts the stream for every client.
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
-  const cwd = mkdtempSync(join(tmpdir(), "cwd-"));
+  const root = tempDir("vault-");
+  const cwd = tempDir("cwd-");
   const child = spawn(process.execPath, [serverPath], {
     cwd,
     env: { ...process.env, AI_OS_ROOT: root, CORTEX_AUDIENCE: "server" },
@@ -76,7 +75,11 @@ test("the startup line reports the audience on stderr, and stdout stays pure pro
   rpc(child, { jsonrpc: "2.0", method: "notifications/initialized" });
   rpc(child, { jsonrpc: "2.0", id: 1, method: "tools/list" });
   await got;
+  // Wait for the exit, not just the signal: on Windows a live process pins its cwd, and the temp
+  // dir cleanup that runs after this file would find it still locked.
+  const exited = new Promise((resolve) => child.once("exit", resolve));
   child.kill();
+  await exited;
 
   assert.match(err, /audience=server \(declared\)/, "the startup line must name the audience and how it was decided");
   for (const line of out.split("\n")) {

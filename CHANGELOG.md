@@ -53,6 +53,32 @@ production breach writes the next `intent.md`.
   The vault's manual — privacy, the `home`/`work`/`lab` firewall, the folder map — moved to
   `templates/vault-AGENTS.md`, and a vault carries a copy as its own `AGENTS.md`: `/onboard` and
   `cortex-vault-extract.sh` write it when it is missing and never over an existing one.
+- **The vault skeleton moved out of the product root into `templates/vault/`** — `connections.md`,
+  `references/voice.md` and the placeholder READMEs of the eight vault folders, which `.gitignore`
+  re-included one `!` line at a time. `/onboard` and `cortex-vault-extract.sh` copy in whatever a
+  vault is missing and never overwrite; the extractor also carries a filled root `connections.md`
+  or `references/voice.md` out of an older checkout. The root's vault-folder ignore rules stay as a
+  backstop. `tools/test/vault-skeleton.test.sh` pins the layout, and the `[[home]]` check on
+  `connections.md` now fails when the file is missing instead of passing on nothing.
+
+### Removed
+
+What nothing read, ran or linked to. Each was checked with `git grep` first, and every pointer to
+it was repointed or dropped in the same change.
+
+- **`docs/superpowers/`** — about 17,000 lines of plans and specs for work that has shipped. The
+  changelog and ADRs that cite them stay as written; git history keeps the files. (#405)
+- **`docs/history/`** — the retired Node installer, the old view generators, the engine-era docs.
+  The product's history is its git log and this file. The ignore rules for the pages those
+  generators wrote stay, because an old checkout can still have them on disk (#420).
+- **`skills/README.md`** — a partial ritual list that had fallen behind `AGENTS.md`'s table.
+- **`references/cortex-plugins.md`** — an untested prose copy of
+  `plugins/cortex-core-plugins.json` that had already drifted from it. `cortex-init.sh` now points
+  at the JSON.
+- **`templates/meeting.md`, `templates/connector.json`** — nothing referenced either.
+- **The `reflect-session` SessionEnd hook** in this repo's `.claude/` — it appended to
+  `brain/candidates.jsonl`, which nothing has read since June.
+- The `mcp/node_modules/` ignore line, which `node_modules/` already covers.
 
 ### Fixed
 
@@ -83,6 +109,20 @@ production breach writes the next `intent.md`.
   repo's `.cortex/` it reads that repo. It writes nothing, and a misspelt `CORTEX_PROFILE` still
   fails at entry. `mcp/test/rituals-on-a-plugin-install.test.js` runs each command as its SKILL.md
   prints it, from a copy laid out like the plugin cache.
+- **`/team-add`, `/team-init` and `/connect-brain` still looked for Cortex's code in a vault.** The
+  fix above named two skills; three more told the agent to run `<vault>/mcp/…`, and `/scan-projects`
+  pointed at `<vault>/tools/cortex-init.sh`. All now reach the script through
+  `${CLAUDE_PLUGIN_ROOT}` and keep `AI_OS_ROOT` for the vault, which the team commands still need
+  as the place the clone lands. `/connect-brain` says the plugin path carries its version, so a
+  registration made from it needs re-running after an update. The plugin-install test now covers
+  `/team-add` and `/team-init`, runs `team add` as printed against an on-disk remote, and fails on
+  any `SKILL.md` naming `<vault>/mcp/`, `tools/`, `core/` or `index/`.
+- **The `index/` tests left every fixture repo behind in the OS temp dir.** Twelve files made
+  `cortex-idx-`, `cortex-find-`, `cortex-open-`, `cortex-walk-` and similar dirs with `mkdtempSync`
+  and never removed one — 7,500+ on the machine that found it, about 130 per full run. They now go
+  through `index/test/tmp.mjs`, which registers one root-level `after` hook per file, so the
+  cleanup runs even when an assertion fails first. A full `node --test index/test/*.test.mjs` run
+  leaves the `cortex-*` count unchanged.
 
 ### Found by running it, not by writing it
 

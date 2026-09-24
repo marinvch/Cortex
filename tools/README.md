@@ -2,8 +2,7 @@
 
 **Nothing to install.** The `.sh` half needs only bash (git-bash, zsh, WSL, Linux, macOS); the
 `.mjs` half needs only the Node that already ships with the plugin — no packages either way, per
-[ADR 0004](../docs/adr/0004-no-runtime-dependencies.md). The original Node installer is retired at
-`../docs/history/cortex-init.mjs.legacy`.
+[ADR 0004](../docs/adr/0004-no-runtime-dependencies.md).
 
 The split is by reader, not by taste. A tool a *user* runs on a machine that may not have Node is
 bash (`cortex-init.sh` is curl-pipeable into any repo). A tool that reads structured state the code
@@ -82,8 +81,7 @@ bash tools/cortex.sh               # writes ./cortex.html and opens it
 It reads **`.cortexignore`** to decide what counts as knowledge, so scaffolding, backups, generated
 views and skills never show up as noise. That one file is the single source of truth — read through
 `knowledge_files()` in `tools/_cortex-lib.sh`, and ported to JS in `mcp/lib/cortexignore.js` so the
-live brain agrees with the generators. (The earlier `cortex-nav.sh` / `cortex-brain.sh` are retired
-in `docs/history/retired-views/`.)
+live brain agrees with the generators.
 
 ## `cortex-sync-skills.sh` — refresh the local `/slash` command mirror
 

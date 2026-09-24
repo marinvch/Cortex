@@ -1,13 +1,13 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 import { ensureGitignored, ensureGeneratedDir, GENERATED_DIRS } from "../lib/generated.mjs";
 
 function repo(gitignore = null) {
-  const root = mkdtempSync(join(tmpdir(), "cortex-gen-"));
+  const root = tempDir("cortex-gen-");
   if (gitignore !== null) writeFileSync(join(root, ".gitignore"), gitignore);
   return root;
 }
@@ -86,7 +86,7 @@ test("an unwritable .gitignore costs the entry, never the run", () => {
   const root = repo("");
   mkdirSync(join(root, ".gitignore.d"), { recursive: true });
   // A directory where the file should be: reading and writing both fail, and neither may throw.
-  const dirAsFile = mkdtempSync(join(tmpdir(), "cortex-gen-ro-"));
+  const dirAsFile = tempDir("cortex-gen-ro-");
   mkdirSync(join(dirAsFile, ".gitignore"), { recursive: true });
   const res = ensureGeneratedDir(dirAsFile, join(dirAsFile, ".cortex", "index"));
   assert.equal(res.created, true);

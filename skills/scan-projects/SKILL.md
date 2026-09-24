@@ -9,7 +9,8 @@ capability: mechanical
 Keeps the vault aware of which projects exist **without absorbing any code**. Honors the privacy
 firewall: a project file holds name / path / URL / stack / date only — never code, secrets, or
 client data. This is the vault-side companion to the per-repo brain installed by `/install-project`
-(and by `cortex-init --register-to-vault`). See [[connections]].
+(and by `cortex-init --register-to-vault`). It records what it found in the vault's `connections.md`
+(the empty one ships in Cortex's `templates/vault/`).
 
 ## Step 1 — Find the code root
 Ask for (or confirm) the folder that holds the user's repos (e.g. `D:\Projects`, `~/code`). If
@@ -66,5 +67,5 @@ after installing new brains.
 ## Rules
 - Read-only **except** the opt-in `projects/*.md` stubs and the one `connections.md` row.
 - Metadata only — the firewall stays intact; company code never enters the vault.
-- A repo with no brain → suggest running `/install-project` (or `bash <vault>/tools/cortex-init.sh`) there.
+- A repo with no brain → suggest running `/install-project` (or `bash "${CLAUDE_PLUGIN_ROOT}/tools/cortex-init.sh"`) there.
 - One repo = one stub. Re-running refreshes the metadata (path/stack/date), never deletes notes.

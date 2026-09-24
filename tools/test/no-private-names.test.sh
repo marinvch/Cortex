@@ -30,7 +30,7 @@ cd "$REPO_ROOT" || exit 1
 # /d/Projects/x, D:/Projects/x, D:\Projects\x.
 #
 # Excluded, each for a reason rather than to make the check pass:
-#   CHANGELOG.md, docs/superpowers, docs/history — history, accurate as written.
+#   CHANGELOG.md — history, accurate as written.
 #   */test/* — synthetic paths are what a path-parsing test is FOR (mcp/test/mode.test.js asserts
 #     detectMode("/home/me/vault")). The one test that touches a REAL repo is asserted below.
 #   path/to, /tmp/, example, placeholder — documentation teaching the seam.
@@ -110,7 +110,7 @@ _local_path_exemptions() {
 _abs_path_hits() {
   _local_path_exemptions "$1"
   ABS_HITS="$(git -C "$1" grep -nIE '(^|[^a-zA-Z0-9_])((/home/|/Users/|/[a-z]/)[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|[A-Za-z]:[\\/]+[A-Za-z0-9_.-]+[\\/]+[A-Za-z0-9_.-]+)' \
-    -- . ':!CHANGELOG.md' ':!docs/superpowers' ':!docs/history' ':!*/test/*' ${LP_EXCLUDE[@]+"${LP_EXCLUDE[@]}"} \
+    -- . ':!CHANGELOG.md' ':!*/test/*' ${LP_EXCLUDE[@]+"${LP_EXCLUDE[@]}"} \
     | grep -viE 'path/to|/tmp/|Temp|example|placeholder|node_modules|/usr/|/bin/|/dev/' || true)"
 }
 

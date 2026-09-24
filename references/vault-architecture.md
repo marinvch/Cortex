@@ -30,7 +30,8 @@ PARA split) keep knowledge actionable: project = outcome + deadline, area = ongo
 resource = reference material.
 
 ## 3. Context
-`context/` + `connections.md`. Who you are, your business, your priorities, your [[voice]], and every
+`context/` + `connections.md` + `references/voice.md`, all in the vault (their empty starting point
+is Cortex's `templates/vault/`). Who you are, your business, your priorities, your voice, and every
 tool/data source the vault can reach. This is what lets the brain answer *as you* and pull *your*
 live data instead of guessing. Filled by `/onboard`, grown by `/level-up`. The same discipline
 applies to any AI-agent context file — see [[context-engineering]].

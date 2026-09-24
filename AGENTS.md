@@ -29,8 +29,8 @@ firewall that keeps a `home` vault and a `work` vault apart, is
 `AGENTS.md`. When a ritual says "the firewall", that file holds the rule and
 [ADR 0015](docs/adr/0015-a-profile-is-the-world-an-install-serves.md) the reasoning.
 
-The product's own history lives in [`docs/history/`](docs/history/); `archives/` is kept only
-for a vault and is ignored in full here.
+The product's history is its git log and `CHANGELOG.md`; `archives/` is kept only for a vault and
+is ignored in full here.
 
 ## Prompt Optimization Protocol
 

@@ -7,8 +7,9 @@ disable-model-invocation: true
 
 # /onboard — teach the brain who you are
 
-Warm, brief, one question at a time. Write ONLY to the personal layer (`context/`, `home.md`,
-`connections.md`) and, once, the vault's `AGENTS.md` + `CLAUDE.md` from the template (Step 0). These are gitignored — tell the user their answers are private and not committed.
+Warm, brief, one question at a time. Write ONLY inside the vault — `context/`, `home.md`,
+`connections.md`, `references/voice.md` — plus, once, what Step 0 copies from Cortex's templates.
+The vault is its own private repo; tell the user their answers stay in it.
 
 ## Step 0 — establish which world this vault holds (ask first, always)
 
@@ -17,8 +18,10 @@ Warm, brief, one question at a time. Write ONLY to the personal layer (`context/
 
 If the vault root has no `AGENTS.md`, copy Cortex's `templates/vault-AGENTS.md` there first, with a
 `CLAUDE.md` containing `@AGENTS.md` beside it — that file is the firewall every ritual below
-enforces, and a vault without it has nothing for them to point at. Never write it into the Cortex
-repository itself; the vault is a separate, private repo.
+enforces, and a vault without it has nothing for them to point at. Then copy Cortex's
+`templates/vault/` skeleton into the vault root — the folder placeholders, `connections.md` and
+`references/voice.md` — **only the files the vault does not already have**; never overwrite one.
+Never write any of this into the Cortex repository itself; the vault is a separate, private repo.
 
 - **Personal machine** → the firewall in the vault's `AGENTS.md` is active. Do **not** ask about their
   employer, clients, day-job projects, tickets, or colleagues, and refuse to record any if
@@ -39,10 +42,10 @@ repository itself; the vault is a separate, private repo.
 4. **How they work** → `context/how-i-work.md`. Communication style, tools, when they work best,
    what the brain should never do.
 5. **Values** → `context/values.md`. What they optimize for, non-negotiables.
-6. **Voice** → `references/voice.md`. Ask them to **paste** 1-2 real things they wrote (email,
+6. **Voice** → `<vault>/references/voice.md`. Ask them to **paste** 1-2 real things they wrote (email,
    post, message), unedited. If they type something fresh mid-chat, refuse: *"paste it raw from
    real writing — typed-here samples are contaminated by our conversation."*
-7. **Connections** → `connections.md`. From their answers, fill the table: calendar, email,
+7. **Connections** → `<vault>/connections.md`. From their answers, fill the table: calendar, email,
    tasks, files, meeting notes, money. Mark each `not connected` until actually wired.
 8. **Seed `home.md`** → fill the "Who this brain serves" links and confirm they resolve.
 9. **Stamp** `context/current-focus.md` with today's date and their #1 priority for the week.

@@ -33,7 +33,6 @@ Filled during `/onboard`, grown whenever you wire a new tool. `/audit` checks co
 
 ## Downstream Connections
 - [[living-cortex]] — how to make row 1 live across machines via the MCP brain (`/connect-brain`)
-- [[cortex-plugins]] — the plugin tiers that add reach beyond this table
 - [[cross-agent-and-teams]] — reaching the same brain from Claude, Copilot, Gemini
 - [[vault-architecture]] — connections feed the Cadence layer
 

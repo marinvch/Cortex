@@ -1,8 +1,8 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { listFiles } from "../lib/walk.mjs";
 
@@ -15,7 +15,7 @@ function git(root, ...args) {
 
 /** A git repo whose bin/ and obj/ hold hand-written source, the way an ops repo does. */
 function gitFixture() {
-  const root = mkdtempSync(join(tmpdir(), "cortex-walk-"));
+  const root = tempDir("cortex-walk-");
   mkdirSync(join(root, "bin"));
   mkdirSync(join(root, "obj"));
   mkdirSync(join(root, "node_modules", "junk"), { recursive: true });
@@ -56,7 +56,7 @@ test("tracking does not rescue node_modules — that name is never ambiguous", (
 });
 
 test("outside a git repo, bin/ and obj/ are skipped as before", () => {
-  const root = mkdtempSync(join(tmpdir(), "cortex-walk-nogit-"));
+  const root = tempDir("cortex-walk-nogit-");
   mkdirSync(join(root, "bin"));
   writeFileSync(join(root, "bin", "tool.sh"), "#!/bin/sh\necho hi\n");
   writeFileSync(join(root, "README.md"), "# fixture\n");
@@ -77,7 +77,7 @@ test("a file dropped by an ambiguous directory name is reported, not passed over
 });
 
 test("the report covers the non-git case too, where every ambiguous name is a guess", () => {
-  const root = mkdtempSync(join(tmpdir(), "cortex-walk-nogit-"));
+  const root = tempDir("cortex-walk-nogit-");
   mkdirSync(join(root, "bin"));
   mkdirSync(join(root, "obj"));
   writeFileSync(join(root, "bin", "tool.sh"), "#!/bin/sh\necho hi\n");

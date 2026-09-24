@@ -1,8 +1,8 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync, utimesSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync, utimesSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,7 +49,7 @@ function open(argv, spec, { cwd = process.cwd() } = {}) {
 }
 
 function tempRepo(name = "cortex-open-") {
-  return mkdtempSync(join(tmpdir(), name));
+  return tempDir(name);
 }
 
 function writeIndex(root, index) {

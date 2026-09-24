@@ -1,7 +1,7 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { rootProblem } from "../lib/root.mjs";
 
@@ -11,12 +11,12 @@ import { rootProblem } from "../lib/root.mjs";
 // `cortex-next /nope` printed "0 of 8 steps done. Every ✓ is a file on disk, not a guess."
 
 test("a real directory is not a problem", () => {
-  const root = mkdtempSync(join(tmpdir(), "cortex-root-"));
+  const root = tempDir("cortex-root-");
   assert.equal(rootProblem(root), null);
 });
 
 test("a path that does not exist is refused, and named", () => {
-  const root = join(mkdtempSync(join(tmpdir(), "cortex-root-")), "nope");
+  const root = join(tempDir("cortex-root-"), "nope");
   const problem = rootProblem(root);
   assert.ok(problem, "a missing root must not pass");
   assert.match(problem, /not a directory/);
@@ -27,7 +27,7 @@ test("a path that does not exist is refused, and named", () => {
 test("a FILE is refused too — existence is not the question", () => {
   // The cheap version of this check is existsSync, and it passes here. `cortex-index ./VERSION`
   // would then walk a file as though it were a repository.
-  const dir = mkdtempSync(join(tmpdir(), "cortex-root-"));
+  const dir = tempDir("cortex-root-");
   const file = join(dir, "VERSION");
   writeFileSync(file, "2.0.0\n");
   assert.ok(rootProblem(file), "a file is not a repository root");
@@ -36,7 +36,7 @@ test("a FILE is refused too — existence is not the question", () => {
 test("a symlink to a real directory is fine", () => {
   // statSync follows links, deliberately. A repo reached through a symlink is a repo — containment
   // is core/paths.js's question, and conflating the two would break a normal checkout layout.
-  const base = mkdtempSync(join(tmpdir(), "cortex-root-"));
+  const base = tempDir("cortex-root-");
   const real = join(base, "real");
   const link = join(base, "link");
   mkdirSync(real);

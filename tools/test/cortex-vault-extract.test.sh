@@ -129,3 +129,45 @@ mkdir -p "$V/templates"; printf '# Cortex Vault manual\n' > "$V/templates/vault-
 D="$WORK/ex-manual-keep-dest"; mkdir -p "$D"; printf 'mine\n' > "$D/AGENTS.md"
 run_ex "$V" --to "$D" --apply --no-git >/dev/null
 assert_eq "mine" "$(cat "$D/AGENTS.md")" "an existing vault manual is never overwritten"
+
+# --- the vault leaves with its skeleton, and only what is missing ---
+#
+# connections.md and references/voice.md used to be tracked at this repo's root. They ship as
+# templates/vault/ now, so an extracted vault gets them from there — never over one it already has,
+# and never over a filled copy the run itself brought across from an older checkout.
+
+mkskeleton() { # repo
+  mkdir -p "$1/templates/vault/inbox" "$1/templates/vault/references" "$1/templates/vault/context"
+  printf 'skeleton connections\n' > "$1/templates/vault/connections.md"
+  printf 'skeleton voice\n' > "$1/templates/vault/references/voice.md"
+  printf 'skeleton inbox\n' > "$1/templates/vault/inbox/README.md"
+  : > "$1/templates/vault/context/.gitkeep"
+}
+
+V="$WORK/ex-skel"; mkvault "$V"; mkskeleton "$V"
+D="$WORK/ex-skel-dest"
+out="$(run_ex "$V" --to "$D" --apply --no-git)"
+assert_eq "skeleton connections" "$(cat "$D/connections.md" 2>/dev/null)" "the vault receives connections.md from the skeleton"
+assert_eq "skeleton voice" "$(cat "$D/references/voice.md" 2>/dev/null)" "and references/voice.md"
+assert_exit 0 "and the folder placeholders" -- test -f "$D/inbox/README.md"
+assert_exit 0 "including a .gitkeep" -- test -f "$D/context/.gitkeep"
+assert_contains "$out" "seeded" "and it says what it seeded"
+
+V="$WORK/ex-skel-keep"; mkvault "$V"; mkskeleton "$V"
+D="$WORK/ex-skel-keep-dest"; mkdir -p "$D/references"
+printf 'my connections\n' > "$D/connections.md"
+printf 'my voice\n' > "$D/references/voice.md"
+run_ex "$V" --to "$D" --apply --no-git >/dev/null
+assert_eq "my connections" "$(cat "$D/connections.md")" "an existing connections.md is never overwritten by the skeleton"
+assert_eq "my voice" "$(cat "$D/references/voice.md")" "nor an existing voice.md"
+
+# An older checkout filled both files in place. The run carries them across; the skeleton must not
+# then replace the filled copy with a blank one.
+V="$WORK/ex-skel-old"; mkvault "$V"; mkskeleton "$V"
+mkdir -p "$V/references"
+printf 'filled connections\n' > "$V/connections.md"
+printf 'filled voice\n' > "$V/references/voice.md"
+D="$WORK/ex-skel-old-dest"
+run_ex "$V" --to "$D" --apply --no-git >/dev/null
+assert_eq "filled connections" "$(cat "$D/connections.md")" "a filled root connections.md from an older checkout is carried, not replaced"
+assert_eq "filled voice" "$(cat "$D/references/voice.md")" "and so is a filled references/voice.md"

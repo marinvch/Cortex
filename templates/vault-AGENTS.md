@@ -68,10 +68,13 @@ shares through that repo and which never enters a vault.
 | `context/` | who the user is | about-me, priorities, how-i-work, values, current-focus |
 | `connections.md` | every tool/data source the vault can reach | |
 | `decisions/log.md` | append-only "what I decided and why" | |
+| `references/voice.md` | how you sound, so drafts read as you | filled by `/onboard` |
 | `archives/` | old material | **move, never delete** |
 
-The frameworks — operating-principles, vault-architecture, codebase-design, voice — ship with Cortex
-in its `references/`, and the note starters in its `templates/`.
+The folders, `connections.md` and `references/voice.md` start from the skeleton in Cortex's
+`templates/vault/`; `/onboard` and `tools/cortex-vault-extract.sh` copy in whatever is missing and
+never overwrite. The frameworks — operating-principles, vault-architecture, codebase-design — ship
+with Cortex in its `references/`, and the note starters in its `templates/`.
 
 ## How this brain thinks
 

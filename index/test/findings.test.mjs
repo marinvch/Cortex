@@ -1,6 +1,7 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyse, render, testStem, offerOf, offers } from "../lib/findings.mjs";
@@ -23,7 +24,7 @@ const NO_LAYER = join(tmpdir(), "cortex-findings-no-such-root");
 const withText = (files) => ({ text: textFrom(files) });
 
 function repo(files = {}) {
-  const root = mkdtempSync(join(tmpdir(), "cortex-find-"));
+  const root = tempDir("cortex-find-");
   for (const [p, content] of Object.entries(files)) {
     const abs = join(root, p);
     mkdirSync(join(abs, ".."), { recursive: true });

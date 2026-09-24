@@ -25,8 +25,13 @@ REMOVE=0
 INIT_GIT=1
 
 # Everything gitignored as personal. Keep in step with .gitignore's personal-layer block.
+# connections.md and references/voice.md were tracked at this repo's root until 2.39, and /onboard
+# filled them in place; an older checkout can still hold a filled copy of either.
 PERSONAL_DIRS=(context inbox daily notes projects areas resources decisions brain)
-PERSONAL_FILES=(home.md)
+PERSONAL_FILES=(home.md connections.md references/voice.md)
+
+# The empty vault a destination starts from: folder placeholders, connections.md, voice.md.
+SKELETON="templates/vault"
 
 usage() {
   sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
@@ -99,9 +104,26 @@ for p in "${plan[@]}"; do
     # -a preserves timestamps so the vault's own date-based rituals keep working.
     cp -a "$p/." "$DEST/$p/"
   else
+    mkdir -p "$DEST/$(dirname "$p")"
     cp -a "$p" "$DEST/$p"
   fi
 done
+
+# The skeleton, for whatever this run did not bring. connections.md and voice.md used to be tracked
+# here, so a vault extracted after they moved to templates/vault/ would arrive without the files
+# /onboard, /audit and /scan-projects write into. Only what is missing: a file the copy above just
+# delivered, or one the user already has in the destination, is theirs and is never overwritten.
+if [ -d "$SKELETON" ]; then
+  seeded=0
+  while IFS= read -r f; do
+    rel="${f#"$SKELETON"/}"
+    [ -e "$DEST/$rel" ] && continue
+    mkdir -p "$DEST/$(dirname "$rel")"
+    cp "$f" "$DEST/$rel"
+    seeded=$((seeded + 1))
+  done < <(find "$SKELETON" -type f)
+  if [ "$seeded" -gt 0 ]; then echo "seeded $seeded missing skeleton file(s) from $SKELETON/"; fi
+fi
 
 # The vault's operating manual — the firewall every ritual enforces. It used to be this repo's root
 # AGENTS.md, so a vault moved out without it arrives with rituals pointing at nothing. Never over an

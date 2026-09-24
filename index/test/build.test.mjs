@@ -1,14 +1,14 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { buildIndex, hotspots } from "../lib/build.mjs";
 import { inferAreas, layerKeyFor, briefCandidates } from "../lib/layers.mjs";
 
 function fixture() {
-  const root = mkdtempSync(join(tmpdir(), "cortex-idx-"));
+  const root = tempDir("cortex-idx-");
   mkdirSync(join(root, "src", "billing"), { recursive: true });
   mkdirSync(join(root, "test"), { recursive: true });
   mkdirSync(join(root, "node_modules", "junk"), { recursive: true });
@@ -117,7 +117,7 @@ test("tsconfig path aliases resolve, including through an extends chain", () => 
   // wrote 428 of its imports as `@/...` and the index resolved none of them, so four fifths of the
   // graph was missing and 154 files reported as orphans. Splitting options into a base config and
   // extending it is the normal layout, and a resolver that stops at `extends` sees nothing.
-  const root = mkdtempSync(join(tmpdir(), "cortex-ts-"));
+  const root = tempDir("cortex-ts-");
   mkdirSync(join(root, "src", "components", "Header"), { recursive: true });
   mkdirSync(join(root, "src", "utils"), { recursive: true });
 
@@ -155,7 +155,7 @@ test("a solution-style tsconfig resolves the aliases its references declare", ()
   //
   // tsconfig.node.json matters here too: it sits in the same directory and declares no `paths`, so
   // a lookup returning the first table for a directory could pick it and hide the app's aliases.
-  const root = mkdtempSync(join(tmpdir(), "cortex-tssol-"));
+  const root = tempDir("cortex-tssol-");
   mkdirSync(join(root, "src", "shared"), { recursive: true });
 
   writeFileSync(join(root, "tsconfig.json"), '{ "files": [], "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }] }');
@@ -180,7 +180,7 @@ test("a workspace reference names a directory, and each package keeps its own al
   // The keying is the part most easily got wrong. Both packages declare the same `~/*` key against
   // `./src/*`, so a table keyed where the *referrer* sits would point both at a root `src/` that
   // does not exist — or, worse, at each other's files.
-  const root = mkdtempSync(join(tmpdir(), "cortex-tsrefdir-"));
+  const root = tempDir("cortex-tsrefdir-");
   mkdirSync(join(root, "packages", "app", "src"), { recursive: true });
   mkdirSync(join(root, "packages", "ui", "src"), { recursive: true });
 
@@ -207,7 +207,7 @@ test("a referenced config never outranks a nearer or equal config of the repo's 
   // config declares for the same directory — they are merged, and the nearer claim is tried first.
   // Below it, the package's aliases must still win for the package's files, even though the only
   // config declaring them was reached through a reference.
-  const root = mkdtempSync(join(tmpdir(), "cortex-tsrank-"));
+  const root = tempDir("cortex-tsrank-");
   mkdirSync(join(root, "src"), { recursive: true });
   mkdirSync(join(root, "other"), { recursive: true });
   mkdirSync(join(root, "packages", "app", "src"), { recursive: true });
@@ -235,7 +235,7 @@ test("a referenced config never outranks a nearer or equal config of the repo's 
 });
 
 test("a reference cycle costs a config, never the run", () => {
-  const root = mkdtempSync(join(tmpdir(), "cortex-tscycle-"));
+  const root = tempDir("cortex-tscycle-");
   mkdirSync(join(root, "src"), { recursive: true });
 
   writeFileSync(
@@ -257,7 +257,7 @@ test("a reference cycle costs a config, never the run", () => {
 test("a malformed referenced config loses its own aliases and nothing else", () => {
   // Same discipline the extends walk already keeps: a config that cannot be parsed costs its
   // aliases, never the index. The sibling reference must still be read.
-  const root = mkdtempSync(join(tmpdir(), "cortex-tsbad-"));
+  const root = tempDir("cortex-tsbad-");
   mkdirSync(join(root, "src"), { recursive: true });
   mkdirSync(join(root, "lib"), { recursive: true });
 
@@ -276,7 +276,7 @@ test("a malformed referenced config loses its own aliases and nothing else", () 
 });
 
 test("a reference to a config that is not there costs nothing", () => {
-  const root = mkdtempSync(join(tmpdir(), "cortex-tsmissing-"));
+  const root = tempDir("cortex-tsmissing-");
   mkdirSync(join(root, "src"), { recursive: true });
   writeFileSync(
     join(root, "tsconfig.json"),
@@ -292,7 +292,7 @@ test("a reference to a config that is not there costs nothing", () => {
 test("a repo with no tsconfig resolves exactly as before", () => {
   // Alias resolution is strictly additive: it runs only after the relative resolver returns null,
   // so a repo that declares nothing can never see a different graph because of it.
-  const root = mkdtempSync(join(tmpdir(), "cortex-nots-"));
+  const root = tempDir("cortex-nots-");
   mkdirSync(join(root, "src"), { recursive: true });
   writeFileSync(join(root, "src", "a.js"), 'import "./b.js";\nimport "@/ghost";\n');
   writeFileSync(join(root, "src", "b.js"), "export const b = 1;\n");
@@ -305,7 +305,7 @@ test("a go import names a package, so one specifier reaches every file in that d
   // The one language whose specifier resolves to many files, and the reason `resolve` returns an
   // array for everyone. The alias tests above cover JS twelve times over; this side of the seam had
   // no end-to-end coverage at all, which is where both known resolver bugs lived.
-  const root = mkdtempSync(join(tmpdir(), "cortex-go-"));
+  const root = tempDir("cortex-go-");
   mkdirSync(join(root, "cmd", "serve"), { recursive: true });
   writeFileSync(join(root, "go.mod"), "module github.com/acme/tool\n\ngo 1.22\n");
   writeFileSync(
@@ -333,7 +333,7 @@ test("a rust workspace resolves each crate against its own root, including one w
   // ripgrep's layout: `crates/core/main.rs` has no src/ directory, so a crate root derived from
   // Cargo.toml + "/src" missed every import in it. And `crate::` must mean the crate the file
   // belongs to — resolving against the workspace points every member at one place.
-  const root = mkdtempSync(join(tmpdir(), "cortex-rs-"));
+  const root = tempDir("cortex-rs-");
   mkdirSync(join(root, "crates", "core"), { recursive: true });
   mkdirSync(join(root, "crates", "printer", "src"), { recursive: true });
   writeFileSync(join(root, "crates", "core", "main.rs"), "mod args;\nuse crate::args::Args;\n");
@@ -350,7 +350,7 @@ test("a rust workspace resolves each crate against its own root, including one w
 // --- churn window ------------------------------------------------------------------------------
 
 function gitRepo(build) {
-  const root = mkdtempSync(join(tmpdir(), "cortex-churn-"));
+  const root = tempDir("cortex-churn-");
   execFileSync("git", ["init", "-q", "."], { cwd: root });
   execFileSync("git", ["config", "user.email", "t@t"], { cwd: root });
   execFileSync("git", ["config", "user.name", "t"], { cwd: root });
@@ -396,7 +396,7 @@ test("a repo with recent history keeps the recent window", () => {
 test("no git at all is distinguishable from no churn", () => {
   // The same distinction UNRESOLVED_LANGUAGES keeps for imports: "I looked and found nothing" and
   // "I could not look" must not print the same sentence.
-  const root = mkdtempSync(join(tmpdir(), "cortex-nogit-"));
+  const root = tempDir("cortex-nogit-");
   writeFileSync(join(root, "a.js"), "export const a = 1;\n");
   const { counts, window } = hotspots(root);
   assert.equal(window, null, "null means there was nothing to ask");

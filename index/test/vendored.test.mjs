@@ -1,8 +1,8 @@
+import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { vendoredPaths, partitionVendored, vendoredStats } from "../lib/vendored.mjs";
@@ -11,7 +11,7 @@ import { briefCandidates } from "../lib/layers.mjs";
 import { computeBatches, scopeFilter, isEnrichable } from "../lib/batch.mjs";
 
 function repo(attributes, files) {
-  const root = mkdtempSync(join(tmpdir(), "cortex-vend-"));
+  const root = tempDir("cortex-vend-");
   execFileSync("git", ["init", "-q", "."], { cwd: root });
   execFileSync("git", ["config", "user.email", "t@t"], { cwd: root });
   execFileSync("git", ["config", "user.name", "t"], { cwd: root });

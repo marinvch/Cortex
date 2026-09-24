@@ -261,7 +261,7 @@ stamp_plugin_settings(){
   else
     if [ -f "$abs" ]; then
       say "  ↷ .claude/settings.json exists and jq isn't installed — left untouched"
-      say "    (add the Core plugin bundle manually; see references/cortex-plugins.md)"
+      say "    (add the Core plugin bundle manually; see plugins/cortex-core-plugins.json in the Cortex repo)"
       return
     fi
     local pairs=() p

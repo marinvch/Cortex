@@ -26,7 +26,9 @@ is not obvious for this machine.
 
 1. Ensure a private team-brain git repo exists (create it via `gh repo create <org>/<team>-brain --private`
    if the user hasn't) and get its URL.
-2. Run `node <vault>/mcp/ai-os.js team init --name <team> --repo <git-url> --projects <slug1,slug2>`.
+2. With `AI_OS_ROOT` set to your vault — the seeded clone lives under it — run
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team init --name <team> --repo <git-url> --projects <slug1,slug2>`.
+   From a clone of the Cortex repo rather than the plugin, use that clone's path.
 3. Confirm the team-brain was seeded and pushed.
 4. **Hand off.** Give members the repo URL *and* the exact `/team-add` invocation they run inside
    each product repo — the command, not a description of it. A leader who shares only the URL leaves

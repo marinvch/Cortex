@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   test:
-    # These hooks run on every UserPromptSubmit and SessionEnd in this repo — a regression breaks
+    # These hooks run on every UserPromptSubmit in this repo — a regression breaks
     # every session, so they get the same matrix treatment as the MCP server.
     runs-on: ${{ matrix.os }}
     strategy:

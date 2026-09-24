@@ -174,19 +174,23 @@ bash tools/cortex-vault-extract.sh --to ~/cortex-brain --apply  # copy it out
 
 ### Vault quick start (5 minutes)
 
-**1. Get the vault**
+**1. Get the vault** — its own folder, never the Cortex checkout
 ```bash
 git clone https://github.com/marinvch/Cortex.git
-cd Cortex
-cp templates/home.md home.md          # your personal map (gitignored)
-bash tools/cortex-sync-skills.sh      # expose the rituals as /slash commands
+mkdir ~/cortex-brain
+cp -r Cortex/templates/vault/. ~/cortex-brain/       # the empty skeleton: folders, connections, voice
+cp Cortex/templates/home.md ~/cortex-brain/home.md   # your personal map
 ```
+The rituals come from the plugin (`/plugin install cortex`, above), so they are available in the
+vault folder without copying anything else in.
 
-**2. Teach the brain who you are** — in Claude Code / Cowork, run:
+**2. Teach the brain who you are** — in Claude Code / Cowork, from the vault folder, run:
 ```
 /onboard
 ```
-It interviews you and fills `context/` (about you, priorities, how you work, voice).
+It interviews you and fills `context/` (about you, priorities, how you work), `connections.md` and
+`references/voice.md`. It copies in any part of the skeleton the vault is missing, and the vault's
+`AGENTS.md` manual, so step 1's `cp -r` is a head start rather than a requirement.
 
 **3. Use it daily**
 ```
@@ -316,7 +320,8 @@ This repository is **data-free**: it holds the product and nothing else, because
 forked and read by strangers. A vault (`context/`, `inbox/`, `daily/`, `notes/`, `projects/`,
 `areas/`, `resources/`, `decisions/`, `archives/`) lives in **its own private repo** — move one out
 with `tools/cortex-vault-extract.sh` — and the paths stay gitignored here as a backstop, not as the
-boundary. **Archiving is not sanitizing.** The product's own retired pieces live in `docs/history/`.
+boundary. **Archiving is not sanitizing.** The product's own history is its git log and
+`CHANGELOG.md`.
 
 On a team, what is shared is the target repo's context layer — `AGENTS.md`, `.cortex/memory/` —
 committed with that code. `core/scrub.js` refuses any memory write carrying a credential.
@@ -366,9 +371,8 @@ That is the promise; "all bash" was the old shorthand for it, and it stopped bei
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |
 | `cortex-skill-usage.mjs` | Which rituals your sessions have actually reached |
 
-Node also runs the codebase half (`core/`, `index/`), the optional MCP brain (`mcp/`), and two
-Claude Code hooks in `.claude/hooks/`. The original Node installer is retired at
-`docs/history/cortex-init.mjs.legacy`.
+Node also runs the codebase half (`core/`, `index/`), the optional MCP brain (`mcp/`), and the
+prompt-gate hook in `.claude/hooks/`.
 
 ## License
 

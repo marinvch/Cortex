@@ -14,6 +14,18 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **Skill evals, and a way to train skills against them — `evals/`.** 40 scored tasks each for
+  `/ship`, `/resume` and `/cortex-review`, generated from fixed seeds with the ground truth known by
+  construction: merge order checked against `/ship`'s own ranking rules, branches that only *look*
+  deletable (squash-merged but still receiving commits, closed unmerged, old with no PR), the branch
+  the dirt is on, stale lines versus history and unchanged facts, and changes with nothing stale at
+  all. `evals/score.mjs` is the one scorer, and it is tested before anything trusts it.
+  `evals/skillopt/` plugs the tasks into [SkillOpt](https://github.com/microsoft/SkillOpt), which
+  keeps an edit to a skill only when it raises the held-out score — both roles over `claude -p`, so no
+  API key. The evals treat a squash-merged branch with nothing committed since as deletable — a
+  policy, stated here because the tasks encode it. Every held-out task is drawn from the same
+  generator as training, so a score says the skill handles *these kinds* of situation, not every
+  real one; the worktree rule under **Changed** is a case the generator cannot produce.
 - **`/cortex`** — the front door. Indexes, reports, reads what the loop is missing, merges that with
   the findings worklist into one interview, plays everything back grouped by stage, and applies it in
   one pass behind a single `[a]ll / [p]ick / [n]one`. Hands off to `/cortex-scaffold`,
@@ -43,6 +55,19 @@ production breach writes the next `intent.md`.
 
 ### Changed
 
+- **`/ship`, `/resume` and `/cortex-review` were trained against `evals/`.** Held-out tasks fully
+  right on Sonnet 5, before → the text that ships: `/ship` 7 → 14 of 14, `/resume` 2 → 14 of 14,
+  `/cortex-review` 13 → 14 of 14. The misses were the skills' wording, not the model. `/ship` read
+  "files a second PR also touches, **next**" as *last*, and refused to delete a squash-merged branch
+  because it named `git branch --merged` as the only basis — a squash merge never shows there; it
+  now ranks PRs in strict tiers and decides each branch from one table. `/resume` counted gone and
+  no-upstream branches as hidden work and routed to `/ship` with no PR open; `--no-merged` now
+  decides, and routing is an ordered list. `/cortex-review` flagged lines that shared a keyword with
+  the change as stale; it now tests the sentence's claim, and keeps *unverified* apart from *stale*.
+- **`/resume` looks in every worktree.** The trained rule — only `--no-merged` decides which
+  branches hold work — would have missed the session that built these evals: a branch with no
+  commits, all of its work uncommitted in a worktree under a temp dir. `git worktree list` and a
+  `status` per extra worktree now report that dirt with its branch and path.
 - **"Finished" now means the chain is closed**, not that a context layer exists. A repo with
   `AGENTS.md` and no `REVIEW.md` or `intent/` is reported mid-sequence. Blocked artifacts — evals
   without CI, bands without a review gate — never hold completion open.

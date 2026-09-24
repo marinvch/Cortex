@@ -1,0 +1,36 @@
+_base_: {{BASE}}
+
+# Both roles run through the Claude Code CLI (`claude -p`) on the user's own login — no API key.
+model:
+  optimizer_backend: claude_chat
+  target_backend: claude_chat
+  optimizer: claude-opus-5-5
+  target: claude-sonnet-5
+  reasoning_effort: medium
+
+# Small data (16 train / 10 val / 14 test per skill), so small batches and few epochs.
+train:
+  num_epochs: 3
+  batch_size: 8
+  accumulation: 1
+
+gradient:
+  minibatch_size: 4
+  merge_batch_size: 4
+  analyst_workers: 4
+
+optimizer:
+  learning_rate: 3
+  min_learning_rate: 1
+  lr_scheduler: cosine
+  slow_update_samples: 8
+
+evaluation:
+  use_gate: true
+
+env:
+  name: cortex_skill
+  split_mode: split_dir
+  workers: 4
+  max_completion_tokens: 4096
+  exec_timeout: 300

@@ -77,3 +77,6 @@ tools/test/private-names.local
 *.tmp.cjs
 *.tmp.mjs
 *.tmp.md
+
+# Python bytecode from running evals/skillopt/ locally.
+__pycache__/

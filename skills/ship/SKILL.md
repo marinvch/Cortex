@@ -47,13 +47,31 @@ gh pr list --state open
 gh pr view <n> --json mergeable,mergeStateStatus,baseRefName,headRefName
 ```
 
-Merge order is not arbitrary. Rank it:
+Merge order is not arbitrary. Rank it — these are **strict tiers**, not suggestions:
 
 1. **Anything another PR is based on**, first — it is the base of an accidental stack and merging it
    later is what strands the rest.
 2. **Anything touching files a second PR also touches**, next, so the conflict surfaces once in a
    branch rather than repeatedly in main.
 3. **Everything else**, in any order.
+
+How to apply it mechanically:
+
+- Give each PR exactly one tier (the lowest-numbered one it qualifies for), using only two tests:
+  *is some other PR's `baseRefName` this PR's `headRefName`?* → tier 1. Otherwise, *does any file in
+  its list appear in another open PR's list?* → tier 2. Otherwise → tier 3. Compare file lists
+  pairwise across **all** open PRs; a shared file with the base of a stack still counts.
+- Output **every** tier-1 PR, then **every** tier-2 PR, then tier-3 PRs. An independent PR never goes
+  ahead of a tier-1 or tier-2 PR, even if it is "easy", "isolated", or "no reason to hold it back".
+  Merging the easy ones first to "get them out of the way" gets the order backwards.
+- **Being stacked on another PR is not a tier.** A child PR whose files overlap nothing is tier 3.
+  It goes after all tier-2 PRs, not straight after its base.
+- Before stating the order, check it: scan left to right and confirm the tier numbers never decrease.
+- Write the evidence before the order, one line per PR, e.g. `#357 → T1 (base of #364)` ·
+  `#356 → T2 (routes.ts with #362, #364)` · `#385 → T3 (child of #380, shares nothing)`.
+  Name the actual shared file. If you cannot name one, it is not tier 2. A PR with no line has not
+  been tiered yet. A PR whose only file partner is a tier-1 base is still tier 2, and the base stays
+  tier 1. If every PR comes out tier 3, say so and use PR number as the tiebreak.
 
 Say the order and why before merging anything, then merge them one at a time, checking the next one
 still reports mergeable after each. A queue that was fine three merges ago is not evidence.
@@ -68,9 +86,30 @@ git branch -r --merged origin/<main>                       # and the remotes
 ```
 
 Delete only branches that are **actually merged** — that is what `--merged` answers, and it is the
-one safe basis for deleting a branch. "Looks old" is not: a stale-looking branch is exactly where
+one safe basis for deleting a branch. **Squash and rebase merges never show as `--merged`**,
+because the commits in main have new hashes. For those branches, a branch counts as merged when its
+PR state is *merged* **and** the branch has **0 commits after the merge point**. If there are commits
+after the merge, that is work main does not have, so keep the branch. A PR that was *closed without
+merging*, a branch with no PR, and a branch behind a still-open PR are all unmerged. List them for
+the user and don't delete them. "Looks old" is not: a stale-looking branch is exactly where
 abandoned-but-wanted work lives. Show the user the list and let them confirm before deleting remote
 branches; a local branch is recoverable from reflog, a remote one is a phone call.
+
+Decide each branch by its state **now**, not after the merges you just planned, using this table and
+nothing else:
+
+| state | verdict |
+|---|---|
+| `--merged` yes | delete |
+| PR merged (squash/rebase), 0 commits after | delete |
+| PR merged, ≥1 commit after | keep (unlanded work) |
+| PR open (even one you are about to merge) | keep, because it is not merged *yet* |
+| PR closed unmerged / no PR, however old | keep, ask |
+
+Give every branch a one-line verdict and the reason
+(`merged, 0 after → delete`, `1 commit after merge → keep`, `closed unmerged → keep, ask`,
+`PR still open → keep`, `no PR → keep, ask`), so the user can see why a branch was kept as well as
+why one was deleted.
 
 Close by saying what landed and what is left open. If the day produced a decision worth keeping,
 `/dream` — the PR description is not where a future reader will look.

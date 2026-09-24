@@ -83,9 +83,31 @@ If it reports no context layer, say so and stop. There is nothing to review agai
    such.
 3. **For each named mention, re-read that line against the new code.** A mention is not a defect —
    it is where one would hide. Ask only: *is this sentence still true?* Report the ones that are
-   not, with the line and what it should now say.
+   not, with the line and what it should now say. To answer it, test the sentence's **claim**, not
+   its subject. First name what the diff changed (a value, an identifier, a path or a behaviour).
+   Then name the one fact the sentence asserts, and mark it stale only if the two are the same.
+   - A literal the diff changed (an old path, an old identifier, a count or a default value) makes
+     the line **stale**. "`max_sessions` defaults to 7" is stale once the default becomes 14.
+   - A property the diff did not touch (precedence, determinism, clock use or a behavioural
+     contract) leaves the line **true**, even though it shares a keyword with the change. "The
+     environment variable wins over `max_sessions`" survives the default change above.
+   - A line that **already** names the new path or identifier is correct, not stale.
+   - A **historical record** is correct as written. This covers ADR rationale, CHANGELOG entries,
+     and lines like "`a` was renamed to `b` in 2.39" or "the old name no longer exists". The
+     `historical` class applies here too, not only under `--citations`.
+   - **Renames split across both axes.** Say every caller was updated. A rule like "callers read it
+     from `a()`" is still *followed* for standards. The sentence naming `a()` is still *drift*, so
+     give the new name as the fix. A moved file named in a rule is drift, not a broken rule.
 4. **Say what you could not check.** Rules described in prose without naming a path are invisible to
    the evidence pass, and a change can violate one without ever appearing in the drift list.
+
+Keep **stale** separate from **unverified**. You may have only a diff *summary*, such as
+"internal loop rewritten; behaviour unchanged". Treat it as the author's assertion, not as
+evidence. Call a line stale only if the summary proves it false. A line's truth may depend on
+hunks you cannot see, such as whether a new signal is combined the same way, or whether a
+rewritten loop now reads the clock or randomness or iterates in a different order. List that
+line as unverified and name the exact hunk or check that would settle it. Do not put it in the
+stale list on suspicion, and do not clear it without saying you took the summary on trust.
 
 ## Optional — a second opinion from one angle
 
@@ -113,6 +135,9 @@ for.
 Lead with drift, then broken rules, then everything else. Drift comes first because it is the
 finding the author cannot see for themselves — the code in front of them looks right, and the
 sentence describing it is somewhere else.
+
+Give every named mention a verdict (stale, still true or unverified) with a one-line reason. A
+cleared line shows it was checked, not skipped.
 
 Never edit a document on your own authority here. `/cortex-review` reports; the human decides what
 the sentence should say, the same way `/optimize-context` never deletes prose it merely judged

@@ -180,6 +180,7 @@ through, what a ritual must declare. Read it once before your first change here.
 | `index/` — indexer, findings, enrichment | [`index/AGENTS.md`](index/AGENTS.md) |
 | `mcp/` — the live brain, the `ai-os` CLI | [`mcp/AGENTS.md`](mcp/AGENTS.md) |
 | `tools/` — the scripts a person runs, and the repo's self-checks | [`tools/AGENTS.md`](tools/AGENTS.md) |
+| `evals/` — scored tasks for skills, and training them with SkillOpt | [`evals/README.md`](evals/README.md) |
 | `skills/`, `templates/`, `references/` | this file is enough |
 
 Domain terms are defined once in [`CONTEXT.md`](CONTEXT.md); decisions and their rejected

@@ -1,7 +1,7 @@
 name: mcp test
 on:
   push:
-    paths: ["core/**", "index/**", "mcp/**", "plugins/**", "tools/cortex-init.sh", "VERSION", ".github/workflows/mcp-test.yml"]
+    paths: ["core/**", "index/**", "mcp/**", "evals/**", "plugins/**", "tools/cortex-init.sh", "VERSION", ".github/workflows/mcp-test.yml"]
   pull_request:
   workflow_dispatch:
 
@@ -48,3 +48,8 @@ jobs:
       - name: Test index
         shell: bash
         run: node --test index/test/*.test.mjs
+      # The skill evals: the scorer is tested before an optimizer trusts it, and the committed task
+      # files must be exactly what their seeds write.
+      - name: Test evals
+        shell: bash
+        run: node --test evals/test/*.test.mjs && node evals/generate.mjs --check

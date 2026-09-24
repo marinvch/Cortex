@@ -1,0 +1,479 @@
+[
+  {
+    "id": "ship-train-0",
+    "skill": "ship",
+    "seed": 32676,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#344  chore/export-profile       → master                     checks: pass  mergeable: MERGEABLE\n#346  chore/settings-auth        → master                     checks: pass  mergeable: MERGEABLE\n#350  fix/billing-cart           → master                     checks: pass  mergeable: MERGEABLE\n#354  docs/queue-report          → chore/settings-auth        checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#344: src/api/client.ts, src/auth/session.ts\n#346: src/i18n/en.json\n#350: src/checkout/pay.ts, src/auth/session.ts\n#354: package.json\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nrefactor/i18n-profile        yes      #375 merged                  0      15 days ago\ndocs/queue-report            no       #354 open                    -      1 days ago\nrefactor/preview-queue       no       #311 merged (squash)         0      13 days ago\nrefactor/import-checkout     no       #398 merged (squash)         1      11 days ago\nchore/export-profile         no       #344 open                    -      6 days ago\nfix/billing-cart             no       #350 open                    -      4 days ago\nchore/settings-auth          no       #346 open                    -      6 days ago\nfeat/report-ledger           no       none                         -      6 months ago\nchore/auth-metrics           no       none                         -      11 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "344": 2,
+        "346": 1,
+        "350": 2,
+        "354": 3
+      },
+      "stacked": [
+        [
+          346,
+          354
+        ]
+      ],
+      "prs": [
+        344,
+        346,
+        350,
+        354
+      ],
+      "delete": [
+        "refactor/i18n-profile",
+        "refactor/preview-queue"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-1",
+    "skill": "ship",
+    "seed": 32677,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#275  feat/webhook-report        → refactor/report-cache      checks: pass  mergeable: MERGEABLE\n#279  feat/settings-report       → master                     checks: pass  mergeable: MERGEABLE\n#280  chore/routing-sync         → master                     checks: pass  mergeable: MERGEABLE\n#282  refactor/report-cache      → master                     checks: pass  mergeable: MERGEABLE\n#285  refactor/import-report     → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#275: src/search/index.ts, package.json\n#279: src/checkout/pay.ts\n#280: src/auth/session.ts, src/ui/Button.tsx, package.json\n#282: src/ui/Modal.tsx\n#285: src/api/client.ts, src/notify/email.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nchore/routing-sync           no       #280 open                    -      6 days ago\nrefactor/report-cache        no       #282 open                    -      0 days ago\nfeat/theme-checkout          no       #236 closed, not merged      -      18 days ago\nfix/checkout-billing         yes      #261 merged                  0      2 days ago\nfeat/settings-report         no       #279 open                    -      6 days ago\nfeat/webhook-report          no       #275 open                    -      5 days ago\nchore/report-onboarding      no       #261 merged (squash)         0      20 days ago\nrefactor/import-report       no       #285 open                    -      2 days ago\nchore/onboarding-session     no       #266 merged (squash)         1      18 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "275": 2,
+        "279": 3,
+        "280": 2,
+        "282": 1,
+        "285": 3
+      },
+      "stacked": [
+        [
+          282,
+          275
+        ]
+      ],
+      "prs": [
+        275,
+        279,
+        280,
+        282,
+        285
+      ],
+      "delete": [
+        "fix/checkout-billing",
+        "chore/report-onboarding"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-2",
+    "skill": "ship",
+    "seed": 32678,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#242  chore/profile-report       → master                     checks: pass  mergeable: MERGEABLE\n#249  chore/theme-auth           → master                     checks: pass  mergeable: MERGEABLE\n#255  fix/profile-settings       → master                     checks: pass  mergeable: MERGEABLE\n#261  chore/settings-i18n        → master                     checks: pass  mergeable: MERGEABLE\n#265  docs/invoices-notify       → fix/profile-settings       checks: pass  mergeable: MERGEABLE\n#270  chore/queue-report         → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#242: src/api/client.ts, src/checkout/pay.ts\n#249: src/lib/format.ts, src/billing/ledger.ts, src/checkout/pay.ts\n#255: src/ui/Button.tsx\n#261: src/i18n/en.json, CHANGELOG.md\n#265: src/auth/session.ts\n#270: package.json, src/export/csv.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\ndocs/audit-cache             yes      #248 merged                  0      17 days ago\nrefactor/search-cart         no       #316 merged (squash)         0      18 days ago\nchore/profile-report         no       #242 open                    -      4 days ago\ndocs/invoices-notify         no       #265 open                    -      5 days ago\nfix/settings-onboarding      no       none                         -      17 days ago\nfeat/metrics-theme           no       none                         -      7 months ago\nchore/theme-auth             no       #249 open                    -      0 days ago\nfix/profile-settings         no       #255 open                    -      3 days ago\nchore/settings-i18n          no       #261 open                    -      0 days ago\nchore/queue-report           no       #270 open                    -      2 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "242": 2,
+        "249": 2,
+        "255": 1,
+        "261": 3,
+        "265": 3,
+        "270": 3
+      },
+      "stacked": [
+        [
+          255,
+          265
+        ]
+      ],
+      "prs": [
+        242,
+        249,
+        255,
+        261,
+        265,
+        270
+      ],
+      "delete": [
+        "docs/audit-cache",
+        "refactor/search-cart"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-3",
+    "skill": "ship",
+    "seed": 32679,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#420  fix/billing-export         → master                     checks: pass  mergeable: MERGEABLE\n#422  docs/webhook-export        → master                     checks: pass  mergeable: MERGEABLE\n#429  chore/invoices-preview     → master                     checks: pass  mergeable: MERGEABLE\n#436  refactor/settings-profile  → master                     checks: pass  mergeable: MERGEABLE\n#437  fix/profile-metrics        → master                     checks: pass  mergeable: MERGEABLE\n#442  docs/auth-cart             → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#420: src/ui/Modal.tsx, src/cart/cart.ts\n#422: package.json, src/notify/email.ts\n#429: CHANGELOG.md, src/ui/Button.tsx\n#436: src/export/csv.ts, src/checkout/pay.ts\n#437: src/i18n/en.json\n#442: README.md, src/cart/cart.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nrefactor/settings-profile    no       #436 open                    -      1 days ago\nfix/billing-export           no       #420 open                    -      3 days ago\nfix/profile-metrics          no       #437 open                    -      0 days ago\ndocs/auth-cart               no       #442 open                    -      1 days ago\nfeat/invoices-theme          no       none                         -      14 days ago\nfix/export-preview           no       #486 merged (squash)         0      10 days ago\ndocs/settings-search         no       #450 closed, not merged      -      18 days ago\nchore/cart-webhook           no       #468 merged (squash)         0      8 days ago\ndocs/webhook-export          no       #422 open                    -      0 days ago\nchore/invoices-preview       no       #429 open                    -      5 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "420": 2,
+        "422": 3,
+        "429": 3,
+        "436": 3,
+        "437": 3,
+        "442": 2
+      },
+      "stacked": [],
+      "prs": [
+        420,
+        422,
+        429,
+        436,
+        437,
+        442
+      ],
+      "delete": [
+        "fix/export-preview",
+        "chore/cart-webhook"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-4",
+    "skill": "ship",
+    "seed": 32680,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#442  fix/settings-i18n          → master                     checks: pass  mergeable: MERGEABLE\n#447  chore/theme-theme          → master                     checks: pass  mergeable: MERGEABLE\n#454  refactor/export-invoices   → chore/theme-theme          checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#442: src/cart/cart.ts, src/billing/invoice.ts\n#447: package.json, src/search/index.ts\n#454: src/api/routes.ts, src/i18n/en.json, src/search/index.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nfix/settings-i18n            no       #442 open                    -      6 days ago\nfix/notify-webhook           no       #481 closed, not merged      -      1 days ago\nrefactor/export-invoices     no       #454 open                    -      3 days ago\ndocs/routing-invoices        no       #423 merged (squash)         0      12 days ago\nchore/theme-theme            no       #447 open                    -      2 days ago\nfix/upload-profile           no       #489 merged (squash)         3      8 days ago\nchore/report-invoices        no       none                         -      8 months ago\ndocs/queue-invoices          no       #469 merged (squash)         0      11 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "442": 3,
+        "447": 1,
+        "454": 2
+      },
+      "stacked": [
+        [
+          447,
+          454
+        ]
+      ],
+      "prs": [
+        442,
+        447,
+        454
+      ],
+      "delete": [
+        "docs/routing-invoices",
+        "docs/queue-invoices"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-5",
+    "skill": "ship",
+    "seed": 32681,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#376  chore/auth-metrics         → master                     checks: pass  mergeable: MERGEABLE\n#380  fix/notify-queue           → master                     checks: pass  mergeable: MERGEABLE\n#383  chore/report-preview       → master                     checks: pass  mergeable: MERGEABLE\n#384  feat/import-i18n           → master                     checks: pass  mergeable: MERGEABLE\n#385  feat/metrics-preview       → fix/notify-queue           checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#376: src/checkout/pay.ts\n#380: src/ui/Modal.tsx, src/billing/ledger.ts, README.md\n#383: src/lib/format.ts\n#384: src/ui/Button.tsx, README.md\n#385: src/billing/invoice.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nfix/cache-queue              no       #412 merged (squash)         0      14 days ago\nfix/notify-queue             no       #380 open                    -      3 days ago\nfeat/metrics-preview         no       #385 open                    -      5 days ago\nchore/report-preview         no       #383 open                    -      1 days ago\nrefactor/i18n-export         no       #375 merged (squash)         0      13 days ago\nchore/auth-metrics           no       #376 open                    -      2 days ago\nchore/profile-billing        no       #417 merged (squash)         4      4 days ago\ndocs/routing-audit           no       none                         -      15 days ago\nfeat/import-i18n             no       #384 open                    -      5 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "376": 3,
+        "380": 1,
+        "383": 3,
+        "384": 2,
+        "385": 3
+      },
+      "stacked": [
+        [
+          380,
+          385
+        ]
+      ],
+      "prs": [
+        376,
+        380,
+        383,
+        384,
+        385
+      ],
+      "delete": [
+        "fix/cache-queue",
+        "refactor/i18n-export"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-6",
+    "skill": "ship",
+    "seed": 32682,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#356  chore/routing-import       → master                     checks: pass  mergeable: MERGEABLE\n#357  fix/checkout-i18n          → master                     checks: pass  mergeable: MERGEABLE\n#362  feat/theme-notify          → master                     checks: pass  mergeable: MERGEABLE\n#364  refactor/settings-preview  → fix/checkout-i18n          checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#356: src/checkout/pay.ts, src/api/routes.ts\n#357: src/export/csv.ts, src/i18n/en.json\n#362: src/auth/session.ts, src/ui/Modal.tsx, src/api/routes.ts\n#364: src/billing/ledger.ts, src/api/routes.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nchore/upload-checkout        yes      #402 merged                  0      9 days ago\nfix/profile-sync             no       #355 merged (squash)         0      5 days ago\nfix/checkout-i18n            no       #357 open                    -      3 days ago\nchore/routing-import         no       #356 open                    -      6 days ago\nfix/billing-queue            no       #318 merged (squash)         2      17 days ago\nfeat/export-sync             no       none                         -      7 days ago\nfeat/theme-notify            no       #362 open                    -      5 days ago\nrefactor/settings-preview    no       #364 open                    -      4 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "356": 2,
+        "357": 1,
+        "362": 2,
+        "364": 2
+      },
+      "stacked": [
+        [
+          357,
+          364
+        ]
+      ],
+      "prs": [
+        356,
+        357,
+        362,
+        364
+      ],
+      "delete": [
+        "chore/upload-checkout",
+        "fix/profile-sync"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-7",
+    "skill": "ship",
+    "seed": 32683,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#284  refactor/auth-search       → master                     checks: pass  mergeable: MERGEABLE\n#291  chore/routing-checkout     → master                     checks: pass  mergeable: MERGEABLE\n#293  chore/auth-session         → master                     checks: pass  mergeable: MERGEABLE\n#299  fix/profile-routing        → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#284: CHANGELOG.md, src/search/index.ts\n#291: README.md\n#293: src/notify/email.ts, src/export/csv.ts\n#299: src/billing/ledger.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nrefactor/auth-search         no       #284 open                    -      2 days ago\nfeat/queue-export            no       #324 merged (squash)         0      2 days ago\nfix/audit-session            no       #313 merged (squash)         1      6 days ago\nrefactor/export-i18n         no       none                         -      5 months ago\nfix/profile-routing          no       #299 open                    -      0 days ago\nchore/auth-session           no       #293 open                    -      2 days ago\nrefactor/upload-theme        no       #328 closed, not merged      -      12 days ago\nchore/routing-checkout       no       #291 open                    -      6 days ago\nfix/routing-checkout         no       #262 merged (squash)         0      14 days ago\nfix/metrics-preview          no       none                         -      1 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "284": 3,
+        "291": 3,
+        "293": 3,
+        "299": 3
+      },
+      "stacked": [],
+      "prs": [
+        284,
+        291,
+        293,
+        299
+      ],
+      "delete": [
+        "feat/queue-export",
+        "fix/routing-checkout"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-8",
+    "skill": "ship",
+    "seed": 32684,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#412  fix/theme-billing          → master                     checks: pass  mergeable: MERGEABLE\n#416  chore/preview-metrics      → master                     checks: pass  mergeable: MERGEABLE\n#420  chore/search-notify        → master                     checks: pass  mergeable: MERGEABLE\n#422  chore/queue-notify         → master                     checks: pass  mergeable: MERGEABLE\n#424  docs/search-theme          → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#412: src/ui/Modal.tsx\n#416: src/auth/session.ts, package.json\n#420: src/cart/cart.ts\n#422: src/checkout/pay.ts, README.md, package.json\n#424: package.json, src/billing/ledger.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nchore/search-notify          no       #420 open                    -      5 days ago\ndocs/cache-routing           no       #433 merged (squash)         0      15 days ago\nchore/preview-metrics        no       #416 open                    -      0 days ago\nfix/theme-billing            no       #412 open                    -      6 days ago\nchore/cart-report            no       #364 closed, not merged      -      4 days ago\nfeat/auth-webhook            no       none                         -      5 months ago\nchore/queue-notify           no       #422 open                    -      4 days ago\nrefactor/queue-theme         no       none                         -      17 days ago\ndocs/search-theme            no       #424 open                    -      2 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "412": 3,
+        "416": 2,
+        "420": 3,
+        "422": 2,
+        "424": 2
+      },
+      "stacked": [],
+      "prs": [
+        412,
+        416,
+        420,
+        422,
+        424
+      ],
+      "delete": [
+        "docs/cache-routing"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-9",
+    "skill": "ship",
+    "seed": 32685,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#420  chore/profile-auth         → master                     checks: pass  mergeable: MERGEABLE\n#426  fix/report-export          → master                     checks: pass  mergeable: MERGEABLE\n#428  chore/auth-settings        → fix/report-export          checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#420: src/api/client.ts, src/lib/format.ts\n#426: src/i18n/en.json, package.json\n#428: README.md, src/checkout/pay.ts, src/lib/format.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nfix/report-export            no       #426 open                    -      0 days ago\nchore/profile-auth           no       #420 open                    -      4 days ago\nfeat/profile-auth            no       #464 merged (squash)         0      19 days ago\nrefactor/i18n-session        no       #454 closed, not merged      -      3 days ago\nchore/queue-audit            no       #453 merged (squash)         1      7 days ago\nrefactor/preview-notify      no       none                         -      6 months ago\nchore/auth-settings          no       #428 open                    -      4 days ago\nfix/preview-profile          no       #384 merged (squash)         0      19 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "420": 2,
+        "426": 1,
+        "428": 2
+      },
+      "stacked": [
+        [
+          426,
+          428
+        ]
+      ],
+      "prs": [
+        420,
+        426,
+        428
+      ],
+      "delete": [
+        "feat/profile-auth",
+        "fix/preview-profile"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-10",
+    "skill": "ship",
+    "seed": 32686,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#266  fix/metrics-invoices       → master                     checks: pass  mergeable: MERGEABLE\n#273  docs/audit-onboarding      → master                     checks: pass  mergeable: MERGEABLE\n#274  docs/invoices-notify       → master                     checks: pass  mergeable: MERGEABLE\n#277  fix/session-profile        → master                     checks: pass  mergeable: MERGEABLE\n#282  chore/theme-search         → fix/session-profile        checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#266: src/ui/Modal.tsx, src/search/index.ts\n#273: src/api/routes.ts, src/export/csv.ts\n#274: src/cart/cart.ts\n#277: src/billing/ledger.ts, src/billing/invoice.ts\n#282: src/ui/Button.tsx, src/checkout/pay.ts, src/billing/invoice.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nfix/notify-profile           no       #272 merged (squash)         0      17 days ago\nchore/checkout-notify        no       #244 merged (squash)         0      14 days ago\nfix/cache-routing            no       none                         -      7 days ago\nfeat/import-export           no       #226 merged (squash)         3      3 days ago\ndocs/invoices-notify         no       #274 open                    -      1 days ago\nrefactor/cart-metrics        yes      #290 merged                  0      2 days ago\nfix/session-profile          no       #277 open                    -      6 days ago\nfix/metrics-invoices         no       #266 open                    -      6 days ago\nchore/theme-search           no       #282 open                    -      2 days ago\ndocs/audit-onboarding        no       #273 open                    -      2 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "266": 3,
+        "273": 3,
+        "274": 3,
+        "277": 1,
+        "282": 2
+      },
+      "stacked": [
+        [
+          277,
+          282
+        ]
+      ],
+      "prs": [
+        266,
+        273,
+        274,
+        277,
+        282
+      ],
+      "delete": [
+        "fix/notify-profile",
+        "chore/checkout-notify",
+        "refactor/cart-metrics"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-11",
+    "skill": "ship",
+    "seed": 32687,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#383  fix/auth-ledger            → fix/webhook-auth           checks: pass  mergeable: MERGEABLE\n#390  fix/webhook-auth           → master                     checks: pass  mergeable: MERGEABLE\n#395  chore/onboarding-settings  → master                     checks: pass  mergeable: MERGEABLE\n#398  feat/routing-onboarding    → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#383: src/search/index.ts\n#390: src/billing/invoice.ts, src/api/routes.ts\n#395: src/auth/session.ts, src/export/csv.ts\n#398: src/billing/ledger.ts, src/api/routes.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nfeat/routing-onboarding      no       #398 open                    -      3 days ago\nfix/onboarding-settings      no       none                         -      8 months ago\nfix/auth-ledger              no       #383 open                    -      4 days ago\nfix/webhook-auth             no       #390 open                    -      4 days ago\ndocs/ledger-settings         yes      #407 merged                  0      7 days ago\nrefactor/preview-cache       no       #379 merged (squash)         0      16 days ago\nchore/onboarding-settings    no       #395 open                    -      4 days ago\nchore/sync-queue             no       #409 closed, not merged      -      7 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "383": 3,
+        "390": 1,
+        "395": 3,
+        "398": 2
+      },
+      "stacked": [
+        [
+          390,
+          383
+        ]
+      ],
+      "prs": [
+        383,
+        390,
+        395,
+        398
+      ],
+      "delete": [
+        "docs/ledger-settings",
+        "refactor/preview-cache"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-12",
+    "skill": "ship",
+    "seed": 32688,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#172  refactor/import-export     → master                     checks: pass  mergeable: MERGEABLE\n#175  refactor/auth-settings     → master                     checks: pass  mergeable: MERGEABLE\n#176  refactor/theme-sync        → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#172: CHANGELOG.md, src/checkout/pay.ts, src/cart/cart.ts\n#175: src/auth/session.ts\n#176: src/i18n/en.json, src/cart/cart.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nfix/theme-preview            no       #161 closed, not merged      -      8 days ago\nrefactor/auth-settings       no       #175 open                    -      4 days ago\nrefactor/webhook-upload      no       none                         -      14 days ago\ndocs/i18n-queue              no       #153 merged (squash)         4      13 days ago\nrefactor/import-export       no       #172 open                    -      2 days ago\ndocs/upload-preview          no       #156 merged (squash)         0      10 days ago\nfeat/billing-profile         no       #203 merged (squash)         0      18 days ago\nrefactor/theme-sync          no       #176 open                    -      5 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "172": 2,
+        "175": 3,
+        "176": 2
+      },
+      "stacked": [],
+      "prs": [
+        172,
+        175,
+        176
+      ],
+      "delete": [
+        "docs/upload-preview",
+        "feat/billing-profile"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-13",
+    "skill": "ship",
+    "seed": 32689,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#183  chore/upload-i18n          → master                     checks: pass  mergeable: MERGEABLE\n#185  docs/session-import        → master                     checks: pass  mergeable: MERGEABLE\n#187  fix/preview-invoices       → master                     checks: pass  mergeable: MERGEABLE\n#192  refactor/upload-metrics    → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#183: src/auth/session.ts, src/i18n/en.json\n#185: src/i18n/en.json\n#187: package.json\n#192: src/lib/format.ts, README.md, src/i18n/en.json\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nrefactor/upload-metrics      no       #192 open                    -      5 days ago\ndocs/preview-sync            no       #149 merged (squash)         0      19 days ago\nrefactor/cart-onboarding     no       #240 closed, not merged      -      7 days ago\nfix/preview-invoices         no       #187 open                    -      1 days ago\ndocs/session-import          no       #185 open                    -      6 days ago\nfeat/queue-billing           no       #207 merged (squash)         0      2 days ago\nchore/billing-i18n           no       #219 merged (squash)         2      12 days ago\nrefactor/audit-auth          no       none                         -      9 months ago\nchore/upload-i18n            no       #183 open                    -      5 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "183": 2,
+        "185": 2,
+        "187": 3,
+        "192": 2
+      },
+      "stacked": [],
+      "prs": [
+        183,
+        185,
+        187,
+        192
+      ],
+      "delete": [
+        "docs/preview-sync",
+        "feat/queue-billing"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-14",
+    "skill": "ship",
+    "seed": 32690,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#292  feat/profile-export        → master                     checks: pass  mergeable: MERGEABLE\n#297  refactor/i18n-notify       → refactor/sync-theme        checks: pass  mergeable: MERGEABLE\n#302  refactor/sync-theme        → master                     checks: pass  mergeable: MERGEABLE\n#307  docs/queue-billing         → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#292: src/ui/Button.tsx\n#297: src/i18n/en.json, src/ui/Modal.tsx, src/notify/email.ts\n#302: src/api/client.ts, src/notify/email.ts\n#307: src/billing/invoice.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nfeat/import-search           no       none                         -      8 days ago\nfeat/profile-export          no       #292 open                    -      5 days ago\nfeat/billing-ledger          no       #326 merged (squash)         0      2 days ago\ndocs/queue-billing           no       #307 open                    -      1 days ago\nfeat/upload-settings         no       #286 closed, not merged      -      6 days ago\nrefactor/queue-metrics       yes      #347 merged                  0      16 days ago\nrefactor/sync-theme          no       #302 open                    -      2 days ago\nrefactor/i18n-notify         no       #297 open                    -      0 days ago\nrefactor/audit-search        no       #352 merged (squash)         2      8 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "292": 3,
+        "297": 2,
+        "302": 1,
+        "307": 3
+      },
+      "stacked": [
+        [
+          302,
+          297
+        ]
+      ],
+      "prs": [
+        292,
+        297,
+        302,
+        307
+      ],
+      "delete": [
+        "feat/billing-ledger",
+        "refactor/queue-metrics"
+      ]
+    }
+  },
+  {
+    "id": "ship-train-15",
+    "skill": "ship",
+    "seed": 32691,
+    "task_type": "ship",
+    "prompt": "The user says: \"everything's green — merge what's open and clean up the old branches.\"\n\nYou cannot run commands. Everything you need is below.\n\n$ gh pr list --state open --json number,headRefName,baseRefName,mergeable,checks\n#416  feat/export-report         → master                     checks: pass  mergeable: MERGEABLE\n#420  feat/export-routing        → master                     checks: pass  mergeable: MERGEABLE\n#424  docs/preview-invoices      → master                     checks: pass  mergeable: MERGEABLE\n#427  refactor/cache-preview     → master                     checks: pass  mergeable: MERGEABLE\n\nFiles each PR changes:\n#416: src/notify/email.ts, src/api/client.ts\n#420: src/checkout/pay.ts\n#424: src/export/csv.ts\n#427: README.md, src/search/index.ts, src/api/client.ts\n\nLocal branches (main branch is `master`):\nbranch                       --merged PR                           commits after PR merged / last commit\nfeat/export-routing          no       #420 open                    -      2 days ago\ndocs/invoices-billing        yes      #440 merged                  0      6 days ago\nfix/session-search           no       none                         -      3 days ago\nfeat/export-report           no       #416 open                    -      3 days ago\ndocs/metrics-notify          no       #446 closed, not merged      -      18 days ago\ndocs/preview-invoices        no       #424 open                    -      6 days ago\nfeat/routing-upload          no       #401 merged (squash)         0      9 days ago\ndocs/export-report           no       none                         -      5 months ago\nfeat/webhook-webhook         no       #392 merged (squash)         0      17 days ago\nrefactor/cache-preview       no       #427 open                    -      2 days ago\n\nDecide the merge order for the open PRs, and which LOCAL branches are safe to delete right now.\nThe open PRs are not merged yet, so judge each branch as it stands at this moment.\nEnd your reply with exactly these two lines:\nORDER: #<n>, #<n>, ...\nDELETE: <branch>, <branch>   (or: DELETE: none)",
+    "truth": {
+      "tier": {
+        "416": 2,
+        "420": 3,
+        "424": 3,
+        "427": 2
+      },
+      "stacked": [],
+      "prs": [
+        416,
+        420,
+        424,
+        427
+      ],
+      "delete": [
+        "docs/invoices-billing",
+        "feat/routing-upload",
+        "feat/webhook-webhook"
+      ]
+    }
+  }
+]

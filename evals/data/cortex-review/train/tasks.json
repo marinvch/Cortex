@@ -1,0 +1,192 @@
+[
+  {
+    "id": "cortex-review-train-0",
+    "skill": "cortex-review",
+    "seed": 103947,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/auth.mjs  (+10 -2: an internal loop rewritten; exports and behaviour unchanged)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  index/AGENTS.md\n  AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  index/AGENTS.md  (1 mention)\n      :136  `index/lib/auth.mjs` never reads the clock; the caller supplies today.\n  README.md  (1 mention)\n      :179  Anything under `index/lib/` stays deterministic — same tree, same output.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": []
+    }
+  },
+  {
+    "id": "cortex-review-train-1",
+    "skill": "cortex-review",
+    "seed": 103948,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/next.mjs  (export resolveRoot renamed to findRoot; all 4 callers updated)\n  M  mcp/lib/config.js  (default max_sessions: 7 -> 14)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  AGENTS.md\n  mcp/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  mcp/AGENTS.md  (1 mention)\n      :102  Callers read the fact from `resolveRoot()` instead of re-deriving it.\n  README.md  (1 mention)\n      :179  Set max_sessions in the config file; the environment variable wins over it.\n  docs/changing-cortex.md  (2 mentions)\n      :57  `resolveRoot` was renamed to `findRoot` in 2.39 — the old name no longer exists.\n      :116  The sequence is deterministic: same tree, same answer, tomorrow included.\n  AGENTS.md  (1 mention)\n      :182  The max_sessions defaults to 7; raise it for large repos.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "mcp/AGENTS.md:102",
+        "AGENTS.md:182"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-2",
+    "skill": "cortex-review",
+    "seed": 103949,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/settings.mjs  (+11 -2: an internal loop rewritten; exports and behaviour unchanged)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  AGENTS.md\n  mcp/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  README.md  (1 mention)\n      :83  `index/lib/settings.mjs` never reads the clock; the caller supplies today.\n  AGENTS.md  (1 mention)\n      :164  Anything under `index/lib/` stays deterministic — same tree, same output.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": []
+    }
+  },
+  {
+    "id": "cortex-review-train-3",
+    "skill": "cortex-review",
+    "seed": 103950,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  rename index/lib/onboarding.js => core/onboarding.js (100%)\n  M  index/cortex-index.mjs (import path updated)\n  M  mcp/lib/config.js  (default max_sessions: 120 -> 300)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  AGENTS.md\n  index/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  mcp/AGENTS.md  (1 mention)\n      :238  `index/lib/onboarding.js` is the only place allowed to decide this — do not reimplement it.\n  index/AGENTS.md  (2 mentions)\n      :18  The onboarding gate lives in `index/lib/onboarding.js`; read it before changing a writer.\n      :189  `core/onboarding.js` refuses any write that carries a credential.\n  docs/adr/0009-shared-code-goes-in-core.md  (1 mention)\n      :10  We considered keeping `index/lib/onboarding.js` in place; it was moved to `core/` because two leaves need it.\n  CHANGELOG.md  (1 mention)\n      :205  - Moved `index/lib/onboarding.js` to `core/onboarding.js` so both leaves can share it.\n  CONTEXT.md  (1 mention)\n      :75  Set max_sessions in the config file; the environment variable wins over it.\n  AGENTS.md  (1 mention)\n      :222  The max_sessions defaults to 120; raise it for large repos.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "mcp/AGENTS.md:238",
+        "index/AGENTS.md:18",
+        "AGENTS.md:222"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-4",
+    "skill": "cortex-review",
+    "seed": 103951,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/cortex-findings.mjs  (flag --json renamed to --format=json; the old spelling now exits 2 with \"unknown flag\")\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  index/AGENTS.md\n  AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  README.md  (2 mentions)\n      :72  `cortex-findings.mjs` is read-only unless you pass `--write`.\n      :215  Read the worklist with `node index/cortex-findings.mjs --json`, which writes nothing.\n  CHANGELOG.md  (1 mention)\n      :39  - `cortex-findings.mjs --json` added, so the wizard's script can be read without running it.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "README.md:215"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-5",
+    "skill": "cortex-review",
+    "seed": 103952,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  mcp/lib/config.js  (default batch size: 120 -> 300)\n  M  index/lib/coverage.mjs  (+34 -9: adds a further signal)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  index/AGENTS.md\n  AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  AGENTS.md  (1 mention)\n      :127  The staleness check uses three signals, combined with OR.\n  README.md  (3 mentions)\n      :134  Every number the staleness check prints is a floor, never a total.\n      :144  Set batch size in the config file; the environment variable wins over it.\n      :218  The batch size defaults to 120; raise it for large repos.\n  docs/changing-cortex.md  (1 mention)\n      :196  The three signals the staleness check reads are cheap and deterministic.\n  docs/adr/0003-coverage-is-a-floor.md  (1 mention)\n      :149  The staleness check started with three signals; we chose OR over a weighted score.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "AGENTS.md:127",
+        "docs/changing-cortex.md:196",
+        "README.md:218"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-6",
+    "skill": "cortex-review",
+    "seed": 103953,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  mcp/lib/config.js  (default lookback: 20 -> 50)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  mcp/AGENTS.md\n  index/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  README.md  (2 mentions)\n      :150  Set lookback in the config file; the environment variable wins over it.\n      :235  The lookback defaults to 20; raise it for large repos.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "README.md:235"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-7",
+    "skill": "cortex-review",
+    "seed": 103954,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/rank.mjs  (+37 -7: adds a third and a fourth signal)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  index/AGENTS.md\n  mcp/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  docs/changing-cortex.md  (2 mentions)\n      :186  The staleness check uses two signals, combined with OR.\n      :227  The two signals the staleness check reads are cheap and deterministic.\n  mcp/AGENTS.md  (1 mention)\n      :34  Every number the staleness check prints is a floor, never a total.\n  docs/adr/0003-coverage-is-a-floor.md  (1 mention)\n      :148  The staleness check started with two signals; we chose OR over a weighted score.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "docs/changing-cortex.md:186",
+        "docs/changing-cortex.md:227"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-8",
+    "skill": "cortex-review",
+    "seed": 103955,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/coverage.mjs  (+15 -9: adds a further signal)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  index/AGENTS.md\n  mcp/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  README.md  (1 mention)\n      :132  Every number ranking prints is a floor, never a total.\n  index/AGENTS.md  (1 mention)\n      :101  Ranking uses two signals, combined with OR.\n  CONTEXT.md  (1 mention)\n      :124  The two signals ranking reads are cheap and deterministic.\n  docs/adr/0003-coverage-is-a-floor.md  (1 mention)\n      :153  Ranking started with two signals; we chose OR over a weighted score.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "index/AGENTS.md:101",
+        "CONTEXT.md:124"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-9",
+    "skill": "cortex-review",
+    "seed": 103956,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/next.mjs  (export nextSteps renamed to planSteps; all 4 callers updated)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  AGENTS.md\n  index/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  index/AGENTS.md  (2 mentions)\n      :115  Callers read the fact from `nextSteps()` instead of re-deriving it.\n      :176  `nextSteps` was renamed to `planSteps` in 2.39 — the old name no longer exists.\n  README.md  (1 mention)\n      :121  The sequence is deterministic: same tree, same answer, tomorrow included.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "index/AGENTS.md:115"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-10",
+    "skill": "cortex-review",
+    "seed": 103957,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/search.mjs  (+9 -4: an internal loop rewritten; exports and behaviour unchanged)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  index/AGENTS.md\n  AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  index/AGENTS.md  (1 mention)\n      :160  `index/lib/search.mjs` never reads the clock; the caller supplies today.\n  README.md  (1 mention)\n      :102  Anything under `index/lib/` stays deterministic — same tree, same output.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": []
+    }
+  },
+  {
+    "id": "cortex-review-train-11",
+    "skill": "cortex-review",
+    "seed": 103958,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/next.mjs  (export nextSteps renamed to planSteps; all 4 callers updated)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  AGENTS.md\n  mcp/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  docs/changing-cortex.md  (1 mention)\n      :110  The sequence is deterministic: same tree, same answer, tomorrow included.\n  AGENTS.md  (1 mention)\n      :198  Callers read the fact from `nextSteps()` instead of re-deriving it.\n  CONTEXT.md  (1 mention)\n      :155  `nextSteps` was renamed to `planSteps` in 2.39 — the old name no longer exists.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "AGENTS.md:198"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-12",
+    "skill": "cortex-review",
+    "seed": 103959,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  mcp/lib/config.js  (default exec_timeout: 120 -> 300)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  AGENTS.md\n  mcp/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  README.md  (1 mention)\n      :109  Set exec_timeout in the config file; the environment variable wins over it.\n  AGENTS.md  (1 mention)\n      :36  The exec_timeout defaults to 120; raise it for large repos.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "AGENTS.md:36"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-13",
+    "skill": "cortex-review",
+    "seed": 103960,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  rename mcp/lib/i18n.js => core/i18n.js (100%)\n  M  mcp/server.js (import path updated)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  mcp/AGENTS.md\n  AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  docs/adr/0009-shared-code-goes-in-core.md  (1 mention)\n      :228  We considered keeping `mcp/lib/i18n.js` in place; it was moved to `core/` because two leaves need it.\n  index/AGENTS.md  (1 mention)\n      :56  `mcp/lib/i18n.js` is the only place allowed to decide this — do not reimplement it.\n  AGENTS.md  (2 mentions)\n      :63  `core/i18n.js` refuses any write that carries a credential.\n      :185  The i18n gate lives in `mcp/lib/i18n.js`; read it before changing a writer.\n  CHANGELOG.md  (1 mention)\n      :88  - Moved `mcp/lib/i18n.js` to `core/i18n.js` so both leaves can share it.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": [
+        "index/AGENTS.md:56",
+        "AGENTS.md:185"
+      ]
+    }
+  },
+  {
+    "id": "cortex-review-train-14",
+    "skill": "cortex-review",
+    "seed": 103961,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  mcp/lib/profile.mjs  (+4 -3: an internal loop rewritten; exports and behaviour unchanged)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  index/AGENTS.md\n  mcp/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  README.md  (1 mention)\n      :32  Anything under `mcp/lib/` stays deterministic — same tree, same output.\n  AGENTS.md  (1 mention)\n      :183  `mcp/lib/profile.mjs` never reads the clock; the caller supplies today.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": []
+    }
+  },
+  {
+    "id": "cortex-review-train-15",
+    "skill": "cortex-review",
+    "seed": 103962,
+    "task_type": "cortex-review",
+    "prompt": "The user says: \"review this before I commit it\"\n\nYou cannot run commands or open files. This is everything the evidence pass returned.\n\n$ git diff --staged --summary\n  M  index/lib/upload.mjs  (+14 -2: an internal loop rewritten; exports and behaviour unchanged)\n\n$ node index/cortex-review.mjs --staged\nDocuments governing this change, nearest scope first:\n  index/AGENTS.md\n  mcp/AGENTS.md\n\nDocuments that NAME something this change touched — re-read these:\n\n  index/AGENTS.md  (1 mention)\n      :176  `index/lib/upload.mjs` never reads the clock; the caller supplies today.\n  README.md  (1 mention)\n      :143  Anything under `index/lib/` stays deterministic — same tree, same output.\n\nA mention is not a defect — it is where one would hide.\n\nReview the drift axis: which of those lines did this change make wrong? Write your review,\nthen end your reply with exactly this line, listing each stale line as path:line:\nSTALE: <path:line>, <path:line>   (or: STALE: none)",
+    "truth": {
+      "stale": []
+    }
+  }
+]

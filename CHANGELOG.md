@@ -148,6 +148,11 @@ it was repointed or dropped in the same change.
   through `index/test/tmp.mjs`, which registers one root-level `after` hook per file, so the
   cleanup runs even when an assertion fails first. A full `node --test index/test/*.test.mjs` run
   leaves the `cortex-*` count unchanged.
+- **The `core/` and `mcp/` tests leaked the same way — 29 and 186 temp dirs a run.** Each package
+  now has its own copy of that helper (`core/test/tmp.js`, `mcp/test/tmp.js`), so no suite imports
+  another's tests. Both runs now leave the OS temp dir exactly as they found it. The last straggler
+  was `smoke.test.js`, which killed its server without waiting for the exit; on Windows a live
+  process pins its cwd, so the cleanup found the dir still locked.
 
 ### Found by running it, not by writing it
 

@@ -7,14 +7,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { openVault } from "../lib/vault.js";
 import { OutsideRootError } from "../../core/paths.js";
+import { tempDir } from "./tmp.js";
 
 function seed() {
-  const root = mkdtempSync(join(tmpdir(), "vault-mod-"));
+  const root = tempDir("vault-mod-");
   mkdirSync(join(root, "projects", "client"), { recursive: true });
   writeFileSync(join(root, "notes.md"), "top level note\n");
   writeFileSync(join(root, "projects", "alpha.md"), "# Alpha\n");

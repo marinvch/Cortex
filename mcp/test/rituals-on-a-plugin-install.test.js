@@ -13,10 +13,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tempDir } from "./tmp.js";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const WIN = process.platform === "win32";
@@ -62,7 +62,7 @@ function isolatedEnv(home, extra = {}) {
 
 /** A plain product repo: one commit, two committed memory days far apart, no vault anywhere. */
 function fixture() {
-  const base = mkdtempSync(join(tmpdir(), "plugin-install-"));
+  const base = tempDir("plugin-install-");
   const home = join(base, "home");
   const proj = join(base, "product");
   mkdirSync(home, { recursive: true });
@@ -155,7 +155,7 @@ test("catch-up with AI_OS_ROOT at a repo's .cortex reads that repo, from any cwd
   // Repo mode — what the plugin's own MCP server is configured with. The repo is the root's
   // parent; the cwd need not be inside it, and a project slug is not needed to name it.
   const f = fixture();
-  const elsewhere = mkdtempSync(join(tmpdir(), "elsewhere-"));
+  const elsewhere = tempDir("elsewhere-");
   const cli = join(f.pluginRoot, "mcp", "ai-os.js");
   const r = run(f, [cli, "catch-up", "--since", "2026-01-01"], { cwd: elsewhere, env: { AI_OS_ROOT: join(f.proj, ".cortex") } });
   assert.equal(r.status, 0, r.stderr);
@@ -166,7 +166,7 @@ test("catch-up with AI_OS_ROOT at a repo's .cortex reads that repo, from any cwd
 
 test("catch-up with neither a repo nor a vault says so and exits 1", () => {
   const f = fixture();
-  const nowhere = mkdtempSync(join(tmpdir(), "no-repo-"));
+  const nowhere = tempDir("no-repo-");
   const cli = join(f.pluginRoot, "mcp", "ai-os.js");
   const r = run(f, [cli, "catch-up", "--since", "2026-01-01"], { cwd: nowhere });
   // If the OS temp dir happens to sit inside a git work tree, this case cannot be built here.

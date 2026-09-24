@@ -17,11 +17,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openBrain, NoRootError, UnknownProfileError } from "../lib/brain.js";
+import { tempDir } from "./tmp.js";
 
 const MCP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CLI = join(MCP_DIR, "ai-os.js");
@@ -33,7 +33,7 @@ const SERVER = join(MCP_DIR, "server.js");
  * nothing here touches the network.
  */
 function fixture({ slug = "acme", subject = "capture: unis session cookies" } = {}) {
-  const base = mkdtempSync(join(tmpdir(), "brain-"));
+  const base = tempDir("brain-");
   // Every test that touches $HOME overrides it: git must not read this machine's global config,
   // and a test that writes into a developer's home directory is a test that fails on the next one.
   const home = join(base, "home");

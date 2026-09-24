@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, existsSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { connectorObject, writeConnector, cloneTeamBrain, seedTeamBrain, initTeamBrain } from "../lib/team.js";
+import { tempDir } from "./tmp.js";
 
 function bareRemote() {
-  const remote = mkdtempSync(join(tmpdir(), "remote-"));
+  const remote = tempDir("remote-");
   execFileSync("git", ["init", "--bare", "-q", "-b", "master"], { cwd: remote });
   return remote;
 }
@@ -17,7 +17,7 @@ test("connectorObject returns slug + teamBrainRepo only", () => {
 });
 
 test("writeConnector writes generic .cortex/connector.json (no machine paths)", () => {
-  const cwd = mkdtempSync(join(tmpdir(), "proj-"));
+  const cwd = tempDir("proj-");
   const p = writeConnector(cwd, "unis", "git@x:acme/brain.git");
   assert.match(p, /\.cortex[\\/]connector\.json$/);
   const parsed = JSON.parse(readFileSync(p, "utf8"));
@@ -27,7 +27,7 @@ test("writeConnector writes generic .cortex/connector.json (no machine paths)", 
 });
 
 test("seedTeamBrain writes team.md + gitkeeps for each project", () => {
-  const dir = mkdtempSync(join(tmpdir(), "clone-"));
+  const dir = tempDir("clone-");
   const written = seedTeamBrain(dir, { name: "acme", projects: ["unis", "acme-web"] });
   assert.ok(existsSync(join(dir, "team.md")));
   assert.ok(existsSync(join(dir, "projects", ".gitkeep")));
@@ -39,7 +39,7 @@ test("seedTeamBrain writes team.md + gitkeeps for each project", () => {
 
 test("cloneTeamBrain clones a local bare repo, and is a no-op if present", () => {
   const remote = bareRemote();
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   const first = cloneTeamBrain(root, "acme", remote);
   assert.equal(first.cloned, true);
   assert.match(first.dir, /team[\\/]acme$/);
@@ -50,11 +50,11 @@ test("cloneTeamBrain clones a local bare repo, and is a no-op if present", () =>
 
 test("initTeamBrain seeds, commits, and pushes to the remote", () => {
   const remote = bareRemote();
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   const { dir } = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
   assert.ok(existsSync(join(dir, "team.md")));
   // verify the push landed: clone the remote fresh and check team.md arrived
-  const verify = mkdtempSync(join(tmpdir(), "verify-"));
+  const verify = tempDir("verify-");
   execFileSync("git", ["clone", "-q", remote, "."], { cwd: verify, stdio: ["ignore", "pipe", "pipe"] });
   assert.ok(existsSync(join(verify, "team.md")));
   assert.ok(existsSync(join(verify, "projects", "unis", ".gitkeep")));
@@ -62,7 +62,7 @@ test("initTeamBrain seeds, commits, and pushes to the remote", () => {
 
 test("initTeamBrain is idempotent (safe to re-run after a prior init)", () => {
   const remote = bareRemote();
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   const { dir } = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
   assert.doesNotThrow(() => initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] }));
   assert.ok(existsSync(join(dir, "team.md")));
@@ -75,7 +75,7 @@ test("initTeamBrain is idempotent (safe to re-run after a prior init)", () => {
 // tell the caller which, rather than reporting a silent success.
 test("initTeamBrain refuses to push when outward sync is sealed", () => {
   const remote = bareRemote();
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
 
   const res = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"], outwardSync: false });
 

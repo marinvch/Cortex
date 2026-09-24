@@ -1,13 +1,13 @@
 // mcp/test/recall.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, sep } from "node:path";
 import { recall } from "../lib/recall.js";
+import { tempDir } from "./tmp.js";
 
 function seed() {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   mkdirSync(join(root, "projects"));
   writeFileSync(join(root, "projects", "unis.md"), "# UNIS\nUNIS uses PingID session cookies for auth. PingID cookies are the key detail.\n");
   writeFileSync(join(root, "projects", "acme.md"), "# ACME\nACME uses OAuth device flow.\n");

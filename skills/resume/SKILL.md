@@ -30,7 +30,37 @@ Also list the branches. A branch nobody mentioned is where work usually turns ou
 
 ```bash
 git branch -vv --sort=-committerdate | head -10
+main=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null); main=${main#origin/}
+git branch --no-merged "${main:-master}"
+git worktree list
 ```
+
+**Only `git branch --no-merged <main>` decides which branches hold committed work.** Take that list
+and remove the branch you are on. Then remove every branch that is the head branch of an open PR in
+`gh pr list`. That work already exists on the remote as a PR, so it belongs to the `/ship` queue and
+is not hidden. What remains is every other branch whose work exists only locally. Worked example:
+`--no-merged` prints `a, b, c`, and open PRs exist for `b` and `c`. Hidden is then `a`. If only `b`
+were printed and `b` has a PR, hidden is none. If it prints nothing, the answer is "none", however
+many other branches exist. `-vv` tells you about tracking, not about whether work landed, so its
+markers never add a branch to that set:
+
+- no upstream at all → a local branch. If it is not in the `--no-merged` list, its commits are
+  already in main and nothing is at risk
+- `[origin/x: gone]` → the remote was deleted, usually after a merge. This is cleanup, not hidden work
+- `ahead N` → unpushed commits. This counts as hidden work only if the branch is also in the
+  `--no-merged` list
+
+**Uncommitted work in another worktree is the one exception, because no branch test can see it.** A
+`+` in front of a branch in `-vv` means it is checked out in another worktree. Run
+`git -C <path> status --short` for each extra path `git worktree list` prints. A worktree with dirt
+holds work even when its branch is not in `--no-merged` — a branch with no commits yet is exactly
+what a session left mid-way looks like. Report it with its branch and its path, which is often a
+temp dir nobody would think to look in. A clean extra worktree is cleanup, not work.
+
+You may mention stale or cleanup branches as safe to prune. Never put them in the list of branches
+holding work. When you describe a branch, copy its marker exactly as `-vv` shows it. Calling a
+no-upstream branch "gone" (or the other way round) tells the next reader the wrong story about where
+it came from.
 
 ## 2. Read what the last session left behind
 
@@ -70,16 +100,24 @@ which is the one failure mode that makes this ritual worse than nothing.
 
 ## 4. Route, then work
 
-Once the user confirms or corrects the remaining work:
+Once the user confirms or corrects the remaining work, pick exactly one route. Check these
+conditions in order and take the first that matches. What the user says about their own situation
+comes before anything the repo state suggests:
 
-- **Nothing durable was written and the session taught something** → `/dream` before continuing, not
-  after. It is committed, so it survives the next context window.
-- **Leaving again soon** → `/handoff` at the end. It is ephemeral and for the next agent right now,
-  which is a different job from `/dream` — running one is not running the other.
-- **You were away, not mid-task** → `/catch-me-up` reads brain notes and git history over a date
-  range and writes nothing.
-- **The repo state is what is unclear, not yours** → `/cortex-next` names the single next command.
-- **Work sits in open PRs** → `/ship` walks the queue in an order that will not strand anything.
+1. **The user is leaving soon, short on time, or about to stop** → `/handoff` at the end. Do this
+   even if branches have unpushed or unmerged work, because recording that work for the next agent
+   is the handoff's job. It is ephemeral, which is a different job from `/dream`. Running one is not
+   running the other.
+2. **The user was away (holiday, days off) and asks what changed, and nothing is mid-flight** →
+   `/catch-me-up`. It reads brain notes and git history over a date range and writes nothing.
+3. **The session taught something, or a previous session worked something out, and nothing durable
+   records it** → `/dream` before continuing, not after. `/dream` commits what it writes, so it
+   survives the next context window.
+4. **`gh pr list` shows open PRs** → `/ship`. It works through the queue in an order that will not
+   strand anything. With no open PRs, `/ship` is the wrong route. Stale or merged local branches are
+   not a PR queue.
+5. **None of these apply, and the repo state is unclear** → `/cortex-next`, which names the single
+   next command.
 
 Then do the remaining work. Resuming is not a deliverable.
 
@@ -94,3 +132,14 @@ Then do the remaining work. Resuming is not a deliverable.
 - **A summary from a compacted conversation is not the repo's state.** It is one session's memory of
   it, and it can be confidently wrong about what landed. Check it against the log rather than
   trusting it.
+- **A clean tree is still a line in the report.** Write `Uncommitted: none`. Don't drop the line,
+  because a missing line reads as "not checked".
+- **A memory file you listed but did not read is not evidence.** Say it exists and that you haven't
+  read it. Don't guess its contents from its date.
+- **Derive the hidden list mechanically, just before writing it.** Check each candidate name for two
+  things: it appears verbatim in the `--no-merged` output, and it does not appear in the head-branch
+  column of `gh pr list`. Drop any name that fails either check, even if your prose called it "worth
+  checking", "no upstream" or "local only". If your report already said a branch "is not in the
+  `--no-merged` list" or "has an open PR", then listing it as hidden contradicts your own evidence.
+  A dirty extra worktree is the one entry that skips this check — it goes in as `<branch> (uncommitted,
+  worktree <path>)`. If nothing survives, write `none`.

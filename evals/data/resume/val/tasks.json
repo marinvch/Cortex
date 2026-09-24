@@ -1,0 +1,142 @@
+[
+  {
+    "id": "resume-val-0",
+    "skill": "resume",
+    "seed": 49514,
+    "task_type": "resume",
+    "prompt": "The user says: \"I've been away for three weeks. What changed while I was gone?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     2d old\n\n$ git status --short\n(clean)\n\n$ git log --oneline -4\n9f1c2e0 The cart total rounded twice\n4b7d913 A stale digest printed the same green tick\ne02a6c8 Invoices were emailed before they were saved\n71c5b3d Search ignored the locale on the first page\n\n$ git branch -vv\n* docs/upload-preview        9dcb0c8 [origin/docs/upload-preview] The cart total rounded twice\n  refactor/checkout-invoices 3649f43 A stale digest printed the same green tick\n  docs/search-notify         66c7dfa [origin/docs/search-notify: gone] Invoices were emailed before they were saved\n\n$ git branch --no-merged master\n(nothing)\n\n$ ls .cortex/memory/\n2026-06-21.md\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "none",
+      "hidden": [],
+      "route": "/catch-me-up"
+    }
+  },
+  {
+    "id": "resume-val-1",
+    "skill": "resume",
+    "seed": 49515,
+    "task_type": "resume",
+    "prompt": "The user says: \"I've been away for three weeks. What changed while I was gone?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     2d old\n\n$ git status --short\n(clean)\n\n$ git log --oneline -4\n9f1c2e0 The cart total rounded twice\n4b7d913 The index counted vendored files as source\ne02a6c8 Retry the webhook once before giving up\n71c5b3d Invoices were emailed before they were saved\n\n$ git branch -vv\n* chore/webhook-upload       11a3f3f [origin/chore/webhook-upload] The cart total rounded twice\n  feat/theme-search          bc533ac The index counted vendored files as source\n  refactor/profile-invoices  85c2d92 [origin/refactor/profile-invoices: gone] Retry the webhook once before giving up\n  docs/billing-onboarding    e9e5599 Invoices were emailed before they were saved\n\n$ git branch --no-merged master\n(nothing)\n\n$ ls .cortex/memory/\n2026-06-11.md\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "none",
+      "hidden": [],
+      "route": "/catch-me-up"
+    }
+  },
+  {
+    "id": "resume-val-2",
+    "skill": "resume",
+    "seed": 49516,
+    "task_type": "resume",
+    "prompt": "The user says: \"quick one, I'm leaving soon: what's the state?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     2d old\n\n$ git status --short\n M README.md\n M src/cart.ts\n\n$ git log --oneline -4\n9f1c2e0 The cart total rounded twice\n4b7d913 Search ignored the locale on the first page\ne02a6c8 A stale digest printed the same green tick\n71c5b3d Retry the webhook once before giving up\n\n$ git branch -vv\n* fix/billing-routing        508c9dd [origin/fix/billing-routing] The cart total rounded twice\n  docs/billing-cache         77af191 Search ignored the locale on the first page\n  fix/routing-upload         dd9588a [origin/fix/routing-upload: gone] A stale digest printed the same green tick\n  docs/notify-notify         9494a2d [origin/docs/notify-notify: ahead 2] Retry the webhook once before giving up\n  chore/import-onboarding    da62fa2 [origin/chore/import-onboarding: ahead 3] Invoices were emailed before they were saved\n\n$ git branch --no-merged master\n  docs/billing-cache\n  docs/notify-notify\n  chore/import-onboarding\n\n$ ls .cortex/memory/\n2026-06-21.md\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "fix/billing-routing",
+      "hidden": [
+        "docs/billing-cache",
+        "docs/notify-notify",
+        "chore/import-onboarding"
+      ],
+      "route": "/handoff"
+    }
+  },
+  {
+    "id": "resume-val-3",
+    "skill": "resume",
+    "seed": 49517,
+    "task_type": "resume",
+    "prompt": "The user says: \"I've only got ten minutes before I have to go — where are we?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     2d old\n\n$ git status --short\n(clean)\n\n$ git log --oneline -4\n9f1c2e0 The index counted vendored files as source\n4b7d913 A stale digest printed the same green tick\ne02a6c8 Retry the webhook once before giving up\n71c5b3d Move the date helper into core\n\n$ git branch -vv\n* docs/i18n-i18n             8fbdc96 [origin/docs/i18n-i18n] The index counted vendored files as source\n  docs/billing-notify        92d6065 A stale digest printed the same green tick\n  chore/settings-report      d0175c0 [origin/chore/settings-report: ahead 3] Retry the webhook once before giving up\n\n$ git branch --no-merged master\n  chore/settings-report\n\n$ ls .cortex/memory/\n2026-07-17.md\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "none",
+      "hidden": [
+        "chore/settings-report"
+      ],
+      "route": "/handoff"
+    }
+  },
+  {
+    "id": "resume-val-4",
+    "skill": "resume",
+    "seed": 49518,
+    "task_type": "resume",
+    "prompt": "The user says: \"back from holiday — what did I miss on this repo?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     2d old\n\n$ git status --short\n(clean)\n\n$ git log --oneline -4\n9f1c2e0 The index counted vendored files as source\n4b7d913 Search ignored the locale on the first page\ne02a6c8 Invoices were emailed before they were saved\n71c5b3d A stale digest printed the same green tick\n\n$ git branch -vv\n* docs/i18n-notify           3f49de0 [origin/docs/i18n-notify] The index counted vendored files as source\n  fix/invoices-ledger        ac6c49a [origin/fix/invoices-ledger: gone] Search ignored the locale on the first page\n  docs/audit-onboarding      d36bdbb Invoices were emailed before they were saved\n  fix/routing-session        952b520 A stale digest printed the same green tick\n\n$ git branch --no-merged master\n(nothing)\n\n$ ls .cortex/memory/\n2026-07-13.md\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "none",
+      "hidden": [],
+      "route": "/catch-me-up"
+    }
+  },
+  {
+    "id": "resume-val-5",
+    "skill": "resume",
+    "seed": 49519,
+    "task_type": "resume",
+    "prompt": "The user says: \"where am I in the cortex setup for this repo?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     none — run `node index/cortex-index.mjs .` first\n\n$ git status --short\n(clean)\n\n$ git log --oneline -4\n9f1c2e0 The index counted vendored files as source\n4b7d913 Move the date helper into core\ne02a6c8 Search ignored the locale on the first page\n71c5b3d The cart total rounded twice\n\n$ git branch -vv\n* refactor/settings-profile  c12d1a5 [origin/refactor/settings-profile] The index counted vendored files as source\n  fix/queue-profile          a51ecf4 [origin/fix/queue-profile: gone] Move the date helper into core\n  docs/import-billing        dd442ac Search ignored the locale on the first page\n  fix/import-session         2791804 The cart total rounded twice\n\n$ git branch --no-merged master\n  fix/import-session\n\n$ ls .cortex/memory/\nls: cannot access '.cortex/memory/': No such file or directory\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "none",
+      "hidden": [
+        "fix/import-session"
+      ],
+      "route": "/cortex-next"
+    }
+  },
+  {
+    "id": "resume-val-6",
+    "skill": "resume",
+    "seed": 49520,
+    "task_type": "resume",
+    "prompt": "The user says: \"I installed cortex here last week and lost track — which step was I on?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     none — run `node index/cortex-index.mjs .` first\n\n$ git status --short\n M src/index.ts\n\n$ git log --oneline -4\n9f1c2e0 Search ignored the locale on the first page\n4b7d913 The cart total rounded twice\ne02a6c8 Move the date helper into core\n71c5b3d Retry the webhook once before giving up\n\n$ git branch -vv\n* refactor/session-audit     b20bcd4 [origin/refactor/session-audit] Search ignored the locale on the first page\n  chore/settings-notify      77cf533 The cart total rounded twice\n  fix/export-preview         bfa043f [origin/fix/export-preview: gone] Move the date helper into core\n  refactor/webhook-billing   f28d0fc [origin/refactor/webhook-billing: ahead 2] Retry the webhook once before giving up\n\n$ git branch --no-merged master\n  refactor/webhook-billing\n\n$ ls .cortex/memory/\nls: cannot access '.cortex/memory/': No such file or directory\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "refactor/session-audit",
+      "hidden": [
+        "refactor/webhook-billing"
+      ],
+      "route": "/cortex-next"
+    }
+  },
+  {
+    "id": "resume-val-7",
+    "skill": "resume",
+    "seed": 49521,
+    "task_type": "resume",
+    "prompt": "The user says: \"I've only got ten minutes before I have to go — where are we?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     2d old\n\n$ git status --short\n M src/app.ts\n M src/sync.ts\n\n$ git log --oneline -4\n9f1c2e0 Move the date helper into core\n4b7d913 The index counted vendored files as source\ne02a6c8 Retry the webhook once before giving up\n71c5b3d Search ignored the locale on the first page\n\n$ git branch -vv\n* refactor/settings-export   909ed3e [origin/refactor/settings-export] Move the date helper into core\n  feat/invoices-checkout     e07c99b The index counted vendored files as source\n  docs/audit-metrics         29376f0 [origin/docs/audit-metrics: gone] Retry the webhook once before giving up\n  docs/queue-invoices        8c07ace Search ignored the locale on the first page\n  docs/import-search         b72c342 [origin/docs/import-search: ahead 4] The cart total rounded twice\n  chore/upload-sync          a154aa9 [origin/chore/upload-sync: ahead 3] A stale digest printed the same green tick\n\n$ git branch --no-merged master\n  docs/queue-invoices\n  docs/import-search\n  chore/upload-sync\n\n$ ls .cortex/memory/\n2026-06-17.md\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "refactor/settings-export",
+      "hidden": [
+        "docs/queue-invoices",
+        "docs/import-search",
+        "chore/upload-sync"
+      ],
+      "route": "/handoff"
+    }
+  },
+  {
+    "id": "resume-val-8",
+    "skill": "resume",
+    "seed": 49522,
+    "task_type": "resume",
+    "prompt": "The user says: \"ok what's next\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     2d old\n\n$ git status --short\n(clean)\n\n$ git log --oneline -4\n9f1c2e0 The index counted vendored files as source\n4b7d913 Retry the webhook once before giving up\ne02a6c8 A stale digest printed the same green tick\n71c5b3d Search ignored the locale on the first page\n\n$ git branch -vv\n* chore/webhook-metrics      6705809 [origin/chore/webhook-metrics] The index counted vendored files as source\n  feat/report-ledger         4566403 [origin/feat/report-ledger: ahead 3] Retry the webhook once before giving up\n  fix/cart-search            a1e5b74 A stale digest printed the same green tick\n  chore/cache-notify         0de3a89 [origin/chore/cache-notify] Search ignored the locale on the first page\n\n$ git branch --no-merged master\n  feat/report-ledger\n  fix/cart-search\n  chore/cache-notify\n\n$ ls .cortex/memory/\n2026-08-19.md\n\n$ gh pr list --state open\n250\tSearch ignored the locale on the first page\tchore/cache-notify\tOPEN\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "none",
+      "hidden": [
+        "feat/report-ledger",
+        "fix/cart-search"
+      ],
+      "route": "/ship"
+    }
+  },
+  {
+    "id": "resume-val-9",
+    "skill": "resume",
+    "seed": 49523,
+    "task_type": "resume",
+    "prompt": "The user says: \"where am I in the cortex setup for this repo?\"\n\nYou cannot run commands. This is what the repo reported:\n\n$ node cortex-preflight.mjs\nroot      /home/dev/app\nprofile   home (default)\nindex     none — run `node index/cortex-index.mjs .` first\n\n$ git status --short\n M src/app.ts\n\n$ git log --oneline -4\n9f1c2e0 Move the date helper into core\n4b7d913 Invoices were emailed before they were saved\ne02a6c8 The cart total rounded twice\n71c5b3d Search ignored the locale on the first page\n\n$ git branch -vv\n* docs/upload-preview        27a0949 [origin/docs/upload-preview] Move the date helper into core\n  feat/search-theme          d355ea4 [origin/feat/search-theme: gone] Invoices were emailed before they were saved\n  feat/search-onboarding     3cc7471 The cart total rounded twice\n  fix/webhook-session        83a7a25 Search ignored the locale on the first page\n  docs/import-profile        f7e5851 [origin/docs/import-profile: ahead 2] Retry the webhook once before giving up\n  docs/webhook-search        eb0acfe The index counted vendored files as source\n\n$ git branch --no-merged master\n  fix/webhook-session\n  docs/import-profile\n\n$ ls .cortex/memory/\nls: cannot access '.cortex/memory/': No such file or directory\n\n$ gh pr list --state open\nno open pull requests\n\nThe current branch is in sync with its upstream except for any uncommitted changes shown above.\nReport the state, then end your reply with exactly these three lines:\nUNCOMMITTED: <branch the uncommitted changes are on>   (or: UNCOMMITTED: none)\nHIDDEN: <branch>, <branch>   — other branches holding work that exists only locally (or: HIDDEN: none)\nROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "truth": {
+      "uncommitted": "docs/upload-preview",
+      "hidden": [
+        "fix/webhook-session",
+        "docs/import-profile"
+      ],
+      "route": "/cortex-next"
+    }
+  }
+]

@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { catchMeUp, catchUpRepo } from "../lib/catchup.js";
+import { tempDir } from "./tmp.js";
 
 function repoWithHistory() {
-  const repo = mkdtempSync(join(tmpdir(), "repo-"));
+  const repo = tempDir("repo-");
   const git = (...a) => execFileSync("git", a, { cwd: repo, stdio: ["ignore", "pipe", "pipe"] });
   git("init", "-q", "-b", "main");
   git("config", "user.email", "t@t");
@@ -39,7 +39,7 @@ test("catchUpRepo on a repo nobody has dreamed in is empty memory, not an error"
 });
 
 test("returns notes for the project (no team)", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   mkdirSync(join(root, "projects", "unis"), { recursive: true });
   writeFileSync(join(root, "projects", "unis", "n1.md"), "PingID change landed for unis");
   const res = catchMeUp(root, { project: "unis", since: "2026-06-01" });
@@ -49,7 +49,7 @@ test("returns notes for the project (no team)", () => {
 });
 
 test("includes team-brain git commits since <since>", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   const clone = join(root, "team", "acme");
   mkdirSync(clone, { recursive: true });
   const git = (...a) => execFileSync("git", a, { cwd: clone, stdio: ["ignore", "pipe", "pipe"] });

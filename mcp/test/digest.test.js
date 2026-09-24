@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { collectCommits, collectMergedPRs, buildDigest, digest } from "../lib/digest.js";
+import { tempDir } from "./tmp.js";
 
 function repoWithCommit() {
-  const repo = mkdtempSync(join(tmpdir(), "prod-"));
+  const repo = tempDir("prod-");
   const git = (...a) => execFileSync("git", a, { cwd: repo, stdio: ["ignore", "pipe", "pipe"] });
   git("init", "-q");
   git("config", "user.email", "t@t");
@@ -43,7 +43,7 @@ test("collectMergedPRs returns [] gracefully on a non-GitHub/plain repo", () => 
 
 test("digest appends a digest to the out file", () => {
   const repo = repoWithCommit();
-  const out = join(mkdtempSync(join(tmpdir(), "brain-")), "notes", "digest.md");
+  const out = join(tempDir("brain-"), "notes", "digest.md");
   const written = digest(repo, "2000-01-01", out);
   assert.equal(written, out);
   assert.match(readFileSync(out, "utf8"), /feat: add login/);

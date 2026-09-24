@@ -1,29 +1,29 @@
 // mcp/test/version.test.js
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readVersion, VERSION } from "../lib/version.js";
+import { tempDir } from "./tmp.js";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 test("reads the repo-root VERSION file", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   writeFileSync(join(root, "VERSION"), "9.9.9\n");
   assert.equal(readVersion(root), "9.9.9");
 });
 
 test("falls back to mcp/package.json when VERSION is absent", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   mkdirSync(join(root, "mcp"));
   writeFileSync(join(root, "mcp", "package.json"), JSON.stringify({ version: "7.7.7" }));
   assert.equal(readVersion(root), "7.7.7");
 });
 
 test("never throws on a vault with neither file", () => {
-  const root = mkdtempSync(join(tmpdir(), "vault-"));
+  const root = tempDir("vault-");
   assert.equal(readVersion(root), "0.0.0");
 });
 

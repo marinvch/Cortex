@@ -6,13 +6,13 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveBrain, NoRootError } from "../lib/resolve.js";
+import { tempDir } from "./tmp.js";
 
 function tree() {
-  const base = mkdtempSync(join(tmpdir(), "resolve-"));
+  const base = tempDir("resolve-");
   const root = join(base, "vault");
   const repo = join(base, "repo");
   mkdirSync(root, { recursive: true });

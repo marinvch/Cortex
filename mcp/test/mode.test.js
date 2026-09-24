@@ -1,13 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readdirSync } from "node:fs";
 import { detectMode, isRepoMode, REPO, VAULT } from "../lib/mode.js";
 import { TOOL_TABLE, PUBLISHED, REPO as REPO_TOOL } from "../lib/tools.js";
+import { tempDir } from "./tmp.js";
 
 const serverPath = join(dirname(fileURLToPath(import.meta.url)), "..", "server.js");
 
@@ -69,7 +69,7 @@ function toolsFor(root) {
 }
 
 test("repo mode advertises the memory tools and hides the vault ones", async () => {
-  const repo = mkdtempSync(join(tmpdir(), "cortex-repo-"));
+  const repo = tempDir("cortex-repo-");
   const cortex = join(repo, ".cortex");
   mkdirSync(cortex, { recursive: true });
 
@@ -83,7 +83,7 @@ test("repo mode advertises the memory tools and hides the vault ones", async () 
 });
 
 test("vault mode is unchanged", async () => {
-  const vault = mkdtempSync(join(tmpdir(), "vault-"));
+  const vault = tempDir("vault-");
   const names = await toolsFor(vault);
   assert.deepEqual(names, ["capture", "catch_me_up", "get_project_context", "list_projects", "recall"]);
   assert.ok(!names.includes("remember"), "repo memory tools must not leak into a vault");
@@ -123,7 +123,7 @@ function callOn(root, tool, args) {
 // knows a name can call it without ever reading the list, and `capture` in repo mode used to run —
 // writing inbox/ into someone's product repository — because nothing but the list stood in the way.
 test("a vault tool INVOKED in repo mode is refused, not merely absent from the list", async () => {
-  const repo = mkdtempSync(join(tmpdir(), "cortex-repo-"));
+  const repo = tempDir("cortex-repo-");
   const cortex = join(repo, ".cortex");
   mkdirSync(cortex, { recursive: true });
 
@@ -149,7 +149,7 @@ for (const tool of TOOL_TABLE.filter((t) => t.writes === PUBLISHED)) {
   test(`${tool.name} publishes, so an invoked credential is refused and nothing is written`, async () => {
     // Each tool gets the root its declared mode requires; otherwise assertAvailable refuses first
     // and the test would pass for the wrong reason.
-    const base = mkdtempSync(join(tmpdir(), "cortex-gate-"));
+    const base = tempDir("cortex-gate-");
     let root = base;
     if (tool.mode === REPO_TOOL) {
       root = join(base, ".cortex");
@@ -170,7 +170,7 @@ for (const tool of TOOL_TABLE.filter((t) => t.writes === PUBLISHED)) {
 }
 
 test("a repo tool invoked in vault mode is refused the same way", async () => {
-  const vault = mkdtempSync(join(tmpdir(), "vault-"));
+  const vault = tempDir("vault-");
   const res = await callOn(vault, "remember", { content: "x" });
   assert.equal(res.isError, true, "remember must refuse in vault mode");
   assert.match(res.content[0].text, /only available when Cortex is pointed at a repo's \.cortex\//);

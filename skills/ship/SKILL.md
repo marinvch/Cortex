@@ -114,6 +114,8 @@ why one was deleted.
 Close by saying what landed and what is left open. If the day produced a decision worth keeping,
 `/dream` — the PR description is not where a future reader will look.
 
+Shipping Cortex itself: if a `site-drift` issue opens after the merge, run `/site-sync`.
+
 ## Gotchas
 
 - **Never skip hooks or bypass signing** (`--no-verify`, `--no-gpg-sign`) unless the user asks. A

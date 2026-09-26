@@ -156,6 +156,51 @@ export function detectCommands(root) {
 }
 
 // ---------------------------------------------------------------------------
+// Formatters — what the after-edit hook may run on the one file that changed
+// ---------------------------------------------------------------------------
+
+// The same rule as commands: declared, never assumed. Running Prettier over a Go repo, or `black`
+// where the team formats with ruff, rewrites every file an agent touches in a style nobody chose.
+// Each detector reads a config file the formatter itself reads, so it can be wrong only toward
+// "not found" — and an empty list stamps a hook that does nothing, which is the honest outcome.
+//
+// Order is the order the hook's `case` tries them: specific extensions first, Prettier last,
+// because its `*` pattern with `--ignore-unknown` would otherwise shadow every one after it.
+
+const PRETTIER_CONFIGS = [
+  ".prettierrc", ".prettierrc.json", ".prettierrc.yaml", ".prettierrc.yml", ".prettierrc.json5",
+  ".prettierrc.js", ".prettierrc.cjs", ".prettierrc.mjs", ".prettierrc.toml",
+  "prettier.config.js", "prettier.config.cjs", "prettier.config.mjs",
+];
+
+/**
+ * Formatters this repo declares, as `{ glob, command }` rows for the format-changed hook. The hook
+ * appends the quoted file path to `command`.
+ */
+export function detectFormatters(root) {
+  const out = [];
+  if (read(root, "go.mod") !== null) out.push({ glob: "*.go", command: "gofmt -w" });
+
+  const pyproject = read(root, "pyproject.toml") ?? "";
+  if (has(root, "ruff.toml") || has(root, ".ruff.toml") || /^\[tool\.ruff[\].]/m.test(pyproject)) {
+    out.push({ glob: "*.py|*.pyi", command: "ruff format --quiet" });
+  } else if (/^\[tool\.black\]/m.test(pyproject)) {
+    out.push({ glob: "*.py|*.pyi", command: "black --quiet" });
+  }
+
+  let pkgPrettier = false;
+  try {
+    const pkg = JSON.parse(read(root, "package.json") ?? "null");
+    pkgPrettier = Boolean(pkg && typeof pkg === "object" && pkg.prettier);
+  } catch { /* unparseable manifest: says nothing, so it must not say "prettier" */ }
+  if (pkgPrettier || PRETTIER_CONFIGS.some((f) => has(root, f))) {
+    // --no-install: a hook that downloads a formatter mid-edit is not "well under a second".
+    out.push({ glob: "*", command: "npx --no-install prettier --write --ignore-unknown" });
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Protected paths — what a build-time hook should refuse to edit
 // ---------------------------------------------------------------------------
 
@@ -225,6 +270,7 @@ export function readLoopState(root, index = null, overrides = {}) {
     // way is telling a user their codebase does not exist.
     greenfield: indexed && (stats.files ?? 0) === 0,
     commands: detectCommands(root),
+    formatters: detectFormatters(root),
     protectedPaths: protectedPaths(index),
     ci: has(root, ciDir) ? ciDir : has(root, ".gitlab-ci.yml") ? ".gitlab-ci.yml" : null,
     frontend: (stack.frameworks ?? []).some((f) => /next|react|vue|svelte|angular|remix|astro/i.test(f)),
@@ -368,16 +414,21 @@ export const LOOP_ARTIFACTS = [
     rank: 50,
     template: "settings.hooks.json",
     present: (s) => s.hooks,
-    when: (s) => s.protectedPaths.length > 0 || Boolean(s.commands.test),
-    needs: ["a generated path worth protecting, or a test command to lock during a fix"],
-    why: (s) =>
-      s.protectedPaths.length
-        ? `protected paths to block: ${s.protectedPaths.slice(0, 3).join(", ")}`
-        : "no generated paths, so the hook that matters here is the test-file lock during a fix",
+    when: (s) => s.protectedPaths.length > 0 || Boolean(s.commands.test) || s.formatters.length > 0,
+    needs: ["a generated path worth protecting, a test command to lock during a fix, or a declared formatter"],
+    why: (s) => {
+      const fmt = s.formatters.length
+        ? `; after-edit formatting with ${s.formatters.map((f) => f.command.split(" ").find((w) => !/^(npx|--)/.test(w))).join(", ")}`
+        : "";
+      return s.protectedPaths.length
+        ? `protected paths to block: ${s.protectedPaths.slice(0, 3).join(", ")}${fmt}`
+        : `no generated paths, so the hook that matters here is the test-file lock during a fix${fmt}`;
+    },
     brief:
       "Build-phase hooks are fast and scoped to the file that changed; the full suite belongs at " +
       "the commit. A block must explain itself — the reason and the route to approval go in the " +
-      "message, or the user learns only that Claude stopped.",
+      "message, or the user learns only that Claude stopped. format-changed.sh gets one case line " +
+      "per detected formatter and none when nothing was detected — it then does nothing.",
   },
   {
     id: "intent",

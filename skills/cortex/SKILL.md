@@ -209,6 +209,7 @@ The loop artifacts are written here, from `${CLAUDE_PLUGIN_ROOT}/templates/loop/
 | `REVIEW.md` | `REVIEW.md` | the detected generated paths under out-of-scope, and the suggestion cap |
 | `settings.hooks.json` | merged into `.claude/settings.json` | **merge, never replace** — read the file first |
 | `protected-paths.sh` | `.claude/hooks/` | the detected paths, as shell glob patterns |
+| `format-changed.sh` | `.claude/hooks/` | one `<glob>) <command> "$path" >/dev/null 2>&1 ;;` line per entry in `state.formatters`; none if it is empty |
 | `intent-README.md`, `intent.md` | `intent/README.md`, `intent/TEMPLATE.md` | who accepts an intent |
 | `agent-evals.yml` | `.github/workflows/` | the test command in `--allowedTools`; cases live in `evals/cases/<name>/` |
 | `bands.yaml` | repo root | one metric with a stable history, a read-only command, the rollback runbook |

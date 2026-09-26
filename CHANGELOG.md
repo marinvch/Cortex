@@ -14,6 +14,18 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **`CORTEX_E2E_WORKSPACE=<dir>` — the acceptance scenarios, run against a team's repos.**
+  `tools/test/install-on-a-project.test.sh` gains a multi-repo mode beside `CORTEX_E2E_REPO`: point
+  it at a directory holding a team's product repos and their team-brain, and
+  `tools/test/e2e-workspace.mjs` clones them into the temp dir and runs the roadmap's S1–S4. It
+  indexes every repo, derives the edges a correct map must hold from the repos themselves —
+  workspace-package imports from `pnpm-workspace.yaml` / `workspaces`, and Java same-package
+  references with no `import` — and checks each against the index. It joins every repo to the
+  team with `team add`, captures a memory in each through the real MCP server, and asks every other
+  repo's `catch-up` for it. One line per scenario, `PASS`, `FAIL` or `XFAIL (<step>)`; a scenario
+  is `XFAIL` only when every failing check is one a named step exists to close, so a regression
+  inside a still-expected failure is a `FAIL`. Read-only against the workspace, asserted by
+  fingerprint. Unset, the fragment behaves exactly as before.
 - **A front door for someone who has never heard of Cortex.** The README's first screen is now what
   it is (new or legacy codebases, solo or team), a Cortex View screenshot
   (`docs/images/cortex-view.png`), the three install steps, and four bullets on what lands in a repo.

@@ -8,8 +8,9 @@
 // Keeping them true is the maintainer's job, and `tools/cortex-claude-docs.mjs --check` is how —
 // it fails when a rule's evidence has left its page. ADR 0017 holds the reasoning.
 //
-// Pure data and two lookups. It lives in core/ because both leaves (index/'s findings, and the
-// tools/ that check Cortex's own files) consume it, and core/ is the one place both may import.
+// Pure data, two lookups, and one heuristic two readers share (`triggerPhrasing`). It lives in
+// core/ because both index/'s findings and the tools/ that check Cortex's own files consume it,
+// and core/ is the one place both may import.
 //
 // Adding a rule: fetch the page (`<source>.md` serves the markdown), copy the sentence that states
 // the rule into `evidence` exactly as the page has it — link text without the URL is fine — and run
@@ -75,6 +76,20 @@ export const RULES = Object.freeze([
     evidence:
       "Set to `true` to prevent Claude from automatically loading this skill. Use for workflows you want to trigger manually with `/name`.",
   },
+  {
+    id: "skill.supporting-files.referenced",
+    value: true,
+    source: SKILLS,
+    evidence:
+      "Reference supporting files from `SKILL.md` so Claude knows what each file contains and when to load it",
+  },
+  {
+    id: "skill.frontmatter.malformed",
+    value: "empty metadata",
+    source: SKILLS,
+    evidence:
+      "If the frontmatter YAML is malformed, Claude Code loads the skill body with empty metadata, so `/skill-name` still works but Claude can't match against your `description`.",
+  },
 
   // --- subagents ---------------------------------------------------------------------------------
   {
@@ -94,6 +109,19 @@ export const RULES = Object.freeze([
     value: ["name", "description"],
     source: SUBAGENTS,
     evidence: "Only `name` and `description` are required.",
+  },
+  {
+    id: "subagent.tools.inherit-when-omitted",
+    value: "tools",
+    source: SUBAGENTS,
+    evidence: "Inherits every tool available to subagents if omitted.",
+  },
+  {
+    id: "subagent.frontmatter.malformed",
+    value: "skipped",
+    source: SUBAGENTS,
+    evidence:
+      "YAML that doesn't parse: Claude Code reads no fields from the file, skips it, and writes the parse error to the debug log.",
   },
   {
     id: "subagent.plugin.ignored-keys",
@@ -140,6 +168,12 @@ export const RULES = Object.freeze([
 
   // --- hooks -------------------------------------------------------------------------------------
   {
+    id: "hook.settings.json",
+    value: "json",
+    source: HOOKS,
+    evidence: "Hooks are defined in JSON settings files.",
+  },
+  {
     id: "hook.exit.blocking-code",
     value: 2,
     source: HOOKS,
@@ -151,6 +185,12 @@ export const RULES = Object.freeze([
     source: HOOKS,
     evidence:
       "Without valid JSON on stdout, Claude Code treats exit code 1 as a non-blocking error and proceeds with the action, even though 1 is the conventional Unix failure code.",
+  },
+  {
+    id: "hook.exit.other-codes-non-blocking",
+    value: "non-blocking",
+    source: HOOKS,
+    evidence: "Any other exit code doesn't block on its own for most hook events.",
   },
   {
     id: "hook.post-tool-use.cannot-block",
@@ -268,4 +308,18 @@ export function rule(id) {
 /** A rule's value — the number, key list or string a check compares against. */
 export function limit(id) {
   return rule(id).value;
+}
+
+/**
+ * The trigger phrasing a model-facing description carries, or null — what `skill.disable-model-invocation`
+ * makes pointless on a skill only a person can invoke. Deliberately simple: "Use when", "Triggers", or
+ * two or more quoted phrases, the three shapes a trigger list takes. It lives here, beside the rule,
+ * because two readers apply it — tools/cortex-frontmatter.mjs to Cortex's own skills and
+ * index/lib/claude-setup.mjs to a user's — and two copies of one heuristic drift apart.
+ */
+export function triggerPhrasing(desc) {
+  const m = desc.match(/\buse (?:it )?when\b|\btriggers?\b/i);
+  if (m) return m[0];
+  const quoted = desc.match(/"[^"]{2,}"/g) ?? [];
+  return quoted.length >= 2 ? quoted.slice(0, 2).join(", ") : null;
 }

@@ -8,6 +8,7 @@ import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
 import { findOrphans } from "./orphans.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { readState } from "./next.mjs";
+import { claudeSetupFindings } from "./claude-setup.mjs";
 
 // Findings are PROPOSALS. Nothing here edits a repository — this module returns data and the
 // caller writes exactly one report file. The skill that finds things and the skill that changes
@@ -532,6 +533,12 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
 
   // Last, because it reports on the three scans above and can only be counted once they have run.
   //
+  // --- The repo's Claude setup, against Anthropic's own docs --------------------------------
+  //
+  // Its own module because it is a table of rules that grows by rows (lib/claude-setup.mjs). It
+  // reads through the same text source, so a file it could not open lands in the cap note below.
+  out.push(...claudeSetupFindings(index, root, { read: (p) => text.read(p) }));
+
   // A file the scanners never opened reaches every one of them as "no match found" — no secret, no
   // mention, no coverage — which is indistinguishable from a clean file. The cap is this tool's own
   // choice (`lib/repo-text.mjs`), so the tool has to say when it bound the answer it just gave.

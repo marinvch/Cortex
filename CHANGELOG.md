@@ -115,6 +115,12 @@ it was repointed or dropped in the same change.
   `npx --no-install`), and does nothing where none is declared. Every path exits 0 — a PostToolUse
   hook runs after the edit and has nothing to block. `index/test/loop.test.mjs` now fails when any
   script a hook command names has no template, or the `/cortex` table never says where it lands.
+- **`recall_memory` and `get_project_context` returned whole files, with no cap.** Claude Code warns
+  at 10,000 tokens of MCP output and cuts at 25,000 by default; one oversized memory file came back
+  as 272,000 characters and was truncated by the client with no marker. Every tool result is now
+  capped once, in the transport (`mcp/lib/stdio.js`, 40,000 characters), and an oversized one comes
+  back as a parseable document marked `truncated: true`, with the total size and a hint to narrow
+  the request. `mcp/test/result-cap.test.js` runs the server against an oversized memory file.
 - **Four rituals only a person can run still advertised triggers to the model.** `/connect-brain`,
   `/migrate-engine`, `/onboard` and `/team-init` set `disable-model-invocation: true` and kept
   "Use when … says …" trigger lists, against Cortex's own rule that a user-invoked description is a

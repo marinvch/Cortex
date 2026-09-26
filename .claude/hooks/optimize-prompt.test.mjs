@@ -179,6 +179,7 @@ const CLEAR = [
   'can you investigate official antropic weebsite for documentation how claude code should be ' +
     'done and imbade in the core of cortex best practises. Can you interview me what can should be done',
   'i merged the open pr so we can now continue the left overs that was not finished yestoday',
+  'yes write the spec',                                  // fired 4/5 after #426: only do/go/merge/… followed yes
 ];
 
 test('regression: clear requests from a real session do not fire', () => {
@@ -192,7 +193,11 @@ test('regression: genuinely vague prompts still fire', () => {
 });
 
 test('a go-ahead with a short tail bypasses; a long tail or a bare "continue" + task does not', () => {
-  for (const p of ['go ahead do all of them', 'ok merge it', 'yes do both', 'do it', 'lgtm ship it']) {
+  for (const p of [
+    'go ahead do all of them', 'ok merge it', 'yes do both', 'do it', 'lgtm ship it',
+    // A go-ahead word followed by ANY action verb, not a hand-picked few.
+    'yes write the spec', 'ok update the readme', 'yes open the pr', 'sure, fix it',
+  ]) {
     assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
   }
   for (const p of [

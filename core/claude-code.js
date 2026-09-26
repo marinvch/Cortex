@@ -1,4 +1,6 @@
 // core/claude-code.js — what Anthropic's Claude Code docs say, as data Cortex can check against.
+// The `model.*` rules come from the platform docs instead: how the model itself behaves, which is
+// what a direct Messages API caller or an unattended runner has to assume.
 //
 // Every rule carries the page it came from, the sentence on that page that states it — copied, not
 // paraphrased — and the date someone last confirmed the sentence was still there. Nothing here
@@ -23,6 +25,8 @@ const MCP = "https://code.claude.com/docs/en/mcp";
 const HOOKS = "https://code.claude.com/docs/en/hooks";
 const MEMORY = "https://code.claude.com/docs/en/memory";
 const BEST = "https://code.claude.com/docs/en/best-practices";
+const OPUS_5_5 =
+  "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5";
 
 /**
  * `table: "frontmatter"` marks a rule whose value is a key list read from the page's frontmatter
@@ -194,6 +198,63 @@ export const RULES = Object.freeze([
     source: BEST,
     evidence:
       "If Claude keeps skipping one instruction, add emphasis such as \"IMPORTANT\" to that line alone. If you emphasize many lines, none of them stands out.",
+  },
+
+  // --- the model: what a direct Messages API caller and an unattended runner must assume ----------
+  {
+    id: "model.effort.default-medium",
+    value: "medium",
+    source: OPUS_5_5,
+    evidence:
+      "Start at `medium`, the default on Claude Opus 5.5 (Claude Opus 5 defaults to `high`), set it explicitly, and test several levels against your own evals rather than carrying over the setting you used on Claude Opus 5.",
+  },
+  {
+    id: "model.thinking.counts-toward-max-tokens",
+    value: true,
+    source: OPUS_5_5,
+    evidence:
+      "Thinking counts toward `max_tokens` even when thinking content isn't returned to you, so a limit sized for Claude Opus 5 with thinking off can cut replies off.",
+  },
+  {
+    id: "model.response.read-by-block-type",
+    value: "text",
+    source: OPUS_5_5,
+    evidence:
+      "Check each block's type instead of assuming the first content block is text: a response may or may not begin with a `thinking` block, whose `thinking` field is empty under the default `display: \"omitted\"`.",
+  },
+  {
+    id: "model.response.refusal-stop-reason",
+    value: "refusal",
+    source: OPUS_5_5,
+    evidence:
+      "A classifier decline arrives as a normal response with `stop_reason: \"refusal\"` and a `stop_details` object naming the category.",
+  },
+  {
+    id: "model.thinking.cannot-disable",
+    value: "thinking: {\"type\": \"disabled\"}",
+    source: OPUS_5_5,
+    evidence:
+      "Claude Opus 5 accepts `thinking: {\"type\": \"disabled\"}` at `high` effort or below; Claude Opus 5.5 doesn't, and the migration guide covers the request change.",
+  },
+  {
+    id: "model.prompt.no-reasoning-in-response",
+    value: "reasoning_extraction",
+    source: OPUS_5_5,
+    evidence:
+      "Requests that push the model to reproduce its internal reasoning in the response text can be declined with the `reasoning_extraction` category, which is new if you're coming from Claude Opus 5.",
+  },
+  {
+    id: "model.agentic.end-turn-is-a-report",
+    value: "end_turn",
+    source: OPUS_5_5,
+    evidence: "Treat a text-only end of turn as a report rather than as proof the task is done.",
+  },
+  {
+    id: "model.agentic.continuation-cap",
+    value: 3,
+    source: OPUS_5_5,
+    evidence:
+      "Either way, stop after two or three automatic continuations on the same task rather than repeating them indefinitely, so that a run that is genuinely stuck ends and can be reviewed.",
   },
 ].map((r) => Object.freeze({ ...r, checked: CHECKED })));
 

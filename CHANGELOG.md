@@ -28,6 +28,13 @@ production breach writes the next `intent.md`.
   `--check <file>` exits 1 and names each change ("ritual /resume added", "install command
   changed"). The site drifted four product versions because it restated these by hand (#415); this
   is what it renders from instead (#416). `tools/test/site-facts.test.sh` pins 36 assertions.
+- **The Opus 5.5 prompting rules join them — eight `model.*` rules** from Anthropic's platform docs
+  (*Prompting Claude Opus 5.5*), each with its sentence copied from the page: effort defaults to
+  `medium` and should be measured against evals; thinking counts toward `max_tokens`; read a
+  response by block type, not `.content[0]`; a refusal arrives as `stop_reason: "refusal"`;
+  thinking cannot be disabled; asking for reasoning in the response can be declined; a text-only
+  end of turn is a report, not proof of done; cap automatic continuations. The weekly docs check
+  now covers 30 rules across 7 pages.
 - **The official Claude Code rules, as data with their evidence — `core/claude-code.js`.** 22 rules
   from Anthropic's docs: skill and subagent frontmatter keys, the 1,536-character skill description
   cap, `SKILL.md` under 500 lines, the subagent fields a plugin cannot use, MCP output limits, hook
@@ -142,6 +149,21 @@ it was repointed or dropped in the same change.
 
 ### Fixed
 
+- **`cortex-cron.sh` lost its AI summary whenever the response opened with a thinking block.** It
+  read `.content[0].text` with `max_tokens: 800`; a model that thinks can put a `thinking` block
+  first, and thinking counts toward the limit, so the digest shipped with no summary and nothing
+  said why. It now joins every text block, sends `max_tokens: 16000`, and names a refusal or a
+  `max_tokens` cut-off on stderr instead of publishing half a sentence. Tested against canned
+  responses from a stub `curl`.
+- **The hooks `/cortex` stamps failed with "permission denied" on macOS and Linux.** The commands
+  ran `.claude/hooks/*.sh` directly, but those scripts are written with no executable bit, and a
+  file created on Windows is committed as 100644 anyway. The commands are now
+  `bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/<script>.sh"` — no mode bit needed, and a project path
+  with a space no longer splits. A repo stamped before this keeps the old command in its
+  `.claude/settings.json`; prefixing the two commands with `bash` and quoting the path fixes it.
+- **The prompt gate still fired on "yes write the spec".** Only yes/ok + six hand-picked verbs
+  counted as a go-ahead. Now yes/ok/sure + any verb on the scorer's action-verb list does, within
+  the same eight-word cap.
 - **Every repo `/cortex` stamped ran a hook script that did not exist.** `templates/loop/settings.hooks.json`
   registers `.claude/hooks/format-changed.sh` on every `Edit|Write`, and no template for it was
   ever written. It is one now: it formats only the edited file, with formatters `loop.mjs` reads

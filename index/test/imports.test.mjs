@@ -325,6 +325,75 @@ test("java: source roots are matched longest-first across modules", () => {
   assert.equal(resolveJavaImport("com.x.Thing", files, ["a/src/main/java"]), "a/src/main/java/com/x/Thing.java");
 });
 
+// Same-package references carry no import line, so they are read off the code itself and handed to
+// the resolver as `./Name` — "beside this file", the same marker Ruby's require_relative uses. Every
+// name is only a candidate: the resolver keeps it when `<dir>/Name.java` exists.
+const samePackage = (src) => extractImports(src, "java").filter((s) => s.startsWith("./")).map((s) => s.slice(2));
+
+test("java: every way code names a class beside it becomes a same-package candidate", () => {
+  const src = `
+    package com.x.orders;
+
+    @Audited
+    public class OrderService extends BaseService implements Priced {
+      private final OrderRepository repo = new OrderRepository();
+      private final List<OrderLine> lines = Mapper.toLines(repo);
+      @Override public Money total(Discount d) { return Rounding.HALF_UP.apply(d); }
+      Supplier<Invoice> make = Invoice::new;
+    }
+  `;
+  const got = samePackage(src);
+  for (const want of ["Audited", "BaseService", "Priced", "OrderRepository", "List", "OrderLine", "Mapper", "Money", "Discount", "Rounding", "Supplier", "Invoice"]) {
+    assert.ok(got.includes(want), `expected ${want} in ${JSON.stringify(got)}`);
+  }
+});
+
+test("java: comments and string literals never name a class", () => {
+  // A javadoc that says "see OrderRepository" is not a dependency, and neither is a log line. Each
+  // literal form Java has is here: line and block comments, strings with escaped quotes, char
+  // literals, and the """ text block, whose body may hold a bare " without ending it.
+  const src = [
+    "package com.x;",
+    "// Ghost1 in a line comment",
+    "/* Ghost2 in a block",
+    "   comment, Ghost3 */",
+    "/** @see Ghost4 */",
+    'class Real { String s = "Ghost5 \\" Ghost6"; char c = \'"\'; String t = """',
+    '   Ghost7 " still inside',
+    '   """; Used u; }',
+  ].join("\r\n");
+  const got = samePackage(src);
+  for (let n = 1; n <= 7; n++) assert.ok(!got.includes(`Ghost${n}`), `Ghost${n} leaked out of a literal: ${JSON.stringify(got)}`);
+  assert.ok(got.includes("Used"), "code after every literal is still read");
+  assert.ok(got.includes("String"));
+});
+
+test("java: an imported name, a qualified name, or a type the file declares is not a same-package candidate", () => {
+  const src = `
+    package com.x;
+    import com.other.Imported;
+    import static com.other.Constants.LIMIT;
+    import com.wild.*;
+    class Outer {
+      Imported a; com.elsewhere.Qualified b; Outer.Inner c; LIMIT d; Wildcarded e;
+      static class Inner {} enum Kind {} record Pair() {} interface Port {} @interface Tag {}
+      Kind k; Pair p; Port q;
+    }
+  `;
+  const got = samePackage(src);
+  for (const not of ["Imported", "LIMIT", "Qualified", "Outer", "Inner", "Kind", "Pair", "Port", "Tag"]) {
+    assert.ok(!got.includes(not), `${not} should not be a candidate: ${JSON.stringify(got)}`);
+  }
+  // A single-type import shadows a same-package class; a wildcard import does not — Java resolves
+  // the package's own class first — so a name that may come from `com.wild.*` stays a candidate.
+  assert.ok(got.includes("Wildcarded"));
+  assert.deepEqual(extractImports(src, "java").filter((s) => !s.startsWith("./")), ["com.other.Imported", "com.other.Constants.LIMIT"]);
+});
+
+test("java: each candidate is listed once, in the order the code first names it", () => {
+  assert.deepEqual(samePackage("class A { B b = new B(); C c; B d; }"), ["B", "C"]);
+});
+
 test("php: PSR-4 maps a namespace prefix to a directory", () => {
   // Declared in composer.json rather than guessed — the same reason Go reads go.mod.
   const BS = String.fromCharCode(92);

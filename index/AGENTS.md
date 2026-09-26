@@ -236,6 +236,8 @@ borrows its three numbers rather than keeping a second list.
   Makefile targets — not `.PHONY`, not assignments, not an empty script string — and Make wins where
   both exist. A Python or Go repo with neither returns nulls on purpose: the ritual asks. Adding a
   source means adding a detector that can be wrong in only one direction, toward "not found".
+  `detectFormatters` follows the same rule — a config file the formatter itself reads, never a
+  `format` script — and an empty list stamps a `format-changed.sh` that does nothing.
 - **Every `why` goes through `evidence()`, and every blocked row's `needs` through `unmet()`.** Both
   rules were written after a real run: `null` printed inside a sentence, and a row claimed to need
   the CI system that its own evidence said was present. `unmet` returns only prerequisites that

@@ -150,6 +150,41 @@ blocked_msg="$(printf '%s' '{"tool_input":{"file_path":"src/gen/api.ts"}}' | bas
 assert_contains "$blocked_msg" "Change the source it is generated from" \
   "hook: a block explains itself and names the route forward"
 
+# --- the format-changed hook formats one file, and never blocks ------------------------------------
+#
+# settings.hooks.json ran this script for two releases before a template for it existed. It is a
+# PostToolUse hook: the edit already happened, so every path out must be exit 0 — unreadable input,
+# a missing file, a formatter that fails. With no detected formatter it has no case lines and must
+# leave the file byte-for-byte alone.
+
+fmt_src="$REPO_ROOT/templates/loop/format-changed.sh"
+# A stub "formatter" that appends a marker, so the test can see exactly which files it touched.
+stub_case='  *.go) printf "formatted\\n" >> "$path" ;;\n  *.bad) false ;;'
+sed "s#{{FORMAT_CASES}}#$stub_case#" "$fmt_src" > "$WORK/fmt-default.sh"
+sed "s#{{FORMAT_CASES}}#$stub_case#;s/if command -v jq >\/dev\/null 2>&1; then/if false; then/" "$fmt_src" > "$WORK/fmt-nojq.sh"
+sed "s#{{FORMAT_CASES}}##" "$fmt_src" > "$WORK/fmt-empty.sh"
+
+fmt_exit() { printf '%s' "$2" | bash "$WORK/fmt-$1.sh" >/dev/null 2>&1; echo "$?"; }
+
+for mode in default nojq; do
+  printf 'package main\n' > "$WORK/main.go"
+  printf 'x\n' > "$WORK/notes.txt"
+  assert_eq "0" "$(fmt_exit "$mode" "{\"tool_input\":{\"file_path\":\"$WORK/main.go\"}}")" \
+    "format hook ($mode): a matching file exits 0"
+  assert_contains "$(cat "$WORK/main.go")" "formatted" "format hook ($mode): and the formatter ran on it"
+  fmt_exit "$mode" "{\"tool_input\":{\"file_path\":\"$WORK/notes.txt\"}}" >/dev/null
+  assert_eq "x" "$(cat "$WORK/notes.txt")" "format hook ($mode): a file no formatter claims is left alone"
+done
+printf 'y\n' > "$WORK/broken.bad"
+assert_eq "0" "$(fmt_exit default "{\"tool_input\":{\"file_path\":\"$WORK/broken.bad\"}}")" \
+  "format hook: a formatter that fails still exits 0 — PostToolUse has nothing left to block"
+assert_eq "0" "$(fmt_exit default '{"tool_input":{"file_path": 42}}')" "format hook: unreadable input exits 0"
+assert_eq "0" "$(fmt_exit default '{"tool_input":{"file_path":"/no/such/file.go"}}')" "format hook: a missing file exits 0"
+printf 'package main\n' > "$WORK/main.go"
+assert_eq "0" "$(fmt_exit empty "{\"tool_input\":{\"file_path\":\"$WORK/main.go\"}}")" \
+  "format hook: with no detected formatter it still exits 0"
+assert_eq "package main" "$(cat "$WORK/main.go")" "format hook: and changes nothing"
+
 # --- /cortex reconciles an existing agent doc before it scaffolds ----------------------------------
 #
 # The first /cortex left this out. On a repo with a hand-written CLAUDE.md the scaffold, which never

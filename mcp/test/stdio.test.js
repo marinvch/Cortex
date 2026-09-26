@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
-import { serve } from "../lib/stdio.js";
+import { serve, capResult, MAX_RESULT_CHARS } from "../lib/stdio.js";
 
 // The MCP stdio transport is newline-delimited JSON-RPC 2.0 and nothing more. These tests pin the
 // parts an SDK used to provide, because the parts an SDK provides are exactly the parts nobody
@@ -137,4 +137,40 @@ test("unparseable input returns a parse error and the server survives", async ()
   assert.equal(h.seen[0].error.code, -32700);
   await h.send({ jsonrpc: "2.0", id: 11, method: "ping" });
   assert.equal(h.seen[1].id, 11);
+});
+
+// ---------------------------------------------------------------------------
+// The result cap — every tool result, in one place
+// ---------------------------------------------------------------------------
+
+test("a result under the cap is passed through byte for byte", () => {
+  const text = JSON.stringify({ a: "x".repeat(100) }, null, 2);
+  assert.equal(capResult(text, 1000), text);
+});
+
+test("a result over the cap becomes a marked, parseable document that fits", () => {
+  // Quotes and newlines double in size when escaped into `partial` — the case a naive slice gets wrong.
+  const text = JSON.stringify({ content: 'line "quoted"\n'.repeat(5000) }, null, 2);
+  const out = capResult(text, 2000);
+  assert.ok(out.length <= 2000, `capped output is ${out.length} characters`);
+  const doc = JSON.parse(out);
+  assert.equal(doc.truncated, true);
+  assert.equal(doc.totalChars, text.length);
+  assert.equal(doc.shownChars, doc.partial.length);
+  assert.ok(doc.shownChars > 0, "it still shows the start of the result");
+  assert.ok(text.startsWith(doc.partial), "the partial is the head of the real result, not a summary");
+  assert.match(doc.hint, /Narrow the request/);
+});
+
+test("the default cap keeps a result far under Claude Code's 25,000-token MCP limit", () => {
+  // Pessimistic 3 characters per token: code and JSON escapes tokenize denser than prose.
+  assert.ok(MAX_RESULT_CHARS / 3 < 25_000 * 0.6, `${MAX_RESULT_CHARS} characters could approach the limit`);
+});
+
+test("tools/call applies the cap, so no tool can skip it", async () => {
+  const h = harness({ maxResultChars: 500, call: async () => ({ big: "y".repeat(5000) }) });
+  await h.send({ jsonrpc: "2.0", id: 20, method: "tools/call", params: { name: "echo", arguments: {} } });
+  const text = h.seen[0].result.content[0].text;
+  assert.ok(text.length <= 500);
+  assert.equal(JSON.parse(text).truncated, true);
 });

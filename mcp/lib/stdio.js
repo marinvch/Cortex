@@ -16,6 +16,47 @@ const PARSE_ERROR = -32700;
 const METHOD_NOT_FOUND = -32601;
 
 /**
+ * The most text one tool result may carry. Claude Code warns at 10,000 tokens of MCP output and
+ * cuts at 25,000 by default, and `recall_memory` and `get_project_context` return whole files —
+ * a long-lived memory directory or a big project brief sailed past both. 40,000 characters is about
+ * 10,000 tokens of prose and stays under 14,000 even at a pessimistic 3 characters per token (code,
+ * JSON escapes), so a capped result is never the one Claude Code truncates for us, silently.
+ *
+ * Capped here, in the transport, rather than per tool: every tool's result passes through this one
+ * line, so a tool added next year is capped without anyone remembering to.
+ */
+export const MAX_RESULT_CHARS = 40_000;
+
+/**
+ * `text` as-is when it fits; otherwise a smaller JSON document that says it was truncated, by how
+ * much, and how to get the rest. Never a silent cut — a reader handed half a memory file with no
+ * marker would treat the missing days as days nothing happened.
+ */
+export function capResult(text, max = MAX_RESULT_CHARS) {
+  if (text.length <= max) return text;
+  const note = {
+    truncated: true,
+    totalChars: text.length,
+    shownChars: 0,
+    hint:
+      `The full result is ${text.length} characters, over the ${max} one call returns so it stays ` +
+      "inside Claude Code's MCP output limit. Narrow the request to see the rest — fewer days, a " +
+      "smaller limit, one project.",
+    partial: "",
+  };
+  // Leave room for the wrapper itself, which JSON-escapes the partial text and so can grow it.
+  let keep = Math.max(0, max - JSON.stringify(note, null, 2).length - 64);
+  for (;;) {
+    let partial = text.slice(0, keep);
+    // Never end on half a surrogate pair; the client would render a replacement character.
+    if (/[\uD800-\uDBFF]$/.test(partial)) partial = partial.slice(0, -1);
+    const out = JSON.stringify({ ...note, shownChars: partial.length, partial }, null, 2);
+    if (out.length <= max || keep === 0) return out;
+    keep = Math.floor(keep * 0.9); // escapes grew it past the cap; shrink and try again
+  }
+}
+
+/**
  * Serve MCP over a pair of streams.
  *
  * @param {object} opts
@@ -26,10 +67,11 @@ const METHOD_NOT_FOUND = -32601;
  *        Runs a tool and resolves to plain data, which is serialized into a text content block.
  *        Throwing marks the result `isError` — the call was delivered and the tool refused, which
  *        is a different thing from the transport failing.
+ * @param {number} [opts.maxResultChars]  the cap `capResult` applies; tests pass a small one
  * @param {NodeJS.ReadableStream} [opts.input]
  * @param {NodeJS.WritableStream} [opts.output]
  */
-export function serve({ name, version, tools, call, input = process.stdin, output = process.stdout }) {
+export function serve({ name, version, tools, call, maxResultChars = MAX_RESULT_CHARS, input = process.stdin, output = process.stdout }) {
   // Only protocol messages may ever reach stdout — a stray console.log corrupts the stream and the
   // client reports something unrelated. Diagnostics go to stderr.
   const send = (msg) => output.write(JSON.stringify(msg) + "\n");
@@ -58,7 +100,8 @@ export function serve({ name, version, tools, call, input = process.stdin, outpu
         const { name: tool, arguments: args = {} } = msg.params ?? {};
         try {
           const data = await call(tool, args);
-          return respond(msg.id, { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] });
+          const text = capResult(JSON.stringify(data, null, 2) ?? "null", maxResultChars);
+          return respond(msg.id, { content: [{ type: "text", text }] });
         } catch (e) {
           const text = e?.code ? `${e.code}: ${e.message}` : String(e?.message ?? e);
           return respond(msg.id, { content: [{ type: "text", text }], isError: true });

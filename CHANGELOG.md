@@ -14,6 +14,21 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **The Cortex View opens on an Overview, and has a Structure tab.** The Overview is the repo's
+  state on one screen: index fresh or stale, profile, how far team memory trails the code, and the
+  Cortex version; files, import edges, test coverage, 30-day churn with a sparkline, findings by
+  severity and the top three as a checklist; the import graph as a slowly turning amber particle
+  cloud (hubs near the core, one lobe per area, click a point to open the file); the next commands,
+  one click to copy; and a timeline of memory entries and commits. Structure draws the context
+  layer as a tree — root `AGENTS.md`, the docs beside it, each code area with its scoped brief,
+  busiest files and tests, and what Cortex generates — with every missing piece dashed and naming
+  the command that writes it. Every existing tab stays. The page is still one offline file with no
+  fonts to fetch, and still byte-identical for the same index: churn and the timeline end at the
+  indexed commit, never at today, and the cloud is seeded from a hash of the file ids. A fact that
+  could not be read says *not available* and why. Every text colour clears 7:1 on every ground in
+  both themes and nothing is under 13px — both computed in `view.test.mjs` from the token objects
+  the CSS is generated from. The theme follows the OS, with a remembered override; reduced motion
+  stops the cloud; focus is always drawn. `index/lib/overview.mjs` gathers the new facts.
 - **A front door for someone who has never heard of Cortex.** The README's first screen is now what
   it is (new or legacy codebases, solo or team), a Cortex View screenshot
   (`docs/images/cortex-view.png`), the three install steps, and four bullets on what lands in a repo.

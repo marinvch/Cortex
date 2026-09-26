@@ -43,6 +43,49 @@ function labelOf(path) {
   return base;
 }
 
+// The agent shims Cortex writes, and the ones other tools read. Present only if the index has them.
+const SHIMS = ["CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md", ".cursorrules"];
+
+/**
+ * The context layer as a tree: the root brief, what hangs beside it (shims, glossary, decisions,
+ * review rules), and under it every area with the scoped brief that routes to it, if any, its
+ * most-imported files and how many of its files are tests. Built from indexed paths only — a
+ * document that is not tracked does not exist as far as an agent opening the repo is concerned.
+ */
+function buildStructure(files, areas, colorOf) {
+  const paths = new Set(files.map((f) => f.path));
+  const byPath = new Map(files.map((f) => [f.path, f]));
+  const briefs = files.filter((f) => f.path.endsWith("/AGENTS.md")).map((f) => f.path).sort();
+  const area = (a) => {
+    const own = (a.paths ?? []).map((p) => byPath.get(p)).filter(Boolean);
+    const brief = briefs.find((b) => b === `${a.name}/AGENTS.md`) ?? briefs.find((b) => b.startsWith(`${a.name}/`)) ?? null;
+    const key = own
+      .filter((f) => f.category === "code" && !f.isTest)
+      .sort((x, y) => (y.inbound ?? 0) - (x.inbound ?? 0) || (y.commits ?? 0) - (x.commits ?? 0) || (x.path < y.path ? -1 : 1))
+      .slice(0, 3)
+      .map((f) => ({ path: f.path, inbound: f.inbound ?? 0 }));
+    return {
+      name: a.name,
+      color: colorOf.get(a.name) ?? GREY,
+      files: own.length,
+      code: own.filter((f) => f.category === "code" || f.category === "script").length,
+      tests: own.filter((f) => f.isTest).length,
+      brief,
+      key,
+    };
+  };
+  return {
+    root: paths.has("AGENTS.md") ? "AGENTS.md" : null,
+    shims: SHIMS.filter((p) => paths.has(p)),
+    glossary: paths.has("CONTEXT.md") ? "CONTEXT.md" : null,
+    adrs: files.filter((f) => /^docs\/adr\/\d{4}-.+\.md$/.test(f.path)).length,
+    review: paths.has("REVIEW.md") ? "REVIEW.md" : null,
+    briefs,
+    // Areas with code first — they are what a brief routes to — then by size.
+    areas: areas.map(area).sort((a, b) => (b.code > 0) - (a.code > 0) || b.files - a.files || (a.name < b.name ? -1 : 1)),
+  };
+}
+
 // Orphans come from lib/orphans.mjs, shared with findings.mjs. There used to be a copy here, and
 // the two would have drifted the moment either learned something — which is exactly what happened
 // when the shared version learned that a file named by an ADR or a shell test is not unreferenced.
@@ -171,8 +214,12 @@ export function buildView(index, root, opts = {}) {
     };
   });
 
+  const testable = files.filter((f) => f.category === "code" && !f.isTest).length;
+
   return {
     generated: { commit: index.commit ?? "", version: index.version ?? "", root },
+    structure: buildStructure(files, index.areas ?? [], colorOf),
+    overview: opts.overview ?? null,
     nodes,
     links,
     areas: areaCards,
@@ -182,6 +229,10 @@ export function buildView(index, root, opts = {}) {
       lines: index.stats?.lines ?? 0,
       edges: links.length,
       tests: index.stats?.tests ?? 0,
+      // Coverage as a share of the code that COULD have a test — tests themselves and docs are not
+      // in the denominator. `null` when the coverage pass could not run, never 0%.
+      testable,
+      tested: coverage ? tested.size : null,
       languages: index.stats?.languages ?? {},
       skipped: index.stats?.skipped ?? [],
       enriched: summaries.size,

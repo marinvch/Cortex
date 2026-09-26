@@ -2,10 +2,27 @@
 
 **v2.38.0** · installable as a Claude plugin · see [CHANGELOG.md](CHANGELOG.md)
 
-Point Cortex at a repository and it builds real knowledge of it: what is there, how it is wired,
-where it is changing, and what is missing. Then it writes a context layer — a small root
-`AGENTS.md` with a routing table, scoped briefs where they are earned, a domain glossary, and a
-committed memory the whole team shares.
+Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
+builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
+missing. Then it writes the context layer every developer's agent reads.
+
+![Cortex View — this repository's import graph, one band per import depth](docs/images/cortex-view.png)
+
+**Three steps:**
+
+```
+/plugin marketplace add marinvch/Cortex
+/plugin install cortex
+/cortex          # inside the repo you want it to serve
+```
+
+**What lands in your repo:**
+
+- **A findings report** — issues, gaps and recommendations, ranked. Nothing changes until you pick.
+- **A small root `AGENTS.md`** with a routing table, scoped briefs where an area earns one, and
+  shims so Claude, Gemini, Copilot and Cursor all read the same file.
+- **A domain glossary and decision records** — `CONTEXT.md` and `docs/adr/`.
+- **A committed team memory** — `.cortex/memory/`, so what one developer learned reaches the rest.
 
 **Every conclusion is a proposal.** Indexing and reporting cannot modify your repository; a
 separate, explicitly invoked skill applies what you choose. The user decides, not the AI.
@@ -13,16 +30,9 @@ separate, explicitly invoked skill applies what you choose. The user decides, no
 **No build step, no engine** — plain markdown and a little Node, readable by any editor and by any
 AI agent (Claude, Gemini, Copilot, Cursor).
 
-Since v1.1.0 there is also an **optional** Node MCP server in `mcp/` that turns the vault into live
-`recall`/`capture` tools for MCP-speaking agents. It is strictly additive: everything below works
-without installing it, and nothing in the vault depends on it.
-
 Use it alone on your own repos, or on a team: the context layer is committed with the code, so
 every developer's agent reads the same map and `.cortex/memory/` carries what one person learned to
-the rest. An optional **personal vault** — notes, decisions, a daily log — is served by the same
-rituals, and lives in its own private repo, never in this one.
-
-> One rule: capture first, organize later. Nothing lives only in your head.
+the rest.
 
 ---
 
@@ -171,6 +181,15 @@ context manager. Everything from here down describes that half:
 bash tools/cortex-vault-extract.sh --to ~/cortex-brain          # preview, changes nothing
 bash tools/cortex-vault-extract.sh --to ~/cortex-brain --apply  # copy it out
 ```
+
+An optional **personal vault** — notes, decisions, a daily log — is served by the same
+rituals, and lives in its own private repo, never in this one.
+
+> One rule: capture first, organize later. Nothing lives only in your head.
+
+Since v1.1.0 there is also an **optional** Node MCP server in `mcp/` that turns the vault into live
+`recall`/`capture` tools for MCP-speaking agents. It is strictly additive: everything below works
+without installing it, and nothing in the vault depends on it.
 
 ### Vault quick start (5 minutes)
 

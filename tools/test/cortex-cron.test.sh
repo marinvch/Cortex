@@ -111,3 +111,53 @@ assert_contains "$out" "summary unavailable" "the failure is reported instead of
 setup_brain "$WORK/nokey"
 out="$(env -u ANTHROPIC_API_KEY BRAIN_DIR="$WORK/nokey" bash "$CRON" --daily 2>&1)"
 assert_not_contains "$out" "summary unavailable" "no key means no warning; that is the boring path"
+
+# --- reading the response the way the model now sends it (core/claude-code.js model.* rules) ---
+#
+# A model that always thinks may put a `thinking` block first, so `.content[0].text` reads nothing
+# and the summary disappears — silently, since the deterministic digest still gets written
+# (model.response.read-by-block-type). Thinking also counts toward max_tokens, so 800 could cut the
+# reply off before any text (model.thinking.counts-toward-max-tokens). A refusal and a cut-off reply
+# are failed summaries and must be said out loud (model.response.refusal-stop-reason).
+#
+# A stub curl first on PATH serves a canned response and records the request body. No network.
+
+mkdir -p "$WORK/fakebin"
+cat > "$WORK/fakebin/curl" <<'STUB'
+#!/usr/bin/env bash
+body="" prev=""
+for a in "$@"; do [ "$prev" = "-d" ] && body="$a"; prev="$a"; done
+printf '%s' "$body" > "${FAKE_CURL_BODY:?}"
+cat "${FAKE_CURL_RESPONSE:?}"
+STUB
+chmod +x "$WORK/fakebin/curl"
+
+# canned <name> <response-json> — run the daily cron against that response; sets $out and $digest.
+canned() {
+  local name="$1"
+  setup_brain "$WORK/$name"
+  printf '%s' "$2" > "$WORK/$name.response.json"
+  out="$(PATH="$WORK/fakebin:$PATH" FAKE_CURL_RESPONSE="$WORK/$name.response.json" \
+         FAKE_CURL_BODY="$WORK/$name.body.json" BRAIN_DIR="$WORK/$name" \
+         ANTHROPIC_API_KEY="test-key-not-real" bash "$CRON" --daily 2>&1)"
+  digest="$(cat "$WORK/$name/digests/$TODAY.md" 2>/dev/null || true)"
+}
+
+canned thinkfirst '{"content":[{"type":"thinking","thinking":""},{"type":"text","text":"Three notes captured about the release."}],"stop_reason":"end_turn"}'
+assert_contains "$digest" "Three notes captured about the release." \
+  "a response that opens with a thinking block still yields the summary"
+assert_not_contains "$out" "summary unavailable" "and nothing is reported missing"
+assert_contains "$(tr -d ' \n\r' < "$WORK/thinkfirst.body.json" 2>/dev/null || true)" '"max_tokens":16000' \
+  "the request leaves room for thinking: max_tokens is 16000, not 800"
+
+canned textonly '{"content":[{"type":"text","text":"A plain reply still works."}],"stop_reason":"end_turn"}'
+assert_contains "$digest" "A plain reply still works." "a text-only response is read as before"
+
+canned refused '{"content":[],"stop_reason":"refusal","stop_details":{"category":"reasoning_extraction"}}'
+assert_contains "$out" "stop_reason: refusal" "a refusal is named on stderr"
+assert_contains "$out" "reasoning_extraction" "with the category the response gave"
+assert_contains "$digest" "## Files changed" "and the deterministic digest is still written"
+
+canned cutoff '{"content":[{"type":"thinking","thinking":""},{"type":"text","text":"Half a sen"}],"stop_reason":"max_tokens"}'
+assert_contains "$out" "stop_reason: max_tokens" "a reply cut off at max_tokens is named on stderr"
+assert_not_contains "$digest" "Half a sen" "and its truncated text is not published as the summary"

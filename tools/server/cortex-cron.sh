@@ -54,13 +54,17 @@ mkdir -p "$(dirname "$OUT")"
 summary=""
 if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -n "$material" ]; then
   prompt="You are Cortex, a personal knowledge assistant. Summarize what changed in the brain over the last period as a short, useful ${TITLE,,}: 3-6 bullets of what was captured/decided, and 1-2 follow-ups worth doing. Be concise and concrete. Raw material follows:\n\n${material}"
+  # Thinking counts toward max_tokens (core/claude-code.js: model.thinking.counts-toward-max-tokens),
+  # so a limit sized for the reply alone can end the turn before any text is written. 16000 leaves
+  # room for thinking plus a short digest; the reply itself is still asked to be brief.
+  max_tokens=16000
   # build JSON safely with a heredoc + jq if available; else minimal escaping
   if command -v jq >/dev/null 2>&1; then
-    body="$(jq -n --arg m "$MODEL" --arg p "$prompt" \
-      '{model:$m, max_tokens:800, messages:[{role:"user", content:$p}]}')"
+    body="$(jq -n --arg m "$MODEL" --arg p "$prompt" --argjson n "$max_tokens" \
+      '{model:$m, max_tokens:$n, messages:[{role:"user", content:$p}]}')"
   else
     esc="$(printf '%s' "$prompt" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))' 2>/dev/null || printf '""')"
-    body="{\"model\":\"$MODEL\",\"max_tokens\":800,\"messages\":[{\"role\":\"user\",\"content\":$esc}]}"
+    body="{\"model\":\"$MODEL\",\"max_tokens\":$max_tokens,\"messages\":[{\"role\":\"user\",\"content\":$esc}]}"
   fi
   resp="$(curl -sS "$API_URL" \
     -H "x-api-key: ${ANTHROPIC_API_KEY}" \
@@ -68,7 +72,22 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -n "$material" ]; then
     -H "content-type: application/json" \
     -d "$body" 2>/dev/null || true)"
   if command -v jq >/dev/null 2>&1; then
-    summary="$(printf '%s' "$resp" | jq -r '.content[0].text // empty' 2>/dev/null || true)"
+    # Read every text block, not `.content[0]`: a model that thinks may open with a `thinking`
+    # block, and the first block then holds no text (model.response.read-by-block-type).
+    summary="$(printf '%s' "$resp" | jq -r '[.content[]? | select(.type == "text") | .text] | join("")' 2>/dev/null || true)"
+    # A refusal and a reply cut off at max_tokens are failed summaries, not short ones: publishing
+    # half a sentence as the digest would be the quiet failure the block below exists to prevent
+    # (model.response.refusal-stop-reason).
+    stop="$(printf '%s' "$resp" | jq -r '.stop_reason // empty' 2>/dev/null || true)"
+    case "$stop" in
+      refusal)
+        detail="$(printf '%s' "$resp" | jq -c '.stop_details // empty' 2>/dev/null || true)"
+        echo "cortex-cron: the model declined the summary (stop_reason: refusal${detail:+ $detail})" >&2
+        summary="" ;;
+      max_tokens)
+        echo "cortex-cron: the summary was cut off (stop_reason: max_tokens, limit $max_tokens)" >&2
+        summary="" ;;
+    esac
   else
     # The request was built and sent, and the answer cannot be read. Without jq the summary is
     # unreachable even on a completely successful call.

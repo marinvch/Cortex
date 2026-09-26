@@ -29,8 +29,33 @@ test("checked is a real date, the same for every rule until someone re-confirms 
 
 test("every source is an official Anthropic page over https", () => {
   for (const r of RULES) {
-    assert.match(r.source, /^https:\/\/(code\.claude\.com\/docs\/|(www\.)?anthropic\.com\/|docs\.claude\.com\/)/, r.id);
+    assert.match(
+      r.source,
+      /^https:\/\/(code\.claude\.com\/docs\/|platform\.claude\.com\/docs\/|(www\.)?anthropic\.com\/|docs\.claude\.com\/)/,
+      r.id,
+    );
   }
+});
+
+// The model rules are the ones a direct Messages API caller trips over — tools/server/cortex-cron.sh
+// read `.content[0].text` with `max_tokens: 800` until these existed. Pinned so a consumer can look
+// them up by id and a later edit cannot quietly drop one.
+test("the Opus 5.5 prompting rules are present and sourced from the platform docs", () => {
+  const ids = [
+    "model.effort.default-medium",
+    "model.thinking.counts-toward-max-tokens",
+    "model.response.read-by-block-type",
+    "model.response.refusal-stop-reason",
+    "model.thinking.cannot-disable",
+    "model.prompt.no-reasoning-in-response",
+    "model.agentic.end-turn-is-a-report",
+    "model.agentic.continuation-cap",
+  ];
+  for (const id of ids) {
+    assert.match(rule(id).source, /^https:\/\/platform\.claude\.com\/docs\/en\/build-with-claude\//, id);
+  }
+  assert.equal(limit("model.effort.default-medium"), "medium");
+  assert.equal(limit("model.agentic.continuation-cap"), 3);
 });
 
 test("a key-list rule carries the keys as an array of strings", () => {

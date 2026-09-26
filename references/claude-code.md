@@ -40,4 +40,7 @@ If no sentence states the rule, it is an opinion, and it does not belong in that
 - MCP — https://code.claude.com/docs/en/mcp
 - Memory and `CLAUDE.md` — https://code.claude.com/docs/en/memory
 - Best practices — https://code.claude.com/docs/en/best-practices
+- Prompting Claude Opus 5.5 (the `model.*` rules: effort, thinking and `max_tokens`, reading a
+  response by block type, unattended runs) —
+  https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5
 - The full index — https://code.claude.com/docs/llms.txt

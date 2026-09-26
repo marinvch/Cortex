@@ -22,7 +22,7 @@ ritual.
      move, debug, optimise/optimize, install, scan, implement, generate, wire, split, merge, run,
      restore, resume, continue, investigate, research, interview, check, verify, compare,
      analyse/analyze, summarise/summarize, plan, ship, commit, push, deploy, clean, finish, list,
-     find, search, show.
+     find, search, show, open.
    - Component reference: a path, a `` `backticked` `` token, a `file.ext`, a `#123`, a URL, a
      `/ritual` anywhere in the prompt, or a hyphenated ritual name written bare (`cortex-review`).
      Single-word ritual names (ship, daily) don't count bare — they are ordinary English.
@@ -36,9 +36,10 @@ ritual.
    - is empty, starts with `/`, is over 2000 characters, or is over 60 words;
    - is a steer of two words or fewer (`yes`, `ok`, `go ahead`, `stop`, …);
    - is a go-ahead of eight words or fewer — `go ahead`, `carry on`, `sounds good`, `agreed`,
-     `lgtm`, `ok`/`yes` + do/go/merge/ship/fix/run, or `do it/all/them/both/the rest` — followed
-     by anything (`go ahead do all of them`, `ok merge it`). It points at a proposal already on
-     the table. A bare `continue` + task is a task and still scores;
+     `lgtm`, `yes please`, `ok`/`yes`/`sure` + any action verb above (or do/go/proceed), or
+     `do it/all/them/both/the rest` — followed by anything (`go ahead do all of them`,
+     `ok merge it`, `yes write the spec`). It points at a proposal already on the table. A bare
+     `continue` + task is a task and still scores;
    - is a status check of eight words or fewer opening with is/are/was/were/did/does/do/has/have
      + it/this/that/we/they/everything/all (`is it done`, `did it work`);
    - contains `just`, `quickly`, `only`, `typo`, or `rename`;

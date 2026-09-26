@@ -12,6 +12,12 @@ the repo by commit count, and — like every other part — **dependency-free**.
   [ADR 0004](../docs/adr/0004-no-runtime-dependencies.md).
 - **Only protocol messages go to stdout.** A stray `console.log` corrupts the JSON-RPC stream and
   the client reports something unrelated. Diagnostics go to stderr.
+- **Every tool result is capped in the transport, never per tool.** `capResult()` in
+  `lib/stdio.js` holds a result to `MAX_RESULT_CHARS` (40,000 — about 10k tokens, under 14k even
+  at 3 characters per token) and replaces an oversized one with a parseable document marked
+  `truncated: true` plus a hint to narrow the request. Claude Code cuts MCP output at 25,000 tokens
+  by default; `recall_memory` returned 272,000 characters on a year of memory before this. Do not
+  raise the cap to fit a tool — give the tool a way to return less.
 - **`server.js` stays a thin switch.** All logic lives in `lib/`; the transport layer is a
   dispatch over tool names and nothing more.
 - **Two modes, decided by the root — never configured.** `AI_OS_ROOT` ending in `.cortex` is

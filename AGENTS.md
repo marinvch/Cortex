@@ -57,6 +57,7 @@ and needs no mirror at all.
 | `/cortex-next` | any time you are lost | where this repo is in the sequence, and the one command to run now |
 | `/resume` | starting on work already in flight | committed · uncommitted · diverged, then what is left — before touching anything |
 | `/ship` | work is finished | judge it against the repo's docs, one PR at a time, merge in an order that strands nothing |
+| `/site-sync` | after a Cortex release | bring Cortex's public site back in line with the source — refresh its facts, redraft changed pages, PR after approval |
 | `/plugin-sync` | a skill edit had no effect | make the Cortex this session runs the one you edited |
 | `/cortex-install` | when you want the read half alone | index a codebase and report findings, scaffolding only what the user picks. `/cortex` runs this and keeps going |
 | `/cortex-view` | after install | render the index as one offline HTML page — map, files, areas, gaps |

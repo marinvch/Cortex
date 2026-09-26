@@ -14,6 +14,16 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **`/site-sync` and a site-drift check — the public site follows the source instead of trailing
+  it (#416).** On every push to `master`, `.github/workflows/site-drift.yml` reads the site repo's
+  committed `site-facts.json` (read-only), compares it with `cortex-site-facts.mjs` on master, and
+  opens, updates or closes one `site-drift` issue. A site repo that does not exist yet, or has no
+  facts file yet, is a neutral skip. The ritual refreshes the facts, redrafts only the pages whose
+  sources changed since the site's version — the route → source map lives once, in
+  `skills/site-sync/PAGES.md` — shows the diff and stops; on approval it opens a PR on the site repo
+  and never pushes its deploying `main`. The site repo is one value: `CORTEX_SITE_REPO`, default
+  `marinvch/cortex-site`. `/ship` points to it. A deliberate exception to "checks, not rituals":
+  drafting prose needs judgment a check cannot make (roadmap D14).
 - **A front door for someone who has never heard of Cortex.** The README's first screen is now what
   it is (new or legacy codebases, solo or team), a Cortex View screenshot
   (`docs/images/cortex-view.png`), the three install steps, and four bullets on what lands in a repo.

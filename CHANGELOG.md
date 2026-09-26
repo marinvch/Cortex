@@ -14,6 +14,18 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **The official Claude Code rules, as data with their evidence — `core/claude-code.js`.** 22 rules
+  from Anthropic's docs: skill and subagent frontmatter keys, the 1,536-character skill description
+  cap, `SKILL.md` under 500 lines, the subagent fields a plugin cannot use, MCP output limits, hook
+  exit codes and timeouts, and `CLAUDE.md` size and pruning guidance. Each carries its source page,
+  the sentence on that page that states it, and the date it was confirmed; a rule no sentence states
+  does not go in. Nothing consumes them yet — the checker that judges a repo's Claude setup reads
+  from here next. `tools/cortex-claude-docs.mjs --check` re-reads the pages and fails when a sentence
+  has left its page (exit 1) or a page could not be read (exit 2, never a pass); for the key lists it
+  also reports fields Cortex does not know yet. `.github/workflows/claude-docs.yml` runs it weekly
+  and opens a `docs-drift` issue. Users never fetch anything. [ADR
+  0017](docs/adr/0017-anthropic-docs-are-the-authoring-source.md), and
+  [`references/claude-code.md`](references/claude-code.md) for how to add a rule.
 - **Skill evals, and a way to train skills against them — `evals/`.** 40 scored tasks each for
   `/ship`, `/resume` and `/cortex-review`, generated from fixed seeds with the ground truth known by
   construction: merge order checked against `/ship`'s own ranking rules, branches that only *look*

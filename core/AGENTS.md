@@ -26,6 +26,12 @@ here, which is why the directory is small and stays small.
   given. Keep the check on the write path — it is the reason `cortex-memory.mjs` can rejoin the
   `rootProblem` check the other eight `index/` CLIs share.
 
+- **`claude-code.js` is data, not policy code.** Anthropic's Claude Code rules, each with the
+  sentence on its source page that states it. Checkers read values from it and never hard-code a
+  limit. It holds no I/O and must stay that way — the fetching lives in
+  `tools/cortex-claude-docs.mjs`, which a maintainer runs. A rule no official sentence states does
+  not belong here. [ADR 0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
+
 ## Gotchas
 
 - `stamp()` is re-exported from `memory.js` for convenience, but `date.js` **owns** it. There was

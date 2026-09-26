@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { proposeSkills, partitionExisting, SKILL_CANDIDATES } from "../lib/skills.mjs";
+import { proposeSkills, partitionExisting, pathsLine, SKILL_CANDIDATES } from "../lib/skills.mjs";
 
 const ix = (stack = {}, stats = {}) => ({
   stack: { languages: [], frameworks: [], data: [], services: [], test: [], delivery: [], manifests: [], ...stack },
@@ -165,4 +165,62 @@ test("a server framework outside the JS world gets the route skill too", () => {
 
 test("a repo with no server framework is still not offered a route skill", () => {
   assert.ok(!ids(proposeSkills(ix({ languages: ["rust"] }, { files: 40, tests: 9 }))).includes("add-route"));
+});
+
+// --- paths: — a stack skill loads only when the files it is about are touched --------------------
+//
+// Claude Code's `paths` frontmatter key limits when a skill auto-loads to files matching its globs.
+// The globs must come from what the index DETECTED, the same rule as the evidence sentence: Prisma
+// detected → the Prisma schema; nothing file-shaped detected → no `paths:` line at all, never an
+// empty one, because an empty value is a skill that never loads.
+
+const byId = (r, id) => r.find((p) => p.id === id);
+const YAML_INDICATORS = ["@", "`", "[", "{", "*", "&", "!", "%", "|", ">", "'", "\"", "?", "-", ":", ",", "#"];
+
+test("a Prisma repo's migration skill loads only on the schema", () => {
+  const mig = byId(proposeSkills(ix({ data: ["prisma"] })), "add-migration");
+  assert.deepEqual(mig.paths, ["prisma/**", "**/*.prisma"]);
+  assert.equal(mig.pathsLine, "paths: prisma/**, **/*.prisma");
+});
+
+test("a candidate with nothing file-shaped detected writes no paths line, not an empty one", () => {
+  const first = byId(proposeSkills(ix({}, { tests: 0 })), "write-first-test");
+  assert.deepEqual(first.paths, []);
+  assert.equal(first.pathsLine, null);
+  // A framework with no conventional route file (Express) contributes nothing to add-route.
+  const route = byId(proposeSkills(ix({ frameworks: ["express"] })), "add-route");
+  assert.deepEqual(route.paths, []);
+  assert.equal(route.pathsLine, null);
+  assert.equal(pathsLine([]), null);
+});
+
+test("globs come from the detected ids only, merged and de-duplicated in a stable order", () => {
+  const mig = byId(proposeSkills(ix({ data: ["prisma", "drizzle"] })), "add-migration");
+  assert.deepEqual(mig.paths, ["prisma/**", "**/*.prisma", "drizzle/**", "drizzle.config.*"]);
+  const tst = byId(proposeSkills(ix({ test: ["vitest", "jest"] }, { tests: 3 })), "add-test");
+  assert.deepEqual(tst.paths, ["**/*.test.*", "**/*.spec.*"], "two runners with one convention give one set");
+  const spring = byId(proposeSkills(ix({ frameworks: ["spring"] })), "add-route");
+  assert.deepEqual(spring.paths, ["**/*Controller.java", "**/*Controller.kt"]);
+});
+
+test("a paths value that would open on a YAML indicator is quoted, so the frontmatter still parses", () => {
+  // `paths: **/*.ts` is a YAML alias, not a string — the skill would fail to load. Quote it.
+  const tc = byId(proposeSkills(ix({ languages: ["typescript"] })), "type-check");
+  assert.equal(tc.pathsLine, 'paths: "**/*.ts, **/*.tsx, **/tsconfig*.json"');
+  for (const c of proposeSkills(ix({
+    languages: ["typescript"], frameworks: ["next", "spring", "nest", "django", "aspnetcore", "phoenix"],
+    data: ["prisma", "drizzle"], services: ["stripe", "nextauth", "supabase"], test: ["vitest", "pytest", "cypress"],
+    delivery: ["githubActions", "docker"],
+  }, { tests: 4 }))) {
+    if (!c.pathsLine) continue;
+    const value = c.pathsLine.slice("paths: ".length);
+    assert.ok(!YAML_INDICATORS.includes(value[0]) || value[0] === "\"", `${c.id}: ${c.pathsLine} opens on a YAML indicator unquoted`);
+    for (const g of c.paths) assert.doesNotMatch(g, /[\s,#"]/, `${c.id}: glob "${g}" would break the comma-separated value`);
+  }
+});
+
+test("every candidate declares its paths the same way, so the table stays enumerable", () => {
+  for (const c of SKILL_CANDIDATES) {
+    assert.equal(typeof c.paths, "function", `${c.id} declares paths(s), even if it returns []`);
+  }
 });

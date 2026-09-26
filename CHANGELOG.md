@@ -85,6 +85,20 @@ production breach writes the next `intent.md`.
   fails the suite. The file is caught by the `.cortex/` ignore rule, so upstream cannot ship one on a
   plain `git add -A`; a clone commits its own with `git add -f`. Absent — as upstream — the check is
   unchanged. (#419)
+- **`/optimize-context` judges always-loaded lines by Anthropic's own test.** A new pass applies
+  the best-practices prune test ("would removing this cause Claude to make mistakes?"), the
+  broad-only rule, the one-line emphasis rule and the line limit, each cited by its rule id in
+  `core/claude-code.js` (`claude-md.prune-test`, `claude-md.broad-only`,
+  `claude-md.emphasis-one-line`, `claude-md.max-lines`) rather than a number restated from memory,
+  plus the page's keep / cut-or-move table. Every finding it raises is still `[propose]` — the test
+  says what to propose, a human still says yes.
+- **Skills `/cortex-skills` writes are scoped with `paths:`.** Each stack candidate in
+  `index/lib/skills.mjs` derives globs from the ids the index DETECTED — a Prisma schema gives
+  `paths: prisma/**, **/*.prisma`, GitHub Actions gives `.github/workflows/**` — and the CLI prints
+  the exact frontmatter line under the proposal for the ritual to copy. A value opening on a YAML
+  indicator (`**/*.ts, …`) is quoted so it cannot parse as an alias. A candidate with nothing
+  file-shaped detected (Stripe's webhook, a first test, Express routes) gets no `paths:` line at
+  all, never an empty one; agents that ignore `paths` read the skill as before.
 
 ### Changed
 

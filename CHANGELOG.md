@@ -107,6 +107,14 @@ it was repointed or dropped in the same change.
 
 ### Fixed
 
+- **Every repo `/cortex` stamped ran a hook script that did not exist.** `templates/loop/settings.hooks.json`
+  registers `.claude/hooks/format-changed.sh` on every `Edit|Write`, and no template for it was
+  ever written. It is one now: it formats only the edited file, with formatters `loop.mjs` reads
+  from the config each one itself reads (`go.mod` → gofmt, `[tool.ruff]`/`ruff.toml` → ruff,
+  `[tool.black]` → black, a Prettier config or `package.json#prettier` → Prettier via
+  `npx --no-install`), and does nothing where none is declared. Every path exits 0 — a PostToolUse
+  hook runs after the edit and has nothing to block. `index/test/loop.test.mjs` now fails when any
+  script a hook command names has no template, or the `/cortex` table never says where it lands.
 - **Four ritual descriptions were not valid YAML.** `/cortex`, `/cortex-review`, `/install-project`
   and `/optimize-context` each carried an unquoted `": "` in `description:`, which a strict YAML
   parser rejects as a second mapping. Reworded, not quoted, so the one-line readers in `tools/` and

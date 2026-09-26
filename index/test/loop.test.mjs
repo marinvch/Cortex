@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync as fsExists, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { detectCommands, readLoopState, loopPlan, LOOP_ARTIFACTS, STAGES } from "../lib/loop.mjs";
+import { detectCommands, detectFormatters, readLoopState, loopPlan, LOOP_ARTIFACTS, STAGES } from "../lib/loop.mjs";
 
 function repo(build) {
   const root = mkdtempSync(join(tmpdir(), "cortex-loop-"));
@@ -93,6 +93,55 @@ test("make does not erase an npm script it has no target for", () => {
   const cmds = detectCommands(root);
   assert.equal(cmds.test, "make test");
   assert.equal(cmds.lint, "npm run lint");
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// detectFormatters — what format-changed.sh may run, declared or nothing
+// ---------------------------------------------------------------------------
+
+test("a repo with no formatter config gets no formatter, so the hook stamps empty", () => {
+  const root = repo(({ put }) => {
+    put("package.json", JSON.stringify({ scripts: { format: "prettier --write ." } }));
+    put("pyproject.toml", "[project]\nname = 'x'\n");
+  });
+  // A `format` script names no config: which formatter, on which files, is still a guess.
+  assert.deepEqual(detectFormatters(root), []);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("each formatter is read from the config the formatter itself reads", () => {
+  const prettier = "npx --no-install prettier --write --ignore-unknown";
+  const cases = [
+    [{ "go.mod": "module x\n" }, ["gofmt -w"]],
+    [{ "pyproject.toml": "[tool.ruff]\nline-length = 100\n" }, ["ruff format --quiet"]],
+    [{ "ruff.toml": "" }, ["ruff format --quiet"]],
+    [{ "pyproject.toml": "[tool.black]\nline-length = 100\n" }, ["black --quiet"]],
+    [{ ".prettierrc": "{}" }, [prettier]],
+    [{ "package.json": JSON.stringify({ prettier: { semi: false } }) }, [prettier]],
+  ];
+  for (const [files, want] of cases) {
+    const root = repo(({ put }) => { for (const [k, v] of Object.entries(files)) put(k, v); });
+    assert.deepEqual(detectFormatters(root).map((f) => f.command), want, JSON.stringify(files));
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("ruff wins over black, and Prettier's catch-all comes last so it shadows nothing", () => {
+  const root = repo(({ put }) => {
+    put("go.mod", "module x\n");
+    put("pyproject.toml", "[tool.black]\n[tool.ruff]\n");
+    put(".prettierrc.json", "{}");
+  });
+  const got = detectFormatters(root);
+  assert.deepEqual(got.map((f) => f.glob), ["*.go", "*.py|*.pyi", "*"]);
+  assert.match(got[1].command, /^ruff /);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("an unparseable package.json says nothing about Prettier", () => {
+  const root = repo(({ put }) => put("package.json", "{ not json"));
+  assert.deepEqual(detectFormatters(root), []);
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -286,6 +335,22 @@ test("reading the plan writes nothing", () => {
   readLoopState(root, null);
   assert.equal(fsExists(join(root, ".cortex")), false);
   rmSync(root, { recursive: true, force: true });
+});
+
+test("every hook script settings.hooks.json runs has a template, and the skill says where it lands", () => {
+  // settings.hooks.json shipped a PostToolUse entry for format-changed.sh with no template behind
+  // it, so every repo /cortex stamped ran a hook that did not exist on each edit. The property, not
+  // the one file: any .claude/hooks/<script> a command names must be a template /cortex can write.
+  const here = new URL("../../templates/loop/", import.meta.url);
+  const settings = JSON.parse(fsRead(new URL("settings.hooks.json", here), "utf8"));
+  const commands = Object.values(settings.hooks).flat().flatMap((m) => m.hooks.map((h) => h.command));
+  const scripts = commands.map((c) => /\.claude\/hooks\/([^\s"']+)/.exec(c)?.[1]).filter(Boolean);
+  assert.ok(scripts.length >= 2, `parsed only ${scripts.length} hook scripts from settings.hooks.json`);
+  const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
+  for (const name of scripts) {
+    assert.ok(fsExists(new URL(name, here)), `settings.hooks.json runs .claude/hooks/${name}, but templates/loop/${name} does not exist`);
+    assert.ok(skill.includes(`| \`${name}\` |`), `the /cortex skill never says where ${name} lands`);
+  }
 });
 
 test("every template a row or the /cortex skill names exists on disk", () => {

@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
   wordCount, shouldBypass, scoreVagueness, buildDirective, evaluate, THRESHOLD,
+  ACTION_VERB_LIST, DOMAIN_WORD_LIST,
 } from './optimize-prompt.mjs';
 
 const HOOK_PATH = join(dirname(fileURLToPath(import.meta.url)), 'optimize-prompt.mjs');
@@ -166,6 +168,54 @@ test('main via spawnSync: a vague prompt payload emits the UserPromptSubmit JSON
   assert.equal(r.status, 0);
   const parsed = JSON.parse(r.stdout);
   assert.equal(parsed.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
+});
+
+// Real prompts from one working session. The first two fired at 5/5 on clear requests; the last
+// two never fired and must stay that way. The vague pair below must keep firing, so no change
+// here can pass by switching the gate off.
+const CLEAR = [
+  'restore last session and give me what was done',      // fired 5/5: restore, session unknown
+  'go ahead do all of them',                             // fired 5/5: steer only matched ≤2 words
+  'can you investigate official antropic weebsite for documentation how claude code should be ' +
+    'done and imbade in the core of cortex best practises. Can you interview me what can should be done',
+  'i merged the open pr so we can now continue the left overs that was not finished yestoday',
+];
+
+test('regression: clear requests from a real session do not fire', () => {
+  for (const p of CLEAR) assert.equal(evaluate(p, {}), null, `expected no directive for "${p.slice(0, 40)}…"`);
+});
+
+test('regression: genuinely vague prompts still fire', () => {
+  for (const p of ['make it better', 'fix stuff', 'add the booking stuff', 'make it faster']) {
+    assert.ok(evaluate(p, {}), `expected "${p}" to fire`);
+  }
+});
+
+test('a go-ahead with a short tail bypasses; a long tail or a bare "continue" + task does not', () => {
+  for (const p of ['go ahead do all of them', 'ok merge it', 'yes do both', 'do it', 'lgtm ship it']) {
+    assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
+  }
+  for (const p of [
+    'go ahead and rebuild the whole booking flow around a new state machine please',
+    'continue building the thing',
+  ]) {
+    assert.equal(shouldBypass(p, {}), false, `expected "${p}" to reach scoring`);
+  }
+});
+
+test('verbs match inflected; a ritual named mid-sentence counts as a component', () => {
+  assert.equal(scoreVagueness('merged it'), scoreVagueness('merge it'));
+  assert.ok(scoreVagueness('run /ship on this') < scoreVagueness('run the thing on this'));
+  assert.ok(scoreVagueness('use cortex-review here') < scoreVagueness('use the review here'));
+});
+
+test('skills/optimize-prompt/SKILL.md lists every word the hook scores on', () => {
+  const skill = readFileSync(join(dirname(HOOK_PATH), '..', '..', 'skills', 'optimize-prompt', 'SKILL.md'), 'utf-8');
+  // Compare base words: `tests?`, `branch(es)?` and `optimi[sz]e` are regex, the skill is prose.
+  for (const w of [...ACTION_VERB_LIST, ...DOMAIN_WORD_LIST]) {
+    const base = w.replace(/\(.*?\)\?|\[.*?\]\w*|\?$/g, '').replace(/s$/, (m) => (w.endsWith('s?') ? '' : m));
+    assert.match(skill, new RegExp(`\\b${base}`, 'i'), `SKILL.md is missing "${base}" — the hook and the skill have drifted`);
+  }
 });
 
 test('main via spawnSync: a precise prompt payload emits nothing', () => {

@@ -55,6 +55,15 @@ production breach writes the next `intent.md`.
 
 ### Changed
 
+- **The prompt gate stopped firing on clear requests.** It scored "restore last session and give
+  me what was done" and "go ahead do all of them" at 5/5 and interrupted both. Three causes:
+  `restore`/`investigate`/`continue` and their kin were not action verbs, and `merged` did not
+  match `merge`; `session`, `pr`, `branch`, `cortex` and other everyday words here were not domain
+  words; and a go-ahead only bypassed at two words or fewer, so any tail made it a new request. Verbs
+  now match inflected, a `/ritual` or a hyphenated ritual name counts as naming a component, and a
+  go-ahead of up to eight words bypasses. "make it better" and "fix stuff" still fire, and the
+  test pins both. The scoring rules left the root `AGENTS.md`, which loads every turn, for
+  `skills/optimize-prompt/SKILL.md`; the hook's test fails if a word it scores on is missing there.
 - **`/ship`, `/resume` and `/cortex-review` were trained against `evals/`.** Held-out tasks fully
   right on Sonnet 5, before → the text that ships: `/ship` 7 → 14 of 14, `/resume` 2 → 14 of 14,
   `/cortex-review` 13 → 14 of 14. The misses were the skills' wording, not the model. `/ship` read

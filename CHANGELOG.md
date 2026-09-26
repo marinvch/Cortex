@@ -14,6 +14,13 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **Workspace packages resolve by name.** A pnpm/npm/yarn monorepo that writes
+  `import { Button } from "@acme/ui"` now gets the edge: the index reads the workspace globs
+  (`pnpm-workspace.yaml`, `package.json` `workspaces`, `!` negations included), maps each package's
+  `name` to its directory, and resolves `@scope/pkg` through `exports`/`module`/`main`/`types`, then
+  `src/index.*`, then `index.*`, and `@scope/pkg/sub` through an `exports` subpath or the file under
+  the package. Only a file in the index becomes an edge. On a four-package pnpm workspace this took
+  cross-package imports from 0/20 to 20/20; on TanStack Query, edges from 1,667 to 2,643.
 - **A front door for someone who has never heard of Cortex.** The README's first screen is now what
   it is (new or legacy codebases, solo or team), a Cortex View screenshot
   (`docs/images/cortex-view.png`), the three install steps, and four bullets on what lands in a repo.

@@ -327,6 +327,125 @@ export function resolveTsAlias(spec, fileSet, table) {
 }
 
 /**
+ * The package globs a JS monorepo declares: `pnpm-workspace.yaml`'s `packages:` list and
+ * `package.json`'s `workspaces` (an array, or yarn's `{ packages }`). Literal text in, patterns out,
+ * `!`-negations included. Either argument may be null. Line endings are stripped here, not trusted:
+ * a Windows checkout hands over `packages/*\r`, a glob that matches nothing.
+ */
+export function workspaceGlobs(pnpmYaml, rootPackageJson) {
+  const out = [];
+  const push = (item) => {
+    const v = String(item).trim().replace(/^["']|["']$/g, "").trim();
+    if (v) out.push(v);
+  };
+  if (pnpmYaml) {
+    let inPackages = false;
+    for (const raw of String(pnpmYaml).split("\n")) {
+      const line = raw.replace(/\r$/, "").replace(/\s+#.*$/, "");
+      if (!line.trim() || line.trim().startsWith("#")) continue;
+      const head = line.match(/^packages\s*:\s*(.*)$/);
+      if (head) {
+        const flow = head[1].match(/^\[(.*)\]$/);
+        if (flow) flow[1].split(",").forEach(push);
+        inPackages = !flow;
+        continue;
+      }
+      if (/^\S/.test(line)) inPackages = false;
+      const item = inPackages && line.match(/^\s*-\s*(.+)$/);
+      if (item) push(item[1]);
+    }
+  }
+  if (rootPackageJson) {
+    try {
+      const ws = JSON.parse(rootPackageJson).workspaces;
+      const list = Array.isArray(ws) ? ws : ws?.packages;
+      if (Array.isArray(list)) for (const g of list) if (typeof g === "string") push(g);
+    } catch {
+      // A root manifest that does not parse declares no workspace; it costs nothing else.
+    }
+  }
+  return out;
+}
+
+/** A workspace glob as a regex over root-relative directories: `*` is one segment, `**` any depth. */
+export function workspaceGlobRegex(glob) {
+  const clean = glob.replace(/^\.\//, "").replace(/\/+$/, "");
+  let re = "";
+  for (let i = 0; i < clean.length; i++) {
+    if (clean.startsWith("**/", i)) {
+      re += "(?:.*/)?";
+      i += 2;
+    } else if (clean.startsWith("**", i)) {
+      re += ".*";
+      i += 1;
+    } else if (clean[i] === "*") re += "[^/]*";
+    else re += clean[i].replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${re}$`);
+}
+
+// The order a bundler reads export conditions in, for picking among an `exports` entry's leaves.
+// Every leaf is only a candidate — the first one that is a file in the repo wins — so this decides
+// ties between files that all exist, not whether an edge is drawn.
+const EXPORT_CONDITIONS = ["import", "module", "default", "types", "require", "node", "browser"];
+
+function exportLeaves(value) {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(exportLeaves);
+  if (!value || typeof value !== "object") return [];
+  const keys = Object.keys(value);
+  const ordered = [...EXPORT_CONDITIONS.filter((k) => keys.includes(k)), ...keys.filter((k) => !EXPORT_CONDITIONS.includes(k))];
+  return ordered.flatMap((k) => exportLeaves(value[k]));
+}
+
+// Candidate targets an `exports` field gives for one subpath (`.` or `./x`), exact key first, then
+// the longest matching `*` pattern.
+function exportTargets(exp, key) {
+  if (exp === null || exp === undefined) return [];
+  const keys = typeof exp === "object" && !Array.isArray(exp) ? Object.keys(exp) : [];
+  // A string, an array, or an object of conditions only is sugar for `{ ".": … }`.
+  if (!keys.some((k) => k.startsWith("."))) return key === "." ? exportLeaves(exp) : [];
+  if (Object.prototype.hasOwnProperty.call(exp, key)) return exportLeaves(exp[key]);
+  const out = [];
+  for (const k of keys.filter((x) => x.includes("*")).sort((a, b) => b.length - a.length || a.localeCompare(b))) {
+    const [pre, post] = [k.slice(0, k.indexOf("*")), k.slice(k.indexOf("*") + 1)];
+    if (key.length >= pre.length + post.length && key.startsWith(pre) && key.endsWith(post)) {
+      const star = key.slice(pre.length, key.length - post.length);
+      out.push(...exportLeaves(exp[k]).map((t) => t.split("*").join(star)));
+    }
+  }
+  return out;
+}
+
+/**
+ * Resolve a bare specifier naming a workspace package — `@acme/ui` or `@acme/ui/forms/Field` — to a
+ * file in the repo, or null. `packages` maps each declared package's `name` to `{ dir, manifest }`.
+ *
+ * The package root tries `exports`, `module`, `main`, `types`, then `src/index.*`, then `index.*`;
+ * a subpath tries `exports`, then the path under the package, then under its `src/`. Each is
+ * probed like a relative import, and the first that is a file in the index wins — so an entry
+ * pointing at an uncommitted `dist/` falls through to the source it is built from.
+ */
+export function resolveWorkspaceImport(spec, fileSet, packages) {
+  if (!spec || !packages?.size || spec.startsWith(".") || spec.startsWith("/")) return null;
+  const segs = spec.split("/");
+  const width = spec.startsWith("@") ? 2 : 1;
+  const pkg = packages.get(segs.slice(0, width).join("/"));
+  if (!pkg) return null;
+  const sub = segs.slice(width).join("/");
+  const m = pkg.manifest;
+  const candidates = sub
+    ? [...exportTargets(m.exports, `./${sub}`), sub, `src/${sub}`]
+    : [...exportTargets(m.exports, "."), m.module, m.main, m.types, m.typings, "src/index", "index"];
+  for (const rel of candidates) {
+    if (typeof rel !== "string" || !rel) continue;
+    const hit = tryJsPath(normalizeRel(pkg.dir, rel), fileSet);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
  * Resolve a specifier to a path inside the repo, or null when it is external (a package) or
  * unresolvable. `fileSet` is a Set of every root-relative path in the index.
  */

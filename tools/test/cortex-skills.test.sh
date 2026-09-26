@@ -62,6 +62,13 @@ printf 'generator client { provider = "prisma-client-js" }\n' > "$PROJ/prisma/sc
 node "$INDEX" "$PROJ" >/dev/null 2>&1
 out="$(run)"
 assert_contains "$out" "add-migration" "and owning the schema is what earns it"
+# The proposal carries the exact `paths:` line the written skill gets, from what was detected —
+# so the migration skill loads on the schema, and the webhook skill (Stripe says nothing about
+# where its handler lives) carries none.
+mig_block="$(printf '%s' "$out" | grep -A3 '/add-migration')"
+assert_contains "$mig_block" "paths: prisma/**, **/*.prisma" "the migration skill is scoped to the schema it was earned by"
+hook_block="$(printf '%s' "$out" | sed -n '/\/verify-webhook/,/^$/p')"
+assert_not_contains "$hook_block" "paths:" "a skill with nothing file-shaped detected gets no paths line"
 
 # The stack block and the evidence sentences must speak ONE vocabulary. This printed
 # "framework   Next.js · React" and, three lines below, "why: next, react" — and the delivery row

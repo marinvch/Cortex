@@ -31,6 +31,56 @@ const has = (list, id) => Array.isArray(list) && list.includes(id);
 const named = (ids) => labelsFor(ids ?? []).join(", ");
 
 /**
+ * Globs for Claude Code's `paths` frontmatter key, keyed by a DETECTED id — the same rule as the
+ * evidence sentence. An id with no conventional file location (Stripe, Express, FastAPI) has no
+ * entry and contributes nothing: a guessed glob is a skill that silently never loads.
+ */
+const GLOBS = {
+  // data — where the schema and its migrations live
+  prisma: ["prisma/**", "**/*.prisma"],
+  drizzle: ["drizzle/**", "drizzle.config.*"],
+  // tests — the file-name convention each runner reads
+  vitest: ["**/*.test.*", "**/*.spec.*"],
+  jest: ["**/*.test.*", "**/*.spec.*"],
+  playwright: ["**/*.spec.*", "**/e2e/**"],
+  cypress: ["cypress/**"],
+  pytest: ["**/test_*.py", "**/*_test.py", "**/conftest.py"],
+  // frameworks — the file a route is declared in
+  next: ["app/**/route.*", "src/app/**/route.*", "pages/api/**", "src/pages/api/**"],
+  nest: ["**/*.controller.ts"],
+  django: ["**/urls.py", "**/views.py"],
+  spring: ["**/*Controller.java", "**/*Controller.kt"],
+  aspnetcore: ["**/Controllers/**", "**/*Controller.cs"],
+  phoenix: ["lib/**/router.ex", "lib/**/*_controller.ex"],
+  // services — where sessions are read
+  nextauth: ["**/api/auth/**", "**/auth.*", "**/middleware.*"],
+  // languages
+  typescript: ["**/*.ts", "**/*.tsx", "**/tsconfig*.json"],
+  // delivery
+  githubActions: [".github/workflows/**"],
+  docker: ["**/Dockerfile*", "**/docker-compose*.yml", "**/compose*.yaml"],
+};
+
+/** The globs for these detected ids, in the order given, de-duplicated. */
+const globsFor = (ids) => [...new Set((ids ?? []).flatMap((id) => GLOBS[id] ?? []))];
+
+/** Characters a YAML plain scalar may not open with — `paths: **\/*.ts` would parse as an alias. */
+const YAML_OPENERS = new Set(["@", "`", "[", "{", "*", "&", "!", "%", "|", ">", "'", "\"", "?", "-", ":", ",", "#"]);
+
+/**
+ * The `paths:` frontmatter line a written skill carries, or null when there is nothing to scope it
+ * to. Cortex frontmatter is flat `key: value` and Claude Code accepts `paths` as a comma-separated
+ * string, so it is one line — quoted when it would open on a YAML indicator. Null, never `paths:`
+ * with no value, which would be a skill that never loads. Agents that ignore `paths` read the
+ * skill as they always did.
+ */
+export function pathsLine(paths) {
+  if (!paths || paths.length === 0) return null;
+  const value = paths.join(", ");
+  return `paths: ${YAML_OPENERS.has(value[0]) ? `"${value}"` : value}`;
+}
+
+/**
  * Every skill Cortex can propose. Each row is:
  *   id       — the skill's directory name in .claude/skills/
  *   title    — what it does, one line, shown in the offer
@@ -38,6 +88,7 @@ const named = (ids) => labelsFor(ids ?? []).join(", ");
  *   why(s)   — the evidence sentence. Must name what was DETECTED, never a generality:
  *              "no test runner in package.json" is checkable; "testing is important" is noise.
  *   when(s)  — s = { stack, stats }. Pure predicate over the index.
+ *   paths(s) — globs for the written skill's `paths:` key, from DETECTED ids only; [] = no line.
  *   brief    — what the ritual should put in the body. Instructions to the writer, not the body.
  */
 export const SKILL_CANDIDATES = [
@@ -56,6 +107,8 @@ export const SKILL_CANDIDATES = [
       s.stack.test.length > 0
         ? `${named(s.stack.test)} is in a manifest but no test file exists — the runner is installed, not used`
         : "no test files and no test runner in any manifest — every change here is unverified",
+    // There is no test file yet, so there is nothing to scope the skill to.
+    paths: () => [],
     brief:
       "If no runner is declared, pick the one that matches the stack rather than a favourite and wire " +
       "the script into the manifest. If one IS declared, use it — a second runner alongside an unused " +
@@ -71,6 +124,7 @@ export const SKILL_CANDIDATES = [
     // Without the second, there is no convention and write-first-test is the honest offer.
     when: (s) => s.stack.test.length > 0 && s.stats.tests > 0,
     why: (s) => `${named(s.stack.test)} already set up — new work should extend it, not invent a second way`,
+    paths: (s) => globsFor(s.stack.test),
     brief:
       "Name the runner, the exact command to run one file, and where tests live relative to source " +
       "in THIS repo (co-located vs a test/ directory — read it, do not assume). A second testing " +
@@ -82,6 +136,9 @@ export const SKILL_CANDIDATES = [
     rank: 30,
     when: (s) => has(s.stack.services, "stripe"),
     why: () => "Stripe is a dependency — webhook handlers must verify the signature against the RAW body",
+    // A dependency says nothing about where the handler lives; a guessed `**/*webhook*` would be a
+    // skill that silently never loads on the file that actually handles the event.
+    paths: () => [],
     brief:
       "Lead with the invariant: signature verification needs the unparsed body, so any framework " +
       "body-parser must be disabled on that route. This is the single most common way an agent " +
@@ -95,6 +152,7 @@ export const SKILL_CANDIDATES = [
     rank: 40,
     when: (s) => s.stack.data.length > 0,
     why: (s) => `${named(s.stack.data)} owns the schema — schema edits and migrations must move together`,
+    paths: (s) => globsFor(s.stack.data),
     brief:
       "The exact generate/migrate commands from this repo's manifest scripts, the real schema path " +
       "(read it — a generated client is often NOT at the library default), and the rule that a " +
@@ -113,6 +171,7 @@ export const SKILL_CANDIDATES = [
     when: (s) => ["next", "express", "nest", "fastapi", "flask", "django", "spring", "aspnetcore", "phoenix"]
       .some((f) => has(s.stack.frameworks, f)),
     why: (s) => `${named(s.stack.frameworks)} — a new endpoint touches routing, validation and the data layer together`,
+    paths: (s) => globsFor(s.stack.frameworks),
     brief:
       "Trace one EXISTING endpoint in this repo and describe that path, so the skill teaches the " +
       "convention already in use rather than the framework's tutorial. Name where validation " +
@@ -124,6 +183,7 @@ export const SKILL_CANDIDATES = [
     rank: 60,
     when: (s) => has(s.stack.services, "nextauth") || has(s.stack.services, "supabase"),
     why: (s) => `${named(s.stack.services.filter((x) => x === "nextauth" || x === "supabase"))} handles sessions — auth edits fail open if the guard is wrong`,
+    paths: (s) => globsFor(s.stack.services),
     brief:
       "Where the session is read, which routes are protected and by what mechanism, and the " +
       "failure mode that matters: an auth bug fails OPEN and looks like a working page. Say how to " +
@@ -135,6 +195,7 @@ export const SKILL_CANDIDATES = [
     rank: 70,
     when: (s) => has(s.stack.languages, "typescript"),
     why: () => "TypeScript is configured — the checker is only useful if it is actually run and not escaped",
+    paths: (s) => globsFor(s.stack.languages.filter((x) => x === "typescript")),
     brief:
       "The real type-check command from the manifest scripts, and the rule about escape hatches: " +
       "`any` and `@ts-expect-error` are sometimes right, but each one is a claim that needs a " +
@@ -146,6 +207,7 @@ export const SKILL_CANDIDATES = [
     rank: 80,
     when: (s) => has(s.stack.delivery, "githubActions") || has(s.stack.delivery, "docker"),
     why: (s) => `${named(s.stack.delivery)} — the path from a green local run to a deployed change is worth writing down once`,
+    paths: (s) => globsFor(s.stack.delivery),
     brief:
       "The actual workflow files and what each gate checks, in order. If the pipeline has a step " +
       "that commonly fails, name it and its fix — that is the whole value of the skill.",
@@ -179,7 +241,10 @@ export function proposeSkills(index) {
         return false;
       }
     })
-    .map((c) => ({ id: c.id, title: c.title, rank: c.rank, why: c.why(s), brief: c.brief }))
+    .map((c) => {
+      const paths = c.paths(s);
+      return { id: c.id, title: c.title, rank: c.rank, why: c.why(s), brief: c.brief, paths, pathsLine: pathsLine(paths) };
+    })
     .sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
 }
 

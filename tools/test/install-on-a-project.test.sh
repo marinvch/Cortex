@@ -154,3 +154,27 @@ if [ -n "${CORTEX_E2E_REPO:-}" ] && [ -d "$CORTEX_E2E_REPO" ]; then
 else
   printf '  skip  real-repo pass (set CORTEX_E2E_REPO=<path> to enable)\n'
 fi
+
+# --- opt-in: a team's workspace of repositories ---------------------------------------------------
+
+# The roadmap's acceptance scenarios S1–S4, run over every repo in one directory: product repos
+# plus the team-brain they share. One line per scenario — PASS, FAIL, or XFAIL naming the roadmap
+# step that closes it — and only a FAIL counts against the run, so an expected failure stays
+# visible without turning every run red. Read-only: e2e-workspace.mjs clones the workspace into
+# $WORK and asserts, by fingerprint, that the originals did not change.
+#
+#   CORTEX_E2E_WORKSPACE=/path/to/workspace bash tools/test/run.sh install-on-a-project
+if [ -n "${CORTEX_E2E_WORKSPACE:-}" ] && [ -d "$CORTEX_E2E_WORKSPACE" ]; then
+  out="$(node "$REPO_ROOT/tools/test/e2e-workspace.mjs" "$CORTEX_E2E_WORKSPACE" --work "$WORK/e2e" 2>&1)"; rc=$?
+  printf '%s\n' "$out"
+  passed="$(printf '%s\n' "$out" | grep -c '^  PASS ')"
+  failed="$(printf '%s\n' "$out" | grep -c '^  FAIL ')"
+  CORTEX_TEST_PASS=$((CORTEX_TEST_PASS + passed))
+  CORTEX_TEST_FAIL=$((CORTEX_TEST_FAIL + failed))
+  # A crash prints no scenario lines at all; without this it would count as a clean run.
+  if [ "$rc" -ne 0 ] && [ "$failed" -eq 0 ]; then
+    _fail "the workspace pass finished" "exit $rc" "$(printf '%s' "$out" | tail -3)"
+  fi
+else
+  printf '  skip  workspace pass (set CORTEX_E2E_WORKSPACE=<dir> to enable)\n'
+fi

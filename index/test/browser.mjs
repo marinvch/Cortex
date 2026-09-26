@@ -16,7 +16,7 @@ import vm from "node:vm";
 
 import { renderHtml } from "../lib/view-html.mjs";
 
-const ADVANCE = 6.9; // 11.5px in a monospace face; the real value differs per platform and per
+const ADVANCE = 7.8; // 13px in a monospace face; the real value differs per platform and per
 // font, which is exactly why the layout must not depend on it being right — only on it being the
 // same number the script measured with.
 
@@ -45,6 +45,8 @@ export function runPage(view, { width = 1900, height = 1000, reducedMotion = tru
         dataset: {},
         style: {},
         appendChild() {},
+        setAttribute() {},
+        getAttribute: () => null,
         focus() {},
         blur() {},
       },
@@ -96,4 +98,61 @@ export function runPage(view, { width = 1900, height = 1000, reducedMotion = tru
       return hits;
     },
   };
+}
+
+// ── the Overview script ──────────────────────────────────────────────────────────────────────────
+// The Overview and Structure tabs are a separate <script id="ov-js">, so runPage above never sees
+// them. This runs that one against a stub that remembers what each element was given as innerHTML,
+// which is what the not-available states are asserted on, and counts what the cloud draws per frame.
+export function runOverview(view, { width = 1600, height = 1000 } = {}) {
+  const html = renderHtml(view);
+  const m = /<script id="ov-js">([\s\S]*?)<\/script>/.exec(html);
+  if (!m) throw new Error("no overview script on the page");
+  const calls = { drawImage: 0, lineTo: 0, stroke: 0 };
+  const gradient = { addColorStop() {} };
+  const ctx = new Proxy(
+    {},
+    {
+      get(_t, k) {
+        if (k === "createRadialGradient") return () => gradient;
+        if (k in calls) return () => { calls[k] += 1; };
+        return () => {};
+      },
+      set: () => true,
+    },
+  );
+  const els = new Map();
+  const el = (id) => {
+    if (els.has(id)) return els.get(id);
+    const e = {
+      id, innerHTML: "", textContent: "", style: {}, attrs: {},
+      getContext: () => ctx,
+      getBoundingClientRect: () => ({ width, height, left: 0, top: 0, right: width, bottom: height }),
+      addEventListener() {},
+      querySelectorAll: () => [],
+      setAttribute(k, v) { this.attrs[k] = String(v); },
+      getAttribute(k) { return this.attrs[k] ?? null; },
+      classList: { toggle() {}, add() {}, remove() {} },
+    };
+    els.set(id, e);
+    return e;
+  };
+  const sandbox = {
+    DATA: JSON.parse(JSON.stringify(view)),
+    document: {
+      getElementById: el, createElement: () => el(Symbol("created")), documentElement: el("html"),
+      addEventListener() {}, hidden: false,
+    },
+    devicePixelRatio: 1,
+    addEventListener() {},
+    requestAnimationFrame() {},
+    matchMedia: () => ({ matches: true, addEventListener() {} }),
+    getComputedStyle: () => ({ getPropertyValue: () => "255,150,50" }),
+    innerWidth: width,
+  };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(m[1], sandbox);
+  return { OV: sandbox.OV, calls, html: (id) => (els.has(id) ? els.get(id).innerHTML : "") };
 }

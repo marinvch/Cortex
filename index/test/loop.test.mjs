@@ -353,6 +353,22 @@ test("every hook script settings.hooks.json runs has a template, and the skill s
   }
 });
 
+test("every hook command runs its script through bash, quoted — never relying on the executable bit", () => {
+  // /cortex writes these scripts with a file-write tool, which sets no mode bits, and a file created
+  // on Windows is committed as 100644 — so a teammate cloning on macOS or Linux gets a script the
+  // kernel refuses to exec, and the hook fails with "permission denied" on every edit. A chmod at
+  // stamp time would not survive that commit. Invoking through `bash` makes the bit irrelevant on
+  // every machine, and the quotes keep a project path with a space in it from splitting in two.
+  const here = new URL("../../templates/loop/", import.meta.url);
+  const settings = JSON.parse(fsRead(new URL("settings.hooks.json", here), "utf8"));
+  const commands = Object.values(settings.hooks).flat().flatMap((m) => m.hooks.map((h) => h.command));
+  const scriptCommands = commands.filter((c) => /\.sh\b/.test(c));
+  assert.ok(scriptCommands.length >= 2, "both hook scripts are found");
+  for (const c of scriptCommands) {
+    assert.match(c, /^bash "\$\{CLAUDE_PROJECT_DIR\}\/\.claude\/hooks\/[\w.-]+\.sh"$/, `hook command must be bash "<path>", got: ${c}`);
+  }
+});
+
 test("the verifier template cannot reach the editing tools", () => {
   // It exists to check work it did not write, and its prose says "change nothing". Prose is a
   // request; disallowedTools is the part Claude Code enforces, so a verifier cannot patch what it

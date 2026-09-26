@@ -79,6 +79,9 @@ async function callTool(name, args) {
       // keeps capture a pure function of its arguments, which is what its tests rely on.
       const cargs = { ...args, team, today: stamp(), outwardSync: brain.policy.outwardSync };
       if (team) cargs.noteId = genNoteId();
+      // Same reasoning for the project: the connector names it, so a team note with none lands under
+      // this repo's project rather than the team-brain's `inbox`.
+      if (team && !args.project && brain.project) cargs.project = brain.project;
       return capture(AI_OS_ROOT, cargs);
     }
     case "catch_me_up": return catchMeUp(AI_OS_ROOT, { ...args, team: args.team ?? brain.team ?? undefined });

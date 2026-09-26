@@ -108,23 +108,61 @@ function byNearness(paths) {
 
 const NPM_SCRIPTS = { build: ["build", "compile"], test: ["test", "tests"], lint: ["lint", "check"] };
 
-function npmCommands(text) {
+// The runner that owns the scripts. `npm test` in a pnpm workspace resolves none of its
+// `workspace:` dependencies, so the manager is read off the repo: the `packageManager` field first,
+// because Corepack obeys it and a lockfile left over from before a switch is the stale one; then the
+// lockfile each manager writes. `pnpm-workspace.yaml` counts because a workspace can exist before
+// its first install.
+const LOCKFILES = [
+  ["pnpm", ["pnpm-lock.yaml", "pnpm-workspace.yaml"]],
+  ["yarn", ["yarn.lock"]],
+  ["bun", ["bun.lockb", "bun.lock"]],
+];
+
+function packageManager(root, pkg) {
+  const field = typeof pkg?.packageManager === "string" ? /^(npm|pnpm|yarn|bun)@/.exec(pkg.packageManager) : null;
+  if (field) return field[1];
+  for (const [pm, files] of LOCKFILES) if (files.some((f) => has(root, f))) return pm;
+  return "npm";
+}
+
+function npmCommands(root, text) {
   if (!text) return {};
-  let scripts;
+  let pkg;
   try {
-    scripts = JSON.parse(text).scripts;
+    pkg = JSON.parse(text);
   } catch {
     return {}; // A manifest we cannot parse tells us nothing; it must not tell us something wrong.
   }
+  const scripts = pkg?.scripts;
   if (!scripts || typeof scripts !== "object") return {};
+  const pm = packageManager(root, pkg);
   const out = {};
   for (const [kind, names] of Object.entries(NPM_SCRIPTS)) {
     const hit = names.find((n) => typeof scripts[n] === "string" && scripts[n].trim());
-    if (hit) out[kind] = `npm run ${hit}`;
+    if (hit) out[kind] = `${pm} run ${hit}`;
   }
-  // `npm test` is the one script npm gives a bare verb to, and it is what a reader expects to see.
-  if (out.test === "npm run test") out.test = "npm test";
+  // npm, pnpm and yarn give the test script a bare verb, and it is what a reader expects to see.
+  // Bun does not: `bun test` is Bun's own runner and ignores the script entirely.
+  if (out.test === `${pm} run test` && pm !== "bun") out.test = `${pm} test`;
   return out;
+}
+
+// A JVM build file declares its lifecycle, so the commands are the lifecycle's: Maven always has
+// `verify` and `test`, Gradle always has `build` and `test`. The wrapper wins when it is committed,
+// because it pins the tool version CI runs and needs nothing installed. A wrapper with no build file
+// beside it declares nothing — it would fail on the first command.
+function jvmCommands(root) {
+  if (has(root, "pom.xml")) {
+    const mvn = has(root, "mvnw") ? "./mvnw" : "mvn";
+    return { build: `${mvn} -q verify`, test: `${mvn} test` };
+  }
+  const gradleFiles = ["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"];
+  if (gradleFiles.some((f) => has(root, f))) {
+    const gradle = has(root, "gradlew") ? "./gradlew" : "gradle";
+    return { build: `${gradle} build`, test: `${gradle} test` };
+  }
+  return {};
 }
 
 // Only genuine targets. A Makefile's first colon-bearing line is often a variable assignment or a
@@ -145,13 +183,16 @@ function makeCommands(text) {
 /**
  * Build, test and lint as this repo actually declares them.
  *
- * Make wins over npm when both exist: a repo carrying a Makefile beside a package.json is almost
- * always wrapping the scripts in it, and the wrapper is the command a human on the team types.
+ * Make wins over everything: a repo carrying a Makefile is almost always wrapping the other tools
+ * in it, and the wrapper is the command a human on the team types. A root pom.xml or Gradle build
+ * wins over a package.json beside it, which in a JVM repo is tooling the build already drives. The
+ * merge is per kind, so a lint script survives a build file that declares no lint.
  */
 export function detectCommands(root) {
   const fromMake = makeCommands(read(root, "Makefile") ?? read(root, "makefile"));
-  const fromNpm = npmCommands(read(root, "package.json"));
-  const out = { build: null, test: null, lint: null, ...fromNpm, ...fromMake };
+  const fromJvm = jvmCommands(root);
+  const fromNpm = npmCommands(root, read(root, "package.json"));
+  const out = { build: null, test: null, lint: null, ...fromNpm, ...fromJvm, ...fromMake };
   return out;
 }
 

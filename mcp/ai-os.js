@@ -69,9 +69,15 @@ function cmdTeam(teamSub, args, brain) {
     return 0;
   }
   if (teamSub === "add") {
-    if (!args.name || !args.repo || !args.slug) throw new Error("usage: ai-os team add --name <team> --repo <git-url> --slug <project-slug>");
+    // `--slug` is the old spelling of `--project`, kept so a script written against it still joins.
+    // It always meant the project; the connector it wrote was read as the team, which is the bug the
+    // two named fields close (lib/team.js).
+    const project = args.project ?? args.slug;
+    if (!args.name || !args.repo || !project || project === true) {
+      throw new Error("usage: ai-os team add --name <team> --repo <git-url> --project <project-slug>");
+    }
     const { dir, cloned } = cloneTeamBrain(root, args.name, args.repo);
-    const conn = writeConnector(process.cwd(), args.slug, args.repo);
+    const conn = writeConnector(process.cwd(), { team: args.name, project, teamBrainRepo: args.repo });
     console.log(`Team-brain ${cloned ? "cloned to" : "already at"} ${dir}. Wrote ${conn}.`);
     console.log("Next: commit the connector into THIS repo →  git add .cortex/connector.json");
     return 0;
@@ -123,7 +129,9 @@ function cmdCatchUp(args, brain) {
     return 0;
   }
 
-  const project = args.project && args.project !== true ? args.project : (repoDir ? basename(repoDir) : null);
+  const project = args.project && args.project !== true
+    ? args.project
+    : (brain.project ?? (repoDir ? basename(repoDir) : null));
   if (!project) throw new Error(CATCH_UP_USAGE);
   // The team comes from the resolution, exactly as it does in server.js. `--team` survives as an
   // explicit override, never as the switch that turns team mode on: this command used to pass

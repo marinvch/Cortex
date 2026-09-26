@@ -27,6 +27,16 @@ export function commitAndPush(cloneDir, files, message) {
   catch (e) { return { ok: true, pushed: false, error: "push_failed: " + String(e.stderr || e.message) }; }
 }
 
+/** The URL `origin` points at in `dir`, or null when there is no repo or no such remote. */
+export function originUrl(dir) {
+  if (!isGitRepo(dir)) return null;
+  try {
+    return git(dir, ["remote", "get-url", "origin"]).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The top of the git work tree `cwd` sits in, or null when it sits in none (or git is absent).
  * Asked of git rather than found by walking up for `.git`: a worktree or a submodule has a `.git`

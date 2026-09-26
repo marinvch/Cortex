@@ -347,6 +347,32 @@ test("a rust workspace resolves each crate against its own root, including one w
   assert.deepEqual(imports("crates/printer/src/lib.rs"), ["crates/printer/src/color.rs"]);
 });
 
+test("a pnpm workspace's apps reach its shared packages by name, and the packages stop reading as orphans", () => {
+  const root = tempDir("cortex-ws-");
+  mkdirSync(join(root, "apps", "web", "src"), { recursive: true });
+  mkdirSync(join(root, "packages", "ui", "src"), { recursive: true });
+  writeFileSync(join(root, "package.json"), '{ "name": "mono", "private": true }\n');
+  writeFileSync(join(root, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n  - packages/*\n");
+  writeFileSync(join(root, "apps", "web", "package.json"), '{ "name": "@mono/web" }\n');
+  writeFileSync(
+    join(root, "apps", "web", "src", "main.tsx"),
+    'import { Button } from "@mono/ui";\nimport { Card } from "@mono/ui/src/Card";\nimport React from "react";\n',
+  );
+  writeFileSync(join(root, "packages", "ui", "package.json"), '{ "name": "@mono/ui", "exports": { ".": "./src/index.ts" } }\n');
+  writeFileSync(join(root, "packages", "ui", "src", "index.ts"), 'export * from "./Button";\n');
+  writeFileSync(join(root, "packages", "ui", "src", "Button.tsx"), "export const Button = 1;\n");
+  writeFileSync(join(root, "packages", "ui", "src", "Card.tsx"), "export const Card = 1;\n");
+
+  const idx = buildIndex(root);
+  assert.deepEqual(idx.files.find((f) => f.path === "apps/web/src/main.tsx").imports, [
+    "packages/ui/src/Card.tsx",
+    "packages/ui/src/index.ts",
+  ]);
+  assert.equal(idx.files.find((f) => f.path === "packages/ui/src/index.ts").inbound, 1);
+  assert.ok(!idx.edges.some((e) => e.to.includes("react")), "an npm dependency is still not a file here");
+  assert.deepEqual(buildIndex(root).edges, idx.edges, "and a second run agrees exactly");
+});
+
 // --- churn window ------------------------------------------------------------------------------
 
 function gitRepo(build) {

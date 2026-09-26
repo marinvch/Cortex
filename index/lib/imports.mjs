@@ -67,6 +67,64 @@ function expandShellSpec(spec, assigns) {
 // resolution shortens the path until it lands on one — same problem Rust `use` has.
 const JAVA_PATTERNS = [/^\s*import\s+(?:static\s+)?([\w.]+)\s*;/gm];
 
+// A class in the same package is used with no import at all, so the import lines alone miss every
+// edge between a service and the repository, mapper and DTOs sitting beside it — 0 of 58 such
+// references on a three-service Spring workspace. Those names are read off the code instead.
+//
+// Tight by construction, because a name that merely *appears* is not a dependency. Comments and
+// literals are blanked first; a name after a `.` is a qualified reference into another package or
+// a member, never a sibling; a name the file imports or declares itself is not the sibling of the
+// same name. What survives is only a candidate — the resolver keeps it when `<dir>/Name.java`
+// exists, which is what stops `String` or `List` becoming an edge.
+const JAVA_STATEMENT = /\b(?:package|import)\s+(?:static\s+)?[\w.]+(?:\.\*)?\s*;/g;
+const JAVA_DECLARED = /\b(?:class|interface|enum|record)\s+([A-Z][\w$]*)/g;
+const JAVA_TYPE_NAME = /(?<![\w$.])([A-Z][\w$]*)/g;
+
+/** Java source with every comment, string, char and text-block literal replaced by a space. */
+function javaCode(text) {
+  let out = "";
+  let i = 0;
+  const n = text.length;
+  while (i < n) {
+    const c = text[i];
+    const d = text[i + 1];
+    if (c === "/" && d === "/") {
+      while (i < n && text[i] !== "\n") i++;
+      out += " ";
+    } else if (c === "/" && d === "*") {
+      const end = text.indexOf("*/", i + 2);
+      i = end < 0 ? n : end + 2;
+      out += " ";
+    } else if (text.startsWith('"""', i)) {
+      // A text block may hold a bare `"`; only an unescaped `"""` ends it.
+      let j = i + 3;
+      while (j < n && !text.startsWith('"""', j)) j += text[j] === "\\" ? 2 : 1;
+      i = Math.min(n, j + 3);
+      out += " ";
+    } else if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < n && text[j] !== c && text[j] !== "\n") j += text[j] === "\\" ? 2 : 1;
+      i = j + 1;
+      out += " ";
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+}
+
+// Capitalised names used bare in the code, minus the ones the file imports or declares, in the
+// order the code first names them. `imports` are the specifiers the import lines already yielded.
+function javaSamePackageNames(text, imports) {
+  const code = javaCode(text).replace(JAVA_STATEMENT, " ");
+  const excluded = new Set(imports.map((s) => s.slice(s.lastIndexOf(".") + 1)));
+  for (const m of code.matchAll(JAVA_DECLARED)) excluded.add(m[1]);
+  const names = new Set();
+  for (const m of code.matchAll(JAVA_TYPE_NAME)) if (!excluded.has(m[1])) names.add(m[1]);
+  return [...names];
+}
+
 // `use Slim\Routing\Route;` — grouped and aliased forms both start this way, and the alias after
 // `as` is a local name rather than a path, so it is deliberately not captured.
 const PHP_PATTERNS = [/^\s*use\s+(?:function\s+|const\s+)?\\?([A-Za-z_][\w\\]*)/gm];
@@ -113,8 +171,12 @@ export function extractImports(text, lang) {
     }
     case "rust":
       return collect(text, RUST_PATTERNS);
-    case "java":
-      return collect(text, JAVA_PATTERNS);
+    case "java": {
+      // Same-package names are tagged `./Name` — "beside this file", as Ruby's require_relative is —
+      // so the resolver can tell them from a dotted import without a second channel.
+      const imports = collect(text, JAVA_PATTERNS);
+      return [...imports, ...javaSamePackageNames(text, imports).map((name) => `./${name}`)];
+    }
     case "php":
       return collect(text, PHP_PATTERNS);
     case "ruby": {
@@ -612,6 +674,29 @@ export function resolveJavaImport(spec, fileSet, sourceRoots = []) {
     }
   }
   return null;
+}
+
+/**
+ * Java: a class named with no import, resolved within the file's own package — the `./Name` the
+ * extractor tags. First beside the file; then, because `src/test/java/com/x/FooTest.java` and
+ * `src/main/java/com/x/Foo.java` are ONE package, under the other source root of the same module.
+ * Never across modules: two modules may hold a package of the same name, and which one a class
+ * sees is a build-file question this does not model.
+ */
+export function resolveJavaSamePackage(name, fromPath, fileSet, sourceRoots = []) {
+  if (!/^[A-Z][\w$]*$/.test(name)) return null;
+  const cut = fromPath.lastIndexOf("/");
+  const dir = cut < 0 ? "" : fromPath.slice(0, cut);
+  const beside = dir ? `${dir}/${name}.java` : `${name}.java`;
+  if (beside !== fromPath && fileSet.has(beside)) return beside;
+
+  const root = sourceRoots.find((r) => r === dir || (r && dir.startsWith(`${r}/`)));
+  const twin = root?.match(/^(.*?)src\/(main|test)\/java$/);
+  if (!twin) return null;
+  const other = `${twin[1]}src/${twin[2] === "main" ? "test" : "main"}/java`;
+  const pkg = dir.slice(root.length);
+  const cand = `${other}${pkg}/${name}.java`;
+  return fileSet.has(cand) ? cand : null;
 }
 
 /**

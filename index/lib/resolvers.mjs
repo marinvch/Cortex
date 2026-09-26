@@ -30,6 +30,7 @@ import {
   resolveGoImport,
   resolveRustImport,
   resolveJavaImport,
+  resolveJavaSamePackage,
   resolvePhpImport,
   resolveRubyImport,
   goModulePath,
@@ -38,6 +39,9 @@ import {
   tsAliasTable,
   mergeAliasTables,
   resolveTsAlias,
+  resolveWorkspaceImport,
+  workspaceGlobs,
+  workspaceGlobRegex,
 } from "./imports.mjs";
 
 /** A resolver that returned one path or null, as the array the seam speaks. */
@@ -153,19 +157,62 @@ export function tsAliasTables(files, readText) {
   return tables.sort((a, b) => b.dir.length - a.dir.length);
 }
 
+/**
+ * Every package a JS monorepo declares, by `name` → `{ dir, manifest }`.
+ *
+ * A workspace imports its own packages by name — `import { Button } from "@acme/ui"` — and a name
+ * is not a path, so without this every cross-package edge read as an external dependency: 0 of 20
+ * on a four-package pnpm workspace, and the shared packages every app depends on read as orphans.
+ * Both halves of the mapping are declared — the workspace globs choose the directories, and each
+ * directory's own `package.json` names itself — so nothing here is inferred from a directory name.
+ * A `package.json` no glob matches is not a workspace package, however it is laid out.
+ *
+ * Candidate directories are the ones holding a `package.json` in the index, visited in sorted
+ * order, and the first to claim a name keeps it: the same tree always gives the same table.
+ */
+export function workspacePackages(files, readText) {
+  const globs = workspaceGlobs(readText("pnpm-workspace.yaml"), readText("package.json"));
+  const packages = new Map();
+  if (!globs.length) return packages;
+  const include = globs.filter((g) => !g.startsWith("!")).map(workspaceGlobRegex);
+  const exclude = globs.filter((g) => g.startsWith("!")).map((g) => workspaceGlobRegex(g.slice(1)));
+  const dirs = files
+    .filter((f) => f.path.endsWith("/package.json"))
+    .map((f) => dirOfPath(f.path))
+    .filter((d) => include.some((re) => re.test(d)) && !exclude.some((re) => re.test(d)))
+    .sort();
+  for (const dir of dirs) {
+    let manifest;
+    try {
+      manifest = JSON.parse(readText(`${dir}/package.json`) ?? "");
+    } catch {
+      continue; // a manifest that does not parse costs its own package and nothing else
+    }
+    const name = manifest?.name;
+    if (typeof name === "string" && name && !packages.has(name)) packages.set(name, { dir, manifest });
+  }
+  return packages;
+}
+
 const jsAdapter = {
   id: "js",
   langs: JS_LANGS,
-  prepare: ({ files, fileSet, readText }) => ({ fileSet, tables: tsAliasTables(files, readText) }),
-  resolve(spec, from, { fileSet, tables }) {
-    // Relative first, alias second. A relative specifier is unambiguous, so an alias table can only
-    // ever add edges the plain resolver could not find — it never reinterprets one it could.
-    // `resolveTsAlias` returns null for a genuine package, which is why a bare specifier still
-    // costs nothing when no config declares it.
+  prepare: ({ files, fileSet, readText }) => ({
+    fileSet,
+    tables: tsAliasTables(files, readText),
+    packages: workspacePackages(files, readText),
+  }),
+  resolve(spec, from, { fileSet, tables, packages }) {
+    // Relative first, alias second, workspace package third. A relative specifier is unambiguous,
+    // so the later passes can only ever add edges the plain resolver could not find — they never
+    // reinterpret one it could. Both return null for a genuine npm package, which is why a bare
+    // specifier still costs nothing when no config or workspace declares it.
     const direct = resolveImport(spec, from.path, fileSet, from.lang);
     if (direct) return [direct];
     const table = tables.find((c) => c.dir === "" || from.path.startsWith(`${c.dir}/`)) ?? null;
-    return one(resolveTsAlias(spec, fileSet, table));
+    const aliased = resolveTsAlias(spec, fileSet, table);
+    if (aliased) return [aliased];
+    return one(resolveWorkspaceImport(spec, fileSet, packages));
   },
 };
 
@@ -230,7 +277,11 @@ const javaAdapter = {
         .map((f) => f.path.match(/^(.*?src\/(?:main|test)\/java)\//)?.[1] ?? ""),
     ),
   }),
-  resolve: (spec, from, { fileSet, sourceRoots }) => one(resolveJavaImport(spec, fileSet, sourceRoots)),
+  // `./Name` is a class named with no import — same package, so beside the file (see extractImports).
+  resolve: (spec, from, { fileSet, sourceRoots }) =>
+    spec.startsWith("./")
+      ? one(resolveJavaSamePackage(spec.slice(2), from.path, fileSet, sourceRoots))
+      : one(resolveJavaImport(spec, fileSet, sourceRoots)),
 };
 
 // --- PHP -----------------------------------------------------------------------------------------

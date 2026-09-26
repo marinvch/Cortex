@@ -324,3 +324,168 @@ test("vue and svelte read the same aliases as the language they are written in",
   assert.deepEqual(resolve("@/lib/fmt", { path: "src/App.vue", lang: "vue" }), ["src/lib/fmt.ts"]);
   assert.deepEqual(resolve("@/lib/fmt", { path: "src/Card.svelte", lang: "svelte" }), ["src/lib/fmt.ts"]);
 });
+
+// --- JavaScript: workspace packages ------------------------------------------------------------------
+//
+// A pnpm or npm monorepo imports its own packages by NAME — `import { Button } from "@acme/ui"` —
+// and a name is not a path, so every one of those edges read as an external package. On a
+// four-package workspace that was 0 of 20 cross-package imports, and the shared packages every app
+// depends on read as orphans. The mapping is declared twice over (the workspace globs, then each
+// package's own `name`), so reading it is not a guess.
+
+const WS_FILES = filesOf(
+  "package.json",
+  "pnpm-workspace.yaml",
+  "apps/web/package.json",
+  "apps/web/src/main.tsx",
+  "packages/ui/package.json",
+  "packages/ui/src/index.ts",
+  "packages/ui/src/Button.tsx",
+  "packages/api/package.json",
+  "packages/api/src/index.ts",
+  "packages/api/src/errors.ts",
+);
+
+const wsReader = (extra = {}) =>
+  reader({
+    "package.json": '{ "name": "root", "private": true }',
+    // CRLF on purpose: a Windows checkout writes the manifest this way, and a parser that splits
+    // on "\n" alone reads `packages/*\r` — a glob that matches nothing.
+    "pnpm-workspace.yaml": 'packages:\r\n  - "apps/*"\r\n  - \'packages/*\'  # shared code\r\n',
+    "apps/web/package.json": '{ "name": "@acme/web" }',
+    "packages/ui/package.json": '{ "name": "@acme/ui", "exports": { ".": "./src/index.ts" } }',
+    "packages/api/package.json": '{ "name": "@acme/api", "main": "./dist/index.js" }',
+    ...extra,
+  });
+
+test("a workspace package imported by name resolves to its declared entry", () => {
+  const { resolve } = importResolver(WS_FILES, "/repo", wsReader());
+  assert.deepEqual(resolve("@acme/ui", { path: "apps/web/src/main.tsx", lang: "typescript" }), ["packages/ui/src/index.ts"]);
+});
+
+test("an entry that points at build output nobody committed falls back to src/index", () => {
+  // `main: ./dist/index.js` is what the package publishes; dist/ is not in the repo, so the edge
+  // lands on the source the build is made from rather than on nothing.
+  const { resolve } = importResolver(WS_FILES, "/repo", wsReader());
+  assert.deepEqual(resolve("@acme/api", { path: "apps/web/src/main.tsx", lang: "typescript" }), ["packages/api/src/index.ts"]);
+});
+
+test("the entry order is exports, module, main, types, then src/index, then index", () => {
+  const files = filesOf("package.json", "p/package.json", "p/lib/mod.js", "p/lib/main.js", "p/lib/types.d.ts", "p/src/index.ts", "p/index.js", "a.ts");
+  const at = (manifest, list = files) =>
+    importResolver(list, "/repo", reader({ "package.json": '{ "workspaces": ["p"] }', "p/package.json": manifest }))
+      .resolve("pkg", { path: "a.ts", lang: "typescript" });
+  assert.deepEqual(at('{ "name": "pkg", "exports": { ".": { "import": "./lib/mod.js" } }, "main": "./lib/main.js" }'), ["p/lib/mod.js"]);
+  assert.deepEqual(at('{ "name": "pkg", "exports": "./lib/main.js", "module": "./lib/mod.js" }'), ["p/lib/main.js"]);
+  assert.deepEqual(at('{ "name": "pkg", "module": "./lib/mod.js", "main": "./lib/main.js" }'), ["p/lib/mod.js"]);
+  assert.deepEqual(at('{ "name": "pkg", "main": "./lib/main.js", "types": "./lib/types.d.ts" }'), ["p/lib/main.js"]);
+  assert.deepEqual(at('{ "name": "pkg", "types": "./lib/types.d.ts" }'), ["p/lib/types.d.ts"]);
+  assert.deepEqual(at('{ "name": "pkg" }'), ["p/src/index.ts"]);
+  assert.deepEqual(at('{ "name": "pkg" }', filesOf("package.json", "p/package.json", "p/index.js", "a.ts")), ["p/index.js"]);
+});
+
+test("a subpath import resolves to the matching file under the package", () => {
+  const { resolve } = importResolver(WS_FILES, "/repo", wsReader());
+  const from = { path: "apps/web/src/main.tsx", lang: "typescript" };
+  assert.deepEqual(resolve("@acme/ui/src/Button", from), ["packages/ui/src/Button.tsx"]);
+  assert.deepEqual(resolve("@acme/api/errors", from), ["packages/api/src/errors.ts"], "src/ is tried when the path misses");
+  assert.deepEqual(resolve("@acme/ui/nothing-here", from), [], "a subpath that is not a file is not an edge");
+});
+
+test("an exports subpath map is read before the directory is guessed at", () => {
+  const files = filesOf("package.json", "p/package.json", "p/src/forms/field.ts", "p/src/theme.ts", "a.ts");
+  const readText = reader({
+    "package.json": '{ "workspaces": { "packages": ["p"] } }',
+    "p/package.json": '{ "name": "@x/p", "exports": { "./theme": "./src/theme.ts", "./forms/*": "./src/forms/*.ts" } }',
+  });
+  const { resolve } = importResolver(files, "/repo", readText);
+  assert.deepEqual(resolve("@x/p/theme", { path: "a.ts", lang: "typescript" }), ["p/src/theme.ts"]);
+  assert.deepEqual(resolve("@x/p/forms/field", { path: "a.ts", lang: "typescript" }), ["p/src/forms/field.ts"]);
+});
+
+test("only a package the workspace declares is one: an undeclared or excluded directory stays external", () => {
+  const files = filesOf(
+    "package.json",
+    "packages/ui/package.json",
+    "packages/ui/src/index.ts",
+    "packages/legacy/package.json",
+    "packages/legacy/src/index.ts",
+    "tools/gen/package.json",
+    "tools/gen/src/index.ts",
+    "a.ts",
+  );
+  const readText = reader({
+    "package.json": '{ "workspaces": ["packages/*", "!packages/legacy"] }',
+    "packages/ui/package.json": '{ "name": "ui" }',
+    "packages/legacy/package.json": '{ "name": "legacy" }',
+    "tools/gen/package.json": '{ "name": "gen" }',
+  });
+  const { resolve } = importResolver(files, "/repo", readText);
+  const from = { path: "a.ts", lang: "typescript" };
+  assert.deepEqual(resolve("ui", from), ["packages/ui/src/index.ts"]);
+  assert.deepEqual(resolve("legacy", from), [], "a negated glob excludes the package");
+  assert.deepEqual(resolve("gen", from), [], "a package.json no workspace glob matches is not a workspace package");
+  assert.deepEqual(resolve("react", from), [], "a real npm package stays external");
+  assert.deepEqual(resolve("ui-kit", from), [], "a name is matched whole, never by prefix");
+});
+
+test("a `**` workspace glob reaches packages at any depth", () => {
+  const files = filesOf("package.json", "libs/core/net/package.json", "libs/core/net/src/index.ts", "a.ts");
+  const readText = reader({ "package.json": '{ "workspaces": ["libs/**"] }', "libs/core/net/package.json": '{ "name": "@x/net" }' });
+  const { resolve } = importResolver(files, "/repo", readText);
+  assert.deepEqual(resolve("@x/net", { path: "a.ts", lang: "typescript" }), ["libs/core/net/src/index.ts"]);
+});
+
+test("a repo declaring no workspace resolves exactly as before, and a broken manifest costs only itself", () => {
+  const files = filesOf("package.json", "packages/ui/package.json", "packages/ui/src/index.ts", "a.ts");
+  const none = importResolver(files, "/repo", reader({ "package.json": '{ "name": "solo" }', "packages/ui/package.json": '{ "name": "ui" }' }));
+  assert.deepEqual(none.resolve("ui", { path: "a.ts", lang: "typescript" }), []);
+  const broken = importResolver(files, "/repo", reader({ "package.json": '{ "workspaces": ["packages/*"] }', "packages/ui/package.json": "{ nope" }));
+  assert.deepEqual(broken.resolve("ui", { path: "a.ts", lang: "typescript" }), []);
+});
+
+test("a relative import never reaches the workspace pass", () => {
+  const files = filesOf(...WS_FILES.map((f) => f.path), "apps/web/src/@acme/ui.ts");
+  const { resolve } = importResolver(files, "/repo", wsReader());
+  assert.deepEqual(resolve("./@acme/ui", { path: "apps/web/src/main.tsx", lang: "typescript" }), ["apps/web/src/@acme/ui.ts"]);
+});
+
+// --- Java: same-package references -------------------------------------------------------------------
+//
+// A class in the same package needs no import, so a Spring service that constructs its own
+// repository and mapper had no edge to either — 0 of 58 such references on a three-service
+// workspace. The extractor hands them over as `./Name`, and only a file that exists answers.
+
+test("a same-package reference resolves to the file beside it, and only when that file exists", () => {
+  const files = filesOf(
+    "svc/src/main/java/com/x/orders/OrderService.java",
+    "svc/src/main/java/com/x/orders/OrderRepository.java",
+    "svc/src/main/java/com/x/other/Helper.java",
+  );
+  const { resolve } = importResolver(files, "/repo", reader());
+  const from = { path: "svc/src/main/java/com/x/orders/OrderService.java", lang: "java" };
+  assert.deepEqual(resolve("./OrderRepository", from), ["svc/src/main/java/com/x/orders/OrderRepository.java"]);
+  assert.deepEqual(resolve("./Helper", from), [], "another package's class is not beside this file");
+  assert.deepEqual(resolve("./String", from), [], "a JDK type is not a file here");
+  assert.deepEqual(resolve("./OrderService", from), [], "a file never references itself");
+});
+
+test("a flat java repo with no source root still resolves beside the file", () => {
+  const files = filesOf("Main.java", "Util.java");
+  const { resolve } = importResolver(files, "/repo", reader());
+  assert.deepEqual(resolve("./Util", { path: "Main.java", lang: "java" }), ["Util.java"]);
+});
+
+test("a test shares its package with the code under test, across the two source roots of one module", () => {
+  // Java puts src/test/java/com/x/FooTest.java and src/main/java/com/x/Foo.java in ONE package,
+  // which is why the test names Foo without an import — and why coverage needs this edge.
+  const files = filesOf(
+    "svc/src/main/java/com/x/Foo.java",
+    "svc/src/test/java/com/x/FooTest.java",
+    "other/src/main/java/com/x/Bar.java",
+  );
+  const { resolve } = importResolver(files, "/repo", reader());
+  const from = { path: "svc/src/test/java/com/x/FooTest.java", lang: "java" };
+  assert.deepEqual(resolve("./Foo", from), ["svc/src/main/java/com/x/Foo.java"]);
+  assert.deepEqual(resolve("./Bar", from), [], "another module's package of the same name is not guessed at");
+});

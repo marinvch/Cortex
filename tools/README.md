@@ -160,6 +160,23 @@ week's instructions against this week's code — so a fix that was correct looks
 marketplace alone does **not** move the installed cache, which is why each stage is reported
 separately instead of as one version number. Read-only. `/plugin-sync` is the ritual around it.
 
+## `cortex-claude-docs.mjs` — are the Claude Code rules still what the docs say
+
+`core/claude-code.js` vendors each official Claude Code rule with the sentence on its source page
+that states it. This re-reads those pages and confirms every sentence is still there.
+
+```bash
+node tools/cortex-claude-docs.mjs --check          # exit 1 if a rule went stale, 2 if a page could not be read
+node tools/cortex-claude-docs.mjs --json
+node tools/cortex-claude-docs.mjs --pages <dir>    # read <dir>/<page>.md instead of the network
+```
+
+A page it could not fetch is reported as unchecked, never as ok — an offline run that printed green
+would be the silent pass this exists to prevent. For the frontmatter key lists it also reports keys
+the docs list that Cortex does not know, which is informational. Maintainer-only: the weekly
+`claude-docs.yml` workflow runs it and opens a `docs-drift` issue. [ADR
+0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
+
 ## `cortex-skill-usage.mjs` — which skills anyone actually reached
 
 Every other audit reads the skills. This reads the **session record**, because a skill's real defect

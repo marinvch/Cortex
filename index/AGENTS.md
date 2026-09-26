@@ -250,6 +250,19 @@ borrows its three numbers rather than keeping a second list.
   mutation-tested: nine guards broken one at a time, nine test failures. Do both again when a row
   or a detector changes — fixtures here share the author's blind spots.
 
+### The Claude-setup checker — `lib/claude-setup.mjs`
+
+Grades a repo's `CLAUDE.md`, skills, subagents, hooks and direct Messages API calls against
+`core/claude-code.js`; `analyse` appends what it returns. **A new check is a `CHECKS` row, not a
+branch** — and its `rule` must be an id in `core/claude-code.js`, whose evidence sentence the detail
+quotes. A check with no documented sentence behind it is Cortex's own threshold and says so in the
+detail at `low`. Severity is never above `medium`: these are findings about a user's repo, not
+failures (spec D3). `cortex-output-passes.test.mjs` stamps every template the `/cortex` skill's
+table places and expects zero findings, so a template that breaks a rule fails here first.
+Validated on superpowers, anthropics/skills and anthropics/claude-code; each false positive found
+there (a negated "not read-only", `[Title](URL)`, "explain the reasoning", unindented prose in a
+description) has a test.
+
 ## Tests
 
 ```bash

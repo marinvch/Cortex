@@ -115,6 +115,12 @@ it was repointed or dropped in the same change.
   `npx --no-install`), and does nothing where none is declared. Every path exits 0 — a PostToolUse
   hook runs after the edit and has nothing to block. `index/test/loop.test.mjs` now fails when any
   script a hook command names has no template, or the `/cortex` table never says where it lands.
+- **Four rituals only a person can run still advertised triggers to the model.** `/connect-brain`,
+  `/migrate-engine`, `/onboard` and `/team-init` set `disable-model-invocation: true` and kept
+  "Use when … says …" trigger lists, against Cortex's own rule that a user-invoked description is a
+  one-line summary for the `/` menu. Each is one line now, and `tools/cortex-frontmatter.mjs` fails
+  a user-invoked skill whose description says "Use when", "Triggers", or quotes two or more
+  phrases.
 - **Four ritual descriptions were not valid YAML.** `/cortex`, `/cortex-review`, `/install-project`
   and `/optimize-context` each carried an unquoted `": "` in `description:`, which a strict YAML
   parser rejects as a second mapping. Reworded, not quoted, so the one-line readers in `tools/` and

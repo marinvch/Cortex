@@ -21,6 +21,13 @@ production breach writes the next `intent.md`.
   `src/index.*`, then `index.*`, and `@scope/pkg/sub` through an `exports` subpath or the file under
   the package. Only a file in the index becomes an edge. On a four-package pnpm workspace this took
   cross-package imports from 0/20 to 20/20; on TanStack Query, edges from 1,667 to 2,643.
+- **Java same-package references resolve.** A class named with no import — a declaration,
+  `new X(`, a generic argument, `X.y(`, an annotation — resolves to `<same dir>/X.java` when that
+  file exists and the name is neither imported nor declared in the file. A test in
+  `src/test/java` reaches the class it tests in the same package under `src/main/java`, which is
+  what coverage needed. Comments and string, char and text-block literals never produce an edge.
+  Three Spring services went from 0/58 such references to 58/58; Spring Petclinic's edges from 24
+  to 91.
 - **A front door for someone who has never heard of Cortex.** The README's first screen is now what
   it is (new or legacy codebases, solo or team), a Cortex View screenshot
   (`docs/images/cortex-view.png`), the three install steps, and four bullets on what lands in a repo.

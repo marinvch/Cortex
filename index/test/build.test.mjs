@@ -373,6 +373,43 @@ test("a pnpm workspace's apps reach its shared packages by name, and the package
   assert.deepEqual(buildIndex(root).edges, idx.edges, "and a second run agrees exactly");
 });
 
+test("a java class reaches the classes beside it that it names without an import", () => {
+  const root = tempDir("cortex-java-");
+  const pkg = join(root, "svc", "src", "main", "java", "com", "acme", "orders");
+  const testPkg = join(root, "svc", "src", "test", "java", "com", "acme", "orders");
+  mkdirSync(pkg, { recursive: true });
+  mkdirSync(testPkg, { recursive: true });
+  writeFileSync(
+    join(pkg, "OrderService.java"),
+    [
+      "package com.acme.orders;",
+      "",
+      "/** Talks to OrderAudit only in this comment. */",
+      "@Service",
+      "public class OrderService {",
+      "  private final OrderRepository repo = new OrderRepository();",
+      '  String why = "OrderAudit is mentioned in a string";',
+      "  java.util.List<OrderLine> lines() { return OrderMapper.map(repo); }",
+      "}",
+      "",
+    ].join("\n"),
+  );
+  for (const name of ["OrderRepository", "OrderLine", "OrderMapper", "OrderAudit"]) {
+    writeFileSync(join(pkg, `${name}.java`), `package com.acme.orders;\nclass ${name} {}\n`);
+  }
+  writeFileSync(join(testPkg, "OrderServiceTest.java"), "package com.acme.orders;\nclass OrderServiceTest { OrderService s; }\n");
+
+  const idx = buildIndex(root);
+  const at = (name) => `svc/src/main/java/com/acme/orders/${name}.java`;
+  assert.deepEqual(idx.files.find((f) => f.path === at("OrderService")).imports, [
+    at("OrderLine"),
+    at("OrderMapper"),
+    at("OrderRepository"),
+  ]);
+  assert.equal(idx.files.find((f) => f.path === at("OrderAudit")).inbound, 0, "a comment or a string is not a reference");
+  assert.deepEqual(idx.files.find((f) => f.path.endsWith("OrderServiceTest.java")).imports, [at("OrderService")]);
+});
+
 // --- churn window ------------------------------------------------------------------------------
 
 function gitRepo(build) {

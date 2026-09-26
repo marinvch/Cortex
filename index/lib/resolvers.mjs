@@ -30,6 +30,7 @@ import {
   resolveGoImport,
   resolveRustImport,
   resolveJavaImport,
+  resolveJavaSamePackage,
   resolvePhpImport,
   resolveRubyImport,
   goModulePath,
@@ -276,7 +277,11 @@ const javaAdapter = {
         .map((f) => f.path.match(/^(.*?src\/(?:main|test)\/java)\//)?.[1] ?? ""),
     ),
   }),
-  resolve: (spec, from, { fileSet, sourceRoots }) => one(resolveJavaImport(spec, fileSet, sourceRoots)),
+  // `./Name` is a class named with no import — same package, so beside the file (see extractImports).
+  resolve: (spec, from, { fileSet, sourceRoots }) =>
+    spec.startsWith("./")
+      ? one(resolveJavaSamePackage(spec.slice(2), from.path, fileSet, sourceRoots))
+      : one(resolveJavaImport(spec, fileSet, sourceRoots)),
 };
 
 // --- PHP -----------------------------------------------------------------------------------------

@@ -449,3 +449,43 @@ test("a relative import never reaches the workspace pass", () => {
   const { resolve } = importResolver(files, "/repo", wsReader());
   assert.deepEqual(resolve("./@acme/ui", { path: "apps/web/src/main.tsx", lang: "typescript" }), ["apps/web/src/@acme/ui.ts"]);
 });
+
+// --- Java: same-package references -------------------------------------------------------------------
+//
+// A class in the same package needs no import, so a Spring service that constructs its own
+// repository and mapper had no edge to either — 0 of 58 such references on a three-service
+// workspace. The extractor hands them over as `./Name`, and only a file that exists answers.
+
+test("a same-package reference resolves to the file beside it, and only when that file exists", () => {
+  const files = filesOf(
+    "svc/src/main/java/com/x/orders/OrderService.java",
+    "svc/src/main/java/com/x/orders/OrderRepository.java",
+    "svc/src/main/java/com/x/other/Helper.java",
+  );
+  const { resolve } = importResolver(files, "/repo", reader());
+  const from = { path: "svc/src/main/java/com/x/orders/OrderService.java", lang: "java" };
+  assert.deepEqual(resolve("./OrderRepository", from), ["svc/src/main/java/com/x/orders/OrderRepository.java"]);
+  assert.deepEqual(resolve("./Helper", from), [], "another package's class is not beside this file");
+  assert.deepEqual(resolve("./String", from), [], "a JDK type is not a file here");
+  assert.deepEqual(resolve("./OrderService", from), [], "a file never references itself");
+});
+
+test("a flat java repo with no source root still resolves beside the file", () => {
+  const files = filesOf("Main.java", "Util.java");
+  const { resolve } = importResolver(files, "/repo", reader());
+  assert.deepEqual(resolve("./Util", { path: "Main.java", lang: "java" }), ["Util.java"]);
+});
+
+test("a test shares its package with the code under test, across the two source roots of one module", () => {
+  // Java puts src/test/java/com/x/FooTest.java and src/main/java/com/x/Foo.java in ONE package,
+  // which is why the test names Foo without an import — and why coverage needs this edge.
+  const files = filesOf(
+    "svc/src/main/java/com/x/Foo.java",
+    "svc/src/test/java/com/x/FooTest.java",
+    "other/src/main/java/com/x/Bar.java",
+  );
+  const { resolve } = importResolver(files, "/repo", reader());
+  const from = { path: "svc/src/test/java/com/x/FooTest.java", lang: "java" };
+  assert.deepEqual(resolve("./Foo", from), ["svc/src/main/java/com/x/Foo.java"]);
+  assert.deepEqual(resolve("./Bar", from), [], "another module's package of the same name is not guessed at");
+});

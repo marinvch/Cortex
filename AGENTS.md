@@ -32,18 +32,8 @@ firewall that keeps a `home` vault and a `work` vault apart, is
 The product's history is its git log and `CHANGELOG.md`; `archives/` is kept only for a vault and
 is ignored in full here.
 
-## Prompt Optimization Protocol
-
-Score each incoming prompt: under 10 words `+2`; no action verb `+1`; no component reference (path,
-`` `backticked` `` token, `file.ext`, `#123`, URL) `+1`; no domain keyword `+1`.
-
-**Score 4 or higher → run `/optimize-prompt` first.** Below 4, act on the prompt as written and say
-nothing about scoring. Skip scoring entirely for steers (`yes`, `go ahead`), status checks (`is it
-done`), slash commands, anything naming an exact file path, and anything very long.
-
-Claude Code enforces this via a `UserPromptSubmit` hook; other agents apply it by judgment. The
-exact word lists and bypass rules live in `skills/optimize-prompt/SKILL.md`. Set
-`CORTEX_NO_OPTIMIZE=1` to disable it.
+**Vague prompts go through `/optimize-prompt` first.** A `UserPromptSubmit` hook scores them in
+Claude Code; other agents apply the rules in `skills/optimize-prompt/SKILL.md` by judgment.
 
 ## The rituals
 
@@ -98,7 +88,7 @@ and needs no mirror at all.
 | `/improve-codebase-architecture` | on request | find deepening opportunities in a repo, report them as HTML, work one |
 | `/skill-audit` | when the collection has grown | which skills are never reached, redundant, or a prompt would do better |
 | `/skill-creator` | on request | write a new `skills/<name>/SKILL.md` and wire it in |
-| `/optimize-prompt` | automatic | the prompt gate (see the protocol above) |
+| `/optimize-prompt` | automatic | the prompt gate — scores a vague prompt and sharpens it before work starts |
 
 Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it, and
 `node tools/cortex-skill-graph.mjs` for how they reach each other — which ritual hands off to which,

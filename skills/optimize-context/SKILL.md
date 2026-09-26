@@ -97,6 +97,38 @@ State the signal you used per file, so the classification can be checked rather 
 - **Inlined bulk** (Rule 2) — file templates, long examples, reference tables inside an
   always-loaded body. Move to a file; reference it from the step that needs it.
 
+### The official lens — every always-loaded line, against Anthropic's own test
+
+Anthropic's best-practices page gives a test for `CLAUDE.md` that applies to anything loaded every
+session. Cortex vendors it as rules in `${CLAUDE_PLUGIN_ROOT}/core/claude-code.js`, each with its
+source sentence; cite the rule id in the finding, not a number from memory.
+
+- **`claude-md.prune-test`** — for each always-loaded line: *would removing this cause Claude to
+  make mistakes?* A line that fails is a `[propose]` finding, quoted with that reason. This does
+  **not** loosen the hard rule: the test says what to propose, the human still says yes.
+- **`claude-md.broad-only`** — a line that applies only to one area or one workflow belongs in a
+  scoped leaf (`/cortex-brief`) or a skill, which load on demand. Moving it is `[propose]` unless
+  the destination already states it word for word.
+- **`claude-md.emphasis-one-line`** — `IMPORTANT`, `MUST`, `NEVER` on many lines means none stands
+  out. Report the count; propose keeping emphasis on the one rule that is actually being skipped.
+- **`claude-md.max-lines`** — a file over this limit is a finding on its own; say by how much.
+
+What the page says belongs in the file, and what does not
+([code.claude.com/docs/en/best-practices](https://code.claude.com/docs/en/best-practices)):
+
+| Keep | Cut or move |
+|---|---|
+| commands Claude can't guess | anything Claude can learn by reading the code |
+| style rules that differ from defaults | standard language conventions |
+| testing instructions and preferred runners | detailed API documentation — link instead |
+| repo etiquette (branch naming, PR conventions) | information that changes frequently |
+| architectural decisions specific to the project | long explanations or tutorials |
+| environment quirks (required env vars) | file-by-file descriptions of the codebase |
+| gotchas and non-obvious behaviour | self-evident practice like "write clean code" |
+
+If the repo's `/cortex-install` report already carries `claude-setup/claude-md-*` findings, start
+from those — they are the mechanical half of this lens, and this pass is the judgment half.
+
 ## Pass 3 — Find missing structure
 The only pass that *adds*. Find directories that are high-churn, security/data sensitive, or hold an
 invariant an agent could break, **and** have no scoped `AGENTS.md` leaf. Read the code to confirm

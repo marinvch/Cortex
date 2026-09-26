@@ -3,11 +3,20 @@
 # CLAUDE.md, AGENTS.md, REVIEW.md and .claude/ shape what the agent does as much as source shapes
 # what the program does, so an edit to them is tested before it merges.
 #
-# Each file under evals/cases/ is one real past task: a prompt, plus a script that exits non-zero
-# when the result is unacceptable. Start from work the team actually did — invented cases prove
-# nothing. When something breaks in production, its case gets added here and never removed.
-# Only {{TEST_CMD}} is a Cortex placeholder. ${{ secrets.ANTHROPIC_API_KEY }} is GitHub Actions
-# syntax, resolved at run time from the repo's secrets — leave it exactly as written.
+# Each folder under evals/cases/ is one real past task: a prompt.md, plus an accept.sh that exits
+# non-zero when the result is unacceptable. Start from work the team actually did — invented cases
+# prove nothing. When something breaks in production, its case gets added here and never removed.
+#
+# accept.sh judges the work, not the reply: run the test, read the diff, check the file. The final
+# message of a run is a report of what the agent believes it did, not proof that it did it. Each
+# case is one run with no automatic continuation — a case that stops short fails, and is not nudged.
+#
+# Claude Code runs without --bare on purpose. Bare mode skips CLAUDE.md, skills and hooks, which are
+# the configuration these cases exist to regress.
+#
+# Two lines are Cortex placeholders, in double braces with no dollar sign: the setup steps below the
+# checkout, and the test command in --allowedTools. A dollar-sign expression such as the secret
+# below is GitHub Actions syntax, resolved at run time — leave it exactly as written.
 name: agent-evals
 
 on:
@@ -15,27 +24,63 @@ on:
     paths: ['CLAUDE.md', 'AGENTS.md', 'REVIEW.md', '.claude/**', 'evals/**']
   schedule:
     - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-evals-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   cases:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install -g @anthropic-ai/claude-code
+      # The steps from this repo's own CI that install its toolchain and dependencies, copied as
+      # they are there, so the test command runs here the way it runs there. None needed: delete it.
+      {{SETUP_STEPS}}
+      - name: Install Claude Code
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Run every case
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          shopt -s nullglob
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "::notice::No ANTHROPIC_API_KEY in this run (a fork's pull request, or the secret is unset) — cases skipped."
+            exit 0
+          fi
+          cases=(evals/cases/*/)
+          if [ "${#cases[@]}" -eq 0 ]; then
+            echo "::notice::evals/cases/ holds no cases yet — add one folder per real past task, with prompt.md and accept.sh."
+            exit 0
+          fi
           failed=0
-          for dir in evals/cases/*/; do
+          for dir in "${cases[@]}"; do
+            dir="${dir%/}"
             name="$(basename "$dir")"
-            claude -p "$(cat "$dir/prompt.md")" \
-              --allowedTools "Read,Edit,Bash({{TEST_CMD}})" \
-              --output-format json > "/tmp/$name.json"
-            if "$dir/accept.sh" "/tmp/$name.json"; then echo "pass  $name"; else echo "FAIL  $name"; failed=1; fi
+            out="$RUNNER_TEMP/$name.json"
+            if [ ! -f "$dir/prompt.md" ] || [ ! -f "$dir/accept.sh" ]; then
+              echo "FAIL  $name — a case needs prompt.md and accept.sh"; failed=1; continue
+            fi
+            if ! claude -p "$(cat "$dir/prompt.md")" \
+                --permission-mode dontAsk \
+                --allowedTools "Read,Edit,Bash({{TEST_CMD}} *)" \
+                --output-format json > "$out"; then
+              echo "FAIL  $name — claude exited non-zero: $(head -c 400 "$out")"; failed=1
+            elif bash "$dir/accept.sh" "$out"; then
+              echo "pass  $name"
+            else
+              echo "FAIL  $name"; failed=1
+            fi
+            # The next case starts from the committed tree. Ignored files — installed dependencies —
+            # survive, because clean without -x leaves them.
+            git reset --hard -q && git clean -fdq
           done
           exit "$failed"

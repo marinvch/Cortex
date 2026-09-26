@@ -200,3 +200,77 @@ assert_contains "$cortex_skill" "reconcile" "and reads the reconcile step off co
 install_desc="$(sed -n 's/^description: //p' "$REPO_ROOT/skills/cortex-install/SKILL.md")"
 assert_not_contains "$install_desc" "set up cortex" "/cortex-install no longer claims the set-up trigger"
 assert_not_contains "$install_desc" "install cortex here" "nor the install trigger"
+
+# --- agent-evals.yml runs every case, and survives the first PR ------------------------------------
+#
+# Found by the Harbor proving ground: the stamped workflow failed the PR that added AGENTS.md, since
+# with no cases the glob ran literally under `set -e`. One failing case also aborted every case
+# after it, accept.sh needed an executable bit nobody sets, and each case ran on the last one's
+# edits. The step's own script is run here, lifted out of the parsed template, against a stub
+# `claude` — the index test checks the workflow's shape, this checks what the script does.
+
+node --input-type=module -e '
+  import { readFileSync, writeFileSync } from "node:fs";
+  import { pathToFileURL } from "node:url";
+  const [root, out] = process.argv.slice(1);
+  const { parseYaml } = await import(pathToFileURL(root + "/index/test/yaml-lite.mjs").href);
+  const src = readFileSync(root + "/templates/loop/agent-evals.yml", "utf8")
+    .replace(/^[ \t]*\{\{SETUP_STEPS\}\}[ \t]*$/m, "")
+    .replaceAll("{{TEST_CMD}}", "make test");
+  writeFileSync(out, parseYaml(src).jobs.cases.steps.find((s) => /claude -p/.test(s.run ?? "")).run);
+' "$REPO_ROOT" "$WORK/evals-run.sh"
+
+mkdir -p "$WORK/evals-bin" "$WORK/evals-tmp"
+cat > "$WORK/evals-bin/claude" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$STUB_LOG"
+case "$2" in *crash*) echo '{"is_error":true,"result":"Invalid API key"}'; exit 1 ;; esac
+echo edit >> README.md
+echo '{"is_error":false,"result":"done"}'
+STUB
+chmod +x "$WORK/evals-bin/claude"
+
+evals_repo="$WORK/evals-repo"
+mkrepo "$evals_repo"
+printf '# r\n' > "$evals_repo/README.md"
+git -C "$evals_repo" add -A && git -C "$evals_repo" commit -q -m readme
+
+evals() { # key → "<exit>\n<output>", run from the repo root the way the job runs it
+  (
+    cd "$evals_repo" || exit 1
+    PATH="$WORK/evals-bin:$PATH" ANTHROPIC_API_KEY="$1" RUNNER_TEMP="$WORK/evals-tmp" \
+      STUB_LOG="$WORK/evals-stub.log" bash "$WORK/evals-run.sh" 2>&1
+    echo "exit=$?"
+  )
+}
+
+out="$(evals "")"
+assert_contains "$out" "exit=0" "evals: a run with no API key (a fork's PR) exits 0"
+assert_contains "$out" "cases skipped" "and says why it ran nothing"
+
+out="$(evals "k")"
+assert_contains "$out" "exit=0" "evals: the PR that adds AGENTS.md, before any case exists, passes"
+assert_contains "$out" "holds no cases yet" "and says what to add"
+
+# Four cases, committed with no executable bit. a crashes, b passes, c is rejected by its accept.sh,
+# d passes only if README.md carries exactly one edit — i.e. the tree was reset after b and c.
+for c in a-crash b-good c-reject d-clean; do mkdir -p "$evals_repo/evals/cases/$c"; done
+printf 'crash please\n' > "$evals_repo/evals/cases/a-crash/prompt.md"
+printf 'exit 0\n'       > "$evals_repo/evals/cases/a-crash/accept.sh"
+printf 'do it\n'        > "$evals_repo/evals/cases/b-good/prompt.md"
+printf 'grep -q "\\"is_error\\":false" "$1"\n' > "$evals_repo/evals/cases/b-good/accept.sh"
+printf 'do it\n'        > "$evals_repo/evals/cases/c-reject/prompt.md"
+printf 'exit 1\n'       > "$evals_repo/evals/cases/c-reject/accept.sh"
+printf 'do it\n'        > "$evals_repo/evals/cases/d-clean/prompt.md"
+printf '[ "$(grep -c "^edit$" README.md)" = 1 ]\n' > "$evals_repo/evals/cases/d-clean/accept.sh"
+chmod -x "$evals_repo"/evals/cases/*/accept.sh
+git -C "$evals_repo" add -A && git -C "$evals_repo" commit -q -m cases
+
+out="$(evals "k")"
+assert_contains "$out" "FAIL  a-crash" "evals: a run that exits non-zero is a failure"
+assert_contains "$out" "pass  b-good" "and the cases after it still run, with accept.sh run through bash"
+assert_contains "$out" "FAIL  c-reject" "a case its accept.sh rejects fails"
+assert_contains "$out" "pass  d-clean" "each case starts from the committed tree, not the last case's edits"
+assert_contains "$out" "exit=1" "and any failure fails the job"
+assert_contains "$(cat "$WORK/evals-stub.log")" "Bash(make test *)" "the test command is allowed as a prefix rule"
+assert_contains "$(cat "$WORK/evals-stub.log")" "--permission-mode dontAsk" "and nothing else is left waiting on a prompt"

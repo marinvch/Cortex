@@ -149,6 +149,22 @@ it was repointed or dropped in the same change.
 
 ### Fixed
 
+- **`/cortex` missed the build on Maven, Gradle and pnpm repos, and stamped an eval workflow that
+  could not pass.** Found by the Harbor proving ground. `detectCommands` read only a Makefile and
+  npm scripts, so a Spring repo with `./mvnw` had every verification row blocked, and a pnpm
+  workspace was told to run `npm test`. It now reads a root `pom.xml` (`./mvnw -q verify`,
+  `./mvnw test`, or `mvn` with no wrapper) and a Gradle build (`./gradlew build`, `./gradlew test`),
+  and picks the package manager from `packageManager`, then the lockfile (`pnpm run build`,
+  `yarn test`, `bun run test` — `bun test` is Bun's own runner). `agent-evals.yml` failed on the
+  first PR that added `AGENTS.md`: with no cases the glob ran literally under `set -e`; one failing
+  case aborted the rest; `accept.sh` needed an executable bit; the exact-match `Bash(<test>)` rule
+  denied the test command with any argument; nothing installed the repo's toolchain or
+  dependencies; and each case inherited the last one's edits. It now skips with a notice when there
+  are no cases or no API key, runs every case, resets the tree between them, allows the test
+  command as a prefix rule under `--permission-mode dontAsk`, installs Claude Code with the native
+  installer, and takes the repo's own CI setup steps through a new `{{SETUP_STEPS}}` placeholder.
+  It keeps loading `CLAUDE.md` on purpose — `--bare` would skip the configuration under test. The
+  stamped workflow is now parsed as YAML in a test and checked field by field.
 - **`cortex-cron.sh` lost its AI summary whenever the response opened with a thinking block.** It
   read `.content[0].text` with `max_tokens: 800`; a model that thinks can put a `thinking` block
   first, and thinking counts toward the limit, so the digest shipped with no summary and nothing

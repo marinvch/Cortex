@@ -12,16 +12,19 @@ function bareRemote() {
   return remote;
 }
 
-test("connectorObject returns slug + teamBrainRepo only", () => {
-  assert.deepEqual(connectorObject("unis", "git@x:acme/brain.git"), { slug: "unis", teamBrainRepo: "git@x:acme/brain.git" });
+test("connectorObject returns team + project + teamBrainRepo only", () => {
+  assert.deepEqual(
+    connectorObject({ team: "acme", project: "unis", teamBrainRepo: "git@x:acme/brain.git", extra: 1 }),
+    { team: "acme", project: "unis", teamBrainRepo: "git@x:acme/brain.git" },
+  );
 });
 
 test("writeConnector writes generic .cortex/connector.json (no machine paths)", () => {
   const cwd = tempDir("proj-");
-  const p = writeConnector(cwd, "unis", "git@x:acme/brain.git");
+  const p = writeConnector(cwd, { team: "acme", project: "unis", teamBrainRepo: "git@x:acme/brain.git" });
   assert.match(p, /\.cortex[\\/]connector\.json$/);
   const parsed = JSON.parse(readFileSync(p, "utf8"));
-  assert.deepEqual(parsed, { slug: "unis", teamBrainRepo: "git@x:acme/brain.git" });
+  assert.deepEqual(parsed, { team: "acme", project: "unis", teamBrainRepo: "git@x:acme/brain.git" });
   // must not leak the absolute cwd/machine path into the committed connector
   assert.ok(!readFileSync(p, "utf8").includes(cwd));
 });

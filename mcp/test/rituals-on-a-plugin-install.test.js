@@ -227,5 +227,5 @@ test("/team-add's command joins a team-brain from a plugin install, cloning into
   assert.equal(r.status, 0, `team add failed on a plugin install:\n${r.stderr}`);
   assert.ok(existsSync(join(vault, "team", "core", ".git")), "the team-brain is cloned under the vault");
   const conn = JSON.parse(readFileSync(join(f.proj, ".cortex", "connector.json"), "utf8"));
-  assert.deepEqual(conn, { slug: "product", teamBrainRepo: remote });
+  assert.deepEqual(conn, { team: "core", project: "product", teamBrainRepo: remote });
 });

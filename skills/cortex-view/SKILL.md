@@ -1,6 +1,6 @@
 ---
 name: cortex-view
-description: Render this repo as one self-contained HTML page you can open in a browser — a force graph of the import structure, every file with who imports it, the areas, and the gaps. Use when someone wants to SEE the codebase rather than read a report, on the triggers "show me the graph", "visualise this repo", "what does the architecture look like", "open the map", "cortex view". Writes only under .cortex/.
+description: Render this repo as one self-contained HTML page you can open in a browser — an overview of its state (index freshness, coverage, churn, findings, next steps, timeline), the import graph, the context layer as a tree, every file with who imports it, the areas, and the gaps. Use when someone wants to SEE the codebase rather than read a report, on the triggers "show me the graph", "visualise this repo", "what does the architecture look like", "open the map", "cortex view". Writes only under .cortex/.
 capability: mechanical
 ---
 
@@ -42,14 +42,21 @@ time; the asking is not.
 
 | Tab | Holds |
 |---|---|
-| **Next steps** | where this repo is in the Cortex sequence, each ✓ traced to a file on disk |
+| **Overview** | opens first: index freshness, profile, memory age and version; vitals (files, edges, test coverage, 30-day churn, findings by severity) and the top 3 findings; the import graph as a turning particle cloud; next-step commands to copy; a timeline of memory entries and commits |
 | **Map** | every code file as a node, coloured by area, laid out by import depth so it reads top-down rather than as a hairball |
+| **Structure** | the context layer as a tree — root `AGENTS.md`, the docs beside it, each code area with its scoped brief, busiest files and tests, and what Cortex generates. A dashed box is missing and names the command that writes it |
 | **Files** | each file with who imports it and what it imports, both clickable |
 | **Areas** | the top-level shape, and which areas already have a scoped brief |
 | **Gaps** | orphans, files in import cycles, and the busiest code with no test found |
+| **Next steps** | where this repo is in the Cortex sequence, each ✓ traced to a file on disk |
+
+Any Overview fact that could not be read — no git, no memory yet, no findings pass — says **not
+available** and why. Report it that way; never read a missing value as zero. Churn and the timeline
+end at the indexed commit, not at today, so the page is the same on every machine.
 
 A red outline on a node means no test was found. Click an area in the legend to hide it; `/` focuses
-search; scroll zooms and drag pans.
+search; scroll zooms and drag pans. On the Overview, drag turns the cloud and a click opens the file.
+The theme follows the OS; the button in the top bar overrides it and is remembered.
 
 ## What you must not claim about the picture
 

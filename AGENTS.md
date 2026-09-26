@@ -59,7 +59,7 @@ and needs no mirror at all.
 | `/ship` | work is finished | judge it against the repo's docs, one PR at a time, merge in an order that strands nothing |
 | `/plugin-sync` | a skill edit had no effect | make the Cortex this session runs the one you edited |
 | `/cortex-install` | when you want the read half alone | index a codebase and report findings, scaffolding only what the user picks. `/cortex` runs this and keeps going |
-| `/cortex-view` | after install | render the index as one offline HTML page — map, files, areas, gaps |
+| `/cortex-view` | after install | render the index as one offline HTML page — overview, map, structure, files, areas, gaps |
 | `/cortex-scaffold` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
 | `/cortex-enrich` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
 | `/cortex-brief` | per critical area | write scoped `AGENTS.md` leaves + wire the root routing table |

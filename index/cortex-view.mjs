@@ -5,9 +5,10 @@
 //   node index/cortex-view.mjs . --no-open  # write only
 //   node index/cortex-view.mjs . --json     # the view data, for something else to render
 //
-// Five tabs: Next steps (where this repo is in the sequence), Map (force graph of files and
-// imports), Files (every file with who imports it), Areas, Gaps (orphans, cycles, untested hot
-// spots). No server, no CDN, no runtime — the data is inlined, so the file works offline and
+// Seven tabs: Overview (vitals, the import graph as a particle cloud, next steps, timeline), Map
+// (files laid out by import depth), Structure (the context layer as a tree), Files (every file with
+// who imports it), Areas, Gaps (orphans, cycles, untested hot spots), Next steps (the sequence).
+// No server, no CDN, no runtime — the data is inlined, so the file works offline and
 // copies anywhere.
 //
 // Writes ONLY under .cortex/, like everything else in index/. It never touches source.
@@ -21,11 +22,12 @@ import { renderHtml } from "./lib/view-html.mjs";
 import { nextSteps, nextLine } from "./lib/next.mjs";
 import { readEnrichment } from "./lib/enrich.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
-import { generatedNotice, openTarget } from "./lib/open.mjs";
+import { generatedNotice, openTarget, indexFreshness } from "./lib/open.mjs";
+import { buildOverview } from "./lib/overview.mjs";
 
 // No index, no data. Inventing an empty page is the failure the vault's viewer actually shipped:
 // pointed at a codebase it found nothing and cheerfully drew a graph with zero nodes.
-const { root, rootArg, args, index } = openTarget(process.argv.slice(2), {
+const { root, rootArg, args, index, indexPath } = openTarget(process.argv.slice(2), {
   usage: "usage: node index/cortex-view.mjs [root] [--out FILE] [--index FILE] [--no-open] [--json]",
   flags: { "--no-open": "boolean", "--json": "boolean", "--index": "value", "--out": "value" },
   root: "positional",
@@ -64,7 +66,17 @@ const enrichment = enrich.state === "ok" ? enrich.enrichment : null;
 // answer about itself. It is being written right now, so say so.
 // `--json` renders nothing, so it gets the state as it actually is on disk.
 const seq = nextSteps(root, index, args.json ? {} : { view: true });
-const view = buildView(index, root, { enrichment, next: seq });
+// The Overview's facts: freshness, profile, memory, churn, findings, timeline. Freshness is asked
+// directly rather than taken from the front door, which only computes it when it is going to print
+// the stale note — and `--json` must carry the same answer the page does.
+let stale = null;
+try {
+  stale = indexFreshness(root, indexPath).stale;
+} catch {
+  stale = null;
+}
+const overview = buildOverview(index, root, { stale, env: process.env });
+const view = buildView(index, root, { enrichment, next: seq, overview });
 
 if (args.json) {
   // A machine-readable mode gets no prose on either stream — the same rule the front door applies

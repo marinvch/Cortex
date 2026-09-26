@@ -15,7 +15,8 @@
 // It is also the ONE frontmatter reader in tools/. cortex-capability.mjs imports parseFrontmatter
 // from here, and core/test/plugin.test.js runs this file rather than carrying its own regex — it
 // cannot import it, because core/ (tests included) may not reach outside core/, and this is not
-// kernel code: nothing in index/ or mcp/ reads a skill's frontmatter.
+// kernel code. index/lib/claude-setup.mjs reads a USER's skill frontmatter with a tolerant reader of
+// real YAML — a different job from this strict one over Cortex's own skills.
 //
 // The grammar is a deliberate subset of YAML, not a YAML parser (ADR 0004 — no dependencies):
 // flat `key: value` lines, each value on ONE line, plain or quoted. That subset is not a limitation
@@ -26,6 +27,7 @@
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { triggerPhrasing } from "../core/claude-code.js";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -114,16 +116,9 @@ export function parseFrontmatter(src) {
   return { found: true, data, errors };
 }
 
-/**
- * The trigger phrasing a model-facing description carries, or null. Deliberately simple: "Use
- * when", "Triggers", or two or more quoted phrases — the three shapes every trigger list here takes.
- */
-export function triggerPhrasing(desc) {
-  const m = desc.match(/\buse (?:it )?when\b|\btriggers?\b/i);
-  if (m) return m[0];
-  const quoted = desc.match(/"[^"]{2,}"/g) ?? [];
-  return quoted.length >= 2 ? quoted.slice(0, 2).join(", ") : null;
-}
+// The trigger-phrasing heuristic lives in core/claude-code.js beside the rule it serves, because
+// index/lib/claude-setup.mjs applies the same test to a user's skills. Re-exported for callers here.
+export { triggerPhrasing };
 
 /** Every rule a skill's frontmatter must meet. `dirName` is the directory the SKILL.md sits in. */
 export function validateSkill(src, dirName) {

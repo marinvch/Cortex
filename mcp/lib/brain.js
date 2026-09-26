@@ -46,7 +46,7 @@ export { NoRootError, UnknownProfileError };
  * @param {{ cwd: string, env: Record<string,string|undefined> }} ctx
  * @returns {{
  *   root: string, mode: string, isRepo: boolean,
- *   audience: string, team: string|null, teamClone: string|null,
+ *   audience: string, team: string|null, teamClone: string|null, project: string|null,
  *   profile: string, policy: object,
  *   sources: { audience: string, profile: string },
  *   describe: () => string,
@@ -73,6 +73,9 @@ export function openBrain({ cwd, env }) {
     audience: located.audience,
     team: located.team,
     teamClone: located.teamClone,
+    // The project this checkout is in the team-brain, from the connector — the default for a capture
+    // or catch-up that names none, so an agent in a connected repo does not have to know it.
+    project: located.project ?? null,
 
     profile: world.profile,
     // The policy object, not a copy of its fields: `lab` refusing nothing and publishing nothing is

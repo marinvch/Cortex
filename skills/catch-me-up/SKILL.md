@@ -23,9 +23,14 @@ In a repo wired with `/team-add`, the team-brain's history is part of the materi
    No vault is needed. `repo` in the output holds the days of the repo's committed
    `.cortex/memory/` since that date and its git log over the same window; `skipped` says what was
    not read. From a clone of the Cortex repo rather than the plugin, use that clone's path.
-   - **With a vault** (`AI_OS_ROOT` set to it), add `--project <slug>` — the output then also
-     carries the vault's `notes` for that project and the team-brain `commits`. `--team <name>`
-     overrides the connected team; you rarely need it. In vault mode the MCP
+   - **With a vault** (`AI_OS_ROOT` set to it), the output also carries the vault's `notes` for
+     the project (`--project <slug>`, defaulting to the connector's project, else the repo's name).
+     In a repo connected to a team it fast-forwards the team-brain clone first and adds
+     `teamNotes` — what every repo of the team captured since the date, newest first, bounded,
+     with `truncated` saying a cap was hit — and the team-brain `commits`. **`pull.ok: false` means
+     the clone could not be updated**: say so, and say the notes may be stale, rather than
+     reporting a quiet stretch. `--team <name>` overrides the connected team; you rarely need it.
+     In vault mode the MCP
      `catch_me_up(project, since[, team])` tool returns the same notes and commits; it does not
      exist in repo mode, which is how the plugin's server runs, so use the command there.
 3. From the returned memory, notes and commits, write a concise "what changed & why", grouped by

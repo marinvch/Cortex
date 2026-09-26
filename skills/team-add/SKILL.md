@@ -27,15 +27,19 @@ Here it is the requirement, and it holds only because the connector carries no l
 ## What to do
 
 1. From the product repo root, with `AI_OS_ROOT` set to your vault, run
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team add --name <team> --repo <team-brain-git-url> --slug <this-project-slug>`.
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team add --name <team> --repo <team-brain-git-url> --project <this-project-slug>`.
    The script ships with the plugin; the vault is only where the clone goes. From a clone of the
-   Cortex repo rather than the plugin, use that clone's path.
-2. It clones the team-brain under your local vault and writes a generic `.cortex/connector.json`
-   (slug + team-brain URL only).
+   Cortex repo rather than the plugin, use that clone's path. `--name` is the team — the name in
+   the team-brain's `team.md`, the same for every repo — and `--project` is this repo.
+2. It clones the team-brain under your local vault and writes a generic `.cortex/connector.json`:
+   `{ team, project, teamBrainRepo }` and nothing else. A connector already committed in the old
+   `{ slug, teamBrainRepo }` shape still works — the startup line says it is the old shape — and
+   running step 1 again rewrites it; commit that change.
 3. Offer to commit the connector so teammates inherit the wiring:
    `git add .cortex/connector.json && git commit -m "chore: add cortex team connector"`.
-4. Tell the user that `/catch-me-up` now works in this repo — it reads the team-brain's history
-   alongside the local brain notes, and it is the reason joining was worth doing.
+4. Tell the user that `/catch-me-up` now works in this repo — it pulls the team-brain and returns
+   what every repo of the team captured, alongside the local brain notes, and it is the reason
+   joining was worth doing.
 
 ## Don't
 

@@ -149,6 +149,20 @@ it was repointed or dropped in the same change.
 
 ### Fixed
 
+- **A teammate's capture in one repo never reached a catch-up in another.** Two defects, both
+  found by acceptance scenario S2 on the five-repo proving ground (capture 0/4, catch-up 0/12;
+  after: 4/4 and 12/12). `team add` wrote the *project* into the connector's `slug` field and the
+  resolver read `slug` as the *team*, so every connected repo looked for its team-brain clone at
+  `team/<project>/`, wrote there, and failed with `not_a_git_repo`. The connector is now
+  `{ team, project, teamBrainRepo }` (`team add --project`, with `--slug` kept as its old
+  spelling), and an old `{ slug, teamBrainRepo }` connector still resolves: to a clone at
+  `team/<slug>` if there is one, else to the clone whose `origin` is `teamBrainRepo`, with the
+  startup line saying it is the old shape. And `catch_me_up` never pulled and never read a note —
+  it returned the local clone's commit subjects. It now fast-forwards the clone (ff-only, so local
+  work is never rewritten), returns `teamNotes` from every project of the team since the date,
+  newest first and bounded to stay under the transport cap, and reports a failed pull in `pull`
+  instead of returning a stale answer as a quiet week. A connected repo's captures also default to
+  its project rather than the team-brain's `inbox`.
 - **`cortex-cron.sh` lost its AI summary whenever the response opened with a thinking block.** It
   read `.content[0].text` with `max_tokens: 800`; a model that thinks can put a `thinking` block
   first, and thinking counts toward the limit, so the digest shipped with no summary and nothing

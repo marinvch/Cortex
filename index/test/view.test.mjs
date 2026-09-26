@@ -2,8 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildView } from "../lib/view.mjs";
-import { renderHtml } from "../lib/view-html.mjs";
-import { runPage } from "./browser.mjs";
+import { renderHtml, THEMES, CONTRAST } from "../lib/view-html.mjs";
+import { runPage, runOverview } from "./browser.mjs";
 
 function idx(over = {}) {
   return {
@@ -353,6 +353,165 @@ test("the light theme cannot rot while the dark one is tuned", () => {
   assert.ok(l.size > 10, "the light palette is a full palette, not a stub");
   assert.deepEqual([...l].filter((n) => !d.has(n)), [], "every light token has a dark counterpart");
   assert.deepEqual([...d].filter((n) => !l.has(n)), [], "and every dark token has a light one");
+  // The toggle's block is the same palette as the OS-preference block, or choosing "dark" by hand
+  // gives a different dark from the one the OS gives.
+  const forced = html.slice(html.indexOf(":root[data-theme=dark]{"), html.indexOf("*{box-sizing"));
+  assert.ok(forced.length > 20, "there is a block for a dark theme chosen by hand");
+  assert.deepEqual([...names(forced)].sort(), [...d].sort(), "and it defines the same tokens");
+  assert.ok(html.includes(":root:not([data-theme=light])"), "a light theme chosen by hand beats a dark OS");
+});
+
+// ── legibility, computed ───────────────────────────────────────────────────────────────────────
+// The reader this page was redesigned for is farsighted, with strabismus. "High contrast" tuned by
+// eye is the claim that rots first — someone softens a grey and nothing fails — so the ratios are
+// computed here from the same token objects the CSS is generated from.
+
+function rgba(v) {
+  const s = String(v).trim();
+  if (s.startsWith("#")) {
+    const n = parseInt(s.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 1];
+  }
+  const m = /rgba?\(([^)]+)\)/.exec(s);
+  const p = m[1].split(",").map(Number);
+  return [p[0], p[1], p[2], p[3] ?? 1];
+}
+function over(top, under) {
+  const [r, g, b, a] = rgba(top), [R, G, B] = rgba(under);
+  return [r * a + R * (1 - a), g * a + G * (1 - a), b * a + B * (1 - a)];
+}
+function lum([r, g, b]) {
+  const c = (x) => { x /= 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * c(r) + 0.7152 * c(g) + 0.0722 * c(b);
+}
+function contrastTable() {
+  const rows = [];
+  for (const [theme, t] of Object.entries(THEMES)) {
+    const ground = (g) => (Array.isArray(g) ? [`${g[0]} on ${g[1]}`, over(t[g[0]], t[g[1]])] : [g, rgba(t[g]).slice(0, 3)]);
+    const ratio = (fg, bg) => { const a = lum(rgba(fg).slice(0, 3)), b = lum(bg); return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05); };
+    for (const g of CONTRAST.grounds) {
+      const [name, bg] = ground(g);
+      for (const fg of CONTRAST.text) rows.push({ theme, text: fg, ground: name, ratio: ratio(t[fg], bg) });
+    }
+    for (const g of CONTRAST.tints.grounds) {
+      for (const fg of CONTRAST.tints.text) rows.push({ theme, text: fg, ground: g, ratio: ratio(t[fg], rgba(t[g]).slice(0, 3)) });
+    }
+    for (const [fg, bg] of CONTRAST.pairs) rows.push({ theme, text: fg, ground: bg, ratio: ratio(t[fg], rgba(t[bg]).slice(0, 3)) });
+  }
+  return rows;
+}
+
+test("every text colour clears 7:1 on every ground it can sit on, in both themes", () => {
+  const rows = contrastTable();
+  assert.ok(rows.length > 100, "the table covers the palette, not a sample of it");
+  const low = rows.filter((r) => r.ratio < CONTRAST.min).map((r) => `${r.theme}: ${r.text} on ${r.ground} = ${r.ratio.toFixed(2)}`);
+  assert.deepEqual(low, [], "no pair below 7:1");
+});
+
+test("nothing on the page is set under 13px, the canvas included", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  const sizes = [
+    ...[...html.matchAll(/font-size:\s*([\d.]+)px/g)].map((m) => [m[0], +m[1]]),
+    // the `font:` shorthand, in CSS and in canvas strings: `600 13px …`
+    ...[...html.matchAll(/(?:font:\s*|['"])(?:\d{3}\s+)?([\d.]+)px[\s/]/g)].map((m) => [m[0], +m[1]]),
+  ];
+  assert.ok(sizes.length > 30, "the sizes were found, or this proves nothing");
+  assert.deepEqual(sizes.filter(([, px]) => px < 13).map(([s]) => s), [], "no size under 13px");
+});
+
+// ── the Overview and the Structure tab ─────────────────────────────────────────────────────────
+
+test("every tab is on the page, and the Overview opens first", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  for (const v of ["ov", "map", "structure", "files", "areas", "gaps", "next"]) {
+    assert.ok(html.includes(`data-v="${v}"`), `the ${v} tab`);
+    assert.ok(html.includes(`id="v-${v}"`), `and its view`);
+  }
+  assert.ok(html.includes(`class="tab on" role="tab" aria-selected="true" data-v="ov"`), "Overview is selected");
+  assert.ok(html.includes(`<div class="view on" id="v-ov">`), "and shown");
+  // The harness runs the LAST plain <script>; the Map's layout is what it measures.
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  assert.ok(scripts.pop().includes("function pack("), "the Map's script stays last");
+  assert.ok(html.indexOf('<script id="ov-js">') < html.lastIndexOf("<script>"), "the Overview's runs before it");
+});
+
+test("a page with no repo state says what is missing and why, instead of drawing zeros", () => {
+  // No overview facts and no sequence: the state a page is in when rendered straight from buildView.
+  const page = runOverview(buildView(idx({ stats: { files: 4, lines: 100, tests: 1 } }), "/tmp/x"));
+  assert.match(page.html("ovbar"), /Repo state not available/);
+  assert.match(page.html("ovl"), /not available — the page was rendered without the repo state/);
+  assert.match(page.html("ovr"), /not available — no install sequence was computed/);
+  assert.ok(!/>0<\/div><svg/.test(page.html("ovl")), "no zero-commit sparkline stands in for no git");
+  assert.match(page.html("spane"), /AGENTS\.md|no root AGENTS\.md/, "the Structure tab still renders");
+});
+
+test("the no-git state is named, and memory still reaches the timeline", () => {
+  const overview = {
+    cortex: "9.9.9", commit: null, commitDate: null, index: "unknown",
+    profile: { name: "home", source: "default" },
+    memory: { newest: "2026-01-02", days: 1, lagDays: null },
+    churn: { unavailable: "not a git repository" },
+    findings: { counts: { critical: 0, high: 1, medium: 0, low: 0 }, total: 1, top: [{ severity: "high", kind: "k", title: "a finding" }] },
+    timeline: [{ date: "2026-01-02", time: "09:00", kind: "memory", tag: "digest", title: "we decided a thing" }],
+    timelineNote: "not a git repository — only memory entries can be listed",
+    generated: [{ path: ".cortex/index/", what: "the index", present: true }],
+  };
+  const page = runOverview(buildView(idx(), "/tmp/x", { overview }));
+  assert.match(page.html("ovl"), /not available — not a git repository/);
+  assert.match(page.html("ovr"), /we decided a thing/);
+  assert.match(page.html("ovr"), /only memory entries can be listed/);
+  assert.match(page.html("ovbar"), /indexed <b>date not available<\/b>/);
+  assert.match(page.html("ovbar"), /Cortex v9\.9\.9/);
+});
+
+test("the Structure tab names what is missing and the command that writes it", () => {
+  const page = runOverview(buildView(idx(), "/tmp/x"));
+  const s = page.html("spane");
+  assert.match(s, /no root AGENTS\.md/);
+  assert.match(s, /\/cortex-brief src\//, "an area with no scoped brief names the command");
+  assert.match(s, /no CONTEXT\.md/);
+});
+
+function bigIndex(n) {
+  const areas = ["api", "app", "core", "data", "lib", "ui"];
+  const files = Array.from({ length: n }, (_, i) => ({
+    path: `${areas[i % areas.length]}/m${i}.js`, lang: "javascript", category: "code",
+    lines: 10, commits: i % 7, isTest: false, isEntry: false, imports: [], inbound: 0,
+  }));
+  const edges = [];
+  for (let i = 1; i < n; i++) {
+    for (const t of new Set([Math.floor(i / 2), Math.floor(i / 3)])) {
+      edges.push({ from: files[i].path, to: files[t].path, type: "imports" });
+      files[i].imports.push(files[t].path);
+      files[t].inbound += 1;
+    }
+  }
+  return idx({
+    files, edges, layers: [], cycles: [],
+    areas: areas.map((a) => ({ name: a, paths: files.filter((f) => f.path.startsWith(a + "/")).map((f) => f.path) })),
+    stats: { files: n, lines: n * 10, tests: 0 },
+  });
+}
+
+test("the cloud draws 2,000 files in one pass per frame, fast enough to turn smoothly", () => {
+  // A frame is one path for every import and one sprite per file. A stroke per edge, or a pass that
+  // is quadratic in files, is what makes a large repo stutter — and it is invisible on this repo.
+  const page = runOverview(buildView(bigIndex(2000), "/tmp/x"));
+  assert.equal(page.OV.count, 2000);
+  const before = { ...page.calls };
+  const t0 = performance.now();
+  for (let i = 0; i < 30; i++) page.OV.frame();
+  const ms = (performance.now() - t0) / 30;
+  assert.equal((page.calls.drawImage - before.drawImage) / 30, 2000, "one sprite per file");
+  assert.ok((page.calls.stroke - before.stroke) / 30 <= 2, "the links are one stroke, not thousands");
+  assert.ok(ms < 12, `a frame took ${ms.toFixed(2)}ms of script time`);
+});
+
+test("the same index opens as the same cloud", () => {
+  const a = runOverview(buildView(bigIndex(300), "/tmp/x"));
+  const b = runOverview(buildView(bigIndex(300), "/tmp/x"));
+  assert.deepEqual([...a.OV.points()], [...b.OV.points()], "every file lands in the same place");
+  assert.equal(renderHtml(buildView(bigIndex(300), "/tmp/x")), renderHtml(buildView(bigIndex(300), "/tmp/x")));
 });
 
 // ── enrichment reaches the cards ───────────────────────────────────────────────────────────────

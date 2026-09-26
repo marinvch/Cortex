@@ -101,7 +101,9 @@ before overturning one; the line here is the trigger, not the case.
   Everything else points Cortex at fixtures shaped by whoever wrote the test. This one runs
   index → findings → `--offers` against a repo shaped like real product code, and asserts the target
   is left without a `.cortex/` — the consent promise made executable. Point it at a real project
-  with `CORTEX_E2E_REPO=<path>`; that pass is read-only.
+  with `CORTEX_E2E_REPO=<path>`; that pass is read-only. Point it at a directory of a team's repos
+  with `CORTEX_E2E_WORKSPACE=<dir>` and it runs the roadmap's acceptance scenarios S1–S4 on clones
+  of them, one `PASS` / `FAIL` / `XFAIL (<step>)` line each — also read-only, checked by fingerprint.
 - **The shell half has behaviour tests — `bash tools/test/run.sh`.** `bash -n` and shellcheck never
   *run* a script, which is how four real bugs shipped in `tools/server/`. Tests build real git repos
   in temp dirs (a bare repo on disk is a complete remote, so no network), and every test touching

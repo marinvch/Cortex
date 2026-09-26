@@ -21,6 +21,13 @@ production breach writes the next `intent.md`.
   — moved into the personal vault section, unchanged. The repo gained GitHub topics, and
   `docs/images/social-preview.png` (1280×640) is ready to upload as the social preview, which
   GitHub only accepts through its settings page.
+- **`tools/cortex-site-facts.mjs` — the facts a public page states, extracted from source.**
+  Version, Node floor, install commands, every ritual (`AGENTS.md` table joined with the skill
+  folders — a mismatch fails the run) and every MCP tool, asked of the checkout's own server in repo
+  and vault mode with the model-facing injection warning stripped. Deterministic and offline;
+  `--check <file>` exits 1 and names each change ("ritual /resume added", "install command
+  changed"). The site drifted four product versions because it restated these by hand (#415); this
+  is what it renders from instead (#416). `tools/test/site-facts.test.sh` pins 36 assertions.
 - **The official Claude Code rules, as data with their evidence — `core/claude-code.js`.** 22 rules
   from Anthropic's docs: skill and subagent frontmatter keys, the 1,536-character skill description
   cap, `SKILL.md` under 500 lines, the subagent fields a plugin cannot use, MCP output limits, hook

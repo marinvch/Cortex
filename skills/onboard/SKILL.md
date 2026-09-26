@@ -1,6 +1,6 @@
 ---
 name: onboard
-description: One-time setup for the Cortex Vault. Interview the user, fill the context/ files, seed home.md, and populate connections.md. Use the first time the vault is set up, or when someone says "set me up", "onboard me", "fill in my brain". Plain files only — no engine, no Node.
+description: One-time vault setup — interview the user, fill the context/ files, seed home.md and populate connections.md.
 capability: judgment
 disable-model-invocation: true
 ---

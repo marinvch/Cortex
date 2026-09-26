@@ -106,3 +106,24 @@ mkdir -p "$WORK/crlf/skills/demo"
 printf -- '---\r\nname: demo\r\ndescription: %s\r\n---\r\n' "$GOOD_DESC" > "$WORK/crlf/skills/demo/SKILL.md"
 verdict crlf
 assert_eq "0" "$rc" "CRLF line endings pass"
+
+# A user-invoked skill's description is a one-line summary for the / menu; trigger lists there read
+# as if the model could reach it. Four skills carried them for months before this rule existed.
+USER_DESC="Create the shared team repo once, seed its folders and push it."
+skill userok demo "name: demo" "description: $USER_DESC" "disable-model-invocation: true"
+verdict userok
+assert_eq "0" "$rc" "a user-invoked skill with a one-line summary passes"
+
+skill usewhen demo "name: demo" "description: $GOOD_DESC" "disable-model-invocation: true"
+verdict usewhen
+assert_eq "1" "$rc" "a user-invoked skill whose description says \"Use when\" fails"
+assert_contains "$out" "trigger phrasing" "and names the trigger phrasing"
+
+skill quotedlist demo "name: demo" "description: 'Sets up the brain for \"connect it\", \"wire it up\" and friends.'" \
+  "disable-model-invocation: true"
+verdict quotedlist
+assert_eq "1" "$rc" "a user-invoked skill with a quoted trigger list fails"
+
+skill modelok demo "name: demo" "description: $GOOD_DESC"
+verdict modelok
+assert_eq "0" "$rc" "the same \"Use when\" description passes on a model-invoked skill"

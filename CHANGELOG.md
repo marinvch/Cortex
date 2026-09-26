@@ -14,6 +14,13 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **A front door for someone who has never heard of Cortex.** The README's first screen is now what
+  it is (new or legacy codebases, solo or team), a Cortex View screenshot
+  (`docs/images/cortex-view.png`), the three install steps, and four bullets on what lands in a repo.
+  The vault-era lines that led it — "capture first, organize later" and the MCP-and-vault paragraph
+  — moved into the personal vault section, unchanged. The repo gained GitHub topics, and
+  `docs/images/social-preview.png` (1280×640) is ready to upload as the social preview, which
+  GitHub only accepts through its settings page.
 - **The official Claude Code rules, as data with their evidence — `core/claude-code.js`.** 22 rules
   from Anthropic's docs: skill and subagent frontmatter keys, the 1,536-character skill description
   cap, `SKILL.md` under 500 lines, the subagent fields a plugin cannot use, MCP output limits, hook

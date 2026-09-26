@@ -14,6 +14,25 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **The checker: does a repo's Claude setup follow Anthropic's own docs?** `index/lib/claude-setup.mjs`
+  adds 23 `claude-setup/*` findings to the report `/cortex-install`, `cortex-view` and `cortex-next`
+  already read — `CLAUDE.md` (and what it `@`-imports) over 200 lines, emphasis on many lines, an
+  import to nothing; skill descriptions over 1,536 characters (counted in code points, so a
+  Cyrillic description is not cut at half), bodies over 500 lines, unknown keys, trigger lists on a
+  user-invoked skill, links to missing supporting files; subagent unknown keys, missing
+  name/description, `:` in a name, keys a plugin agent ignores, and an agent that says it is
+  read-only while its tools still grant Edit; hook commands naming a missing or non-executable
+  script, a `PostToolUse` hook that exits 2, a settings file that is not JSON; and in Messages API
+  code `content[0].text`, `thinking: disabled`, a small `max_tokens`, and prompts asking for the
+  model's reasoning. Every finding quotes its rule's sentence and source URL, and is `medium` or
+  `low` — never a failure. Plugins are found at the root and under a marketplace's `plugins/<name>/`.
+  A new test stamps everything the `/cortex` skill places into a fresh repo and expects zero
+  findings; dropping `format-changed.sh` from it reproduces the bug #428 fixed. Validated on
+  superpowers (2 skill bodies over 500 lines), anthropics/skills (1) and anthropics/claude-code (an
+  unknown `version` key) — every reported file opened and confirmed. On this repo it reports the 44
+  skills' `capability` key, which the next step moves under `metadata:`. Three rules joined
+  `core/claude-code.js` with their sentences (malformed skill and subagent frontmatter, hooks live
+  in JSON settings), and `triggerPhrasing` moved there so the two readers share one heuristic.
 - **A front door for someone who has never heard of Cortex.** The README's first screen is now what
   it is (new or legacy codebases, solo or team), a Cortex View screenshot
   (`docs/images/cortex-view.png`), the three install steps, and four bullets on what lands in a repo.

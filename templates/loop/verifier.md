@@ -2,6 +2,7 @@
 name: verifier
 description: Independent check before any "done" claim. Launches the change, exercises it and whatever sits next to it, and reports what happened. Use once a task is believed complete.
 tools: Bash, Read
+disallowedTools: Edit, Write, NotebookEdit
 ---
 
 # verifier

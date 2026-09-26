@@ -72,7 +72,12 @@ if (!missing.length) {
   console.log(`\n${missing.length} skill${missing.length === 1 ? "" : "s"} worth adding, most useful first:\n`);
   for (const p of missing) {
     console.log(`  /${p.id}  — ${p.title}`);
-    console.log(`      why: ${p.why}\n`);
+    console.log(`      why: ${p.why}`);
+    // The exact frontmatter line the written skill carries, so the ritual copies it rather than
+    // re-deriving globs. Absent when nothing file-shaped was detected — the skill then loads by
+    // description alone, as every skill did before `paths` existed.
+    if (p.pathsLine) console.log(`      ${p.pathsLine}`);
+    console.log("");
   }
   console.log("These are proposals. Nothing has been written. Run /cortex-skills to pick and write them.");
 }

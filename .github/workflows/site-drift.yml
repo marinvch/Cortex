@@ -1,0 +1,98 @@
+name: site drift
+# The public site renders its facts pages from a committed site-facts.json. This recomputes the facts
+# from master on every push and compares them with the site's copy, so drift is visible the day it
+# happens rather than four product versions later (#415, #416). It only READS the site repo; the fix
+# is /site-sync, which opens a PR there that a person merges.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      site_repo:
+        description: "Site repository (owner/name). Defaults to the CORTEX_SITE_REPO variable, then marinvch/cortex-site."
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SITE_REPO: ${{ inputs.site_repo || vars.CORTEX_SITE_REPO || 'marinvch/cortex-site' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fetch the site's committed facts (read-only)
+        id: fetch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # A site repo that does not exist yet (it is renamed only once the maintainer confirms), or
+          # one that has not committed site-facts.json yet, is a neutral skip — there is nothing to
+          # compare, and failing master for it would teach everyone to ignore this job.
+          if ! gh api "repos/$SITE_REPO" --silent 2>/dev/null; then
+            echo "::notice::site repo $SITE_REPO not found — skipping the drift check"
+            echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if ! gh api "repos/$SITE_REPO/contents/site-facts.json" -H "Accept: application/vnd.github.raw" > site-facts.json 2>/dev/null; then
+            echo "::notice::$SITE_REPO has no site-facts.json yet — skipping the drift check"
+            echo "skip=1" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "skip=0" >> "$GITHUB_OUTPUT"
+      - name: Compare with the facts on master
+        id: check
+        if: steps.fetch.outputs.skip == '0'
+        run: |
+          set +e
+          node tools/cortex-site-facts.mjs --check site-facts.json > report.txt 2>&1
+          code=$?
+          cat report.txt
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Open, update or close the site-drift issue
+        if: steps.fetch.outputs.skip == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CODE: ${{ steps.check.outputs.code }}
+        run: |
+          existing="$(gh issue list --label site-drift --state open --json number --jq '.[0].number')"
+          if [ "$CODE" = "0" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --comment "The site's facts match master again ($(git rev-parse --short HEAD))."
+            fi
+            exit 0
+          fi
+          if [ "$CODE" = "1" ]; then
+            what="The public site ($SITE_REPO) states facts that master has changed:"
+            fix='Fix: run `/site-sync` — it refreshes `site-facts.json`, drafts the affected pages, and opens a PR on the site repo.'
+          else
+            what="The site facts could not be computed from master, so drift went unchecked:"
+            fix='Fix: this is a Cortex bug in `tools/cortex-site-facts.mjs` or what it reads, not site drift.'
+          fi
+          {
+            echo "$what"
+            echo
+            echo '```'
+            cat report.txt
+            echo '```'
+            echo
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "$fix"
+          } > body.md
+          gh label create site-drift --color fbca04 --description "The public site states facts master has changed" --force
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file body.md
+          else
+            gh issue create --title "The public site has drifted from master" --label site-drift --body-file body.md
+          fi
+          [ "$CODE" = "1" ] || exit 1

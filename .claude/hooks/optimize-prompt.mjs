@@ -17,7 +17,7 @@ export const ACTION_VERB_LIST = [
   'install', 'scan', 'implement', 'generate', 'wire', 'split', 'merge', 'run',
   'restore', 'resume', 'continue', 'investigate', 'research', 'interview', 'check', 'verify',
   'compare', 'analy[sz]e', 'summari[sz]e', 'plan', 'ship', 'commit', 'push', 'deploy', 'clean',
-  'finish', 'list', 'find', 'search', 'show',
+  'finish', 'list', 'find', 'search', 'show', 'open',
 ];
 
 export const DOMAIN_WORD_LIST = [
@@ -76,9 +76,16 @@ const STEER_WORDS =
  * proposal already on the table, so asking what it means improves nothing. Capped at 8 words:
  * past that the tail is a new request and earns a score. A bare "continue" + task is deliberately
  * absent — "continue building the thing" is a task, not a go-ahead.
+ *
+ * yes / ok / sure followed by ANY action verb is a go-ahead: "yes write the spec" answers the
+ * proposal it follows. The verb list is the scorer's own, so one list decides both questions.
  */
+const GO_AHEAD_VERB = new RegExp(
+  `^(yes|ok(ay)?|sure)[,\\s]+(please[,\\s]+)?(${ACTION_VERB_LIST.join('|')}|do|go|proceed)(s|es|d|ed|ing)?\\b`,
+  'i',
+);
 const STEER_PHRASE =
-  /^(go ahead|carry on|sounds good|agreed?|lgtm|ok(ay)?[,\s]+(do|go|merge|ship|proceed|fix|run)|yes[,\s]+(do|go|please|merge|ship|fix|run)|do (it|all|them|that|this|both|everything|the rest))\b/i;
+  /^(go ahead|carry on|sounds good|agreed?|lgtm|yes[,\s]+please|do (it|all|them|that|this|both|everything|the rest))\b/i;
 
 export function wordCount(s) {
   return String(s ?? '').trim().split(/\s+/).filter(Boolean).length;
@@ -92,7 +99,7 @@ export function shouldBypass(prompt, env = process.env) {
   if (p.length > 2000) return true;                        // whitespace-poor paste (base64/minified) — word count won't catch it
   if (wordCount(p) > 60) return true;                       // already detailed
   if (STEER_WORDS.test(p) && wordCount(p) <= 2) return true; // "yes", "continue" — SHORT mid-flow steering only
-  if (STEER_PHRASE.test(p) && wordCount(p) <= 8) return true; // "go ahead do all of them" — a go-ahead, not a new ask
+  if ((STEER_PHRASE.test(p) || GO_AHEAD_VERB.test(p)) && wordCount(p) <= 8) return true; // "go ahead do all of them", "yes write the spec" — a go-ahead, not a new ask
   if (STATUS_QUESTION.test(p) && wordCount(p) <= 8) return true; // "is it done" — a status check, not a work request
   if (BYPASS_WORDS.test(p)) return true;                    // user signalled "small, don't ceremony this"
   if (FILE_LOCATOR.test(p)) return true;                    // exact target named

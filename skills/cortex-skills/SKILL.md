@@ -64,6 +64,7 @@ commands and real paths.
 ---
 name: <id>
 description: <what it does, and the triggers that should reach it — see /writing-for-agents>
+paths: <the proposal's paths line, copied verbatim — omit the line when the proposal has none>
 ---
 
 # /<id> — <title>
@@ -79,6 +80,13 @@ description: <what it does, and the triggers that should reach it — see /writi
 ## Verify
 - <the command that proves it worked>
 ```
+
+**`paths:` comes from the proposal, never from you.** The tool prints the line under each proposal
+that earned one — `paths: prisma/**, **/*.prisma` for a Prisma schema — built from what the index
+detected, and quoted when a glob would otherwise break the YAML. Claude Code then loads the skill
+only when those files are in play. Copy it exactly. When the proposal has no `paths:` line, write
+none: an empty value is a skill that never loads, and a guessed glob is one that never loads on the
+file that matters. Agents that ignore `paths` read the skill as they always did.
 
 Keep it **short**. A skill body is loaded whole when it fires; a 200-line skill is a brief in
 disguise. If it grows past about 60 lines, the depth belongs in a scoped `AGENTS.md` leaf via

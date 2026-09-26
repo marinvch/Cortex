@@ -6,7 +6,7 @@ Point Cortex at a repository — new or legacy, yours alone or one a whole team 
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
 missing. Then it writes the context layer every developer's agent reads.
 
-![Cortex View — this repository's import graph, one band per import depth](docs/images/cortex-view.png)
+![Cortex View — the Overview of this repository: vitals, the import graph as a particle cloud, next steps and timeline](docs/images/cortex-view.png)
 
 **Three steps:**
 

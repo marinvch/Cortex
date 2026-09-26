@@ -114,6 +114,17 @@ export function parseFrontmatter(src) {
   return { found: true, data, errors };
 }
 
+/**
+ * The trigger phrasing a model-facing description carries, or null. Deliberately simple: "Use
+ * when", "Triggers", or two or more quoted phrases — the three shapes every trigger list here takes.
+ */
+export function triggerPhrasing(desc) {
+  const m = desc.match(/\buse (?:it )?when\b|\btriggers?\b/i);
+  if (m) return m[0];
+  const quoted = desc.match(/"[^"]{2,}"/g) ?? [];
+  return quoted.length >= 2 ? quoted.slice(0, 2).join(", ") : null;
+}
+
 /** Every rule a skill's frontmatter must meet. `dirName` is the directory the SKILL.md sits in. */
 export function validateSkill(src, dirName) {
   const { found, data, errors } = parseFrontmatter(src);
@@ -129,6 +140,12 @@ export function validateSkill(src, dirName) {
   const desc = data.description?.trim() ?? "";
   if (desc && desc.length < MIN_DESCRIPTION) {
     out.push({ line: 1, msg: `description is ${desc.length} characters — too short to trigger on (min ${MIN_DESCRIPTION})` });
+  }
+  // A skill only a human can fire has no router to feed, so its description is a one-line summary
+  // for the person reading the / menu (SKILL-MECHANICS.md). Trigger lists there are dead weight that
+  // reads as if the model could reach it; four skills carried them for months.
+  if (data["disable-model-invocation"]?.trim() === "true" && triggerPhrasing(desc)) {
+    out.push({ line: 1, msg: `disable-model-invocation skill carries trigger phrasing ("${triggerPhrasing(desc)}") — a user-invoked description is a one-line summary, trigger lists stripped` });
   }
   return out;
 }

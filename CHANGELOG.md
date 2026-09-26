@@ -128,6 +128,31 @@ it was repointed or dropped in the same change.
 
 ### Fixed
 
+- **Every repo `/cortex` stamped ran a hook script that did not exist.** `templates/loop/settings.hooks.json`
+  registers `.claude/hooks/format-changed.sh` on every `Edit|Write`, and no template for it was
+  ever written. It is one now: it formats only the edited file, with formatters `loop.mjs` reads
+  from the config each one itself reads (`go.mod` → gofmt, `[tool.ruff]`/`ruff.toml` → ruff,
+  `[tool.black]` → black, a Prettier config or `package.json#prettier` → Prettier via
+  `npx --no-install`), and does nothing where none is declared. Every path exits 0 — a PostToolUse
+  hook runs after the edit and has nothing to block. `index/test/loop.test.mjs` now fails when any
+  script a hook command names has no template, or the `/cortex` table never says where it lands.
+- **The verifier `/cortex` writes into a repo could edit the code it was checking.** Its prose said
+  "change nothing", and nothing enforced it. `templates/loop/verifier.md` now sets
+  `disallowedTools: Edit, Write, NotebookEdit`, the subagent field Claude Code enforces, and
+  `index/test/loop.test.mjs` fails if any of the three drops out. It keeps `Bash`, which it needs to
+  run the change — a shell can still write a file, so this closes the default path, not every one.
+- **`recall_memory` and `get_project_context` returned whole files, with no cap.** Claude Code warns
+  at 10,000 tokens of MCP output and cuts at 25,000 by default; one oversized memory file came back
+  as 272,000 characters and was truncated by the client with no marker. Every tool result is now
+  capped once, in the transport (`mcp/lib/stdio.js`, 40,000 characters), and an oversized one comes
+  back as a parseable document marked `truncated: true`, with the total size and a hint to narrow
+  the request. `mcp/test/result-cap.test.js` runs the server against an oversized memory file.
+- **Four rituals only a person can run still advertised triggers to the model.** `/connect-brain`,
+  `/migrate-engine`, `/onboard` and `/team-init` set `disable-model-invocation: true` and kept
+  "Use when … says …" trigger lists, against Cortex's own rule that a user-invoked description is a
+  one-line summary for the `/` menu. Each is one line now, and `tools/cortex-frontmatter.mjs` fails
+  a user-invoked skill whose description says "Use when", "Triggers", or quotes two or more
+  phrases.
 - **Four ritual descriptions were not valid YAML.** `/cortex`, `/cortex-review`, `/install-project`
   and `/optimize-context` each carried an unquoted `": "` in `description:`, which a strict YAML
   parser rejects as a second mapping. Reworded, not quoted, so the one-line readers in `tools/` and

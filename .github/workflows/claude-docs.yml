@@ -1,0 +1,64 @@
+name: claude docs drift
+# The Claude Code rules in core/claude-code.js are vendored with the sentence that states each one.
+# This re-reads Anthropic's docs weekly and opens (or comments on) one `docs-drift` issue when a
+# sentence has left its page, or a page could not be read. Users never run this — ADR 0017.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check the vendored rules against the live docs
+        id: check
+        run: |
+          set +e
+          node tools/cortex-claude-docs.mjs --check > report.txt 2>&1
+          code=$?
+          cat report.txt
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Open or update the docs-drift issue
+        if: steps.check.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CODE: ${{ steps.check.outputs.code }}
+        run: |
+          if [ "$CODE" = "1" ]; then
+            what="A Claude Code rule Cortex ships is no longer stated on its source page."
+          else
+            what="The weekly check could not read one or more Claude Code docs pages, so the rules went unchecked."
+          fi
+          {
+            echo "$what"
+            echo
+            echo '```'
+            cat report.txt
+            echo '```'
+            echo
+            echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo 'Fix: update `core/claude-code.js` (value, evidence, `CHECKED`), then whatever consumes the rule.'
+          } > body.md
+          gh label create docs-drift --color d93f0b --description "Claude Code docs changed under a vendored rule" --force
+          existing="$(gh issue list --label docs-drift --state open --json number --jq '.[0].number')"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file body.md
+          else
+            gh issue create --title "Claude Code docs drift" --label docs-drift --body-file body.md
+          fi
+          exit 1

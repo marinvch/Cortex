@@ -162,6 +162,12 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   `types`, `src/index.*`, `index.*` — first one that is a file wins, so an entry into an uncommitted
   `dist/` falls through to source. It runs **after** the alias pass, additive like it. A
   `package.json` no glob matches is not a package, whatever its directory is called.
+- **A Java class in the same package needs no import, so the extractor reads the code for it.**
+  Capitalised names used bare — not after a `.`, not imported, not declared in the file — reach the
+  resolver as `./Name`, and resolve beside the file, or in the same package under the module's
+  other `src/{main,test}/java` root. Comments and every literal form are blanked first; a name in a
+  javadoc is not a dependency. Never across modules: which module's package a class sees is a
+  build-file question.
 - **Those configs are JSON with Comments.** Every generator TypeScript ships writes `//` lines into
   them, and a real one carried a trailing comma after its last `paths` entry. `parseJsonc` strips
   both — respecting strings, so a `//` inside a URL survives — and returns `null` rather than

@@ -177,6 +177,24 @@ the docs list that Cortex does not know, which is informational. Maintainer-only
 `claude-docs.yml` workflow runs it and opens a `docs-drift` issue. [ADR
 0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
 
+## `cortex-site-facts.mjs` — the facts a public page states, read from source
+
+The public site restated Cortex's facts by hand and drifted from v0.15 to v2.38 unnoticed (#415).
+This extracts them instead — version, Node floor, install commands, every ritual, every MCP tool —
+as `site-facts.json`, so a page can render them and `--check` can name what moved since it synced.
+
+```bash
+node tools/cortex-site-facts.mjs                    # print the facts
+node tools/cortex-site-facts.mjs --out <file>       # write them
+node tools/cortex-site-facts.mjs --check <file>     # exit 1, one line per changed fact ("ritual /resume added")
+node tools/cortex-site-facts.mjs --check <file> --json
+```
+
+Byte-identical across runs (sorted keys, no timestamps) and no network. Rituals are the `AGENTS.md`
+table joined with the skill folders, and a row or folder the other lacks **fails** the run (exit 2)
+rather than being skipped. MCP tools come from the checkout's own `mcp/server.js`, spawned in repo
+mode and vault mode and asked for `tools/list` — what users get, not a reading of `mcp/lib/`.
+
 ## `cortex-skill-usage.mjs` — which skills anyone actually reached
 
 Every other audit reads the skills. This reads the **session record**, because a skill's real defect

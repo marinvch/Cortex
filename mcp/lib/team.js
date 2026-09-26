@@ -12,15 +12,20 @@ function ensureIdentity(dir) {
   catch { git(dir, ["config", "user.email", "cortex@local"]); git(dir, ["config", "user.name", "cortex"]); }
 }
 
-export function connectorObject(slug, teamBrainRepo) {
-  return { slug, teamBrainRepo };
+// The connector names the TEAM and the PROJECT as two fields, and takes them by name. It used to be
+// `{ slug, teamBrainRepo }`, written by `team add` from `--slug <project>` and read by the resolver
+// as the team — one field, two meanings, three positional strings — so every connected repo looked
+// for its team-brain clone at `team/<project>` and captured into a directory that was not a clone.
+// lib/resolve.js still reads the old shape (`legacyTeam` there).
+export function connectorObject({ team, project, teamBrainRepo }) {
+  return { team, project, teamBrainRepo };
 }
 
-export function writeConnector(cwd, slug, teamBrainRepo) {
+export function writeConnector(cwd, { team, project, teamBrainRepo }) {
   const dir = join(cwd, ".cortex");
   mkdirSync(dir, { recursive: true });
   const path = join(dir, "connector.json");
-  writeFileSync(path, JSON.stringify(connectorObject(slug, teamBrainRepo), null, 2) + "\n");
+  writeFileSync(path, JSON.stringify(connectorObject({ team, project, teamBrainRepo }), null, 2) + "\n");
   return path;
 }
 

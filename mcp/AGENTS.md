@@ -72,6 +72,14 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `lib/resolve.js` — a repo with a `.cortex/connector.json` writes to the team brain without the
   caller knowing it is on a team. Requiring the agent to pass `team` was the seam leaking. Do not
   reintroduce it as a required argument.
+- **The connector names the team and the project in two fields: `{ team, project, teamBrainRepo }`.**
+  It used to be `{ slug, teamBrainRepo }`, with `team add` writing the project into `slug` and the
+  resolver reading it as the team, so every connected repo captured into `team/<project>/`, a
+  directory that was not a clone. Old connectors are still read (`legacyTeam` in `resolve.js`
+  matches the clone by its `origin`); do not reintroduce a field that means two things.
+- **`catch_me_up` pulls (ff-only) and reads the team's notes, not only its log.** A failed pull is
+  returned in `pull`, never swallowed, and the local notes still come back; team notes are bounded
+  in `catchup.js` so the result fits under the transport cap rather than being cut by it.
 - **Every vault path goes through `lib/vault.js`** — not through `resolveInRoot` directly. The Vault
   is the only module here that joins onto a vault root or calls `node:fs` on one; it wraps
   `core/paths.js` so the guard is unavoidable rather than remembered. If you need an operation it
@@ -94,8 +102,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
   reads only `CORTEX_PROFILE` — nothing here may move it.
 - **Every adapter opens the brain at entry, through `lib/brain.js`.** `server.js` and `ai-os.js` are
   two adapters over the same operations, so the seam between them is real and therefore a module:
-  `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · profile ·
-  policy · sources · describe()`, and throws `NoRootError` / `UnknownProfileError` **before** a
+  `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · project ·
+  profile · policy · sources · describe()`, and throws `NoRootError` / `UnknownProfileError` **before** a
   command picks a branch. Neither adapter may read `env.AI_OS_ROOT` or call `resolve.js`,
   `mode.js` or `core/profile.js` itself — `brain.test.js` scans both for that, because the way this
   rule broke was a second adapter re-deriving the answer by hand: `ai-os catch-up` read the root raw

@@ -115,6 +115,11 @@ it was repointed or dropped in the same change.
   `npx --no-install`), and does nothing where none is declared. Every path exits 0 — a PostToolUse
   hook runs after the edit and has nothing to block. `index/test/loop.test.mjs` now fails when any
   script a hook command names has no template, or the `/cortex` table never says where it lands.
+- **The verifier `/cortex` writes into a repo could edit the code it was checking.** Its prose said
+  "change nothing", and nothing enforced it. `templates/loop/verifier.md` now sets
+  `disallowedTools: Edit, Write, NotebookEdit`, the subagent field Claude Code enforces, and
+  `index/test/loop.test.mjs` fails if any of the three drops out. It keeps `Bash`, which it needs to
+  run the change — a shell can still write a file, so this closes the default path, not every one.
 - **`recall_memory` and `get_project_context` returned whole files, with no cap.** Claude Code warns
   at 10,000 tokens of MCP output and cuts at 25,000 by default; one oversized memory file came back
   as 272,000 characters and was truncated by the client with no marker. Every tool result is now

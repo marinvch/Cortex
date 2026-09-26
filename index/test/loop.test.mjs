@@ -353,6 +353,19 @@ test("every hook script settings.hooks.json runs has a template, and the skill s
   }
 });
 
+test("the verifier template cannot reach the editing tools", () => {
+  // It exists to check work it did not write, and its prose says "change nothing". Prose is a
+  // request; disallowedTools is the part Claude Code enforces, so a verifier cannot patch what it
+  // finds even if a later edit to `tools:` widens what it inherits.
+  const src = fsRead(new URL("../../templates/loop/verifier.md", import.meta.url), "utf8");
+  const fm = src.slice(0, src.indexOf("\n---", 4));
+  const denied = (/^disallowedTools:\s*(.+)$/m.exec(fm)?.[1] ?? "").split(/[,\s]+/).filter(Boolean);
+  for (const tool of ["Edit", "Write", "NotebookEdit"]) {
+    assert.ok(denied.includes(tool), `verifier.md does not deny ${tool}`);
+  }
+  assert.match(src, /Change nothing/);
+});
+
 test("every template a row or the /cortex skill names exists on disk", () => {
   // `/cortex` applies from templates/loop/ in step 7, after the user has already said yes. A
   // renamed template would surface there — mid-apply, with half the chain written — rather than here.

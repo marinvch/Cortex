@@ -209,6 +209,9 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   is invisible to both name and import, which is what the mention signal is for. Quoted-only, so a
   file named in a comment is not counted as exercised. Do not copy this heuristic into a third
   caller — two copies would agree today and disagree in a month, with nothing to say which is right.
+  **`briefCandidates` reads it too**, as the `tested` set both callers pass: counting the tests
+  inside an area told every Maven/Gradle `src/main` it had "no tests" while the same report had
+  found tests in `src/test` for most of it (#460).
   **The import signal follows barrels**, through edges `build.mjs` marks `reexport` (`export … from`
   only — never an ordinary import inside the target, which would call everything under a test
   covered). A *named* re-export carries `names` and is followed only when the test uses one of

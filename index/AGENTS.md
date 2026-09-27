@@ -168,6 +168,22 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   other `src/{main,test}/java` root. Comments and every literal form are blanked first; a name in a
   javadoc is not a dependency. Never across modules: which module's package a class sees is a
   build-file question.
+- **The route map is the one cross-repo reader, and extraction and joining are kept apart.**
+  `extractRoutes` runs inside `buildIndex`, per repo, and writes `index.routes` — always present, so
+  "found none" and "an index older than this" stay different answers; `resolveRoutes` joins several
+  repos' rows, and `cortex-routes.mjs` owns finding them (#436's workspace: git repos directly under
+  a directory, team-brains out). One normal form for a path — `{id}`, `:id`, `${id}` are all `{}`.
+  Four rules each came from a real repo, not a fixture: a verb call counts only on a receiver that
+  reads as an HTTP client (a service worker's `cache.put("/index.html")` was a call); a path with no
+  literal segment is `unread`, not `/{}` (Angular's `this.url + "/" + id`); a call naming another
+  host is never reported unmatched (third-party APIs); and inside one repo a literal segment beats a
+  variable, as Spring decides it (`/articles/feed` is not `/articles/{slug}`). A gateway's target
+  only ever **narrows** path-true matches and never to nothing. The findings are **not** in
+  `analyse()`: on a front-end-only repo every call is unmatched by construction. Design and limits:
+  [`docs/specs/2026-09-27-route-map-design.md`](../docs/specs/2026-09-27-route-map-design.md).
+  Validated on the Harbor workspace (7/7 calls, 3/3 gateway routes, each to one repo), the RealWorld
+  React + Spring pair (22/22 calls, 19/19 handlers) and spring-petclinic; every cited `file:line`
+  was opened and checked.
 - **Those configs are JSON with Comments.** Every generator TypeScript ships writes `//` lines into
   them, and a real one carried a trailing comma after its last `paths` entry. `parseJsonc` strips
   both — respecting strings, so a `//` inside a URL survives — and returns `null` rather than
@@ -333,6 +349,8 @@ fixtures and not `mkdtemp` directories is that git is what decides the answer: `
 - `cortex-review.mjs` — the only thing that reads the context layer back, and its two honest
   failures are claiming a rule exists where there is no context layer, and staying quiet about a
   document the change just made wrong.
+- `cortex-routes.mjs` — "nothing reaches this endpoint" is a sentence someone deletes code on, so
+  it must stay a floor, and a workspace must be read without writing into any repo of it.
 - `cortex-view.mjs` — it writes into a target repo, so *where* it writes is the invariant, and its
   determinism is only observable from outside. A first run did once disagree with the second,
   because the page reported on its own existence.

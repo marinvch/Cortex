@@ -199,6 +199,17 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   it stops.
 - **`cortex-impact.mjs` reads the graph backwards** — who imports me, not what do I import — and
   every count it returns is a floor, named `atLeast` so a caller cannot print it as a total.
+- **`--against` reads one hop in both directions between two change sets, and nothing further**
+  (`lib/overlap.mjs`, #408 v0). A two-hop chain is real coupling, but reporting it would turn every
+  shared utility into a warning; the full radius is what the plain command is for. Three choices in
+  it are load-bearing. **Every compared path goes through `normalizeChangedPath`** in
+  `lib/changed.mjs` — `impactOf` included — because `src\a.js`, `./src/a.js`, an absolute path and
+  `src/a.js` compared literally are four files and report no overlap. **`--against-ref` has no
+  fallback**: `HEAD...ref` is their work alone, and a bare diff would hand my own commits back to me
+  as theirs, so no merge base is a named failure. **An empty "theirs" exits 2**, never "no overlap" —
+  it is usually a list written to the wrong place, or a session that has not committed yet.
+  Unknown paths still take part in direct overlap (two sessions creating one new file is a real
+  collision) and are listed, never dropped.
 - **`next.mjs` may only call a step done on the strength of a file that exists.** Every ✓ names its
   evidence — `.cortex/index/index.json`, a report under `.cortex/findings/`, `CONTEXT.md`, a
   `<dir>/AGENTS.md`. It is deterministic for the same reason the index is: the sequence is a fact
@@ -309,7 +320,9 @@ fixtures and not `mkdtemp` directories is that git is what decides the answer: `
   told agents to redo work `merge` accepted without a single issue.
 - `cortex-skills.mjs` — it writes nothing, so everything it is worth is in the sentences it prints,
   including the three refusals: no index, no manifest, already present.
-- `cortex-impact.mjs` — a confident total instead of a floor tells someone to stop looking.
+- `cortex-impact.mjs` — a confident total instead of a floor tells someone to stop looking. Its
+  `--against` half is also pinned from outside by `tools/test/e2e-workspace.test.sh`, which runs
+  the workspace harness's S4 overlap check on a two-repo workspace it builds.
 - `cortex-next.mjs` — a wrong "next", or a ✓ on a step nobody ran, walks the user past the step
   that writes their context layer.
 - `cortex-review.mjs` — the only thing that reads the context layer back, and its two honest

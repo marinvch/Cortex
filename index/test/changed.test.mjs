@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { changedFiles, failureLines, gitReader, GIT_MAX_BUFFER } from "../lib/changed.mjs";
+import { join, resolve } from "node:path";
+import { branchChanges, changedFiles, failureLines, gitReader, normalizeChangedPath, GIT_MAX_BUFFER } from "../lib/changed.mjs";
 
 // cortex-impact.mjs and cortex-review.mjs each carried this, line for line, differing in one thing:
 // review passed maxBuffer and impact did not. So a wide --since on a long-lived repo overflowed the
@@ -117,4 +118,36 @@ test("the real runner never throws, and says why when git refuses", () => {
   const bad = run(["rev-parse", "definitely-not-a-ref-xyz"]);
   assert.equal(bad.out, undefined, "a failure must not arrive in the same field as an answer");
   assert.ok(bad.error, "and it must carry git's own message");
+});
+
+// --- another session's change set (#408) ----------------------------------------------------------
+
+test("a branch's changes are read from the merge base, so my own commits are not counted as theirs", () => {
+  // `HEAD...ref` is what the other branch did since the two diverged. A two-dot or bare diff would
+  // include every commit I made too, and report my own files as their overlap with me.
+  const r = branchChanges("/x", "feat/other", { git: stub({ "diff --name-only HEAD...feat/other": "a.js\nb.js\n" }) });
+  assert.deepEqual(r.files, ["a.js", "b.js"]);
+  assert.deepEqual(r.failures, []);
+});
+
+test("a ref git cannot resolve is a named failure, not an empty change set", () => {
+  // No fallback to a bare diff: without a merge base, "everything that differs" would hand my own
+  // work back to me as theirs.
+  const r = branchChanges("/x", "nope", { git: stub({ "diff --name-only HEAD...nope": new Error("fatal: bad revision 'HEAD...nope'") }) });
+  assert.deepEqual(r.files, []);
+  assert.equal(r.failures.length, 1);
+  assert.equal(r.failures[0].source, "--against-ref nope");
+  assert.match(failureLines(r.failures)[0], /bad revision/);
+});
+
+test("one normaliser for every changed path: separators, ./ and absolute paths inside the root", () => {
+  assert.equal(normalizeChangedPath("src\\lib\\a.js"), "src/lib/a.js");
+  assert.equal(normalizeChangedPath("./src/a.js"), "src/a.js");
+  assert.equal(normalizeChangedPath(".\\src\\a.js"), "src/a.js");
+  const root = resolve("some-root");
+  assert.equal(normalizeChangedPath(join(root, "src", "a.js"), root), "src/a.js");
+  // Outside the root there is no repo-relative form; the path stays as given (slashes normalised)
+  // so it lands in "not in the index" and is named there, rather than being silently rewritten.
+  const outside = resolve("other-root", "a.js");
+  assert.equal(normalizeChangedPath(outside, root), outside.split("\\").join("/"));
 });

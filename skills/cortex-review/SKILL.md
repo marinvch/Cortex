@@ -72,6 +72,15 @@ Deterministic and read-only. It finds and cites; it never judges. It gives you:
 If it reports no context layer, say so and stop. There is nothing to review against, and
 `/cortex-install` is the answer, not a review improvised from general principles.
 
+### The same pass on every pull request
+
+`/cortex` stamps `.github/workflows/cortex-review.yml`, which runs this evidence pass and
+`--citations` on each PR's diff (base...head) with no model and no API key. It is advisory: the
+report lands in the job log, the run summary and as annotations, and the check passes. Setting the
+repository variable `CORTEX_REVIEW_BLOCKING` to `true` makes a `provable` broken citation fail the
+PR — and only that class, for the reason in the table above. The judging below is still yours: CI
+tells a reviewer where to look, not what is wrong there.
+
 ## Then do the judging
 
 1. **Read every governing document.** Not skim — the rules are prose, and the one that matters is

@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildIndex } from "../lib/build.mjs";
 import { claudeSetupFindings } from "../lib/claude-setup.mjs";
+import { loopPlan } from "../lib/loop.mjs";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
 const LOOP = join(REPO, "templates", "loop");
@@ -86,7 +87,7 @@ function stamp({ skip = [] } = {}) {
 
 test("the /cortex skill's table covers every loop template", () => {
   const named = new Set(destinations().map((r) => r.template));
-  for (const t of ["settings.hooks.json", "protected-paths.sh", "format-changed.sh", "verifier.md", "verification.md"]) {
+  for (const t of ["settings.hooks.json", "protected-paths.sh", "format-changed.sh", "verifier.md", "verification.md", "cortex-review.yml"]) {
     assert.ok(named.has(t), `the table no longer places ${t}`);
   }
 });
@@ -108,4 +109,12 @@ test("a stamped hook whose script is missing is caught — the bug this test exi
   const missing = found.find((f) => f.kind === "claude-setup/hook-script-missing");
   assert.ok(missing, `expected hook-script-missing, got ${found.map((f) => f.kind).join(", ") || "none"}`);
   assert.match(missing.evidence.join("\n"), /format-changed\.sh not found/);
+});
+
+test("the review workflow /cortex stamps is the one the loop then reports as present", () => {
+  // Detection and template are two files. If they drift, /cortex offers the workflow again on every
+  // re-run and stamps a second copy beside the first — two review jobs on every PR.
+  const { root } = stamp();
+  const plan = loopPlan(root, buildIndex(root));
+  assert.ok(plan.present.some((e) => e.id === "review-ci"), `review-ci not present after stamping: ${JSON.stringify(plan.missing.map((e) => e.id))}`);
 });

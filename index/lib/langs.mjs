@@ -1,3 +1,5 @@
+import { javaCode } from "./imports.mjs";
+
 // Extension → language. Deliberately small: a context manager needs to know what KIND of file
 // something is, not to be a linguist. Unknown extensions fall through to "other" and still get
 // indexed, because an unrecognised file is still part of the repo's surface.
@@ -24,6 +26,8 @@ const CODE = new Set([
   "javascript", "typescript", "python", "ruby", "go", "rust", "java", "kotlin", "csharp",
   "php", "swift", "scala", "elixir", "c", "cpp", "vue", "svelte",
 ]);
+/** Every language `categoryOf` calls code — each needs an import extractor or a place on the blind list. */
+export const CODE_LANGUAGES = CODE;
 const DOCS = new Set(["markdown", "restructuredtext", "text"]);
 const CONFIG = new Set(["json", "yaml", "toml", "ini", "xml", "config", "prisma"]);
 const INFRA = new Set(["dockerfile", "terraform", "make"]);
@@ -93,4 +97,36 @@ const ENTRY_PATTERNS = [
 
 export function isEntryPath(path) {
   return ENTRY_PATTERNS.some((re) => re.test(path));
+}
+
+// A JVM entry point is declared in the code, not by the file's name. `RestServiceApplication.java`
+// under `src/main/java/com/example/` is where a Spring Boot service starts, and nothing imports it
+// because the JVM, not another class, is its caller — so a path rule cannot see it and the orphan
+// finding called the one file a service cannot run without "unreferenced" (#459).
+//
+// Deliberately two declarations and no more: `@SpringBootApplication`, and a `main` the launcher
+// can call. Spring also discovers `@Configuration` and `@Component` classes by scanning, but those
+// are an ordinary class's annotations, and treating them as entries would hide the dead
+// configuration class that genuinely is worth checking. Read through `javaCode`, so a `main`
+// quoted in a javadoc or a string is not one. Java 25's instance `void main()` is not recognised.
+const JVM_ENTRY = {
+  java: [
+    /@(?:[\w$]+\.)*SpringBootApplication\b/,
+    /\b(?:public\s+static|static\s+public)\s+(?:final\s+)?void\s+main\s*\(\s*(?:final\s+)?(?:java\.lang\.)?String\s*(?:\[\s*\]\s*[\w$]+|\.\.\.\s*[\w$]+|[\w$]+\s*\[\s*\])\s*\)/,
+  ],
+  kotlin: [
+    /@(?:[\w$]+\.)*SpringBootApplication\b/,
+    // Top-level `fun main` sits at column 0; a companion object's is marked `@JvmStatic`. An
+    // indented `fun main` with neither is a method some class happens to call main.
+    /^(?:(?:public|internal|suspend)\s+)*fun\s+main\s*\(/m,
+    /@JvmStatic\s+(?:(?:public|suspend)\s+)*fun\s+main\s*\(/,
+  ],
+};
+
+/** Whether this source declares itself a program entry point — a JVM `main` or a Spring Boot app. */
+export function isEntrySource(text, lang) {
+  const patterns = JVM_ENTRY[lang];
+  if (!patterns || !text) return false;
+  const code = javaCode(text);
+  return patterns.some((re) => re.test(code));
 }

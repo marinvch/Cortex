@@ -20,6 +20,7 @@
 // in every other line of the report, and eventually gets live code deleted.
 
 import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
+import { isEntrySource } from "./langs.mjs";
 import { textSource } from "./repo-text.mjs";
 
 // Everything in the Index is worth reading to look for an invocation, and everything in the Index
@@ -37,6 +38,12 @@ import { textSource } from "./repo-text.mjs";
 // finding entirely rather than answer it. It is the safe direction (see below) and it is a real
 // blind spot: the lever is `linguist-generated` in `.gitattributes`, which the index already reads.
 
+// Java files the compiler reads by name and nothing can reference: `package-info.java` holds a
+// package's javadoc and annotations, `module-info.java` its module declaration. Neither declares a
+// class, so "nothing imports it" is true of every one ever written — on spring-petclinic they were
+// five of its six "unreferenced" files.
+const DECLARATION_ONLY = /(^|\/)(package|module)-info\.java$/;
+
 /** Candidates by the import graph alone — the old definition, kept separate so it stays testable. */
 export function unimported(index) {
   return index.files.filter(
@@ -44,6 +51,7 @@ export function unimported(index) {
       f.category === "code" &&
       !f.isTest &&
       !f.isEntry &&
+      !DECLARATION_ONLY.test(f.path) &&
       !UNRESOLVED_LANGUAGES.has(f.lang) &&
       (f.inbound ?? 0) === 0 &&
       (f.imports ?? []).length === 0,
@@ -88,8 +96,17 @@ export function namedElsewhere(index, text, paths) {
  * and inspect `source.unread` afterwards; passing a bare root throws that record away.
  */
 export function findOrphans(index, text = null) {
-  const candidates = unimported(index);
+  const source = textSource(text);
+  // An index built before `build.mjs` read entry points out of the code still says `isEntry:
+  // false` for a Spring Boot application class, and is read without complaint — the format did not
+  // change. Asking the same predicate here keeps the finding right whichever index it is handed. It
+  // reads only the JVM candidates, and one it cannot read stays a candidate.
+  const candidates = unimported(index).filter((f) => {
+    if (f.lang !== "java" && f.lang !== "kotlin") return true;
+    const body = source.available ? source.read(f.path) : null;
+    return body === null || !isEntrySource(body, f.lang);
+  });
   if (!candidates.length) return [];
-  const named = namedElsewhere(index, text, candidates.map((f) => f.path));
+  const named = namedElsewhere(index, source, candidates.map((f) => f.path));
   return candidates.filter((f) => !named.has(f.path));
 }

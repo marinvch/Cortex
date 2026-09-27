@@ -21,6 +21,39 @@ this project now versions independently of any package manager (see `VERSION`).
   the flagged lines in the body only — asking first about any skill someone edited after it was
   written. On the repo that reported the issue it finds 12 lines across the two skills, and every
   one is real.
+- **A Spring Boot application class was reported as an unreferenced file (#459).** The JVM starts
+  it, so nothing imports it, and a path rule cannot tell `RestServiceApplication.java` from any
+  other class in its package. `isEntrySource` (`index/lib/langs.mjs`) now reads the declaration —
+  `@SpringBootApplication`, a static `main(String[])`, a Kotlin top-level or `@JvmStatic`
+  `fun main` — with comments and literals blanked first; `build.mjs` marks the file `isEntry`, and
+  `findOrphans` asks the same predicate so an index built before this release is answered right
+  too. `package-info.java` and `module-info.java`, which declare no class anything could
+  reference, are no longer candidates. Nothing wider: a `@Configuration` class nothing uses is
+  still listed. On spring-guides/gs-rest-service the one unreferenced file, its application class,
+  is gone; on spring-petclinic 6 → 1 (five `package-info.java` gone, `WebConfiguration` kept); on
+  gothinkster's Gradle RealWorld app 3 → 2 (`RealWorldApplication` gone). Mutation-tested: ten
+  guards broken one at a time, ten reds.
+- **Maven and Gradle repos were offered a `src/main` brief "because" it had no tests (#460).**
+  Their tests live in `src/test/<lang>/…`, mirroring `src/main/<lang>/…`, and `briefCandidates`
+  counted only the tests inside an area — so the reason `no tests in this area — invariants live only
+  in prose` appeared beside a report whose own coverage had found tests for most of those files, and
+  the Structure tab of the View (coverage-based since #449) said the opposite. It now takes the
+  `tested` set from `codeCoverage` — the name, import and mention signals the findings already use —
+  which `analyse` computes once and shares with the untested-modules finding, and the View passes
+  the same set. An area is untested only when it holds no test and no test was found for any of its
+  code. On spring-petclinic (tests for 20 of 30), the RealWorld Gradle app (44 of 93) and the Kotlin
+  petclinic (11 of 24) the claim is gone; with `src/test` dropped from petclinic's index it comes
+  back, and pmndrs/zustand's `examples/` (0 of 17) keeps it while its `src` and `src/middleware`
+  (6 of 7 each, tested from `tests/`) lose a claim that was just as false. `src/main` is still a
+  candidate on size and churn — only the false reason and its ranking weight are gone.
+- **Every Kotlin file was reported as unreferenced (#465).** `extractImports` has no case for
+  Kotlin, so no `.kt` file ever had an edge, and Kotlin was not in `UNRESOLVED_LANGUAGES` — the
+  list that turns "I cannot read these imports" into a stated blind spot rather than a claim that
+  nothing uses the file. It is listed now: spring-petclinic-kotlin goes from 22 of 24 code files
+  "unreferenced" to none claimed, and the report says `Import graph does not cover kotlin`
+  instead. C#, Swift, Scala, Elixir, C and C++ had the same gap and are listed with it, and a test
+  now fails when a code language has neither an import extractor nor a place on that list. Import
+  readers for them are the real fix and are not in this release.
 
 ## [2.39.0] — 2026-09-27
 

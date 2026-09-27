@@ -15,6 +15,7 @@ import {
   mergeAliasTables,
   resolveTsAlias,
 } from "../lib/imports.mjs";
+import { CODE_LANGUAGES } from "../lib/langs.mjs";
 
 test("extracts every JS/TS import form", () => {
   const src = `
@@ -171,14 +172,41 @@ test("goModulePath reads the module line, and tolerates its absence", () => {
 
 test("no language is claimed as resolved when it is not", () => {
   // The set is what lets every consumer say "I did not look" instead of "nothing depends on this".
-  // It is EMPTY now — JS/TS, Python, Go and Rust all resolve — and that is the point of asserting it
-  // rather than deleting it: a language listed here that actually resolves suppresses a real graph,
+  // JS/TS, Python, Go and Rust all resolve, and that is the point of asserting it rather than
+  // trusting it: a language listed here that actually resolves suppresses a real graph,
   // and one missing from here that does not resolve reports blindness as absence. Both are silent.
   for (const lang of ["javascript", "typescript", "python", "go", "rust"]) {
     assert.ok(!UNRESOLVED_LANGUAGES.has(lang), `${lang} has a resolver, so it must not be listed blind`);
   }
   // The mechanism still works for whatever comes next.
   assert.ok(UNRESOLVED_LANGUAGES instanceof Set);
+});
+
+test("a language with no import extractor is listed blind (#465)", () => {
+  // Kotlin has no case in extractImports, so no .kt file ever has an edge. Unlisted, every one of
+  // them read as unreferenced — 22 of 24 code files on spring-petclinic-kotlin.
+  assert.deepEqual(extractImports("import com.example.owner.Owner\n", "kotlin"), []);
+  assert.ok(UNRESOLVED_LANGUAGES.has("kotlin"));
+});
+
+test("every code language either has an import extractor or is listed blind", () => {
+  // Kotlin was not the only one: C#, Swift, Scala, Elixir, C and C++ were also counted as code with
+  // no extractor, so every file in them would have read as unreferenced. One import line each; a
+  // language added to CODE_LANGUAGES without a line here fails, so the next gap cannot slip in.
+  const sample = {
+    javascript: 'import a from "./a";\n', typescript: 'import a from "./a";\n',
+    vue: 'import a from "./a";\n', svelte: 'import a from "./a";\n',
+    python: "import os\n", go: 'import "fmt"\n', rust: "use crate::a;\n",
+    java: "import com.example.A;\n", php: "use App\\Models\\User;\n", ruby: 'require_relative "a"\n',
+    kotlin: "import com.example.A\n", csharp: "using System.Text;\n", swift: "import Foundation\n",
+    scala: "import scala.util.Try\n", elixir: "alias MyApp.Repo\n", c: '#include "a.h"\n',
+    cpp: '#include "a.hpp"\n',
+  };
+  for (const lang of CODE_LANGUAGES) {
+    assert.ok(lang in sample, `${lang} is code but has no sample import here — add one`);
+    const seen = extractImports(sample[lang], lang).length > 0;
+    assert.ok(seen || UNRESOLVED_LANGUAGES.has(lang), `${lang} has no import extractor and is not listed blind`);
+  }
 });
 
 test("mod resolves as a sibling from a crate root, and as a child from anywhere else", () => {

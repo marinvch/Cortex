@@ -629,3 +629,85 @@ test("agent-evals.yml carries only the placeholders the /cortex skill tells it h
   for (const name of found) assert.ok(row?.includes(name), `the skill's agent-evals.yml row does not say how to fill {{${name}}}`);
 });
 
+// ---------------------------------------------------------------------------
+// cortex-review.yml — /cortex-review on every PR, with no key and nothing installed
+// ---------------------------------------------------------------------------
+
+const REVIEW_TEMPLATE = new URL("../../templates/loop/cortex-review.yml", import.meta.url);
+
+test("a workflow that runs cortex-review counts as present, whatever the file is called", () => {
+  const root = repo(({ put }) => {
+    put("AGENTS.md");
+    put(".github/workflows/ci.yml", "jobs:\n  t:\n    steps:\n      - run: node cortex/index/cortex-review.mjs --since x\n");
+  });
+  const plan = loopPlan(root, indexOf(["src/a.js"]));
+  assert.ok(plan.present.some((e) => e.id === "review-ci"), "a team that wired the review into ci.yml is served");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("review-ci is offered on GitHub Actions with a brief, and names what it waits on otherwise", () => {
+  const offered = repo(({ put }) => { put("AGENTS.md"); put(".github/workflows/ci.yml", "name: ci\n"); });
+  assert.ok(loopPlan(offered, indexOf(["src/a.js"])).missing.some((e) => e.id === "review-ci"));
+  rmSync(offered, { recursive: true, force: true });
+
+  // GitLab: the template is a GitHub workflow, so it would be a file nothing runs.
+  const gitlab = repo(({ put }) => { put("AGENTS.md"); put(".gitlab-ci.yml"); });
+  const blocked = loopPlan(gitlab, indexOf(["src/a.js"])).blocked.find((e) => e.id === "review-ci");
+  assert.ok(blocked, "blocked on a GitLab repo");
+  assert.ok(blocked.needs.some((n) => /GitHub Actions.*\.gitlab-ci\.yml/.test(n)), blocked.needs.join("; "));
+  assert.ok(!blocked.needs.some((n) => /AGENTS\.md/.test(n)), "and does not name the brief it already has");
+  rmSync(gitlab, { recursive: true, force: true });
+
+  const noBrief = repo(({ put }) => put(".github/workflows/ci.yml", "name: ci\n"));
+  const waiting = loopPlan(noBrief, indexOf(["src/a.js"])).blocked.find((e) => e.id === "review-ci");
+  assert.deepEqual(waiting?.needs, ["AGENTS.md — the documents a pull request is reviewed against"]);
+  rmSync(noBrief, { recursive: true, force: true });
+});
+
+test("cortex-review.yml, stamped, is a PR workflow that needs no secret and blocks only on opt-in", async () => {
+  const { parseYaml } = await import("./yaml-lite.mjs");
+  const stamped = fsRead(REVIEW_TEMPLATE, "utf8").replaceAll("{{CORTEX_REF}}", "v2.38.0");
+  assert.doesNotMatch(stamped.replace(/\$\{\{[^}]*\}\}/g, ""), /\{\{/, "a Cortex placeholder is left unfilled");
+  // The deterministic half runs on a fork's PR too, where no secret is available.
+  assert.doesNotMatch(stamped, /secrets\./, "it asks for no secret");
+
+  const wf = parseYaml(stamped);
+  assert.equal(wf.name, "cortex-review");
+  assert.ok(wf.on && "pull_request" in wf.on, "runs on pull requests");
+  assert.deepEqual(wf.permissions, { contents: "read" }, "least privilege: it reads the repo and nothing else");
+
+  const job = wf.jobs?.review;
+  assert.equal(job?.["runs-on"], "ubuntu-latest");
+  assert.ok(Number.isInteger(job["timeout-minutes"]));
+  assert.equal(job.env?.CORTEX_REF, "v2.38.0", "the Cortex release is pinned, not master");
+  for (const step of job.steps) assert.ok(step.uses || step.run, `a step with neither uses nor run: ${JSON.stringify(step)}`);
+
+  const [checkout] = job.steps;
+  assert.ok(checkout.uses?.startsWith("actions/checkout@"), "checkout comes first");
+  assert.equal(String(checkout.with?.["fetch-depth"]), "0", "full history: the base and git's rename record are needed");
+
+  const fetch = job.steps.find((s) => /git clone/.test(s.run ?? ""));
+  assert.match(fetch?.run ?? "", /--branch "\$CORTEX_REF"/, "Cortex is fetched at the pinned ref");
+  assert.match(fetch.run, /\$RUNNER_TEMP\/cortex/, "outside the workspace, so the indexer never reads Cortex as this repo");
+  assert.doesNotMatch(stamped, /npm (ci|install)|setup-node/, "nothing is installed: index/ has no dependencies");
+
+  const review = job.steps.find((s) => /cortex-review\.mjs/.test(s.run ?? ""));
+  assert.equal(review.env?.BASE, "${{ github.event.pull_request.base.sha }}", "the diff is base...head of the PR");
+  assert.equal(review.env?.BLOCKING, "${{ vars.CORTEX_REVIEW_BLOCKING }}", "blocking is a repository variable");
+  assert.match(review.run, /--since "\$BASE"/);
+  assert.match(review.run, /--citations --since "\$BASE"/);
+  assert.match(review.run, /GITHUB_STEP_SUMMARY/, "the report lands in the run summary");
+  assert.doesNotMatch(review.run, /set -e/, "one failing command must not skip the report");
+});
+
+test("cortex-review.yml carries only the placeholder the /cortex skill tells it how to fill", () => {
+  const src = fsRead(REVIEW_TEMPLATE, "utf8").replace(/\$\{\{[^}]*\}\}/g, "");
+  const found = [...new Set([...src.matchAll(/\{\{([A-Z_]+)\}\}/g)].map((m) => m[1]))];
+  assert.deepEqual(found, ["CORTEX_REF"]);
+  assert.equal(src.split("{{CORTEX_REF}}").length - 1, 1, "{{CORTEX_REF}} appears once, where it is filled");
+  const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
+  const row = skill.split("\n").find((l) => l.startsWith("| `cortex-review.yml`"));
+  assert.ok(row?.includes("CORTEX_REF"), "the skill's cortex-review.yml row does not say how to fill {{CORTEX_REF}}");
+  assert.ok(row.includes("CORTEX_REVIEW_BLOCKING"), "and it names the switch that makes the check blocking");
+});
+

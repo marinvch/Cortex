@@ -107,9 +107,9 @@ by a user who already knows it exists, which is the same failure as it not being
   deferred. `node index/cortex-view.mjs .` shows the same sequence as a **Next steps** tab beside
   the repo's import graph.
 - **`/cortex` and `/cortex-install` are the whole pass and its read half.** Install indexes,
-  reports and offers; `/cortex` does that and then closes the artifact chain — `REVIEW.md`, the
-  verification block, the verifier subagent, `intent/`, the hooks, the evals, the bands. Reach for
-  install alone when you want to *look* at a repo without being walked to a served one.
+  reports and offers; `/cortex` does that and then closes the artifact chain — `REVIEW.md`, the PR
+  review workflow, the verification block, the verifier, `intent/`, the hooks, the evals, the bands.
+  Reach for install alone to *look* at a repo without being walked to a served one.
 - `/diagnosing-bugs` and `/cortex-review` both read the context layer and are not interchangeable:
   review judges a **change** you already made, diagnosis hunts a **symptom** you cannot explain. The
   overlap is Phase 0, where diagnosis borrows the review evidence to rank its hypotheses.
@@ -184,9 +184,8 @@ convenience imports across leaves are how two packages get welded into one.
 - **Leaf-internal invariants live in the leaf, not here.** `mcp/AGENTS.md` owns the Vault door, the
   two server modes and the mode/audience seam; `index/AGENTS.md` owns determinism, regex import
   resolution, the three coverage signals, and why the walker asks git rather than `.cortexignore`.
-  This file used to restate all five, and the copies drifted — the mode/audience bullet here still
-  said *two questions* long after `profile` made it three. Read the leaf before changing behaviour
-  it governs, and write the detail there.
+  Copies of them here drifted once already; read the leaf before changing behaviour it governs, and
+  write the detail there.
 - [[codebase-design]] is vocabulary, not a ritual — the words for *how code is shaped* (module,
   interface, depth, seam, adapter). [[operating-principles]] decides what to build; that decides
   what it looks like. `/analyze-spec` and `/cortex-brief` should both speak it.
@@ -194,7 +193,6 @@ convenience imports across leaves are how two packages get welded into one.
 Two subagents live in **`agents/`** — `cortex-auditor` (dispatched by `/cortex-audit`) and
 `cortex-role-reviewer` (dispatched by `/cortex-review`, once per angle: security, performance,
 accessibility, data-integrity, operability, dx). A role reviewer grounds itself in the target repo's
-index and must cite `path:line`; an ungrounded expert persona returns advice that is true everywhere
-and actionable nowhere, which costs a careful read and returns nothing. Both live in `agents/`
-because that is where an installed plugin loads subagents from; `.claude/agents/` would work in
-this checkout and ship to nobody.
+index and must cite `path:line` — an ungrounded persona gives advice true everywhere and actionable
+nowhere. Both live in `agents/` because an installed plugin loads subagents from there;
+`.claude/agents/` would work in this checkout and ship to nobody.

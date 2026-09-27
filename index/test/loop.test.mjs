@@ -96,6 +96,45 @@ test("make does not erase an npm script it has no target for", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+// Lint is found by the NAME families a repo actually uses, not one exact word. pmndrs/zustand and
+// pmndrs/jotai both run `eslint .` as `test:lint` — one leg of `test: pnpm run "/^test:.*/"` — and
+// both got `lint: null`, so the verification block had no lint row and the user had to supply it.
+
+const lintOf = (scripts) => {
+  const root = repo(({ put }) => put("package.json", JSON.stringify({ scripts })));
+  const lint = detectCommands(root).lint;
+  rmSync(root, { recursive: true, force: true });
+  return lint;
+};
+
+test("a `test:lint` script is the lint command when no plain `lint` exists", () => {
+  assert.equal(
+    lintOf({ test: 'pnpm run "/^test:.*/"', "test:lint": "eslint .", "test:spec": "vitest run", "fix:lint": "eslint . --fix" }),
+    "npm run test:lint",
+  );
+});
+
+test("the aggregate `lint` wins over its own parts and over `test:lint`", () => {
+  assert.equal(lintOf({ lint: "run-p lint:*", "lint:js": "eslint .", "lint:css": "stylelint ." }), "npm run lint");
+  assert.equal(lintOf({ lint: "eslint .", "test:lint": "eslint ." }), "npm run lint");
+});
+
+test("a single `lint:*` script stands in for the aggregate; several with no aggregate are not guessed", () => {
+  assert.equal(lintOf({ "lint:ts": "eslint ." }), "npm run lint:ts");
+  // Picking one of two would print a lint command that checks half the repo and exits 0.
+  assert.equal(lintOf({ "lint:js": "eslint .", "lint:css": "stylelint ." }), null);
+});
+
+test("a fixer is never the lint command — it rewrites files instead of failing on them", () => {
+  assert.equal(lintOf({ "fix:lint": "eslint . --fix", "lint:fix": "eslint . --fix" }), null);
+  assert.equal(lintOf({ "lint:ts": "eslint .", "lint:fix": "eslint . --fix" }), "npm run lint:ts");
+});
+
+test("a lint-named script still outranks the older `check` fallback", () => {
+  assert.equal(lintOf({ check: "tsc --noEmit", "test:lint": "eslint ." }), "npm run test:lint");
+  assert.equal(lintOf({ check: "tsc --noEmit" }), "npm run check");
+});
+
 // The package manager is read off the repo, because `npm test` in a pnpm workspace installs
 // nothing it can resolve and fails on the first workspace dependency.
 

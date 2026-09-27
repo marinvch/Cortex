@@ -135,6 +135,24 @@ function packageManager(root, pkg) {
   return "npm";
 }
 
+// Lint goes by a family of names, not one word. pmndrs/zustand and pmndrs/jotai both run `eslint .`
+// as `test:lint`, one leg of `test: pnpm run "/^test:.*/"`, and both reported `lint: null`. The
+// aggregate wins — `lint` usually runs every `lint:*` — then `test:lint`, then a `lint:*` part only
+// when it is the ONLY one: of `lint:js` and `lint:css` with no aggregate, either would be a lint
+// command that checks half the repo and exits 0, so neither is guessed. A fixer (`lint:fix`,
+// `fix:lint`) is never a lint command; it rewrites files rather than failing on them. `check` stays
+// the last resort it always was.
+function lintScript(scripts, declared) {
+  if (declared("lint")) return "lint";
+  if (declared("test:lint")) return "test:lint";
+  const parts = Object.keys(scripts)
+    .filter((n) => n.startsWith("lint:") && !/(^|:)fix($|:)/.test(n) && declared(n))
+    .sort();
+  if (parts.length === 1) return parts[0];
+  if (parts.length > 1) return null;
+  return declared("check") ? "check" : null;
+}
+
 function npmCommands(root, text) {
   if (!text) return {};
   let pkg;
@@ -147,8 +165,9 @@ function npmCommands(root, text) {
   if (!scripts || typeof scripts !== "object") return {};
   const pm = packageManager(root, pkg);
   const out = {};
+  const declared = (n) => typeof scripts[n] === "string" && scripts[n].trim();
   for (const [kind, names] of Object.entries(NPM_SCRIPTS)) {
-    const hit = names.find((n) => typeof scripts[n] === "string" && scripts[n].trim());
+    const hit = kind === "lint" ? lintScript(scripts, declared) : names.find(declared);
     if (hit) out[kind] = `${pm} run ${hit}`;
   }
   // npm, pnpm and yarn give the test script a bare verb, and it is what a reader expects to see.

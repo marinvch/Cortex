@@ -54,6 +54,7 @@ each time they ask.
 | Write the context layer | `AGENTS.md` **and** `CONTEXT.md` | `/cortex-scaffold` |
 | Scoped briefs | any `<dir>/AGENTS.md` | `/cortex-brief <dir>` |
 | Skills for this stack | any `.claude/skills/*/SKILL.md` | `/cortex-skills` |
+| Refresh drifted skills | *appears only while a skill names a path that is gone, says "no tests" beside a test suite, or runs a script nobody declares — needs an index* | `/cortex-skills` |
 | Close the artifact chain | every loop artifact that applies here exists — `index/cortex-loop.mjs` says which | `/cortex` |
 | Semantic summaries | `.cortex/index/enrichment.json` | `/cortex-enrich` |
 | Shared memory | anything in `.cortex/memory/` | `/dream` |

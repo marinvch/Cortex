@@ -4,6 +4,9 @@
 //   node index/cortex-skills.mjs .            # human-readable proposal
 //   node index/cortex-skills.mjs . --offers   # JSON worklist, for a ritual to walk
 //
+// Both also report the skills already in .claude/skills/ that the repo now contradicts — the
+// `drift` key in --offers, one line per finding otherwise (lib/skill-drift.mjs).
+//
 // Read-only in the strongest sense: it writes nothing at all, not even under .cortex/. The bodies
 // are written by /cortex-skills after the user picks, because a useful body quotes this repo's real
 // commands and real paths — and inventing those is precisely the failure a deterministic module
@@ -13,6 +16,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { proposeSkills, partitionExisting } from "./lib/skills.mjs";
 import { labelsFor } from "./lib/stack.mjs";
+import { skillDrift } from "./lib/skill-drift.mjs";
 import { openTarget } from "./lib/open.mjs";
 
 // Every proposal cites something the index detected, so the index is required. "No index" is one of
@@ -42,9 +46,12 @@ function existingSkills(r) {
 
 const proposed = proposeSkills(index);
 const { missing, present } = partitionExisting(proposed, existingSkills(root));
+// The skills already here, checked against the repo they describe (#462). Proposing new skills and
+// leaving a written one telling agents "there are no tests" beside a test suite is half the job.
+const drift = skillDrift(root, index)?.drifted ?? [];
 
 if (args.offers) {
-  console.log(JSON.stringify({ stack: index.stack ?? null, propose: missing, alreadyPresent: present }, null, 2));
+  console.log(JSON.stringify({ stack: index.stack ?? null, propose: missing, alreadyPresent: present, drift }, null, 2));
   process.exit(0);
 }
 
@@ -84,4 +91,20 @@ if (!missing.length) {
 
 if (present.length) {
   console.log(`\nAlready present: ${present.map((p) => p.id).join(", ")}`);
+}
+
+// Every line cites the skill file and the line, so the reader can open it and check — the same
+// standard the proposals hold: a claim a user cannot verify is one they cannot act on.
+if (drift.length) {
+  console.log(`\n${drift.length} skill${drift.length === 1 ? "" : "s"} here the repo has moved away from — each line below is provable from disk:\n`);
+  for (const d of drift) {
+    console.log(`  /${d.skill}  ${d.path}`);
+    for (const f of d.findings) {
+      console.log(`      line ${f.line}: ${f.why}`);
+      if (f.hint) console.log(`        a file of that name is at ${f.hint}`);
+    }
+    console.log("");
+  }
+  console.log("Nothing has been changed. /cortex-skills refreshes the lines above, and asks before touching");
+  console.log("a skill that was edited after it was written.");
 }

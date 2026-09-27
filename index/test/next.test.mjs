@@ -255,6 +255,24 @@ test("after the first pass, next names /cortex evals — not /cortex again", () 
   rmSync(root, { recursive: true, force: true });
 });
 
+test("a repo whose hooks would have no work finishes the first pass without them", () => {
+  // No generated path, no lockfile, no formatter: both hook templates would stamp as no-ops, so the
+  // hooks row does not apply. The pass is done without it — and a hooks block left by an earlier
+  // release is not what made it done.
+  for (const settings of [false, true]) {
+    const root = repo(({ root: r, put }) => {
+      servedFirstPass({ put });
+      if (!settings) rmSync(join(r, ".claude/settings.json"));
+    });
+    const plan = nextSteps(root);
+    const loop = plan.steps.find((s) => s.id === "loop");
+    assert.equal(loop.done, true, `settings.json ${settings ? "present" : "absent"}: one pass has nothing left to write`);
+    assert.equal(plan.next.id, "evals");
+    assert.equal(nextLine(root), nextLine(root), "deterministic");
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("with a real eval case written and bands deferred, the sequence ends", () => {
   const root = repo(({ put }) => {
     servedFirstPass({ put });

@@ -291,3 +291,20 @@ test("every skill that can create .cortex/ states the consent gate", () => {
     `these can create .cortex/ without saying the user must be asked first:\n${silent.join("\n")}`,
   );
 });
+
+test("the authoring rituals state the official limits, in the official units", async () => {
+  // ADR 0017 recorded two drifts: /skill-creator told authors ~500 WORDS where Anthropic's skills
+  // page says 500 LINES, and /writing-for-agents cited only its upstream, never the pages the rules
+  // come from. Both are prose a model reads, so the guarantee is that the prose is there (ADR 0016),
+  // with the number and the pages read from core/claude-code.js rather than typed a second time.
+  const { RULES, limit } = await import("../claude-code.js");
+  const creator = readFileSync(join(REPO_ROOT, "skills", "skill-creator", "SKILL.md"), "utf8");
+  assert.ok(creator.includes(`${limit("skill.body.max-lines")} **lines**`), "/skill-creator states the body limit in lines");
+  assert.doesNotMatch(creator, /\d+\s+words/i, "and no longer states it in words");
+
+  // MCP output limits are the one family that is not about writing a document an agent reads.
+  const writing = readFileSync(join(REPO_ROOT, "skills", "writing-for-agents", "SKILL.md"), "utf8");
+  const pages = [...new Set(RULES.map((r) => r.source))].filter((url) => !/\/mcp$/.test(url));
+  const uncited = pages.filter((url) => !writing.includes(`(${url})`));
+  assert.deepEqual(uncited, [], "/writing-for-agents links every page an authoring rule is vendored from");
+});

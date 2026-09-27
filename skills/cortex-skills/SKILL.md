@@ -123,6 +123,28 @@ List the skills written as paths, and say they are committed with the repo so th
 them. Then offer the natural next step: `/cortex-brief` for any area whose skill turned out to need
 more depth than a skill body should hold.
 
+## Refreshing a skill that drifted
+
+Step 1's output ends with the skills already here that the repo now contradicts, one line per
+finding — `line 8: says the repo has no tests, and the index counts 9 test files`. `--offers`
+carries the same list as `drift`. Each finding is provable from disk; prose the check cannot prove
+(a lint baseline that has since gone) is yours to spot while the file is open.
+
+1. **Ask whether it was edited since it was written.** `git log --format='%h %an %s' --
+   .claude/skills/<id>/SKILL.md` shows every commit that touched it, and `git status --short` shows
+   uncommitted edits. More than the commit that added it, or any uncommitted change, means a person
+   worked on it: **ask about that skill by name before you touch it**, even after `[a]ll` in
+   `/cortex`. Their edit may be the only correct part.
+2. **Fix the flagged lines, in the body, from the code.** Open what the line described and write
+   what is there now — the moved path (a `hint` names a same-named file; open it before trusting
+   it), the real test count and command, a script the manifest declares. Frontmatter stays exactly
+   as it is; so does every line nobody flagged and you did not verify wrong.
+3. **Retire a skill whose premise is gone.** A setup skill for a harness that now exists has
+   nothing left to say. Propose deleting it — the tool's own proposal usually names its successor —
+   and delete only on a yes.
+4. **Re-run `cortex-skills.mjs .`** — a refreshed skill no longer appears under the drift heading.
+   If it still does, the line is still wrong.
+
 ## Gotchas
 
 - **A generic skill is worse than no skill.** "Follow best practices when adding a route" costs
@@ -135,4 +157,5 @@ more depth than a skill body should hold.
   from the installed plugin and work in any repo. What this writes is different: skills that only
   make sense *here*, committed with the code. Do not copy plugin rituals into a project.
 - **Re-run after a stack change.** Adding Stripe to a repo means the webhook skill is now worth
-  proposing, and nothing notices on its own.
+  proposing, and nothing notices on its own. The same run is what notices a written skill going
+  stale — see [Refreshing a skill that drifted](#refreshing-a-skill-that-drifted).

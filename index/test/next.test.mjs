@@ -280,3 +280,35 @@ test("before the first pass, the second-round rows do not appear — /cortex rea
   assert.ok(!plan.steps.some((s) => s.id === "evals" || s.id === "bands"));
   rmSync(root, { recursive: true, force: true });
 });
+
+// #462: a re-run upgraded the loop and left two skills telling agents the repo had no tests. The
+// skills row stays a file fact — the skill exists — and the drift is a row of its own, present only
+// when a line is provably wrong, so every repo without drift reads exactly as it did before.
+test("a skill the repo contradicts gets its own row, and a clean one adds nothing", () => {
+  const index = {
+    version: "1",
+    files: [{ path: "src/a.ts" }, { path: "src/a.test.ts", isTest: true }, { path: ".claude/skills/t/SKILL.md" }],
+    stats: { tests: 1 },
+  };
+  const root = repo(({ put }) => {
+    put("src/a.ts");
+    put("src/a.test.ts");
+    put(".claude/skills/t/SKILL.md", "---\nname: t\ndescription: x\n---\n\nThere are no tests here. Start at `src/gone.ts`.\n");
+  });
+  const row = nextSteps(root, index).steps.find((s) => s.id === "skill-drift");
+  assert.ok(row, "the drifted skill surfaces");
+  assert.equal(row.done, false);
+  assert.equal(row.cmd, "/cortex-skills");
+  assert.match(row.why, /^t \(2\) — 2 lines/);
+  assert.deepEqual(row.drift[0].findings.map((f) => [f.line, f.kind]), [[6, "path"], [6, "tests"]]);
+  assert.equal(nextSteps(root, index).steps.find((s) => s.id === "skills").done, true, "the skill still exists");
+
+  // Without an index nothing is provable, so there is no row — never a guess from prose alone.
+  assert.ok(!nextSteps(root).steps.some((s) => s.id === "skill-drift"));
+  assert.equal(readState(root).skillDrift, null);
+
+  writeFileSync(join(root, ".claude/skills/t/SKILL.md"), "---\nname: t\ndescription: x\n---\n\nStart at `src/a.ts`.\n");
+  assert.ok(!nextSteps(root, index).steps.some((s) => s.id === "skill-drift"), "fixing the lines clears the row");
+  assert.deepEqual(readState(root, index).skillDrift, []);
+  rmSync(root, { recursive: true, force: true });
+});

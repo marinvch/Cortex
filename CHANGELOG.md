@@ -5,6 +5,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Re-running `/cortex` now checks the skills an earlier pass wrote (#462).** `/cortex` keeps
+  existing files by design, so an upgraded repo got a new loop beside skills that had gone wrong:
+  on the first one, two skills said the repo had no tests while it had a suite, and sent agents to
+  `src/components/` paths that had moved. `index/lib/skill-drift.mjs` reads each
+  `.claude/skills/*/SKILL.md` against the index and reports, with the line, only what the disk
+  proves: a backticked path that is gone, a "no tests" claim beside counted test files, and an
+  `npm run` / `pnpm` / `yarn` script no `package.json` declares or an `mvnw` / `gradlew` wrapper
+  that is not there. A path the repo's `.gitignore` covers, a file the skill is about to create,
+  and a claim scoped to one module are never reported. `cortex-skills.mjs` prints the lines and
+  carries them as `drift` in `--offers`; `cortex-next` shows a `skill-drift` step only while one
+  exists. `/cortex` adds each drifted skill to its single confirmation, and `/cortex-skills` fixes
+  the flagged lines in the body only — asking first about any skill someone edited after it was
+  written. On the repo that reported the issue it finds 12 lines across the two skills, and every
+  one is real.
+
 ## [2.39.0] — 2026-09-27
 
 2.38.0 was found by reading someone else's harness. This one was found by pointing Cortex at repos

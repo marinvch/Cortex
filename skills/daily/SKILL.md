@@ -1,7 +1,9 @@
 ---
 name: daily
 description: Start today's daily note and surface what matters this morning — priorities, what's due, what's still open from yesterday. Trigger on "daily", "start my day", "good morning", "what's on today", "open today's note", or as a morning ritual.
-capability: mechanical
+effort: low
+metadata:
+  capability: mechanical
 ---
 
 # /daily — open the day

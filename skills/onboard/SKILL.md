@@ -1,8 +1,9 @@
 ---
 name: onboard
 description: One-time vault setup — interview the user, fill the context/ files, seed home.md and populate connections.md.
-capability: judgment
 disable-model-invocation: true
+metadata:
+  capability: judgment
 ---
 
 # /onboard — teach the brain who you are

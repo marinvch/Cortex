@@ -1,7 +1,9 @@
 ---
 name: analyze-spec
 description: Spec-Driven Development for a repo, grounded by its Cortex brain. Use when starting a non-trivial or risky feature/change and you want a rigorous brainstorm -> design spec -> plan BEFORE code. Bridges Cortex (long-run context) with Superpowers (SDD workflow). Triggers — "spec this", "design before building", "SDD", "write a design doc", "plan a big feature".
-capability: strong
+effort: high
+metadata:
+  capability: strong
 ---
 
 # /analyze-spec — design before you build, grounded by the brain

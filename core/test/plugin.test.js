@@ -8,6 +8,30 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const read = (p) => JSON.parse(readFileSync(join(REPO_ROOT, p), "utf8"));
 
+/**
+ * A SKILL.md's top-level keys and its `metadata:` map, as `{ top, metadata }`. Only enough to read a
+ * key back: judging the frontmatter is tools/cortex-frontmatter.mjs's job, run below, and core/ may
+ * not import it (architecture.test.js). A key outside the frontmatter is not read at all.
+ */
+function frontmatterOf(src) {
+  const lines = src.split(/\r?\n/);
+  const top = {};
+  const metadata = {};
+  if (lines[0] !== "---") return { top, metadata };
+  let inMeta = false;
+  for (let i = 1; i < lines.length && lines[i] !== "---"; i++) {
+    const m = lines[i].match(/^(\s*)([A-Za-z0-9_-]+):\s*(.*?)\s*$/);
+    if (!m) continue;
+    if (!m[1]) {
+      inMeta = m[2] === "metadata";
+      if (!inMeta) top[m[2]] = m[3];
+    } else if (inMeta) {
+      metadata[m[2]] = m[3];
+    }
+  }
+  return { top, metadata };
+}
+
 // "Installable as a plugin" is the headline claim of v2.0.0, and a plugin fails to install for
 // dull structural reasons: a manifest in the wrong place, a skill with no frontmatter, an
 // mcpServers entry pointing at a file that was moved. None of that shows up in a unit test of
@@ -160,16 +184,34 @@ test("every ritual declares a capability floor", () => {
   const bad = [];
 
   for (const name of names) {
-    const src = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
-    const m = src.match(/^capability:\s*(\S+)\s*$/m);
-    if (!m) { bad.push(`${name}: no capability declared`); continue; }
-    if (!VALID.has(m[1])) bad.push(`${name}: unknown capability "${m[1]}"`);
-    // The key must live in the frontmatter, not in the body where nothing can read it.
-    const fmEnd = src.indexOf("\n---", 4);
-    if (fmEnd === -1 || src.indexOf(m[0]) > fmEnd) bad.push(`${name}: capability is outside the frontmatter`);
+    const { top, metadata } = frontmatterOf(readFileSync(join(skillsDir, name, "SKILL.md"), "utf8"));
+    // Top-level, Claude Code ignores the key without a word; `metadata:` is the documented home for
+    // data a tool reads, and the one nested map tools/cortex-frontmatter.mjs admits.
+    if ("capability" in top) bad.push(`${name}: capability is a top-level key — it belongs under metadata:`);
+    const cap = metadata.capability;
+    if (!cap) { bad.push(`${name}: no metadata.capability declared`); continue; }
+    if (!VALID.has(cap)) bad.push(`${name}: unknown capability "${cap}"`);
   }
 
   assert.deepEqual(bad, [], `capability floor problems:\n${bad.join("\n")}`);
+});
+
+test("a ritual's effort follows its capability floor", () => {
+  // Opus 5.5 defaults to medium effort and the docs say to set it deliberately (core/claude-code.js,
+  // model.effort.default-medium). The floor already says how hard a ritual is, so effort is read off
+  // it rather than chosen a second time per skill: mechanical → low, strong → high, judgment → the
+  // default, stated by leaving the key out. A second, hand-picked value per skill would drift from
+  // the floor the first time either was edited alone.
+  const skillsDir = join(REPO_ROOT, "skills");
+  const names = readdirSync(skillsDir).filter((n) => statSync(join(skillsDir, n)).isDirectory());
+  const WANT = { mechanical: "low", judgment: undefined, strong: "high" };
+  const bad = [];
+  for (const name of names) {
+    const { top, metadata } = frontmatterOf(readFileSync(join(skillsDir, name, "SKILL.md"), "utf8"));
+    const want = WANT[metadata.capability];
+    if (top.effort !== want) bad.push(`${name}: capability ${metadata.capability} wants effort ${want ?? "(absent)"}, has ${top.effort ?? "(absent)"}`);
+  }
+  assert.deepEqual(bad, [], bad.join("\n"));
 });
 
 test("a ritual above the mechanical floor says what to do when the floor is not met", () => {
@@ -182,7 +224,7 @@ test("a ritual above the mechanical floor says what to do when the floor is not 
 
   for (const name of names) {
     const src = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
-    if (!/^capability:\s*strong\s*$/m.test(src)) continue;
+    if (frontmatterOf(src).metadata.capability !== "strong") continue;
     if (!/## When the floor is not met/m.test(src)) missing.push(name);
   }
 

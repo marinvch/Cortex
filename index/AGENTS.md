@@ -341,6 +341,10 @@ borrows its three numbers rather than keeping a second list.
 - **A protected path needs evidence, not a name.** For `migrations?/` the file is the evidence —
   SQL or code, never under a `docs/` tree — because zustand's hand-written upgrade guides in
   `docs/reference/migrations/` were proposed for a hook that blocks edits.
+- **Lockfiles are read off the disk, not the index.** `walk.mjs` drops `*.lock`, `*-lock.json` and
+  anything over its size cap, so a fixture listing `yarn.lock` in `index.files` passes while every
+  real repo reports none. The index names the directories holding a manifest; `has()` checks for
+  a lockfile beside each, by exact name. Trees and lockfiles are capped apart.
 - **Every `why` goes through `evidence()`, and every blocked row's `needs` through `unmet()`.** Both
   rules were written after a real run: `null` printed inside a sentence, and a row claimed to need
   the CI system that its own evidence said was present. `unmet` returns only prerequisites that

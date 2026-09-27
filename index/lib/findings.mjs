@@ -412,7 +412,7 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
           untested[0].commits > 5 ? "high" : "medium",
           "tests",
           `${total} module${total === 1 ? "" : "s"} appear untested`,
-          "No test file is named after these, and no test imports them. Listed below are the directories holding three or more, ranked by recent commit activity — the top entries change often and are unverified, which is where regressions come from. A module exercised only indirectly, through a helper a test imports, will show up here.",
+          "No test file is named after these, and no test imports them — directly, or through a barrel that re-exports them. Listed below are the directories holding three or more, ranked by recent commit activity — the top entries change often and are unverified, which is where regressions come from. A module exercised only indirectly, through a helper a test imports, will show up here.",
           untested
             .slice(0, 8)
             .map(

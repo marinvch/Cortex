@@ -146,6 +146,47 @@ function collect(text, patterns) {
   return out;
 }
 
+// Re-exports only: `export * from`, `export * as ns from`, `export { a, b as c } from` and their
+// `type` forms. Deliberately tighter than JS_PATTERNS' export line, whose `[^'"]*?` may run from an
+// `export const` across lines into a later import's `from` — harmless when all that is wanted is
+// the specifier, wrong when the question is WHICH statement brought it in. Coverage follows these
+// edges out of a tested barrel (lib/coverage.mjs), so a plain import misread as a re-export would
+// invent coverage, the direction that tells someone a risk is verified when it is not. `[^}]*`
+// cannot cross the brace that closes an `export { … }` with no `from`.
+const JS_REEXPORT_STAR = /\bexport\s+(?:type\s+)?\*\s*(?:as\s+([\w$]+)\s*)?from\s*['"]([^'"]+)['"]/g;
+const JS_REEXPORT_NAMED = /\bexport\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/g;
+
+// The names a named re-export gives the barrel: `a, b as c, type D` → a, c, D. `default` re-exported
+// under its own name is imported under ANY name (`import Button from './Button'`), so it cannot be
+// looked for and makes the whole statement a wildcard.
+function reexportedNames(list) {
+  const names = [];
+  for (const raw of list.split(",")) {
+    const part = raw.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "").trim().replace(/^type\s+/, "");
+    if (!part) continue;
+    const m = /^([\w$]+)(?:\s+as\s+([\w$]+))?$/.exec(part);
+    if (!m) return null; // a shape this cannot read is treated as "everything", like `export *`
+    const name = m[2] ?? m[1];
+    if (name === "default") return null;
+    names.push(name);
+  }
+  return names.length ? names : null;
+}
+
+/**
+ * The specifiers a file RE-EXPORTS, each with the names it gives them — `null` for "every name",
+ * which is what `export *` and a re-exported `default` mean. JS/TS only; else empty.
+ */
+export function extractReexports(text, lang) {
+  if (!["javascript", "typescript", "vue", "svelte"].includes(lang)) return [];
+  const out = [];
+  JS_REEXPORT_STAR.lastIndex = 0;
+  for (const m of text.matchAll(JS_REEXPORT_STAR)) out.push({ spec: m[2], names: m[1] ? [m[1]] : null });
+  JS_REEXPORT_NAMED.lastIndex = 0;
+  for (const m of text.matchAll(JS_REEXPORT_NAMED)) out.push({ spec: m[2], names: reexportedNames(m[1]) });
+  return out;
+}
+
 /** Raw import specifiers, exactly as written in the source. Resolution happens separately. */
 export function extractImports(text, lang) {
   switch (lang) {

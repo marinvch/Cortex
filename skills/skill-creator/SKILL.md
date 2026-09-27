@@ -27,8 +27,14 @@ description stays loaded every turn, and other skills can reach it) versus user-
    - `description:` **triggering conditions only** — start with "Use when…" and list the phrases /
      situations that should fire it. **Never summarize the workflow in the description** (agents
      will follow the description and skip the body). Keep it data-free (this file is committed).
+   - `metadata:` holding `capability:` — `mechanical`, `judgment` or `strong`;
+     `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-capability.mjs"` shows what each tier means. Cortex's
+     own keys go under that map, never top-level: Claude Code ignores a top-level key it does not know.
+   - `effort:` follows the floor — `low` for `mechanical`, `high` for `strong`, absent for `judgment`.
    - Body: a short **## What to do** (numbered steps), a **## Don't** guardrail list, and *one*
-     concrete example if it clarifies. Aim under ~500 words. Link related skills as `[[name]]`.
+     concrete example if it clarifies. Keep `SKILL.md` under 500 **lines** — the limit Anthropic's
+     skills docs set — and move reference material into a file beside it that the body points at.
+     Link related skills as `[[name]]`.
    - **Follow [[context-engineering]]** when shaping the body — Rules 1–3 especially: principles
      over enumeration, long material in `templates/`, don't restate what the code already says.
 4. **Wire it in** so it's discoverable and runnable:
@@ -44,8 +50,8 @@ description stays loaded every turn, and other skills can reach it) versus user-
      exists ever gets there. Name the ritual it hands off to, or add the handoff to the ritual that
      should reach it — in the body, where a reader arrives, not only in the table.
      `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-skill-graph.mjs" --check` fails until one of those is true. If nothing honestly
-     reaches it because a hook or a git state does, declare that: `reached-by: <the trigger>` in the
-     frontmatter. Do not invent a decorative link to turn the check green — that makes the graph agree
+     reaches it because a hook or a git state does, declare that: `reached-by: <the trigger>` under
+     `metadata:`. Do not invent a decorative link to turn the check green — that makes the graph agree
      with itself while telling the next reader something false.
 5. **Verify.** Run `bash tools/test/run.sh` — `plugin.test.js` and `skill-graph.test.sh` catch a
    missing capability floor, a table row that names no skill, and a stranded ritual. Then read it

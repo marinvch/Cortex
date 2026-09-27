@@ -111,8 +111,7 @@ export function codeCoverage(index, text) {
 }
 
 /** Production modules that no test covers: the total, and the directories dense enough to list. */
-function untestedAreas(index, text) {
-  const { untested } = codeCoverage(index, text);
+function untestedAreas(index, { untested }) {
   const missing = new Set(untested);
 
   const byDir = new Map();
@@ -180,7 +179,15 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
   // into, and the scoped-brief proposal further down names the candidates. A directory that already
   // has a brief is done, not a candidate — re-proposing finished work is how a report teaches
   // people to stop reading it.
-  const briefs = briefCandidates(index.files).filter((b) => !has(join(b.dir, "AGENTS.md")));
+  //
+  // Coverage too is computed once and read twice — by the untested-modules finding and by the
+  // brief ranking — so "no tests in this area" can never contradict the report's own coverage.
+  // It did: tests counted by directory left every Maven/Gradle `src/main` untested, since its
+  // tests live in `src/test` (#460).
+  const covered = codeCoverage(index, text);
+  const missing = new Set(covered.untested);
+  const tested = new Set(covered.testable.filter((p) => !missing.has(p)));
+  const briefs = briefCandidates(index.files, { tested }).filter((b) => !has(join(b.dir, "AGENTS.md")));
 
   // --- Context layer: the thing Cortex exists to manage -------------------------------------
   //
@@ -402,7 +409,7 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
       ),
     );
   } else {
-    const { total, dirs: untested } = untestedAreas(index, text);
+    const { total, dirs: untested } = untestedAreas(index, covered);
     if (untested.length) {
       // The title counts EVERY untested module, not only those in the directories listed below. It
       // used to sum the listed directories, so on a real repo it said 11 while the viewer, reading

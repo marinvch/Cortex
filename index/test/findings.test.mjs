@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyse, render, testStem, offerOf, offers } from "../lib/findings.mjs";
 import { textFrom } from "../lib/repo-text.mjs";
+import { buildView } from "../lib/view.mjs";
 
 // These tests were written because Cortex reported both of these bugs about ITSELF: it flagged its
 // own scanner test corpus as a critical secret leak, and it called `mcp/lib` untested when the
@@ -356,6 +357,30 @@ test("an area that deserves a brief offers one, and names it as the target", () 
   const [f] = analyse(index(files), NO_LAYER).filter((x) => offerOf(x)?.action === "brief");
   assert.ok(f, "a proposed area must carry a brief offer");
   assert.deepEqual(offerOf(f).targets, ["billing"], "the offer names the directory, not just the action");
+});
+
+test("a Maven src/main is credited with the tests in src/test, and the viewer agrees", () => {
+  // #460: three Spring installs declined a src/main brief whose stated reason was "no tests in this
+  // area", while the same report's coverage had found them. The reason now reads that coverage, and
+  // the viewer's Structure tab — which already did — has to tell the same story.
+  const main = ["Owner", "OwnerController", "Pet", "PetController", "Vet", "VetController"].map((n) => ({
+    path: `src/main/java/com/x/${n}.java`,
+    lang: "java",
+  }));
+  const tests = [{ path: "src/test/java/com/x/OwnerControllerTests.java", lang: "java", isTest: true }];
+  const idx = index([...main, ...tests]);
+  const brief = analyse(idx, NO_LAYER, withText({})).find((f) => offerOf(f)?.action === "brief" && /deserve/.test(f.title));
+  const line = brief.evidence.find((e) => e.startsWith("src/main "));
+  assert.ok(line, "src/main is still a candidate on size");
+  assert.doesNotMatch(line, /no tests/, "but not for want of tests its own report found");
+
+  const area = buildView({ ...idx, areas: [{ name: "src/main", paths: main.map((f) => f.path) }] }, NO_LAYER)
+    .structure.areas.find((a) => a.name === "src/main");
+  assert.equal(area.tested, 1, "the Structure tab counts the same tested file");
+
+  // And a src/main nothing tests is still told so — the fix must not hide the gap it was about.
+  const bare = analyse(index(main), NO_LAYER, withText({})).find((f) => offerOf(f)?.action === "brief" && /deserve/.test(f.title));
+  assert.match(bare.evidence.find((e) => e.startsWith("src/main ")), /no tests in this area/);
 });
 
 // Five code files in a directory is what briefCandidates asks for, so a repo that genuinely has

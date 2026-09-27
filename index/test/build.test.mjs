@@ -166,6 +166,23 @@ test("brief candidates surface untested, churning areas first and carry reasons"
   assert.ok(got[0].score > got[1].score);
 });
 
+test("an area is tested when a test was found for its code, wherever the test lives", () => {
+  // #460: Maven and Gradle keep every test in src/test, beside the src/main area it exercises, so
+  // counting the tests inside an area called every such src/main untested.
+  const main = Array.from({ length: 6 }, (_, i) => ({ path: `src/main/java/x/C${i}.java`, category: "code", lines: 50, isTest: false }));
+  const files = [...main, { path: "src/test/java/x/C0Tests.java", category: "code", lines: 50, isTest: true }];
+  const noTests = (c) => c.reasons.some((r) => /no tests/.test(r));
+
+  const credited = briefCandidates(files, { tested: new Set(["src/main/java/x/C0.java"]) }).find((c) => c.dir === "src/main");
+  assert.equal(noTests(credited), false, "one tested file is not 'no tests in this area'");
+  assert.equal(credited.tested, 1);
+  assert.equal(credited.tests, 0, "the test still lives where it lives");
+
+  const gap = briefCandidates(files, { tested: new Set() }).find((c) => c.dir === "src/main");
+  assert.equal(noTests(gap), true, "a real gap is still called one");
+  assert.equal(credited.score, gap.score - 10, "and only the gap carries the untested weight");
+});
+
 test("the index reports what an ambiguous directory name cost it", () => {
   const root = fixture();
   mkdirSync(join(root, "bin"));

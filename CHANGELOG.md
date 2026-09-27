@@ -33,6 +33,19 @@ this project now versions independently of any package manager (see `VERSION`).
   is gone; on spring-petclinic 6 → 1 (five `package-info.java` gone, `WebConfiguration` kept); on
   gothinkster's Gradle RealWorld app 3 → 2 (`RealWorldApplication` gone). Mutation-tested: ten
   guards broken one at a time, ten reds.
+- **Maven and Gradle repos were offered a `src/main` brief "because" it had no tests (#460).**
+  Their tests live in `src/test/<lang>/…`, mirroring `src/main/<lang>/…`, and `briefCandidates`
+  counted only the tests inside an area — so the reason `no tests in this area — invariants live only
+  in prose` appeared beside a report whose own coverage had found tests for most of those files, and
+  the Structure tab of the View (coverage-based since #449) said the opposite. It now takes the
+  `tested` set from `codeCoverage` — the name, import and mention signals the findings already use —
+  which `analyse` computes once and shares with the untested-modules finding, and the View passes
+  the same set. An area is untested only when it holds no test and no test was found for any of its
+  code. On spring-petclinic (tests for 20 of 30), the RealWorld Gradle app (44 of 93) and the Kotlin
+  petclinic (11 of 24) the claim is gone; with `src/test` dropped from petclinic's index it comes
+  back, and pmndrs/zustand's `examples/` (0 of 17) keeps it while its `src` and `src/middleware`
+  (6 of 7 each, tested from `tests/`) lose a claim that was just as false. `src/main` is still a
+  candidate on size and churn — only the false reason and its ranking weight are gone.
 
 ## [2.39.0] — 2026-09-27
 

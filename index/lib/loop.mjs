@@ -60,6 +60,13 @@ function filesIn(root, rel, ext = ".md") {
   }
 }
 
+/** Whether any GitHub workflow in this repo names `needle` — a command it runs, not a file it is. */
+function workflowsRunning(root, needle) {
+  return filesIn(root, ".github/workflows", ".yml")
+    .concat(filesIn(root, ".github/workflows", ".yaml"))
+    .some((f) => (read(root, `.github/workflows/${f}`) ?? "").includes(needle));
+}
+
 const named = (ids) => labelsFor(ids ?? []).join(", ");
 
 // Every evidence sentence is built through this. A `why` is the one part of a report a reader can
@@ -326,6 +333,9 @@ export function readLoopState(root, index = null, overrides = {}) {
     // exist for years without it. Checked by heading, which is what the template writes.
     verification: claudeMd !== null && /^##+\s+Verifying your work\s*$/m.test(claudeMd),
     review: has(root, "REVIEW.md"),
+    // Any workflow that runs cortex-review counts, whatever it is called: a team that wired the
+    // review into its own ci.yml is served, and stamping a second workflow would run it twice.
+    reviewCi: workflowsRunning(root, "cortex-review"),
     intentHome: nonEmptyDir(root, "intent"),
     intents: filesIn(root, "intent"),
     subagents: nonEmptyDir(root, ".claude/agents"),
@@ -447,6 +457,38 @@ export const LOOP_ARTIFACTS = [
       "Three lenses — correctness, safety, fidelity to spec.md and plan.md. Say what makes a finding " +
       "blocking in THIS repo and cap the suggestions with a number. Put the generated paths detected " +
       "above under out-of-scope; a reviewer that flags generated code trains people to skim.",
+  },
+  {
+    id: "review-ci",
+    stage: "deploy",
+    title: "cortex-review.yml — every PR read against the repo's own documents, in CI",
+    paths: [".github/workflows/cortex-review.yml"],
+    rank: 45,
+    template: "cortex-review.yml",
+    present: (s) => s.reviewCi,
+    // A review against no documents has nothing to say, and the template is a GitHub workflow — on
+    // any other CI it is a file nothing runs.
+    when: (s) => s.ci === ".github/workflows" && s.rootBrief,
+    needs: (s) => [
+      s.ci !== ".github/workflows" &&
+        `GitHub Actions — the template is a GitHub workflow${s.ci ? `, and this repo's CI is ${s.ci}` : ""}`,
+      !s.rootBrief && "AGENTS.md — the documents a pull request is reviewed against",
+    ],
+    why: (s) => {
+      if (s.reviewCi) return "a workflow in .github/workflows already runs cortex-review";
+      if (s.ci === ".github/workflows") {
+        return s.rootBrief
+          ? "AGENTS.md and .github/workflows are both here, so every PR can be read against the documents it may have made wrong — deterministic, no API key"
+          : ".github/workflows is here, but there is no AGENTS.md yet for a PR to be read against";
+      }
+      return s.ci
+        ? `this repo's CI is ${s.ci}, and the template is a GitHub workflow`
+        : "no CI detected, and a review that runs only when someone remembers it is the one that gets skipped";
+    },
+    brief:
+      "Pin CORTEX_REF to the Cortex release doing the stamping. Advisory by default: it reports in " +
+      "the log, the run summary and as annotations, and fails nothing unless the repo sets the " +
+      "CORTEX_REVIEW_BLOCKING variable — then only a provable broken citation fails the PR.",
   },
   {
     id: "hooks",

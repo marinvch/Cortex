@@ -21,9 +21,9 @@
 // particular setup appears here, because this file ships and the setup it was proven on does not.
 
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, posix, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const INDEX = join(REPO_ROOT, "index", "cortex-index.mjs");
@@ -493,14 +493,75 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
 {
   const checks = [];
   checks.push(overlapCheck());
-  const reviewing = code.filter((r) => {
-    const wf = join(r.clone, ".github", "workflows");
-    return existsSync(wf) && readdirSync(wf).some((f) => /\.ya?ml$/.test(f) && /cortex-review/.test(readFileSync(join(wf, f), "utf8")));
+  // /cortex-review in CI, run the way a PR runs it. Each clone gets the workflow /cortex stamps
+  // (unless it already carries one that runs cortex-review), committed as the base; then a PR-shaped
+  // branch changes one indexed file, and the workflow's own review step runs on base...head with
+  // $CORTEX pointed at this checkout — the release the workflow would have cloned.
+  const { parseYaml } = await import(pathToFileURL(join(REPO_ROOT, "index", "test", "yaml-lite.mjs")).href);
+  const version = readFileSync(join(REPO_ROOT, "VERSION"), "utf8").trim();
+  const reviewWorkflow = (dir) => {
+    const wf = join(dir, ".github", "workflows");
+    if (!existsSync(wf)) return null;
+    const f = readdirSync(wf).sort().find((n) => /\.ya?ml$/.test(n) && /cortex-review/.test(readFileSync(join(wf, n), "utf8")));
+    return f ? join(wf, f) : null;
+  };
+  let stamped = 0;
+  let ran = 0;
+  let againstDocs = 0;
+  const reviewErrors = [];
+  const candidates = code.filter((r) => r.index);
+  for (const r of candidates) {
+    try {
+      let wfPath = reviewWorkflow(r.clone);
+      if (!wfPath) {
+        wfPath = join(r.clone, ".github", "workflows", "cortex-review.yml");
+        mkdirSync(dirname(wfPath), { recursive: true });
+        const body = readFileSync(join(REPO_ROOT, "templates", "loop", "cortex-review.yml"), "utf8").replaceAll("{{CORTEX_REF}}", `v${version}`);
+        writeFileSync(wfPath, body);
+        git(r.clone, ["add", "--", ".github/workflows/cortex-review.yml"]);
+        git(r.clone, ["commit", "-q", "-m", "Stamp cortex-review.yml", "--", ".github/workflows/cortex-review.yml"]);
+        stamped += 1;
+      }
+      const steps = Object.values(parseYaml(readFileSync(wfPath, "utf8")).jobs ?? {}).flatMap((j) => j.steps ?? []);
+      const step = steps.find((s) => /cortex-review\.mjs/.test(s.run ?? ""));
+      if (!step) throw new Error(`${basename(wfPath)} names cortex-review but no step runs cortex-review.mjs`);
+
+      const base = git(r.clone, ["rev-parse", "HEAD"]).trim();
+      const target = r.index.files.map((f) => f.path ?? f).find((p) => !/\.md$/i.test(p) && existsSync(join(r.clone, p))) ?? null;
+      if (!target) throw new Error("the index lists no file to change");
+      git(r.clone, ["checkout", "-q", "-b", "e2e-review-pr"]);
+      appendFileSync(join(r.clone, target), "\n");
+      git(r.clone, ["commit", "-q", "-m", "A PR-shaped change", "--", target]);
+
+      const temp = join(WORK, `review-${r.name}`);
+      mkdirSync(temp, { recursive: true });
+      const run = spawnSync("bash", ["-c", step.run], {
+        cwd: r.clone,
+        env: { ...BASE_ENV, CORTEX: REPO_ROOT, BASE: base, BLOCKING: "", RUNNER_TEMP: temp, GITHUB_STEP_SUMMARY: join(temp, "summary.md") },
+        encoding: "utf8",
+      });
+      const out = `${run.stdout}${run.stderr}`;
+      // The step is advisory, so it exits 0 even when a command inside it failed — it says so in a
+      // `::warning::` instead. Exit 0 alone would pass a review that never ran.
+      const broken = out.match(/^::warning::(?:Cortex could not|cortex-review).*$/m);
+      if (run.status === 0 && !broken && /Changed \(\d+\)|no context layer/.test(out)) ran += 1;
+      else reviewErrors.push(`${r.name}: exit ${run.status} — ${broken?.[0] ?? out.trim().split("\n").slice(-2).join(" / ")}`.slice(0, 300));
+      if (!broken && /Documents governing this change/.test(out)) againstDocs += 1;
+    } catch (e) {
+      reviewErrors.push(`${r.name}: ${String(e.message ?? e).split("\n")[0]}`.slice(0, 300));
+    }
+  }
+  checks.push({
+    ok: candidates.length > 0 && ran === candidates.length,
+    label: `/cortex-review runs in CI on a PR: the review step ran on ${ran}/${candidates.length} code repos (${stamped} stamped from templates/loop/cortex-review.yml)`,
+    detail: reviewErrors[0],
   });
   checks.push({
-    ok: reviewing.length > 0,
-    label: `/cortex-review runs in CI on a PR: ${reviewing.length}/${code.length} code repos have a workflow that runs it`,
-    detail: reviewing.length ? undefined : "no workflow in any code repo invokes cortex-review, and no roadmap step stamps one",
+    ok: againstDocs > 0,
+    label: `and read the PR against the repo's own documents in ${againstDocs}/${candidates.length}`,
+    detail: againstDocs || ran < candidates.length
+      ? undefined
+      : "no code repo has a context layer (AGENTS.md, CONTEXT.md or ADRs) for the review to read back — run /cortex on one",
   });
   failures += scenario("S4", "daily team rituals", checks);
 }

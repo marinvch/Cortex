@@ -1,6 +1,6 @@
 ---
 name: cortex
-description: The single install. Give a repo — working or brand new — the whole AI-native SDLC loop in one pass (the root brief, the verification block, the verifier subagent, REVIEW.md, hooks, the intent home, evals and the control bands). Use on "install cortex", "set this repo up", "give this codebase a context layer", "set up the loop", "onboard this project", when opening an unfamiliar repo before work starts, or when a repo has no AGENTS.md and an agent is about to re-derive its architecture from scratch. Works on greenfield and legacy repos. Asks once, writes once, never touches source code.
+description: The single install. Give a repo — working or brand new — the whole AI-native SDLC loop in one pass (the root brief, the verification block, the verifier subagent, REVIEW.md, the PR review workflow, hooks, the intent home, evals and the control bands). Use on "install cortex", "set this repo up", "give this codebase a context layer", "set up the loop", "onboard this project", when opening an unfamiliar repo before work starts, or when a repo has no AGENTS.md and an agent is about to re-derive its architecture from scratch. Works on greenfield and legacy repos. Asks once, writes once, never touches source code.
 metadata:
   capability: judgment
 ---
@@ -172,7 +172,8 @@ Cortex will write, in one pass:
   Build     AGENTS.md, CLAUDE.md, GEMINI.md, CONTEXT.md, docs/adr/
             src/billing/AGENTS.md, src/api/AGENTS.md
   Test      CLAUDE.md § Verifying your work, .claude/agents/verifier.md
-  Deploy    REVIEW.md, .claude/settings.json, .claude/hooks/protected-paths.sh
+  Deploy    REVIEW.md, .github/workflows/cortex-review.yml,
+            .claude/settings.json, .claude/hooks/protected-paths.sh
 
   Waiting:  bands.yaml — needs REVIEW.md, and a CI system
   Not now:  enrichment (later), the plugin bundle (no)
@@ -213,6 +214,7 @@ The loop artifacts are written here, from `${CLAUDE_PLUGIN_ROOT}/templates/loop/
 | `format-changed.sh` | `.claude/hooks/` | one `<glob>) <command> "$path" >/dev/null 2>&1 ;;` line per entry in `state.formatters`; none if it is empty |
 | `intent-README.md`, `intent.md` | `intent/README.md`, `intent/TEMPLATE.md` | who accepts an intent |
 | `agent-evals.yml` | `.github/workflows/` | `{{TEST_CMD}}` with the detected test command; replace the `{{SETUP_STEPS}}` line with the toolchain and install steps from the repo's own CI, at that indentation, or delete it if there are none; cases live in `evals/cases/<name>/` |
+| `cortex-review.yml` | `.github/workflows/` | `{{CORTEX_REF}}` with `v` plus the version in `${CLAUDE_PLUGIN_ROOT}/VERSION`, so each PR runs the release that stamped it; leave it advisory, and tell the user that setting the repository variable `CORTEX_REVIEW_BLOCKING` to `true` makes a provable broken citation fail the PR |
 | `bands.yaml` | repo root | one metric with a stable history, a read-only command, the rollback runbook |
 
 **Never invent a command.** Every `{{PLACEHOLDER}}` that `loop.mjs` could not fill is a question for

@@ -324,3 +324,72 @@ assert_eq "2" "$(conts 'do it, rejected')" "also after two continuations"
 assert_contains "$out" "FAIL  g-error" "a turn that ended in an error fails"
 assert_eq "0" "$(conts 'error-turn')" "and is not continued — an error is a result, not a report"
 assert_contains "$log" "--continue" "a continuation resumes the same session rather than starting over"
+
+# --- cortex-review.yml reviews the PR's diff, and only blocks when the repo opted in ---------------
+#
+# The step's own script, lifted out of the parsed template and run against a real PR shape: a base
+# commit, then a branch that moves a file its AGENTS.md names. $CORTEX points at this checkout where
+# the workflow would point at the release it cloned. Advisory by default is the promise under test —
+# a provable broken citation warns, and fails the job only with CORTEX_REVIEW_BLOCKING=true.
+
+node --input-type=module -e '
+  import { readFileSync, writeFileSync } from "node:fs";
+  import { pathToFileURL } from "node:url";
+  const [root, out] = process.argv.slice(1);
+  const { parseYaml } = await import(pathToFileURL(root + "/index/test/yaml-lite.mjs").href);
+  const src = readFileSync(root + "/templates/loop/cortex-review.yml", "utf8").replaceAll("{{CORTEX_REF}}", "v0.0.0");
+  writeFileSync(out, parseYaml(src).jobs.review.steps.find((s) => /cortex-review\.mjs/.test(s.run ?? "")).run);
+' "$REPO_ROOT" "$WORK/review-run.sh"
+
+review_repo="$WORK/review-repo"
+mkrepo "$review_repo"
+mkdir -p "$review_repo/src" "$WORK/review-tmp" || exit 1
+printf 'export const a = 1;\n' > "$review_repo/src/a.js"
+printf 'export const c = 3;\n' > "$review_repo/src/c.js"
+printf '# Brief\n\nThe entry point is `src/a.js` and it stays pure.\n' > "$review_repo/AGENTS.md"
+git -C "$review_repo" add -A && git -C "$review_repo" commit -q -m base
+review_base="$(git -C "$review_repo" rev-parse HEAD)"
+
+review() { # base blocking → "<output>\nexit=<n>", run from the repo root the way the job runs it
+  (
+    cd "$review_repo" || exit 1
+    rm -f "$WORK/review-summary.md"
+    CORTEX="$REPO_ROOT" BASE="$1" BLOCKING="$2" RUNNER_TEMP="$WORK/review-tmp" \
+      GITHUB_STEP_SUMMARY="$WORK/review-summary.md" bash "$WORK/review-run.sh" 2>&1
+    echo "exit=$?"
+  )
+}
+
+# A PR that edits a file the brief names: reported as a mention, never failed.
+git -C "$review_repo" checkout -q -b edit
+printf 'export const a = 2;\n' > "$review_repo/src/a.js"
+git -C "$review_repo" commit -q -am "edit a"
+out="$(review "$review_base" "true")"
+assert_contains "$out" "Documents governing this change" "review workflow: the PR's diff is reviewed against its documents"
+assert_contains "$out" "AGENTS.md  (1 mention)" "and the brief line naming the touched file is surfaced"
+assert_contains "$out" "exit=0" "a mention never fails the job, even when the repo opted in to blocking"
+assert_contains "$(cat "$WORK/review-summary.md" 2>/dev/null)" "## Cortex review" "and the report lands in the run's summary"
+
+# A PR that moves a file the brief names: a provable broken citation.
+git -C "$review_repo" checkout -q -b move "$review_base"
+git -C "$review_repo" mv src/a.js src/b.js
+git -C "$review_repo" commit -q -m "move a"
+out="$(review "$review_base" "")"
+assert_contains "$out" "::warning file=AGENTS.md,line=3::" "review workflow: a provable broken citation is annotated on its line"
+assert_contains "$out" "src/b.js" "naming where git recorded the file went"
+assert_contains "$out" "exit=0" "and it is advisory by default — the PR is not failed"
+out="$(review "$review_base" "true")"
+assert_contains "$out" "::error file=AGENTS.md,line=3::" "with CORTEX_REVIEW_BLOCKING=true the annotation is an error"
+assert_contains "$out" "exit=1" "and the job fails"
+
+# A PR that touches nothing the documents name, and a run with no PR at all.
+git -C "$review_repo" checkout -q -b other "$review_base"
+printf 'export const c = 4;\n' > "$review_repo/src/c.js"
+git -C "$review_repo" commit -q -am "edit c"
+out="$(review "$review_base" "true")"
+assert_contains "$out" "No context document names any of these files" "review workflow: a PR no document names says so"
+assert_contains "$out" "exit=0" "and passes"
+out="$(review "" "true")"
+assert_contains "$out" "Not a pull request" "review workflow: without a base there is nothing to review"
+assert_contains "$out" "exit=0" "and that is not a failure"
+assert_eq "" "$(git -C "$review_repo" status --porcelain)" "review workflow: the reviewed checkout is left untouched"

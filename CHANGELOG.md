@@ -60,6 +60,16 @@ this project now versions independently of any package manager (see `VERSION`).
   `/` before matching, so one pattern set covers both; the jq and sed readers, the fail-closed exit
   and the bash-3.2-safe empty list are unchanged. `tools/test/cortex-loop.test.sh` runs Windows
   paths through both readers.
+- **A test script that starts a watcher is no longer named as the test command (#456).**
+  `"test": "vitest"` watches in a terminal and never exits, and `detectCommands` named it anyway —
+  so the verification block, the verifier and `agent-evals.yml` all carried a command that hangs.
+  `loop.mjs` now recognises runners that default to watching (Vitest without `run`, an explicit
+  `--watch`/`--watchAll`, `react-scripts test`, `ng test`, `nodemon`), follows a script through
+  the scripts it calls in the same manifest, and prefers `test:run`, `test:ci` or `test:once` when
+  one runs once. With none, the test command is null and the verification row says why, rather
+  than inventing a one-shot command nobody declared. On bulletproof-react's Vite app it reported
+  `yarn test` before and no test command after; on vitest's `examples/basic`, `npm test` became
+  `npm run test:run`.
 
 ## [2.39.0] — 2026-09-27
 

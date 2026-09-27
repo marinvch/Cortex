@@ -153,27 +153,160 @@ function lintScript(scripts, declared) {
   return declared("check") ? "check" : null;
 }
 
+// A test command that never exits is worse than none. `"test": "vitest"` is the default a Vite app
+// ships with, and in a terminal it starts watch mode and waits for edits — so the verification block,
+// the verifier subagent and agent-evals.yml all named a command that hangs, and cortex-loop went on
+// printing `npm test` after the block had been written by hand with `test:run`. Vitest decides by
+// TTY and by `CI`, so the same script runs once in a pipeline and forever in a shell; "exits
+// somewhere" is not "exits", and a command we cannot prove exits is not one we may name.
+//
+// Detection errs one way only. Calling a one-shot command a watcher costs a question the ritual asks
+// anyway; calling a watcher one-shot costs a hung session. So anything not recognised here is taken
+// at its word, and every rule below names a runner that really does default to watching:
+//   - an explicit `--watch` / `--watchAll` (Jest, Mocha, `node --test`), unless `=false`
+//   - `vitest` without `run`/`list`, `--run`, `--no-watch` or a `CI=true` in front of it
+//   - `react-scripts test` and its wrappers (craco, react-app-rewired) — Jest in watch mode
+//   - `ng test`, whose Karma config watches unless told `--watch=false`
+//   - `nodemon`, which exists only to watch
+// A script that calls another script of the SAME manifest (`npm run x`, `pnpm x`, pnpm's
+// `"/^test:.*/"`, `run-s test:*`) is followed; one that reaches into another package (`--filter`,
+// `-C`, `workspace`) is not, because which manifest answers is a workspace question — a documented
+// limit, and it errs toward taking the script at its word.
+const ONE_SHOT_TEST_SCRIPTS = ["test:run", "test:ci", "test:once"];
+
+const SCRIPT_RUNNERS = new Set(["npm", "pnpm", "yarn", "bun"]);
+const OTHER_PACKAGE = /^(--filter|-F|-C|--dir|--prefix|--workspace|-w|--recursive|-r|workspace|workspaces)$/;
+const TRUTHY_CI = /^CI=(true|1)$/i;
+
+const tokensOf = (segment) =>
+  (segment.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map((t) => t.replace(/^(["'])(.*)\1$/, "$2"));
+
+/** Script names a runner invocation refers to, in this manifest — or null when it runs a binary. */
+function scriptsNamed(tokens, scripts) {
+  const [runner, ...rest] = tokens;
+  if (/^(run-s|run-p|npm-run-all)$/.test(runner)) {
+    const globs = rest.filter((t) => !t.startsWith("-"));
+    // npm-run-all's globs: `*` stops at a `:`, `**` does not.
+    const re = (g) =>
+      new RegExp(`^${g.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("**", "\0").replaceAll("*", "[^:]*").replaceAll("\0", ".*")}$`);
+    return Object.keys(scripts).filter((n) => globs.some((g) => re(g).test(n)));
+  }
+  if (!SCRIPT_RUNNERS.has(runner)) return null;
+  if (rest.some((t) => OTHER_PACKAGE.test(t))) return []; // another package's script: not ours to read
+  const args = rest.filter((t) => !t.startsWith("-"));
+  let name = args[0];
+  if (name === "run" || name === "run-script") name = args[1];
+  if (name === undefined) return [];
+  // pnpm runs every script a /regex/ matches: zustand's `test` is `pnpm run "/^test:.*/"`.
+  const rx = /^\/(.+)\/$/.exec(name);
+  if (rx) {
+    try {
+      const re = new RegExp(rx[1]);
+      return Object.keys(scripts).filter((n) => re.test(n));
+    } catch {
+      return [];
+    }
+  }
+  if (typeof scripts[name] === "string") return [name];
+  // `npm test` with no test script, or `bun test` (Bun's own runner): nothing of ours to follow.
+  // Anything else is a binary — `yarn vitest` — and the caller reads it as one.
+  return name === "test" ? [] : null;
+}
+
+const WATCH_FLAG = /^--watch(All)?(=(true|1))?$/;
+const WATCH_OFF = /^(--no-watch|--watch(All)?=(false|0))$/;
+
+/** Whether one command, with its env prefix stripped, starts a runner that waits for edits. */
+function commandWatches(tokens, ci) {
+  const bin = (tokens[0] ?? "").split("/").pop();
+  const off = tokens.some((t) => WATCH_OFF.test(t));
+  if (bin === "vitest") {
+    // `includes`, not "the first positional": `vitest --config x.ts run` is the one-shot form too,
+    // and mistaking it the other way would drop a command that works rather than name one that hangs.
+    return !(tokens.includes("run") || tokens.includes("list") || tokens.includes("--run") || off || ci);
+  }
+  if (/^(react-scripts|craco|react-app-rewired)$/.test(bin) && tokens[1] === "test") return !(off || ci);
+  if (bin === "ng" && tokens[1] === "test") return !(off || ci);
+  return bin === "nodemon";
+}
+
+/** Whether a script, followed through the scripts it calls in this manifest, starts a watcher. */
+function scriptWatches(name, scripts, seen = new Set()) {
+  if (seen.has(name) || typeof scripts[name] !== "string") return false;
+  seen.add(name);
+  for (const segment of scripts[name].split(/&&|\|\||;|\|/)) {
+    let tokens = tokensOf(segment.trim());
+    // An explicit watch flag wins wherever it sits — `npm run test:unit -- --watch` included.
+    if (tokens.some((t) => WATCH_FLAG.test(t))) return true;
+    let ci = false;
+    // Environment in front of the command: `CI=true vitest`, `cross-env PORT=4100 react-scripts test`.
+    while (tokens.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]) || /^(cross-env|env)$/.test(tokens[0]))) {
+      if (TRUTHY_CI.test(tokens[0])) ci = true;
+      tokens = tokens.slice(1);
+    }
+    // A package runner in front of a binary: `npx vitest`, `pnpm exec vitest`.
+    if (/^(npx|pnpx|bunx)$/.test(tokens[0])) tokens = tokens.slice(1);
+    else if (SCRIPT_RUNNERS.has(tokens[0]) && tokens[1] === "exec") tokens = tokens.slice(2);
+    while (tokens[0]?.startsWith("-")) tokens = tokens.slice(1);
+
+    const named = scriptsNamed(tokens, scripts);
+    if (named !== null) {
+      if (named.some((n) => scriptWatches(n, scripts, seen))) return true;
+      continue;
+    }
+    // `yarn vitest` with no script of that name runs the binary, so read it as the binary.
+    if (SCRIPT_RUNNERS.has(tokens[0])) tokens = tokens.slice(1);
+    if (commandWatches(tokens, ci)) return true;
+  }
+  return false;
+}
+
+/**
+ * The test script to name, and a sentence when the choice needs one. A watcher is passed over for a
+ * one-shot script when the manifest declares one; when it does not, there is no test command —
+ * the ritual asks, which is the outcome `detectCommands` already gives a repo that declares none.
+ */
+function testScript(scripts, declared) {
+  const first = NPM_SCRIPTS.test.find(declared);
+  if (!first || !scriptWatches(first, scripts)) return { hit: first ?? null, note: null };
+  const shown = `the \`${first}\` script (\`${scripts[first].trim()}\`) starts a watcher that does not exit`;
+  const once = ONE_SHOT_TEST_SCRIPTS.find((n) => declared(n) && !scriptWatches(n, scripts));
+  if (once) return { hit: once, note: `${shown}, so \`${once}\` — which runs once — is the test command` };
+  return {
+    hit: null,
+    note: `${shown}, and no script that runs once is declared (looked for ${ONE_SHOT_TEST_SCRIPTS.join(", ")}) — ask for a test command that exits`,
+  };
+}
+
 function npmCommands(root, text) {
-  if (!text) return {};
+  const none = { commands: {}, notes: {} };
+  if (!text) return none;
   let pkg;
   try {
     pkg = JSON.parse(text);
   } catch {
-    return {}; // A manifest we cannot parse tells us nothing; it must not tell us something wrong.
+    return none; // A manifest we cannot parse tells us nothing; it must not tell us something wrong.
   }
   const scripts = pkg?.scripts;
-  if (!scripts || typeof scripts !== "object") return {};
+  if (!scripts || typeof scripts !== "object") return none;
   const pm = packageManager(root, pkg);
   const out = {};
+  const notes = {};
   const declared = (n) => typeof scripts[n] === "string" && scripts[n].trim();
   for (const [kind, names] of Object.entries(NPM_SCRIPTS)) {
-    const hit = kind === "lint" ? lintScript(scripts, declared) : names.find(declared);
+    let hit;
+    if (kind === "lint") hit = lintScript(scripts, declared);
+    else if (kind === "test") {
+      const t = testScript(scripts, declared);
+      hit = t.hit;
+      if (t.note) notes.test = t.note;
+    } else hit = names.find(declared);
     if (hit) out[kind] = `${pm} run ${hit}`;
   }
   // npm, pnpm and yarn give the test script a bare verb, and it is what a reader expects to see.
   // Bun does not: `bun test` is Bun's own runner and ignores the script entirely.
   if (out.test === `${pm} run test` && pm !== "bun") out.test = `${pm} test`;
-  return out;
+  return { commands: out, notes };
 }
 
 // A JVM build file declares its lifecycle, so the commands are the lifecycle's: Maven always has
@@ -217,11 +350,23 @@ function makeCommands(text) {
  * merge is per kind, so a lint script survives a build file that declares no lint.
  */
 export function detectCommands(root) {
+  return commandsWithNotes(root).commands;
+}
+
+// The commands and, per kind, the sentence saying why a choice was not the obvious one — today only
+// a watching `test` script passed over or refused. A note is kept only while its kind is still the
+// npm answer: a Makefile's `test` target wins the merge, and then the script's watcher is not ours
+// to mention.
+function commandsWithNotes(root) {
   const fromMake = makeCommands(read(root, "Makefile") ?? read(root, "makefile"));
   const fromJvm = jvmCommands(root);
-  const fromNpm = npmCommands(root, read(root, "package.json"));
-  const out = { build: null, test: null, lint: null, ...fromNpm, ...fromJvm, ...fromMake };
-  return out;
+  const npm = npmCommands(root, read(root, "package.json"));
+  const commands = { build: null, test: null, lint: null, ...npm.commands, ...fromJvm, ...fromMake };
+  const notes = {};
+  for (const [kind, note] of Object.entries(npm.notes)) {
+    if (!fromMake[kind] && !fromJvm[kind]) notes[kind] = note;
+  }
+  return { commands, notes };
 }
 
 // ---------------------------------------------------------------------------
@@ -342,6 +487,7 @@ export function readLoopState(root, index = null, overrides = {}) {
   // separate because every row that cites the stack has to be able to tell "detected nothing" from
   // "never looked", and one value cannot carry both.
   const indexed = index !== null && index !== undefined;
+  const detected = commandsWithNotes(root);
 
   return {
     root,
@@ -355,7 +501,10 @@ export function readLoopState(root, index = null, overrides = {}) {
     // of treating a real greenfield repo as populated is one skipped offer, and the cost the other
     // way is telling a user their codebase does not exist.
     greenfield: indexed && (stats.files ?? 0) === 0,
-    commands: detectCommands(root),
+    commands: detected.commands,
+    // Why a command is not the obvious one, by kind — `{ test: "the `test` script … starts a
+    // watcher …" }`. Empty when every command was taken as declared.
+    commandNotes: detected.notes,
     formatters: detectFormatters(root),
     protectedPaths: protectedPaths(index),
     ci: has(root, ciDir) ? ciDir : has(root, ".gitlab-ci.yml") ? ".gitlab-ci.yml" : null,
@@ -448,11 +597,15 @@ export const LOOP_ARTIFACTS = [
     // never checked.
     why: (s) => {
       const found = ["build", "test", "lint"].filter((k) => s.commands[k]);
+      // A watching test script passed over or refused is said here, because this is the row that
+      // writes the command down — and a reader who knows `npm test` exists will otherwise ask why
+      // the block names something else, or nothing.
+      const note = s.commandNotes?.test ? `; ${s.commandNotes.test}` : "";
       if (found.length) {
-        return `${found.map((k) => `${k}: ${s.commands[k]}`).join(" · ")} — detected, so the block can name real commands`;
+        return `${found.map((k) => `${k}: ${s.commands[k]}`).join(" · ")} — detected, so the block can name real commands${note}`;
       }
       if (s.greenfield) return "greenfield, so the commands come from the interview rather than a manifest";
-      return "no build, test or lint command at the root — ask for them, or name the per-package ones";
+      return `no build, test or lint command at the root — ask for them, or name the per-package ones${note}`;
     },
     brief:
       "Name only the commands that were detected, verbatim, with what a healthy run prints. Then " +

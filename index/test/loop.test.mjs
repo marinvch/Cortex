@@ -195,6 +195,114 @@ test("a plain package-lock.json stays npm", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+// ---------------------------------------------------------------------------
+// a test command must exit — a watcher is never named as one
+// ---------------------------------------------------------------------------
+
+// Found on a Vite app with `"test": "vitest"` and `"test:run": "vitest run"`: `npm test` starts
+// watch mode in a terminal and never exits, so the verification block, the verifier and the evals
+// workflow all named a command that hangs. The shapes below are the ones real repos use:
+// bulletproof-react's apps (`vitest`, no one-shot), vitest's own examples (`vitest` + `test:run`),
+// a CRA app (`cross-env … react-scripts test`), zustand (`pnpm run "/^test:.*/"`).
+
+const withScripts = (scripts, extra = () => {}) => {
+  const root = repo(({ put }) => {
+    put("package.json", JSON.stringify({ scripts }));
+    extra(put);
+  });
+  const s = readLoopState(root, null);
+  rmSync(root, { recursive: true, force: true });
+  return { test: s.commands.test, note: s.commandNotes.test ?? null, s };
+};
+
+test("a watching test script gives way to the one-shot script beside it, and says why", () => {
+  const got = withScripts({ test: "vitest", "test:run": "vitest run" });
+  assert.equal(got.test, "npm run test:run");
+  assert.match(got.note, /`test` script \(`vitest`\) starts a watcher/);
+  assert.match(got.note, /`test:run` — which runs once/);
+  for (const [scripts, want] of [
+    [{ test: "jest --watch", "test:ci": "jest --ci" }, "npm run test:ci"],
+    [{ test: "jest --watchAll", "test:once": "jest" }, "npm run test:once"],
+    [{ test: "ng test", "test:ci": "ng test --watch=false" }, "npm run test:ci"],
+  ]) {
+    assert.equal(withScripts(scripts).test, want, JSON.stringify(scripts));
+  }
+});
+
+test("a watching test script with no one-shot beside it is not a test command", () => {
+  // Emitting `vitest run` here would be a command nobody declared — the config it would need, the
+  // workspace it would run in, are exactly what cannot be proved. The ritual asks instead.
+  const got = withScripts({ test: "vitest", build: "tsc" });
+  assert.equal(got.test, null);
+  assert.match(got.note, /no script that runs once is declared.*ask for a test command that exits/);
+  const why = LOOP_ARTIFACTS.find((r) => r.id === "verification").why(got.s);
+  assert.doesNotMatch(why, /npm test/, why);
+  assert.match(why, /starts a watcher/, "and the row that writes the command down says why it has none");
+  assert.equal(withScripts({ test: "cross-env PORT=4100 react-scripts test --env=jsdom" }).test, null, "CRA's runner watches");
+  assert.equal(withScripts({ test: "nodemon --exec mocha" }).test, null);
+});
+
+test("a one-shot candidate that itself watches is not chosen", () => {
+  assert.equal(withScripts({ test: "vitest", "test:run": "vitest --ui" }).test, null);
+  assert.equal(withScripts({ test: "vitest", "test:run": "vitest --ui", "test:ci": "vitest run" }).test, "npm run test:ci");
+});
+
+test("a runner told to run once is taken at its word", () => {
+  for (const scripts of [
+    { test: "vitest run" },
+    { test: "vitest --run" },
+    { test: "vitest --no-watch --config=vitest.config.unit.mts" },
+    { test: "npx vitest --config vitest.config.ts run" },
+    { test: "CI=true vitest" },
+    { test: "CI=true react-scripts test" },
+    { test: "react-scripts test --watchAll=false" },
+    { test: "jest --watchAll=false" },
+    { test: "jest --watchman" },
+    { test: "jest" },
+    { test: "node --test" },
+  ]) {
+    const got = withScripts(scripts);
+    assert.equal(got.test, "npm test", JSON.stringify(scripts));
+    assert.equal(got.note, null, `a script that exits needs no explanation: ${JSON.stringify(scripts)}`);
+  }
+});
+
+test("a test script is followed through the scripts it runs in the same manifest", () => {
+  assert.equal(withScripts({ test: "npm run test:unit", "test:unit": "vitest" }).test, null);
+  assert.equal(withScripts({ test: "pnpm test:unit", "test:unit": "vitest --project a" }).test, null);
+  assert.equal(withScripts({ test: "yarn vitest" }).test, null, "a runner in front of a binary is the binary");
+  assert.equal(withScripts({ test: "npm run test:unit -- --watch", "test:unit": "jest" }).test, null);
+  assert.equal(withScripts({ test: "run-s test:*", "test:a": "mocha", "test:b": "mocha --watch" }).test, null);
+  assert.equal(withScripts({ test: "run-s test:*", "test:a": "mocha", "test:a:b": "mocha --watch" }).test, "npm test", "run-s `*` stops at a colon");
+  // zustand's shape: every leg of the regex runs once, so the aggregate does.
+  const zustand = {
+    test: 'pnpm run "/^test:.*/"', "test:format": "prettier . --list-different", "test:types": "tsc --noEmit",
+    "test:lint": "eslint .", "test:spec": "vitest run",
+  };
+  assert.equal(withScripts(zustand, (put) => put("pnpm-lock.yaml", "")).test, "pnpm test");
+  assert.equal(withScripts({ ...zustand, "test:spec": "vitest" }).test, null, "and one watching leg makes it a watcher");
+  // Another package's script is a workspace question: taken at its word, the documented limit.
+  // vitest's own root runs `pnpm --filter test-unit test:threads`; `-r` runs every package's copy
+  // of a script, not this manifest's.
+  assert.equal(withScripts({ test: "pnpm --filter test-unit test:threads" }).test, "npm test");
+  assert.equal(withScripts({ test: "pnpm -r test:unit", "test:unit": "vitest" }).test, "npm test");
+  // A script that names itself does not loop.
+  assert.equal(withScripts({ test: "npm test" }).test, "npm test");
+});
+
+test("the package manager still owns the runner when a one-shot script is chosen", () => {
+  const scripts = { test: "vitest", "test:run": "vitest run" };
+  assert.equal(withScripts(scripts, (put) => put("pnpm-lock.yaml", "")).test, "pnpm run test:run");
+  assert.equal(withScripts(scripts, (put) => put("yarn.lock", "")).test, "yarn run test:run");
+  assert.equal(withScripts(scripts, (put) => put("bun.lock", "")).test, "bun run test:run");
+});
+
+test("a Makefile test target wins over a watching script, and the script's note goes with it", () => {
+  const got = withScripts({ test: "vitest" }, (put) => put("Makefile", "test:\n\tnpx vitest run\n"));
+  assert.equal(got.test, "make test");
+  assert.equal(got.note, null, "a note about a command nobody is told to run is noise");
+});
+
 // JVM build files declare their lifecycle: a pom.xml always has `verify` and `test`, a Gradle build
 // always has `build` and `test`. The wrapper is preferred because it pins the version CI runs.
 

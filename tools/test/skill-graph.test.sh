@@ -87,7 +87,7 @@ for name in optimize-prompt resolving-merge-conflicts; do
 done
 
 # A `reached-by:` with no substance would be the check switched off while still reading as green.
-if grep -hE '^reached-by:' "$REPO_ROOT"/skills/*/SKILL.md | grep -qE '^reached-by:\s*(true|yes|1)\s*$'; then
+if grep -qE '^reached-by:\s*(true|yes|1)\s*$' <<<"$(grep -hE '^reached-by:' "$REPO_ROOT"/skills/*/SKILL.md)"; then
   _fail "every reached-by: names a real trigger" "found a bare true/yes/1 — that is the guard disabled, not an exception"
 else
   _pass "every reached-by: names a real trigger rather than a bare true"

@@ -57,7 +57,14 @@ exempt_reason() { # file -> the text after the marker, or nothing
 }
 
 guards_in() { # file -> a resolve_in_root call in CODE, not a mention in a comment
-  code_of "$1" | grep -q 'resolve_in_root'
+  # Captured first, never piped into `grep -q` (issue #433). run.sh sets pipefail, and `grep -q`
+  # exits at the first match; if sed still has a buffer to flush it takes SIGPIPE, the pipeline
+  # reports 141, and a guard that is there reads as missing. cortex-sync-skills.sh's call sits in
+  # sed's second 4 KiB block with a third still to come, so it failed only when the scheduler let
+  # grep win that race — once on a loaded CI runner. pipefail-grep.test.sh pins the pattern out.
+  local code
+  code="$(code_of "$1")"
+  grep -q 'resolve_in_root' <<<"$code"
 }
 
 # --- the canary --------------------------------------------------------------
@@ -82,6 +89,18 @@ cat > "$WORK/canary/prose.sh" <<'CANARY'
 echo hello
 CANARY
 assert_eq "" "$(deletes_in "$WORK/canary/prose.sh")" "a delete discussed only in a comment is not a delete"
+
+# The other direction, and the one issue #433 was about: a guard that IS there must always be
+# found. The call goes on line 2 of a file far past a pipe buffer, so any reader that stops at the
+# first match leaves the writer blocked with output to flush — under pipefail the old
+# `code_of | grep -q` returned 141 here on every run, where on the real file it lost only a race.
+{
+  printf '#!/usr/bin/env bash\nt="$(resolve_in_root "$ROOT" "$1")" || exit 1\nrm -rf "${t:?}"\n'
+  i=0
+  while [ "$i" -lt 8000 ]; do printf 'echo "filler line %s, long enough to fill a pipe"\n' "$i"; i=$((i + 1)); done
+} > "$WORK/canary/guarded-long.sh"
+guards_in "$WORK/canary/guarded-long.sh" && found=1 || found=0
+assert_eq 1 "$found" "a guard early in a long file is found, not lost to SIGPIPE (#433)"
 
 # --- the property ------------------------------------------------------------
 

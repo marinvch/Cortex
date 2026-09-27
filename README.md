@@ -55,7 +55,8 @@ It indexes the codebase, writes **one findings report** — issues, gaps, recomm
 works out which parts of the development loop the repo is missing (a verification block in
 `CLAUDE.md`, a verifier subagent, `REVIEW.md`, a PR review workflow, hooks, an `intent/` home, evals,
 control bands), and then **stops and asks once**. Nothing in your repo is modified until you pick what to act on.
-Indexing and reporting are read-only by construction: a different skill applies changes.
+Indexing and reporting write only under `.cortex/` — plus three `.gitignore` lines on the first
+run, after you agree — and a different skill applies changes.
 
 ### The order, and how to stop guessing at it
 
@@ -84,7 +85,7 @@ have to come back here to look up. The full sequence, in order:
 |---|---|---|---|
 | 0 | `/migrate-engine` | harvest a retired `.ai-os/` engine's memory first | there is no `.ai-os/` |
 | 1 | `/cortex` | index → findings → the loop → one confirmation → everything below, in one pass | never — this is the entry point |
-| 2 | `/cortex-view` | the repo as one offline HTML page: map, files, areas, gaps | you would rather read the report |
+| 2 | `/cortex-view` | the repo as one offline HTML page: overview, map, structure, files, areas, gaps | you would rather read the report |
 | 3 | `/optimize-context` | slim the `AGENTS.md`/`CLAUDE.md`/`.cursorrules` that were already here | the repo had none |
 | 4 | `/cortex-scaffold` | write the context layer you picked | — |
 | 5 | `/cortex-brief <dir>` | a scoped `AGENTS.md` leaf per area that earns one | no area holds real invariants |
@@ -111,10 +112,14 @@ What lands in the target repo:
 
 ```
 AGENTS.md          small root brief + a routing table
-CLAUDE.md GEMINI.md   one-line shims
+CLAUDE.md GEMINI.md   shims — CLAUDE.md also carries "Verifying your work"
 CONTEXT.md         the domain glossary
-docs/adr/          decisions, created lazily
+docs/adr/          decisions, created lazily (adr/ when docs/ is a published site)
 <area>/AGENTS.md   scoped leaves, only where you accepted one
+REVIEW.md          what a review of this repo checks
+intent/            where a change starts: intent → spec → plan
+.claude/           the verifier subagent, hooks, skills that fit the stack
+.github/workflows/ cortex-review.yml (advisory PR review) · agent-evals.yml
 .cortex/
   index/           generated, gitignored
   findings/        generated, gitignored
@@ -174,6 +179,7 @@ node index/cortex-index.mjs .      # writes .cortex/index/index.json
 node index/cortex-findings.mjs .   # writes .cortex/findings/<date>.md
 node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
+node index/cortex-routes.mjs . --workspace  # which back-end handler serves each front-end call
 ```
 
 ---
@@ -356,6 +362,26 @@ boundary. **Archiving is not sanitizing.** The product's own history is its git 
 On a team, what is shared is the target repo's context layer — `AGENTS.md`, `.cortex/memory/` —
 committed with that code. `core/scrub.js` refuses any memory write carrying a credential.
 
+### What Cortex runs, sends and fetches
+
+- **The indexer, findings, View and every `index/` script** read the repo on disk and write only
+  under its `.cortex/` (the first index run also appends three lines to `.gitignore`). They make no
+  network calls and install nothing — Cortex has no runtime dependencies.
+- **The MCP server** (`mcp/server.js`, started as `node ${CLAUDE_PLUGIN_ROOT}/mcp/server.js`) runs
+  `git` and nothing else that reaches a network, and only against a **team-brain** repository the
+  user set up with `/team-init` or `/team-add`: it clones that repository once, `git pull`s it
+  before a catch-up, and on a team `capture` commits the note and `git push`es it there. With no
+  team brain connected it makes no network call at all. The note passes the secret gate before it
+  is written, and the `home`/`work` profile decides which captures may leave the machine.
+- **The rituals** are instructions Claude follows, and say before each step that touches the
+  network — `gh` for pull requests, `git clone` of a public repo you name — so it runs only when
+  you ask for it.
+- **Stamped into your repo, not run by the plugin:** `/cortex` can write GitHub Actions workflows.
+  `cortex-review.yml` clones this repository at a pinned release tag inside your CI to review each
+  PR; `agent-evals.yml` installs Claude Code in your CI to run your eval cases. Both are files you
+  read and commit.
+- **No telemetry.** Nothing is sent to the author or to any service Cortex runs.
+
 ### The vault firewall
 
 **One vault holds exactly one world** — `home`, `work` or `lab`, set with `CORTEX_PROFILE`. A `home`
@@ -400,6 +426,8 @@ That is the promise; "all bash" was the old shorthand for it, and it stopped bei
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |
 | `cortex-skill-usage.mjs` | Which rituals your sessions have actually reached |
+| `cortex-placeholders.mjs` | Did a file Cortex stamped keep a placeholder from its template; exit 1 if so |
+| `cortex-site-facts.mjs` | The facts the public site states, read from source; `--check` names each one that drifted |
 
 Node also runs the codebase half (`core/`, `index/`), the optional MCP brain (`mcp/`), and the
 prompt-gate hook in `.claude/hooks/`.

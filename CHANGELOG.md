@@ -31,6 +31,21 @@ production breach writes the next `intent.md`.
   as present. The acceptance harness's S4 now stamps the workflow into each workspace clone and runs
   its review step on a PR-shaped branch; that half of S4 passes, and S4 stays `XFAIL (step 8.4)` on
   the overlap warning alone.
+- **Who serves this call? The FE ↔ BE route map, across a workspace.** Every index now carries
+  `routes`: front-end calls (`fetch`, axios and other HTTP clients, wrappers such as
+  `request("/orders")`, request-config objects and RTK Query endpoints, with string or template
+  URLs), declared API bases (`baseUrl`, dev-server `proxy` keys), gateway route tables and
+  http-proxy-middleware mounts, and Spring `@RequestMapping`/`@Get…`/`@Post…`/`@Put…`/`@Delete…`/
+  `@PatchMapping` handlers with class and method paths combined and `server.servlet.context-path`
+  applied. `{id}`, `:id` and `${id}` are one path variable. `node index/cortex-routes.mjs <dir>
+  --workspace` joins every repo in a directory of checkouts — front-end call → gateway route → Spring
+  handler, each as `repo/file:line` — telling two services with one API shape apart by the gateway's
+  target. Unmatched calls, unused endpoints and gateway routes that reach nothing are **low**
+  findings, and an unused endpoint is "worth checking, never safe to delete": URLs built at runtime
+  are counted as unread, not guessed. Read-only; a missing index is built in memory and the output
+  says so. On the Harbor test workspace 7/7 calls and 3/3 gateway routes resolve, and scenario S3
+  flips from XFAIL to PASS; on the RealWorld React + Spring pair 22/22 calls reach 19/19 handlers.
+  Design: `docs/specs/2026-09-27-route-map-design.md`.
 - **The checker: does a repo's Claude setup follow Anthropic's own docs?** `index/lib/claude-setup.mjs`
   adds 23 `claude-setup/*` findings to the report `/cortex-install`, `cortex-view` and `cortex-next`
   already read — `CLAUDE.md` (and what it `@`-imports) over 200 lines, emphasis on many lines, an

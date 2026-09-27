@@ -29,6 +29,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const INDEX = join(REPO_ROOT, "index", "cortex-index.mjs");
 const IMPACT = join(REPO_ROOT, "index", "cortex-impact.mjs");
 const LOOP = join(REPO_ROOT, "index", "cortex-loop.mjs");
+const ROUTES = join(REPO_ROOT, "index", "cortex-routes.mjs");
 const CLI = join(REPO_ROOT, "mcp", "ai-os.js");
 const SERVER = join(REPO_ROOT, "mcp", "server.js");
 
@@ -41,6 +42,8 @@ if (!wsArg || workFlag < 0 || !rest[workFlag + 1]) {
 const WS = resolve(wsArg);
 const WORK = resolve(rest[workFlag + 1]);
 mkdirSync(WORK, { recursive: true });
+const REPOS = join(WORK, "repos");
+mkdirSync(REPOS, { recursive: true });
 
 // A fixed identity and no developer profile: the clones commit, and neither the machine's git
 // config nor a CORTEX_* variable in the caller's shell may decide what these checks see.
@@ -316,7 +319,9 @@ const before = fingerprint(repos);
 let failures = 0;
 
 for (const r of repos) {
-  r.clone = join(WORK, r.name);
+  // Clones sit together in their own directory, so that directory is itself a workspace — the one
+  // S3 hands to cortex-routes — with none of the scratch files, vaults or bare remotes beside it.
+  r.clone = join(REPOS, r.name);
   execFileSync("git", ["clone", "-q", "--no-hardlinks", r.src, r.clone], { env: BASE_ENV, stdio: "pipe" });
   r.files = r.teamBrain ? [] : git(r.clone, ["ls-files"]).split("\n").filter(Boolean);
 }
@@ -479,14 +484,46 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
 
 // S3 — FE ↔ BE: who serves this call -------------------------------------------------------------
 {
-  // Step 8.3 puts a route map in the index. Until an index carries one there is nothing to resolve;
-  // once one does, this must become the real check, so it stops being an expected failure.
-  const withRoutes = code.filter((r) => r.index && "routes" in r.index);
-  failures += scenario("S3", "FE ↔ BE: a gateway route resolves to the controller serving it", [
-    withRoutes.length
-      ? { ok: false, label: `the index carries routes now (${withRoutes.map((r) => r.name).join(", ")}) — write the real cross-repo check` }
-      : { ok: false, label: "no index carries a route map yet", xfail: "step 8.3" },
-  ]);
+  // The route map is joined across every code repo by cortex-routes, run on the clones exactly as a
+  // user runs it on a checkout directory. Generic: whatever gateway routes and calls the workspace
+  // declares are what must resolve.
+  const checks = [];
+  const indexed = code.filter((r) => r.index);
+  const withRoutes = indexed.filter((r) => "routes" in r.index);
+  checks.push({ ok: indexed.length > 0 && withRoutes.length === indexed.length, label: `every index carries a route map: ${withRoutes.length}/${indexed.length}` });
+
+  const run = spawnSync(process.execPath, [ROUTES, REPOS, "--workspace", "--json"], { env: BASE_ENV, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  let map = null;
+  try { map = JSON.parse(run.stdout); } catch { /* reported below */ }
+  checks.push({
+    ok: run.status === 0 && Boolean(map),
+    label: "cortex-routes --workspace runs over the clones",
+    detail: map ? undefined : (run.stderr || run.stdout).trim().split("\n")[0],
+  });
+
+  if (map) {
+    // Each gateway route must reach a handler, and in ONE repo — two services with one API shape
+    // are told apart by the route's target, or the map cannot say who serves the call.
+    const gw = map.gatewayRoutes;
+    const good = gw.filter((g) => new Set(g.handlers.map((h) => h.repo)).size === 1);
+    checks.push({
+      ok: gw.length > 0 && good.length === gw.length,
+      label: `gateway routes resolve to the controller serving them, in one repo each: ${good.length}/${gw.length}`,
+      detail: gw.length
+        ? sample(gw.filter((g) => !good.includes(g)), (g) => `${g.gateway.prefix} (${g.gateway.repo}/${g.gateway.file}:${g.gateway.line}) → ${[...new Set(g.handlers.map((h) => h.repo))].join(", ") || "nothing"}`)
+        : "no gateway route in any repo",
+    });
+    const ours = map.links.filter((l) => !l.call.host || ["localhost", "127.0.0.1"].includes(l.call.host));
+    const served = ours.filter((l) => l.targets.length);
+    checks.push({
+      ok: ours.length > 0 && served.length === ours.length,
+      label: `front-end calls reach a Spring handler: ${served.length}/${ours.length}`,
+      detail: ours.length
+        ? sample(ours.filter((l) => !l.targets.length), (l) => `${l.call.method} ${l.call.path} (${l.call.repo}/${l.call.file}:${l.call.line})`)
+        : "no front-end call in any repo",
+    });
+  }
+  failures += scenario("S3", "FE ↔ BE: a gateway route resolves to the controller serving it", checks);
 }
 
 // S4 — daily team rituals ------------------------------------------------------------------------

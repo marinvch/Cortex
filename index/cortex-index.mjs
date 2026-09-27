@@ -55,6 +55,12 @@ if (args.json) {
       `Layers: ${index.layers.length} (depth 0 = foundation)` +
       (index.cycles.length ? `, ${index.cycles.length} files in import cycles` : "") +
       `\n` +
+      // Only when there is something to join: a repo with no calls and no handlers gains a line of
+      // zeros that says nothing.
+      (index.routes.calls.length || index.routes.handlers.length || index.routes.gateways.length
+        ? `Routes: ${index.routes.calls.length} calls, ${index.routes.gateways.length} gateway routes, ` +
+          `${index.routes.handlers.length} handlers — resolve them with node index/cortex-routes.mjs\n`
+        : "") +
       `Wrote ${out} in ${Date.now() - started}ms\n` +
       generatedNotice(gen) +
       // An index answers nothing a user actually asked. Without this line the sequence is

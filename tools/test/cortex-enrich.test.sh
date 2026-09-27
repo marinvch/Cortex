@@ -225,7 +225,7 @@ assert_contains "$out" "Created .cortex/" "creating the directory is announced"
 assert_contains "$out" "Added to .gitignore" "and the ignore write is reported, not silent"
 assert_contains "$(cat "$PROJ/.gitignore")" ".cortex/index/" "the generated index directory really is ignored"
 # The asymmetry that makes the memory store work: it is committed, so it must never be ignored.
-grep -v '^[[:space:]]*#' "$PROJ/.gitignore" | grep -qx ".cortex/memory/" \
+grep -qx ".cortex/memory/" <<<"$(grep -v '^[[:space:]]*#' "$PROJ/.gitignore")" \
   && _fail "memory/ is committed on purpose and must never be ignored" \
   || _pass "memory/ is committed on purpose and must never be ignored"
 

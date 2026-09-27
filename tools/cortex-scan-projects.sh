@@ -66,7 +66,7 @@ while IFS= read -r gitdir; do
   # A personal vault never registers work repos — not even name/path metadata.
   # Override the folder list with: WORK_DIRS='Work|Employer|ClientX'
   WORK_DIRS="${WORK_DIRS:-Work|work|Employer|employer|Clients|clients}"
-  if echo "$repo" | grep -qE "/($WORK_DIRS)/"; then
+  if grep -qE "/($WORK_DIRS)/" <<<"$repo"; then
     SKIP=$((SKIP+1)); WORKSKIP=$((WORKSKIP+1))
     rm -f "$VAULT/projects/$(slugify "$(basename "$repo")").md"   # purge any prior registration
     continue

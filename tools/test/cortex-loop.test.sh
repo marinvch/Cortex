@@ -66,6 +66,18 @@ out="$(run withpkg)"
 assert_contains "$out" "npm test" "a declared test script is quoted as the command"
 assert_contains "$out" "npm run build" "and so is a declared build script"
 
+# --- a row under .claude/ says how an unattended run gets through --------------------------------
+#
+# A headless `claude -p "/cortex"` stamped AGENTS.md, CLAUDE.md and REVIEW.md and left the verifier
+# and the hooks missing: Claude Code never auto-approves a write under .claude/, and -p has nobody to
+# ask. The row that stays missing is where the reader looks next, so the way through goes there.
+assert_contains "$out" "--permission-mode auto" "a missing .claude/ row names the mode an unattended run needs"
+json="$(run withpkg --json)"
+assert_contains "$json" '"protectedWrites": [
+        ".claude/agents/verifier.md"' "and --json carries the protected paths for the ritual to read"
+out="$(run nopkg)"
+assert_not_contains "$out" "--permission-mode" "a repo with no .claude/ row missing is not told about it"
+
 fresh_repo nopkg
 out="$(run nopkg)"
 assert_not_contains "$out" "npm test" "a repo with no manifest is never told to run npm test"

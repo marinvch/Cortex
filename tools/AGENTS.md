@@ -74,6 +74,13 @@ so no network.
 Four assertions in `_helpers.sh`, deliberately. A test framework that grows features is a dependency
 by another name; if a test wants a fifth helper, it is usually the test that wants simplifying.
 
+**Every fragment runs under `pipefail`, set by `run.sh` where the fragment cannot see it — so
+nothing pipes into `grep -q`.** `grep -q` exits at its first match; a writer still flushing takes
+SIGPIPE, and the pipeline reports 141 for a match that is there. It depends on the scheduler, which
+is how `destructive-guard.test.sh` failed once on CI for a file nobody touched (#433). Write
+`grep -q PAT <<<"$(producer)"`. `pipefail-grep.test.sh` holds every fragment and every tool that
+sets `pipefail` to it.
+
 **A `*.test.sh` file is a fragment `run.sh` sources, not a script — and it refuses to run alone.**
 The runner exports `$WORK` and `$REPO_ROOT` and cds into a fresh temp dir. Standalone, both are
 empty: `cd "$WORK/proj"` becomes `cd ""`, which fails without stopping the script, so the `git

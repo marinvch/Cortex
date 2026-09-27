@@ -8,8 +8,12 @@
 # prove nothing. When something breaks in production, its case gets added here and never removed.
 #
 # accept.sh judges the work, not the reply: run the test, read the diff, check the file. The final
-# message of a run is a report of what the agent believes it did, not proof that it did it. Each
-# case is one run with no automatic continuation — a case that stops short fails, and is not nudged.
+# message of a run is a report of what the agent believes it did, not proof that it did it — a model
+# can end its turn on a status update with the work still open. So a turn that ends cleanly while
+# accept.sh still rejects the work is continued in the same session, at most twice; a case still
+# rejected after that is reported PARTIAL and fails, so a run that is genuinely stuck ends and can
+# be reviewed rather than nudged forever. A run that errors is a failure and is never continued.
+# Anthropic's guidance for Claude Opus 5.5 — "stop after two or three automatic continuations".
 #
 # Claude Code runs without --bare on purpose. Bare mode skips CLAUDE.md, skills and hooks, which are
 # the configuration these cases exist to regress.
@@ -61,6 +65,9 @@ jobs:
             echo "::notice::evals/cases/ holds no cases yet — add one folder per real past task, with prompt.md and accept.sh."
             exit 0
           fi
+          flags=(--permission-mode dontAsk --allowedTools "Read,Edit,Bash({{TEST_CMD}} *)" --output-format json)
+          max_continuations=2
+          nudge="Your last turn ended, but the task is not finished yet. Continue it to completion, then stop."
           failed=0
           for dir in "${cases[@]}"; do
             dir="${dir%/}"
@@ -69,16 +76,28 @@ jobs:
             if [ ! -f "$dir/prompt.md" ] || [ ! -f "$dir/accept.sh" ]; then
               echo "FAIL  $name — a case needs prompt.md and accept.sh"; failed=1; continue
             fi
-            if ! claude -p "$(cat "$dir/prompt.md")" \
-                --permission-mode dontAsk \
-                --allowedTools "Read,Edit,Bash({{TEST_CMD}} *)" \
-                --output-format json > "$out"; then
-              echo "FAIL  $name — claude exited non-zero: $(head -c 400 "$out")"; failed=1
-            elif bash "$dir/accept.sh" "$out"; then
-              echo "pass  $name"
+            status="FAIL "; note=""; continued=0
+            if ! claude -p "$(cat "$dir/prompt.md")" "${flags[@]}" > "$out"; then
+              note=" — claude exited non-zero: $(head -c 400 "$out")"
             else
-              echo "FAIL  $name"; failed=1
+              while :; do
+                if bash "$dir/accept.sh" "$out"; then status="pass "; break; fi
+                # Only a clean end of turn is a report to continue from; an error is a result.
+                if ! grep -Eq '"is_error"[[:space:]]*:[[:space:]]*false' "$out"; then
+                  note=" — the run ended in an error: $(head -c 400 "$out")"; break
+                fi
+                if [ "$continued" -ge "$max_continuations" ]; then
+                  status="PARTIAL"; note=" — accept.sh still rejects the work after $continued continuations"; break
+                fi
+                continued=$((continued + 1))
+                if ! claude -p "$nudge" --continue "${flags[@]}" > "$out"; then
+                  note=" — claude exited non-zero on continuation $continued: $(head -c 400 "$out")"; break
+                fi
+              done
             fi
+            [ "$status" = "pass " ] || failed=1
+            [ "$status" = "pass " ] && [ "$continued" -gt 0 ] && note=" (after $continued continuation(s))"
+            echo "$status $name$note"
             # The next case starts from the committed tree. Ignored files — installed dependencies —
             # survive, because clean without -x leaves them.
             git reset --hard -q && git clean -fdq

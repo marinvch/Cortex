@@ -603,6 +603,12 @@ test("agent-evals.yml, stamped, parses as a workflow with every field a job need
   assert.match(run, /-z "\$\{ANTHROPIC_API_KEY:-\}"/, "a run without the secret (a fork's PR) is skipped, not failed");
   assert.doesNotMatch(run, /set -e/, "one failing case must not abort the cases after it");
   assert.match(run, /reset --hard/, "each case starts from the committed tree, not the last case's edits");
+  // A text-only end of turn is a report, so open work is continued — within the documented cap.
+  const { limit } = await import("../../core/claude-code.js");
+  const cap = Number(run.match(/max_continuations=(\d+)/)?.[1]);
+  assert.ok(cap >= 1 && cap <= limit("model.agentic.continuation-cap"), `continuations capped at ${cap}, within the docs' "two or three"`);
+  assert.match(run, /claude -p "\$nudge" --continue/, "a continuation resumes the same session");
+  assert.match(run, /PARTIAL/, "a case still open after the cap is reported partial");
 });
 
 test("an unfilled setup placeholder is a parse error, not a workflow that runs without its toolchain", async () => {

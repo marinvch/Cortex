@@ -203,6 +203,15 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   is invisible to both name and import, which is what the mention signal is for. Quoted-only, so a
   file named in a comment is not counted as exercised. Do not copy this heuristic into a third
   caller — two copies would agree today and disagree in a month, with nothing to say which is right.
+  **The import signal follows barrels**, through edges `build.mjs` marks `reexport` (`export … from`
+  only — never an ordinary import inside the target, which would call everything under a test
+  covered). A *named* re-export carries `names` and is followed only when the test uses one of
+  them: zustand's `middleware.ts` re-exports `ssrSafe as unstable_ssrSafe`, which no test calls, and
+  loading a barrel is not testing it. Without test text a named hop is not followed. **Only code,
+  scripts and `.bats` can be tests** (`canBeTest` in `lib/langs.mjs`): a `tests/AGENTS.md` written by
+  `/cortex-brief` counted as a test and its prose marked configs tested, so Cortex's own output
+  changed its findings. Coverage asks `canBeTest` too, so an older index cannot lend coverage from
+  a document.
 - **A citation is checkable; a claim is not.** `citationDrift` resolves the paths a context document
   names — doc-relative first (honouring `../`), then root — and only tokens whose last segment has an
   extension and which do not start with `/`. Those rules are not fussiness: without them, run against
@@ -298,7 +307,12 @@ borrows its three numbers rather than keeping a second list.
   both exist. A Python or Go repo with neither returns nulls on purpose: the ritual asks. Adding a
   source means adding a detector that can be wrong in only one direction, toward "not found".
   `detectFormatters` follows the same rule — a config file the formatter itself reads, never a
-  `format` script — and an empty list stamps a `format-changed.sh` that does nothing.
+  `format` script — and an empty list stamps a `format-changed.sh` that does nothing. Lint is a
+  family of names (`lint`, `test:lint`, a lone `lint:*`). Several parts with no aggregate return
+  null rather than a command that checks half the repo, and a fixer is never chosen.
+- **A protected path needs evidence, not a name.** For `migrations?/` the file is the evidence —
+  SQL or code, never under a `docs/` tree — because zustand's hand-written upgrade guides in
+  `docs/reference/migrations/` were proposed for a hook that blocks edits.
 - **Every `why` goes through `evidence()`, and every blocked row's `needs` through `unmet()`.** Both
   rules were written after a real run: `null` printed inside a sentence, and a row claimed to need
   the CI system that its own evidence said was present. `unmet` returns only prerequisites that

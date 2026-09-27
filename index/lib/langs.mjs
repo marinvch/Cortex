@@ -62,8 +62,25 @@ const TEST_PATTERNS = [
   /Test[s]?\.(java|kt|cs|scala)$/, /Spec\.(kt|scala)$/,
 ];
 
+/**
+ * Whether a file is the kind of thing that can BE a test: code, a script, or a `.bats` suite.
+ *
+ * The directory patterns above say where tests live, and a test directory also holds READMEs,
+ * fixtures, snapshots and — once `/cortex-brief tests` has run — an `AGENTS.md`. On pmndrs/zustand
+ * that brief made the index report 16 tests instead of 15, and because it names
+ * `vitest.config.mts`, the coverage mention signal marked the config tested and the untested
+ * finding shrank. Cortex's own output changed Cortex's findings. A document cannot run, so it
+ * never tests anything; `lib/coverage.mjs` asks this too, so an index built before this rule
+ * cannot lend coverage from one either.
+ */
+export function canBeTest(path) {
+  if (/\.bats$/.test(path)) return true;
+  const cat = categoryOf(detectLanguage(path));
+  return cat === "code" || cat === "script";
+}
+
 export function isTestPath(path) {
-  return TEST_PATTERNS.some((re) => re.test(path));
+  return canBeTest(path) && TEST_PATTERNS.some((re) => re.test(path));
 }
 
 // Common entry points, used so an entry file is never reported as an unreferenced orphan.

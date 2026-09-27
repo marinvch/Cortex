@@ -21,7 +21,7 @@
 // particular setup appears here, because this file ships and the setup it was proven on does not.
 
 import { execFileSync, spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -231,6 +231,76 @@ function callTool(cwd, env, tool, args) {
   });
 }
 
+// --- S4 helpers: two people on one repo ---------------------------------------------------------
+
+/**
+ * Two identities edit one clone and `cortex-impact --against` must warn them (#408, step 8.4).
+ *
+ * Built from the repo's own graph so it stays generic: the first import edge `from → to` (sorted,
+ * so the choice is stable) gives the one-hop collision, and one more indexed file both sides touch
+ * gives the direct overlap. "Theirs" is committed on a branch by a second identity; "mine" is
+ * staged, uncommitted, by the first. Both forms the command takes are checked — the branch
+ * (`--against-ref`) and a change list with CRLF endings (`--against`), which is how a session's
+ * uncommitted work arrives. The clone is reset afterwards; the workspace itself is never touched.
+ */
+function overlapCheck() {
+  const label = "two identities editing overlapping files get a warning (cortex-impact --against)";
+  const pick = (r) => {
+    const edge = [...r.index.edges]
+      .filter((e) => e.from !== e.to)
+      .sort((a, b) => (a.from + "\u0000" + a.to < b.from + "\u0000" + b.to ? -1 : 1))[0];
+    if (!edge) return null;
+    const shared = r.index.files.map((f) => f.path).sort().find((p) => p !== edge.from && p !== edge.to);
+    return shared ? { edge, shared } : null;
+  };
+  const r = code.find((c) => c.index && pick(c));
+  if (!r) return { ok: false, label, detail: "no indexed code repo has an import edge to build two colliding change sets from" };
+  const { edge, shared } = pick(r);
+
+  const touch = (rel) => writeFileSync(join(r.clone, rel), `${readFileSync(join(r.clone, rel), "utf8")}\n`);
+  const as = (who) => ({ ...BASE_ENV, GIT_AUTHOR_NAME: who, GIT_AUTHOR_EMAIL: `${who}@example.invalid`, GIT_COMMITTER_NAME: who, GIT_COMMITTER_EMAIL: `${who}@example.invalid` });
+  const g = (env, args) => execFileSync("git", ["-C", r.clone, ...args], { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const branch = "e2e-overlap-theirs";
+  const home = g(BASE_ENV, ["rev-parse", "--abbrev-ref", "HEAD"]).trim();
+  try {
+    g(BASE_ENV, ["checkout", "-q", "-b", branch]);
+    touch(edge.to);
+    touch(shared);
+    g(as("e2e-theirs"), ["commit", "-q", "-am", "theirs: overlapping change"]);
+    g(BASE_ENV, ["checkout", "-q", home]);
+    touch(edge.from);
+    touch(shared);
+    g(as("e2e-mine"), ["add", "--", edge.from, shared]);
+
+    const listPath = join(WORK, `${r.name}.theirs.txt`);
+    writeFileSync(listPath, `${edge.to}\r\n${shared}\r\n`);
+    const forms = [["--against-ref", branch], ["--against", listPath]];
+    const misses = [];
+    for (const form of forms) {
+      const run = spawnSync(process.execPath, [IMPACT, "--root", r.clone, "--index", r.indexPath, "--staged", ...form, "--json"], { env: BASE_ENV, encoding: "utf8" });
+      let o = null;
+      try { o = JSON.parse(run.stdout); } catch { /* reported below */ }
+      const overlapOk = o?.overlap?.includes(shared);
+      const collisionOk = o?.collisions?.some((c) => c.mine === edge.from && c.theirs === edge.to && c.edge === "mine-imports-theirs");
+      if (run.status !== 0 || !overlapOk || !collisionOk) {
+        misses.push(`${form[0]}: exit ${run.status}, overlap ${overlapOk ? "ok" : "missing"} (${shared}), collision ${collisionOk ? "ok" : "missing"} (${edge.from} → ${edge.to})${run.stderr ? ` — ${run.stderr.trim().split("\n")[0]}` : ""}`);
+      }
+    }
+    return {
+      ok: misses.length === 0,
+      label: `${label}: ${r.name}, ${forms.length - misses.length}/${forms.length} forms warn`,
+      detail: misses[0],
+    };
+  } catch (e) {
+    return { ok: false, label, detail: `${r.name}: ${String(e.message).split("\n")[0]}` };
+  } finally {
+    try {
+      g(BASE_ENV, ["reset", "-q", "--hard"]);
+      g(BASE_ENV, ["checkout", "-q", home]);
+    } catch { /* the clone is scratch; the workspace fingerprint is what matters */ }
+  }
+}
+
 function day(offsetDays) {
   const d = new Date(Date.now() + offsetDays * 86400000);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -393,12 +463,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
 // S4 — daily team rituals ------------------------------------------------------------------------
 {
   const checks = [];
-  const overlapBuilt = /--against\b/.test(readFileSync(IMPACT, "utf8"));
-  checks.push(
-    overlapBuilt
-      ? { ok: false, label: "cortex-impact takes --against now — write the real overlap check" }
-      : { ok: false, label: "two changed-file sets that overlap get a warning (cortex-impact --against)", xfail: "step 8.4" },
-  );
+  checks.push(overlapCheck());
   const reviewing = code.filter((r) => {
     const wf = join(r.clone, ".github", "workflows");
     return existsSync(wf) && readdirSync(wf).some((f) => /\.ya?ml$/.test(f) && /cortex-review/.test(readFileSync(join(wf, f), "utf8")));

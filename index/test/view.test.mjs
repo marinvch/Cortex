@@ -460,16 +460,74 @@ test("the no-git state is named, and memory still reaches the timeline", () => {
   assert.match(page.html("ovl"), /not available — not a git repository/);
   assert.match(page.html("ovr"), /we decided a thing/);
   assert.match(page.html("ovr"), /only memory entries can be listed/);
-  assert.match(page.html("ovbar"), /indexed <b>date not available<\/b>/);
+  assert.match(page.html("ovbar"), /last commit <b>date not available<\/b>/);
   assert.match(page.html("ovbar"), /Cortex v9\.9\.9/);
 });
 
 test("the Structure tab names what is missing and the command that writes it", () => {
-  const page = runOverview(buildView(idx(), "/tmp/x"));
+  // Five code files is the findings report's threshold for proposing a scoped brief; the tab names
+  // the command only where the report would offer it.
+  const five = Array.from({ length: 5 }, (_, i) => ({
+    path: `src/m${i}.js`, lang: "javascript", category: "code", lines: 5, commits: 1,
+    isTest: false, isEntry: false, imports: [], inbound: 0,
+  }));
+  const page = runOverview(buildView(idx({
+    files: five, edges: [], layers: [],
+    areas: [{ name: "src", paths: five.map((f) => f.path) }],
+  }), "/tmp/x"));
   const s = page.html("spane");
   assert.match(s, /no root AGENTS\.md/);
-  assert.match(s, /\/cortex-brief src\//, "an area with no scoped brief names the command");
+  assert.match(s, /\/cortex-brief src\//, "an area the report would propose names the command");
   assert.match(s, /no CONTEXT\.md/);
+});
+
+test("a small area is covered by the brief above it, and is not sent to /cortex-brief", () => {
+  // Three files: under the threshold. A dashed box with a command in it is an instruction, and the
+  // tab used to give it for every area with code — one-file directories included.
+  const s = runOverview(buildView(idx(), "/tmp/x")).html("spane");
+  assert.doesNotMatch(s, /\/cortex-brief src\//);
+  assert.match(s, /too small to need its own brief/);
+});
+
+test("backticks in the sequence's prose render as code, not as backticks", () => {
+  const next = {
+    done: 5, total: 6, complete: false, perChange: [],
+    steps: [{ id: "loop", title: "Close the artifact chain", cmd: "/cortex", done: false, next: true,
+      why: "6 of 8 in place — run `cortex-loop.mjs .` for which and why" }],
+  };
+  const page = runOverview(buildView(idx(), "/tmp/x", { next }));
+  assert.match(page.html("ovr"), /run <code>cortex-loop\.mjs \.<\/code> for which/);
+  assert.doesNotMatch(page.html("ovr"), /`/);
+  const html = renderHtml(buildView(idx(), "/tmp/x", { next }));
+  assert.ok(html.includes("'+ic(s.why)+'"), "the Next steps tab renders the same way");
+});
+
+test("the page has an inline favicon, so a served copy does not 404 on /favicon.ico", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.match(html, /<link rel="icon" href="data:image\/svg\+xml,/);
+});
+
+test("dark Map edges are raised; the light theme's are left exactly where they were", () => {
+  assert.equal(THEMES.light["edge-rest"], ".12", "the light theme is not darkened");
+  assert.equal(THEMES.light["edge-w"], ".7");
+  assert.ok(+THEMES.dark["edge-rest"] >= 0.3, "an edge at rest is visible on the dark ground");
+  assert.ok(+THEMES.dark["edge-w"] >= 1);
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(html.includes("'rgba('+e.s.rgb+','+ER+')'"), "the draw loop reads the token");
+});
+
+test("a phone gets a bar that wraps and views that stack, never a page wider than the screen", () => {
+  // Lint-style, like the layout tests above: the geometry itself is checked in a real browser at
+  // 390px (see the PR that added this). These pin the three decisions that made it fit.
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(!html.includes("calc(100vh - 60px)"), "the views are not sized against a fixed-height bar");
+  assert.ok(html.includes("body{overflow:hidden;display:flex;flex-direction:column}"));
+  const phone = html.slice(html.indexOf("@media (max-width:720px)"));
+  assert.ok(phone.includes("#top{flex-wrap:wrap"), "the bar wraps");
+  assert.ok(phone.includes("#tabs{order:4;flex:1 1 100%;flex-wrap:wrap}"), "the tabs get rows of their own, all in view");
+  assert.ok(phone.includes("#stree{min-width:0}"), "the Structure tree drops its 960px floor");
+  const narrow = html.slice(html.indexOf("@media (max-width:1100px)"));
+  assert.ok(narrow.includes("#v-ov.on{display:block"), "the stacked Overview is normal flow, not a collapsing grid");
 });
 
 function bigIndex(n) {

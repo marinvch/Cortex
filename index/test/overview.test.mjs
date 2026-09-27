@@ -67,10 +67,11 @@ test("the churn window ends at the indexed commit, not at whenever the page is o
     const end = Date.UTC(2026, 8, 26, 12) / 1000;
     const inside = [end, end - DAY, end - 29 * DAY];
     const git = fakeGit([
-      ["rev-parse", "true\n"],
+      ["rev-parse --is-inside-work-tree", "true\n"],
+      ["rev-parse --is-shallow-repository", "false\n"],
       ["show -s --format=%ct", `${end}\n`],
       ["log 0123456789abcdef --since", inside.join("\n") + "\n"],
-      ["log -n 8", "2026-09-26\x1fabc1234\x1fA Person\x1fa subject\n"],
+      ["log -n 8", `${end}\x1fabc1234\x1fA Person\x1fa subject\n`],
     ]);
     const o = buildOverview(index(), root, { git, stale: false });
     assert.ok(git.calls.includes(`log 0123456789abcdef --since=@${end - CHURN_DAYS * DAY} --format=%ct`), "an absolute instant");
@@ -94,16 +95,62 @@ test("memory sits before commits on the same day, and its lag is measured agains
     writeFileSync(join(root, ".cortex", "memory", "2026-09-20.md"), "## 10:00 · digest\n\nwhy we did it\n");
     const end = Date.UTC(2026, 8, 26, 12) / 1000;
     const git = fakeGit([
-      ["rev-parse", "true\n"],
+      ["rev-parse --is-inside-work-tree", "true\n"],
+      ["rev-parse --is-shallow-repository", "false\n"],
       ["show -s --format=%ct", `${end}\n`],
       ["log 0123456789abcdef --since", ""],
-      ["log -n 8", "2026-09-26\x1fbbb\x1fA\x1fnewer\n2026-09-20\x1faaa\x1fA\x1fsame day\n"],
+      ["log -n 8", `${end}\x1fbbb\x1fA\x1fnewer\n${end - 6 * DAY}\x1faaa\x1fA\x1fsame day\n`],
     ]);
     const o = buildOverview(index(), root, { git });
     assert.deepEqual(o.timeline.map((e) => e.tag), ["bbb", "digest", "aaa"]);
     assert.equal(o.memory.newest, "2026-09-20");
     assert.equal(o.memory.lagDays, 6);
     assert.equal(o.churn.commits, 0, "an empty window is a real zero when git answered");
+  } finally {
+    done();
+  }
+});
+
+test("a commit's timeline date and the status bar's date are the same UTC day", () => {
+  // 00:30 UTC on the 25th is 09:30 on the 25th in +09:00 but 20:30 on the 24th in -04:00. The
+  // timeline read git's `%cs` — the committer's local date — while the status bar used UTC, so one
+  // commit showed two dates on one page. Both come from the timestamp now.
+  const { root, done } = tempRepo();
+  try {
+    const ts = Date.UTC(2026, 7, 25, 0, 30) / 1000;
+    const git = fakeGit([
+      ["rev-parse --is-inside-work-tree", "true\n"],
+      ["rev-parse --is-shallow-repository", "false\n"],
+      ["show -s --format=%ct", `${ts}\n`],
+      ["log 0123456789abcdef --since", `${ts}\n`],
+      ["log -n 8", `${ts}\x1fabc1234\x1fA\x1fsubject\n`],
+    ]);
+    const o = buildOverview(index(), root, { git });
+    assert.ok(git.calls.some((c) => c.startsWith("log -n 8") && c.includes("%ct")), "the timeline asks git for a timestamp");
+    assert.equal(o.commitDate, "2026-08-25");
+    assert.equal(o.timeline[0].date, o.commitDate);
+  } finally {
+    done();
+  }
+});
+
+test("a shallow clone says churn is unavailable instead of drawing one commit as a quiet month", () => {
+  // `git clone --depth 1` is how people try a tool on somebody else's repo, and it holds one commit:
+  // every file "changed once", every window "1 commit". That is not a measurement of anything.
+  const { root, done } = tempRepo();
+  try {
+    const end = Date.UTC(2026, 8, 26, 12) / 1000;
+    const git = fakeGit([
+      ["rev-parse --is-inside-work-tree", "true\n"],
+      ["rev-parse --is-shallow-repository", "true\n"],
+      ["show -s --format=%ct", `${end}\n`],
+      ["log 0123456789abcdef --since", `${end}\n`],
+      ["log -n 8", `${end}\x1fabc1234\x1fA\x1fsubject\n`],
+    ]);
+    const o = buildOverview(index(), root, { git });
+    assert.equal(o.shallow, true);
+    assert.match(o.churn.unavailable, /shallow clone/);
+    assert.equal(o.churn.commits, undefined, "no count is drawn at all");
   } finally {
     done();
   }

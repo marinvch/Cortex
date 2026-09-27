@@ -101,7 +101,10 @@ console.log(
     // "in cycles" and not "cycles": the index reports the FILES that sit in a strongly connected
     // component, which is what cortex-index prints too. Calling three files three cycles inflates
     // the number and makes the two tools disagree about the same repo.
-    `${g.orphans.length} orphans · ${g.cyclicFiles.length} in cycles · ${g.untested.length} busiest untested`
+    `${g.orphans.length} orphans · ${g.cyclicFiles.length} in cycles · ` +
+    // The whole count, from the same field the page and the findings title read. This printed the
+    // length of the page's top-40 list as "busiest untested" — a number no other surface had.
+    (view.stats.untested === null ? "coverage not available" : `${view.stats.untested} modules with no test found`)
 );
 // Absent is the ordinary case and gets the invitation it always got. Anything else is a file that
 // exists and was not used, and the user is told which and why — the silent `null` this replaced

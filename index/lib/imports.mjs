@@ -632,10 +632,12 @@ export function resolveImport(spec, fromPath, fileSet, lang) {
  * `/cortex-impact` said nothing imported the crate's central type. Both were technically hedged
  * and both were useless — the report has to say it is blind rather than say it looked.
  */
-// Empty today: JS/TS, Python, Go and Rust all resolve. The set stays because the DISTINCTION is
-// the point — the next language whose imports are extracted but not resolved must land here, or
-// its reports will say "nothing depends on this" when they mean "I did not look".
-export const UNRESOLVED_LANGUAGES = new Set([]);
+// JS/TS, Python, Go, Rust, Java, PHP and Ruby all resolve. The next language whose imports are not
+// resolved must land here, or its reports will say "nothing depends on this" when they mean "I did
+// not look". Kotlin is the first: `extractImports` has no case for it, so every `.kt` file had no
+// edge at all, and on spring-petclinic-kotlin 22 of its 24 code files were called unreferenced
+// (#465). Listed here until it has an extractor and a resolver — the report then says it is blind.
+export const UNRESOLVED_LANGUAGES = new Set(["kotlin"]);
 
 /** The module path declared by a go.mod, or null. `module github.com/x/y` → `github.com/x/y`. */
 export function goModulePath(goModText) {

@@ -171,14 +171,21 @@ test("goModulePath reads the module line, and tolerates its absence", () => {
 
 test("no language is claimed as resolved when it is not", () => {
   // The set is what lets every consumer say "I did not look" instead of "nothing depends on this".
-  // It is EMPTY now — JS/TS, Python, Go and Rust all resolve — and that is the point of asserting it
-  // rather than deleting it: a language listed here that actually resolves suppresses a real graph,
+  // JS/TS, Python, Go and Rust all resolve, and that is the point of asserting it rather than
+  // trusting it: a language listed here that actually resolves suppresses a real graph,
   // and one missing from here that does not resolve reports blindness as absence. Both are silent.
   for (const lang of ["javascript", "typescript", "python", "go", "rust"]) {
     assert.ok(!UNRESOLVED_LANGUAGES.has(lang), `${lang} has a resolver, so it must not be listed blind`);
   }
   // The mechanism still works for whatever comes next.
   assert.ok(UNRESOLVED_LANGUAGES instanceof Set);
+});
+
+test("a language with no import extractor is listed blind (#465)", () => {
+  // Kotlin has no case in extractImports, so no .kt file ever has an edge. Unlisted, every one of
+  // them read as unreferenced — 22 of 24 code files on spring-petclinic-kotlin.
+  assert.deepEqual(extractImports("import com.example.owner.Owner\n", "kotlin"), []);
+  assert.ok(UNRESOLVED_LANGUAGES.has("kotlin"));
 });
 
 test("mod resolves as a sibling from a crate root, and as a child from anywhere else", () => {

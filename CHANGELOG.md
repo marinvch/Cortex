@@ -46,6 +46,12 @@ this project now versions independently of any package manager (see `VERSION`).
   back, and pmndrs/zustand's `examples/` (0 of 17) keeps it while its `src` and `src/middleware`
   (6 of 7 each, tested from `tests/`) lose a claim that was just as false. `src/main` is still a
   candidate on size and churn — only the false reason and its ranking weight are gone.
+- **Every Kotlin file was reported as unreferenced (#465).** `extractImports` has no case for
+  Kotlin, so no `.kt` file ever had an edge, and Kotlin was not in `UNRESOLVED_LANGUAGES` — the
+  list that turns "I cannot read these imports" into a stated blind spot rather than a claim that
+  nothing uses the file. It is listed now: spring-petclinic-kotlin goes from 22 of 24 code files
+  "unreferenced" to none claimed, and the report says `Import graph does not cover kotlin`
+  instead. A Kotlin import reader is the real fix and is not in this release.
 
 ## [2.39.0] — 2026-09-27
 

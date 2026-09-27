@@ -6,6 +6,8 @@ import { join } from "node:path";
 
 import { unimported, namedElsewhere, findOrphans } from "../lib/orphans.mjs";
 import { textFrom } from "../lib/repo-text.mjs";
+import { buildIndex } from "../lib/build.mjs";
+import { analyse } from "../lib/findings.mjs";
 
 function repo(files) {
   const root = tempDir("cortex-orph-");
@@ -197,6 +199,22 @@ test("a class with a main is an entry point even without Spring, in Java and Kot
 test("a main that only a comment mentions does not rescue a dead class", () => {
   const text = textFrom({ [DEAD]: "/** Unlike App, has no public static void main(String[] args). */\nclass Leftover {}\n" });
   assert.deepEqual(findOrphans({ files: [javaFile(DEAD)] }, text).map((f) => f.path), [DEAD]);
+});
+
+test("a Kotlin-only repo claims no orphans, because Cortex cannot read Kotlin imports (#465)", () => {
+  // Built for real, so the edges are whatever the builder actually extracts — which for Kotlin is
+  // none. Before, every class here was "unreferenced"; the model imports nothing, the controller
+  // imports it, and neither claim would have been true.
+  const root = repo({
+    "src/main/kotlin/com/example/App.kt": "package com.example\n\n@SpringBootApplication\nclass App\n\nfun main(args: Array<String>) { runApplication<App>(*args) }\n",
+    "src/main/kotlin/com/example/owner/Owner.kt": "package com.example.owner\n\nclass Owner(val name: String)\n",
+    "src/main/kotlin/com/example/owner/OwnerController.kt": "package com.example.owner\n\nimport com.example.owner.Owner\n\nclass OwnerController { fun get() = Owner(\"a\") }\n",
+  });
+  const index = buildIndex(root);
+  assert.equal(index.edges.length, 0, "the premise: no Kotlin edge is extracted");
+  assert.deepEqual(findOrphans(index, root), [], "blindness is not reported as absence");
+  const blind = analyse(index, root).find((f) => /Import graph does not cover/.test(f.title));
+  assert.match(blind?.title ?? "", /kotlin/, "and the report says which language it cannot see");
 });
 
 test("package-info.java and module-info.java are never orphan candidates", () => {

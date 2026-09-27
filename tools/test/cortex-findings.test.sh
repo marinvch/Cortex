@@ -86,8 +86,19 @@ assert_contains "$out" "findings" "the default run says how many it found"
 assert_contains "$out" "Next →" "and hands the reader the next command, because a report is not an action"
 written="$(ls "$PROJ/.cortex/findings" | wc -l | tr -d ' ')"
 assert_eq "1" "$written" "exactly one dated report per run, never a growing pile"
-run >/dev/null
+out="$(run)"
 assert_eq "1" "$(ls "$PROJ/.cortex/findings" | wc -l | tr -d ' ')" "and a second run the same day overwrites rather than accumulates"
+assert_not_contains "$out" "Replaced" "an identical re-run replaces nothing worth mentioning"
+
+# The overwrite used to be silent. Running findings before an install and again after it is the
+# natural way to see what the install changed, and the pre-install report vanished without a word.
+# One report per date stays the naming rule; what changed is that losing a different one is said.
+report="$PROJ/.cortex/findings/$(ls "$PROJ/.cortex/findings")"
+printf '# an earlier report with different findings\n' > "$report"
+out="$(run)"
+assert_contains "$out" "Replaced today's earlier report" "overwriting a DIFFERENT same-day report is said out loud"
+assert_contains "$out" "--out" "and the reader is told how to keep both next time"
+assert_eq "1" "$(ls "$PROJ/.cortex/findings" | wc -l | tr -d ' ')" "still one report per date"
 
 # --stdout is the read-only surface. It existed before --offers and is still what a human pipes.
 rm -rf "$PROJ/.cortex/findings"

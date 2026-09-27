@@ -99,6 +99,23 @@ test("marks tests, entry points, and inbound counts", () => {
   assert.equal(byPath.get("src/billing/orphan.js").inbound, 0);
 });
 
+test("a JVM class that declares an entry point is marked as one, whatever its path", () => {
+  // #459: the path says nothing — a Spring Boot application class sits in a package directory
+  // beside every other class — so the builder reads the declaration out of the code it already
+  // opened for imports.
+  const root = tempDir("cortex-jvm-entry-");
+  const pkg = join(root, "src", "main", "java", "com", "example");
+  mkdirSync(pkg, { recursive: true });
+  writeFileSync(
+    join(pkg, "RestServiceApplication.java"),
+    "package com.example;\n\n@SpringBootApplication\npublic class RestServiceApplication {\n  public static void main(String[] args) {}\n}\n",
+  );
+  writeFileSync(join(pkg, "Greeting.java"), "package com.example;\n\npublic record Greeting(long id, String content) {}\n");
+  const byPath = new Map(buildIndex(root).files.map((f) => [f.path, f]));
+  assert.equal(byPath.get("src/main/java/com/example/RestServiceApplication.java").isEntry, true);
+  assert.equal(byPath.get("src/main/java/com/example/Greeting.java").isEntry, false);
+});
+
 test("is deterministic — two runs over one tree agree exactly", () => {
   const root = fixture();
   const a = buildIndex(root);

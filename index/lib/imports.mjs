@@ -80,8 +80,13 @@ const JAVA_STATEMENT = /\b(?:package|import)\s+(?:static\s+)?[\w.]+(?:\.\*)?\s*;
 const JAVA_DECLARED = /\b(?:class|interface|enum|record)\s+([A-Z][\w$]*)/g;
 const JAVA_TYPE_NAME = /(?<![\w$.])([A-Z][\w$]*)/g;
 
-/** Java source with every comment, string, char and text-block literal replaced by a space. */
-function javaCode(text) {
+/**
+ * Java source with every comment, string, char and text-block literal replaced by a space.
+ * Exported for `isEntrySource` in `lib/langs.mjs`, which reads Kotlin through it too: the comment
+ * and literal forms it blanks are the same in both languages, and an entry point named only in a
+ * comment is not one.
+ */
+export function javaCode(text) {
   let out = "";
   let i = 0;
   const n = text.length;

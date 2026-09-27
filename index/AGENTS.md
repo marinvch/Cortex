@@ -233,6 +233,18 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   about the repository, and a model re-deriving it each session hands the user a different answer
   every time. A step nothing on disk can settle is `optional`, which never becomes "next" and never
   blocks — never a silent tick.
+- **The `loop` row is done when one `/cortex` pass has nothing left to write, not when the loop is
+  complete.** `evals` and `bands` are blocked until that pass writes `CLAUDE.md` and `REVIEW.md`,
+  and then wait on history no second pass can invent — real past tasks, a metric with a record.
+  `SECOND_ROUND` gives each its own row naming `/cortex evals` or `/cortex bands`. Before it, the
+  row said "Next → /cortex" forever on a repo whose owner had rightly deferred bands. `bands` is
+  `optional`: a library with no production metric is finished without one.
+- **ADRs live in `docs/adr/` or `adr/`, and `lib/adr.mjs` is the one answer to which.** `adr/` is
+  proposed when `docs/` is a published site (a generator config, or a workflow that deploys pages
+  from `docs`), because an ADR under a site's source is published with it. Every reader — review,
+  `isContextDoc`, the view, `readState` — goes through `isAdrPath`/`adrLocation`; a sixth
+  `/docs\/adr\//` regex is the drift this replaced. Not `.cortex/adr/`: the walker skips `.cortex/`,
+  so review would never see them.
 - **A cadence step answers two questions, and `done` is only the first.** `done` means *started* —
   a file exists — and that is right for `enrich`, which is run once on an unfamiliar repo. It is
   half an answer for `memory`, which is a **cadence**: a digest is meant to land at the end of a

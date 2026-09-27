@@ -19,6 +19,7 @@
 // change actually violates a documented rule is the ritual's job, and it needs a model.
 
 import { isContextDoc } from "./context-docs.mjs";
+import { isAdrPath } from "./adr.mjs";
 
 // isContextDoc is imported from context-docs.mjs, which owns the vocabulary for all three readers.
 // This module keeps its purity: it classifies INDEXED PATHS and never touches the filesystem, which
@@ -144,7 +145,7 @@ export function reviewContext(index, changed, { readText = () => null } = {}) {
     unknown,
     briefs,
     glossary: [...new Set(glossary)].sort(),
-    adrs: contextDocs.filter((d) => /docs\/adr\//i.test(d) && stale.some((s) => s.path === d)),
+    adrs: contextDocs.filter((d) => isAdrPath(d) && stale.some((s) => s.path === d)),
     stale,
     hasContextLayer: contextDocs.length > 0,
   };
@@ -194,7 +195,7 @@ function normalizeFrom(home, cited) {
 const ABSENCE_MARKERS = /\b(deleted|removed|retired|no longer|used to)\b/i;
 
 function citationClass(doc, line) {
-  if (/(^|\/)docs\/adr\//i.test(doc)) return "historical";
+  if (isAdrPath(doc)) return "historical";
   if (ABSENCE_MARKERS.test(line)) return "historical";
   return "suspected";
 }

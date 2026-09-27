@@ -167,7 +167,8 @@ test("the Structure tab counts, routes and tests areas the way the rest of Corte
   assert.equal(area("src/react").suggest, null, "a one-file directory is not a candidate");
   assert.equal(area("src/react").inherits, "AGENTS.md");
   assert.ok(area("src").tested > 0, "tests in a top-level tests/ cover src/ — by coverage, not by directory");
-  assert.equal(view.structure.adrDir, "docs/adr/TEMPLATE.md", "an ADR directory holding its template exists");
+  assert.equal(view.structure.adrDir, "docs/adr", "an ADR directory holding only its template exists");
+  assert.equal(view.structure.adrGo, "docs/adr/TEMPLATE.md", "and the tab links to the template");
 
   const s = runOverview(view).html("spane");
   assert.match(s, /1 has a scoped brief/, "one scoped brief exists, so one is counted");

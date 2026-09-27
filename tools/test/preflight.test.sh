@@ -87,4 +87,19 @@ mkdir -p "$bare"
 out="$(cd "$bare" && node "$PF" 2>&1)"
 assert_contains "$out" "not a git repo" "outside a repo it names cwd as a fallback instead of inventing a root"
 
+# --- an uninstalled repo is pointed at the front door, with a command that runs from there -----------
+#
+# It said "/cortex-install is the entry point" to `/cortex`, the ritual that runs it first, and
+# printed `node index/cortex-index.mjs .` — a path relative to Cortex's checkout, which does not
+# exist in the repo being installed. Both found by running /cortex on a real clone.
+out="$(cd "$repo" && node "$PF" 2>&1)"
+assert_contains "$out" "/cortex is the entry point" "an uninstalled repo is sent to /cortex, the front door"
+assert_not_contains "$out" "/cortex-install is the entry point" "not to its read half"
+cmd_path="$(printf '%s\n' "$out" | sed -n 's/.*`node "\([^"]*\)" \.`.*/\1/p' | head -n 1)"
+if [ -n "$cmd_path" ] && (cd "$repo" && [ -f "$cmd_path" ]); then
+  _pass "the indexer command it prints resolves from inside the target repo"
+else
+  _fail "the indexer command it prints resolves from inside the target repo" "got: $(printf '%s' "$out" | grep '^index')"
+fi
+
 rm -rf "$work"

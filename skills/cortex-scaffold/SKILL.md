@@ -70,8 +70,8 @@ For each target, check first:
 |---|---|
 | `AGENTS.md` | write `AGENTS.generated.md` beside it and tell the user to diff |
 | `CONTEXT.md` | leave it; offer to add missing terms instead |
-| `docs/adr/` | leave it; only add the template if the directory is empty |
-| `CLAUDE.md` / `GEMINI.md` | if they hold real content rather than a shim line, leave them |
+| `docs/adr/` or `adr/` | leave it where it is; only add the template if the directory is empty |
+| `CLAUDE.md` / `GEMINI.md` | if they hold more than the shim line (and, for `CLAUDE.md`, the `## Verifying your work` block `/cortex` appends), leave them |
 
 A curated file is someone's work. Overwriting it is the fastest way to make a team distrust the
 tool.
@@ -81,13 +81,27 @@ tool.
 From `${CLAUDE_PLUGIN_ROOT}/templates/`:
 
 - **`target-AGENTS.md` → `AGENTS.md`.** Fill every `{{placeholder}}` from the index and the code.
-  Keep it under ~120 lines — it loads on every turn. Include the routing table heading even if it
-  has no rows yet, so `/cortex-brief` has somewhere to add them.
-- **`CLAUDE.md` and `GEMINI.md`** — one line each: `@AGENTS.md`. Nothing else, or they drift.
+  The opening HTML comment of this template and of `CONTEXT.md` is addressed to you, so leave it
+  out. Keep it under ~120 lines — it loads on every turn. Include the routing table heading even
+  if it has no rows yet, so `/cortex-brief` has somewhere to add them.
+- **`CLAUDE.md` and `GEMINI.md`**: each is written as one line, `@AGENTS.md`. Never restate the
+  brief in them, because a copy drifts. `/cortex` later appends one thing to `CLAUDE.md`: the
+  `## Verifying your work` block. It is the one Claude-specific section, and it belongs there.
+  `GEMINI.md` stays one line.
 - **`CONTEXT.md`** — seed from terms that genuinely appear in the code and are ambiguous. Three
   sharp entries beat twenty obvious ones. Delete the worked example.
-- **`docs/adr/`** — copy `adr.md` as `docs/adr/TEMPLATE.md`. Do **not** invent records; ADRs are
-  written when a decision happens.
+- **The ADR directory**: copy `adr.md` as `<dir>/TEMPLATE.md`. Do **not** invent records; ADRs are
+  written when a decision happens. Ask for `<dir>` rather than assuming `docs/adr/`:
+
+  ```bash
+  node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --json   # state.adrDir, state.adrWhy
+  ```
+
+  In most repos `adrDir` is `docs/adr`. It is `adr` when `docs/` is the source of a published site,
+  such as a Docusaurus, VitePress, MkDocs, Sphinx or Jekyll config, or a workflow that deploys Pages
+  from `docs`. A record under that site's source would be published with the user guide. Propose
+  `adr/` and quote `adrWhy` as the reason. The user may still choose `docs/adr/`; those two are
+  the locations every Cortex reader accepts. ADRs already on disk stay where they are.
 - **`.cortex/`** — create `memory/`. The generated dirs are already ignored: whichever CLI first
   created `.cortex/` wrote them, because attaching that to this skill meant every other entry point
   left a directory of artifacts untracked in someone's repo. Verify rather than repeat it:
@@ -107,7 +121,8 @@ Do not report success without checking:
 - **Every file step 3 lists exists.** Run the check, do not recall it:
 
   ```bash
-  for f in AGENTS.md CLAUDE.md GEMINI.md CONTEXT.md docs/adr/TEMPLATE.md .cortex/memory; do
+  ADR=docs/adr   # or adr — whichever step 3 chose
+  for f in AGENTS.md CLAUDE.md GEMINI.md CONTEXT.md "$ADR/TEMPLATE.md" .cortex/memory; do
     [ -e "$f" ] && echo "  ok      $f" || echo "  MISSING $f"
   done
   ```
@@ -117,7 +132,21 @@ Do not report success without checking:
   A missing `GEMINI.md` fails silently and forever: Gemini reads no context, nothing errors, and
   the gap only surfaces as that agent being inexplicably worse in this repo. Anything reported
   MISSING gets written now, or named to the user in step 5 as deliberately skipped.
-- Every `{{placeholder}}` is gone. Grep for `{{` and fix what you find.
+- **Every placeholder is filled.** Do not grep for `{{`. That grep has three false hits by design:
+  `TEMPLATE.md` keeps its placeholders on purpose, and a workflow's `${{ … }}` is GitHub Actions
+  syntax. Run the check that knows which template each file came from:
+
+  ```bash
+  node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-placeholders.mjs" AGENTS.md CLAUDE.md CONTEXT.md "$ADR"
+  ```
+
+  Exit 1 names each leftover as `path:line`. Fill it from the index or the user, or delete the line.
+- **The files pass the repo's own formatter and its check.** Write LF line endings. Then run the
+  formatter this repo declares (`state.formatters` in `cortex-loop.mjs . --json`) on exactly the
+  files you wrote, never on `.`. Then run the repo's lint/format check. On the first real install,
+  the repo's test script ran `prettier --list-different`, and it failed on ten files Cortex had
+  just written. If the check still fails on a file you wrote and you cannot fix it, say so in
+  step 5 with the output. Never edit the repo's formatter config to make it pass.
 - Every command in the *Running it* section actually exists — check `package.json` scripts, the
   Makefile, or whatever this repo uses. A wrong test command is the single most costly error here,
   because every future agent trusts it.

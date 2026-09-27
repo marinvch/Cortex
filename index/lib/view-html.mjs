@@ -625,9 +625,10 @@ function structure(){const s=D.structure,p=$('spane');if(!p)return;
   if(!s.shims.length)h+=B({k:'k-ctx',cls:'leaf missing',t:'no agent shims',s:'/cortex-scaffold writes CLAUDE.md and GEMINI.md'});
   h+=s.glossary?B({k:'k-ctx',cls:'leaf',t:'CONTEXT.md',s:'glossary — what the words mean here',go:'CONTEXT.md'})
     :B({k:'k-ctx',cls:'leaf missing',t:'no CONTEXT.md',s:'/domain-modeling writes the glossary'});
-  h+=s.adrs?B({k:'k-ctx',cls:'leaf',t:'docs/adr/',s:plural(s.adrs,'decision')+' recorded',go:s.adrDir})
-    :s.adrDir?B({k:'k-ctx',cls:'leaf',t:'docs/adr/',s:'in place — no decision recorded yet',go:s.adrDir})
-    :B({k:'k-ctx',cls:'leaf missing',t:'no docs/adr/',s:'/domain-modeling records decisions'});
+  const adrLabel=(s.adrDir||'docs/adr')+'/';
+  h+=s.adrs?B({k:'k-ctx',cls:'leaf',t:adrLabel,s:plural(s.adrs,'decision')+' recorded',go:s.adrGo})
+    :s.adrDir?B({k:'k-ctx',cls:'leaf',t:adrLabel,s:'in place — no decision recorded yet',go:s.adrGo})
+    :B({k:'k-ctx',cls:'leaf missing',t:'no '+adrLabel,s:'/domain-modeling records decisions'});
   h+=s.review?B({k:'k-ctx',cls:'leaf',t:'REVIEW.md',s:'what a review checks',go:'REVIEW.md'})
     :B({k:'k-ctx',cls:'leaf missing',t:'no REVIEW.md',s:'/cortex writes the review rules'});
   h+='</div>';

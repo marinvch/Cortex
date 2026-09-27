@@ -8,6 +8,7 @@ import { extractImports } from "./imports.mjs";
 import { importResolver } from "./resolvers.mjs";
 import { inferAreas } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
+import { extractRoutes } from "./routes.mjs";
 import { depthOf } from "./depth.mjs";
 import { vendoredPaths, vendoredStats } from "./vendored.mjs";
 import { INDEX_VERSION } from "./format.mjs";
@@ -197,5 +198,9 @@ export function buildIndex(root, opts = {}) {
     // transform of its inputs and testable from literals — the convention lib/repo-text.mjs
     // now applies to every scanner that reads a repo back.
     stack: detectStack(files, (rel) => text.read(rel)),
+    // The route facts of this repo — front-end calls, gateway routes, Spring handlers — for
+    // `cortex-routes.mjs` to join across a workspace. Always present, so "found none" and "an index
+    // older than the route map" stay different answers. See lib/routes.mjs.
+    routes: extractRoutes(files, (rel) => text.read(rel)),
   };
 }

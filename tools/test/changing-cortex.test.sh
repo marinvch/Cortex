@@ -45,6 +45,7 @@ done <<'KEYS'
 cortex-version.mjs|never hand-edit a version
 resolve_in_root|a destructive shell tool routes through the guard
 capability:|every ritual declares a floor
+cortex-follows-its-own-rules.test.sh|Cortex's own Claude setup passes the checker it ships
 disable-model-invocation|the rituals that may not auto-fire
 --offers|the worklist is the wizard's script
 install-on-a-project.test.sh|the one test that asserts the product works

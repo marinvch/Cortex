@@ -63,12 +63,19 @@ before overturning one; the line here is the trigger, not the case.
   read one `SITES` list. The `## [x.y.z]` changelog entry is the one thing the tool will not write.
   [ADR 0013](adr/0013-the-version-has-one-home.md), and
   [ADR 0014](adr/0014-the-package-split-stays-rejected.md) before proposing a package split.
-- **Every ritual declares a `capability:` floor — `mechanical` · `judgment` · `strong`.**
-  `node tools/cortex-capability.mjs` prints the table from the frontmatter, so it cannot drift. The
-  failure it prevents is not a crash: a weak model runs `/cortex-enrich`, writes plausible-but-wrong
-  summaries, and those feed `recall` — a bad answer *every* time anyone searches. A ritual missing
-  the key fails `core/test/plugin.test.js`, and every `strong` one must carry a
-  `## When the floor is not met` section — a declared floor with no way under it is a wall.
+- **Every ritual declares a `capability:` floor — `mechanical` · `judgment` · `strong` — under
+  its frontmatter's `metadata:` map.** `node tools/cortex-capability.mjs` prints the table from the
+  frontmatter, so it cannot drift. The failure it prevents is not a crash: a weak model runs
+  `/cortex-enrich`, writes plausible-but-wrong summaries, and those feed `recall` — a bad answer
+  *every* time anyone searches. A ritual missing the key fails `core/test/plugin.test.js`, and every
+  `strong` one must carry a `## When the floor is not met` section — a declared floor with no way
+  under it is a wall. `effort:` is read off the floor, not chosen again: `low` for `mechanical`,
+  `high` for `strong`, absent for `judgment`; the same test pins it.
+- **Cortex follows the Claude Code rules it reports on.** `metadata:` is the one nested map
+  `tools/cortex-frontmatter.mjs` admits, holding only Cortex's own keys, because Claude Code ignores
+  an unrecognised top-level key without a word. `tools/test/cortex-follows-its-own-rules.test.sh`
+  runs the `claude-setup/` findings over this repo and fails on any: fix the repo, never the
+  checker, since loosening a check loosens it for every user.
 - **`mode`, `audience` and `profile` are three questions, never two.** `mcp/lib/mode.js` answers
   repo-vs-vault, `mcp/lib/resolve.js` answers solo/team/server, `core/profile.js` answers
   home/work/lab. A work laptop can run a repo brain on a team. `core/profile.js` reads **only**
@@ -129,7 +136,7 @@ before overturning one; the line here is the trigger, not the case.
   still runs when you type its name, so only a user who already knows it exists ever gets there.
   `/wizard` and `/team-add` each sat that way — `/team-init` created a team-brain and never named the
   command a member runs to join it. A ritual genuinely triggered from outside (a hook, a git state)
-  declares `reached-by: <what triggers it>` in its frontmatter; the hatch has to name the trigger,
+  declares `reached-by: <what triggers it>` under its frontmatter's `metadata:`; the hatch has to name the trigger,
   because a bare `true` is the check switched off wearing the check's clothes.
 - **Before a ritual writes, it asks `tools/cortex-preflight.mjs` rather than re-deriving the answer.**
   Root, profile and index freshness are the three facts every ritual needs first, and each prose copy

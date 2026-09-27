@@ -214,3 +214,68 @@ test("a digest whose name is not a date does not become the newest one", () => {
   assert.equal(readState(root).memoryLatest, "2026-08-23");
   rmSync(root, { recursive: true, force: true });
 });
+
+// --- the second round: what one /cortex pass cannot close -----------------------------------------
+//
+// evals and bands are blocked until /cortex writes CLAUDE.md and REVIEW.md, so they only become
+// `missing` AFTER the pass that could have written them — and then each waits on history a second
+// pass cannot invent. The loop row used to answer that with "Next → /cortex", again and forever, on
+// a real install (pmndrs/zustand) whose owner had rightly deferred bands for want of a metric.
+
+function servedFirstPass({ put }) {
+  put(".cortex/index/index.json", INDEX);
+  put(".cortex/findings/2026-01-01.md");
+  put("package.json", JSON.stringify({ scripts: { test: "vitest run" } }));
+  put("AGENTS.md");
+  put("CLAUDE.md", "@AGENTS.md\n\n## Verifying your work\n\n| Test | `npm test` |\n");
+  put("CONTEXT.md");
+  put("REVIEW.md");
+  put("intent/README.md");
+  put("src/auth/AGENTS.md");
+  put(".claude/skills/add-test/SKILL.md");
+  put(".claude/agents/verifier.md");
+  put(".claude/settings.json", '{ "hooks": {} }');
+  put(".github/workflows/ci.yml", "name: ci\n");
+}
+
+test("after the first pass, next names /cortex evals — not /cortex again", () => {
+  const root = repo(servedFirstPass);
+  const plan = nextSteps(root);
+  const loop = plan.steps.find((s) => s.id === "loop");
+  assert.equal(loop.done, true, "everything one pass can write is written");
+  assert.match(loop.why, /wait on history/);
+  assert.equal(plan.next.id, "evals");
+  assert.equal(plan.next.cmd, "/cortex evals");
+  assert.match(plan.next.why, /task history/, "it says what it is waiting for");
+  assert.match(nextLine(root), /^Next → \/cortex evals /);
+  const bands = plan.steps.find((s) => s.id === "bands");
+  assert.equal(bands.cmd, "/cortex bands");
+  assert.equal(bands.optional, true, "a repo with no production metric is finished without bands");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("with a real eval case written and bands deferred, the sequence ends", () => {
+  const root = repo(({ put }) => {
+    servedFirstPass({ put });
+    put("evals/cases/login-bug/prompt.md");
+  });
+  const plan = nextSteps(root);
+  assert.equal(plan.complete, true, "deferring bands must not hold the sequence open forever");
+  assert.equal(plan.next, null);
+  assert.ok(plan.steps.some((s) => s.id === "bands" && !s.done), "bands is still visible, with its command");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("before the first pass, the second-round rows do not appear — /cortex reaches them itself", () => {
+  const root = repo(({ put }) => {
+    put(".cortex/index/index.json", INDEX);
+    put(".cortex/findings/2026-01-01.md");
+    put("AGENTS.md");
+    put("CONTEXT.md");
+    put(".github/workflows/ci.yml", "name: ci\n");
+  });
+  const plan = nextSteps(root);
+  assert.equal(plan.steps.find((s) => s.id === "loop").done, false);
+  assert.ok(!plan.steps.some((s) => s.id === "evals" || s.id === "bands"));
+  rmSync(root, { recursive: true, force: true });
+});

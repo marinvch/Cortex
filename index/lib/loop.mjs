@@ -243,7 +243,7 @@ export function detectFormatters(root) {
     pkgPrettier = Boolean(pkg && typeof pkg === "object" && pkg.prettier);
   } catch { /* unparseable manifest: says nothing, so it must not say "prettier" */ }
   if (pkgPrettier || PRETTIER_CONFIGS.some((f) => has(root, f))) {
-    // --no-install: a hook that downloads a formatter mid-edit is not "well under a second".
+    // --no-install: a hook that downloads a formatter mid-edit stalls that edit for the download.
     out.push({ glob: "*", command: "npx --no-install prettier --write --ignore-unknown" });
   }
   return out;

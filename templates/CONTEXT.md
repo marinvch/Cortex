@@ -15,7 +15,7 @@
 
 # Domain glossary
 
-## {{Term}}
+## {{The term}}
 
 {{One or two sentences. What it IS in this system, not what the word means in English. If it maps
 to a type, table or module, name it.}}

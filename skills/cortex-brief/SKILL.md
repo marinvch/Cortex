@@ -91,6 +91,12 @@ Then **move, don't duplicate**: a fact that now lives in a leaf comes *out* of t
 routing row as its pointer. Root holds the global, leaves hold the local, and no fact lives in two
 places — that is where drift starts. The root gets shorter as leaves appear.
 
+**Format what you wrote.** Write LF line endings. Run the repo's declared formatter
+(`state.formatters` in `cortex-loop.mjs . --json`) on exactly the files you wrote: each leaf and
+the root you edited. Never run it on `.`. Then run the repo's own lint/format check. A leaf that
+fails the repo's `prettier --check` breaks that repo's CI on the PR that adds it. If the check
+still fails on a file you wrote, report it with the output in step 4.
+
 ## 4. Report
 
 List the files written and show the routing table you added. Suggest committing them together —

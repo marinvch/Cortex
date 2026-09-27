@@ -30,7 +30,7 @@ employer or client vocabulary back into this vault — that's the firewall, not 
 ```
 CONTEXT.md            <- the glossary (root; most repos need only this one)
 CONTEXT-MAP.md        <- only if the repo has several bounded contexts
-docs/adr/0001-*.md    <- decisions worth remembering
+docs/adr/0001-*.md    <- decisions worth remembering (adr/ when docs/ is a published site)
 ```
 
 **Create files lazily** — only when there's something to write. No `CONTEXT.md` until the first

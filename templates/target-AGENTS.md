@@ -11,7 +11,7 @@
   rather than inferred from their absence.
 -->
 
-# {{PROJECT}} — agent brief
+# {{project name}} — agent brief
 
 {{One or two sentences: what this codebase does and who it serves. Not the stack — the purpose.}}
 
@@ -24,15 +24,15 @@ change that builds.}}
 
 | Path | Holds |
 |---|---|
-| `{{dir}}` | {{what lives here}} |
+| `{{a directory}}` | {{what lives here}} |
 
 ## Running it
 
 ```bash
-{{install}}
-{{dev}}
-{{test}}
-{{lint}}
+{{install command}}
+{{dev command}}
+{{test command}}
+{{lint command}}
 ```
 
 If a command needs a service running, credentials, or a seeded database, say so here — a build
@@ -43,14 +43,14 @@ that silently needs a `.env` is the most common way an agent wastes a session.
 Things that must stay true. Each line should be something an agent could plausibly break without
 noticing:
 
-- {{invariant}}
+- {{an invariant, and why it holds}}
 
 ## Gotchas
 
 The non-obvious. Something that looks wrong but is deliberate, a coupling with no type to enforce
 it, a workaround with a reason:
 
-- {{gotcha}}
+- {{a gotcha, and the reason behind it}}
 
 ## Where to look
 
@@ -58,7 +58,7 @@ Scoped briefs. Read the root, match your work to a row, then open **one** leaf:
 
 | Working in | Read first |
 |---|---|
-| `{{area}}/` | [`{{area}}/AGENTS.md`]({{area}}/AGENTS.md) |
+| `{{an area}}/` | [`{{an area}}/AGENTS.md`]({{an area}}/AGENTS.md) |
 
 ## Conventions
 

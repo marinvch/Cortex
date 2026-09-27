@@ -70,7 +70,7 @@ The same applies to personal and employer-sensitive content. Repo memory is abou
 ## 4. Close
 
 Say what was written and where. If today produced a decision that is hard to reverse, surprising
-without context, or a genuine trade-off, offer to record an ADR under `docs/adr/` as well —
+without context, or a genuine trade-off, offer to record an ADR in the repo's ADR directory (`docs/adr/`, or `adr/`) as well —
 memory is chronological, an ADR is findable.
 
 ## Gotchas

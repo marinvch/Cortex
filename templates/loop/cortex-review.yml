@@ -44,9 +44,10 @@ jobs:
     steps:
       # Full history: the diff is taken from the PR's base, and a moved file is proven by git's
       # rename record, which a shallow clone does not have.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       # Outside the workspace on purpose. The indexer counts untracked files as part of the repo, so
       # a copy of Cortex inside the checkout would be reviewed as if it were this repo's code.
       - name: Fetch Cortex

@@ -51,7 +51,9 @@ this project now versions independently of any package manager (see `VERSION`).
   list that turns "I cannot read these imports" into a stated blind spot rather than a claim that
   nothing uses the file. It is listed now: spring-petclinic-kotlin goes from 22 of 24 code files
   "unreferenced" to none claimed, and the report says `Import graph does not cover kotlin`
-  instead. A Kotlin import reader is the real fix and is not in this release.
+  instead. C#, Swift, Scala, Elixir, C and C++ had the same gap and are listed with it, and a test
+  now fails when a code language has neither an import extractor nor a place on that list. Import
+  readers for them are the real fix and are not in this release.
 
 ## [2.39.0] — 2026-09-27
 

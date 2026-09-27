@@ -1,7 +1,9 @@
 ---
 name: cortex-audit
 description: Find and fix what is structurally wrong with a Cortex vault — orphan and non-connected files, dead links, stale, duplicate and misplaced files, wiring drift, privacy leaks. Dispatches the read-only `cortex-auditor` subagent to scan the whole vault in an isolated context, then applies the safe fixes here and surfaces the judgment calls. Triggers — "cortex audit", "diagnose the vault", "clean up cortex", "fix dead links", "is the file structure healthy", "find and fix the problems", "full health check".
-capability: strong
+effort: high
+metadata:
+  capability: strong
 ---
 
 # /cortex-audit — dispatch the auditor, then fix

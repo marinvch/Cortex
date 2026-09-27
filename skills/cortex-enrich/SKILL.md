@@ -1,7 +1,9 @@
 ---
 name: cortex-enrich
 description: Add semantic summaries, roles and tags on top of the deterministic index, so recall and findings describe what code MEANS and not just how it is wired. Use when the user says "enrich the index", "summarise the codebase", "what does each file do", or after a first /cortex-install on a large unfamiliar repo. Costs tokens — always say so before starting.
-capability: strong
+effort: high
+metadata:
+  capability: strong
 ---
 
 # /cortex-enrich — put meaning on top of structure

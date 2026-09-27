@@ -1,8 +1,10 @@
 ---
 name: team-init
 description: For the team lead, once — create the shared private team-brain repo, seed its per-project folders and team config, and push it.
-capability: mechanical
+effort: low
 disable-model-invocation: true
+metadata:
+  capability: mechanical
 ---
 
 # /team-init — create the shared team-brain (leader)

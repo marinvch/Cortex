@@ -12,17 +12,23 @@
 // demoted every frontmatter finding to a warning "until the backlog was cleaned up". It never was.
 // So this one is strict from the first commit, with no warn mode to leave switched on.
 //
-// It is also the ONE frontmatter reader in tools/. cortex-capability.mjs imports parseFrontmatter
-// from here, and core/test/plugin.test.js runs this file rather than carrying its own regex — it
+// It is also the ONE frontmatter reader in tools/. cortex-capability.mjs and cortex-skill-graph.mjs
+// import parseFrontmatter from here, and core/test/plugin.test.js runs this file rather than carrying its own regex — it
 // cannot import it, because core/ (tests included) may not reach outside core/, and this is not
 // kernel code. index/lib/claude-setup.mjs reads a USER's skill frontmatter with a tolerant reader of
 // real YAML — a different job from this strict one over Cortex's own skills.
 //
 // The grammar is a deliberate subset of YAML, not a YAML parser (ADR 0004 — no dependencies):
 // flat `key: value` lines, each value on ONE line, plain or quoted. That subset is not a limitation
-// of this file so much as a promise the rest of the repo already relies on — the capability table,
-// the skill graph and several shell tests read these keys one line at a time, and a continuation
-// line would be invisible to every one of them.
+// of this file so much as a promise the rest of the repo already relies on — several shell tests
+// read these keys one line at a time, and a continuation line would be invisible to every one of
+// them.
+//
+// ONE exception, and only one: a `metadata:` map, one level deep, holding Cortex's own keys
+// (METADATA_KEYS). Claude Code ignores a top-level key it does not recognise without an error and
+// offers `metadata` for data a tool reads (core/claude-code.js, `skill.metadata.custom-keys`), so
+// `capability` and `reached-by` live there. Any other nested key still fails — the map is for the
+// keys this repo's tools read, not a second place to put prose.
 
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
@@ -36,6 +42,8 @@ const BLOCK_SCALAR_RE = /^[|>][0-9]?[+-]?[0-9]?$/;
 // A plain scalar may not START with these; YAML reads each as structure, not text.
 const INDICATORS = new Set(["@", "`", "[", "{", "*", "&", "!", "%", "|", ">"]);
 const MIN_DESCRIPTION = 40;
+/** The keys admitted under `metadata:` — Cortex's own, read by cortex-capability and cortex-skill-graph. */
+export const METADATA_KEYS = Object.freeze(["capability", "reached-by"]);
 
 /**
  * Unquote one scalar. Returns { value } or { error } — never throws.
@@ -60,10 +68,38 @@ function scalar(raw) {
 }
 
 /**
+ * One `key: value` line's value, judged. Pushes onto `errors` and returns the value to store.
+ */
+function value(key, raw, n, errors) {
+  if (BLOCK_SCALAR_RE.test(raw)) {
+    errors.push({ line: n, msg: `'${key}' is a block scalar (${raw}) — it parses to the indicator, not the text below it` });
+    return "";
+  }
+  const s = scalar(raw);
+  if (s.error) {
+    errors.push({ line: n, msg: `'${key}' ${s.error}` });
+    return raw;
+  }
+  if (!s.quoted && raw) {
+    if (INDICATORS.has(raw[0])) {
+      errors.push({ line: n, msg: `'${key}' starts with the YAML indicator ${raw[0]} — quote the value` });
+    }
+    if (raw.includes(": ") || raw.endsWith(":")) {
+      errors.push({ line: n, msg: `'${key}' is unquoted and contains ": " — a YAML parser reads a second mapping and rejects the file; reword or quote it` });
+    }
+    if (raw.includes(" #")) {
+      errors.push({ line: n, msg: `'${key}' is unquoted and contains " #" — YAML drops everything after it as a comment; quote the value` });
+    }
+  }
+  return s.value;
+}
+
+/**
  * Parse a SKILL.md's frontmatter. Never throws: a caller that only wants a key (the capability
  * table) reads `data`; a caller that must judge the file (the check below) reads `errors`.
+ * `data.metadata`, when present, is the one nested map: `{ capability?, "reached-by"? }`.
  *
- * @returns {{ found: boolean, data: Record<string,string>, errors: {line:number,msg:string}[] }}
+ * @returns {{ found: boolean, data: Record<string, any>, errors: {line:number,msg:string}[] }}
  */
 export function parseFrontmatter(src) {
   const lines = src.split(/\r?\n/);
@@ -73,14 +109,52 @@ export function parseFrontmatter(src) {
   const end = lines.indexOf("---", 1);
   if (end === -1) return { found: false, data, errors: [{ line: 1, msg: "frontmatter is never closed with a --- line" }] };
 
+  // While inside `metadata:` — the indent its first nested line set, or null before that line.
+  let meta = null;
+  let metaIndent = null;
+  let metaLine = 0;
+  const closeMeta = () => {
+    if (meta && !Object.keys(meta).length) {
+      errors.push({ line: metaLine, msg: "'metadata' is empty — it is a map of Cortex's own keys, or it is absent" });
+    }
+    meta = null;
+    metaIndent = null;
+  };
+
   for (let i = 1; i < end; i++) {
     const line = lines[i];
     const n = i + 1;
     if (/^\s*(#|$)/.test(line)) continue;
     if (/^\s/.test(line)) {
-      errors.push({ line: n, msg: "indented line — frontmatter here is flat, one key per line, each value on one line" });
+      if (!meta) {
+        errors.push({ line: n, msg: "indented line — frontmatter here is flat, one key per line, each value on one line, except the metadata: map" });
+        continue;
+      }
+      const indent = line.match(/^\s*/)[0];
+      if (/\t/.test(indent)) {
+        errors.push({ line: n, msg: "tab in the indentation — YAML indents with spaces only" });
+        continue;
+      }
+      metaIndent ??= indent;
+      if (indent !== metaIndent) {
+        errors.push({ line: n, msg: "indented differently from the line above — metadata: is one level deep, one key per line" });
+        continue;
+      }
+      const m = line.slice(indent.length).match(KEY_RE);
+      if (!m) {
+        errors.push({ line: n, msg: "not a `key: value` line inside metadata:" });
+        continue;
+      }
+      const [, key, raw = ""] = m;
+      if (!METADATA_KEYS.includes(key)) {
+        errors.push({ line: n, msg: `'${key}' is not a key Cortex reads from metadata: (only ${METADATA_KEYS.join(", ")})` });
+        continue;
+      }
+      if (key in meta) errors.push({ line: n, msg: `duplicate key 'metadata.${key}' — YAML keeps one and drops the other silently` });
+      meta[key] = value(`metadata.${key}`, raw, n, errors);
       continue;
     }
+    closeMeta();
     const m = line.match(KEY_RE);
     if (!m) {
       errors.push({ line: n, msg: "not a `key: value` line, so the frontmatter does not parse as a mapping" });
@@ -89,30 +163,22 @@ export function parseFrontmatter(src) {
     const [, key, raw = ""] = m;
     if (key in data) errors.push({ line: n, msg: `duplicate key '${key}' — YAML keeps one and drops the other silently` });
 
-    if (BLOCK_SCALAR_RE.test(raw)) {
-      errors.push({ line: n, msg: `'${key}' is a block scalar (${raw}) — it parses to the indicator, not the text below it` });
-      data[key] = "";
+    if (key === "metadata") {
+      if (raw) {
+        errors.push({ line: n, msg: "'metadata' carries an inline value — it is a map, with its keys indented on the lines below" });
+        data.metadata = {};
+        continue;
+      }
+      meta = data.metadata = {};
+      metaLine = n;
       continue;
     }
-    const s = scalar(raw);
-    if (s.error) {
-      errors.push({ line: n, msg: `'${key}' ${s.error}` });
-      data[key] = raw;
-      continue;
+    if (METADATA_KEYS.includes(key)) {
+      errors.push({ line: n, msg: `'${key}' is Cortex's own key — it goes under metadata:, because Claude Code ignores a top-level key it does not recognise` });
     }
-    if (!s.quoted && raw) {
-      if (INDICATORS.has(raw[0])) {
-        errors.push({ line: n, msg: `'${key}' starts with the YAML indicator ${raw[0]} — quote the value` });
-      }
-      if (raw.includes(": ") || raw.endsWith(":")) {
-        errors.push({ line: n, msg: `'${key}' is unquoted and contains ": " — a YAML parser reads a second mapping and rejects the file; reword or quote it` });
-      }
-      if (raw.includes(" #")) {
-        errors.push({ line: n, msg: `'${key}' is unquoted and contains " #" — YAML drops everything after it as a comment; quote the value` });
-      }
-    }
-    data[key] = s.value;
+    data[key] = value(key, raw, n, errors);
   }
+  closeMeta();
   return { found: true, data, errors };
 }
 

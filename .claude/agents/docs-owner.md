@@ -35,10 +35,11 @@ result bloated.
   sites; `VERSION` is the interface and the copies are implementation. The `## [x.y.z]` changelog
   entry is the one thing the tool will not write — that is yours.
   [ADR 0013](../../docs/adr/0013-the-version-has-one-home.md).
-- **Every ritual declares a `capability:` floor** — `mechanical` · `judgment` · `strong`. A missing
+- **Every ritual declares a `capability:` floor under `metadata:`** — `mechanical` · `judgment` ·
+  `strong`, with `effort:` read off it (`low` · absent · `high`). A missing
   key fails `core/test/plugin.test.js`. Every `strong` ritual must carry a
   `## When the floor is not met` section: a declared floor with no way under it is a wall.
-- **A ritual must be reachable from another ritual, or declare `reached-by:`.** The failure has no
+- **A ritual must be reachable from another ritual, or declare `metadata:` `reached-by:`.** The failure has no
   error state — an unreachable ritual still runs when you type its name, so only someone who already
   knows it exists ever gets there. A bare `reached-by: true` is the check switched off wearing the
   check's clothes; name the actual trigger.

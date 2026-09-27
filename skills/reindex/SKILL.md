@@ -1,7 +1,9 @@
 ---
 name: reindex
 description: Keep the vault navigable as it grows. Regenerate the visual navigator (graph + search), nominate topics that need a Map of Content, and resolve dead links. Use periodically or when the vault feels hard to navigate. Triggers — "reindex", "rebuild the graph/navigator", "find dead links", "what needs a MOC", "tidy the vault".
-capability: mechanical
+effort: low
+metadata:
+  capability: mechanical
 ---
 
 # /reindex — keep navigation healthy as the brain grows

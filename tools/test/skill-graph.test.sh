@@ -33,7 +33,8 @@ cat > "$stranded/SKILL.md" <<'FIXTURE'
 ---
 name: zz-graph-test-fixture
 description: Fixture. Names no ritual and is named by none.
-capability: mechanical
+metadata:
+  capability: mechanical
 ---
 
 # fixture
@@ -52,8 +53,9 @@ cat > "$stranded/SKILL.md" <<'FIXTURE'
 ---
 name: zz-graph-test-fixture
 description: Fixture. Names no ritual and is named by none, but declares its trigger.
-capability: mechanical
-reached-by: a fixture, so that this test can assert the hatch opens
+metadata:
+  capability: mechanical
+  reached-by: a fixture, so that this test can assert the hatch opens
 ---
 
 # fixture
@@ -77,17 +79,17 @@ trap - EXIT
 # true. An earlier version of this test asserted the list, and adding the honest edge broke it, which
 # is a test punishing the repo for improving.
 for name in optimize-prompt resolving-merge-conflicts; do
-  line="$(grep -m1 '^reached-by:' "$REPO_ROOT/skills/$name/SKILL.md" 2>/dev/null || true)"
+  line="$(grep -m1 '^  reached-by:' "$REPO_ROOT/skills/$name/SKILL.md" 2>/dev/null || true)"
   if [ -n "$line" ]; then
     _pass "/$name declares what reaches it from outside a ritual"
   else
     _fail "/$name declares what reaches it from outside a ritual" \
-      "no reached-by: line — a hook-driven or git-driven ritual has to say so"
+      "no metadata: reached-by line — a hook-driven or git-driven ritual has to say so"
   fi
 done
 
 # A `reached-by:` with no substance would be the check switched off while still reading as green.
-if grep -qE '^reached-by:\s*(true|yes|1)\s*$' <<<"$(grep -hE '^reached-by:' "$REPO_ROOT"/skills/*/SKILL.md)"; then
+if grep -qE '^\s*reached-by:\s*(true|yes|1)\s*$' <<<"$(grep -hE '^\s*reached-by:' "$REPO_ROOT"/skills/*/SKILL.md)"; then
   _fail "every reached-by: names a real trigger" "found a bare true/yes/1 — that is the guard disabled, not an exception"
 else
   _pass "every reached-by: names a real trigger rather than a bare true"

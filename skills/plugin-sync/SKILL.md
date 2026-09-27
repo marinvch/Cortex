@@ -1,7 +1,9 @@
 ---
 name: plugin-sync
 description: Make the Cortex a session actually runs match the Cortex in the repo — check the three copies (repo, marketplace clone, installed cache), update the ones that are behind, refresh the local slash-command mirror, and verify the version moved. Use after editing a skill and finding the change had no effect, and on "update the plugin", "reload the skills", "restart and try again", "the plugin cache is old", "my change isn't showing up", "why is it running the old version".
-capability: mechanical
+effort: low
+metadata:
+  capability: mechanical
 ---
 
 # /plugin-sync — make the running Cortex the one you edited

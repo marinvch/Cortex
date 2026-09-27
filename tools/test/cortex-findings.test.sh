@@ -79,6 +79,17 @@ scaffolds="$(printf '%s' "$offers" | grep -c '"action": "scaffold"')"
 assert_eq "1" "$scaffolds" "three missing context documents collapse into one scaffold question"
 assert_contains "$offers" "No CONTEXT.md glossary" "and the entry carries the titles, so it can say why it is asking"
 
+# --json is the whole analysis, for a program that asks about findings the worklist drops — the
+# workspace harness reads claude-setup/* kinds from it, which carry no offer. Kind is the point.
+json="$(node "$FINDINGS" "$PROJ" --json 2>/dev/null)"
+kinds="$(node -e 'const a = JSON.parse(require("fs").readFileSync(0, "utf8")); console.log(Array.isArray(a) && a.every((f) => typeof f.kind === "string") ? a.length : "bad")' <<<"$json")"
+if [ "$kinds" != "bad" ] && [ "${kinds:-0}" -gt 0 ]; then
+  _pass "--json prints every finding as parseable JSON, each with its kind ($kinds)"
+else
+  _fail "--json prints every finding as parseable JSON, each with its kind" "got: ${json:0:300}"
+fi
+[ -d "$PROJ/.cortex/findings" ] && _fail "--json writes no report" || _pass "--json writes no report"
+
 # --- writing the report ---------------------------------------------------------------------------
 
 out="$(run)"

@@ -5,6 +5,12 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.39.1] — 2026-09-27
+
+A fix release. 2.39.0 was pointed at more repos than the ones it was built against — a Vite app,
+Spring Boot services on Maven and Gradle, a Kotlin project, Rust and Go codebases — and each entry
+below is something it got wrong there. Every fix has a test that fails without it.
+
 ### Fixed
 
 - **Re-running `/cortex` now checks the skills an earlier pass wrote (#462).** `/cortex` keeps
@@ -3406,6 +3412,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.39.1]: https://github.com/marinvch/Cortex/releases/tag/v2.39.1
 [2.39.0]: https://github.com/marinvch/Cortex/releases/tag/v2.39.0
 [2.38.0]: https://github.com/marinvch/Cortex/releases/tag/v2.38.0
 [2.37.1]: https://github.com/marinvch/Cortex/releases/tag/v2.37.1

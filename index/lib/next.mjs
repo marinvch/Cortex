@@ -15,6 +15,7 @@ import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES } from "./context-docs.mjs";
 import { loopPlan } from "./loop.mjs";
 import { adrLocation } from "./adr.mjs";
+import { listRepoSkills, skillDrift } from "./skill-drift.mjs";
 
 // Facts about the artifact chain, borrowed rather than recomputed. `loop.mjs` owns which artifacts
 // a repo is missing and why; this file owns the order of the sequence. Two modules each keeping
@@ -131,16 +132,22 @@ function scopedBriefs(root, index) {
   return out.sort();
 }
 
+// skill-drift.mjs lists them too, and one listing keeps "which skills exist" and "which of them
+// drifted" from disagreeing about a directory that holds no SKILL.md.
 function repoSkills(root) {
-  const dir = join(root, ".claude", "skills");
-  if (!existsSync(dir)) return [];
+  return listRepoSkills(root).map((s) => s.name);
+}
+
+// The skills whose text the repo on disk now contradicts — a path gone, "no tests" beside a test
+// suite, a script nobody declares (#462). Only with an index: without one nothing is provable, and
+// `null` keeps "not checked" apart from "checked, clean". A failure here must never cost the rest of
+// the sequence, so it degrades to not checked.
+function driftedSkills(root, index) {
+  if (!index) return null;
   try {
-    return readdirSync(dir, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && existsSync(join(dir, e.name, "SKILL.md")))
-      .map((e) => e.name)
-      .sort();
+    return skillDrift(root, index)?.drifted ?? null;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -185,6 +192,7 @@ export function readState(root, index = null, overrides = {}) {
     adrWhy: adr.why,
     briefs: scopedBriefs(root, index),
     skills: repoSkills(root),
+    skillDrift: driftedSkills(root, index),
     memory,
     memoryLatest: latestDigest(memory),
     priorDocs: priorAgentDocs(root),
@@ -292,6 +300,24 @@ function steps(s) {
       ? plural(s.skills.length, "skill") + " in .claude/skills/: " + s.skills.join(", ")
       : "proposed from what the index actually detected, not from a template",
   });
+
+  // Only when a skill provably contradicts the repo. `done` on the skills row above stays a file fact
+  // — the skill exists — and this row asks the second question, the one a re-run of /cortex used to
+  // skip: is what it says still true. Required, because a skill is read as an instruction every time
+  // it fires. It clears the moment the lines are fixed, by /cortex-skills or by hand.
+  if (s.skillDrift?.length) {
+    const lines = s.skillDrift.reduce((n, d) => n + d.findings.length, 0);
+    rows.push({
+      id: "skill-drift",
+      title: "Refresh the skills the repo has moved away from",
+      cmd: "/cortex-skills",
+      done: false,
+      why:
+        s.skillDrift.map((d) => `${d.skill} (${d.findings.length})`).join(", ") +
+        ` — ${plural(lines, "line")} the repo on disk contradicts; \`cortex-skills.mjs .\` lists each`,
+      drift: s.skillDrift,
+    });
+  }
 
   // The loop, as one row rather than eight. `loop.mjs` owns which artifacts a repo is missing and
   // why; duplicating those rows here would give the user two lists that disagree the first time one

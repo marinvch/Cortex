@@ -162,6 +162,13 @@ anything — it leaves the user with their file *plus* an `AGENTS.generated.md` 
 which is the double-file a single install exists to avoid. The first version of this skill left
 the step out and produced exactly that.
 
+**Skills an earlier pass wrote are checked on every re-run.** A `skill-drift` step in the same
+`--json` output lists each skill the repo now contradicts, with its lines in `drift[].findings` —
+a path that is gone, "no tests" beside a test suite, a script no manifest declares. Every line is
+provable from disk. Add each drifted skill to the merged worklist as one row naming its lines, so
+the single confirmation in step 6 covers exactly what the user saw. `present` in the loop means the
+file exists; it never meant the file is still true.
+
 Two rules survive the merge intact:
 
 - **`enrich` states its token cost before the question, not after.** It is the only offer that
@@ -183,6 +190,7 @@ Cortex will write, in one pass:
   Test      CLAUDE.md § Verifying your work, .claude/agents/verifier.md
   Deploy    REVIEW.md, .github/workflows/cortex-review.yml,
             .claude/settings.json, .claude/hooks/protected-paths.sh
+  Refresh   .claude/skills/type-check/SKILL.md — lines 8, 55 (no tests; a moved path)
 
   After this pass, waiting on history:
             evals — cases are real past tasks; /cortex evals once there are some
@@ -213,6 +221,7 @@ what drifts.
 | root brief, shims, `CONTEXT.md`, `docs/adr/` or `adr/` | `/cortex-scaffold` — it owns the templates, the never-clobber rules and the ADR location |
 | scoped `AGENTS.md` leaves | `/cortex-brief`, once per area they picked |
 | `.claude/skills/` | `/cortex-skills`, from `index.stack` |
+| a drifted skill | `/cortex-skills` § Refreshing a skill that drifted — the flagged lines only, and it asks again before touching a skill someone edited |
 | the plugin bundle | `/setup-plugins` |
 | `.cortex/memory/` | create it, and say it is **committed** on purpose |
 
@@ -338,6 +347,8 @@ it as written is the failure; so is reporting it as declined.
 
 - **Re-running is the supported path, and it is cheap.** Satisfied rows come back as `present` and
   are not asked again; deferred ones come back as `missing`. There is no separate "update" flow.
+  What an earlier pass wrote is kept, so the one thing a re-run must look at again is whether it
+  is still true — the `skill-drift` step in step 5.
 - **`.cortex/index/` and `.cortex/findings/` are generated** and gitignored. `.cortex/memory/` is
   **committed** — that asymmetry is deliberate and worth explaining once.
 - **A hook that asks a human belongs at the release gate, not the build.** An approval prompt

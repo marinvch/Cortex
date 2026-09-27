@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Produce the findings report for a repository.
 //
-//   node index/cortex-findings.mjs [repoRoot] [--index <path>] [--out <path>] [--stdout] [--offers]
+//   node index/cortex-findings.mjs [repoRoot] [--index <path>] [--out <path>] [--stdout] [--offers] [--json]
 //
 // Reads (or builds) the index, then writes ONE markdown report to
 // <repoRoot>/.cortex/findings/<date>.md. This command has no authority to change anything else —
@@ -11,6 +11,11 @@
 // human; the worklist is the script the install wizard walks. Keeping them two surfaces of one
 // analysis is deliberate — a wizard forced to parse its questions back out of rendered markdown
 // would drift from the findings the moment either was reworded.
+//
+// --json prints every finding — kind, severity, title, detail, evidence — and also writes nothing.
+// The worklist drops what has no offer (every `claude-setup/*` finding among them) and the report
+// drops `kind`, so a program asking "which findings, of which kind" had no surface to read short of
+// importing index/lib, which is what tools/ must not do.
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
@@ -26,13 +31,13 @@ import { generatedNotice, openTarget } from "./lib/open.mjs";
 // answer — rebuilding over it would hide a file the user still has and report on something they
 // never inspected — so that refuses.
 const { root, args, index } = openTarget(process.argv.slice(2), {
-  usage: "usage: node index/cortex-findings.mjs [root] [--index FILE] [--out FILE] [--stdout] [--offers]",
-  flags: { "--index": "value", "--out": "value", "--stdout": "boolean", "--offers": "boolean" },
+  usage: "usage: node index/cortex-findings.mjs [root] [--index FILE] [--out FILE] [--stdout] [--offers] [--json]",
+  flags: { "--index": "value", "--out": "value", "--stdout": "boolean", "--offers": "boolean", "--json": "boolean" },
   root: "positional",
   index: "build",
   buildIndex,
-  // --offers is JSON a wizard parses; everything else is prose for a person.
-  freshness: (a) => !a.offers,
+  // --offers and --json are JSON a program parses; everything else is prose for a person.
+  freshness: (a) => !a.offers && !a.json,
 });
 
 const day = stamp();
@@ -41,6 +46,11 @@ const findings = analyse(index, root);
 if (args.offers) {
   // Writes nothing, not even the report. A wizard asking what to do must not have already done it.
   process.stdout.write(`${JSON.stringify(offers(findings), null, 2)}\n`);
+  process.exit(0);
+}
+
+if (args.json) {
+  process.stdout.write(`${JSON.stringify(findings, null, 2)}\n`);
   process.exit(0);
 }
 

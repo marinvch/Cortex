@@ -27,6 +27,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const INDEX = join(REPO_ROOT, "index", "cortex-index.mjs");
+const FINDINGS = join(REPO_ROOT, "index", "cortex-findings.mjs");
 const IMPACT = join(REPO_ROOT, "index", "cortex-impact.mjs");
 const LOOP = join(REPO_ROOT, "index", "cortex-loop.mjs");
 const ROUTES = join(REPO_ROOT, "index", "cortex-routes.mjs");
@@ -374,6 +375,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
   // repos where /cortex evidently ran (the root brief is present) are judged; the rest are not
   // installed, which is a different failure with its own row above.
   const refused = [];
+  const served = [];
   let installed = 0;
   for (const r of code) {
     const run = spawnSync(process.execPath, [LOOP, r.clone, "--json"], { env: BASE_ENV, encoding: "utf8" });
@@ -381,6 +383,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     const plan = JSON.parse(run.stdout);
     if (!plan.present.some((e) => e.id === "brief")) continue;
     installed += 1;
+    served.push(r);
     const paths = plan.missing.flatMap((e) => e.protectedWrites ?? []);
     if (paths.length) refused.push({ repo: r.name, paths });
   }
@@ -395,16 +398,44 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     });
   }
 
-  // The claude-setup checker is roadmap step 3. It does not exist yet, so this can only say so; the
-  // step that builds it replaces this branch with a real run over everything /cortex wrote.
-  const checkerBuilt = readdirSync(join(REPO_ROOT, "index", "lib")).some((f) =>
-    /claudeSetupFindings/.test(readFileSync(join(REPO_ROOT, "index", "lib", f), "utf8")),
-  );
-  checks.push(
-    checkerBuilt
-      ? { ok: false, label: "claude-setup checker: it exists now — replace this placeholder with a real run of it" }
-      : { ok: false, label: "claude-setup checker reports zero findings on what /cortex wrote (not built yet)", xfail: "step 3" },
-  );
+  // And what /cortex wrote passes Cortex's own claude-setup checker (spec S1, roadmap step 3) — the
+  // same repos as the line above, so the two counts share one denominator. Run through
+  // cortex-findings --json, the CLI a user has, rather than by importing index/lib: tools/ does not
+  // reach into a leaf. A repo /cortex never served is not judged here, for the reason given above.
+  if (installed) {
+    const flagged = [];
+    for (const r of served) {
+      const args = [FINDINGS, r.clone, "--json", ...(r.index ? ["--index", r.indexPath] : [])];
+      const run = spawnSync(process.execPath, args, { env: BASE_ENV, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+      let all = null;
+      try { all = JSON.parse(run.stdout); } catch { /* reported below */ }
+      if (run.status !== 0 || !Array.isArray(all)) {
+        flagged.push({ repo: r.name, first: `cortex-findings --json failed (exit ${run.status}): ${(run.stderr || run.stdout).trim().split("\n")[0]}` });
+        continue;
+      }
+      const found = all.filter((f) => String(f.kind).startsWith("claude-setup/"));
+      if (found.length) {
+        const f = found[0];
+        flagged.push({ repo: r.name, count: found.length, first: `${f.kind} — ${f.title}${f.evidence?.[0] ? ` (${f.evidence[0]})` : ""}` });
+      }
+    }
+    checks.push({
+      ok: flagged.length === 0,
+      label: `claude-setup checker finds nothing in what /cortex wrote: ${installed - flagged.length}/${installed} installed repos`,
+      detail: flagged.length
+        ? `${flagged[0].repo}: ${flagged[0].first}${flagged[0].count > 1 ? ` (+${flagged[0].count - 1} more)` : ""}` +
+          (flagged.length > 1 ? `; also ${flagged.slice(1).map((e) => e.repo).join(", ")}` : "")
+        : undefined,
+    });
+  } else {
+    // Nothing was served, so nothing /cortex wrote can be checked — a zero here would pass by
+    // checking nothing. Said, not skipped.
+    checks.push({
+      ok: false,
+      label: `claude-setup checker: no code repo has been served by /cortex (root AGENTS.md + CLAUDE.md): 0/${code.length}`,
+      detail: "run /cortex in each code repo first (skills/cortex/SKILL.md, Running unattended)",
+    });
+  }
   failures += scenario("S1", "install + correct map", checks);
 }
 

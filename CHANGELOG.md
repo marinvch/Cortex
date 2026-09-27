@@ -332,6 +332,25 @@ it was repointed or dropped in the same change.
 
 ### Fixed
 
+- **The workspace harness's S1 claude-setup check was a placeholder that failed on every run.** It
+  said the checker "exists now — replace this placeholder" and could never pass. S1 now runs the
+  checker over every code repo `/cortex` has served (root `AGENTS.md` + `CLAUDE.md` present) and
+  passes only when none has a `claude-setup/*` finding; on failure the detail names the repo and its
+  first finding down to file and key. It counts the same installed repos as the `.claude/`-artifacts
+  line beside it, and a workspace with no served repo says so instead of passing by checking
+  nothing. The harness reaches the checker through a new `cortex-findings.mjs --json` — every
+  finding with its `kind`, writing nothing — rather than importing `index/lib`, because `--offers`
+  drops findings with no offer and the report drops `kind`. `tools/test/e2e-workspace.test.sh` now
+  builds a served repo that passes and adds a served repo with a planted top-level `capability:` key
+  in a skill, which must fail naming it; `cortex-findings.test.sh` pins `--json`.
+- **The 2,000-file frame test failed under load.** It averaged 30 frames from cold against 12 ms and
+  read 12.4–18.6 ms while other suites ran, on a frame whose fastest run is about 1 ms. It now takes
+  the fastest of 20 frames after a warm-up and adds a scaling check that is what actually guards
+  against a quadratic draw: a 2,000-file frame must cost under 20× a 200-file frame sampled in
+  alternation (about 10× when linear). Mutation-tested — a per-node pass over every node reads 37×,
+  a per-node copy of the position array 104×, both red; the first of those stayed under the old
+  12 ms average, so the old test could not see it. Twenty runs beside a full parallel
+  `index/test` suite: 20/20 pass, where the old test failed 1 in 20 under the same load.
 - **The View leaked the machine's path, broke on a phone, and disagreed with itself — found by
   running `/cortex` on a shallow clone of pmndrs/zustand.** Six defects, every one invisible to the
   literal fixtures in `view.test.mjs`:

@@ -25,6 +25,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { labelsFor } from "./stack.mjs";
+import { categoryOf, detectLanguage } from "./langs.mjs";
 import { protectedClaudePath } from "../../core/claude-code.js";
 
 /** The six stages, in loop order. A row belongs to exactly one. */
@@ -256,13 +257,29 @@ export function detectFormatters(root) {
 // The hook play wants a deterministic block on generated and frozen paths. Guessing at them writes
 // a hook that fires on nothing, so this reports only directories the index actually saw, and the
 // ritual is told to confirm the list rather than trust it.
+const MIGRATIONS_HINT = /(^|\/)(migrations?|db\/migrate)\//;
 const GENERATED_HINTS = [
   /(^|\/)(gen|generated|__generated__)\//,
   /(^|\/)(dist|build|out|target)\//,
   /(^|\/)node_modules\//,
-  /(^|\/)(migrations?|db\/migrate)\//,
+  MIGRATIONS_HINT,
   /\.(pb|generated)\.(go|ts|js|py)$/,
 ];
+
+// For every other hint the directory name is the evidence. For migrations it is only a hint, and
+// the FILE is the evidence: a migration tool writes SQL or code (`prisma/migrations/*/migration.sql`,
+// Rails `db/migrate/*.rb`, Django and Alembic `.py`, Flyway `db/migration/V1__*.sql`), so a file of
+// any other kind proves nothing, and nothing under a docs tree is a migration whatever it holds.
+// pmndrs/zustand keeps two hand-written upgrade guides in `docs/reference/migrations/`; the bare
+// name made /cortex propose a hook refusing edits to them and list them in REVIEW.md's
+// do-not-report section.
+const DOCS_TREE = /(^|\/)(docs?|documentation)\//i;
+
+function isMigrationEvidence(path) {
+  if (DOCS_TREE.test(path)) return false;
+  const cat = categoryOf(detectLanguage(path));
+  return cat === "code" || cat === "schema";
+}
 
 function protectedPaths(index) {
   const files = index?.files ?? [];
@@ -272,6 +289,7 @@ function protectedPaths(index) {
     if (typeof p !== "string") continue;
     for (const re of GENERATED_HINTS) {
       const m = re.exec(p);
+      if (m && re === MIGRATIONS_HINT && !isMigrationEvidence(p)) continue;
       if (m) {
         // The matched directory prefix, not the whole file path — a hook matches a tree.
         dirs.add(p.slice(0, m.index + m[0].length).replace(/[^/]*$/, ""));

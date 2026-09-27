@@ -1,6 +1,6 @@
 ---
 name: cortex-impact
-description: Answer "what breaks if I change this" before the change, from the repo's own import graph — who depends on these files, how far out, and which of them no test exercises. Use when the user asks what a file touches, what a diff could break, which tests to run for a change, or whether an edit is safe. Deterministic; writes nothing.
+description: Answer "what breaks if I change this" before the change, from the repo's own import graph — who depends on these files, how far out, and which of them no test exercises. With --against, answer "does my change collide with another session's" — files both touch, and one-hop import edges between the two sets. Use when the user asks what a file touches, what a diff could break, which tests to run for a change, whether an edit is safe, or whether a parallel session, worktree or branch is editing the same code. Deterministic; writes nothing.
 capability: mechanical
 ---
 
@@ -74,3 +74,48 @@ floor. Paste the raw output only if they ask for it.
 If the radius is empty, that is a real answer worth giving carefully: *nothing in the index imports
 these — a floor, not a proof.* An entry point, a config file, or something loaded dynamically will
 look exactly like dead code here, and calling it dead is the mistake this ritual makes if you let it.
+
+## Two sessions, one repo — `--against`
+
+Parallel sessions on one repository are normal, and until this flag the only defence was noticing
+stale mtimes by hand. A test run once reported nine failures and then none minutes later, because
+another agent was landing edits underneath it. `--against` compares **your** change set (paths,
+`--staged` or `--since`, exactly as above) with **theirs**, and reports two things:
+
+- **In both change sets** — a file you both touch. Decide who edits it before either of you goes on.
+- **One-hop collisions** — `x (mine) imports y (theirs)`: they are changing something you depend on;
+  `y (theirs) imports x (mine)`: you are changing something they depend on. This is the case path
+  comparison misses, and the reason to run it at all.
+
+```bash
+# their branch, committed work only — the other session's worktree is on feat/x
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --staged --against-ref feat/x
+
+# their uncommitted work, as a list (one path per line; CRLF, a BOM and # comments are fine)
+git -C ../other-worktree diff --name-only HEAD > theirs.txt
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --staged --against theirs.txt
+
+# the same, piped
+git -C ../other-worktree diff --name-only HEAD | node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --staged --against -
+```
+
+`/resume` finds the other worktrees (`git worktree list`, and the dirty ones it reports by path);
+this is the check to run on each before editing. `--against-ref` reads `HEAD...ref` — what their
+branch did since the two diverged — so a session that has not committed yet shows as an **empty**
+set, and the command says so (exit 2) rather than reporting "no overlap". Use the list form for that
+session. Paths are normalised on both sides (`\` or `/`, `./`, absolute paths inside the repo), so a
+list written on Windows compares correctly.
+
+Only one hop, and the blast radius is not printed in this mode — run without `--against` for each
+side's full radius. `--depth` with `--against` is refused. `--json` returns `overlap`, `collisions`
+(each with `mine`, `theirs`, and `edge`: `mine-imports-theirs` or `theirs-imports-mine`), `unknown`
+and `atLeast`.
+
+**The same floor applies.** Say "at least N": a dynamic import coupling the two sets is invisible,
+and each list is only what its side reported. "No file is in both change sets, and no import edge
+joins them" is not "you cannot collide".
+
+**Exit codes are the command's usual ones and do not signal findings:** `0` an answer was printed,
+overlap or not; `1` an unknown flag, a bad `--root`, an `--against` file that does not exist, or
+`--depth` with `--against`; `2` no index, an empty change set on either side, or git could not read
+one. To block on overlap, read `--json` and decide.

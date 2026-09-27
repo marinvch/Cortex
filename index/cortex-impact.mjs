@@ -6,16 +6,36 @@
 //   node index/cortex-impact.mjs --since HEAD~3       # what changed over a range
 //   node index/cortex-impact.mjs --staged --json      # for a ritual to walk
 //
+//   node index/cortex-impact.mjs --staged --against theirs.txt     # vs another session's change list
+//   node index/cortex-impact.mjs --staged --against-ref feat/x     # vs another branch's commits
+//   git -C ../other diff --name-only HEAD | node index/cortex-impact.mjs --staged --against -
+//
 // Read-only in the strongest sense: it writes nothing, not even under .cortex/.
 //
 // Every count is a FLOOR. Import resolution is regex-based, so dynamic and computed imports are
 // missed — the files named will be affected, and others may be. The output says "at least" for that
 // reason, and no flag turns it into a total.
+//
+// `--against` / `--against-ref` switch the question from "what breaks if this changes" to "where
+// does my change set collide with theirs" (#408): files both sets touch, and one-hop import edges
+// between them. See lib/overlap.mjs. The blast radius is not printed in that mode; run without the
+// flag for it.
+//
+// Exit codes, unchanged by --against and shared with every CLI that opens through lib/open.mjs:
+//   0  an answer was printed — including one that found overlap. Findings are data, never a
+//      failure code; a hook that wants to block reads `--json` and decides.
+//   1  what was asked for is not a thing: an unknown flag, a bad --root, an --against file that
+//      does not exist, or --depth combined with --against.
+//   2  nothing could be answered: no index, an empty change set on either side, or git could not
+//      read one.
 
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { resolve } from "node:path";
 import { impactOf, groupUnknown } from "./lib/impact.mjs";
+import { overlapOf, parseChangeList } from "./lib/overlap.mjs";
 import { UNRESOLVED_LANGUAGES } from "./lib/imports.mjs";
 import { openTarget } from "./lib/open.mjs";
-import { changedFiles, failureLines } from "./lib/changed.mjs";
+import { branchChanges, changedFiles, failureLines } from "./lib/changed.mjs";
 
 // Bare arguments here are FILE PATHS, so the root comes from `--root` — a command that took both
 // positionally could not tell one from the other, and the one it guessed wrong is the one that
@@ -23,12 +43,14 @@ import { changedFiles, failureLines } from "./lib/changed.mjs";
 const { root, args, paths, index } = openTarget(process.argv.slice(2), {
   usage:
     "usage: node index/cortex-impact.mjs [paths...] [--staged] [--since REF] " +
-    "[--depth N] [--root DIR] [--index FILE] [--json]",
+    "[--depth N] [--against FILE|-] [--against-ref REF] [--root DIR] [--index FILE] [--json]",
   flags: {
     "--staged": "boolean",
     "--json": "boolean",
     "--since": "value",
     "--depth": "value",
+    "--against": "value",
+    "--against-ref": "value",
     "--index": "value",
     "--root": "value",
   },
@@ -40,12 +62,48 @@ const { root, args, paths, index } = openTarget(process.argv.slice(2), {
 });
 
 const depth = args.depth === null ? Infinity : Number(args.depth);
+const comparing = args.against !== null || args.againstRef !== null;
 
-const { files: changed, failures } = changedFiles(root, {
+if (comparing && args.depth !== null) {
+  // Refused rather than ignored: --depth bounds a walk that the comparison never takes, and a flag
+  // accepted and silently dropped reads as though it had an effect.
+  console.error("--depth bounds the blast radius; --against compares one hop only, so the two do not combine.");
+  process.exit(1);
+}
+
+// Their change set is read before mine, so a list file that is not there is refused as the typo it
+// is — exit 1 — before any git work happens.
+let theirs = [];
+const theirFailures = [];
+if (args.against !== null) {
+  let text;
+  if (args.against === "-") {
+    text = readFileSync(0, "utf8");
+  } else {
+    const listPath = resolve(args.against);
+    if (!existsSync(listPath) || !statSync(listPath).isFile()) {
+      console.error(
+        `--against: no file at ${listPath}.\n` +
+          `It takes a change list, one path per line (or - for stdin). For a branch, use --against-ref <ref>.`,
+      );
+      process.exit(1);
+    }
+    text = readFileSync(listPath, "utf8");
+  }
+  theirs.push(...parseChangeList(text));
+}
+if (args.againstRef !== null) {
+  const b = branchChanges(root, args.againstRef);
+  theirs.push(...b.files);
+  theirFailures.push(...b.failures);
+}
+
+const { files: changed, failures: myFailures } = changedFiles(root, {
   paths,
   staged: args.staged,
   since: args.since,
 });
+const failures = [...myFailures, ...theirFailures];
 
 // A failure is not an empty diff, and this is the command where confusing the two costs the most:
 // every number here is a floor, and a floor computed from a change set git could not read is not a
@@ -56,11 +114,29 @@ for (const line of failureLines(failures)) console.error(line);
 
 if (!changed.length) {
   console.error(
-    failures.length
+    myFailures.length
       ? "The change set could not be read, so nothing was analysed. This is git failing, not a repository with no changes."
       : "nothing to analyse. Pass file paths, or --staged, or --since <ref>.",
   );
   process.exit(2);
+}
+
+if (comparing) {
+  if (!theirs.length) {
+    // An empty "theirs" and a clean "no overlap" must not share a sentence. The first is usually a
+    // list written to the wrong place or a ref that has not diverged; reporting it as "no
+    // collisions" would be the confident zero this command exists to avoid.
+    console.error(
+      theirFailures.length
+        ? "The other change set could not be read, so nothing was compared. This is git failing, not a session with no changes."
+        : "The --against change set is empty, so there is nothing to compare against.\n" +
+            "That is not the same as \"no overlap\": check the list is the one the other session wrote, " +
+            "or that the ref has commits HEAD does not.",
+    );
+    process.exit(2);
+  }
+  reportOverlap(overlapOf(index, changed, theirs, { root }));
+  process.exit(0);
 }
 
 const r = impactOf(index, changed, { root, maxDepth: depth });
@@ -149,4 +225,67 @@ if (failures.length) {
   // the reader who acts on this number is at the BOTTOM of the output, and a warning printed before
   // sixty lines of radius has already scrolled off the top of the terminal.
   console.log(`\nAnd this radius was computed from an incomplete change set — see the git error above.`);
+}
+
+// --- --against: where two change sets collide (#408) ------------------------------------------------
+
+function reportOverlap(o) {
+  if (args.json) {
+    console.log(JSON.stringify(o, null, 2));
+    return;
+  }
+  const list = (label, paths, cap) => {
+    console.log(`\n${label} (${paths.length}):`);
+    for (const p of paths.slice(0, cap)) console.log(`  ${p}`);
+    if (paths.length > cap) console.log(`  ... and ${paths.length - cap} more (--json for all)`);
+  };
+  // Context first and short: the answer is the overlap and the collisions, and a wide change set
+  // must not push them off the top of the terminal.
+  list("Mine", o.mine, 12);
+  list("Theirs", o.theirs, 12);
+
+  if (o.unknown.mine.length || o.unknown.theirs.length) {
+    // Reported, never dropped: these still count for direct overlap (two sessions creating the same
+    // new file is a real collision), but the index has no edges for them.
+    console.log(`\nNot in the index — new, ignored, or a typo. They can still overlap directly, but carry no import edges:`);
+    for (const p of o.unknown.mine.slice(0, 40)) console.log(`  mine    ${p}`);
+    for (const p of o.unknown.theirs.slice(0, 40)) console.log(`  theirs  ${p}`);
+    const hidden = Math.max(0, o.unknown.mine.length - 40) + Math.max(0, o.unknown.theirs.length - 40);
+    if (hidden) console.log(`  ... and ${hidden} more (--json for all)`);
+  }
+
+  if (o.overlap.length) {
+    console.log(`\nAt least ${o.overlap.length} file${o.overlap.length === 1 ? " is" : "s are"} in both change sets — decide who edits ${o.overlap.length === 1 ? "it" : "them"} before either of you goes on:`);
+    for (const p of o.overlap) console.log(`  ${p}`);
+  }
+
+  if (o.collisions.length) {
+    console.log(`\nAt least ${o.collisions.length} one-hop dependency collision${o.collisions.length === 1 ? "" : "s"} — one side imports a file the other is changing:`);
+    for (const c of o.collisions) {
+      console.log(
+        c.edge === "mine-imports-theirs"
+          ? `  ${c.mine} (mine) imports ${c.theirs} (theirs)`
+          : `  ${c.theirs} (theirs) imports ${c.mine} (mine)`,
+      );
+    }
+  }
+
+  if (!o.overlap.length && !o.collisions.length) {
+    const byPath = new Map(index.files.map((f) => [f.path, f]));
+    const blind = [...new Set([...o.mine, ...o.theirs].map((p) => byPath.get(p)?.lang).filter((l) => UNRESOLVED_LANGUAGES.has(l)))];
+    console.log(`\nNo file is in both change sets, and no import edge joins them.`);
+    if (blind.length) {
+      console.log(`Cortex cannot resolve ${blind.join(", ")} imports, so for those files this is "Cortex did not look",`);
+      console.log(`not "they are independent".`);
+    }
+    console.log(`That is a floor, not a proof: a dynamic import or a framework-discovered file coupling the`);
+    console.log(`two would not appear here, and only one hop is read — run without --against for either side's`);
+    console.log(`full radius.`);
+  } else {
+    console.log(`\nA floor, not a total — imports are resolved by convention and only one hop is read, so the`);
+    console.log(`two change sets may be coupled in ways not listed here.`);
+  }
+  if (failures.length) {
+    console.log(`\nAnd this was computed from an incomplete change set — see the git error above.`);
+  }
 }

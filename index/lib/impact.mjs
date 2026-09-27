@@ -18,6 +18,7 @@
 // the first invites someone to stop looking.
 
 import { buildCoverage } from "./coverage.mjs";
+import { normalizeChangedPath } from "./changed.mjs";
 
 /** to → [from]: who imports this file. The index stores the forward direction only. */
 function reverseGraph(index) {
@@ -45,7 +46,7 @@ export function impactOf(index, changed, { root, maxDepth = Infinity } = {}) {
   const seeds = [];
   const unknown = [];
   for (const c of changed) {
-    const p = String(c).split("\\").join("/").replace(/^\.\//, "");
+    const p = normalizeChangedPath(c, root);
     (known.has(p) ? seeds : unknown).push(p);
   }
 

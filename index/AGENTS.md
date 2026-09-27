@@ -222,6 +222,16 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   real drift and invisible here, because the path was never wrong. Do not extend the CLI to guess at
   sentences — a deterministic tool claiming to find *all* drift is worse than one that states where
   it stops.
+- **A skill Cortex wrote is checked against the repo it describes, by `lib/skill-drift.mjs`.**
+  Three claims the disk can refute: a backticked path that is gone, "no tests" beside a test suite,
+  a script no `package.json` declares (or a missing `mvnw`/`gradlew`). `/cortex` keeps existing
+  files by design, so on the first upgraded repo two skills told agents there were no tests beside
+  83 and cited moved paths — and nothing re-read them (#462). Every rule can only **drop** a
+  candidate: the path must miss the index, the disk, every indexed suffix and `git check-ignore`;
+  a create-verb before it or an absence word on its line excuses it; a claim scoped to a module,
+  conditional or historical is not a claim about the repo. No index means `null`, never a clean
+  bill. `next.mjs` shows it as a `skill-drift` row that exists only while a line is wrong, so a
+  repo without drift reads exactly as before. Validated on that repo: 12 findings, all real.
 - **`cortex-impact.mjs` reads the graph backwards** — who imports me, not what do I import — and
   every count it returns is a floor, named `atLeast` so a caller cannot print it as a total.
 - **`--against` reads one hop in both directions between two change sets, and nothing further**
@@ -376,7 +386,8 @@ fixtures and not `mkdtemp` directories is that git is what decides the answer: `
   `status` and `merge` must agree about what a batch result looks like: they did not, so `status`
   told agents to redo work `merge` accepted without a single issue.
 - `cortex-skills.mjs` — it writes nothing, so everything it is worth is in the sentences it prints,
-  including the three refusals: no index, no manifest, already present.
+  including the three refusals: no index, no manifest, already present — and the drift lines,
+  whose one failure worth a git fixture is reporting a path the repo's `.gitignore` declares.
 - `cortex-impact.mjs` — a confident total instead of a floor tells someone to stop looking. Its
   `--against` half is also pinned from outside by `tools/test/e2e-workspace.test.sh`, which runs
   the workspace harness's S4 overlap check on a two-repo workspace it builds.

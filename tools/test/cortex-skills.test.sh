@@ -110,6 +110,46 @@ offers="$(run --offers)"
 already="$(printf '%s' "$offers" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).alreadyPresent.map(p=>p.id).join(","))}catch(e){console.log("UNPARSEABLE")}})')"
 assert_eq "verify-webhook" "$already" "--offers is JSON and keeps the two lists apart"
 
+# --- a skill the repo has moved away from (#462) -------------------------------------------------------
+
+# A re-run of /cortex kept two skills that said the repo had no tests beside 83 of them, and cited
+# paths that had moved. Present is not the same as true. Every line printed must be provable from
+# disk — and what the repo's own .gitignore declares generated is absent by design, which only a
+# real git checkout can say.
+mkdir -p "$PROJ/.claude/skills/type-check"
+cat > "$PROJ/.claude/skills/type-check/SKILL.md" <<'MD'
+---
+name: type-check
+description: Check the types.
+---
+
+There is no test suite here, so the checker is the only verification.
+The nav lives in `src/components/Nav.tsx`; the page is `src/app/page.tsx`.
+The bundle lands in `dist/app/main.js`.
+
+```bash
+npm run typecheck
+```
+MD
+printf 'dist/\n' > "$PROJ/.gitignore"
+printf 'test("page", () => {});\n' > "$PROJ/src/app/page.test.tsx"
+( cd "$PROJ" && git add -A >/dev/null 2>&1 && git commit -qm "tests and a skill" >/dev/null 2>&1 )
+node "$INDEX" "$PROJ" >/dev/null 2>&1
+
+before="$(tree_state "$PROJ")"
+out="$(run)"
+assert_contains "$out" "/type-check  .claude/skills/type-check/SKILL.md" "a drifted skill is named with its file"
+assert_contains "$out" "line 6: says the repo has no tests, and the index counts 1 test file" "a false 'no tests' claim cites its line and the count"
+assert_contains "$out" "line 7: names src/components/Nav.tsx, which is not in the repo" "a moved path cites its line"
+assert_contains "$out" 'line 11: no package.json in the repo declares a "typecheck" script' "a dead script is caught inside a fence"
+assert_not_contains "$out" "src/app/page.tsx" "a path that exists is never reported"
+assert_not_contains "$out" "dist/app/main.js" "nor one the repo's .gitignore declares generated"
+assert_eq "$before" "$(tree_state "$PROJ")" "reporting drift changes nothing in the target"
+
+drift="$(run --offers | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const d=JSON.parse(s).drift;console.log(d.map(x=>x.skill+":"+x.findings.map(f=>f.line).join("/")).join(","))}catch(e){console.log("UNPARSEABLE")}})')"
+assert_eq "type-check:6/7/11" "$drift" "--offers carries the same findings for a ritual to walk"
+rm -rf "$PROJ/.claude/skills/type-check"
+
 # --- a repo whose stack cannot be known ---------------------------------------------------------------
 
 # Nothing stack-specific can be proposed honestly without a manifest, and the honest answer is to

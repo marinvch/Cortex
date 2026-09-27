@@ -190,6 +190,9 @@ production breach writes the next `intent.md`.
 
 ### Changed
 
+- **The docs site moved to [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/).**
+  The site repo was renamed `ai-os-site` → `cortex-site`, served from `/cortex-site/`; the README
+  links it and the repository's Website field points at it. Closes #415.
 - **The prompt gate stopped firing on clear requests.** It scored "restore last session and give
   me what was done" and "go ahead do all of them" at 5/5 and interrupted both. Three causes:
   `restore`/`investigate`/`continue` and their kin were not action verbs, and `merged` did not

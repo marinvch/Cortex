@@ -169,3 +169,80 @@ out="$(run src/db.js --since definitely-not-a-ref)"
 assert_contains "$out" "src/user.js" "the paths that WERE readable still produce a radius"
 assert_contains "$out" "incomplete change set" "and the floor says it was computed from a partial set"
 
+# --- --against: two sessions, one repo (#408) ------------------------------------------------------
+#
+# Parallel sessions on one repo had nothing to warn them; a test run read a tree another agent was
+# writing and reported nine failures that were not there. Here a second identity works on its own
+# branch — user.js and api.js — while "I" have db.js and api.js staged. api.js is a direct overlap;
+# user.js imports my db.js, and my api.js imports their user.js: the collisions path comparison
+# alone would never show.
+
+fixture
+(
+  cd "$WORK/proj" || exit 1
+  git checkout -q -b other
+  printf 'import { q } from "./db.js";\nexport const user = q + 1;\n' > src/user.js
+  printf 'import { user } from "./user.js";\nexport const api = user + 1;\n' > src/api.js
+  git -c user.name=other -c user.email=other@example.invalid commit -qam "their change"
+  git checkout -q -
+  printf 'export const q = 2;\n' > src/db.js
+  printf 'import { user } from "./user.js";\nexport const api = user * 2;\n' > src/api.js
+  git add src
+)
+before="$(git -C "$WORK/proj" status --porcelain)"
+
+out="$(run --staged --against-ref other)"; rc=$?
+assert_eq "0" "$rc" "a comparison that finds overlap is an answer, not a failure code"
+# Anchored on the section, not the path: every path also appears in the Mine / Theirs context lists.
+assert_contains "$out" "At least 1 file is in both change sets" "the direct overlap gets its own section"
+assert_contains "$(printf '%s\n' "$out" | sed -n '/in both change sets/,/^$/p')" "  src/api.js" "and names the file both sides touch"
+assert_contains "$out" "src/user.js (theirs) imports src/db.js (mine)" "a file of theirs importing one of mine is a collision"
+assert_contains "$out" "src/api.js (mine) imports src/user.js (theirs)" "and so is the reverse direction"
+assert_contains "$out" "At least 2 one-hop" "the collision count is phrased as a floor"
+assert_not_contains "$out" "At least 3 files affected" "and the blast radius is not printed in this mode"
+
+# The same set, as another session would hand it over from a Windows shell: a BOM, CRLF, a comment,
+# backslashes and a ./ prefix. Left raw, `src\user.js\r` matches nothing and the report says "no
+# overlap" — a confident zero produced by a line ending.
+printf '\357\273\277src\\user.js\r\n\r\n# written by the other session\r\n./src/api.js\r\n' > "$WORK/theirs.txt"
+out="$(run --staged --against "$WORK/theirs.txt")"
+assert_contains "$out" "At least 1 file is in both change sets" "a CRLF list with backslashes still finds the overlap"
+assert_contains "$out" "src/user.js (theirs) imports src/db.js (mine)" "and the collision"
+assert_not_contains "$out" "Not in the index" "and no normalised path is mistaken for an unknown one"
+
+out="$(printf 'src/user.js\n' | node "$IMPACT" --root "$WORK/proj" --staged --against - 2>&1)"
+assert_contains "$out" "src/user.js (theirs) imports src/db.js (mine)" "--against - reads the list from stdin"
+
+out="$(run --staged --against-ref other --json)"
+assert_contains "$out" '"atLeast"' "--json names the counts as floors"
+assert_contains "$out" '"theirs-imports-mine"' "and says which way each edge runs"
+assert_not_contains "$out" '"total"' "and exposes no field that could be read as a total"
+
+# Two sets that touch neither each other nor each other's imports: said plainly, and as a floor.
+printf 'test/user.test.js\n' > "$WORK/far.txt"
+out="$(run src/jobs.js --against "$WORK/far.txt")"
+assert_contains "$out" "No file is in both change sets" "no overlap is said in words"
+assert_contains "$out" "not a proof" "and refuses to be read as proof of independence"
+
+# --- --against refusing to guess ---------------------------------------------------------------------
+
+out="$(run --staged --against "$WORK/no-such-list.txt")"; rc=$?
+assert_eq "1" "$rc" "a list file that does not exist is refused as the typo it is"
+assert_contains "$out" "no file at" "and says so"
+assert_contains "$out" "--against-ref" "and names the flag for a branch, in case that was meant"
+
+printf '\r\n# nothing yet\r\n' > "$WORK/empty.txt"
+out="$(run --staged --against "$WORK/empty.txt")"; rc=$?
+assert_eq "2" "$rc" "an empty list is not a clean comparison"
+assert_contains "$out" "not the same as \"no overlap\"" "and is never described as one"
+
+out="$(run --staged --against-ref definitely-not-a-ref)"; rc=$?
+assert_eq "2" "$rc" "a ref git cannot read is a refusal"
+assert_contains "$out" "git could not resolve --against-ref" "naming the source that failed"
+assert_contains "$out" "git failing, not a session with no changes" "and not an empty change set"
+
+out="$(run --staged --against-ref other --depth 1)"; rc=$?
+assert_eq "1" "$rc" "--depth with --against is refused, not silently ignored"
+
+assert_eq "$before" "$(git -C "$WORK/proj" status --porcelain)" "the comparison writes nothing into the repo"
+

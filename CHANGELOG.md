@@ -59,6 +59,24 @@ production breach writes the next `intent.md`.
   is `XFAIL` only when every failing check is one a named step exists to close, so a regression
   inside a still-expected failure is a `FAIL`. Read-only against the workspace, asserted by
   fingerprint. Unset, the fragment behaves exactly as before.
+- **`/cortex-impact --against` — two sessions editing one repo now get a warning (#408, v0).**
+  Parallel sessions on one repository had nothing to warn them; the only defence was noticing stale
+  mtimes by hand, and a test run once reported nine failures that were another agent's edits landing
+  underneath it. `node index/cortex-impact.mjs --staged --against <list>` compares your change set
+  with another session's and reports the files you both touch and the **one-hop dependency
+  collisions** — a file of yours importing one of theirs, or the reverse, which path comparison alone
+  never shows. Theirs arrives as a list file (one path per line; CRLF, a BOM and `#` comments are
+  stripped), as `-` on stdin, or as `--against-ref <branch>`, which reads `HEAD...ref` — their work
+  since the branches diverged, with no fallback that would hand your own commits back as theirs.
+  Paths are normalised on both sides (`\` or `/`, `./`, absolute inside the repo) by one function
+  that `impactOf` now uses too. Counts are floors under `atLeast`; an empty or unreadable "theirs"
+  exits 2 and is never reported as "no overlap"; a missing list file exits 1; findings exit 0, like
+  every other answer this command gives. No daemon, no tick loop, no network. The workspace
+  harness's S4 overlap check is now real rather than an expected failure — both forms, two git
+  identities, one clone — and `tools/test/e2e-workspace.test.sh` runs it on a workspace it builds.
+  Run against this repository's own branches it found the shared `CHANGELOG.md` and
+  `index/cortex-impact.mjs (mine) imports index/lib/imports.mjs (theirs)` against a resolver branch,
+  and said "empty, not no overlap" for a sibling session that had not committed yet.
 - **The Cortex View opens on an Overview, and has a Structure tab.** The Overview is the repo's
   state on one screen: index fresh or stale, profile, how far team memory trails the code, and the
   Cortex version; files, import edges, test coverage, 30-day churn with a sparkline, findings by

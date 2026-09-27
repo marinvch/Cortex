@@ -87,7 +87,9 @@ before overturning one; the line here is the trigger, not the case.
   every number it prints is a floor. Regex import resolution makes dynamic imports invisible, so the
   field is `atLeast`, never `total`. The actionable half is the *unverified* list, not the count.
   Coverage lives in `index/lib/coverage.mjs`, shared with `findings.mjs`; do not write a second copy
-  of that heuristic. [ADR 0004](adr/0004-no-runtime-dependencies.md) rules out a parser.
+  of that heuristic. [ADR 0004](adr/0004-no-runtime-dependencies.md) rules out a parser. Its
+  `--against` mode reads one hop in *both* directions between two change sets (#408), and holds the
+  same floor — `index/lib/overlap.mjs`.
 - **`/cortex-review` is the only thing that reads the context layer back.** Everything else in
   Cortex writes documents — `AGENTS.md`, `CONTEXT.md`, ADRs — or audits them for bloat. This one
   judges a *change* against them, on two axes: does it break a documented rule, and did it just

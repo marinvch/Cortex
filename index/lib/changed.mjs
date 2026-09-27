@@ -22,6 +22,7 @@
 // unknown — and a floor computed from an unknown change set is not a floor.
 
 import { execFileSync } from "node:child_process";
+import { isAbsolute, relative } from "node:path";
 
 /**
  * 64 MB. `git log -M --name-status` over the whole history of a long-lived repo runs to tens of
@@ -102,6 +103,47 @@ export function changedFiles(root, { paths = [], staged = false, since = null, g
   }
 
   return { files: [...new Set(files)], failures };
+}
+
+/**
+ * What another branch changed since it diverged from HEAD — the other half of an overlap check
+ * (#408), for a second session working in its own worktree on its own branch.
+ *
+ * Three dots, and deliberately **no fallback**. `HEAD...ref` is the other side's work alone; a
+ * bare or two-dot diff is everything that differs between the tips, which includes every commit I
+ * made — so it would hand my own files back to me as theirs and report them as overlap. Where there
+ * is no merge base, the honest answer is that git could not say, and the failure carries git's
+ * reason. Committed work only: the other worktree's uncommitted edits are not in any ref, and the
+ * list-file form (`--against <file>`) is how those arrive.
+ */
+export function branchChanges(root, ref, { git = null } = {}) {
+  const run = git ?? gitReader(root);
+  const r = run(["diff", "--name-only", `HEAD...${ref}`]);
+  if (r.error) return { files: [], failures: [{ source: `--against-ref ${ref}`, error: r.error }] };
+  return { files: [...new Set(r.out.split("\n").filter(Boolean))], failures: [] };
+}
+
+/**
+ * One repo-relative, forward-slash form for a changed path, whoever wrote it.
+ *
+ * git prints `src/a.js`; a Windows shell or a hand-written list says `src\a.js` or `.\src\a.js`; a
+ * list lifted out of another session often carries absolute paths. Compared literally, those are
+ * four different files and an overlap check between them reports none — so every caller that
+ * compares change sets goes through this one function. An absolute path outside `root` has no
+ * repo-relative form and is returned as given (slashes normalised), so it surfaces as "not in the
+ * index" and is named there rather than being rewritten into something it is not.
+ *
+ * Case is kept: git tracks paths case-sensitively even on a case-insensitive filesystem.
+ */
+export function normalizeChangedPath(p, root = null) {
+  let s = String(p);
+  if (root && isAbsolute(s)) {
+    const rel = relative(root, s);
+    if (rel && !rel.startsWith("..") && !isAbsolute(rel)) s = rel;
+  }
+  s = s.split("\\").join("/");
+  while (s.startsWith("./")) s = s.slice(2);
+  return s;
 }
 
 /**

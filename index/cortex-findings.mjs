@@ -12,7 +12,7 @@
 // analysis is deliberate — a wizard forced to parse its questions back out of rendered markdown
 // would drift from the findings the moment either was reworded.
 
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { analyse, offers, render } from "./lib/findings.mjs";
@@ -53,6 +53,12 @@ if (args.stdout) {
     ? isAbsolute(args.out) ? args.out : resolve(args.out)
     : join(root, ".cortex", "findings", `${day}.md`);
   const gen = ensureGeneratedFileDir(root, out);
+  // One report per date is the naming rule, so a second run the same day overwrites the first. That
+  // used to happen in silence, and running findings before an install and again after it is the
+  // natural way to see what the install changed — the "before" vanished without a word. Keep the
+  // rule; say when it cost something. An identical report replaced nothing worth mentioning.
+  const earlier = existsSync(out) ? readFileSync(out, "utf8") : null;
+  const replaced = earlier !== null && earlier !== report;
   writeFileSync(out, report);
   const counts = findings.reduce((a, f) => ({ ...a, [f.severity]: (a[f.severity] || 0) + 1 }), {});
   const summary = ["critical", "high", "medium", "low"]
@@ -62,6 +68,12 @@ if (args.stdout) {
   process.stdout.write(
     `${findings.length} findings${summary ? ` (${summary})` : ""}\nWrote ${out}\n${generatedNotice(gen)}`,
   );
+  if (replaced) {
+    process.stdout.write(
+      `Replaced today's earlier report at that path, which differed from this one and is not kept. ` +
+        `To keep both next time, write one elsewhere with --out <file>.\n`,
+    );
+  }
   // The report is the wizard's script, so the reader needs to know which step it feeds next.
   process.stdout.write(`\n${nextLine(root, index)}\n`);
 }

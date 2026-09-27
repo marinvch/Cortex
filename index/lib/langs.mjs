@@ -26,6 +26,8 @@ const CODE = new Set([
   "javascript", "typescript", "python", "ruby", "go", "rust", "java", "kotlin", "csharp",
   "php", "swift", "scala", "elixir", "c", "cpp", "vue", "svelte",
 ]);
+/** Every language `categoryOf` calls code — each needs an import extractor or a place on the blind list. */
+export const CODE_LANGUAGES = CODE;
 const DOCS = new Set(["markdown", "restructuredtext", "text"]);
 const CONFIG = new Set(["json", "yaml", "toml", "ini", "xml", "config", "prisma"]);
 const INFRA = new Set(["dockerfile", "terraform", "make"]);

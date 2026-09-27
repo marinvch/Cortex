@@ -112,7 +112,8 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   documented limit, not a bug — it is why the orphan finding says "worth checking", never "safe to
   delete". A code language `extractImports` has no case for belongs in `UNRESOLVED_LANGUAGES`, so
   the report says it is blind instead of calling every file unreferenced — Kotlin did, 22 of 24 on
-  spring-petclinic-kotlin, until it was listed (#465).
+  spring-petclinic-kotlin, until it was listed (#465). `imports.test.mjs` walks `CODE_LANGUAGES`
+  and fails on a language that has neither.
 - **One slot per language, in `lib/resolvers.mjs`: `prepare(env) → ctx` and
   `resolve(spec, from, ctx) → string[]`.** A language's own knowledge — that Go reads `go.mod`, that
   `crate::` is relative to the crate a file belongs to, that a JS alias is consulted only after the

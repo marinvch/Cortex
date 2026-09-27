@@ -636,8 +636,10 @@ export function resolveImport(spec, fromPath, fileSet, lang) {
 // resolved must land here, or its reports will say "nothing depends on this" when they mean "I did
 // not look". Kotlin is the first: `extractImports` has no case for it, so every `.kt` file had no
 // edge at all, and on spring-petclinic-kotlin 22 of its 24 code files were called unreferenced
-// (#465). Listed here until it has an extractor and a resolver — the report then says it is blind.
-export const UNRESOLVED_LANGUAGES = new Set(["kotlin"]);
+// (#465). C#, Swift, Scala, Elixir, C and C++ had the same gap and are listed with it. Each stays
+// here until it has an extractor and a resolver — the report then says it is blind, and
+// imports.test.mjs fails if a code language has neither.
+export const UNRESOLVED_LANGUAGES = new Set(["kotlin", "csharp", "swift", "scala", "elixir", "c", "cpp"]);
 
 /** The module path declared by a go.mod, or null. `module github.com/x/y` → `github.com/x/y`. */
 export function goModulePath(goModText) {

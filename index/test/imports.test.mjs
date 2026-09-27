@@ -15,6 +15,7 @@ import {
   mergeAliasTables,
   resolveTsAlias,
 } from "../lib/imports.mjs";
+import { CODE_LANGUAGES } from "../lib/langs.mjs";
 
 test("extracts every JS/TS import form", () => {
   const src = `
@@ -186,6 +187,26 @@ test("a language with no import extractor is listed blind (#465)", () => {
   // them read as unreferenced — 22 of 24 code files on spring-petclinic-kotlin.
   assert.deepEqual(extractImports("import com.example.owner.Owner\n", "kotlin"), []);
   assert.ok(UNRESOLVED_LANGUAGES.has("kotlin"));
+});
+
+test("every code language either has an import extractor or is listed blind", () => {
+  // Kotlin was not the only one: C#, Swift, Scala, Elixir, C and C++ were also counted as code with
+  // no extractor, so every file in them would have read as unreferenced. One import line each; a
+  // language added to CODE_LANGUAGES without a line here fails, so the next gap cannot slip in.
+  const sample = {
+    javascript: 'import a from "./a";\n', typescript: 'import a from "./a";\n',
+    vue: 'import a from "./a";\n', svelte: 'import a from "./a";\n',
+    python: "import os\n", go: 'import "fmt"\n', rust: "use crate::a;\n",
+    java: "import com.example.A;\n", php: "use App\\Models\\User;\n", ruby: 'require_relative "a"\n',
+    kotlin: "import com.example.A\n", csharp: "using System.Text;\n", swift: "import Foundation\n",
+    scala: "import scala.util.Try\n", elixir: "alias MyApp.Repo\n", c: '#include "a.h"\n',
+    cpp: '#include "a.hpp"\n',
+  };
+  for (const lang of CODE_LANGUAGES) {
+    assert.ok(lang in sample, `${lang} is code but has no sample import here — add one`);
+    const seen = extractImports(sample[lang], lang).length > 0;
+    assert.ok(seen || UNRESOLVED_LANGUAGES.has(lang), `${lang} has no import extractor and is not listed blind`);
+  }
 });
 
 test("mod resolves as a sibling from a crate root, and as a child from anywhere else", () => {

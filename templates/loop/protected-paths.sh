@@ -34,7 +34,10 @@ protected=(
 {{PROTECTED_PATTERNS}}
 )
 
-for pattern in "${protected[@]}"; do
+# An empty list is the common case (no generated paths detected). Under `set -u`, bash before 4.4 —
+# macOS still ships 3.2 — reads "${protected[@]}" of an empty array as unset and dies on every edit;
+# the `+` form expands to nothing instead.
+for pattern in ${protected[@]+"${protected[@]}"}; do
   case "$path" in
     $pattern)
       echo "Refusing to edit $path — it is generated or frozen." >&2

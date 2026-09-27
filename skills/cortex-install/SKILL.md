@@ -39,7 +39,8 @@ This skill is **model-invocable** — you may start it yourself when a repo plai
 makes the gate below the thing protecting the repository, not the invocation rules.
 
 **If `.cortex/` does not exist, ask before writing anything** — including the index. Say what you
-propose to do, that it writes only to `.cortex/` and never to source, and wait for a yes. Generated
+propose to do, and what it writes: files under `.cortex/`, plus three ignore lines appended to
+`.gitignore` the first time. It never writes to source. Then wait for a yes. Generated
 and gitignored is not the same as invisible: these are files appearing in someone's project, on a
 run they did not ask for.
 
@@ -161,7 +162,8 @@ order** — severity order, the same sequence they answered in.
   the invariants you actually observed. Keep it under ~120 lines; detail belongs in leaves.
 - `CLAUDE.md` and `GEMINI.md` as one-line shims importing it.
 - `CONTEXT.md` from the glossary template, seeded with the domain terms that appear in the code.
-- `docs/adr/` with the ADR template. Create records lazily, not preemptively.
+- The ADR template in `docs/adr/`, or in `adr/` when `docs/` is a published site. Scaffold makes
+  that call. Create records lazily, not preemptively.
 
 Never clobber a curated file. If `AGENTS.md` exists and has real content, write
 `AGENTS.generated.md` beside it and tell the user to diff.

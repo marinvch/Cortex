@@ -42,7 +42,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to a commit, not a tag: a tag can be moved to other code after review, a commit cannot.
+      # The trailing comment names the release, so update tools can still read it. If this repo's own
+      # CI pins its checkout to another commit, use that one — one version of checkout per repo.
+      # persist-credentials: false leaves no token behind for the steps after it; the agent runs in
+      # those steps, and nothing a case does needs to push.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       # The steps from this repo's own CI that install its toolchain and dependencies, copied as
       # they are there, so the test command runs here the way it runs there. None needed: delete it.
       {{SETUP_STEPS}}

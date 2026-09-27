@@ -5,3 +5,9 @@
 # with `bash: $'\r': command not found`, and this repo's core tooling is bash — the endings can't
 # be left to each contributor's local core.autocrlf setting.
 *.sh text eol=lf
+
+# Templates are copied byte-for-byte into OTHER repos, whose formatters and linters decide whether
+# the copy is acceptable. A Windows checkout gave every template CRLF under text=auto, and /cortex
+# stamped those CRLF files into a repo whose `prettier --list-different` then failed on ten of them.
+# The endings a target repo receives cannot depend on the platform Cortex happened to be cloned on.
+templates/** text eol=lf

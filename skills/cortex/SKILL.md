@@ -13,6 +13,12 @@ Everything Cortex used to ask a user to sequence by hand — index, findings, sc
 skills — happens here, in one pass, behind one confirmation. The other rituals still exist and are
 still callable by name; what changed is that nobody has to know their order to get a served repo.
 
+One pass writes everything that can be written today. Two rows cannot be: **evals** need real past
+tasks to seed cases from, and **bands** need a production metric with a stable history. Both also
+wait on files this same pass writes (`CLAUDE.md`, `REVIEW.md`), so they come back as `missing`
+afterwards. Say that in the playback. Do not promise them in the first pass. `cortex-next` then
+names `/cortex evals` and `/cortex bands` ([Invoked with a row](#invoked-with-a-row)).
+
 > **The rule that governs this whole skill:** steps 1–5 read, report and *ask*. They do not modify
 > one line of the repository. Writing happens in step 7, only for what the user confirmed. If you
 > find yourself editing a file before the user has chosen something, stop — you have left the skill.
@@ -51,8 +57,8 @@ This skill is **model-invocable** — you may start it yourself when a repo plai
 makes the gate below the thing protecting the repository, not the invocation rules.
 
 **If `.cortex/` does not exist, ask before writing anything** — including the index. Say what you
-propose to do, that the read steps write only to `.cortex/` and never to source, and wait for a
-yes. Generated and gitignored is not the same as invisible: these are files appearing in someone's
+propose to do, and what the read steps write: files under `.cortex/`, plus three ignore lines
+appended to `.gitignore` the first time. They never write to source. Then wait for a yes. Generated and gitignored is not the same as invisible: these are files appearing in someone's
 project on a run they did not ask for.
 
 **If `.cortex/` already exists**, Cortex is established here and re-indexing needs no ceremony.
@@ -66,7 +72,10 @@ tree, the manifest — needs no permission and never did.
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-index.mjs" .
 ```
 
-Deterministic and offline. Writes only `.cortex/index/index.json`.
+Deterministic and offline. Writes `.cortex/index/index.json`. The run that first creates `.cortex/`
+also appends `.cortex/index/`, `.cortex/findings/` and `.cortex/view/` to the target's `.gitignore`,
+and creates that file if there is none. That is the one write outside `.cortex/`. The indexer
+prints the lines it added; tell the user.
 
 **Index before reading the loop.** Two loop rows cite the index — the root brief names the detected
 stack, the hooks row names the generated paths — and without one they report "nothing detected",
@@ -175,11 +184,16 @@ Cortex will write, in one pass:
   Deploy    REVIEW.md, .github/workflows/cortex-review.yml,
             .claude/settings.json, .claude/hooks/protected-paths.sh
 
-  Waiting:  bands.yaml — needs REVIEW.md, and a CI system
+  After this pass, waiting on history:
+            evals — cases are real past tasks; /cortex evals once there are some
+            bands.yaml — one metric with a stable history; /cortex bands, or never
   Not now:  enrichment (later), the plugin bundle (no)
 
   [a]ll   [p]ick a subset   [n]one
 ```
+
+Name the ADR directory the scaffold will use. It is `docs/adr/`, or `adr/` when `docs/` is a
+published site ([`/cortex-scaffold`](../cortex-scaffold/SKILL.md) step 3).
 
 `[a]ll` is offered first and on purpose: a user who wants the whole loop should not have to answer
 eight questions to get it. `[p]ick` drops back into the worklist one row at a time. `[n]one` is a
@@ -196,7 +210,7 @@ what drifts.
 
 | Item | Who writes it |
 |---|---|
-| root brief, shims, `CONTEXT.md`, `docs/adr/` | `/cortex-scaffold` — it owns the templates and the never-clobber rules |
+| root brief, shims, `CONTEXT.md`, `docs/adr/` or `adr/` | `/cortex-scaffold` — it owns the templates, the never-clobber rules and the ADR location |
 | scoped `AGENTS.md` leaves | `/cortex-brief`, once per area they picked |
 | `.claude/skills/` | `/cortex-skills`, from `index.stack` |
 | the plugin bundle | `/setup-plugins` |
@@ -206,15 +220,15 @@ The loop artifacts are written here, from `${CLAUDE_PLUGIN_ROOT}/templates/loop/
 
 | Template | Lands at | Fill in |
 |---|---|---|
-| `verification.md` | appended to `CLAUDE.md` | only commands `loop.mjs` **detected**; ask for any it did not |
+| `verification.md` | appended to `CLAUDE.md` | only commands `loop.mjs` **detected**; ask for any it did not. The opening comment is addressed to you, so leave it out |
 | `verifier.md` | `.claude/agents/verifier.md` | the run command |
 | `REVIEW.md` | `REVIEW.md` | the detected generated paths under out-of-scope, and the suggestion cap |
 | `settings.hooks.json` | merged into `.claude/settings.json` | **merge, never replace** — read the file first |
 | `protected-paths.sh` | `.claude/hooks/` | the detected paths, as shell glob patterns |
 | `format-changed.sh` | `.claude/hooks/` | one `<glob>) <command> "$path" >/dev/null 2>&1 ;;` line per entry in `state.formatters`; none if it is empty |
 | `intent-README.md`, `intent.md` | `intent/README.md`, `intent/TEMPLATE.md` | who accepts an intent |
-| `agent-evals.yml` | `.github/workflows/` | `{{TEST_CMD}}` with the detected test command; replace the `{{SETUP_STEPS}}` line with the toolchain and install steps from the repo's own CI, at that indentation, or delete it if there are none; cases live in `evals/cases/<name>/` |
-| `cortex-review.yml` | `.github/workflows/` | `{{CORTEX_REF}}` with `v` plus the version in `${CLAUDE_PLUGIN_ROOT}/VERSION`, so each PR runs the release that stamped it; leave it advisory, and tell the user that setting the repository variable `CORTEX_REVIEW_BLOCKING` to `true` makes a provable broken citation fail the PR |
+| `agent-evals.yml` | `.github/workflows/` | `{{TEST_CMD}}` with the detected test command; replace the `{{SETUP_STEPS}}` line with the toolchain and install steps from the repo's own CI, at that indentation, or delete it if there are none; keep checkout pinned by SHA with `persist-credentials: false`, and use the SHA the repo's own CI pins if it has one; cases live in `evals/cases/<name>/` |
+| `cortex-review.yml` | `.github/workflows/` | `{{CORTEX_REF}}` with `v` plus the version in `${CLAUDE_PLUGIN_ROOT}/VERSION`, so each PR runs the release that stamped it; keep checkout pinned by SHA with `persist-credentials: false`; leave it advisory, and tell the user that setting the repository variable `CORTEX_REVIEW_BLOCKING` to `true` makes a provable broken citation fail the PR |
 | `bands.yaml` | repo root | one metric with a stable history, a read-only command, the rollback runbook |
 
 **Never invent a command.** Every `{{PLACEHOLDER}}` that `loop.mjs` could not fill is a question for
@@ -226,6 +240,26 @@ file that is wrong once is not trusted on the parts the reader cannot check.
 **Never clobber a curated file.** If `AGENTS.md` or `REVIEW.md` exists with real content, write
 `<name>.generated.md` beside it and say to diff. `.claude/settings.json` is merged into, key by
 key — replacing it takes out hooks and permissions somebody else depends on.
+
+### Format what you wrote, then run the repo's own check
+
+A stamped file has to pass the target repo's own checks. On the first real install it did not:
+the repo's test script ran `prettier --list-different`, and ten files Cortex had just written
+failed it. The format hook stamped in this pass only takes effect in the *next* session, so this
+session has to format by hand.
+
+1. **Write LF line endings**, whatever your checkout of the templates has.
+2. **Run the repo's formatter on exactly the files you wrote.** `state.formatters` in the step 4
+   `--json` output lists what this repo declares, as `{ glob, command }`. Run
+   `<command> <file>` for each file you wrote that matches a glob. Never run it on `.`: that
+   reformats files you did not write, and nobody asked for that diff.
+3. **Run the repo's own lint/format check**: the verification block's lint row, or the
+   `format:check` / `lint` script the manifest declares. Then run
+   `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-placeholders.mjs" <the files you wrote>`, which exits 1
+   and names every template placeholder still left in them.
+4. **If the check still fails on a file you wrote, fix that file.** If you cannot, report the
+   failure with its output in step 8. Never edit the repo's formatter or lint config to make it
+   pass. If no formatter is declared, say so; step 3 still runs.
 
 ## 8. Close
 
@@ -242,11 +276,26 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-loop.mjs" . --line
 
 **End with that one line, not a menu.** It says what the loop is still missing or that it is closed,
 and it is the last thing the user reads. A list of eleven commands sorted by nothing is where an
-install stops being useful — they leave holding options instead of a step.
+install stops being useful — they leave holding options instead of a step. If the line names
+`evals/` or `bands.yaml`, add one sentence saying what each is waiting for: task history, or a
+metric with a history. Do not present it as work this pass left undone.
 
 Then: suggest committing what was written so the team shares it, and mention `/dream` at the end of
 a working day, because `.cortex/memory/` is the only part of the loop that nothing on disk will
 remind them about.
+
+## Invoked with a row
+
+`/cortex evals` and `/cortex bands` are what `cortex-next` names once the first pass is done. Run
+steps 1–4 as usual, then take only that row from `missing`. Playback and confirmation are still
+one each, and step 7's rules still apply.
+
+- **`evals`**: ask for one to three real tasks the team finished recently. Each becomes
+  `evals/cases/<name>/prompt.md` plus an `accept.sh` that checks the result. If there are none yet,
+  stop and say so. The workflow alone proves nothing, and invented cases prove less.
+- **`bands`**: ask which production metric has a stable history, and for a read-only command that
+  reads it. If there is no such metric, stop and say so. For a library with no production metric,
+  that is a finished state.
 
 ## Running unattended
 

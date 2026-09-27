@@ -1,5 +1,6 @@
 <!--
-  An architecture decision record. Copied into a target repo as docs/adr/NNNN-slug.md.
+  An architecture decision record. Copied into a target repo as docs/adr/NNNN-slug.md, or as
+  adr/NNNN-slug.md where docs/ is the source of a published site.
 
   Write one ONLY when the decision is hard to reverse, surprising without context, or a real
   trade-off. A record of an obvious choice is noise, and noise is what stops people reading the
@@ -42,7 +43,7 @@ this in a year should understand the pressure without having been there.}}
 
 | Option | Why not |
 |---|---|
-| {{option}} | {{the actual reason — cost, risk, a constraint it violated}} |
+| {{a rejected option}} | {{the actual reason — cost, risk, a constraint it violated}} |
 
 This table is the point of the record. Without it, the decision gets re-litigated by the next
 person who has the same idea.

@@ -112,6 +112,11 @@ wrong place.
 
 And check every command you quoted actually exists. Run it, or grep the manifest for it.
 
+Then **format what you wrote.** Write LF line endings. Run the repo's declared formatter
+(`state.formatters` in `cortex-loop.mjs . --json`) on exactly the files you wrote, never on `.`.
+Then run the repo's own lint/format check. A Prettier repo checks `.claude/skills/**/*.md` like
+any other Markdown. If the check still fails on a file you wrote, report it with the output.
+
 ## 5. Report
 
 List the skills written as paths, and say they are committed with the repo so the whole team gets

@@ -13,6 +13,7 @@ import { homedir } from "node:os";
 import { codeCoverage } from "./findings.mjs";
 import { briefCandidates, TOOLING_DIRS } from "./layers.mjs";
 import { findOrphans } from "./orphans.mjs";
+import { ADR_DIRS, isAdrRecord } from "./adr.mjs";
 
 // Enough hues to separate the areas a reader can hold at once; past that they repeat, which is
 // honest — a repo with 30 top-level areas has a structure problem the colours should not hide.
@@ -183,15 +184,17 @@ function buildStructure(files, areas, colorOf, { tested, labels }) {
       key,
     };
   };
-  const adrFiles = files.filter((f) => f.path.startsWith("docs/adr/")).map((f) => f.path);
+  // Which of the ADR homes holds them, so the page names the directory that exists, and the file the
+  // tab links to: a scaffold writes `TEMPLATE.md` and no records, which is "in place", not "missing".
+  const adrDir = ADR_DIRS.find((d) => files.some((f) => f.path.startsWith(`${d}/`))) ?? null;
+  const adrFiles = adrDir ? files.filter((f) => f.path.startsWith(`${adrDir}/`)).map((f) => f.path).sort() : [];
   return {
     root: rootBrief,
     shims: SHIMS.filter((p) => paths.has(p)),
     glossary: paths.has("CONTEXT.md") ? "CONTEXT.md" : null,
-    adrs: adrFiles.filter((p) => /^docs\/adr\/\d{4}-.+\.md$/.test(p)).length,
-    // The directory is a fact of its own. A scaffold writes `docs/adr/TEMPLATE.md` and no records,
-    // and the tab drew that as "no docs/adr/" beside a sequence that called the layer done.
-    adrDir: adrFiles.length ? (adrFiles.find((p) => /\/TEMPLATE\.md$/i.test(p)) ?? adrFiles.sort()[0]) : null,
+    adrs: files.filter((f) => isAdrRecord(f.path)).length,
+    adrDir,
+    adrGo: adrFiles.find((p) => /\/TEMPLATE\.md$/i.test(p)) ?? adrFiles[0] ?? null,
     review: paths.has("REVIEW.md") ? "REVIEW.md" : null,
     briefs,
     // Areas with code first — they are what a brief routes to — then by size.

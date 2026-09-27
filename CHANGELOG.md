@@ -354,6 +354,54 @@ it was repointed or dropped in the same change.
   - **Shallow clones.** Every file read "1 commits" and the hot-spot table was path order. The
     Overview detects `--is-shallow-repository`, churn is reported unavailable with the fix, and the
     untested list ranks by inbound imports instead.
+- **A `/cortex` install broke the target repo's own tests.** Found by running `/cortex` on a clone
+  of pmndrs/zustand: after the install, the repo's `pnpm test` failed, because
+  `prettier --list-different` flagged ten files Cortex had just written. There were two causes.
+  First, templates checked out on Windows had CRLF endings (`i/lf w/crlf`) and were copied
+  byte-for-byte. `.gitattributes` now pins `templates/** text eol=lf`, and
+  `index/test/stamping.test.mjs` checks the attribute on every template. Second, no step ran the
+  repo's formatter over what was written. `/cortex`, `/cortex-scaffold`, `/cortex-brief` and
+  `/cortex-skills` now each tell the agent to write LF, run the declared formatter on exactly the
+  files it wrote, run the repo's own lint/format check, and report a failure that remains. The
+  same test checks that each skill still says so.
+- **The stamped `agent-evals.yml` used an unpinned `actions/checkout@v4` that kept its credentials.**
+  zustand pins every action by SHA and sets `persist-credentials: false`, so a security reviewer
+  would have flagged the stamped workflow. The template now pins checkout to `3d3c42e…` (v7.0.1),
+  names the release in a trailing comment, and disables persisted credentials. A test checks that
+  every stamped workflow pins each `uses:` to a 40-character SHA with its release named, and that
+  every checkout sets `persist-credentials: false`.
+- **`docs/adr/` was hard-coded, so on a docs-site repo the ADRs would have been published.** In
+  zustand, `docs/` is the source of the public docs site: `docs.yml` builds `mdx: 'docs'` and
+  deploys it to Pages. The new `index/lib/adr.mjs` holds the one answer. ADRs go in `docs/adr/`, or
+  in `adr/` when `docs/` is a published site. It counts as one when it has a Docusaurus, VitePress,
+  MkDocs, Sphinx, Jekyll, Hugo or Astro config, a `docs/package.json`, or a workflow that deploys
+  Pages and names `docs`. ADRs already on disk stay where they are. Every reader accepts both
+  locations: review's historical class, `isContextDoc`, the view's count and label, and `readState`
+  (which now carries `adrDir` and `adrWhy` for the scaffold). `.cortex/adr/` was rejected because
+  the walker skips `.cortex/`, so review would never see those records.
+- **The scaffold's `{{` check had three false hits on every correct install.** Two were
+  `TEMPLATE.md` files that keep their placeholders on purpose; the third was a workflow's `${{ }}`.
+  The new `tools/cortex-placeholders.mjs` replaces the grep. It maps each written file to the
+  template it came from and reports only that template's exact placeholders. It skips
+  `TEMPLATE.md`, ignores `${{ }}`, and still catches a placeholder a formatter reflowed across
+  lines. To make that design hold, placeholders in the prose templates are now phrases
+  (`{{test command}}`, `{{an area}}`), never identifiers like `{{test}}`, which Handlebars, Vue and
+  Jinja would parse as an expression. `tools/test/placeholders.test.sh` covers both directions.
+- **`cortex-next` said "Next → /cortex" forever after `/cortex` had run.** Evals and bands are
+  blocked until the first pass writes `CLAUDE.md` and `REVIEW.md`. After that, they wait on history
+  that no second pass can create. The loop row now counts as done when one pass has nothing left to
+  write. Each of the two gets its own row: `/cortex evals`, and `/cortex bands`, which is optional
+  because a library with no production metric is finished without one. `/cortex` states that
+  split in its playback and close, and documents being invoked with a row.
+- **The instructions contradicted each other.** Preflight named `/cortex-install` as the entry
+  point to `/cortex`, the ritual that runs preflight first. It also printed
+  `node index/cortex-index.mjs .`, a path that does not resolve from the target repo; it now prints
+  `/cortex` and an absolute indexer path. `/cortex` and `/cortex-install` said the indexer writes
+  only under `.cortex/`, but its first run also appends three lines to `.gitignore`; both now say
+  so at the consent gate. `/cortex-scaffold` said `CLAUDE.md` is one line and nothing else, while
+  `/cortex` appends the verification block to it. Scaffold now says the block is the one addition.
+- **The stamped hook settings claimed each hook finishes "well under a second."** The Prettier
+  format hook takes about 2.6 s per edit on Windows. The note now gives that cost.
 - **The destructive-guard test failed at random, and four other checks could have (#433).** Under
   the `pipefail` that `tools/test/run.sh` sets, `code_of f | grep -q resolve_in_root` reported a
   guard that was there as missing whenever `grep -q` matched and exited before `sed` flushed its

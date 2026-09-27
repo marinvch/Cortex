@@ -133,8 +133,17 @@ if (asJson) {
 const KINDS = {
   "cortex-source": "Cortex's own source — /cortex-audit and the contributor invariants apply here",
   "cortex-installed": "a repo with Cortex installed — /cortex-next names the step it is on",
-  uninstalled: "no .cortex/ — /cortex-install is the entry point",
+  // `/cortex`, the front door — not `/cortex-install`, its read half. Preflight is the first thing
+  // `/cortex` runs, and it used to tell that very ritual that a different one was the entry point.
+  uninstalled: "no .cortex/ — /cortex is the entry point",
 };
+
+// The indexer, as a path that resolves from the TARGET repo. This file used to print
+// `node index/cortex-index.mjs .`, which is relative to Cortex's own checkout: run from the repo
+// being installed, it names a file that does not exist there. Absolute, and forward slashes so it
+// pastes into bash on Windows too.
+const INDEXER = resolve(dirname(fileURLToPath(import.meta.url)), "..", "index", "cortex-index.mjs").split("\\").join("/");
+const indexCmd = `node "${INDEXER}" .`;
 
 console.log(`\nroot      ${root}${inGit ? "" : "   (not a git repo — cwd)"}`);
 console.log(`kind      ${kind} — ${KINDS[kind]}`);
@@ -143,11 +152,11 @@ console.log(`          refuses: ${profile.policy.refuses} · outward sync: ${pro
 console.log(`          ${profile.policy.summary}`);
 
 if (!index.present) {
-  console.log(`index     none — run \`node index/cortex-index.mjs .\` before reading one`);
+  console.log(`index     none — run \`${indexCmd}\` before reading one`);
 } else if (index.stale) {
   console.log(`index     ${index.ageDays}d old and STALE — ${index.changedSince.length}+ tracked files newer:`);
   for (const f of index.changedSince) console.log(`            ${f}`);
-  console.log(`          re-run \`node index/cortex-index.mjs .\` first`);
+  console.log(`          re-run \`${indexCmd}\` first`);
 } else {
   console.log(`index     ${index.ageDays}d old, current${index.staleReason ? ` (${index.staleReason})` : ""}`);
 }

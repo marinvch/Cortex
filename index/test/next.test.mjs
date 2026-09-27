@@ -236,6 +236,7 @@ function servedFirstPass({ put }) {
   put(".claude/agents/verifier.md");
   put(".claude/settings.json", '{ "hooks": {} }');
   put(".github/workflows/ci.yml", "name: ci\n");
+  put(".github/workflows/cortex-review.yml", "name: cortex-review\njobs:\n  review:\n    steps:\n      - run: node \"$CORTEX/index/cortex-review.mjs\" --since \"$BASE\"\n");
 }
 
 test("after the first pass, next names /cortex evals — not /cortex again", () => {

@@ -77,6 +77,13 @@ this project now versions independently of any package manager (see `VERSION`).
   each manifest the index saw, because the walker drops `*.lock` and `*-lock.json`, so an
   index-only rule passed its fixtures and found nothing on a real repo. On ripgrep it found
   `Cargo.lock` and `fuzz/Cargo.lock`, and on fzf `go.sum` and `Gemfile.lock`, all of them tracked.
+- **The hooks row stops promising a test-file lock no template provides (#457).** On a repo with a
+  test script and nothing to protect, it said "the hook that matters here is the test-file lock
+  during a fix", stamped `protected-paths.sh` with an empty list and `format-changed.sh` with no
+  case lines, and counted the row done. The row now applies only where a hook has work to do, a
+  path to protect or a formatter to run. Anywhere else it says no hook has work to do here, and a
+  hooks block already on disk does not count it as served. `loop.test.mjs` fails if any row's text
+  names a file no template provides.
 
 ## [2.39.0] — 2026-09-27
 

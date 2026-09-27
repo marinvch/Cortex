@@ -108,8 +108,9 @@ about itself, so nothing surfaces until a reader is misled.
 |---|---|
 | `cortex-version.mjs --check` | the seven version sites disagree. Never hand-edit one; `--set` writes them all |
 | `cortex-capability.mjs` | a ritual declares no capability floor |
-| `cortex-frontmatter.mjs --check` | a ritual's frontmatter is not flat `key: value`, lacks `name`/`description`, or holds a value YAML would misread — a block-scalar description parses to `\|` and the skill is never suggested. Strict, with no warn mode. The one frontmatter parser here; `cortex-capability.mjs` imports it |
-| `cortex-skill-graph.mjs --check` | a ritual has no edges at all, in either direction, and declares no `reached-by:` |
+| `cortex-frontmatter.mjs --check` | a ritual's frontmatter is not flat `key: value` — the one exception is a `metadata:` map holding only `capability` and `reached-by` — lacks `name`/`description`, or holds a value YAML would misread — a block-scalar description parses to `\|` and the skill is never suggested. Strict, with no warn mode. The one frontmatter parser here; `cortex-capability.mjs` and `cortex-skill-graph.mjs` import it |
+| `cortex-skill-graph.mjs --check` | a ritual has no edges at all, in either direction, and declares no `metadata:` `reached-by:` |
+| `test/cortex-follows-its-own-rules.test.sh` | the `claude-setup/` findings Cortex reports on other repos find anything in this one. Fix the repo, not the checker |
 | `cortex-skill-usage.mjs --unused` | (reports, does not fail) which skills the session record shows nobody ever reached |
 | `cortex-plugin-check.mjs --check` | the running plugin is behind the repo, so a correct fix looks broken |
 | `cortex-sync-skills.sh --check` | the gitignored `.claude/skills/` mirror has drifted from `skills/` |

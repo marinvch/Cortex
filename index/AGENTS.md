@@ -332,9 +332,23 @@ borrows its three numbers rather than keeping a second list.
   `format` script — and an empty list stamps a `format-changed.sh` that does nothing. Lint is a
   family of names (`lint`, `test:lint`, a lone `lint:*`). Several parts with no aggregate return
   null rather than a command that checks half the repo, and a fixer is never chosen.
+- **A test command must exit.** `"test": "vitest"` watches in a terminal, so the verification
+  block, the verifier and the evals workflow all named a command that hangs. A watching `test`
+  script gives way to `test:run` / `test:ci` / `test:once` when one runs once; otherwise `test` is
+  null and `commandNotes.test` says why — never an invented `vitest run`. Scripts are followed
+  within the manifest, never into another package (`--filter`, `-r`): vitest's own root script
+  reaches a watcher that way and is still reported, a documented limit.
 - **A protected path needs evidence, not a name.** For `migrations?/` the file is the evidence —
   SQL or code, never under a `docs/` tree — because zustand's hand-written upgrade guides in
   `docs/reference/migrations/` were proposed for a hook that blocks edits.
+- **Lockfiles are read off the disk, not the index.** `walk.mjs` drops `*.lock`, `*-lock.json` and
+  anything over its size cap, so a fixture listing `yarn.lock` in `index.files` passes while every
+  real repo reports none. The index names the directories holding a manifest; `has()` checks for
+  a lockfile beside each, by exact name. Trees and lockfiles are capped apart.
+- **The hooks row applies only where a hook template has work** — a path to protect or a
+  formatter to run. It once promised a "test-file lock" no template provides, and stamped two no-op
+  scripts on repos with neither; a `hooks` block on disk does not make such a row served.
+  `loop.test.mjs` fails when any row's text names a file no template provides.
 - **Every `why` goes through `evidence()`, and every blocked row's `needs` through `unmet()`.** Both
   rules were written after a real run: `null` printed inside a sentence, and a row claimed to need
   the CI system that its own evidence said was present. `unmet` returns only prerequisites that
@@ -349,7 +363,9 @@ borrows its three numbers rather than keeping a second list.
   missing while the rest lands; the ritual and the E2E harness read the field to say so instead of
   reporting the row as written or as declined.
 - Validated on `got` (npm), `fzf` (Make, Go) and `flask` (Python, nested example manifests), and
-  mutation-tested: nine guards broken one at a time, nine test failures. Do both again when a row
+  mutation-tested: nine guards broken one at a time, nine test failures. The watcher, lockfile and
+  hooks rules were validated on bulletproof-react, vitest (root and examples), zustand, the Nest
+  starter, a CRA app, ripgrep and fzf, with nineteen more guards mutated. Do both again when a row
   or a detector changes — fixtures here share the author's blind spots.
 
 ### The Claude-setup checker — `lib/claude-setup.mjs`

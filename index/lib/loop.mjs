@@ -70,6 +70,11 @@ function workflowsRunning(root, needle) {
 
 const named = (ids) => labelsFor(ids ?? []).join(", ");
 
+// Whether either hook template would do anything here: protected-paths.sh needs a path to block,
+// format-changed.sh a formatter to run. Nothing else — a test command is not hook work, because no
+// template acts on one.
+const hooksHaveWork = (s) => s.protectedPaths.length > 0 || s.formatters.length > 0;
+
 // Every evidence sentence is built through this. A `why` is the one part of a report a reader can
 // check against their own repo, so a sentence that reads "null runs here" does not merely look
 // untidy — it discredits the rows they cannot check. That exact string printed on the first real
@@ -153,27 +158,160 @@ function lintScript(scripts, declared) {
   return declared("check") ? "check" : null;
 }
 
+// A test command that never exits is worse than none. `"test": "vitest"` is the default a Vite app
+// ships with, and in a terminal it starts watch mode and waits for edits — so the verification block,
+// the verifier subagent and agent-evals.yml all named a command that hangs, and cortex-loop went on
+// printing `npm test` after the block had been written by hand with `test:run`. Vitest decides by
+// TTY and by `CI`, so the same script runs once in a pipeline and forever in a shell; "exits
+// somewhere" is not "exits", and a command we cannot prove exits is not one we may name.
+//
+// Detection errs one way only. Calling a one-shot command a watcher costs a question the ritual asks
+// anyway; calling a watcher one-shot costs a hung session. So anything not recognised here is taken
+// at its word, and every rule below names a runner that really does default to watching:
+//   - an explicit `--watch` / `--watchAll` (Jest, Mocha, `node --test`), unless `=false`
+//   - `vitest` without `run`/`list`, `--run`, `--no-watch` or a `CI=true` in front of it
+//   - `react-scripts test` and its wrappers (craco, react-app-rewired) — Jest in watch mode
+//   - `ng test`, whose Karma config watches unless told `--watch=false`
+//   - `nodemon`, which exists only to watch
+// A script that calls another script of the SAME manifest (`npm run x`, `pnpm x`, pnpm's
+// `"/^test:.*/"`, `run-s test:*`) is followed; one that reaches into another package (`--filter`,
+// `-C`, `workspace`) is not, because which manifest answers is a workspace question — a documented
+// limit, and it errs toward taking the script at its word.
+const ONE_SHOT_TEST_SCRIPTS = ["test:run", "test:ci", "test:once"];
+
+const SCRIPT_RUNNERS = new Set(["npm", "pnpm", "yarn", "bun"]);
+const OTHER_PACKAGE = /^(--filter|-F|-C|--dir|--prefix|--workspace|-w|--recursive|-r|workspace|workspaces)$/;
+const TRUTHY_CI = /^CI=(true|1)$/i;
+
+const tokensOf = (segment) =>
+  (segment.match(/"[^"]*"|'[^']*'|\S+/g) ?? []).map((t) => t.replace(/^(["'])(.*)\1$/, "$2"));
+
+/** Script names a runner invocation refers to, in this manifest — or null when it runs a binary. */
+function scriptsNamed(tokens, scripts) {
+  const [runner, ...rest] = tokens;
+  if (/^(run-s|run-p|npm-run-all)$/.test(runner)) {
+    const globs = rest.filter((t) => !t.startsWith("-"));
+    // npm-run-all's globs: `*` stops at a `:`, `**` does not.
+    const re = (g) =>
+      new RegExp(`^${g.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("**", "\0").replaceAll("*", "[^:]*").replaceAll("\0", ".*")}$`);
+    return Object.keys(scripts).filter((n) => globs.some((g) => re(g).test(n)));
+  }
+  if (!SCRIPT_RUNNERS.has(runner)) return null;
+  if (rest.some((t) => OTHER_PACKAGE.test(t))) return []; // another package's script: not ours to read
+  const args = rest.filter((t) => !t.startsWith("-"));
+  let name = args[0];
+  if (name === "run" || name === "run-script") name = args[1];
+  if (name === undefined) return [];
+  // pnpm runs every script a /regex/ matches: zustand's `test` is `pnpm run "/^test:.*/"`.
+  const rx = /^\/(.+)\/$/.exec(name);
+  if (rx) {
+    try {
+      const re = new RegExp(rx[1]);
+      return Object.keys(scripts).filter((n) => re.test(n));
+    } catch {
+      return [];
+    }
+  }
+  if (typeof scripts[name] === "string") return [name];
+  // `npm test` with no test script, or `bun test` (Bun's own runner): nothing of ours to follow.
+  // Anything else is a binary — `yarn vitest` — and the caller reads it as one.
+  return name === "test" ? [] : null;
+}
+
+const WATCH_FLAG = /^--watch(All)?(=(true|1))?$/;
+const WATCH_OFF = /^(--no-watch|--watch(All)?=(false|0))$/;
+
+/** Whether one command, with its env prefix stripped, starts a runner that waits for edits. */
+function commandWatches(tokens, ci) {
+  const bin = (tokens[0] ?? "").split("/").pop();
+  const off = tokens.some((t) => WATCH_OFF.test(t));
+  if (bin === "vitest") {
+    // `includes`, not "the first positional": `vitest --config x.ts run` is the one-shot form too,
+    // and mistaking it the other way would drop a command that works rather than name one that hangs.
+    return !(tokens.includes("run") || tokens.includes("list") || tokens.includes("--run") || off || ci);
+  }
+  if (/^(react-scripts|craco|react-app-rewired)$/.test(bin) && tokens[1] === "test") return !(off || ci);
+  if (bin === "ng" && tokens[1] === "test") return !(off || ci);
+  return bin === "nodemon";
+}
+
+/** Whether a script, followed through the scripts it calls in this manifest, starts a watcher. */
+function scriptWatches(name, scripts, seen = new Set()) {
+  if (seen.has(name) || typeof scripts[name] !== "string") return false;
+  seen.add(name);
+  for (const segment of scripts[name].split(/&&|\|\||;|\|/)) {
+    let tokens = tokensOf(segment.trim());
+    // An explicit watch flag wins wherever it sits — `npm run test:unit -- --watch` included.
+    if (tokens.some((t) => WATCH_FLAG.test(t))) return true;
+    let ci = false;
+    // Environment in front of the command: `CI=true vitest`, `cross-env PORT=4100 react-scripts test`.
+    while (tokens.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[0]) || /^(cross-env|env)$/.test(tokens[0]))) {
+      if (TRUTHY_CI.test(tokens[0])) ci = true;
+      tokens = tokens.slice(1);
+    }
+    // A package runner in front of a binary: `npx vitest`, `pnpm exec vitest`.
+    if (/^(npx|pnpx|bunx)$/.test(tokens[0])) tokens = tokens.slice(1);
+    else if (SCRIPT_RUNNERS.has(tokens[0]) && tokens[1] === "exec") tokens = tokens.slice(2);
+    while (tokens[0]?.startsWith("-")) tokens = tokens.slice(1);
+
+    const named = scriptsNamed(tokens, scripts);
+    if (named !== null) {
+      if (named.some((n) => scriptWatches(n, scripts, seen))) return true;
+      continue;
+    }
+    // `yarn vitest` with no script of that name runs the binary, so read it as the binary.
+    if (SCRIPT_RUNNERS.has(tokens[0])) tokens = tokens.slice(1);
+    if (commandWatches(tokens, ci)) return true;
+  }
+  return false;
+}
+
+/**
+ * The test script to name, and a sentence when the choice needs one. A watcher is passed over for a
+ * one-shot script when the manifest declares one; when it does not, there is no test command —
+ * the ritual asks, which is the outcome `detectCommands` already gives a repo that declares none.
+ */
+function testScript(scripts, declared) {
+  const first = NPM_SCRIPTS.test.find(declared);
+  if (!first || !scriptWatches(first, scripts)) return { hit: first ?? null, note: null };
+  const shown = `the \`${first}\` script (\`${scripts[first].trim()}\`) starts a watcher that does not exit`;
+  const once = ONE_SHOT_TEST_SCRIPTS.find((n) => declared(n) && !scriptWatches(n, scripts));
+  if (once) return { hit: once, note: `${shown}, so \`${once}\` — which runs once — is the test command` };
+  return {
+    hit: null,
+    note: `${shown}, and no script that runs once is declared (looked for ${ONE_SHOT_TEST_SCRIPTS.join(", ")}) — ask for a test command that exits`,
+  };
+}
+
 function npmCommands(root, text) {
-  if (!text) return {};
+  const none = { commands: {}, notes: {} };
+  if (!text) return none;
   let pkg;
   try {
     pkg = JSON.parse(text);
   } catch {
-    return {}; // A manifest we cannot parse tells us nothing; it must not tell us something wrong.
+    return none; // A manifest we cannot parse tells us nothing; it must not tell us something wrong.
   }
   const scripts = pkg?.scripts;
-  if (!scripts || typeof scripts !== "object") return {};
+  if (!scripts || typeof scripts !== "object") return none;
   const pm = packageManager(root, pkg);
   const out = {};
+  const notes = {};
   const declared = (n) => typeof scripts[n] === "string" && scripts[n].trim();
   for (const [kind, names] of Object.entries(NPM_SCRIPTS)) {
-    const hit = kind === "lint" ? lintScript(scripts, declared) : names.find(declared);
+    let hit;
+    if (kind === "lint") hit = lintScript(scripts, declared);
+    else if (kind === "test") {
+      const t = testScript(scripts, declared);
+      hit = t.hit;
+      if (t.note) notes.test = t.note;
+    } else hit = names.find(declared);
     if (hit) out[kind] = `${pm} run ${hit}`;
   }
   // npm, pnpm and yarn give the test script a bare verb, and it is what a reader expects to see.
   // Bun does not: `bun test` is Bun's own runner and ignores the script entirely.
   if (out.test === `${pm} run test` && pm !== "bun") out.test = `${pm} test`;
-  return out;
+  return { commands: out, notes };
 }
 
 // A JVM build file declares its lifecycle, so the commands are the lifecycle's: Maven always has
@@ -217,11 +355,23 @@ function makeCommands(text) {
  * merge is per kind, so a lint script survives a build file that declares no lint.
  */
 export function detectCommands(root) {
+  return commandsWithNotes(root).commands;
+}
+
+// The commands and, per kind, the sentence saying why a choice was not the obvious one — today only
+// a watching `test` script passed over or refused. A note is kept only while its kind is still the
+// npm answer: a Makefile's `test` target wins the merge, and then the script's watcher is not ours
+// to mention.
+function commandsWithNotes(root) {
   const fromMake = makeCommands(read(root, "Makefile") ?? read(root, "makefile"));
   const fromJvm = jvmCommands(root);
-  const fromNpm = npmCommands(root, read(root, "package.json"));
-  const out = { build: null, test: null, lint: null, ...fromNpm, ...fromJvm, ...fromMake };
-  return out;
+  const npm = npmCommands(root, read(root, "package.json"));
+  const commands = { build: null, test: null, lint: null, ...npm.commands, ...fromJvm, ...fromMake };
+  const notes = {};
+  for (const [kind, note] of Object.entries(npm.notes)) {
+    if (!fromMake[kind] && !fromJvm[kind]) notes[kind] = note;
+  }
+  return { commands, notes };
 }
 
 // ---------------------------------------------------------------------------
@@ -300,12 +450,47 @@ function isMigrationEvidence(path) {
   return cat === "code" || cat === "schema";
 }
 
-function protectedPaths(index) {
-  const files = index?.files ?? [];
+// A lockfile is generated by definition — the package manager writes it and a hand edit is
+// overwritten by the next install — yet no install protected one: every repo had to add
+// `pnpm-lock.yaml` or `package-lock.json` to REVIEW.md's out-of-scope list by hand. Matched on the
+// exact file name, never a suffix: `yarn.lock.md` is prose and `my-package-lock.json` is not npm's.
+export const LOCKFILE_NAMES = new Set([
+  "pnpm-lock.yaml", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "bun.lock", "bun.lockb",
+  "deno.lock", "Cargo.lock", "poetry.lock", "uv.lock", "Pipfile.lock", "pdm.lock", "composer.lock",
+  "Gemfile.lock", "go.sum", "mix.lock", "pubspec.lock", "Podfile.lock", "flake.lock",
+  "packages.lock.json", "gradle.lockfile",
+]);
+
+// Where a lockfile can sit: beside the manifest that asked for it. The index is NOT enough on its
+// own, and this is the half a fixture cannot show — `walk.mjs` drops every `*.lock` and `*-lock.json`
+// and anything over its size cap, so on a real repo `yarn.lock`, `Cargo.lock` and a large
+// `pnpm-lock.yaml` never reach `index.files`. The index says which directories hold a manifest; the
+// disk says whether a lockfile is beside it. Root is always asked, since it is where one usually is.
+const MANIFEST_NAMES = new Set([
+  "package.json", "deno.json", "deno.jsonc", "Cargo.toml", "pyproject.toml", "Pipfile", "composer.json",
+  "Gemfile", "go.mod", "mix.exs", "pubspec.yaml", "Podfile", "flake.nix", "build.gradle", "build.gradle.kts",
+]);
+
+const baseName = (p) => p.slice(p.lastIndexOf("/") + 1);
+
+function lockfiles(root, files) {
+  const found = new Set();
+  const dirs = new Set([""]);
+  for (const p of files) {
+    const name = baseName(p);
+    if (LOCKFILE_NAMES.has(name)) found.add(p); // the index saw it: `go.sum`, a small pnpm-lock.yaml
+    else if (MANIFEST_NAMES.has(name) || name.endsWith(".csproj")) dirs.add(p.slice(0, p.length - name.length));
+  }
+  for (const dir of dirs) {
+    for (const name of LOCKFILE_NAMES) if (has(root, dir + name)) found.add(dir + name);
+  }
+  return byNearness(found);
+}
+
+function protectedPaths(root, index) {
+  const files = (index?.files ?? []).map((f) => f?.path ?? f).filter((p) => typeof p === "string");
   const dirs = new Set();
-  for (const f of files) {
-    const p = f.path ?? f;
-    if (typeof p !== "string") continue;
+  for (const p of files) {
     for (const re of GENERATED_HINTS) {
       const m = re.exec(p);
       if (m && re === MIGRATIONS_HINT && !isMigrationEvidence(p)) continue;
@@ -316,7 +501,10 @@ function protectedPaths(index) {
       }
     }
   }
-  return [...dirs].filter(Boolean).sort().slice(0, 8);
+  // Trees and lockfiles are capped apart, so a monorepo with a lockfile per package cannot push its
+  // generated trees off the list, nor the other way round. A lockfile entry is a FILE path — no
+  // trailing slash — and the hook matches it by name.
+  return [...[...dirs].filter(Boolean).sort().slice(0, 8), ...lockfiles(root, files).slice(0, 8)];
 }
 
 // ---------------------------------------------------------------------------
@@ -342,6 +530,7 @@ export function readLoopState(root, index = null, overrides = {}) {
   // separate because every row that cites the stack has to be able to tell "detected nothing" from
   // "never looked", and one value cannot carry both.
   const indexed = index !== null && index !== undefined;
+  const detected = commandsWithNotes(root);
 
   return {
     root,
@@ -355,9 +544,12 @@ export function readLoopState(root, index = null, overrides = {}) {
     // of treating a real greenfield repo as populated is one skipped offer, and the cost the other
     // way is telling a user their codebase does not exist.
     greenfield: indexed && (stats.files ?? 0) === 0,
-    commands: detectCommands(root),
+    commands: detected.commands,
+    // Why a command is not the obvious one, by kind — `{ test: "the `test` script … starts a
+    // watcher …" }`. Empty when every command was taken as declared.
+    commandNotes: detected.notes,
     formatters: detectFormatters(root),
-    protectedPaths: protectedPaths(index),
+    protectedPaths: protectedPaths(root, index),
     ci: has(root, ciDir) ? ciDir : has(root, ".gitlab-ci.yml") ? ".gitlab-ci.yml" : null,
     frontend: (stack.frameworks ?? []).some((f) => /next|react|vue|svelte|angular|remix|astro/i.test(f)),
 
@@ -448,11 +640,15 @@ export const LOOP_ARTIFACTS = [
     // never checked.
     why: (s) => {
       const found = ["build", "test", "lint"].filter((k) => s.commands[k]);
+      // A watching test script passed over or refused is said here, because this is the row that
+      // writes the command down — and a reader who knows `npm test` exists will otherwise ask why
+      // the block names something else, or nothing.
+      const note = s.commandNotes?.test ? `; ${s.commandNotes.test}` : "";
       if (found.length) {
-        return `${found.map((k) => `${k}: ${s.commands[k]}`).join(" · ")} — detected, so the block can name real commands`;
+        return `${found.map((k) => `${k}: ${s.commands[k]}`).join(" · ")} — detected, so the block can name real commands${note}`;
       }
       if (s.greenfield) return "greenfield, so the commands come from the interview rather than a manifest";
-      return "no build, test or lint command at the root — ask for them, or name the per-package ones";
+      return `no build, test or lint command at the root — ask for them, or name the per-package ones${note}`;
     },
     brief:
       "Name only the commands that were detected, verbatim, with what a healthy run prints. Then " +
@@ -534,22 +730,35 @@ export const LOOP_ARTIFACTS = [
     paths: [".claude/settings.json"],
     rank: 50,
     template: "settings.hooks.json",
-    present: (s) => s.hooks,
-    when: (s) => s.protectedPaths.length > 0 || Boolean(s.commands.test) || s.formatters.length > 0,
-    needs: ["a generated path worth protecting, a test command to lock during a fix, or a declared formatter"],
+    // The row promises exactly what its two templates do — protected-paths.sh blocks edits to the
+    // detected paths, format-changed.sh formats the file that changed — and nothing else. It once
+    // offered "the test-file lock during a fix" on every repo with a test script, a hook no template
+    // provides, so a repo with no generated path and no formatter was stamped with two scripts that
+    // do nothing and the row was reported done. Where neither has work the row does not apply, and a
+    // hooks block already on disk does not make it served: counting it would report the same no-op
+    // stamp as closed that this condition exists to stop writing.
+    present: (s) => s.hooks && hooksHaveWork(s),
+    when: (s) => hooksHaveWork(s),
+    needs: ["a generated path or lockfile to protect, or a declared formatter — without either, both hooks would do nothing"],
     why: (s) => {
       const fmt = s.formatters.length
-        ? `; after-edit formatting with ${s.formatters.map((f) => f.command.split(" ").find((w) => !/^(npx|--)/.test(w))).join(", ")}`
+        ? `after-edit formatting with ${s.formatters.map((f) => f.command.split(" ").find((w) => !/^(npx|--)/.test(w))).join(", ")}`
         : "";
-      return s.protectedPaths.length
-        ? `protected paths to block: ${s.protectedPaths.slice(0, 3).join(", ")}${fmt}`
-        : `no generated paths, so the hook that matters here is the test-file lock during a fix${fmt}`;
+      if (s.protectedPaths.length) {
+        return `protected paths to block: ${s.protectedPaths.slice(0, 3).join(", ")}${fmt ? `; ${fmt}` : ""}`;
+      }
+      if (fmt) return `no generated paths to block, so protected-paths.sh starts empty; ${fmt}`;
+      return s.hooks
+        ? "no generated paths and no declared formatter, so no Cortex hook has work to do here — the hooks block already in .claude/settings.json is left as it is"
+        : "no generated paths and no declared formatter, so no hook has work to do here";
     },
     brief:
       "Build-phase hooks are fast and scoped to the file that changed; the full suite belongs at " +
       "the commit. A block must explain itself — the reason and the route to approval go in the " +
-      "message, or the user learns only that Claude stopped. format-changed.sh gets one case line " +
-      "per detected formatter and none when nothing was detected — it then does nothing.",
+      "message, or the user learns only that Claude stopped. protected-paths.sh gets one pattern " +
+      "per detected path: a directory entry (ending /) as */<dir>*, a lockfile entry as */<name>. " +
+      "format-changed.sh gets one case line per detected formatter and none when nothing was " +
+      "detected — it then does nothing.",
   },
   {
     id: "intent",

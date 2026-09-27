@@ -43,11 +43,15 @@ assert_not_contains "$out" "no dependency manifest found" \
 # Asserted over the WHOLE rendered output and across several repo shapes, because naming the one
 # sentence that broke would pass for every other way of breaking.
 
-for shape in populated empty withpkg; do
+for shape in populated empty withpkg watcher; do
   case "$shape" in
     populated) fresh_repo "$shape" ;;
     empty)     rm -rf "${WORK:?}/$shape"; mkdir -p "$WORK/$shape" || exit 1 ;;
     withpkg)
+      fresh_repo "$shape"
+      printf '{"name":"x","scripts":{"test":"vitest run","build":"tsc"}}\n' > "$WORK/$shape/package.json"
+      ;;
+    watcher)
       fresh_repo "$shape"
       printf '{"name":"x","scripts":{"test":"vitest","build":"tsc"}}\n' > "$WORK/$shape/package.json"
       ;;
@@ -77,6 +81,16 @@ assert_contains "$json" '"protectedWrites": [
         ".claude/agents/verifier.md"' "and --json carries the protected paths for the ritual to read"
 out="$(run nopkg)"
 assert_not_contains "$out" "--permission-mode" "a repo with no .claude/ row missing is not told about it"
+
+# `"test": "vitest"` starts watch mode in a terminal and never exits. Named as the test command, it
+# hung the verification block, the verifier and the evals workflow alike. With no script that runs
+# once beside it there is no test command, and the row says why rather than going quiet.
+out="$(run watcher)"
+assert_not_contains "$out" "npm test" "a watching test script is never named as the test command"
+assert_contains "$out" "starts a watcher that does not exit" "and the verification row says why"
+printf '{"name":"x","scripts":{"test":"vitest","test:run":"vitest run"}}\n' > "$WORK/watcher/package.json"
+out="$(run watcher)"
+assert_contains "$out" "test: npm run test:run" "with a one-shot script beside it, that script is the command"
 
 fresh_repo nopkg
 out="$(run nopkg)"
@@ -157,6 +171,24 @@ for mode in default nojq; do
 done
 assert_eq "2" "$(hook_exit nojq '{"tool_input":{"file_path": 42}}')" \
   "hook: a file_path it cannot read is refused, never waved on"
+
+# Windows. Claude Code hands the hook `C:\repo\src\gen\api.ts`, and no POSIX `*/gen/*` pattern
+# matches a backslash path — so the hook let every protected edit through on the platform where it
+# was maintained. Both readers: jq unescapes the JSON `\\`, the sed fallback leaves it doubled.
+for mode in default nojq; do
+  assert_eq "2" "$(hook_exit "$mode" '{"tool_input":{"file_path":"C:\\repo\\src\\gen\\api.ts"}}')" \
+    "hook ($mode): a Windows path under a protected directory is blocked with exit 2"
+  assert_eq "0" "$(hook_exit "$mode" '{"tool_input":{"file_path":"C:\\repo\\src\\main.go"}}')" \
+    "hook ($mode): a Windows source path is let through"
+done
+# A lockfile is protected by name, and the name has to match behind a backslash too.
+sed 's#{{PROTECTED_PATTERNS}}#  "*/pnpm-lock.yaml"#;s#{{PROTECTED_LIST}}#lockfile#' "$hook_src" > "$WORK/hook-lock.sh"
+assert_eq "2" "$(hook_exit lock '{"tool_input":{"file_path":"C:\\repo\\pnpm-lock.yaml"}}')" \
+  "hook: a lockfile pattern blocks the Windows path to it"
+assert_eq "2" "$(hook_exit lock '{"tool_input":{"file_path":"/home/u/repo/pnpm-lock.yaml"}}')" \
+  "hook: and the POSIX one"
+assert_eq "0" "$(hook_exit lock '{"tool_input":{"file_path":"C:\\repo\\docs\\pnpm-lock.yaml.md"}}')" \
+  "hook: a file merely named after a lockfile is not one"
 
 # No detected paths is the usual stamp: the list is empty, and the hook must let every edit through.
 sed 's#{{PROTECTED_PATTERNS}}##;s#{{PROTECTED_LIST}}#none detected#' "$hook_src" > "$WORK/hook-empty.sh"

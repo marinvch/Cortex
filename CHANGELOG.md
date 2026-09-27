@@ -54,6 +54,36 @@ this project now versions independently of any package manager (see `VERSION`).
   instead. C#, Swift, Scala, Elixir, C and C++ had the same gap and are listed with it, and a test
   now fails when a code language has neither an import extractor nor a place on that list. Import
   readers for them are the real fix and are not in this release.
+- **The protected-paths hook blocks on Windows too (#458).** Claude Code hands a Windows hook
+  `C:\repo\dist\x.js`, and no POSIX pattern such as `*/dist/*` matches a backslash path, so the
+  hook `/cortex` stamps let every protected edit through on that platform. It now turns `\` into
+  `/` before matching, so one pattern set covers both; the jq and sed readers, the fail-closed exit
+  and the bash-3.2-safe empty list are unchanged. `tools/test/cortex-loop.test.sh` runs Windows
+  paths through both readers.
+- **A test script that starts a watcher is no longer named as the test command (#456).**
+  `"test": "vitest"` watches in a terminal and never exits, and `detectCommands` named it anyway —
+  so the verification block, the verifier and `agent-evals.yml` all carried a command that hangs.
+  `loop.mjs` now recognises runners that default to watching (Vitest without `run`, an explicit
+  `--watch`/`--watchAll`, `react-scripts test`, `ng test`, `nodemon`), follows a script through
+  the scripts it calls in the same manifest, and prefers `test:run`, `test:ci` or `test:once` when
+  one runs once. With none, the test command is null and the verification row says why, rather
+  than inventing a one-shot command nobody declared. On bulletproof-react's Vite app it reported
+  `yarn test` before and no test command after; on vitest's `examples/basic`, `npm test` became
+  `npm run test:run`.
+- **Package-manager lockfiles are protected (#461).** No install offered to protect
+  `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `Cargo.lock`, `go.sum` or their kin, so each
+  one had to be added to REVIEW.md's out-of-scope list by hand. They are now detected by exact name
+  and join the generated paths the hooks row and REVIEW.md read. They are looked up on disk beside
+  each manifest the index saw, because the walker drops `*.lock` and `*-lock.json`, so an
+  index-only rule passed its fixtures and found nothing on a real repo. On ripgrep it found
+  `Cargo.lock` and `fuzz/Cargo.lock`, and on fzf `go.sum` and `Gemfile.lock`, all of them tracked.
+- **The hooks row stops promising a test-file lock no template provides (#457).** On a repo with a
+  test script and nothing to protect, it said "the hook that matters here is the test-file lock
+  during a fix", stamped `protected-paths.sh` with an empty list and `format-changed.sh` with no
+  case lines, and counted the row done. The row now applies only where a hook has work to do, a
+  path to protect or a formatter to run. Anywhere else it says no hook has work to do here, and a
+  hooks block already on disk does not count it as served. `loop.test.mjs` fails if any row's text
+  names a file no template provides.
 
 ## [2.39.0] — 2026-09-27
 

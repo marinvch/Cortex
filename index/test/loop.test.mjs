@@ -195,6 +195,114 @@ test("a plain package-lock.json stays npm", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+// ---------------------------------------------------------------------------
+// a test command must exit — a watcher is never named as one
+// ---------------------------------------------------------------------------
+
+// Found on a Vite app with `"test": "vitest"` and `"test:run": "vitest run"`: `npm test` starts
+// watch mode in a terminal and never exits, so the verification block, the verifier and the evals
+// workflow all named a command that hangs. The shapes below are the ones real repos use:
+// bulletproof-react's apps (`vitest`, no one-shot), vitest's own examples (`vitest` + `test:run`),
+// a CRA app (`cross-env … react-scripts test`), zustand (`pnpm run "/^test:.*/"`).
+
+const withScripts = (scripts, extra = () => {}) => {
+  const root = repo(({ put }) => {
+    put("package.json", JSON.stringify({ scripts }));
+    extra(put);
+  });
+  const s = readLoopState(root, null);
+  rmSync(root, { recursive: true, force: true });
+  return { test: s.commands.test, note: s.commandNotes.test ?? null, s };
+};
+
+test("a watching test script gives way to the one-shot script beside it, and says why", () => {
+  const got = withScripts({ test: "vitest", "test:run": "vitest run" });
+  assert.equal(got.test, "npm run test:run");
+  assert.match(got.note, /`test` script \(`vitest`\) starts a watcher/);
+  assert.match(got.note, /`test:run` — which runs once/);
+  for (const [scripts, want] of [
+    [{ test: "jest --watch", "test:ci": "jest --ci" }, "npm run test:ci"],
+    [{ test: "jest --watchAll", "test:once": "jest" }, "npm run test:once"],
+    [{ test: "ng test", "test:ci": "ng test --watch=false" }, "npm run test:ci"],
+  ]) {
+    assert.equal(withScripts(scripts).test, want, JSON.stringify(scripts));
+  }
+});
+
+test("a watching test script with no one-shot beside it is not a test command", () => {
+  // Emitting `vitest run` here would be a command nobody declared — the config it would need, the
+  // workspace it would run in, are exactly what cannot be proved. The ritual asks instead.
+  const got = withScripts({ test: "vitest", build: "tsc" });
+  assert.equal(got.test, null);
+  assert.match(got.note, /no script that runs once is declared.*ask for a test command that exits/);
+  const why = LOOP_ARTIFACTS.find((r) => r.id === "verification").why(got.s);
+  assert.doesNotMatch(why, /npm test/, why);
+  assert.match(why, /starts a watcher/, "and the row that writes the command down says why it has none");
+  assert.equal(withScripts({ test: "cross-env PORT=4100 react-scripts test --env=jsdom" }).test, null, "CRA's runner watches");
+  assert.equal(withScripts({ test: "nodemon --exec mocha" }).test, null);
+});
+
+test("a one-shot candidate that itself watches is not chosen", () => {
+  assert.equal(withScripts({ test: "vitest", "test:run": "vitest --ui" }).test, null);
+  assert.equal(withScripts({ test: "vitest", "test:run": "vitest --ui", "test:ci": "vitest run" }).test, "npm run test:ci");
+});
+
+test("a runner told to run once is taken at its word", () => {
+  for (const scripts of [
+    { test: "vitest run" },
+    { test: "vitest --run" },
+    { test: "vitest --no-watch --config=vitest.config.unit.mts" },
+    { test: "npx vitest --config vitest.config.ts run" },
+    { test: "CI=true vitest" },
+    { test: "CI=true react-scripts test" },
+    { test: "react-scripts test --watchAll=false" },
+    { test: "jest --watchAll=false" },
+    { test: "jest --watchman" },
+    { test: "jest" },
+    { test: "node --test" },
+  ]) {
+    const got = withScripts(scripts);
+    assert.equal(got.test, "npm test", JSON.stringify(scripts));
+    assert.equal(got.note, null, `a script that exits needs no explanation: ${JSON.stringify(scripts)}`);
+  }
+});
+
+test("a test script is followed through the scripts it runs in the same manifest", () => {
+  assert.equal(withScripts({ test: "npm run test:unit", "test:unit": "vitest" }).test, null);
+  assert.equal(withScripts({ test: "pnpm test:unit", "test:unit": "vitest --project a" }).test, null);
+  assert.equal(withScripts({ test: "yarn vitest" }).test, null, "a runner in front of a binary is the binary");
+  assert.equal(withScripts({ test: "npm run test:unit -- --watch", "test:unit": "jest" }).test, null);
+  assert.equal(withScripts({ test: "run-s test:*", "test:a": "mocha", "test:b": "mocha --watch" }).test, null);
+  assert.equal(withScripts({ test: "run-s test:*", "test:a": "mocha", "test:a:b": "mocha --watch" }).test, "npm test", "run-s `*` stops at a colon");
+  // zustand's shape: every leg of the regex runs once, so the aggregate does.
+  const zustand = {
+    test: 'pnpm run "/^test:.*/"', "test:format": "prettier . --list-different", "test:types": "tsc --noEmit",
+    "test:lint": "eslint .", "test:spec": "vitest run",
+  };
+  assert.equal(withScripts(zustand, (put) => put("pnpm-lock.yaml", "")).test, "pnpm test");
+  assert.equal(withScripts({ ...zustand, "test:spec": "vitest" }).test, null, "and one watching leg makes it a watcher");
+  // Another package's script is a workspace question: taken at its word, the documented limit.
+  // vitest's own root runs `pnpm --filter test-unit test:threads`; `-r` runs every package's copy
+  // of a script, not this manifest's.
+  assert.equal(withScripts({ test: "pnpm --filter test-unit test:threads" }).test, "npm test");
+  assert.equal(withScripts({ test: "pnpm -r test:unit", "test:unit": "vitest" }).test, "npm test");
+  // A script that names itself does not loop.
+  assert.equal(withScripts({ test: "npm test" }).test, "npm test");
+});
+
+test("the package manager still owns the runner when a one-shot script is chosen", () => {
+  const scripts = { test: "vitest", "test:run": "vitest run" };
+  assert.equal(withScripts(scripts, (put) => put("pnpm-lock.yaml", "")).test, "pnpm run test:run");
+  assert.equal(withScripts(scripts, (put) => put("yarn.lock", "")).test, "yarn run test:run");
+  assert.equal(withScripts(scripts, (put) => put("bun.lock", "")).test, "bun run test:run");
+});
+
+test("a Makefile test target wins over a watching script, and the script's note goes with it", () => {
+  const got = withScripts({ test: "vitest" }, (put) => put("Makefile", "test:\n\tnpx vitest run\n"));
+  assert.equal(got.test, "make test");
+  assert.equal(got.note, null, "a note about a command nobody is told to run is noise");
+});
+
 // JVM build files declare their lifecycle: a pom.xml always has `verify` and `test`, a Gradle build
 // always has `build` and `test`. The wrapper is preferred because it pins the version CI runs.
 
@@ -373,6 +481,62 @@ test("the other generated hints are unchanged by the migrations evidence rule", 
   assert.deepEqual(protectedOf(["dist/index.js", "src/__generated__/schema.ts"]), ["dist/", "src/__generated__/"]);
 });
 
+// Lockfiles are generated by definition, and no install protected one. The half a literal index
+// cannot show: walk.mjs drops `*.lock`, `*-lock.json` and anything over its size cap, so on a real
+// repo `yarn.lock`, `Cargo.lock` and a big `pnpm-lock.yaml` never reach index.files. These fixtures
+// therefore put the lockfile on DISK and leave it out of the index, the way the walker does.
+
+const protectedOnDisk = (onDisk, indexed) => {
+  const root = repo(({ put }) => onDisk.forEach((p) => put(p)));
+  const got = readLoopState(root, indexOf(indexed)).protectedPaths;
+  rmSync(root, { recursive: true, force: true });
+  return got;
+};
+
+test("a lockfile the walker dropped from the index is still protected", () => {
+  for (const name of ["pnpm-lock.yaml", "package-lock.json", "yarn.lock", "bun.lock", "bun.lockb", "Cargo.lock",
+    "poetry.lock", "composer.lock", "Gemfile.lock", "go.sum", "uv.lock", "npm-shrinkwrap.json"]) {
+    assert.deepEqual(protectedOnDisk([name], ["src/a.js"]), [name], name);
+  }
+});
+
+test("a lockfile is matched by its exact name, never a suffix", () => {
+  const decoys = ["yarn.lock.md", "my-package-lock.json", "docs/Cargo.lock.txt", "go.sum.bak", "notpnpm-lock.yaml"];
+  assert.deepEqual(protectedOnDisk(decoys, ["src/a.js", ...decoys]), []);
+});
+
+test("a nested lockfile is found beside the manifest the index saw", () => {
+  // bulletproof-react keeps a yarn.lock per app; ripgrep has fuzz/Cargo.lock beside fuzz/Cargo.toml.
+  assert.deepEqual(
+    protectedOnDisk(["apps/web/yarn.lock", "fuzz/Cargo.lock"], ["apps/web/package.json", "fuzz/Cargo.toml", "src/a.rs"]),
+    ["fuzz/Cargo.lock", "apps/web/yarn.lock"],
+    "nearest first",
+  );
+  // One the index lists itself (go.sum is small and not a *.lock) needs no manifest beside it.
+  assert.deepEqual(protectedOnDisk([], ["tools/go.sum"]), ["tools/go.sum"]);
+});
+
+test("lockfiles and generated trees are capped apart, so neither pushes the other off the list", () => {
+  const trees = Array.from({ length: 9 }, (_, i) => `p${i}/dist/x.js`);
+  const got = protectedOnDisk(["pnpm-lock.yaml"], trees);
+  assert.ok(got.includes("pnpm-lock.yaml"), got.join(", "));
+  assert.equal(got.filter((p) => p.endsWith("/")).length, 8, "the tree cap is unchanged");
+});
+
+test("a detected lockfile reaches REVIEW.md's do-not-report list and the hooks row", () => {
+  const root = repo(({ put }) => {
+    put("package.json", JSON.stringify({ scripts: { test: "node --test" } }));
+    put("pnpm-lock.yaml");
+  });
+  const plan = loopPlan(root, indexOf(["package.json", "src/a.js"]));
+  const all = [...plan.present, ...plan.missing, ...plan.blocked];
+  assert.match(all.find((e) => e.id === "review").why, /pnpm-lock\.yaml/);
+  const hooks = plan.missing.find((e) => e.id === "hooks");
+  assert.ok(hooks, "a lockfile is hook work");
+  assert.match(hooks.why, /protected paths to block: pnpm-lock\.yaml/);
+  rmSync(root, { recursive: true, force: true });
+});
+
 // ---------------------------------------------------------------------------
 // presence is a file fact, never a quality judgment
 // ---------------------------------------------------------------------------
@@ -535,6 +699,7 @@ test("rows that write under .claude/ say so, and only those", () => {
   // that apart from a row the user declined, so it must be on exactly the .claude/ rows.
   const root = repo(({ put }) => {
     put("package.json", JSON.stringify({ scripts: { test: "node --test" } }));
+    put("package-lock.json", "{}"); // hook work: without a path to protect, the hooks row does not apply
     put("AGENTS.md");
     put("CLAUDE.md", "# P\n\n## Verifying your work\n\n- Test: npm test\n");
     put("REVIEW.md");
@@ -553,6 +718,90 @@ test("rows that write under .claude/ say so, and only those", () => {
   );
   assert.ok(plan.missing.every((e) => e.protectedWrites.length), "and nothing else is missing");
   rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// a row promises only what a template provides
+// ---------------------------------------------------------------------------
+
+// The hooks row said "the hook that matters here is the test-file lock during a fix" on every repo
+// with a test script and nothing to protect. No template implements a test-file lock, so /cortex
+// stamped protected-paths.sh with an empty list and format-changed.sh with no case lines — two hooks
+// that do nothing — and reported the row done.
+
+const hooksRow = (build, index = indexOf(["src/a.js"])) => {
+  const root = repo(build);
+  const plan = loopPlan(root, index);
+  rmSync(root, { recursive: true, force: true });
+  for (const bucket of ["present", "missing", "blocked"]) {
+    const e = plan[bucket].find((x) => x.id === "hooks");
+    if (e) return { bucket, ...e, plan };
+  }
+  throw new Error("no hooks row");
+};
+
+test("with nothing to protect and no formatter, the hooks row does not apply — and says so", () => {
+  const row = hooksRow(({ put }) => put("package.json", JSON.stringify({ scripts: { test: "node --test" } })));
+  assert.equal(row.bucket, "blocked", "a test command is not hook work: no template acts on one");
+  assert.match(row.why, /no hook has work to do here/);
+  assert.ok(row.needs.some((n) => /formatter/.test(n) && /lockfile/.test(n)), row.needs.join("; "));
+  assert.ok(!row.plan.missing.some((e) => e.id === "hooks"), "so the pass does not stamp two no-op hooks");
+});
+
+test("a hooks block already on disk does not make a row with no work served", () => {
+  const row = hooksRow(({ put }) => {
+    put("package.json", JSON.stringify({ scripts: { test: "node --test" } }));
+    put(".claude/settings.json", '{ "hooks": {} }');
+  });
+  assert.equal(row.bucket, "blocked", "the no-op stamp an earlier release wrote is not counted as closing the row");
+  assert.match(row.why, /already in \.claude\/settings\.json is left as it is/);
+  assert.equal(row.plan.served, row.plan.present.length);
+  assert.ok(!row.plan.present.some((e) => e.id === "hooks"));
+});
+
+test("a formatter alone is hook work, and the row says the block list starts empty", () => {
+  const row = hooksRow(({ put }) => put(".prettierrc", "{}"));
+  assert.equal(row.bucket, "missing");
+  assert.match(row.why, /no generated paths to block, so protected-paths\.sh starts empty; after-edit formatting with prettier/);
+});
+
+test("with work to do and a hooks block on disk, the row is served", () => {
+  const row = hooksRow(({ put }) => {
+    put("yarn.lock");
+    put(".claude/settings.json", '{ "hooks": {} }');
+  });
+  assert.equal(row.bucket, "present");
+});
+
+test("no row names an artifact that no template provides", () => {
+  // The property, not the one sentence: every file a row's text names must be a template /cortex
+  // stamps, a path the row itself writes, or one of the documents the artifact chain is made of.
+  // And no row may promise a "lock" — the word the missing hook was sold under; a lockfile is fine.
+  const here = new URL("../../templates/loop/", import.meta.url);
+  const chain = new Set(["AGENTS.md", "CLAUDE.md", "GEMINI.md", "REVIEW.md", "spec.md", "plan.md", "settings.json"]);
+  const shapes = [
+    () => {},
+    ({ put }) => put("package.json", JSON.stringify({ scripts: { test: "vitest", build: "tsc" } })),
+    ({ put }) => { put("package.json", JSON.stringify({ scripts: { test: "node --test" } })); put(".claude/settings.json", '{"hooks":{}}'); },
+    ({ put }) => { put(".prettierrc"); put(".github/workflows/ci.yml"); put("AGENTS.md"); put("REVIEW.md"); },
+  ];
+  for (const build of shapes) {
+    for (const index of [null, indexOf(["src/a.js"])]) {
+      const root = repo(build);
+      const plan = loopPlan(root, index);
+      for (const e of [...plan.present, ...plan.missing, ...plan.blocked]) {
+        const text = [e.title, e.why, e.brief, ...e.needs].join("\n");
+        assert.doesNotMatch(text, /\block\b/i, `${e.id} promises a lock no template provides: ${text}`);
+        const own = new Set(e.paths.map((p) => p.replace(/#.*$/, "").split("/").filter(Boolean).pop()));
+        for (const [name] of text.matchAll(/[\w.-]+\.(?:sh|ya?ml|json|md)\b/g)) {
+          const ok = chain.has(name) || own.has(name) || fsExists(new URL(name, here)) ||
+            plan.state.protectedPaths.includes(name) || name === plan.state.ci;
+          assert.ok(ok, `${e.id} names ${name}, which no template provides`);
+        }
+      }
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
 });
 
 test("reading the plan writes nothing", () => {

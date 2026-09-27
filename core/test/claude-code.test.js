@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { CHECKED, RULES, rule, limit } from "../claude-code.js";
+import { CHECKED, RULES, rule, limit, protectedClaudePath } from "../claude-code.js";
 
 // core/claude-code.js is only worth anything if every rule can be traced to a sentence on an
 // official page. These pin the shape that makes that true; tools/test/claude-docs.test.sh pins the
@@ -76,4 +76,28 @@ test("rule() fails loudly on an id that does not exist", () => {
 test("the rules cannot be edited at runtime by a consumer", () => {
   assert.ok(Object.isFrozen(RULES));
   assert.ok(RULES.every((r) => Object.isFrozen(r)));
+});
+
+// An unattended /cortex writes .claude/agents/, .claude/hooks/ and .claude/settings.json, and Claude
+// Code refuses every one of them in a `claude -p` run unless the mode lets them through. The chain
+// of documented sentences that says so is pinned here, so a consumer that explains the refusal can
+// cite them by id — and the path test is pinned against the one documented exception.
+test("the protected-path rules an unattended install depends on are present and sourced", () => {
+  for (const id of [
+    "permission.protected-path.claude-dir",
+    "permission.protected-path.never-auto-approved",
+    "permission.protected-path.allow-rules-do-not-apply",
+    "permission.protected-path.auto-mode-classifier",
+    "headless.permission.no-host-denied",
+  ]) {
+    assert.match(rule(id).source, /^https:\/\/code\.claude\.com\/docs\/en\/(permission-modes|headless)$/, id);
+  }
+  assert.equal(limit("permission.protected-path.claude-dir"), ".claude");
+});
+
+test("protectedClaudePath answers for .claude/ and nothing that merely looks like it", () => {
+  const yes = [".claude", ".claude/settings.json", ".claude/agents/verifier.md", "./.claude/hooks/x.sh", ".claude\\skills\\a\\SKILL.md"];
+  for (const p of yes) assert.equal(protectedClaudePath(p), true, p);
+  const no = [".claude/worktrees", ".claude/worktrees/agent-1/AGENTS.md", "CLAUDE.md", ".claudeignore", "docs/.claude/x", "CLAUDE.md#Verifying your work"];
+  for (const p of no) assert.equal(protectedClaudePath(p), false, p);
 });

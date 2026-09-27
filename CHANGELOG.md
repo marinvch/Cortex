@@ -251,6 +251,29 @@ it was repointed or dropped in the same change.
 
 ### Fixed
 
+- **The destructive-guard test failed at random, and four other checks could have (#433).** Under
+  the `pipefail` that `tools/test/run.sh` sets, `code_of f | grep -q resolve_in_root` reported a
+  guard that was there as missing whenever `grep -q` matched and exited before `sed` flushed its
+  last buffer: `sed` took SIGPIPE, the pipeline returned 141. `cortex-sync-skills.sh`'s call sits in
+  `sed`'s second 4 KiB block with a third to come, so it lost that race once on a loaded CI runner.
+  Every such pipe now hands `grep -q` a here-string instead — the guard scan, the secrets-marker
+  scan, the `reached-by:` check, the two `.gitignore` rule checks, and the employer-firewall match
+  in `cortex-scan-projects.sh`, where a lost race would have registered a work repo. A canary with
+  the guard early in a file past a pipe buffer fails on every run of the old pipe;
+  `pipefail-grep.test.sh` keeps the pattern out of every fragment and every pipefail tool; and
+  `scan-projects.test.sh` is the first test of the firewall at all.
+- **A headless `/cortex` reported an install whose `.claude/` half had been refused.** Under
+  `claude -p`, Claude Code refuses the verifier, the hooks and `settings.json`: "Writes to a small
+  set of paths are never auto-approved, except in `bypassPermissions` mode…", "The safety check runs
+  before Claude Code evaluates allow rules from settings", and "In a `-p` run with no host, these
+  requests are denied either way." Those sentences, and the one that makes `--permission-mode auto`
+  the way through ("Writes to protected paths route to the classifier even when an allow rule
+  matches"), are now rules in `core/claude-code.js`, re-confirmed with the rest against the live docs
+  on 2026-09-27. Every loop row carries `protectedWrites`; `cortex-loop.mjs` names the mode on a
+  missing `.claude/` row; `/cortex` reads its result back from disk and names a refused write
+  instead of reporting it; and the E2E workspace pass fails S1 with the paths and the flag. The
+  skill's new *Running unattended* section says all of it, and never offers `bypassPermissions` as
+  the default.
 - **`/cortex` missed the build on Maven, Gradle and pnpm repos, and stamped an eval workflow that
   could not pass.** Found by the Harbor proving ground. `detectCommands` read only a Makefile and
   npm scripts, so a Spring repo with `./mvnw` had every verification row blocked, and a pnpm

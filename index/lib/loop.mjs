@@ -25,6 +25,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { labelsFor } from "./stack.mjs";
+import { protectedClaudePath } from "../../core/claude-code.js";
 
 /** The six stages, in loop order. A row belongs to exactly one. */
 export const STAGES = ["plan", "design", "build", "test", "deploy", "maintain"];
@@ -568,6 +569,12 @@ export function loopPlan(root, index = null, overrides = {}) {
       // an earlier artifact" without naming it is the same failure as dropping the row: the user
       // learns an offer exists and not how to unlock it.
       needs: unmet(row, s),
+      // The paths Claude Code will not let an unattended run write. Under `claude -p` a write to
+      // .claude/ is refused and no allow rule changes that (core/claude-code.js,
+      // permission.protected-path.*), so a headless /cortex that stamped everything else still
+      // leaves these rows missing. Carried here so the ritual can tell that apart from a user who
+      // declined the row, and say what to allow, instead of reporting a write that never landed.
+      protectedWrites: row.paths.filter(protectedClaudePath),
     };
     if (row.present(s)) present.push(entry);
     else if (row.when(s)) missing.push(entry);

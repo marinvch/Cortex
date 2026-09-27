@@ -37,7 +37,7 @@ HEADER_LINES=10
 
 marked=""
 for f in $(git grep -lF "$MARKER" -- . || true); do
-  if head -n "$HEADER_LINES" "$f" | grep -qF "$MARKER"; then
+  if grep -qF "$MARKER" <<<"$(head -n "$HEADER_LINES" "$f")"; then
     marked="$marked$f
 "
   fi

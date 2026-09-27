@@ -213,7 +213,8 @@ test-first inside the step's PR, and steps 8.3 and 9 open with their own short d
       `/api/shipments/*` and `/api/countries/{north,south}/*`.
 - [ ] History: commits authored by `fe1`–`fe3` / `be1`–`be3` (`GIT_AUTHOR_*`/`GIT_COMMITTER_*`
       with past dates over ~4 weeks), several merged PR-shaped branches.
-- [ ] Install Cortex on the four code repos (`/cortex` via `claude -p` or the stamping code) and
+- [ ] Install Cortex on the four code repos (`/cortex` via `claude -p --permission-mode auto` — see
+      `skills/cortex/SKILL.md` § Running unattended — or the stamping code) and
       `/team-init` + `/team-add` against `harbor-team-brain`.
 - [ ] **In this repo:** `tools/test/install-on-a-project.test.sh` gains `CORTEX_E2E_WORKSPACE=<dir>`:
       runs S1–S4's deterministic checks over every repo in `<dir>`, prints one line per scenario

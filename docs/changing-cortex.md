@@ -106,6 +106,9 @@ before overturning one; the line here is the trigger, not the case.
   with `CORTEX_E2E_REPO=<path>`; that pass is read-only. Point it at a directory of a team's repos
   with `CORTEX_E2E_WORKSPACE=<dir>` and it runs the roadmap's acceptance scenarios S1–S4 on clones
   of them, one `PASS` / `FAIL` / `XFAIL (<step>)` line each — also read-only, checked by fingerprint.
+  Those repos are installed by a headless `claude -p "/cortex"`, which needs `--permission-mode auto`:
+  Claude Code never auto-approves a write under `.claude/`, no allow rule changes that, and S1 fails
+  naming the paths it refused. `skills/cortex/SKILL.md` § Running unattended cites the docs.
 - **The shell half has behaviour tests — `bash tools/test/run.sh`.** `bash -n` and shellcheck never
   *run* a script, which is how four real bugs shipped in `tools/server/`. Tests build real git repos
   in temp dirs (a bare repo on disk is a complete remote, so no network), and every test touching

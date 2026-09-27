@@ -75,7 +75,7 @@ assert_contains "$IGN" ".cortex/findings/" "and the generated findings directory
 # The asymmetry IS the design: .cortex/memory/ is committed, because that is how several developers
 # share one context. Matched as whole RULES, not as substrings — the header comment mentions
 # `.cortex/memory/` by name to explain itself, and a substring test reads that sentence as a rule.
-has_rule() { grep -v '^[[:space:]]*#' "$PROJ/.gitignore" | grep -qx -- "$1"; }
+has_rule() { grep -qx -- "$1" <<<"$(grep -v '^[[:space:]]*#' "$PROJ/.gitignore")"; }
 has_rule ".cortex/memory/" && _fail "memory/ is committed on purpose and must never be ignored" \
                           || _pass "memory/ is committed on purpose and must never be ignored"
 has_rule ".cortex/" && _fail "the parent is never ignored wholesale, which would take memory/ with it" \

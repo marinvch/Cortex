@@ -2,7 +2,6 @@
   "name": "cortex",
   "version": "2.38.0",
   "description": "Cortex — a context manager for new and legacy codebases.",
-  "repository": "https://github.com/marinvch/Cortex",
   "owner": {
     "name": "Marin Cholakov",
     "url": "https://github.com/marinvch"
@@ -11,7 +10,8 @@
     {
       "name": "cortex",
       "source": "./",
-      "description": "Index a codebase, report its issues and gaps, and set it up — context layer, review policy, verification, hooks — in one pass. Ships the rituals, the indexer and the recall MCP brain. Run /cortex in a repo to begin."
+      "description": "Index a codebase, report its issues and gaps, and set it up — context layer, review policy, verification, hooks — in one pass. Ships the rituals, the indexer and the recall MCP brain. Run /cortex in a repo to begin.",
+      "repository": "https://github.com/marinvch/Cortex"
     }
   ]
 }

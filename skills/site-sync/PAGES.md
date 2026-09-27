@@ -11,11 +11,11 @@ reads, and is drafted from its sources.
 | Route | Kind | Written from |
 |---|---|---|
 | `/` | prose + facts | `README.md` intro and "Install as a Claude plugin"; version, install block and counts from `site-facts.json` |
-| `/install` | prose + facts | `README.md` install section; `.claude-plugin/plugin.json`; `node` from `site-facts.json` |
-| `/sequence` | prose | `README.md` "The order" table; `skills/cortex-next/SKILL.md` |
-| `/what-lands` | prose | `README.md` tree; `docs/adr/0002-committed-repo-memory.md` |
+| `/install` | prose + facts | `README.md` install section; `skills/cortex/SKILL.md` (consent gate, running unattended); `.claude-plugin/plugin.json`; `node` from `site-facts.json` |
+| `/sequence` | prose | `README.md` "The order" table; `skills/cortex-next/SKILL.md`; `skills/cortex/SKILL.md` (the second round: `/cortex evals`, `/cortex bands`) |
+| `/what-lands` | prose | `README.md` tree; `skills/cortex/SKILL.md` (the loop artifacts table); `skills/cortex-review/SKILL.md` (the PR review workflow); `docs/adr/0002-committed-repo-memory.md` |
 | `/index-and-findings` | prose | `CONTEXT.md` (Index, Findings, Enrichment); `index/AGENTS.md` |
-| `/cortex-view` | prose | `README.md` "See the repo, don't read about it"; `skills/cortex-view/SKILL.md` |
+| `/cortex-view` | prose | `README.md` "See the repo, don't read about it"; `skills/cortex-view/SKILL.md`; the View notes in `index/AGENTS.md` |
 | `/context-layer` | prose | `CONTEXT.md` (Brief, Routing table); `skills/cortex-scaffold`, `skills/cortex-brief`, `skills/cortex-skills`, `skills/domain-modeling`, `skills/optimize-context` |
 | `/team-memory` | prose | `CONTEXT.md` (Memory, The gate); `skills/dream`, `skills/handoff`, `skills/catch-me-up`, `skills/resume`, `skills/team-init`, `skills/team-add` |
 | `/rituals` | facts | `site-facts.json` only |

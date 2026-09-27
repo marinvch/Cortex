@@ -2,6 +2,20 @@
   "name": "cortex",
   "version": "2.38.0",
   "description": "A context manager for new and legacy codebases. Indexes a repo, reports issues and gaps, and scaffolds a layered AGENTS.md context tree — proposing, never deciding.",
+  "author": {
+    "name": "Marin Cholakov",
+    "url": "https://github.com/marinvch"
+  },
+  "homepage": "https://marinvch.github.io/cortex-site/",
+  "repository": "https://github.com/marinvch/Cortex",
+  "license": "MIT",
+  "keywords": [
+    "context",
+    "agents-md",
+    "codebase-index",
+    "claude-code",
+    "documentation"
+  ],
   "mcpServers": {
     "cortex": {
       "command": "node",

@@ -51,7 +51,7 @@ else
   _fail "the checker walked the rituals" "saw ${seen:-none} — an empty walk would pass for the wrong reason"
 fi
 
-if printf '%s\n' "$out" | grep -q '^FINDING '; then
+if grep -q '^FINDING ' <<<"$out"; then
   _fail "Cortex's own Claude setup has no claude-setup findings" "$(printf '%s\n' "$out" | grep -v '^skills-seen ')"
 else
   _pass "Cortex's own Claude setup has no claude-setup findings"

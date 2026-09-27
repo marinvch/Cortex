@@ -402,6 +402,40 @@ it was repointed or dropped in the same change.
   `/cortex` appends the verification block to it. Scaffold now says the block is the one addition.
 - **The stamped hook settings claimed each hook finishes "well under a second."** The Prettier
   format hook takes about 2.6 s per edit on Windows. The note now gives that cost.
+- **Six detection bugs found by running `/cortex` on `pmndrs/zustand`.** Each was checked on the
+  zustand clone and on `pmndrs/jotai` and `shadcn-ui/taxonomy`, and each guard was broken on
+  purpose to watch a test fail (21 mutations, 21 red).
+  - **Hand-written guides were reported as a protected path.** `docs/reference/migrations/` holds
+    two Markdown upgrade guides, and the `migrations?/` name alone made `/cortex` propose a hook
+    blocking edits to them. The directory name is now a hint and the file is the evidence: SQL or
+    code, and never under a `docs/` tree. zustand: 1 protected path → 0; taxonomy keeps
+    `prisma/migrations/`.
+  - **A web library was reported as React Native.** `package.json` was scanned for `"react-native":`
+    anywhere, and zustand uses it as an `exports` condition. JSON manifests are now parsed, and only
+    `dependencies`, `devDependencies`, `peerDependencies` and `optionalDependencies` (Composer:
+    `require`, `require-dev`) count. A manifest that does not parse declares nothing.
+  - **A module tested through a barrel read as untested.** zustand's persist tests import
+    `zustand/middleware`, which re-exports `./middleware/persist.ts`, so persist was ranked "untested
+    (high)". The index now marks `export … from` edges with `reexport` (and the `names` a named
+    re-export gives), and coverage follows them from a tested file through every hop, cycle-safe. A
+    named re-export is followed only when the test uses one of its names, so `ssrSafe as
+    unstable_ssrSafe`, which no test calls, stays untested. zustand: 26 → 22 untested modules
+    (persist, combine, redux, subscribeWithSelector, react). jotai: 97 → 93, and each of the four is
+    named by a test.
+  - **Cortex's own output changed its findings.** `tests/AGENTS.md`, written by `/cortex-brief`,
+    counted as a test (15 → 16). It also mentions `vitest.config.mts`, which made that file look
+    tested and dropped `rollup.config.mjs` and `eslint.config.mjs` out of the untested finding. Only
+    code, scripts and `.bats` files can now be tests, and coverage checks this even on an older
+    index. zustand: 15 tests again, and the three root configs are back in the untested finding.
+    On this repo, three `evals/data/*/test/tasks.json` files are no longer counted as tests.
+  - **The lint command was not found when it was called `test:lint`.** zustand and jotai both
+    reported `lint: null`. Lint now matches `lint`, then `test:lint`, then a single `lint:*` script.
+    Several `lint:*` scripts with no aggregate are not guessed, and a fixer (`lint:fix`, `fix:lint`)
+    is never chosen.
+  - **A second findings run on the same day overwrote the first without saying so.** The rule of one
+    report per date is unchanged, but when the earlier report was different the command now prints
+    that it was replaced, and how to keep both with `--out`. An identical re-run prints nothing
+    extra.
 - **The destructive-guard test failed at random, and four other checks could have (#433).** Under
   the `pipefail` that `tools/test/run.sh` sets, `code_of f | grep -q resolve_in_root` reported a
   guard that was there as missing whenever `grep -q` matched and exited before `sed` flushed its

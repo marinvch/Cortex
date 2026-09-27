@@ -36,6 +36,58 @@ test("indexes a tree, resolving internal imports and skipping node_modules", () 
   assert.equal(edge.type, "imports");
 });
 
+test("a re-export edge is marked, and an ordinary import beside it is not", () => {
+  // Coverage follows `reexport` edges out of a tested barrel (lib/coverage.mjs), so the flag must
+  // be exact: marking a plain import would lend a barrel's test coverage to code it merely uses.
+  const root = tempDir("cortex-idx-barrel-");
+  mkdirSync(join(root, "src", "middleware"), { recursive: true });
+  for (const f of ["persist", "devtools", "redux", "ssrSafe", "used", "later"]) {
+    writeFileSync(join(root, "src", "middleware", `${f}.ts`), `export const ${f} = 1\n`);
+  }
+  writeFileSync(join(root, "src", "star.ts"), "export const s = 1\n");
+  writeFileSync(
+    join(root, "src", "middleware.ts"),
+    [
+      "export { redux } from './middleware/redux.ts'",
+      "export {",
+      "  persist,",
+      "  type PersistOptions,",
+      "} from './middleware/persist.ts'",
+      "export type { Devtools } from './middleware/devtools.ts'",
+      "export * from './star.ts'",
+      "export { ssrSafe as unstable_ssrSafe } from './middleware/ssrSafe.ts'",
+      "import { used } from './middleware/used.ts'",
+      // The export-pattern trap: an `export` statement followed later by an import's `from`.
+      "export const local = used",
+      // …and the brace trap: an `export { … }` with no `from`, before a later import's `} from`.
+      "export { local as renamed }",
+      "import { later } from './middleware/later.ts'",
+      "",
+    ].join("\n"),
+  );
+  const idx = buildIndex(root);
+  const from = idx.edges.filter((e) => e.from === "src/middleware.ts");
+  const marked = from.filter((e) => e.reexport).map((e) => e.to).sort();
+  assert.deepEqual(marked, [
+    "src/middleware/devtools.ts",
+    "src/middleware/persist.ts",
+    "src/middleware/redux.ts",
+    "src/middleware/ssrSafe.ts",
+    "src/star.ts",
+  ]);
+  const plain = from.filter((e) => !e.reexport).map((e) => e.to).sort();
+  assert.deepEqual(plain, ["src/middleware/later.ts", "src/middleware/used.ts"]);
+  assert.ok(from.every((e) => e.type === "imports"), "the type stays `imports` — the viewer filters on it");
+  // The names the barrel gives each target — aliases, `type` stripped — so coverage can require a
+  // test to name one. `export *` has none to give, and says so by carrying no `names` at all.
+  const namesOf = (to) => from.find((e) => e.to === to).names;
+  assert.deepEqual(namesOf("src/middleware/persist.ts"), ["PersistOptions", "persist"]);
+  assert.deepEqual(namesOf("src/middleware/devtools.ts"), ["Devtools"]);
+  assert.equal(namesOf("src/star.ts"), undefined);
+  assert.deepEqual(namesOf("src/middleware/ssrSafe.ts"), ["unstable_ssrSafe"], "the alias is the name a test uses");
+  assert.ok(!("reexport" in from.find((e) => e.to === "src/middleware/used.ts")), "absent, not false: plain edges keep their shape");
+});
+
 test("marks tests, entry points, and inbound counts", () => {
   const root = fixture();
   const idx = buildIndex(root);

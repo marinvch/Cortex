@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { listFiles, MAX_INDEXED_BYTES } from "./walk.mjs";
 import { repoText } from "./repo-text.mjs";
 import { detectLanguage, categoryOf, isTestPath, isEntryPath } from "./langs.mjs";
-import { extractImports } from "./imports.mjs";
+import { extractImports, extractReexports } from "./imports.mjs";
 import { importResolver } from "./resolvers.mjs";
 import { inferAreas } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
@@ -128,13 +128,36 @@ export function buildIndex(root, opts = {}) {
     // records which file and why, so that loss is countable rather than invisible.
     const body = text.read(f.path);
     if (body === null) continue;
-    const seen = new Set();
+    const seen = new Map(); // target → its edge, so a later re-export of it can still mark it
+    // Which specifiers this file re-exports, and under which names, so coverage can follow a
+    // tested barrel to what it re-exports (lib/coverage.mjs). Both fields are written only when
+    // there is something to say: every plain edge keeps the exact shape it had, and a consumer
+    // that ignores them reads the graph unchanged. `names` absent on a re-export means every name.
+    const reexported = new Map(); // spec → names[] | null
+    for (const { spec, names } of extractReexports(body, f.lang)) {
+      const prev = reexported.get(spec);
+      reexported.set(spec, prev === null || names === null ? null : [...(prev ?? []), ...names]);
+    }
+    const mark = (edge, spec) => {
+      if (!reexported.has(spec)) return;
+      const names = reexported.get(spec);
+      const wasAll = edge.reexport && !edge.names;
+      edge.reexport = true;
+      if (names === null || wasAll) delete edge.names;
+      else edge.names = [...new Set([...(edge.names ?? []), ...names])].sort();
+    };
     for (const spec of extractImports(body, f.lang)) {
       for (const target of resolver.resolve(spec, f)) {
-        if (!target || target === f.path || seen.has(target)) continue;
-        seen.add(target);
+        if (!target || target === f.path) continue;
+        if (seen.has(target)) {
+          mark(seen.get(target), spec);
+          continue;
+        }
+        const edge = { from: f.path, to: target, type: "imports" };
+        mark(edge, spec);
+        seen.set(target, edge);
         f.imports.push(target);
-        edges.push({ from: f.path, to: target, type: "imports" });
+        edges.push(edge);
       }
     }
     f.imports.sort();

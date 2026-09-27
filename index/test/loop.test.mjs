@@ -294,6 +294,47 @@ test("an index with files is not greenfield", () => {
 });
 
 // ---------------------------------------------------------------------------
+// protected paths — a hook that blocks edits must block only what is really generated
+// ---------------------------------------------------------------------------
+
+// A directory NAME is a hint; the files in it are the evidence. pmndrs/zustand keeps two
+// hand-written upgrade guides in `docs/reference/migrations/`, and the bare `migrations?/` pattern
+// reported that as a generated path — so /cortex proposed a hook refusing edits to the repo's own
+// documentation and listed it in REVIEW.md's do-not-report section.
+
+const protectedOf = (paths) => {
+  const root = repo(() => {});
+  const got = readLoopState(root, indexOf(paths)).protectedPaths;
+  rmSync(root, { recursive: true, force: true });
+  return got;
+};
+
+test("a migrations directory holding only prose is not protected", () => {
+  assert.deepEqual(
+    protectedOf(["docs/reference/migrations/migrating-to-v4.md", "docs/reference/migrations/migrating-to-v5.md", "src/a.ts"]),
+    [],
+  );
+  assert.deepEqual(protectedOf(["migrations/README.md"]), [], "a README alone is not a migration");
+});
+
+test("a migrations directory under docs/ is never protected, even with SQL in it", () => {
+  // Sample SQL in a guide is an example a writer edits, not a migration a tool generated.
+  assert.deepEqual(protectedOf(["docs/guides/migrations/001-example.sql"]), []);
+  assert.deepEqual(protectedOf(["website/docs/migrations/upgrade.mdx", "doc/migrations/x.sql"]), []);
+});
+
+test("real migrations are still protected — SQL, ORM code, Rails and Prisma layouts", () => {
+  assert.deepEqual(protectedOf(["prisma/migrations/20221021182747_init/migration.sql"]), ["prisma/migrations/"]);
+  assert.deepEqual(protectedOf(["db/migrate/20240101_create_users.rb"]), ["db/migrate/"]);
+  assert.deepEqual(protectedOf(["app/migrations/0001_initial.py", "app/migrations/README.md"]), ["app/migrations/"]);
+  assert.deepEqual(protectedOf(["src/main/resources/db/migration/V1__init.sql"]), ["src/main/resources/db/migration/"]);
+});
+
+test("the other generated hints are unchanged by the migrations evidence rule", () => {
+  assert.deepEqual(protectedOf(["dist/index.js", "src/__generated__/schema.ts"]), ["dist/", "src/__generated__/"]);
+});
+
+// ---------------------------------------------------------------------------
 // presence is a file fact, never a quality judgment
 // ---------------------------------------------------------------------------
 

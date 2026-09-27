@@ -551,18 +551,48 @@ function bigIndex(n) {
   });
 }
 
+/**
+ * The fastest frame of each page, sampled in alternation after a warm-up.
+ *
+ * Load on the machine only ever ADDS time, so the minimum of several frames is the frame's own cost
+ * with the least noise in it. The test used to average 30 frames from cold — JIT warm-up included,
+ * and whatever else was running — and failed at 12.4–18.6ms under parallel suites while passing
+ * alone, on a frame whose fastest run is about 1ms. Alternating the pages exposes both to the same
+ * load, which is what makes their ratio mean something.
+ */
+function fastestFrames(pages, { warm = 5, samples = 20 } = {}) {
+  for (const p of pages) for (let i = 0; i < warm; i++) p.OV.frame();
+  const best = pages.map(() => Infinity);
+  for (let s = 0; s < samples; s++) {
+    pages.forEach((p, k) => {
+      const t0 = performance.now();
+      p.OV.frame();
+      best[k] = Math.min(best[k], performance.now() - t0);
+    });
+  }
+  return best;
+}
+
 test("the cloud draws 2,000 files in one pass per frame, fast enough to turn smoothly", () => {
   // A frame is one path for every import and one sprite per file. A stroke per edge, or a pass that
   // is quadratic in files, is what makes a large repo stutter — and it is invisible on this repo.
   const page = runOverview(buildView(bigIndex(2000), "/tmp/x"));
+  const small = runOverview(buildView(bigIndex(200), "/tmp/x"));
   assert.equal(page.OV.count, 2000);
   const before = { ...page.calls };
-  const t0 = performance.now();
   for (let i = 0; i < 30; i++) page.OV.frame();
-  const ms = (performance.now() - t0) / 30;
   assert.equal((page.calls.drawImage - before.drawImage) / 30, 2000, "one sprite per file");
   assert.ok((page.calls.stroke - before.stroke) / 30 <= 2, "the links are one stroke, not thousands");
-  assert.ok(ms < 12, `a frame took ${ms.toFixed(2)}ms of script time`);
+
+  const [big, tenth] = fastestFrames([page, small]);
+  // Scaling, measured against itself on the same machine at the same moment: ten times the files is
+  // about ten times the frame when the draw is linear, and about a hundred when it is quadratic. 20
+  // leaves room for noise and fixed per-frame cost on either side of that gap.
+  const ratio = big / Math.max(tenth, 0.01);
+  assert.ok(ratio < 20, `2,000 files cost ${ratio.toFixed(1)}× a 200-file frame (${big.toFixed(2)}ms vs ${tenth.toFixed(2)}ms) — the draw is no longer linear`);
+  // And an absolute ceiling, for a draw that stays linear but gets heavy per file. 12 is the budget
+  // this test always held, now applied to the fastest frame rather than to a cold average.
+  assert.ok(big < 12, `the fastest of 20 frames took ${big.toFixed(2)}ms of script time`);
 });
 
 test("the same index opens as the same cloud", () => {

@@ -1,7 +1,9 @@
 ---
 name: level-up
 description: Biweekly growth ritual for the Cortex Vault. Walks Notice → Decide → Build to surface one piece of leverage (an automation, a note worth writing, a connection worth wiring) and ship one artifact. Trigger on "level up", "what should I automate next", "find me leverage". One run = one shipped thing.
-capability: strong
+effort: high
+metadata:
+  capability: strong
 ---
 
 # /level-up — find one piece of leverage, ship it

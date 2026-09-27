@@ -1,9 +1,11 @@
 ---
 name: handoff
 description: Compact the current conversation into a handoff document for another agent to pick up.
-capability: mechanical
+effort: low
 argument-hint: "What will the next session be used for?"
 disable-model-invocation: true
+metadata:
+  capability: mechanical
 ---
 
 # /handoff — hand the live session to the next agent

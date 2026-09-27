@@ -1,8 +1,9 @@
 ---
 name: migrate-engine
 description: Move a repo off the retired `.ai-os/` engine onto plain-files Cortex without losing its memory — harvest first, delete second.
-capability: judgment
 disable-model-invocation: true
+metadata:
+  capability: judgment
 ---
 
 # /migrate-engine — move the old brain into Cortex, then retire it safely

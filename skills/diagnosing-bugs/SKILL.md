@@ -1,7 +1,8 @@
 ---
 name: diagnosing-bugs
 description: A diagnosis loop for hard bugs and performance regressions, run against the repo's own map — blast radius, documented invariants, untested dependents. Use when the user says "diagnose" or "debug this", or reports something broken, throwing, failing, flaky or slow.
-capability: judgment
+metadata:
+  capability: judgment
 ---
 
 # /diagnosing-bugs — build the loop first

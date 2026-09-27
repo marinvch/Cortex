@@ -1,7 +1,8 @@
 ---
 name: install-project
 description: Install a "codebase brain" into a specific repo so the AI knows ONLY that codebase and supports its dev cycle. Use when the user says "install cortex on this project", "give this repo a brain", "set up the project brain", or opens a work repo and wants AI help scoped to it. Plain files — no engine, no Node. Self-contained, so it works on any machine.
-capability: judgment
+metadata:
+  capability: judgment
 ---
 
 # /install-project — give one repo its own brain

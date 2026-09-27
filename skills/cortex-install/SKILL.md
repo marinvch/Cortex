@@ -1,7 +1,9 @@
 ---
 name: cortex-install
 description: The read-only half of /cortex — index a codebase, report what it finds, and offer the context layer alone, without setting up the rest of the loop. Use when someone wants to look before committing to anything — "just index this", "report on this repo", "what shape is this codebase in", "show me the findings" — or when opening an unfamiliar repo that needs understanding before work starts. To set a repo up, that is /cortex. Asks before writing anything, and never touches source code.
-capability: mechanical
+effort: low
+metadata:
+  capability: mechanical
 ---
 
 # /cortex-install — give a codebase a context layer

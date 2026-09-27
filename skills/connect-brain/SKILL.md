@@ -1,8 +1,10 @@
 ---
 name: connect-brain
 description: Connect this machine to the live Cortex MCP brain, so recall and capture work in every project. One-time, user scope.
-capability: mechanical
+effort: low
 disable-model-invocation: true
+metadata:
+  capability: mechanical
 ---
 
 # /connect-brain — one-line live brain

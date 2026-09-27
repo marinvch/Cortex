@@ -110,7 +110,10 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   disagree the moment one of them changes. Do not add a second.
 - **Import resolution is regex-based**, so dynamic and computed imports are missed. That is a
   documented limit, not a bug — it is why the orphan finding says "worth checking", never "safe to
-  delete".
+  delete". A code language `extractImports` has no case for belongs in `UNRESOLVED_LANGUAGES`, so
+  the report says it is blind instead of calling every file unreferenced — Kotlin did, 22 of 24 on
+  spring-petclinic-kotlin, until it was listed (#465). `imports.test.mjs` walks `CODE_LANGUAGES`
+  and fails on a language that has neither.
 - **One slot per language, in `lib/resolvers.mjs`: `prepare(env) → ctx` and
   `resolve(spec, from, ctx) → string[]`.** A language's own knowledge — that Go reads `go.mod`, that
   `crate::` is relative to the crate a file belongs to, that a JS alias is consulted only after the
@@ -143,7 +146,13 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   direction of error is chosen:** this can only ever *remove* entries. Missing a true orphan costs a
   suggestion nobody had to act on; inventing one costs trust in every other line of the report.
   `findings.mjs` and `view.mjs` both call it — there is no second copy, for the reason
-  `coverage.mjs` says.
+  `coverage.mjs` says. **A JVM entry point is read from the code, not the path** (`isEntrySource`
+  in `lib/langs.mjs`): `@SpringBootApplication`, a static `main(String[])`, a Kotlin top-level or
+  `@JvmStatic` `fun main` — through `javaCode`, so a comment naming `main` is not one. `build.mjs`
+  sets `isEntry` from it and `findOrphans` asks again, because an older index is read without
+  complaint. Nothing wider: `@Configuration` and `@Component` are an ordinary class's annotations,
+  and a dead one is exactly what the finding exists for. `package-info.java` and
+  `module-info.java` are never candidates — they declare no class to reference.
 - **A path alias is read from the repo, never guessed.** `tsconfig.json` / `jsconfig.json` `paths`
   and `baseUrl` are declared, exactly like `go.mod`'s module path and `composer.json`'s PSR-4
   prefixes, and the JS adapter follows both links a config can carry: `extends` upward, because splitting
@@ -203,6 +212,9 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   is invisible to both name and import, which is what the mention signal is for. Quoted-only, so a
   file named in a comment is not counted as exercised. Do not copy this heuristic into a third
   caller — two copies would agree today and disagree in a month, with nothing to say which is right.
+  **`briefCandidates` reads it too**, as the `tested` set both callers pass: counting the tests
+  inside an area told every Maven/Gradle `src/main` it had "no tests" while the same report had
+  found tests in `src/test` for most of it (#460).
   **The import signal follows barrels**, through edges `build.mjs` marks `reexport` (`export … from`
   only — never an ordinary import inside the target, which would call everything under a test
   covered). A *named* re-export carries `names` and is followed only when the test uses one of

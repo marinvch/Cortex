@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { listFiles, MAX_INDEXED_BYTES } from "./walk.mjs";
 import { repoText } from "./repo-text.mjs";
-import { detectLanguage, categoryOf, isTestPath, isEntryPath } from "./langs.mjs";
+import { detectLanguage, categoryOf, isTestPath, isEntryPath, isEntrySource } from "./langs.mjs";
 import { extractImports, extractReexports } from "./imports.mjs";
 import { importResolver } from "./resolvers.mjs";
 import { inferAreas } from "./layers.mjs";
@@ -128,6 +128,9 @@ export function buildIndex(root, opts = {}) {
     // records which file and why, so that loss is countable rather than invisible.
     const body = text.read(f.path);
     if (body === null) continue;
+    // A JVM entry point is declared in the code, not by its path — a Spring Boot application class
+    // sits in a package directory like any other class (`isEntrySource`, lib/langs.mjs, #459).
+    if (!f.isEntry && isEntrySource(body, f.lang)) f.isEntry = true;
     const seen = new Map(); // target → its edge, so a later re-export of it can still mark it
     // Which specifiers this file re-exports, and under which names, so coverage can follow a
     // tested barrel to what it re-exports (lib/coverage.mjs). Both fields are written only when

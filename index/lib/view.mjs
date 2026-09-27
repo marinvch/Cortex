@@ -155,7 +155,7 @@ function buildStructure(files, areas, colorOf, { tested, labels }) {
   // The command a missing brief names is the one the findings report would offer: the same
   // ranking, so the tab cannot suggest a brief for a one-file directory or for `.claude/` while the
   // report, reading the same index, says no such thing.
-  const candidates = new Set(briefCandidates(files).map((c) => c.dir).filter((d) => !briefPaths.has(`${d}/AGENTS.md`)));
+  const candidates = new Set(briefCandidates(files, { tested }).map((c) => c.dir).filter((d) => !briefPaths.has(`${d}/AGENTS.md`)));
   const area = (a) => {
     const own = (a.paths ?? []).map((p) => byPath.get(p)).filter(Boolean);
     const brief = briefFor(a, briefPaths, rootBrief);

@@ -14,6 +14,23 @@ production breach writes the next `intent.md`.
 
 ### Added
 
+- **`/cortex-review` runs in CI on every pull request.** `/cortex` now stamps
+  `.github/workflows/cortex-review.yml` (`templates/loop/cortex-review.yml`): on `pull_request` it
+  checks out full history, clones the pinned Cortex release (`CORTEX_REF`, filled from `VERSION`)
+  into the runner's temp dir — outside the workspace, because the indexer counts untracked files —
+  indexes the repo, and runs `cortex-review.mjs --since <base>` and `--citations --since <base>` on
+  the PR's base...head diff. No model, no API key, nothing installed. The report goes to the job
+  log and the run summary, and each provable broken citation becomes an annotation on its line.
+  **Advisory by default:** the check passes. Setting the repository variable
+  `CORTEX_REVIEW_BLOCKING` to `true` makes a provable broken citation fail the PR, and nothing else
+  ever does. `index/lib/loop.mjs` gains the `review-ci` row (Deploy, rank 45): offered on GitHub
+  Actions once `AGENTS.md` exists, present when any workflow runs `cortex-review`, blocked with its
+  unmet need named otherwise. Tests run the workflow's own step script on real PR-shaped repos
+  (a mention never fails; a moved file warns, and fails only when opted in), check the stamped
+  shape, and pin that what `/cortex` stamps passes the claude-setup checker and is then detected
+  as present. The acceptance harness's S4 now stamps the workflow into each workspace clone and runs
+  its review step on a PR-shaped branch; that half of S4 passes, and S4 stays `XFAIL (step 8.4)` on
+  the overlap warning alone.
 - **The checker: does a repo's Claude setup follow Anthropic's own docs?** `index/lib/claude-setup.mjs`
   adds 23 `claude-setup/*` findings to the report `/cortex-install`, `cortex-view` and `cortex-next`
   already read — `CLAUDE.md` (and what it `@`-imports) over 200 lines, emphasis on many lines, an

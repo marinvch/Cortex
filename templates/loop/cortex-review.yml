@@ -1,0 +1,122 @@
+# Reads this repo's own documents back against every pull request.
+#
+# AGENTS.md, CONTEXT.md and the ADRs describe the code. A diff changes the code and nobody re-reads
+# the prose describing it, so the documents go wrong silently — no test fails when a brief names a
+# file that has moved. This runs the deterministic half of /cortex-review on the PR's diff
+# (base...head) and reports two things:
+#
+#   - the documents governing the change, nearest scope first, and every line in them that names a
+#     file the PR touched — where a stale sentence would hide;
+#   - citations the PR broke: a document naming a path the PR moved, where git recorded the move.
+#
+# It cites and never judges. No model, no API key, and no network beyond fetching the repo and one
+# pinned Cortex release, which is plain Node with no dependencies to install. Deciding whether a
+# change breaks a documented rule needs a model; that is /cortex-review run by a person.
+#
+# Advisory by default: the findings land in the job log, the run's summary and as annotations, and
+# the check passes. To make a broken citation fail the PR, set the repository variable
+# CORTEX_REVIEW_BLOCKING to true (Settings → Secrets and variables → Actions → Variables). Only the
+# provable class ever fails — a path gone with git's record of where it went. A mention of a touched
+# file never does: it is where a defect would hide, not a defect.
+#
+# One value is a Cortex placeholder, in double braces with no dollar sign: CORTEX_REF, the Cortex
+# release tag this runs. A dollar-sign expression is GitHub Actions syntax, resolved at run time —
+# leave it exactly as written.
+name: cortex-review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cortex-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CORTEX_REPO: https://github.com/marinvch/Cortex.git
+      CORTEX_REF: {{CORTEX_REF}}
+    steps:
+      # Full history: the diff is taken from the PR's base, and a moved file is proven by git's
+      # rename record, which a shallow clone does not have.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Outside the workspace on purpose. The indexer counts untracked files as part of the repo, so
+      # a copy of Cortex inside the checkout would be reviewed as if it were this repo's code.
+      - name: Fetch Cortex
+        run: git clone -q --depth 1 --branch "$CORTEX_REF" "$CORTEX_REPO" "$RUNNER_TEMP/cortex"
+      - name: Review the change against this repo's documents
+        env:
+          CORTEX: ${{ runner.temp }}/cortex
+          BASE: ${{ github.event.pull_request.base.sha }}
+          BLOCKING: ${{ vars.CORTEX_REVIEW_BLOCKING }}
+        run: |
+          set -uo pipefail
+          summary="${GITHUB_STEP_SUMMARY:-/dev/null}"
+          index="$RUNNER_TEMP/cortex-index.json"
+          # Advisory unless the repo opted in. A tool that fails every PR while nobody asked it to
+          # block trains the team to ignore the check.
+          fail() { if [ "${BLOCKING:-}" = "true" ]; then exit 1; fi; exit 0; }
+          if [ -z "${BASE:-}" ]; then
+            echo "::notice::Not a pull request, so there is no change to review."
+            exit 0
+          fi
+          if ! node "$CORTEX/index/cortex-index.mjs" . --out "$index" > "$RUNNER_TEMP/index.log" 2>&1; then
+            cat "$RUNNER_TEMP/index.log"
+            echo "::warning::Cortex could not index this repo, so the change was not reviewed."
+            fail
+          fi
+          node "$CORTEX/index/cortex-review.mjs" --since "$BASE" --index "$index" > "$RUNNER_TEMP/review.txt" 2>&1
+          review=$?
+          node "$CORTEX/index/cortex-review.mjs" --citations --since "$BASE" --index "$index" > "$RUNNER_TEMP/citations.txt" 2>&1
+          cites=$?
+          cat "$RUNNER_TEMP/review.txt"
+          echo
+          echo "--- citations this change reaches ---"
+          cat "$RUNNER_TEMP/citations.txt"
+          {
+            echo "## Cortex review"
+            echo
+            echo "Which of this repo's documents govern the change, and which name what it touched. Deterministic: it cites, it does not judge."
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/review.txt"
+            echo '```'
+            echo
+            echo "### Citations this change reaches"
+            echo
+            echo '```'
+            cat "$RUNNER_TEMP/citations.txt"
+            echo '```'
+          } >> "$summary"
+          # 0 is a report and 2 is an empty diff; anything else means the review did not run.
+          if [ "$review" -ne 0 ] && [ "$review" -ne 2 ]; then
+            echo "::warning::cortex-review exited $review, so the change was not reviewed."
+            fail
+          fi
+          if [ "$cites" -ne 0 ] && [ "$cites" -ne 1 ]; then
+            echo "::warning::cortex-review --citations exited $cites, so citations were not checked."
+            fail
+          fi
+          if [ "$cites" -eq 1 ]; then
+            level=warning
+            if [ "${BLOCKING:-}" = "true" ]; then level=error; fi
+            node "$CORTEX/index/cortex-review.mjs" --citations --since "$BASE" --index "$index" --json 2>/dev/null |
+              LEVEL="$level" node -e '
+                let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+                  for (const f of JSON.parse(s).findings.filter((f) => f.class === "provable"))
+                    console.log(`::${process.env.LEVEL} file=${f.doc},line=${f.line}::${f.doc} cites ${f.cited}, which git recorded moving to ${f.suggestion}`);
+                });'
+            if [ "$level" = "error" ]; then
+              echo "::error::A document names a path git recorded as moved. Fix the citation, or apply: cortex-review.mjs --citations --fix"
+              exit 1
+            fi
+            echo "::warning::A document names a path git recorded as moved. Advisory — set the CORTEX_REVIEW_BLOCKING variable to true to make this fail."
+          fi
+          exit 0

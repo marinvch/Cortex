@@ -53,8 +53,8 @@ Then, inside the repo you want it to serve — a working project or an empty one
 
 It indexes the codebase, writes **one findings report** — issues, gaps, recommendations, ranked —
 works out which parts of the development loop the repo is missing (a verification block in
-`CLAUDE.md`, a verifier subagent, `REVIEW.md`, hooks, an `intent/` home, evals, control bands), and
-then **stops and asks once**. Nothing in your repo is modified until you pick what to act on.
+`CLAUDE.md`, a verifier subagent, `REVIEW.md`, a PR review workflow, hooks, an `intent/` home, evals,
+control bands), and then **stops and asks once**. Nothing in your repo is modified until you pick what to act on.
 Indexing and reporting are read-only by construction: a different skill applies changes.
 
 ### The order, and how to stop guessing at it

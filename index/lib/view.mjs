@@ -8,7 +8,10 @@
 // Deterministic, like everything else in index/: same index.json, same bytes out. Colours come
 // from a fixed palette indexed by sorted area order, never from a hash of a name.
 
-import { buildCoverage } from "./coverage.mjs";
+import { basename, resolve } from "node:path";
+import { homedir } from "node:os";
+import { codeCoverage } from "./findings.mjs";
+import { briefCandidates, TOOLING_DIRS } from "./layers.mjs";
 import { findOrphans } from "./orphans.mjs";
 
 // Enough hues to separate the areas a reader can hold at once; past that they repeat, which is
@@ -36,11 +39,69 @@ function areaOf(path) {
 // reading "index.jsx" and the map became unreadable. Barrel and route files get their directory,
 // which is the name a developer actually calls them by.
 const BARREL = /^(index|main|mod|__init__|route|page|layout)\.[^.]+$/;
-function labelOf(path) {
+function labelOf(path, depth = 1) {
   const parts = path.split("/");
   const base = parts[parts.length - 1];
-  if (parts.length > 1 && BARREL.test(base)) return parts[parts.length - 2] + "/" + base;
-  return base;
+  const keep = Math.max(depth, parts.length > 1 && BARREL.test(base) ? 2 : 1);
+  return parts.slice(-keep).join("/");
+}
+
+/**
+ * One label per path, unique wherever the paths allow it. The same argument as the barrel rule, for
+ * every other name: zustand has `src/shallow.ts`, `src/react/shallow.ts` and `src/vanilla/shallow.ts`,
+ * and the Map drew three chips reading "shallow.ts". A label that repeats takes one more directory
+ * until it no longer does, and only the labels that collide pay for it.
+ */
+function uniqueLabels(paths) {
+  const depth = new Map(paths.map((p) => [p, 1]));
+  for (let round = 0; round < 8; round++) {
+    const seen = new Map();
+    for (const p of paths) {
+      const l = labelOf(p, depth.get(p));
+      if (!seen.has(l)) seen.set(l, []);
+      seen.get(l).push(p);
+    }
+    let grew = false;
+    for (const group of seen.values()) {
+      if (group.length < 2) continue;
+      for (const p of group) {
+        if (depth.get(p) < p.split("/").length) {
+          depth.set(p, depth.get(p) + 1);
+          grew = true;
+        }
+      }
+    }
+    if (!grew) break;
+  }
+  return new Map(paths.map((p) => [p, labelOf(p, depth.get(p))]));
+}
+
+// Every spelling of the machine's own paths that could reach the page. The page is a file people
+// share — attached to a PR, published as a demo — and the index handed it the absolute root, so
+// `C:\Users\<name>\…` rode along in the inlined data. The view carries the repo's NAME and
+// repo-relative paths only; this is the backstop for any string that still quotes the root, such as
+// a git or findings error message.
+function machinePaths(root) {
+  const out = new Set();
+  for (const p of [root, root && resolve(root), homedir()]) {
+    if (!p || p.length < 4) continue;
+    for (const v of [p, p.replace(/\\/g, "/"), p.replace(/\//g, "\\")]) out.add(v);
+  }
+  // Longest first, so the root is replaced whole before the home directory inside it.
+  return [...out].sort((a, b) => b.length - a.length);
+}
+
+function scrubPaths(value, paths) {
+  if (!paths.length) return value;
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(paths.map(esc).join("|"), "gi");
+  const walk = (v) => {
+    if (typeof v === "string") return v.replace(re, "…");
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  return walk(value);
 }
 
 // The agent shims Cortex writes, and the ones other tools read. Present only if the index has them.
@@ -52,33 +113,85 @@ const SHIMS = ["CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md", ".cu
  * most-imported files and how many of its files are tests. Built from indexed paths only — a
  * document that is not tracked does not exist as far as an agent opening the repo is concerned.
  */
-function buildStructure(files, areas, colorOf) {
+// "Code" on every surface of this page means the same thing: a file that can have an import edge,
+// which is what the Map draws. The Areas tab counted `code` alone while the Structure tab counted
+// code and scripts, so one area showed two different code counts on two tabs.
+const isCodeish = (f) => f.category === "code" || f.category === "script";
+
+// The root area is the files at the top of the tree. `inferAreas` names it "root", which is a label,
+// not a directory: the tab offered `/cortex-brief root/` for a folder that does not exist. It is
+// recognised by its paths, so a real directory that happens to be called `root/` is still one.
+const isRootArea = (a) => (a.paths ?? []).length > 0 && (a.paths ?? []).every((p) => !p.includes("/"));
+
+/**
+ * Which brief serves an area, and how. `own` is `<area>/AGENTS.md`; `inherits` is the nearest
+ * ancestor's, because a nested AGENTS.md is loaded for everything beneath it. A brief BELOW an area
+ * serves only its own subtree, so it never counts for the parent — the tab said `src/` had a brief
+ * because `src/middleware/AGENTS.md` started with `src/`, and the headline counted three briefs
+ * where two existed.
+ */
+function briefFor(a, briefPaths, rootBrief) {
+  if (isRootArea(a)) return { own: rootBrief, inherits: null, root: true };
+  const own = briefPaths.has(`${a.name}/AGENTS.md`) ? `${a.name}/AGENTS.md` : null;
+  let inherits = null;
+  if (!own) {
+    const parts = a.name.split("/");
+    for (let i = parts.length - 1; i > 0 && !inherits; i--) {
+      const up = `${parts.slice(0, i).join("/")}/AGENTS.md`;
+      if (briefPaths.has(up)) inherits = up;
+    }
+    if (!inherits && rootBrief) inherits = rootBrief;
+  }
+  return { own, inherits, root: false };
+}
+
+function buildStructure(files, areas, colorOf, { tested, labels }) {
   const paths = new Set(files.map((f) => f.path));
   const byPath = new Map(files.map((f) => [f.path, f]));
   const briefs = files.filter((f) => f.path.endsWith("/AGENTS.md")).map((f) => f.path).sort();
+  const briefPaths = new Set(briefs);
+  const rootBrief = paths.has("AGENTS.md") ? "AGENTS.md" : null;
+  // The command a missing brief names is the one the findings report would offer: the same
+  // ranking, so the tab cannot suggest a brief for a one-file directory or for `.claude/` while the
+  // report, reading the same index, says no such thing.
+  const candidates = new Set(briefCandidates(files).map((c) => c.dir).filter((d) => !briefPaths.has(`${d}/AGENTS.md`)));
   const area = (a) => {
     const own = (a.paths ?? []).map((p) => byPath.get(p)).filter(Boolean);
-    const brief = briefs.find((b) => b === `${a.name}/AGENTS.md`) ?? briefs.find((b) => b.startsWith(`${a.name}/`)) ?? null;
+    const brief = briefFor(a, briefPaths, rootBrief);
     const key = own
       .filter((f) => f.category === "code" && !f.isTest)
       .sort((x, y) => (y.inbound ?? 0) - (x.inbound ?? 0) || (y.commits ?? 0) - (x.commits ?? 0) || (x.path < y.path ? -1 : 1))
       .slice(0, 3)
-      .map((f) => ({ path: f.path, inbound: f.inbound ?? 0 }));
+      .map((f) => ({ path: f.path, label: labels.get(f.path) ?? f.path, inbound: f.inbound ?? 0 }));
+    // Tests are the coverage signal, not a directory listing. zustand keeps every test in a
+    // top-level `tests/`, and the tab said "no tests found" under each `src/` area those tests
+    // import — the opposite of what the findings report said about the same files.
+    const testable = own.filter((f) => f.category === "code" && !f.isTest);
     return {
       name: a.name,
+      root: brief.root,
       color: colorOf.get(a.name) ?? GREY,
       files: own.length,
-      code: own.filter((f) => f.category === "code" || f.category === "script").length,
+      code: own.filter(isCodeish).length,
       tests: own.filter((f) => f.isTest).length,
-      brief,
+      testable: testable.length,
+      tested: testable.filter((f) => tested.has(f.path)).length,
+      brief: brief.own,
+      inherits: brief.inherits,
+      tooling: TOOLING_DIRS.has(a.name.split("/")[0]),
+      suggest: !brief.root && !brief.own && candidates.has(a.name) ? `/cortex-brief ${a.name}/` : null,
       key,
     };
   };
+  const adrFiles = files.filter((f) => f.path.startsWith("docs/adr/")).map((f) => f.path);
   return {
-    root: paths.has("AGENTS.md") ? "AGENTS.md" : null,
+    root: rootBrief,
     shims: SHIMS.filter((p) => paths.has(p)),
     glossary: paths.has("CONTEXT.md") ? "CONTEXT.md" : null,
-    adrs: files.filter((f) => /^docs\/adr\/\d{4}-.+\.md$/.test(f.path)).length,
+    adrs: adrFiles.filter((p) => /^docs\/adr\/\d{4}-.+\.md$/.test(p)).length,
+    // The directory is a fact of its own. A scaffold writes `docs/adr/TEMPLATE.md` and no records,
+    // and the tab drew that as "no docs/adr/" beside a sequence that called the layer done.
+    adrDir: adrFiles.length ? (adrFiles.find((p) => /\/TEMPLATE\.md$/i.test(p)) ?? adrFiles.sort()[0]) : null,
     review: paths.has("REVIEW.md") ? "REVIEW.md" : null,
     briefs,
     // Areas with code first — they are what a brief routes to — then by size.
@@ -123,23 +236,32 @@ export function buildView(index, root, opts = {}) {
     for (const p of layer.paths ?? []) depthOf.set(p, layer.depth);
   }
 
+  // Coverage is the findings report's own answer (`codeCoverage`), not a loop of this file's. Every
+  // "untested" below means "no name, import or quoted mention ties a test to this file" — a floor,
+  // like impact's — and the count is the one the report's title prints.
   let coverage = null;
   try {
-    coverage = buildCoverage(index, root);
+    coverage = codeCoverage({ ...index, files, edges: index.edges ?? [] }, root);
   } catch {
     coverage = null;
   }
-  // Coverage is the shared three-signal heuristic, not a second copy of it. Every "untested" below
-  // means "no name, import or quoted mention ties a test to this file" — a floor, like impact's.
-  const tested = new Set();
-  if (coverage) {
-    for (const f of files) {
-      if (f.category === "code" && !f.isTest && coverage.isCovered(f.path)) tested.add(f.path);
-    }
-  }
+  const untestedSet = new Set(coverage ? coverage.untested : []);
+  const tested = new Set(coverage ? coverage.testable.filter((p) => !untestedSet.has(p)) : []);
 
   const inGraph = new Set(files.map((f) => f.path));
   const maxCommits = Math.max(1, ...files.map((f) => f.commits ?? 0));
+
+  // Churn is only a signal when there is history behind it. A shallow clone holds one commit, so
+  // every file reads "1 commits" and the hot-spot table is the first twenty files in path order,
+  // presented as the busiest. The overview knows the clone is shallow; a history where nothing was
+  // touched twice says the same thing without git's help.
+  const churn = opts.overview?.shallow
+    ? { known: false, reason: "this is a shallow clone, so git holds too little history to rank files by churn — `git fetch --unshallow` fetches the rest" }
+    : files.length && maxCommits <= 1
+      ? { known: false, reason: "no file has more than one commit in the history the index read, so there is nothing to rank by churn yet" }
+      : { known: true, reason: null };
+
+  const labels = uniqueLabels(files.filter((f) => f.category !== "other").map((f) => f.path));
 
   const nodes = files
     .filter((f) => f.category !== "other")
@@ -149,7 +271,7 @@ export function buildView(index, root, opts = {}) {
       const enr = summaries.get(f.path) ?? null;
       return {
         id: f.path,
-        label: labelOf(f.path),
+        label: labels.get(f.path) ?? labelOf(f.path),
         path: f.path,
         area,
         lang: f.lang,
@@ -188,51 +310,87 @@ export function buildView(index, root, opts = {}) {
   const orphans = findOrphans(index, root)
     .map((f) => f.path)
     .filter((p) => inGraph.has(p));
-  const untested = files
-    .filter((f) => f.category === "code" && !f.isTest && !tested.has(f.path))
-    .sort((a, b) => (b.commits ?? 0) - (a.commits ?? 0))
+  // With no churn to rank by, the untested list is ranked by how much of the repo leans on a file
+  // instead — and says so — rather than by a column of ones in path order.
+  const byChurn = (a, b) => (b.commits ?? 0) - (a.commits ?? 0);
+  const byInbound = (a, b) => (b.inbound ?? 0) - (a.inbound ?? 0) || (a.path < b.path ? -1 : 1);
+  const untestedAll = files.filter((f) => f.category === "code" && !f.isTest && untestedSet.has(f.path));
+  const untested = [...untestedAll]
+    .sort(churn.known ? byChurn : byInbound)
     .slice(0, 40)
-    .map((f) => ({ path: f.path, commits: f.commits ?? 0 }));
-  const hot = files
-    .filter((f) => f.category === "code")
-    .sort((a, b) => (b.commits ?? 0) - (a.commits ?? 0))
-    .slice(0, 20)
-    .map((f) => ({ path: f.path, commits: f.commits ?? 0, lines: f.lines ?? 0, tested: tested.has(f.path) }));
+    .map((f) => ({ path: f.path, commits: f.commits ?? 0, inbound: f.inbound ?? 0 }));
+  const hot = churn.known
+    ? files
+        .filter((f) => f.category === "code")
+        .sort(byChurn)
+        .slice(0, 20)
+        .map((f) => ({ path: f.path, commits: f.commits ?? 0, lines: f.lines ?? 0, tested: tested.has(f.path) }))
+    : [];
 
+  const structure = buildStructure(files, index.areas ?? [], colorOf, { tested, labels });
+  const briefOf = new Map(structure.areas.map((a) => [a.name, a]));
+  const byPath = new Map(files.map((f) => [f.path, f]));
   const areaCards = (index.areas ?? []).map((a) => {
     const paths = a.paths ?? [];
-    const code = paths.filter((p) => files.find((f) => f.path === p)?.category === "code").length;
-    const lines = paths.reduce((n, p) => n + (files.find((f) => f.path === p)?.lines ?? 0), 0);
+    const own = paths.map((p) => byPath.get(p)).filter(Boolean);
+    const s = briefOf.get(a.name);
     return {
       name: a.name,
       description: a.description ?? "",
       files: paths.length,
-      code,
-      lines,
+      code: own.filter(isCodeish).length,
+      lines: own.reduce((n, f) => n + (f.lines ?? 0), 0),
       color: colorOf.get(a.name) ?? GREY,
-      hasBrief: paths.some((p) => p.endsWith("/AGENTS.md")),
+      // The Structure tab's answer, not a second one: `paths` of `src` never holds a nested brief,
+      // and the root area's brief is the root AGENTS.md, which no "/AGENTS.md" suffix test finds.
+      hasBrief: !!s?.brief,
+      brief: s?.brief ?? null,
     };
   });
 
-  const testable = files.filter((f) => f.category === "code" && !f.isTest).length;
+  const testable = coverage ? coverage.testable.length : files.filter((f) => f.category === "code" && !f.isTest).length;
+  const mapIds = new Set(nodes.filter((n) => n.inMap).map((n) => n.id));
 
-  return {
-    generated: { commit: index.commit ?? "", version: index.version ?? "", root },
-    structure: buildStructure(files, index.areas ?? [], colorOf),
+  // The sequence, minus the machine. `nextSteps` carries the absolute root and the whole disk state
+  // for its own callers; the page needs the steps and the count, and nothing that names a home
+  // directory.
+  const seq = opts.next
+    ? {
+        steps: (opts.next.steps ?? []).map(({ id, title, cmd, done, optional, blocking, next, why }) => ({
+          id, title, cmd, done: !!done, optional: !!optional, blocking: !!blocking, next: !!next, why,
+        })),
+        done: opts.next.done,
+        total: opts.next.total,
+        complete: !!opts.next.complete,
+        perChange: opts.next.perChange ?? [],
+      }
+    : null;
+
+  const view = {
+    // The repo's NAME. The absolute root used to sit here, so every page carried
+    // `C:\Users\<name>\…` in its inlined data — and the page is the file people share.
+    generated: { commit: index.commit ?? "", version: index.version ?? "", repo: basename(resolve(root || ".")) || "repo" },
+    structure,
     overview: opts.overview ?? null,
     nodes,
     links,
     areas: areaCards,
     stack: index.stack ?? {},
+    // Every count the page prints, computed once here and read by every tab. Two numbers that differ
+    // are two different fields with two different names — `edges` is every resolved import, the
+    // same number cortex-index prints; `mapEdges` is the ones between two files the Map draws.
     stats: {
       files: index.stats?.files ?? files.length,
       lines: index.stats?.lines ?? 0,
-      edges: links.length,
+      edges: index.stats?.edges ?? edges.length,
+      mapFiles: mapIds.size,
+      mapEdges: links.filter((l) => mapIds.has(l.source) && mapIds.has(l.target)).length,
       tests: index.stats?.tests ?? 0,
       // Coverage as a share of the code that COULD have a test — tests themselves and docs are not
       // in the denominator. `null` when the coverage pass could not run, never 0%.
       testable,
       tested: coverage ? tested.size : null,
+      untested: coverage ? untestedAll.length : null,
       languages: index.stats?.languages ?? {},
       skipped: index.stats?.skipped ?? [],
       enriched: summaries.size,
@@ -246,8 +404,10 @@ export function buildView(index, root, opts = {}) {
       cyclicFiles: (index.cycles ?? []).flat().filter((p) => typeof p === "string"),
       untested,
       hot,
+      churn,
       coverage: coverage ? { known: true } : { known: false },
     },
-    next: opts.next ?? null,
+    next: seq,
   };
+  return scrubPaths(view, machinePaths(root));
 }

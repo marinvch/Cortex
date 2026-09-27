@@ -9,6 +9,9 @@ function kebab(s) {
 // meaning on their own and the level below them is what people actually name.
 const TRANSPARENT = new Set(["src", "lib", "app", "packages", "apps", "internal", "pkg"]);
 
+/** Directories that hold agent tooling rather than product code — never a scoped-brief candidate. */
+export const TOOLING_DIRS = new Set([".claude", ".cortex"]);
+
 export function layerKeyFor(path) {
   const parts = path.split("/");
   if (parts.length === 1) return "root";
@@ -54,6 +57,10 @@ export function briefCandidates(files, { minFiles = 5 } = {}) {
     if (f.vendored) continue;
     const parts = f.path.split("/");
     if (parts.length < 2) continue;
+    // The agent tooling's own folders are not an area of the product. `.claude/` holds the skills,
+    // hooks and subagents Cortex itself writes; proposing a brief for it asks an agent to be
+    // briefed on its own briefing. The viewer suggested exactly that on a real repo.
+    if (TOOLING_DIRS.has(parts[0])) continue;
     const dir = TRANSPARENT.has(parts[0]) && parts.length > 2 ? `${parts[0]}/${parts[1]}` : parts[0];
     if (!byDir.has(dir)) byDir.set(dir, { dir, files: 0, code: 0, tests: 0, lines: 0, hot: 0 });
     const d = byDir.get(dir);

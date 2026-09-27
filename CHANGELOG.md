@@ -320,6 +320,40 @@ it was repointed or dropped in the same change.
 
 ### Fixed
 
+- **The View leaked the machine's path, broke on a phone, and disagreed with itself — found by
+  running `/cortex` on a shallow clone of pmndrs/zustand.** Six defects, every one invisible to the
+  literal fixtures in `view.test.mjs`:
+  - **Privacy.** `DATA.generated.root` and the inlined sequence (`next.root`, `next.state.root`)
+    carried the absolute root, so every page held `C:\Users\<name>\…`. The view now carries the
+    repo's name and repo-relative paths only, and a backstop scrubs any string that still quotes the
+    root or the home directory (a git or findings error message). `view-repo.test.mjs` renders a real
+    git fixture and asserts no spelling of the root, the home directory or the OS user name appears.
+  - **Phone width.** At 390 px the page was 459 px wide, no tab was reachable and the theme button was
+    cut to "Da". The bar now wraps (brand and theme, search, then tabs on their own rows); every view
+    stacks; tables scroll in their own box. The stacked Overview was a one-column grid whose auto
+    rows collapsed to nothing under `min-height:0`, painting the cloud over the vitals — it is normal
+    flow now. Checked in Chromium at 390, 820 and 1440 px, both themes: `scrollWidth` equals
+    `innerWidth` on all seven tabs and each tab clicks.
+  - **Structure tab.** It counted a child's brief as its parent's (3 briefs where 2 existed), drew
+    `docs/adr/` as missing beside a `TEMPLATE.md`, offered `/cortex-brief root/` and
+    `/cortex-brief .claude/`, and said "no tests found" for `src/` areas a top-level `tests/` covers.
+    Briefs are now own or inherited, the command appears only where the findings report would offer
+    it (`briefCandidates`, which now skips `.claude/` and `.cortex/`), and tests are counted by
+    coverage.
+  - **One number per quantity.** Imports read 70 / 69 / 66, code files 51 / 52 / 36, untested 11 / 26,
+    steps 5-of-9 / 6-of-9 depending on the surface. The view now computes every count once
+    (`stats.edges` is the index's own; `mapFiles` / `mapEdges` are the drawn subset and say so); the
+    untested set comes from `codeCoverage`, now exported by `findings.mjs`, whose title counts every
+    untested module rather than only those in listed directories; and `nextSteps` counts required
+    steps only, so the page ticking its own optional step no longer moves the number. "Indexed
+    <date>" was the commit's UTC date and the timeline used the committer's local date; both are UTC
+    now and the bar says "last commit … UTC".
+  - **Smaller.** Repeated basenames get their parent directory (`react/shallow.ts`,
+    `add-test/SKILL.md`); backticks render as code; the Map reserves a gutter for its legend, which
+    now folds; dark-theme edges rest at 34% and 1.1 px (light unchanged); an inline SVG favicon.
+  - **Shallow clones.** Every file read "1 commits" and the hot-spot table was path order. The
+    Overview detects `--is-shallow-repository`, churn is reported unavailable with the fix, and the
+    untested list ranks by inbound imports instead.
 - **The destructive-guard test failed at random, and four other checks could have (#433).** Under
   the `pipefail` that `tools/test/run.sh` sets, `code_of f | grep -q resolve_in_root` reported a
   guard that was there as missing whenever `grep -q` matched and exited before `sed` flushed its

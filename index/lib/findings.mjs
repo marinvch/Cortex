@@ -82,20 +82,43 @@ function blindLanguages(index) {
  */
 export { testStem };
 
-/** Production modules that no test covers, grouped by directory. */
-function untestedAreas(index, text) {
+/**
+ * codeCoverage(index, text) → { coverage, testable, untested }
+ *
+ * The one answer to "which production code has no test found", read by this report AND by the
+ * viewer. Each used to loop over the files with its own copy of the predicate, and on a real repo
+ * the two surfaces printed "11 modules appear untested" beside "10 of 36 code files" tested: the 11
+ * was the subset in directories dense enough to list, the 26 was everything, and neither surface
+ * said which it was. The predicate lives here once; the grouping below is a view of it.
+ *
+ * `testable` is non-test `code` files — the denominator every coverage figure divides by.
+ */
+export function codeCoverage(index, text) {
   // Three signals, because each alone misreports. Naming catches `paths.js` ← `paths.test.js` even
   // when they sit in different directories; imports catch a module exercised by a test named after
   // something else, which is how most integration tests are organised; mentions catch a CLI run as
-  // a subprocess, which neither of the others can see.
-  // Three signals, each alone misreporting — see index/lib/coverage.mjs, which owns this because
-  // impact.mjs needs the same answer and a second copy would drift.
+  // a subprocess, which neither of the others can see. index/lib/coverage.mjs owns the heuristic,
+  // because impact.mjs needs the same answer and a second copy would drift.
   const coverage = buildCoverage(index, text);
+  const testable = [];
+  const untested = [];
+  for (const f of index.files) {
+    if (f.category !== "code" || f.isTest) continue;
+    testable.push(f.path);
+    if (!coverage.isCovered(f.path)) untested.push(f.path);
+  }
+  return { coverage, testable, untested };
+}
+
+/** Production modules that no test covers: the total, and the directories dense enough to list. */
+function untestedAreas(index, text) {
+  const { untested } = codeCoverage(index, text);
+  const missing = new Set(untested);
 
   const byDir = new Map();
   for (const f of index.files) {
     if (f.category !== "code" || f.isTest) continue;
-    const covered = coverage.isCovered(f.path);
+    const covered = !missing.has(f.path);
     const dir = f.path.includes("/") ? f.path.split("/").slice(0, -1).join("/") : ".";
     if (!byDir.has(dir)) byDir.set(dir, { dir, code: 0, untested: 0, commits: 0, examples: [] });
     const d = byDir.get(dir);
@@ -107,9 +130,12 @@ function untestedAreas(index, text) {
     }
   }
 
-  return [...byDir.values()]
-    .filter((d) => d.untested >= 3)
-    .sort((a, b) => b.commits - a.commits || b.untested - a.untested);
+  return {
+    total: untested.length,
+    dirs: [...byDir.values()]
+      .filter((d) => d.untested >= 3)
+      .sort((a, b) => b.commits - a.commits || b.untested - a.untested),
+  };
 }
 
 /** A repo the indexer found no source files in — the greenfield install flow, not a broken repo. */
@@ -376,15 +402,17 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
       ),
     );
   } else {
-    const untested = untestedAreas(index, text);
+    const { total, dirs: untested } = untestedAreas(index, text);
     if (untested.length) {
-      const total = untested.reduce((a, d) => a + d.untested, 0);
+      // The title counts EVERY untested module, not only those in the directories listed below. It
+      // used to sum the listed directories, so on a real repo it said 11 while the viewer, reading
+      // the same coverage, said 26 — and a number in a title reads as the total.
       out.push(
         finding(
           untested[0].commits > 5 ? "high" : "medium",
           "tests",
           `${total} module${total === 1 ? "" : "s"} appear untested`,
-          "No test file is named after these, and no test imports them. Ranked by recent commit activity — the top entries change often and are unverified, which is where regressions come from. A module exercised only indirectly, through a helper a test imports, will show up here.",
+          "No test file is named after these, and no test imports them. Listed below are the directories holding three or more, ranked by recent commit activity — the top entries change often and are unverified, which is where regressions come from. A module exercised only indirectly, through a helper a test imports, will show up here.",
           untested
             .slice(0, 8)
             .map(

@@ -77,8 +77,16 @@ function readMemory(root) {
   return { newest: files[0].day, days: files.length, entries };
 }
 
-function readChurn(git, commit) {
+// A shallow clone — `git clone --depth 1`, the natural way to try Cortex on somebody else's repo —
+// holds one commit, so every file has been "changed once" and every window holds one commit. Drawn
+// as churn, that is a confident wrong picture: hot spots that are the first ten files alphabetically,
+// and "1 commit in 30 days" for a project that ships weekly. It is named instead.
+export const SHALLOW_NOTE =
+  "this is a shallow clone, so git holds too little history to measure churn — `git fetch --unshallow` fetches the rest";
+
+function readChurn(git, commit, shallow) {
   if (!commit) return { unavailable: "the index records no commit" };
+  if (shallow) return { unavailable: SHALLOW_NOTE };
   const head = git(["show", "-s", "--format=%ct", commit]);
   if (head.error) return { unavailable: "the indexed commit is not readable from git" };
   const end = Number(head.out.trim());
@@ -99,15 +107,19 @@ function readChurn(git, commit) {
   return { commits, days, from: isoDay(start), to: isoDay(end) };
 }
 
+// Dated in UTC, like `commitDate` and the churn window. This read `%cs` — the committer's own local
+// date — so a commit made at 01:00 in +09:00 sat a day later in the timeline than in the status bar
+// above it, on the same page. One convention, and the page says which one.
 function readCommits(git, commit) {
   if (!commit) return [];
-  const log = git(["log", "-n", "8", commit, "--format=%cs%x1f%h%x1f%an%x1f%s"]);
+  const log = git(["log", "-n", "8", commit, "--format=%ct%x1f%h%x1f%an%x1f%s"]);
   if (log.error) return [];
   return log.out
     .split("\n")
     .filter(Boolean)
     .map((line) => {
-      const [date, sha, author, subject = ""] = line.split("\x1f");
+      const [ts, sha, author, subject = ""] = line.split("\x1f");
+      const date = Number(ts) ? isoDay(Number(ts)) : "";
       return { date, time: "", kind: "commit", tag: sha, author, title: subject.length > 140 ? subject.slice(0, 139) + "…" : subject };
     });
 }
@@ -169,7 +181,15 @@ export function buildOverview(index, root, { stale = null, env = {}, git = gitRe
   const commit = index.commit || "";
   const probe = git(["rev-parse", "--is-inside-work-tree"]);
   const hasGit = !probe.error && probe.out.trim() === "true";
+  let shallow = false;
+  if (hasGit) {
+    const s = git(["rev-parse", "--is-shallow-repository"]);
+    shallow = !s.error && s.out.trim() === "true";
+  }
 
+  // The date of the indexed commit, in UTC. NOT when the index was built — the index carries no
+  // clock (determinism), so the page must not call this "indexed"; it said so, and showed a date a
+  // month older than the run that produced it.
   let commitDate = null;
   if (hasGit && commit) {
     const d = git(["show", "-s", "--format=%ct", commit]);
@@ -177,7 +197,7 @@ export function buildOverview(index, root, { stale = null, env = {}, git = gitRe
   }
 
   const memory = readMemory(root);
-  const churn = hasGit ? readChurn(git, commit) : { unavailable: "not a git repository" };
+  const churn = hasGit ? readChurn(git, commit, shallow) : { unavailable: "not a git repository" };
   const commits = hasGit ? readCommits(git, commit) : [];
 
   // Newest day first. Within a day, memory before commits (it says why; the commits say what), and
@@ -196,6 +216,7 @@ export function buildOverview(index, root, { stale = null, env = {}, git = gitRe
     cortex: readCortexVersion(),
     commit: commit ? commit.slice(0, 7) : null,
     commitDate,
+    shallow,
     index: stale === null ? "unknown" : stale ? "stale" : "fresh",
     profile: readProfile(env),
     memory: {

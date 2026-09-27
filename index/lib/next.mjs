@@ -323,13 +323,19 @@ export function nextSteps(root, index = null, overrides = {}) {
   const rows = steps(state);
   const blocking = rows.find((r) => r.blocking && !r.done);
   const next = blocking ?? rows.find((r) => !r.done && !r.optional) ?? null;
+  // The count is of REQUIRED steps. Optional ones are listed with their tick but never counted, for
+  // the same reason they never become next: they do not hold the sequence up, so they must not move
+  // the number that says how far along it is. Counting them made two surfaces disagree about one
+  // repo — the viewer ticks "see the repo as a graph" because it is that page (an override
+  // `readState` allows), so it printed 6 of 9 while cortex-next, run a moment earlier, printed 5.
+  const required = rows.filter((r) => !r.optional);
   return {
     root,
     state,
     steps: rows.map((r) => ({ ...r, next: r === next })),
     next,
-    done: rows.filter((r) => r.done).length,
-    total: rows.length,
+    done: required.filter((r) => r.done).length,
+    total: required.length,
     complete: !next,
     perChange: PER_CHANGE,
   };

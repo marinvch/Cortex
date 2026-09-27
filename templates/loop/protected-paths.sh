@@ -29,6 +29,11 @@ if [ -z "$path" ]; then
   exit 0
 fi
 
+# One separator. The patterns are POSIX globs (`*/dist/*`), and on Windows Claude Code hands the hook
+# `C:\repo\dist\x.js` — which no `*/x/*` pattern matches, so every protected edit went through on
+# that platform while the hook reported nothing. Normalised here once, so one pattern set covers both.
+path=${path//\\//}
+
 # {{PROTECTED_LIST}}
 protected=(
 {{PROTECTED_PATTERNS}}

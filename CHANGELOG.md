@@ -54,6 +54,12 @@ this project now versions independently of any package manager (see `VERSION`).
   instead. C#, Swift, Scala, Elixir, C and C++ had the same gap and are listed with it, and a test
   now fails when a code language has neither an import extractor nor a place on that list. Import
   readers for them are the real fix and are not in this release.
+- **The protected-paths hook blocks on Windows too (#458).** Claude Code hands a Windows hook
+  `C:\repo\dist\x.js`, and no POSIX pattern such as `*/dist/*` matches a backslash path, so the
+  hook `/cortex` stamps let every protected edit through on that platform. It now turns `\` into
+  `/` before matching, so one pattern set covers both; the jq and sed readers, the fail-closed exit
+  and the bash-3.2-safe empty list are unchanged. `tools/test/cortex-loop.test.sh` runs Windows
+  paths through both readers.
 
 ## [2.39.0] — 2026-09-27
 

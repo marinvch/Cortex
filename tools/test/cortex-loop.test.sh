@@ -158,6 +158,24 @@ done
 assert_eq "2" "$(hook_exit nojq '{"tool_input":{"file_path": 42}}')" \
   "hook: a file_path it cannot read is refused, never waved on"
 
+# Windows. Claude Code hands the hook `C:\repo\src\gen\api.ts`, and no POSIX `*/gen/*` pattern
+# matches a backslash path — so the hook let every protected edit through on the platform where it
+# was maintained. Both readers: jq unescapes the JSON `\\`, the sed fallback leaves it doubled.
+for mode in default nojq; do
+  assert_eq "2" "$(hook_exit "$mode" '{"tool_input":{"file_path":"C:\\repo\\src\\gen\\api.ts"}}')" \
+    "hook ($mode): a Windows path under a protected directory is blocked with exit 2"
+  assert_eq "0" "$(hook_exit "$mode" '{"tool_input":{"file_path":"C:\\repo\\src\\main.go"}}')" \
+    "hook ($mode): a Windows source path is let through"
+done
+# A lockfile is protected by name, and the name has to match behind a backslash too.
+sed 's#{{PROTECTED_PATTERNS}}#  "*/pnpm-lock.yaml"#;s#{{PROTECTED_LIST}}#lockfile#' "$hook_src" > "$WORK/hook-lock.sh"
+assert_eq "2" "$(hook_exit lock '{"tool_input":{"file_path":"C:\\repo\\pnpm-lock.yaml"}}')" \
+  "hook: a lockfile pattern blocks the Windows path to it"
+assert_eq "2" "$(hook_exit lock '{"tool_input":{"file_path":"/home/u/repo/pnpm-lock.yaml"}}')" \
+  "hook: and the POSIX one"
+assert_eq "0" "$(hook_exit lock '{"tool_input":{"file_path":"C:\\repo\\docs\\pnpm-lock.yaml.md"}}')" \
+  "hook: a file merely named after a lockfile is not one"
+
 # No detected paths is the usual stamp: the list is empty, and the hook must let every edit through.
 sed 's#{{PROTECTED_PATTERNS}}##;s#{{PROTECTED_LIST}}#none detected#' "$hook_src" > "$WORK/hook-empty.sh"
 assert_eq "0" "$(hook_exit empty '{"tool_input":{"file_path":"src/main.go"}}')" \

@@ -235,8 +235,8 @@ when you type its name, it is just never reached. `/wizard` and `/team-add` each
 every ritual that scaffolded a repo needing manual credential setup re-explained the steps instead of
 handing off to the skill that writes the script.
 
-A ritual genuinely triggered from outside declares `reached-by: <what triggers it>` in its
-frontmatter and is reported rather than failed. `tools/test/skill-graph.test.sh` pins all of it,
+A ritual genuinely triggered from outside declares `reached-by: <what triggers it>` under its
+frontmatter's `metadata:` map and is reported rather than failed. `tools/test/skill-graph.test.sh` pins all of it,
 including that the hatch cannot be a bare `true`.
 
 ## `cortex-rm.sh` — remove a note the safe way

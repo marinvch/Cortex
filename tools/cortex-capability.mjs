@@ -9,8 +9,8 @@
 // file. The failure is not a crash — a weak model runs /cortex-enrich and writes plausible, wrong
 // summaries into recall, and nobody notices. This is the list you read BEFORE running something.
 //
-// The frontmatter is the source of truth; this reads it rather than restating it, so the table
-// cannot drift from the rituals it describes.
+// The frontmatter is the source of truth — `metadata.capability` — and this reads it rather than
+// restating it, so the table cannot drift from the rituals it describes.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -40,8 +40,9 @@ for (const name of readdirSync(SKILLS)) {
   } catch { continue; }
   let src;
   try { src = readFileSync(p, "utf8"); } catch { continue; }
-  // Read from the frontmatter, not the whole file: a `capability:` line in the body is prose.
-  const cap = parseFrontmatter(src).data.capability?.trim() || "undeclared";
+  // Read from the frontmatter's metadata: map, not the whole file: a `capability:` line in the body
+  // is prose, and one at the top level is a key Claude Code ignores (cortex-frontmatter.mjs).
+  const cap = parseFrontmatter(src).data.metadata?.capability?.trim() || "undeclared";
   const degraded = /## When the floor is not met/m.test(src);
   rows.push({ name, cap, degraded });
 }

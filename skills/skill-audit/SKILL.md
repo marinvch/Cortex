@@ -1,7 +1,8 @@
 ---
 name: skill-audit
 description: Judge a skill collection by what it actually does for the person using it — which skills nothing has ever reached, which two cover the same job, which are so thin a plain prompt would do better, and which are correct but never found. Use on "review my skills", "which skills do I actually use", "are any of these redundant", "clean up my skills", "why does Claude never use this skill", "прегледай ми скиловете". Reports; deletes nothing on its own.
-capability: judgment
+metadata:
+  capability: judgment
 ---
 
 # /skill-audit — the collection, not the file

@@ -20,6 +20,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseFrontmatter } from "./cortex-frontmatter.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SKILLS = join(REPO_ROOT, "skills");
@@ -69,11 +70,10 @@ const WIKI_RE = /\[\[([a-z][a-z0-9-]+)\]\]/g;
 // honestly point at either, and inventing one would make the graph agree with itself while telling
 // the reader something false.
 //
-// So the escape hatch is declared, not hardcoded here: `reached-by: <what triggers it>` in the
-// frontmatter. A list of exceptions in this file would be a second copy that drifts the first time a
+// So the escape hatch is declared, not hardcoded here: `reached-by: <what triggers it>` under the
+// frontmatter's `metadata:` map, read through cortex-frontmatter.mjs like every other key. A list of exceptions in this file would be a second copy that drifts the first time a
 // skill is renamed; a line in the skill travels with it and doubles as documentation. It has to name
 // what the trigger IS — a bare `reached-by: true` would just be the check switched off.
-const REACHED_BY_RE = /^reached-by:\s*(\S.*?)\s*$/m;
 
 /** The rituals `src` names, excluding itself. A name only counts if a skill by that name exists. */
 function outbound(self, src, known) {
@@ -95,7 +95,7 @@ for (const [name, src] of skills)
   graph.set(name, {
     out: outbound(name, src, skills),
     in: [],
-    reachedBy: (src.match(REACHED_BY_RE) || [])[1] || null,
+    reachedBy: parseFrontmatter(src).data.metadata?.["reached-by"]?.trim() || null,
   });
 for (const [name, node] of graph) for (const target of node.out) graph.get(target).in.push(name);
 for (const node of graph.values()) node.in.sort();

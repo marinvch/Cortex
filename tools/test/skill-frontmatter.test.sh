@@ -32,9 +32,56 @@ verdict() {
   rc=$?
 }
 
-skill ok demo "name: demo" "description: $GOOD_DESC" "capability: mechanical"
+skill ok demo "name: demo" "description: $GOOD_DESC" "metadata:" "  capability: mechanical"
 verdict ok
-assert_eq "0" "$rc" "a flat, plain frontmatter passes"
+assert_eq "0" "$rc" "a flat, plain frontmatter with Cortex's keys under metadata: passes"
+
+# --- the one nested map ------------------------------------------------------------------------------
+#
+# Claude Code ignores a top-level key it does not recognise and offers `metadata:` for data a tool
+# reads (core/claude-code.js, skill.metadata.custom-keys). So Cortex's own two keys live there, and
+# that map is the only nesting admitted: anything else indented is still a line a router cannot read.
+
+skill meta demo "name: demo" "description: $GOOD_DESC" "effort: low" "metadata:" \
+  "  capability: strong" "  reached-by: a hook, named so the graph check can accept it"
+verdict meta
+assert_eq "0" "$rc" "a metadata: map with capability and reached-by passes"
+parsed="$(node --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  import { pathToFileURL } from "node:url";
+  // argv[1] is a placeholder: were it the module path, importing it would run its CLI.
+  const { parseFrontmatter } = await import(pathToFileURL(process.argv[2]).href);
+  const { data, errors } = parseFrontmatter(readFileSync(process.argv[3], "utf8"));
+  console.log(JSON.stringify({ metadata: data.metadata, effort: data.effort, errors: errors.length }));
+' parse "$CHECK" "$WORK/meta/skills/demo/SKILL.md" 2>&1)"
+assert_eq '{"metadata":{"capability":"strong","reached-by":"a hook, named so the graph check can accept it"},"effort":"low","errors":0}' \
+  "$parsed" "and parses into { metadata: { capability, reached-by } }"
+
+skill metaother demo "name: demo" "description: $GOOD_DESC" "metadata:" "  capability: judgment" "  owner: someone"
+verdict metaother
+assert_eq "1" "$rc" "any other key nested under metadata: still fails"
+assert_contains "$out" "'owner'" "and names the key it does not know"
+
+skill metadeep demo "name: demo" "description: $GOOD_DESC" "metadata:" "  capability: judgment" "    extra: deeper"
+verdict metadeep
+assert_eq "1" "$rc" "a line indented deeper inside metadata: fails — the map is one level"
+
+skill metainline demo "name: demo" "description: $GOOD_DESC" "metadata: mechanical"
+verdict metainline
+assert_eq "1" "$rc" "metadata: with an inline value fails — it has to be a map"
+
+skill metaempty demo "name: demo" "description: $GOOD_DESC" "metadata:"
+verdict metaempty
+assert_eq "1" "$rc" "an empty metadata: fails"
+
+skill toplevel demo "name: demo" "description: $GOOD_DESC" "capability: mechanical"
+verdict toplevel
+assert_eq "1" "$rc" "capability: at the top level fails — Claude Code would ignore it without a word"
+assert_contains "$out" "under metadata:" "and says where it goes"
+
+skill indented demo "name: demo" "description: $GOOD_DESC" "  capability: mechanical"
+verdict indented
+assert_eq "1" "$rc" "an indented line outside metadata: still fails"
 
 skill quoted demo "name: demo" "description: \"Quoted: with a colon, which is fine once quoted. Use on demo.\"" \
   "argument-hint: 'it''s single-quoted'"

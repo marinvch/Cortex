@@ -233,10 +233,23 @@ node --input-type=module -e '
 ' "$REPO_ROOT" "$WORK/evals-run.sh"
 
 mkdir -p "$WORK/evals-bin" "$WORK/evals-tmp"
+# The stub remembers each case's prompt across `--continue`, the way a resumed session would, and
+# logs every continuation as `cont:<prompt>` so the cap can be counted per case.
 cat > "$WORK/evals-bin/claude" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$STUB_LOG"
-case "$2" in *crash*) echo '{"is_error":true,"result":"Invalid API key"}'; exit 1 ;; esac
+case " $* " in
+  *" --continue "*) task="$(cat "$STUB_STATE")"; cont=1; printf 'cont:%s\n' "$task" >> "$STUB_LOG" ;;
+  *) task="$2"; cont=0; printf '%s' "$task" > "$STUB_STATE" ;;
+esac
+case "$task" in *crash*) echo '{"is_error":true,"result":"Invalid API key"}'; exit 1 ;; esac
+case "$task" in *error-turn*) echo '{"is_error":true,"subtype":"error_max_turns","result":""}'; exit 0 ;; esac
+# A status-only end of turn: the model reports what it is about to do and stops, the work undone.
+STATUS='{"type":"result","subtype":"success","is_error":false,"result":"Status: I have read the code and the edit comes next."}'
+case "$task" in
+  *"status always"*) echo "$STATUS"; exit 0 ;;
+  *"status once"*) [ "$cont" = 1 ] || { echo "$STATUS"; exit 0; } ;;
+esac
 echo edit >> README.md
 echo '{"is_error":false,"result":"done"}'
 STUB
@@ -251,7 +264,7 @@ evals() { # key → "<exit>\n<output>", run from the repo root the way the job r
   (
     cd "$evals_repo" || exit 1
     PATH="$WORK/evals-bin:$PATH" ANTHROPIC_API_KEY="$1" RUNNER_TEMP="$WORK/evals-tmp" \
-      STUB_LOG="$WORK/evals-stub.log" bash "$WORK/evals-run.sh" 2>&1
+      STUB_LOG="$WORK/evals-stub.log" STUB_STATE="$WORK/evals-stub.state" bash "$WORK/evals-run.sh" 2>&1
     echo "exit=$?"
   )
 }
@@ -264,25 +277,50 @@ out="$(evals "k")"
 assert_contains "$out" "exit=0" "evals: the PR that adds AGENTS.md, before any case exists, passes"
 assert_contains "$out" "holds no cases yet" "and says what to add"
 
-# Four cases, committed with no executable bit. a crashes, b passes, c is rejected by its accept.sh,
-# d passes only if README.md carries exactly one edit — i.e. the tree was reset after b and c.
-for c in a-crash b-good c-reject d-clean; do mkdir -p "$evals_repo/evals/cases/$c"; done
+# Seven cases, committed with no executable bit. a crashes, b passes, c is rejected by its accept.sh
+# however often it is continued, d passes only if README.md carries exactly one edit — i.e. the tree
+# was reset after b and c. e ends its first turn on a status update and does the work when
+# continued; f only ever reports status; g ends its turn in an error.
+for c in a-crash b-good c-reject d-clean e-status f-stuck g-error; do mkdir -p "$evals_repo/evals/cases/$c"; done
 printf 'crash please\n' > "$evals_repo/evals/cases/a-crash/prompt.md"
 printf 'exit 0\n'       > "$evals_repo/evals/cases/a-crash/accept.sh"
 printf 'do it\n'        > "$evals_repo/evals/cases/b-good/prompt.md"
 printf 'grep -q "\\"is_error\\":false" "$1"\n' > "$evals_repo/evals/cases/b-good/accept.sh"
-printf 'do it\n'        > "$evals_repo/evals/cases/c-reject/prompt.md"
+printf 'do it, rejected\n' > "$evals_repo/evals/cases/c-reject/prompt.md"
 printf 'exit 1\n'       > "$evals_repo/evals/cases/c-reject/accept.sh"
 printf 'do it\n'        > "$evals_repo/evals/cases/d-clean/prompt.md"
 printf '[ "$(grep -c "^edit$" README.md)" = 1 ]\n' > "$evals_repo/evals/cases/d-clean/accept.sh"
+printf 'status once\n'  > "$evals_repo/evals/cases/e-status/prompt.md"
+printf 'grep -q "^edit$" README.md\n' > "$evals_repo/evals/cases/e-status/accept.sh"
+printf 'status always\n' > "$evals_repo/evals/cases/f-stuck/prompt.md"
+printf 'grep -q "^edit$" README.md\n' > "$evals_repo/evals/cases/f-stuck/accept.sh"
+printf 'error-turn\n'   > "$evals_repo/evals/cases/g-error/prompt.md"
+printf 'exit 1\n'       > "$evals_repo/evals/cases/g-error/accept.sh"
 chmod -x "$evals_repo"/evals/cases/*/accept.sh
 git -C "$evals_repo" add -A && git -C "$evals_repo" commit -q -m cases
 
 out="$(evals "k")"
+log="$(cat "$WORK/evals-stub.log")"
+conts() { printf '%s\n' "$log" | grep -cx "cont:$1"; }
 assert_contains "$out" "FAIL  a-crash" "evals: a run that exits non-zero is a failure"
+assert_eq "0" "$(conts 'crash please')" "and is never continued"
 assert_contains "$out" "pass  b-good" "and the cases after it still run, with accept.sh run through bash"
-assert_contains "$out" "FAIL  c-reject" "a case its accept.sh rejects fails"
+assert_eq "0" "$(conts 'do it')" "work accepted on the first turn is not continued"
 assert_contains "$out" "pass  d-clean" "each case starts from the committed tree, not the last case's edits"
 assert_contains "$out" "exit=1" "and any failure fails the job"
-assert_contains "$(cat "$WORK/evals-stub.log")" "Bash(make test *)" "the test command is allowed as a prefix rule"
-assert_contains "$(cat "$WORK/evals-stub.log")" "--permission-mode dontAsk" "and nothing else is left waiting on a prompt"
+assert_contains "$log" "Bash(make test *)" "the test command is allowed as a prefix rule"
+assert_contains "$log" "--permission-mode dontAsk" "and nothing else is left waiting on a prompt"
+
+# A text-only end of turn is a report, not proof the task is done (model.agentic.end-turn-is-a-report)
+# — and continuing is capped at two, so a stuck run ends and can be reviewed
+# (model.agentic.continuation-cap).
+assert_contains "$out" "pass  e-status (after 1 continuation(s))" \
+  "evals: a status-only end of turn with the work open is continued, and passes once the work is done"
+assert_eq "1" "$(conts 'status once')" "and is continued exactly as often as it needed"
+assert_contains "$out" "PARTIAL f-stuck" "a case that only ever reports status is reported partial"
+assert_eq "2" "$(conts 'status always')" "after exactly two continuations, not more"
+assert_contains "$out" "PARTIAL c-reject" "work accept.sh keeps rejecting is partial after the same cap"
+assert_eq "2" "$(conts 'do it, rejected')" "also after two continuations"
+assert_contains "$out" "FAIL  g-error" "a turn that ended in an error fails"
+assert_eq "0" "$(conts 'error-turn')" "and is not continued — an error is a result, not a report"
+assert_contains "$log" "--continue" "a continuation resumes the same session rather than starting over"

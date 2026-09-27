@@ -193,6 +193,40 @@ production breach writes the next `intent.md`.
 - **The docs site moved to [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/).**
   The site repo was renamed `ai-os-site` → `cortex-site`, served from `/cortex-site/`; the README
   links it and the repository's Website field points at it. Closes #415.
+- **Cortex follows the Claude Code rules it reports on.** Run over this repo, the `claude-setup/`
+  checker found all 45 rituals carrying `capability` (and two carrying `reached-by`) as top-level
+  frontmatter keys, which Claude Code ignores without an error — while the same checker told users
+  to put custom data under `metadata:`. Both keys now live in one `metadata:` map, the only nesting
+  `tools/cortex-frontmatter.mjs` admits: any other nested key, a top-level `capability:`, an empty
+  or inline `metadata:` all fail. `cortex-capability.mjs` and `cortex-skill-graph.mjs` read the new
+  location through that one parser, and their output is byte-identical to before. The move was a
+  throwaway script; the diff on every `SKILL.md` is frontmatter only. The new
+  `tools/test/cortex-follows-its-own-rules.test.sh` runs the checker over this repo and fails on any
+  finding — and plants one in memory to prove it can fail.
+- **Rituals set `effort:` from their capability floor.** `low` on the 16 `mechanical` rituals,
+  `high` on the 6 `strong` ones, nothing on the 23 `judgment` ones, which keep Opus 5.5's default
+  `medium`. `core/test/plugin.test.js` pins the mapping, so effort cannot drift from the floor.
+  **Eval verification is pending.** The three skills with evals — `/ship`, `/resume`,
+  `/cortex-review` — are all `judgment`, so this change leaves their level where it was, and none of
+  the 22 skills whose level did change has an eval to measure it with. The measured comparison
+  (`evals/skillopt/run.py eval … --split valid_unseen` at `low`, `medium` and `high`) was not run for
+  this entry: SkillOpt is not installed on the machine that made the change, and each run spends the
+  maintainer's own Claude subscription. No scores are recorded here until it has been run.
+- **The `agent-evals.yml` template continues a turn that stopped short, at most twice.** A model can
+  end its turn on a status update with the work still open, and the template used to fail such a
+  case on the spot. Now a clean end of turn whose work `accept.sh` still rejects is continued in the
+  same session (`claude -p --continue`), at most two times, and a case still rejected after that is
+  reported `PARTIAL` and fails the job. A run that ends in an error is a failure and is never
+  continued. Both rules are Anthropic's for Opus 5.5 (`model.agentic.end-turn-is-a-report`,
+  `model.agentic.continuation-cap`); the cap is tested against the rule's value, and the step's own
+  script runs against a stub `claude` that returns a status-only message.
+- **`/skill-creator` states the body limit in lines, and `/writing-for-agents` cites Anthropic.**
+  The skill told authors "~500 words" where the skills page says 500 lines; the discipline cited only
+  its upstream. It now links the skills, subagents, memory, best-practices, hooks and Opus 5.5
+  prompting pages, and a test fails if a page `core/claude-code.js` vendors a rule from is missing.
+  Both drifts were recorded in ADR 0017. `/skill-creator` also now says what frontmatter a new ritual
+  needs: `metadata: capability:`, and `effort:` from it.
+
 - **The prompt gate stopped firing on clear requests.** It scored "restore last session and give
   me what was done" and "go ahead do all of them" at 5/5 and interrupted both. Three causes:
   `restore`/`investigate`/`continue` and their kin were not action verbs, and `merged` did not

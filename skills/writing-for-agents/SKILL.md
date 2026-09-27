@@ -1,7 +1,8 @@
 ---
 name: writing-for-agents
 description: Writing documents an agent consumes. Use when creating or editing a skill, a root or scoped AGENTS.md, a CONTEXT.md, or any doc reached by a pointer. Triggers — "write the AGENTS.md", "this brief is bloated", "why doesn't the agent pick this up", "should this be its own skill".
-capability: judgment
+metadata:
+  capability: judgment
 ---
 
 Reference for writing any document an agent consumes — a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable — the agent taking the same _process_ every run, not producing the same output.
@@ -119,9 +120,30 @@ Two Cortex-specific notes:
   because this page and `/skill-creator` discuss the flag in prose and an unanchored grep counts
   them as carrying it.
 
+## The official rules this sits on
+
+The levers above are judgement. The hard limits are Anthropic's, and a document that breaks one is
+wrong however well it reads. The pages that state them:
+
+- [Skills](https://code.claude.com/docs/en/skills) — the frontmatter keys Claude Code recognises
+  (anything else is ignored without an error; custom data goes under `metadata:`), `description`
+  plus `when_to_use` truncated at 1,536 characters, `SKILL.md` kept under 500 lines.
+- [Subagents](https://code.claude.com/docs/en/sub-agents) — their own frontmatter keys, and the tool
+  list a subagent inherits when it names none.
+- [Memory](https://code.claude.com/docs/en/memory) and
+  [Best practices](https://code.claude.com/docs/en/best-practices) — how long a `CLAUDE.md` may run,
+  `@path` imports, and emphasis that works on one line and stops working on many.
+- [Hooks](https://code.claude.com/docs/en/hooks) — which exit codes block, and which events can.
+- [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5)
+  — effort, and a text-only end of turn read as a report rather than as proof the work is done.
+
+Cortex carries each rule as data with the sentence that states it (`core/claude-code.js`), and its
+findings report every breach under `claude-setup/` — on this repo too, where any finding fails the
+build.
+
 ---
 
 Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The reference body
 and `SKILL-MECHANICS.md` are upstream and unmodified apart from the citation bullet under Pruning,
-which is marked in place so a re-sync can tell it apart; "What this governs in Cortex" is a Cortex
-addition.
+which is marked in place so a re-sync can tell it apart; "What this governs in Cortex" and "The
+official rules this sits on" are Cortex additions.

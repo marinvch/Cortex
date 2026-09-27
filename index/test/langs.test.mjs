@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectLanguage, categoryOf, isTestPath, isEntryPath } from "../lib/langs.mjs";
+import { detectLanguage, categoryOf, isTestPath, isEntryPath, isEntrySource } from "../lib/langs.mjs";
 
 test("detects language by extension and by filename", () => {
   assert.equal(detectLanguage("src/a.ts"), "typescript");
@@ -91,4 +91,48 @@ test("recognises conventional entry points", () => {
     assert.ok(isEntryPath(p), `${p} should be an entry point`);
   }
   assert.equal(isEntryPath("src/utils/helper.ts"), false);
+});
+
+// #459: a Spring Boot service starts at a class nothing imports, in a package directory a path rule
+// cannot tell from any other. The declaration is in the code, so the code is what is read.
+test("a JVM entry point is recognised by what the source declares", () => {
+  const entries = {
+    java: [
+      "@SpringBootApplication\npublic class App {}\n",
+      "@org.springframework.boot.autoconfigure.SpringBootApplication\nclass App {}\n",
+      "class Tool {\n  public static void main(String[] args) {}\n}\n",
+      "class Tool {\n  static public void main(final String... argv) {}\n}\n",
+      "class Tool {\n  public static void main(String args[]) {}\n}\n",
+    ],
+    kotlin: [
+      "@SpringBootApplication\nclass App\n\nfun main(args: Array<String>) { runApplication<App>(*args) }\n",
+      "fun main() {\n  println(1)\n}\n",
+      "class Tool {\n  companion object {\n    @JvmStatic fun main(args: Array<String>) {}\n  }\n}\n",
+    ],
+  };
+  for (const [lang, bodies] of Object.entries(entries)) {
+    for (const body of bodies) assert.equal(isEntrySource(body, lang), true, `${lang}: ${body}`);
+  }
+});
+
+test("a JVM class that merely mentions main or Spring Boot is not an entry point", () => {
+  const ordinary = {
+    java: [
+      // Framework-discovered, but an ordinary class's annotation: a dead one is worth reporting.
+      "@Configuration\npublic class WebConfiguration {}\n",
+      "@RestController\nclass OwnerController { void main() {} }\n",
+      "class Tool { public void main(String[] args) {} }\n", // not static: the JVM cannot call it
+      "/** Started like {@code public static void main(String[] args)}. @SpringBootApplication */\nclass Doc {}\n",
+      'class S { String s = "public static void main(String[] args) @SpringBootApplication"; }\n',
+      "// @SpringBootApplication\nclass Commented {}\n",
+    ],
+    kotlin: [
+      "class Runner {\n  fun main() {}\n}\n", // an indented method, not the program's main
+      "// fun main() {}\nclass Commented\n",
+    ],
+    javascript: ["@SpringBootApplication\nfunction main() {}\n"],
+  };
+  for (const [lang, bodies] of Object.entries(ordinary)) {
+    for (const body of bodies) assert.equal(isEntrySource(body, lang), false, `${lang}: ${body}`);
+  }
 });

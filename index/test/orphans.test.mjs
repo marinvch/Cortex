@@ -160,3 +160,54 @@ test("findOrphans is a pure transform of the index plus injected text", () => {
   assert.deepEqual(run(), ["a.js", "src/dead.js"]);
   assert.deepEqual(run(), run());
 });
+
+// #459. A Spring Boot service's application class is started by the JVM, not imported by another
+// class, so "nothing points at it" is true and "unreferenced" is not. Found on two real services;
+// spring-guides/gs-rest-service reproduces it with its one application class.
+const APP = "src/main/java/com/example/App.java";
+const DEAD = "src/main/java/com/example/Leftover.java";
+const javaFile = (path, over = {}) => file(path, { lang: "java", ...over });
+
+test("a Spring Boot application class is an entry point, and the class beside it is still an orphan", () => {
+  const text = textFrom({
+    [APP]: "package com.example;\n\n@SpringBootApplication\npublic class App {\n  public static void main(String[] args) { SpringApplication.run(App.class, args); }\n}\n",
+    [DEAD]: "package com.example;\n\npublic class Leftover {}\n",
+  });
+  // `isEntry: false` on purpose: an index built before 2.39.1 carries exactly this, and is read
+  // without complaint, so the finding has to be right when handed one.
+  const index = { files: [javaFile(APP), javaFile(DEAD)] };
+  assert.deepEqual(
+    findOrphans(index, text).map((f) => f.path),
+    [DEAD],
+    "the entry point is not listed; a class with no reference and no main still is",
+  );
+});
+
+test("a class with a main is an entry point even without Spring, in Java and Kotlin", () => {
+  const TOOL = "src/main/java/com/example/Tool.java";
+  const KT = "src/main/kotlin/com/example/Main.kt";
+  const text = textFrom({
+    [TOOL]: "class Tool {\n  public static void main(String... args) {}\n}\n",
+    [KT]: "package com.example\n\nfun main() {\n  println(1)\n}\n",
+  });
+  const index = { files: [javaFile(TOOL), file(KT, { lang: "kotlin" })] };
+  assert.deepEqual(findOrphans(index, text), []);
+});
+
+test("a main that only a comment mentions does not rescue a dead class", () => {
+  const text = textFrom({ [DEAD]: "/** Unlike App, has no public static void main(String[] args). */\nclass Leftover {}\n" });
+  assert.deepEqual(findOrphans({ files: [javaFile(DEAD)] }, text).map((f) => f.path), [DEAD]);
+});
+
+test("package-info.java and module-info.java are never orphan candidates", () => {
+  // Both are read by the compiler by name and declare no class, so nothing can reference them —
+  // they were five of spring-petclinic's six "unreferenced" files.
+  const index = {
+    files: [
+      javaFile("src/main/java/com/example/package-info.java"),
+      javaFile("src/main/java/module-info.java"),
+      javaFile(DEAD),
+    ],
+  };
+  assert.deepEqual(unimported(index).map((f) => f.path), [DEAD]);
+});

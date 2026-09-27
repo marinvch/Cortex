@@ -143,7 +143,13 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   direction of error is chosen:** this can only ever *remove* entries. Missing a true orphan costs a
   suggestion nobody had to act on; inventing one costs trust in every other line of the report.
   `findings.mjs` and `view.mjs` both call it — there is no second copy, for the reason
-  `coverage.mjs` says.
+  `coverage.mjs` says. **A JVM entry point is read from the code, not the path** (`isEntrySource`
+  in `lib/langs.mjs`): `@SpringBootApplication`, a static `main(String[])`, a Kotlin top-level or
+  `@JvmStatic` `fun main` — through `javaCode`, so a comment naming `main` is not one. `build.mjs`
+  sets `isEntry` from it and `findOrphans` asks again, because an older index is read without
+  complaint. Nothing wider: `@Configuration` and `@Component` are an ordinary class's annotations,
+  and a dead one is exactly what the finding exists for. `package-info.java` and
+  `module-info.java` are never candidates — they declare no class to reference.
 - **A path alias is read from the repo, never guessed.** `tsconfig.json` / `jsconfig.json` `paths`
   and `baseUrl` are declared, exactly like `go.mod`'s module path and `composer.json`'s PSR-4
   prefixes, and the JS adapter follows both links a config can carry: `extends` upward, because splitting

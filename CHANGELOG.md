@@ -21,6 +21,18 @@ this project now versions independently of any package manager (see `VERSION`).
   the flagged lines in the body only — asking first about any skill someone edited after it was
   written. On the repo that reported the issue it finds 12 lines across the two skills, and every
   one is real.
+- **A Spring Boot application class was reported as an unreferenced file (#459).** The JVM starts
+  it, so nothing imports it, and a path rule cannot tell `RestServiceApplication.java` from any
+  other class in its package. `isEntrySource` (`index/lib/langs.mjs`) now reads the declaration —
+  `@SpringBootApplication`, a static `main(String[])`, a Kotlin top-level or `@JvmStatic`
+  `fun main` — with comments and literals blanked first; `build.mjs` marks the file `isEntry`, and
+  `findOrphans` asks the same predicate so an index built before this release is answered right
+  too. `package-info.java` and `module-info.java`, which declare no class anything could
+  reference, are no longer candidates. Nothing wider: a `@Configuration` class nothing uses is
+  still listed. On spring-guides/gs-rest-service the one unreferenced file, its application class,
+  is gone; on spring-petclinic 6 → 1 (five `package-info.java` gone, `WebConfiguration` kept); on
+  gothinkster's Gradle RealWorld app 3 → 2 (`RealWorldApplication` gone). Mutation-tested: ten
+  guards broken one at a time, ten reds.
 
 ## [2.39.0] — 2026-09-27
 

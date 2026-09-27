@@ -699,6 +699,7 @@ test("rows that write under .claude/ say so, and only those", () => {
   // that apart from a row the user declined, so it must be on exactly the .claude/ rows.
   const root = repo(({ put }) => {
     put("package.json", JSON.stringify({ scripts: { test: "node --test" } }));
+    put("package-lock.json", "{}"); // hook work: without a path to protect, the hooks row does not apply
     put("AGENTS.md");
     put("CLAUDE.md", "# P\n\n## Verifying your work\n\n- Test: npm test\n");
     put("REVIEW.md");
@@ -717,6 +718,90 @@ test("rows that write under .claude/ say so, and only those", () => {
   );
   assert.ok(plan.missing.every((e) => e.protectedWrites.length), "and nothing else is missing");
   rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// a row promises only what a template provides
+// ---------------------------------------------------------------------------
+
+// The hooks row said "the hook that matters here is the test-file lock during a fix" on every repo
+// with a test script and nothing to protect. No template implements a test-file lock, so /cortex
+// stamped protected-paths.sh with an empty list and format-changed.sh with no case lines — two hooks
+// that do nothing — and reported the row done.
+
+const hooksRow = (build, index = indexOf(["src/a.js"])) => {
+  const root = repo(build);
+  const plan = loopPlan(root, index);
+  rmSync(root, { recursive: true, force: true });
+  for (const bucket of ["present", "missing", "blocked"]) {
+    const e = plan[bucket].find((x) => x.id === "hooks");
+    if (e) return { bucket, ...e, plan };
+  }
+  throw new Error("no hooks row");
+};
+
+test("with nothing to protect and no formatter, the hooks row does not apply — and says so", () => {
+  const row = hooksRow(({ put }) => put("package.json", JSON.stringify({ scripts: { test: "node --test" } })));
+  assert.equal(row.bucket, "blocked", "a test command is not hook work: no template acts on one");
+  assert.match(row.why, /no hook has work to do here/);
+  assert.ok(row.needs.some((n) => /formatter/.test(n) && /lockfile/.test(n)), row.needs.join("; "));
+  assert.ok(!row.plan.missing.some((e) => e.id === "hooks"), "so the pass does not stamp two no-op hooks");
+});
+
+test("a hooks block already on disk does not make a row with no work served", () => {
+  const row = hooksRow(({ put }) => {
+    put("package.json", JSON.stringify({ scripts: { test: "node --test" } }));
+    put(".claude/settings.json", '{ "hooks": {} }');
+  });
+  assert.equal(row.bucket, "blocked", "the no-op stamp an earlier release wrote is not counted as closing the row");
+  assert.match(row.why, /already in \.claude\/settings\.json is left as it is/);
+  assert.equal(row.plan.served, row.plan.present.length);
+  assert.ok(!row.plan.present.some((e) => e.id === "hooks"));
+});
+
+test("a formatter alone is hook work, and the row says the block list starts empty", () => {
+  const row = hooksRow(({ put }) => put(".prettierrc", "{}"));
+  assert.equal(row.bucket, "missing");
+  assert.match(row.why, /no generated paths to block, so protected-paths\.sh starts empty; after-edit formatting with prettier/);
+});
+
+test("with work to do and a hooks block on disk, the row is served", () => {
+  const row = hooksRow(({ put }) => {
+    put("yarn.lock");
+    put(".claude/settings.json", '{ "hooks": {} }');
+  });
+  assert.equal(row.bucket, "present");
+});
+
+test("no row names an artifact that no template provides", () => {
+  // The property, not the one sentence: every file a row's text names must be a template /cortex
+  // stamps, a path the row itself writes, or one of the documents the artifact chain is made of.
+  // And no row may promise a "lock" — the word the missing hook was sold under; a lockfile is fine.
+  const here = new URL("../../templates/loop/", import.meta.url);
+  const chain = new Set(["AGENTS.md", "CLAUDE.md", "GEMINI.md", "REVIEW.md", "spec.md", "plan.md", "settings.json"]);
+  const shapes = [
+    () => {},
+    ({ put }) => put("package.json", JSON.stringify({ scripts: { test: "vitest", build: "tsc" } })),
+    ({ put }) => { put("package.json", JSON.stringify({ scripts: { test: "node --test" } })); put(".claude/settings.json", '{"hooks":{}}'); },
+    ({ put }) => { put(".prettierrc"); put(".github/workflows/ci.yml"); put("AGENTS.md"); put("REVIEW.md"); },
+  ];
+  for (const build of shapes) {
+    for (const index of [null, indexOf(["src/a.js"])]) {
+      const root = repo(build);
+      const plan = loopPlan(root, index);
+      for (const e of [...plan.present, ...plan.missing, ...plan.blocked]) {
+        const text = [e.title, e.why, e.brief, ...e.needs].join("\n");
+        assert.doesNotMatch(text, /\block\b/i, `${e.id} promises a lock no template provides: ${text}`);
+        const own = new Set(e.paths.map((p) => p.replace(/#.*$/, "").split("/").filter(Boolean).pop()));
+        for (const [name] of text.matchAll(/[\w.-]+\.(?:sh|ya?ml|json|md)\b/g)) {
+          const ok = chain.has(name) || own.has(name) || fsExists(new URL(name, here)) ||
+            plan.state.protectedPaths.includes(name) || name === plan.state.ci;
+          assert.ok(ok, `${e.id} names ${name}, which no template provides`);
+        }
+      }
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
 });
 
 test("reading the plan writes nothing", () => {

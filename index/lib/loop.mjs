@@ -70,6 +70,11 @@ function workflowsRunning(root, needle) {
 
 const named = (ids) => labelsFor(ids ?? []).join(", ");
 
+// Whether either hook template would do anything here: protected-paths.sh needs a path to block,
+// format-changed.sh a formatter to run. Nothing else — a test command is not hook work, because no
+// template acts on one.
+const hooksHaveWork = (s) => s.protectedPaths.length > 0 || s.formatters.length > 0;
+
 // Every evidence sentence is built through this. A `why` is the one part of a report a reader can
 // check against their own repo, so a sentence that reads "null runs here" does not merely look
 // untidy — it discredits the rows they cannot check. That exact string printed on the first real
@@ -725,16 +730,27 @@ export const LOOP_ARTIFACTS = [
     paths: [".claude/settings.json"],
     rank: 50,
     template: "settings.hooks.json",
-    present: (s) => s.hooks,
-    when: (s) => s.protectedPaths.length > 0 || Boolean(s.commands.test) || s.formatters.length > 0,
-    needs: ["a generated path worth protecting, a test command to lock during a fix, or a declared formatter"],
+    // The row promises exactly what its two templates do — protected-paths.sh blocks edits to the
+    // detected paths, format-changed.sh formats the file that changed — and nothing else. It once
+    // offered "the test-file lock during a fix" on every repo with a test script, a hook no template
+    // provides, so a repo with no generated path and no formatter was stamped with two scripts that
+    // do nothing and the row was reported done. Where neither has work the row does not apply, and a
+    // hooks block already on disk does not make it served: counting it would report the same no-op
+    // stamp as closed that this condition exists to stop writing.
+    present: (s) => s.hooks && hooksHaveWork(s),
+    when: (s) => hooksHaveWork(s),
+    needs: ["a generated path or lockfile to protect, or a declared formatter — without either, both hooks would do nothing"],
     why: (s) => {
       const fmt = s.formatters.length
-        ? `; after-edit formatting with ${s.formatters.map((f) => f.command.split(" ").find((w) => !/^(npx|--)/.test(w))).join(", ")}`
+        ? `after-edit formatting with ${s.formatters.map((f) => f.command.split(" ").find((w) => !/^(npx|--)/.test(w))).join(", ")}`
         : "";
-      return s.protectedPaths.length
-        ? `protected paths to block: ${s.protectedPaths.slice(0, 3).join(", ")}${fmt}`
-        : `no generated paths, so the hook that matters here is the test-file lock during a fix${fmt}`;
+      if (s.protectedPaths.length) {
+        return `protected paths to block: ${s.protectedPaths.slice(0, 3).join(", ")}${fmt ? `; ${fmt}` : ""}`;
+      }
+      if (fmt) return `no generated paths to block, so protected-paths.sh starts empty; ${fmt}`;
+      return s.hooks
+        ? "no generated paths and no declared formatter, so no Cortex hook has work to do here — the hooks block already in .claude/settings.json is left as it is"
+        : "no generated paths and no declared formatter, so no hook has work to do here";
     },
     brief:
       "Build-phase hooks are fast and scoped to the file that changed; the full suite belongs at " +

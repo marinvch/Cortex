@@ -96,6 +96,45 @@ test("make does not erase an npm script it has no target for", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+// Lint is found by the NAME families a repo actually uses, not one exact word. pmndrs/zustand and
+// pmndrs/jotai both run `eslint .` as `test:lint` — one leg of `test: pnpm run "/^test:.*/"` — and
+// both got `lint: null`, so the verification block had no lint row and the user had to supply it.
+
+const lintOf = (scripts) => {
+  const root = repo(({ put }) => put("package.json", JSON.stringify({ scripts })));
+  const lint = detectCommands(root).lint;
+  rmSync(root, { recursive: true, force: true });
+  return lint;
+};
+
+test("a `test:lint` script is the lint command when no plain `lint` exists", () => {
+  assert.equal(
+    lintOf({ test: 'pnpm run "/^test:.*/"', "test:lint": "eslint .", "test:spec": "vitest run", "fix:lint": "eslint . --fix" }),
+    "npm run test:lint",
+  );
+});
+
+test("the aggregate `lint` wins over its own parts and over `test:lint`", () => {
+  assert.equal(lintOf({ lint: "run-p lint:*", "lint:js": "eslint .", "lint:css": "stylelint ." }), "npm run lint");
+  assert.equal(lintOf({ lint: "eslint .", "test:lint": "eslint ." }), "npm run lint");
+});
+
+test("a single `lint:*` script stands in for the aggregate; several with no aggregate are not guessed", () => {
+  assert.equal(lintOf({ "lint:ts": "eslint ." }), "npm run lint:ts");
+  // Picking one of two would print a lint command that checks half the repo and exits 0.
+  assert.equal(lintOf({ "lint:js": "eslint .", "lint:css": "stylelint ." }), null);
+});
+
+test("a fixer is never the lint command — it rewrites files instead of failing on them", () => {
+  assert.equal(lintOf({ "fix:lint": "eslint . --fix", "lint:fix": "eslint . --fix" }), null);
+  assert.equal(lintOf({ "lint:ts": "eslint .", "lint:fix": "eslint . --fix" }), "npm run lint:ts");
+});
+
+test("a lint-named script still outranks the older `check` fallback", () => {
+  assert.equal(lintOf({ check: "tsc --noEmit", "test:lint": "eslint ." }), "npm run test:lint");
+  assert.equal(lintOf({ check: "tsc --noEmit" }), "npm run check");
+});
+
 // The package manager is read off the repo, because `npm test` in a pnpm workspace installs
 // nothing it can resolve and fails on the first workspace dependency.
 
@@ -291,6 +330,47 @@ test("an index with files is not greenfield", () => {
   const root = repo(({ put }) => put("src/a.js"));
   assert.equal(readLoopState(root, indexOf(["src/a.js"])).greenfield, false);
   rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// protected paths — a hook that blocks edits must block only what is really generated
+// ---------------------------------------------------------------------------
+
+// A directory NAME is a hint; the files in it are the evidence. pmndrs/zustand keeps two
+// hand-written upgrade guides in `docs/reference/migrations/`, and the bare `migrations?/` pattern
+// reported that as a generated path — so /cortex proposed a hook refusing edits to the repo's own
+// documentation and listed it in REVIEW.md's do-not-report section.
+
+const protectedOf = (paths) => {
+  const root = repo(() => {});
+  const got = readLoopState(root, indexOf(paths)).protectedPaths;
+  rmSync(root, { recursive: true, force: true });
+  return got;
+};
+
+test("a migrations directory holding only prose is not protected", () => {
+  assert.deepEqual(
+    protectedOf(["docs/reference/migrations/migrating-to-v4.md", "docs/reference/migrations/migrating-to-v5.md", "src/a.ts"]),
+    [],
+  );
+  assert.deepEqual(protectedOf(["migrations/README.md"]), [], "a README alone is not a migration");
+});
+
+test("a migrations directory under docs/ is never protected, even with SQL in it", () => {
+  // Sample SQL in a guide is an example a writer edits, not a migration a tool generated.
+  assert.deepEqual(protectedOf(["docs/guides/migrations/001-example.sql"]), []);
+  assert.deepEqual(protectedOf(["website/docs/migrations/upgrade.mdx", "doc/migrations/x.sql"]), []);
+});
+
+test("real migrations are still protected — SQL, ORM code, Rails and Prisma layouts", () => {
+  assert.deepEqual(protectedOf(["prisma/migrations/20221021182747_init/migration.sql"]), ["prisma/migrations/"]);
+  assert.deepEqual(protectedOf(["db/migrate/20240101_create_users.rb"]), ["db/migrate/"]);
+  assert.deepEqual(protectedOf(["app/migrations/0001_initial.py", "app/migrations/README.md"]), ["app/migrations/"]);
+  assert.deepEqual(protectedOf(["src/main/resources/db/migration/V1__init.sql"]), ["src/main/resources/db/migration/"]);
+});
+
+test("the other generated hints are unchanged by the migrations evidence rule", () => {
+  assert.deepEqual(protectedOf(["dist/index.js", "src/__generated__/schema.ts"]), ["dist/", "src/__generated__/"]);
 });
 
 // ---------------------------------------------------------------------------

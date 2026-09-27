@@ -5,6 +5,25 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.39.0] — 2026-09-27
+
+2.38.0 was found by reading someone else's harness. This one was found by pointing Cortex at repos
+it had never seen. Five private repos built to behave like a real team — a React monorepo with a
+gateway, Spring services per feature and per country, a shared team brain, several developers — and
+one public library, pmndrs/zustand, installed end to end the way a stranger would.
+
+They found what the suite could not. A teammate's capture never reached another repo's catch-up.
+Every `@scope/pkg` import in a monorepo dangled, so its shared packages read as orphans, and 58 Java
+classes read as dead code because same-package classes never import each other. The View printed
+the machine's own path into a page meant for sharing, broke at phone width, and gave three numbers
+for one quantity. Files `/cortex` stamped failed the target repo's own format check. Each is fixed,
+with a test that fails without the fix.
+
+The release also makes `/cortex` the single front door, holds Cortex to Anthropic's documented
+Claude Code rules — vendored with the sentence each rule comes from, and enforced on this repo in
+CI — and adds a front-end to back-end route map, an overlap warning for parallel sessions, and a
+PR review workflow `/cortex` stamps into the repos it serves.
+
 **One install: `/cortex`.** Working project or brand new, a repo now goes from nothing to served in
 one command and one confirmation. Before, "installed" meant a context layer and a menu of eleven
 more commands in no stated order; `/cortex-next` existed to paper over that. Now the install owns
@@ -331,6 +350,12 @@ it was repointed or dropped in the same change.
 - The `mcp/node_modules/` ignore line, which `node_modules/` already covers.
 
 ### Fixed
+
+- **The stamped protected-paths hook died on every edit on macOS when it had nothing to protect.**
+  Most repos get an empty pattern list, and under `set -u` bash 3.2 — still macOS's default — reads
+  `"${protected[@]}"` of an empty array as unset. The loop now uses `${protected[@]+"${protected[@]}"}`;
+  a test stamps the empty list and pins the form, since a newer bash cannot reproduce the failure.
+  Found by installing Cortex on a test team repo.
 
 - **The workspace harness's S1 claude-setup check was a placeholder that failed on every run.** It
   said the checker "exists now — replace this placeholder" and could never pass. S1 now runs the
@@ -3301,6 +3326,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.39.0]: https://github.com/marinvch/Cortex/releases/tag/v2.39.0
 [2.38.0]: https://github.com/marinvch/Cortex/releases/tag/v2.38.0
 [2.37.1]: https://github.com/marinvch/Cortex/releases/tag/v2.37.1
 [2.37.0]: https://github.com/marinvch/Cortex/releases/tag/v2.37.0

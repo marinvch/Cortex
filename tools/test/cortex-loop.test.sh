@@ -158,6 +158,18 @@ done
 assert_eq "2" "$(hook_exit nojq '{"tool_input":{"file_path": 42}}')" \
   "hook: a file_path it cannot read is refused, never waved on"
 
+# No detected paths is the usual stamp: the list is empty, and the hook must let every edit through.
+sed 's#{{PROTECTED_PATTERNS}}##;s#{{PROTECTED_LIST}}#none detected#' "$hook_src" > "$WORK/hook-empty.sh"
+assert_eq "0" "$(hook_exit empty '{"tool_input":{"file_path":"src/main.go"}}')" \
+  "hook: with no protected paths, an edit goes through rather than erroring"
+# bash 3.2 (macOS) reads "${arr[@]}" of an empty array as unset under `set -u`; this machine's newer
+# bash cannot reproduce that, so the guard is on the form itself.
+if grep -qE '"\$\{protected\[@\]\}"; do' "$hook_src"; then
+  _fail "hook: the pattern loop survives an empty list on bash 3.2" 'use ${protected[@]+"${protected[@]}"}'
+else
+  _pass "hook: the pattern loop survives an empty list on bash 3.2"
+fi
+
 blocked_msg="$(printf '%s' '{"tool_input":{"file_path":"src/gen/api.ts"}}' | bash "$WORK/hook-default.sh" 2>&1 >/dev/null)"
 assert_contains "$blocked_msg" "Change the source it is generated from" \
   "hook: a block explains itself and names the route forward"

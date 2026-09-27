@@ -212,7 +212,8 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   collision) and are listed, never dropped.
 - **`next.mjs` may only call a step done on the strength of a file that exists.** Every ✓ names its
   evidence — `.cortex/index/index.json`, a report under `.cortex/findings/`, `CONTEXT.md`, a
-  `<dir>/AGENTS.md`. It is deterministic for the same reason the index is: the sequence is a fact
+  `<dir>/AGENTS.md`. `done`/`total` count **required** steps only — the viewer ticks its own
+  optional step, and counting it made the page and the CLI print different fractions. It is deterministic for the same reason the index is: the sequence is a fact
   about the repository, and a model re-deriving it each session hands the user a different answer
   every time. A step nothing on disk can settle is `optional`, which never becomes "next" and never
   blocks — never a silent tick.
@@ -234,6 +235,15 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   `script` alone. Docs and config stay in the Files tab: on this repo 171 of them are isolated
   nodes that pushed the 98 connected ones off screen. If you widen it, the legend swatch and the
   node colour must still agree — a legend that does not match the picture is decoration.
+- **The page carries nothing about the machine that built it.** It is the artifact people share, and
+  it once inlined the absolute root — `C:\Users\<name>\…` — through `generated.root` and the
+  sequence's `state`. `buildView` emits the repo's name and repo-relative paths, trims the sequence
+  to what the page draws, and scrubs any string still quoting the root or home directory.
+  `view-repo.test.mjs` asserts it on a real git fixture; a literal index has no root to leak.
+- **Every count on the page is a `stats` field, computed once in `buildView`.** A subset gets its
+  own name (`mapFiles`, `mapEdges`) and its own label, never the headline's. The untested set is
+  `codeCoverage` from `findings.mjs`, the same answer the report's title prints. The demo run found
+  imports at 70 / 69 / 66 and untested at 11 / 26 across tabs of one page.
 - **The page inlines its data, so the data must not be able to close the script.** `safeJson`
   escapes `<` and the two line separators; an enrichment summary quoting markup would otherwise end
   the element mid-object and render a blank page. There is a test for exactly that payload.

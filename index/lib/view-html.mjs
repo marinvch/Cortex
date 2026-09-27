@@ -25,6 +25,9 @@ export const THEMES = {
     line: "rgba(60,40,20,.26)", "line-2": "rgba(60,40,20,.13)",
     shadow: "0 1px 2px rgba(60,40,20,.08),0 10px 28px -14px rgba(60,40,20,.25)",
     edge: "120,90,60", band: "rgba(60,40,20,.045)", cvshadow: "rgba(60,40,20,.16)",
+    // A Map edge at rest: its opacity and width. Two tokens so the dark theme can be raised
+    // without touching this one — see the dark block.
+    "edge-rest": ".12", "edge-w": ".7",
     // The cloud. On a light ground additive light washes out to nothing, so it is drawn as ink:
     // deep amber particles, normal blending, a dark core where the dark theme has a hot one.
     glow: "184,92,0", "glow-hot": "110,46,0", link: "rgba(140,80,20,.16)", blend: "source-over",
@@ -42,6 +45,9 @@ export const THEMES = {
     line: "rgba(255,196,130,.26)", "line-2": "rgba(255,196,130,.13)",
     shadow: "0 1px 2px rgba(0,0,0,.5),0 14px 36px -18px rgba(0,0,0,.8)",
     edge: "255,190,120", band: "rgba(255,196,130,.05)", cvshadow: "rgba(0,0,0,.5)",
+    // On a dark ground a mid-luminance area colour at 12% opacity and 0.7px is close to invisible,
+    // so the Map read as unconnected chips. Raised here only: the light theme's edges already read.
+    "edge-rest": ".34", "edge-w": "1.1",
     glow: "255,150,50", "glow-hot": "255,232,196", link: "rgba(255,160,80,.085)", blend: "lighter",
     "c-ctx": "#ffb05a", "c-code": "#7fb2ff", "c-test": "#7ee2a8", "c-gen": "#c7a6ff",
     "t-ctx": "#3a2710", "t-code": "#1b2a3f", "t-test": "#15311f", "t-gen": "#2d2140",
@@ -78,7 +84,10 @@ const CSS = `
 @media (prefers-reduced-motion:reduce){*{transition-duration:0s!important;animation-duration:0s!important}}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
   font:15px/1.55 ${UI};-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-body{overflow:hidden}
+/* A column: the bar takes the height it needs and the views take the rest. The views were sized
+   the viewport minus 60px against a bar fixed at 60px, which is a promise a phone cannot keep — the bar
+   has to wrap there, and a fixed height either clips it or pushes the page past the screen. */
+body{overflow:hidden;display:flex;flex-direction:column}
 code,.mono{font-family:${MONO};font-size:13.5px}
 button{font:inherit;color:inherit}
 /* Focus is drawn, always, in a colour chosen to be seen — never left to a browser default that is
@@ -87,12 +96,12 @@ button{font:inherit;color:inherit}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* ── top bar ─────────────────────────────────────────────────────────── */
-#top{display:flex;align-items:center;gap:18px;padding:0 20px;height:60px;
+#top{display:flex;align-items:center;gap:18px;padding:0 20px;min-height:60px;flex:0 0 auto;
   border-bottom:1px solid var(--line);background:var(--bg);position:relative;z-index:20}
 #brand{display:flex;align-items:baseline;gap:10px;white-space:nowrap}
 #brand b{font:600 22px/1 ${DISPLAY};letter-spacing:.24em;color:var(--ink)}
 #brand span{font-size:15px;color:var(--ink-2)}
-#tabs{display:flex;gap:2px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#tabs{display:flex;gap:2px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;min-width:0}
 .tab{appearance:none;border:0;background:transparent;padding:8px 12px;border-radius:8px;cursor:pointer;
   color:var(--ink-2);font-size:14px;font-weight:550;white-space:nowrap;transition:color .12s,background .12s}
 .tab:hover{color:var(--ink);background:var(--surface-2)}
@@ -107,7 +116,7 @@ button{font:inherit;color:inherit}
 #theme:hover{border-color:var(--acc)}
 
 /* ── layout ──────────────────────────────────────────────────────────── */
-#main{height:calc(100vh - 60px)}
+#main{flex:1 1 auto;min-height:0}
 .view{display:none;height:100%;position:relative}
 .view.on{display:flex}
 .pane{flex:1;overflow-y:auto;padding:30px 34px 60px;scrollbar-width:thin}
@@ -227,7 +236,15 @@ button.sb{cursor:pointer}button.sb:hover{box-shadow:0 0 0 3px var(--acc-soft)}
 /* ── floating panels over the graph ──────────────────────────────────── */
 .float{position:absolute;background:var(--surface);border:1px solid var(--line);
   border-radius:13px;box-shadow:var(--shadow)}
-#legend{right:18px;bottom:18px;padding:12px 13px;font-size:13.5px;max-height:52vh;overflow:auto;z-index:6;min-width:190px}
+/* A fixed width, because the Map reserves exactly this much room for it on a wide screen: an open
+   legend used to sit over the right end of the deeper bands. On a narrow one it starts folded. */
+#legend{right:18px;bottom:18px;padding:12px 13px;font-size:13.5px;max-height:52vh;overflow:auto;z-index:6;width:260px;
+  max-width:calc(100% - 36px)}
+#legend.min{width:auto;padding:6px}
+#legend.min .lg,#legend.min .note{display:none}
+.lgt{appearance:none;display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface-2);
+  border-radius:8px;padding:5px 10px;margin:0 0 8px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--ink)}
+#legend.min .lgt{margin:0}
 #legend .lg{display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 6px;margin:0 -6px;border-radius:6px;
   color:var(--ink);transition:background .1s,color .1s;user-select:none}
 #legend .lg:hover{background:var(--surface-2)}
@@ -242,7 +259,7 @@ button.sb{cursor:pointer}button.sb:hover{box-shadow:0 0 0 3px var(--acc-soft)}
 #hud b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
 #hud .sep{width:1px;height:14px;background:var(--line)}
 #tip{position:fixed;pointer-events:none;background:var(--raised);border:1px solid var(--line);
-  border-radius:11px;box-shadow:var(--shadow);padding:10px 12px;font-size:13.5px;max-width:340px;display:none;z-index:40}
+  border-radius:11px;box-shadow:var(--shadow);padding:10px 12px;font-size:13.5px;max-width:min(340px,calc(100vw - 24px));display:none;z-index:40}
 #tip .t{font-weight:600;margin-bottom:3px;word-break:break-all;color:var(--ink)}
 #tip .m{color:var(--ink-2);font-size:13px;line-height:1.55}
 #tip .m b{color:var(--ink);font-weight:600}
@@ -288,8 +305,12 @@ button.sb{cursor:pointer}button.sb:hover{box-shadow:0 0 0 3px var(--acc-soft)}
 .card .foot{margin-top:10px}
 h2.vh{margin:34px 0 6px;font:600 15px ${DISPLAY};letter-spacing:.14em;text-transform:uppercase;color:var(--label)}
 h2.vh:first-child{margin-top:0}
+h2.vh small{font:600 14px ${MONO};letter-spacing:0;color:var(--ink-2);margin-left:8px}
 .hint{color:var(--ink-2);font-size:14px;margin:0 0 14px;max-width:680px;line-height:1.6}
-code{background:var(--surface-2);border:1px solid var(--line-2);border-radius:6px;padding:2px 7px;color:var(--ink)}
+code{background:var(--surface-2);border:1px solid var(--line-2);border-radius:6px;padding:2px 7px;color:var(--ink);overflow-wrap:anywhere}
+.chip .mono{overflow-wrap:anywhere}
+/* A table scrolls inside its own box. Wide rows are allowed; a page that scrolls sideways is not. */
+.tw{max-width:100%;overflow-x:auto}
 table{border-collapse:separate;border-spacing:0;font-size:14px;width:100%;max-width:680px;
   border:1px solid var(--line-2);border-radius:12px;overflow:hidden;background:var(--surface)}
 th{color:var(--ink-2);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em;
@@ -317,11 +338,45 @@ td.num{font-variant-numeric:tabular-nums;color:var(--ink-2);width:1%;white-space
   border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-weight:600}
 .badge.hot{color:var(--acc);border-color:currentColor}
 
-/* Narrow windows: the three overview columns stack, and the page scrolls instead of clipping. */
+/* Narrow windows: the three overview columns stack, and the page scrolls instead of clipping.
+   Stacked in normal flow, not in a one-column grid. The grid had a definite height and auto rows
+   whose items declared min-height:0, so when the content outgrew the screen the rows shrank to
+   nothing and the cloud was painted over the vitals — "147" overprinted by the graph's caption. */
 @media (max-width:1100px){
-  #v-ov.on{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto 520px auto;overflow-y:auto}
-  .col{overflow:visible}#ovl{border-right:0}#ovr{border-left:0}
+  #v-ov.on{display:block;overflow-y:auto}
+  #ovc{height:520px}
+  .col{overflow:visible;min-height:auto}#ovl{border-right:0}#ovr{border-left:0}
   #top{gap:10px;padding:0 12px}#q{width:160px}
+}
+/* A phone. The bar wraps into rows — brand and theme, then search, then the tabs, which wrap too
+   rather than scroll: a strip with its scrollbar hidden gives no sign that tabs lie past the edge —
+   because at 390px the one-row bar was 459px wide: the tabs were pushed off
+   screen and the theme button was cut to "Da". Every view stacks into one column. */
+@media (max-width:720px){
+  #top{flex-wrap:wrap;gap:8px 10px;padding:8px 12px}
+  #brand{order:1;min-width:0}
+  #theme{order:2;margin-left:auto}
+  #q{order:3;flex:1 1 100%;width:auto;min-width:0;margin-left:0}
+  #tabs{order:4;flex:1 1 100%;flex-wrap:wrap}
+  #ovc{height:420px}
+  #ovbar{padding:10px 14px}
+  #ovbar .when{margin-left:0;white-space:normal}
+  .st{white-space:normal}
+  .col{padding:18px 14px 24px}
+  #hero .big{font-size:60px}
+  .pane{padding:18px 14px 44px}
+  #stree{min-width:0}
+  #swires{display:none}
+  .srow{margin-bottom:24px}
+  .sb.root{min-width:0;width:100%}
+  .scols{grid-template-columns:minmax(0,1fr);gap:26px}
+  .sgrid{grid-template-columns:minmax(0,1fr);gap:22px;margin-top:20px}
+  #v-files.on{flex-direction:column}
+  .list{width:auto;flex:0 0 40%;border-right:0;border-bottom:1px solid var(--line-2)}
+  #reader{padding:20px 14px 44px}
+  #hud{left:12px;right:12px;top:12px;flex-wrap:wrap;gap:4px 12px}
+  #hud .sep{display:none}
+  #legend{right:12px;bottom:12px}
 }
 `;
 
@@ -343,7 +398,10 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const fmt=n=>Number(n).toLocaleString('en-US');
 // Missing data says so and says why. A zero drawn where a fact could not be read is a confident
 // wrong number, and this page is read by people deciding what to do next.
-const NA=why=>'<p class="na">not available — '+esc(why)+'</p>';
+// Inline code in prose. The sequence and the findings write commands in backticks, and the page
+// printed the backticks themselves: "run \`cortex-loop.mjs .\` for which and why".
+const ic=s=>esc(s).replace(/\`([^\`]+)\`/g,'<code>$1</code>');
+const NA=why=>'<p class="na">not available — '+ic(why)+'</p>';
 const NOSTATE='the page was rendered without the repo state (git, memory, profile)';
 const REDUCED=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion:reduce)').matches;
 const root=document.documentElement;
@@ -368,8 +426,11 @@ function status(){const bar=$('ovbar');
       'newest entry '+m.newest+' · '+plural(m.days,'day')+' of entries')
     :st('','Memory: none written yet','/dream writes the first entry to .cortex/memory/');
   h+=st('',O.cortex?'Cortex v'+O.cortex:'Cortex version not available');
-  h+='<span class="when">indexed <b>'+esc(O.commitDate||'date not available')+'</b>'
-    +(O.commit?' · commit <b>'+esc(O.commit)+'</b>':' · no commit recorded')+'</span>';
+  // The commit the index was built from, dated in UTC like every date on this page. It said
+  // "indexed", but the index carries no clock — this is when the code was committed, which on a
+  // clone of somebody else's repo can be a month before anyone indexed it.
+  h+='<span class="when">last commit <b>'+esc(O.commitDate||'date not available')+'</b>'+(O.commitDate?' UTC':'')
+    +(O.commit?' · <b>'+esc(O.commit)+'</b>':' · no commit recorded')+'</span>';
   bar.innerHTML=h;}
 
 // ---- left: vitals and findings -------------------------------------------------------------
@@ -381,16 +442,19 @@ function spark(days){const w=300,h=44,m=Math.max(1,...days),step=w/Math.max(1,da
 function vital(k,aside,body){return '<div class="vt"><div class="vk">'+esc(k)+(aside?'<span class="aside">'+aside+'</span>':'')+'</div>'+body+'</div>';}
 function vitals(){let h='<h2 class="sh">Repo vitals</h2>';
   h+=vital('Files indexed',S.lines?plural(S.lines,'line'):'','<div class="vv">'+fmt(S.files)+'</div>');
-  h+=vital('Import edges','between code files','<div class="vv">'+fmt(S.edges)+'</div>');
+  // Every resolved import, the number cortex-index prints; the aside is the subset the cloud and the
+  // Map draw. The tile used to show a third number, labelled as the second.
+  h+=vital('Import edges',S.mapEdges!==undefined?fmt(S.mapEdges)+' between code files':'','<div class="vv">'+fmt(S.edges)+'</div>');
   if(S.tested===null||S.tested===undefined)h+=vital('Test coverage','',NA('the coverage pass could not run'));
   else if(!S.testable)h+=vital('Test coverage','',NA('there is no non-test code to cover'));
-  else{const pct=Math.round(S.tested/S.testable*100);
-    h+=vital('Test coverage',fmt(S.tested)+' of '+fmt(S.testable)+' code files',
-      '<div class="vv">'+pct+'<small>%</small></div><div class="bar" role="img" aria-label="'+pct+' percent"><i style="width:'+pct+'%"></i></div>');}
+  else{const pct=Math.round(S.tested/S.testable*100),un=S.untested!==undefined&&S.untested!==null?S.untested:S.testable-S.tested;
+    h+=vital('Test coverage',fmt(S.tested)+' of '+fmt(S.testable)+' non-test code files',
+      '<div class="vv">'+pct+'<small>%</small></div><div class="bar" role="img" aria-label="'+pct+' percent"><i style="width:'+pct+'%"></i></div>'
+      +'<div class="spark-x"><span>'+plural(un,'module')+' with no test found</span></div>');}
   const c=O&&O.churn;
   if(!O)h+=vital('Commits · 30 days','',NA(NOSTATE));
   else if(c.unavailable)h+=vital('Commits · 30 days','',NA(c.unavailable));
-  else h+=vital('Commits · 30 days','','<div class="vv">'+fmt(c.commits)+'</div>'+spark(c.days)
+  else h+=vital('Commits · 30 days','ending at the last commit','<div class="vv">'+fmt(c.commits)+'</div>'+spark(c.days)
     +'<div class="spark-x"><span>'+esc(c.from)+'</span><span>'+esc(c.to)+'</span></div>');
   const f=O&&O.findings;
   if(!O)h+=vital('Findings','',NA(NOSTATE));
@@ -401,16 +465,16 @@ function vitals(){let h='<h2 class="sh">Repo vitals</h2>';
   if(!O)h+=NA(NOSTATE);
   else if(f.unavailable)h+=NA(f.unavailable);
   else if(!f.top.length)h+='<p class="hint2">Nothing ranked — the findings pass found no gaps.</p>';
-  else h+='<ul class="chk">'+f.top.map(t=>'<li><span class="box" aria-hidden="true"></span><span><span class="sv '+esc(t.severity)+'">'+esc(t.severity)+' · '+esc(t.kind)+'</span>'+esc(t.title)+'</span></li>').join('')+'</ul>'
+  else h+='<ul class="chk">'+f.top.map(t=>'<li><span class="box" aria-hidden="true"></span><span><span class="sv '+esc(t.severity)+'">'+esc(t.severity)+' · '+esc(t.kind)+'</span>'+ic(t.title)+'</span></li>').join('')+'</ul>'
     +'<p class="hint2"><code>/cortex</code> reads the full report and walks you through it.</p>';
   $('ovl').innerHTML=h;}
 
 // ---- right: next steps and timeline --------------------------------------------------------
 const cmdBtn=(cmd,title)=>'<button type="button" class="cmd" data-copy="'+esc(cmd)+'" title="'+esc(title)+' — click to copy"><span class="c">'+esc(cmd)+'</span></button>';
-function rightCol(){const n=D.next;let h='<h2 class="sh">Next steps'+(n?' <small>'+n.done+' of '+n.total+' done</small>':'')+'</h2>';
+function rightCol(){const n=D.next;let h='<h2 class="sh">Next steps'+(n?' <small>'+n.done+' of '+n.total+' required done</small>':'')+'</h2>';
   if(!n)h+=NA('no install sequence was computed for this page');
   else{const cur=n.steps.find(s=>s.next);
-    if(cur)h+='<div class="here"><div class="k">Run this next</div><div class="t">'+esc(cur.title)+'</div><div class="w">'+esc(cur.why)+'</div>'+cmdBtn(cur.cmd,cur.title)+'</div>';
+    if(cur)h+='<div class="here"><div class="k">Run this next</div><div class="t">'+esc(cur.title)+'</div><div class="w">'+ic(cur.why)+'</div>'+cmdBtn(cur.cmd,cur.title)+'</div>';
     else h+='<p class="hint2">Every step in the sequence is done.</p>';
     const seen=new Set(cur?[cur.cmd]:[]),rest=[];
     for(const s of n.steps)if(!s.done&&!seen.has(s.cmd)){seen.add(s.cmd);rest.push(s);}
@@ -529,7 +593,10 @@ if(cv&&ctx){
 function hero(){$('hero').innerHTML='<div class="lbl">Files indexed</div><div class="big">'+fmt(S.files)+'</div><div class="rule"></div>'
   +'<div class="strip"><span><b>'+fmt(S.edges)+'</b>import edges</span><span><b>'+fmt(D.areas.length)+'</b>areas</span>'
   +'<span><b>'+fmt(S.tests)+'</b>'+(S.tests===1?'test':'tests')+'</span><span><b>'+fmt(S.lines)+'</b>'+(S.lines===1?'line':'lines')+'</span></div>';
-  $('ovcap').innerHTML=n?'<b>The import graph.</b> Each point is one of '+plural(n,'code file')+'; the larger and brighter it is, the more files import it. Drag to turn it, click a point to open the file.'
+  // The cloud draws the code files and the imports between them — a subset of both headline
+  // numbers — so it says which subset rather than letting one read as the other.
+  const drawn=S.mapEdges!==undefined?S.mapEdges:L.length/2;
+  $('ovcap').innerHTML=n?'<b>The import graph.</b> Each point is one of '+plural(n,'code file')+' and each line one of the '+plural(drawn,'import')+' between them; the larger and brighter a point, the more files import it. Drag to turn it, click a point to open the file.'
     :'<b>No code files to draw.</b> The Files tab lists everything that was indexed.';}
 
 // ---- structure -----------------------------------------------------------------------------
@@ -558,22 +625,37 @@ function structure(){const s=D.structure,p=$('spane');if(!p)return;
   if(!s.shims.length)h+=B({k:'k-ctx',cls:'leaf missing',t:'no agent shims',s:'/cortex-scaffold writes CLAUDE.md and GEMINI.md'});
   h+=s.glossary?B({k:'k-ctx',cls:'leaf',t:'CONTEXT.md',s:'glossary — what the words mean here',go:'CONTEXT.md'})
     :B({k:'k-ctx',cls:'leaf missing',t:'no CONTEXT.md',s:'/domain-modeling writes the glossary'});
-  h+=s.adrs?B({k:'k-ctx',cls:'leaf',t:'docs/adr/',s:plural(s.adrs,'decision')+' recorded'})
+  h+=s.adrs?B({k:'k-ctx',cls:'leaf',t:'docs/adr/',s:plural(s.adrs,'decision')+' recorded',go:s.adrDir})
+    :s.adrDir?B({k:'k-ctx',cls:'leaf',t:'docs/adr/',s:'in place — no decision recorded yet',go:s.adrDir})
     :B({k:'k-ctx',cls:'leaf missing',t:'no docs/adr/',s:'/domain-modeling records decisions'});
   h+=s.review?B({k:'k-ctx',cls:'leaf',t:'REVIEW.md',s:'what a review checks',go:'REVIEW.md'})
     :B({k:'k-ctx',cls:'leaf missing',t:'no REVIEW.md',s:'/cortex writes the review rules'});
   h+='</div>';
   // Centre: the areas the root routes to.
-  const code=s.areas.filter(a=>a.code>0),docs=s.areas.filter(a=>a.code===0),shown=code.slice(0,12);
+  // Agent tooling (.claude/) is not an area of the product: it is listed, never offered a brief.
+  const code=s.areas.filter(a=>a.code>0&&!a.tooling),docs=s.areas.filter(a=>a.code===0||a.tooling),shown=code.slice(0,12);
+  // Scoped briefs are the ones an area owns. The root brief is not one, and a child's brief is not
+  // its parent's — counting either said "3 have a scoped brief" on a repo that had 2.
   h+='<div class="scol">'+B({k:'k-code',cls:'head',id:'s-ha',from:'s-root',t:'Code areas',
-    s:plural(code.length,'area')+' hold code · '+code.filter(a=>a.brief).length+' have a scoped brief'});
-  h+='<div class="sgrid">'+shown.map((a,i)=>{let c='<div class="sarea">'+B({k:'k-code',cls:'area',id:'s-a'+i,from:'s-ha',sw:a.color,t:a.name+'/',s:plural(a.files,'file')+' · '+fmt(a.code)+' code'});
-    c+=a.brief?B({k:'k-ctx',cls:'leaf',t:a.brief,s:'scoped brief',go:a.brief}):B({k:'k-ctx',cls:'leaf missing',t:'no scoped brief',s:'/cortex-brief '+a.name+'/'});
-    for(const f of a.key)c+=B({k:'k-code',cls:'leaf',t:base(f.path),s:'imported by '+fmt(f.inbound),go:f.path});
-    c+=a.tests?B({k:'k-test',cls:'leaf',t:plural(a.tests,'test file'),s:'in '+a.name+'/'}):B({k:'k-test',cls:'leaf missing',t:'no tests found',s:'in '+a.name+'/'});
+    s:(()=>{const b=code.filter(a=>a.brief&&!a.root).length;
+      return plural(code.length,'area')+(code.length===1?' holds':' hold')+' code · '+fmt(b)+(b===1?' has':' have')+' a scoped brief';})()});
+  h+='<div class="sgrid">'+shown.map((a,i)=>{let c='<div class="sarea">'+B({k:'k-code',cls:'area',id:'s-a'+i,from:'s-ha',sw:a.color,t:a.root?'top-level files':a.name+'/',s:plural(a.files,'file')+' · '+fmt(a.code)+' code'});
+    if(a.root)c+=a.brief?B({k:'k-ctx',cls:'leaf',t:a.brief,s:'the root brief covers these',go:a.brief})
+      :B({k:'k-ctx',cls:'leaf missing',t:'no root AGENTS.md',s:'/cortex-scaffold writes it'});
+    else if(a.brief)c+=B({k:'k-ctx',cls:'leaf',t:a.brief,s:'scoped brief',go:a.brief});
+    // A dashed box names a command, so it is drawn only where the findings report would offer one.
+    // Everything else is covered by the brief above it, and says which.
+    else if(a.suggest)c+=B({k:'k-ctx',cls:'leaf missing',t:'no scoped brief',s:a.suggest});
+    else c+=B({k:'k-ctx',cls:'leaf',t:a.inherits?'covered by '+a.inherits:'no scoped brief',s:'too small to need its own brief',go:a.inherits||''});
+    for(const f of a.key)c+=B({k:'k-code',cls:'leaf',t:f.label||base(f.path),s:'imported by '+fmt(f.inbound),go:f.path});
+    // Tests are counted the way the findings report counts them — by coverage, wherever the tests
+    // live — so a src/ area exercised from a top-level tests/ is not called untested.
+    if(a.tests)c+=B({k:'k-test',cls:'leaf',t:plural(a.tests,'test file'),s:'in '+a.name+'/'});
+    if(a.testable)c+=a.tested?B({k:'k-test',cls:'leaf',t:fmt(a.tested)+' of '+plural(a.testable,'code file'),s:'have a test found'})
+      :B({k:'k-test',cls:'leaf missing',t:'no test found',s:'for its '+plural(a.testable,'code file')});
     return c+'</div>';}).join('')+'</div>';
   if(code.length>shown.length)h+='<p class="sother">'+plural(code.length-shown.length,'more code area')+' — the Areas tab lists every one.</p>';
-  if(docs.length)h+='<div class="sother">Areas with no code: '+docs.map(a=>'<span class="chip flat">'+esc(a.name)+' · '+fmt(a.files)+'</span>').join('')+'</div>';
+  if(docs.length)h+='<div class="sother">Areas with no product code: '+docs.map(a=>'<span class="chip flat">'+esc(a.name)+' · '+fmt(a.files)+(a.tooling?' · agent tooling':'')+'</span>').join('')+'</div>';
   h+='</div>';
   // Right: what Cortex generates.
   h+='<div class="scol">'+B({k:'k-gen',cls:'head',id:'s-hg',from:'s-root',t:'Generated',s:'written by Cortex, under .cortex/'});
@@ -623,6 +705,9 @@ show('ov');
 const SCRIPT = `
 const $=s=>document.getElementById(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ic=s=>esc(s).replace(/\`([^\`]+)\`/g,'<code>$1</code>');
+const CHURN=(DATA.gaps&&DATA.gaps.churn)||{known:true};
+const commitsOf=n=>n+' commit'+(n===1?'':'s');
 const NODE=new Map(DATA.nodes.map(n=>[n.id,n]));
 const OUT=new Map(),IN=new Map();
 const push=(m,k,v)=>{if(!m.has(k))m.set(k,[]);m.get(k).push(v);};
@@ -647,7 +732,7 @@ function openFile(id){const n=NODE.get(id);if(!n)return;showTab('files');
     .filter(Boolean).map(t=>'<span class="chip flat">'+esc(t)+'</span>').join('');
   let h='<div class="inner"><h1>'+esc(n.label)+'</h1><div class="path mono">'+esc(n.path)+'</div>';
   h+='<div class="kpi"><div class="k"><b>'+n.lines.toLocaleString()+'</b><span>lines</span></div>'
-    +'<div class="k"><b>'+n.commits+'</b><span>commits</span></div>'
+    +'<div class="k" title="'+esc(CHURN.known?'':CHURN.reason)+'"><b>'+(CHURN.known?n.commits:'—')+'</b><span>commits</span></div>'
     +'<div class="k"><b>'+n.in+'</b><span>imported by</span></div>'
     +'<div class="k"><b>'+n.out+'</b><span>imports</span></div></div>';
   h+='<div style="margin-top:14px">'+facts
@@ -679,7 +764,7 @@ function buildAreas(){let h='<div class="wrap"><h2 class="vh">Areas</h2>'
   DATA.areas.forEach(a=>{h+='<div class="card"><h3><span class="sw" style="background:'+a.color+'"></span>'+esc(a.name)+'</h3>'
     +'<div class="s">'+a.files+' files · '+a.code+' code · '+a.lines.toLocaleString()+' lines</div>'
     +(a.description?'<div class="p">'+esc(a.description)+'</div>':'')
-    +'<div class="foot"><span class="chip flat '+(a.hasBrief?'ok':'')+'">'+(a.hasBrief?'✓ scoped brief':'no scoped brief')+'</span></div></div>';});
+    +'<div class="foot"><span class="chip flat '+(a.hasBrief?'ok':'')+'">'+(a.hasBrief?'✓ '+esc(a.brief||'scoped brief'):'no scoped brief')+'</span></div></div>';});
   $('apane').innerHTML=h+'</div>';}
 
 // ---- gaps --------------------------------------------------------------------------------
@@ -689,16 +774,29 @@ function buildGaps(){const g=DATA.gaps;
    +'<div class="k"><b>'+DATA.stats.edges+'</b><span>import edges</span></div>'
    +'<div class="k"><b>'+DATA.stats.tests+'</b><span>tests</span></div>'
    +'<div class="k'+(g.orphans.length?' warn':'')+'"><b>'+g.orphans.length+'</b><span>orphans</span></div>'
-   +'<div class="k'+(g.cyclicFiles.length?' bad':'')+'"><b>'+g.cyclicFiles.length+'</b><span>in cycles</span></div></div>';
+   +'<div class="k'+(g.cyclicFiles.length?' bad':'')+'"><b>'+g.cyclicFiles.length+'</b><span>in cycles</span></div>'
+   +(DATA.stats.untested!==null&&DATA.stats.untested!==undefined?'<div class="k'+(DATA.stats.untested?' warn':'')+'"><b>'+DATA.stats.untested+'</b><span>no test found</span></div>':'')+'</div>';
   h+='<h2 class="vh">Orphans</h2><div class="hint">Code files nothing imports and which import nothing. Import resolution is regex-based, so dynamic and computed imports are invisible — treat every row as a question, never a delete list.</div>';
   h+=g.orphans.length?g.orphans.map(p=>'<span class="chip" tabindex="0" role="button" data-go="'+esc(p)+'"><span class="mono">'+esc(p)+'</span></span>').join(''):'<div class="hint">None.</div>';
   h+='<h2 class="vh">Files in import cycles</h2><div class="hint">These import each other, directly or through a chain, so they cannot be understood — or tested — one at a time. They also share one layer depth, because mutually importing files genuinely have no order among themselves.</div>';
   h+=g.cyclicFiles.length?g.cyclicFiles.map(p=>'<span class="chip" tabindex="0" role="button" data-go="'+esc(p)+'"><span class="mono">'+esc(p)+'</span></span>').join(''):'<div class="hint">None.</div>';
-  h+='<h2 class="vh">Busiest code with no test found</h2><div class="hint">Ranked by commits, because churn is where an untested file actually costs you. Coverage uses three signals — a test named for the file, a test importing it, or a test naming it in a quoted string — so a file exercised only through a subprocess reads as untested here. That is the safe direction to be wrong in.</div>';
-  h+=g.untested.length?'<table><tr><th>file</th><th>commits</th></tr>'+g.untested.map(u=>'<tr><td><span class="chip" data-go="'+esc(u.path)+'"><span class="mono">'+esc(u.path)+'</span></span></td><td class="num">'+u.commits+'</td></tr>').join('')+'</table>':'<div class="hint">None.</div>';
-  h+='<h2 class="vh">Hot spots</h2><div class="hint">The most-changed code in this repo\\'s history — what a new agent, or a new hire, should read first, and where a scoped brief pays for itself.</div>';
-  h+='<table><tr><th>file</th><th>commits</th><th>lines</th><th>test</th></tr>'
-   +g.hot.map(f=>'<tr><td><span class="chip" data-go="'+esc(f.path)+'"><span class="mono">'+esc(f.path)+'</span></span></td><td class="num">'+f.commits+'</td><td class="num">'+f.lines+'</td><td class="num" style="color:'+(f.tested?'var(--ok)':'var(--ink-3)')+'">'+(f.tested?'✓':'—')+'</td></tr>').join('')+'</table>';
+  const S=DATA.stats,shownU=g.untested.length,allU=S.untested!==null&&S.untested!==undefined?S.untested:shownU;
+  const coverHint=' Coverage uses three signals — a test named for the file, a test importing it, or a test naming it in a quoted string — so a file exercised only through a subprocess reads as untested here. That is the safe direction to be wrong in.'
+    +(allU>shownU?' The first '+shownU+' of '+allU+' are listed.':'');
+  // Ranked by churn only when there is churn. On a shallow clone every file has one commit, and a
+  // table ranked by a column of ones is path order wearing the word "busiest".
+  if(CHURN.known){
+    h+='<h2 class="vh">Busiest code with no test found <small class="mono">'+allU+'</small></h2><div class="hint">Ranked by commits, because churn is where an untested file actually costs you.'+coverHint+'</div>';
+    h+=shownU?'<div class="tw"><table><tr><th>file</th><th>commits</th></tr>'+g.untested.map(u=>'<tr><td><span class="chip" data-go="'+esc(u.path)+'"><span class="mono">'+esc(u.path)+'</span></span></td><td class="num">'+u.commits+'</td></tr>').join('')+'</table></div>':'<div class="hint">None.</div>';
+  }else{
+    h+='<h2 class="vh">Most-imported code with no test found <small class="mono">'+allU+'</small></h2><div class="hint">Ranked by how many files import each one, because churn is not available: '+ic(CHURN.reason)+'.'+coverHint+'</div>';
+    h+=shownU?'<div class="tw"><table><tr><th>file</th><th>imported by</th></tr>'+g.untested.map(u=>'<tr><td><span class="chip" data-go="'+esc(u.path)+'"><span class="mono">'+esc(u.path)+'</span></span></td><td class="num">'+(u.inbound||0)+'</td></tr>').join('')+'</table></div>':'<div class="hint">None.</div>';
+  }
+  h+='<h2 class="vh">Hot spots</h2>';
+  if(!CHURN.known)h+='<div class="hint">Not available — '+ic(CHURN.reason)+'.</div>';
+  else{h+='<div class="hint">The most-changed code in this repo\\'s history — what a new agent, or a new hire, should read first, and where a scoped brief pays for itself.</div>';
+    h+='<div class="tw"><table><tr><th>file</th><th>commits</th><th>lines</th><th>test</th></tr>'
+     +g.hot.map(f=>'<tr><td><span class="chip" data-go="'+esc(f.path)+'"><span class="mono">'+esc(f.path)+'</span></span></td><td class="num">'+f.commits+'</td><td class="num">'+f.lines+'</td><td class="num" style="color:'+(f.tested?'var(--ok)':'var(--ink-3)')+'">'+(f.tested?'✓':'—')+'</td></tr>').join('')+'</table></div>';}
   const p=$('gpane');p.innerHTML=h+'</div>';
   p.querySelectorAll('.chip[data-go]').forEach(el=>el.onclick=()=>openFile(el.dataset.go));}
 
@@ -706,7 +804,7 @@ function buildGaps(){const g=DATA.gaps;
 function buildNext(){const n=DATA.next;const p=$('npane');
   if(!n){p.innerHTML='<div class="wrap hint">No sequence data.</div>';return;}
   let h='<div class="wrap"><h2 class="vh">Where this repo is</h2>'
-   +'<div class="hint">'+n.done+' of '+n.total+' steps. Every ✓ is a file on disk, not a guess — run the highlighted command next.</div>'
+   +'<div class="hint">'+n.done+' of '+n.total+' required steps — the number cortex-next prints; optional steps are ticked but not counted. Every ✓ is a file on disk, not a guess — run the highlighted command next.</div>'
    +'<div class="prog"><i style="width:'+Math.round(n.done/n.total*100)+'%"></i></div>';
   n.steps.forEach(s=>{const mk=s.done?'✓':s.next?'→':'';
     h+='<div class="step'+(s.done?' done':'')+(s.next?' next':'')+'"><div class="mk">'+mk+'</div><div style="min-width:0">'
@@ -714,10 +812,10 @@ function buildNext(){const n=DATA.next;const p=$('npane');
      +(s.optional?'<span class="badge">optional</span>':'')
      +(s.blocking?'<span class="badge hot">do this first</span>':'')
      +(s.next?'<span class="badge hot">you are here</span>':'')+'</div>'
-     +'<div class="wy">'+esc(s.why)+'</div>'
+     +'<div class="wy">'+ic(s.why)+'</div>'
      +(s.done?'':'<code class="cm">'+esc(s.cmd)+'</code>')+'</div></div>';});
   h+='<h2 class="vh">Per change</h2><div class="hint">Not a sequence — a lookup. These are triggered by what you are doing, never by how far along the install is.</div>';
-  h+='<table><tr><th>when</th><th>run</th></tr>'+n.perChange.map(r=>'<tr><td>'+esc(r.when)+'</td><td><code>'+esc(r.cmd)+'</code></td></tr>').join('')+'</table>';
+  h+='<div class="tw"><table><tr><th>when</th><th>run</th></tr>'+n.perChange.map(r=>'<tr><td>'+esc(r.when)+'</td><td><code>'+esc(r.cmd)+'</code></td></tr>').join('')+'</table></div>';
   p.innerHTML=h+'</div>';}
 
 // ---- graph -------------------------------------------------------------------------------
@@ -824,7 +922,14 @@ const bandL=()=>CX-BW/2-BPAD,bandR=()=>CX+BW/2+BPAD;
 // A band is as wide as the window, so fit() below lands near 1:1 and a chip is drawn at the size
 // it was measured at. Wrapping means width is never what overflows — height is, and height is the
 // axis this graph is read along anyway.
-const bandWidth=()=>Math.max(520,(W||1400)-150);
+// The legend is an overlay at the bottom right, and an open one covered the right end of every band
+// that reached it. On a screen wide enough to spare the room the layout reserves a gutter for it —
+// the bands are that much narrower and the fit centres them in what is left. On a narrow screen it
+// opens folded, and an overlay you asked for is allowed to cover something.
+let LEG_OPEN=(typeof innerWidth==='number'?innerWidth:1400)>=900;
+const LEG_W=260+18+14;
+const gutter=()=>LEG_OPEN&&(W||0)>=900?LEG_W:0;
+const bandWidth=()=>Math.max(520,(W||1400)-150-gutter());
 
 // pack() is the whole layout, and it is a projection rather than a force: given an order, it
 // assigns every position. Nothing downstream can move a node, so two nodes cannot overlap —
@@ -860,7 +965,7 @@ function pack(){let y=TOP;
   // right edge: the legend is an overlay pinned to the bottom right, which is exactly where a long
   // tray ends up. Centred and full width, its last column rendered under the legend and four
   // filenames were cut off — invisible in every measurement, obvious in a screenshot.
-  TRAY_Y=y+110;TRAY_COLS=Math.max(3,Math.floor((BW-LEGEND_GUTTER)/TRAY_W));
+  TRAY_Y=y+110;TRAY_COLS=Math.max(3,Math.floor((BW-(gutter()?0:LEGEND_GUTTER))/TRAY_W));
   LOOSE.forEach((n,i)=>{n.pin=1;
     n.x=bandL()+BPAD+(i%TRAY_COLS)*TRAY_W+TRAY_W/2;n.y=TRAY_Y+Math.floor(i/TRAY_COLS)*34;});}
 
@@ -907,7 +1012,7 @@ function fit(){if(!ROWS.length||!W)return;
   // The HUD is an overlay pinned to the top left of the canvas, which is also where band 0 puts its
   // label. Reserve the room rather than letting the two share it — a band label under a floating
   // panel is a band label nobody can read.
-  const padT=Math.max(pad,74),availW=W-pad*2,availH=H-padT-pad;
+  const G=gutter(),padT=Math.max(pad,74),availW=W-G-pad*2,availH=H-padT-pad;
   // Never fit below the point where the chips stop being readable: a page that fits
   // perfectly and cannot be read has optimised the wrong thing. Past that, panning is the answer.
   const s=Math.max(CHIP_LOD+.08,Math.min(availW/(x1-x0||1),availH/(y1-y0||1),1.15));
@@ -922,7 +1027,7 @@ function fit(){if(!ROWS.length||!W)return;
   // Centre what fits; anchor what does not to the top left. When the floor above wins, something
   // has to go off screen, and centring it cropped both ends — including band 0's label, which is
   // where the reading starts. Overflow belongs at the end you pan towards, not at the start.
-  tx=(gw<=availW?(W-gw)/2:pad)-x0*s;
+  tx=(gw<=availW?(W-G-gw)/2:pad)-x0*s;
   ty=(gh<=availH?padT+(availH-gh)/2:padT)-y0*s;}
 function shapePath(shape,x,y,r){ctx.beginPath();
   if(shape==='square')ctx.roundRect(x-r,y-r,r*2,r*2,r*.42);
@@ -996,7 +1101,7 @@ function bands(){if(!ROWS.length)return;
     ctx.fillText(RLBL[i],x0+18,BTOP[i]+23);}}
 
 function draw(){if(!W||TAB!=='map')return;ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(tx,ty);ctx.scale(scale,scale);
-  const EC=css('--edge');
+  const EC=css('--edge'),ER=css('--edge-rest')||'.12',EW=+css('--edge-w')||.7;
   bands();
   ctx.lineCap='round';
   for(const e of E){if(!vis(e.s)||!vis(e.t))continue;const on=hover?(e.s===hover||e.t===hover):true;
@@ -1010,8 +1115,8 @@ function draw(){if(!W||TAB!=='map')return;ctx.clearRect(0,0,W,H);ctx.save();ctx.
     // Quiet at rest. Wrapping puts related files on different sub-rows, so 154 edges drawn at any
     // real weight read as a thicket laid over the thing you came to look at. At rest they are a
     // texture that says where the traffic is; hover is what traces one.
-    ctx.strokeStyle=hover?(on?'rgba('+e.s.rgb+',.7)':'rgba('+EC+',.13)'):'rgba('+e.s.rgb+',.12)';
-    ctx.lineWidth=on&&hover?1.7:.7;
+    ctx.strokeStyle=hover?(on?'rgba('+e.s.rgb+',.7)':'rgba('+EC+',.13)'):'rgba('+e.s.rgb+','+ER+')';
+    ctx.lineWidth=on&&hover?1.7:EW;
     ctx.beginPath();ctx.moveTo(e.s.x,e.s.y);ctx.quadraticCurveTo(qx,qy,e.t.x,e.t.y);ctx.stroke();
     if(on&&hover){ // direction only where the eye is, so the picture stays calm
       const ang=Math.atan2(e.t.y-qy,e.t.x-qx),r=e.t.r+3.5;
@@ -1068,7 +1173,7 @@ addEventListener('mousemove',e=>{if(TAB!=='map'&&!drag&&!pan)return;const r=cv.g
       const flip=e.clientX>innerWidth-360;
       tip.style.left=(flip?e.clientX-350:e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px';
       tip.innerHTML='<div class="t">'+esc(n.path)+'</div><div class="m">'
-        +esc(n.area)+' · '+esc(n.lang)+' · <b>'+n.lines+'</b> lines · <b>'+n.commits+'</b> commits<br>'
+        +esc(n.area)+' · '+esc(n.lang)+' · <b>'+n.lines+'</b> lines'+(CHURN.known?' · <b>'+commitsOf(n.commits).replace(' ','</b> '):'')+'<br>'
         +(n.depth!==null?'layer <b>'+n.depth+'</b> · ':'')
         +'<b>'+n.in+'</b> imported by · <b>'+n.out+'</b> imports'
         +(n.category==='code'&&!n.isTest?(n.tested?'<br>✓ test found':'<br>✗ no test found'):'')
@@ -1077,11 +1182,15 @@ addEventListener('mousemove',e=>{if(TAB!=='map'&&!drag&&!pan)return;const r=cv.g
 addEventListener('mouseup',()=>{if(drag&&!drag._dn)openFile(drag.id);drag=null;pan=false;});
 cv.addEventListener('wheel',e=>{e.preventDefault();touched=true;const f=e.deltaY<0?1.1:.9;const mx=e.offsetX,my=e.offsetY;
   tx=mx-(mx-tx)*f;ty=my-(my-ty)*f;scale*=f;chipSet();},{passive:false});
-function buildHud(){$('hud').innerHTML='<span><b>'+N.length+'</b> files</span><span class="sep"></span>'
-  +'<span><b>'+E.length+'</b> imports</span><span class="sep"></span>'
+// The Map's own numbers are a subset of the headline ones — code files and the imports between
+// them — and said "52 files · 66 imports" on a page whose Overview said 147 files and 70 imports.
+// They are the same fields the Overview's cloud reads, and they say which subset they are.
+function buildHud(){const S=DATA.stats||{};$('hud').innerHTML='<span><b>'+(S.mapFiles!==undefined?S.mapFiles:N.length)+'</b> code files</span><span class="sep"></span>'
+  +'<span><b>'+(S.mapEdges!==undefined?S.mapEdges:E.length)+'</b> imports between them</span><span class="sep"></span>'
   +'<span><b>'+ROWS.length+'</b> layers</span><span class="sep"></span><span>scroll to zoom · drag to pan</span>';}
 function buildLegend(){const L=$('legend');const shown=new Set(N.map(n=>n.area));
-  L.innerHTML=DATA.areas.filter(a=>shown.has(a.name)).map(a=>'<div class="lg" tabindex="0" role="button" aria-pressed="true" data-a="'+esc(a.name)+'">'
+  L.innerHTML='<button type="button" class="lgt" id="lgt" aria-expanded="'+LEG_OPEN+'">'+(LEG_OPEN?'Hide legend':'Legend')+'</button>'
+   +DATA.areas.filter(a=>shown.has(a.name)).map(a=>'<div class="lg" tabindex="0" role="button" aria-pressed="true" data-a="'+esc(a.name)+'">'
     +'<span class="sw" style="background:'+a.color+'"></span>'+esc(a.name)
     +'<span class="ct">'+N.filter(n=>n.area===a.name).length+'</span></div>').join('')
    +'<div class="note">Click an area to hide it. Each band is one import depth — band 0 is what the '
@@ -1093,7 +1202,12 @@ function buildLegend(){const L=$('legend');const shown=new Set(N.map(n=>n.area))
   L.querySelectorAll('.lg[data-a]').forEach(el=>el.onclick=()=>{const a=el.dataset.a;
     if(hidden.has(a)){hidden.delete(a);el.classList.remove('off');}else{hidden.add(a);el.classList.add('off');}
     el.setAttribute('aria-pressed',hidden.has(a)?'false':'true');
-    pack();chipSet();});}
+    pack();chipSet();});
+  L.classList.toggle('min',!LEG_OPEN);
+  const t=$('lgt');if(t)t.onclick=()=>{LEG_OPEN=!LEG_OPEN;L.classList.toggle('min',!LEG_OPEN);
+    t.textContent=LEG_OPEN?'Hide legend':'Legend';t.setAttribute('aria-expanded',String(LEG_OPEN));
+    // Folding the legend gives its gutter back to the bands, and opening it takes it again.
+    BW=bandWidth();pack();chipSet();if(!touched)fit();};}
 // Search answers where it can be seen: on the Map it highlights, anywhere else it opens the list.
 $('q').addEventListener('input',e=>{setQuery(e.target.value);buildList(query.trim().toLowerCase());
   if(TAB!=='map'&&TAB!=='files')showTab('files');});
@@ -1130,8 +1244,18 @@ const TABS = [
 const THEME_BOOT =
   `try{var t=localStorage.getItem("cortex-view-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}`;
 
+// A favicon, inlined like everything else. Without one the browser asks the server for
+// /favicon.ico, which is a 404 in the console of every served copy of the page.
+const FAVICON =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E" +
+  "%3Crect width='32' height='32' rx='7' fill='%23733700'/%3E" +
+  "%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%23ffffff' stroke-width='3.5'/%3E" +
+  "%3Ccircle cx='16' cy='16' r='2.6' fill='%23ffb05a'/%3E%3C/svg%3E";
+
 export function renderHtml(view) {
-  const repo = escHtml(view.generated.root.split(/[\\/]/).filter(Boolean).pop() || "repo");
+  // The repo's name only — never its path on this machine (see `generated` in view.mjs).
+  const name = view.generated.repo ?? String(view.generated.root ?? "").split(/[\\/]/).filter(Boolean).pop();
+  const repo = escHtml(name || "repo");
   const tabs = TABS.map(([v, label]) =>
     `<button type="button" class="tab${v === "ov" ? " on" : ""}" role="tab" aria-selected="${v === "ov"}" data-v="${v}">${label}</button>`,
   ).join("\n");
@@ -1139,6 +1263,7 @@ export function renderHtml(view) {
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <meta name="color-scheme" content="light dark"/>
 <title>Cortex — ${repo}</title>
+<link rel="icon" href="${FAVICON}"/>
 <script>${THEME_BOOT}</script>
 <style>${CSS}</style></head><body>
 <div id="top">

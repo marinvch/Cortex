@@ -36,7 +36,7 @@ time; the asking is not.
    `--no-open` when the user is on a headless machine or has said not to open windows.
 3. **Print the path.** The browser may not surface on every setup, and the file is the deliverable.
 4. **Say what the numbers mean**, using the summary line the CLI prints — files, import edges, areas,
-   orphans, files in cycles, busiest untested. Do not re-count anything yourself.
+   orphans, files in cycles, modules with no test found. Do not re-count anything yourself.
 
 ## What is on the page
 

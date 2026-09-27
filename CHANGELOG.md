@@ -222,6 +222,18 @@ production breach writes the next `intent.md`.
 
 ### Changed
 
+- **Ready for Anthropic's plugin directory.** Checked against the directory's pre-submission
+  checklist: `plugin.json` now carries `author`, `license`, `homepage`, `repository` and `keywords`
+  (the checklist warns without an author), and `marketplace.json`'s unknown top-level `repository`
+  moved onto the plugin entry, so `claude plugin validate .` passes with no warnings. The security
+  scan rejects behaviour a README does not disclose, so the README gains **What Cortex runs, sends
+  and fetches**: the indexer is offline; the MCP server's only network use is `git` against a
+  team-brain the user connected; workflows `/cortex` stamps run in the user's CI; no telemetry.
+  The README's `/cortex-view` row, "What lands" tree, CLI block and Tools table caught up with what
+  shipped (`cortex-routes`, `cortex-placeholders`, `cortex-site-facts`, the loop artifacts, `adr/`),
+  and `skills/site-sync/PAGES.md` now maps `/cortex`, `/cortex-review` and the View notes to the
+  pages written from them — gaps `/site-sync` found and could not fill.
+
 - **The docs site moved to [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/).**
   The site repo was renamed `ai-os-site` → `cortex-site`, served from `/cortex-site/`; the README
   links it and the repository's Website field points at it. Closes #415.

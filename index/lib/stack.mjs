@@ -141,8 +141,29 @@ const SIGNALS = [
 // stack. Compare `citationDrift` in review.mjs, where a loosening that looked harmless took this
 // repo from 7 real findings to 157. Measure against real repos before and after, or do not widen.
 
+// Where each JSON manifest declares what it depends on. npm's four blocks, and Composer's two.
+const JSON_DEPENDENCY_BLOCKS = {
+  "package.json": ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"],
+  "composer.json": ["require", "require-dev"],
+};
+
+/** The dependency objects of a JSON manifest, or [] when it does not parse or declares none. */
+function dependencyBlocks(manifestText, manifestPath) {
+  const names = JSON_DEPENDENCY_BLOCKS[manifestPath.split("/").pop()];
+  if (!names) return [];
+  let doc;
+  try {
+    doc = JSON.parse(manifestText.replace(/^﻿/, "")); // npm reads a BOM'd manifest; so must this
+  } catch {
+    return [];
+  }
+  if (!doc || typeof doc !== "object") return [];
+  return names.map((n) => doc[n]).filter((b) => b && typeof b === "object" && !Array.isArray(b));
+}
+
 /**
- * A dependency name appearing as a KEY in the manifest, not anywhere in its text. `"next"` occurs
+ * A dependency name DECLARED by the manifest, not appearing anywhere in its text — in a JSON
+ * manifest, a key of one of its dependency blocks; elsewhere, a name at a token boundary. `"next"` occurs
  * inside `"next-auth"` and inside a hundred description strings; matching loosely reports a stack
  * the repo does not have, and the skills chosen from it would be wrong in a way nobody can see.
  */
@@ -152,8 +173,13 @@ function declaresDependency(manifestText, manifestPath, dep) {
   // the runtime, and a repo may carry either or both. Any alias counts.
   if (Array.isArray(dep)) return dep.some((d) => declaresDependency(manifestText, manifestPath, d));
   if (manifestPath.endsWith(".json")) {
-    // `"dep":` — a key, so a substring of another package name cannot match.
-    return new RegExp('"' + dep.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&") + '"\\s*:').test(manifestText);
+    // A key of a DEPENDENCY BLOCK, and nothing else. "Any `"dep":` key in the file" was the rule
+    // until pmndrs/zustand, whose `exports` map uses `"react-native"` as a resolution condition: a
+    // web state library reported React Native, and every brief prompt and skill header said so.
+    // `scripts`, `overrides`, `browser` and tool config blocks key on package names the same way.
+    // A manifest that does not parse declares nothing — it must not declare something wrong.
+    const blocks = dependencyBlocks(manifestText, manifestPath);
+    return blocks.some((b) => Object.prototype.hasOwnProperty.call(b, dep));
   }
   // requirements.txt / pyproject.toml / Gemfile / pom.xml / build.gradle / mix.exs: the name at a
   // token boundary, case-insensitive, before any version specifier.

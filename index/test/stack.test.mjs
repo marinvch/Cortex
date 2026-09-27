@@ -40,6 +40,77 @@ test("a dependency named only in prose does not count", () => {
   assert.deepEqual(s.frameworks, [], "a description is not a dependency");
 });
 
+test("a name used as an `exports` condition is not a dependency", () => {
+  // Verbatim shape from pmndrs/zustand's package.json: `react-native` is a resolution CONDITION
+  // under `exports`, so the old "any key anywhere" rule reported React Native for a web state
+  // library, and "TypeScript, React, React Native" reached the loop, the skills header and every
+  // brief prompt.
+  const [files, read] = repo({
+    "package.json": JSON.stringify({
+      name: "zustand",
+      exports: {
+        ".": {
+          "react-native": { types: "./index.d.ts", default: "./index.js" },
+          import: { types: "./esm/index.d.mts", default: "./esm/index.mjs" },
+          default: { types: "./index.d.ts", default: "./index.js" },
+        },
+      },
+      peerDependencies: { react: ">=18.0.0" },
+      devDependencies: { typescript: "^5" },
+    }),
+  });
+  const s = detectStack(files, read);
+  assert.deepEqual(s.frameworks, ["react"], "a peer dependency counts; an exports condition does not");
+  assert.deepEqual(s.languages, ["typescript"], "and devDependencies still count");
+});
+
+test("every dependency block counts — dependencies, dev, peer and optional", () => {
+  for (const block of ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"]) {
+    const [files, read] = repo({ "package.json": JSON.stringify({ name: "x", [block]: { express: "4" } }) });
+    assert.deepEqual(detectStack(files, read).frameworks, ["express"], block);
+  }
+});
+
+test("other package.json keys holding a dependency's name are not dependencies", () => {
+  // `scripts`, `browser` maps, `overrides`, `pnpm.overrides`, `jest` config — all objects whose
+  // keys can be a package name without the package being this repo's dependency.
+  const [files, read] = repo({
+    "package.json": JSON.stringify({
+      name: "x",
+      scripts: { express: "node server.js" },
+      browser: { vue: false },
+      overrides: { next: "15" },
+      pnpm: { overrides: { svelte: "5" } },
+      jest: { "react-native": {} },
+    }),
+  });
+  assert.deepEqual(detectStack(files, read).frameworks, []);
+});
+
+test("composer.json is read as JSON too — require and require-dev", () => {
+  const [files, read] = repo({
+    "composer.json": JSON.stringify({ name: "x/y", require: { "laravel/framework": "^11" } }),
+  });
+  assert.deepEqual(detectStack(files, read).frameworks, ["laravel"]);
+  const [f2, r2] = repo({
+    "composer.json": JSON.stringify({ name: "x/y", extra: { laravel: { "laravel/framework": {} } } }),
+  });
+  assert.deepEqual(detectStack(f2, r2).frameworks, [], "a key under `extra` is not a requirement");
+});
+
+test("a manifest saved with a byte-order mark still parses", () => {
+  // Windows editors write one; npm strips it, so a stack reader that did not would go blank.
+  const [files, read] = repo({ "package.json": "﻿" + PKG({ react: "19" }) });
+  assert.deepEqual(detectStack(files, read).frameworks, ["react"]);
+});
+
+test("a JSON manifest that does not parse declares nothing", () => {
+  // It must not declare something wrong: the old text scan would still find `"react":` in here.
+  const [files, read] = repo({ "package.json": '{ "dependencies": { "react": "19", } ' });
+  assert.deepEqual(detectStack(files, read).frameworks, []);
+  assert.deepEqual(detectStack(files, read).manifests, ["package.json"]);
+});
+
 test("Prisma needs the schema, not just the client", () => {
   // A repo can depend on the client while someone else owns the schema. Claiming Prisma there
   // produces an /add-migration skill pointing at a schema that does not exist.

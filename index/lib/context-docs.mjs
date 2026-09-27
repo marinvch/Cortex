@@ -23,6 +23,8 @@
 //   "is this path a context document?"      → here, a pure predicate
 //   "what does THIS repo have, and where?"  → readState, one observation
 
+import { isAdrPath } from "./adr.mjs";
+
 /**
  * Root-level agent briefs, in the order a reader should think of them.
  *
@@ -52,5 +54,5 @@ export const CORTEX_BRIEF_NAMES = ["AGENTS.md", "CLAUDE.md", "GEMINI.md"];
  * against a real repo first — several carry a `.github/copilot-instructions.md`.
  */
 export function isContextDoc(path) {
-  return /(^|\/)(AGENTS|CLAUDE|GEMINI|CONTEXT)\.md$/i.test(path) || /(^|\/)docs\/adr\/.+\.md$/i.test(path);
+  return /(^|\/)(AGENTS|CLAUDE|GEMINI|CONTEXT)\.md$/i.test(path) || isAdrPath(path);
 }

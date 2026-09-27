@@ -14,10 +14,11 @@ import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES } from "./context-docs.mjs";
 import { loopPlan } from "./loop.mjs";
+import { adrLocation } from "./adr.mjs";
 
-// Three numbers about the artifact chain, borrowed rather than recomputed. `loop.mjs` owns which
-// artifacts a repo is missing and why; this file owns the order of the sequence. Two modules each
-// keeping their own list is how the same run prints two answers, so the sequence asks.
+// Facts about the artifact chain, borrowed rather than recomputed. `loop.mjs` owns which artifacts
+// a repo is missing and why; this file owns the order of the sequence. Two modules each keeping
+// their own list is how the same run prints two answers, so the sequence asks.
 //
 // `loopServed: null` is a third state and not a zero: it means the plan could not be read at all,
 // which the row renders as a description of the step rather than as a score of 0. A repo told it
@@ -25,11 +26,40 @@ import { loopPlan } from "./loop.mjs";
 function loopFacts(root, index) {
   try {
     const plan = loopPlan(root, index);
-    return { loopServed: plan.served, loopTotal: plan.total, loopComplete: plan.complete };
+    return {
+      loopServed: plan.served,
+      loopTotal: plan.total,
+      loopComplete: plan.complete,
+      loopMissing: plan.missing.map((m) => m.id),
+    };
   } catch {
-    return { loopServed: null, loopTotal: null, loopComplete: false };
+    return { loopServed: null, loopTotal: null, loopComplete: false, loopMissing: null };
   }
 }
+
+// The two loop rows one pass of `/cortex` cannot close, because each waits on something only time
+// produces. Both are blocked until that pass writes their prerequisite (CLAUDE.md, REVIEW.md), so
+// they surface as missing only AFTER it — and the loop row used to answer that with "Next → /cortex"
+// again, forever, on a repo whose owner had rightly deferred bands for want of a metric. Each gets
+// its own row naming its own command, and says what it is waiting for.
+//
+// evals is not optional: a suite gating the agent's own configuration is worth having as soon as one
+// real task exists. bands is: a library with no production metric may never have one, and a
+// sequence that stays open until it does trains the reader to ignore it.
+const SECOND_ROUND = {
+  evals: {
+    title: "Seed the agent evals from real past tasks",
+    cmd: "/cortex evals",
+    optional: false,
+    why: "evals/ has no cases yet — each is a real task the team already did, so this waits for task history; invented cases prove nothing",
+  },
+  bands: {
+    title: "Put a control band on one production metric",
+    cmd: "/cortex bands",
+    optional: true,
+    why: "needs one metric with a stable history to band — a repo with no production metric has nothing to put here, and that is a finished state",
+  },
+};
 
 // The list moved to context-docs.mjs. This file knew six names and findings.mjs knew two, and both
 // answers reached one user from one command — `cortex-findings` prints `nextLine()` as its footer.
@@ -139,6 +169,8 @@ export function readState(root, index = null, overrides = {}) {
   const indexPath = defaultIndexPath(root);
   const indexed = existsSync(indexPath);
   const memory = filesIn(root, ".cortex/memory");
+  // docs/adr/ unless docs/ is a published site — adr.mjs owns that answer and its evidence.
+  const adr = adrLocation(root);
   return {
     root,
     legacyEngine: LEGACY_ENGINES.filter((d) => has(root, d)),
@@ -148,7 +180,9 @@ export function readState(root, index = null, overrides = {}) {
     enriched: has(root, ENRICHED_REL),
     rootBrief: has(root, "AGENTS.md"),
     glossary: has(root, "CONTEXT.md"),
-    adrs: filesIn(root, "docs/adr"),
+    adrs: filesIn(root, adr.dir),
+    adrDir: adr.dir,
+    adrWhy: adr.why,
     briefs: scopedBriefs(root, index),
     skills: repoSkills(root),
     memory,
@@ -236,7 +270,7 @@ function steps(s) {
     why:
       s.rootBrief && s.glossary
         ? "AGENTS.md + CONTEXT.md are in place"
-        : "root AGENTS.md, the shims, CONTEXT.md, docs/adr/",
+        : `root AGENTS.md, the shims, CONTEXT.md, ${s.adrDir ?? "docs/adr"}/`,
   });
 
   rows.push({
@@ -262,18 +296,34 @@ function steps(s) {
   // The loop, as one row rather than eight. `loop.mjs` owns which artifacts a repo is missing and
   // why; duplicating those rows here would give the user two lists that disagree the first time one
   // of them changed. This row says only whether the chain is closed, and hands off for the detail.
+  //
+  // The first pass is what one `/cortex` run can close. The rows in SECOND_ROUND are carved out of it
+  // and follow as rows of their own, so "Next → /cortex" is never the answer to a gap that another
+  // `/cortex` run cannot close.
+  const missing = s.loopMissing ?? null;
+  const firstPass = missing ? missing.filter((id) => !SECOND_ROUND[id]) : null;
+  const firstPassDone = s.loopComplete || (firstPass !== null && firstPass.length === 0);
   rows.push({
     id: "loop",
     title: "Close the artifact chain — intent → spec → plan → diff → PR → breach",
     cmd: "/cortex",
-    done: s.loopComplete,
+    done: firstPassDone,
     why:
       s.loopServed === null
         ? "the SDLC loop artifacts: REVIEW.md, the verification block, the verifier, intent/, hooks"
         : s.loopComplete
           ? `all ${s.loopTotal} loop artifacts that apply here are in place`
-          : `${s.loopServed} of ${s.loopTotal} in place — run \`cortex-loop.mjs .\` for which and why`,
+          : firstPassDone
+            ? `${s.loopServed} of ${s.loopTotal} in place — the rest wait on history, below`
+            : `${s.loopServed} of ${s.loopTotal} in place — run \`cortex-loop.mjs .\` for which and why`,
   });
+  // Only once the first pass is done: before that, `/cortex` above is the honest next command and
+  // will reach these itself.
+  if (firstPassDone && missing) {
+    for (const id of missing.filter((m) => SECOND_ROUND[m])) {
+      rows.push({ id, ...SECOND_ROUND[id], done: false });
+    }
+  }
 
   rows.push({
     id: "enrich",

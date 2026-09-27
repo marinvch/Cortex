@@ -1,5 +1,5 @@
 {
-  "//": "Written by /cortex. These run on every matching edit, so each must finish in well under a second and look only at the file that changed; the full test suite belongs at commit or PR time. Nothing here asks a person for approval — a prompt mid-build stalls every session running at once. Approval gates live at the release step.",
+  "//": "Written by /cortex. These run on every matching edit, so each looks only at the file that changed; the full test suite belongs at commit or PR time. The format hook costs the formatter's start-up on every edit — a Node formatter through npx takes around 2-3 seconds on Windows, less elsewhere — so it lists only formatters this repo declares. Nothing here asks a person for approval — a prompt mid-build stalls every session running at once. Approval gates live at the release step.",
   "hooks": {
     "PreToolUse": [
       {

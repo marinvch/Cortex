@@ -21,6 +21,12 @@ the reason the rules below have to be written down: the layering test will not c
 Importing from `core/` is fine and expected. Importing from `index/` or `mcp/` is a smell — it means
 a tool is reaching into a leaf, and the shared piece probably belongs in `core/`.
 
+**Two tools run from inside a target repo, not this one.** `cortex-preflight.mjs` and
+`cortex-placeholders.mjs` are called by rituals as `${CLAUDE_PLUGIN_ROOT}/tools/...` with the target
+as cwd. Anything they read from Cortex (templates) or print as a command resolves from
+`import.meta.url`, never from cwd. Preflight used to print `node index/cortex-index.mjs .`, a path
+that does not exist in the repo it was printed to.
+
 ## The copies that are deliberate, and the tests that pin them
 
 Three rules exist in more than one place **on purpose**, because the files needing them cannot share

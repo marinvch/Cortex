@@ -54,7 +54,7 @@ method, not a stage in any one workflow:
 Two Cortex rules apply while grilling, because a grilling session is where they get broken:
 
 - If a decision crystallises a **term**, add it to the target repo's `CONTEXT.md` as you go.
-  If it settles a **trade-off with a rejected alternative**, offer an ADR under `docs/adr/`.
+  If it settles a **trade-off with a rejected alternative**, offer an ADR in the repo's ADR directory (`docs/adr/`, or `adr/`).
 - The employer firewall holds. Grilling a personal project must not pull day-job systems,
   colleagues or client names into the conversation record.
 

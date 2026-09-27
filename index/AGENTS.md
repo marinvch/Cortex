@@ -332,6 +332,12 @@ borrows its three numbers rather than keeping a second list.
   `format` script — and an empty list stamps a `format-changed.sh` that does nothing. Lint is a
   family of names (`lint`, `test:lint`, a lone `lint:*`). Several parts with no aggregate return
   null rather than a command that checks half the repo, and a fixer is never chosen.
+- **A test command must exit.** `"test": "vitest"` watches in a terminal, so the verification
+  block, the verifier and the evals workflow all named a command that hangs. A watching `test`
+  script gives way to `test:run` / `test:ci` / `test:once` when one runs once; otherwise `test` is
+  null and `commandNotes.test` says why — never an invented `vitest run`. Scripts are followed
+  within the manifest, never into another package (`--filter`, `-r`): vitest's own root script
+  reaches a watcher that way and is still reported, a documented limit.
 - **A protected path needs evidence, not a name.** For `migrations?/` the file is the evidence —
   SQL or code, never under a `docs/` tree — because zustand's hand-written upgrade guides in
   `docs/reference/migrations/` were proposed for a hook that blocks edits.

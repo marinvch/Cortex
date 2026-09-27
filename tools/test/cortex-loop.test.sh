@@ -43,11 +43,15 @@ assert_not_contains "$out" "no dependency manifest found" \
 # Asserted over the WHOLE rendered output and across several repo shapes, because naming the one
 # sentence that broke would pass for every other way of breaking.
 
-for shape in populated empty withpkg; do
+for shape in populated empty withpkg watcher; do
   case "$shape" in
     populated) fresh_repo "$shape" ;;
     empty)     rm -rf "${WORK:?}/$shape"; mkdir -p "$WORK/$shape" || exit 1 ;;
     withpkg)
+      fresh_repo "$shape"
+      printf '{"name":"x","scripts":{"test":"vitest run","build":"tsc"}}\n' > "$WORK/$shape/package.json"
+      ;;
+    watcher)
       fresh_repo "$shape"
       printf '{"name":"x","scripts":{"test":"vitest","build":"tsc"}}\n' > "$WORK/$shape/package.json"
       ;;
@@ -77,6 +81,16 @@ assert_contains "$json" '"protectedWrites": [
         ".claude/agents/verifier.md"' "and --json carries the protected paths for the ritual to read"
 out="$(run nopkg)"
 assert_not_contains "$out" "--permission-mode" "a repo with no .claude/ row missing is not told about it"
+
+# `"test": "vitest"` starts watch mode in a terminal and never exits. Named as the test command, it
+# hung the verification block, the verifier and the evals workflow alike. With no script that runs
+# once beside it there is no test command, and the row says why rather than going quiet.
+out="$(run watcher)"
+assert_not_contains "$out" "npm test" "a watching test script is never named as the test command"
+assert_contains "$out" "starts a watcher that does not exit" "and the verification row says why"
+printf '{"name":"x","scripts":{"test":"vitest","test:run":"vitest run"}}\n' > "$WORK/watcher/package.json"
+out="$(run watcher)"
+assert_contains "$out" "test: npm run test:run" "with a one-shot script beside it, that script is the command"
 
 fresh_repo nopkg
 out="$(run nopkg)"

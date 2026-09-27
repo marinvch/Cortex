@@ -70,6 +70,13 @@ this project now versions independently of any package manager (see `VERSION`).
   than inventing a one-shot command nobody declared. On bulletproof-react's Vite app it reported
   `yarn test` before and no test command after; on vitest's `examples/basic`, `npm test` became
   `npm run test:run`.
+- **Package-manager lockfiles are protected (#461).** No install offered to protect
+  `pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `Cargo.lock`, `go.sum` or their kin, so each
+  one had to be added to REVIEW.md's out-of-scope list by hand. They are now detected by exact name
+  and join the generated paths the hooks row and REVIEW.md read. They are looked up on disk beside
+  each manifest the index saw, because the walker drops `*.lock` and `*-lock.json`, so an
+  index-only rule passed its fixtures and found nothing on a real repo. On ripgrep it found
+  `Cargo.lock` and `fuzz/Cargo.lock`, and on fzf `go.sum` and `Gemfile.lock`, all of them tracked.
 
 ## [2.39.0] — 2026-09-27
 

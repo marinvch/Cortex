@@ -49,7 +49,7 @@ const green = (s) => (tty ? G + s + R : s);
 
 console.log("");
 console.log(b(`Cortex — ${root}`));
-console.log(dim(`${plan.done} of ${plan.total} steps done. Every ✓ is a file on disk, not a guess.`));
+console.log(dim(`${plan.done} of ${plan.total} required steps done. Every ✓ is a file on disk, not a guess.`));
 console.log("");
 
 for (const s of plan.steps) {

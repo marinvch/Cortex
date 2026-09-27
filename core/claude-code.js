@@ -8,7 +8,8 @@
 // Keeping them true is the maintainer's job, and `tools/cortex-claude-docs.mjs --check` is how —
 // it fails when a rule's evidence has left its page. ADR 0017 holds the reasoning.
 //
-// Pure data, two lookups, and one heuristic two readers share (`triggerPhrasing`). It lives in
+// Pure data, two lookups, one heuristic two readers share (`triggerPhrasing`), and one path test
+// the loop reader applies to what /cortex would write (`protectedClaudePath`). It lives in
 // core/ because both index/'s findings and the tools/ that check Cortex's own files consume it,
 // and core/ is the one place both may import.
 //
@@ -18,7 +19,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-09-26";
+export const CHECKED = "2026-09-27";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -26,6 +27,8 @@ const MCP = "https://code.claude.com/docs/en/mcp";
 const HOOKS = "https://code.claude.com/docs/en/hooks";
 const MEMORY = "https://code.claude.com/docs/en/memory";
 const BEST = "https://code.claude.com/docs/en/best-practices";
+const MODES = "https://code.claude.com/docs/en/permission-modes";
+const HEADLESS = "https://code.claude.com/docs/en/headless";
 const OPUS_5_5 =
   "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5";
 
@@ -240,6 +243,44 @@ export const RULES = Object.freeze([
       "If Claude keeps skipping one instruction, add emphasis such as \"IMPORTANT\" to that line alone. If you emphasize many lines, none of them stands out.",
   },
 
+  // --- permissions: why an unattended /cortex cannot write under .claude/ ------------------------
+  //
+  // /cortex stamps .claude/agents/, .claude/hooks/ and .claude/settings.json. Headless (`claude -p`)
+  // those writes are refused, and no allow rule changes that — the four rules below are the chain
+  // of sentences that says so, and `protectedClaudePath()` is the one place the directory test lives.
+  {
+    id: "permission.protected-path.claude-dir",
+    value: ".claude",
+    source: MODES,
+    evidence: "`.claude`, except for `.claude/worktrees` where Claude stores its own git worktrees",
+  },
+  {
+    id: "permission.protected-path.never-auto-approved",
+    value: "bypassPermissions",
+    source: MODES,
+    evidence:
+      "Writes to a small set of paths are never auto-approved, except in `bypassPermissions` mode and in interactive terminal sessions in plan mode with bypass permissions available.",
+  },
+  {
+    id: "permission.protected-path.allow-rules-do-not-apply",
+    value: "Edit(.claude/**)",
+    source: MODES,
+    evidence:
+      "The safety check runs before Claude Code evaluates allow rules from settings, so an entry such as `Edit(.claude/**)` in `~/.claude/settings.json` or `.claude/settings.json` does not change the per-mode outcome in the table above.",
+  },
+  {
+    id: "permission.protected-path.auto-mode-classifier",
+    value: "auto",
+    source: MODES,
+    evidence: "Writes to protected paths route to the classifier even when an allow rule matches",
+  },
+  {
+    id: "headless.permission.no-host-denied",
+    value: "denied",
+    source: HEADLESS,
+    evidence: "In a `-p` run with no host, these requests are denied either way, and the flag also tells Claude not to retry them.",
+  },
+
   // --- the model: what a direct Messages API caller and an unattended runner must assume ----------
   {
     id: "model.effort.default-medium",
@@ -308,6 +349,21 @@ export function rule(id) {
 /** A rule's value — the number, key list or string a check compares against. */
 export function limit(id) {
   return rule(id).value;
+}
+
+/**
+ * Is a write to this repo-relative path one Claude Code treats as a protected-path write under
+ * `.claude/`? Those are never auto-approved outside `bypassPermissions`, an allow rule does not
+ * change that, and in a `claude -p` run nobody is there to answer the prompt — so the write is
+ * refused. `.claude/worktrees` is the one documented exception. Cortex stamps no other protected
+ * directory, so this answers only for `.claude`; widen it from the rule's page, not from memory.
+ */
+export function protectedClaudePath(rel) {
+  const dir = limit("permission.protected-path.claude-dir");
+  const p = String(rel).replace(/\\/g, "/").replace(/^(\.\/)+/, "");
+  const inside = p === dir || p.startsWith(`${dir}/`);
+  const worktrees = `${dir}/worktrees`;
+  return inside && p !== worktrees && !p.startsWith(`${worktrees}/`);
 }
 
 /**

@@ -258,6 +258,11 @@ borrows its three numbers rather than keeping a second list.
   for rewrite; an empty `intent/` is `missing`. Blocked rows never hold `complete` open — a repo
   with no CI is finished without an eval suite.
 - **Rank is control flow and ranks are unique.** Re-ranking a row changes the interview's order.
+- **Every entry carries `protectedWrites`** — its paths under `.claude/`, from `protectedClaudePath()`
+  in `core/claude-code.js`, never from a local list. Claude Code refuses those writes in a
+  `claude -p` run whatever the allow rules say, so a headless `/cortex` leaves exactly these rows
+  missing while the rest lands; the ritual and the E2E harness read the field to say so instead of
+  reporting the row as written or as declined.
 - Validated on `got` (npm), `fzf` (Make, Go) and `flask` (Python, nested example manifests), and
   mutation-tested: nine guards broken one at a time, nine test failures. Do both again when a row
   or a detector changes — fixtures here share the author's blind spots.

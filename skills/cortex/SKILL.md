@@ -227,8 +227,11 @@ key — replacing it takes out hooks and permissions somebody else depends on.
 ## 8. Close
 
 State what was written, as the same list of paths from step 6, so the promise and the result can be
-read side by side. Then state what was marked **later**, by name — a deferred offer that goes
-unmentioned is a decision the user made and Cortex quietly dropped.
+read side by side — **read back from disk, not from what you meant to write**. Rerun
+`cortex-loop.mjs . --json`: a confirmed row still in `missing` was not written, whatever your tool
+calls looked like. If it carries a non-empty `protectedWrites`, Claude Code refused it — see
+[Running unattended](#running-unattended). Then state what was marked **later**, by name — a
+deferred offer that goes unmentioned is a decision the user made and Cortex quietly dropped.
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-loop.mjs" . --line
@@ -241,6 +244,43 @@ install stops being useful — they leave holding options instead of a step.
 Then: suggest committing what was written so the team shares it, and mention `/dream` at the end of
 a working day, because `.cortex/memory/` is the only part of the loop that nothing on disk will
 remind them about.
+
+## Running unattended
+
+`claude -p "/cortex …"` — in CI, from a scheduled job, or installing the repos a
+`CORTEX_E2E_WORKSPACE` run checks — has nobody to answer the consent gate or step 6, so the prompt
+carries the answer (`[a]ll`, or the rows to write). It also meets a limit no prompt lifts: **Claude
+Code protects `.claude/`**, and the verifier, the hooks, `settings.json` and whatever
+`/cortex-skills` writes under `.claude/skills/` all land there. The
+[permission-modes](https://code.claude.com/docs/en/permission-modes#protected-paths) page says why,
+in three sentences `core/claude-code.js` pins (`permission.protected-path.*`):
+
+- "Writes to a small set of paths are never auto-approved, except in `bypassPermissions` mode and in
+  interactive terminal sessions in plan mode with bypass permissions available." `.claude` is on the
+  list, `.claude/worktrees` excepted.
+- "The safety check runs before Claude Code evaluates allow rules from settings" — so neither
+  `--allowedTools` nor an `Edit(.claude/**)` rule gets the write through.
+- "In a `-p` run with no host, these requests are denied either way" ([headless](https://code.claude.com/docs/en/headless)).
+  Manual and `acceptEdits` prompt, so they are denied; `dontAsk` denies outright.
+
+The supported way through is auto mode, where "Writes to protected paths route to the classifier even
+when an allow rule matches":
+
+```bash
+claude -p "/cortex — the user confirms [a]ll" --permission-mode auto
+```
+
+Auto mode needs a supported model and account, and an organisation can switch it off; a session
+that asks for it without qualifying starts in Manual and the writes are refused again. Without it,
+run `/cortex` interactively once and answer **Yes, and allow Claude to edit files in this project's
+.claude folder for this session**. `bypassPermissions` also writes them, and the docs confine it to
+isolated containers and VMs — it is never Cortex's default.
+
+**A refused write does not stop the run.** Everything outside `.claude/` still lands and the install
+reads as finished, which is why step 8 reads the result off disk. Every row still `missing` with a
+non-empty `protectedWrites` is named, with the sentence *Claude Code's protected-path check refused
+these* and the command above; check `.claude/skills/` for the skills you wrote the same way. Reporting
+it as written is the failure; so is reporting it as declined.
 
 ## Gotchas
 

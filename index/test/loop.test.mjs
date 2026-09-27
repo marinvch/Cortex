@@ -449,6 +449,32 @@ test("blocked artifacts do not hold complete open", () => {
   rmSync(root, { recursive: true, force: true });
 });
 
+test("rows that write under .claude/ say so, and only those", () => {
+  // The shape a headless /cortex leaves behind: everything outside .claude/ stamped, everything
+  // inside refused by Claude Code's protected-path check. The ritual reads protectedWrites to tell
+  // that apart from a row the user declined, so it must be on exactly the .claude/ rows.
+  const root = repo(({ put }) => {
+    put("package.json", JSON.stringify({ scripts: { test: "node --test" } }));
+    put("AGENTS.md");
+    put("CLAUDE.md", "# P\n\n## Verifying your work\n\n- Test: npm test\n");
+    put("REVIEW.md");
+    put("intent/README.md");
+  });
+  const plan = loopPlan(root, indexOf(["src/a.js"]));
+  const all = [...plan.present, ...plan.missing, ...plan.blocked];
+  for (const e of all) {
+    const expected = e.paths.filter((p) => p.startsWith(".claude/"));
+    assert.deepEqual(e.protectedWrites, expected, e.id);
+  }
+  assert.deepEqual(
+    plan.missing.filter((e) => e.protectedWrites.length).map((e) => e.id).sort(),
+    ["hooks", "verifier"],
+    "the two .claude/ rows are what is left",
+  );
+  assert.ok(plan.missing.every((e) => e.protectedWrites.length), "and nothing else is missing");
+  rmSync(root, { recursive: true, force: true });
+});
+
 test("reading the plan writes nothing", () => {
   const root = repo(({ put }) => put("src/a.js"));
   loopPlan(root, indexOf(["src/a.js"]));

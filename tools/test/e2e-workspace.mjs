@@ -28,6 +28,7 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const INDEX = join(REPO_ROOT, "index", "cortex-index.mjs");
 const IMPACT = join(REPO_ROOT, "index", "cortex-impact.mjs");
+const LOOP = join(REPO_ROOT, "index", "cortex-loop.mjs");
 const CLI = join(REPO_ROOT, "mcp", "ai-os.js");
 const SERVER = join(REPO_ROOT, "mcp", "server.js");
 
@@ -290,6 +291,34 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     xfail: "step 8.2",
     detail: sample(javaMissing, (e) => `${e.repo}: ${e.from} → ${e.to}`),
   });
+
+  // What /cortex wrote under .claude/ actually landed. The workspace repos are installed by a
+  // headless `claude -p "/cortex"`, and Claude Code never auto-approves a write under .claude/:
+  // allow rules do not change that, and -p has nobody to ask, so the verifier and the hooks are
+  // refused while AGENTS.md, CLAUDE.md and REVIEW.md land — an install that reads as done. Only
+  // repos where /cortex evidently ran (the root brief is present) are judged; the rest are not
+  // installed, which is a different failure with its own row above.
+  const refused = [];
+  let installed = 0;
+  for (const r of code) {
+    const run = spawnSync(process.execPath, [LOOP, r.clone, "--json"], { env: BASE_ENV, encoding: "utf8" });
+    if (run.status !== 0) continue;
+    const plan = JSON.parse(run.stdout);
+    if (!plan.present.some((e) => e.id === "brief")) continue;
+    installed += 1;
+    const paths = plan.missing.flatMap((e) => e.protectedWrites ?? []);
+    if (paths.length) refused.push({ repo: r.name, paths });
+  }
+  if (installed) {
+    checks.push({
+      ok: refused.length === 0,
+      label: `/cortex's .claude/ artifacts are on disk: ${installed - refused.length}/${installed} installed repos`,
+      detail: refused.length
+        ? `${sample(refused, (e) => `${e.repo} lacks ${e.paths.join(", ")}`)} — Claude Code refuses .claude/ writes under claude -p; ` +
+          "rerun /cortex with --permission-mode auto (skills/cortex/SKILL.md, Running unattended)"
+        : undefined,
+    });
+  }
 
   // The claude-setup checker is roadmap step 3. It does not exist yet, so this can only say so; the
   // step that builds it replaces this branch with a real run over everything /cortex wrote.

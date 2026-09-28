@@ -23,7 +23,10 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   replaces**: it inserts text in the file's own style, leaving every other byte where it was, and
   keeps an entry already there whatever it says. It refuses a file that does not parse. The parser
   must agree the result is exactly the original plus the two entries, or nothing is written. Do not
-  re-serialise the file, which reflows every inline array a team wrote.
+  re-serialise the file, which reflows every inline array a team wrote. `--auto-update` adds
+  `"autoUpdate": true` **only on a `cortex` entry this run adds**. An entry already there keeps its
+  `autoUpdate` — true, false or unset — because the committed value outranks each teammate's own
+  `/plugin` toggle, and someone chose it. Without the flag the key is never written.
 - **"A team's repo" is the `work` profile or `.cortex/connector.json`** (`lib/shared-plugin.mjs`
   `teamServed`). The profile is this machine's `CORTEX_PROFILE`, the one environment input the loop
   reads. A loop row may declare `applies`, and a row that does not apply drops out of every bucket

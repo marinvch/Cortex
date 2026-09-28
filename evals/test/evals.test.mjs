@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { SKILLS } from "../skills.mjs";
 import { build } from "../generate.mjs";
 import { listOf } from "../lib.mjs";
+import { spawnSync } from "node:child_process";
 
 const all = (skill) => Object.values(build(skill)).flat();
 
@@ -107,4 +108,13 @@ test("an answer line may trail an explanation, and only the list is read", () =>
 DELETE: ${t.delete.join(", ") || "none"} (both merged)`;
   assert.equal(SKILLS.ship.score(reply, t).hard, 1);
   assert.deepEqual(listOf("fix/a-b, feat/c-d - kept the rest"), ["fix/a-b", "feat/c-d"]);
+});
+
+test("importing generate.mjs writes nothing — only running it as a command does", () => {
+  // It used to rewrite every tasks.json on import, so `node --test` regenerated the data while a
+  // sibling test file was reading it, and a CRLF checkout showed every file as modified.
+  const url = new URL("../generate.mjs", import.meta.url).href;
+  const r = spawnSync(process.execPath, ["--input-type=module", "-e", `await import(${JSON.stringify(url)})`], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /wrote/);
 });

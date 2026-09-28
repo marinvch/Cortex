@@ -5,6 +5,21 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Changed
+
+- **`/cortex-review` flagged ADR lines written in the present tense as stale, and `/resume` put
+  another worktree's dirt on the `Uncommitted` line.** The #472 evals found both.
+  - `/cortex-review` called only "ADR rationale" history, so a `Decision:` line naming the old
+    path was reported as drift. `index/lib/review.mjs` classes every ADR line `historical`. The
+    body now says so too: every ADR line and every CHANGELOG entry is history in whatever tense it
+    is written.
+  - `/resume`'s report shape now says `Uncommitted` covers this checkout alone. A dirty extra
+    worktree goes on `Diverged` with its branch and path. Rewording the two shape lines alone made
+    the scores worse (0.714 / 0.905), so the rule got its own sentence.
+  - Re-recorded baselines, hard / soft, with no skill in brackets: `/cortex-review` 0.643 / 0.927
+    → 0.929 / 0.992 (0.286 / 0.840), so its alarm now fires on soft as well as hard. `/resume`
+    0.857 / 0.952 → 1.000 / 1.000 (0.143 / 0.670).
+
 ### Added
 
 - **An edit that makes `/ship`, `/resume` or `/cortex-review` worse is now caught before it merges

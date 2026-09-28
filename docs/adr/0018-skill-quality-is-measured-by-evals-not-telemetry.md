@@ -76,3 +76,7 @@ for #472". With no skill, on the new tasks:
 `/cortex-review` is still the weak one. Its only trap that separates the skill from no skill is
 the present-tense ADR line, and the run with the skill misses that too, because the body calls
 only "ADR rationale" history. `evals/README.md` has the per-run numbers.
+
+Later the same day, both skill bodies were fixed where the harder tasks pointed, and both were
+re-measured. `/cortex-review` scored 0.929 / 0.992 against 0.286 / 0.840 with no skill, so its
+alarm now fires on soft as well. `/resume` scored 1.000 / 1.000 against 0.143 / 0.670.

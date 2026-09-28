@@ -33,6 +33,13 @@
 //
 // The two entries are a block inside a shared file, like the hooks merged into the same file, so
 // they are not in the stamp record (`stamps.mjs` tracks whole files only).
+//
+// Auto-update is a separate choice, off unless asked (`{ autoUpdate: true }`). The settings reference
+// documents it as "an optional `autoUpdate` Boolean" on the marketplace entry: `true` makes every
+// teammate's Claude Code refresh the marketplace and update Cortex in the background after startup,
+// and in the committed file it outranks each teammate's own /plugin toggle (plugins/loading, "Which
+// marketplaces and plugins auto-update"). So it is written only on a NEW cortex entry. An entry
+// already there keeps its `autoUpdate` — true, false or absent — because that was someone's call.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -50,7 +57,7 @@ export const CORTEX_PLUGIN = "cortex@cortex";
 // `additionalMarketplaces` is the documented alias of `extraKnownMarketplaces`, so a file that uses
 // it gets the entry there rather than a second, competing key beside it.
 const WANTS = [
-  { keys: ["extraKnownMarketplaces", "additionalMarketplaces"], name: CORTEX_MARKETPLACE.name, value: CORTEX_MARKETPLACE.entry },
+  { keys: ["extraKnownMarketplaces", "additionalMarketplaces"], name: CORTEX_MARKETPLACE.name, value: CORTEX_MARKETPLACE.entry, marketplace: true },
   { keys: ["enabledPlugins"], name: CORTEX_PLUGIN, value: true },
 ];
 
@@ -119,27 +126,47 @@ function plan(doc) {
     if (own(doc, key) && !isObject(doc[key])) {
       throw new SettingsUnreadable(`\`${key}\` is not an object in ${SETTINGS_REL}, so Cortex will not write into it`);
     }
-    return { ...w, key, present: own(doc, key) && own(doc[key], w.name) };
+    const present = own(doc, key) && own(doc[key], w.name);
+    return { ...w, key, present, existing: present ? doc[key][w.name] : undefined };
   });
 }
 
+/** The value a merge writes for a wanted entry: the marketplace entry gains autoUpdate only if asked. */
+const valueFor = (w, autoUpdate) => (w.marketplace && autoUpdate === true ? { ...w.value, autoUpdate: true } : w.value);
+
 /**
- * `{ settings: "absent" | "ok" | "unreadable", served, problem, missing }` for this repo's
- * `.claude/settings.json`. `served` is both entries present, with any value. `missing` names what a
- * merge would add, as `key.name`.
+ * What became of the auto-update choice: "set" on a new entry, "not asked", or "kept <value>" for a
+ * cortex entry already there, whose autoUpdate is never changed — "kept true", "kept false", "kept unset".
+ */
+function autoUpdateOutcome(wants, autoUpdate) {
+  const m = wants.find((w) => w.marketplace);
+  if (m.present) {
+    const v = isObject(m.existing) && own(m.existing, "autoUpdate") ? m.existing.autoUpdate : undefined;
+    return `kept ${v === undefined ? "unset" : JSON.stringify(v)}`;
+  }
+  return autoUpdate === true ? "set" : "not asked";
+}
+
+/**
+ * `{ settings: "absent" | "ok" | "unreadable", served, problem, missing, autoUpdate }` for this
+ * repo's `.claude/settings.json`. `served` is both entries present, with any value. `missing` names
+ * what a merge would add, as `key.name`. `autoUpdate` is the cortex entry's own Boolean, or null
+ * when there is no entry or it sets none.
  */
 export function sharedPluginStatus(root) {
   const abs = join(root, ...SETTINGS_REL.split("/"));
   if (!existsSync(abs)) {
-    return { settings: "absent", served: false, problem: null, missing: WANTS.map((w) => `${w.keys[0]}.${w.name}`) };
+    return { settings: "absent", served: false, problem: null, missing: WANTS.map((w) => `${w.keys[0]}.${w.name}`), autoUpdate: null };
   }
   try {
     const wants = plan(parseSettings(readFileSync(abs, "utf8")));
     const missing = wants.filter((w) => !w.present).map((w) => `${w.key}.${w.name}`);
-    return { settings: "ok", served: missing.length === 0, problem: null, missing };
+    const m = wants.find((w) => w.marketplace).existing;
+    const autoUpdate = isObject(m) && typeof m.autoUpdate === "boolean" ? m.autoUpdate : null;
+    return { settings: "ok", served: missing.length === 0, problem: null, missing, autoUpdate };
   } catch (e) {
     if (e.code !== "settings_unreadable") throw e;
-    return { settings: "unreadable", served: false, problem: e.message, missing: [] };
+    return { settings: "unreadable", served: false, problem: e.message, missing: [], autoUpdate: null };
   }
 }
 
@@ -220,15 +247,21 @@ function insertMember(t, open, name, value, style) {
 
 /**
  * Merge Cortex's two entries into a `.claude/settings.json` text (`null` when there is no file).
- * Returns `{ text, added, kept }`, with `added` and `kept` as `key.name`. Throws `SettingsUnreadable`
- * for a file it will not write into. Pure: the caller writes `text`, and only when `added` is not
- * empty.
+ * Returns `{ text, added, kept, autoUpdate }`, with `added` and `kept` as `key.name` and
+ * `autoUpdate` as `autoUpdateOutcome` says. `{ autoUpdate: true }` asks for it on a new cortex entry.
+ * Throws `SettingsUnreadable` for a file it will not write into. Pure: the caller writes `text`, and
+ * only when `added` is not empty.
  */
-export function mergeSharedPlugin(text) {
+export function mergeSharedPlugin(text, { autoUpdate = false } = {}) {
   if (text === null || text === undefined) {
     const doc = {};
-    for (const w of WANTS) doc[w.keys[0]] = { [w.name]: w.value };
-    return { text: JSON.stringify(doc, null, 2) + "\n", added: WANTS.map((w) => `${w.keys[0]}.${w.name}`), kept: [] };
+    for (const w of WANTS) doc[w.keys[0]] = { [w.name]: valueFor(w, autoUpdate) };
+    return {
+      text: JSON.stringify(doc, null, 2) + "\n",
+      added: WANTS.map((w) => `${w.keys[0]}.${w.name}`),
+      kept: [],
+      autoUpdate: autoUpdate === true ? "set" : "not asked",
+    };
   }
 
   const doc = parseSettings(text);
@@ -250,13 +283,14 @@ export function mergeSharedPlugin(text) {
     const id = `${w.key}.${w.name}`;
     if (w.present) { kept.push(id); continue; }
     added.push(id);
+    const value = valueFor(w, autoUpdate);
     const top = objectAt(t, root).members.filter((m) => m.key === w.key).pop();
     if (top) {
-      expected[w.key][w.name] = w.value;
-      t = insertMember(t, top.valueStart, w.name, w.value, style);
+      expected[w.key][w.name] = value;
+      t = insertMember(t, top.valueStart, w.name, value, style);
     } else {
-      expected[w.key] = { [w.name]: w.value };
-      t = insertMember(t, root, w.key, { [w.name]: w.value }, style);
+      expected[w.key] = { [w.name]: value };
+      t = insertMember(t, root, w.key, { [w.name]: value }, style);
     }
   }
 
@@ -264,5 +298,5 @@ export function mergeSharedPlugin(text) {
   if (!isDeepStrictEqual(JSON.parse(t), expected)) {
     throw new Error(`merging into ${SETTINGS_REL} produced something other than the intended entries — nothing was written`);
   }
-  return { text: bom + t, added, kept };
+  return { text: bom + t, added, kept, autoUpdate: autoUpdateOutcome(wants, autoUpdate) };
 }

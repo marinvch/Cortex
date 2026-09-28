@@ -86,6 +86,13 @@ than yours, `/cortex`, `/cortex-next` and `cortex-stamps.mjs` say so with these 
 an older plugin refuses to rewrite any file a newer one stamped — it would put its own older
 template back.
 
+On a team's repo — your profile is `work`, or `/team-add` connected it to a team brain — `/cortex`
+also offers to add Cortex to the repo's committed `.claude/settings.json`: the `cortex` marketplace
+under `extraKnownMarketplaces` and `cortex@cortex` under `enabledPlugins`. It merges the two entries
+in and changes nothing else. Once a teammate trusts the folder, Claude Code registers the marketplace
+for them. It does not install the plugin: the docs still have each teammate run
+`claude plugin install cortex@cortex --scope project` once.
+
 ### The order, and how to stop guessing at it
 
 A list of commands is a menu, not an answer. **`/cortex-next` reads the repo you are standing in
@@ -211,6 +218,7 @@ node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 node index/cortex-routes.mjs . --workspace  # which back-end handler serves each front-end call
 node index/cortex-stamps.mjs .     # which files /cortex stamped are out of date; writes nothing
+node index/cortex-shared-plugin.mjs .  # on a team repo: what --write would add to .claude/settings.json
 ```
 
 ---
@@ -399,11 +407,14 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   under its `.cortex/` (the first index run also appends three lines to `.gitignore`). They make no
   network calls and install nothing — Cortex has no runtime dependencies. Two things there are
   meant to be committed: `.cortex/memory/`, and `.cortex/stamps.json`, the record of which files
-  Cortex stamped into the repo and from which release. The one script that writes outside
-  `.cortex/` is `cortex-stamps.mjs update`. `/cortex` runs it only on the files you confirmed, and
-  it rewrites only a file Cortex stamped that nobody has touched since, and never when
-  `.cortex/stamps.json` names a newer Cortex than the one running. That check compares the record
-  with the plugin's own `VERSION` file; nothing is fetched to make it.
+  Cortex stamped into the repo and from which release. Two scripts write outside `.cortex/`, and
+  `/cortex` runs each only on what you confirmed:
+  - `cortex-stamps.mjs update` rewrites only a file Cortex stamped that nobody has touched since,
+    and never when `.cortex/stamps.json` names a newer Cortex than the one running. That check
+    compares the record with the plugin's own `VERSION` file; nothing is fetched to make it.
+  - `cortex-shared-plugin.mjs --write` adds two entries to `.claude/settings.json`, creating the
+    file if there is none, and leaves every other key as it was. It refuses a file that does not
+    parse as JSON.
 - **Updates are Claude Code's, not Cortex's.** Cortex never checks for a newer release. With
   auto-update turned on, Claude Code fetches the marketplace itself; the manual update is the two
   `claude plugin` commands under [Keep it current](#keep-it-current).
@@ -419,7 +430,9 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
 - **Stamped into your repo, not run by the plugin:** `/cortex` can write GitHub Actions workflows.
   `cortex-review.yml` clones this repository at a pinned release tag inside your CI to review each
   PR; `agent-evals.yml` installs Claude Code in your CI to run your eval cases. Both are files you
-  read and commit.
+  read and commit. On a team's repo it can also add the `cortex` marketplace to
+  `.claude/settings.json`. Then Claude Code, not Cortex, clones `github.com/marinvch/Cortex` on each
+  teammate's machine once they trust the folder.
 - **No telemetry.** Nothing is sent to the author or to any service Cortex runs.
 
 ### The vault firewall

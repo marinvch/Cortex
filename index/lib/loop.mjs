@@ -27,6 +27,7 @@ import { join } from "node:path";
 import { labelsFor } from "./stack.mjs";
 import { categoryOf, detectLanguage } from "./langs.mjs";
 import { protectedClaudePath } from "../../core/claude-code.js";
+import { sharedPluginStatus, teamServed } from "./shared-plugin.mjs";
 
 /** The six stages, in loop order. A row belongs to exactly one. */
 export const STAGES = ["plan", "design", "build", "test", "deploy", "maintain"];
@@ -573,6 +574,11 @@ export function readLoopState(root, index = null, overrides = {}) {
     evals: nonEmptyDir(root, "evals"),
     bands: has(root, "bands.yaml") || has(root, ".cortex/bands.yaml"),
     memory: filesIn(root, ".cortex/memory"),
+    // Whether this repo is served for a team (the `work` profile or a team-brain connector), and
+    // what its settings.json already says about the shared plugin. The profile is this machine's
+    // environment; `overrides.team` is how a test states it instead.
+    team: teamServed(root),
+    sharedPlugin: sharedPluginStatus(root),
     ...overrides,
   };
 }
@@ -593,6 +599,8 @@ export function readLoopState(root, index = null, overrides = {}) {
  *               are what the stamp record tracks and what adoption looks for (`stamps.mjs`). A block
  *               appended or merged into a shared file (CLAUDE.md, settings.json) is not one.
  *   present   — (s) => already there. A file fact, never a quality judgment.
+ *   applies   — (s) => optional. False drops the row from every bucket and every count: it is not
+ *               this kind of repo, which is different from waiting on a prerequisite (`when`).
  *   when      — (s) => is this repo a candidate at all. Pure predicate over the state.
  *   why       — (s) => the evidence sentence. Must name what was DETECTED.
  *   brief     — instructions to the writer, not the body itself.
@@ -838,6 +846,33 @@ export const LOOP_ARTIFACTS = [
       "tested, no model. The model is what diagnoses AFTER a band is breached. 1σ logs, 2σ " +
       "diagnoses read-only, 3σ may open a PR or trigger a pre-approved runbook. Never more.",
   },
+  {
+    id: "team-plugin",
+    stage: "maintain",
+    title: "Cortex for the whole team — its marketplace and plugin in the committed settings",
+    paths: [".claude/settings.json"],
+    rank: 90,
+    template: null,
+    // A block merged into a shared file, like the hooks: no `stamps`, and not in the stamp record.
+    // Only a team's repo: on one person's `home` or `lab` repo there is nobody to share it with,
+    // and a row named there would be noise every run.
+    applies: (s) => s.team.team,
+    present: (s) => s.sharedPlugin.served,
+    when: (s) => s.sharedPlugin.settings !== "unreadable",
+    needs: [".claude/settings.json that parses as JSON — Cortex merges into it and never overwrites it"],
+    why: (s) => {
+      if (s.sharedPlugin.settings === "unreadable") return s.sharedPlugin.problem;
+      const who = evidence(s.team.why, "not a team repo (no work profile, no connector)");
+      if (s.sharedPlugin.served) return `${who}; both entries are in .claude/settings.json`;
+      return `${who}, so every teammate should run the same Cortex; .claude/settings.json lacks ${s.sharedPlugin.missing.join(" and ")}`;
+    },
+    brief:
+      "Merge with `node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-shared-plugin.mjs\" . --write`, never by hand: " +
+      "it adds the marketplace (GitHub marinvch/Cortex) and cortex@cortex, keeps every other key, and " +
+      "refuses a file that does not parse. Say in the offer what committing it does and does not do: " +
+      "once a teammate trusts the folder Claude Code registers the marketplace, and the docs still have " +
+      "each teammate install the plugin once — claude plugin install cortex@cortex --scope project.",
+  },
 ];
 
 /**
@@ -870,6 +905,7 @@ export function loopPlan(root, index = null, overrides = {}) {
   const blocked = [];
 
   for (const row of rows) {
+    if (row.applies && !row.applies(s)) continue;
     const entry = {
       id: row.id,
       stage: row.stage,

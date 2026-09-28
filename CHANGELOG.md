@@ -144,6 +144,26 @@ this project now versions independently of any package manager (see `VERSION`).
   The live half cannot be a test, because a model runs it. It was run by hand in the same
   workspace and is recorded in the PR: a cross-area task went through the team, and a one-file
   fix was worked single.
+- **ADR 0019, and the agent team in the README (plan step 16, docs half).**
+  - [ADR 0019](docs/adr/0019-the-agent-team-is-written-into-the-repo-and-run-by-the-main-session.md)
+    records four decisions, each with its rejected alternatives:
+    - the team is written into the repo as project agents, not shipped as plugin agents, whose
+      hooks are ignored and which are not documented as teammates (T8);
+    - the main session runs it from a `CLAUDE.md` section, and `agent:` is rejected because it
+      replaces the system prompt (T1);
+    - debate is bounded and evidence-only, and arguing to consensus is rejected (T5);
+    - agent teams are compatible and never enabled (T7).
+
+    It also records the fence's limits (untrusted folders and `claude -p`, Bash, teammates) and
+    what the step-15 live run showed, including the one text fix it caused.
+  - The README gains **The agent team**: each role's one job and what it may edit; the
+    single-or-team question; the debate; existing agents graded and mapped with consent; the
+    fence's limits; and how to remove the team. The install paragraph, the per-change table
+    (`/cortex-impact --size`), the "What lands" tree, the CLI block (`cortex-loop --team`,
+    `cortex-impact --size`) and "What Cortex runs, sends and fetches" now mention it.
+  - `skills/site-sync/PAGES.md` maps the section and the ADR to `/what-lands`, `/principles` and
+    `/sequence`.
+  - `/cortex`'s description names the agent team.
 
 ### Changed
 

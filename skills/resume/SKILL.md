@@ -85,10 +85,13 @@ Three lines, in this shape, and do not skip to the work:
 
 ```
 Committed:    <what landed, from the log>
-Uncommitted:  <what is dirty, and on which branch>
-Diverged:     <ahead/behind, and any branch or PR holding work>
+Uncommitted:  <what is dirty in this checkout, and on which branch>
+Diverged:     <ahead/behind, and any branch, PR or dirty extra worktree holding work>
 Remaining:    <what you believe is left>
 ```
+
+`Uncommitted` is this checkout alone, so it says `none` when only another worktree is dirty. That
+worktree's branch and path go on `Diverged`, with the hidden work.
 
 The last line is a claim, not a plan. Getting it wrong is cheap here and expensive three tool calls
 later, so state it plainly enough that the user can correct it in one word. If the evidence is thin,

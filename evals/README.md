@@ -76,22 +76,25 @@ Measured on 2026-09-28 with `claude-sonnet-5` at medium effort:
 |---|---|---|---|---|---|
 | `/ship` | unchanged | 1.000 / 1.000 | 0.357 / 0.869 | 0.64 / 0.13 | both |
 | `/resume` | first version | 1.000 / 1.000 | 0.786 / 0.944 | 0.21 / 0.06 | hard, by one task |
-| `/resume` | now | 0.857 / 0.952 | 0.143 / 0.653 | 0.71 / 0.30 | both |
+| `/resume` | harder | 0.857 / 0.952 | 0.143 / 0.653 | 0.71 / 0.30 | both |
+| `/resume` | harder, skill text fixed | 1.000 / 1.000 | 0.143 / 0.670 | 0.86 / 0.33 | both |
 | `/cortex-review` | first version | 1.000 / 1.000 | 0.929 / 0.986 | 0.07 / 0.01 | neither |
-| `/cortex-review` | now | 0.643 / 0.927 | 0.357 / 0.864 | 0.29 / 0.06 | hard only |
+| `/cortex-review` | harder | 0.643 / 0.927 | 0.357 / 0.864 | 0.29 / 0.06 | hard only |
+| `/cortex-review` | harder, skill text fixed | 0.929 / 0.992 | 0.286 / 0.840 | 0.64 / 0.15 | both |
 
-The with-skill row is the recorded baseline. Unrecorded repeats scored 0.857 to 0.929 hard on
-`/resume` and 0.643 to 0.714 on `/cortex-review`. No-skill runs vary more: two runs of the first
-`/resume` tasks scored 0.786 and 0.571 hard.
+The with-skill row is the recorded baseline. An unrecorded repeat of the fixed text scored
+0.857 / 0.990 on `/resume` and 1.000 / 1.000 on `/cortex-review`. No-skill runs vary more: two runs
+of the first `/resume` tasks scored 0.786 and 0.571 hard.
 
-**`/cortex-review` clears the hard limit by one task, and not the soft one.** Every no-skill miss
-is the same mistake: it flags a present-tense ADR line that names the old path, flag or value. The
-run with the skill makes that mistake too, on four or five of the 14 tasks. The skill body calls
-"ADR rationale" history, and the model reads a present-tense `Decision:` line as something else.
-The tasks follow `index/lib/review.mjs`, which classes every ADR line `historical`. Every other trap
-is one a careful model avoids with no skill at all. So the weak part is the skill text, not the
-tasks. If the body said that an ADR is history in whatever tense it is written, the drop should
-widen. That is a body edit, so it needs a re-measure.
+**The harder tasks exposed two gaps in the skill text, and fixing the text closed both.** In
+`/cortex-review`, almost every miss was a present-tense ADR `Decision:` line flagged as stale,
+because the body called only "ADR rationale" history. It now says that every ADR line and every
+CHANGELOG entry is history in whatever tense it is written, as `index/lib/review.mjs` already
+treats them. In `/resume`, a branch whose only dirt was in another worktree went on the
+`UNCOMMITTED` line. The report shape now says `Uncommitted` covers this checkout alone, and that
+the other worktree goes on `Diverged`. The first try at that edit only reworded the two shape
+lines, and it scored *worse* (0.714 / 0.905): the model put the worktree on both lines. Stating
+where the worktree goes, in its own sentence, is what fixed it.
 
 ## Training a skill with SkillOpt
 

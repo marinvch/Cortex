@@ -7,7 +7,8 @@ description: Runs one task through this repo's agents in .claude/agents/ — a p
 
 You run the team. Each agent does one job; you pass work between them, carry the evidence, and put
 every question the evidence does not settle in front of the developer. Nothing merges, pushes or
-closes an issue without the developer's go-ahead.
+closes an issue without the developer's go-ahead. You do not write the code, the tests or the
+documents yourself: an edit made outside the roles is one nobody planned, tested or reviewed.
 
 The "Working as a team" section of `CLAUDE.md` lists the agent that plays each role below. An agent
 listed as `code-reviewer` (reviewer), for example, plays `reviewer`. When a role has no agent, do
@@ -43,7 +44,9 @@ yet.
 2. `implementer` makes the change inside the planned files until the test is green.
 3. `reviewer` checks the change independently: it runs it, exercises what sits next to it, and
    reads the diff against the repo's documents. Run `/cortex-review` and give it the output.
-4. Report to the developer: what changed, the test output, and the Reviewer's findings. Commit,
+4. Put the Reviewer's findings to the developer. A change they call for goes back through
+   `implementer` and `reviewer`, like the first one; so does a planned edit an agent declined.
+5. Report to the developer: what changed, the test output, and the Reviewer's findings. Commit,
    push and merge happen when the developer asks for them.
 
 ## Agent teams

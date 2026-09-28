@@ -122,8 +122,41 @@ this project now versions independently of any package manager (see `VERSION`).
   - **Validation.** Checked on kapi-sprints, octez-manager and zustand. Mutation-checked: 41 guards
     broken one at a time, and each one failed a test.
 
+- **Acceptance scenario S5: the agent team, end to end on a team's workspace (plan step 15).**
+  `CORTEX_E2E_WORKSPACE=<dir> bash tools/test/run.sh install-on-a-project` now runs S5 after
+  S1–S4. It covers the deterministic half, through the CLIs a user has:
+  - which repos carry the team, with each repo that was offered it and did not take it named;
+  - every file stamped from a `team/` template passes the claude-setup checker, and the stamp
+    record reads it as `current`;
+  - the roster line in `CLAUDE.md` names exactly the agents that play a role;
+  - `test-paths.sh` refuses a source edit and allows a test edit when run as the hook runs it;
+  - `cortex-impact --size` says `single` for a one-file fix and `team` for a change set across
+    the team line's worth of areas. Both change sets are built from the repo's own index.
+
+  On the test workspace (four code repos and a team-brain, the team stamped in two of them), S1–S5
+  all pass and the workspace is left untouched. On a deliberately broken copy, four S5 checks go
+  red:
+  - a deleted agent the roster still names;
+  - a fence that allows everything;
+  - a hand-edited agent;
+  - an agent with an unknown frontmatter key.
+
+  The live half cannot be a test, because a model runs it. It was run by hand in the same
+  workspace and is recorded in the PR: a cross-area task went through the team, and a one-file
+  fix was worked single.
+
 ### Changed
 
+- **The team skill: the session never edits code itself, and a change after review goes back
+  through the Implementer and the Reviewer.** This came from the first live run (plan step 15).
+  After the review, the session rewrote two code comments and made an `AGENTS.md` edit that the
+  Implementer had declined. No role had made or checked those edits. Re-run with the new text, the
+  same task sent the post-review fix to the Implementer and then back to the Reviewer. A repo
+  stamped with the old skill reads `update`, and `cortex-stamps update` applies the change; the
+  workspace did exactly that.
+- **The Tester's fence never takes a test location from under `.claude/`.** The fence script,
+  `.claude/hooks/test-paths.sh`, is named like a shell test, so the index marks it as one. The
+  fence refuses every edit under `.claude/` anyway. Found by S5 on the first stamped workspace.
 - **`/site-sync`'s page map covers the three sources the 2.40.0 sync found unmapped (#487).**
   `skills/site-sync/PAGES.md` adds ADR 0018 to `/principles`. It now states that `docs/specs/`
   and `docs/plans/` are design records that never reach the site. It also lists every bullet of the

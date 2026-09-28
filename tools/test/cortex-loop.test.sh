@@ -190,6 +190,25 @@ assert_eq "2" "$(hook_exit lock '{"tool_input":{"file_path":"/home/u/repo/pnpm-l
 assert_eq "0" "$(hook_exit lock '{"tool_input":{"file_path":"C:\\repo\\docs\\pnpm-lock.yaml.md"}}')" \
   "hook: a file merely named after a lockfile is not one"
 
+# A committed Maven wrapper is generated (`mvn wrapper:wrapper` writes it). Every Maven repo read the
+# hooks row as "blocked — no generated paths" beside it (#482), with or without an index. The loop
+# must see it on disk, and the patterns /cortex writes for it must block the script and the directory.
+rm -rf "${WORK:?}/maven"
+mkdir -p "$WORK/maven/.mvn/wrapper" "$WORK/maven/src/main/java"
+printf '<project/>\n' > "$WORK/maven/pom.xml"
+printf '#!/bin/sh\n' > "$WORK/maven/mvnw"
+printf '@echo off\n' > "$WORK/maven/mvnw.cmd"
+printf 'distributionUrl=x\n' > "$WORK/maven/.mvn/wrapper/maven-wrapper.properties"
+printf 'class A {}\n' > "$WORK/maven/src/main/java/A.java"
+json="$(run maven --json)"
+assert_contains "$json" '"mvnw.cmd"' "a Maven repo with no index: --json lists the wrapper as protected"
+assert_contains "$json" '".mvn/wrapper/"' "and the wrapper directory, as a tree"
+assert_contains "$(run maven)" "protected paths to block: mvnw, mvnw.cmd, .mvn/wrapper/" "and the hooks row names them rather than reading blocked"
+sed 's#{{PROTECTED_PATTERNS}}#  "*/mvnw"\n  "*/mvnw.cmd"\n  "*/.mvn/wrapper/*"#;s#{{PROTECTED_LIST}}#wrapper#' "$hook_src" > "$WORK/hook-mvnw.sh"
+assert_eq "2" "$(hook_exit mvnw '{"tool_input":{"file_path":"C:\\repo\\mvnw.cmd"}}')" "hook: the wrapper script is blocked"
+assert_eq "2" "$(hook_exit mvnw '{"tool_input":{"file_path":"/home/u/repo/.mvn/wrapper/maven-wrapper.properties"}}')" "hook: and the wrapper directory"
+assert_eq "0" "$(hook_exit mvnw '{"tool_input":{"file_path":"/home/u/repo/.mvn/jvm.config"}}')" "hook: but not the rest of .mvn/, which a team writes by hand"
+
 # No detected paths is the usual stamp: the list is empty, and the hook must let every edit through.
 sed 's#{{PROTECTED_PATTERNS}}##;s#{{PROTECTED_LIST}}#none detected#' "$hook_src" > "$WORK/hook-empty.sh"
 assert_eq "0" "$(hook_exit empty '{"tool_input":{"file_path":"src/main.go"}}')" \

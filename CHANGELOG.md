@@ -35,6 +35,18 @@ this project now versions independently of any package manager (see `VERSION`).
   `format-changed.sh` and `test-paths.sh`, which are three copies with no parity test until now.
   Still templates only; `/cortex` stamps them in step 14.
 
+### Changed
+
+- **`/site-sync`'s page map covers the three sources the 2.40.0 sync found unmapped (#487).**
+  `skills/site-sync/PAGES.md` adds ADR 0018 to `/principles`. It now states that `docs/specs/`
+  and `docs/plans/` are design records that never reach the site. It also lists every bullet of the
+  README's "What Cortex runs, sends and fetches" that `/privacy` must carry, so the next sync
+  closes that gap. The site itself is unchanged until that sync runs.
+- **`tools/AGENTS.md` said three rules were deliberately copied, but its table listed two.**
+  The sentence and the table now agree on four, each checked against its parity test: the slug,
+  the clock, the Core plugin tier (`CORE_PLUGINS`), and the hook-input reader. The slug row also
+  gains the `cortex-init.sh` copy that `mcp/test/slug-parity.test.js` already pins.
+
 ## [2.40.0] — 2026-09-28
 
 Files `/cortex` wrote into a repo never changed again. A hook fixed in 2.39.0 and again in 2.39.1

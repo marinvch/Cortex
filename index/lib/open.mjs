@@ -218,7 +218,7 @@ export function parseArgv(argv, spec) {
   for (const [name, decl] of Object.entries(declared)) {
     const key = keyFor(name, decl);
     const t = typeOf(decl);
-    if (!(key in args)) args[key] = t === "boolean" ? false : t === "list" ? [] : null;
+    if (!(key in args)) args[key] = t === "boolean" ? false : t === "list" || t === "multi" ? [] : null;
   }
 
   const positional = [];
@@ -248,6 +248,9 @@ export function parseArgv(argv, spec) {
       return { problem: `${name} needs a value\n${spec.usage}\n` };
     }
     if (t === "list") args[key].push(...String(value).split(",").map((s) => s.trim()).filter(Boolean));
+    // `multi` repeats like a list but never splits: its values are whole strings (a command line
+    // with a comma in it), not comma-separated path prefixes.
+    else if (t === "multi") args[key].push(String(value));
     else args[key] = value;
   }
 
@@ -274,9 +277,11 @@ const realIo = {
  * `spec` declares what this command is, not what every command does:
  * - `usage`     — printed under every refusal and by `--help`. Required.
  * - `flags`     — `{ "--json": "boolean", "--since": "value", "--include": "list" }`. The allowlist.
- * - `root`      — `"positional"` (the first bare argument) or `"flag"` (`--root`, bare arguments are
- *                 paths). A command taking file paths cannot also take a bare root; saying which it
- *                 is here is what stops a path from silently becoming a root.
+ *                 `"multi"` repeats like `list` without splitting on commas.
+ * - `root`      — `"positional"` (the one bare argument), `"flag"` (`--root`, bare arguments are
+ *                 paths) or `"first"` (the first bare argument, the rest are paths). A command
+ *                 taking file paths must say which it is here; that is what stops a path from
+ *                 silently becoming a root.
  * - `index`     — `"none"` · `"optional"` · `"require"` · `"build"`. The declared error mode: refuse,
  *                 degrade to `null`, or build one in memory (`buildIndex` must be passed as
  *                 `spec.buildIndex`, so the decision to build lives at the call site that means it).
@@ -312,6 +317,11 @@ export function openTarget(argv, spec, io = realIo) {
   if (spec.root === "flag") {
     rootArg = args.root ?? null;
     paths = positional;
+  } else if (spec.root === "first") {
+    // The root, then arguments about files inside it (`record <repo> <path> <template>`). How many
+    // of those a command needs is the command's to check; none of them is ever a second root.
+    rootArg = positional[0] ?? null;
+    paths = positional.slice(1);
   } else {
     // Exactly one bare argument. A second used to be dropped on the floor, which is how a typo'd
     // flag's value became invisible rather than refused.

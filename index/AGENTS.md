@@ -8,8 +8,8 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - **Nothing here may modify a target repository**, except by writing under `.cortex/`. `findings`
   returns data; `/cortex-scaffold` is the separate skill that applies changes. This separation is
   what makes "the user decides" structural rather than a promise a model has to keep — if you add
-  a write to a source file here, you have broken the product's central claim. **One named
-  exception: `cortex-stamps.mjs update`** rewrites a file Cortex itself stamped, and only in state
+  a write to a source file here, you have broken the product's central claim. **Two named
+  exceptions.** The first, `cortex-stamps.mjs update`, rewrites a file Cortex itself stamped, and only in state
   `update` — untouched since it was recorded, re-renderable, template changed. `/cortex` runs it
   only for the paths the user confirmed. The rule lives in the code (`planUpdates`), not in the
   skill, because a guarantee belongs to the act (ADR 0016). Never widen it to `edited`,
@@ -18,7 +18,18 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   `update`, and applying it puts the older template back. `planUpdates` refuses the whole plan
   then, and takes `running` as a required argument so the check cannot be forgotten; status,
   `diff` and `next.mjs` name it with the two plugin-update commands (`olderPlugin`). `cortex: null`
-  (adopted only) and equal versions never warn.
+  (adopted only) and equal versions never warn. The second, **`cortex-shared-plugin.mjs --write`**,
+  adds two entries to `.claude/settings.json` on a team's repo (spec S6). It **merges and never
+  replaces**: it inserts text in the file's own style, leaving every other byte where it was, and
+  keeps an entry already there whatever it says. It refuses a file that does not parse. The parser
+  must agree the result is exactly the original plus the two entries, or nothing is written. Do not
+  re-serialise the file, which reflows every inline array a team wrote.
+- **"A team's repo" is the `work` profile or `.cortex/connector.json`** (`lib/shared-plugin.mjs`
+  `teamServed`). The profile is this machine's `CORTEX_PROFILE`, the one environment input the loop
+  reads. A loop row may declare `applies`, and a row that does not apply drops out of every bucket
+  and count, so a solo repo's numbers do not move. Tests that count loop rows delete
+  `CORTEX_PROFILE` at the top of the file, because a developer on a work profile must get CI's
+  answers.
 - **The index is deterministic.** No LLM, no network, no clock, no randomness. Same tree, same
   bytes. This is what makes it safe in CI and cheap on every install; `build.test.mjs` asserts two
   runs agree exactly.
@@ -468,6 +479,9 @@ fixtures and not `mkdtemp` directories is that git is what decides the answer: `
   file inside an excluded directory — the advice is `.cortex/*` plus the negation. A `!` match
   exits 0 from `check-ignore -v` too, so the exit code alone would warn about the fix itself. The
   user's `.gitignore` is never edited here.
+- `cortex-shared-plugin.mjs` — it writes a team's `.claude/settings.json`, so the test is a git
+  diff. After `--write`, the only lines removed are the two that gain a comma, a second run writes
+  nothing, and a file that does not parse is refused and left untouched, with no temp file.
 - `cortex-view.mjs` — it writes into a target repo, so *where* it writes is the invariant, and its
   determinism is only observable from outside. A first run did once disagree with the second,
   because the page reported on its own existence.

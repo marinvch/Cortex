@@ -27,7 +27,7 @@ const MAX_EVIDENCE = 25;
 export const EMPHASIS_LINES = 3;
 export const MIN_MAX_TOKENS = 4096;
 
-const EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"];
+export const EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"];
 const SCRIPT_EXT = /\.(?:sh|bash|mjs|cjs|js|ts|py|ps1|rb)$/;
 
 // ---------------------------------------------------------------------------------------------
@@ -82,6 +82,10 @@ export function readFrontmatter(src) {
       data[key] = block.join(raw.startsWith(">") ? " " : "\n");
     } else if (raw === "" && block.length && block.every((l) => l.startsWith("- "))) {
       data[key] = block.map((l) => unquote(l.slice(2)));
+    } else if (block.length && !raw.endsWith("]") && /^\[[\s\S]*\]$/.test([raw, ...block].join(" ").trim())) {
+      // A flow list broken over lines, the way a formatter writes a long `tools: [...]`. One real
+      // repo's `tools:` read as a nested map, so its agent looked as if it granted no tool at all.
+      data[key] = [raw, ...block].join(" ").trim().slice(1, -1).split(",").map(unquote).filter(Boolean);
     } else if (raw === "") {
       data[key] = block.length ? { nested: true } : "";
     } else if (raw.startsWith("[") && raw.endsWith("]")) {
@@ -94,7 +98,7 @@ export function readFrontmatter(src) {
 }
 
 /** A tools field — "Read, Grep", a YAML list, or absent — as a list of tool names. */
-function toolList(v) {
+export function toolList(v) {
   if (v === undefined) return null;
   const items = Array.isArray(v) ? v : typeof v === "string" ? v.split(/[,\s]+/) : [];
   return items.map((t) => t.replace(/\(.*$/, "").trim()).filter(Boolean);
@@ -247,7 +251,7 @@ const READ_ONLY =
  * count — "marks destructive, not read-only" is an agent that edits saying so. Found on this repo's
  * own docs-owner, which the first version of this check reported as read-only.
  */
-function claimsReadOnly(text) {
+export function claimsReadOnly(text) {
   const plain = prose(text).join("\n");
   return [...plain.matchAll(READ_ONLY)].some((m) => !/\b(?:not|no|never|isn't|aren't)\s+$/i.test(plain.slice(Math.max(0, m.index - 12), m.index)));
 }
@@ -700,6 +704,36 @@ export function claudeSetupFindings(index, root, opts = {}) {
     });
   }
   return out;
+}
+
+/**
+ * The same checks, one subagent at a time — for `agents.mjs`, which grades each agent before it maps
+ * it to a role (spec T6). Every row runs against a view of the repo holding that one agent and
+ * nothing else, so a finding here is exactly the line `claudeSetupFindings` would list for the file,
+ * with no evidence cap and no second copy of any rule.
+ *
+ * Returns `[{ path, plugin, text, frontmatter, findings: [{ kind, rule, severity, evidence }] }]`
+ * for every file the checker counts as a subagent, sorted by path.
+ */
+export function subagentGrades(index, root, opts = {}) {
+  const r = gather(index, root, opts);
+  const none = { files: [], missing: [] };
+  const noHooks = { unreadable: [], missing: [], notExecutable: [], postExit2: [] };
+  return r.agents.map((p) => {
+    const one = { ...r, agents: [p], skills: [], claudeMd: [], code: [], settings: [] };
+    const findings = CHECKS.flatMap((check) => {
+      const evidence = [...new Set(check.run(one, none, noHooks))].sort();
+      return evidence.length ? [{ kind: PREFIX + check.kind, rule: check.rule, severity: check.severity, evidence }] : [];
+    });
+    const text = r.read(p);
+    return {
+      path: p,
+      plugin: r.plugin.agent(p) !== null,
+      text: typeof text === "string" ? text : null,
+      frontmatter: typeof text === "string" ? readFrontmatter(text) : null,
+      findings,
+    };
+  });
 }
 
 /** The kinds this module can report — for the docs, the view and the tests. */

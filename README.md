@@ -93,6 +93,17 @@ in and changes nothing else. Once a teammate trusts the folder, Claude Code regi
 for them. It does not install the plugin: the docs still have each teammate run
 `claude plugin install cortex@cortex --scope project` once.
 
+Auto-update for the whole team is asked separately and is off unless you pick it
+(`cortex-shared-plugin.mjs . --write --auto-update`). It writes `"autoUpdate": true` on the
+committed `cortex` entry. The settings reference documents that key as "an optional `autoUpdate`
+Boolean", and says it makes "Claude Code refresh that marketplace and update its installed plugins in
+the background after startup". So every teammate's Claude Code pulls new Cortex releases on its own.
+Whether a marketplace auto-updates "follows the first of these that is set", and an `autoUpdate` in
+a settings file is first ([plugins/loading](https://code.claude.com/docs/en/plugins/loading.md)).
+So the committed value comes before each teammate's own `/plugin` toggle. Cortex writes the key only
+on a `cortex` entry it is adding. An entry already in the file keeps its `autoUpdate`, whether it is
+`true`, `false` or unset, and the script's output says so.
+
 ### The order, and how to stop guessing at it
 
 A list of commands is a menu, not an answer. **`/cortex-next` reads the repo you are standing in
@@ -414,7 +425,8 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
     compares the record with the plugin's own `VERSION` file; nothing is fetched to make it.
   - `cortex-shared-plugin.mjs --write` adds two entries to `.claude/settings.json`, creating the
     file if there is none, and leaves every other key as it was. It refuses a file that does not
-    parse as JSON.
+    parse as JSON. `--auto-update`, a separate choice, also writes `"autoUpdate": true` on a
+    `cortex` entry it adds, and never changes one already there.
 - **Updates are Claude Code's, not Cortex's.** Cortex never checks for a newer release. With
   auto-update turned on, Claude Code fetches the marketplace itself; the manual update is the two
   `claude plugin` commands under [Keep it current](#keep-it-current).

@@ -197,6 +197,33 @@ this project now versions independently of any package manager (see `VERSION`).
   Mutation-tested: 32 guards, 31 reds. The survivor is the parse-back check itself, which a correct
   scanner never reaches. Plan step 6.
 
+- **A team that wanted Cortex to keep itself current had no way to say so in the committed
+  settings.** The team-plugin offer now has a second yes/no, unticked by default:
+  `cortex-shared-plugin.mjs . --write --auto-update`.
+  - It writes `"autoUpdate": true` on the `cortex` marketplace entry. The settings reference
+    documents this as "an optional `autoUpdate` Boolean" that makes "Claude Code refresh that
+    marketplace and update its installed plugins in the background after startup". Third-party
+    marketplaces default to `false`.
+  - Without the flag the key is never written. The merge's output is byte-identical to before.
+  - An entry already in the file keeps its `autoUpdate`, whether `true`, `false` or unset, whatever
+    the flag says. The committed value outranks each teammate's own `/plugin` toggle
+    (plugins/loading), so it was someone's decision. Status, `--write` and `--json` all say what the
+    entry holds and that Cortex will not change it.
+  - The same byte-preserving insertion and parse-back check apply. A second run writes nothing.
+  - `/cortex` names it in the confirmation as its own line and says what it means: every teammate's
+    Claude Code pulls new Cortex releases in the background. The README's team paragraph under
+    "Keep it current" says the same, with the docs quoted.
+
+  Validated on a zustand clone (b57db4f) with a fake team-brain connector and the hooks template in
+  `.claude/settings.json`:
+  - `--write --auto-update` added 12 lines and removed none.
+  - It differs from the no-flag write only by `"autoUpdate": true`.
+  - A second run was byte-identical.
+  - A teammate's `false` survived `--auto-update` byte-for-byte, and status named it.
+
+  Mutation-tested: 24 guards, 24 reds. The first run left one survivor, `autoUpdate` spread onto
+  `"cortex@cortex": true` as well, and that case now has its own test.
+
 ### Fixed
 
 - **On a Maven or Gradle repo the hooks row read "blocked — no generated paths" beside a committed

@@ -1142,6 +1142,7 @@ test("on the work profile, the shared plugin is offered, naming the profile and 
   assert.match(row.e.why, /CORTEX_PROFILE=work/);
   assert.match(row.e.brief, /claude plugin install cortex@cortex --scope project/, "the offer says each teammate still installs once");
   assert.match(row.e.brief, /cortex-shared-plugin\.mjs/, "and the merge is the CLI's, never a hand edit");
+  assert.match(row.e.brief, /Auto-update is a separate yes\/no, unticked by default: only a yes adds --auto-update/, "auto-update is its own choice, off by default");
   rmSync(root, { recursive: true, force: true });
 });
 

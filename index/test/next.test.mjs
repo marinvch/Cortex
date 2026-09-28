@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { readState, nextSteps, nextLine } from "../lib/next.mjs";
+import { recordStamp, writeStamps } from "../lib/stamps.mjs";
 
 function repo(build) {
   const root = mkdtempSync(join(tmpdir(), "cortex-next-"));
@@ -328,5 +329,86 @@ test("a skill the repo contradicts gets its own row, and a clean one adds nothin
   writeFileSync(join(root, ".claude/skills/t/SKILL.md"), "---\nname: t\ndescription: x\n---\n\nStart at `src/a.ts`.\n");
   assert.ok(!nextSteps(root, index).steps.some((s) => s.id === "skill-drift"), "fixing the lines clears the row");
   assert.deepEqual(readState(root, index).skillDrift, []);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// --- the stamp record (spec S4) ----------------------------------------------------------------------
+
+const REVIEW_TEMPLATE = readFileSync(new URL("../../templates/loop/REVIEW.md", import.meta.url), "utf8");
+const stampsRow = (root) => nextSteps(root).steps.find((s) => s.id === "stamps");
+
+/** A REVIEW.md on disk, recorded from `templateText` — the real template, or an older one. */
+function stampedReview({ put, root }, templateText, fileText = templateText) {
+  put("REVIEW.md", fileText);
+  writeStamps(root, recordStamp(null, { path: "REVIEW.md", template: "loop/REVIEW.md", version: "2.40.0", templateText, fileText }));
+}
+
+test("a repo with no record and no loop files reads exactly as it did before the record existed", () => {
+  const root = repo(({ put }) => put("src/app.ts"));
+  assert.equal(stampsRow(root), undefined);
+  assert.deepEqual(readState(root).stamps, null);
+  assert.deepEqual(readState(root).stampsAdopt, []);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a stamped file behind this release's template is a required row, and it clears once current", () => {
+  const root = repo((r) => stampedReview(r, "# an older REVIEW.md template\n"));
+  const row = stampsRow(root);
+  assert.ok(row, "the out-of-date file surfaces");
+  assert.equal(row.done, false);
+  assert.ok(!row.optional, "an update is a fix not applied — it holds the sequence open");
+  assert.equal(row.cmd, "/cortex");
+  assert.match(row.why, /1 to update/);
+  assert.match(row.why, /cortex-stamps\.mjs \./);
+
+  // Re-stamped from this release's template: current, and the row is gone.
+  const root2 = repo((r) => stampedReview(r, REVIEW_TEMPLATE));
+  assert.equal(stampsRow(root2), undefined);
+  rmSync(root, { recursive: true, force: true });
+  rmSync(root2, { recursive: true, force: true });
+});
+
+test("a file only the team edited is theirs, and raises no row", () => {
+  const root = repo((r) => stampedReview(r, REVIEW_TEMPLATE));
+  writeFileSync(join(root, "REVIEW.md"), REVIEW_TEMPLATE + "\nOur own rule.\n");
+  assert.equal(readState(root).stamps[0].state, "edited");
+  assert.equal(stampsRow(root), undefined);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a conflict is a required row; a missing file alone is an optional one", () => {
+  const conflict = repo((r) => stampedReview(r, "# older\n"));
+  writeFileSync(join(conflict, "REVIEW.md"), "# older\n\nOur own rule.\n");
+  assert.match(stampsRow(conflict).why, /1 to decide file by file/);
+  assert.ok(!stampsRow(conflict).optional);
+
+  const missing = repo((r) => stampedReview(r, REVIEW_TEMPLATE));
+  rmSync(join(missing, "REVIEW.md"));
+  assert.match(stampsRow(missing).why, /1 missing/);
+  assert.equal(stampsRow(missing).optional, true, "a file someone deleted on purpose must not block the sequence");
+  rmSync(conflict, { recursive: true, force: true });
+  rmSync(missing, { recursive: true, force: true });
+});
+
+test("loop files from before the record are offered for adoption, never as a blocking step", () => {
+  const root = repo(({ put }) => {
+    put("REVIEW.md", "# review\n");
+    put(".claude/agents/verifier.md", "# verifier\n");
+  });
+  const row = stampsRow(root);
+  assert.ok(row, "an older install's files surface");
+  assert.equal(row.optional, true, "declining adoption leaves no trace, so it must not hold the sequence open forever");
+  assert.match(row.title, /adopt/i);
+  assert.match(row.why, /2 loop files/);
+  assert.match(row.why, /REVIEW\.md/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a damaged record is a required row naming the file, never a silent pass", () => {
+  const root = repo(({ put }) => put(".cortex/stamps.json", "{ not json"));
+  const row = stampsRow(root);
+  assert.ok(row);
+  assert.ok(!row.optional);
+  assert.match(row.why, /stamps\.json/);
   rmSync(root, { recursive: true, force: true });
 });

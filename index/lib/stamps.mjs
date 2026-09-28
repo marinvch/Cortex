@@ -60,17 +60,26 @@
 //
 // `planUpdates` says what an update would write and `stampDiff` what a per-file question shows; both
 // only read. Pure apart from reading files; `writeStamps` is the one write, and it touches only
-// `.cortex/stamps.json` — the CLI writes the updated files themselves. Deterministic: no clock, no network, sorted output, no locale compare. The
-// one outside question is `git check-ignore` (`stampsIgnoreRule`), as in `skill-drift.mjs`: the
-// record only works if it is committed, and the repo's own ignore rules are the witness for that.
-// Not yet here, by the plan: the older-plugin warning (step 5) and adoption of repos stamped before
-// the record existed (step 4) — which is what a `null` hash is shaped for.
+// `.cortex/stamps.json` — the CLI writes the updated files themselves. Deterministic: no clock, no
+// network, sorted output, no locale compare. The one outside question is `git check-ignore`
+// (`stampsIgnoreRule`), as in `skill-drift.mjs`: the record only works if it is committed, and the
+// repo's own ignore rules are the witness for that.
+//
+// Adoption is for a repo /cortex stamped before this record existed (every 2.39.x install): loop
+// files at the locations `loop.mjs` lists (`LOOP_STAMPS`), and no record. Nothing about them is
+// known — not the release, not the values, not whether the team has edited them since — so an
+// adopted entry says exactly that: `version: null`, both hashes `null`, `renderable: false`, no
+// values. A null hash equals no digest, so every adopted file reads as `conflict` and is compared
+// with this release's template before anything changes; `update` can never touch it. Adoption is
+// offered only while there is no record at all: once one exists, a file outside it is the team's.
+// Not yet here, by the plan: the older-plugin warning (step 5).
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import { lineDiff } from "./linediff.mjs";
+import { LOOP_STAMPS } from "./loop.mjs";
 import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
 export const STAMPS_REL = ".cortex/stamps.json";
@@ -106,7 +115,13 @@ function relPathProblem(p) {
 /** Why `p` cannot be a recorded path or template id, or `null` — for a CLI to refuse before reading. */
 export const stampPathProblem = relPathProblem;
 
+// A version is x.y.z, or null where it is not known (an adopted entry). A known version is newer
+// than an unknown one, so recording a real file into an adopted record sets `cortex` for the first time.
+const isVersionOrNull = (v) => v === null || (typeof v === "string" && VERSION.test(v));
+
+/** Is known version `a` newer than `b`, which may be unknown (null)? `a` is always a real version. */
 function newer(a, b) {
+  if (b === null) return true;
   const x = VERSION.exec(a).slice(1).map(Number);
   const y = VERSION.exec(b).slice(1).map(Number);
   for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
@@ -127,7 +142,7 @@ function recordProblems(doc) {
   const problems = [];
   for (const k of Object.keys(doc)) if (!RECORD_KEYS.includes(k)) problems.push(`unknown key "${k}"`);
   if (doc.format !== STAMPS_FORMAT) problems.push(`format must be ${STAMPS_FORMAT}, found ${JSON.stringify(doc.format)}`);
-  if (typeof doc.cortex !== "string" || !VERSION.test(doc.cortex)) problems.push(`cortex must be an x.y.z version, found ${JSON.stringify(doc.cortex)}`);
+  if (!isVersionOrNull(doc.cortex)) problems.push(`cortex must be an x.y.z version or null, found ${JSON.stringify(doc.cortex)}`);
   if (!doc.files || typeof doc.files !== "object" || Array.isArray(doc.files)) {
     problems.push("files must be an object keyed by path");
     return problems;
@@ -140,7 +155,7 @@ function recordProblems(doc) {
     for (const k of Object.keys(e)) if (!ENTRY_KEYS.includes(k)) bad(`unknown key "${k}"`);
     const tp = relPathProblem(e.template);
     if (tp) bad(`template ${tp}`);
-    if (typeof e.version !== "string" || !VERSION.test(e.version)) bad(`version must be an x.y.z version`);
+    if (!isVersionOrNull(e.version)) bad("version must be an x.y.z version or null");
     for (const k of ["templateSha256", "fileSha256"]) {
       if (e[k] !== null && !(typeof e[k] === "string" && SHA.test(e[k]))) bad(`${k} must be a sha256 hex digest or null`);
     }
@@ -226,7 +241,7 @@ export function recordStamp(record, { path, template, version, templateText, fil
     if (typeof v !== "string") throw new TypeError(`recordStamp: values["${k}"] must be a string`);
   }
 
-  const base = record ? canonical(record) : { format: STAMPS_FORMAT, cortex: version, files: {} };
+  const base = record ? canonical(record) : { format: STAMPS_FORMAT, cortex: null, files: {} };
   const cortex = newer(version, base.cortex) ? version : base.cortex;
   return canonical({
     format: STAMPS_FORMAT,
@@ -241,6 +256,50 @@ export function recordStamp(record, { path, template, version, templateText, fil
         renderable: hashText(renderTemplate(templateText, values)) === hashText(fileText),
         values: { ...values },
       },
+    },
+  });
+}
+
+/** A new record without `path`. Pure. For a file someone removed on purpose, or a retired template. */
+export function forgetStamp(record, path) {
+  const doc = canonical(record);
+  if (!Object.hasOwn(doc.files, path)) throw new TypeError(`forgetStamp: ${path} is not in the record`);
+  const files = { ...doc.files };
+  delete files[path];
+  return canonical({ ...doc, files });
+}
+
+// --- adoption ------------------------------------------------------------------------------------
+
+/**
+ * The loop files an older /cortex left here, as `{ path, template }` sorted by path: every file at a
+ * location in `LOOP_STAMPS` that exists — but only when there is no record. With one, `[]`: a file
+ * outside an existing record was not stamped by a Cortex that records, and it is the team's.
+ */
+export function adoptionCandidates(repoRoot, record) {
+  if (record) return [];
+  return LOOP_STAMPS
+    .filter((s) => { try { return statSync(join(repoRoot, ...s.path.split("/"))).isFile(); } catch { return false; } })
+    .map((s) => ({ path: s.path, template: s.template }))
+    .sort((a, b) => byCodeUnit(a.path, b.path));
+}
+
+/**
+ * A new record with `path` adopted: known to be a loop file, and nothing else known. Pure. Refuses a
+ * path the record already holds — adopting would replace what was recorded with what was not.
+ */
+export function adoptStamp(record, { path, template }) {
+  const pp = relPathProblem(path);
+  if (pp) throw new TypeError(`adoptStamp: path ${pp}: ${JSON.stringify(path)}`);
+  const tp = relPathProblem(template);
+  if (tp) throw new TypeError(`adoptStamp: template ${tp}: ${JSON.stringify(template)}`);
+  const base = record ? canonical(record) : { format: STAMPS_FORMAT, cortex: null, files: {} };
+  if (Object.hasOwn(base.files, path)) throw new TypeError(`adoptStamp: ${path} is already in the record`);
+  return canonical({
+    ...base,
+    files: {
+      ...base.files,
+      [path]: { template, version: null, templateSha256: null, fileSha256: null, renderable: false, values: {} },
     },
   });
 }

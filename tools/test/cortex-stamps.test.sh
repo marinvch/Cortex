@@ -171,6 +171,13 @@ assert_eq "" "$(git -C "$WORK/ign-dir" status --porcelain)" "nothing git can see
 out="$(node "$STAMPS" "$WORK/ign-dir" --templates "$TPL" 2>&1)"
 assert_contains "$out" "is ignored by .gitignore:1" "status repeats the warning while it holds"
 
+# Before any record exists, --json already says the one it would write is ignored — so a first
+# /cortex can offer the fix inside its single confirmation rather than after the write.
+ign "$WORK/ign-first" ".cortex/"
+json="$(node "$STAMPS" "$WORK/ign-first" --templates "$TPL" --json 2>&1)"
+assert_contains "$json" '"files": null' "no record yet"
+assert_contains "$json" '"dirIgnored": true' "and the ignore rule is reported all the same"
+
 # The advice must actually work: apply it and git must see the file.
 printf '.cortex/*\n!.cortex/stamps.json\n' > "$WORK/ign-dir/.gitignore"
 assert_eq "?? .cortex/stamps.json" "$(git -C "$WORK/ign-dir" status --porcelain -uall | grep stamps)" "the advised fix makes the record visible to git"
@@ -190,3 +197,129 @@ out="$(node "$STAMPS" record "$WORK/indexed" x.js loop/a.md --templates "$TPL" 2
 assert_not_contains "$out" "ignored" "Cortex's own ignore lines do not hide the record"
 assert_contains "$out" "Commit .cortex/stamps.json" "and a first record that git will take is told to be committed"
 assert_exit 1 "and git agrees it is not ignored" -- git -C "$WORK/indexed" check-ignore -q .cortex/stamps.json
+
+# --- the whole loop: render, record, bump a template, update ------------------------------------------
+#
+# The real templates, copied so one can be bumped as a release would. The nine whole-file loop
+# templates are stamped with realistic values; verification.md (appended to CLAUDE.md) and
+# settings.hooks.json (merged into settings.json) are not recorded — the spec leaves a block inside a
+# shared file unspecified, and a hash of the whole file would call every team edit to it a conflict.
+
+REAL="$WORK/real"
+RT="$WORK/real-templates"
+VALS="$WORK/values"
+mkrepo "$REAL"
+cp -r "$REPO_ROOT/templates" "$RT"
+mkdir -p "$VALS"
+
+cat > "$VALS/REVIEW.md.json" <<'JSON'
+{ "NIT_CAP": "3", "DO_NOT_REPORT": "- `dist/` is generated; never review it." }
+JSON
+cat > "$VALS/verifier.md.json" <<'JSON'
+{ "RUN": "npm run dev" }
+JSON
+cat > "$VALS/protected-paths.sh.json" <<'JSON'
+{ "PROTECTED_LIST": "dist/, prisma/migrations/", "PROTECTED_PATTERNS": "  \"*/dist/*\"\n  \"*/prisma/migrations/*\"" }
+JSON
+cat > "$VALS/format-changed.sh.json" <<'JSON'
+{ "FORMAT_CASES": "  *.ts|*.tsx|*.js) npx prettier --write \"$path\" >/dev/null 2>&1 ;;" }
+JSON
+cat > "$VALS/intent-README.md.json" <<'JSON'
+{ "OWNER": "The product owner", "LEGACY_NOTE": "" }
+JSON
+cat > "$VALS/intent.md.json" <<'JSON'
+{}
+JSON
+cat > "$VALS/agent-evals.yml.json" <<'JSON'
+{ "TEST_CMD": "npm test", "SETUP_STEPS": "" }
+JSON
+cat > "$VALS/cortex-review.yml.json" <<'JSON'
+{ "CORTEX_REF": "v2.40.0" }
+JSON
+cat > "$VALS/bands.yaml.json" <<'JSON'
+{ "METRIC": "p95 checkout latency", "READONLY_CMD": "curl -s https://metrics.example/p95", "RUNBOOK": "docs/runbook.md" }
+JSON
+
+# template → where /cortex puts it
+LANDS="REVIEW.md:REVIEW.md verifier.md:.claude/agents/verifier.md protected-paths.sh:.claude/hooks/protected-paths.sh
+format-changed.sh:.claude/hooks/format-changed.sh intent-README.md:intent/README.md intent.md:intent/TEMPLATE.md
+agent-evals.yml:.github/workflows/agent-evals.yml cortex-review.yml:.github/workflows/cortex-review.yml bands.yaml:bands.yaml"
+
+for pair in $LANDS; do
+  t="${pair%%:*}"; dest="${pair#*:}"
+  mkdir -p "$REAL/$(dirname "$dest")"
+  node "$STAMPS" render "loop/$t" --templates "$RT" --values-file "$VALS/$t.json" > "$REAL/$dest"
+  out="$(node "$STAMPS" record "$REAL" "$dest" "loop/$t" --templates "$RT" --version 2.40.0 --values-file "$VALS/$t.json" 2>&1)"
+  assert_not_contains "$out" "not re-renderable" "$dest renders back from its values"
+done
+
+evals="$(cat "$REAL/.github/workflows/agent-evals.yml")"
+assert_contains "$evals" 'Bash(npm test *)' "render fills a placeholder"
+assert_contains "$evals" '${{ secrets.ANTHROPIC_API_KEY }}' "and leaves GitHub Actions syntax exactly as written"
+assert_not_contains "$evals" 'SETUP_STEPS' "an empty whole-line value deletes the line"
+assert_contains "$(cat "$REAL/intent/TEMPLATE.md")" '{{TITLE}}' "a placeholder with no value is kept, as TEMPLATE.md needs"
+
+json="$(node "$STAMPS" "$REAL" --templates "$RT" --json 2>&1)"
+counts="$(node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(`${j.files.length} ${j.counts.current} ${j.files.filter((f) => f.renderable).length}`);' <<< "$json")"
+assert_eq "9 9 9" "$counts" "nine files recorded, all current, all re-renderable"
+
+# A file the model wrote more into than its values account for is recorded — and marked.
+printf 'Reviewers also check the changelog.\n' >> "$REAL/REVIEW.md"
+out="$(node "$STAMPS" record "$REAL" REVIEW.md loop/REVIEW.md --templates "$RT" --version 2.40.0 --values-file "$VALS/REVIEW.md.json" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "a file its values do not reproduce is still recorded"
+assert_contains "$out" "not re-renderable" "and record says it cannot be updated automatically"
+assert_contains "$out" "Reviewers also check the changelog." "naming the first line that differs"
+
+( cd "$REAL" || exit 1; git add -A && git commit -qm "stamped by /cortex" )
+
+# A release: every one of these templates gains a line; the team edits two of the files.
+for t in verifier.md REVIEW.md agent-evals.yml bands.yaml; do printf '# added in the next release\n' >> "$RT/loop/$t"; done
+printf 'watch closely\n' >> "$REAL/bands.yaml"                                # both moved: conflict
+printf '# our note\n' >> "$REAL/.claude/hooks/format-changed.sh"               # team only: edited
+bands_before="$(cat "$REAL/bands.yaml")"
+hook_before="$(cat "$REAL/.claude/hooks/format-changed.sh")"
+review_before="$(cat "$REAL/REVIEW.md")"
+
+json="$(node "$STAMPS" "$REAL" --templates "$RT" --json 2>&1)"
+assert_eq "update"   "$(json_state "$json" .claude/agents/verifier.md)" "a bumped template under an untouched file is update"
+assert_eq "update"   "$(json_state "$json" .github/workflows/agent-evals.yml)" "including a workflow"
+assert_eq "review"   "$(json_state "$json" REVIEW.md)" "a bumped template under a file it cannot re-render is review"
+assert_eq "conflict" "$(json_state "$json" bands.yaml)" "both moved is conflict"
+assert_eq "edited"   "$(json_state "$json" .claude/hooks/format-changed.sh)" "team only is edited"
+
+out="$(node "$STAMPS" diff "$REAL" bands.yaml --templates "$RT" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "diff exits 0"
+assert_contains "$out" "-watch closely" "the diff shows the team's line"
+assert_contains "$out" "+# added in the next release" "and the template's"
+
+refusal 1 "conflict" "update refuses a named file that is not safe to update" -- node "$STAMPS" update "$REAL" bands.yaml --templates "$RT"
+assert_eq "$bands_before" "$(cat "$REAL/bands.yaml")" "and does not touch it"
+verifier_before="$(cat "$REAL/.claude/agents/verifier.md")"
+refusal 1 "Nothing was written" "named paths are all or nothing" -- node "$STAMPS" update "$REAL" .claude/agents/verifier.md bands.yaml --templates "$RT"
+assert_eq "$verifier_before" "$(cat "$REAL/.claude/agents/verifier.md")" "so the safe one named beside it is not written either"
+refusal 1 "given twice" "a value given twice is refused, not resolved by order" -- node "$STAMPS" record "$REAL" REVIEW.md loop/REVIEW.md --templates "$RT" --values-file "$VALS/REVIEW.md.json" --value NIT_CAP=9
+
+out="$(node "$STAMPS" update "$REAL" --templates "$RT" --version 2.41.0 2>&1)"; rc=$?
+assert_eq "0" "$rc" "update applies every update file"
+assert_contains "$out" "Updated .claude/agents/verifier.md" "and names each one"
+assert_contains "$(cat "$REAL/.claude/agents/verifier.md")" "# added in the next release" "the file carries the new template's line"
+assert_contains "$(cat "$REAL/.claude/agents/verifier.md")" "npm run dev" "rendered with the recorded value"
+assert_eq "$bands_before" "$(cat "$REAL/bands.yaml")" "a conflict is never rewritten"
+assert_eq "$hook_before" "$(cat "$REAL/.claude/hooks/format-changed.sh")" "an edited file is never rewritten"
+assert_eq "$review_before" "$(cat "$REAL/REVIEW.md")" "a file that cannot be re-rendered is never rewritten"
+
+json="$(node "$STAMPS" "$REAL" --templates "$RT" --json 2>&1)"
+assert_eq "current" "$(json_state "$json" .claude/agents/verifier.md)" "an updated file reads current again"
+assert_eq "current" "$(json_state "$json" .github/workflows/agent-evals.yml)" "every one of them"
+assert_contains "$json" '"cortex": "2.41.0"' "and the record names the release that updated it"
+changed="$(git -C "$REAL" status --porcelain -uall | sed 's/^...//' | sort | tr '\n' ' ')"
+assert_eq ".claude/agents/verifier.md .claude/hooks/format-changed.sh .cortex/stamps.json .github/workflows/agent-evals.yml bands.yaml " "$changed" "update wrote the update files and the record, nothing else (the other two are the team's edits)"
+
+# A release whose template gains a placeholder nothing recorded can fill: rendering would leave
+# `{{OWNER}}` in a file every agent reads, so the update is refused and the file left alone.
+printf 'Owner: {{OWNER}}\n' >> "$RT/loop/verifier.md"
+verifier_before="$(cat "$REAL/.claude/agents/verifier.md")"
+out="$(node "$STAMPS" update "$REAL" --templates "$RT" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "an update that had to refuse a file exits 1"
+assert_contains "$out" "{{OWNER}}" "naming the placeholder with no recorded value"
+assert_eq "$verifier_before" "$(cat "$REAL/.claude/agents/verifier.md")" "and leaves the file as it was"

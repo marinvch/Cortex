@@ -169,6 +169,34 @@ provable from disk. Add each drifted skill to the merged worklist as one row nam
 the single confirmation in step 6 covers exactly what the user saw. `present` in the loop means the
 file exists; it never meant the file is still true.
 
+**Loop files an earlier pass stamped are checked against this release's templates.**
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" . --json
+```
+
+It writes nothing. `files` is `null` when there is no `.cortex/stamps.json` yet. Otherwise each file
+has a `state`, and the state decides the row:
+
+| State | Row |
+|---|---|
+| `update` | one row, *Update N files Cortex stamped*: the template changed and the file is untouched |
+| `review`, `conflict` | one row **per file**, with its diff shown; never covered by `[a]ll` |
+| `missing` | ask whether to stamp it again |
+| `retired` | name it; nothing to update it from |
+| `edited` | nothing. The team changed it and the template did not, so it is theirs |
+
+Get each diff from the CLI. It compares the file now with this release's template, filled with the
+recorded values:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" diff . <path>
+```
+
+**When `ignored` is not null**, the record this pass writes would be hidden from git, so the team
+would never share it. That can be true before any record exists. Add one row that offers the
+`advice` it carries. Edit `.gitignore` only if the user picks that row.
+
 Two rules survive the merge intact:
 
 - **`enrich` states its token cost before the question, not after.** It is the only offer that
@@ -191,6 +219,8 @@ Cortex will write, in one pass:
   Deploy    REVIEW.md, .github/workflows/cortex-review.yml,
             .claude/settings.json, .claude/hooks/protected-paths.sh
   Refresh   .claude/skills/type-check/SKILL.md — lines 8, 55 (no tests; a moved path)
+  Update    .claude/hooks/protected-paths.sh, .claude/agents/verifier.md (templates changed)
+  Ask each  REVIEW.md — you edited it and its template changed (diff shown above)
 
   After this pass, waiting on history:
             evals — cases are real past tasks; /cortex evals once there are some
@@ -250,6 +280,28 @@ file that is wrong once is not trusted on the parts the reader cannot check.
 `<name>.generated.md` beside it and say to diff. `.claude/settings.json` is merged into, key by
 key — replacing it takes out hooks and permissions somebody else depends on.
 
+### Render each whole-file row
+
+Every row above that lands a whole file is rendered by the CLI, not filled by hand. That is what
+lets a later release update the file safely.
+
+1. Put the values you decided in a JSON object in the OS temp dir, for example
+   `{ "TEST_CMD": "npm test", "SETUP_STEPS": "" }`. The values are the detected commands, the
+   user's answers, and the multi-line blocks such as CI steps or formatter lines. Two rules:
+   - an empty value deletes a placeholder that sits alone on its line;
+   - a placeholder with no value is left as written, which is right only for `intent/TEMPLATE.md`.
+2. Render it:
+
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" render loop/<template> --values-file <json> > <lands at>
+   ```
+
+   GitHub Actions `${{ … }}` passes through untouched.
+
+`verification.md` and `settings.hooks.json` are **not recorded**: one is appended to `CLAUDE.md` and
+the other merged into `settings.json`. Each is a block inside a file the team also writes, and how to
+track such a block is not specified yet. Write them as before.
+
 ### Format what you wrote, then run the repo's own check
 
 A stamped file has to pass the target repo's own checks. On the first real install it did not:
@@ -270,6 +322,32 @@ session has to format by hand.
    failure with its output in step 8. Never edit the repo's formatter or lint config to make it
    pass. If no formatter is declared, say so; step 3 still runs.
 
+### Record what you stamped, and apply the updates
+
+**After formatting, record each whole-file loop file**, with the same values file:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" record . <lands at> loop/<template> --values-file <json>
+```
+
+Record what is on disk now. The command writes `.cortex/stamps.json` and nothing else.
+
+If it warns **not re-renderable**, the file holds lines its values do not produce, usually because
+the formatter rewrote them. It is still recorded, but a later template change will ask about it
+instead of updating it. Name those files in step 8.
+
+**Apply the `Update` row the user confirmed** through the CLI:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" update . <each confirmed path>
+```
+
+It re-renders each file from its recorded values, records it again, and refuses anything not in
+state `update`. Never re-render a stamped file yourself.
+
+For each `review` or `conflict` file the user answered, apply their choice by hand, then `record`
+it again.
+
 ## 8. Close
 
 State what was written, as the same list of paths from step 6, so the promise and the result can be
@@ -289,7 +367,8 @@ install stops being useful — they leave holding options instead of a step. If 
 `evals/` or `bands.yaml`, add one sentence saying what each is waiting for: task history, or a
 metric with a history. Do not present it as work this pass left undone.
 
-Then: suggest committing what was written so the team shares it, and mention `/dream` at the end of
+Then: suggest committing what was written so the team shares it, `.cortex/stamps.json` included (it
+is how the next release's re-run tells the team's edits from Cortex's own), and mention `/dream` at the end of
 a working day, because `.cortex/memory/` is the only part of the loop that nothing on disk will
 remind them about.
 
@@ -346,11 +425,11 @@ it as written is the failure; so is reporting it as declined.
 ## Gotchas
 
 - **Re-running is the supported path, and it is cheap.** Satisfied rows come back as `present` and
-  are not asked again; deferred ones come back as `missing`. There is no separate "update" flow.
-  What an earlier pass wrote is kept, so the one thing a re-run must look at again is whether it
-  is still true — the `skill-drift` step in step 5.
-- **`.cortex/index/` and `.cortex/findings/` are generated** and gitignored. `.cortex/memory/` is
-  **committed** — that asymmetry is deliberate and worth explaining once.
+  are not asked again; deferred ones come back as `missing`. What an earlier pass wrote is kept, so
+  a re-run looks at two things again: whether a skill is still true (`skill-drift`), and whether a
+  stamped loop file is behind this release's template (the stamp record). Both are in step 5.
+- **`.cortex/index/` and `.cortex/findings/` are generated** and gitignored. `.cortex/memory/` and
+  `.cortex/stamps.json` are **committed** — that asymmetry is deliberate and worth explaining once.
 - **A hook that asks a human belongs at the release gate, not the build.** An approval prompt
   during implementation puts a person on the critical path of every session running in parallel,
   which is the bottleneck this whole loop exists to remove.

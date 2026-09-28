@@ -125,6 +125,8 @@ intent/            where a change starts: intent → spec → plan
   findings/        generated, gitignored
   view/            generated, gitignored — the HTML graph
   memory/          COMMITTED — shared context, secrets refused at the gate
+  stamps.json      COMMITTED — which loop files Cortex stamped, from which release, so a re-run
+                   updates the untouched ones and asks about the ones your team edited
 ```
 
 ### See the repo, don't read about it
@@ -369,7 +371,9 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   under its `.cortex/` (the first index run also appends three lines to `.gitignore`). They make no
   network calls and install nothing — Cortex has no runtime dependencies. Two things there are
   meant to be committed: `.cortex/memory/`, and `.cortex/stamps.json`, the record of which files
-  Cortex stamped into the repo and from which release.
+  Cortex stamped into the repo and from which release. The one script that writes outside
+  `.cortex/` is `cortex-stamps.mjs update`. `/cortex` runs it only on the files you confirmed, and
+  it rewrites only a file Cortex stamped that nobody has touched since.
 - **The MCP server** (`mcp/server.js`, started as `node ${CLAUDE_PLUGIN_ROOT}/mcp/server.js`) runs
   `git` and nothing else that reaches a network, and only against a **team-brain** repository the
   user set up with `/team-init` or `/team-add`: it clones that repository once, `git pull`s it

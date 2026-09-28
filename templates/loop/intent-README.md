@@ -30,4 +30,5 @@ closing review — that record is the governance evidence, so decisions are not 
 
 ## Where the record lives
 
-This repo is the source of truth for intent. {{LEGACY_NOTE}}
+This repo is the source of truth for intent.
+{{LEGACY_NOTE}}

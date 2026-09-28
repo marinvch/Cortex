@@ -108,7 +108,7 @@ by a user who already knows it exists, which is the same failure as it not being
   the repo's import graph.
 - **`/cortex` and `/cortex-install` are the whole pass and its read half.** Install indexes,
   reports and offers; `/cortex` does that and then closes the artifact chain — `REVIEW.md`, the PR
-  review workflow, the verification block, the verifier, `intent/`, the hooks, the evals, the bands.
+  review workflow, the verification block, the verifier, the agent team, `intent/`, the hooks, the evals, the bands.
   Reach for install alone to *look* at a repo without being walked to a served one.
 - `/diagnosing-bugs` and `/cortex-review` both read the context layer and are not interchangeable:
   review judges a **change** you already made, diagnosis hunts a **symptom** you cannot explain. The

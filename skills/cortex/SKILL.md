@@ -258,6 +258,11 @@ what drifts.
 | a drifted skill | `/cortex-skills` § Refreshing a skill that drifted — the flagged lines only, and it asks again before touching a skill someone edited |
 | the plugin bundle | `/setup-plugins` |
 | `.cortex/memory/` | create it, and say it is **committed** on purpose |
+| the team plugin (`team-plugin`) | `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-shared-plugin.mjs" . --write`. It merges and refuses a file that does not parse; never hand-edit the JSON |
+
+`team-plugin` is offered only on a team's repo: the `work` profile or a team-brain connector. Its
+offer says what committing it does not do: once a teammate trusts the folder, Claude Code registers
+the marketplace, but each teammate still installs once with `claude plugin install cortex@cortex --scope project`.
 
 The loop artifacts are written here, from `${CLAUDE_PLUGIN_ROOT}/templates/loop/`:
 
@@ -304,7 +309,8 @@ lets a later release update the file safely.
 
 `verification.md` and `settings.hooks.json` are **not recorded**: one is appended to `CLAUDE.md` and
 the other merged into `settings.json`. Each is a block inside a file the team also writes, and how to
-track such a block is not specified yet. Write them as before.
+track such a block is not specified yet. Write them as before. The `team-plugin` entries are such a
+block too, and the CLI above writes them.
 
 ### Format what you wrote, then run the repo's own check
 

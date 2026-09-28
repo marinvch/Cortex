@@ -124,6 +124,16 @@ test("/cortex renders and records every whole-file loop file, and updates only t
   assert.match(body, /`olderPlugin`[^\n]*\n?[^\n]*`advice`[^.]*no stamp row/i, "/cortex offers no stamp row on an older plugin");
 });
 
+test("/cortex merges the team plugin through the CLI, and says each teammate still installs once", () => {
+  // .claude/settings.json holds hooks and permissions a team depends on. A model hand-editing it is
+  // the replace-not-merge failure; the CLI parses, inserts, and refuses what it cannot read.
+  const body = read("skills/cortex/SKILL.md");
+  assert.match(body, /cortex-shared-plugin\.mjs"? \. --write/, "/cortex never runs the merge");
+  assert.match(body, /never hand-edit the JSON/i);
+  assert.match(body, /claude plugin install cortex@cortex --scope project/, "the offer carries the install-once caveat");
+  assert.match(body, /`team-plugin` entries are such a\s+block/, "and says they are not in the stamp record");
+});
+
 test("the placeholder check and the renderer share one definition of a placeholder", () => {
   // tools/cortex-placeholders.mjs says which placeholders a stamped file still holds; the renderer in
   // index/lib/placeholders.mjs fills them on an update. A private copy of the rule in either would

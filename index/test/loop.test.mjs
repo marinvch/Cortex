@@ -5,6 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { detectCommands, detectFormatters, readLoopState, loopPlan, LOOP_ARTIFACTS, STAGES } from "../lib/loop.mjs";
+import { mergeSharedPlugin, teamServed } from "../lib/shared-plugin.mjs";
+
+// The loop reads this machine's CORTEX_PROFILE for its team-plugin row. These tests describe a repo,
+// not a machine, so a developer on a work profile must get the same answers as CI. A test that is
+// about the profile states it through `teamServed(root, env)`.
+delete process.env.CORTEX_PROFILE;
 
 function repo(build) {
   const root = mkdtempSync(join(tmpdir(), "cortex-loop-"));
@@ -1040,3 +1046,84 @@ test("cortex-review.yml carries only the placeholder the /cortex skill tells it 
   assert.ok(row.includes("CORTEX_REVIEW_BLOCKING"), "and it names the switch that makes the check blocking");
 });
 
+
+// ---------------------------------------------------------------------------
+// The shared plugin — Cortex in a team repo's committed .claude/settings.json (spec S6)
+// ---------------------------------------------------------------------------
+
+const teamRow = (plan) => {
+  for (const bucket of ["missing", "present", "blocked"]) {
+    const e = plan[bucket].find((x) => x.id === "team-plugin");
+    if (e) return { bucket, e };
+  }
+  return null;
+};
+
+test("on the work profile, the shared plugin is offered, naming the profile and the caveat", () => {
+  const root = repo(({ put }) => put("package.json", "{}"));
+  const plan = loopPlan(root, indexOf(["src/a.js"]), { team: teamServed(root, { CORTEX_PROFILE: "work" }) });
+  const row = teamRow(plan);
+  assert.equal(row?.bucket, "missing");
+  assert.equal(row.e.stage, "maintain");
+  assert.deepEqual(row.e.paths, [".claude/settings.json"]);
+  assert.deepEqual(row.e.protectedWrites, [".claude/settings.json"], "a headless run cannot write it, and must say so");
+  assert.match(row.e.why, /CORTEX_PROFILE=work/);
+  assert.match(row.e.brief, /claude plugin install cortex@cortex --scope project/, "the offer says each teammate still installs once");
+  assert.match(row.e.brief, /cortex-shared-plugin\.mjs/, "and the merge is the CLI's, never a hand edit");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a team-brain connector offers it on any profile", () => {
+  const root = repo(({ put }) => put(".cortex/connector.json", JSON.stringify({ team: "platform", project: "api", teamBrainRepo: "x" })));
+  const plan = loopPlan(root, indexOf(["src/a.js"]), { team: teamServed(root, {}) });
+  assert.equal(teamRow(plan)?.bucket, "missing");
+  assert.match(teamRow(plan).e.why, /the platform team's brain/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("home or lab with no connector: never offered, never named, never counted", () => {
+  const root = repo(({ put }) => put("package.json", "{}"));
+  const solo = loopPlan(root, indexOf(["src/a.js"]), { team: { team: false, why: null } });
+  const work = loopPlan(root, indexOf(["src/a.js"]), { team: teamServed(root, { CORTEX_PROFILE: "work" }) });
+  assert.equal(work.total, solo.total + 1, "the row counts where it applies");
+  for (const env of [{}, { CORTEX_PROFILE: "home" }, { CORTEX_PROFILE: "lab" }]) {
+    const plan = loopPlan(root, indexOf(["src/a.js"]), { team: teamServed(root, env) });
+    assert.equal(teamRow(plan), null, JSON.stringify(env));
+    assert.equal(plan.total, solo.total, "a solo repo's loop numbers are what they were");
+  }
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("settings that already carry both entries are served; half of them is still an offer", () => {
+  const work = { CORTEX_PROFILE: "work" };
+  const served = repo(({ put }) => put(".claude/settings.json", mergeSharedPlugin('{ "model": "sonnet" }').text));
+  assert.equal(teamRow(loopPlan(served, null, { team: teamServed(served, work) })).bucket, "present");
+  const half = repo(({ put }) => put(".claude/settings.json", '{ "enabledPlugins": { "cortex@cortex": false } }'));
+  const row = teamRow(loopPlan(half, null, { team: teamServed(half, work) }));
+  assert.equal(row.bucket, "missing");
+  assert.match(row.e.why, /extraKnownMarketplaces\.cortex/, "the evidence names what is missing");
+  rmSync(served, { recursive: true, force: true });
+  rmSync(half, { recursive: true, force: true });
+});
+
+test("a settings file that does not parse blocks the row, and says why", () => {
+  const root = repo(({ put }) => put(".claude/settings.json", "{ not json"));
+  const row = teamRow(loopPlan(root, null, { team: teamServed(root, { CORTEX_PROFILE: "work" }) }));
+  assert.equal(row.bucket, "blocked");
+  assert.match(row.e.needs.join(" "), /settings\.json that parses/);
+  assert.match(row.e.why, /not valid JSON/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the loop reads the machine's profile itself when no one overrides it", () => {
+  // The CLI passes nothing: readLoopState asks teamServed with this process's environment.
+  const root = repo(({ put }) => put("package.json", "{}"));
+  assert.equal(readLoopState(root).team.team, false, "no profile set in this file");
+  process.env.CORTEX_PROFILE = "work";
+  try {
+    assert.equal(readLoopState(root).team.team, true);
+  } finally {
+    delete process.env.CORTEX_PROFILE;
+  }
+  rmSync(root, { recursive: true, force: true });
+});

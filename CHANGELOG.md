@@ -155,6 +155,45 @@ this project now versions independently of any package manager (see `VERSION`).
 
   Mutation-tested: 26 guards, 26 reds. Plan step 5.
 
+- **On a team's repo, every developer had to find and install Cortex alone, and nothing offered to
+  put it in the repo's settings (spec S6).**
+  On a team's repo, `/cortex` now offers, inside its one confirmation, to add Cortex to the committed
+  `.claude/settings.json`: `extraKnownMarketplaces.cortex` (GitHub `marinvch/Cortex`) and
+  `enabledPlugins["cortex@cortex"]`. The shapes are the ones in Claude Code's settings reference.
+  - A team's repo is the `work` profile or a team-brain connector (`.cortex/connector.json`).
+    `home` and `lab` without a connector are never offered it, and the row does not appear in
+    their loop counts. A loop row can now declare `applies` for this.
+  - The offer says what committing does not do. Once a teammate trusts the folder, Claude Code
+    registers the marketplace, but the plugin docs still have each teammate run
+    `claude plugin install cortex@cortex --scope project` once.
+  - `node index/cortex-shared-plugin.mjs <repo> --write` does the merge, and `/cortex` calls it
+    rather than editing JSON:
+    - it merges and never replaces, inserting the two entries as text in the file's own
+      indentation and line endings, so every other byte stays;
+    - it keeps an entry already there, including `"cortex@cortex": false`;
+    - it writes into `additionalMarketplaces` when a file uses that documented alias;
+    - it refuses a file that does not parse and leaves it untouched;
+    - it writes nothing unless the parser agrees the result is exactly the original plus the two
+      entries.
+  - Like the hooks merged into the same file, the entries are a block in a shared file, so they
+    are not in `.cortex/stamps.json`.
+  - README "What Cortex runs, sends and fetches" now names this as the second script that writes
+    outside `.cortex/`. It also says Claude Code, not Cortex, clones the marketplace on a
+    teammate's machine.
+
+  Validated on a zustand clone:
+  - With no profile, `home` or `lab`, the row is absent and the loop reads 0/6 as before. With
+    `work`, or with a fake connector on `home`, it is offered and names the evidence.
+  - `--write` over a `settings.json` holding the hooks template and a permission added 11 lines and
+    removed none. Everything else parsed identical. Prettier (zustand's config) asked for no change
+    to the inserted lines.
+  - A second run wrote nothing, byte for byte.
+  - A settings file with a trailing comma was refused with exit 2, left as it was, and the row read
+    `blocked`.
+
+  Mutation-tested: 32 guards, 31 reds. The survivor is the parse-back check itself, which a correct
+  scanner never reaches. Plan step 6.
+
 ### Fixed
 
 - **Deleting `/resume` or `/cortex-review` would not have tripped the eval alarm (#472).** Their

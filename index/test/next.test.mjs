@@ -7,6 +7,11 @@ import { join } from "node:path";
 import { readState, nextSteps, nextLine } from "../lib/next.mjs";
 import { adoptStamp, recordStamp, runningCortex, writeStamps } from "../lib/stamps.mjs";
 
+// The loop reads this machine's CORTEX_PROFILE for its team-plugin row. These tests describe a repo,
+// not a machine, so a developer on a work profile must get the same answers as CI. A test that is
+// about the profile states it through `teamServed(root, env)`.
+delete process.env.CORTEX_PROFILE;
+
 function repo(build) {
   const root = mkdtempSync(join(tmpdir(), "cortex-next-"));
   const put = (rel, body = "x") => {

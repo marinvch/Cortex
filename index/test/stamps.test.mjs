@@ -5,8 +5,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
-  STAMPS_REL, STAMPS_FORMAT, hashText, ignoreAdvice, readStamps, recordStamp, stampStatus, stampsIgnoreRule, writeStamps,
+  STAMPS_REL, STAMPS_FORMAT, hashText, ignoreAdvice, planUpdates, readStamps, recordStamp, stampDiff, stampStatus,
+  stampsIgnoreRule, writeStamps,
 } from "../lib/stamps.mjs";
+import { lineDiff } from "../lib/linediff.mjs";
 import { tempDir } from "./tmp.mjs";
 
 // A target repo and a templates directory, both on disk, each file stated by the test. Every state
@@ -44,7 +46,7 @@ const stateOf = (w, record = w.record) => stampStatus({ repoRoot: w.repoRoot, re
 
 test("a file nobody touched, from a template nobody changed, is current", () => {
   const w = stamped();
-  assert.deepEqual(stateOf(w), [{ path: "REVIEW.md", template: "loop/REVIEW.md", version: "2.40.0", state: "current" }]);
+  assert.deepEqual(stateOf(w), [{ path: "REVIEW.md", template: "loop/REVIEW.md", version: "2.40.0", renderable: true, state: "current" }]);
 });
 
 test("a template that changed under an untouched file is an update", () => {
@@ -210,6 +212,7 @@ test("a record of the wrong shape is an error that names the file and the proble
     [{ ...good, files: { "a.md": { ...good.files["a.md"], fileSha256: "abc" } } }, "fileSha256"],
     [{ ...good, files: { "a.md": { ...good.files["a.md"], values: { K: 3 } } } }, "values"],
     [{ ...good, files: { "a.md": { ...good.files["a.md"], extra: 1 } } }, "extra"],
+    [{ ...good, files: { "a.md": { ...good.files["a.md"], renderable: "yes" } } }, "renderable"],
     [{ ...good, extra: 1 }, "extra"],
   ];
   for (const [doc, needle] of cases) {
@@ -254,7 +257,7 @@ test("recording the same path again replaces its entry", () => {
   assert.deepEqual(Object.keys(next.files), ["REVIEW.md"]);
   assert.deepEqual(next.files["REVIEW.md"], {
     template: "loop/REVIEW.md", version: "2.41.0",
-    templateSha256: hashText(TPL + "x\n"), fileSha256: hashText(OUT + "x\n"), values: { NIT_CAP: "5" },
+    templateSha256: hashText(TPL + "x\n"), fileSha256: hashText(OUT + "x\n"), renderable: false, values: { NIT_CAP: "5" },
   });
   assert.equal(next.cortex, "2.41.0");
 });
@@ -315,7 +318,7 @@ test("writeStamps is byte-stable, sorted and LF whatever order the record was bu
   const doc = JSON.parse(text);
   assert.deepEqual(Object.keys(doc), ["format", "cortex", "files"]);
   assert.deepEqual(Object.keys(doc.files), [".claude/hooks/p.sh", "a.md", "z.md"]);
-  assert.deepEqual(Object.keys(doc.files["z.md"]), ["template", "version", "templateSha256", "fileSha256", "values"]);
+  assert.deepEqual(Object.keys(doc.files["z.md"]), ["template", "version", "templateSha256", "fileSha256", "renderable", "values"]);
   assert.deepEqual(Object.keys(doc.files["z.md"].values), ["A", "B"]);
 
   // Writing the same record again changes nothing.
@@ -364,6 +367,20 @@ test("the rule that hides the record is named with its source and line", () => {
   assert.deepEqual(g, { source: "C:/Users/x/.gitignore_global", line: 3, pattern: "*.json", dirIgnored: false });
 });
 
+test("before .cortex exists, a directory-only rule is still read as excluding it", () => {
+  // Real git, asked about a .cortex that is not there yet, says a `.cortex/` rule does not match it —
+  // it cannot know the path is a directory. The first install asks exactly then.
+  const root = tempDir("cortex-stamps-noexist-");
+  const r = stampsIgnoreRule(root, { git: fakeGit({ rule: ".gitignore:1:.cortex/", dir: false }) });
+  assert.equal(r.dirIgnored, true);
+  for (const p of ["/.cortex/", "**/.cortex/", ".c*/"]) {
+    assert.equal(stampsIgnoreRule(root, { git: fakeGit({ rule: `.gitignore:1:${p}`, dir: false }) }).dirIgnored, true, p);
+  }
+  for (const p of [".cortex/*", "*.json", "build/", "src/.cortex/"]) {
+    assert.equal(stampsIgnoreRule(root, { git: fakeGit({ rule: `.gitignore:1:${p}`, dir: false }) }).dirIgnored, false, p);
+  }
+});
+
 test("a directory rule is told to become .cortex/* — a negation under it cannot work", () => {
   const text = ignoreAdvice({ source: ".gitignore", line: 7, pattern: ".cortex/", dirIgnored: true });
   assert.match(text, /\.gitignore:7/);
@@ -382,4 +399,127 @@ test("a rule in a nested .gitignore gets a negation relative to that file", () =
   const text = ignoreAdvice({ source: ".cortex/.gitignore", line: 1, pattern: "*", dirIgnored: false });
   assert.match(text, /`!stamps\.json`/);
   assert.doesNotMatch(text, /!\.cortex\/stamps\.json/);
+});
+
+// --- can the file be re-rendered from what was recorded? ------------------------------------------
+
+test("a file its template and values reproduce is recorded as renderable", () => {
+  const { record } = stamped();
+  assert.equal(record.files["REVIEW.md"].renderable, true);
+  // The same LF and trailing-newline rule as the hash: a CRLF file with no final newline still is.
+  const r = recordStamp(null, {
+    path: "a.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText: OUT.replace(/\n/g, "\r\n").trimEnd(), values: { NIT_CAP: "3" },
+  });
+  assert.equal(r.files["a.md"].renderable, true);
+});
+
+test("a file the values do not reproduce is recorded, and marked not renderable", () => {
+  // The model filled NIT_CAP with 3 and said 5; or wrote a line no placeholder accounts for.
+  for (const [fileText, values] of [[OUT, { NIT_CAP: "5" }], [OUT, {}], [OUT + "An extra line.\n", { NIT_CAP: "3" }]]) {
+    const r = recordStamp(null, { path: "a.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText, values });
+    assert.equal(r.files["a.md"].renderable, false, JSON.stringify(values));
+    assert.equal(r.files["a.md"].fileSha256, hashText(fileText), "its edits are still tracked");
+  }
+});
+
+test("a template change under an untouched file it cannot re-render is review, never update", () => {
+  const w = world({ files: { "a.md": OUT + "Model prose.\n" }, templates: { "t.md": TPL } });
+  const record = recordStamp(null, {
+    path: "a.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText: OUT + "Model prose.\n", values: { NIT_CAP: "3" },
+  });
+  assert.equal(stateOf(w, record)[0].state, "current", "unchanged on both sides is still current");
+  w.putTemplate("t.md", TPL + "New rule.\n");
+  assert.equal(stateOf(w, record)[0].state, "review");
+  w.put("a.md", "ours\n");
+  assert.equal(stateOf(w, record)[0].state, "conflict", "an edit on top is still a conflict");
+});
+
+// --- the update plan ----------------------------------------------------------------------------
+
+test("an update re-renders the new template with the recorded values", () => {
+  const w = stamped();
+  w.putTemplate("loop/REVIEW.md", TPL + "\nNew rule, cap {{NIT_CAP}}.\n");
+  const plan = planUpdates({ repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
+  assert.deepEqual(plan.refused, []);
+  assert.deepEqual(plan.updates.map((u) => u.path), ["REVIEW.md"]);
+  assert.equal(plan.updates[0].text, OUT + "\nNew rule, cap 3.\n");
+  assert.equal(plan.updates[0].templateText, TPL + "\nNew rule, cap {{NIT_CAP}}.\n");
+});
+
+test("an update plans nothing for a file in any other state", () => {
+  const w = world({
+    files: { "cur.md": OUT, "ed.md": OUT + "ours\n", "con.md": OUT + "ours\n", "rev.md": OUT + "prose\n", "ret.md": OUT },
+    templates: { "cur.md": TPL, "ed.md": TPL, "con.md": TPL, "rev.md": TPL, "ret.md": TPL },
+  });
+  let record = null;
+  for (const p of ["cur.md", "ed.md", "con.md", "rev.md", "ret.md", "mis.md"]) {
+    const fileText = p === "rev.md" ? OUT + "prose\n" : OUT;
+    record = recordStamp(record, { path: p, template: p === "mis.md" ? "cur.md" : p, version: "2.40.0", templateText: TPL, fileText, values: { NIT_CAP: "3" } });
+  }
+  w.putTemplate("con.md", TPL + "x\n");
+  w.putTemplate("rev.md", TPL + "x\n");
+  record.files["ret.md"].template = "gone.md"; // a template this Cortex does not ship
+  const states = Object.fromEntries(stateOf(w, record).map((e) => [e.path, e.state]));
+  assert.deepEqual(states, { "cur.md": "current", "ed.md": "edited", "con.md": "conflict", "rev.md": "review", "ret.md": "retired", "mis.md": "missing" });
+  const plan = planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
+  assert.deepEqual(plan.updates, []);
+  assert.deepEqual(plan.refused, [], "states that are not update are not refusals either — they are simply not planned");
+});
+
+test("a new template placeholder with no recorded value is refused, not left in the file", () => {
+  const w = stamped();
+  w.putTemplate("loop/REVIEW.md", TPL + "Owner: {{OWNER}}\n");
+  const plan = planUpdates({ repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
+  assert.deepEqual(plan.updates, []);
+  assert.equal(plan.refused.length, 1);
+  assert.match(plan.refused[0].why, /\{\{OWNER\}\}/);
+});
+
+test("a placeholder the file kept on purpose is kept through an update", () => {
+  const tpl = "# {{TITLE}}\n\nRaised by: {{AUTHOR}}\n";
+  const w = world({ files: { "intent/TEMPLATE.md": tpl }, templates: { "loop/intent.md": tpl } });
+  const record = recordStamp(null, { path: "intent/TEMPLATE.md", template: "loop/intent.md", version: "2.40.0", templateText: tpl, fileText: tpl });
+  w.putTemplate("loop/intent.md", tpl + "Status: draft\n");
+  const plan = planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
+  assert.deepEqual(plan.refused, []);
+  assert.equal(plan.updates[0].text, tpl + "Status: draft\n");
+});
+
+test("an update limited to named paths plans only those", () => {
+  const w = world({ files: { "a.md": OUT, "b.md": OUT }, templates: { "t.md": TPL } });
+  let record = recordStamp(null, { path: "a.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText: OUT, values: { NIT_CAP: "3" } });
+  record = recordStamp(record, { path: "b.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText: OUT, values: { NIT_CAP: "3" } });
+  w.putTemplate("t.md", TPL + "x\n");
+  const plan = planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir, paths: ["b.md"] });
+  assert.deepEqual(plan.updates.map((u) => u.path), ["b.md"]);
+  // A path named on purpose that is not safe to update is a refusal the caller must hear.
+  w.put("a.md", OUT + "ours\n");
+  const named = planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir, paths: ["a.md", "zzz.md"] });
+  assert.deepEqual(named.updates, []);
+  assert.deepEqual(named.refused.map((r) => r.path), ["a.md", "zzz.md"]);
+  assert.match(named.refused[0].why, /conflict/);
+  assert.match(named.refused[1].why, /not in the record/);
+});
+
+// --- the diff a per-file question shows ---------------------------------------------------------
+
+test("stampDiff shows the file now against the new template rendered with the recorded values", () => {
+  const w = stamped();
+  w.put("REVIEW.md", OUT + "Our own rule.\n");
+  w.putTemplate("loop/REVIEW.md", TPL + "New rule.\n");
+  const d = stampDiff({ repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir, path: "REVIEW.md" });
+  assert.equal(d.state, "conflict");
+  assert.match(d.diff, /^-Our own rule\.$/m);
+  assert.match(d.diff, /^\+New rule\.$/m);
+  assert.equal(stampDiff({ repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir, path: "nope.md" }), null);
+});
+
+test("lineDiff is empty for equal text and marks each changed line with context", () => {
+  assert.equal(lineDiff("a\nb\n", "a\r\nb"), "");
+  const d = lineDiff("1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n", "1\n2\nTWO-AND-HALF\n3\n4\n5\n6\n7\n8\n9\nTEN\n");
+  assert.match(d, /^\+TWO-AND-HALF$/m);
+  assert.match(d, /^-10$/m);
+  assert.match(d, /^\+TEN$/m);
+  assert.match(d, /^ 2$/m, "context around a change");
+  assert.equal((d.match(/^@@/gm) ?? []).length, 2, "two changes far apart are two hunks");
 });

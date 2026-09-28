@@ -7,11 +7,11 @@
 
 Label every finding with the lens that produced it.
 
-| Lens | Looking for |
-|---|---|
-| Correctness | wrong logic, unhandled edges, behaviour that quietly changed |
-| Safety | untrusted input reaching a sink, missing auth checks, secrets or personal data in logs |
-| Fidelity | drift from `spec.md`, `plan.md`, and the rules written in `AGENTS.md` |
+| Lens        | Looking for                                                                            |
+| ----------- | -------------------------------------------------------------------------------------- |
+| Correctness | wrong logic, unhandled edges, behaviour that quietly changed                           |
+| Safety      | untrusted input reaching a sink, missing auth checks, secrets or personal data in logs |
+| Fidelity    | drift from `spec.md`, `plan.md`, and the rules written in `AGENTS.md`                  |
 
 ## Severity
 

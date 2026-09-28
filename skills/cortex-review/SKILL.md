@@ -102,9 +102,12 @@ tells a reviewer where to look, not what is wrong there.
      contract) leaves the line **true**, even though it shares a keyword with the change. "The
      environment variable wins over `max_sessions`" survives the default change above.
    - A line that **already** names the new path or identifier is correct, not stale.
-   - A **historical record** is correct as written. This covers ADR rationale, CHANGELOG entries,
-     and lines like "`a` was renamed to `b` in 2.39" or "the old name no longer exists". The
-     `historical` class applies here too, not only under `--citations`.
+   - A **historical record** is correct as written, in whatever tense it is written. Every line of
+     an ADR and every CHANGELOG entry is one. So is a line like "`a` was renamed to `b` in 2.39" or
+     "the old name no longer exists". A present-tense ADR `Decision:` that names the old path, flag
+     or value records what was decided at the time, and this outranks the literal rule above. A
+     later ADR supersedes it. The `historical` class applies here too, not only under
+     `--citations`.
    - **Renames split across both axes.** Say every caller was updated. A rule like "callers read it
      from `a()`" is still *followed* for standards. The sentence naming `a()` is still *drift*, so
      give the new name as the fix. A moved file named in a rule is drift, not a broken rule.

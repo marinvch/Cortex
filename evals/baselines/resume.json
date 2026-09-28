@@ -1,12 +1,11 @@
 {
   "skill": "resume",
-  "bodySha256": "9273e6eb23d6870fbe1640bc4f6aaf93655a6eb93b45326f4152be654be04d26",
+  "bodySha256": "c41d2d478709bf47d85ae68b8dc7d08590657b200e01b5462d7ec2d1ae908be5",
   "split": "test",
   "n": 14,
-  "hard": 0.8571,
-  "soft": 0.9524,
+  "hard": 1,
+  "soft": 1,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-09-28T03:40:55.073Z",
-  "note": "tasks made harder for #472"
+  "recordedAt": "2026-09-28T05:51:26.571Z"
 }

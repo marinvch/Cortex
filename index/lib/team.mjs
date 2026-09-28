@@ -91,7 +91,9 @@ const NAME_GLOBS = [
  * Only globs a real test file produced: an extra one widens the fence, and the fence fails closed.
  */
 export function testLocations(index) {
-  const tests = (index?.files ?? []).filter((f) => f.isTest).map((f) => f.path);
+  // Never from under .claude/: the fence refuses every edit there, and the fence itself,
+  // `.claude/hooks/test-paths.sh`, is named like a shell test — found on the first real team stamp.
+  const tests = (index?.files ?? []).filter((f) => f.isTest && !f.path.startsWith(".claude/")).map((f) => f.path);
   if (!tests.length) return null;
   const dirs = new Set();
   const names = new Set();

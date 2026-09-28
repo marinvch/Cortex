@@ -507,7 +507,9 @@ is the ritual's half.
 - **A value is detected or asked, never invented.** `needs` lists each placeholder a picked role's
   files use (the Tester's include `test-paths.sh`'s) that came back `null`. RUN is the verifier's
   recorded value, and a damaged record costs that value only. Test globs come only from files the
-  index marks `isTest`: an extra glob widens a fence that fails closed.
+  index marks `isTest`: an extra glob widens a fence that fails closed. Never from under `.claude/`:
+  the fence refuses every edit there, and the fence itself, `.claude/hooks/test-paths.sh`, matches
+  `langs.mjs`'s `test-*.sh` rule, so the index calls it a test (found on the step-15 workspace).
 - **The row is present once the playbook is in `CLAUDE.md`**, not when every role is. Declined roles
   are the developer's T4 choice and must not hold the row open. The playbook is a block in a shared
   file, so it is not recorded; every whole file the team writes is.

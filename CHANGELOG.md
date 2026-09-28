@@ -16,10 +16,24 @@ this project now versions independently of any package manager (see `VERSION`).
   placeholder with where `/cortex` finds its value. Every role cites a `path:line`, an ADR or a
   command's output for each claim, and reads every `AGENTS.md` between the code it works on and
   the root. The Reviewer keeps the verifier's rule of changing nothing, and `verifier.md` stays
-  as it is. The Tester's edits are limited to test files by instruction only; the hook that
-  enforces it is plan step 10. `/cortex` starts offering the team in step 14.
+  as it is. The Tester's edits are limited to test files by the fence below. `/cortex` starts
+  offering the team in step 14.
   `index/test/team-templates.test.mjs` renders each role, commits it at `.claude/agents/`, and
   expects no `claude-setup` finding.
+- **The Tester's fence: its edits outside test files are refused by a hook, not only by
+  instruction.** `tester.md` declares a `PreToolUse` hook on Edit and Write in its own
+  frontmatter. The hook runs `templates/team/test-paths.sh`, which is stamped to `.claude/hooks/`.
+  The script allows an edit only when the path resolves inside the repo, outside `.claude/`, and
+  matches one of the repo's test globs (`{{TEST_GLOBS}}`). It is an allow-list, so it fails closed:
+  unreadable input, a relative path, a `..`, a symlink, a path outside the repo and an empty glob
+  list all exit 2. The command ends in `|| exit 2`, so a missing script blocks too. Backslash paths
+  are normalised, the reader has the same sed fallback when jq is missing, and it is safe on bash
+  3.2. `templates/team/README.md` states what the fence cannot cover. Claude Code skips a project
+  subagent's frontmatter hooks until the folder is trusted, and in `claude -p`. The fence also
+  does not cover Bash. `tools/test/test-paths.test.sh` runs the real script against each of these
+  cases. It also pins the hook-input reader as identical across `protected-paths.sh`,
+  `format-changed.sh` and `test-paths.sh`, which are three copies with no parity test until now.
+  Still templates only; `/cortex` stamps them in step 14.
 
 ## [2.40.0] — 2026-09-28
 

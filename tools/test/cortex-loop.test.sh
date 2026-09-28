@@ -456,3 +456,45 @@ out="$(review "" "true")"
 assert_contains "$out" "Not a pull request" "review workflow: without a base there is nothing to review"
 assert_contains "$out" "exit=0" "and that is not a failure"
 assert_eq "" "$(git -C "$review_repo" status --porcelain)" "review workflow: the reviewed checkout is left untouched"
+
+# --- the agents a repo already has (spec T6) -------------------------------------------------------
+#
+# /cortex offers the agent team per role, so what the loop says about the agents already here is
+# control flow: a role it calls covered is never offered, and a guess where the answer is "ask"
+# hides a role the repo does not have. A real git repo, because the list comes from the index and
+# the index asks git.
+
+agents_repo="$WORK/agents"
+mkrepo "$agents_repo"
+mkdir -p "$agents_repo/.claude/agents" "$agents_repo/src/billing" || exit 1
+printf 'export const a = 1;\n' > "$agents_repo/src/a.js"
+printf '# billing rules\n' > "$agents_repo/src/billing/AGENTS.md"
+sed 's#{{RUN}}#npm run dev#' "$REPO_ROOT/templates/loop/verifier.md" > "$agents_repo/.claude/agents/verifier.md"
+printf -- '---\nname: security-reviewer\ndescription: Reviews code for vulnerabilities.\n---\nYou review.\n' \
+  > "$agents_repo/.claude/agents/security-reviewer.md"
+git -C "$agents_repo" add -A && git -C "$agents_repo" commit -q -m agents
+node "$REPO_ROOT/index/cortex-index.mjs" "$agents_repo" --out "$WORK/agents-index.json" >/dev/null 2>&1
+agents_before="$(git -C "$agents_repo" status --porcelain)"
+
+out="$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" 2>&1)"
+assert_contains "$out" "Agents already here — 2 in .claude/agents/" "agents: the repo's own agents are listed"
+assert_contains "$out" "verifier.md  reviewer" "agents: Cortex's verifier maps to the Reviewer"
+assert_contains "$out" "offered the upgrade to team/reviewer.md" "agents: and is offered the upgrade, not a second reviewer (T9)"
+assert_contains "$out" "security-reviewer.md  unmapped — a specialist" "agents: a lens specialist is asked about, not mapped"
+assert_contains "$out" "Roles no agent covers: architect, implementer, tester, project-manager" \
+  "agents: the covered role is not offered again, and nothing unmapped covers one"
+assert_contains "$out" "after line" "agents: a proposal names the line it applies to"
+assert_contains "$out" "Every claim you make about this repo cites" "agents: and quotes the role template's own sentence"
+assert_contains "$out" "src/billing/AGENTS.md" "agents: the grounding proposal names the brief no subagent loads"
+assert_not_contains "$out" "null" "agents: no rendered sentence contains a hole"
+assert_not_contains "$out" "undefined" "agents: nor an undefined"
+
+json="$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json 2>&1)"
+assert_contains "$json" '"gaps": [' "agents: --json carries the gaps for /cortex to offer"
+assert_contains "$json" '"upgrade": {' "agents: and the verifier's upgrade"
+assert_eq "$agents_before" "$(git -C "$agents_repo" status --porcelain)" "agents: reading them writes nothing into the repo"
+
+# A repo with no agents reads exactly as before; with no index the question is unanswered, not "none".
+fresh_repo noagents
+assert_not_contains "$(run noagents)" "Agents already here" "agents: a repo without agents prints no agents section"
+assert_contains "$(run noagents --json)" '"agents": null' "agents: with no index, --json says unanswered (null), never an empty roster"

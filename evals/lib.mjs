@@ -45,7 +45,10 @@ export function readAnswer(text, keys) {
 // first dash, semicolon or parenthesis set off by spaces. Branch names keep their own hyphens.
 export function listOf(value) {
   if (value === undefined) return null;
-  const v = value.split(/\s+[—–]\s*|\s+-{1,2}\s+|\s*;\s*|\s+\(/)[0].trim();
+  // A closed parenthetical on one item — `feat/x (uncommitted, worktree /tmp/wt-1)`, the spelling
+  // /resume itself prescribes — is dropped first. Cut at its " (" instead, and every item after it
+  // was lost, so the skill's own answer scored as a miss.
+  const v = value.replace(/\s*\([^()]*\)/g, "").split(/\s+[—–]\s*|\s+-{1,2}\s+|\s*;\s*|\s+\(/)[0].trim();
   if (!v || /^none\.?$/i.test(v)) return [];
   return v.split(/\s*,\s*/).map((s) => s.replace(/^#/, "").trim()).filter(Boolean);
 }

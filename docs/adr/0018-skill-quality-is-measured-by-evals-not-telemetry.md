@@ -55,3 +55,24 @@ skill needs one.
 - The hash covers the body, not the tasks, the scorer or the model. A new model, or a generator
   change, can move scores with no alarm. The baseline records `model` and `effort` so that a
   difference can at least be seen.
+
+## Note — 2026-09-28 (#472)
+
+The follow-up above is done, and one part of the decision has changed. `--record` now also refuses
+a drop in mean `hard` of more than 0.2, three tasks in fourteen, unless `--accept-drop` is given.
+Soft alone could not see a skill that gets every task nearly right. With no skill, `/resume` fell
+0.21 hard but only 0.056 soft.
+
+The `/resume` and `/cortex-review` generators now build traps from each skill's own rules. The
+three baselines were re-recorded, and the two whose tasks changed carry the note "tasks made harder
+for #472". With no skill, on the new tasks:
+
+| Skill | with skill (hard / soft) | no skill (hard / soft) | alarm fires on |
+|---|---|---|---|
+| `/ship` | 1.000 / 1.000 | 0.357 / 0.869 | hard and soft |
+| `/resume` | 0.857 / 0.952 | 0.143 / 0.653 | hard and soft |
+| `/cortex-review` | 0.643 / 0.927 | 0.357 / 0.864 | hard only, by one task |
+
+`/cortex-review` is still the weak one. Its only trap that separates the skill from no skill is
+the present-tense ADR line, and the run with the skill misses that too, because the body calls
+only "ADR rationale" history. `evals/README.md` has the per-run numbers.

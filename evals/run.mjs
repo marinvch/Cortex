@@ -12,8 +12,8 @@
 // half CI runs, and it only compares hashes.
 //
 // `--record` writes evals/baselines/<skill>.json. It refuses when the mean soft score fell more than
-// DROP_LIMIT below the previous baseline, unless --accept-drop says why — the reason is kept as
-// `note`. It also refuses when any call failed: a timeout scores 0, and a baseline full of outages
+// DROP_LIMIT, or the mean hard score more than HARD_DROP_LIMIT, below the previous baseline, unless
+// --accept-drop says why — the reason is kept as `note`. It also refuses when any call failed: a timeout scores 0, and a baseline full of outages
 // is a low bar that would hide the next real regression.
 
 import { createHash } from "node:crypto";
@@ -27,6 +27,7 @@ import { scoreTask } from "./score.mjs";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const DROP_LIMIT = 0.1;
+export const HARD_DROP_LIMIT = 0.2;
 // The target model and effort SkillOpt trains against (skillopt/config.yaml), so a baseline recorded
 // here and a score SkillOpt reports are measuring the same thing.
 export const DEFAULT_MODEL = "claude-sonnet-5";
@@ -118,16 +119,27 @@ const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0)
 
 // Compared on the stored (rounded) means, with a hair of tolerance so a drop of exactly DROP_LIMIT
 // is not refused by floating-point noise.
+//
+// Two alarms, because either score can hide a regression the other shows. Soft is partial credit, so
+// a skill that gets every task *nearly* right loses little of it; hard counts whole tasks, and on 14
+// tasks one task is 0.071. HARD_DROP_LIMIT is three tasks in fourteen: repeated runs of one unchanged
+// skill body differed by one task (#472), so noise alone should not refuse a record. A baseline with
+// no `hard` field is judged on soft alone.
 export function judgeRecord(prev, next, acceptDrop) {
   if (!prev) return { ok: true, message: "no previous baseline" };
   if (prev.split !== next.split) return { ok: true, message: `previous baseline was on ${prev.split}; not comparable` };
-  const drop = prev.soft - next.soft;
-  if (drop <= DROP_LIMIT + 1e-9) return { ok: true, message: `soft ${prev.soft} → ${next.soft}` };
-  if (acceptDrop) return { ok: true, message: `soft ${prev.soft} → ${next.soft}, drop accepted: ${acceptDrop}` };
+  const summary = `soft ${prev.soft} → ${next.soft}, hard ${prev.hard} → ${next.hard}`;
+  const fell = [];
+  const softDrop = prev.soft - next.soft;
+  if (softDrop > DROP_LIMIT + 1e-9) fell.push(`soft fell ${round(softDrop)}, more than ${DROP_LIMIT}`);
+  const hardDrop = typeof prev.hard === "number" ? prev.hard - next.hard : 0;
+  if (hardDrop > HARD_DROP_LIMIT + 1e-9) fell.push(`hard fell ${round(hardDrop)}, more than ${HARD_DROP_LIMIT}`);
+  if (!fell.length) return { ok: true, message: summary };
+  if (acceptDrop) return { ok: true, message: `${summary}, drop accepted: ${acceptDrop}` };
   return {
     ok: false,
-    message: `soft fell ${round(drop)} (${prev.soft} → ${next.soft}), more than ${DROP_LIMIT} — this edit made the skill worse ` +
-      `on its evals. Fix the edit, or record it on purpose with --accept-drop "<why the drop is worth it>".`,
+    message: `${fell.join(" and ")} (${summary}) — this edit made the skill worse on its evals. ` +
+      `Fix the edit, or record it on purpose with --accept-drop "<why the drop is worth it>".`,
   };
 }
 

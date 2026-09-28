@@ -89,7 +89,193 @@ test("cortex-review: flagging a historical line (CHANGELOG, ADR) fails", () => {
   const line = task.prompt.split(hist)[1].match(/:(\d+)/)[1];
   const s = SKILLS["cortex-review"].score(`STALE: ${[...task.truth.stale, `${hist}:${line}`].join(", ")}`, task.truth);
   assert.equal(s.hard, 0);
-  assert.match(s.reason, /still true/);
+  assert.match(s.reason, /not stale/);
+});
+
+// ── the traps added for #472 ─────────────────────────────────────────────────────────────────────
+// With no skill at all, the first version of these tasks scored 0.944 (/resume) and 0.986
+// (/cortex-review) soft, so deleting either skill would not have tripped the alarm. Each trap below is
+// a rule the skill states and a generic reader gets wrong. For each: the truth is checked against an
+// oracle that reads the RENDERED prompt the way the skill says to (so a generator that labelled the
+// trap wrongly fails here, not just in a model run), the correct answer scores 1, the trap scores < 1,
+// and the trap is present in the test split the baselines are recorded on.
+
+const sections = (prompt) => {
+  const out = {};
+  let cur = null;
+  for (const line of prompt.split("\n")) {
+    if (line.startsWith("$ ")) { cur = line.slice(2); out[cur] = []; continue; }
+    if (cur && line.trim() && !/^The current branch/.test(line)) out[cur].push(line);
+    if (/^The current branch/.test(line)) cur = null;
+  }
+  return out;
+};
+
+// The skill's hidden-work rule, applied mechanically to what the task shows: `--no-merged`, minus
+// the current branch, minus every open PR head — plus each branch whose extra worktree is dirty.
+function hiddenBySkillRule(prompt) {
+  const sec = sections(prompt);
+  const current = sec["git branch -vv"].find((l) => l.startsWith("* ")).slice(2).split(/\s+/)[0];
+  const noMerged = sec["git branch --no-merged master"].map((l) => l.replace(/^[*+ ]\s*/, "").trim()).filter((b) => b && b !== "(nothing)");
+  const prHeads = sec["gh pr list --state open"].map((l) => l.split("\t")[2]).filter(Boolean);
+  const hidden = noMerged.filter((b) => b !== current && !prHeads.includes(b));
+  const wtBranch = new Map(sec["git worktree list"].slice(1).map((l) => [l.split(/\s+/)[0], l.match(/\[(.+)\]/)[1]]));
+  for (const [cmd, lines] of Object.entries(sec)) {
+    const m = /^git -C (\S+) status --short$/.exec(cmd);
+    if (m && !(lines.length === 1 && lines[0] === "(clean)")) hidden.push(wtBranch.get(m[1]));
+  }
+  return hidden;
+}
+
+const vvRow = (prompt, name) => sections(prompt)["git branch -vv"].find((l) => l.slice(2).split(/\s+/)[0] === name);
+const resumeTasks = (split) => (split ? build("resume")[split] : all("resume")).map((task) => ({ task, s: SKILLS.resume.generate(task.seed) }));
+const answerResume = (t, over = {}) => { const a = { ...t, ...over }; return `UNCOMMITTED: ${a.uncommitted}\nHIDDEN: ${a.hidden.join(", ") || "none"}\nROUTE: ${a.route}`; };
+
+test("resume: the hidden list in every task is what the skill's rule gives for the prompt as rendered", () => {
+  for (const { task } of resumeTasks()) assert.deepEqual([...task.truth.hidden].sort(), hiddenBySkillRule(task.prompt).sort(), task.id);
+});
+
+test("resume trap: a branch `ahead N` of its upstream that --no-merged does not list holds nothing hidden", () => {
+  let n = 0;
+  for (const { task, s } of resumeTasks()) for (const b of s.branches.filter((x) => x.kind === "ahead-merged")) {
+    n++;
+    assert.match(vvRow(task.prompt, b.name), /: ahead \d+\]/, task.id);
+    assert.ok(!task.truth.hidden.includes(b.name), task.id);
+    assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
+  }
+  assert.ok(n >= 5, `only ${n} ahead-but-merged branches`);
+  assert.ok(resumeTasks("test").some(({ s }) => s.branches.some((b) => b.kind === "ahead-merged")));
+});
+
+test("resume trap: a dirty extra worktree is hidden work even though --no-merged cannot see its branch", () => {
+  let n = 0;
+  for (const { task, s } of resumeTasks()) for (const b of s.branches.filter((x) => x.kind === "wt-dirty")) {
+    n++;
+    assert.match(vvRow(task.prompt, b.name), /^\+ /, `${task.id}: a worktree branch carries the + marker`);
+    assert.ok(!sections(task.prompt)["git branch --no-merged master"].some((l) => l.includes(b.name)), task.id);
+    assert.ok(task.truth.hidden.includes(b.name), task.id);
+    // The skill's own spelling of the entry scores 1; leaving it out, or calling it this checkout's dirt, does not.
+    const skillSpelling = answerResume(task.truth, { hidden: task.truth.hidden.map((h) => (h === b.name ? `${h} (uncommitted, worktree ${b.path})` : h)) });
+    assert.equal(SKILLS.resume.score(skillSpelling, task.truth).hard, 1, task.id);
+    assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: task.truth.hidden.filter((h) => h !== b.name) }), task.truth).soft < 1, task.id);
+    if (task.truth.uncommitted === "none") assert.equal(SKILLS.resume.score(answerResume(task.truth, { uncommitted: b.name }), task.truth).hard, 0, task.id);
+  }
+  assert.ok(n >= 5, `only ${n} dirty worktrees`);
+  assert.ok(resumeTasks("test").some(({ s }) => s.branches.some((b) => b.kind === "wt-dirty")));
+});
+
+test("resume trap: a clean extra worktree is cleanup, not work", () => {
+  let n = 0;
+  for (const { task, s } of resumeTasks()) for (const b of s.branches.filter((x) => x.kind === "wt-clean")) {
+    n++;
+    assert.ok(!task.truth.hidden.includes(b.name), task.id);
+    assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
+  }
+  assert.ok(n >= 3, `only ${n} clean worktrees`);
+});
+
+test("resume trap: an open PR's head branch and the current branch are never hidden, even when --no-merged lists them", () => {
+  let pr = 0, cur = 0;
+  for (const { task, s } of resumeTasks()) {
+    for (const b of s.branches.filter((x) => x.kind === "in-sync-pr")) {
+      pr++;
+      assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
+    }
+    if (s.currentUnmerged) {
+      cur++;
+      assert.ok(sections(task.prompt)["git branch --no-merged master"].includes(`* ${s.current}`), `${task.id}: --no-merged shows the current branch`);
+      assert.ok(!task.truth.hidden.includes(s.current), task.id);
+      assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: [...task.truth.hidden, s.current] }), task.truth).soft < 1, task.id);
+    }
+  }
+  assert.ok(pr >= 5 && cur >= 5, `${pr} PR heads, ${cur} unmerged current branches`);
+});
+
+// Each route trap: [variant, the route the skill's ordered rules give, the route a generic reader picks].
+const ROUTE_TRAPS = [
+  ["handoff", "/handoff", "/ship", "leaving soon outranks an open PR queue (rule 1 before rule 4)"],
+  ["dream", "/dream", "/ship", "an unrecorded lesson outranks an open PR queue (rule 3 before rule 4)"],
+  ["away-but-open-prs", "/ship", "/catch-me-up", "back from time away is /catch-me-up only when nothing is mid-flight"],
+  ["next-without-prs", "/cortex-next", "/ship", "with no open PRs, /ship is the wrong route"],
+];
+for (const [variant, right, wrong, why] of ROUTE_TRAPS) {
+  test(`resume trap: ${why}`, () => {
+    const hits = resumeTasks().filter(({ s }) => s.variant === variant);
+    assert.ok(hits.length >= 2, `only ${hits.length} ${variant} tasks`);
+    for (const { task, s } of hits) {
+      assert.equal(task.truth.route, right, task.id);
+      const prs = sections(task.prompt)["gh pr list --state open"];
+      if (variant === "next-without-prs") assert.deepEqual(prs, ["no open pull requests"], task.id);
+      if (variant === "away-but-open-prs") assert.notDeepEqual(prs, ["no open pull requests"], task.id);
+      assert.equal(SKILLS.resume.score(answerResume(task.truth, { route: wrong }), task.truth).hard, 0, task.id);
+      assert.ok(s.message, task.id);
+    }
+    // The version of the trap with the tempting signal present must occur somewhere.
+    assert.ok(hits.some(({ task }) => (variant === "next-without-prs" ? true : !/no open pull requests/.test(task.prompt))), `${variant}: no task carries an open PR`);
+  });
+}
+
+test("resume: the test split carries at least three of the four route traps", () => {
+  const variants = new Set(resumeTasks("test").map(({ s }) => s.variant));
+  assert.ok(ROUTE_TRAPS.filter(([v]) => variants.has(v)).length >= 3, [...variants].join(", "));
+});
+
+test("resume: a trailing note after the UNCOMMITTED branch is not held against it", () => {
+  const { task } = resumeTasks().find(({ task }) => task.truth.uncommitted !== "none");
+  assert.equal(SKILLS.resume.score(answerResume(task.truth, { uncommitted: `${task.truth.uncommitted} (2 files)` }), task.truth).hard, 1);
+});
+
+// cortex-review: the mentions, parsed back out of the prompt.
+function mentions(prompt) {
+  const out = [];
+  let file = null;
+  for (const line of prompt.split("\n")) {
+    const f = /^ {2}(\S+) {2}\(\d+ mentions?\)$/.exec(line);
+    if (f) { file = f[1]; continue; }
+    const m = /^ {6}:(\d+) {2}(.*)$/.exec(line);
+    if (m && file) out.push({ at: `${file}:${m[1]}`, file, text: m[2] });
+  }
+  return out;
+}
+const reviewTasks = (split) => (split ? build("cortex-review")[split] : all("cortex-review"));
+const addStale = (t, at) => `STALE: ${[...t.stale, at].join(", ")}`;
+const dropStale = (t, at) => `STALE: ${t.stale.filter((x) => x !== at).join(", ") || "none"}`;
+
+// [name, which mentions, stale?, minimum across all splits]
+const REVIEW_TRAPS = [
+  ["an ADR line in the present tense is still history", (m) => m.file.startsWith("docs/adr/") && !/\b(considered|started|was)\b/.test(m.text), false],
+  ["a CHANGELOG entry in the present tense is still history", (m) => m.file === "CHANGELOG.md" && !/^- (Moved|`[^`]+` added)/.test(m.text), false],
+  ["a line that depends on hunks the summary does not show is unverified, not stale", (m) => /combined with OR, never weighted|walks its input in sorted order|holds nothing in memory/.test(m.text), false],
+  ["a count can go stale without its numeral (\"both\")", (m) => /reads both of its signals/.test(m.text), true],
+  ["a default can go stale through a derived value (a week, two minutes)", (m) => /the last week|two minutes/.test(m.text), true],
+  ["an enumeration goes stale when a module moves in", (m) => /holds four modules/.test(m.text), true],
+];
+for (const [why, match, stale] of REVIEW_TRAPS) {
+  test(`cortex-review trap: ${why}`, () => {
+    let n = 0;
+    for (const task of reviewTasks()) for (const m of mentions(task.prompt).filter(match)) {
+      n++;
+      assert.equal(task.truth.stale.includes(m.at), stale, `${task.id} ${m.at}: ${m.text}`);
+      const wrong = stale ? dropStale(task.truth, m.at) : addStale(task.truth, m.at);
+      const s = SKILLS["cortex-review"].score(wrong, task.truth);
+      assert.equal(s.hard, 0, `${task.id} ${m.at}`);
+      assert.ok(s.soft < 1, `${task.id} ${m.at}`);
+    }
+    assert.ok(n >= 3, `only ${n} such lines across all splits`);
+    assert.ok(reviewTasks("test").some((task) => mentions(task.prompt).some(match)), "none in the test split");
+  });
+}
+
+test("cortex-review: both derived defaults occur — a week for 7 days, two minutes for 120 seconds", () => {
+  const texts = reviewTasks().flatMap((task) => mentions(task.prompt).map((m) => m.text));
+  assert.ok(texts.some((t) => /the last week/.test(t)), "no lookback line");
+  assert.ok(texts.some((t) => /two minutes/.test(t)), "no exec_timeout line");
+});
+
+test("cortex-review: no line in a CHANGELOG or an ADR is ever stale", () => {
+  for (const task of reviewTasks()) for (const m of mentions(task.prompt)) {
+    if (m.file === "CHANGELOG.md" || m.file.startsWith("docs/adr/")) assert.ok(!task.truth.stale.includes(m.at), `${task.id} ${m.at}`);
+  }
 });
 
 test("cortex-review: a clean change exists in every split, and inventing a finding on it fails", () => {
@@ -108,6 +294,12 @@ test("an answer line may trail an explanation, and only the list is read", () =>
 DELETE: ${t.delete.join(", ") || "none"} (both merged)`;
   assert.equal(SKILLS.ship.score(reply, t).hard, 1);
   assert.deepEqual(listOf("fix/a-b, feat/c-d - kept the rest"), ["fix/a-b", "feat/c-d"]);
+});
+
+test("a parenthetical on one list item does not cut off the items after it", () => {
+  assert.deepEqual(listOf("fix/a-b (uncommitted, worktree /tmp/wt-1f2a), feat/c-d"), ["fix/a-b", "feat/c-d"]);
+  assert.deepEqual(listOf("fix/a-b, feat/c-d (both merged)"), ["fix/a-b", "feat/c-d"]);
+  assert.deepEqual(listOf("fix/a-b (no upstream"), ["fix/a-b"], "an unclosed parenthesis still ends the list");
 });
 
 test("importing generate.mjs writes nothing — only running it as a command does", () => {

@@ -141,7 +141,8 @@ before overturning one; the line here is the trigger, not the case.
 - **Edit the body of a skill listed in `evals/skills.mjs` and you must re-measure it.** CI runs
   `node evals/run.mjs --check`, which fails once the body no longer matches `evals/baselines/`. To
   re-measure, run `node evals/run.mjs <skill> --record`. It refuses a soft drop of more than 0.1
-  unless you pass `--accept-drop "<why>"`. Frontmatter edits are exempt.
+  or a hard drop of more than 0.2 unless you pass `--accept-drop "<why>"`. Frontmatter edits are
+  exempt.
   [ADR 0018](adr/0018-skill-quality-is-measured-by-evals-not-telemetry.md).
 - **Before a ritual writes, it asks `tools/cortex-preflight.mjs` rather than re-deriving the answer.**
   Root, profile and index freshness are the three facts every ritual needs first, and each prose copy

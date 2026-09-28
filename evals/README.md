@@ -7,8 +7,8 @@ edit, and trained with an optimizer that only keeps edits that measurably help.
 | Skill | What is scored | How |
 |---|---|---|
 | `/ship` | merge order of an open queue; which local branches are safe to delete | order checked against the skill's ranking rules (any valid order passes); deletions as an exact set |
-| `/resume` | which branch the uncommitted work is on; which branches hold local-only work; which ritual to route to | exact per field |
-| `/cortex-review` | which documented lines a change made wrong | set F1 on `path:line`; history (CHANGELOG, ADRs) and unchanged facts are traps, and some changes have nothing stale |
+| `/resume` | which branch this checkout's uncommitted work is on; which branches hold local-only work, including dirt in another worktree; which ritual to route to | exact per field; `ahead N` on a merged branch, a clean extra worktree, and a user whose words outrank an open PR queue are traps |
+| `/cortex-review` | which documented lines a change made wrong | set F1 on `path:line`; history (CHANGELOG and ADR lines, even in the present tense), unchanged facts and unverified claims are traps, some stale lines never repeat the old literal, and some changes have nothing stale |
 
 `/cortex` and `/cortex-next` are deliberately absent: their decisions are made by `index/lib/loop.mjs`
 and `index/lib/next.mjs`, so tuning their prose would move no score.
@@ -49,26 +49,49 @@ node evals/run.mjs ship --record --accept-drop "why the lower score is worth it"
 - **What the baseline is keyed to.** The hash covers the body only. Frontmatter is stripped and CRLF
   becomes LF first, so a description edit or a Windows checkout never demands a re-measure.
 - **The alarm.** `--record` refuses, leaving the file untouched, when mean `soft` falls more than
-  0.1 below the previous baseline. `--accept-drop "<reason>"` records the drop anyway and keeps the
-  reason as `note`. It also refuses when any model call failed: a timeout scores 0, so a baseline
-  recorded through an outage would set a bar low enough to hide the next real regression.
+  0.1 below the previous baseline, **or mean `hard` falls more than 0.2**. Soft is partial credit,
+  so a skill that gets every task *nearly* right keeps most of it. Hard counts whole tasks: on 14
+  tasks, one task is 0.071. The hard limit is therefore three tasks, because repeated runs of one
+  unchanged body differed by one task, never three. `--accept-drop "<reason>"` records either drop
+  anyway and keeps the reason as `note`. It also refuses when any model call failed: a timeout
+  scores 0, so a baseline recorded through an outage would set a bar low enough to hide the next
+  real regression.
 - **Where it runs.** CI runs `--check` only. A model run spends your subscription, and `run.mjs`
   refuses one when `CI` is set.
 
-**A pass is weaker than it looks.** On 2026-09-28 all three baselines were 1.000 hard / 1.000 soft,
-and a second run matched. The same `test` tasks run with **no skill at all** (a one-line generic
-system prompt) scored:
+**Can the alarm fire?** Only if deleting the skill costs more than the limit. So each skill is also
+run with **no skill at all**: a one-line generic system prompt, on the same `test` tasks, model and
+effort. The first tasks failed that check (#472). With no skill, `/resume` scored 0.944 soft and
+`/cortex-review` 0.986, so either body could have been deleted without tripping the alarm. Their
+generators now build traps from each skill's own rules:
 
-| Skill | hard | soft |
-|---|---|---|
-| `/ship` | 0.143 | 0.817 |
-| `/resume` | 0.786 | 0.944 |
-| `/cortex-review` | 0.929 | 0.986 |
+- `/resume`: `ahead N` on a branch that `--no-merged` does not list; dirt in another worktree; a
+  user who is leaving, or back from time away, while open PRs are present.
+- `/cortex-review`: ADR and CHANGELOG lines written in the present tense; claims that depend on
+  hunks the summary does not show; stale lines that never repeat the old literal.
 
-On `/ship`, the soft alarm would catch a gutted skill. On `/resume` and `/cortex-review` it would
-not, because most of their tasks can be answered without the skill, and deleting the body entirely
-costs less than 0.1 soft. Read `hard` beside `soft` when you compare runs. Those two skills need
-harder tasks before their alarm means much.
+Measured on 2026-09-28 with `claude-sonnet-5` at medium effort:
+
+| Skill | tasks | with skill (hard / soft) | no skill (hard / soft) | drop (hard / soft) | alarm fires on |
+|---|---|---|---|---|---|
+| `/ship` | unchanged | 1.000 / 1.000 | 0.357 / 0.869 | 0.64 / 0.13 | both |
+| `/resume` | first version | 1.000 / 1.000 | 0.786 / 0.944 | 0.21 / 0.06 | hard, by one task |
+| `/resume` | now | 0.857 / 0.952 | 0.143 / 0.653 | 0.71 / 0.30 | both |
+| `/cortex-review` | first version | 1.000 / 1.000 | 0.929 / 0.986 | 0.07 / 0.01 | neither |
+| `/cortex-review` | now | 0.643 / 0.927 | 0.357 / 0.864 | 0.29 / 0.06 | hard only |
+
+The with-skill row is the recorded baseline. Unrecorded repeats scored 0.857 to 0.929 hard on
+`/resume` and 0.643 to 0.714 on `/cortex-review`. No-skill runs vary more: two runs of the first
+`/resume` tasks scored 0.786 and 0.571 hard.
+
+**`/cortex-review` clears the hard limit by one task, and not the soft one.** Every no-skill miss
+is the same mistake: it flags a present-tense ADR line that names the old path, flag or value. The
+run with the skill makes that mistake too, on four or five of the 14 tasks. The skill body calls
+"ADR rationale" history, and the model reads a present-tense `Decision:` line as something else.
+The tasks follow `index/lib/review.mjs`, which classes every ADR line `historical`. Every other trap
+is one a careful model avoids with no skill at all. So the weak part is the skill text, not the
+tasks. If the body said that an ADR is history in whatever tense it is written, the drop should
+widen. That is a body edit, so it needs a re-measure.
 
 ## Training a skill with SkillOpt
 

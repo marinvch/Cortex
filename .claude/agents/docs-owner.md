@@ -57,9 +57,10 @@ result bloated.
 - **A destructive shell tool routes its target through `resolve_in_root`** (`tools/_cortex-lib.sh`).
   Not a string-prefix check — a symlink out of the root passes any prefix comparison.
   [ADR 0010](../../docs/adr/0010-the-shell-half-gets-the-guard-too.md).
-- **Three rules are deliberately copied** (the slug, the clock, and `CORE_PLUGINS`) because the
-  files needing them cannot share code. Each is pinned by a parity test. **Never "improve" one copy
-  alone** — a fourth copy is not a pattern, it is the failure the parity tests were written about.
+- **Four rules are deliberately copied** (the slug, the clock, `CORE_PLUGINS` and the hook-input
+  reader) because the files needing them cannot share code. Each is pinned by a parity test, listed
+  in [`tools/AGENTS.md`](../../tools/AGENTS.md). **Never "improve" one copy alone.** A copy with no
+  parity test is not a pattern, it is the failure the parity tests were written about.
 
 ## `.sh` or `.mjs` is decided by the reader
 

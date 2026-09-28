@@ -21,11 +21,15 @@ reads, and is drafted from its sources.
 | `/rituals` | facts | `site-facts.json` only |
 | `/mcp` | prose + facts | `mcp/AGENTS.md`; the tool table from `site-facts.json` |
 | `/cli` | prose | `README.md` CLI block and "Tools" table; `tools/README.md` |
-| `/principles` | prose | ADRs 0004, 0005, 0006, 0007, 0010, 0016, 0017; the "code layers" section of `AGENTS.md` |
+| `/principles` | prose | ADRs 0004, 0005, 0006, 0007, 0010, 0016, 0017, 0018; the "code layers" section of `AGENTS.md` |
 | `/vault` | prose | `README.md` personal-vault section |
-| `/privacy` | prose | `README.md` privacy and firewall sections, including who fetches an update (Claude Code, never Cortex); ADR 0015 |
+| `/privacy` | prose | `README.md` privacy and firewall sections; ADR 0015. The page carries **every** bullet of "What Cortex runs, sends and fetches": the `index/` scripts and the two that write outside `.cortex/`; who fetches an update (Claude Code, never Cortex); the MCP server's `git` use against a team brain; the rituals' network steps; the stamped CI workflows and marketplace entry; and "No telemetry" |
 | `/contributing` | prose | `docs/changing-cortex.md`; `tools/test/run.sh` |
 | `/migrate` | prose | `skills/migrate-engine/SKILL.md` |
+
+**Never on the site.** `docs/specs/` and `docs/plans/` are design records. They say what was decided
+and in what order, for whoever builds it, and no route is written from them. Once a spec ships, the
+page is drafted from the README, skill or ADR that the shipped work changed, not from the spec.
 
 A route not in this table is one the ritual cannot keep true. Add its row when the site gains a page,
 in the same PR.

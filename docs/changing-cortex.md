@@ -37,6 +37,14 @@ before overturning one; the line here is the trigger, not the case.
   create `.cortex/` does not state the consent gate. Five entry points could perform that first write
   and one carried each promise, which is how a repo ended up with untracked artifacts created by a
   ritual that never asked. [ADR 0016](adr/0016-a-guarantee-belongs-to-the-act-not-to-the-skill.md).
+- **A template that says something is refused ships the thing that refuses it.** #457 removed a
+  test-file lock that prose promised and no template provided. The Tester's fence is now the model.
+  `templates/team/tester.md` may say edits outside test files are refused only because its
+  frontmatter declares the `PreToolUse` hook and `templates/team/test-paths.sh` exists, and
+  `index/test/team-templates.test.mjs` fails if either goes. An allow-list hook fails closed: every
+  input it cannot read exits 2, the opposite of the deny-list `protected-paths.sh`.
+  `tools/test/test-paths.test.sh` pins that. What the fence cannot cover (an untrusted folder,
+  `claude -p`, Bash) is written in `templates/team/README.md`.
 - **Assert the property, not the symptom you thought of.** The read-only test for `--out` checked
   for a stray `.cortex/` directory, so when a change started editing the target's `.gitignore`
   instead, CI stayed green while the promise was broken. It fingerprints the whole tree now. A test

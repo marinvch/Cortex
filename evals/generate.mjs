@@ -10,7 +10,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { SKILLS } from "./skills.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -30,22 +30,26 @@ export function build(skill) {
   return out;
 }
 
-const args = process.argv.slice(2);
-const check = args.includes("--check");
-const wanted = args.filter((a) => !a.startsWith("--"));
-let drift = 0;
-for (const skill of wanted.length ? wanted : Object.keys(SKILLS)) {
-  if (!SKILLS[skill]) { console.error(`unknown skill: ${skill} (have: ${Object.keys(SKILLS).join(", ")})`); process.exit(2); }
-  for (const [split, items] of Object.entries(build(skill))) {
-    const path = join(HERE, "data", skill, split, "tasks.json");
-    const text = JSON.stringify(items, null, 2) + "\n";
-    if (check) {
-      if (!existsSync(path) || readFileSync(path, "utf8").replace(/\r\n/g, "\n") !== text) { console.log(`drift  ${path}`); drift++; }
-      continue;
+// Only as a command. Importing `build` (the tests do) used to run this too, rewriting every
+// tasks.json from inside `node --test` while a sibling test file read one mid-write.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = process.argv.slice(2);
+  const check = args.includes("--check");
+  const wanted = args.filter((a) => !a.startsWith("--"));
+  let drift = 0;
+  for (const skill of wanted.length ? wanted : Object.keys(SKILLS)) {
+    if (!SKILLS[skill]) { console.error(`unknown skill: ${skill} (have: ${Object.keys(SKILLS).join(", ")})`); process.exit(2); }
+    for (const [split, items] of Object.entries(build(skill))) {
+      const path = join(HERE, "data", skill, split, "tasks.json");
+      const text = JSON.stringify(items, null, 2) + "\n";
+      if (check) {
+        if (!existsSync(path) || readFileSync(path, "utf8").replace(/\r\n/g, "\n") !== text) { console.log(`drift  ${path}`); drift++; }
+        continue;
+      }
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, text);
+      console.log(`wrote  ${skill}/${split}  ${items.length} tasks`);
     }
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, text);
-    console.log(`wrote  ${skill}/${split}  ${items.length} tasks`);
   }
+  if (check) { console.log(drift ? `${drift} split(s) differ from their seeds` : "every split matches its seeds"); process.exit(drift ? 1 : 0); }
 }
-if (check) { console.log(drift ? `${drift} split(s) differ from their seeds` : "every split matches its seeds"); process.exit(drift ? 1 : 0); }

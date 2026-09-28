@@ -5,6 +5,22 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Added
+
+- **An edit that makes `/ship`, `/resume` or `/cortex-review` worse is now caught before it merges
+  (#407).** Their evals had no recorded score, and running them needed Python and SkillOpt.
+  `evals/run.mjs <skill>` now runs a skill's tasks through `claude -p` on your own login, in Node,
+  and scores them with `score.mjs`. `--record` writes `evals/baselines/<skill>.json`, keyed to a
+  hash of the SKILL.md body, with frontmatter excluded and line endings normalised. It refuses a
+  soft drop of more than 0.1 unless `--accept-drop "<reason>"` gives a reason, and it refuses
+  whenever a model call failed. `node evals/run.mjs --check` needs no model, runs in CI, and fails
+  when an evaled skill's body has changed since its baseline, naming the command that re-measures
+  it. First baselines, on the `test` split with `claude-sonnet-5` at medium effort: 1.000 hard and
+  1.000 soft for all three skills. The same tasks with no skill scored 0.817, 0.944 and 0.986 soft.
+  So the alarm has teeth on `/ship` and little on the other two, and `evals/README.md` says so.
+  [ADR 0018](docs/adr/0018-skill-quality-is-measured-by-evals-not-telemetry.md) records why this
+  is evals and not a telemetry hook: a hook fires before any outcome exists, and Cortex ships none.
+
 ## [2.39.1] — 2026-09-27
 
 A fix release. 2.39.0 was pointed at more repos than the ones it was built against — a Vite app,

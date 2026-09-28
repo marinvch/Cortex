@@ -32,6 +32,27 @@ this project now versions independently of any package manager (see `VERSION`).
   autocrlf on, read `current`. Mutation-tested: 29 guards broken one at a time, 29 reds.
   [Spec](docs/specs/2026-09-28-stamp-record-design.md), plan step 1.
 
+### Fixed
+
+- **Deleting `/resume` or `/cortex-review` would not have tripped the eval alarm (#472).** Their
+  tasks could be answered without the skill. With no skill, the `test` split scored 0.944 and 0.986
+  soft, well inside the 0.1 limit. The generators now build traps from each skill's own rules. For
+  `/resume`: `ahead N` on a branch that `--no-merged` does not list, a clean or dirty extra
+  worktree, the current branch listed as unmerged, and a user who is leaving or back from time away
+  while PRs are open. For `/cortex-review`: ADR and CHANGELOG lines in the present tense, lines
+  that depend on hunks the summary hides, and stale lines that never repeat the old literal
+  ("both signals", "the last week", "`core/` holds four modules"). `--record` also refuses a `hard`
+  drop of more than 0.2, three tasks in fourteen, because soft cannot see a skill that gets every
+  task nearly right. A list answer with a parenthetical on one item, the spelling `/resume` itself
+  prescribes for a worktree, no longer loses every item after it. Each trap has a test that the
+  right answer scores 1 and the trap scores below 1, and every generated truth is checked against
+  the rule applied to the rendered prompt. Re-recorded baselines, with no skill in brackets, as
+  hard / soft: `/ship` 1.000 / 1.000 (0.357 / 0.869), `/resume` 0.857 / 0.952 (0.143 / 0.653), and
+  `/cortex-review` 0.643 / 0.927 (0.357 / 0.864). The alarm now fires on all three if the skill is
+  deleted, but on `/cortex-review` only through `hard`, and only by one task. The one trap that
+  separates it is the present-tense ADR line, and its skill text names only "ADR rationale" as
+  history. `evals/README.md` says so.
+
 ## [2.39.1] — 2026-09-27
 
 A fix release. 2.39.0 was pointed at more repos than the ones it was built against — a Vite app,

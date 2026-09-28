@@ -29,20 +29,22 @@ that does not exist in the repo it was printed to.
 
 ## The copies that are deliberate, and the tests that pin them
 
-Three rules exist in more than one place **on purpose**, because the files needing them cannot share
-code — `cortex-init.sh` is a zero-dependency installer copied into other repos, and
-`tools/server/cortex-cron.sh` lands on a server beside only `server-setup.sh`.
+Four rules exist in more than one place **on purpose**, because the files needing them cannot share
+code. `cortex-init.sh` is a zero-dependency installer copied into other repos and parses no JSON.
+`tools/server/cortex-cron.sh` lands on a server beside only `server-setup.sh`. The viewer's slug runs
+in a browser. Each hook template is stamped alone into a repo that has no library to source.
 
 | Rule | Copies | Pinned by |
 |---|---|---|
-| the slug | `_cortex-lib.sh`, `mcp/lib/slug.js`, the generated HTML | `mcp/test/slug-parity.test.js` |
+| the slug | `mcp/lib/slug.js` (canonical), `_cortex-lib.sh`, `cortex-init.sh`, the browser-side `slug()` in `cortex.sh` | `mcp/test/slug-parity.test.js` |
 | the clock | `_cortex-lib.sh`, `cortex-init.sh`, `cortex-cron.sh` | `tools/test/date-parity.test.sh` |
-| the hook-input reader | `templates/loop/protected-paths.sh`, `templates/loop/format-changed.sh`, `templates/team/test-paths.sh`, each stamped alone into a repo with no library to source | `tools/test/test-paths.test.sh` |
+| the Core plugin tier | `CORE_PLUGINS` in `cortex-init.sh`, `plugins/cortex-core-plugins.json` | `mcp/test/manifest-parity.test.js` |
+| the hook-input reader | `templates/loop/protected-paths.sh`, `templates/loop/format-changed.sh`, `templates/team/test-paths.sh` | `tools/test/test-paths.test.sh` |
 
 **Never "improve" one copy alone.** The parity test is what makes the duplication safe; without it
 these drift into two behaviours nobody can tell apart. A *new* shared helper goes in
-`_cortex-lib.sh` and is sourced — a fourth copy is not a pattern, it is the failure the parity tests
-were written about.
+`_cortex-lib.sh` and is sourced. A copy with no parity test is not a pattern, it is the failure the
+parity tests were written about.
 
 ## A destructive tool routes its target through `resolve_in_root`
 

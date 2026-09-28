@@ -153,6 +153,8 @@ touch, whether any has a scoped brief (a critical area), dependents and untested
 
 - **Sizing thresholds.** How many areas, dependents or untested dependents make a task "team".
   This needs real repos and should be measured with the eval harness (#407) rather than guessed.
+  Provisional starting values, calibrated on four repos' commit history but not measured against
+  outcomes, live in `SIZING_THRESHOLDS` in `index/lib/sizing.mjs`.
 - **Where the plan and the debate record live.** Candidates: `intent/`, a gitignored
   `.cortex/work/<task>/`, or the PR body. It depends on whether a team wants the record committed.
 - **Whether the Implementer is fenced too**, for example kept out of test files during a

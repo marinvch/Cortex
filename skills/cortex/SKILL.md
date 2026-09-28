@@ -263,6 +263,8 @@ what drifts.
 `team-plugin` is offered only on a team's repo: the `work` profile or a team-brain connector. Its
 offer says what committing it does not do: once a teammate trusts the folder, Claude Code registers
 the marketplace, but each teammate still installs once with `claude plugin install cortex@cortex --scope project`.
+Auto-update is its own yes/no in the confirmation, unticked by default: `[ ] auto-update — every
+teammate's Claude Code pulls new Cortex releases in the background`. Only a yes adds `--auto-update`.
 
 The loop artifacts are written here, from `${CLAUDE_PLUGIN_ROOT}/templates/loop/`:
 

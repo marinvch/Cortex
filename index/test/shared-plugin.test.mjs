@@ -223,13 +223,70 @@ test("a profile value that is not one of the three is not read as work, and does
 // --- what is on disk now ------------------------------------------------------------------------
 
 test("status reads the settings file: absent, served, half-served, or unreadable", () => {
-  assert.deepEqual(sharedPluginStatus(repoWith()), { settings: "absent", served: false, problem: null, missing: ["extraKnownMarketplaces.cortex", "enabledPlugins.cortex@cortex"] });
+  assert.deepEqual(sharedPluginStatus(repoWith()), { settings: "absent", served: false, problem: null, missing: ["extraKnownMarketplaces.cortex", "enabledPlugins.cortex@cortex"], autoUpdate: null });
   const served = repoWith({ [SETTINGS_REL]: mergeSharedPlugin(TEAM).text });
-  assert.deepEqual(sharedPluginStatus(served), { settings: "ok", served: true, problem: null, missing: [] });
+  assert.deepEqual(sharedPluginStatus(served), { settings: "ok", served: true, problem: null, missing: [], autoUpdate: null });
   const half = repoWith({ [SETTINGS_REL]: '{ "enabledPlugins": { "cortex@cortex": false } }' });
-  assert.deepEqual(sharedPluginStatus(half), { settings: "ok", served: false, problem: null, missing: ["extraKnownMarketplaces.cortex"] });
+  assert.deepEqual(sharedPluginStatus(half), { settings: "ok", served: false, problem: null, missing: ["extraKnownMarketplaces.cortex"], autoUpdate: null });
   const bad = sharedPluginStatus(repoWith({ [SETTINGS_REL]: "{ nope" }));
   assert.equal(bad.settings, "unreadable");
   assert.equal(bad.served, false);
   assert.match(bad.problem, /not valid JSON/);
+});
+
+// --- auto-update: its own choice, off unless asked --------------------------------------------------
+//
+// settings-reference, `extraKnownMarketplaces`: "an object with a `source` object and an optional
+// `autoUpdate` Boolean". `"autoUpdate": true` makes Claude Code refresh the marketplace and update its
+// plugins in the background after startup; third-party marketplaces default to false.
+
+const WITH_AUTO = { source: { source: "github", repo: "marinvch/Cortex" }, autoUpdate: true };
+
+test("without the choice, autoUpdate is never written", () => {
+  for (const text of [null, "{}\n", TEAM]) {
+    const r = mergeSharedPlugin(text);
+    assert.equal(JSON.parse(r.text).extraKnownMarketplaces.cortex.autoUpdate, undefined, JSON.stringify(text));
+    assert.equal(r.autoUpdate, "not asked");
+  }
+  assert.equal(mergeSharedPlugin(TEAM, { autoUpdate: false }).text, mergeSharedPlugin(TEAM).text, "false is the same as not asking");
+});
+
+test("with the choice, a new cortex entry carries autoUpdate: true", () => {
+  const fresh = mergeSharedPlugin(null, { autoUpdate: true });
+  assert.deepEqual(JSON.parse(fresh.text).extraKnownMarketplaces.cortex, WITH_AUTO);
+  assert.equal(fresh.autoUpdate, "set");
+  assert.equal(JSON.parse(fresh.text).enabledPlugins["cortex@cortex"], true, "the plugin entry stays the Boolean true");
+  const team = mergeSharedPlugin(TEAM, { autoUpdate: true });
+  assert.deepEqual(JSON.parse(team.text).extraKnownMarketplaces.cortex, WITH_AUTO);
+  assert.equal(JSON.parse(team.text).enabledPlugins["cortex@cortex"], true, "in an existing file too");
+  onlyInserted(TEAM, team.text);
+  assert.match(team.text, /"repo": "marinvch\/Cortex"\n      \},\n      "autoUpdate": true\n    \}/, "in the file's own style");
+});
+
+test("an existing cortex entry's autoUpdate is never changed — true, false or unset", () => {
+  for (const auto of [true, false, undefined]) {
+    const entry = { source: { source: "github", repo: "marinvch/Cortex" }, ...(auto === undefined ? {} : { autoUpdate: auto }) };
+    const text = JSON.stringify({ extraKnownMarketplaces: { cortex: entry } }, null, 2) + "\n";
+    for (const ask of [true, false]) {
+      const r = mergeSharedPlugin(text, { autoUpdate: ask });
+      assert.deepEqual(JSON.parse(r.text).extraKnownMarketplaces.cortex, entry, `${auto} / asked ${ask}`);
+      assert.equal(r.autoUpdate, `kept ${auto === undefined ? "unset" : auto}`);
+    }
+  }
+});
+
+test("the choice is idempotent: a second run with it changes nothing", () => {
+  const once = mergeSharedPlugin(TEAM, { autoUpdate: true }).text;
+  const twice = mergeSharedPlugin(once, { autoUpdate: true });
+  assert.equal(twice.text, once);
+  assert.deepEqual(twice.added, []);
+  assert.equal(twice.autoUpdate, "kept true");
+});
+
+test("status says what the cortex entry's autoUpdate is", () => {
+  assert.equal(sharedPluginStatus(repoWith()).autoUpdate, null, "no entry");
+  assert.equal(sharedPluginStatus(repoWith({ [SETTINGS_REL]: mergeSharedPlugin(null).text })).autoUpdate, null, "entry, unset");
+  assert.equal(sharedPluginStatus(repoWith({ [SETTINGS_REL]: mergeSharedPlugin(null, { autoUpdate: true }).text })).autoUpdate, true);
+  const off = JSON.stringify({ extraKnownMarketplaces: { cortex: { ...OURS.extraKnownMarketplaces.cortex, autoUpdate: false } } });
+  assert.equal(sharedPluginStatus(repoWith({ [SETTINGS_REL]: off })).autoUpdate, false);
 });

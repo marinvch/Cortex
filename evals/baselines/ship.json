@@ -1,0 +1,11 @@
+{
+  "skill": "ship",
+  "bodySha256": "19ae62531c308a64c7807a9c0af49f2bf25e53861d3d2dd4b303e80f558cb932",
+  "split": "test",
+  "n": 14,
+  "hard": 1,
+  "soft": 1,
+  "model": "claude-sonnet-5",
+  "effort": "medium",
+  "recordedAt": "2026-09-28T03:16:51.557Z"
+}

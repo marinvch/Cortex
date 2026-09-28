@@ -75,14 +75,18 @@ const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
  */
 export function teamServed(root, env = process.env) {
   if (existsSync(join(root, ...CONNECTOR_REL.split("/")))) {
+    // Only the two-field shape names its team. The old `{ slug, teamBrainRepo }` connector holds the
+    // PROJECT's slug (`/team-add` wrote it from --slug), and only the MCP resolver, with the vault's
+    // clones in hand, can tell what it meant — so here it is a team brain, unnamed. Reading the slug
+    // as the team said every repo of a real workspace belonged to a team named after itself.
     let team = null;
     try {
       const c = JSON.parse(readFileSync(join(root, ...CONNECTOR_REL.split("/")), "utf8"));
-      team = typeof c?.team === "string" ? c.team : typeof c?.slug === "string" ? c.slug : null;
+      team = typeof c?.team === "string" && c.team.trim() ? c.team : null;
     } catch {
       // A connector that does not parse is still someone connecting this repo to a team.
     }
-    return { team: true, why: `${CONNECTOR_REL} connects this repo to ${team ? `the ${team} team's` : "a team"} brain` };
+    return { team: true, why: `${CONNECTOR_REL} connects this repo to ${team ? `the ${team} team's brain` : "a team brain"}` };
   }
   let profile = null;
   try {

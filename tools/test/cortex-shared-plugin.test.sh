@@ -43,6 +43,17 @@ json="$(CORTEX_PROFILE=home node "$LOOP" "$C" --json 2>/dev/null)"
 assert_eq "missing" "$(row_bucket "$json")" "a team-brain connector: offered even on home"
 assert_contains "$json" "the platform team's brain" "and the evidence names the team"
 
+# The connector /team-add wrote before it named the team: { slug, teamBrainRepo }, where slug is the
+# PROJECT. Still a team's repo — but the project's name is not the team's.
+L="$WORK/legacy"
+mkrepo "$L"
+mkdir -p "$L/.cortex"
+printf '{ "slug": "web-app", "teamBrainRepo": "https://example.invalid/t/brain.git" }\n' > "$L/.cortex/connector.json"
+( cd "$L" || exit 1; git add -A && git commit -qm init )
+json="$(CORTEX_PROFILE=home node "$LOOP" "$L" --json 2>/dev/null)"
+assert_eq "missing" "$(row_bucket "$json")" "an old {slug} connector: offered"
+assert_not_contains "$json" "web-app team" "and the project slug is not called the team"
+
 # --- status writes nothing ----------------------------------------------------------------------------
 
 out="$(node "$SP" "$P" 2>&1)"; rc=$?

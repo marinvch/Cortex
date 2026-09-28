@@ -200,6 +200,15 @@ test("a team-brain connector makes a repo a team's on any profile, naming the te
   assert.equal(teamServed(repoWith({ ".cortex/connector.json": "{ bad" }), {}).team, true);
 });
 
+test("an old {slug} connector is a team's repo, but its slug is not named as the team", () => {
+  // `/team-add` wrote the PROJECT's slug into that field (mcp/lib/team.js), so on a real workspace
+  // every repo was said to belong to a team named after itself: "the web-app team's brain".
+  const t = teamServed(repoWith({ ".cortex/connector.json": JSON.stringify({ slug: "web-app", teamBrainRepo: "https://example.com/t/brain.git" }) }), {});
+  assert.equal(t.team, true);
+  assert.doesNotMatch(t.why, /web-app/, "the project slug is not a team name");
+  assert.match(t.why, /connects this repo to a team brain/);
+});
+
 test("home and lab with no connector are not a team's — nothing is offered", () => {
   for (const env of [{}, { CORTEX_PROFILE: "home" }, { CORTEX_PROFILE: "lab" }, { CORTEX_PROFILE: "" }]) {
     assert.deepEqual(teamServed(repoWith(), env), { team: false, why: null }, JSON.stringify(env));

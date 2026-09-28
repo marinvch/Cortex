@@ -1,12 +1,11 @@
 {
   "skill": "cortex-review",
-  "bodySha256": "2bad15d976ac66c7a22b80458c734619561f311a2a70bc332ed4e30f5b970f2b",
+  "bodySha256": "6ef6628c147e1ac7fe8b05e22dba467d684805958693c4bcb045ae7fa686f60f",
   "split": "test",
   "n": 14,
-  "hard": 0.6429,
-  "soft": 0.9274,
+  "hard": 0.9286,
+  "soft": 0.9921,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-09-28T03:43:11.207Z",
-  "note": "tasks made harder for #472"
+  "recordedAt": "2026-09-28T05:50:01.431Z"
 }

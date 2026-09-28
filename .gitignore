@@ -33,6 +33,10 @@ docs/prompts/*
 .env.local
 # Local /slash-command copies of the rituals; canonical skills live in skills/
 .claude/skills/
+# Claude Code agent worktrees — each is a full checkout of another branch
+.claude/worktrees/
+# Playwright MCP screenshots and console logs
+.playwright-mcp/
 
 node_modules/
 

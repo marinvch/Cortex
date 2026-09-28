@@ -20,6 +20,17 @@ this project now versions independently of any package manager (see `VERSION`).
   enforces it is plan step 10. `/cortex` starts offering the team in step 14.
   `index/test/team-templates.test.mjs` renders each role, commits it at `.claude/agents/`, and
   expects no `claude-setup` finding.
+- **`cortex-impact --size`: should this task get one agent or a team?** Name the files a task will
+  touch and it recommends `single` or `team` from what the index already knows. It counts the
+  areas of source touched, and the line drops from 3 to 2 when one of them has a scoped brief. It
+  counts the files depending on the change (10 direct, or 25 in all) and how many of those no test
+  covers (10). Each reason is a sentence with its number. It only recommends: the developer chooses
+  (agent-team spec, T2). The lines are **provisional** and live in one constant,
+  `SIZING_THRESHOLDS` in `index/lib/sizing.mjs`. They were set by running the check over the last
+  150 commits of zustand, spring-petclinic, shadcn-ui/taxonomy and this repository. They are a
+  starting point until the eval harness can score team against single. A file in a language
+  Cortex cannot resolve gets no recommendation, because its dependents are unseen, not zero. With
+  no index there is no recommendation either, and never a default. `--json` returns the signals.
 
 ## [2.40.0] — 2026-09-28
 

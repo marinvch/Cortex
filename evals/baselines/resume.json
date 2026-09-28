@@ -3,9 +3,10 @@
   "bodySha256": "9273e6eb23d6870fbe1640bc4f6aaf93655a6eb93b45326f4152be654be04d26",
   "split": "test",
   "n": 14,
-  "hard": 1,
-  "soft": 1,
+  "hard": 0.8571,
+  "soft": 0.9524,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-09-28T03:17:36.332Z"
+  "recordedAt": "2026-09-28T03:40:55.073Z",
+  "note": "tasks made harder for #472"
 }

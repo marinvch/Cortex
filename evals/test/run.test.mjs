@@ -133,6 +133,41 @@ test("judgeRecord: a drop of exactly 0.1 is accepted, anything more is refused",
   assert.equal(judgeRecord({ split: "test", soft: 0.9 }, { split: "test", soft: 0.5 }, "rewrote §2 on purpose").ok, true);
 });
 
+// #472: with no skill at all, /resume kept 0.944 soft but fell 0.21 hard. Soft alone would have let
+// the skill be deleted; hard counts whole tasks, and a skill that gets every task nearly right is the
+// shape soft cannot see.
+test("judgeRecord: a hard drop of more than 0.2 is refused even when soft held", () => {
+  const prev = { split: "test", soft: 1, hard: 1 };
+  assert.equal(judgeRecord(prev, { split: "test", soft: 0.95, hard: 0.8 }).ok, true, "exactly 0.2 is accepted");
+  const v = judgeRecord(prev, { split: "test", soft: 0.95, hard: 0.7857 });
+  assert.equal(v.ok, false);
+  assert.match(v.message, /hard fell 0\.2143, more than 0\.2/);
+  assert.doesNotMatch(v.message, /soft fell/, "soft held, so only hard is named");
+  assert.equal(judgeRecord(prev, { split: "test", soft: 0.95, hard: 0.5 }, "tasks made harder").ok, true, "--accept-drop covers a hard drop too");
+});
+
+test("judgeRecord: both drops are named when both fell", () => {
+  const v = judgeRecord({ split: "test", soft: 1, hard: 1 }, { split: "test", soft: 0.6, hard: 0.1 });
+  assert.equal(v.ok, false);
+  assert.match(v.message, /soft fell 0\.4.*and hard fell 0\.9/);
+});
+
+test("judgeRecord: a baseline recorded without a hard score is judged on soft alone", () => {
+  assert.equal(judgeRecord({ split: "test", soft: 1 }, { split: "test", soft: 0.95, hard: 0 }).ok, true);
+});
+
+test("--record refuses a hard drop and leaves the baseline untouched", async () => {
+  // Every task nearly right: one field wrong in each, so soft stays at 2/3 of full marks while hard is 0.
+  const root = fixture({ baseline: prev({ soft: 0.7, hard: 1 }) });
+  const before = readFileSync(baselinePath(root));
+  const call = async ({ user }) => { const t = truthOf(user); return `UNCOMMITTED: ${t.uncommitted}\nHIDDEN: ${t.hidden.join(", ") || "none"}\nROUTE: /nowhere`; };
+  const errors = [];
+  assert.equal(await main(["resume", "--record"], deps(root, call, { error: (m) => errors.push(m) })), 1);
+  assert.deepEqual(readFileSync(baselinePath(root)), before);
+  assert.match(errors.join("\n"), /hard fell 1/);
+  rmSync(root, { recursive: true, force: true });
+});
+
 test("--record writes a first baseline with the body hash, the scores and the model", async () => {
   const root = fixture();
   const call = async ({ user }) => ({ text: right(truthOf(user)), model: "claude-test-model" });

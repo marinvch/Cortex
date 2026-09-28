@@ -30,6 +30,7 @@ function repo(files) {
 }
 
 const agentFile = (fm, body = "You help.\n") => `---\n${fm}\n---\n${body}`;
+const VERIFIER_AT = ".claude/agents/verifier.md";
 
 /** The one agent at `.claude/agents/x.md`, as repoAgents reads it. */
 function one(fm, body, extra = {}) {
@@ -100,15 +101,37 @@ test("each team template, stamped where /cortex will put it, maps to its own rol
 test("Cortex's own verifier maps to the Reviewer and is marked for the upgrade (T9)", () => {
   const { index, opts } = repo({ ".claude/agents/verifier.md": rendered("loop/verifier.md") });
   const [a] = repoAgents(null, index, opts);
-  const m = mapRole(a);
+  const m = mapRole(a, { verifierPath: VERIFIER_AT });
   assert.equal(m.role, "reviewer");
   assert.equal(m.upgrade?.to, "reviewer");
   assert.equal(m.upgrade?.template, "team/reviewer.md");
   // Only at the path /cortex stamps it: a verifier elsewhere is a reviewer with no upgrade.
   const { index: i2, opts: o2 } = repo({ ".claude/agents/check.md": rendered("loop/verifier.md") });
-  const m2 = mapRole(repoAgents(null, i2, o2)[0]);
+  const m2 = mapRole(repoAgents(null, i2, o2)[0], { verifierPath: VERIFIER_AT });
   assert.equal(m2.role, "reviewer");
   assert.equal(m2.upgrade, null);
+  // And only when the caller says where that is — loop.mjs owns the path.
+  assert.equal(mapRole(a).upgrade, null);
+});
+
+test("agents in a subfolder of .claude/agents/ are the repo's own — Claude Code scans it recursively", () => {
+  const { index, opts } = repo({
+    ".claude/agents/review/code.md": agentFile("name: code-reviewer\ndescription: Reviews the diff."),
+    "packages/web/.claude/agents/nested.md": agentFile("name: nested\ndescription: x"),
+  });
+  assert.deepEqual(repoAgents(null, index, opts).map((a) => a.path), [".claude/agents/review/code.md"]);
+});
+
+test("the developer's own mapping outranks the mapper's, and a wrong answer is refused", () => {
+  const { index, opts } = repo({
+    ".claude/agents/code-reviewer.md": agentFile("name: code-reviewer\ndescription: Reviews the diff."),
+    ".claude/agents/helper.md": agentFile("name: helper\ndescription: Explains code."),
+  });
+  const r = agentReport(null, index, { ...opts, as: { ".claude/agents/code-reviewer.md": null, ".claude/agents/helper.md": "tester" } });
+  assert.deepEqual(r.covered, { tester: [".claude/agents/helper.md"] });
+  assert.equal(r.agents.find((a) => a.path === ".claude/agents/helper.md").mapping.reason, "developer");
+  assert.throws(() => agentReport(null, index, { ...opts, as: { ".claude/agents/x.md": "tester" } }), /no agent at/);
+  assert.throws(() => agentReport(null, index, { ...opts, as: { ".claude/agents/helper.md": "boss" } }), /not a role/);
 });
 
 test("the evidence names the words and the tools that decided it", () => {

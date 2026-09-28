@@ -543,6 +543,78 @@ test("a detected lockfile reaches REVIEW.md's do-not-report list and the hooks r
   rmSync(root, { recursive: true, force: true });
 });
 
+// The Maven and Gradle wrappers are generated too: `mvn wrapper:wrapper` and `gradle wrapper` write
+// them, and the next wrapper upgrade overwrites a hand edit. On spring-petclinic and every Maven repo
+// of a Spring workspace the hooks row read "blocked — no generated paths" beside a committed `mvnw`
+// (#482). Like a lockfile, a wrapper is found on DISK beside a build file, by its exact name: a
+// dot-directory and a jar are what a walker drops, and there is often no index at all.
+
+const MAVEN = ["pom.xml", "mvnw", "mvnw.cmd", ".mvn/wrapper/maven-wrapper.properties"];
+const GRADLE = ["build.gradle.kts", "gradlew", "gradlew.bat", "gradle/wrapper/gradle-wrapper.properties"];
+
+test("a committed Maven or Gradle wrapper is protected, with no index at all", () => {
+  assert.deepEqual(protectedOnDisk(MAVEN, []), ["mvnw", "mvnw.cmd", ".mvn/wrapper/"]);
+  assert.deepEqual(protectedOnDisk(GRADLE, []), ["gradlew", "gradlew.bat", "gradle/wrapper/"]);
+  // spring-petclinic commits both.
+  assert.deepEqual(
+    protectedOnDisk([...MAVEN, ...GRADLE], ["pom.xml", "src/Main.java"]),
+    ["gradlew", "gradlew.bat", "mvnw", "mvnw.cmd", ".mvn/wrapper/", "gradle/wrapper/"],
+  );
+});
+
+test("a wrapper is protected only when it is there, and only the half that is", () => {
+  assert.deepEqual(protectedOnDisk(["pom.xml", "build.gradle", "src/Main.java"], ["pom.xml"]), [], "a build file alone is not a wrapper");
+  assert.deepEqual(protectedOnDisk(["pom.xml", "mvnw"], ["pom.xml"]), ["mvnw"], "no mvnw.cmd, no .mvn/wrapper/");
+});
+
+test("a wrapper is matched by its exact name and kind, never a suffix", () => {
+  const decoys = ["mvnw.sh", "my-gradlew", "gradlew.old", "mvnw.cmd.bak", ".mvn/wrappers/x", ".mvn/wrapper.txt",
+    "gradle/wrapper-docs/x", "docs/gradle/wrapper/x.properties", "src/mvnw"];
+  assert.deepEqual(protectedOnDisk(["pom.xml", "build.gradle", ...decoys], ["pom.xml", "build.gradle", ...decoys]), []);
+  // A directory called mvnw is not the script; a FILE called .mvn/wrapper is not the directory.
+  assert.deepEqual(protectedOnDisk(["pom.xml", "mvnw/readme.txt", ".mvn/wrapper"], ["pom.xml"]), []);
+});
+
+test("a nested wrapper is found beside the build file the index saw", () => {
+  // spring-guides/gs-rest-service keeps a complete/ and an initial/ project, each with its wrappers.
+  const onDisk = ["complete/pom.xml", "complete/mvnw", "complete/.mvn/wrapper/maven-wrapper.properties",
+    "initial/settings.gradle", "initial/gradlew"];
+  assert.deepEqual(
+    protectedOnDisk(onDisk, ["complete/pom.xml", "initial/settings.gradle"]),
+    ["complete/mvnw", "complete/.mvn/wrapper/", "initial/gradlew"],
+    "one project's wrapper together, nearest project first",
+  );
+  assert.deepEqual(protectedOnDisk(onDisk, []), [], "with no index only the root is asked");
+});
+
+test("the wrapper cap drops whole far projects, never the root's wrapper directory", () => {
+  // Sorted flat by depth, `.mvn/wrapper/` (three segments) came after every nested gradlew (two),
+  // and on gs-rest-service's four sample projects the cap cut every wrapper directory.
+  const nested = ["a", "b", "c"].flatMap((d) => [`${d}/build.gradle`, `${d}/gradlew`, `${d}/gradlew.bat`, `${d}/gradle/wrapper/x`]);
+  const got = protectedOnDisk([...MAVEN, ...nested], ["pom.xml", "a/build.gradle", "b/build.gradle", "c/build.gradle"]);
+  assert.deepEqual(got.slice(0, 6), ["mvnw", "mvnw.cmd", ".mvn/wrapper/", "a/gradlew", "a/gradlew.bat", "a/gradle/wrapper/"]);
+  assert.equal(got.length, 8, "the cap is unchanged");
+});
+
+test("wrappers are capped apart from lockfiles and trees, so a monorepo cannot push them off", () => {
+  const locks = Array.from({ length: 9 }, (_, i) => `p${i}/yarn.lock`);
+  const got = protectedOnDisk([...MAVEN, ...locks], [...locks.map((l) => l.replace("yarn.lock", "package.json")),
+    ...Array.from({ length: 9 }, (_, i) => `q${i}/dist/x.js`)]);
+  assert.ok(got.includes("mvnw") && got.includes(".mvn/wrapper/"), got.join(", "));
+  assert.equal(got.filter((p) => p.endsWith("yarn.lock")).length, 8, "the lockfile cap is unchanged");
+});
+
+test("a committed Maven wrapper reaches REVIEW.md's do-not-report list and the hooks row", () => {
+  const root = repo(({ put }) => MAVEN.forEach((p) => put(p)));
+  const plan = loopPlan(root, null);
+  const all = [...plan.present, ...plan.missing, ...plan.blocked];
+  assert.match(all.find((e) => e.id === "review").why, /generated path\(s\) detected \(mvnw, mvnw\.cmd\)/);
+  const hooks = plan.missing.find((e) => e.id === "hooks");
+  assert.ok(hooks, "the wrapper is hook work, so the row is no longer blocked");
+  assert.match(hooks.why, /protected paths to block: mvnw, mvnw\.cmd, \.mvn\/wrapper\//);
+  rmSync(root, { recursive: true, force: true });
+});
+
 // ---------------------------------------------------------------------------
 // presence is a file fact, never a quality judgment
 // ---------------------------------------------------------------------------

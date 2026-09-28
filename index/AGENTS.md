@@ -394,6 +394,13 @@ borrows its three numbers rather than keeping a second list.
   anything over its size cap, so a fixture listing `yarn.lock` in `index.files` passes while every
   real repo reports none. The index names the directories holding a manifest; `has()` checks for
   a lockfile beside each, by exact name. Trees and lockfiles are capped apart.
+- **The Maven and Gradle wrappers are generated, and read off the disk the same way** (#482). The
+  scripts (`mvnw`, `mvnw.cmd`, `gradlew`, `gradlew.bat`) must be files and the wrapper homes
+  (`.mvn/wrapper/`, `gradle/wrapper/`) must be directories, found beside the root or a JVM build file
+  the index saw. Most JVM repos are looked at before they have an index at all, so the root is
+  always asked. Wrappers get their own cap, and one project's entries stay together, nearest project
+  first. Sorted flat by depth, `.mvn/wrapper/` fell behind every nested `gradlew`, and the cap cut
+  every wrapper directory.
 - **The hooks row applies only where a hook template has work** — a path to protect or a
   formatter to run. It once promised a "test-file lock" no template provides, and stamped two no-op
   scripts on repos with neither; a `hooks` block on disk does not make such a row served.

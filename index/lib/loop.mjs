@@ -488,6 +488,45 @@ function lockfiles(root, files) {
   return byNearness(found);
 }
 
+// The Maven and Gradle wrappers are generated as well: `mvn wrapper:wrapper` and `gradle wrapper`
+// write them, and the next wrapper upgrade overwrites a hand edit. Missing them left every Maven repo
+// reading "no generated paths", so /cortex offered no hook and REVIEW.md named nothing (#482). Found
+// the way lockfiles are, and for the same reason: on DISK, beside a build file, by exact name and
+// kind — the scripts are files, the wrapper homes are directories. `.mvn/` and the wrapper jar are
+// exactly what a walker drops, and a repo is often looked at before it has an index at all.
+export const WRAPPER_FILES = ["mvnw", "mvnw.cmd", "gradlew", "gradlew.bat"];
+export const WRAPPER_DIRS = [".mvn/wrapper", "gradle/wrapper"];
+const JVM_BUILD_NAMES = new Set(["pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"]);
+
+const isKind = (root, rel, dir) => {
+  try {
+    const st = statSync(join(root, rel));
+    return dir ? st.isDirectory() : st.isFile();
+  } catch {
+    return false;
+  }
+};
+
+function wrappers(root, files) {
+  const dirs = new Set([""]);
+  for (const p of files) {
+    const name = baseName(p);
+    if (JVM_BUILD_NAMES.has(name)) dirs.add(p.slice(0, p.length - name.length));
+  }
+  // One project's wrapper stays together, nearest project first, so the cap drops whole far projects.
+  // Sorted flat by depth, `.mvn/wrapper/` came after every nested `gradlew`, and gs-rest-service's
+  // four sample projects pushed every wrapper directory — the root's too — off the list.
+  const out = [];
+  for (const dir of byNearness(dirs)) {
+    const found = [];
+    for (const name of WRAPPER_FILES) if (isKind(root, dir + name, false)) found.push(dir + name);
+    // A tree, so a trailing slash: the hook matches it as `*/.mvn/wrapper/*`, like `dist/`.
+    for (const name of WRAPPER_DIRS) if (isKind(root, dir + name, true)) found.push(dir + name + "/");
+    out.push(...byNearness(found));
+  }
+  return out;
+}
+
 function protectedPaths(root, index) {
   const files = (index?.files ?? []).map((f) => f?.path ?? f).filter((p) => typeof p === "string");
   const dirs = new Set();
@@ -502,10 +541,14 @@ function protectedPaths(root, index) {
       }
     }
   }
-  // Trees and lockfiles are capped apart, so a monorepo with a lockfile per package cannot push its
-  // generated trees off the list, nor the other way round. A lockfile entry is a FILE path — no
-  // trailing slash — and the hook matches it by name.
-  return [...[...dirs].filter(Boolean).sort().slice(0, 8), ...lockfiles(root, files).slice(0, 8)];
+  // Trees, lockfiles and wrappers are capped apart, so a monorepo with a lockfile per package cannot
+  // push its generated trees or its build wrapper off the list, nor the other way round. A lockfile
+  // or wrapper script entry is a FILE path — no trailing slash — and the hook matches it by name.
+  return [
+    ...[...dirs].filter(Boolean).sort().slice(0, 8),
+    ...lockfiles(root, files).slice(0, 8),
+    ...wrappers(root, files).slice(0, 8),
+  ];
 }
 
 // ---------------------------------------------------------------------------

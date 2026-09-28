@@ -10,6 +10,9 @@
 //   node index/cortex-impact.mjs --staged --against-ref feat/x     # vs another branch's commits
 //   git -C ../other diff --name-only HEAD | node index/cortex-impact.mjs --staged --against -
 //
+//   node index/cortex-impact.mjs src/a.ts src/b.ts --size          # single or team, and why
+//   node index/cortex-impact.mjs --staged --size --json             # for a ritual to walk
+//
 // Read-only in the strongest sense: it writes nothing, not even under .cortex/.
 //
 // Every count is a FLOOR. Import resolution is regex-based, so dynamic and computed imports are
@@ -21,7 +24,12 @@
 // between them. See lib/overlap.mjs. The blast radius is not printed in that mode; run without the
 // flag for it.
 //
-// Exit codes, unchanged by --against and shared with every CLI that opens through lib/open.mjs:
+// `--size` answers a third question (spec T2): for a task touching these files, does the evidence
+// say one agent or a team? It RECOMMENDS; the developer chooses. The thresholds are provisional and
+// live in one constant in lib/sizing.mjs. It refuses --depth and --against: sizing reads the whole
+// radius of one change set.
+//
+// Exit codes, unchanged by --against and --size, and shared with every CLI that opens through lib/open.mjs:
 //   0  an answer was printed — including one that found overlap. Findings are data, never a
 //      failure code; a hook that wants to block reads `--json` and decides.
 //   1  what was asked for is not a thing: an unknown flag, a bad --root, an --against file that
@@ -33,6 +41,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { impactOf, groupUnknown } from "./lib/impact.mjs";
 import { overlapOf, parseChangeList } from "./lib/overlap.mjs";
+import { sizeTask } from "./lib/sizing.mjs";
 import { UNRESOLVED_LANGUAGES } from "./lib/imports.mjs";
 import { openTarget } from "./lib/open.mjs";
 import { branchChanges, changedFiles, failureLines } from "./lib/changed.mjs";
@@ -43,10 +52,11 @@ import { branchChanges, changedFiles, failureLines } from "./lib/changed.mjs";
 const { root, args, paths, index } = openTarget(process.argv.slice(2), {
   usage:
     "usage: node index/cortex-impact.mjs [paths...] [--staged] [--since REF] " +
-    "[--depth N] [--against FILE|-] [--against-ref REF] [--root DIR] [--index FILE] [--json]",
+    "[--depth N] [--against FILE|-] [--against-ref REF] [--size] [--root DIR] [--index FILE] [--json]",
   flags: {
     "--staged": "boolean",
     "--json": "boolean",
+    "--size": "boolean",
     "--since": "value",
     "--depth": "value",
     "--against": "value",
@@ -63,6 +73,13 @@ const { root, args, paths, index } = openTarget(process.argv.slice(2), {
 
 const depth = args.depth === null ? Infinity : Number(args.depth);
 const comparing = args.against !== null || args.againstRef !== null;
+
+if (args.size && (comparing || args.depth !== null)) {
+  // Refused rather than ignored, as --depth is below: sizing reads the full radius of one change
+  // set, so a bound would understate it, and a second set has no place in the question.
+  console.error("--size reads the whole radius of one change set, so it does not combine with --depth, --against or --against-ref.");
+  process.exit(1);
+}
 
 if (comparing && args.depth !== null) {
   // Refused rather than ignored: --depth bounds a walk that the comparison never takes, and a flag
@@ -136,6 +153,11 @@ if (comparing) {
     process.exit(2);
   }
   reportOverlap(overlapOf(index, changed, theirs, { root }));
+  process.exit(0);
+}
+
+if (args.size) {
+  reportSize(sizeTask(index, changed, { root }));
   process.exit(0);
 }
 
@@ -285,6 +307,32 @@ function reportOverlap(o) {
     console.log(`\nA floor, not a total — imports are resolved by convention and only one hop is read, so the`);
     console.log(`two change sets may be coupled in ways not listed here.`);
   }
+  if (failures.length) {
+    console.log(`\nAnd this was computed from an incomplete change set — see the git error above.`);
+  }
+}
+
+// --- --size: single or team (spec T2) -----------------------------------------------------------------
+
+function reportSize(z) {
+  if (args.json) {
+    console.log(JSON.stringify(z, null, 2));
+    return;
+  }
+  console.log(`\nChanged (${changed.length}):`);
+  for (const c of changed.slice(0, 12)) console.log(`  ${c}`);
+  if (changed.length > 12) console.log(`  ... and ${changed.length - 12} more`);
+
+  const head = z.recommendation === null ? "none — Cortex has no grounds to size this" : z.recommendation;
+  console.log(`\nRecommendation: ${head} (provisional)\n`);
+  for (const reason of z.reasons) console.log(`  - ${reason}`);
+
+  // The two sentences a reader must leave with: the lines are a starting point rather than a
+  // measurement, and the decision is theirs. A recommendation that reads as a verdict is what
+  // spec T2 rules out.
+  console.log(`\nThe thresholds are provisional — calibrated on four repositories' history, not measured`);
+  console.log(`(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.`);
+  console.log(`You choose: this is evidence for the decision, not the decision.`);
   if (failures.length) {
     console.log(`\nAnd this was computed from an incomplete change set — see the git error above.`);
   }

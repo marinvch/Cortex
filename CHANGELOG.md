@@ -91,6 +91,36 @@ this project now versions independently of any package manager (see `VERSION`).
   are re-renderable; `bands.yaml` is `review` only because that repo's config prefers single
   quotes. `cortex-stamps.mjs update` is the one `index/` write outside `.cortex/`, a named
   exception in `index/AGENTS.md`. Mutation-tested: 30 guards, 30 reds. Plan step 3.
+- **`cortex-next` and the View now say when a file Cortex stamped needs attention, and a repo
+  installed before the record existed can adopt its files (spec S4).**
+
+  A `stamps` row appears only while something needs attention, so every other repo reads exactly
+  as before:
+  - **Required** for a decision `/cortex` makes: files to update, files to decide one by one
+    (`review`, `conflict`), or a damaged record.
+  - **Optional** for a deleted file, a retired template, or a record `.gitignore` hides. Each can
+    be a deliberate choice, and `cortex-stamps.mjs forget` drops an entry. Files only the team
+    edited raise nothing.
+
+  **Adoption** covers a repo that has loop files where `/cortex` writes them but no
+  `.cortex/stamps.json`, which is every 2.39.x install:
+  - `cortex-stamps.mjs adopt` records the files with nothing known: no release, no hashes, not
+    renderable.
+  - Each then reads as `conflict` and is compared with this release's template before anything
+    changes. `adopt` writes the record and not one byte of a loop file.
+  - It is offered as an optional row, since declining it leaves no trace, and `/cortex` offers it
+    in its confirmation.
+
+  The locations come from a new `stamps` field on each `loop.mjs` row (`LOOP_STAMPS`). A test pins
+  that field to the `/cortex` skill's table, so the two cannot drift.
+
+  Validated on a zustand clone stamped with the real 2.39.1 templates and no record:
+  - `cortex-next` and the View offer adoption, marked optional and never the next step.
+  - `adopt` changed nothing outside `.cortex/`, and all 9 files read `conflict`.
+  - `REVIEW.md`'s diff shows the real 2.39.1-to-now template change.
+  - Resolving two files makes them `current`.
+
+  Mutation-tested: 25 guards, 25 reds. Plan step 4.
 
 ### Fixed
 

@@ -589,6 +589,9 @@ export function readLoopState(root, index = null, overrides = {}) {
  *   paths     — what it would write, as the user will see them in the playback
  *   rank      — lower is offered first; ties broken by id, so the order is deterministic
  *   template  — under templates/loop/, or null where the body is written from the index
+ *   stamps    — the whole files this row writes from a loop template, as { path, template }. These
+ *               are what the stamp record tracks and what adoption looks for (`stamps.mjs`). A block
+ *               appended or merged into a shared file (CLAUDE.md, settings.json) is not one.
  *   present   — (s) => already there. A file fact, never a quality judgment.
  *   when      — (s) => is this repo a candidate at all. Pure predicate over the state.
  *   why       — (s) => the evidence sentence. Must name what was DETECTED.
@@ -662,6 +665,7 @@ export const LOOP_ARTIFACTS = [
     paths: [".claude/agents/verifier.md"],
     rank: 30,
     template: "verifier.md",
+    stamps: [{ path: ".claude/agents/verifier.md", template: "loop/verifier.md" }],
     present: (s) => s.subagents,
     // Nothing to run means nothing to verify. The subagent's whole body is a command.
     when: (s) => Boolean(s.commands.test || s.commands.build),
@@ -679,6 +683,7 @@ export const LOOP_ARTIFACTS = [
     paths: ["REVIEW.md"],
     rank: 40,
     template: "REVIEW.md",
+    stamps: [{ path: "REVIEW.md", template: "loop/REVIEW.md" }],
     present: (s) => s.review,
     when: (s) => !s.greenfield,
     needs: ["code in the repo — there is nothing to write a review policy about yet"],
@@ -698,6 +703,7 @@ export const LOOP_ARTIFACTS = [
     paths: [".github/workflows/cortex-review.yml"],
     rank: 45,
     template: "cortex-review.yml",
+    stamps: [{ path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml" }],
     present: (s) => s.reviewCi,
     // A review against no documents has nothing to say, and the template is a GitHub workflow — on
     // any other CI it is a file nothing runs.
@@ -730,6 +736,11 @@ export const LOOP_ARTIFACTS = [
     paths: [".claude/settings.json"],
     rank: 50,
     template: "settings.hooks.json",
+    // settings.hooks.json itself is merged into settings.json, so only the two scripts are whole files.
+    stamps: [
+      { path: ".claude/hooks/protected-paths.sh", template: "loop/protected-paths.sh" },
+      { path: ".claude/hooks/format-changed.sh", template: "loop/format-changed.sh" },
+    ],
     // The row promises exactly what its two templates do — protected-paths.sh blocks edits to the
     // detected paths, format-changed.sh formats the file that changed — and nothing else. It once
     // offered "the test-file lock during a fix" on every repo with a test script, a hook no template
@@ -767,6 +778,10 @@ export const LOOP_ARTIFACTS = [
     paths: ["intent/README.md", "intent/TEMPLATE.md"],
     rank: 60,
     template: "intent.md",
+    stamps: [
+      { path: "intent/README.md", template: "loop/intent-README.md" },
+      { path: "intent/TEMPLATE.md", template: "loop/intent.md" },
+    ],
     present: (s) => s.intentHome,
     when: () => true,
     why: (s) =>
@@ -784,6 +799,7 @@ export const LOOP_ARTIFACTS = [
     paths: ["evals/", ".github/workflows/agent-evals.yml"],
     rank: 70,
     template: "agent-evals.yml",
+    stamps: [{ path: ".github/workflows/agent-evals.yml", template: "loop/agent-evals.yml" }],
     present: (s) => s.evals,
     // Config to regress against, and somewhere to run it. Without CI this is a file nobody runs.
     when: (s) => Boolean(s.ci) && (s.claudeMd || s.rootBrief),
@@ -804,6 +820,7 @@ export const LOOP_ARTIFACTS = [
     paths: ["bands.yaml"],
     rank: 80,
     template: "bands.yaml",
+    stamps: [{ path: "bands.yaml", template: "loop/bands.yaml" }],
     present: (s) => s.bands,
     // Last in the chain and it means it: the tiers escalate to a PR, so the review gate has to
     // exist before anything is allowed to open one.
@@ -822,6 +839,15 @@ export const LOOP_ARTIFACTS = [
       "diagnoses read-only, 3σ may open a PR or trigger a pre-approved runbook. Never more.",
   },
 ];
+
+/**
+ * Every whole file a loop row stamps, as `{ path, template, row }`, in rank order. One list, read by
+ * the stamp record's adoption (`stamps.mjs`) and pinned to the /cortex skill's table by a test, so
+ * "where does /cortex put verifier.md" has one answer.
+ */
+export const LOOP_STAMPS = [...LOOP_ARTIFACTS]
+  .sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id))
+  .flatMap((row) => (row.stamps ?? []).map((s) => ({ ...s, row: row.id })));
 
 // ---------------------------------------------------------------------------
 // The plan

@@ -111,7 +111,7 @@ test("/cortex renders and records every whole-file loop file, and updates only t
   // update and diff through cortex-stamps, the two shared-file templates left out on purpose, and
   // the .gitignore fix written only when the user picks it.
   const body = read("skills/cortex/SKILL.md");
-  for (const cmd of ["render", "record", "update", "diff"]) {
+  for (const cmd of ["render", "record", "update", "diff", "adopt"]) {
     assert.match(body, new RegExp(`cortex-stamps\\.mjs"? ${cmd}\\b`), `/cortex never runs cortex-stamps ${cmd}`);
   }
   assert.match(body, /cortex-stamps\.mjs"? \. --json/, "/cortex reads the stamp status on a re-run");

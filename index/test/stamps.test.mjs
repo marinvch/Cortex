@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
-  STAMPS_REL, STAMPS_FORMAT, hashText, ignoreAdvice, planUpdates, readStamps, recordStamp, stampDiff, stampStatus,
-  stampsIgnoreRule, writeStamps,
+  STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice, planUpdates,
+  readStamps, recordStamp, stampDiff, stampStatus, stampsIgnoreRule, writeStamps,
 } from "../lib/stamps.mjs";
+import { LOOP_STAMPS } from "../lib/loop.mjs";
 import { lineDiff } from "../lib/linediff.mjs";
 import { tempDir } from "./tmp.mjs";
 
@@ -522,4 +524,71 @@ test("lineDiff is empty for equal text and marks each changed line with context"
   assert.match(d, /^\+TEN$/m);
   assert.match(d, /^ 2$/m, "context around a change");
   assert.equal((d.match(/^@@/gm) ?? []).length, 2, "two changes far apart are two hunks");
+});
+
+// --- adoption: a repo stamped before the record existed ---------------------------------------------
+
+const REAL_TEMPLATES = fileURLToPath(new URL("../../templates/", import.meta.url));
+
+test("loop files at /cortex's locations with no record are adoption candidates", () => {
+  const w = world({ files: { "REVIEW.md": "# ours\n", ".claude/hooks/protected-paths.sh": "x\n", "src/app.ts": "x\n" } });
+  assert.deepEqual(adoptionCandidates(w.repoRoot, null), [
+    { path: ".claude/hooks/protected-paths.sh", template: "loop/protected-paths.sh" },
+    { path: "REVIEW.md", template: "loop/REVIEW.md" },
+  ]);
+});
+
+test("a repo with a record, or with no loop files, has nothing to adopt", () => {
+  const empty = world({ files: { "src/app.ts": "x\n" } });
+  assert.deepEqual(adoptionCandidates(empty.repoRoot, null), []);
+  const w = stamped();
+  w.put(".claude/hooks/protected-paths.sh", "x\n");
+  // Adoption is the first contact with the record. Once one exists, a file outside it is the team's.
+  assert.deepEqual(adoptionCandidates(w.repoRoot, w.record), []);
+});
+
+test("every adoption location is a real loop template", () => {
+  assert.ok(LOOP_STAMPS.length >= 9, "the nine whole-file loop templates");
+  for (const s of LOOP_STAMPS) {
+    assert.ok(existsSync(join(REAL_TEMPLATES, ...s.template.split("/"))), `${s.template} exists`);
+  }
+  assert.equal(new Set(LOOP_STAMPS.map((s) => s.path)).size, LOOP_STAMPS.length, "one template per location");
+});
+
+test("an adopted file is recorded with nothing known, and reads as conflict — never update", () => {
+  const w = world({ files: { "REVIEW.md": OUT }, templates: { "loop/REVIEW.md": TPL } });
+  const record = adoptStamp(null, { path: "REVIEW.md", template: "loop/REVIEW.md" });
+  assert.deepEqual(record, {
+    format: STAMPS_FORMAT, cortex: null,
+    files: { "REVIEW.md": { template: "loop/REVIEW.md", version: null, templateSha256: null, fileSha256: null, renderable: false, values: {} } },
+  });
+  // Even a file identical to the template: which release wrote it is unknown, so it is asked about.
+  assert.equal(stateOf(w, record)[0].state, "conflict");
+  assert.deepEqual(planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir }).updates, []);
+  // It survives the round trip through the committed file.
+  writeStamps(w.repoRoot, record);
+  assert.deepEqual(readStamps(w.repoRoot), record);
+});
+
+test("adopting never overwrites what the record already knows", () => {
+  const { record } = stamped();
+  assert.throws(() => adoptStamp(record, { path: "REVIEW.md", template: "loop/REVIEW.md" }), /already in the record/);
+});
+
+test("recording over an adopted entry fills it in, and sets the record's version", () => {
+  const adopted = adoptStamp(null, { path: "REVIEW.md", template: "loop/REVIEW.md" });
+  const r = recordStamp(adopted, { path: "REVIEW.md", template: "loop/REVIEW.md", version: "2.40.0", templateText: TPL, fileText: OUT, values: { NIT_CAP: "3" } });
+  assert.equal(r.cortex, "2.40.0");
+  assert.equal(r.files["REVIEW.md"].renderable, true);
+});
+
+test("forgetStamp drops one entry and nothing else, purely", () => {
+  let r = recordStamp(null, { path: "a.md", template: "t.md", version: "2.40.0", templateText: "t", fileText: "a" });
+  r = recordStamp(r, { path: "b.md", template: "t.md", version: "2.40.0", templateText: "t", fileText: "b" });
+  const before = JSON.stringify(r);
+  const next = forgetStamp(r, "a.md");
+  assert.deepEqual(Object.keys(next.files), ["b.md"]);
+  assert.equal(next.cortex, "2.40.0");
+  assert.equal(JSON.stringify(r), before);
+  assert.throws(() => forgetStamp(r, "zzz.md"), /not in the record/);
 });

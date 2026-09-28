@@ -27,6 +27,17 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   gives back the file as written. /cortex fills some templates partly by hand, and a file the values
   do not reproduce would lose those lines on a re-render. So its template change is `review`, a
   state of its own, so that no caller that auto-applies `update` has to remember a flag.
+  **Where each loop file lands is `LOOP_STAMPS` in `lib/loop.mjs`** (a `stamps` field per row).
+  Adoption reads it, and `cortex-output-passes.test.mjs` pins it to the `/cortex` skill's table.
+  Do not keep a second list. **Adoption** is for a repo stamped before the record existed: files
+  at those locations and no record at all. It records them with nothing known (`version`, both
+  hashes `null`, `renderable: false`), so each reads as `conflict` and is never rewritten
+  unasked. It is offered only while no record exists; after that, a file outside the record is
+  the team's. **`next.mjs`'s `stamps` row** exists only while something needs attention. It is
+  required only for a decision /cortex can make (`update`, `review`, `conflict`, a damaged
+  record). A deleted file, a retired template, an ignored record and adoption are optional,
+  because each can be a deliberate choice. Declining adoption leaves no trace, so a required row
+  there would never clear.
   **Hashes fold CRLF to LF and drop trailing newlines, nothing else** — a `core.autocrlf` checkout
   or a formatter's final newline read as an edit would freeze the file at `edited` forever, which
   is the stale-hook bug the record exists to end. An absent record is `null`; a damaged one is an

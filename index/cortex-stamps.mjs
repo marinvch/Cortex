@@ -37,6 +37,11 @@
 // decide file by file. Files are written before the record, so an interrupted run leaves a file
 // newer than its entry — which status reads as `conflict`, the state that asks.
 //
+// An older plugin never updates. When the record was written by a newer Cortex than this one, its
+// templates are the older ones, and every untouched file would read as `update` — applying it would put
+// the older template back. Status, `diff` and `--json` name it with the two commands that update the
+// plugin; `update` refuses all of it and writes nothing. `--version` is the release that asks.
+//
 // Exit codes: 1 for a bad argument or a refused update, 2 for a repo state that cannot be answered
 // about (a damaged record, a file that is not there). A repo directory named like a command is
 // passed as `./record`. Templates and version default to the plugin this file ships in:
@@ -49,9 +54,8 @@ import { normalizeChangedPath } from "./lib/changed.mjs";
 import { openTarget, parseArgv } from "./lib/open.mjs";
 import { renderTemplate, unfilledPlaceholders } from "./lib/placeholders.mjs";
 import {
-  STAMPS_REL, STATES, adoptStamp, adoptionCandidates, forgetStamp, ignoreAdvice, planUpdates, readStamps, recordStamp,
-  stampDiff, stampPathProblem,
-  stampStatus, stampsIgnoreRule, writeStamps,
+  STAMPS_REL, STATES, adoptStamp, adoptionCandidates, forgetStamp, ignoreAdvice, olderPlugin, planUpdates, readStamps,
+  recordStamp, runningCortex, stampDiff, stampPathProblem, stampStatus, stampsIgnoreRule, writeStamps,
 } from "./lib/stamps.mjs";
 
 const USAGE = {
@@ -72,18 +76,8 @@ const refuse = (text, code) => {
 const isFile = (p) => { try { return statSync(p).isFile(); } catch { return false; } };
 const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return false; } };
 
-/** The plugin's own version, or null — read from the one file every release stamps. */
-function pluginVersion() {
-  try {
-    const v = readFileSync(new URL("../VERSION", import.meta.url), "utf8").trim();
-    return /^\d+\.\d+\.\d+$/.test(v) ? v : null;
-  } catch {
-    return null;
-  }
-}
-
 function versionFrom(args, usage) {
-  const version = args.version ?? pluginVersion();
+  const version = args.version ?? runningCortex();
   if (!version) refuse(`no --version given and this plugin's VERSION could not be read\n${usage}`, 1);
   if (!/^\d+\.\d+\.\d+$/.test(version)) refuse(`--version must be X.Y.Z: ${version}`, 1);
   return version;
@@ -254,8 +248,9 @@ function status(argv) {
   const templatesDir = templatesDirFrom(args, USAGE.status);
   const rec = readRecordOrRefuse(root);
   const files = stampStatus({ repoRoot: root, record: rec, templatesDir });
-  const running = pluginVersion();
+  const running = runningCortex();
   const adopt = adoptionCandidates(root, rec);
+  const behind = olderPlugin(rec, running);
 
   if (args.json) {
     // The machine form `cortex-next` reads. `files: null` is "no record", never an empty list — an
@@ -273,6 +268,9 @@ function status(argv) {
       record: rec ? STAMPS_REL : null,
       cortex: rec?.cortex ?? null,
       running,
+      // Set when a newer Cortex wrote the record: `{ stamped, running, commands, advice }`. While it is,
+      // the states below are measured against this plugin's older templates, and `update` refuses.
+      olderPlugin: behind,
       counts,
       files,
       // Loop files an older /cortex left, with no record to say so. Always an array; empty once a
@@ -298,6 +296,10 @@ function status(argv) {
 
   console.log(`${files.length} stamped file${files.length === 1 ? "" : "s"} in ${STAMPS_REL} — newest writer ` +
     (rec.cortex ? `Cortex ${rec.cortex}` : "unknown (adopted)") + (running ? `, this is Cortex ${running}.` : "."));
+  if (behind) {
+    console.log(`\n${behind.advice}`);
+    console.log("Until then, the states below compare the files with this plugin's older templates — an `update` among them is not one.");
+  }
   const current = files.filter((f) => f.state === "current");
   if (current.length === files.length && !args.all) {
     console.log(`All ${files.length} stamped files are current.`);
@@ -335,6 +337,8 @@ function diff(argv) {
   if (!d) refuse(`${path} is not in ${STAMPS_REL}`, 1);
   const e = rec.files[path];
   console.log(`${path}: ${d.state}`);
+  const behind = olderPlugin(rec, runningCortex());
+  if (behind) console.log(behind.advice);
   if (d.diff === null) {
     console.log(`${e.template} is not in this Cortex's templates, so there is nothing to compare it with.`);
     return;
@@ -358,7 +362,11 @@ function update(argv) {
   const rec = readRecordOrRefuse(root);
   if (!rec) refuse(`no stamp record at ${STAMPS_REL}; nothing to update`, 1);
   const named = paths.length ? paths.map((p) => normalizeChangedPath(p, root)) : null;
-  const plan = planUpdates({ repoRoot: root, record: rec, templatesDir, paths: named });
+  const plan = planUpdates({ repoRoot: root, record: rec, templatesDir, paths: named, running: version });
+
+  // A refusal against the record itself is the older plugin: the whole plan, named or not.
+  const whole = plan.refused.find((r) => r.path === STAMPS_REL);
+  if (whole) refuse(`not updated: ${whole.why}\nNothing was written.`, 1);
 
   // Named paths are all-or-nothing: someone listed exactly these, so a partial run is not what they
   // asked for.

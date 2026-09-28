@@ -72,7 +72,16 @@
 // values. A null hash equals no digest, so every adopted file reads as `conflict` and is compared
 // with this release's template before anything changes; `update` can never touch it. Adoption is
 // offered only while there is no record at all: once one exists, a file outside it is the team's.
-// Not yet here, by the plan: the older-plugin warning (step 5).
+//
+// An older plugin (spec S5). The record is shared, the plugin is per machine: a teammate a release
+// behind reads a record a newer Cortex wrote against their own, older templates. Every untouched file
+// then reads as `update`, and applying it would put the older template back — undoing the fix the
+// newer release shipped, behind a green status. So `olderPlugin` names it, with the two commands that
+// update the plugin, and `planUpdates` refuses the whole plan while it holds: no file at all, whatever
+// its state, because the states themselves are measured against the wrong templates. `planUpdates`
+// takes `running` as a required argument rather than reading `VERSION` itself, so the check is not a
+// thing a caller can forget — omit it and the call throws. `cortex: null` (an adopted-only record)
+// was written by no known release and never warns; equal versions never warn.
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -126,6 +135,46 @@ function newer(a, b) {
   const y = VERSION.exec(b).slice(1).map(Number);
   for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
   return false;
+}
+
+// --- the Cortex doing the asking ------------------------------------------------------------------
+
+/** This Cortex's release, from the `VERSION` file every release stamps — or null when unreadable. */
+export function runningCortex() {
+  try {
+    const v = readFileSync(new URL("../../VERSION", import.meta.url), "utf8").trim();
+    return VERSION.test(v) ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Updating an installed plugin takes both, in order: the first refreshes the marketplace's copy, the
+ * second installs from it. The first alone leaves the old version installed.
+ */
+export const PLUGIN_UPDATE_COMMANDS = ["claude plugin marketplace update cortex", "claude plugin update cortex@cortex"];
+
+/**
+ * `{ stamped, running, commands, advice }` when the record was written by a newer Cortex than
+ * `running`, else null. Null too for no record, a record no known release wrote (`cortex: null`),
+ * or an unknown `running` — nothing is claimed that was not compared. `advice` is the one sentence
+ * status, `cortex-next` and a refused update all print.
+ */
+export function olderPlugin(record, running) {
+  const stamped = record?.cortex ?? null;
+  if (stamped === null || !VERSION.test(running)) return null;
+  if (!newer(stamped, running)) return null;
+  const [marketplace, plugin] = PLUGIN_UPDATE_COMMANDS;
+  return {
+    stamped,
+    running,
+    commands: [...PLUGIN_UPDATE_COMMANDS],
+    advice:
+      `This repo was stamped by Cortex ${stamped} and this is Cortex ${running}, an older plugin — it never ` +
+      `rewrites files a newer Cortex stamped. Update it: \`${marketplace}\`, then \`${plugin}\`, then ` +
+      "`/reload-plugins` or a new session.",
+  };
 }
 
 const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
@@ -453,8 +502,16 @@ export function stampStatus({ repoRoot, record, templatesDir }) {
  * leave `{{OWNER}}` in the file, so that file is refused, naming it. A placeholder the file as written
  * still holds (it is untouched, so it is the file as written) was kept on purpose, as
  * `intent/TEMPLATE.md` keeps `{{TITLE}}`, and stays.
+ *
+ * `running` is the Cortex doing the update, and is required. When the record was written by a newer
+ * one, nothing is planned: one refusal, against the record, carrying `olderPlugin`'s advice.
  */
-export function planUpdates({ repoRoot, record, templatesDir, paths = null }) {
+export function planUpdates({ repoRoot, record, templatesDir, paths = null, running }) {
+  if (!VERSION.test(running)) {
+    throw new Error(`running must be an x.y.z version — the Cortex doing the update — found ${JSON.stringify(running)}`);
+  }
+  const behind = olderPlugin(record, running);
+  if (behind) return { updates: [], refused: [{ path: STAMPS_REL, why: behind.advice }] };
   const status = stampStatus({ repoRoot, record, templatesDir }) ?? [];
   const byPath = new Map(status.map((s) => [s.path, s]));
   const doc = canonical(record);

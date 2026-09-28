@@ -11,7 +11,7 @@ reads, and is drafted from its sources.
 | Route | Kind | Written from |
 |---|---|---|
 | `/` | prose + facts | `README.md` intro and "Install as a Claude plugin"; version, install block and counts from `site-facts.json` |
-| `/install` | prose + facts | `README.md` install section; `skills/cortex/SKILL.md` (consent gate, running unattended); `.claude-plugin/plugin.json`; `node` from `site-facts.json` |
+| `/install` | prose + facts | `README.md` install section and "Keep it current" (turning on auto-update, which is off by default for a third-party marketplace; the two update commands; `/reload-plugins`; what an older plugin on a team is told); `skills/cortex/SKILL.md` (consent gate, running unattended); `.claude-plugin/plugin.json`; `node` from `site-facts.json` |
 | `/sequence` | prose | `README.md` "The order" table; `skills/cortex-next/SKILL.md`; `skills/cortex/SKILL.md` (the second round: `/cortex evals`, `/cortex bands`) |
 | `/what-lands` | prose | `README.md` tree; `skills/cortex/SKILL.md` (the loop artifacts table); `skills/cortex-review/SKILL.md` (the PR review workflow); `docs/adr/0002-committed-repo-memory.md` |
 | `/index-and-findings` | prose | `CONTEXT.md` (Index, Findings, Enrichment); `index/AGENTS.md` |
@@ -23,7 +23,7 @@ reads, and is drafted from its sources.
 | `/cli` | prose | `README.md` CLI block and "Tools" table; `tools/README.md` |
 | `/principles` | prose | ADRs 0004, 0005, 0006, 0007, 0010, 0016, 0017; the "code layers" section of `AGENTS.md` |
 | `/vault` | prose | `README.md` personal-vault section |
-| `/privacy` | prose | `README.md` privacy and firewall sections; ADR 0015 |
+| `/privacy` | prose | `README.md` privacy and firewall sections, including who fetches an update (Claude Code, never Cortex); ADR 0015 |
 | `/contributing` | prose | `docs/changing-cortex.md`; `tools/test/run.sh` |
 | `/migrate` | prose | `skills/migrate-engine/SKILL.md` |
 

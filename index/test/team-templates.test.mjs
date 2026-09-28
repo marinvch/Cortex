@@ -12,7 +12,8 @@
 //     read-only roles cannot edit;
 //   - every placeholder is documented in templates/team/README.md, and nothing documented is unused;
 //   - the prose the design depends on is there: the citation rule, the scoped-brief rule, the debate
-//     pointer, the verifier's discipline in the Reviewer — and no fence the Tester does not have yet.
+//     pointer, the verifier's discipline in the Reviewer, and the Tester's fence: a hook declared in
+//     its own frontmatter, running templates/team/test-paths.sh (behaviour: tools/test/test-paths.test.sh).
 
 import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
@@ -49,9 +50,14 @@ const VALUES = {
   TEST_PATHS: "`test/**`, `src/**/*.test.ts`",
   PLAN_DIRS: "`intent/`, `docs/plans/`",
   SCOPED_BRIEFS: "   - `src/billing/AGENTS.md`\n   - `src/auth/AGENTS.md`",
+  TEST_GLOBS: '  "*/test/*"\n  "*.test.ts"',
 };
 
-const source = (role) => readFileSync(join(TEAM, `${role}.md`), "utf8");
+/** Every template file, by the name the README's "Used by" column gives it. */
+const TEMPLATES = { ...Object.fromEntries(ROLES.map((r) => [r, `${r}.md`])), "test-paths": "test-paths.sh" };
+const FENCE_CMD = 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/test-paths.sh" || exit 2';
+
+const source = (name) => readFileSync(join(TEAM, TEMPLATES[name]), "utf8");
 const render = (role, values = VALUES) => renderTemplate(source(role), values);
 const toolList = (v) => (v === undefined ? [] : Array.isArray(v) ? v : String(v).split(/[,\s]+/).filter(Boolean));
 
@@ -66,10 +72,10 @@ function documented() {
   return out;
 }
 
-/** Every placeholder a template uses: name → the roles using it. */
+/** Every placeholder a template uses: name → the templates using it. */
 function used() {
   const out = new Map();
-  for (const role of ROLES) {
+  for (const role of Object.keys(TEMPLATES)) {
     for (const token of placeholdersOf(source(role))) {
       const name = token.slice(2, -2).trim();
       out.set(name, [...(out.get(name) ?? []), role].sort());
@@ -94,7 +100,9 @@ function stamp(bodies) {
   put("AGENTS.md", "# demo\n");
   put("CLAUDE.md", "@AGENTS.md\n");
   for (const [role, body] of Object.entries(bodies)) put(`.claude/agents/${role}.md`, body);
+  put(".claude/hooks/test-paths.sh", render("test-paths"));
   execFileSync("git", ["add", "-A"], { cwd: root });
+  execFileSync("git", ["update-index", "--chmod=+x", ".claude/hooks/test-paths.sh"], { cwd: root });
   execFileSync("git", ["commit", "-qm", "stamp"], { cwd: root });
   return root;
 }
@@ -107,9 +115,9 @@ const allRendered = (values = VALUES) => Object.fromEntries(ROLES.map((r) => [r,
 
 // --- the roster ---------------------------------------------------------------------------------
 
-test("templates/team holds exactly the five roles, and a README", () => {
+test("templates/team holds exactly the five roles, the Tester's fence, and a README", () => {
   const files = readdirSync(TEAM).sort();
-  assert.deepEqual(files, [...ROLES.map((r) => `${r}.md`), "README.md"].sort());
+  assert.deepEqual(files, [...Object.values(TEMPLATES), "README.md"].sort());
 });
 
 test("no team template is git-ignored — the repo's `team/` rule caught the whole directory once", () => {
@@ -134,7 +142,8 @@ test("each role's frontmatter reads cleanly, is named for its file, and says whe
     assert.equal(fm.data.name, role);
     assert.match(String(fm.data.description), /\bUse (?:once|when|at|after|before)\b/, `${role}: the description does not say when to call it`);
     // A plain YAML scalar may not hold ": " — Claude Code's parser would reject the whole block.
-    for (const line of source(role).split(/\r?\n/).slice(1, source(role).split(/\r?\n/).indexOf("---", 1))) {
+    const lines = source(role).split(/\r?\n/);
+    for (const line of lines.slice(1, lines.indexOf("---", 1)).filter((l) => /^[\w-]+:\s/.test(l))) {
       assert.doesNotMatch(line.replace(/^[\w-]+:\s/, ""), /:\s|\s#/, `${role}: "${line}" is not a plain YAML scalar`);
     }
   }
@@ -158,10 +167,11 @@ test("the read-only roles — Architect and Reviewer — hold no edit tool and d
   }
 });
 
-test("no role sets model, permissionMode or hooks yet — the Tester's hook is step 10's", () => {
+test("no role sets model or permissionMode, and only the Tester declares hooks", () => {
   for (const role of ROLES) {
     const keys = readFrontmatter(source(role)).keys;
-    assert.deepEqual(keys.filter((k) => ["model", "permissionMode", "hooks"].includes(k)), [], role);
+    assert.deepEqual(keys.filter((k) => ["model", "permissionMode"].includes(k)), [], role);
+    assert.equal(keys.includes("hooks"), role === "tester", `${role}: hooks`);
   }
 });
 
@@ -176,7 +186,7 @@ test("the test values fill exactly the documented placeholders", () => {
 });
 
 test("rendering with every value leaves no placeholder, and is the same every time", () => {
-  for (const role of ROLES) {
+  for (const role of Object.keys(TEMPLATES)) {
     const once = render(role);
     assert.deepEqual(unfilledPlaceholders(source(role), VALUES), [], `${role}: a placeholder has no value`);
     assert.deepEqual(placeholdersOf(once), [], `${role}: a placeholder survived rendering`);
@@ -188,8 +198,8 @@ test("the stamps CLI renders each template to the same bytes — the path /corte
   const dir = tempDir("cortex-team-values-");
   const file = join(dir, "values.json");
   writeFileSync(file, JSON.stringify(VALUES));
-  for (const role of ROLES) {
-    const out = execFileSync(process.execPath, [STAMPS_CLI, "render", `team/${role}.md`, "--values-file", file], { encoding: "utf8" });
+  for (const [role, name] of Object.entries(TEMPLATES)) {
+    const out = execFileSync(process.execPath, [STAMPS_CLI, "render", `team/${name}`, "--values-file", file], { encoding: "utf8" });
     assert.equal(out, render(role), `${role}: the CLI renders differently from renderTemplate`);
   }
 });
@@ -249,12 +259,27 @@ test("the three debating roles point at the team skill, and only point — two r
   for (const role of ["implementer", "project-manager"]) assert.ok(!source(role).includes(DEBATE), `${role} does not debate`);
 });
 
-test("the Tester is told its edits stay in test files, and promised no fence that does not exist yet", () => {
-  // #457 removed a promised test-file lock no template provided. The hook arrives in step 10; until
-  // then the body may instruct, never claim enforcement.
-  const body = source("tester");
-  assert.match(body.replace(/\s*\n\s*/g, " "), /edits are limited to test files/);
-  assert.doesNotMatch(body, /\bhook|\bfence|\bblock(?:s|ed)?\b|\benforc/i);
+test("the Tester's fence is a hook in its own frontmatter, covering every edit tool it holds", () => {
+  // #457 removed a promised test-file lock no template provided. The body may say the hook refuses
+  // an edit only because this frontmatter declares one and templates/team/test-paths.sh exists.
+  const text = source("tester").replace(/\r\n/g, "\n");
+  const fm = text.slice(0, text.indexOf("\n---", 3));
+  const block = fm.slice(fm.indexOf("\nhooks:") + 1);
+  assert.match(block, /^hooks:\n  PreToolUse:\n    - matcher: "[^"]+"\n      hooks:\n        - type: command\n/, "not a PreToolUse command hook");
+  // An exact-match matcher is a list of tool names separated by | (hooks reference, Matcher patterns).
+  const matcher = block.match(/matcher: "([^"]+)"/)[1];
+  assert.match(matcher, /^[\w|]+$/, "the matcher must be an exact tool list, not a regex");
+  const edits = toolList(readFrontmatter(text).data.tools).filter((t) => EDIT_TOOLS.includes(t));
+  assert.deepEqual(matcher.split("|").sort(), edits.sort(), "the matcher must name exactly the edit tools the Tester holds");
+  assert.ok(block.includes(`command: '${FENCE_CMD}'`), "the hook must run the stamped fence, and block if it cannot");
+  assert.ok(existsSync(join(TEAM, "test-paths.sh")), "the hook names a script no template provides");
+  assert.match(text.replace(/\s*\n\s*/g, " "), /edits are limited to test files: the hook in this file refuses an Edit or Write anywhere else/);
+});
+
+test("no other role claims a fence — the Implementer's is not specified, and none exists", () => {
+  for (const role of ROLES.filter((r) => r !== "tester")) {
+    assert.doesNotMatch(source(role), /\bhook|\bfence|\brefuse/i, role);
+  }
 });
 
 test("the Reviewer keeps the verifier's discipline, and the verifier stays until step 14 offers the upgrade", () => {

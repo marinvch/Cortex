@@ -37,6 +37,7 @@ code — `cortex-init.sh` is a zero-dependency installer copied into other repos
 |---|---|---|
 | the slug | `_cortex-lib.sh`, `mcp/lib/slug.js`, the generated HTML | `mcp/test/slug-parity.test.js` |
 | the clock | `_cortex-lib.sh`, `cortex-init.sh`, `cortex-cron.sh` | `tools/test/date-parity.test.sh` |
+| the hook-input reader | `templates/loop/protected-paths.sh`, `templates/loop/format-changed.sh`, `templates/team/test-paths.sh`, each stamped alone into a repo with no library to source | `tools/test/test-paths.test.sh` |
 
 **Never "improve" one copy alone.** The parity test is what makes the duplication safe; without it
 these drift into two behaviours nobody can tell apart. A *new* shared helper goes in

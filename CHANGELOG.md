@@ -163,6 +163,9 @@ this project now versions independently of any package manager (see `VERSION`).
   - A team's repo is the `work` profile or a team-brain connector (`.cortex/connector.json`).
     `home` and `lab` without a connector are never offered it, and the row does not appear in
     their loop counts. A loop row can now declare `applies` for this.
+    An older `{ slug, teamBrainRepo }` connector still counts as a team's repo. Its `slug` is the
+    project, not the team, so the evidence names no team. Plan step 7 found this on a real four-repo
+    workspace, where every repo was said to belong to a team named after itself.
   - The offer says what committing does not do. Once a teammate trusts the folder, Claude Code
     registers the marketplace, but the plugin docs still have each teammate run
     `claude plugin install cortex@cortex --scope project` once.

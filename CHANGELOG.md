@@ -83,6 +83,44 @@ this project now versions independently of any package manager (see `VERSION`).
   are described as compatible and off: Cortex never sets the flag. The skill also notes that the
   docs do not list hooks among what a teammate takes from an agent definition, so a Tester
   teammate may not have the fence. Still templates only; `/cortex` stamps them in step 14.
+- **`/cortex` now offers the agent team, one role at a time (plan step 14, spec T4, T6, T9).** A new
+  `team` row in the loop is fed by the agents the repo already has.
+  - **What is offered.** Every role no agent here plays is offered, and each one is its own yes/no.
+    The Project manager is offered only where a plan folder exists (`intent/`, `docs/specs/` or
+    `docs/plans/`). A withheld role is named with its reason.
+  - **Covered roles and existing agents.** A role an existing agent plays is never offered again.
+    That agent's proposed edits are asked one agent at a time, with the diff, and are never
+    recorded.
+  - **The verifier.** Cortex's own `verifier.md` is offered the upgrade to the Reviewer. Declining
+    keeps the verifier, and it keeps the Reviewer covered.
+  - **No overwrites.** A role whose file or agent name another agent already has is withheld with
+    "rename it first", never written over. This covers the case where the developer says the
+    team's own `reviewer.md` is not the reviewer. A `.claude/skills/team/SKILL.md` Cortex did not
+    write is a conflict to ask about, and it is never replaced.
+  - **Confirming the mapping.** The developer confirms each mapping. `cortex-loop.mjs --as
+    <path>=<role|none>` re-reads the offer with their answer, and their answer outranks the mapper.
+  - **Values.** Each value a template needs is detected or asked, never invented. These are the
+    test command, the Reviewer's run command (taken from the verifier's stamp record), the ADR
+    folder, the test locations and globs for the Tester's fence, the plan folders, and the scoped
+    briefs.
+  - **Writing.** After the picks, `cortex-loop.mjs --team <roles>` prints the files, the values and
+    the `{{ROSTER}}`: roles stamped now by role name, existing agents as `` `name` (role) ``. The
+    agent files, `test-paths.sh` (always with the Tester) and the team skill are recorded in
+    `.cortex/stamps.json` and updated like any loop file. The playbook is a block appended to
+    `CLAUDE.md` and is not recorded. On a later run only its roster line changes.
+  - **The stamp record.** `LOOP_STAMPS` carries the team files with `adopt: false`: the team shipped
+    after the record, so a file at one of those paths with no record is the team's own, not an
+    unrecorded stamp. `adoptionCandidates` now takes the stamp sites as an argument, which removes
+    an import cycle.
+  - **Where agents are found.** Claude Code scans `.claude/agents/` and a plugin's `agents/`
+    recursively, so agents in subfolders are now listed and graded.
+  - **The skill.** The details of asking and writing are in `skills/cortex/TEAM.md`, which keeps
+    `/cortex`'s skill under its length.
+  - **Tests.** `tools/test/cortex-team.test.sh` stamps a team on a real git fixture. It checks that
+    the checker finds nothing, the fence refuses code, every recorded file reads `current`, and a
+    template change reads `update`.
+  - **Validation.** Checked on kapi-sprints, octez-manager and zustand. Mutation-checked: 41 guards
+    broken one at a time, and each one failed a test.
 
 ### Changed
 

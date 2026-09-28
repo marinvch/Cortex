@@ -47,8 +47,11 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   do not reproduce would lose those lines on a re-render. So its template change is `review`, a
   state of its own, so that no caller that auto-applies `update` has to remember a flag.
   **Where each loop file lands is `LOOP_STAMPS` in `lib/loop.mjs`** (a `stamps` field per row).
-  Adoption reads it, and `cortex-output-passes.test.mjs` pins it to the `/cortex` skill's table.
-  Do not keep a second list. **Adoption** is for a repo stamped before the record existed: files
+  Adoption reads it (callers pass it to `adoptionCandidates`; `stamps.mjs` importing `loop.mjs`
+  was a cycle once the team row imported the record), and `cortex-output-passes.test.mjs` pins it to
+  the `/cortex` skill's table. Do not keep a second list. **A site marked `adopt: false` is never
+  adopted** — the team's files: they shipped after the record, so no Cortex wrote one unrecorded, and
+  a `.claude/agents/tester.md` in a repo with no record is the team's own. **Adoption** is for a repo stamped before the record existed: files
   at those locations and no record at all. It records them with nothing known (`version`, both
   hashes `null`, `renderable: false`), so each reads as `conflict` and is never rewritten
   unasked. It is offered only while no record exists; after that, a file outside the record is
@@ -449,7 +452,7 @@ description) has a test.
 
 ### The agents a repo already has — `lib/agents.mjs`
 
-Spec T6: before `/cortex` offers the agent team, each `.claude/agents/*.md` at the repo root is
+Spec T6: before `/cortex` offers the agent team, each `.claude/agents/**/*.md` at the repo root is
 graded, mapped to one of the five roles in `templates/team/`, and given edits the developer confirms
 one agent at a time. `cortex-loop.mjs --json` carries it as `agents`.
 
@@ -475,11 +478,43 @@ one agent at a time. `cortex-loop.mjs --json` carries it as `agents`.
   it, no citation rule, or a scoped `AGENTS.md` the agent never reads. A root `AGENTS.md` loaded
   through CLAUDE.md, as an `@` import or a symlink, needs no line. `saysWhen` is generous on
   purpose: only an absence is proposed. An unmapped agent gets no proposals.
+- **`.claude/agents/` is scanned recursively, and so is a plugin's `agents/`** — the sub-agents docs
+  say so, and identity comes from `name`, not the path. A `[^/]+` pattern once missed every agent
+  in a subfolder, here and in `claude-setup.mjs`.
+- **The developer's answer outranks the mapper** (`opts.as`, `{ path: role | null }`, reason
+  `developer`). A path that is no agent here and a role the roster lacks are refused, not ignored.
+  The verifier keeps its upgrade only when it is answered as the reviewer.
 - Validated by hand on 83 agents in seven public repos (octez-manager, metaxy, spica, kapi-sprints,
   a-safe-pulse, Heimdall, posthog). Two mappings are still wrong, and both are recoverable because
   the developer confirms every mapping. octez-manager's `architect` is a pre-merge architecture
   reviewer, and the name outranks a description with no job words. spica's `pr-review-analyst`
   reviews other reviewers' comments. Mutation-checked: 32 guards, each breaking a test.
+
+### The team offer — `lib/team.mjs`
+
+Plan step 14 (spec T4, T6, T9): turns `agents.mjs`'s report into the `team` loop row and, after the
+picks, the files, values and `{{ROSTER}}` `cortex-loop.mjs --team` prints. `skills/cortex/TEAM.md`
+is the ritual's half.
+
+- **Every role is its own pick, and a withheld role is named with its reason.** Covered, no plan
+  folder (the Project manager only), or a collision. Never dropped silently.
+- **Never clobber, never a second agent of one name.** A role whose file (`.claude/agents/<role>.md`,
+  on disk even if the index never saw it) or whose name another agent has is withheld with "rename
+  it first"; so is the upgrade. Found on kapi-sprints: answering its own `reviewer.md` as "not the
+  reviewer" freed the role, and the Reviewer template would have been written over it. A
+  `.claude/skills/team/SKILL.md` Cortex did not record is a `conflicts` entry, never overwritten —
+  the playbook loads the skill by that name.
+- **A value is detected or asked, never invented.** `needs` lists each placeholder a picked role's
+  files use (the Tester's include `test-paths.sh`'s) that came back `null`. RUN is the verifier's
+  recorded value, and a damaged record costs that value only. Test globs come only from files the
+  index marks `isTest`: an extra glob widens a fence that fails closed.
+- **The row is present once the playbook is in `CLAUDE.md`**, not when every role is. Declined roles
+  are the developer's T4 choice and must not hold the row open. The playbook is a block in a shared
+  file, so it is not recorded; every whole file the team writes is.
+- Validated on kapi-sprints (offers the architect only; four roles covered), octez-manager (tester
+  and Project manager; `docs/plans/` exists) and zustand (no agents: four roles, the Project manager
+  waits). Mutation-checked with `agents.mjs`, `loop.mjs`, `stamps.mjs` and the CLI: 41 guards,
+  each breaking a test.
 
 ## Tests
 
@@ -522,7 +557,9 @@ fixtures and not `mkdtemp` directories is that git is what decides the answer: `
 - `cortex-next.mjs` — a wrong "next", or a ✓ on a step nobody ran, walks the user past the step
   that writes their context layer.
 - `cortex-loop.mjs` — `/cortex` walks its JSON, and the agents section decides which team roles
-  are offered: a role it calls covered is never offered again.
+  are offered: a role it calls covered is never offered again. `tools/test/cortex-team.test.sh`
+  runs `--team` through `cortex-stamps.mjs render` and `record` on a real git fixture: the stamped
+  team passes the checker, the fence refuses code, and a template bump reads as `update`.
 - `cortex-review.mjs` — the only thing that reads the context layer back, and its two honest
   failures are claiming a rule exists where there is no context layer, and staying quiet about a
   document the change just made wrong.

@@ -201,6 +201,11 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" diff . <path>
 would never share it. That can be true before any record exists. Add one row that offers the
 `advice` it carries. Edit `.gitignore` only if the user picks that row.
 
+**The agent team is asked role by role.** The `team` row carries `state.agentTeam`: each role on
+`offer` is its own yes/no, `withheld` roles are named with their reason, the verifier's `upgrade` is
+one more yes/no, and each agent's `proposals` are asked one agent at a time with the diff, never
+under `[a]ll`. Read [TEAM.md](TEAM.md) before asking; it holds the questions and the writing.
+
 Two rules survive the merge intact:
 
 - **`enrich` states its token cost before the question, not after.** It is the only offer that
@@ -220,6 +225,8 @@ Cortex will write, in one pass:
   Build     AGENTS.md, CLAUDE.md, GEMINI.md, CONTEXT.md, docs/adr/
             src/billing/AGENTS.md, src/api/AGENTS.md
   Test      CLAUDE.md § Verifying your work, .claude/agents/verifier.md
+  Team      [x] architect  [x] tester (+ .claude/hooks/test-paths.sh)  [ ] implementer
+            .claude/skills/team/SKILL.md, CLAUDE.md § Working as a team
   Deploy    REVIEW.md, .github/workflows/cortex-review.yml,
             .claude/settings.json, .claude/hooks/protected-paths.sh
   Refresh   .claude/skills/type-check/SKILL.md — lines 8, 55 (no tests; a moved path)
@@ -280,6 +287,10 @@ The loop artifacts are written here, from `${CLAUDE_PLUGIN_ROOT}/templates/loop/
 | `agent-evals.yml` | `.github/workflows/` | `{{TEST_CMD}}` with the detected test command; replace the `{{SETUP_STEPS}}` line with the toolchain and install steps from the repo's own CI, at that indentation, or delete it if there are none; keep checkout pinned by SHA with `persist-credentials: false`, and use the SHA the repo's own CI pins if it has one; cases live in `evals/cases/<name>/` |
 | `cortex-review.yml` | `.github/workflows/` | `{{CORTEX_REF}}` with `v` plus the version in `${CLAUDE_PLUGIN_ROOT}/VERSION`, so each PR runs the release that stamped it; keep checkout pinned by SHA with `persist-credentials: false`; leave it advisory, and tell the user that setting the repository variable `CORTEX_REVIEW_BLOCKING` to `true` makes a provable broken citation fail the PR |
 | `bands.yaml` | repo root | one metric with a stable history, a read-only command, the rollback runbook |
+| `team/architect.md`, `team/implementer.md`, `team/tester.md`, `team/reviewer.md`, `team/project-manager.md` | `.claude/agents/`, one per role picked | the `values` from `cortex-loop.mjs . --team <roles>`, plus an answer to each of its `needs` ([TEAM.md](TEAM.md)) |
+| `team/test-paths.sh` | `.claude/hooks/` | the same values; only ever with `tester.md` |
+| `team/team-skill.md` | `.claude/skills/team/SKILL.md` | nothing to fill |
+| `team/playbook.md` | appended to `CLAUDE.md` | `ROSTER` from the same command: the team as picked, never edited by hand |
 
 **Never invent a command.** Every `{{PLACEHOLDER}}` that `loop.mjs` could not fill is a question for
 the user, not a blank for you. Cortex placeholders are bare `{{NAME}}`; a `${{ … }}` in a
@@ -309,10 +320,11 @@ lets a later release update the file safely.
 
    GitHub Actions `${{ … }}` passes through untouched.
 
-`verification.md` and `settings.hooks.json` are **not recorded**: one is appended to `CLAUDE.md` and
-the other merged into `settings.json`. Each is a block inside a file the team also writes, and how to
-track such a block is not specified yet. Write them as before. The `team-plugin` entries are such a
-block too, and the CLI above writes them.
+`verification.md`, `playbook.md` and `settings.hooks.json` are **not recorded**: two are appended to
+`CLAUDE.md` and one merged into `settings.json`. Each is a block inside a file the team also writes,
+and how to track such a block is not specified yet. Write them as before. The
+`team-plugin` entries are such a block too, and the CLI above writes them. Every other team file in
+the table above is recorded.
 
 ### Format what you wrote, then run the repo's own check
 
@@ -396,6 +408,8 @@ one each, and step 7's rules still apply.
 - **`bands`**: ask which production metric has a stable history, and for a read-only command that
   reads it. If there is no such metric, stop and say so. For a library with no production metric,
   that is a finished state.
+- **`team`**: a team already in `CLAUDE.md` is `present`, and its `why` names the roles still on
+  offer. This offers them again, by [TEAM.md](TEAM.md); the playbook's roster line is updated, not appended.
 
 ## Running unattended
 

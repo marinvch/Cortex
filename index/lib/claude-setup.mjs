@@ -182,14 +182,17 @@ function gather(index, root, opts) {
     return null;
   };
   const PLUGIN_SKILL = /^skills\/[^/]+\/SKILL\.md$/;
-  const PLUGIN_AGENT = /^agents\/[^/]+\.md$/;
+  // Agent directories are scanned recursively, a plugin's included: "Claude Code scans
+  // `.claude/agents/` and `~/.claude/agents/` recursively" and "Plugin `agents/` directories are also
+  // scanned recursively" (code.claude.com/docs/en/sub-agents). A subfolder only organises them.
+  const PLUGIN_AGENT = /^agents\/.+\.md$/;
   const PLUGIN_HOOKS = /^hooks\/hooks\.json$/;
 
   const claudeMd = paths.filter((p) => /(^|\/)CLAUDE(\.local)?\.md$/.test(p));
   const skills = paths.filter(
     (p) => /(^|\/)\.claude\/skills\/[^/]+\/SKILL\.md$/.test(p) || pluginRootOf(p, PLUGIN_SKILL) !== null,
   );
-  const agents = paths.filter((p) => /(^|\/)\.claude\/agents\/[^/]+\.md$/.test(p) || pluginRootOf(p, PLUGIN_AGENT) !== null);
+  const agents = paths.filter((p) => /(^|\/)\.claude\/agents\/.+\.md$/.test(p) || pluginRootOf(p, PLUGIN_AGENT) !== null);
   const settings = paths.filter(
     (p) => /(^|\/)\.claude\/settings(\.local)?\.json$/.test(p) || pluginRootOf(p, PLUGIN_HOOKS) !== null,
   );

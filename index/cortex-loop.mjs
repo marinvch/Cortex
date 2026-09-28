@@ -4,6 +4,8 @@
 //   node index/cortex-loop.mjs .          # the loop by stage, with ✓ / → / ·
 //   node index/cortex-loop.mjs . --line   # one line, for another tool's footer
 //   node index/cortex-loop.mjs . --json   # the worklist, for /cortex to walk
+//   node index/cortex-loop.mjs . --team tester,reviewer [--as <agent path>=<role|none> ...]
+//                                          # after the picks: the team files, values and roster
 //
 // Read-only in the strongest sense: it writes nothing, not even under `.cortex/`.
 //
@@ -12,7 +14,8 @@
 // artifact a user is offered first, not merely how a report reads.
 
 import { loopPlan, loopLine, STAGES } from "./lib/loop.mjs";
-import { agentReport } from "./lib/agents.mjs";
+import { teamValues } from "./lib/team.mjs";
+import { normalizeChangedPath } from "./lib/changed.mjs";
 import { openTarget } from "./lib/open.mjs";
 
 // `index: "optional"` — the loop is mostly file facts, and the two rows that read the index
@@ -20,22 +23,55 @@ import { openTarget } from "./lib/open.mjs";
 // rather than to a wrong answer. Running this before the indexer is the ordinary case on a repo
 // where `/cortex` has only just started.
 const { root, args, index } = openTarget(process.argv.slice(2), {
-  usage: "usage: node index/cortex-loop.mjs [root] [--line] [--json]",
-  flags: { "--json": "boolean", "--line": "boolean", "--index": "value" },
+  usage: "usage: node index/cortex-loop.mjs [root] [--line] [--json] [--team ROLES|none] [--as PATH=ROLE|none ...]",
+  flags: { "--json": "boolean", "--line": "boolean", "--index": "value", "--team": "list", "--as": "multi" },
   root: "positional",
   index: "optional",
-  freshness: (a) => !a.json && !a.line,
+  freshness: (a) => !a.json && !a.line && !a.team.length,
 });
 
-const plan = loopPlan(root, index);
-// The agents this repo already has — graded, mapped to a role, with proposed edits (spec T6). Here
-// rather than in a new command because /cortex already walks this JSON, and the team's offer (plan
-// step 14) is a loop row that needs exactly this: which roles are covered, which are gaps. `null`
-// without an index, like every other index-backed answer: the checker lists agents from it.
-const agents = agentReport(root, index);
+const fail = (text) => {
+  process.stderr.write(text + "\n");
+  process.exit(1);
+};
+
+// The developer's answer to "is this agent that role": `--as .claude/agents/x.md=reviewer`, or
+// `=none`. A mapping is a proposal the developer confirms, so the answer outranks the mapper.
+const as = {};
+for (const kv of args.as) {
+  const eq = kv.lastIndexOf("=");
+  if (eq <= 0) fail(`--as must be <agent path>=<role|none>: ${kv}`);
+  as[normalizeChangedPath(kv.slice(0, eq))] = kv.slice(eq + 1) === "none" ? null : kv.slice(eq + 1);
+}
+
+let plan;
+try {
+  plan = loopPlan(root, index, Object.keys(as).length ? { agentsAs: as } : {});
+} catch (e) {
+  fail(e.message);
+}
+// The agents this repo already has — graded, mapped to a role, with proposed edits (spec T6) — are
+// `agents`; the team row's offer built on them is `state.agentTeam`. `null` without an index.
+const team = plan.state.agentTeam;
+const agents = team?.report ?? null;
+
+// After the picks (plan step 14): which files to write, with which values, and the roster the
+// playbook names — so /cortex renders exactly the team that was picked. `none` picks no role, for a
+// repo whose existing agents are the whole team. Writes nothing.
+if (args.team.length) {
+  if (!team) fail("no index, so the agents already here cannot be read — run node index/cortex-index.mjs first");
+  const picked = args.team.includes("none") ? [] : args.team;
+  try {
+    console.log(JSON.stringify(teamValues(team, picked), null, 2));
+  } catch (e) {
+    fail(e.message);
+  }
+  process.exit(0);
+}
 
 if (args.json) {
-  console.log(JSON.stringify({ ...plan, agents }, null, 2));
+  const state = team ? { ...plan.state, agentTeam: { ...team, report: undefined } } : plan.state;
+  console.log(JSON.stringify({ ...plan, state, agents }, null, 2));
   process.exit(0);
 }
 if (args.line) {

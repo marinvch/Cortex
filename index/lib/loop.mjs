@@ -28,6 +28,11 @@ import { labelsFor } from "./stack.mjs";
 import { categoryOf, detectLanguage } from "./langs.mjs";
 import { protectedClaudePath } from "../../core/claude-code.js";
 import { sharedPluginStatus, teamServed } from "./shared-plugin.mjs";
+import { TEAM_STAMPS, teamState } from "./team.mjs";
+
+// Where /cortex stamps its verifier. The verifier row stamps it here, and the team row offers the
+// agent found here the upgrade to the Reviewer (T9) — one location, read by both.
+const VERIFIER_AT = ".claude/agents/verifier.md";
 
 /** The six stages, in loop order. A row belongs to exactly one. */
 export const STAGES = ["plan", "design", "build", "test", "deploy", "maintain"];
@@ -75,6 +80,23 @@ const named = (ids) => labelsFor(ids ?? []).join(", ");
 // format-changed.sh a formatter to run. Nothing else — a test command is not hook work, because no
 // template acts on one.
 const hooksHaveWork = (s) => s.protectedPaths.length > 0 || s.formatters.length > 0;
+
+// The team row's evidence: what is offered, what already plays a role and by which agent, and what
+// waits. Agents are named by their `name`, the identity Claude Code uses, never by file.
+function teamWhy(t) {
+  if (!t) return "no index yet, so the agents already here are unread rather than absent";
+  const parts = [];
+  const byRole = (role) => (t.covered[role] ?? []).map((a) => a.name).join(" and ");
+  const covered = Object.keys(t.covered);
+  if (t.playbook) parts.push("the team is in CLAUDE.md under Working as a team");
+  if (t.offer.length) parts.push(`${t.playbook ? "still on offer" : "offers"}: ${t.offer.map((o) => o.role).join(", ")} — each picked on its own`);
+  if (covered.length) parts.push(`already played: ${covered.map((r) => `${r} by ${byRole(r)}`).join(", ")}`);
+  if (t.upgrade) parts.push(`${t.upgrade.name} is offered the upgrade to the Reviewer`);
+  const pm = t.withheld.find((w) => w.role === "project-manager" && !t.covered["project-manager"]);
+  if (pm) parts.push(`project-manager waits: ${pm.why}`);
+  if (t.proposals.length) parts.push(`${t.proposals.length} existing agent${t.proposals.length === 1 ? " has" : "s have"} proposed edits, asked one agent at a time`);
+  return parts.length ? parts.join("; ") : "every role is played by an agent already here";
+}
 
 // Every evidence sentence is built through this. A `why` is the one part of a report a reader can
 // check against their own repo, so a sentence that reads "null runs here" does not merely look
@@ -622,6 +644,14 @@ export function readLoopState(root, index = null, overrides = {}) {
     // environment; `overrides.team` is how a test states it instead.
     team: teamServed(root),
     sharedPlugin: sharedPluginStatus(root),
+    // The agent team (plan step 14): which roles the repo's agents already play, what is offered,
+    // and the values each file would be rendered with. `null` without an index — the agents are
+    // listed from it, and "no agents" must not be read off an index nobody built.
+    agentTeam: teamState(root, index, {
+      testCmd: overrides.commands?.test ?? detected.commands.test,
+      verifierPath: VERIFIER_AT,
+      as: overrides.agentsAs ?? {},
+    }),
     ...overrides,
   };
 }
@@ -713,10 +743,10 @@ export const LOOP_ARTIFACTS = [
     id: "verifier",
     stage: "test",
     title: "The verifier subagent — a fresh context window that checks the work",
-    paths: [".claude/agents/verifier.md"],
+    paths: [VERIFIER_AT],
     rank: 30,
     template: "verifier.md",
-    stamps: [{ path: ".claude/agents/verifier.md", template: "loop/verifier.md" }],
+    stamps: [{ path: VERIFIER_AT, template: "loop/verifier.md" }],
     present: (s) => s.subagents,
     // Nothing to run means nothing to verify. The subagent's whole body is a command.
     when: (s) => Boolean(s.commands.test || s.commands.build),
@@ -726,6 +756,33 @@ export const LOOP_ARTIFACTS = [
     brief:
       "Report-only. It runs the change and the two nearest neighbouring flows, says what it ran " +
       "and what it saw, and fixes nothing — a verifier that repairs what it finds has no verdict.",
+  },
+  {
+    id: "team",
+    stage: "build",
+    title: "The agent team — one job per agent, each role picked on its own",
+    // The directory, because which roles land is the developer's pick; `state.agentTeam.offer` names
+    // each file. The playbook is a block appended to CLAUDE.md and, like the verification block, is
+    // not a stamp; every whole file is (`TEAM_STAMPS`), and none is ever adopted.
+    paths: [".claude/agents/", ".claude/hooks/test-paths.sh", ".claude/skills/team/SKILL.md", "CLAUDE.md#Working as a team"],
+    rank: 35,
+    template: "../team/playbook.md",
+    stamps: TEAM_STAMPS,
+    // A repo has a team once the playbook is in CLAUDE.md — the block every session loads. Roles the
+    // developer declined do not hold the row open: T4 makes each one their pick.
+    present: (s) => Boolean(s.agentTeam?.playbook),
+    when: (s) => Boolean(s.agentTeam) && !s.greenfield,
+    needs: (s) => [
+      !s.agentTeam && "an index — the team is matched against the agents already here, and the index lists them",
+      s.greenfield && "code in the repo — a team has nothing yet to plan, test or review",
+    ],
+    why: (s) => teamWhy(s.agentTeam),
+    brief:
+      "Ask per role, never as one bundle: every role in state.agentTeam.offer is its own yes/no (T4). " +
+      "A covered role is not offered; say which agent covers it. The verifier's upgrade to the Reviewer " +
+      "is one more yes/no, and a no keeps the verifier as the reviewer. Each existing agent's proposals " +
+      "are one question per agent, with the diff, never covered by [a]ll. Get the files, values and " +
+      "roster with `cortex-loop.mjs . --team <roles>`; every value in its needs is a question, never a guess.",
   },
   {
     id: "review",

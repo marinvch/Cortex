@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES } from "./context-docs.mjs";
-import { loopPlan } from "./loop.mjs";
+import { LOOP_STAMPS, loopPlan } from "./loop.mjs";
 import { adrLocation } from "./adr.mjs";
 import { listRepoSkills, skillDrift } from "./skill-drift.mjs";
 import {
@@ -170,7 +170,7 @@ function stampFacts(root) {
   const none = { stamps: null, stampsAdopt: [], stampsIgnored: null, stampsOlderPlugin: null, stampsError: null };
   try {
     const record = readStamps(root);
-    const adopt = adoptionCandidates(root, record);
+    const adopt = adoptionCandidates(root, record, LOOP_STAMPS);
     if (!record && !adopt.length) return none;
     return {
       stamps: record ? stampStatus({ repoRoot: root, record, templatesDir: TEMPLATES_DIR }) : null,
@@ -431,7 +431,7 @@ function steps(s) {
     done: firstPassDone,
     why:
       s.loopServed === null
-        ? "the SDLC loop artifacts: REVIEW.md, the verification block, the verifier, intent/, hooks"
+        ? "the SDLC loop artifacts: REVIEW.md, the verification block, the verifier, the agent team, intent/, hooks"
         : s.loopComplete
           ? `all ${s.loopTotal} loop artifacts that apply here are in place`
           : firstPassDone

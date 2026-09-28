@@ -206,6 +206,17 @@ test("block scalars, lists and nested maps are read, not mistaken for keys", () 
   assert.deepEqual(fm.data.tools, ["Read", "Grep"]);
 });
 
+test("a flow list broken over lines is a list — a formatter writes long tool lists that way", () => {
+  // Found on a real repo: `tools:` read as a nested map, so the agent looked as if it granted nothing.
+  const fm = readFrontmatter("---\nname: q\ndescription: Checks.\ntools:\n  [\n    Read,\n    Bash,\n    mcp__x__y,\n  ]\nmodel: opus\n---\n");
+  assert.deepEqual(fm.keys, ["name", "description", "tools", "model"]);
+  assert.deepEqual(fm.data.tools, ["Read", "Bash", "mcp__x__y"]);
+  assert.deepEqual(readFrontmatter("---\ntools: [Read,\n  Edit]\n---\n").data.tools, ["Read", "Edit"]);
+  // …so an agent that claims to change nothing and lists Edit that way is still caught.
+  const ro = agent("name: r\ndescription: Read-only reviewer.\ntools:\n  [\n    Read,\n    Edit,\n  ]");
+  assertFinding(check({ ".claude/agents/r.md": ro }), "subagent-read-only-can-edit");
+});
+
 // --- subagents ---------------------------------------------------------------------------------
 
 test("unknown subagent key — a snake_case spelling is not the camelCase key", () => {

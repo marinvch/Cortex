@@ -243,6 +243,8 @@ test("hooks / mcpServers / permissionMode on a plugin subagent — and not on a 
   const fm = "name: r\ndescription: Reviews.\ntools: Read\npermissionMode: plan";
   assertFinding(check({ ".claude-plugin/plugin.json": "{}", "agents/r.md": agent(fm) }), "subagent-plugin-ignored-key");
   assert.deepEqual(check({ ".claude/agents/r.md": agent(fm) }), []);
+  // Plugin agents/ is scanned recursively too (docs: sub-agents), so a subfolder agent is graded.
+  assertFinding(check({ ".claude-plugin/plugin.json": "{}", "agents/review/r.md": agent(fm) }), "subagent-plugin-ignored-key");
 });
 
 test("an agent described as read-only that can still edit", () => {

@@ -279,6 +279,29 @@ test("a repo whose hooks would have no work finishes the first pass without them
   }
 });
 
+test("on a repo with code, the agent team is a loop row like the others — open until the playbook lands", () => {
+  // The team row is a loop artifact, so the sequence shows it through the loop row and its count,
+  // not as a list of its own. It asks for code: the fixtures above index an empty tree (greenfield),
+  // where the row waits and holds nothing open.
+  const withCode = JSON.stringify({ version: "1", files: [{ path: "src/a.js" }], stats: { files: 1 }, edges: [], areas: [], layers: [] });
+  const open = repo(({ put }) => {
+    servedFirstPass({ put });
+    put(".cortex/index/index.json", withCode);
+  });
+  const loop = nextSteps(open, JSON.parse(withCode)).steps.find((s) => s.id === "loop");
+  assert.equal(loop.done, false, "the team is still to be offered");
+  assert.equal(readState(open, JSON.parse(withCode)).loopMissing.includes("team"), true);
+  rmSync(open, { recursive: true, force: true });
+
+  const closed = repo(({ put }) => {
+    servedFirstPass({ put });
+    put(".cortex/index/index.json", withCode);
+    put("CLAUDE.md", "@AGENTS.md\n\n## Verifying your work\n\n| Test | `npm test` |\n\n## Working as a team\n\nAgents: `tester`.\n");
+  });
+  assert.equal(nextSteps(closed, JSON.parse(withCode)).steps.find((s) => s.id === "loop").done, true, "the playbook in CLAUDE.md closes it");
+  rmSync(closed, { recursive: true, force: true });
+});
+
 test("with a real eval case written and bands deferred, the sequence ends", () => {
   const root = repo(({ put }) => {
     servedFirstPass({ put });

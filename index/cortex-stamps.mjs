@@ -51,6 +51,7 @@ import { readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeChangedPath } from "./lib/changed.mjs";
+import { LOOP_STAMPS } from "./lib/loop.mjs";
 import { openTarget, parseArgv } from "./lib/open.mjs";
 import { renderTemplate, unfilledPlaceholders } from "./lib/placeholders.mjs";
 import {
@@ -249,7 +250,7 @@ function status(argv) {
   const rec = readRecordOrRefuse(root);
   const files = stampStatus({ repoRoot: root, record: rec, templatesDir });
   const running = runningCortex();
-  const adopt = adoptionCandidates(root, rec);
+  const adopt = adoptionCandidates(root, rec, LOOP_STAMPS);
   const behind = olderPlugin(rec, running);
 
   if (args.json) {
@@ -398,7 +399,7 @@ function adopt(argv) {
     refuse(`${root} already has ${STAMPS_REL}. Adoption is for a repo stamped before the record existed; ` +
       "record a file with `cortex-stamps.mjs record` instead.", 1);
   }
-  const candidates = adoptionCandidates(root, null);
+  const candidates = adoptionCandidates(root, null, LOOP_STAMPS);
   let chosen = candidates;
   if (paths.length) {
     const byPath = new Map(candidates.map((c) => [c.path, c]));

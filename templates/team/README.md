@@ -3,7 +3,9 @@
 One Claude Code subagent per role, the Tester's fence, the playbook every session loads, and the
 `team` skill that holds the debate protocol.
 [The design](../../docs/specs/2026-09-28-agent-team-design.md) holds each role's job and tools.
-Nothing stamps these yet: the `/cortex` offer arrives in plan step 14.
+`/cortex` offers them through its `team` loop row, one role at a time, and stamps what the developer
+picks ([`skills/cortex/TEAM.md`](../../skills/cortex/TEAM.md)). `index/lib/team.mjs` decides what is
+offered and fills every value below it can detect; `cortex-loop.mjs . --team <roles>` prints them.
 
 | Template | Lands at |
 |---|---|
@@ -25,7 +27,7 @@ not list, or the table lists one that no template uses.
 | `{{TEST_PATHS}}` | `tester` | where tests live, as comma-separated code spans such as `` `test/**` `` | the files the index marks `isTest` | ask where tests go |
 | `{{TEST_GLOBS}}` | `test-paths` | the same locations as shell globs, one double-quoted glob per line indented two spaces, such as `"*/test/*"` or `"*.test.ts"`; each is matched against `/` plus the path from the repo root | the files the index marks `isTest` | ask; an empty list refuses every edit |
 | `{{PLAN_DIRS}}` | `project-manager` | the plan folders that exist, as comma-separated code spans | which of `intent/`, `docs/specs/` and `docs/plans/` exist | the role is not offered |
-| `{{ROSTER}}` | `playbook` | the agent playing each role, as comma-separated code spans such as `` `architect`, `tester` ``; an existing agent mapped to a role carries the role after it, as `` `code-reviewer` (reviewer) `` | the roles the developer picked in this run, plus any existing agent mapped to a role | never empty: with no agent stamped, the playbook is not written |
+| `{{ROSTER}}` | `playbook` | the agent playing each role, as comma-separated code spans such as `` `architect`, `tester` ``; an existing agent mapped to a role carries the role after it, as `` `code-reviewer` (reviewer) `` | the roles the developer picked in this run, plus any existing agent mapped to a role | never empty: with no agent on the team, picked or already here, the playbook is not written |
 | `{{SCOPED_BRIEFS}}` | `architect` | one line per scoped brief, in the form `` - `<dir>/AGENTS.md` `` indented three spaces, under step 1 | every `<dir>/AGENTS.md` in the index | empty, which removes the line |
 
 ## The Tester's fence

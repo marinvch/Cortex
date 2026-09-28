@@ -1,8 +1,8 @@
 // team-templates.test.mjs — the agent-team role templates are fit to stamp before anything stamps them.
 //
 // templates/team/ holds one Claude Code subagent per role (docs/specs/2026-09-28-agent-team-design.md).
-// Nothing writes them into a repo yet — the /cortex row lands in plan step 14 — so this pins what that
-// step will rely on:
+// /cortex writes them through its `team` loop row (lib/team.mjs, team.test.mjs), and this pins what that
+// row relies on:
 //
 //   - rendered with realistic values and committed at `.claude/agents/<role>.md`, every file passes
 //     every claude-setup check (roadmap Q9), with a positive control proving the checker saw them;

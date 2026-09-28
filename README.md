@@ -57,7 +57,7 @@ Then, inside the repo you want it to serve — a working project or an empty one
 It indexes the codebase, writes **one findings report** — issues, gaps, recommendations, ranked —
 works out which parts of the development loop the repo is missing (a verification block in
 `CLAUDE.md`, a verifier subagent, `REVIEW.md`, a PR review workflow, hooks, an `intent/` home, evals,
-control bands), and then **stops and asks once**. Nothing in your repo is modified until you pick what to act on.
+control bands, [an agent team](#the-agent-team)), and then **stops and asks once**. Nothing in your repo is modified until you pick what to act on.
 Indexing and reporting write only under `.cortex/` — plus three `.gitignore` lines on the first
 run, after you agree — and a different skill applies changes.
 
@@ -150,6 +150,7 @@ And per change, which is a lookup rather than a sequence:
 |---|---|
 | starting a risky feature | `/analyze-spec` |
 | before touching files | `/cortex-impact <files>` |
+| one agent or the team? | `/cortex-impact <files> --size` |
 | before committing | `/cortex-review` |
 | chasing a bug you cannot explain | `/diagnosing-bugs` |
 | back after time away | `/catch-me-up` |
@@ -164,7 +165,7 @@ docs/adr/          decisions, created lazily (adr/ when docs/ is a published sit
 <area>/AGENTS.md   scoped leaves, only where you accepted one
 REVIEW.md          what a review of this repo checks
 intent/            where a change starts: intent → spec → plan
-.claude/           the verifier subagent, hooks, skills that fit the stack
+.claude/           the verifier or the agent team, hooks, skills that fit the stack
 .github/workflows/ cortex-review.yml (advisory PR review) · agent-evals.yml
 .cortex/
   index/           generated, gitignored
@@ -174,6 +175,40 @@ intent/            where a change starts: intent → spec → plan
   stamps.json      COMMITTED — which loop files Cortex stamped, from which release, so a re-run
                    updates the untouched ones and asks about the ones your team edited
 ```
+
+### The agent team
+
+`/cortex` also offers a small team of agents, written into `.claude/agents/` and committed with the
+code. Each one does one job, carries only the tools that job needs, and is filled in from this
+repo's own commands, briefs and ADRs. Every claim one makes about the repo cites a `path:line`, an
+ADR or a command's output.
+
+| Agent | Its one job | Can edit |
+|---|---|---|
+| `architect` | turn a request into a plan: files, blast radius, the rules each must keep | no |
+| `tester` | write the failing test first, then confirm it passes | test files only, fenced by a hook |
+| `implementer` | make the agreed change, inside the planned files | yes |
+| `reviewer` | check the change independently: run it, exercise what sits next to it, read the diff against `REVIEW.md` and the docs | no |
+| `project-manager` | acceptance criteria and the task list, offered only where a plan folder exists | plan folders, by instruction; no hook enforces it |
+
+You pick each role. An agent the repo already has is graded, matched to a role and offered concrete
+edits, one agent at a time with the diff. A role it covers is never offered again. A repo with the
+verifier is offered the upgrade to the Reviewer, and keeps the verifier if it says no.
+
+A short section in `CLAUDE.md` puts the team to work. For each new task, your session runs
+`/cortex-impact --size` on the files the task will touch, tells you whether it recommends one agent
+or the team and why, and **asks you**. On "team" it loads the `team` skill. The Architect plans, and
+the Tester and Reviewer object. An objection with no citation is dropped. After at most two rounds,
+whatever is still open comes to you side by side, and you decide. Then comes a failing test, the
+change and an independent review. Nothing is committed, pushed or merged unless you ask.
+
+Claude Code's experimental agent teams can run the same agents as teammates. Cortex never turns that
+mode on; the `team` skill says how. The fence has limits. It does not run until the folder is
+trusted, or under `claude -p`. Bash can go around it. A teammate is not documented to carry it.
+[ADR 0019](docs/adr/0019-the-agent-team-is-written-into-the-repo-and-run-by-the-main-session.md)
+has the reasoning.
+
+To remove the team, delete that section of `CLAUDE.md`, `.claude/skills/team/` and the agents.
 
 ### See the repo, don't read about it
 
@@ -229,6 +264,8 @@ node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 node index/cortex-routes.mjs . --workspace  # which back-end handler serves each front-end call
 node index/cortex-stamps.mjs .     # which files /cortex stamped are out of date; writes nothing
+node index/cortex-loop.mjs . --team architect,tester  # the team files, values and roster for those picks; writes nothing
+node index/cortex-impact.mjs src/a.ts --size  # one agent or the team for a task on these files, and why
 node index/cortex-shared-plugin.mjs .  # on a team repo: what --write would add to .claude/settings.json
 ```
 
@@ -444,7 +481,9 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   PR; `agent-evals.yml` installs Claude Code in your CI to run your eval cases. Both are files you
   read and commit. On a team's repo it can also add the `cortex` marketplace to
   `.claude/settings.json`. Then Claude Code, not Cortex, clones `github.com/marinvch/Cortex` on each
-  teammate's machine once they trust the folder.
+  teammate's machine once they trust the folder. The agent team is instructions too: agent files and
+  a skill your own sessions follow. They run your repo's own commands. The one network step they
+  name is the Project manager reading an issue with `gh issue view` when a task names one.
 - **No telemetry.** Nothing is sent to the author or to any service Cortex runs.
 
 ### The vault firewall

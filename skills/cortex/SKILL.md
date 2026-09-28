@@ -182,9 +182,10 @@ has a `state`, and the state decides the row:
 |---|---|
 | `update` | one row, *Update N files Cortex stamped*: the template changed and the file is untouched |
 | `review`, `conflict` | one row **per file**, with its diff shown; never covered by `[a]ll` |
-| `missing` | ask whether to stamp it again |
-| `retired` | name it; nothing to update it from |
+| `missing` | ask whether to stamp it again or drop it (`cortex-stamps.mjs forget . <path>`) |
+| `retired` | name it; nothing to update it from. Drop it with `forget` if they agree |
 | `edited` | nothing. The team changed it and the template did not, so it is theirs |
+| `adopt` is non-empty | one row, *Adopt N loop files an earlier Cortex stamped*. It covers a repo installed before the record existed. On yes, run `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" adopt .`. That writes the record only; each file then reads `conflict` and is asked about file by file on the next run |
 
 Get each diff from the CLI. It compares the file now with this release's template, filled with the
 recorded values:

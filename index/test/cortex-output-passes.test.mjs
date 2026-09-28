@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 
 import { buildIndex } from "../lib/build.mjs";
 import { claudeSetupFindings } from "../lib/claude-setup.mjs";
-import { loopPlan } from "../lib/loop.mjs";
+import { LOOP_STAMPS, loopPlan } from "../lib/loop.mjs";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
 const LOOP = join(REPO, "templates", "loop");
@@ -90,6 +90,19 @@ test("the /cortex skill's table covers every loop template", () => {
   for (const t of ["settings.hooks.json", "protected-paths.sh", "format-changed.sh", "verifier.md", "verification.md", "cortex-review.yml"]) {
     assert.ok(named.has(t), `the table no longer places ${t}`);
   }
+});
+
+test("the whole files the skill's table writes are exactly the locations loop.mjs records and adopts", () => {
+  // Two answers to "where does /cortex put verifier.md": the skill's table, which the model follows,
+  // and LOOP_STAMPS, which adoption and the stamp record read. If they drifted, a repo stamped by an
+  // older Cortex would be offered files the skill never writes, or never offered the ones it does.
+  // Appended and merged rows are a block inside a shared file and are neither recorded nor adopted.
+  const fromSkill = destinations()
+    .filter((d) => d.mode === "write")
+    .map((d) => `loop/${d.template} → ${d.dest}`)
+    .sort();
+  const fromLoop = LOOP_STAMPS.map((s) => `${s.template} → ${s.path}`).sort();
+  assert.deepEqual(fromLoop, fromSkill);
 });
 
 test("everything /cortex writes passes the claude-setup checker", () => {

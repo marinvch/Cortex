@@ -10,12 +10,18 @@
 
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES } from "./context-docs.mjs";
 import { loopPlan } from "./loop.mjs";
 import { adrLocation } from "./adr.mjs";
 import { listRepoSkills, skillDrift } from "./skill-drift.mjs";
+import { adoptionCandidates, readStamps, stampStatus, stampsIgnoreRule, STAMPS_REL } from "./stamps.mjs";
+
+// The templates this Cortex ships — what a stamped file is compared against. Next to this file in a
+// clone and in an installed plugin alike.
+const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
 
 // Facts about the artifact chain, borrowed rather than recomputed. `loop.mjs` owns which artifacts
 // a repo is missing and why; this file owns the order of the sequence. Two modules each keeping
@@ -151,6 +157,29 @@ function driftedSkills(root, index) {
   }
 }
 
+// The stamp record, read the way `cortex-stamps.mjs . --json` reads it (spec S4). `stamps` is the
+// per-file status, or null with no record; `stampsAdopt` is what an older /cortex left and nothing
+// recorded; `stampsIgnored` is the rule that keeps the record out of git. Only asked when there is
+// something to ask about, so a repo with neither a record nor a loop file pays one stat per location
+// and reads exactly as it did before the record existed. A damaged record is carried as an error,
+// never degraded to "no record": that would offer adoption over a record the team still has.
+function stampFacts(root) {
+  const none = { stamps: null, stampsAdopt: [], stampsIgnored: null, stampsError: null };
+  try {
+    const record = readStamps(root);
+    const adopt = adoptionCandidates(root, record);
+    if (!record && !adopt.length) return none;
+    return {
+      stamps: record ? stampStatus({ repoRoot: root, record, templatesDir: TEMPLATES_DIR }) : null,
+      stampsAdopt: adopt,
+      stampsIgnored: stampsIgnoreRule(root),
+      stampsError: null,
+    };
+  } catch (e) {
+    return { ...none, stampsError: e.message };
+  }
+}
+
 // An agent doc that predates Cortex needs reconciling BEFORE scaffold rather than after — otherwise
 // the target ends up with a curated file plus an AGENTS.generated.md to merge by hand.
 //
@@ -196,8 +225,47 @@ export function readState(root, index = null, overrides = {}) {
     memory,
     memoryLatest: latestDigest(memory),
     priorDocs: priorAgentDocs(root),
+    ...stampFacts(root),
     ...loopFacts(root, index),
     ...overrides,
+  };
+}
+
+function stampsStep(s, plural) {
+  const base = { id: "stamps", cmd: "/cortex", done: false };
+  const ignored = s.stampsIgnored
+    ? `; ${STAMPS_REL} is ignored by ${s.stampsIgnored.source}:${s.stampsIgnored.line}, so the team does not share it`
+    : "";
+  if (s.stampsError) {
+    return { ...base, title: "Repair the stamp record", why: `${s.stampsError} — nothing Cortex stamped can be checked or updated until it reads` };
+  }
+  if (s.stampsAdopt.length) {
+    const list = s.stampsAdopt.map((a) => a.path);
+    return {
+      ...base,
+      title: "Adopt the loop files an earlier Cortex stamped",
+      optional: true,
+      why:
+        `${plural(list.length, "loop file")} where /cortex writes them and no ${STAMPS_REL} ` +
+        `(${list.slice(0, 4).join(", ")}${list.length > 4 ? ", …" : ""}) — adopting records each as a conflict, ` +
+        `compared with this release's template before anything changes${ignored}`,
+    };
+  }
+  const count = (states) => (s.stamps ?? []).filter((f) => states.includes(f.state)).length;
+  const parts = [
+    [count(["update"]), "to update"],
+    [count(["review", "conflict"]), "to decide file by file"],
+    [count(["missing"]), "missing"],
+    [count(["retired"]), "retired"],
+  ].filter(([n]) => n > 0);
+  if (!parts.length && !ignored) return null;
+  return {
+    ...base,
+    title: "Bring the files Cortex stamped up to date",
+    optional: count(["update", "review", "conflict"]) === 0,
+    why:
+      (parts.length ? parts.map(([n, what]) => `${n} ${what}`).join(", ") : "every stamped file is current") +
+      ` — \`cortex-stamps.mjs .\` lists each${ignored}`,
   };
 }
 
@@ -318,6 +386,17 @@ function steps(s) {
       drift: s.skillDrift,
     });
   }
+
+  // The files /cortex stamped, against this release's templates (spec S4). The row exists only while
+  // something needs attention, so a repo with no record and no loop file reads exactly as before.
+  // Required only where a /cortex pass has a decision to make — an update to apply, a file to compare
+  // (`review`, `conflict`), or a record it cannot read. A file someone deleted, a retired template
+  // and an ignored record are listed but optional: each can be a deliberate choice, and a step that
+  // stays open over a choice trains the reader to ignore the sequence. Adoption is optional for the
+  // same reason — declining it leaves no trace, so a required row would never clear. `edited` is
+  // silent: the team changed it and the template did not, so it is theirs.
+  const stampsRow = stampsStep(s, plural);
+  if (stampsRow) rows.push(stampsRow);
 
   // The loop, as one row rather than eight. `loop.mjs` owns which artifacts a repo is missing and
   // why; duplicating those rows here would give the user two lists that disagree the first time one

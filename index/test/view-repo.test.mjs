@@ -138,6 +138,21 @@ test("the page's headline numbers are the index's, the findings report's and cor
   assert.equal(view.stats.mapEdges, view.links.filter((l) => ids.has(l.source) && ids.has(l.target)).length);
 });
 
+test("the page's Next steps carry the stamp row cortex-next shows — adoption for an older install", () => {
+  // The fixture has .claude/hooks/format-changed.sh at the location /cortex writes it, and no
+  // .cortex/stamps.json: exactly a repo stamped before the record existed.
+  const root = zustandShaped();
+  const { index, view, html } = render(root);
+  const cli = nextSteps(root, index).steps.find((s) => s.id === "stamps");
+  const page = view.next.steps.find((s) => s.id === "stamps");
+  assert.ok(cli, "cortex-next offers adoption");
+  const pick = ({ id, title, cmd, done, optional, why }) => ({ id, title, cmd, done, optional, why });
+  assert.deepEqual(pick(page), pick(cli), "the page and the CLI say the same thing");
+  assert.equal(page.next, false, "adoption is offered, never the next step");
+  assert.match(page.why, /\.claude\/hooks\/format-changed\.sh/);
+  assert.ok(html.includes(page.title), "and the rendered page shows it");
+});
+
 test("the tiles print those fields, and say which subset the Map draws", () => {
   const root = zustandShaped();
   const { view } = render(root);

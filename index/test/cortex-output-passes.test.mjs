@@ -23,7 +23,11 @@ import { claudeSetupFindings } from "../lib/claude-setup.mjs";
 import { LOOP_STAMPS, loopPlan } from "../lib/loop.mjs";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
-const LOOP = join(REPO, "templates", "loop");
+const TEMPLATES = join(REPO, "templates");
+
+// A name in the skill's table is under templates/loop/ unless it names its own directory, as the
+// agent team's do (`team/tester.md`). One rule, used by the stamp below and by the pin to LOOP_STAMPS.
+const templateId = (t) => (t.includes("/") ? t : `loop/${t}`);
 
 /** [{ template, dest, mode: "write" | "append" | "merge" }] from the /cortex skill's table. */
 function destinations() {
@@ -39,7 +43,7 @@ function destinations() {
     templates.forEach((t, i) => {
       let dest;
       if (/repo root/.test(cells[1])) dest = t;
-      else if (lands.length === 1 && lands[0].endsWith("/")) dest = posix.join(lands[0], t);
+      else if (lands.length === 1 && lands[0].endsWith("/")) dest = posix.join(lands[0], posix.basename(t));
       else if (lands.length === templates.length) dest = lands[i];
       else dest = lands[0];
       out.push({ template: t, dest, mode });
@@ -73,7 +77,7 @@ function stamp({ skip = [] } = {}) {
   const executables = [];
   for (const { template, dest, mode } of rows) {
     if (skip.includes(template)) continue;
-    const body = fill(readFileSync(join(LOOP, template), "utf8"), template);
+    const body = fill(readFileSync(join(TEMPLATES, ...templateId(template).split("/")), "utf8"), template);
     if (mode === "append") appendFileSync(join(root, dest), `\n${body}`);
     else put(dest, body); // merge into a repo with no settings.json is a write
     if (dest.endsWith(".sh")) executables.push(dest);
@@ -99,7 +103,7 @@ test("the whole files the skill's table writes are exactly the locations loop.mj
   // Appended and merged rows are a block inside a shared file and are neither recorded nor adopted.
   const fromSkill = destinations()
     .filter((d) => d.mode === "write")
-    .map((d) => `loop/${d.template} → ${d.dest}`)
+    .map((d) => `${templateId(d.template)} → ${d.dest}`)
     .sort();
   const fromLoop = LOOP_STAMPS.map((s) => `${s.template} → ${s.path}`).sort();
   assert.deepEqual(fromLoop, fromSkill);

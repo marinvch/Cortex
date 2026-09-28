@@ -29,14 +29,15 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { triggerPhrasing } from "../../core/claude-code.js";
 import { subagentGrades, readFrontmatter, toolList, claimsReadOnly, EDIT_TOOLS } from "./claude-setup.mjs";
-import { LOOP_STAMPS } from "./loop.mjs";
 import { textSource } from "./repo-text.mjs";
 
 /** The roster, in the order the spec's table gives it — also the order gaps are reported in. */
 export const ROLES = ["architect", "implementer", "tester", "reviewer", "project-manager"];
 
 export const AGENTS_REL = ".claude/agents";
-const OWN_AGENT = /^\.claude\/agents\/[^/]+\.md$/;
+// Recursive: "Claude Code scans `.claude/agents/` and `~/.claude/agents/` recursively, so you can
+// organize definitions into subfolders" (code.claude.com/docs/en/sub-agents). Identity is `name`.
+const OWN_AGENT = /^\.claude\/agents\/.+\.md$/;
 const TEAM_DIR = fileURLToPath(new URL("../../templates/team/", import.meta.url));
 
 // ---------------------------------------------------------------------------------------------
@@ -92,7 +93,7 @@ export function teamRoster(dir = TEAM_DIR) {
 const str = (v) => (typeof v === "string" ? v : "");
 
 /**
- * The repo's own agents — `.claude/agents/*.md` at its root, the directory Claude Code loads project
+ * The repo's own agents — every `.md` under `.claude/agents/` at its root, subfolders included, the directory Claude Code loads project
  * subagents from and the one /cortex writes the team into (T8). A nested package's agents and the
  * agents a plugin in this repo ships are not this repo's team. Each carries the claude-setup
  * findings for it, from `subagentGrades` — the same checks, one file at a time.
@@ -281,8 +282,6 @@ function nameHits(name) {
   return { hits, tokens };
 }
 
-const VERIFIER_PATH = () => LOOP_STAMPS.find((s) => s.row === "verifier")?.path;
-
 /**
  * Which role this agent plays, with the evidence — or `role: null` and the reason to ask.
  *
@@ -291,9 +290,9 @@ const VERIFIER_PATH = () => LOOP_STAMPS.find((s) => s.row === "verifier")?.path;
  * (every candidate was ruled out), `lens` (a specialist on one angle), `outside-roster` (a job the
  * five do not have: a debugger, a researcher, an orchestrator), or `not-loaded`; `note` says why for
  * the two name-based ones. `upgrade` is set on the verifier /cortex stamps, which T9 offers the
- * Reviewer's upgrade.
+ * Reviewer's upgrade. `verifierPath` is where that verifier lands; `loop.mjs` owns it and passes it.
  */
-export function mapRole(agent) {
+export function mapRole(agent, { verifierPath = null } = {}) {
   const edit = canEdit(agent);
   const toolsEvidence = [];
   if (agent.toolsUnreadable) toolsEvidence.push("tools: could not be read");
@@ -364,7 +363,7 @@ export function mapRole(agent) {
   }
 
   let upgrade = null;
-  if (live.length === 1 && live[0] === "reviewer" && agent.path === VERIFIER_PATH()) {
+  if (live.length === 1 && live[0] === "reviewer" && verifierPath && agent.path === verifierPath) {
     upgrade = {
       to: "reviewer",
       template: teamRoster().reviewer.template,
@@ -541,16 +540,38 @@ export function rosterGaps(mapped) {
 }
 
 /**
+ * The developer's answer, applied over the mapper's proposal: `as` is `{ path: role | null }`. A
+ * mapping is a proposal the developer confirms (spec, "Existing agents" 3), so their answer wins —
+ * `null` says "this is not that role", a role says "this one is". Refused: a path that is no agent
+ * here, and a role the roster does not have. The verifier keeps its upgrade only as the Reviewer.
+ */
+function answered(mapping, agent, as, verifierPath) {
+  if (!Object.hasOwn(as, agent.path)) return mapping;
+  const role = as[agent.path];
+  const upgrade = role === "reviewer" && verifierPath && agent.path === verifierPath ? mapping.upgrade : null;
+  return { ...mapping, role, reason: "developer", remaining: role ? [role] : [], upgrade };
+}
+
+/**
  * Every agent graded, mapped and proposed; the roles covered and by whom; the gaps; what to ask
  * about. `null` without an index — an unanswered question, never an empty roster.
+ *
+ * `opts.verifierPath` is where /cortex stamps its verifier (T9); `opts.as` is the developer's own
+ * mapping, `{ path: role | null }`, which outranks the mapper's.
  */
 export function agentReport(root, index, opts = {}) {
   if (!index) return null;
   const text = opts.read ? null : textSource(root, { index });
   const read = opts.read ?? ((p) => text.read(p));
   const grounding = repoGrounding(index, read);
-  const agents = repoAgents(root, index, opts).map((a) => {
-    const mapping = mapRole(a);
+  const as = opts.as ?? {};
+  const listed = repoAgents(root, index, opts);
+  for (const [path, role] of Object.entries(as)) {
+    if (!listed.some((a) => a.path === path)) throw new Error(`there is no agent at ${path} to map`);
+    if (role !== null && !ROLES.includes(role)) throw new Error(`${role} is not a role — one of ${ROLES.join(", ")}, or none`);
+  }
+  const agents = listed.map((a) => {
+    const mapping = answered(mapRole(a, { verifierPath: opts.verifierPath ?? null }), a, as, opts.verifierPath ?? null);
     return {
       path: a.path,
       name: a.name,

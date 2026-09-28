@@ -66,7 +66,9 @@
 // repo's own ignore rules are the witness for that.
 //
 // Adoption is for a repo /cortex stamped before this record existed (every 2.39.x install): loop
-// files at the locations `loop.mjs` lists (`LOOP_STAMPS`), and no record. Nothing about them is
+// files at the locations `loop.mjs` lists (`LOOP_STAMPS`, passed in by the caller), and no record. A
+// location marked `adopt: false` is never adopted: the agent team shipped after the record, so a
+// `.claude/agents/architect.md` in a repo with no record was written by the team. Nothing about them is
 // known — not the release, not the values, not whether the team has edited them since — so an
 // adopted entry says exactly that: `version: null`, both hashes `null`, `renderable: false`, no
 // values. A null hash equals no digest, so every adopted file reads as `conflict` and is compared
@@ -88,7 +90,6 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join, posix } from "node:path";
 import { lineDiff } from "./linediff.mjs";
-import { LOOP_STAMPS } from "./loop.mjs";
 import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
 export const STAMPS_REL = ".cortex/stamps.json";
@@ -322,12 +323,17 @@ export function forgetStamp(record, path) {
 
 /**
  * The loop files an older /cortex left here, as `{ path, template }` sorted by path: every file at a
- * location in `LOOP_STAMPS` that exists — but only when there is no record. With one, `[]`: a file
- * outside an existing record was not stamped by a Cortex that records, and it is the team's.
+ * location in `sites` (`LOOP_STAMPS`) that exists — but only when there is no record. With one, `[]`:
+ * a file outside an existing record was not stamped by a Cortex that records, and it is the team's.
+ *
+ * `sites` is required rather than imported: `loop.mjs` reads the record (the verifier's recorded run
+ * command, for the Reviewer), so importing `loop.mjs` here would have the two import each other.
  */
-export function adoptionCandidates(repoRoot, record) {
+export function adoptionCandidates(repoRoot, record, sites) {
+  if (!Array.isArray(sites)) throw new TypeError("adoptionCandidates: sites must be the stamp locations (LOOP_STAMPS)");
   if (record) return [];
-  return LOOP_STAMPS
+  return sites
+    .filter((s) => s.adopt !== false)
     .filter((s) => { try { return statSync(join(repoRoot, ...s.path.split("/"))).isFile(); } catch { return false; } })
     .map((s) => ({ path: s.path, template: s.template }))
     .sort((a, b) => byCodeUnit(a.path, b.path));

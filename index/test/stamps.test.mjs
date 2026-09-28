@@ -602,7 +602,7 @@ const REAL_TEMPLATES = fileURLToPath(new URL("../../templates/", import.meta.url
 
 test("loop files at /cortex's locations with no record are adoption candidates", () => {
   const w = world({ files: { "REVIEW.md": "# ours\n", ".claude/hooks/protected-paths.sh": "x\n", "src/app.ts": "x\n" } });
-  assert.deepEqual(adoptionCandidates(w.repoRoot, null), [
+  assert.deepEqual(adoptionCandidates(w.repoRoot, null, LOOP_STAMPS), [
     { path: ".claude/hooks/protected-paths.sh", template: "loop/protected-paths.sh" },
     { path: "REVIEW.md", template: "loop/REVIEW.md" },
   ]);
@@ -610,11 +610,20 @@ test("loop files at /cortex's locations with no record are adoption candidates",
 
 test("a repo with a record, or with no loop files, has nothing to adopt", () => {
   const empty = world({ files: { "src/app.ts": "x\n" } });
-  assert.deepEqual(adoptionCandidates(empty.repoRoot, null), []);
+  assert.deepEqual(adoptionCandidates(empty.repoRoot, null, LOOP_STAMPS), []);
   const w = stamped();
   w.put(".claude/hooks/protected-paths.sh", "x\n");
   // Adoption is the first contact with the record. Once one exists, a file outside it is the team's.
-  assert.deepEqual(adoptionCandidates(w.repoRoot, w.record), []);
+  assert.deepEqual(adoptionCandidates(w.repoRoot, w.record, LOOP_STAMPS), []);
+});
+
+test("the agent team's files are never adopted — a hand-written architect.md is the team's", () => {
+  // The team shipped after the record, so no Cortex ever stamped one unrecorded. octez-manager, one
+  // of the repos the mapper was validated on, commits its own `.claude/agents/architect.md`.
+  const w = world({ files: { ".claude/agents/architect.md": "---\nname: architect\n---\n", "REVIEW.md": "# ours\n" } });
+  assert.deepEqual(adoptionCandidates(w.repoRoot, null, LOOP_STAMPS).map((c) => c.path), ["REVIEW.md"]);
+  assert.ok(LOOP_STAMPS.some((s) => s.path === ".claude/agents/architect.md"), "while the location is still a stamp site");
+  assert.throws(() => adoptionCandidates(w.repoRoot, null), /sites must be/, "the list is passed, never assumed");
 });
 
 test("every adoption location is a real loop template", () => {

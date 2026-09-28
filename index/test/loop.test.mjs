@@ -761,7 +761,7 @@ test("blocked artifacts do not hold complete open", () => {
   // forever would train the reader to ignore the number.
   const root = repo(({ put }) => {
     put("AGENTS.md");
-    put("CLAUDE.md");
+    put("CLAUDE.md", "# P\n\n## Working as a team\n\nThis repo has single-job agents.\n");
     put("REVIEW.md");
     put("intent/README.md");
   });
@@ -791,8 +791,8 @@ test("rows that write under .claude/ say so, and only those", () => {
   }
   assert.deepEqual(
     plan.missing.filter((e) => e.protectedWrites.length).map((e) => e.id).sort(),
-    ["hooks", "verifier"],
-    "the two .claude/ rows are what is left",
+    ["hooks", "team", "verifier"],
+    "the three .claude/ rows are what is left",
   );
   assert.ok(plan.missing.every((e) => e.protectedWrites.length), "and nothing else is missing");
   rmSync(root, { recursive: true, force: true });
@@ -945,10 +945,13 @@ test("every template a row or the /cortex skill names exists on disk", () => {
   }
   const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
   const table = skill.slice(skill.indexOf("| Template | Lands at |"), skill.indexOf("**Never invent a command.**"));
-  const named = [...table.matchAll(/^\| `([^`]+)`(?:, `([^`]+)`)? \|/gm)].flatMap((m) => [m[1], m[2]]).filter(Boolean);
+  // Every code span in each row's first cell: one template, two, or the five team roles.
+  const named = [...table.matchAll(/^\| (`[^|]+`) \|/gm)].flatMap((m) => [...m[1].matchAll(/`([^`]+)`/g)].map((x) => x[1]));
   assert.ok(named.length >= 8, `parsed only ${named.length} template names from the skill's table`);
   for (const name of named) {
-    assert.ok(fsExists(new URL(name, here)), `the /cortex skill names templates/loop/${name}, which does not exist`);
+    // A name with its own directory (`team/tester.md`) is under templates/, the rest under loop/.
+    const at = name.includes("/") ? new URL(`../${name}`, here) : new URL(name, here);
+    assert.ok(fsExists(at), `the /cortex skill names ${name}, which is not a template on disk`);
   }
 });
 
@@ -1199,4 +1202,110 @@ test("the loop reads the machine's profile itself when no one overrides it", () 
     delete process.env.CORTEX_PROFILE;
   }
   rmSync(root, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// the agent team (plan step 14, spec T4, T6, T9)
+// ---------------------------------------------------------------------------
+
+const agentTeamRow = (plan) => {
+  for (const bucket of ["present", "missing", "blocked"]) {
+    const e = plan[bucket].find((x) => x.id === "team");
+    if (e) return { bucket, ...e };
+  }
+  return null;
+};
+const VERIFIER_BODY = fsRead(new URL("../../templates/loop/verifier.md", import.meta.url), "utf8").replace("{{RUN}}", "npm run dev");
+const agentMd = (name, description, extra = "") => `---\nname: ${name}\ndescription: ${description}\n${extra}---\nYou help.\n`;
+
+test("the team row waits for an index, and for code — never 'no agents' off an index nobody built", () => {
+  const root = repo(({ put }) => put("src/a.js"));
+  const none = agentTeamRow(loopPlan(root, null));
+  assert.equal(none.bucket, "blocked");
+  assert.ok(none.needs.some((n) => /index/.test(n)), none.needs.join("; "));
+  assert.equal(loopPlan(root, null).state.agentTeam, null);
+  const green = agentTeamRow(loopPlan(root, indexOf([])));
+  assert.equal(green.bucket, "blocked");
+  assert.ok(green.needs.some((n) => /code in the repo/.test(n)));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a repo with code and no agents is offered the four core roles, each on its own", () => {
+  const root = repo(({ put }) => put("src/a.js"));
+  const plan = loopPlan(root, indexOf(["src/a.js"]));
+  const row = agentTeamRow(plan);
+  assert.equal(row.bucket, "missing");
+  assert.match(row.why, /offers: architect, implementer, tester, reviewer — each picked on its own/);
+  assert.match(row.why, /project-manager waits: nothing to manage yet/, "the withheld role is said, never dropped");
+  assert.deepEqual(plan.state.agentTeam.offer.map((o) => o.role), ["architect", "implementer", "tester", "reviewer"]);
+  assert.deepEqual(row.protectedWrites, [".claude/agents/", ".claude/hooks/test-paths.sh", ".claude/skills/team/SKILL.md"]);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the Project manager is offered only where a plan folder exists (T4)", () => {
+  const root = repo(({ put }) => { put("src/a.js"); put("docs/specs/s.md"); });
+  const t = loopPlan(root, indexOf(["src/a.js"])).state.agentTeam;
+  assert.ok(t.offer.some((o) => o.role === "project-manager"));
+  assert.equal(t.values.PLAN_DIRS, "`docs/specs/`");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a role an existing agent plays is not offered again, and the row says who plays it (T6)", () => {
+  const root = repo(({ put }) => {
+    put("src/a.js");
+    put(".claude/agents/code-reviewer.md", agentMd("code-reviewer", "Reviews the diff. Use once a change is done.", "tools: Read, Grep\n"));
+  });
+  const plan = loopPlan(root, indexOf(["src/a.js", ".claude/agents/code-reviewer.md"]));
+  const row = agentTeamRow(plan);
+  assert.doesNotMatch(row.why, /offers:[^;]*reviewer/);
+  assert.match(row.why, /already played: reviewer by code-reviewer/);
+  assert.ok(!plan.state.agentTeam.offer.some((o) => o.role === "reviewer"));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the verifier is offered the upgrade; declining keeps it, and keeps the Reviewer covered (T9)", () => {
+  const root = repo(({ put }) => { put("src/a.js"); put(".claude/agents/verifier.md", VERIFIER_BODY); });
+  const plan = loopPlan(root, indexOf(["src/a.js", ".claude/agents/verifier.md"]));
+  assert.match(agentTeamRow(plan).why, /verifier is offered the upgrade to the Reviewer/);
+  const t = plan.state.agentTeam;
+  assert.equal(t.upgrade.path, ".claude/agents/verifier.md");
+  assert.ok(!t.offer.some((o) => o.role === "reviewer"), "no second reviewer beside the verifier");
+  // The verifier row itself stays served: the upgrade is the team row's question, not a new gap.
+  assert.ok(plan.present.some((e) => e.id === "verifier"));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the developer's answer about an agent reaches the offer through the loop state", () => {
+  const root = repo(({ put }) => {
+    put("src/a.js");
+    put(".claude/agents/code-reviewer.md", agentMd("code-reviewer", "Reviews the diff.", "tools: Read, Grep\n"));
+  });
+  const idx = indexOf(["src/a.js", ".claude/agents/code-reviewer.md"]);
+  const t = loopPlan(root, idx, { agentsAs: { ".claude/agents/code-reviewer.md": null } }).state.agentTeam;
+  assert.ok(t.offer.some((o) => o.role === "reviewer"), "not the reviewer, so the role is on offer again");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the playbook in CLAUDE.md is what makes the team present, whatever roles were declined", () => {
+  const root = repo(({ put }) => {
+    put("src/a.js");
+    put("CLAUDE.md", "@AGENTS.md\n\n## Working as a team\n\nThis repo has single-job agents in `.claude/agents/`: `tester`.\n");
+    put(".claude/agents/tester.md", fsRead(new URL("../../templates/team/tester.md", import.meta.url), "utf8"));
+  });
+  const row = agentTeamRow(loopPlan(root, indexOf(["src/a.js", ".claude/agents/tester.md"])));
+  assert.equal(row.bucket, "present");
+  assert.match(row.why, /still on offer: architect, implementer, reviewer/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("LOOP_STAMPS carries every team file, none of them adoptable, beside the loop's own", async () => {
+  const { LOOP_STAMPS } = await import("../lib/loop.mjs");
+  const team = LOOP_STAMPS.filter((s) => s.row === "team");
+  assert.deepEqual(team.map((s) => s.path).sort(), [
+    ".claude/agents/architect.md", ".claude/agents/implementer.md", ".claude/agents/project-manager.md",
+    ".claude/agents/reviewer.md", ".claude/agents/tester.md", ".claude/hooks/test-paths.sh", ".claude/skills/team/SKILL.md",
+  ]);
+  assert.ok(team.every((s) => s.adopt === false));
+  assert.ok(LOOP_STAMPS.filter((s) => s.row !== "team").every((s) => s.adopt !== false), "the loop's own files are still adopted");
+  for (const s of team) assert.ok(fsExists(new URL(`../../templates/${s.template}`, import.meta.url)), s.template);
 });

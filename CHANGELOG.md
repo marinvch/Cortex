@@ -5,6 +5,29 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.0] — 2026-09-28
+
+Every repo `/cortex` serves can now carry an **agent team** — Architect, Implementer, Tester,
+Reviewer, and a Project manager where there is something to manage — each with one job, only the
+tools that job needs, and a body grounded in that repo's own briefs, ADRs and commands. The team is
+written into the repo and run by your main session ([ADR 0019](docs/adr/0019-the-agent-team-is-written-into-the-repo-and-run-by-the-main-session.md)):
+a short section in `CLAUDE.md` has every session size a task with `/cortex-impact --size` and ask
+you whether it runs as one agent or as the team. On a team task the Architect's plan is debated —
+every objection must cite a `path:line`, an ADR or a test, at most two rounds — and you settle what
+the agents do not agree on. The Tester writes the failing test first and an edit fence keeps it in
+test files; the Reviewer checks the change before anyone says "done"; nothing merges or pushes
+without you.
+
+Agents a repo already has are graded, mapped to a role and given specific proposed edits, each
+asked about with a diff; a role they cover is never offered twice, and Cortex never writes over an
+agent or skill it did not create. The team's files are recorded like every other stamped file, so
+later releases can update them safely.
+
+Proven live: on a private team workspace, a cross-area change was sized "team", planned with dense
+citations, debated within two rounds, built red-then-green with the Tester in test files only, and
+reviewed with the app running — with no commit or push. The one deviation (the session editing after
+review) was fixed in the skill text and re-run clean. Acceptance scenario S5 joins S1–S4.
+
 ### Added
 
 - **Role templates for the agent team, and nothing that stamps them yet.** `templates/team/` holds
@@ -3884,6 +3907,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.0]: https://github.com/marinvch/Cortex/releases/tag/v2.41.0
 [2.40.0]: https://github.com/marinvch/Cortex/releases/tag/v2.40.0
 [2.39.1]: https://github.com/marinvch/Cortex/releases/tag/v2.39.1
 [2.39.0]: https://github.com/marinvch/Cortex/releases/tag/v2.39.0

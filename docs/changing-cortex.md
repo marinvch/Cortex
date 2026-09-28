@@ -138,6 +138,11 @@ before overturning one; the line here is the trigger, not the case.
   command a member runs to join it. A ritual genuinely triggered from outside (a hook, a git state)
   declares `reached-by: <what triggers it>` under its frontmatter's `metadata:`; the hatch has to name the trigger,
   because a bare `true` is the check switched off wearing the check's clothes.
+- **Edit the body of a skill listed in `evals/skills.mjs` and you must re-measure it.** CI runs
+  `node evals/run.mjs --check`, which fails once the body no longer matches `evals/baselines/`. To
+  re-measure, run `node evals/run.mjs <skill> --record`. It refuses a soft drop of more than 0.1
+  unless you pass `--accept-drop "<why>"`. Frontmatter edits are exempt.
+  [ADR 0018](adr/0018-skill-quality-is-measured-by-evals-not-telemetry.md).
 - **Before a ritual writes, it asks `tools/cortex-preflight.mjs` rather than re-deriving the answer.**
   Root, profile and index freshness are the three facts every ritual needs first, and each prose copy
   of them is a copy that drifts — the mode/audience bullet in `AGENTS.md` still said *two questions*

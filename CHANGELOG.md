@@ -20,6 +20,17 @@ this project now versions independently of any package manager (see `VERSION`).
   So the alarm has teeth on `/ship` and little on the other two, and `evals/README.md` says so.
   [ADR 0018](docs/adr/0018-skill-quality-is-measured-by-evals-not-telemetry.md) records why this
   is evals and not a telemetry hook: a hook fires before any outcome exists, and Cortex ships none.
+- **Groundwork for knowing when a repo's Cortex files are out of date: `index/lib/stamps.mjs`.**
+  Nothing calls it yet; the `cortex-stamps` CLI and the `/cortex` re-run in later steps will.
+  Nothing recorded which release stamped a file into a repo, so a repo stamped by 2.36.0 kept
+  2.36.0's hook after 2.39.0 fixed it. The module reads and writes a committed `.cortex/stamps.json` (`format: 1`, the newest `cortex`
+  version that wrote to it, and per file the template, version, template and file sha256, and the
+  placeholder values it was rendered with). It decides each file's state from two hash
+  comparisons: `current`, `update`, `conflict`, `edited` or `missing`, plus `retired` for a
+  template this Cortex no longer ships. Hashes fold CRLF to LF and ignore trailing newlines, so a
+  `core.autocrlf` checkout never reads as edited: all 11 `templates/loop/` files, cloned with
+  autocrlf on, read `current`. Mutation-tested: 29 guards broken one at a time, 29 reds.
+  [Spec](docs/specs/2026-09-28-stamp-record-design.md), plan step 1.
 
 ## [2.39.1] — 2026-09-27
 

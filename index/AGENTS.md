@@ -12,6 +12,15 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - **The index is deterministic.** No LLM, no network, no clock, no randomness. Same tree, same
   bytes. This is what makes it safe in CI and cheap on every install; `build.test.mjs` asserts two
   runs agree exactly.
+- **A stamped file's state is two hash comparisons, never a judgement** (`lib/stamps.mjs`, spec
+  [stamp record](../docs/specs/2026-09-28-stamp-record-design.md) S3). File now against as-written,
+  template now against as-then: `current` · `update` (template moved, file untouched — the only
+  state that may be rewritten without a per-file yes) · `conflict` · `edited` · `missing`, plus
+  `retired` when this Cortex no longer ships the template, which is reported and never offered.
+  **Hashes fold CRLF to LF and drop trailing newlines, nothing else** — a `core.autocrlf` checkout
+  or a formatter's final newline read as an edit would freeze the file at `edited` forever, which
+  is the stale-hook bug the record exists to end. An absent record is `null`; a damaged one is an
+  error naming the file, never `null`, or a re-run would treat every stamped file as unknown.
 - **`index/` never imports from `mcp/`.** Shared code goes in `core/`. Enforced by
   `core/test/architecture.test.js`.
 - **Every CLI here opens through `lib/open.mjs`, and declares its flags rather than testing for

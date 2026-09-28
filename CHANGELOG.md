@@ -21,7 +21,7 @@ this project now versions independently of any package manager (see `VERSION`).
   [ADR 0018](docs/adr/0018-skill-quality-is-measured-by-evals-not-telemetry.md) records why this
   is evals and not a telemetry hook: a hook fires before any outcome exists, and Cortex ships none.
 - **Groundwork for knowing when a repo's Cortex files are out of date: `index/lib/stamps.mjs`.**
-  Nothing calls it yet; the `cortex-stamps` CLI and the `/cortex` re-run in later steps will.
+  The `cortex-stamps` CLI below is its first caller; the `/cortex` re-run comes later.
   Nothing recorded which release stamped a file into a repo, so a repo stamped by 2.36.0 kept
   2.36.0's hook after 2.39.0 fixed it. The module reads and writes a committed `.cortex/stamps.json` (`format: 1`, the newest `cortex`
   version that wrote to it, and per file the template, version, template and file sha256, and the
@@ -31,6 +31,21 @@ this project now versions independently of any package manager (see `VERSION`).
   `core.autocrlf` checkout never reads as edited: all 11 `templates/loop/` files, cloned with
   autocrlf on, read `current`. Mutation-tested: 29 guards broken one at a time, 29 reds.
   [Spec](docs/specs/2026-09-28-stamp-record-design.md), plan step 1.
+- **`node index/cortex-stamps.mjs`: record a stamped file, and list which are out of date.**
+  `record <repo> <path> <template> [--version] [--value KEY=VAL ...]` hashes the file as written
+  and the template it came from, and writes one entry to `.cortex/stamps.json`, the only file it
+  touches, so no model ever computes a hash (spec S2). `<repo> [--json] [--all]` groups the
+  recorded files by state and shows only the ones that are not current unless `--all` is given.
+  It exits 0 whatever it finds; `--json` is the form `cortex-next` will read. Templates and version
+  default to the plugin's own `templates/` and `VERSION`. A record the repo's ignore rules hide is
+  still written, and the warning names the rule (`git check-ignore -v`) and a fix that works on
+  real git. The fix under a `.cortex/` rule is `.cortex/*` plus `!.cortex/stamps.json`, because a
+  bare negation cannot re-include a file inside an ignored directory. The user's `.gitignore` is
+  never edited. What Cortex itself writes to `.gitignore` does not hide the record. On zustand,
+  all 11 real loop templates were recorded, raised no ignore warning and read `current`; on
+  Cortex's own `.gitignore` the warning names line 72. `tools/test/cortex-stamps.test.sh` reaches
+  all six states on a real git fixture. Mutation-tested: 27 guards broken, 26 reds; the survivor is
+  an equivalent mutant. Plan step 2.
 
 ## [2.39.1] — 2026-09-27
 

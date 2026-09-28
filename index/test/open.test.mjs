@@ -145,6 +145,23 @@ test("a command whose bare arguments are paths takes its root from --root", () =
   assert.deepEqual(r.result.paths, ["src/a.js", "src/b.js"]);
 });
 
+test("a command with a root and then paths takes the first bare argument as the root", () => {
+  // `cortex-stamps record <repo> <path> <template>`: the root comes first, and what follows are
+  // arguments about files inside it — never a second root, and never dropped.
+  const root = tempRepo();
+  const r = open([root, "a.md", "--json", "loop/a.md"], { ...SPEC, root: "first" });
+  assert.equal(r.code, null);
+  assert.equal(r.result.root, resolve(root));
+  assert.deepEqual(r.result.paths, ["a.md", "loop/a.md"]);
+});
+
+test("a multi flag repeats and keeps each value whole, commas included", () => {
+  // A `list` splits on commas, which is right for `--include a,b` and wrong for a value that is a
+  // command line: `--value "CMD=npm test -- a,b"` must stay one value.
+  const p = parseArgv(["--value", "CMD=npm test -- a,b", "--value=K=v"], { ...SPEC, flags: { "--value": "multi" } });
+  assert.deepEqual(p.args.value, ["CMD=npm test -- a,b", "K=v"]);
+});
+
 test("--help prints the usage and exits 0", () => {
   const r = open(["--help"], SPEC);
   assert.equal(r.code, 0);

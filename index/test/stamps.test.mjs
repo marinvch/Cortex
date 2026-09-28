@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
-  STAMPS_REL, STAMPS_FORMAT, hashText, readStamps, recordStamp, stampStatus, writeStamps,
+  STAMPS_REL, STAMPS_FORMAT, hashText, ignoreAdvice, readStamps, recordStamp, stampStatus, stampsIgnoreRule, writeStamps,
 } from "../lib/stamps.mjs";
 import { tempDir } from "./tmp.mjs";
 
@@ -329,4 +329,57 @@ test("writeStamps refuses a record readStamps would refuse", () => {
   const bad = { ...good, files: { "../x.md": good.files["a.md"] } };
   assert.throws(() => writeStamps(w.repoRoot, bad), /refusing.*\.\.\/x\.md/);
   assert.ok(!existsSync(join(w.repoRoot, ".cortex", "stamps.json")), "nothing was written");
+});
+
+// --- is the record hidden from git? --------------------------------------------------------------
+
+// A git stand-in: `check-ignore -v <path>` answers from `rule`, `check-ignore -q .cortex` from `dir`.
+function fakeGit({ rule = null, dir = false, status = null } = {}) {
+  return (args) => {
+    if (status !== null) return { status, stdout: "" };
+    if (args.includes("-v")) return rule ? { status: 0, stdout: `${rule}\t.cortex/stamps.json\n` } : { status: 1, stdout: "" };
+    return { status: dir ? 0 : 1, stdout: "" };
+  };
+}
+
+test("a record no rule ignores is not reported", () => {
+  assert.equal(stampsIgnoreRule("/r", { git: fakeGit() }), null);
+});
+
+test("outside git, or when git fails, nothing is claimed", () => {
+  assert.equal(stampsIgnoreRule("/r", { git: fakeGit({ status: 128 }) }), null);
+});
+
+test("a negation that re-includes the record is not an ignore", () => {
+  // `check-ignore -v` exits 0 and prints the `!` pattern for a negated match — the state a user is
+  // in right after taking the advice. Reading exit 0 as "ignored" would warn about the fix itself.
+  assert.equal(stampsIgnoreRule("/r", { git: fakeGit({ rule: ".gitignore:2:!.cortex/stamps.json" }) }), null);
+});
+
+test("the rule that hides the record is named with its source and line", () => {
+  const r = stampsIgnoreRule("/r", { git: fakeGit({ rule: ".gitignore:7:.cortex/", dir: true }) });
+  assert.deepEqual(r, { source: ".gitignore", line: 7, pattern: ".cortex/", dirIgnored: true });
+  // A global excludes file on Windows carries a drive colon in its path.
+  const g = stampsIgnoreRule("/r", { git: fakeGit({ rule: "C:/Users/x/.gitignore_global:3:*.json" }) });
+  assert.deepEqual(g, { source: "C:/Users/x/.gitignore_global", line: 3, pattern: "*.json", dirIgnored: false });
+});
+
+test("a directory rule is told to become .cortex/* — a negation under it cannot work", () => {
+  const text = ignoreAdvice({ source: ".gitignore", line: 7, pattern: ".cortex/", dirIgnored: true });
+  assert.match(text, /\.gitignore:7/);
+  assert.match(text, /will not be committed/);
+  assert.match(text, /`\.cortex\/\*`/);
+  assert.match(text, /`!\.cortex\/stamps\.json`/);
+});
+
+test("a file rule is told to add the negation, and nothing else", () => {
+  const text = ignoreAdvice({ source: ".gitignore", line: 2, pattern: "*.json", dirIgnored: false });
+  assert.match(text, /`!\.cortex\/stamps\.json`/);
+  assert.doesNotMatch(text, /\.cortex\/\*/);
+});
+
+test("a rule in a nested .gitignore gets a negation relative to that file", () => {
+  const text = ignoreAdvice({ source: ".cortex/.gitignore", line: 1, pattern: "*", dirIgnored: false });
+  assert.match(text, /`!stamps\.json`/);
+  assert.doesNotMatch(text, /!\.cortex\/stamps\.json/);
 });

@@ -13,7 +13,11 @@
 //   - every placeholder is documented in templates/team/README.md, and nothing documented is unused;
 //   - the prose the design depends on is there: the citation rule, the scoped-brief rule, the debate
 //     pointer, the verifier's discipline in the Reviewer, and the Tester's fence: a hook declared in
-//     its own frontmatter, running templates/team/test-paths.sh (behaviour: tools/test/test-paths.test.sh).
+//     its own frontmatter, running templates/team/test-paths.sh (behaviour: tools/test/test-paths.test.sh);
+//   - the playbook appended to CLAUDE.md and the `team` skill (spec T1, T2, T5): stamped into the same
+//     fixture, they pass the checker and the skill-frontmatter rules, the playbook names only the roles
+//     that were stamped and has the session ask rather than decide, and the skill holds the debate's
+//     two-round cap and its citation rule.
 
 import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
@@ -51,10 +55,17 @@ const VALUES = {
   PLAN_DIRS: "`intent/`, `docs/plans/`",
   SCOPED_BRIEFS: "   - `src/billing/AGENTS.md`\n   - `src/auth/AGENTS.md`",
   TEST_GLOBS: '  "*/test/*"\n  "*.test.ts"',
+  ROSTER: "`architect`, `implementer`, `tester`, `reviewer`",
 };
 
 /** Every template file, by the name the README's "Used by" column gives it. */
-const TEMPLATES = { ...Object.fromEntries(ROLES.map((r) => [r, `${r}.md`])), "test-paths": "test-paths.sh" };
+const TEMPLATES = {
+  ...Object.fromEntries(ROLES.map((r) => [r, `${r}.md`])),
+  "test-paths": "test-paths.sh",
+  playbook: "playbook.md",
+  "team-skill": "team-skill.md",
+};
+const FRONTMATTER_CLI = join(REPO, "tools", "cortex-frontmatter.mjs");
 const FENCE_CMD = 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/test-paths.sh" || exit 2';
 
 const source = (name) => readFileSync(join(TEAM, TEMPLATES[name]), "utf8");
@@ -84,8 +95,12 @@ function used() {
   return out;
 }
 
-/** A repo shaped like one /cortex serves, with each role stamped where step 14 will put it. */
-function stamp(bodies) {
+/**
+ * A repo shaped like one /cortex serves, with each role stamped where step 14 will put it: the agents
+ * in .claude/agents/, the fence in .claude/hooks/, the skill in .claude/skills/team/, and the playbook
+ * appended to a CLAUDE.md that already carries the verification block.
+ */
+function stamp(bodies, { playbook = render("playbook"), skill = render("team-skill") } = {}) {
   const root = tempDir("cortex-team-");
   execFileSync("git", ["init", "-q", "."], { cwd: root });
   execFileSync("git", ["config", "user.email", "t@t"], { cwd: root });
@@ -98,7 +113,9 @@ function stamp(bodies) {
   put("src/app.js", "export const app = () => 1;\n");
   put("src/billing/AGENTS.md", "# billing\n");
   put("AGENTS.md", "# demo\n");
-  put("CLAUDE.md", "@AGENTS.md\n");
+  const verification = readFileSync(join(REPO, "templates", "loop", "verification.md"), "utf8").replace(/\{\{[^}]+\}\}/g, "value");
+  put("CLAUDE.md", `@AGENTS.md\n\n${verification}\n${playbook}`);
+  put(".claude/skills/team/SKILL.md", skill);
   for (const [role, body] of Object.entries(bodies)) put(`.claude/agents/${role}.md`, body);
   put(".claude/hooks/test-paths.sh", render("test-paths"));
   execFileSync("git", ["add", "-A"], { cwd: root });
@@ -107,15 +124,15 @@ function stamp(bodies) {
   return root;
 }
 
-const findingsFor = (bodies) => {
-  const root = stamp(bodies);
+const findingsFor = (bodies, extra) => {
+  const root = stamp(bodies, extra);
   return claudeSetupFindings(buildIndex(root), root).map((f) => `${f.kind}: ${f.evidence.join(" | ")}`);
 };
 const allRendered = (values = VALUES) => Object.fromEntries(ROLES.map((r) => [r, render(r, values)]));
 
 // --- the roster ---------------------------------------------------------------------------------
 
-test("templates/team holds exactly the five roles, the Tester's fence, and a README", () => {
+test("templates/team holds exactly the five roles, the fence, the playbook, the team skill and a README", () => {
   const files = readdirSync(TEAM).sort();
   assert.deepEqual(files, [...Object.values(TEMPLATES), "README.md"].sort());
 });
@@ -295,4 +312,105 @@ test("each role stays short — well under sixty lines", () => {
     const n = source(role).replace(/\r\n/g, "\n").trimEnd().split("\n").length;
     assert.ok(n < 60, `${role}.md is ${n} lines`);
   }
+});
+
+// --- the playbook and the team skill (plan step 13) ---------------------------------------------
+
+test("the stamped playbook and team skill pass the checker, and the skill passes the frontmatter rules", () => {
+  // The findings test above already stamps both; this one names them, and adds the rules
+  // tools/cortex-frontmatter.mjs holds for a skill (name matches its directory, a description long
+  // enough to route on), run over the stamped .claude/skills/.
+  const root = stamp(allRendered());
+  const found = claudeSetupFindings(buildIndex(root), root).map((f) => `${f.kind}: ${f.evidence.join(" | ")}`);
+  assert.deepEqual(found, []);
+  const out = execFileSync(process.execPath, [FRONTMATTER_CLI, join(root, ".claude", "skills")], { encoding: "utf8" });
+  assert.match(out, /1 skills, 0 with frontmatter a router cannot trust/);
+});
+
+test("the skill is named team, and says when to load it", () => {
+  const fm = readFrontmatter(source("team-skill"));
+  assert.equal(fm.state, "ok");
+  assert.equal(fm.data.name, "team");
+  assert.match(String(fm.data.description), /\bUse when\b/);
+  assert.notEqual(String(fm.data["disable-model-invocation"]), "true", "the playbook has the session load it, so the model must be able to");
+});
+
+test("the playbook stays about ten lines, well inside the CLAUDE.md length rule", () => {
+  const lines = render("playbook").trimEnd().split("\n").length;
+  assert.ok(lines <= 14, `the playbook is ${lines} lines; it loads on every turn of every session`);
+  // And the checker's own rule, on a CLAUDE.md that already carries the verification block.
+  assert.deepEqual(findingsFor(allRendered()).filter((f) => f.startsWith("claude-setup/claude-md")), []);
+});
+
+test("the playbook names only the roles that were stamped", () => {
+  // A repo whose developer declined the Tester and the Project manager must not be told they exist.
+  const roster = ["architect", "implementer", "reviewer"];
+  const text = render("playbook", { ...VALUES, ROSTER: roster.map((r) => `\`${r}\``).join(", ") });
+  for (const role of ROLES) {
+    if (roster.includes(role)) assert.ok(text.includes(`\`${role}\``), `${role} was stamped and is not named`);
+    else assert.doesNotMatch(text, new RegExp(`\\b${role}\\b`, "i"), `${role} was not stamped and is named`);
+  }
+  assert.ok(source("playbook").includes("{{ROSTER}}"), "the roster must come from what was stamped");
+});
+
+test("the playbook has the session recommend from /cortex-impact --size and ask — it never decides", () => {
+  const text = source("playbook").replace(/\s*\n\s*/g, " ");
+  assert.match(text, /\/cortex-impact --size/, "the recommendation comes from the sizing evidence");
+  assert.match(text, /ask the developer/i);
+  assert.match(text, /the developer decides/i);
+  assert.match(text, /On "team", load the `team` skill/);
+  assert.doesNotMatch(text, /\bautomatically\b|\bwithout asking\b|\bdecide for\b/i);
+});
+
+test("the team skill carries the debate: citations or dropped, two rounds, then the developer", () => {
+  const text = source("team-skill").replace(/\s*\n\s*/g, " ");
+  assert.match(text, /at most two rounds/i);
+  assert.match(text, /Drop every objection that does not cite a `path:line`, an ADR or a test/);
+  assert.match(text, /accepts each one, or rebuts it with a citation/);
+  assert.match(text, /side by side/);
+  assert.match(text, /The developer decides/);
+  assert.match(text, /Nothing merges, pushes or closes an issue without the developer/);
+});
+
+test("the team skill reaches Cortex by skill name, never by the plugin's install path", () => {
+  // A committed file cannot know where the plugin lives on each machine; the skill name is portable.
+  const text = source("team-skill");
+  assert.match(text, /\/cortex-impact\b/);
+  assert.match(text, /\/cortex-review\b/);
+  assert.doesNotMatch(text, /CLAUDE_PLUGIN_ROOT|index\/cortex-[a-z]+\.mjs/);
+});
+
+test("the team skill walks the flow in the spec's order: plan, objections, red, green, review", () => {
+  const text = source("team-skill");
+  const at = (re) => {
+    const i = text.search(re);
+    assert.ok(i >= 0, `not found: ${re}`);
+    return i;
+  };
+  const order = [/`architect` returns the plan/, /Give the plan to `tester` and `reviewer`/, /`tester` writes the failing test/, /`implementer` makes the change/, /`reviewer` checks the change/];
+  const idx = order.map(at);
+  assert.deepEqual([...idx].sort((a, b) => a - b), idx, "steps out of order");
+});
+
+test("agent teams mode is compatible and off: the skill says how to start one and that Cortex never does", () => {
+  const text = source("team-skill").replace(/\s*\n\s*/g, " ");
+  assert.match(text, /CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1/);
+  assert.match(text, /Cortex never turns it on/);
+  for (const name of Object.keys(TEMPLATES)) {
+    assert.doesNotMatch(source(name), /"CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"\s*:|^\s*export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS/m, `${name} sets the flag`);
+  }
+});
+
+test("no template sets agent: — the main session orchestrates (T1)", () => {
+  // `agent:` in settings, or `claude --agent`, replaces Claude Code's own system prompt.
+  for (const name of Object.keys(TEMPLATES)) {
+    assert.doesNotMatch(source(name), /^\s*"?agent"?\s*:/m, `${name} sets agent:`);
+    assert.doesNotMatch(source(name), /--agent\b/, `${name} starts a session as an agent`);
+  }
+});
+
+test("the roles' debate pointer names the path the team skill is stamped to", () => {
+  const readme = readFileSync(join(TEAM, "README.md"), "utf8");
+  assert.match(readme, /`team-skill\.md` \| `\.claude\/skills\/team\/SKILL\.md`/);
+  for (const role of ["architect", "tester", "reviewer"]) assert.ok(source(role).includes("`.claude/skills/team/SKILL.md`"), role);
 });

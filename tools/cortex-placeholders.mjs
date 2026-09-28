@@ -28,6 +28,9 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+// What a placeholder IS lives in one place, shared with the renderer that fills templates when a
+// stamped file is updated (`index/lib/stamps.mjs`) — so this check and that renderer cannot disagree.
+import { placeholdersOf } from "../index/lib/placeholders.mjs";
 
 const TEMPLATES = fileURLToPath(new URL("../templates/", import.meta.url));
 
@@ -49,16 +52,6 @@ const SOURCES = [
   // An ADR is stamped from adr.md; the template itself is caught by the TEMPLATE.md row above.
   { match: (p) => /(^|\/)adr\/\d{4}-[^/]+\.md$/.test(p), template: "adr.md" },
 ];
-
-/** Every `{{…}}` in a template that is not a `${{ … }}` expression, as written — may span lines. */
-function placeholdersOf(text) {
-  const out = new Set();
-  for (const m of text.matchAll(/\{\{([\s\S]*?)\}\}/g)) {
-    if (m.index > 0 && text[m.index - 1] === "$") continue;
-    out.add(m[0]);
-  }
-  return [...out];
-}
 
 // A multi-line placeholder may be reflowed by the writer or a formatter, so whitespace runs match
 // any whitespace run. Everything else is literal.

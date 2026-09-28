@@ -12,10 +12,10 @@ watch:
 
 respond:
   - at: 1sigma
-    do: record            # log only; no agent runs
+    do: record # log only; no agent runs
   - at: 2sigma
-    do: explain           # agent runs read-only and writes intent.md
+    do: explain # agent runs read-only and writes intent.md
     allowed_tools: "Read,Grep,Bash({{READONLY_CMD}})"
   - at: 3sigma
-    do: propose           # agent may open a PR or run a runbook approved in advance — nothing else
+    do: propose # agent may open a PR or run a runbook approved in advance — nothing else
     routes: [pull_request, "runbook:{{RUNBOOK}}"]

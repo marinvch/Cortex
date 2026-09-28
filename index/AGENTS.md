@@ -8,7 +8,12 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - **Nothing here may modify a target repository**, except by writing under `.cortex/`. `findings`
   returns data; `/cortex-scaffold` is the separate skill that applies changes. This separation is
   what makes "the user decides" structural rather than a promise a model has to keep — if you add
-  a write to a source file here, you have broken the product's central claim.
+  a write to a source file here, you have broken the product's central claim. **One named
+  exception: `cortex-stamps.mjs update`** rewrites a file Cortex itself stamped, and only in state
+  `update` — untouched since it was recorded, re-renderable, template changed. `/cortex` runs it
+  only for the paths the user confirmed. The rule lives in the code (`planUpdates`), not in the
+  skill, because a guarantee belongs to the act (ADR 0016). Never widen it to `edited`,
+  `conflict` or `review`.
 - **The index is deterministic.** No LLM, no network, no clock, no randomness. Same tree, same
   bytes. This is what makes it safe in CI and cheap on every install; `build.test.mjs` asserts two
   runs agree exactly.
@@ -17,6 +22,11 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   template now against as-then: `current` · `update` (template moved, file untouched — the only
   state that may be rewritten without a per-file yes) · `conflict` · `edited` · `missing`, plus
   `retired` when this Cortex no longer ships the template, which is reported and never offered.
+  **`update` also needs `renderable`**: `recordStamp` checks that the template filled with the
+  recorded values (`lib/placeholders.mjs`, one definition shared with `tools/cortex-placeholders.mjs`)
+  gives back the file as written. /cortex fills some templates partly by hand, and a file the values
+  do not reproduce would lose those lines on a re-render. So its template change is `review`, a
+  state of its own, so that no caller that auto-applies `update` has to remember a flag.
   **Hashes fold CRLF to LF and drop trailing newlines, nothing else** — a `core.autocrlf` checkout
   or a formatter's final newline read as an edit would freeze the file at `edited` forever, which
   is the stale-hook bug the record exists to end. An absent record is `null`; a damaged one is an

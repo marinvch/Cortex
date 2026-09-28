@@ -36,7 +36,7 @@ this project now versions independently of any package manager (see `VERSION`).
   [ADR 0018](docs/adr/0018-skill-quality-is-measured-by-evals-not-telemetry.md) records why this
   is evals and not a telemetry hook: a hook fires before any outcome exists, and Cortex ships none.
 - **Groundwork for knowing when a repo's Cortex files are out of date: `index/lib/stamps.mjs`.**
-  The `cortex-stamps` CLI below is its first caller; the `/cortex` re-run comes later.
+  The `cortex-stamps` CLI below is its caller, and `/cortex` runs that CLI.
   Nothing recorded which release stamped a file into a repo, so a repo stamped by 2.36.0 kept
   2.36.0's hook after 2.39.0 fixed it. The module reads and writes a committed `.cortex/stamps.json` (`format: 1`, the newest `cortex`
   version that wrote to it, and per file the template, version, template and file sha256, and the
@@ -61,6 +61,36 @@ this project now versions independently of any package manager (see `VERSION`).
   Cortex's own `.gitignore` the warning names line 72. `tools/test/cortex-stamps.test.sh` reaches
   all six states on a real git fixture. Mutation-tested: 27 guards broken, 26 reds; the survivor is
   an equivalent mutant. Plan step 2.
+- **`/cortex` records every loop file it writes, and a re-run updates the ones nobody touched.**
+  Each whole-file loop row is now rendered by `cortex-stamps.mjs render` from a values file, then
+  recorded after formatting with the same values. On a re-run, `/cortex` reads the stamp status
+  and handles each state:
+  - `update`: one confirmed row, applied by `cortex-stamps.mjs update`;
+  - `review` and `conflict`: one row per file, with the `diff` shown;
+  - `edited`: nothing, because it is the team's.
+
+  When the record would be ignored, `/cortex` offers the `.gitignore` fix inside its confirmation,
+  even before the record exists. The shared-file blocks (the `CLAUDE.md` verification block and the
+  `settings.json` hooks) stay out of the record, as the spec leaves them unspecified.
+
+  Update is safe because of a **reproducibility guard**: `record` checks that the template, filled
+  with the recorded values, gives back the file as written. A file that holds more than its values
+  (a hand-filled block, a formatter's rewrite) is still recorded, but marked not re-renderable, and
+  its template change reads as the new state `review`, never `update`. So an update can never
+  silently drop what the model or a formatter wrote. A new template placeholder with no recorded
+  value is refused, not left in the file.
+
+  The placeholder rule (`{{NAME}}`, never `${{ … }}`) moved to `index/lib/placeholders.mjs`, and
+  `tools/cortex-placeholders.mjs` imports it, so the check and the renderer cannot disagree. An
+  empty value on a placeholder's own line deletes the line, which is how "delete the
+  `{{SETUP_STEPS}}` line" is represented.
+
+  On a zustand clone, three templates did not survive the repo's own prettier: a table was padded,
+  a trailing space removed, comment spacing collapsed. `REVIEW.md`, `intent-README.md` and
+  `bands.yaml` are now prettier-stable. Of the nine files rendered, formatted and recorded there, 8
+  are re-renderable; `bands.yaml` is `review` only because that repo's config prefers single
+  quotes. `cortex-stamps.mjs update` is the one `index/` write outside `.cortex/`, a named
+  exception in `index/AGENTS.md`. Mutation-tested: 30 guards, 30 reds. Plan step 3.
 
 ### Fixed
 

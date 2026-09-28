@@ -7,6 +7,14 @@
 //   node index/cortex-stamps.mjs <repo> [--json] [--all] [--templates DIR]
 //   node index/cortex-stamps.mjs diff <repo> <path> [--templates DIR]
 //   node index/cortex-stamps.mjs update <repo> [<path> ...] [--version X.Y.Z] [--templates DIR]
+//   node index/cortex-stamps.mjs adopt <repo> [<path> ...]
+//   node index/cortex-stamps.mjs forget <repo> <path> ...
+//
+// `adopt` is for a repo an older /cortex stamped before the record existed: loop files at the
+// locations `loop.mjs` lists and no `.cortex/stamps.json`. It records them with nothing known, so
+// each reads as `conflict` and is compared with this release's template before anything changes. It
+// writes the record and not one byte of any loop file, and refuses once a record exists. `forget`
+// drops an entry — a file removed on purpose, a retired template — and leaves the file alone.
 //
 // `render` prints a template filled from values (lib/placeholders.mjs), writing nothing. `/cortex`
 // writes a loop file with it, so the file is exactly what the recorded values reproduce.
@@ -41,7 +49,8 @@ import { normalizeChangedPath } from "./lib/changed.mjs";
 import { openTarget, parseArgv } from "./lib/open.mjs";
 import { renderTemplate, unfilledPlaceholders } from "./lib/placeholders.mjs";
 import {
-  STAMPS_REL, STATES, ignoreAdvice, planUpdates, readStamps, recordStamp, stampDiff, stampPathProblem,
+  STAMPS_REL, STATES, adoptStamp, adoptionCandidates, forgetStamp, ignoreAdvice, planUpdates, readStamps, recordStamp,
+  stampDiff, stampPathProblem,
   stampStatus, stampsIgnoreRule, writeStamps,
 } from "./lib/stamps.mjs";
 
@@ -51,6 +60,8 @@ const USAGE = {
   status: "usage: node index/cortex-stamps.mjs <repo> [--json] [--all] [--templates DIR]",
   diff: "usage: node index/cortex-stamps.mjs diff <repo> <path> [--templates DIR]",
   update: "usage: node index/cortex-stamps.mjs update <repo> [<path> ...] [--version X.Y.Z] [--templates DIR]",
+  adopt: "usage: node index/cortex-stamps.mjs adopt <repo> [<path> ...]",
+  forget: "usage: node index/cortex-stamps.mjs forget <repo> <path> ...",
 };
 
 const refuse = (text, code) => {
@@ -244,6 +255,7 @@ function status(argv) {
   const rec = readRecordOrRefuse(root);
   const files = stampStatus({ repoRoot: root, record: rec, templatesDir });
   const running = pluginVersion();
+  const adopt = adoptionCandidates(root, rec);
 
   if (args.json) {
     // The machine form `cortex-next` reads. `files: null` is "no record", never an empty list — an
@@ -263,6 +275,9 @@ function status(argv) {
       running,
       counts,
       files,
+      // Loop files an older /cortex left, with no record to say so. Always an array; empty once a
+      // record exists, because adoption is offered only at first contact with one.
+      adopt,
       ignored: rule ? { ...rule, advice: ignoreAdvice(rule) } : null,
     }, null, 2));
     return;
@@ -270,12 +285,19 @@ function status(argv) {
 
   if (!rec) {
     console.log(`No stamp record at ${STAMPS_REL}, so nothing Cortex wrote here can be compared.`);
-    console.log("/cortex records each file as it writes it; until then there is nothing to report.");
+    if (adopt.length) {
+      console.log(`\n${adopt.length} loop file${adopt.length === 1 ? "" : "s"} sit where /cortex writes them — an earlier Cortex stamped them before the record existed:`);
+      for (const a of adopt) console.log(`  ${a.path}  ← ${a.template}`);
+      console.log("\n`cortex-stamps.mjs adopt .` records them with nothing known, so each reads as conflict and is");
+      console.log("compared with this release's template before anything changes. /cortex offers it in its confirmation.");
+    } else {
+      console.log("/cortex records each file as it writes it; until then there is nothing to report.");
+    }
     return;
   }
 
-  console.log(`${files.length} stamped file${files.length === 1 ? "" : "s"} in ${STAMPS_REL} — newest writer Cortex ${rec.cortex}` +
-    (running ? `, this is Cortex ${running}.` : "."));
+  console.log(`${files.length} stamped file${files.length === 1 ? "" : "s"} in ${STAMPS_REL} — newest writer ` +
+    (rec.cortex ? `Cortex ${rec.cortex}` : "unknown (adopted)") + (running ? `, this is Cortex ${running}.` : "."));
   const current = files.filter((f) => f.state === "current");
   if (current.length === files.length && !args.all) {
     console.log(`All ${files.length} stamped files are current.`);
@@ -285,7 +307,9 @@ function status(argv) {
       const group = files.filter((f) => f.state === state);
       if (!group.length) continue;
       console.log(`\n${state} (${group.length}) — ${MEANS[state]}`);
-      for (const f of group) console.log(`  ${f.path}  ← ${f.template}  (stamped by ${f.version})`);
+      for (const f of group) {
+        console.log(`  ${f.path}  ← ${f.template}  (${f.version ? `stamped by ${f.version}` : "adopted, release unknown"})`);
+      }
     }
     if (!args.all && current.length) console.log(`\n${current.length} current (not listed; --all shows them).`);
   }
@@ -357,7 +381,51 @@ function update(argv) {
 
 // ------------------------------------------------------------------------------------------------------
 
-const COMMANDS = { render, record, diff, update };
+// --- adopt and forget ----------------------------------------------------------------------------------
+
+function adopt(argv) {
+  const { root, paths } = openTarget(argv, { usage: USAGE.adopt, flags: {}, root: "first", index: "none" });
+  const rec = readRecordOrRefuse(root);
+  if (rec) {
+    refuse(`${root} already has ${STAMPS_REL}. Adoption is for a repo stamped before the record existed; ` +
+      "record a file with `cortex-stamps.mjs record` instead.", 1);
+  }
+  const candidates = adoptionCandidates(root, null);
+  let chosen = candidates;
+  if (paths.length) {
+    const byPath = new Map(candidates.map((c) => [c.path, c]));
+    const named = paths.map((p) => normalizeChangedPath(p, root));
+    const unknown = named.filter((p) => !byPath.has(p));
+    if (unknown.length) {
+      refuse(unknown.map((p) => `${p} is not a loop file /cortex writes, or is not here`).join("\n") + "\nNothing was written.", 1);
+    }
+    chosen = named.map((p) => byPath.get(p));
+  }
+  if (!chosen.length) {
+    console.log("Nothing to adopt: no loop file sits where /cortex writes one.");
+    return;
+  }
+  const next = chosen.reduce((r, c) => adoptStamp(r, c), null);
+  writeStamps(root, next);
+  console.log(`Adopted ${chosen.length} file${chosen.length === 1 ? "" : "s"} into ${STAMPS_REL}: ${chosen.map((c) => c.path).join(", ")}.`);
+  console.log("Nothing about them is known yet, so each reads as conflict until it is compared with this release's");
+  console.log("template (`cortex-stamps.mjs diff . <path>`) and recorded again. No loop file was changed.");
+  warnIfIgnored(root);
+}
+
+function forget(argv) {
+  const { root, paths } = openTarget(argv, { usage: USAGE.forget, flags: {}, root: "first", index: "none" });
+  if (!paths.length) refuse(`forget needs a repo and at least one path\n${USAGE.forget}`, 1);
+  const rec = readRecordOrRefuse(root);
+  if (!rec) refuse(`no stamp record at ${STAMPS_REL}; nothing to forget`, 1);
+  const named = paths.map((p) => normalizeChangedPath(p, root));
+  const unknown = named.filter((p) => !Object.hasOwn(rec.files, p));
+  if (unknown.length) refuse(unknown.map((p) => `${p} is not in the record`).join("\n") + "\nNothing was written.", 1);
+  writeStamps(root, named.reduce((r, p) => forgetStamp(r, p), rec));
+  console.log(`Dropped from ${STAMPS_REL}: ${named.join(", ")}. The files themselves were not touched.`);
+}
+
+const COMMANDS = { render, record, diff, update, adopt, forget };
 const argv = process.argv.slice(2);
 if (Object.hasOwn(COMMANDS, argv[0])) COMMANDS[argv[0]](argv.slice(1));
 else status(argv);

@@ -323,3 +323,71 @@ out="$(node "$STAMPS" update "$REAL" --templates "$RT" 2>&1)"; rc=$?
 assert_eq "1" "$rc" "an update that had to refuse a file exits 1"
 assert_contains "$out" "{{OWNER}}" "naming the placeholder with no recorded value"
 assert_eq "$verifier_before" "$(cat "$REAL/.claude/agents/verifier.md")" "and leaves the file as it was"
+
+# --- adoption: a repo /cortex stamped before the record existed -----------------------------------------
+#
+# The same nine files at the same locations, and no .cortex/stamps.json — what every repo installed by
+# 2.39.x looks like. Nothing about them is known: not the release, not the values, not whether the
+# team has edited them since. So adopting records them with nothing known, they read as `conflict`,
+# and each is compared with this release's template before anything changes. Adopting writes the
+# record and nothing else.
+
+OLD="$WORK/old-install"
+mkrepo "$OLD"
+for pair in $LANDS; do
+  t="${pair%%:*}"; dest="${pair#*:}"
+  mkdir -p "$OLD/$(dirname "$dest")"
+  node "$STAMPS" render "loop/$t" --templates "$REPO_ROOT/templates" --values-file "$VALS/$t.json" > "$OLD/$dest" 2>/dev/null
+done
+( cd "$OLD" || exit 1; git add -A && git commit -qm "stamped by /cortex 2.39.1" )
+
+out="$(node "$STAMPS" "$OLD" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "status on an older install exits 0"
+assert_contains "$out" "9 loop files" "and names how many files it could adopt"
+assert_contains "$out" "adopt" "and the command that does it"
+json="$(node "$STAMPS" "$OLD" --json 2>&1)"
+n_adopt="$(node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(`${j.files} ${j.adopt.length}`);' <<< "$json")"
+assert_eq "null 9" "$n_adopt" "--json: no record, nine to adopt"
+
+refusal 1 "not a loop file" "adopting a path /cortex never writes is refused" -- node "$STAMPS" adopt "$OLD" src/app.ts
+assert_eq "" "$(git -C "$OLD" status --porcelain -uall)" "and writes nothing"
+
+out="$(node "$STAMPS" adopt "$OLD" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "adopt exits 0"
+assert_contains "$out" "Adopted 9" "and says how many"
+assert_eq "?? .cortex/stamps.json" "$(git -C "$OLD" status --porcelain -uall)" "adopting writes the record and not one byte of any loop file"
+
+json="$(node "$STAMPS" "$OLD" --json 2>&1)"
+states="$(node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write([...new Set(j.files.map((f) => f.state))].join(",") + " " + j.cortex);' <<< "$json")"
+assert_eq "conflict null" "$states" "every adopted file is conflict, and no release is claimed for them"
+out="$(node "$STAMPS" "$OLD" 2>&1)"
+assert_contains "$out" "adopted, release unknown" "status says what is not known rather than inventing a version"
+
+out="$(node "$STAMPS" update "$OLD" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "update on adopted files is not an error"
+assert_contains "$out" "Nothing to update" "and rewrites nothing"
+assert_eq "?? .cortex/stamps.json" "$(git -C "$OLD" status --porcelain -uall)" "still not one byte of a loop file"
+out="$(node "$STAMPS" diff "$OLD" REVIEW.md 2>&1)"
+assert_contains "$out" "REVIEW.md: conflict" "the per-file question has its evidence"
+
+refusal 1 "already has" "adopting again, once a record exists, is refused" -- node "$STAMPS" adopt "$OLD"
+
+# Resolving one: the user compared it and kept it — record it with the values it was written with.
+node "$STAMPS" record "$OLD" REVIEW.md loop/REVIEW.md --values-file "$VALS/REVIEW.md.json" >/dev/null 2>&1
+assert_eq "current" "$(json_state "$(node "$STAMPS" "$OLD" --json 2>&1)" REVIEW.md)" "a resolved adoption reads current"
+
+# Dropping one from the record: the file is left exactly where it is.
+bands_before="$(cat "$OLD/bands.yaml")"
+out="$(node "$STAMPS" forget "$OLD" bands.yaml 2>&1)"; rc=$?
+assert_eq "0" "$rc" "forget exits 0"
+assert_eq "absent" "$(json_state "$(node "$STAMPS" "$OLD" --json 2>&1)" bands.yaml)" "the entry is gone from the record"
+assert_eq "$bands_before" "$(cat "$OLD/bands.yaml")" "and the file is untouched"
+refusal 1 "not in the record" "forgetting a path the record does not hold is refused" -- node "$STAMPS" forget "$OLD" nope.md
+
+# Adopting a subset: only what was named.
+OLD2="$WORK/old-install-2"
+cp -r "$OLD" "$OLD2"; rm -f "$OLD2/.cortex/stamps.json"
+node "$STAMPS" adopt "$OLD2" REVIEW.md .claude/agents/verifier.md >/dev/null 2>&1
+json="$(node "$STAMPS" "$OLD2" --json 2>&1)"
+n="$(node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(j.files.map((f) => f.path).join(","));' <<< "$json")"
+assert_eq ".claude/agents/verifier.md,REVIEW.md" "$n" "adopting named paths records exactly those"

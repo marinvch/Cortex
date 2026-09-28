@@ -63,6 +63,26 @@ this project now versions independently of any package manager (see `VERSION`).
   starting point until the eval harness can score team against single. A file in a language
   Cortex cannot resolve gets no recommendation, because its dependents are unseen, not zero. With
   no index there is no recommendation either, and never a default. `--json` returns the signals.
+- **The team's playbook and its `team` skill (plan step 13, spec T1, T2, T5).**
+  `templates/team/playbook.md` is a 14-line section `/cortex` will append to `CLAUDE.md`, so every
+  session loads it. The main session runs the team itself, and nothing sets `agent:`. The section
+  names only the agents actually stamped (`{{ROSTER}}`). For each new task that changes code, it
+  has the session run `/cortex-impact --size` on the files the task touches and ask the developer
+  whether to work single or as a team. The developer decides. On "team", the session loads
+  `templates/team/team-skill.md`, stamped as `.claude/skills/team/SKILL.md`, which holds the rest:
+  - the Architect plans from the `/cortex-impact` output the session hands it;
+  - the Tester and the Reviewer object, and the session drops every objection with no
+    `path:line`, ADR or test behind it;
+  - the Architect accepts or rebuts each remaining one with a citation;
+  - after at most two rounds, whatever is still open goes to the developer side by side;
+  - then a red test, the change, an independent review with `/cortex-review`, and a report.
+    Nothing merges or pushes without the developer.
+
+  Cortex is reached by skill name, never by the plugin's install path. The debate record stays in
+  the conversation until the spec decides where it lives. Claude Code's experimental agent teams
+  are described as compatible and off: Cortex never sets the flag. The skill also notes that the
+  docs do not list hooks among what a teammate takes from an agent definition, so a Tester
+  teammate may not have the fence. Still templates only; `/cortex` stamps them in step 14.
 
 ### Changed
 

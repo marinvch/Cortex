@@ -1,8 +1,16 @@
 # templates/team — the agent-team roles
 
-One Claude Code subagent per role, written to `.claude/agents/<role>.md` in the target repo.
+One Claude Code subagent per role, the Tester's fence, the playbook every session loads, and the
+`team` skill that holds the debate protocol.
 [The design](../../docs/specs/2026-09-28-agent-team-design.md) holds each role's job and tools.
 Nothing stamps these yet: the `/cortex` offer arrives in plan step 14.
+
+| Template | Lands at |
+|---|---|
+| `<role>.md` | `.claude/agents/<role>.md`, for each role the developer picked |
+| `test-paths.sh` | `.claude/hooks/test-paths.sh`, executable, only with `tester.md` |
+| `playbook.md` | appended to `CLAUDE.md` |
+| `team-skill.md` | `.claude/skills/team/SKILL.md` |
 
 Render with `node index/cortex-stamps.mjs render team/<file> --values-file <json>`. A value
 `/cortex` did not detect is a question for the user, never a guess.
@@ -17,6 +25,7 @@ not list, or the table lists one that no template uses.
 | `{{TEST_PATHS}}` | `tester` | where tests live, as comma-separated code spans such as `` `test/**` `` | the files the index marks `isTest` | ask where tests go |
 | `{{TEST_GLOBS}}` | `test-paths` | the same locations as shell globs, one double-quoted glob per line indented two spaces, such as `"*/test/*"` or `"*.test.ts"`; each is matched against `/` plus the path from the repo root | the files the index marks `isTest` | ask; an empty list refuses every edit |
 | `{{PLAN_DIRS}}` | `project-manager` | the plan folders that exist, as comma-separated code spans | which of `intent/`, `docs/specs/` and `docs/plans/` exist | the role is not offered |
+| `{{ROSTER}}` | `playbook` | the agent playing each role, as comma-separated code spans such as `` `architect`, `tester` ``; an existing agent mapped to a role carries the role after it, as `` `code-reviewer` (reviewer) `` | the roles the developer picked in this run, plus any existing agent mapped to a role | never empty: with no agent stamped, the playbook is not written |
 | `{{SCOPED_BRIEFS}}` | `architect` | one line per scoped brief, in the form `` - `<dir>/AGENTS.md` `` indented three spaces, under step 1 | every `<dir>/AGENTS.md` in the index | empty, which removes the line |
 
 ## The Tester's fence

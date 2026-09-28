@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The multi-repo half of install-on-a-project: the roadmap's acceptance scenarios S1–S4 (spec,
-// step 7), run against whatever git repositories sit in one directory — a team's product repos
+// step 7) and S5, the agent team (plan step 15), run against whatever git repositories sit in one directory — a team's product repos
 // plus the team-brain they share.
 //
 //   CORTEX_E2E_WORKSPACE=<dir> bash tools/test/run.sh install-on-a-project
@@ -31,6 +31,7 @@ const FINDINGS = join(REPO_ROOT, "index", "cortex-findings.mjs");
 const IMPACT = join(REPO_ROOT, "index", "cortex-impact.mjs");
 const LOOP = join(REPO_ROOT, "index", "cortex-loop.mjs");
 const ROUTES = join(REPO_ROOT, "index", "cortex-routes.mjs");
+const STAMPS = join(REPO_ROOT, "index", "cortex-stamps.mjs");
 const CLI = join(REPO_ROOT, "mcp", "ai-os.js");
 const SERVER = join(REPO_ROOT, "mcp", "server.js");
 
@@ -632,6 +633,161 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
       : "no code repo has a context layer (AGENTS.md, CONTEXT.md or ADRs) for the review to read back — run /cortex on one",
   });
   failures += scenario("S4", "daily team rituals", checks);
+}
+
+// S5 — the agent team ------------------------------------------------------------------------------
+{
+  // The deterministic half of plan step 15: what /cortex stamps of the agent team is sound on disk.
+  // Whether a model then follows the playbook is the live half, which is not a test that belongs in
+  // a suite. Everything here goes through the CLIs a user has; tools/ does not reach into a leaf.
+  const checks = [];
+  const indexed = code.filter((r) => r.index);
+  const json = (script, args) => {
+    const run = spawnSync(process.execPath, [script, ...args], { env: BASE_ENV, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    try { return { ok: run.status === 0, out: JSON.parse(run.stdout) }; } catch { return { ok: false, err: (run.stderr || run.stdout).trim().split("\n")[0] }; }
+  };
+
+  // Which repos carry the team: the playbook section in CLAUDE.md is how a repo is known to have one
+  // (the loop's `team` row reads the same), and a repo the row offers but that never took it is
+  // named, not failed — every role is the developer's pick, and so is the team itself.
+  const teams = [];
+  const offeredOnly = [];
+  const loopErrors = [];
+  for (const r of indexed) {
+    const plan = json(LOOP, [r.clone, "--index", r.indexPath, "--json"]);
+    if (!plan.ok) { loopErrors.push(`${r.name}: ${plan.err}`); continue; }
+    const row = ["present", "missing", "blocked"].find((b) => plan.out[b].some((e) => e.id === "team"));
+    if (row === "present") teams.push({ ...r, agentTeam: plan.out.state.agentTeam });
+    else if (row === "missing") offeredOnly.push(r.name);
+  }
+  checks.push({
+    ok: teams.length > 0 && loopErrors.length === 0,
+    label: `the team is stamped in ${teams.length}/${indexed.length} code repos${offeredOnly.length ? ` (offered, not taken: ${offeredOnly.join(", ")})` : ""}`,
+    detail: loopErrors[0] ?? (teams.length ? undefined : "no code repo carries the playbook in CLAUDE.md — run /cortex and pick the team"),
+  });
+
+  if (teams.length) {
+    // The team's files are the ones the record says came from a team/ template.
+    const flagged = [];
+    const stale = [];
+    let files = 0;
+    for (const r of teams) {
+      const status = json(STAMPS, [r.clone, "--json"]);
+      if (!status.ok) { stale.push(`${r.name}: cortex-stamps --json failed: ${status.err}`); continue; }
+      r.teamFiles = status.out.files.filter((f) => String(f.template).startsWith("team/"));
+      files += r.teamFiles.length;
+      for (const f of r.teamFiles) if (f.state !== "current") stale.push(`${r.name}: ${f.path} is ${f.state}`);
+      const found = json(FINDINGS, [r.clone, "--json", "--index", r.indexPath]);
+      if (!found.ok) { flagged.push(`${r.name}: cortex-findings --json failed: ${found.err}`); continue; }
+      for (const f of found.out.filter((x) => String(x.kind).startsWith("claude-setup/"))) {
+        const where = [f.file, ...(f.evidence ?? [])].join(" ");
+        if (r.teamFiles.some((t) => where.includes(t.path))) flagged.push(`${r.name}: ${f.kind} — ${f.evidence?.[0] ?? f.title}`);
+      }
+    }
+    checks.push({
+      ok: files > 0 && flagged.length === 0,
+      label: `every stamped team file passes the claude-setup checker: ${files} files in ${teams.length} repos, ${flagged.length} flagged`,
+      detail: flagged[0] ?? (files ? undefined : "the record holds no file from a team/ template"),
+    });
+    checks.push({
+      ok: files > 0 && stale.length === 0,
+      label: `the stamp record reads every team file as current: ${files - stale.length}/${files}`,
+      detail: stale.length ? `${stale[0]} — node index/cortex-stamps.mjs <repo> says what to do` : undefined,
+    });
+
+    // The roster line names exactly the agents that play a role: each stamped role, and each agent
+    // already here that covers one. A name there with no agent behind it sends the session to an
+    // agent that does not exist; an agent missing from it is never called.
+    const rosterMisses = [];
+    for (const r of teams) {
+      const md = readFileSync(join(r.clone, "CLAUDE.md"), "utf8");
+      const section = md.split(/^##+\s+Working as a team\s*$/m)[1]?.split(/^##\s/m)[0] ?? "";
+      const line = section.split("\n").find((l) => /single-job agents/.test(l)) ?? "";
+      const named = [...line.slice(line.indexOf(":") + 1).matchAll(/`([^`]+)`/g)].map((m) => m[1]).filter((n) => !n.includes("/")).sort();
+      const playing = [...new Set(Object.values(r.agentTeam?.covered ?? {}).flat().map((a) => a.name))].sort();
+      if (!named.length || named.join() !== playing.join()) rosterMisses.push(`${r.name}: CLAUDE.md names [${named.join(", ")}], the agents playing a role are [${playing.join(", ")}]`);
+    }
+    checks.push({
+      ok: rosterMisses.length === 0,
+      label: `the roster in CLAUDE.md names exactly the agents that play a role: ${teams.length - rosterMisses.length}/${teams.length} repos`,
+      detail: rosterMisses[0],
+    });
+
+    // The Tester's fence, run the way the hook runs it: a PreToolUse payload on stdin, the project
+    // directory in the environment, exit 2 to refuse. A source file of the repo's own and one of its
+    // tests, both from the index.
+    const fenceMisses = [];
+    let fenced = 0;
+    for (const r of teams) {
+      const hook = join(r.clone, ".claude", "hooks", "test-paths.sh");
+      if (!existsSync(hook)) continue;
+      fenced += 1;
+      const files = r.index.files.filter((f) => f.category === "code").map((f) => f.path).sort();
+      const src = files.find((p) => !r.index.files.find((f) => f.path === p).isTest);
+      // Not from .claude/: the fence refuses every path there, and is itself named like a test.
+      const test = r.index.files.filter((f) => f.isTest && !f.path.startsWith(".claude/")).map((f) => f.path).sort()[0];
+      if (!src || !test) { fenceMisses.push(`${r.name}: the index has no ${src ? "test" : "source"} file to try the fence on`); continue; }
+      const edit = (rel) => spawnSync("bash", [hook], {
+        input: JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Edit", tool_input: { file_path: join(r.clone, ...rel.split("/")) } }),
+        env: { ...BASE_ENV, CLAUDE_PROJECT_DIR: r.clone },
+        encoding: "utf8",
+      }).status;
+      const [s, t] = [edit(src), edit(test)];
+      if (s !== 2 || t !== 0) fenceMisses.push(`${r.name}: ${src} exit ${s} (want 2), ${test} exit ${t} (want 0)`);
+    }
+    checks.push({
+      ok: fenced > 0 && fenceMisses.length === 0,
+      label: `test-paths.sh refuses a source edit and allows a test edit: ${fenced - fenceMisses.length}/${fenced} repos with a Tester`,
+      detail: fenceMisses[0] ?? (fenced ? undefined : "no team repo has the Tester's fence"),
+    });
+  }
+
+  // Sizing: a one-file fix is single, a change set across the team line's worth of areas is team.
+  // Both built from a repo's own index — the fix is its first source file nothing imports, the
+  // cross-area set one source file from each area until the line is reached — so the file stays
+  // generic. `areas.names` of a one-file --size run is how an area is read without reaching into
+  // index/lib.
+  const size = (r, paths) => json(IMPACT, [...paths, "--root", r.clone, "--index", r.indexPath, "--size", "--json"]).out;
+  const sizing = [];
+  const repoForSize = indexed.find((r) => r.index.files.some((f) => f.category === "code" && !f.isTest));
+  if (repoForSize) {
+    const r = repoForSize;
+    const imported = new Set(r.index.edges.map((e) => e.to));
+    const source = r.index.files.filter((f) => f.category === "code" && !f.isTest).map((f) => f.path).sort();
+    const fix = source.find((p) => !imported.has(p));
+    const one = fix ? size(r, [fix]) : null;
+    sizing.push({
+      ok: one?.recommendation === "single",
+      label: `cortex-impact --size recommends single for a one-file fix: ${r.name} ${fix ?? "(no unimported source file)"} → ${one?.recommendation ?? "no answer"}`,
+      detail: one?.recommendation === "single" ? undefined : one?.reasons?.find((x) => /at or over/.test(x)),
+    });
+    let cross = null;
+    let picked = [];
+    for (const c of indexed) {
+      const byArea = new Map();
+      let line = 3;
+      for (const p of c.index.files.filter((f) => f.category === "code" && !f.isTest).map((f) => f.path).sort()) {
+        const s = size(c, [p]);
+        const area = s?.signals?.areas?.names?.[0];
+        line = s?.signals?.areas?.threshold ?? line;
+        if (area && !byArea.has(area)) byArea.set(area, p);
+        if (byArea.size >= line) break;
+      }
+      if (byArea.size >= line) { cross = c; picked = [...byArea.values()]; break; }
+    }
+    const many = cross ? size(cross, picked) : null;
+    sizing.push({
+      ok: many?.recommendation === "team",
+      label: cross
+        ? `and team for a change set across ${picked.length} areas: ${cross.name} [${picked.join(", ")}] → ${many?.recommendation ?? "no answer"}`
+        : "and team for a cross-area change set: no code repo has enough areas of source to build one",
+      detail: many?.recommendation === "team" ? undefined : many?.reasons?.[0],
+    });
+  } else {
+    sizing.push({ ok: false, label: "cortex-impact --size: no indexed code repo has a source file to size" });
+  }
+  checks.push(...sizing);
+  failures += scenario("S5", "the agent team: stamped, checked, sized and fenced", checks);
 }
 
 // The promise this mode makes: the workspace is exactly as it was.

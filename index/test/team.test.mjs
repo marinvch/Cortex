@@ -172,6 +172,10 @@ test("test locations: a test directory is one glob for the whole tree, a name pa
     assert.ok(t.globs.some((g) => shellMatch(g, `/${p}`)), `${p} matches no glob`);
   }
   assert.ok(!t.globs.some((g) => shellMatch(g, "/src/app.ts")), "and no glob matches the code");
+  // The fence is named like a shell test and the index marks it one; nothing under .claude/ is a
+  // place the Tester may write, so it never adds a glob (the first real team stamp, step 15).
+  assert.deepEqual(testLocations(index(["test/a.test.js", ".claude/hooks/test-paths.sh"])).globs, ['"*/test/*"']);
+  assert.equal(testLocations(index([".claude/hooks/test-paths.sh"])), null);
 });
 
 test("TEST_GLOBS renders as the hook's list: one quoted glob per line, indented two spaces", () => {

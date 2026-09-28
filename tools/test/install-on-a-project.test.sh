@@ -157,7 +157,7 @@ fi
 
 # --- opt-in: a team's workspace of repositories ---------------------------------------------------
 
-# The roadmap's acceptance scenarios S1–S4, run over every repo in one directory: product repos
+# The roadmap's acceptance scenarios S1–S5, run over every repo in one directory: product repos
 # plus the team-brain they share. One line per scenario — PASS, FAIL, or XFAIL naming the roadmap
 # step that closes it — and only a FAIL counts against the run, so an expected failure stays
 # visible without turning every run red. Read-only: e2e-workspace.mjs clones the workspace into

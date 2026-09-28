@@ -50,16 +50,17 @@ import { normalizeChangedPath } from "./changed.mjs";
  * A signal crosses at or over its line. Any crossing recommends `team`.
  */
 export const SIZING_THRESHOLDS = Object.freeze({
-  // Distinct areas (`layerKeyFor`) holding the task's source files. Coarse on purpose and coarse in
-  // fact: all of spring-petclinic's Java is one area (`src/main`), so the dependent lines below are
+  // Distinct areas (`layerKeyFor`) holding the task's source files. This is coarse:
+  // all of spring-petclinic's Java is one area (`src/main`), so the dependent lines below are
   // what size a cross-package change there.
   areas: 3,
   // The areas line when any of those areas carries a scoped brief — one somebody wrote invariants
-  // down for. One briefed area alone is ordinary work in a repo that documents itself: 86% of this
+  // down for. One briefed area alone is ordinary work in a repo that documents itself: 65% of this
   // repository's recent commits touch one.
   areasWithBrief: 2,
   // Production files importing a changed file directly (a floor): the call sites a changed contract
-  // has to be carried to. 10 is where zustand's `vanilla.ts` and petclinic's model classes sit.
+  // has to be carried to. zustand's `vanilla.ts` and petclinic's model classes sit at 10-12; three of
+  // this repository's last 150 commits reach it.
   directDependents: 10,
   // Production files depending on the changed ones at any depth (a floor). Well-tested hubs here
   // reach 21 on one-area fixes, and a covered radius is an ordinary change.

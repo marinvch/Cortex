@@ -52,6 +52,9 @@ cortex-graph.html
 # A private team-brain clone (references/living-cortex.md). It must never be committed beside
 # public code — the doc said this was already ignored, and it was not.
 team/
+# The agent-team role templates are product, not a clone. The rule above is left unanchored on
+# purpose, so it still catches a clone made anywhere; this re-includes the one directory it must not.
+!templates/team/
 
 # Backups (auto-created; noise — never commit)
 *.bak

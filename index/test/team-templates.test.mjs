@@ -372,6 +372,15 @@ test("the team skill carries the debate: citations or dropped, two rounds, then 
   assert.match(text, /Nothing merges, pushes or closes an issue without the developer/);
 });
 
+test("the session never edits itself: a change after review goes back through the Implementer and the Reviewer", () => {
+  // The first live run (plan step 15): after the review, the session reworded code comments and a
+  // planned AGENTS.md line the Implementer had declined, itself — edits no role made or checked.
+  const text = source("team-skill").replace(/\s*\n\s*/g, " ");
+  assert.match(text, /You do not write the code, the tests or the documents yourself/);
+  assert.match(text, /goes back through `implementer` and `reviewer`/);
+  assert.match(text, /a planned edit an agent declined/);
+});
+
 test("the team skill reaches Cortex by skill name, never by the plugin's install path", () => {
   // A committed file cannot know where the plugin lives on each machine; the skill name is portable.
   const text = source("team-skill");

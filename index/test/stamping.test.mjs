@@ -134,6 +134,16 @@ test("/cortex merges the team plugin through the CLI, and says each teammate sti
   assert.match(body, /`team-plugin` entries are such a\s+block/, "and says they are not in the stamp record");
 });
 
+test("/cortex asks auto-update as its own choice, unticked, and says what it means", () => {
+  // `"autoUpdate": true` in the committed file updates every teammate's plugin in the background and
+  // comes before each person's own /plugin toggle. Folded into the team-plugin yes, it is a decision
+  // for the whole team nobody was asked; named as a choice, it still has to say what it does.
+  const body = read("skills/cortex/SKILL.md");
+  assert.match(body, /Auto-update is its own yes\/no[^.]*unticked by default/i, "a separate choice, off by default");
+  assert.match(body, /`\[ \] auto-update — every\s+teammate's Claude Code pulls new Cortex releases in the background`/, "the line says what it means");
+  assert.match(body, /Only a yes adds `--auto-update`/, "and only a yes passes the flag");
+});
+
 test("the placeholder check and the renderer share one definition of a placeholder", () => {
   // tools/cortex-placeholders.mjs says which placeholders a stamped file still holds; the renderer in
   // index/lib/placeholders.mjs fills them on an update. A private copy of the rule in either would

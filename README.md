@@ -180,6 +180,7 @@ node index/cortex-findings.mjs .   # writes .cortex/findings/<date>.md
 node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 node index/cortex-routes.mjs . --workspace  # which back-end handler serves each front-end call
+node index/cortex-stamps.mjs .     # which files /cortex stamped are out of date; writes nothing
 ```
 
 ---
@@ -366,7 +367,9 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
 
 - **The indexer, findings, View and every `index/` script** read the repo on disk and write only
   under its `.cortex/` (the first index run also appends three lines to `.gitignore`). They make no
-  network calls and install nothing — Cortex has no runtime dependencies.
+  network calls and install nothing — Cortex has no runtime dependencies. Two things there are
+  meant to be committed: `.cortex/memory/`, and `.cortex/stamps.json`, the record of which files
+  Cortex stamped into the repo and from which release.
 - **The MCP server** (`mcp/server.js`, started as `node ${CLAUDE_PLUGIN_ROOT}/mcp/server.js`) runs
   `git` and nothing else that reaches a network, and only against a **team-brain** repository the
   user set up with `/team-init` or `/team-add`: it clones that repository once, `git pull`s it

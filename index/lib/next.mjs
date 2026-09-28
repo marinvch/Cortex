@@ -17,7 +17,9 @@ import { AGENT_DOC_NAMES } from "./context-docs.mjs";
 import { loopPlan } from "./loop.mjs";
 import { adrLocation } from "./adr.mjs";
 import { listRepoSkills, skillDrift } from "./skill-drift.mjs";
-import { adoptionCandidates, readStamps, stampStatus, stampsIgnoreRule, STAMPS_REL } from "./stamps.mjs";
+import {
+  adoptionCandidates, olderPlugin, readStamps, runningCortex, stampStatus, stampsIgnoreRule, STAMPS_REL,
+} from "./stamps.mjs";
 
 // The templates this Cortex ships — what a stamped file is compared against. Next to this file in a
 // clone and in an installed plugin alike.
@@ -159,12 +161,13 @@ function driftedSkills(root, index) {
 
 // The stamp record, read the way `cortex-stamps.mjs . --json` reads it (spec S4). `stamps` is the
 // per-file status, or null with no record; `stampsAdopt` is what an older /cortex left and nothing
-// recorded; `stampsIgnored` is the rule that keeps the record out of git. Only asked when there is
+// recorded; `stampsIgnored` is the rule that keeps the record out of git; `stampsOlderPlugin` is set
+// when the record was written by a newer Cortex than this one (spec S5). Only asked when there is
 // something to ask about, so a repo with neither a record nor a loop file pays one stat per location
 // and reads exactly as it did before the record existed. A damaged record is carried as an error,
 // never degraded to "no record": that would offer adoption over a record the team still has.
 function stampFacts(root) {
-  const none = { stamps: null, stampsAdopt: [], stampsIgnored: null, stampsError: null };
+  const none = { stamps: null, stampsAdopt: [], stampsIgnored: null, stampsOlderPlugin: null, stampsError: null };
   try {
     const record = readStamps(root);
     const adopt = adoptionCandidates(root, record);
@@ -173,6 +176,7 @@ function stampFacts(root) {
       stamps: record ? stampStatus({ repoRoot: root, record, templatesDir: TEMPLATES_DIR }) : null,
       stampsAdopt: adopt,
       stampsIgnored: stampsIgnoreRule(root),
+      stampsOlderPlugin: olderPlugin(record, runningCortex()),
       stampsError: null,
     };
   } catch (e) {
@@ -238,6 +242,18 @@ function stampsStep(s, plural) {
     : "";
   if (s.stampsError) {
     return { ...base, title: "Repair the stamp record", why: `${s.stampsError} — nothing Cortex stamped can be checked or updated until it reads` };
+  }
+  // Before any count: an older plugin compares the files against its own older templates, so "N to
+  // update" would be its misreading, and acting on it would put those older templates back. Blocking,
+  // because the fix is outside the repo and every stamp answer here waits on it.
+  if (s.stampsOlderPlugin) {
+    return {
+      ...base,
+      cmd: s.stampsOlderPlugin.commands.join(" && "),
+      blocking: true,
+      title: "Update the Cortex plugin — a newer one stamped this repo",
+      why: s.stampsOlderPlugin.advice + (ignored ? ` Also, ${ignored.slice(2)}.` : ""),
+    };
   }
   if (s.stampsAdopt.length) {
     const list = s.stampsAdopt.map((a) => a.path);

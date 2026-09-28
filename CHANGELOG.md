@@ -122,6 +122,39 @@ this project now versions independently of any package manager (see `VERSION`).
 
   Mutation-tested: 25 guards, 25 reds. Plan step 4.
 
+- **A teammate whose plugin is a release behind would have rolled a repo's loop files back to its
+  own older templates, and nothing told anyone how to update the plugin (spec S5).**
+  The stamp record is shared, but the plugin is per machine. Read against the record a newer Cortex
+  wrote, an older plugin's templates are the older ones, so every untouched file reads as `update`.
+  - When `.cortex/stamps.json` names a newer Cortex than the running `VERSION`, status, `--json`
+    (`olderPlugin`) and `diff` say so plainly, with both commands in order:
+    `claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`, then
+    `/reload-plugins` or a new session.
+  - `cortex-stamps.mjs update` refuses the whole plan and writes nothing. The refusal is in
+    `planUpdates`, which now takes the running version as a required argument, so a caller cannot
+    skip the check.
+  - `cortex-next` and the View's Next steps show it as a blocking row whose command is the update
+    itself. `/cortex` says the advice and offers no stamp row.
+  - Versions compare as numbers. An adopted-only record (`cortex: null`) and equal versions never
+    warn.
+
+  The README gains **Keep it current**. Claude Code's plugin docs list auto-update as "Off by
+  default" for third-party marketplaces, so the section shows where to turn it on (`/plugin` →
+  Marketplaces → `cortex` → Enable auto-update) and gives the manual two-step update.
+  "What Cortex runs, sends and fetches" now says Cortex never checks for a release itself; Claude
+  Code fetches the marketplace when auto-update is on. `skills/site-sync/PAGES.md` routes both into
+  the site's `/install` and `/privacy` pages.
+
+  Validated on a zustand clone with two plugin copies. The lead's copy (2.40.0, this release's
+  templates) stamped nine loop files. The teammate's copy (2.39.1, v2.39.1's templates) read three
+  of them as `update`: `REVIEW.md`, `bands.yaml` and `intent/README.md`. Those are the three
+  templates this release made prettier-stable, and without the guard the teammate's plan would
+  have rewritten all three from 2.39.1. With it, status and next named the older plugin, and both
+  bulk and named `update` exited 1 with the repo unchanged. On the lead's copy the same repo read
+  9 current with no warning.
+
+  Mutation-tested: 26 guards, 26 reds. Plan step 5.
+
 ### Fixed
 
 - **Deleting `/resume` or `/cortex-review` would not have tripped the eval alarm (#472).** Their

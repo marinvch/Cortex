@@ -119,6 +119,9 @@ test("/cortex renders and records every whole-file loop file, and updates only t
     "/cortex says the appended and merged templates stay out of the record");
   assert.match(body, /never re-render[^.\n]*yourself/i, "/cortex never re-renders a file by hand");
   assert.match(body, /\.gitignore[^.\n]*only (?:if|when)[^.\n]*pick/i, "the record's .gitignore fix is written only when picked");
+  // An older plugin reads every untouched file as `update`. The CLI refuses the update, but a model
+  // that offered the row first has already told the team something false.
+  assert.match(body, /`olderPlugin`[^\n]*\n?[^\n]*`advice`[^.]*no stamp row/i, "/cortex offers no stamp row on an older plugin");
 });
 
 test("the placeholder check and the renderer share one definition of a placeholder", () => {

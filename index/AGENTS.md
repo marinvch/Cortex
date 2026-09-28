@@ -13,7 +13,12 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   `update` — untouched since it was recorded, re-renderable, template changed. `/cortex` runs it
   only for the paths the user confirmed. The rule lives in the code (`planUpdates`), not in the
   skill, because a guarantee belongs to the act (ADR 0016). Never widen it to `edited`,
-  `conflict` or `review`.
+  `conflict` or `review`. **And never from an older plugin:** when the record's `cortex` is newer
+  than the running `VERSION`, its templates are the older ones, every untouched file reads as
+  `update`, and applying it puts the older template back. `planUpdates` refuses the whole plan
+  then, and takes `running` as a required argument so the check cannot be forgotten; status,
+  `diff` and `next.mjs` name it with the two plugin-update commands (`olderPlugin`). `cortex: null`
+  (adopted only) and equal versions never warn.
 - **The index is deterministic.** No LLM, no network, no clock, no randomness. Same tree, same
   bytes. This is what makes it safe in CI and cheap on every install; `build.test.mjs` asserts two
   runs agree exactly.

@@ -292,10 +292,10 @@ assert_eq "0" "$rc" "diff exits 0"
 assert_contains "$out" "-watch closely" "the diff shows the team's line"
 assert_contains "$out" "+# added in the next release" "and the template's"
 
-refusal 1 "conflict" "update refuses a named file that is not safe to update" -- node "$STAMPS" update "$REAL" bands.yaml --templates "$RT"
+refusal 1 "conflict" "update refuses a named file that is not safe to update" -- node "$STAMPS" update "$REAL" bands.yaml --templates "$RT" --version 2.40.0
 assert_eq "$bands_before" "$(cat "$REAL/bands.yaml")" "and does not touch it"
 verifier_before="$(cat "$REAL/.claude/agents/verifier.md")"
-refusal 1 "Nothing was written" "named paths are all or nothing" -- node "$STAMPS" update "$REAL" .claude/agents/verifier.md bands.yaml --templates "$RT"
+refusal 1 "Nothing was written" "named paths are all or nothing" -- node "$STAMPS" update "$REAL" .claude/agents/verifier.md bands.yaml --templates "$RT" --version 2.40.0
 assert_eq "$verifier_before" "$(cat "$REAL/.claude/agents/verifier.md")" "so the safe one named beside it is not written either"
 refusal 1 "given twice" "a value given twice is refused, not resolved by order" -- node "$STAMPS" record "$REAL" REVIEW.md loop/REVIEW.md --templates "$RT" --values-file "$VALS/REVIEW.md.json" --value NIT_CAP=9
 
@@ -319,10 +319,65 @@ assert_eq ".claude/agents/verifier.md .claude/hooks/format-changed.sh .cortex/st
 # `{{OWNER}}` in a file every agent reads, so the update is refused and the file left alone.
 printf 'Owner: {{OWNER}}\n' >> "$RT/loop/verifier.md"
 verifier_before="$(cat "$REAL/.claude/agents/verifier.md")"
-out="$(node "$STAMPS" update "$REAL" --templates "$RT" 2>&1)"; rc=$?
+out="$(node "$STAMPS" update "$REAL" --templates "$RT" --version 2.41.0 2>&1)"; rc=$?
 assert_eq "1" "$rc" "an update that had to refuse a file exits 1"
 assert_contains "$out" "{{OWNER}}" "naming the placeholder with no recorded value"
 assert_eq "$verifier_before" "$(cat "$REAL/.claude/agents/verifier.md")" "and leaves the file as it was"
+
+# --- an older plugin: a teammate a release behind --------------------------------------------------------
+#
+# The record is shared, the plugin is per machine. Against a record a newer Cortex wrote, this plugin's
+# own templates are the older ones, so an untouched file reads as update — and applying it would put
+# the older template back. Status names the older plugin with the two commands that update it, and
+# update refuses the whole plan. VERSION is this checkout's; 9.0.0 is newer than any it will be soon,
+# and the refusal is checked without --version, which is how a teammate runs it.
+
+NEWER="$WORK/newer"
+NT="$WORK/newer-templates"
+mkrepo "$NEWER"
+cp -r "$REPO_ROOT/templates" "$NT"
+mkdir -p "$NEWER/.claude/agents"
+node "$STAMPS" render loop/verifier.md --templates "$NT" --values-file "$VALS/verifier.md.json" > "$NEWER/.claude/agents/verifier.md"
+node "$STAMPS" record "$NEWER" .claude/agents/verifier.md loop/verifier.md --templates "$NT" --version 9.0.0 --values-file "$VALS/verifier.md.json" >/dev/null 2>&1
+( cd "$NEWER" || exit 1; git add -A && git commit -qm "stamped by a newer /cortex" )
+printf '# what the older release said\n' > "$NT/loop/verifier.md"      # this plugin's template differs
+verifier_before="$(cat "$NEWER/.claude/agents/verifier.md")"
+record_before="$(cat "$NEWER/.cortex/stamps.json")"
+UPDATE_STEPS='`claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`, then `/reload-plugins` or a new session'
+
+out="$(node "$STAMPS" "$NEWER" --templates "$NT" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "status on a newer record exits 0 — it is information"
+assert_contains "$out" "stamped by Cortex 9.0.0 and this is Cortex $ver, an older plugin" "status names both releases"
+assert_contains "$out" "$UPDATE_STEPS" "and the two commands, in order, then the reload"
+json="$(node "$STAMPS" "$NEWER" --templates "$NT" --json 2>&1)"
+older="$(node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); const o = j.olderPlugin; process.stdout.write(o ? `${o.stamped} ${o.running} ${o.commands.join("|")}` : "null");' <<< "$json")"
+assert_eq "9.0.0 $ver claude plugin marketplace update cortex|claude plugin update cortex@cortex" "$older" "--json carries both releases and both commands"
+assert_contains "$json" "$UPDATE_STEPS" "and the same sentence"
+assert_eq "update" "$(json_state "$json" .claude/agents/verifier.md)" "the hazard: to this plugin, the untouched file looks like an update"
+
+refusal 1 "an older plugin" "update on an older plugin is refused" -- node "$STAMPS" update "$NEWER" --templates "$NT"
+refusal 1 "Nothing was written" "all of it, with nothing written" -- node "$STAMPS" update "$NEWER" --templates "$NT"
+refusal 1 "$UPDATE_STEPS" "and the refusal says how to update" -- node "$STAMPS" update "$NEWER" .claude/agents/verifier.md --templates "$NT"
+assert_eq "$verifier_before" "$(cat "$NEWER/.claude/agents/verifier.md")" "the file a newer Cortex stamped is untouched"
+assert_eq "$record_before" "$(cat "$NEWER/.cortex/stamps.json")" "and so is the record"
+assert_eq "" "$(git -C "$NEWER" status --porcelain -uall)" "nothing git can see changed"
+
+out="$(node "$STAMPS" diff "$NEWER" .claude/agents/verifier.md --templates "$NT" 2>&1)"
+assert_contains "$out" "an older plugin" "diff says its comparison is against an older template"
+
+out="$(node "$REPO_ROOT/index/cortex-next.mjs" "$NEWER" 2>&1)"
+assert_contains "$out" "Update the Cortex plugin" "cortex-next asks for the plugin update"
+assert_contains "$out" "$UPDATE_STEPS" "with the same two commands"
+assert_contains "$out" "claude plugin marketplace update cortex && claude plugin update cortex@cortex" "as the command to copy"
+
+# The same release: nothing to say.
+EQ="$WORK/same-release"
+mkrepo "$EQ"
+cp "$REPO_ROOT/templates/loop/REVIEW.md" "$EQ/REVIEW.md"
+node "$STAMPS" record "$EQ" REVIEW.md loop/REVIEW.md >/dev/null 2>&1
+out="$(node "$STAMPS" "$EQ" 2>&1)"
+assert_not_contains "$out" "older plugin" "a record this release wrote raises no warning"
+assert_contains "$(node "$STAMPS" "$EQ" --json 2>&1)" '"olderPlugin": null' "--json says null"
 
 # --- adoption: a repo /cortex stamped before the record existed -----------------------------------------
 #
@@ -362,6 +417,8 @@ states="$(node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); 
 assert_eq "conflict null" "$states" "every adopted file is conflict, and no release is claimed for them"
 out="$(node "$STAMPS" "$OLD" 2>&1)"
 assert_contains "$out" "adopted, release unknown" "status says what is not known rather than inventing a version"
+assert_not_contains "$out" "older plugin" "and a record no known release wrote is never newer than this one"
+assert_contains "$json" '"olderPlugin": null' "--json agrees"
 
 out="$(node "$STAMPS" update "$OLD" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "update on adopted files is not an error"

@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice, planUpdates,
-  readStamps, recordStamp, stampDiff, stampStatus, stampsIgnoreRule, writeStamps,
+  PLUGIN_UPDATE_COMMANDS, STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice,
+  olderPlugin, planUpdates, readStamps, recordStamp, runningCortex, stampDiff, stampStatus, stampsIgnoreRule, writeStamps,
 } from "../lib/stamps.mjs";
 import { LOOP_STAMPS } from "../lib/loop.mjs";
 import { lineDiff } from "../lib/linediff.mjs";
@@ -29,6 +29,8 @@ function world({ files = {}, templates = {} } = {}) {
   return { repoRoot, templatesDir, put: (rel, body) => put(repoRoot, rel, body), putTemplate: (rel, body) => put(templatesDir, rel, body) };
 }
 
+// The Cortex running an update — the release `stamped()` records with, so no test below is an older plugin by accident.
+const RUNNING = "2.40.0";
 const TPL = "# Review\n\nAt most {{NIT_CAP}} suggestions.\n";
 const OUT = "# Review\n\nAt most 3 suggestions.\n";
 
@@ -441,7 +443,7 @@ test("a template change under an untouched file it cannot re-render is review, n
 test("an update re-renders the new template with the recorded values", () => {
   const w = stamped();
   w.putTemplate("loop/REVIEW.md", TPL + "\nNew rule, cap {{NIT_CAP}}.\n");
-  const plan = planUpdates({ repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
   assert.deepEqual(plan.refused, []);
   assert.deepEqual(plan.updates.map((u) => u.path), ["REVIEW.md"]);
   assert.equal(plan.updates[0].text, OUT + "\nNew rule, cap 3.\n");
@@ -463,7 +465,7 @@ test("an update plans nothing for a file in any other state", () => {
   record.files["ret.md"].template = "gone.md"; // a template this Cortex does not ship
   const states = Object.fromEntries(stateOf(w, record).map((e) => [e.path, e.state]));
   assert.deepEqual(states, { "cur.md": "current", "ed.md": "edited", "con.md": "conflict", "rev.md": "review", "ret.md": "retired", "mis.md": "missing" });
-  const plan = planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
   assert.deepEqual(plan.updates, []);
   assert.deepEqual(plan.refused, [], "states that are not update are not refusals either — they are simply not planned");
 });
@@ -471,7 +473,7 @@ test("an update plans nothing for a file in any other state", () => {
 test("a new template placeholder with no recorded value is refused, not left in the file", () => {
   const w = stamped();
   w.putTemplate("loop/REVIEW.md", TPL + "Owner: {{OWNER}}\n");
-  const plan = planUpdates({ repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
   assert.deepEqual(plan.updates, []);
   assert.equal(plan.refused.length, 1);
   assert.match(plan.refused[0].why, /\{\{OWNER\}\}/);
@@ -482,7 +484,7 @@ test("a placeholder the file kept on purpose is kept through an update", () => {
   const w = world({ files: { "intent/TEMPLATE.md": tpl }, templates: { "loop/intent.md": tpl } });
   const record = recordStamp(null, { path: "intent/TEMPLATE.md", template: "loop/intent.md", version: "2.40.0", templateText: tpl, fileText: tpl });
   w.putTemplate("loop/intent.md", tpl + "Status: draft\n");
-  const plan = planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
   assert.deepEqual(plan.refused, []);
   assert.equal(plan.updates[0].text, tpl + "Status: draft\n");
 });
@@ -492,15 +494,83 @@ test("an update limited to named paths plans only those", () => {
   let record = recordStamp(null, { path: "a.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText: OUT, values: { NIT_CAP: "3" } });
   record = recordStamp(record, { path: "b.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText: OUT, values: { NIT_CAP: "3" } });
   w.putTemplate("t.md", TPL + "x\n");
-  const plan = planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir, paths: ["b.md"] });
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir, paths: ["b.md"] });
   assert.deepEqual(plan.updates.map((u) => u.path), ["b.md"]);
   // A path named on purpose that is not safe to update is a refusal the caller must hear.
   w.put("a.md", OUT + "ours\n");
-  const named = planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir, paths: ["a.md", "zzz.md"] });
+  const named = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir, paths: ["a.md", "zzz.md"] });
   assert.deepEqual(named.updates, []);
   assert.deepEqual(named.refused.map((r) => r.path), ["a.md", "zzz.md"]);
   assert.match(named.refused[0].why, /conflict/);
   assert.match(named.refused[1].why, /not in the record/);
+});
+
+// --- an older plugin (spec S5) --------------------------------------------------------------------
+
+const UPDATE_STEPS = /`claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`, then `\/reload-plugins` or a new session/;
+
+test("a record a newer Cortex wrote names the older plugin and the two commands that update it", () => {
+  const w = stamped(); // written by 2.40.0
+  const o = olderPlugin(w.record, "2.39.1");
+  assert.deepEqual(o.commands, ["claude plugin marketplace update cortex", "claude plugin update cortex@cortex"]);
+  assert.deepEqual(PLUGIN_UPDATE_COMMANDS, o.commands);
+  assert.equal(o.stamped, "2.40.0");
+  assert.equal(o.running, "2.39.1");
+  assert.match(o.advice, /stamped by Cortex 2\.40\.0/);
+  assert.match(o.advice, /this is Cortex 2\.39\.1/);
+  assert.match(o.advice, UPDATE_STEPS);
+});
+
+test("versions compare as numbers in every place, never as text", () => {
+  const rec = (cortex) => ({ ...stamped().record, cortex });
+  assert.ok(olderPlugin(rec("2.10.0"), "2.9.9"), "minor 10 is newer than 9");
+  assert.ok(olderPlugin(rec("3.0.0"), "2.99.99"), "major first");
+  assert.ok(olderPlugin(rec("2.40.10"), "2.40.9"), "patch 10 is newer than 9");
+  assert.equal(olderPlugin(rec("2.9.9"), "2.10.0"), null, "text order would call 2.9.9 newer");
+  assert.equal(olderPlugin(rec("2.40.0"), "2.41.0"), null, "a newer plugin is not older");
+});
+
+test("equal versions, an adopted record's unknown version, no record, and an unknown running version never warn", () => {
+  const w = stamped();
+  assert.equal(olderPlugin(w.record, "2.40.0"), null);
+  assert.equal(olderPlugin(adoptStamp(null, { path: "REVIEW.md", template: "loop/REVIEW.md" }), "0.0.1"), null);
+  assert.equal(olderPlugin(null, "2.40.0"), null);
+  assert.equal(olderPlugin(w.record, null), null, "nothing is claimed about a version this Cortex could not read");
+});
+
+test("an older plugin plans no update at all, even of a file that would be safe, and says why once", () => {
+  const w = world({ files: { "a.md": OUT, "b.md": OUT }, templates: { "t.md": TPL } });
+  let record = recordStamp(null, { path: "a.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText: OUT, values: { NIT_CAP: "3" } });
+  record = recordStamp(record, { path: "b.md", template: "t.md", version: "2.40.0", templateText: TPL, fileText: OUT, values: { NIT_CAP: "3" } });
+  // What an older release looks like from here: its templates differ from the ones recorded, so every
+  // untouched file reads as `update` — and applying it would put the older template back.
+  w.putTemplate("t.md", "# Review\n");
+  assert.deepEqual(stateOf(w, record).map((e) => e.state), ["update", "update"]);
+  for (const paths of [null, ["a.md"]]) {
+    const plan = planUpdates({ running: "2.39.1", repoRoot: w.repoRoot, record, templatesDir: w.templatesDir, paths });
+    assert.deepEqual(plan.updates, [], "all-or-nothing: nothing is planned");
+    assert.deepEqual(plan.refused, [{ path: STAMPS_REL, why: olderPlugin(record, "2.39.1").advice }]);
+  }
+  // The same repo, the same release: the plan is back.
+  const same = planUpdates({ running: "2.40.0", repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
+  assert.deepEqual(same.updates.map((u) => u.path), ["a.md", "b.md"]);
+});
+
+test("the running Cortex is the release in the VERSION file this code ships beside", () => {
+  const v = readFileSync(new URL("../../VERSION", import.meta.url), "utf8").trim();
+  assert.match(v, /^\d+\.\d+\.\d+$/);
+  assert.equal(runningCortex(), v);
+});
+
+test("planUpdates will not run without knowing which Cortex is asking", () => {
+  const w = stamped();
+  for (const running of [undefined, null, "2.40", "v2.40.0"]) {
+    assert.throws(
+      () => planUpdates({ running, repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir }),
+      /running must be an x\.y\.z version/,
+      String(running),
+    );
+  }
 });
 
 // --- the diff a per-file question shows ---------------------------------------------------------
@@ -564,7 +634,7 @@ test("an adopted file is recorded with nothing known, and reads as conflict — 
   });
   // Even a file identical to the template: which release wrote it is unknown, so it is asked about.
   assert.equal(stateOf(w, record)[0].state, "conflict");
-  assert.deepEqual(planUpdates({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir }).updates, []);
+  assert.deepEqual(planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir }).updates, []);
   // It survives the round trip through the committed file.
   writeStamps(w.repoRoot, record);
   assert.deepEqual(readStamps(w.repoRoot), record);

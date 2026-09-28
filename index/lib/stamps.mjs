@@ -16,6 +16,7 @@
 //         "version": "2.40.0",                   the Cortex that wrote THIS entry
 //         "templateSha256": "…",                 the template source as it was then
 //         "fileSha256": "…",                     the rendered file as written
+//         "renderable": true,                    the template and values reproduce that file
 //         "values": { "NIT_CAP": "3" } } } }     the placeholder values it was rendered with
 //
 // Two comparisons decide every state (spec S3), and no model is asked:
@@ -23,10 +24,21 @@
 //   file now = as written?  template now = as then?
 //        yes                     yes                  current
 //        yes                     no                   update    — safe to re-render from `values`
+//        yes                     no, not renderable   review    — the file holds more than its values
 //        no                      no                   conflict  — both moved; show both, ask
 //        no                      yes                  edited    — the team's; say nothing
 //   (file gone)                                       missing
 //   (template gone)                                   retired   — nothing to render; never an update
+//
+// `renderable` is the reproducibility guard, and `recordStamp` sets it, so no caller can skip it:
+// rendering the template with the recorded values (`placeholders.mjs`) must give back the file as
+// written, under the hash's rule. /cortex fills some templates partly by hand — a CI setup block,
+// a formatter line per detected formatter — and a file whose values do not account for every line
+// it holds would lose those lines on a re-render. Such a file is still recorded (its edits are
+// still worth tracking), but a template change under it is `review`, never `update`: a caller that
+// auto-applies `update` can then never drop content the model wrote. `review` is a state rather
+// than a flag on `update` for exactly that reason — a flag is a thing every caller must remember.
+// The field is part of format 1, which no release has shipped yet, so adding it bumped nothing.
 //
 // `retired` is the sixth answer, for a template this Cortex no longer ships. Calling it `current`
 // would claim a comparison nobody made; `update` would offer a render with no source; `edited` would
@@ -46,8 +58,9 @@
 // silently. Losing that difference on an update costs nothing a formatter does not put back.
 // Nothing else is normalised: a trailing space, a blank line, a BOM are all edits.
 //
-// Pure apart from reading files; `writeStamps` is the one write, and it touches only
-// `.cortex/stamps.json`. Deterministic: no clock, no network, sorted output, no locale compare. The
+// `planUpdates` says what an update would write and `stampDiff` what a per-file question shows; both
+// only read. Pure apart from reading files; `writeStamps` is the one write, and it touches only
+// `.cortex/stamps.json` — the CLI writes the updated files themselves. Deterministic: no clock, no network, sorted output, no locale compare. The
 // one outside question is `git check-ignore` (`stampsIgnoreRule`), as in `skill-drift.mjs`: the
 // record only works if it is committed, and the repo's own ignore rules are the witness for that.
 // Not yet here, by the plan: the older-plugin warning (step 5) and adoption of repos stamped before
@@ -57,15 +70,17 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join, posix } from "node:path";
+import { lineDiff } from "./linediff.mjs";
+import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
 export const STAMPS_REL = ".cortex/stamps.json";
 export const STAMPS_FORMAT = 1;
 
-export const STATES = ["current", "update", "conflict", "edited", "missing", "retired"];
+export const STATES = ["current", "update", "review", "conflict", "edited", "missing", "retired"];
 
 const VERSION = /^(\d+)\.(\d+)\.(\d+)$/;
 const SHA = /^[0-9a-f]{64}$/;
-const ENTRY_KEYS = ["template", "version", "templateSha256", "fileSha256", "values"];
+const ENTRY_KEYS = ["template", "version", "templateSha256", "fileSha256", "renderable", "values"];
 const RECORD_KEYS = ["format", "cortex", "files"];
 
 // --- hashing -------------------------------------------------------------------------------------
@@ -129,6 +144,7 @@ function recordProblems(doc) {
     for (const k of ["templateSha256", "fileSha256"]) {
       if (e[k] !== null && !(typeof e[k] === "string" && SHA.test(e[k]))) bad(`${k} must be a sha256 hex digest or null`);
     }
+    if (typeof e.renderable !== "boolean") bad("renderable must be true or false");
     if (!e.values || typeof e.values !== "object" || Array.isArray(e.values)) bad("values must be an object");
     else for (const [k, v] of Object.entries(e.values)) if (typeof v !== "string") bad(`values["${k}"] must be a string`);
   }
@@ -145,6 +161,7 @@ function canonical(doc) {
       version: e.version,
       templateSha256: e.templateSha256,
       fileSha256: e.fileSha256,
+      renderable: e.renderable,
       values: sortedValues(e.values),
     };
   }
@@ -221,6 +238,7 @@ export function recordStamp(record, { path, template, version, templateText, fil
         version,
         templateSha256: hashText(templateText),
         fileSha256: hashText(fileText),
+        renderable: hashText(renderTemplate(templateText, values)) === hashText(fileText),
         values: { ...values },
       },
     },
@@ -273,8 +291,24 @@ export function stampsIgnoreRule(repoRoot, { git = defaultGit(repoRoot) } = {}) 
   if (r.status !== 0) return null;
   const m = /^(.*):(\d+):(.*)\t/.exec(r.stdout.split(/\r?\n/)[0] ?? "");
   if (!m || m[3].startsWith("!")) return null;
-  const dirIgnored = git(["check-ignore", "-q", ".cortex"]).status === 0;
+  // git answers "is .cortex excluded" correctly only when .cortex exists: for a path that is not
+  // there it cannot know it is a directory, so a directory-only rule (`.cortex/`) does not match it —
+  // and asking about `.cortex/` instead makes `.cortex/*` match too. A first install asks before the
+  // directory exists, so then the matched rule itself is read: a directory-only pattern whose name
+  // matches `.cortex` excludes the directory.
+  const dirIgnored =
+    git(["check-ignore", "-q", ".cortex"]).status === 0 ||
+    (!existsSync(join(repoRoot, ".cortex")) && dirOnlyRuleMatchesCortex(m[3]));
   return { source: m[1], line: Number(m[2]), pattern: m[3], dirIgnored };
+}
+
+/** Does a directory-only ignore pattern (`name/`) name the top-level `.cortex` directory? */
+function dirOnlyRuleMatchesCortex(pattern) {
+  if (!pattern.endsWith("/")) return false;
+  const stem = pattern.slice(0, -1).replace(/^\//, "").replace(/^\*\*\//, "");
+  if (stem.includes("/")) return false;
+  const re = new RegExp("^" + stem.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]") + "$");
+  return re.test(".cortex");
 }
 
 /**
@@ -337,9 +371,79 @@ export function stampStatus({ repoRoot, record, templatesDir }) {
       // A `null` (unknown) recorded hash equals no digest, so it always reads as changed.
       const fileSame = hashText(fileText) === e.fileSha256;
       const templateSame = hashText(templateText) === e.templateSha256;
-      state = fileSame ? (templateSame ? "current" : "update") : (templateSame ? "edited" : "conflict");
+      state = fileSame
+        ? (templateSame ? "current" : e.renderable ? "update" : "review")
+        : (templateSame ? "edited" : "conflict");
     }
-    out.push({ path, template: e.template, version: e.version, state });
+    out.push({ path, template: e.template, version: e.version, renderable: e.renderable, state });
   }
   return out;
+}
+
+// --- update and diff -----------------------------------------------------------------------------
+
+/**
+ * What an update would write: `{ updates: [{ path, template, templateText, text, values }], refused:
+ * [{ path, why }] }`. Reads only; the caller writes each `text` and records it again.
+ *
+ * Only a file in state `update` is ever planned. With `paths`, only those, and a named path that is
+ * not in the record or not in state `update` is a refusal the caller must report — someone asked for
+ * it by name. Without `paths`, every `update` file, and the other states are simply not planned.
+ *
+ * One more refusal: a new template can add a placeholder no recorded value fills. Rendering would
+ * leave `{{OWNER}}` in the file, so that file is refused, naming it. A placeholder the file as written
+ * still holds (it is untouched, so it is the file as written) was kept on purpose, as
+ * `intent/TEMPLATE.md` keeps `{{TITLE}}`, and stays.
+ */
+export function planUpdates({ repoRoot, record, templatesDir, paths = null }) {
+  const status = stampStatus({ repoRoot, record, templatesDir }) ?? [];
+  const byPath = new Map(status.map((s) => [s.path, s]));
+  const doc = canonical(record);
+  const updates = [];
+  const refused = [];
+
+  let targets;
+  if (paths) {
+    targets = [];
+    for (const p of paths) {
+      const s = byPath.get(p);
+      if (!s) refused.push({ path: p, why: `${p} is not in the record` });
+      else if (s.state !== "update") refused.push({ path: p, why: `${p} is ${s.state}, not update — it is never rewritten without a per-file yes` });
+      else targets.push(s);
+    }
+  } else {
+    targets = status.filter((s) => s.state === "update");
+  }
+
+  for (const s of targets) {
+    const e = doc.files[s.path];
+    const templateText = readFileSync(join(templatesDir, ...e.template.split("/")), "utf8");
+    const fileNow = readFileSync(join(repoRoot, ...s.path.split("/")), "utf8");
+    const kept = new Set(placeholderMatches(fileNow).map((m) => m.name));
+    const unvalued = unfilledPlaceholders(templateText, e.values).filter((n) => !kept.has(n));
+    if (unvalued.length) {
+      refused.push({
+        path: s.path,
+        why: `the new ${e.template} adds ${unvalued.map((n) => `{{${n}}}`).join(", ")}, which no recorded value fills — stamp it again with a value`,
+      });
+      continue;
+    }
+    updates.push({ path: s.path, template: e.template, templateText, text: renderTemplate(templateText, e.values), values: e.values });
+  }
+  return { updates, refused };
+}
+
+/**
+ * The per-file question's evidence: `{ path, state, diff }`, where `diff` runs from the file now to
+ * the current template rendered with the recorded values — what an update would change. `diff` is
+ * `null` for a retired template (nothing to render). `null` overall when the record has no `path`.
+ */
+export function stampDiff({ repoRoot, record, templatesDir, path }) {
+  const s = (stampStatus({ repoRoot, record, templatesDir }) ?? []).find((x) => x.path === path);
+  if (!s) return null;
+  const e = canonical(record).files[path];
+  const templateText = readIfFile(join(templatesDir, ...e.template.split("/")));
+  if (templateText === null) return { path, state: s.state, diff: null };
+  const fileText = readIfFile(join(repoRoot, ...path.split("/"))) ?? "";
+  return { path, state: s.state, diff: lineDiff(fileText, renderTemplate(templateText, e.values)) };
 }

@@ -105,6 +105,31 @@ test("/cortex says the indexer's first run also edits .gitignore", () => {
   assert.match(body, /\.gitignore/);
 });
 
+test("/cortex renders and records every whole-file loop file, and updates only through the CLI", () => {
+  // The stamp record is only as good as the step that writes it, and that step is prose: a model
+  // following skills/cortex/SKILL.md. So the prose is pinned — render, record after formatting,
+  // update and diff through cortex-stamps, the two shared-file templates left out on purpose, and
+  // the .gitignore fix written only when the user picks it.
+  const body = read("skills/cortex/SKILL.md");
+  for (const cmd of ["render", "record", "update", "diff"]) {
+    assert.match(body, new RegExp(`cortex-stamps\\.mjs"? ${cmd}\\b`), `/cortex never runs cortex-stamps ${cmd}`);
+  }
+  assert.match(body, /cortex-stamps\.mjs"? \. --json/, "/cortex reads the stamp status on a re-run");
+  assert.match(body, /`verification\.md`[^\n]*`settings\.hooks\.json`[^\n]*not recorded|not recorded[^\n]*`verification\.md`/i,
+    "/cortex says the appended and merged templates stay out of the record");
+  assert.match(body, /never re-render[^.\n]*yourself/i, "/cortex never re-renders a file by hand");
+  assert.match(body, /\.gitignore[^.\n]*only (?:if|when)[^.\n]*pick/i, "the record's .gitignore fix is written only when picked");
+});
+
+test("the placeholder check and the renderer share one definition of a placeholder", () => {
+  // tools/cortex-placeholders.mjs says which placeholders a stamped file still holds; the renderer in
+  // index/lib/placeholders.mjs fills them on an update. A private copy of the rule in either would
+  // agree today and disagree the first time one of them learns something.
+  const tool = read("tools/cortex-placeholders.mjs");
+  assert.match(tool, /import \{[^}]*placeholdersOf[^}]*\} from "\.\.\/index\/lib\/placeholders\.mjs"/);
+  assert.doesNotMatch(tool, /function placeholdersOf|const placeholdersOf/, "the tool keeps no copy of its own");
+});
+
 test("a placeholder in a prose template is a phrase, never a bare identifier", () => {
   // `tools/cortex-placeholders.mjs` reports a hit only for a template's exact placeholder text. That
   // is zero false hits only if no placeholder is also something a repo writes on purpose — and

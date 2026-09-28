@@ -435,6 +435,13 @@ fixtures and not `mkdtemp` directories is that git is what decides the answer: `
   document the change just made wrong.
 - `cortex-routes.mjs` — "nothing reaches this endpoint" is a sentence someone deletes code on, so
   it must stay a floor, and a workspace must be read without writing into any repo of it.
+- `cortex-stamps.mjs` — `record` writes `.cortex/stamps.json` and nothing else, and status names the
+  files a re-run may rewrite. The record only works if it is committed, so an ignored one is warned
+  about, with the rule that hides it (`git check-ignore -v`) and a fix that works on real git: under
+  a `.cortex/` rule a bare `!.cortex/stamps.json` re-includes nothing, since git cannot re-include a
+  file inside an excluded directory — the advice is `.cortex/*` plus the negation. A `!` match
+  exits 0 from `check-ignore -v` too, so the exit code alone would warn about the fix itself. The
+  user's `.gitignore` is never edited here.
 - `cortex-view.mjs` — it writes into a target repo, so *where* it writes is the invariant, and its
   determinism is only observable from outside. A first run did once disagree with the second,
   because the page reported on its own existence.

@@ -47,13 +47,16 @@
 // Nothing else is normalised: a trailing space, a blank line, a BOM are all edits.
 //
 // Pure apart from reading files; `writeStamps` is the one write, and it touches only
-// `.cortex/stamps.json`. Deterministic: no clock, no network, sorted output, no locale compare.
+// `.cortex/stamps.json`. Deterministic: no clock, no network, sorted output, no locale compare. The
+// one outside question is `git check-ignore` (`stampsIgnoreRule`), as in `skill-drift.mjs`: the
+// record only works if it is committed, and the repo's own ignore rules are the witness for that.
 // Not yet here, by the plan: the older-plugin warning (step 5) and adoption of repos stamped before
 // the record existed (step 4) — which is what a `null` hash is shaped for.
 
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 
 export const STAMPS_REL = ".cortex/stamps.json";
 export const STAMPS_FORMAT = 1;
@@ -84,6 +87,9 @@ function relPathProblem(p) {
   if (p.split("/").some((s) => s === "" || s === "." || s === "..")) return "must not contain empty, . or .. segments";
   return null;
 }
+
+/** Why `p` cannot be a recorded path or template id, or `null` — for a CLI to refuse before reading. */
+export const stampPathProblem = relPathProblem;
 
 function newer(a, b) {
   const x = VERSION.exec(a).slice(1).map(Number);
@@ -239,6 +245,57 @@ export function writeStamps(repoRoot, record) {
   writeFileSync(tmp, text);
   renameSync(tmp, file); // a half-written record would read as damaged, which blocks every re-run
   return file;
+}
+
+// --- is the record hidden from git? --------------------------------------------------------------
+
+function defaultGit(repoRoot) {
+  return (args) => {
+    const r = spawnSync("git", args, { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return { status: r.status, stdout: r.stdout ?? "" };
+  };
+}
+
+/**
+ * The ignore rule that keeps `.cortex/stamps.json` out of git, or `null` when none does.
+ *
+ * Returns `{ source, line, pattern, dirIgnored }`. `dirIgnored` says the rule excludes `.cortex`
+ * itself, which changes the fix: git cannot re-include a file inside an excluded directory, so a
+ * bare `!.cortex/stamps.json` under a `.cortex/` rule does nothing. Checked on real git, not assumed.
+ *
+ * Three answers are `null`, each deliberately. A tracked file is committed whatever the rules say
+ * (git answers "not ignored" for it). Outside git there is no commit to miss. And a `!` pattern is
+ * git naming the rule that RE-INCLUDES the file: `check-ignore -v` exits 0 for it too, so reading the
+ * exit code alone would warn about the very fix this module recommends.
+ */
+export function stampsIgnoreRule(repoRoot, { git = defaultGit(repoRoot) } = {}) {
+  const r = git(["check-ignore", "-v", STAMPS_REL]);
+  if (r.status !== 0) return null;
+  const m = /^(.*):(\d+):(.*)\t/.exec(r.stdout.split(/\r?\n/)[0] ?? "");
+  if (!m || m[3].startsWith("!")) return null;
+  const dirIgnored = git(["check-ignore", "-q", ".cortex"]).status === 0;
+  return { source: m[1], line: Number(m[2]), pattern: m[3], dirIgnored };
+}
+
+/**
+ * The sentences a CLI prints for an ignored record: what hides it, what that costs, and the fix that
+ * works for that rule. Never applied here — the user's ignore file is theirs, and editing it belongs
+ * to the consent-gated install.
+ */
+export function ignoreAdvice({ source, line, pattern, dirIgnored }) {
+  // A .gitignore's patterns are relative to its own directory, so the negation must be too. Every
+  // other source (`.git/info/exclude`, a global excludes file) is read from the repo root.
+  const inRepoGitignore = /(^|\/)\.gitignore$/.test(source) && !posix.isAbsolute(source) && !/^[A-Za-z]:/.test(source);
+  const base = inRepoGitignore ? posix.dirname(source) : ".";
+  const rel = base === "." ? STAMPS_REL : posix.relative(base, STAMPS_REL);
+  const head =
+    `${STAMPS_REL} is ignored by ${source}:${line} (\`${pattern}\`), so it will not be committed — ` +
+    "the team will not share it, and the next run elsewhere cannot tell what Cortex wrote here.";
+  const fix = dirIgnored
+    ? `Fix: that rule ignores the whole .cortex directory, and git cannot re-include a file inside an ` +
+      `ignored directory. In ${source}, change line ${line} to \`.cortex/*\` and add \`!${rel}\` after it.`
+    : `Fix: add \`!${rel}\` to ${source}, after line ${line}.`;
+  return `${head}\n${fix}\nNothing was changed in ${source}.`;
 }
 
 // --- status --------------------------------------------------------------------------------------

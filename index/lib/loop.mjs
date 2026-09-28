@@ -871,7 +871,9 @@ export const LOOP_ARTIFACTS = [
       "it adds the marketplace (GitHub marinvch/Cortex) and cortex@cortex, keeps every other key, and " +
       "refuses a file that does not parse. Say in the offer what committing it does and does not do: " +
       "once a teammate trusts the folder Claude Code registers the marketplace, and the docs still have " +
-      "each teammate install the plugin once — claude plugin install cortex@cortex --scope project.",
+      "each teammate install the plugin once — claude plugin install cortex@cortex --scope project. " +
+      "Auto-update is a separate yes/no, unticked by default: only a yes adds --auto-update, which sets " +
+      "\"autoUpdate\": true so every teammate's Claude Code pulls new Cortex releases in the background.",
   },
 ];
 

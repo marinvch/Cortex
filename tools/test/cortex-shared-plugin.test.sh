@@ -141,6 +141,44 @@ assert_eq "0" "$rc" "--write on a repo with no .claude/ exits 0"
 assert_eq "?? .claude/settings.json" "$(git -C "$N" status --porcelain -uall)" "and creates exactly .claude/settings.json"
 want="$(printf '{\n  "extraKnownMarketplaces": {\n    "cortex": {\n      "source": {\n        "source": "github",\n        "repo": "marinvch/Cortex"\n      }\n    }\n  },\n  "enabledPlugins": {\n    "cortex@cortex": true\n  }\n}')"
 assert_eq "$want" "$(cat "$N/.claude/settings.json")" "holding the two documented entries and nothing else"
+assert_contains "$out" 'No "autoUpdate" written' "without --auto-update, the output says auto-update was not written"
+
+# --- auto-update: its own choice, off without the flag ---------------------------------------------------
+# settings-reference, extraKnownMarketplaces: "an optional `autoUpdate` Boolean". True makes every
+# teammate's Claude Code update the plugin in the background; third-party marketplaces default to false.
+
+assert_contains "$(node "$SP" "$P" 2>&1)" "off unless you add --auto-update" "status offers auto-update as a separate choice"
+
+A="$WORK/auto"
+mkrepo "$A"
+mkdir -p "$A/.claude"
+cp "$WORK/team-before.json" "$A/.claude/settings.json"
+( cd "$A" || exit 1; git add -A && git commit -qm "the team's settings" )
+out="$(node "$SP" "$A" --write --auto-update 2>&1)"; rc=$?
+assert_eq "0" "$rc" "--write --auto-update exits 0"
+assert_contains "$out" 'Set "autoUpdate": true' "and says it set auto-update"
+assert_contains "$out" "pulls new Cortex releases in the background" "and what that means for every teammate"
+cortex_entry() { node -e 'process.stdout.write(JSON.stringify(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).extraKnownMarketplaces.cortex))' "$1"; }
+assert_eq '{"source":{"source":"github","repo":"marinvch/Cortex"},"autoUpdate":true}' "$(cortex_entry "$A/.claude/settings.json")" "the new cortex entry carries autoUpdate: true"
+same="$(node -e '
+  const [a, b] = [0, 1].map((i) => JSON.parse(require("fs").readFileSync(process.argv[1 + i], "utf8")));
+  delete b.extraKnownMarketplaces.cortex; delete b.enabledPlugins["cortex@cortex"];
+  process.stdout.write(JSON.stringify(a) === JSON.stringify(b) ? "same" : "DIFFERENT");
+' "$WORK/team-before.json" "$A/.claude/settings.json")"
+assert_eq "same" "$same" "and every other key is still the team's"
+auto_after="$(cat "$A/.claude/settings.json")"
+out="$(node "$SP" "$A" --write --auto-update 2>&1)"
+assert_contains "$out" "Nothing to add" "a second --write --auto-update has nothing to add"
+assert_contains "$out" "autoUpdate is true; Cortex never changes it" "and says the entry's autoUpdate was kept"
+assert_eq "$auto_after" "$(cat "$A/.claude/settings.json")" "and writes not one byte"
+
+# An entry already there keeps its autoUpdate, whatever the flag says — and the output says so.
+printf '{\n  "extraKnownMarketplaces": {\n    "cortex": {\n      "source": { "source": "github", "repo": "marinvch/Cortex" },\n      "autoUpdate": false\n    }\n  }\n}\n' > "$A/.claude/settings.json"
+out="$(node "$SP" "$A" --write --auto-update 2>&1)"
+assert_eq '{"source":{"source":"github","repo":"marinvch/Cortex"},"autoUpdate":false}' "$(cortex_entry "$A/.claude/settings.json")" "an existing autoUpdate: false stays false under --auto-update"
+assert_contains "$out" "autoUpdate is false; Cortex never changes it" "and --write says it was left alone"
+assert_contains "$(node "$SP" "$A" 2>&1)" "autoUpdate is false; Cortex never changes it" "and so does status"
+assert_contains "$(node "$SP" "$A" --json 2>&1)" '"autoUpdate": false' "and --json reports it"
 
 # --- a file that does not parse --------------------------------------------------------------------------
 

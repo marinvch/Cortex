@@ -246,3 +246,40 @@ assert_eq "1" "$rc" "--depth with --against is refused, not silently ignored"
 
 assert_eq "$before" "$(git -C "$WORK/proj" status --porcelain)" "the comparison writes nothing into the repo"
 
+
+# --- --size: single or team, recommended and never decided (spec T2) -------------------------------
+#
+# The sentence a developer acts on is the recommendation line, so the two things it must carry are
+# pinned here on an index built from real git: that the lines are provisional, and that the choice
+# is theirs. A file the index cannot resolve must never come back "single" — that would be the
+# confident small answer from a signal that never ran. The thresholds themselves are pinned in
+# index/test/sizing.test.mjs, from the constant, so moving one does not break this file.
+
+fixture
+( cd "$WORK/proj" && printf 'class Main\n' > src/Main.kt && git add src/Main.kt && git commit -qm kt \
+  && node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1 )
+before="$(git -C "$WORK/proj" status --porcelain)"
+
+out="$(run src/jobs.js --size)"; rc=$?
+assert_eq "0" "$rc" "a recommendation is an answer"
+assert_contains "$out" "Recommendation: single (provisional)" "a leaf file with no dependents reads single, marked provisional"
+assert_contains "$out" "You choose" "and the choice is left with the developer"
+assert_contains "$out" "At least 0 production files depend on these" "each signal is a sentence with its number, as a floor"
+
+out="$(run src/Main.kt --size)"
+assert_contains "$out" "Recommendation: none" "a file in a language Cortex cannot resolve gets no recommendation"
+assert_contains "$out" "not small, unseen" "and says it is blind rather than small"
+assert_not_contains "$out" "Recommendation: single" "never single"
+
+( cd "$WORK/proj" && printf 'export const q = 3;\n' > src/db.js )
+out="$(run --staged --size --json)"; rc=$?
+assert_eq "0" "$rc" "--size reads a --staged change set too"
+assert_contains "$out" '"recommendation"' "--json carries the recommendation"
+assert_contains "$out" '"provisional": true' "and the provisional flag"
+assert_contains "$out" '"directAtLeast"' "and names dependent counts as floors"
+( cd "$WORK/proj" && git checkout -q -- src/db.js )
+
+out="$(run src/db.js --size --depth 1)"; rc=$?
+assert_eq "1" "$rc" "--size with --depth is refused, not silently bounded"
+
+assert_eq "$before" "$(git -C "$WORK/proj" status --porcelain)" "--size writes nothing into the repo"

@@ -35,6 +35,8 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --since HEAD~3       # what
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --staged --json      # machine-readable, for a ritual to walk
 ```
 
+`--size` answers "one agent or a team?" for the files a task will touch: `single`, `team` or no recommendation, with one numbered reason per signal. The lines are provisional and the developer chooses, so relay it as a recommendation, never a decision.
+
 `--depth N` bounds the walk when the radius is enormous; the output says it stopped.
 `--staged` falls back to unstaged files when nothing is staged, because someone mid-edit asking
 "what does this touch" means their working tree.

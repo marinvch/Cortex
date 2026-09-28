@@ -295,6 +295,16 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   repo without drift reads exactly as before. Validated on that repo: 12 findings, all real.
 - **`cortex-impact.mjs` reads the graph backwards** — who imports me, not what do I import — and
   every count it returns is a floor, named `atLeast` so a caller cannot print it as a total.
+- **`--size` recommends and never decides** (`lib/sizing.mjs`, agent-team spec T2). It is a
+  policy over `impactOf`, `layerKeyFor` and `UNRESOLVED_LANGUAGES`, and it recomputes none of
+  them. Its lines live in `SIZING_THRESHOLDS` alone. They are **provisional**: calibrated on four
+  repos' commit history, not measured against outcomes, and the eval harness (#407) is where they
+  get settled. Three choices in it are load-bearing. **Only non-test source counts toward areas.**
+  Counting tests, docs and config made a fix-plus-test two areas and every release four. **A
+  blind file is `null`, never `single`**, unless another signal crosses anyway. **No index is
+  `null` with the reason, never a default.** Its known gap is that `layerKeyFor` is coarse: all of
+  spring-petclinic's Java is one area and zustand's core is `src`, so a multi-file refactor inside
+  one area is sized by its dependents alone. zustand's store-API change reads `single`.
 - **`--against` reads one hop in both directions between two change sets, and nothing further**
   (`lib/overlap.mjs`, #408 v0). A two-hop chain is real coupling, but reporting it would turn every
   shared utility into a warning; the full radius is what the plain command is for. Three choices in

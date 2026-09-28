@@ -5,6 +5,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.40.0] — 2026-09-28
+
+Files `/cortex` wrote into a repo never changed again. A hook fixed in 2.39.0 and again in 2.39.1
+stayed broken in every repo stamped before the fix, and nothing said so. Now every stamped file is
+recorded with the release that wrote it, and a re-run says, per file, whether it is current, safe to
+update, edited by the team, or needs a look — and updates only what nobody touched and what renders
+back exactly. Repos stamped by an earlier Cortex adopt their files without a single rewrite. A
+teammate on an older plugin is told how to update and cannot roll files back.
+
+Validated by upgrading a private five-repo team workspace stamped by 2.39.0: 28 files adopted with
+nothing outside `.cortex/` written, every state reached, and taking today's `protected-paths.sh`
+closed a live Windows-path gap in two of the repos. The acceptance scenarios S1–S4 still pass.
+
+Skill quality is now measured, not assumed (#407): `/ship`, `/resume` and `/cortex-review` carry
+recorded eval baselines, and an edit that makes one worse cannot merge unnoticed. The first
+measurement found two weaknesses in the skills' own text, fixed here.
+
 ### Changed
 
 - **`/cortex-review` flagged ADR lines written in the present tense as stale, and `/resume` put
@@ -3683,6 +3700,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.40.0]: https://github.com/marinvch/Cortex/releases/tag/v2.40.0
 [2.39.1]: https://github.com/marinvch/Cortex/releases/tag/v2.39.1
 [2.39.0]: https://github.com/marinvch/Cortex/releases/tag/v2.39.0
 [2.38.0]: https://github.com/marinvch/Cortex/releases/tag/v2.38.0

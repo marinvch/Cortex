@@ -5,6 +5,22 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Added
+
+- **Role templates for the agent team, and nothing that stamps them yet.** `templates/team/` holds
+  five Claude Code subagents from the [agent-team design](docs/specs/2026-09-28-agent-team-design.md):
+  `architect`, `implementer`, `tester`, `reviewer` and `project-manager`. Each has one job and
+  only the tools the design's roster gives it. The Architect and the Reviewer have no edit tools.
+  Every body is filled from the repo's own state (the test and run commands, the ADR directory,
+  the scoped briefs, where tests and plans live), and `templates/team/README.md` lists each
+  placeholder with where `/cortex` finds its value. Every role cites a `path:line`, an ADR or a
+  command's output for each claim, and reads every `AGENTS.md` between the code it works on and
+  the root. The Reviewer keeps the verifier's rule of changing nothing, and `verifier.md` stays
+  as it is. The Tester's edits are limited to test files by instruction only; the hook that
+  enforces it is plan step 10. `/cortex` starts offering the team in step 14.
+  `index/test/team-templates.test.mjs` renders each role, commits it at `.claude/agents/`, and
+  expects no `claude-setup` finding.
+
 ## [2.40.0] — 2026-09-28
 
 Files `/cortex` wrote into a repo never changed again. A hook fixed in 2.39.0 and again in 2.39.1

@@ -437,6 +437,40 @@ Validated on superpowers, anthropics/skills and anthropics/claude-code; each fal
 there (a negated "not read-only", `[Title](URL)`, "explain the reasoning", unindented prose in a
 description) has a test.
 
+### The agents a repo already has — `lib/agents.mjs`
+
+Spec T6: before `/cortex` offers the agent team, each `.claude/agents/*.md` at the repo root is
+graded, mapped to one of the five roles in `templates/team/`, and given edits the developer confirms
+one agent at a time. `cortex-loop.mjs --json` carries it as `agents`.
+
+- **Reuse, never re-derive.** The agent list, the frontmatter reader, tool reading and the read-only
+  prose test are `claude-setup.mjs`'s. `subagentGrades` runs the checker's own rows one agent at a
+  time. The roster's tools and every sentence a proposal quotes are read from the role templates,
+  so a template change is a proposal change. Do not keep a second tools table here.
+- **Every mapping rule may only drop a candidate.** Candidates come from a role word in the name
+  and a job phrase in the description. They are removed by negation, by a sequencing clause ("use
+  after implementing"), by another agent's hyphenated name, by `<example>` dialogue, by a lens
+  (`security-`, `ux`, `docs`), by a job the roster lacks (`debugger`, `researcher`, `orchestrator`),
+  by missing edit tools for the two roles that write files, and by a name that names one role. Two
+  survivors or none is `null`, "unmapped — ask". A wrong mapping hides a role the repo lacks, since a
+  covered role is never offered, and pushes edits toward the wrong job.
+- **A description phrase is a verb or a job, never a bare role noun.** The templates themselves
+  say "before the Implementer starts". QA names both Tester and Reviewer, and only the description
+  chooses. A generic noun (`developer`, `dev`) names the Implementer only when nothing more specific
+  stands beside it. `engineer` never does: `prompt-engineer` and `release-train-engineer` were
+  mapped that way on real repos, and they are not.
+- **A proposal must be provable from the file and the roster, and names its line.** Edit tools on
+  the Architect or the Reviewer, no `tools:` line at all, a tool outside the roster (never an MCP
+  tool or TodoWrite, which are the repo's own tuning), a description that never says when to call
+  it, no citation rule, or a scoped `AGENTS.md` the agent never reads. A root `AGENTS.md` loaded
+  through CLAUDE.md, as an `@` import or a symlink, needs no line. `saysWhen` is generous on
+  purpose: only an absence is proposed. An unmapped agent gets no proposals.
+- Validated by hand on 83 agents in seven public repos (octez-manager, metaxy, spica, kapi-sprints,
+  a-safe-pulse, Heimdall, posthog). Two mappings are still wrong, and both are recoverable because
+  the developer confirms every mapping. octez-manager's `architect` is a pre-merge architecture
+  reviewer, and the name outranks a description with no job words. spica's `pr-review-analyst`
+  reviews other reviewers' comments. Mutation-checked: 32 guards, each breaking a test.
+
 ## Tests
 
 ```bash
@@ -477,6 +511,8 @@ fixtures and not `mkdtemp` directories is that git is what decides the answer: `
   the workspace harness's S4 overlap check on a two-repo workspace it builds.
 - `cortex-next.mjs` — a wrong "next", or a ✓ on a step nobody ran, walks the user past the step
   that writes their context layer.
+- `cortex-loop.mjs` — `/cortex` walks its JSON, and the agents section decides which team roles
+  are offered: a role it calls covered is never offered again.
 - `cortex-review.mjs` — the only thing that reads the context layer back, and its two honest
   failures are claiming a rule exists where there is no context layer, and staying quiet about a
   document the change just made wrong.

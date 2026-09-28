@@ -34,6 +34,24 @@ this project now versions independently of any package manager (see `VERSION`).
   cases. It also pins the hook-input reader as identical across `protected-paths.sh`,
   `format-changed.sh` and `test-paths.sh`, which are three copies with no parity test until now.
   Still templates only; `/cortex` stamps them in step 14.
+- **The agents a repo already has are graded, matched to a role, and given concrete edits (plan
+  step 11, spec T6).** `index/lib/agents.mjs` lists the repo's own `.claude/agents/*.md` and grades
+  each with the existing `claude-setup` checks, one file at a time. It maps each agent to
+  `architect`, `implementer`, `tester`, `reviewer` or `project-manager` from its name, the job its
+  description states and its tools. Every rule can only remove a candidate: a negated or
+  "use after …" phrase, another agent's hyphenated name, a lens specialist (`security-reviewer`,
+  `ux`), a job the roster lacks (`debugger`, `researcher`), no edit tools for a role that writes
+  files, and a name that says otherwise. Two roles surviving, or none, is "unmapped — ask", never
+  a guess. Cortex's own `verifier.md` maps to the Reviewer and is marked for the upgrade (T9). A
+  mapped agent gets proposals only where they are provable: edit tools on a role that changes
+  nothing, no `tools:` line (which inherits every tool), tools outside the role's roster, a
+  description that never says when to call it, no citation rule, or a scoped `AGENTS.md` it never
+  reads. Each proposal names the line and quotes the role template's own sentence, so there is no
+  second copy. A covered role is never offered again. `cortex-loop.mjs --json` carries it all as
+  `agents`, `null` without an index, and the human view lists it only when the repo has agents.
+  Validated by hand on 83 agents in seven public repos. That sweep drove seven of the rules. Two
+  mappings it still gets wrong are recorded in `index/AGENTS.md`. Mutation-checked: 32 guards
+  broken one at a time, and each one failed a test.
 
 ### Changed
 
@@ -46,6 +64,8 @@ this project now versions independently of any package manager (see `VERSION`).
   The sentence and the table now agree on four, each checked against its parity test: the slug,
   the clock, the Core plugin tier (`CORE_PLUGINS`), and the hook-input reader. The slug row also
   gains the `cortex-init.sh` copy that `mcp/test/slug-parity.test.js` already pins.
+- `readFrontmatter` reads a flow list broken over several lines (`tools:\n  [\n    Read,\n  ]`), the
+  way a formatter writes a long tool list. One real repo's agent read as if it granted no tool.
 
 ## [2.40.0] — 2026-09-28
 

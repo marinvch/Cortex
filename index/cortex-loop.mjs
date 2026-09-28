@@ -12,6 +12,7 @@
 // artifact a user is offered first, not merely how a report reads.
 
 import { loopPlan, loopLine, STAGES } from "./lib/loop.mjs";
+import { agentReport } from "./lib/agents.mjs";
 import { openTarget } from "./lib/open.mjs";
 
 // `index: "optional"` — the loop is mostly file facts, and the two rows that read the index
@@ -27,9 +28,14 @@ const { root, args, index } = openTarget(process.argv.slice(2), {
 });
 
 const plan = loopPlan(root, index);
+// The agents this repo already has — graded, mapped to a role, with proposed edits (spec T6). Here
+// rather than in a new command because /cortex already walks this JSON, and the team's offer (plan
+// step 14) is a loop row that needs exactly this: which roles are covered, which are gaps. `null`
+// without an index, like every other index-backed answer: the checker lists agents from it.
+const agents = agentReport(root, index);
 
 if (args.json) {
-  console.log(JSON.stringify(plan, null, 2));
+  console.log(JSON.stringify({ ...plan, agents }, null, 2));
   process.exit(0);
 }
 if (args.line) {
@@ -106,6 +112,38 @@ for (const stage of STAGES) {
 // forgot it, and the user has no way to tell that apart from a bug.
 if (plan.blocked.length) {
   console.log(dim(`${plan.blocked.length} artifact(s) are waiting on something earlier — they are listed above, not dropped.`));
+  console.log("");
+}
+
+// Only when the repo has agents, so a repo without any reads exactly as before. Every mapping is a
+// proposal the developer confirms; "unmapped — ask" is an answer, not a gap in this report.
+if (agents?.agents.length) {
+  const REASON = {
+    ambiguous: (m) => `unmapped — ask: it reads as ${m.remaining.join(" or ")}`,
+    "no-role-words": () => "unmapped — ask: nothing in its name or description names a role",
+    dropped: (m) => `unmapped — ask: ${m.dropped[0]?.why ?? "every candidate was ruled out"}`,
+    lens: (m) => `unmapped — a specialist: ${m.note}`,
+    "outside-roster": (m) => `unmapped — ${m.note}`,
+    "not-loaded": () => "not loaded by Claude Code — its frontmatter lacks a name or description",
+  };
+  console.log(b(`Agents already here — ${agents.agents.length} in .claude/agents/`));
+  for (const a of agents.agents) {
+    const m = a.mapping;
+    const file = a.path.split("/").pop();
+    const said = m.role
+      ? `${m.role} — ${[...m.evidence.name.map((w) => `name "${w}"`), ...m.evidence.description.slice(0, 2).map((w) => `"${w}"`)].join(", ")}`
+      : REASON[m.reason](m);
+    console.log(`  ${m.role ? green("✓") : dim("?")} ${file}  ${dim(said)}`);
+    if (m.upgrade) console.log(`      ${dim(`offered the upgrade to ${m.upgrade.template} — it keeps working until you accept`)}`);
+    for (const f of a.findings) console.log(`      ${dim(`${f.kind}: ${f.evidence[0]}`)}`);
+    for (const p of a.proposals) {
+      const where = p.action === "append" ? `after line ${p.line}` : `line ${p.line}`;
+      console.log(`      ${cyan("→")} ${where}: ${p.text.split("\n").join(" / ")}`);
+      console.log(`        ${dim(p.why)}`);
+    }
+  }
+  console.log(`  ${agents.gaps.length ? `Roles no agent covers: ${agents.gaps.join(", ")}` : "Every role in the team is covered by an agent here."}`);
+  console.log(dim("  Mappings and edits are proposals. Nothing has been changed; each agent is asked about on its own."));
   console.log("");
 }
 

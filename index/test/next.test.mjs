@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { readState, nextSteps, nextLine } from "../lib/next.mjs";
-import { recordStamp, writeStamps } from "../lib/stamps.mjs";
+import { adoptStamp, recordStamp, runningCortex, writeStamps } from "../lib/stamps.mjs";
 
 function repo(build) {
   const root = mkdtempSync(join(tmpdir(), "cortex-next-"));
@@ -337,10 +337,16 @@ test("a skill the repo contradicts gets its own row, and a clean one adds nothin
 const REVIEW_TEMPLATE = readFileSync(new URL("../../templates/loop/REVIEW.md", import.meta.url), "utf8");
 const stampsRow = (root) => nextSteps(root).steps.find((s) => s.id === "stamps");
 
+// The release this checkout is. A fixture recorded by it is never "a newer Cortex" by accident; one
+// recorded by AHEAD always is, whatever VERSION says on the day the test runs.
+const RUNNING = runningCortex();
+const AHEAD = `${Number(RUNNING.split(".")[0]) + 1}.0.0`;
+const esc = (v) => v.replace(/\./g, "\\.");
+
 /** A REVIEW.md on disk, recorded from `templateText` — the real template, or an older one. */
-function stampedReview({ put, root }, templateText, fileText = templateText) {
+function stampedReview({ put, root }, templateText, fileText = templateText, version = RUNNING) {
   put("REVIEW.md", fileText);
-  writeStamps(root, recordStamp(null, { path: "REVIEW.md", template: "loop/REVIEW.md", version: "2.40.0", templateText, fileText }));
+  writeStamps(root, recordStamp(null, { path: "REVIEW.md", template: "loop/REVIEW.md", version, templateText, fileText }));
 }
 
 test("a repo with no record and no loop files reads exactly as it did before the record existed", () => {
@@ -348,6 +354,7 @@ test("a repo with no record and no loop files reads exactly as it did before the
   assert.equal(stampsRow(root), undefined);
   assert.deepEqual(readState(root).stamps, null);
   assert.deepEqual(readState(root).stampsAdopt, []);
+  assert.equal(readState(root).stampsOlderPlugin, null, "a fact stated as null, not left undefined");
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -402,6 +409,40 @@ test("loop files from before the record are offered for adoption, never as a blo
   assert.match(row.why, /2 loop files/);
   assert.match(row.why, /REVIEW\.md/);
   rmSync(root, { recursive: true, force: true });
+});
+
+test("a record a newer Cortex wrote asks for the plugin update first, with both commands", () => {
+  // Stamped from an older template by a newer release: to this plugin the file reads as update, which
+  // is exactly the row an older plugin must not offer — it would put its own older template back.
+  const root = repo((r) => stampedReview(r, "# an older REVIEW.md template\n", undefined, AHEAD));
+  const row = stampsRow(root);
+  assert.ok(row);
+  assert.ok(!row.optional, "a teammate a release behind must update before anything else here");
+  assert.equal(row.blocking, true, "every stamp answer below it is measured against the wrong templates");
+  assert.equal(nextSteps(root).next.id, "stamps", "so it is the one command to run now");
+  assert.match(row.title, /update the Cortex plugin/i);
+  assert.match(row.why, new RegExp(`stamped by Cortex ${esc(AHEAD)} and this is Cortex ${esc(RUNNING)}`));
+  assert.match(row.why, /`claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`, then `\/reload-plugins` or a new session/);
+  assert.doesNotMatch(row.why, /to update/, "no count of files to update — that count is the older plugin's misreading");
+  assert.equal(row.cmd, "claude plugin marketplace update cortex && claude plugin update cortex@cortex");
+  // An ignored record is still said, as its own sentence after the update.
+  const ignored = nextSteps(root, null, { stampsIgnored: { source: ".gitignore", line: 3 } }).steps.find((s) => s.id === "stamps");
+  assert.match(ignored.why, /a new session\. Also, \.cortex\/stamps\.json is ignored by \.gitignore:3, so the team does not share it\.$/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the same release, or a record no known release wrote, raises no plugin warning", () => {
+  const same = repo((r) => stampedReview(r, REVIEW_TEMPLATE));
+  assert.equal(stampsRow(same), undefined, "equal versions: current, and nothing to say");
+  const adopted = repo(({ put, root }) => {
+    put("REVIEW.md", "# ours\n");
+    writeStamps(root, adoptStamp(null, { path: "REVIEW.md", template: "loop/REVIEW.md" }));
+  });
+  const row = stampsRow(adopted);
+  assert.doesNotMatch(row.why, /older plugin/, "cortex: null is no release at all");
+  assert.ok(!row.blocking);
+  rmSync(same, { recursive: true, force: true });
+  rmSync(adopted, { recursive: true, force: true });
 });
 
 test("a damaged record is a required row naming the file, never a silent pass", () => {

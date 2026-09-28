@@ -16,6 +16,9 @@ missing. Then it writes the context layer every developer's agent reads.
 /cortex          # inside the repo you want it to serve
 ```
 
+Then turn on auto-update once — Claude Code leaves it off for third-party marketplaces like this
+one, so without it no release reaches you. [Keep it current](#keep-it-current) has the two clicks.
+
 **What lands in your repo:**
 
 - **A findings report** — issues, gaps and recommendations, ranked. Nothing changes until you pick.
@@ -57,6 +60,31 @@ works out which parts of the development loop the repo is missing (a verificatio
 control bands), and then **stops and asks once**. Nothing in your repo is modified until you pick what to act on.
 Indexing and reporting write only under `.cortex/` — plus three `.gitignore` lines on the first
 run, after you agree — and a different skill applies changes.
+
+### Keep it current
+
+Claude Code does not update Cortex for you unless you turn that on. Its plugin docs
+([install.md](https://code.claude.com/docs/en/plugins/install.md), as fetched on 2026-09-28) list
+where auto-update is "Off by default: every other marketplace, including the community marketplace,
+third-party marketplaces, and local development marketplaces." Cortex's marketplace is one of
+those. Turn it on once: **`/plugin` → Marketplaces → select `cortex` → Enable auto-update**.
+
+To update by hand, run both, in this order. The first refreshes the marketplace's copy, the second
+installs from it; the first alone leaves the old version installed.
+
+```
+claude plugin marketplace update cortex
+claude plugin update cortex@cortex
+```
+
+A session already running keeps the version it loaded and says *Run /reload-plugins to apply* — run
+`/reload-plugins` or start a new session. `claude plugin list` shows the version you now have.
+
+On a team this is not housekeeping. The loop files `/cortex` stamps are shared through
+`.cortex/stamps.json`, and the plugin is per machine. When that record was written by a newer Cortex
+than yours, `/cortex`, `/cortex-next` and `cortex-stamps.mjs` say so with these two commands, and
+an older plugin refuses to rewrite any file a newer one stamped — it would put its own older
+template back.
 
 ### The order, and how to stop guessing at it
 
@@ -373,7 +401,12 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   meant to be committed: `.cortex/memory/`, and `.cortex/stamps.json`, the record of which files
   Cortex stamped into the repo and from which release. The one script that writes outside
   `.cortex/` is `cortex-stamps.mjs update`. `/cortex` runs it only on the files you confirmed, and
-  it rewrites only a file Cortex stamped that nobody has touched since.
+  it rewrites only a file Cortex stamped that nobody has touched since, and never when
+  `.cortex/stamps.json` names a newer Cortex than the one running. That check compares the record
+  with the plugin's own `VERSION` file; nothing is fetched to make it.
+- **Updates are Claude Code's, not Cortex's.** Cortex never checks for a newer release. With
+  auto-update turned on, Claude Code fetches the marketplace itself; the manual update is the two
+  `claude plugin` commands under [Keep it current](#keep-it-current).
 - **The MCP server** (`mcp/server.js`, started as `node ${CLAUDE_PLUGIN_ROOT}/mcp/server.js`) runs
   `git` and nothing else that reaches a network, and only against a **team-brain** repository the
   user set up with `/team-init` or `/team-add`: it clones that repository once, `git pull`s it

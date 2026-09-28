@@ -175,8 +175,11 @@ file exists; it never meant the file is still true.
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" . --json
 ```
 
-It writes nothing. `files` is `null` when there is no `.cortex/stamps.json` yet. Otherwise each file
-has a `state`, and the state decides the row:
+It writes nothing. **When `olderPlugin` is not null**, a newer Cortex stamped this repo: say its
+`advice` and offer no stamp row. Every state below is measured against this plugin's older templates.
+
+`files` is `null` when there is no `.cortex/stamps.json` yet. Otherwise each file has a `state`, and
+the state decides the row:
 
 | State | Row |
 |---|---|

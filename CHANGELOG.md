@@ -199,6 +199,37 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **On a Maven or Gradle repo the hooks row read "blocked — no generated paths" beside a committed
+  build wrapper (#482).** `mvn wrapper:wrapper` and `gradle wrapper` generate `mvnw`, `mvnw.cmd`,
+  `.mvn/wrapper/`, `gradlew`, `gradlew.bat` and `gradle/wrapper/`, and the next wrapper upgrade
+  overwrites a hand edit. Nothing detected them, so `/cortex` offered no protected-paths hook, and
+  REVIEW.md's do-not-report list named nothing.
+  - They are now found the way #461 finds lockfiles: on disk, beside the root or a JVM build file
+    the index saw. Names are exact, the scripts must be files and the wrapper homes must be
+    directories.
+  - A wrapper that is not there is never listed. `mvnw.sh`, `src/mvnw` and `.mvn/jvm.config` are not
+    wrappers.
+  - Wrappers get their own cap of 8, and one project's entries stay together, nearest project first.
+    The first cut sorted them flat by depth, and on gs-rest-service's four sample projects the cap
+    dropped every `wrapper/` directory.
+  - A real `protected-paths.sh` with the wrapper patterns blocks `mvnw.cmd` and
+    `.mvn/wrapper/maven-wrapper.properties`, and lets `.mvn/jvm.config` through.
+
+  Validated with `cortex-loop --json` before and after:
+
+  | Repo | Before | After |
+  |---|---|---|
+  | spring-petclinic (818c413; Maven and Gradle) | `blocked`, with or without an index | offered, 6 paths |
+  | petclinic-kotlin (da08609; Gradle) | `blocked` | offered: `gradlew`, `gradlew.bat`, `gradle/wrapper/` |
+  | gs-rest-service (3f4cef0; four nested projects, 53 files indexed) | `blocked` | offered, 8 paths: `complete-kotlin/`'s three and five of `complete/`'s six. The cap leaves out `complete/gradle/wrapper/` and both `initial` projects |
+
+  gs-rest-service with no index still reads `blocked`: only the root is asked, and it has no build
+  file there. On the step-7 copy of a private Spring workspace, the three Maven repos went from
+  `blocked` to `present`, protecting `mvnw, mvnw.cmd, .mvn/wrapper/`. Their pnpm repo was unchanged.
+  Every listed path was checked on disk as the kind it was listed as.
+
+  Mutation-tested: 16 guards, 16 reds.
+
 - **Deleting `/resume` or `/cortex-review` would not have tripped the eval alarm (#472).** Their
   tasks could be answered without the skill. With no skill, the `test` split scored 0.944 and 0.986
   soft, well inside the 0.1 limit. The generators now build traps from each skill's own rules. For

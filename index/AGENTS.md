@@ -305,9 +305,13 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   get settled. Three choices in it are load-bearing. **Only non-test source counts toward areas.**
   Counting tests, docs and config made a fix-plus-test two areas and every release four. **A
   blind file is `null`, never `single`**, unless another signal crosses anyway. **No index is
-  `null` with the reason, never a default.** Its known gap is that `layerKeyFor` is coarse: all of
-  spring-petclinic's Java is one area and zustand's core is `src`, so a multi-file refactor inside
-  one area is sized by its dependents alone. zustand's store-API change reads `single`.
+  `null` with the reason, never a default.** **`layerKeyFor` is coarse, and `sourceFiles` is
+  what covers it** (#493). All of spring-petclinic's Java is one area and zustand's core is
+  `src`, so a refactor across several files of one area read `single`. The signal needs **both**
+  halves: several source files *and* a radius. The count alone called petclinic's copyright and
+  translation sweeps team. A finer sizing-local area key was tried and rejected: zustand's
+  `vanilla.ts`, `react.ts` and `traditional.ts` share one directory, so no directory key sees that
+  refactor as spread.
 - **`--against` reads one hop in both directions between two change sets, and nothing further**
   (`lib/overlap.mjs`, #408 v0). A two-hop chain is real coupling, but reporting it would turn every
   shared utility into a warning; the full radius is what the plain command is for. Three choices in

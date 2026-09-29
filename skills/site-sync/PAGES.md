@@ -20,7 +20,7 @@ reads, and is drafted from its sources.
 | `/team-memory` | prose | `CONTEXT.md` (Memory, The gate); `skills/dream`, `skills/handoff`, `skills/catch-me-up`, `skills/resume`, `skills/team-init`, `skills/team-add` |
 | `/rituals` | facts | `site-facts.json` only |
 | `/mcp` | prose + facts | `mcp/AGENTS.md`; the tool table from `site-facts.json` |
-| `/cli` | prose | `README.md` CLI block and "Tools" table; `tools/README.md` |
+| `/cli` | prose | `README.md` CLI block, and the "Tools" table **copied row for row**, with the rule above it about what is listed. The site keeps no list of its own. `tools/test/tools-table.test.sh` pins the README table to `tools/`. Usage detail comes from `tools/README.md` |
 | `/principles` | prose | ADRs 0004, 0005, 0006, 0007, 0010, 0016, 0017, 0018, 0019; the "code layers" section of `AGENTS.md` |
 | `/vault` | prose | `README.md` personal-vault section |
 | `/privacy` | prose | `README.md` privacy and firewall sections; ADR 0015. The page carries **every** bullet of "What Cortex runs, sends and fetches": the `index/` scripts and the two that write outside `.cortex/`; who fetches an update (Claude Code, never Cortex); the MCP server's `git` use against a team brain; the rituals' network steps; the stamped CI workflows and marketplace entry; and "No telemetry" |

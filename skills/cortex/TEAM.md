@@ -64,3 +64,20 @@ prints `{ files, values, needs, conflicts, upgrade }`, or refuses a pick that is
 
 Everything here lands under `.claude/`, so an unattended run needs `--permission-mode auto`
 ([Running unattended](SKILL.md#running-unattended)).
+
+## A re-run: the section in `CLAUDE.md`
+
+The playbook is a section of a file the team also writes, so `.cortex/stamps.json` cannot hold it.
+`cortex-section.mjs . --json` compares it with every playbook Cortex has shipped instead, each filled
+with the roster the section already names. Its `state` decides the row:
+
+| `state` | Row |
+|---|---|
+| `current` | nothing |
+| `outdated` | an earlier release's text, untouched. It goes in the *Update* row of the one confirmation, with its `diff` shown; the roster is kept. On yes: `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-section.mjs" . --replace team`. With `unfilled` non-empty the CLI refuses it: name it and offer nothing |
+| `edited` | the team changed it. Show the `diff` under *Ask each* and ask whether they want any of the new text. It is never replaced: a line they want, they take by hand |
+| `duplicate` | say its `why`, and offer nothing until one section is left |
+
+The replace changes the section and not one byte around it, and refuses anything but `outdated`.
+Never rewrite the section yourself. A roster change in the same pass works in either order, because
+the roster is read from the section.

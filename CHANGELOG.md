@@ -68,9 +68,8 @@ this project now versions independently of any package manager (see `VERSION`).
   - **Checked live.** The step-15 task was re-run headless with no answer supplied. The session
     sized the task, ended with "Single agent or team?" and changed no file. A one-file fix that
     told it to "just do it" got the same result.
-  - **Not solved:** the playbook is a block appended to `CLAUDE.md` and is not recorded, so this
-    fix does not reach a repo that already has the old block. That repo has to replace the
-    section by hand, as the live re-check did.
+  - **Reaching a repo that already has the old block** is #505, below. The playbook is a section
+    appended to `CLAUDE.md` and is not recorded, so this entry alone did not.
 - **`evals/run.mjs` can measure a template, and runs the no-skill control itself.**
   - **Any file.** `SKILL_FILES` in `evals/skills.mjs` points a skill at a file other than
     `skills/<name>/SKILL.md`, and `--check` follows that file. A scenario's `system(body)` fills a
@@ -80,6 +79,46 @@ this project now versions independently of any package manager (see `VERSION`).
     it refuses `--record`.
   - **CI.** The workflow now also runs on a push that changes `templates/`, so the playbook's
     baseline is checked there.
+- **A repo stamped by 2.41.0 kept the playbook that did not ask, and nothing said so (#505).** The
+  team playbook is appended to `CLAUDE.md`, a file the team also writes, so the stamp record never
+  held it. A re-run of `/cortex` rewrote only its roster line.
+  - **How the section is found.** It runs from its `## Working as a team` heading to the last
+    non-blank line before the next heading of its level or higher. A heading inside a code fence
+    does not count. CRLF and a BOM are read. Two sections with that heading are refused with a
+    sentence naming their lines.
+  - **Outdated or edited, without a record.** Every playbook Cortex has shipped is kept as data,
+    verbatim and hashed, in `index/lib/shipped-sections.mjs`: today, 2.41.0's.
+    - **`current`**: the section is this release's text.
+    - **`outdated`**: it is an earlier release's text, untouched.
+    - **`edited`**: anything else. That text is the team's.
+
+    Each comparison fills in the roster the section already names. A match counts only if
+    rendering that roster gives the section back exactly. Only CRLF and trailing newlines are
+    forgiven, so a formatter's rewrap reads as `edited` and is never overwritten. A test fails
+    when the template changes until its hash is pinned again, and it says to add the replaced
+    text to the history first if that text was ever released.
+  - **Where it shows.**
+    - `node index/cortex-section.mjs .` prints the state and the diff. `--json` carries both.
+    - `cortex-next` makes an outdated section a required row, and an edited one an optional row
+      that is never "next".
+    - On a re-run, `/cortex` offers an outdated section in its one confirmation, under *Update*,
+      with the diff. It shows an edited section's diff under *Ask each*, and never replaces it.
+  - **The replace is the CLI's.** `cortex-section.mjs . --replace team` writes only an outdated
+    section. Every byte outside it stays as it was, in the section's own line endings. The result
+    is read back before it is written, and goes through a temp file. The skill never edits
+    `CLAUDE.md` by hand for this.
+  - **Checked on the step-15 Harbor workspace.**
+    - One repo got its CLAUDE.md back from the commit that stamped the 2.41.0 playbook. It read
+      `outdated` with its five-agent roster. After `--replace` it read `current`, and the file
+      was byte-identical to the one committed after #498's hand fix.
+    - In a second repo, one hand-edited word read `edited`. The diff showed that line alone, and
+      `--replace` exited 1 with the file unchanged.
+    - S5 of the workspace harness now also checks that every team section is current or the
+      team's own. It fails while a repo holds the 2.41.0 text, and S1–S5 pass after the replace.
+  - **Not covered:** the verification block, the other section Cortex appends to `CLAUDE.md`. It
+    is filled partly by hand, with rows deleted and its comment left out, so this matching would
+    read every real one as `edited`. Its template has not changed since it shipped. The stamp
+    record spec keeps it open.
 
 ## [2.41.0] — 2026-09-28
 

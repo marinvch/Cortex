@@ -6,6 +6,8 @@ import { join } from "node:path";
 
 import { readState, nextSteps, nextLine } from "../lib/next.mjs";
 import { adoptStamp, recordStamp, runningCortex, writeStamps } from "../lib/stamps.mjs";
+import { SHIPPED_SECTIONS } from "../lib/shipped-sections.mjs";
+import { renderTemplate } from "../lib/placeholders.mjs";
 
 // The loop reads this machine's CORTEX_PROFILE for its team-plugin row. These tests describe a repo,
 // not a machine, so a developer on a work profile must get the same answers as CI. A test that is
@@ -300,6 +302,32 @@ test("on a repo with code, the agent team is a loop row like the others — open
   });
   assert.equal(nextSteps(closed, JSON.parse(withCode)).steps.find((s) => s.id === "loop").done, true, "the playbook in CLAUDE.md closes it");
   rmSync(closed, { recursive: true, force: true });
+});
+
+test("a team section an earlier release wrote is a required row; one the team edited is shown, never next (#505)", () => {
+  const tpl = (rel) => readFileSync(new URL(`../../templates/${rel}`, import.meta.url), "utf8");
+  const OLD = SHIPPED_SECTIONS["team/playbook.md"].earlier[0].text;
+  const roster = { ROSTER: "`architect`, `tester`" };
+  const withSection = (section) => repo(({ put }) => put("CLAUDE.md", `@AGENTS.md\n\n${section}`));
+  const row = (root) => nextSteps(root).steps.find((s) => s.id === "sections");
+
+  const outdated = withSection(renderTemplate(OLD, roster));
+  const r = row(outdated);
+  assert.ok(r, "an outdated section is a row");
+  assert.equal(r.optional, false, "required: a /cortex pass has a decision to make");
+  assert.equal(r.cmd, "/cortex");
+  assert.match(r.why, /CLAUDE\.md § Working as a team is Cortex 2\.41\.0's text/);
+  assert.match(r.why, /cortex-section\.mjs \./);
+
+  const edited = withSection(renderTemplate(tpl("team/playbook.md"), roster).replace("The developer decides", "The lead decides"));
+  const e = row(edited);
+  assert.equal(e.optional, true, "edited: shown with where to see the diff, but never next — it is theirs");
+  assert.match(e.why, /edited here/);
+  assert.notEqual(nextSteps(edited).next?.id, "sections");
+
+  assert.equal(row(withSection(renderTemplate(tpl("team/playbook.md"), roster))), undefined, "a current section has no row");
+  assert.equal(row(repo(({ put }) => put("CLAUDE.md", "@AGENTS.md\n"))), undefined, "nor does a repo without one");
+  for (const root of [outdated, edited]) rmSync(root, { recursive: true, force: true });
 });
 
 test("with a real eval case written and bands deferred, the sequence ends", () => {

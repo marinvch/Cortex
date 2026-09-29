@@ -8,7 +8,7 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
 - **Nothing here may modify a target repository**, except by writing under `.cortex/`. `findings`
   returns data; `/cortex-scaffold` is the separate skill that applies changes. This separation is
   what makes "the user decides" structural rather than a promise a model has to keep — if you add
-  a write to a source file here, you have broken the product's central claim. **Two named
+  a write to a source file here, you have broken the product's central claim. **Three named
   exceptions.** The first, `cortex-stamps.mjs update`, rewrites a file Cortex itself stamped, and only in state
   `update` — untouched since it was recorded, re-renderable, template changed. `/cortex` runs it
   only for the paths the user confirmed. The rule lives in the code (`planUpdates`), not in the
@@ -26,7 +26,11 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   re-serialise the file, which reflows every inline array a team wrote. `--auto-update` adds
   `"autoUpdate": true` **only on a `cortex` entry this run adds**. An entry already there keeps its
   `autoUpdate` — true, false or unset — because the committed value outranks each teammate's own
-  `/plugin` toggle, and someone chose it. Without the flag the key is never written.
+  `/plugin` toggle, and someone chose it. Without the flag the key is never written. The third,
+  **`cortex-section.mjs --replace`**, rewrites one section of `CLAUDE.md`, and only in state
+  `outdated` (below). Every byte outside the section stays where it was, and the result is read back
+  as exactly one section holding exactly the new text before it is written. Never widen it to
+  `edited`.
 - **"A team's repo" is the `work` profile or `.cortex/connector.json`** (`lib/shared-plugin.mjs`
   `teamServed`). The profile is this machine's `CORTEX_PROFILE`, the one environment input the loop
   reads. A loop row may declare `applies`, and a row that does not apply drops out of every bucket
@@ -64,6 +68,24 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   or a formatter's final newline read as an edit would freeze the file at `edited` forever, which
   is the stale-hook bug the record exists to end. An absent record is `null`; a damaged one is an
   error naming the file, never `null`, or a re-run would treat every stamped file as unknown.
+- **A section Cortex appends to a shared file has no record, so its history is shipped as data**
+  (`lib/section.mjs`, `lib/sections.mjs`, `lib/shipped-sections.mjs`, #505). The team playbook is
+  `CLAUDE.md` § Working as a team. A repo stamped by 2.41.0 kept the playbook that did not ask
+  "Single agent or team?" (#498), and nothing said so. The section runs from its heading, at level
+  two or deeper and outside a code fence, to the last non-blank line before the next heading of
+  its level or higher. It is `current` when it is this release's template filled with values, and
+  `outdated` when it is an earlier release's text filled the same way. Anything else is `edited`,
+  which is the team's and never replaced. Values are read from the section (the roster), a slot is
+  one line, and **a match counts only if rendering those values gives the section back exactly**.
+  Recomputing the roster from the agents would not do: `rosterFor` writes a Cortex-stamped agent
+  as `` `tester` `` and an existing one as `` `tester` (tester) ``, so every stamped section would
+  read `edited`. Only CRLF and trailing newlines are forgiven, the stamp record's rule. A
+  formatter's rewrap is therefore an edit, the safe direction. Two sections of one heading are
+  refused with a sentence. **When `templates/team/playbook.md` changes, `section.test.mjs` fails
+  until its hash is pinned again.** If the text it replaces was ever released, add that text to
+  `earlier` first. Without it, every repo holding that text reads `edited` and is never offered the
+  new one, which is this bug again. The verification block is not a section here: it is filled
+  partly by hand, with rows deleted, so the same match would call every real block `edited`.
 - **`index/` never imports from `mcp/`.** Shared code goes in `core/`. Enforced by
   `core/test/architecture.test.js`.
 - **Every CLI here opens through `lib/open.mjs`, and declares its flags rather than testing for
@@ -516,7 +538,8 @@ is the ritual's half.
   `langs.mjs`'s `test-*.sh` rule, so the index calls it a test (found on the step-15 workspace).
 - **The row is present once the playbook is in `CLAUDE.md`**, not when every role is. Declined roles
   are the developer's T4 choice and must not hold the row open. The playbook is a block in a shared
-  file, so it is not recorded; every whole file the team writes is.
+  file, so it is not recorded; every whole file the team writes is. Its currency is `sections.mjs`'s
+  (the section invariant above), and `teamState.playbook` asks the same `findSections`.
 - Validated on kapi-sprints (offers the architect only; four roles covered), octez-manager (tester
   and Project manager; `docs/plans/` exists) and zustand (no agents: four roles, the Project manager
   waits). Mutation-checked with `agents.mjs`, `loop.mjs`, `stamps.mjs` and the CLI: 41 guards,
@@ -581,6 +604,9 @@ fixtures and not `mkdtemp` directories is that git is what decides the answer: `
 - `cortex-shared-plugin.mjs` — it writes a team's `.claude/settings.json`, so the test is a git
   diff. After `--write`, the only lines removed are the two that gain a comma, a second run writes
   nothing, and a file that does not parse is refused and left untouched, with no temp file.
+- `cortex-section.mjs` — it rewrites part of a team's `CLAUDE.md`. The test is the bytes around the
+  section, byte for byte, in CRLF. An edited or duplicated section is refused and left exactly as it
+  was, and a second run writes nothing.
 - `cortex-view.mjs` — it writes into a target repo, so *where* it writes is the invariant, and its
   determinism is only observable from outside. A first run did once disagree with the second,
   because the page reported on its own existence.

@@ -32,6 +32,7 @@ const IMPACT = join(REPO_ROOT, "index", "cortex-impact.mjs");
 const LOOP = join(REPO_ROOT, "index", "cortex-loop.mjs");
 const ROUTES = join(REPO_ROOT, "index", "cortex-routes.mjs");
 const STAMPS = join(REPO_ROOT, "index", "cortex-stamps.mjs");
+const SECTION = join(REPO_ROOT, "index", "cortex-section.mjs");
 const CLI = join(REPO_ROOT, "mcp", "ai-os.js");
 const SERVER = join(REPO_ROOT, "mcp", "server.js");
 
@@ -693,6 +694,25 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
       ok: files > 0 && stale.length === 0,
       label: `the stamp record reads every team file as current: ${files - stale.length}/${files}`,
       detail: stale.length ? `${stale[0]} — node index/cortex-stamps.mjs <repo> says what to do` : undefined,
+    });
+
+    // The playbook is a section of CLAUDE.md, outside the record, so its currency is its own check
+    // (#505): a workspace stamped by an earlier release reads `outdated` here until /cortex replaces it.
+    // A section the team edited is theirs — named, never a failure.
+    const behind = [];
+    const edited = [];
+    for (const r of teams) {
+      const s = json(SECTION, [r.clone, "--json"]);
+      if (!s.ok) { behind.push(`${r.name}: cortex-section --json failed: ${s.err}`); continue; }
+      const team = s.out.sections.find((x) => x.id === "team");
+      if (team?.state === "edited") edited.push(r.name);
+      else if (team?.state !== "current") behind.push(`${r.name}: ${team?.why ?? "no team section reported"}`);
+    }
+    checks.push({
+      ok: behind.length === 0,
+      label: `the team section in CLAUDE.md is this release's text or the team's own: ${teams.length - behind.length}/${teams.length} repos` +
+        (edited.length ? ` (edited by the team: ${edited.join(", ")})` : ""),
+      detail: behind.length ? `${behind[0]} — node index/cortex-section.mjs <repo> shows the diff` : undefined,
     });
 
     // The roster line names exactly the agents that play a role: each stamped role, and each agent

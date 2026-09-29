@@ -264,6 +264,7 @@ node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 node index/cortex-routes.mjs . --workspace  # which back-end handler serves each front-end call
 node index/cortex-stamps.mjs .     # which files /cortex stamped are out of date; writes nothing
+node index/cortex-section.mjs .    # whether CLAUDE.md's team section is an older release's text; writes nothing
 node index/cortex-loop.mjs . --team architect,tester  # the team files, values and roster for those picks; writes nothing
 node index/cortex-impact.mjs src/a.ts --size  # one agent or the team for a task on these files, and why
 node index/cortex-shared-plugin.mjs .  # on a team repo: what --write would add to .claude/settings.json
@@ -455,7 +456,7 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   under its `.cortex/` (the first index run also appends three lines to `.gitignore`). They make no
   network calls and install nothing — Cortex has no runtime dependencies. Two things there are
   meant to be committed: `.cortex/memory/`, and `.cortex/stamps.json`, the record of which files
-  Cortex stamped into the repo and from which release. Two scripts write outside `.cortex/`, and
+  Cortex stamped into the repo and from which release. Three scripts write outside `.cortex/`, and
   `/cortex` runs each only on what you confirmed:
   - `cortex-stamps.mjs update` rewrites only a file Cortex stamped that nobody has touched since,
     and never when `.cortex/stamps.json` names a newer Cortex than the one running. That check
@@ -464,6 +465,9 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
     file if there is none, and leaves every other key as it was. It refuses a file that does not
     parse as JSON. `--auto-update`, a separate choice, also writes `"autoUpdate": true` on a
     `cortex` entry it adds, and never changes one already there.
+  - `cortex-section.mjs --replace team` rewrites the `## Working as a team` section of `CLAUDE.md`,
+    and only when it is an earlier release's text that nobody has changed. Every other line of the
+    file stays as it was, and a section the team edited is never replaced.
 - **Updates are Claude Code's, not Cortex's.** Cortex never checks for a newer release. With
   auto-update turned on, Claude Code fetches the marketplace itself; the manual update is the two
   `claude plugin` commands under [Keep it current](#keep-it-current).

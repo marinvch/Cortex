@@ -105,7 +105,12 @@ cortex-next / /cortex re-run / View
 
 - **How to track a block inside a shared file**: the verification block in `CLAUDE.md` and the
   hooks inside `settings.json`. Candidates are marker comments around the block (not possible in
-  JSON), or hashing just the keys Cortex owns inside `settings.json`.
+  JSON), or hashing just the keys Cortex owns inside `settings.json`. The team playbook, also a
+  section of `CLAUDE.md`, took a third way (#505): with no record, `index/lib/sections.mjs` matches
+  it against every text Cortex has shipped there (`shipped-sections.mjs`, hashed). A match to an
+  earlier one is `outdated` and replaceable, and anything else is the team's. The verification
+  block is filled partly by hand, with rows deleted and its comment left out, so the same match
+  would call every real block edited. It stays open.
 - **Whether `update` files are applied in one yes or listed one by one.** It depends on how many a
   typical upgrade touches, which the first real upgrade will show.
 - **The agent team's files** join the record when that feature ships. Whether an agent's grounded

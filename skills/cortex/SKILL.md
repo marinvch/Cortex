@@ -191,11 +191,10 @@ the state decides the row:
 | `adopt` is non-empty | one row, *Adopt N loop files an earlier Cortex stamped*. It covers a repo installed before the record existed. On yes, run `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" adopt .`. That writes the record only; each file then reads `conflict` and is asked about file by file on the next run |
 
 Get each diff from the CLI. It compares the file now with this release's template, filled with the
-recorded values:
+recorded values: `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" diff . <path>`.
 
-```bash
-node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" diff . <path>
-```
+**The team section in `CLAUDE.md` is not in the record**, so it is checked against every text Cortex
+shipped: `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-section.mjs" . --json`. [TEAM.md](TEAM.md) holds its rows.
 
 **When `ignored` is not null**, the record this pass writes would be hidden from git, so the team
 would never share it. That can be true before any record exists. Add one row that offers the
@@ -230,7 +229,7 @@ Cortex will write, in one pass:
   Deploy    REVIEW.md, .github/workflows/cortex-review.yml,
             .claude/settings.json, .claude/hooks/protected-paths.sh
   Refresh   .claude/skills/type-check/SKILL.md — lines 8, 55 (no tests; a moved path)
-  Update    .claude/hooks/protected-paths.sh, .claude/agents/verifier.md (templates changed)
+  Update    .claude/hooks/protected-paths.sh, CLAUDE.md § Working as a team (templates changed)
   Ask each  REVIEW.md — you edited it and its template changed (diff shown above)
 
   After this pass, waiting on history:
@@ -321,8 +320,8 @@ lets a later release update the file safely.
    GitHub Actions `${{ … }}` passes through untouched.
 
 `verification.md`, `playbook.md` and `settings.hooks.json` are **not recorded**: two are appended to
-`CLAUDE.md` and one merged into `settings.json`. Each is a block inside a file the team also writes,
-and how to track such a block is not specified yet. Write them as before. The
+`CLAUDE.md` and one merged into `settings.json`. Each is a block inside a file the team also writes.
+Write them as before; `cortex-section.mjs` tracks the playbook by its shipped texts instead. The
 `team-plugin` entries are such a block too, and the CLI above writes them. Every other team file in
 the table above is recorded.
 
@@ -367,7 +366,8 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" update . <each confirmed pa
 ```
 
 It re-renders each file from its recorded values, records it again, and refuses anything not in
-state `update`. Never re-render a stamped file yourself.
+state `update`. Never re-render a stamped file yourself. A section in the row goes through
+`cortex-section.mjs . --replace <id>` ([TEAM.md](TEAM.md)); never edit `CLAUDE.md` by hand for it.
 
 For each `review` or `conflict` file the user answered, apply their choice by hand, then `record`
 it again.
@@ -451,9 +451,9 @@ it as written is the failure; so is reporting it as declined.
 ## Gotchas
 
 - **Re-running is the supported path, and it is cheap.** Satisfied rows come back as `present` and
-  are not asked again; deferred ones come back as `missing`. What an earlier pass wrote is kept, so
-  a re-run looks at two things again: whether a skill is still true (`skill-drift`), and whether a
-  stamped loop file is behind this release's template (the stamp record). Both are in step 5.
+  are not asked again; deferred ones come back as `missing`. What an earlier pass wrote is kept, so a
+  re-run looks again at whether a skill is still true (`skill-drift`), and whether a stamped file or
+  a section in `CLAUDE.md` is behind this release (the stamp record, `cortex-section.mjs`). Step 5.
 - **`.cortex/index/` and `.cortex/findings/` are generated** and gitignored. `.cortex/memory/` and
   `.cortex/stamps.json` are **committed** — that asymmetry is deliberate and worth explaining once.
 - **A hook that asks a human belongs at the release gate, not the build.** An approval prompt

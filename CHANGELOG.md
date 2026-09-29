@@ -5,6 +5,15 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.1] — 2026-09-29
+
+The agent team's first follow-ups. The session now always asks "Single agent or team?" and waits —
+measured by a new eval (1.00 against 0.00 for the text it replaces, which gave in to "just do it"),
+and delivered to repos that took the team from 2.41.0, whose `CLAUDE.md` team section is recognised
+as Cortex's old text and offered for replacement with a diff (an edited section is never touched).
+Sizing now reads a multi-file refactor inside one area as a team task when it carries a real
+dependency radius, and the README's tools table follows one stated rule, pinned by a test.
+
 ### Changed
 
 - **The README's Tools table now matches `tools/`, and a test keeps it that way (#501).** The
@@ -4022,6 +4031,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.1]: https://github.com/marinvch/Cortex/releases/tag/v2.41.1
 [2.41.0]: https://github.com/marinvch/Cortex/releases/tag/v2.41.0
 [2.40.0]: https://github.com/marinvch/Cortex/releases/tag/v2.40.0
 [2.39.1]: https://github.com/marinvch/Cortex/releases/tag/v2.39.1

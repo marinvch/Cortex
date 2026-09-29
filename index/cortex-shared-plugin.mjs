@@ -18,8 +18,8 @@
 // run adds, so every teammate's Claude Code pulls new Cortex releases in the background. A cortex
 // entry already in the file keeps its `autoUpdate` — true, false or unset — and the output says so.
 //
-// This is the second of two scripts in index/ that write outside `.cortex/` (the other is
-// `cortex-stamps.mjs update`), and it writes one file: `.claude/settings.json`, through a temp file
+// This is one of three scripts in index/ that write outside `.cortex/` (the others are
+// `cortex-stamps.mjs update` and `cortex-section.mjs --replace`), and it writes one file: `.claude/settings.json`, through a temp file
 // renamed into place, so an interrupted run leaves the old file whole. Committing it does not install
 // anything for anyone — each teammate still installs once — and the output says so.
 //

@@ -5,6 +5,9 @@ description: Runs one task through this repo's agents in .claude/agents/ — a p
 
 # Running a task as a team
 
+Load this only once the developer has answered "team" to "Single agent or team?". If they have
+not, ask it and stop.
+
 You run the team. Each agent does one job; you pass work between them, carry the evidence, and put
 every question the evidence does not settle in front of the developer. Nothing merges, pushes or
 closes an issue without the developer's go-ahead. You do not write the code, the tests or the

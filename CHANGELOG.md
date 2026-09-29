@@ -37,6 +37,50 @@ this project now versions independently of any package manager (see `VERSION`).
   spring-petclinic, 28% to 29% on taxonomy and 11% to 13% here. The new lines are in
   `SIZING_THRESHOLDS` and are provisional like the rest.
 
+- **The team playbook now always ends its sizing report with the question "Single agent or team?",
+  then stops until the developer answers (#498).** In the first live runs of the agent team, two
+  team-sized sessions reported `/cortex-impact --size`'s recommendation without ever asking, and
+  one final report claimed the question had been asked.
+  - **The rule.** `templates/team/playbook.md` still fits its 14 lines. Before any work on a task,
+    the session states what `--size` recommends, in words (single, team, or that it cannot size
+    the task), and why. It then ends its reply with that exact sentence and stops. It writes no
+    plan, makes no edit and delegates nothing until the developer answers.
+  - **It holds in the hard cases too:** on a single-sized task, on a request to "just do it", and
+    when Cortex cannot size the task. The session may never say it asked unless the question is
+    in its reply.
+  - **The team skill** will not start until the developer has answered "team".
+  - **Measured.** This is skill text deciding behaviour, so it now has an eval, `team-ask`, with
+    14 test tasks on `claude-sonnet-5`:
+
+    | Text | Hard | Soft |
+    |---|---|---|
+    | New playbook (recorded; a repeat scored the same) | 1.000 | 1.000 |
+    | Previous playbook | 0.000 | 0.418 |
+    | No skill | 0.000 | 0.354 |
+
+    The previous text could not know the exact sentence. Read loosely instead (a closing
+    single-or-team question, and no work), it asked and stopped on 11 of 14 tasks. The three
+    misses were requests to just do it, where it announced it would proceed as single, or offered
+    to go and check first.
+  - **What the eval changed.** The first draft of the fix scored between 0.786 and 1.000 hard,
+    because some replies listed every reason and never named the recommendation. The rule now
+    says to name it in words.
+  - **Checked live.** The step-15 task was re-run headless with no answer supplied. The session
+    sized the task, ended with "Single agent or team?" and changed no file. A one-file fix that
+    told it to "just do it" got the same result.
+  - **Not solved:** the playbook is a block appended to `CLAUDE.md` and is not recorded, so this
+    fix does not reach a repo that already has the old block. That repo has to replace the
+    section by hand, as the live re-check did.
+- **`evals/run.mjs` can measure a template, and runs the no-skill control itself.**
+  - **Any file.** `SKILL_FILES` in `evals/skills.mjs` points a skill at a file other than
+    `skills/<name>/SKILL.md`, and `--check` follows that file. A scenario's `system(body)` fills a
+    template's placeholders before the text becomes the system prompt. The hash stays on the file
+    as written.
+  - **The control.** `--no-skill` runs the same tasks with a one-line generic system prompt, and
+    it refuses `--record`.
+  - **CI.** The workflow now also runs on a push that changes `templates/`, so the playbook's
+    baseline is checked there.
+
 ## [2.41.0] — 2026-09-28
 
 Every repo `/cortex` serves can now carry an **agent team** — Architect, Implementer, Tester,

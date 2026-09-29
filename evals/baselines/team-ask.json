@@ -1,0 +1,11 @@
+{
+  "skill": "team-ask",
+  "bodySha256": "05087415d812266c169bbb73fb717cdcfd72bf041670571bd26658715bd178bf",
+  "split": "test",
+  "n": 14,
+  "hard": 1,
+  "soft": 1,
+  "model": "claude-sonnet-5",
+  "effort": "medium",
+  "recordedAt": "2026-09-29T03:50:30.287Z"
+}

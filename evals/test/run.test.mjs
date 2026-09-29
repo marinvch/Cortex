@@ -8,7 +8,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { bodySha256, skillBody, check, runTasks, judgeRecord, main } from "../run.mjs";
+import { bodySha256, skillBody, check, runTasks, judgeRecord, main, NO_SKILL_SYSTEM } from "../run.mjs";
 
 const EVALS = join(dirname(fileURLToPath(import.meta.url)), "..");
 const TASKS = JSON.parse(readFileSync(join(EVALS, "data", "resume", "test", "tasks.json"), "utf8")).slice(0, 4);
@@ -227,5 +227,63 @@ test("a run without --record prints scores and writes no baseline", async () => 
 test("--accept-drop without a reason is a usage error, not a silent acceptance", async () => {
   const root = fixture({ baseline: prev() });
   assert.equal(await main(["resume", "--record", "--accept-drop"], deps(root, async () => "")), 2);
+  rmSync(root, { recursive: true, force: true });
+});
+
+// ── a body that is not skills/<name>/SKILL.md (#498) ───────────────────────────────────────────────
+// The team playbook is a template stamped into a user's CLAUDE.md, and its text decides whether the
+// session asks before working. It is measured like a skill: `files` points the skill at the file, and
+// the alarm must follow that file — a check that kept reading skills/<name>/SKILL.md would pass while
+// the template it claims to guard changed underneath it.
+
+const PLAYBOOK_AT = "templates/team/playbook.md";
+function templateFixture(body, { baseline } = {}) {
+  const root = fixture({ baseline });
+  rmSync(join(root, "skills"), { recursive: true, force: true });
+  mkdirSync(join(root, "templates", "team"), { recursive: true });
+  writeFileSync(join(root, PLAYBOOK_AT), body);
+  return root;
+}
+const files = { resume: PLAYBOOK_AT };
+
+test("a skill registered at another path is hashed, checked and run from that file", async () => {
+  const body = "## Working as a team\n\nAsk first.\n";
+  const root = templateFixture(body, { baseline: prev({ bodySha256: bodySha256(body) }) });
+  assert.deepEqual(check({ root, skills: ["resume"], files }).problems, []);
+  writeFileSync(join(root, PLAYBOOK_AT), body.replace("Ask", "Never ask"));
+  const [problem] = check({ root, skills: ["resume"], files }).problems;
+  assert.match(problem.message, /templates\/team\/playbook\.md changed since its baseline/);
+  let seen;
+  const call = async ({ system, user }) => { seen = system; return right(truthOf(user)); };
+  assert.equal(await main(["resume"], deps(root, call, { files })), 0);
+  assert.equal(seen, "## Working as a team\n\nNever ask first.\n");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a skill may shape its system prompt from the body (a template's placeholders), and the hash stays on the file", async () => {
+  const body = "Agents: {{ROSTER}}.\n";
+  const root = templateFixture(body);
+  let seen;
+  const call = async ({ system, user }) => { seen = system; return right(truthOf(user)); };
+  const system = (b) => b.replace("{{ROSTER}}", "`architect`");
+  assert.equal(await main(["resume", "--record"], deps(root, call, { files, systemFor: { resume: system } })), 0);
+  assert.equal(seen, "Agents: `architect`.\n");
+  assert.equal(JSON.parse(readFileSync(baselinePath(root), "utf8")).bodySha256, bodySha256(body));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("--no-skill runs the same tasks with a one-line generic system prompt, and never records", async () => {
+  const root = fixture();
+  const systems = new Set();
+  const call = async ({ system, user }) => { systems.add(system); return right(truthOf(user)); };
+  const lines = [];
+  assert.equal(await main(["resume", "--no-skill"], deps(root, call, { log: (m) => lines.push(m) })), 0);
+  assert.deepEqual([...systems], [NO_SKILL_SYSTEM]);
+  assert.ok(!NO_SKILL_SYSTEM.includes("\n"), "one line");
+  assert.match(lines.join("\n"), /no skill/);
+  const errors = [];
+  assert.equal(await main(["resume", "--no-skill", "--record"], deps(root, call, { error: (m) => errors.push(m) })), 2);
+  assert.match(errors.join("\n"), /a control is never recorded/);
+  assert.equal(existsSync(baselinePath(root)), false);
   rmSync(root, { recursive: true, force: true });
 });

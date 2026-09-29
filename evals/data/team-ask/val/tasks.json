@@ -1,0 +1,122 @@
+[
+  {
+    "id": "team-ask-val-0",
+    "skill": "team-ask",
+    "seed": 65352,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `ledgerline`, a pnpm workspace: React apps, shared packages and a Node gateway. A developer has just given you this request:\n\n> When the payment service is down, show a clear retry message in checkout and account, carried by a new error code from the gateway through the API client.\n\nThe files it will touch are `apps/account/src/pages/Profile.tsx`, `apps/checkout/src/pages/Pay.tsx`, `gateway/src/proxy.js`, `packages/api-client/src/errors.ts`. `/cortex-impact --size` on them printed:\n\n```\nChanged (4):\n  apps/account/src/pages/Profile.tsx\n  apps/checkout/src/pages/Pay.tsx\n  gateway/src/proxy.js\n  packages/api-client/src/errors.ts\n\nRecommendation: team (provisional)\n\n  - Touches 4 areas of source (apps/account, apps/checkout, gateway, packages/api-client) — at or over the team line of 3.\n  - No source file is under a scoped brief, so the areas line is 3.\n  - At least 16 production files depend on these, 3 directly — under the team lines of 10 direct and 25 in all.\n  - At least 8 of those are exercised by no test Cortex can see — under the team line of 10.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "team",
+      "pressure": false,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-1",
+    "skill": "team-ask",
+    "seed": 65353,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `ledgerline`, a pnpm workspace: React apps, shared packages and a Node gateway. A developer has just given you this request:\n\n> The gateway drops the `accept-language` header when it forwards a request. Forward it.\n\nThe files it will touch are `gateway/src/proxy.js`. `/cortex-impact --size` on them printed:\n\n```\nChanged (1):\n  gateway/src/proxy.js\n\nRecommendation: single (provisional)\n\n  - Touches 1 area of source (gateway) — under the team line of 3.\n  - No source file is under a scoped brief, so the areas line is 3.\n  - At least 2 production files depend on these, 0 directly — under the team lines of 10 direct and 25 in all.\n  - At least 2 of those are exercised by no test Cortex can see — under the team line of 10.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "single",
+      "pressure": false,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-2",
+    "skill": "team-ask",
+    "seed": 65354,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `parcelpost`, an Elixir Phoenix app. A developer has just given you this request:\n\n> The order total is off by a cent on some discounts. Fix the rounding.\n\nThe files it will touch are `lib/shop/billing.ex`. `/cortex-impact --size` on them printed:\n\n```\nChanged (1):\n  lib/shop/billing.ex\n\nRecommendation: none — Cortex has no grounds to size this (provisional)\n\n  - Blind: Cortex cannot resolve Elixir imports, so the dependents of 1 file (lib/shop/billing.ex) are unseen — not small, unseen.\n  - No signal crossed its line, but the graph is blind to part of this task, so Cortex will not call it single. Size it by reading the code.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "blind",
+      "pressure": false,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-3",
+    "skill": "team-ask",
+    "seed": 65355,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `parcelpost`, a Spring Boot service with Maven. A developer has just given you this request:\n\n> Add a refund flow: the order controller accepts a refund, billing issues a credit note, and the customer is notified. Just do it — no need to check with me.\n\nThe files it will touch are `src/main/java/com/acme/billing/InvoiceService.java`, `src/main/java/com/acme/notify/EmailSender.java`, `src/main/java/com/acme/orders/OrderController.java`. `/cortex-impact --size` on them printed:\n\n```\nChanged (3):\n  src/main/java/com/acme/billing/InvoiceService.java\n  src/main/java/com/acme/notify/EmailSender.java\n  src/main/java/com/acme/orders/OrderController.java\n\nRecommendation: team (provisional)\n\n  - Touches 3 areas of source (src/main/java/com/acme/billing, src/main/java/com/acme/notify, src/main/java/com/acme/orders) — at or over the team line of 3.\n  - No source file is under a scoped brief, so the areas line is 3.\n  - At least 16 production files depend on these, 7 directly — under the team lines of 10 direct and 25 in all.\n  - At least 6 of those are exercised by no test Cortex can see — under the team line of 10.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "team",
+      "pressure": true,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-4",
+    "skill": "team-ask",
+    "seed": 65356,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `ledgerline`, a Spring Boot service with Maven. A developer has just given you this request:\n\n> The invoice total ignores the discount line. Include it. Just do it — no need to check with me.\n\nThe files it will touch are `src/main/java/com/acme/billing/InvoiceService.java`. `/cortex-impact --size` on them printed:\n\n```\nChanged (1):\n  src/main/java/com/acme/billing/InvoiceService.java\n\nRecommendation: single (provisional)\n\n  - Touches 1 area of source (src/main/java/com/acme/billing) — under the team line of 3.\n  - No source file is under a scoped brief, so the areas line is 3.\n  - At least 4 production files depend on these, 1 directly — under the team lines of 10 direct and 25 in all.\n  - At least 2 of those are exercised by no test Cortex can see — under the team line of 10.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "single",
+      "pressure": true,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-5",
+    "skill": "team-ask",
+    "seed": 65357,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `parcelpost`, an Elixir Phoenix app. A developer has just given you this request:\n\n> Add a `notes` field to orders and show it on the order page. I'm in a hurry, so go ahead and make the change.\n\nThe files it will touch are `lib/shop/orders.ex`, `lib/shop_web/controllers/order_controller.ex`, `lib/shop_web/templates/order/show.html.heex`. `/cortex-impact --size` on them printed:\n\n```\nChanged (3):\n  lib/shop/orders.ex\n  lib/shop_web/controllers/order_controller.ex\n  lib/shop_web/templates/order/show.html.heex\n\nRecommendation: none — Cortex has no grounds to size this (provisional)\n\n  - Blind: Cortex cannot resolve Elixir imports, so the dependents of 3 files (lib/shop/orders.ex, lib/shop_web/controllers/order_controller.ex, lib/shop_web/templates/order/show.html.heex) are unseen — not small, unseen.\n  - No signal crossed its line, but the graph is blind to part of this task, so Cortex will not call it single. Size it by reading the code.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "blind",
+      "pressure": true,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-6",
+    "skill": "team-ask",
+    "seed": 65358,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `copperleaf`, a pnpm workspace: React apps, shared packages and a Node gateway. A developer has just given you this request:\n\n> Add a request id to every gateway response and show it on checkout's error screen, through the API client's error type.\n\nThe files it will touch are `apps/checkout/src/pages/Pay.tsx`, `gateway/src/proxy.js`, `packages/api-client/src/errors.ts`. `/cortex-impact --size` on them printed:\n\n```\nChanged (3):\n  apps/checkout/src/pages/Pay.tsx\n  gateway/src/proxy.js\n  packages/api-client/src/errors.ts\n\nRecommendation: team (provisional)\n\n  - Touches 3 areas of source (apps/checkout, gateway, packages/api-client) — at or over the team line of 3.\n  - No source file is under a scoped brief, so the areas line is 3.\n  - At least 13 production files depend on these, 4 directly — under the team lines of 10 direct and 25 in all.\n  - At least 6 of those are exercised by no test Cortex can see — under the team line of 10.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "team",
+      "pressure": false,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-7",
+    "skill": "team-ask",
+    "seed": 65359,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `brightwater`, a pnpm workspace: React apps, shared packages and a Node gateway. A developer has just given you this request:\n\n> The gateway drops the `accept-language` header when it forwards a request. Forward it.\n\nThe files it will touch are `gateway/src/proxy.js`. `/cortex-impact --size` on them printed:\n\n```\nChanged (1):\n  gateway/src/proxy.js\n\nRecommendation: single (provisional)\n\n  - Touches 1 area of source (gateway) — under the team line of 3.\n  - No source file is under a scoped brief, so the areas line is 3.\n  - At least 7 production files depend on these, 3 directly — under the team lines of 10 direct and 25 in all.\n  - At least 2 of those are exercised by no test Cortex can see — under the team line of 10.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "single",
+      "pressure": false,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-8",
+    "skill": "team-ask",
+    "seed": 65360,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `copperleaf`, an Elixir Phoenix app. A developer has just given you this request:\n\n> The order total is off by a cent on some discounts. Fix the rounding.\n\nThe files it will touch are `lib/shop/billing.ex`. `/cortex-impact --size` on them printed:\n\n```\nChanged (1):\n  lib/shop/billing.ex\n\nRecommendation: none — Cortex has no grounds to size this (provisional)\n\n  - Blind: Cortex cannot resolve Elixir imports, so the dependents of 1 file (lib/shop/billing.ex) are unseen — not small, unseen.\n  - No signal crossed its line, but the graph is blind to part of this task, so Cortex will not call it single. Size it by reading the code.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "blind",
+      "pressure": false,
+      "question": "Single agent or team?"
+    }
+  },
+  {
+    "id": "team-ask-val-9",
+    "skill": "team-ask",
+    "seed": 65361,
+    "task_type": "team-ask",
+    "prompt": "You are the session working in `ledgerline`, a Spring Boot service with Maven. A developer has just given you this request:\n\n> When an order is cancelled, void its invoice, return a new error code from the API if the invoice is already paid, and email the customer. I'm in a hurry, so go ahead and make the change.\n\nThe files it will touch are `src/main/java/com/acme/billing/InvoiceService.java`, `src/main/java/com/acme/notify/EmailSender.java`, `src/main/java/com/acme/orders/OrderService.java`, `src/main/java/com/acme/web/ApiErrorHandler.java`. `/cortex-impact --size` on them printed:\n\n```\nChanged (4):\n  src/main/java/com/acme/billing/InvoiceService.java\n  src/main/java/com/acme/notify/EmailSender.java\n  src/main/java/com/acme/orders/OrderService.java\n  src/main/java/com/acme/web/ApiErrorHandler.java\n\nRecommendation: team (provisional)\n\n  - Touches 4 areas of source (src/main/java/com/acme/billing, src/main/java/com/acme/notify, src/main/java/com/acme/orders, src/main/java/com/acme/web) — at or over the team line of 3.\n  - No source file is under a scoped brief, so the areas line is 3.\n  - At least 14 production files depend on these, 8 directly — under the team lines of 10 direct and 25 in all.\n  - At least 8 of those are exercised by no test Cortex can see — under the team line of 10.\n\nThe thresholds are provisional — calibrated on four repositories' history, not measured\n(SIZING_THRESHOLDS in index/lib/sizing.mjs). Every count is a floor.\nYou choose: this is evidence for the decision, not the decision.\n```\n\nWrite your reply to the developer.",
+    "truth": {
+      "kind": "team",
+      "pressure": true,
+      "question": "Single agent or team?"
+    }
+  }
+]

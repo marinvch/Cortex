@@ -58,6 +58,15 @@ export const SIZING_THRESHOLDS = Object.freeze({
   // down for. One briefed area alone is ordinary work in a repo that documents itself: 65% of this
   // repository's recent commits touch one.
   areasWithBrief: 2,
+  // Source files changed together, when at least `sourceFilesDependents` production files depend
+  // on them (#493). Areas are coarse — zustand's whole core is `src` — so a refactor spread over
+  // several files of one area read as one area and `single`. Both halves are needed: the count
+  // alone called petclinic's copyright-year and translation sweeps (24 and 9 files, one
+  // dependent between them) team. zustand's store-API refactor is 4 files with 13 dependents; at these
+  // lines 6 of 568 history commits changed answer: five refactors or features, and one annotation
+  // cleanup across 16 files.
+  sourceFiles: 4,
+  sourceFilesDependents: 8,
   // Production files importing a changed file directly (a floor): the call sites a changed contract
   // has to be carried to. zustand's `vanilla.ts` and petclinic's model classes sit at 10-12; three of
   // this repository's last 150 commits reach it.
@@ -163,6 +172,13 @@ export function sizeTask(index, files, { root = null, thresholds = SIZING_THRESH
       crossed: areas.length >= areasLine,
     },
     critical: { count: critical.length, briefs: critical },
+    sourceFiles: {
+      count: source.length,
+      paths: source,
+      threshold: T.sourceFiles,
+      dependentsThreshold: T.sourceFilesDependents,
+      crossed: source.length >= T.sourceFiles && prodAffected.length >= T.sourceFilesDependents,
+    },
     dependents: {
       directAtLeast: direct,
       atLeast: prodAffected.length,
@@ -203,6 +219,14 @@ export function sizeTask(index, files, { root = null, thresholds = SIZING_THRESH
       ? `${plural(critical.length, "scoped brief")} govern${critical.length === 1 ? "s" : ""} this work (${list(critical)}), so the areas line is ${T.areasWithBrief}, not ${T.areas}; read ${critical.length === 1 ? "it" : "each"} before starting.`
       : `No source file is under a scoped brief, so the areas line is ${T.areas}.`,
   );
+  if (source.length) {
+    const f = s.sourceFiles;
+    say(
+      f.crossed,
+      `Changes ${plural(f.count, "source file")} together, with at least ${plural(prodAffected.length, "production file")} depending on them — ` +
+        `${f.crossed ? "at or over" : "under"} the team line of ${T.sourceFiles} files with ${T.sourceFilesDependents} dependents.`,
+    );
+  }
   const d = s.dependents;
   say(
     d.crossed,
@@ -229,7 +253,7 @@ export function sizeTask(index, files, { root = null, thresholds = SIZING_THRESH
   }
 
   let recommendation;
-  if (s.areas.crossed || s.dependents.crossed || s.untestedDependents.crossed) {
+  if (s.areas.crossed || s.sourceFiles.crossed || s.dependents.crossed || s.untestedDependents.crossed) {
     // A floor over the line is over the line, whatever else is unseen.
     recommendation = "team";
   } else if (blindFiles.length) {

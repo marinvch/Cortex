@@ -23,6 +23,20 @@ this project now versions independently of any package manager (see `VERSION`).
   - `skills/site-sync/PAGES.md`'s `/cli` row now says the site copies the README's table row for
     row and keeps no list of its own.
 
+### Fixed
+
+- **`cortex-impact --size` called a refactor across several files of one area `single` (#493).**
+  Areas come from `layerKeyFor`, which is coarse. zustand's whole core is `src` and
+  spring-petclinic's Java is `src/main`, so a zustand store-API refactor read `single`. It changes
+  four source files, and at least 13 files depend on them. A new signal now counts the source
+  files changed together, and it crosses only when a radius comes with them: 4 files with 8
+  production dependents. Both halves are needed. The count alone would have called petclinic's
+  copyright-year and translation sweeps a team task. A finer area key was also considered and
+  rejected, because three of the four zustand files sit in one directory. Over the last 150
+  commits of each repo, the share called `team` went from 0% to 0% on zustand, 0% to 2% on
+  spring-petclinic, 28% to 29% on taxonomy and 11% to 13% here. The new lines are in
+  `SIZING_THRESHOLDS` and are provisional like the rest.
+
 ## [2.41.0] — 2026-09-28
 
 Every repo `/cortex` serves can now carry an **agent team** — Architect, Implementer, Tester,

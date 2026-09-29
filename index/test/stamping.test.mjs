@@ -124,6 +124,20 @@ test("/cortex renders and records every whole-file loop file, and updates only t
   assert.match(body, /`olderPlugin`[^\n]*\n?[^\n]*`advice`[^.]*no stamp row/i, "/cortex offers no stamp row on an older plugin");
 });
 
+test("/cortex checks the team section on a re-run and replaces it only through the CLI (#505)", () => {
+  // The section is prose in a file the team writes. A model rewriting it by hand is how an edited
+  // section gets overwritten, or the text around it moves; the CLI replaces only an outdated one and
+  // reads the result back.
+  const body = read("skills/cortex/SKILL.md");
+  const team = read("skills/cortex/TEAM.md");
+  assert.match(body, /cortex-section\.mjs"? \. --json/, "/cortex reads the section's state on a re-run");
+  assert.match(body, /never edit `CLAUDE\.md` by hand for it/i);
+  assert.match(team, /cortex-section\.mjs"? \. --replace team/, "the replace is the CLI's");
+  assert.match(team, /\| `outdated` \|[^\n]*\*Update\* row[^\n]*`diff` shown/, "an outdated section is an Update row, with its diff");
+  assert.match(team, /\| `edited` \|[^\n]*`diff`[^\n]*\*Ask each\*[^\n]*never replaced/, "an edited one is shown and asked, never replaced");
+  assert.match(team, /Never rewrite the section yourself/);
+});
+
 test("/cortex merges the team plugin through the CLI, and says each teammate still installs once", () => {
   // .claude/settings.json holds hooks and permissions a team depends on. A model hand-editing it is
   // the replace-not-merge failure; the CLI parses, inserts, and refuses what it cannot read.

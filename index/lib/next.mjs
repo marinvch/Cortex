@@ -20,6 +20,7 @@ import { listRepoSkills, skillDrift } from "./skill-drift.mjs";
 import {
   adoptionCandidates, olderPlugin, readStamps, runningCortex, stampStatus, stampsIgnoreRule, STAMPS_REL,
 } from "./stamps.mjs";
+import { sectionReport } from "./sections.mjs";
 
 // The templates this Cortex ships — what a stamped file is compared against. Next to this file in a
 // clone and in an installed plugin alike.
@@ -184,6 +185,17 @@ function stampFacts(root) {
   }
 }
 
+// The sections Cortex wrote into a shared file (#505): the team playbook in CLAUDE.md. Only the ones
+// a pass has something to say about — outdated, edited, duplicated — so a repo without one, or with
+// a current one, reads exactly as before. A failure here costs this row only, never the sequence.
+function sectionFacts(root) {
+  try {
+    return sectionReport(root).filter((s) => ["outdated", "edited", "duplicate"].includes(s.state));
+  } catch {
+    return [];
+  }
+}
+
 // An agent doc that predates Cortex needs reconciling BEFORE scaffold rather than after — otherwise
 // the target ends up with a curated file plus an AGENTS.generated.md to merge by hand.
 //
@@ -230,6 +242,7 @@ export function readState(root, index = null, overrides = {}) {
     memoryLatest: latestDigest(memory),
     priorDocs: priorAgentDocs(root),
     ...stampFacts(root),
+    sections: sectionFacts(root),
     ...loopFacts(root, index),
     ...overrides,
   };
@@ -282,6 +295,23 @@ function stampsStep(s, plural) {
     why:
       (parts.length ? parts.map(([n, what]) => `${n} ${what}`).join(", ") : "every stamped file is current") +
       ` — \`cortex-stamps.mjs .\` lists each${ignored}`,
+  };
+}
+
+// A section Cortex appended to a shared file, against this release (#505). Required only when one is
+// an earlier release's text, untouched — a decision /cortex can make, inside its one confirmation. An
+// edited or duplicated section is listed and optional: it is the team's, never overwritten, and a
+// required row over the team's own text would never clear.
+function sectionsStep(s) {
+  const list = s.sections ?? [];
+  if (!list.length) return null;
+  return {
+    id: "sections",
+    title: "Bring the sections Cortex wrote into CLAUDE.md up to date",
+    cmd: "/cortex",
+    done: false,
+    optional: !list.some((x) => x.state === "outdated"),
+    why: list.map((x) => x.why).join("; ") + " — `cortex-section.mjs .` shows the diff",
   };
 }
 
@@ -413,6 +443,8 @@ function steps(s) {
   // silent: the team changed it and the template did not, so it is theirs.
   const stampsRow = stampsStep(s, plural);
   if (stampsRow) rows.push(stampsRow);
+  const sectionsRow = sectionsStep(s);
+  if (sectionsRow) rows.push(sectionsRow);
 
   // The loop, as one row rather than eight. `loop.mjs` owns which artifacts a repo is missing and
   // why; duplicating those rows here would give the user two lists that disagree the first time one

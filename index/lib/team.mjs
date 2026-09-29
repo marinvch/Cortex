@@ -28,6 +28,7 @@ import { ROLES, agentReport } from "./agents.mjs";
 import { adrLocation } from "./adr.mjs";
 import { placeholderMatches } from "./placeholders.mjs";
 import { readStamps } from "./stamps.mjs";
+import { findSections } from "./section.mjs";
 
 const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
 
@@ -214,7 +215,8 @@ export function teamState(root, index, { testCmd = null, verifierPath = null, as
 
   return {
     report,
-    playbook: new RegExp(`^##+\\s+${PLAYBOOK_HEADING}\\s*$`, "m").test(claudeMd),
+    // The one reader of the section (lib/section.mjs): a heading in a code fence is not the playbook.
+    playbook: findSections(claudeMd, PLAYBOOK_HEADING).length > 0,
     teamSkill: skillState(root),
     values,
     covered,

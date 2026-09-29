@@ -9,6 +9,7 @@ edit, and trained with an optimizer that only keeps edits that measurably help.
 | `/ship` | merge order of an open queue; which local branches are safe to delete | order checked against the skill's ranking rules (any valid order passes); deletions as an exact set |
 | `/resume` | which branch this checkout's uncommitted work is on; which branches hold local-only work, including dirt in another worktree; which ritual to route to | exact per field; `ahead N` on a merged branch, a clean extra worktree, and a user whose words outrank an open PR queue are traps |
 | `/cortex-review` | which documented lines a change made wrong | set F1 on `path:line`; history (CHANGELOG and ADR lines, even in the present tense), unchanged facts and unverified claims are traps, some stale lines never repeat the old literal, and some changes have nothing stale |
+| `team-ask` — the team playbook, `templates/team/playbook.md` | before any work, the session reports the `--size` recommendation, ends with "Single agent or team?" and stops (#498) | per part: the exact question; it is the last line; no code, plan or hand-off; the recommendation reported (or "cannot size" when there is none); no claim the developer answered or that it asked. Traps: team-sized, single-sized, a request to "just do it", and no recommendation |
 
 `/cortex` and `/cortex-next` are deliberately absent: their decisions are made by `index/lib/loop.mjs`
 and `index/lib/next.mjs`, so tuning their prose would move no score.
@@ -23,6 +24,10 @@ and `index/lib/next.mjs`, so tuning their prose would move no score.
   through it rather than re-implementing a rule.
 - `run.mjs` — runs a skill's tasks against a real model and records or checks its baseline.
 - `baselines/<skill>.json` — the score the current SKILL.md body earned, keyed to that body's hash.
+  A skill whose text is not a `skills/<name>/SKILL.md` names its file in `SKILL_FILES` in
+  `skills.mjs`. `team-ask` names the playbook template this way, and `--check` follows that file.
+  Its scenario's `system(body)` fills `{{ROSTER}}` first. SkillOpt's adapter still reads
+  `skills/<name>/SKILL.md` only, so `team-ask` is measured here but not trained there.
 - `test/` — the scorer is tested before anything trusts it: every correct answer scores 1, and each
   trap (deleting a squash-merged branch that kept commits, flagging a CHANGELOG line, inventing a
   finding on a clean change) scores below 1. A scorer that passed a wrong answer would train a skill
@@ -44,8 +49,8 @@ node evals/run.mjs ship --record --accept-drop "why the lower score is worth it"
   through `claude -p` on your own login, isolated: an empty temp cwd, local settings only, and no
   tools, MCP servers or skills. `CLAUDE_CLI_BIN` names a non-default binary. The default target is
   `claude-sonnet-5` at `medium` effort, the SkillOpt target (`--model` and `--effort` override
-  them). Each reply is written to `.cortex/evals/<skill>/<split>/`, which is gitignored. All three
-  skills take about three minutes: 42 calls, four at a time.
+  them). Each reply is written to `.cortex/evals/<skill>/<split>/`, which is gitignored. All four
+  take about four minutes: 56 calls, four at a time.
 - **What the baseline is keyed to.** The hash covers the body only. Frontmatter is stripped and CRLF
   becomes LF first, so a description edit or a Windows checkout never demands a re-measure.
 - **The alarm.** `--record` refuses, leaving the file untouched, when mean `soft` falls more than
@@ -61,7 +66,7 @@ node evals/run.mjs ship --record --accept-drop "why the lower score is worth it"
 
 **Can the alarm fire?** Only if deleting the skill costs more than the limit. So each skill is also
 run with **no skill at all**: a one-line generic system prompt, on the same `test` tasks, model and
-effort. The first tasks failed that check (#472). With no skill, `/resume` scored 0.944 soft and
+effort (`node evals/run.mjs <skill> --no-skill`, which never records). The first tasks failed that check (#472). With no skill, `/resume` scored 0.944 soft and
 `/cortex-review` 0.986, so either body could have been deleted without tripping the alarm. Their
 generators now build traps from each skill's own rules:
 
@@ -81,6 +86,20 @@ Measured on 2026-09-28 with `claude-sonnet-5` at medium effort:
 | `/cortex-review` | first version | 1.000 / 1.000 | 0.929 / 0.986 | 0.07 / 0.01 | neither |
 | `/cortex-review` | harder | 0.643 / 0.927 | 0.357 / 0.864 | 0.29 / 0.06 | hard only |
 | `/cortex-review` | harder, skill text fixed | 0.929 / 0.992 | 0.286 / 0.840 | 0.64 / 0.15 | both |
+| `team-ask` | first version (2026-09-29) | 1.000 / 1.000 | 0.000 / 0.354 | 1.00 / 0.65 | both |
+
+`team-ask` also ran the playbook as it was before #498: 0.000 / 0.418. It could not know the exact
+sentence. A looser reading counts a closing single-or-team question in any words, with no work
+started. On that reading it asked and stopped on 11 of 14 tasks, and the three it missed were all
+requests to "just do it".
+
+The first draft of the fix scored between 0.786 and 1.000 hard over four runs. Its misses were
+replies that listed every reason and never named the recommendation. The playbook now says to
+name it in words; the recorded run and a repeat both scored 1.000.
+
+Those runs also showed the scorer marking down correct replies: "couldn't produce a real
+recommendation", "returned none" and "recommends working solo". Each phrase is now accepted, and
+each has a test.
 
 The with-skill row is the recorded baseline. An unrecorded repeat of the fixed text scored
 0.857 / 0.990 on `/resume` and 1.000 / 1.000 on `/cortex-review`. No-skill runs vary more: two runs

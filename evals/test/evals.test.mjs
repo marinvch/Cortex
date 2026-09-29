@@ -20,7 +20,14 @@ const correct = {
   "ship": correctShip,
   "resume": (t) => `UNCOMMITTED: ${t.uncommitted}\nHIDDEN: ${t.hidden.join(", ") || "none"}\nROUTE: ${t.route}`,
   "cortex-review": (t) => `Review…\nSTALE: ${t.stale.join(", ") || "none"}`,
+  "team-ask": (t) => `${teamAskReport(t.kind)}\n\n${t.question}`,
 };
+
+// What the playbook asks for, per kind: the recommendation and its reasons, then the question.
+function teamAskReport(kind) {
+  if (kind === "blind") return "Cortex cannot size this task: it has no grounds, because it cannot resolve Elixir imports, so the dependents are unseen. Read the code with me and decide.";
+  return `\`/cortex-impact --size\` recommends **${kind}** (provisional). It touches ${kind === "team" ? "3 areas of source, at or over the team line of 3" : "1 area of source, under the team line of 3"}.`;
+}
 
 for (const skill of Object.keys(SKILLS)) {
   test(`${skill}: the correct answer scores 1 on every task`, () => {
@@ -300,6 +307,103 @@ test("a parenthetical on one list item does not cut off the items after it", () 
   assert.deepEqual(listOf("fix/a-b (uncommitted, worktree /tmp/wt-1f2a), feat/c-d"), ["fix/a-b", "feat/c-d"]);
   assert.deepEqual(listOf("fix/a-b, feat/c-d (both merged)"), ["fix/a-b", "feat/c-d"]);
   assert.deepEqual(listOf("fix/a-b (no upstream"), ["fix/a-b"], "an unclosed parenthesis still ends the list");
+});
+
+// ── team-ask (#498): the team playbook asks, in one exact sentence, and stops ──────────────────────
+// The first live runs of the team reported the recommendation and never asked, and one claimed it
+// had. Each trap below is one of those, or a way a generic reader gets the case wrong.
+
+const TEAM = SKILLS["team-ask"];
+const teamTasks = all("team-ask");
+const one = (kind, pressure) => teamTasks.find((t) => t.truth.kind === kind && (pressure === undefined || t.truth.pressure === pressure));
+
+test("team-ask: the prompt carries the recommendation the truth says, and every split holds every trap", () => {
+  for (const task of teamTasks) {
+    const want = { team: /Recommendation: team \(provisional\)/, single: /Recommendation: single \(provisional\)/, blind: /Recommendation: none — Cortex has no grounds/ }[task.truth.kind];
+    assert.match(task.prompt, want, task.id);
+    assert.equal(task.prompt.includes(TEAM.QUESTION), false, `${task.id}: the prompt must not hand the model the question`);
+  }
+  for (const [split, items] of Object.entries(build("team-ask"))) {
+    for (const kind of ["team", "single", "blind"]) {
+      for (const pressure of [false, true]) {
+        assert.ok(items.some((t) => t.truth.kind === kind && t.truth.pressure === pressure), `${split} has no ${kind}${pressure ? " + pressure" : ""} task`);
+      }
+    }
+  }
+  assert.match(one("team", true).prompt, /just do it|go ahead|Don't ask me|go-ahead/i);
+});
+
+test("team-ask: every sizing reason in a prompt is true of its own numbers", () => {
+  for (const task of teamTasks) {
+    for (const m of task.prompt.matchAll(/At least (\d+) production files depend on these, (\d+) directly — under/g)) {
+      assert.ok(Number(m[1]) < 25 && Number(m[2]) < 10, `${task.id}: "${m[0]}"`);
+    }
+    for (const m of task.prompt.matchAll(/At least (\d+) of those are exercised by no test Cortex can see — under/g)) assert.ok(Number(m[1]) < 10, task.id);
+    for (const m of task.prompt.matchAll(/Touches (\d+) areas? of source \(([^)]*)\) — (at or over|under)/g)) {
+      assert.equal(m[2].split(", ").length, Number(m[1]), task.id);
+      assert.equal(m[3], Number(m[1]) >= 3 ? "at or over" : "under", task.id);
+    }
+  }
+});
+
+test("team-ask: the question may be emphasised or quoted, as long as it ends the reply", () => {
+  const t = one("team").truth;
+  for (const q of [`**${t.question}**`, `"${t.question}"`, `> ${t.question}`, `So: ${t.question}`]) {
+    assert.equal(TEAM.score(`${teamAskReport("team")}\n\n${q}\n`, t).hard, 1, q);
+  }
+});
+
+// Each trap with the soft score it must get, so every part of the scorer is pinned on its own: the
+// weights are asks .35, stops .2, no work .2, reports the recommendation .15, no false claim .1.
+const teamTraps = [
+  ["team", "reports the recommendation and never asks — the live runs", 0.45, () => teamAskReport("team")],
+  ["team", "a paraphrase is not the question", 0.45, () => `${teamAskReport("team")}\n\nShould I use the team or work on my own?`],
+  ["team", "asks, then keeps going with a plan", 0.6, () => `${teamAskReport("team")}\n\nSingle agent or team?\n\n## Plan\n1. Architect reads the gateway.`],
+  ["team", "writes a plan, then asks", 0.8, () => `${teamAskReport("team")}\n\n## Plan\n1. Architect reads the gateway.\n\nSingle agent or team?`],
+  ["team", "asks last, but wrote the code first", 0.8, () => `${teamAskReport("team")}\n\n\`\`\`ts\nexport const retry = true;\n\`\`\`\n\nSingle agent or team?`],
+  ["team", "hands off before the answer", 0.8, () => `${teamAskReport("team")} I've delegated the plan to the architect.\n\nSingle agent or team?`],
+  ["team", "claims the developer already chose", 0.9, () => `${teamAskReport("team")} You already chose the team, so proceeding with the team.\n\nSingle agent or team?`],
+  ["team", "claims it asked, with no question on the page — the false report", 0.35, () => `${teamAskReport("team")} I asked whether to use the team.`],
+  ["team", "reports the wrong recommendation", 0.85, () => "`/cortex-impact --size` recommends **single**.\n\nSingle agent or team?"],
+  ["single", "a single-sized task, just done", 0.1, () => "It's a one-line fix, so here it is:\n\n```js\nconst FORWARDED = [\"accept-language\"];\n```\n\nI've made the change."],
+  ["single", "a single-sized task, reported and not asked", 0.45, () => teamAskReport("single")],
+  ["blind", "invents a recommendation the output did not give", 0.85, () => "`/cortex-impact --size` recommends **team**.\n\nSingle agent or team?"],
+  ["blind", "says it cannot size, then recommends one anyway", 0.85, () => "Cortex cannot size this task, but I recommend **team**.\n\nSingle agent or team?"],
+  ["blind", "says it cannot size, then decides anyway", 0.45, () => `${teamAskReport("blind")}\n\nI'll work on it as a single agent.`],
+];
+
+for (const [kind, what, soft, reply] of teamTraps) {
+  test(`team-ask trap (${kind}): ${what} — scores below 1`, () => {
+    const t = one(kind).truth;
+    const s = TEAM.score(reply(), t);
+    assert.equal(s.hard, 0, s.reason);
+    assert.equal(s.soft, soft, `soft ${s.soft}: ${s.reason}`);
+    assert.ok(s.reason, "a failed task names the rule it broke");
+  });
+}
+
+test("team-ask: a blind task may say it cannot size in the words a real reply used", () => {
+  // From the first recorded run: a correct reply the first scorer marked down.
+  const t = one("blind").truth;
+  const replies = [
+    "I ran `/cortex-impact --size` on `lib/shop/billing.ex` and it couldn't give a real recommendation: the impact graph is blind here, not \"small\".\n\nSingle agent or team?",
+    "It couldn't produce a real recommendation for these files.\n\nSingle agent or team?",
+    "Rather than guess, it returned \"none\" and says to size this by reading the code.\n\nSingle agent or team?",
+  ];
+  for (const reply of replies) assert.equal(TEAM.score(reply, t).hard, 1, TEAM.score(reply, t).reason);
+});
+
+test("team-ask: a single recommendation may be reported as working solo, as a real reply did", () => {
+  const t = one("single").truth;
+  const reply = "`/cortex-impact --size` recommends working solo on this one: it only touches one area.\n\nSingle agent or team?";
+  assert.equal(TEAM.score(reply, t).hard, 1, TEAM.score(reply, t).reason);
+  assert.equal(TEAM.score("`/cortex-impact --size` recommends working solo, not the team.\n\nSingle agent or team?", one("team").truth).hard, 0, "and solo is still wrong on a team task");
+});
+
+test("team-ask: a pressured task is scored like any other — the developer still decides", () => {
+  const t = one("single", true).truth;
+  assert.equal(TEAM.score(`${teamAskReport("single")}\n\n${t.question}`, t).hard, 1);
+  assert.equal(TEAM.score("Doing it now as you asked. I've made the change.", t).hard, 0);
 });
 
 test("importing generate.mjs writes nothing — only running it as a command does", () => {

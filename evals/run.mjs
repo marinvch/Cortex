@@ -4,6 +4,7 @@
 //
 //   node evals/run.mjs <skill> [--split test] [--record] [--accept-drop "<reason>"]
 //        [--model claude-sonnet-5] [--effort medium] [--concurrency 4] [--timeout 300]
+//   node evals/run.mjs <skill> --no-skill   # the control: the same tasks, a one-line generic prompt
 //   node evals/run.mjs --check          # deterministic, no model: is every baseline current?
 //
 // Each task runs through `claude -p` on your own login: the SKILL.md BODY is the system prompt, the
@@ -22,7 +23,7 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { SKILLS } from "./skills.mjs";
+import { SKILLS, SKILL_FILES } from "./skills.mjs";
 import { scoreTask } from "./score.mjs";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -44,8 +45,17 @@ export function skillBody(text) {
 
 export const bodySha256 = (text) => createHash("sha256").update(skillBody(text), "utf8").digest("hex");
 
-const paths = (root, skill, split = "test") => ({
-  skill: join(root, "skills", skill, "SKILL.md"),
+// The control: what a model does with the same tasks and no skill at all. One line, so it carries no
+// rule the skill states; if the skill's score is not clearly above this, its alarm cannot fire.
+export const NO_SKILL_SYSTEM = "You are a helpful software engineering assistant working in the user's repository.";
+
+// Where a skill's body lives, repo-relative: skills/<name>/SKILL.md unless skills.mjs registers another
+// file — a template stamped into a user's repo, whose text decides behaviour just the same.
+const skillFile = (skill, files = SKILL_FILES) => files[skill] ?? `skills/${skill}/SKILL.md`;
+
+const paths = (root, skill, split = "test", files = SKILL_FILES) => ({
+  skillRel: skillFile(skill, files),
+  skill: join(root, ...skillFile(skill, files).split("/")),
   tasks: join(root, "evals", "data", skill, split, "tasks.json"),
   baseline: join(root, "evals", "baselines", `${skill}.json`),
   predictions: join(root, ".cortex", "evals", skill, split),
@@ -55,21 +65,21 @@ const readJson = (p) => JSON.parse(readFileSync(p, "utf8"));
 
 // ── --check ───────────────────────────────────────────────────────────────────────────────────────
 
-export function check({ root = REPO, skills = Object.keys(SKILLS) } = {}) {
+export function check({ root = REPO, skills = Object.keys(SKILLS), files = SKILL_FILES } = {}) {
   const problems = [];
   for (const skill of skills) {
-    const p = paths(root, skill);
+    const p = paths(root, skill, "test", files);
     if (!existsSync(p.baseline)) {
       problems.push({ skill, message: `${skill}: no baseline — measure it with \`${recordCmd(skill)}\`` });
       continue;
     }
-    if (!existsSync(p.skill)) { problems.push({ skill, message: `${skill}: baseline exists but skills/${skill}/SKILL.md does not` }); continue; }
+    if (!existsSync(p.skill)) { problems.push({ skill, message: `${skill}: baseline exists but ${p.skillRel} does not` }); continue; }
     const b = readJson(p.baseline);
     const now = bodySha256(readFileSync(p.skill, "utf8"));
     if (b.bodySha256 !== now) {
       problems.push({
         skill,
-        message: `${skill}: skills/${skill}/SKILL.md changed since its baseline (recorded ${b.recordedAt}, soft ${b.soft}) — ` +
+        message: `${skill}: ${p.skillRel} changed since its baseline (recorded ${b.recordedAt}, soft ${b.soft}) — ` +
           `re-measure with \`${recordCmd(skill, b.split)}\``,
       });
     }
@@ -195,6 +205,7 @@ function parse(argv) {
     const a = argv[i];
     if (a === "--check") o.check = true;
     else if (a === "--record") o.record = true;
+    else if (a === "--no-skill") o.noSkill = true;
     else if (a === "--split") o.split = value(i++, a);
     else if (a === "--accept-drop") o.acceptDrop = value(i++, a);
     else if (a === "--model") o.model = value(i++, a);
@@ -208,32 +219,38 @@ function parse(argv) {
 }
 
 export async function main(argv, deps = {}) {
-  const { root = REPO, skills = Object.keys(SKILLS), log = console.log, error = console.error } = deps;
+  const { root = REPO, skills = Object.keys(SKILLS), files = SKILL_FILES, log = console.log, error = console.error } = deps;
+  // A skill whose body is a template may fill its placeholders before it becomes the system prompt;
+  // the hash stays on the file as written, so an edit to the template still demands a re-measure.
+  const systemFor = deps.systemFor ?? Object.fromEntries(Object.entries(SKILLS).filter(([, m]) => m.system).map(([k, m]) => [k, m.system]));
   let o;
   try { o = parse(argv); } catch (e) { error(e.message); return 2; }
 
   if (o.check) {
-    const { ok, problems } = check({ root, skills });
+    const { ok, problems } = check({ root, skills, files });
     for (const p of problems) error(p.message);
     log(ok ? `every evaled skill matches its baseline (${skills.join(", ")})` : `${problems.length} skill(s) need re-measuring`);
     return ok ? 0 : 1;
   }
 
   const [skill] = o.positional;
-  if (!skill || !skills.includes(skill)) { error(`usage: node evals/run.mjs <${skills.join("|")}> [--split test] [--record] [--accept-drop "<reason>"] | --check`); return 2; }
+  if (!skill || !skills.includes(skill)) { error(`usage: node evals/run.mjs <${skills.join("|")}> [--split test] [--record] [--accept-drop "<reason>"] [--no-skill] | --check`); return 2; }
+  if (o.noSkill && o.record) { error("--no-skill is the control: a control is never recorded as the skill's baseline"); return 2; }
   if (!deps.call && process.env.CI) { error("a model run never happens in CI — run it on your own machine; CI runs --check"); return 2; }
 
-  const p = paths(root, skill, o.split);
+  const p = paths(root, skill, o.split, files);
   if (!existsSync(p.tasks)) { error(`no tasks at ${p.tasks}`); return 2; }
   const tasks = readJson(p.tasks);
   const text = readFileSync(p.skill, "utf8");
   const model = o.model || DEFAULT_MODEL;
   const call = deps.call || claudeCall({ model, effort: o.effort || DEFAULT_EFFORT });
+  const system = o.noSkill ? NO_SKILL_SYSTEM : (systemFor[skill] ?? ((b) => b))(skillBody(text));
+  if (o.noSkill) p.predictions += "-no-skill";
 
   const started = Date.now();
-  log(`${skill} · ${o.split} · ${tasks.length} tasks · ${deps.call ? "injected model" : `${model} via claude -p`}`);
+  log(`${skill} · ${o.split} · ${tasks.length} tasks · ${o.noSkill ? "no skill (the control) · " : ""}${deps.call ? "injected model" : `${model} via claude -p`}`);
   const results = await runTasks({
-    tasks, system: skillBody(text), call, concurrency: o.concurrency || 4, timeoutMs: o.timeoutMs || 300_000,
+    tasks, system, call, concurrency: o.concurrency || 4, timeoutMs: o.timeoutMs || 300_000,
     onResult: (r) => log(`  ${r.id.padEnd(24)} hard ${r.hard}  soft ${r.soft.toFixed(3)}${r.hard ? "" : `  ${r.reason}`}`),
   });
   const seconds = Math.round((Date.now() - started) / 1000);

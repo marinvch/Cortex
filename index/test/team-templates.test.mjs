@@ -356,10 +356,48 @@ test("the playbook names only the roles that were stamped", () => {
 test("the playbook has the session recommend from /cortex-impact --size and ask — it never decides", () => {
   const text = source("playbook").replace(/\s*\n\s*/g, " ");
   assert.match(text, /\/cortex-impact --size/, "the recommendation comes from the sizing evidence");
-  assert.match(text, /ask the developer/i);
   assert.match(text, /the developer decides/i);
   assert.match(text, /On "team", load the `team` skill/);
   assert.doesNotMatch(text, /\bautomatically\b|\bwithout asking\b|\bdecide for\b/i);
+});
+
+// #498: on team-sized tasks the first live runs reported the recommendation and never asked, and
+// one final report claimed it had. The ask is one exact sentence, it ends the reply, nothing starts
+// before the answer, and a claim to have asked needs the sentence on the page.
+const TEAM_QUESTION = "Single agent or team?";
+
+test("the playbook ends the recommendation with one exact question, on one line", () => {
+  const raw = source("playbook");
+  assert.ok(raw.split("\n").some((l) => l.includes(`"${TEAM_QUESTION}"`)), "the question must be literal and unbroken, so it can be copied as written");
+  const text = raw.replace(/\s*\n\s*/g, " ");
+  assert.match(text, /end your reply with the exact question "Single agent or team\?"/);
+});
+
+test("the playbook has the session state the recommendation itself, not only its reasons", () => {
+  // The first eval runs of the fix (#498): replies listed every reason and never said "team".
+  const text = source("playbook").replace(/\s*\n\s*/g, " ");
+  assert.match(text, /tell the developer what it recommends, in words \(single, team, or that it cannot size the task\), and why/);
+});
+
+test("the playbook makes the session stop and wait: no plan, edit or delegation before the answer", () => {
+  const text = source("playbook").replace(/\s*\n\s*/g, " ");
+  assert.match(text, /Before any work on a new task that changes code/);
+  assert.match(text, /stop: plan, edit and delegate nothing until they answer/);
+  // The two traps the live runs and the eval name: a single-sized task, and a request to just do it.
+  assert.match(text, /even on a single recommendation or a request to just do it/);
+  // No recommendation is still a case that asks: the question follows whatever step 1 reported.
+  assert.match(text, /or that it cannot size the task\), and why\. 2\. Then end your reply with the exact question/);
+});
+
+test("the playbook forbids claiming the question was asked when it is not in the reply", () => {
+  const text = source("playbook").replace(/\s*\n\s*/g, " ");
+  assert.match(text, /Never say you asked unless that question is in your reply/);
+});
+
+test("the team skill will not start a team the developer has not chosen", () => {
+  const text = source("team-skill").replace(/\s*\n\s*/g, " ");
+  assert.match(text, new RegExp(`answered "team" to "${TEAM_QUESTION.replace(/\?/g, "\\?")}"`));
+  assert.match(text, /If they have not, ask it and stop/);
 });
 
 test("the team skill carries the debate: citations or dropped, two rounds, then the developer", () => {

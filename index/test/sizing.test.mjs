@@ -89,7 +89,7 @@ test("a one-file change with nothing depending on it is single, and says so with
 
 test("the thresholds live in one frozen constant, and are the ones reported", () => {
   assert.ok(Object.isFrozen(T));
-  assert.deepEqual(Object.keys(T).sort(), ["areas", "areasWithBrief", "dependents", "directDependents", "untestedDependents"]);
+  assert.deepEqual(Object.keys(T).sort(), ["areas", "areasWithBrief", "dependents", "directDependents", "sourceFiles", "sourceFilesDependents", "untestedDependents"]);
   assert.deepEqual(sizeTask(ix(["a.js"]), ["a.js"]).thresholds, T);
 });
 
@@ -218,6 +218,82 @@ test("dependents: transitive dependents count, direct ones are reported apart", 
   assert.equal(r.signals.dependents.directAtLeast, 1);
 });
 
+// --- source files changed together (#493) -------------------------------------------------------------
+//
+// Areas are `layerKeyFor`'s and coarse: zustand's whole core is `src`, so a store-API refactor across
+// four files in it read as one area and `single`. Several source files changed together WITH a real
+// radius is the refactor; the same count with no radius is a sweep (a copyright year, an i18n file
+// per language), which is why the line needs both halves.
+
+/** `files` source files under src/, each imported by `per` tested files under app/. */
+function spread(files, per) {
+  const list = [];
+  const edges = [];
+  for (let f = 0; f < files; f++) {
+    list.push(`src/f${f}.js`);
+    // A test importing the file is in the radius but is not a production dependent.
+    list.push([`test/f${f}.test.js`, { isTest: true }]);
+    edges.push(`test/f${f}.test.js>src/f${f}.js`);
+    for (let i = 0; i < per; i++) {
+      list.push(`app/f${f}u${i}.js`, [`test/f${f}u${i}.test.js`, { isTest: true }]);
+      edges.push(`app/f${f}u${i}.js>src/f${f}.js`);
+    }
+  }
+  return { index: ix(list, edges), changed: Array.from({ length: files }, (_, f) => `src/f${f}.js`) };
+}
+
+test("source files: at both lines is team, even inside one area and fully tested", () => {
+  const per = Math.ceil(T.sourceFilesDependents / T.sourceFiles);
+  const { index, changed } = spread(T.sourceFiles, per);
+  const r = sizeTask(index, changed);
+  const s = r.signals;
+  // Every other signal stays under its own line, so this is the one that decides.
+  assert.equal(s.areas.count, 1);
+  assert.equal(s.areas.crossed, false);
+  assert.equal(s.dependents.crossed, false, "fixture keeps the dependent lines uncrossed");
+  assert.equal(s.untestedDependents.atLeast, 0);
+  assert.equal(s.sourceFiles.count, T.sourceFiles);
+  assert.ok(s.dependents.atLeast >= T.sourceFilesDependents);
+  assert.equal(s.sourceFiles.crossed, true);
+  assert.equal(r.recommendation, "team");
+  assert.match(
+    r.reasons[0],
+    new RegExp(`Changes ${T.sourceFiles} source files together, with at least ${s.dependents.atLeast} production files depending on them — at or over the team line of ${T.sourceFiles} files with ${T.sourceFilesDependents} dependents`),
+  );
+});
+
+test("source files: one file under the line is single", () => {
+  const per = Math.ceil(T.sourceFilesDependents / (T.sourceFiles - 1));
+  const { index, changed } = spread(T.sourceFiles - 1, per);
+  const r = sizeTask(index, changed);
+  assert.ok(r.signals.dependents.atLeast >= T.sourceFilesDependents, "the radius half is met");
+  assert.equal(r.signals.dependents.crossed, false);
+  assert.equal(r.signals.sourceFiles.crossed, false);
+  assert.equal(r.recommendation, "single");
+  assert.ok(r.reasons.some((x) => x.includes(`under the team line of ${T.sourceFiles} files with ${T.sourceFilesDependents} dependents`)));
+});
+
+test("source files: one dependent under the line is single — many files with no radius is a sweep", () => {
+  // Spread T.sourceFilesDependents - 1 dependents over the changed files; the rest have none.
+  const { index } = spread(T.sourceFilesDependents - 1, 1);
+  const changed = Array.from({ length: T.sourceFilesDependents - 1 }, (_, f) => `src/f${f}.js`);
+  const r = sizeTask(index, changed);
+  assert.ok(r.signals.sourceFiles.count >= T.sourceFiles, "the file half is met");
+  assert.equal(r.signals.dependents.atLeast, T.sourceFilesDependents - 1);
+  assert.equal(r.signals.sourceFiles.crossed, false);
+  assert.equal(r.recommendation, "single");
+
+  const sweep = Array.from({ length: 3 * T.sourceFiles }, (_, i) => `src/s${i}.js`);
+  assert.equal(sizeTask(ix(sweep), sweep).recommendation, "single", "twelve files nothing imports");
+});
+
+test("source files: tests, documents and configuration are not counted", () => {
+  const { index, changed } = spread(T.sourceFiles - 1, Math.ceil(T.sourceFilesDependents / (T.sourceFiles - 1)));
+  const r = sizeTask(index, [...changed, "test/f0u0.test.js", "README.md", "package.json"]);
+  assert.equal(r.signals.sourceFiles.count, T.sourceFiles - 1);
+  assert.equal(r.recommendation, "single");
+});
+
 // --- untested dependents -----------------------------------------------------------------------------
 
 test("untested dependents: at the line is team, one under is single", () => {
@@ -287,7 +363,7 @@ test("cli: --size --json prints the recommendation object and nothing else", () 
   assert.equal(r.recommendation, "team");
   assert.equal(r.provisional, true);
   assert.ok(Array.isArray(r.reasons) && r.reasons.length > 0);
-  assert.deepEqual(Object.keys(r.signals).sort(), ["areas", "blind", "critical", "dependents", "unknown", "untestedDependents"]);
+  assert.deepEqual(Object.keys(r.signals).sort(), ["areas", "blind", "critical", "dependents", "sourceFiles", "unknown", "untestedDependents"]);
   assert.equal(r.signals.untestedDependents.atLeast, T.untestedDependents);
   assert.deepEqual(r.thresholds, T);
 });

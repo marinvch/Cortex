@@ -5,6 +5,24 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Changed
+
+- **The README's Tools table now matches `tools/`, and a test keeps it that way (#501).** The
+  public site's `/cli` table and the README's had drifted. The site listed
+  `cortex-claude-docs.mjs` and the README did not; the README listed the sourced library
+  `_cortex-lib.sh` and the site did not.
+  - The README now states the rule. A script in `tools/` or `tools/server/` that a person, a
+    ritual or cron runs directly is a row. A sourced library, whose name starts with `_`, and the
+    test harness are not.
+  - Applied to every file: `cortex-claude-docs.mjs`, `server/server-setup.sh` and
+    `server/cortex-cron.sh` are added. `_cortex-lib.sh` moves to the prose above the table.
+    `cortex-scan-projects.sh` and `cortex-vault-extract.sh` are re-described from their own
+    headers.
+  - `tools/test/tools-table.test.sh` fails when a script is missing, a row names nothing, or a
+    library is listed as a tool.
+  - `skills/site-sync/PAGES.md`'s `/cli` row now says the site copies the README's table row for
+    row and keeps no list of its own.
+
 ## [2.41.0] — 2026-09-28
 
 Every repo `/cortex` serves can now carry an **agent team** — Architect, Implementer, Tester,

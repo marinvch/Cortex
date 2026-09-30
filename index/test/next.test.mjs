@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { readState, nextSteps, nextLine } from "../lib/next.mjs";
 import { adoptStamp, recordStamp, runningCortex, writeStamps } from "../lib/stamps.mjs";
 import { SHIPPED_SECTIONS } from "../lib/shipped-sections.mjs";
+import { sectionKeep } from "../lib/sections.mjs";
 import { renderTemplate } from "../lib/placeholders.mjs";
 
 // The loop reads this machine's CORTEX_PROFILE for its team-plugin row. These tests describe a repo,
@@ -324,6 +325,8 @@ test("a team section an earlier release wrote is a required row; one the team ed
   assert.equal(e.optional, true, "edited: shown with where to see the diff, but never next — it is theirs");
   assert.match(e.why, /edited here/);
   assert.notEqual(nextSteps(edited).next?.id, "sections");
+  sectionKeep(edited, "team");
+  assert.equal(row(edited), undefined, "kept: the team answered, and nothing asks again until the playbook changes");
 
   assert.equal(row(withSection(renderTemplate(tpl("team/playbook.md"), roster))), undefined, "a current section has no row");
   assert.equal(row(repo(({ put }) => put("CLAUDE.md", "@AGENTS.md\n"))), undefined, "nor does a repo without one");

@@ -84,8 +84,15 @@ Turns a repository into a structural map, then into one ranked report. `lib/` ho
   refused with a sentence. **When `templates/team/playbook.md` changes, `section.test.mjs` fails
   until its hash is pinned again.** If the text it replaces was ever released, add that text to
   `earlier` first. Without it, every repo holding that text reads `edited` and is never offered the
-  new one, which is this bug again. The verification block is not a section here: it is filled
-  partly by hand, with rows deleted, so the same match would call every real block `edited`.
+  new one, which is this bug again. **An `edited` section the team answered is `kept`**, from
+  `.cortex/sections.json` (`cortex-section.mjs --keep`): the hash of the template it was kept
+  against, so it is asked about again only when that template changes — a stamped `edited` file's
+  rule. It is its own file because 2.40.0–2.41.1 refuse a stamp record with a key they do not know.
+  A sections file that does not read is no answers, which asks, and the keep will not write over it.
+  The verification block is not a section here: it is filled partly by hand, with rows deleted, so
+  the same match would call every real block `edited`. Its template is pinned instead
+  (`UNTRACKED_SECTIONS`), and the test fails on a change until someone decides how it reaches the
+  repos that already hold the block.
 - **`index/` never imports from `mcp/`.** Shared code goes in `core/`. Enforced by
   `core/test/architecture.test.js`.
 - **Every CLI here opens through `lib/open.mjs`, and declares its flags rather than testing for

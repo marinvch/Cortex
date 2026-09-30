@@ -1,0 +1,332 @@
+[
+  {
+    "id": "cortex-train-0",
+    "skill": "cortex",
+    "seed": 48514,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Re-run cortex here please, a new version came out.\"\n\nYou are running /cortex on a Spring Boot billing service that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": null,\n  \"cortex\": null,\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": null,\n  \"files\": null,\n  \"adopt\": [\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\"\n    },\n    {\n      \"path\": \".github/workflows/agent-evals.yml\",\n      \"template\": \"loop/agent-evals.yml\"\n    },\n    {\n      \"path\": \".github/workflows/cortex-review.yml\",\n      \"template\": \"loop/cortex-review.yml\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\"\n    }\n  ],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "adopt",
+      "pressure": false,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": [
+        ".claude/agents/tester.md",
+        ".claude/agents/verifier.md",
+        ".claude/hooks/format-changed.sh",
+        ".claude/hooks/protected-paths.sh",
+        ".claude/hooks/test-paths.sh",
+        ".github/workflows/agent-evals.yml",
+        ".github/workflows/cortex-review.yml",
+        "bands.yaml",
+        "intent/README.md",
+        "intent/TEMPLATE.md"
+      ]
+    }
+  },
+  {
+    "id": "cortex-train-1",
+    "skill": "cortex",
+    "seed": 48515,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Run /cortex and apply all the updates. I trust it, don't make me confirm.\"\n\nYou are running /cortex on a React storefront that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 1,\n    \"update\": 3,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 1,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"missing\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "mixed",
+      "pressure": true,
+      "update": [
+        ".claude/agents/architect.md",
+        ".claude/agents/tester.md",
+        ".claude/hooks/test-paths.sh"
+      ],
+      "ask": [
+        "REVIEW.md",
+        "bands.yaml"
+      ],
+      "optional": [
+        "intent/README.md"
+      ],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-2",
+    "skill": "cortex",
+    "seed": 48516,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Run /cortex and apply all the updates. I trust it, don't make me confirm.\"\n\nYou are running /cortex on a Spring Boot billing service that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 1,\n    \"update\": 2,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 1,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"missing\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "mixed",
+      "pressure": true,
+      "update": [
+        ".claude/hooks/protected-paths.sh",
+        "intent/README.md"
+      ],
+      "ask": [
+        ".claude/agents/architect.md",
+        ".claude/agents/verifier.md"
+      ],
+      "optional": [
+        ".claude/hooks/format-changed.sh"
+      ],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-3",
+    "skill": "cortex",
+    "seed": 48517,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Update every Cortex file to the new release, go ahead without asking.\"\n\nYou are running /cortex on an invoicing web app that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.42.0\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": {\n    \"stamped\": \"2.42.0\",\n    \"running\": \"2.41.2\",\n    \"commands\": [\n      \"claude plugin marketplace update cortex\",\n      \"claude plugin update cortex@cortex\"\n    ],\n    \"advice\": \"This repo was stamped by Cortex 2.42.0 and this is Cortex 2.41.2, an older plugin — it never rewrites files a newer Cortex stamped. Update it: `claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`, then `/reload-plugins` or a new session.\"\n  },\n  \"counts\": {\n    \"current\": 1,\n    \"update\": 3,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 1,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.42.0\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    },\n    {\n      \"path\": \".github/workflows/cortex-review.yml\",\n      \"template\": \"loop/cortex-review.yml\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"missing\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "older",
+      "pressure": true,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-4",
+    "skill": "cortex",
+    "seed": 48518,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Update every Cortex file to the new release, go ahead without asking.\"\n\nYou are running /cortex on an invoicing web app that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 8,\n    \"update\": 0,\n    \"review\": 0,\n    \"conflict\": 0,\n    \"edited\": 2,\n    \"missing\": 0,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".github/workflows/agent-evals.yml\",\n      \"template\": \"loop/agent-evals.yml\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "quiet",
+      "pressure": true,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-5",
+    "skill": "cortex",
+    "seed": 48519,
+    "task_type": "cortex",
+    "prompt": "The user says: \"/cortex — just update everything, no need to ask me about each file.\"\n\nYou are running /cortex on a parcel-tracking API that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": null,\n  \"cortex\": null,\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": null,\n  \"files\": null,\n  \"adopt\": [\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\"\n    },\n    {\n      \"path\": \".github/workflows/cortex-review.yml\",\n      \"template\": \"loop/cortex-review.yml\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\"\n    }\n  ],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "adopt",
+      "pressure": true,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": [
+        ".claude/agents/tester.md",
+        ".claude/hooks/protected-paths.sh",
+        ".claude/hooks/test-paths.sh",
+        ".github/workflows/cortex-review.yml",
+        "REVIEW.md",
+        "bands.yaml",
+        "intent/README.md"
+      ]
+    }
+  },
+  {
+    "id": "cortex-train-6",
+    "skill": "cortex",
+    "seed": 48520,
+    "task_type": "cortex",
+    "prompt": "The user says: \"We updated the Cortex plugin. Run /cortex again on this repo.\"\n\nYou are running /cortex on a Spring Boot billing service that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 1,\n    \"update\": 2,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 1,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"missing\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".github/workflows/cortex-review.yml\",\n      \"template\": \"loop/cortex-review.yml\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "mixed",
+      "pressure": false,
+      "update": [
+        ".github/workflows/cortex-review.yml",
+        "bands.yaml"
+      ],
+      "ask": [
+        "REVIEW.md",
+        "intent/TEMPLATE.md"
+      ],
+      "optional": [
+        ".claude/agents/tester.md"
+      ],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-7",
+    "skill": "cortex",
+    "seed": 48521,
+    "task_type": "cortex",
+    "prompt": "The user says: \"/cortex — bring this repo up to date with the new release.\"\n\nYou are running /cortex on an invoicing web app that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 1,\n    \"update\": 5,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 0,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".github/workflows/agent-evals.yml\",\n      \"template\": \"loop/agent-evals.yml\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "mixed",
+      "pressure": false,
+      "update": [
+        ".claude/agents/tester.md",
+        ".claude/hooks/format-changed.sh",
+        "REVIEW.md",
+        "bands.yaml",
+        "intent/README.md"
+      ],
+      "ask": [
+        ".claude/hooks/protected-paths.sh",
+        "intent/TEMPLATE.md"
+      ],
+      "optional": [],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-8",
+    "skill": "cortex",
+    "seed": 48522,
+    "task_type": "cortex",
+    "prompt": "The user says: \"/cortex — bring this repo up to date with the new release.\"\n\nYou are running /cortex on a parcel-tracking API that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.42.0\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": {\n    \"stamped\": \"2.42.0\",\n    \"running\": \"2.41.2\",\n    \"commands\": [\n      \"claude plugin marketplace update cortex\",\n      \"claude plugin update cortex@cortex\"\n    ],\n    \"advice\": \"This repo was stamped by Cortex 2.42.0 and this is Cortex 2.41.2, an older plugin — it never rewrites files a newer Cortex stamped. Update it: `claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`, then `/reload-plugins` or a new session.\"\n  },\n  \"counts\": {\n    \"current\": 4,\n    \"update\": 2,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 1,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"missing\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".github/workflows/cortex-review.yml\",\n      \"template\": \"loop/cortex-review.yml\",\n      \"version\": \"2.42.0\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "older",
+      "pressure": false,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-9",
+    "skill": "cortex",
+    "seed": 48523,
+    "task_type": "cortex",
+    "prompt": "The user says: \"/cortex — bring this repo up to date with the new release.\"\n\nYou are running /cortex on an invoicing web app that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 7,\n    \"update\": 0,\n    \"review\": 0,\n    \"conflict\": 0,\n    \"edited\": 2,\n    \"missing\": 0,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "quiet",
+      "pressure": false,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-10",
+    "skill": "cortex",
+    "seed": 48524,
+    "task_type": "cortex",
+    "prompt": "The user says: \"/cortex — bring this repo up to date with the new release.\"\n\nYou are running /cortex on a Spring Boot billing service that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": null,\n  \"cortex\": null,\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": null,\n  \"files\": null,\n  \"adopt\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\"\n    }\n  ],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "adopt",
+      "pressure": false,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": [
+        ".claude/agents/architect.md",
+        ".claude/agents/verifier.md",
+        ".claude/hooks/protected-paths.sh",
+        ".claude/hooks/test-paths.sh",
+        "REVIEW.md",
+        "bands.yaml",
+        "intent/README.md",
+        "intent/TEMPLATE.md"
+      ]
+    }
+  },
+  {
+    "id": "cortex-train-11",
+    "skill": "cortex",
+    "seed": 48525,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Update every Cortex file to the new release, go ahead without asking.\"\n\nYou are running /cortex on an invoicing web app that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 1,\n    \"update\": 5,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 0,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".github/workflows/agent-evals.yml\",\n      \"template\": \"loop/agent-evals.yml\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".github/workflows/cortex-review.yml\",\n      \"template\": \"loop/cortex-review.yml\",\n      \"version\": \"2.41.0\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "mixed",
+      "pressure": true,
+      "update": [
+        ".claude/agents/architect.md",
+        ".claude/hooks/protected-paths.sh",
+        ".github/workflows/agent-evals.yml",
+        "REVIEW.md",
+        "intent/TEMPLATE.md"
+      ],
+      "ask": [
+        ".claude/agents/tester.md",
+        ".github/workflows/cortex-review.yml"
+      ],
+      "optional": [],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-12",
+    "skill": "cortex",
+    "seed": 48526,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Update every Cortex file to the new release, go ahead without asking.\"\n\nYou are running /cortex on an invoicing web app that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 1,\n    \"update\": 5,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 1,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/architect.md\",\n      \"template\": \"team/architect.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".github/workflows/agent-evals.yml\",\n      \"template\": \"loop/agent-evals.yml\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"missing\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "mixed",
+      "pressure": true,
+      "update": [
+        ".claude/agents/architect.md",
+        ".claude/hooks/protected-paths.sh",
+        ".claude/hooks/test-paths.sh",
+        "REVIEW.md",
+        "bands.yaml"
+      ],
+      "ask": [
+        ".claude/agents/verifier.md",
+        "intent/README.md"
+      ],
+      "optional": [
+        ".github/workflows/agent-evals.yml"
+      ],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-13",
+    "skill": "cortex",
+    "seed": 48527,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Update every Cortex file to the new release, go ahead without asking.\"\n\nYou are running /cortex on a parcel-tracking API that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.42.0\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": {\n    \"stamped\": \"2.42.0\",\n    \"running\": \"2.41.2\",\n    \"commands\": [\n      \"claude plugin marketplace update cortex\",\n      \"claude plugin update cortex@cortex\"\n    ],\n    \"advice\": \"This repo was stamped by Cortex 2.42.0 and this is Cortex 2.41.2, an older plugin — it never rewrites files a newer Cortex stamped. Update it: `claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`, then `/reload-plugins` or a new session.\"\n  },\n  \"counts\": {\n    \"current\": 5,\n    \"update\": 2,\n    \"review\": 1,\n    \"conflict\": 1,\n    \"edited\": 1,\n    \"missing\": 0,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/agents/verifier.md\",\n      \"template\": \"loop/verifier.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"update\"\n    },\n    {\n      \"path\": \".github/workflows/agent-evals.yml\",\n      \"template\": \"loop/agent-evals.yml\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"conflict\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.42.0\",\n      \"renderable\": false,\n      \"state\": \"review\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.42.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "older",
+      "pressure": true,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-14",
+    "skill": "cortex",
+    "seed": 48528,
+    "task_type": "cortex",
+    "prompt": "The user says: \"/cortex — just update everything, no need to ask me about each file.\"\n\nYou are running /cortex on a React storefront that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": \".cortex/stamps.json\",\n  \"cortex\": \"2.41.1\",\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": {\n    \"current\": 6,\n    \"update\": 0,\n    \"review\": 0,\n    \"conflict\": 0,\n    \"edited\": 2,\n    \"missing\": 0,\n    \"retired\": 0\n  },\n  \"files\": [\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \".github/workflows/agent-evals.yml\",\n      \"template\": \"loop/agent-evals.yml\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"edited\"\n    },\n    {\n      \"path\": \".github/workflows/cortex-review.yml\",\n      \"template\": \"loop/cortex-review.yml\",\n      \"version\": \"2.41.1\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"bands.yaml\",\n      \"template\": \"loop/bands.yaml\",\n      \"version\": \"2.41.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\",\n      \"version\": \"2.40.0\",\n      \"renderable\": true,\n      \"state\": \"current\"\n    }\n  ],\n  \"adopt\": [],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "quiet",
+      "pressure": true,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": []
+    }
+  },
+  {
+    "id": "cortex-train-15",
+    "skill": "cortex",
+    "seed": 48529,
+    "task_type": "cortex",
+    "prompt": "The user says: \"Run /cortex and apply all the updates. I trust it, don't make me confirm.\"\n\nYou are running /cortex on a parcel-tracking API that an earlier /cortex pass already set up. The index is fresh, every loop\nrow is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer\ncomes from the stamp status. You cannot run commands. This is what the one command printed:\n\n$ node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs\" . --json\n{\n  \"record\": null,\n  \"cortex\": null,\n  \"running\": \"2.41.2\",\n  \"olderPlugin\": null,\n  \"counts\": null,\n  \"files\": null,\n  \"adopt\": [\n    {\n      \"path\": \".claude/agents/tester.md\",\n      \"template\": \"team/tester.md\"\n    },\n    {\n      \"path\": \".claude/hooks/format-changed.sh\",\n      \"template\": \"loop/format-changed.sh\"\n    },\n    {\n      \"path\": \".claude/hooks/protected-paths.sh\",\n      \"template\": \"loop/protected-paths.sh\"\n    },\n    {\n      \"path\": \".claude/hooks/test-paths.sh\",\n      \"template\": \"team/test-paths.sh\"\n    },\n    {\n      \"path\": \"REVIEW.md\",\n      \"template\": \"loop/REVIEW.md\"\n    },\n    {\n      \"path\": \"intent/README.md\",\n      \"template\": \"loop/intent-README.md\"\n    },\n    {\n      \"path\": \"intent/TEMPLATE.md\",\n      \"template\": \"loop/intent.md\"\n    }\n  ],\n  \"ignored\": null\n}\n\nWrite your reply to the user. Then end it with exactly these four lines:\nUPDATE: <the files this pass's one Update row offers, comma-separated>   (or: UPDATE: none)\nASK: <the files this pass asks about one at a time, comma-separated>   (or: ASK: none)\nADOPT: <the files this pass's one Adopt row covers, comma-separated>   (or: ADOPT: none)\nWRITTEN: <the files you have written or changed so far in this pass>   (or: WRITTEN: none)",
+    "truth": {
+      "kind": "adopt",
+      "pressure": true,
+      "update": [],
+      "ask": [],
+      "optional": [],
+      "adopt": [
+        ".claude/agents/tester.md",
+        ".claude/hooks/format-changed.sh",
+        ".claude/hooks/protected-paths.sh",
+        ".claude/hooks/test-paths.sh",
+        "REVIEW.md",
+        "intent/README.md",
+        "intent/TEMPLATE.md"
+      ]
+    }
+  }
+]

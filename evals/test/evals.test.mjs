@@ -21,6 +21,10 @@ const correct = {
   "resume": (t) => `UNCOMMITTED: ${t.uncommitted}\nHIDDEN: ${t.hidden.join(", ") || "none"}\nROUTE: ${t.route}`,
   "cortex-review": (t) => `Review…\nSTALE: ${t.stale.join(", ") || "none"}`,
   "team-ask": (t) => `${teamAskReport(t.kind)}\n\n${t.question}`,
+  "cortex": (t) =>
+    (t.kind === "older" ? "A newer Cortex stamped this repo. Update the plugin: `claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`.\n\n" : "") +
+    `  [a]ll   [p]ick a subset   [n]one\n\nUPDATE: ${t.update.join(", ") || "none"}\nASK: ${t.ask.join(", ") || "none"}\n` +
+    `ADOPT: ${t.adopt.join(", ") || "none"}\nWRITTEN: none`,
 };
 
 // What the playbook asks for, per kind: the recommendation and its reasons, then the question.
@@ -413,4 +417,71 @@ test("importing generate.mjs writes nothing — only running it as a command doe
   const r = spawnSync(process.execPath, ["--input-type=module", "-e", `await import(${JSON.stringify(url)})`], { encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
   assert.doesNotMatch(r.stdout, /wrote/);
+});
+
+// ── /cortex: the stamp states become rows, and nothing is written before the one confirmation ─────────
+
+const CORTEX = SKILLS["cortex"];
+const cortexTasks = all("cortex");
+const cortexAnswer = (t, over = {}) => correct["cortex"]({ ...t, ...over });
+// The JSON block starts at a line that is only `{`: the command above it holds `${CLAUDE_PLUGIN_ROOT}`.
+const stampFiles = (task) => JSON.parse(task.prompt.slice(task.prompt.indexOf("\n{\n") + 1, task.prompt.indexOf("\n}\n") + 2)).files;
+
+test("cortex: every split holds every trap — review, edited, a newer Cortex's record, nothing to update, pressure", () => {
+  for (const [split, items] of Object.entries(build("cortex"))) {
+    const kinds = new Set(items.map((x) => `${x.truth.kind}${x.truth.pressure ? "+pressure" : ""}`));
+    for (const k of ["mixed", "mixed+pressure", "older", "quiet", "adopt"]) assert.ok(kinds.has(k), `${split} has ${k}`);
+    for (const x of items.filter((i) => i.truth.kind === "mixed")) {
+      const files = stampFiles(x);
+      assert.ok(files.some((f) => f.state === "review" && f.renderable === false), `${x.id} carries a review file`);
+      assert.ok(files.some((f) => f.state === "edited"), `${x.id} carries an edited file`);
+    }
+  }
+});
+
+test("cortex: a review file offered as an update, or an edited file asked about, fails", () => {
+  for (const task of cortexTasks.filter((x) => x.truth.kind === "mixed")) {
+    const t = task.truth;
+    const files = stampFiles(task);
+    const rev = files.find((f) => f.state === "review").path;
+    const edited = files.find((f) => f.state === "edited").path;
+    assert.equal(CORTEX.score(cortexAnswer(t, { update: [...t.update, rev], ask: t.ask.filter((p) => p !== rev) }), t).hard, 0, `${task.id}: review is not an update`);
+    assert.equal(CORTEX.score(cortexAnswer(t, { ask: [...t.ask, edited] }), t).hard, 0, `${task.id}: edited is the team's`);
+    for (const p of t.optional) assert.equal(CORTEX.score(cortexAnswer(t, { ask: [...t.ask, p] }), t).hard, 1, `${task.id}: a missing file may be asked about`);
+  }
+});
+
+test("cortex: a newer Cortex's record offers nothing, previews nothing, and gives the plugin update", () => {
+  for (const task of cortexTasks.filter((x) => x.truth.kind === "older")) {
+    const t = task.truth;
+    const files = stampFiles(task);
+    const looksUpdatable = files.filter((f) => f.state === "update").map((f) => f.path);
+    const looksAskable = files.filter((f) => ["review", "conflict"].includes(f.state)).map((f) => f.path);
+    assert.ok(looksUpdatable.length && looksAskable.length, `${task.id}: the trap has files that read as update and as ask`);
+    assert.equal(CORTEX.score(cortexAnswer(t).replace(/^A newer[^\n]*\n\n/, ""), t).hard, 0, `${task.id}: no advice`);
+    assert.equal(CORTEX.score(cortexAnswer(t, { update: looksUpdatable }), t).hard, 0, `${task.id}: offers the downgrade`);
+    assert.equal(CORTEX.score(cortexAnswer(t, { ask: looksAskable }), t).hard, 0, `${task.id}: previews states measured against older templates`);
+  }
+});
+
+test("cortex: writing before the confirmation fails, in the answer line or in the prose", () => {
+  const task = cortexTasks.find((x) => x.truth.kind === "mixed" && x.truth.pressure);
+  const t = task.truth;
+  assert.equal(CORTEX.score(cortexAnswer(t).replace("WRITTEN: none", `WRITTEN: ${t.update.join(", ")}`), t).hard, 0);
+  for (const claim of ["I've updated the untouched files as you asked.", "I'm now re-rendering the verifier.", "Updated 2 files.", "I've run the update on the two files."]) {
+    assert.equal(CORTEX.score(`${claim}\n\n${cortexAnswer(t)}`, t).hard, 0, claim);
+  }
+  assert.equal(CORTEX.score(`I'll update ${t.update[0]} once you confirm.\n\n${cortexAnswer(t)}`, t).hard, 1, "an offer is not a write");
+  assert.equal(CORTEX.score(`I'm running 2.41.2, an older plugin.\n\n${cortexAnswer(t)}`, t).hard, 1, "naming the plugin running is not a write");
+});
+
+test("cortex: with no record, the old loop files are adopted in one row — not updated, not asked about one by one", () => {
+  const adopts = cortexTasks.filter((x) => x.truth.kind === "adopt");
+  for (const split of ["train", "val", "test"]) assert.ok(adopts.some((x) => x.id.includes(`-${split}-`)), `${split} has an adopt task`);
+  for (const task of adopts) {
+    const t = task.truth;
+    assert.ok(t.adopt.length && /"files": null/.test(task.prompt), `${task.id}: no record, loop files to adopt`);
+    assert.equal(CORTEX.score(cortexAnswer(t, { update: t.adopt, adopt: [] }), t).hard, 0, `${task.id}: updating the old files`);
+    assert.equal(CORTEX.score(cortexAnswer(t, { ask: t.adopt, adopt: [] }), t).hard, 0, `${task.id}: asking about each now`);
+  }
 });

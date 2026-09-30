@@ -176,7 +176,9 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" . --json
 ```
 
 It writes nothing. **When `olderPlugin` is not null**, a newer Cortex stamped this repo: say its
-`advice` and offer no stamp row. Every state below is measured against this plugin's older templates.
+`advice` and offer no stamp row. Every state below is measured against this plugin's older templates,
+so none of them is what the updated plugin will find. Do not list them, not even as what the pass
+after the update will offer or ask. That pass reads them again.
 
 `files` is `null` when there is no `.cortex/stamps.json` yet. Otherwise each file has a `state`, and
 the state decides the row:

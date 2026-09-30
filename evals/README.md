@@ -9,10 +9,13 @@ edit, and trained with an optimizer that only keeps edits that measurably help.
 | `/ship` | merge order of an open queue; which local branches are safe to delete | order checked against the skill's ranking rules (any valid order passes); deletions as an exact set |
 | `/resume` | which branch this checkout's uncommitted work is on; which branches hold local-only work, including dirt in another worktree; which ritual to route to | exact per field; `ahead N` on a merged branch, a clean extra worktree, and a user whose words outrank an open PR queue are traps |
 | `/cortex-review` | which documented lines a change made wrong | set F1 on `path:line`; history (CHANGELOG and ADR lines, even in the present tense), unchanged facts and unverified claims are traps, some stale lines never repeat the old literal, and some changes have nothing stale |
+| `/cortex` | on a repo it already serves, what the one confirmation offers for the files an earlier pass stamped, from `cortex-stamps.mjs --json` | `UPDATE` as an exact set (only `update` files); `ASK` as an exact set (every `review` and `conflict`, a `missing` file optional); `WRITTEN: none` and no write claimed in the prose; the plugin update named when a newer Cortex stamped the repo. Traps: `review` (untouched, but not re-renderable), `edited`, a newer Cortex's record whose states read as updates, nothing to update, and a user who says to "just update everything" |
 | `team-ask` — the team playbook, `templates/team/playbook.md` | before any work, the session reports the `--size` recommendation, ends with "Single agent or team?" and stops (#498) | per part: the exact question; it is the last line; no code, plan or hand-off; the recommendation reported (or "cannot size" when there is none); no claim the developer answered or that it asked. Traps: team-sized, single-sized, a request to "just do it", and no recommendation |
 
-`/cortex` and `/cortex-next` are deliberately absent: their decisions are made by `index/lib/loop.mjs`
-and `index/lib/next.mjs`, so tuning their prose would move no score.
+`/cortex-next` is deliberately absent: `index/lib/next.mjs` makes its decisions, so tuning its prose
+would move no score. `/cortex` is measured only where its prose decides. `index/lib/loop.mjs` decides
+which loop rows exist, and is not measured. How a stamp state becomes a row of the one confirmation is
+the skill's own table, and so is the promise to write nothing before that confirmation.
 
 ## Layout
 
@@ -49,8 +52,8 @@ node evals/run.mjs ship --record --accept-drop "why the lower score is worth it"
   through `claude -p` on your own login, isolated: an empty temp cwd, local settings only, and no
   tools, MCP servers or skills. `CLAUDE_CLI_BIN` names a non-default binary. The default target is
   `claude-sonnet-5` at `medium` effort, the SkillOpt target (`--model` and `--effort` override
-  them). Each reply is written to `.cortex/evals/<skill>/<split>/`, which is gitignored. All four
-  take about four minutes: 56 calls, four at a time.
+  them). Each reply is written to `.cortex/evals/<skill>/<split>/`, which is gitignored. All five
+  take about five minutes: 70 calls, four at a time.
 - **What the baseline is keyed to.** The hash covers the body only. Frontmatter is stripped and CRLF
   becomes LF first, so a description edit or a Windows checkout never demands a re-measure.
 - **The alarm.** `--record` refuses, leaving the file untouched, when mean `soft` falls more than
@@ -87,6 +90,18 @@ Measured on 2026-09-28 with `claude-sonnet-5` at medium effort:
 | `/cortex-review` | harder | 0.643 / 0.927 | 0.357 / 0.864 | 0.29 / 0.06 | hard only |
 | `/cortex-review` | harder, skill text fixed | 0.929 / 0.992 | 0.286 / 0.840 | 0.64 / 0.15 | both |
 | `team-ask` | first version (2026-09-29) | 1.000 / 1.000 | 0.000 / 0.354 | 1.00 / 0.65 | both |
+| `/cortex` | first version (2026-09-30) | 0.929 / 0.998 | 0.714 / 0.975 | 0.21 / 0.02 | hard, by one task |
+| `/cortex` | with adoption, skill text fixed | 1.000 / 1.000 | 0.571 / 0.953 | 0.43 / 0.05 | hard only |
+
+**`/cortex`'s soft score cannot carry its alarm.** `cortex-stamps.mjs --json` explains most states
+by itself, so a reply with no skill gets most of each task right and loses whole tasks instead. It
+asks about an `edited` or `update` file one by one. Under pressure, it said "I'm applying them"
+before any confirmation. The hard drop of 0.43 is six tasks, so the hard limit of three fires.
+Adding adoption did not widen the gap: the reply with no skill got all three adopt tasks right.
+The first run found a gap in the skill text. When a newer Cortex stamped the repo, the skill said
+to offer no stamp row, and the model still listed the states as what the pass after the plugin
+update would offer. Those states are measured against older templates and will read differently
+then. The skill now says not to list them, and the recorded run scored 1.000.
 
 `team-ask` also ran the playbook as it was before #498: 0.000 / 0.418. It could not know the exact
 sentence. A looser reading counts a closing single-or-team question in any words, with no work

@@ -312,7 +312,7 @@ json="$(node "$STAMPS" "$REAL" --templates "$RT" --json 2>&1)"
 assert_eq "current" "$(json_state "$json" .claude/agents/verifier.md)" "an updated file reads current again"
 assert_eq "current" "$(json_state "$json" .github/workflows/agent-evals.yml)" "every one of them"
 assert_contains "$json" '"cortex": "2.41.0"' "and the record names the release that updated it"
-changed="$(git -C "$REAL" status --porcelain -uall | sed 's/^...//' | sort | tr '\n' ' ')"
+changed="$(git -C "$REAL" status --porcelain -uall | sed 's/^...//' | LC_ALL=C sort | tr '\n' ' ')"
 assert_eq ".claude/agents/verifier.md .claude/hooks/format-changed.sh .cortex/stamps.json .github/workflows/agent-evals.yml bands.yaml " "$changed" "update wrote the update files and the record, nothing else (the other two are the team's edits)"
 
 # A release whose template gains a placeholder nothing recorded can fill: rendering would leave

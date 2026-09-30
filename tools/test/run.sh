@@ -15,6 +15,10 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 export REPO_ROOT
+# Every test runs in the C locale, the one CI runs in. Under a glibc UTF-8 locale `sort` collates
+# with the leading dot ignored, so `bands.yaml` sorted before `.claude/…` and a test comparing a
+# sorted list with a literal failed on a Raspberry Pi and passed in CI (#509).
+export LC_ALL=C
 FILTER="${1:-}"
 
 total_pass=0

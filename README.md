@@ -290,7 +290,9 @@ bash tools/cortex-vault-extract.sh --to ~/cortex-brain --apply  # copy it out
 ```
 
 An optional **personal vault** — notes, decisions, a daily log — is served by the same
-rituals, and lives in its own private repo, never in this one.
+rituals, and lives in its own private repo, never in this one. Those rituals ship in the same plugin
+as the codebase ones. Their descriptions cost a codebase-only user about 720 tokens a session, and
+[ADR 0020](docs/adr/0020-the-vault-rituals-stay-in-the-one-plugin.md) records why that is kept.
 
 > One rule: capture first, organize later. Nothing lives only in your head.
 

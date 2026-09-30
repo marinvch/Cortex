@@ -5,6 +5,45 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.2] — 2026-09-30
+
+Closes the two limits 2.41.1 left documented. A `CLAUDE.md` team section your team edited is asked
+about once, not on every `/cortex` re-run, and is asked about again only when a release changes the
+playbook. The verification block's template is pinned, so it cannot change without a decision about
+the repos that already hold it. The shell tests also pass under any locale now.
+
+### Fixed
+
+- **An edited team section was asked about on every re-run.** A stamped file the team edited is
+  left alone until its template changes. The team section in `CLAUDE.md` had no record to hold
+  that answer, so `/cortex` showed the same diff and asked the same question every time.
+  - `cortex-section.mjs . --keep team` records the answer in `.cortex/sections.json`, which is
+    committed. It holds the hash of the playbook the section was kept against.
+  - While the running release ships that playbook, the section is `kept`: `/cortex` asks
+    nothing, and `cortex-next` shows no row.
+  - When a release changes the playbook, the section is `edited` again, and its `why` names the
+    release the team kept it against.
+  - `/cortex` runs the keep once the team has answered, whatever the answer. Editing the section
+    again does not bring the question back; only a new playbook does.
+  - It is a file of its own rather than a key in `.cortex/stamps.json`, because 2.40.0–2.41.1
+    refuse a stamp record with a key they do not know. A teammate on one of those would lose the
+    whole stamp status.
+  - A `sections.json` that does not read is treated as holding no answers, so the section is asked
+    about. `--keep` refuses to write over it.
+- **The shell tests failed under a non-C locale (#509).** Under a glibc UTF-8 locale, `sort`
+  ignores a leading dot, so `cortex-stamps.test.sh` saw `bands.yaml` before `.claude/…`. It
+  failed on a Raspberry Pi while CI, which runs in the C locale, passed. `tools/test/run.sh` now
+  exports `LC_ALL=C` to every test, and `test-locale.test.sh` fails if it stops.
+
+### Changed
+
+- **The verification block's template is pinned.** `CLAUDE.md` § Verifying your work has no
+  refresh. Teams trim it by hand, so no match can tell Cortex's text from theirs. That is safe only
+  while its template never changes, and it has not changed since it shipped.
+  `UNTRACKED_SECTIONS` in `index/lib/shipped-sections.mjs` pins its hash. `section.test.mjs`
+  fails on any change until someone either gives the block a refresh path or decides, in the
+  changelog, that the change does not need to reach existing repos.
+
 ## [2.41.1] — 2026-09-29
 
 The agent team's first follow-ups. The session now always asks "Single agent or team?" and waits —
@@ -4031,6 +4070,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.2]: https://github.com/marinvch/Cortex/releases/tag/v2.41.2
 [2.41.1]: https://github.com/marinvch/Cortex/releases/tag/v2.41.1
 [2.41.0]: https://github.com/marinvch/Cortex/releases/tag/v2.41.0
 [2.40.0]: https://github.com/marinvch/Cortex/releases/tag/v2.40.0

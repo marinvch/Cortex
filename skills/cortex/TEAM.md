@@ -75,9 +75,11 @@ with the roster the section already names. Its `state` decides the row:
 |---|---|
 | `current` | nothing |
 | `outdated` | an earlier release's text, untouched. It goes in the *Update* row of the one confirmation, with its `diff` shown; the roster is kept. On yes: `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-section.mjs" . --replace team`. With `unfilled` non-empty the CLI refuses it: name it and offer nothing |
-| `edited` | the team changed it. Show the `diff` under *Ask each* and ask whether they want any of the new text. It is never replaced: a line they want, they take by hand |
+| `edited` | the team changed it. Show the `diff` under *Ask each* and ask whether they want any of the new text. It is never replaced: a line they want, they take by hand. Once they have answered, whatever the answer, record it: `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-section.mjs" . --keep team`. That writes `.cortex/sections.json` only, and the section reads `kept` until a release changes the playbook. A `why` that says the team kept it against an earlier text means that has happened: say so when you show the diff |
+| `kept` | nothing. The team edited it and kept it, and this release's playbook is the one they kept it against |
 | `duplicate` | say its `why`, and offer nothing until one section is left |
 
 The replace changes the section and not one byte around it, and refuses anything but `outdated`.
+The keep refuses anything but `edited`.
 Never rewrite the section yourself. A roster change in the same pass works in either order, because
 the roster is read from the section.

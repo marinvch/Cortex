@@ -4,8 +4,9 @@ import * as ship from "./scenarios/ship.mjs";
 import * as resume from "./scenarios/resume.mjs";
 import * as review from "./scenarios/review.mjs";
 import * as teamAsk from "./scenarios/team-ask.mjs";
+import * as cortex from "./scenarios/cortex.mjs";
 
-export const SKILLS = { "ship": ship, "resume": resume, "cortex-review": review, "team-ask": teamAsk };
+export const SKILLS = { "ship": ship, "resume": resume, "cortex-review": review, "team-ask": teamAsk, "cortex": cortex };
 
 // A body that is not skills/<name>/SKILL.md, repo-relative. The team playbook is a template stamped
 // into a user's CLAUDE.md, and its text decides whether the session asks before working (#498), so it

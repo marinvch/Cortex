@@ -5,6 +5,35 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.3] — 2026-09-30
+
+`/cortex` has an eval, and the first run found one thing its text got wrong. When a newer Cortex
+stamped the repo, the re-run listed what it would offer after the plugin update. Those states are
+measured against older templates, so it now lists nothing and gives the update commands alone.
+
+### Fixed
+
+- **A re-run on a repo a newer Cortex stamped no longer previews the stamp states.** `/cortex`
+  already offered no stamp row then. The model still listed the files as what the pass after the
+  plugin update would offer or ask about. Those states are measured against this plugin's older
+  templates, and the updated plugin reads them again, differently. Step 5 now says not to list them.
+
+### Added
+
+- **An eval for `/cortex` (`evals/scenarios/cortex.mjs`).** `loop.mjs` decides which loop rows
+  exist, and that is not measured here. The eval measures what the prose decides: how each stamp
+  state becomes a row of the one confirmation, and that nothing is written before it. Each task
+  ends with `UPDATE`, `ASK`, `ADOPT` and `WRITTEN`, each scored exactly.
+  - The traps: a `review` file (untouched, but not re-renderable), an `edited` file, a record
+    from a newer Cortex, nothing to update, no record with old loop files to adopt, and a user who
+    says to just update everything.
+  - With the skill it scores 1.000 hard and 1.000 soft. With no skill it scores 0.571 and 0.953.
+    So a broken `/cortex` text trips the hard alarm (six tasks against a limit of three). The soft
+    alarm cannot fire, because the stamp status explains most states by itself. `evals/README.md`
+    says so.
+  - Editing the body of `skills/cortex/SKILL.md` now needs a re-measure
+    (`node evals/run.mjs cortex --record`), as for `/ship`, `/resume` and `/cortex-review`.
+
 ## [2.41.2] — 2026-09-30
 
 Closes the two limits 2.41.1 left documented. A `CLAUDE.md` team section your team edited is asked
@@ -4070,6 +4099,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.3]: https://github.com/marinvch/Cortex/releases/tag/v2.41.3
 [2.41.2]: https://github.com/marinvch/Cortex/releases/tag/v2.41.2
 [2.41.1]: https://github.com/marinvch/Cortex/releases/tag/v2.41.1
 [2.41.0]: https://github.com/marinvch/Cortex/releases/tag/v2.41.0

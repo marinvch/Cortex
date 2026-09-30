@@ -45,3 +45,15 @@ export const SHIPPED_SECTIONS = {
     ],
   },
 };
+
+// Sections Cortex writes and cannot track. `CLAUDE.md` § Verifying your work is filled partly by
+// hand — rows deleted where a command does not exist, the opening comment left out — so no match
+// can tell Cortex's text from the team's, and a change to its template would reach new installs and
+// no repo already holding the block. Its hash is pinned so that change cannot happen unnoticed:
+// `section.test.mjs` fails until it is either given a refresh path or declared not to need one.
+export const UNTRACKED_SECTIONS = {
+  "loop/verification.md": {
+    heading: "Verifying your work",
+    sha256: "321577db007e1bc20b38a8e494398f7259a18395b1a11aeab50a372742bb1698",
+  },
+};

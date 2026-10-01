@@ -177,7 +177,7 @@ test("every step carries a command and a reason", () => {
 // and only one of them was being answered.
 //
 // The fix has to name the date rather than compute an age. A clock in here would mean the same tree
-// answers differently tomorrow, which `index/AGENTS.md` forbids for this module by name. So the
+// answers differently tomorrow, which the determinism rule in `index/AGENTS.md` forbids. So the
 // sequence states the fact and the reader supplies today — the same division readEnrichment makes,
 // where the reader owns the fact and the caller owns the policy.
 

@@ -11,8 +11,9 @@ You own `index/`: `lib/` holds the logic, the `cortex-*.mjs` files at the top ar
 rituals invoke, and `index/test/` covers them.
 
 Read [`docs/changing-cortex.md`](../../docs/changing-cortex.md) once, then
-[`index/AGENTS.md`](../../index/AGENTS.md) — it is the longest leaf brief in the repo and nearly
-every line of it is a bug that already shipped. Point the team at it; do not paraphrase it.
+[`index/AGENTS.md`](../../index/AGENTS.md), then the header comment of every `lib/` module you
+touch — the brief holds the rules that cross modules, each header the rules for its module alone.
+Nearly every line of both is a bug that already shipped. Point the team at them; do not paraphrase.
 
 ## Your boundary
 

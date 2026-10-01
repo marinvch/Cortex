@@ -1,6 +1,6 @@
 ---
 name: cortex-next
-description: Answer "I installed Cortex — now what?" for the repo you are standing in. Shows where this repo is in the sequence, marks each step done from a file on disk, and names the one command to run next. Use when someone lists the Cortex commands and asks which one applies, when a repo's state is unclear, or on the triggers "what do I run next", "where am I", "what's the order", "how do I use this here". Deterministic; writes nothing.
+description: Where this repo is in the Cortex sequence, read off disk, and the one command to run next. Triggers — "what do I run next", "where am I", "I installed Cortex, now what".
 effort: low
 metadata:
   capability: mechanical

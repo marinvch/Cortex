@@ -1,6 +1,6 @@
 ---
 name: skill-creator
-description: Use when the user asks to create, add, or scaffold a new Cortex skill or ritual, wants a repeated task turned into a /slash command, or says "make a skill for X", "add a ritual", "turn this into a skill", "give me a command for this". Authors a tailored skill by asking first.
+description: Create a new Cortex skill or ritual, or turn a repeated task into a /slash command, asking first. Triggers — "make a skill for X", "add a ritual", "turn this into a skill".
 metadata:
   capability: judgment
 ---

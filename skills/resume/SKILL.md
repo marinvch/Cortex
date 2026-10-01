@@ -1,6 +1,6 @@
 ---
 name: resume
-description: Pick up work that spans sessions — establish what is committed, what is uncommitted, what has diverged, and what the last session was mid-way through, then state the remaining work before touching anything. Use whenever a session starts on work already in flight, and on "continue where we left off", "what's left to be done", "what's next", "continue our last session", "resume the work", "продължи работата", "възтанови последната сесия". Run it BEFORE reading code or planning, so nothing gets rebuilt that already exists.
+description: Pick up work in flight — what is committed, uncommitted and diverged, then the remaining work, before touching anything. Triggers — "continue where we left off", "what's left", "what's next", "продължи работата", "възтанови последната сесия".
 metadata:
   capability: judgment
 ---

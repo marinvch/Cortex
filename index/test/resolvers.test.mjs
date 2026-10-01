@@ -114,6 +114,19 @@ test("no go.mod means no module path and nothing to index by directory", () => {
   assert.deepEqual(adapterFor("go").resolve("anything/at/all", { path: "main.go", lang: "go" }, ctx), []);
 });
 
+test("a module declared in vendor.mod resolves like go.mod, and go.mod wins when both name one (#533)", () => {
+  // docker/cli keeps its module in vendor.mod and symlinks it to go.mod only to build: 0 imports.
+  const files = filesOf("vendor.mod", "main.go", "cli/command/cmd.go");
+  const ctx = prepareFor("go", files, reader({ "vendor.mod": "module github.com/docker/cli\n\ngo 1.24\n" }));
+  assert.equal(ctx.moduleName, "github.com/docker/cli");
+  assert.deepEqual(adapterFor("go").resolve("github.com/docker/cli/cli/command", { path: "main.go", lang: "go" }, ctx), [
+    "cli/command/cmd.go",
+  ]);
+
+  const both = reader({ "go.mod": "module example.com/real\n", "vendor.mod": "module example.com/other\n" });
+  assert.equal(prepareFor("go", filesOf("go.mod", "vendor.mod", "main.go"), both).moduleName, "example.com/real");
+});
+
 // --- Rust: crate roots come from where lib.rs/main.rs sit ------------------------------------------
 
 test("crate roots are read off lib.rs/main.rs, including a binary crate with no src/", () => {

@@ -5,6 +5,21 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.8] — 2026-10-01
+
+A Go repo that declares its module in `vendor.mod` now has an import graph.
+
+### Fixed
+
+- **Go modules declared in `vendor.mod` resolve their imports (#533).** docker/cli and moby keep
+  their module in `vendor.mod`, and their build symlinks it to `go.mod` only while it runs. Cortex
+  read `go.mod` alone, so docker/cli indexed with **0** imports. Impact, layers, cycles, the import
+  signal of coverage and the viewer's map were all blind there, and nothing said so. The resolver
+  now reads `vendor.mod` when there is no `go.mod`; `go.mod` wins when both name a module. docker/cli
+  resolves 6,133 imports, every one to a file that exists, none into `vendor/` or a test file. The
+  same file now offers `gofmt -w` to the format hook `/cortex` stamps, which it had left out.
+  Nested modules and `go.work` are still not read.
+
 ## [2.41.7] — 2026-10-01
 
 A repo's `vendor/` no longer disappears from the index without a word, and a team that writes its
@@ -4196,6 +4211,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.8]: https://github.com/marinvch/Cortex/releases/tag/v2.41.8
 [2.41.7]: https://github.com/marinvch/Cortex/releases/tag/v2.41.7
 [2.41.6]: https://github.com/marinvch/Cortex/releases/tag/v2.41.6
 [2.41.5]: https://github.com/marinvch/Cortex/releases/tag/v2.41.5

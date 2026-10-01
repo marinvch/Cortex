@@ -224,8 +224,12 @@ const goAdapter = {
   // Go needs two things no other language here does: the module path (so an import can be told from
   // an external package) and a directory index (because a Go import names a package, which is a
   // directory of files). Test files are excluded — importing a package does not give you its tests.
+  //
+  // `vendor.mod` is read when there is no `go.mod`: docker/cli and moby keep their module there and
+  // symlink it to go.mod only while building, so reading go.mod alone resolved 0 of 6,133 imports
+  // (#533). It is still declared, in Go's own syntax — and go.mod wins whenever it names a module.
   prepare({ files, readText }) {
-    const moduleName = goModulePath(readText("go.mod"));
+    const moduleName = goModulePath(readText("go.mod")) ?? goModulePath(readText("vendor.mod"));
     const byDir = new Map();
     if (moduleName) {
       for (const f of files) {

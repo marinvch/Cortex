@@ -1,6 +1,6 @@
 {
   "name": "cortex",
-  "version": "2.41.6",
+  "version": "2.41.7",
   "description": "Cortex — a context manager for new and legacy codebases.",
   "owner": {
     "name": "Marin Cholakov",

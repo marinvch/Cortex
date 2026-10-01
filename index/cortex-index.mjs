@@ -42,12 +42,19 @@ if (args.json) {
   // `bin/` and `obj/` are skipped on the strength of their name alone, and the name is sometimes
   // wrong — bin/ holds the whole program in an ops repo. Printing the count is what stops the
   // reader from taking an incomplete index for a complete one; without it the guess is invisible.
-  const skipped = s.skipped
-    .map((k) => `${k.files} file${k.files === 1 ? "" : "s"} under ${k.dir}/`)
-    .join(", ");
+  // `vendor/` is left out for another reason and is overruled another way (lib/walk.mjs), so it
+  // gets its own line: telling its reader that tracking a file indexes it would be false.
+  const rows = (keep) =>
+    s.skipped
+      .filter((k) => keep(k.dir === "vendor"))
+      .map((k) => `${k.files} file${k.files === 1 ? "" : "s"} under ${k.dir}/`)
+      .join(", ");
+  const skipped = rows((vendor) => !vendor);
+  const vendor = rows((vendor) => vendor);
   process.stdout.write(
     `Indexed ${s.files} files (${s.lines.toLocaleString()} lines), ${s.edges} imports, ${s.tests} tests\n` +
       (skipped ? `Skipped by name: ${skipped} — git-tracked files there are indexed as source\n` : "") +
+      (vendor ? `Vendored by default: ${vendor} — \`vendor/** -linguist-vendored\` in .gitattributes indexes it as your own\n` : "") +
       `Languages: ${top}\n` +
       `Areas: ${index.areas.length}\n` +
       // Areas are directories; layers come from the import graph. Both are printed because a reader

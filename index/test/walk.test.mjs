@@ -103,3 +103,55 @@ test("a compiled artefact under bin/ is not reported as hidden source", () => {
 
   assert.deepEqual(listFiles(root).skipped, [], "the count must mean readable source, or it is noise");
 });
+
+// #529: `vendor/` is somebody else's code by Linguist's default. It is left out and counted, and the
+// repo — not git tracking, which a committed Go tree also has — says when it is the team's own.
+
+/** A git repo with a committed Go-style vendor/ tree and the team's own code beside it. */
+function vendorFixture(attributes = null) {
+  const root = tempDir("cortex-walk-vendor-");
+  mkdirSync(join(root, "vendor", "github.com", "x", "y"), { recursive: true });
+  mkdirSync(join(root, "cmd"));
+  writeFileSync(join(root, "vendor", "github.com", "x", "y", "y.go"), "package y\n");
+  writeFileSync(join(root, "vendor", "github.com", "x", "y", "z.go"), "package y\n");
+  writeFileSync(join(root, "vendor", "modules.txt"), "# github.com/x/y\n");
+  writeFileSync(join(root, "cmd", "main.go"), "package main\n");
+  if (attributes !== null) writeFileSync(join(root, ".gitattributes"), attributes);
+  git(root, "init", "-q");
+  git(root, "add", "-A");
+  git(root, "commit", "-qm", "init");
+  return root;
+}
+
+test("a tracked vendor/ is left out by default, and counted rather than dropped in silence", () => {
+  const root = vendorFixture();
+  const { files, skipped } = listFiles(root);
+
+  assert.ok(!files.some((f) => f.path.startsWith("vendor/")), "a committed Go tree is still not the team's code");
+  assert.ok(files.some((f) => f.path === "cmd/main.go"));
+  assert.deepEqual(skipped, [{ dir: "vendor", files: 3 }]);
+});
+
+test("`-linguist-vendored` in .gitattributes indexes vendor/ as the team's own, a subtree at a time", () => {
+  const all = vendorFixture("vendor/** -linguist-vendored\n");
+  assert.ok(paths(all).includes("vendor/github.com/x/y/y.go"));
+  assert.deepEqual(listFiles(all).skipped, []);
+
+  const part = vendorFixture("vendor/github.com/** linguist-vendored=false\n");
+  assert.ok(paths(part).includes("vendor/github.com/x/y/z.go"), "linguist-vendored=false says the same");
+  assert.ok(!paths(part).includes("vendor/modules.txt"), "what the attribute does not cover stays out");
+  assert.deepEqual(listFiles(part).skipped, [{ dir: "vendor", files: 1 }]);
+});
+
+test("a nested vendor/ is the same directory, and outside git it is pruned with no count", () => {
+  const root = vendorFixture();
+  mkdirSync(join(root, "app", "vendor"), { recursive: true });
+  writeFileSync(join(root, "app", "vendor", "lib.js"), "module.exports = 1;\n");
+  assert.ok(!paths(root).includes("app/vendor/lib.js"));
+
+  const nogit = tempDir("cortex-walk-nogit-");
+  mkdirSync(join(nogit, "vendor"));
+  writeFileSync(join(nogit, "vendor", "a.go"), "package a\n");
+  writeFileSync(join(nogit, "README.md"), "# fixture\n");
+  assert.deepEqual(listFiles(nogit), { files: [{ path: "README.md", lines: 2, bytes: 10 }], skipped: [] });
+});

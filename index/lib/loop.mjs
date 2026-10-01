@@ -421,7 +421,8 @@ const PRETTIER_CONFIGS = [
  */
 export function detectFormatters(root) {
   const out = [];
-  if (read(root, "go.mod") !== null) out.push({ glob: "*.go", command: "gofmt -w" });
+  // vendor.mod declares the module where go.mod is only made at build time, as in docker/cli (#533).
+  if (read(root, "go.mod") !== null || read(root, "vendor.mod") !== null) out.push({ glob: "*.go", command: "gofmt -w" });
 
   const pyproject = read(root, "pyproject.toml") ?? "";
   if (has(root, "ruff.toml") || has(root, ".ruff.toml") || /^\[tool\.ruff[\].]/m.test(pyproject)) {

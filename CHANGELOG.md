@@ -5,6 +5,11 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.5] — 2026-10-01
+
+Two of the context files an agent reads most are smaller. `/cortex` reads its two rare branches
+only when it is on one, and the `index/` brief keeps only the rules no module header already says.
+
 ### Changed
 
 - **`/cortex` keeps its two side branches in `skills/cortex/RUNS.md`.** Being invoked with a row
@@ -4145,6 +4150,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.5]: https://github.com/marinvch/Cortex/releases/tag/v2.41.5
 [2.41.4]: https://github.com/marinvch/Cortex/releases/tag/v2.41.4
 [2.41.3]: https://github.com/marinvch/Cortex/releases/tag/v2.41.3
 [2.41.2]: https://github.com/marinvch/Cortex/releases/tag/v2.41.2

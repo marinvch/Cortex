@@ -13,6 +13,12 @@ this project now versions independently of any package manager (see `VERSION`).
   there. It is 437 lines, down from 479; Anthropic asks for under 500. The re-run rules for
   stamped files stay in `SKILL.md`, because every re-run reads them and the `/cortex` eval scores
   them.
+- **`index/AGENTS.md` is 193 lines, down from 622.** About 430 of its lines restated a `lib/`
+  module's own header comment or a test's, and Anthropic asks for under 200 lines in a context file.
+  What is left holds the rules that cross modules, the validation records, and one pointer per
+  rule that moved, naming the module that holds it. It now names **four** exceptions to "nothing
+  here writes to a target repo", not three: `ensureGitignored` appends the generated directories
+  to the target's `.gitignore`.
 
 ## [2.41.4] — 2026-10-01
 

@@ -105,12 +105,10 @@ export function readIndex(indexPath, { rootArg = "" } = {}) {
 /**
  * Is this index older than the code it describes?
  *
- * "Re-run the index first if it is stale" is advice six rituals give and none can act on, because
- * none of them defines stale. `tools/cortex-preflight.mjs` defines it and no CLI can reach it — it
- * lives in `tools/`, which ships as scripts a person runs rather than as a module this package may
- * import. This is that same definition, in `index/lib/` where the CLIs can call it, and it accepts a
- * directory as well as a file so preflight can adopt it verbatim instead of keeping the second copy.
- * Until it does, there are two — said out loud rather than left to be discovered.
+ * "Re-run the index first if it is stale" is advice six rituals give and none could act on, because
+ * none of them defined stale. This is the one definition, in `index/lib/` where the CLIs can call
+ * it. It accepts a directory as well as a file, and `tools/cortex-preflight.mjs` imports it rather
+ * than keeping a copy of its own.
  *
  * mtime, not git history, because an uncommitted edit is exactly the case a pre-read check must
  * catch. The known cost: a `git checkout` or a fresh clone rewrites mtimes and reads as stale when

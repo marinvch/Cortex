@@ -15,7 +15,7 @@ reads, and is drafted from its sources.
 | `/sequence` | prose | `README.md` "The order" table and the per-change table under it (`/cortex-impact --size`); `skills/cortex-next/SKILL.md`; `skills/cortex/SKILL.md` (the second round: `/cortex evals`, `/cortex bands`) |
 | `/what-lands` | prose | `README.md` tree and "The agent team" (the roles, their tools, the single-or-team question, the debate, existing agents, the fence's limits, removal); `skills/cortex/SKILL.md` (the loop artifacts table); `skills/cortex/TEAM.md`; `templates/team/README.md`; `skills/cortex-review/SKILL.md` (the PR review workflow); `docs/adr/0002-committed-repo-memory.md`; `docs/adr/0019-the-agent-team-is-written-into-the-repo-and-run-by-the-main-session.md` |
 | `/index-and-findings` | prose | `CONTEXT.md` (Index, Findings, Enrichment); `index/AGENTS.md` |
-| `/cortex-view` | prose | `README.md` "See the repo, don't read about it"; `skills/cortex-view/SKILL.md`; the View notes in `index/AGENTS.md` |
+| `/cortex-view` | prose | `README.md` "See the repo, don't read about it"; `skills/cortex-view/SKILL.md`; the header comments of `index/lib/view.mjs`, `index/lib/view-html.mjs` and `index/cortex-view.mjs` |
 | `/context-layer` | prose | `CONTEXT.md` (Brief, Routing table); `skills/cortex-scaffold`, `skills/cortex-brief`, `skills/cortex-skills`, `skills/domain-modeling`, `skills/optimize-context` |
 | `/team-memory` | prose | `CONTEXT.md` (Memory, The gate); `skills/dream`, `skills/handoff`, `skills/catch-me-up`, `skills/resume`, `skills/team-init`, `skills/team-add` |
 | `/rituals` | facts | `site-facts.json` only |

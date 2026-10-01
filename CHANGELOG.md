@@ -27,6 +27,7 @@ own code there can say so.
   `golang.org/x/sys` until the team's own untested modules fell off the list. Skipped files under
   `vendor/` are counted without being read, so indexing time is unchanged.
 
+## [2.41.6] — 2026-10-01
 
 Two `claude-setup` checks stop reporting files and agents that are fine, both found on real repos.
 

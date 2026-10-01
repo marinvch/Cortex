@@ -5,6 +5,30 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.6] — 2026-10-01
+
+Two `claude-setup` checks stop reporting files and agents that are fine, both found on real repos.
+
+### Fixed
+
+- **A project skill's link written from the repo root is no longer reported missing (#522).** Claude
+  follows such a link from the session's working directory, which is the repo root, so a repo that
+  writes every skill link that way had all of them reported. A link now counts as missing only when
+  neither the skill's folder nor the repo root resolves it. A plugin skill gets no such fallback:
+  it runs in the user's project, where a link only the plugin's root resolves is broken.
+  `CLAUDE.md` `@imports` are unchanged, because Claude Code resolves them from the importing file.
+- **An agent that edits is no longer called read-only because of a guard or an adjective (#523).**
+  Two kinds of text read as a claim. One was a guard on a single failure: "if the brief cannot be
+  verified, change nothing". That reported four editing agents in one repo, all four wrong. The
+  other was "read-only" describing something else, such as a CSP's report-only mode, read-only
+  workflow state, or operations a policy should not gate. That reported 8 agents in
+  wshobson/agents, all 8 wrong. A conditional mention no longer counts. "Read-only" and
+  "report-only" now count only in the description and the opening statement of the role. "Change
+  nothing" still counts anywhere, which keeps Cortex's own Reviewer reported when granted `Edit`.
+  The team offer reads the same claim, so an implementer with such a guard is offered its role
+  again. Across 223 agents in five public repos, 10 of the 11 claims this drops were wrong; the
+  eleventh belongs to an agent with no edit tools, so nothing it reports changes.
+
 ## [2.41.5] — 2026-10-01
 
 Two of the context files an agent reads most are smaller. `/cortex` reads its two rare branches
@@ -4150,6 +4174,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.6]: https://github.com/marinvch/Cortex/releases/tag/v2.41.6
 [2.41.5]: https://github.com/marinvch/Cortex/releases/tag/v2.41.5
 [2.41.4]: https://github.com/marinvch/Cortex/releases/tag/v2.41.4
 [2.41.3]: https://github.com/marinvch/Cortex/releases/tag/v2.41.3

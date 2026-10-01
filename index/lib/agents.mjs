@@ -343,7 +343,7 @@ export function mapRole(agent, { verifierPath = null } = {}) {
   }
 
   // 2. Implementer and Tester write files; an agent that cannot is neither.
-  const saysReadOnly = claimsReadOnly(`${agent.description}\n${agent.body}`);
+  const saysReadOnly = claimsReadOnly(agent.description, agent.body);
   for (const r of ["implementer", "tester"]) {
     if (edit === false) drop(r, `it cannot edit (${toolsEvidence.join("; ")}), and the ${r} writes files`);
     else if (saysReadOnly) drop(r, `its prose says it changes nothing, and the ${r} writes files`);

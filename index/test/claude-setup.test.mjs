@@ -152,6 +152,28 @@ test("a skill pointing at a supporting file that does not exist", () => {
   assert.deepEqual(check({ ".claude/skills/x/SKILL.md": example }), []);
 });
 
+test("a project skill's link written from the repo root is followed, as Claude follows it (#522)", () => {
+  const body = [
+    "See [the traps](.claude/skills/x/references/traps.md) and [`a.ts:33`](src/a.ts#L33).",
+    "And [gone](src/missing.ts).",
+  ].join("\n") + "\n";
+  const fs = check({
+    ".claude/skills/x/SKILL.md": skill("name: x\ndescription: Does x.", body),
+    ".claude/skills/x/references/traps.md": "t\n",
+    "src/a.ts": "export {}\n",
+  });
+  const f = assertFinding(fs, "skill-reference-missing");
+  assert.deepEqual(f.evidence, [".claude/skills/x/SKILL.md:6 — src/missing.ts"]);
+  // A plugin skill runs in the user's project, not the plugin, so a link only the plugin's root
+  // resolves is still reported.
+  const plugin = check({
+    ".claude-plugin/plugin.json": "{}",
+    "skills/x/SKILL.md": skill("name: x\ndescription: Does x.", "See [the tool](tools/a.mjs).\n"),
+    "tools/a.mjs": "export {}\n",
+  });
+  assert.deepEqual(only(plugin, "skill-reference-missing")[0]?.evidence, ["skills/x/SKILL.md:5 — tools/a.mjs"]);
+});
+
 test("a plugin skill naming ${CLAUDE_PLUGIN_ROOT}/<missing>", () => {
   const body = "Run `node ${CLAUDE_PLUGIN_ROOT}/tools/gone.mjs`.\n";
   const fs = check({
@@ -255,6 +277,34 @@ test("an agent described as read-only that can still edit", () => {
   // An agent that edits and says a flag is "not read-only" is not claiming to be read-only.
   const writer = agent("name: w\ndescription: Owns docs.\ntools: Read, Edit", "That flag marks destructive, not read-only.\n");
   assert.deepEqual(check({ ".claude/agents/w.md": writer }), []);
+  // A conditional "change nothing" guards one failure in an agent built to edit (#523).
+  for (const guard of [
+    "If the brief cannot be verified, report it as a finding and change nothing.",
+    "If the brief cannot be verified, report it as a finding and\nchange nothing. Do not implement against it.",
+    "Report it, and if the brief is wrong, change nothing.",
+    "Change nothing until the plan is approved.",
+    "- When the tests are red before you start, make no changes and say so.",
+  ]) {
+    const fixer = agent("name: f\ndescription: Implements the plan.\ntools: Read, Edit", `${guard}\n`);
+    assert.deepEqual(check({ ".claude/agents/f.md": fixer }), [], guard);
+  }
+  // Only the description and the role's opening statement make a claim about the agent. Further
+  // down, "read-only" describes something else (wshobson/agents: 8 reported, 8 wrong).
+  const coder = agent(
+    "name: c\ndescription: Writes secure backend code.\ntools: Read, Edit",
+    "# Security coder\n\nYou write secure backend code.\n\n## Capabilities\n- CSP: nonces, hashes, report-only mode\n- Read-only workflow state access\n",
+  );
+  assert.deepEqual(check({ ".claude/agents/c.md": coder }), []);
+  const opening = agent("name: o\ndescription: Reviews.\ntools: Read, Edit", "# Reviewer\n\nYou are a read-only reviewer.\n\n## Steps\n- Read.\n");
+  assertFinding(check({ ".claude/agents/o.md": opening }), "subagent-read-only-can-edit");
+  // An unconditional claim still counts, also beside a conditional sentence.
+  for (const claim of [
+    "This agent is read-only and changes nothing.",
+    "If the input is empty, stop. This agent changes nothing.",
+  ]) {
+    const ro2 = agent("name: r\ndescription: Reviews.\ntools: Read, Edit", `${claim}\n`);
+    assertFinding(check({ ".claude/agents/r.md": ro2 }), "subagent-read-only-can-edit");
+  }
   assert.deepEqual(
     check({ ".claude/agents/r.md": agent(`${ro}\ndisallowedTools: Edit, Write, MultiEdit, NotebookEdit`) }),
     [],

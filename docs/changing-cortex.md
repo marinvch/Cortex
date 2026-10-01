@@ -124,7 +124,7 @@ before overturning one; the line here is the trigger, not the case.
   read-only, checked by fingerprint.
   Those repos are installed by a headless `claude -p "/cortex"`, which needs `--permission-mode auto`:
   Claude Code never auto-approves a write under `.claude/`, no allow rule changes that, and S1 fails
-  naming the paths it refused. `skills/cortex/SKILL.md` § Running unattended cites the docs.
+  naming the paths it refused. `skills/cortex/RUNS.md` § Running unattended cites the docs.
 - **The shell half has behaviour tests — `bash tools/test/run.sh`.** `bash -n` and shellcheck never
   *run* a script, which is how four real bugs shipped in `tools/server/`. Tests build real git repos
   in temp dirs (a bare repo on disk is a complete remote, so no network), and every test touching

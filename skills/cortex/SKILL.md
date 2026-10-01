@@ -17,7 +17,7 @@ One pass writes everything that can be written today. Two rows cannot be: **eval
 tasks to seed cases from, and **bands** need a production metric with a stable history. Both also
 wait on files this same pass writes (`CLAUDE.md`, `REVIEW.md`), so they come back as `missing`
 afterwards. Say that in the playback. Do not promise them in the first pass. `cortex-next` then
-names `/cortex evals` and `/cortex bands` ([Invoked with a row](#invoked-with-a-row)).
+names `/cortex evals` and `/cortex bands` ([RUNS.md](RUNS.md#invoked-with-a-row)).
 
 > **The rule that governs this whole skill:** steps 1–5 read, report and *ask*. They do not modify
 > one line of the repository. Writing happens in step 7, only for what the user confirmed. If you
@@ -38,6 +38,16 @@ intent.md → spec.md  →  plan.md  →  the diff →  the PR   →  the breach
 
 Each stage ends by committing a file the next stage reads, which is why "is this repo served" is a
 question about files on disk and not a judgment call. `index/lib/loop.mjs` answers it.
+
+## Invoked with a row, or run unattended
+
+Read [RUNS.md](RUNS.md) before step 1 in either of these cases:
+
+- **Invoked with a row** — `/cortex evals`, `/cortex bands` or `/cortex team`. Only that row is
+  taken, and evals and bands stop when there is no real history to build them from.
+- **Run unattended** — `claude -p`, where nobody answers the consent gate or step 6. Claude Code
+  refuses every write under `.claude/` there unless the run is in auto mode, and the install still
+  reads as finished.
 
 ## 1. Orient
 
@@ -380,7 +390,7 @@ State what was written, as the same list of paths from step 6, so the promise an
 read side by side — **read back from disk, not from what you meant to write**. Rerun
 `cortex-loop.mjs . --json`: a confirmed row still in `missing` was not written, whatever your tool
 calls looked like. If it carries a non-empty `protectedWrites`, Claude Code refused it — see
-[Running unattended](#running-unattended). Then state what was marked **later**, by name — a
+[RUNS.md](RUNS.md#running-unattended). Then state what was marked **later**, by name — a
 deferred offer that goes unmentioned is a decision the user made and Cortex quietly dropped.
 
 ```bash
@@ -397,58 +407,6 @@ Then: suggest committing what was written so the team shares it, `.cortex/stamps
 is how the next release's re-run tells the team's edits from Cortex's own), and mention `/dream` at the end of
 a working day, because `.cortex/memory/` is the only part of the loop that nothing on disk will
 remind them about.
-
-## Invoked with a row
-
-`/cortex evals` and `/cortex bands` are what `cortex-next` names once the first pass is done. Run
-steps 1–4 as usual, then take only that row from `missing`. Playback and confirmation are still
-one each, and step 7's rules still apply.
-
-- **`evals`**: ask for one to three real tasks the team finished recently. Each becomes
-  `evals/cases/<name>/prompt.md` plus an `accept.sh` that checks the result. If there are none yet,
-  stop and say so. The workflow alone proves nothing, and invented cases prove less.
-- **`bands`**: ask which production metric has a stable history, and for a read-only command that
-  reads it. If there is no such metric, stop and say so. For a library with no production metric,
-  that is a finished state.
-- **`team`**: a team already in `CLAUDE.md` is `present`, and its `why` names the roles still on
-  offer. This offers them again, by [TEAM.md](TEAM.md); the playbook's roster line is updated, not appended.
-
-## Running unattended
-
-`claude -p "/cortex …"` — in CI, from a scheduled job, or installing the repos a
-`CORTEX_E2E_WORKSPACE` run checks — has nobody to answer the consent gate or step 6, so the prompt
-carries the answer (`[a]ll`, or the rows to write). It also meets a limit no prompt lifts: **Claude
-Code protects `.claude/`**, and the verifier, the hooks, `settings.json` and whatever
-`/cortex-skills` writes under `.claude/skills/` all land there. The
-[permission-modes](https://code.claude.com/docs/en/permission-modes#protected-paths) page says why,
-in three sentences `core/claude-code.js` pins (`permission.protected-path.*`):
-
-- "Writes to a small set of paths are never auto-approved, except in `bypassPermissions` mode and in
-  interactive terminal sessions in plan mode with bypass permissions available." `.claude` is on the
-  list, `.claude/worktrees` excepted.
-- "The safety check runs before Claude Code evaluates allow rules from settings" — so neither
-  `--allowedTools` nor an `Edit(.claude/**)` rule gets the write through.
-- "In a `-p` run with no host, these requests are denied either way" ([headless](https://code.claude.com/docs/en/headless)).
-  Manual and `acceptEdits` prompt, so they are denied; `dontAsk` denies outright.
-
-The supported way through is auto mode, where "Writes to protected paths route to the classifier even
-when an allow rule matches":
-
-```bash
-claude -p "/cortex — the user confirms [a]ll" --permission-mode auto
-```
-
-Auto mode needs a supported model and account, and an organisation can switch it off; a session
-that asks for it without qualifying starts in Manual and the writes are refused again. Without it,
-run `/cortex` interactively once and answer **Yes, and allow Claude to edit files in this project's
-.claude folder for this session**. `bypassPermissions` also writes them, and the docs confine it to
-isolated containers and VMs — it is never Cortex's default.
-
-**A refused write does not stop the run.** Everything outside `.claude/` still lands and the install
-reads as finished, which is why step 8 reads the result off disk. Every row still `missing` with a
-non-empty `protectedWrites` is named, with the sentence *Claude Code's protected-path check refused
-these* and the command above; check `.claude/skills/` for the skills you wrote the same way. Reporting
-it as written is the failure; so is reporting it as declined.
 
 ## Gotchas
 

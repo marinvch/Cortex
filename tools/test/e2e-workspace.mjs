@@ -395,7 +395,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
       label: `/cortex's .claude/ artifacts are on disk: ${installed - refused.length}/${installed} installed repos`,
       detail: refused.length
         ? `${sample(refused, (e) => `${e.repo} lacks ${e.paths.join(", ")}`)} — Claude Code refuses .claude/ writes under claude -p; ` +
-          "rerun /cortex with --permission-mode auto (skills/cortex/SKILL.md, Running unattended)"
+          "rerun /cortex with --permission-mode auto (skills/cortex/RUNS.md, Running unattended)"
         : undefined,
     });
   }
@@ -435,7 +435,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     checks.push({
       ok: false,
       label: `claude-setup checker: no code repo has been served by /cortex (root AGENTS.md + CLAUDE.md): 0/${code.length}`,
-      detail: "run /cortex in each code repo first (skills/cortex/SKILL.md, Running unattended)",
+      detail: "run /cortex in each code repo first (skills/cortex/RUNS.md, Running unattended)",
     });
   }
   failures += scenario("S1", "install + correct map", checks);

@@ -63,7 +63,7 @@ prints `{ files, values, needs, conflicts, upgrade }`, or refuses a pick that is
    is not recorded.
 
 Everything here lands under `.claude/`, so an unattended run needs `--permission-mode auto`
-([Running unattended](SKILL.md#running-unattended)).
+([Running unattended](RUNS.md#running-unattended)).
 
 ## A re-run: the section in `CLAUDE.md`
 

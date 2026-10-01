@@ -71,12 +71,14 @@ holds the rules for that module alone — read it before editing the module.
 
 ## Gotchas
 
-- **Vendored is declared in `.gitattributes`, never inferred from a directory name.** Same rule as
-  `go.mod` and `composer.json`: declared beats guessed, because a directory a team genuinely writes
-  can be called `vendor/` and guessing would drop it from every ranking. `briefCandidates` and
-  `isEnrichable` skip it and `stats.vendored` names what was skipped. A consumer that ranks or costs
-  by size must use it *and* say which side it counted: silently dropping half a repo reads exactly
-  like covering it. The rest is `lib/vendored.mjs`'s header.
+- **Vendored is declared in `.gitattributes`, never guessed by Cortex.** Same rule as `go.mod` and
+  `composer.json`: declared beats guessed. `briefCandidates` and `isEnrichable` skip it and
+  `stats.vendored` names what was skipped. A consumer that ranks or costs by size must use it *and*
+  say which side it counted: silently dropping half a repo reads exactly like covering it. The one
+  name Cortex adopts is Linguist's own default, `vendor/`: the walker leaves it out, counts it in
+  `stats.skipped`, and indexes it as source where the repo declares `-linguist-vendored` there
+  (`VENDOR_DIR`, `declaredOwn`). Indexing every tracked `vendor/` as vendored was measured and
+  rejected (#529). The rest is `lib/vendored.mjs`'s header.
 - **`walk.mjs` asks git, not `.cortexignore`.** Those answer different questions:
   `.cortexignore` says what is not *knowledge in a vault*, and honouring it here dropped this
   repo's own `tools/` and `skills/` from its index. Do not "fix" this by reading it again.

@@ -58,6 +58,23 @@ assert_not_contains "$(cat "$IXFILE")" "bin/app.out" "and it really is out of th
 # nothing to mark the index incomplete.
 assert_contains "$(cat "$IXFILE")" "bin/deploy.sh" "while the tracked file beside it stays in"
 
+# --- vendor/ is somebody else's code by default, and the repo says otherwise (#529) ---------------
+
+# Tracking proves nothing here — a Go tree is committed on purpose — so the line must not say it does.
+fixture
+mkdir -p "$PROJ/vendor/github.com/x/y"
+printf 'package y\n' > "$PROJ/vendor/github.com/x/y/y.go"
+git -C "$PROJ" add -A >/dev/null 2>&1; git -C "$PROJ" commit -qm init
+out="$(run)"
+assert_contains "$out" "Vendored by default: 1 file under vendor/" "a tracked vendor/ is left out AND counted"
+assert_contains "$out" "-linguist-vendored" "with the declaration that overrules it"
+assert_not_contains "$out" "Skipped by name" "not under the tracked-means-source line, which would be false"
+assert_not_contains "$(cat "$IXFILE")" "vendor/github.com/x/y/y.go" "and it really is out of the index"
+printf 'vendor/** -linguist-vendored\n' > "$PROJ/.gitattributes"
+out="$(run)"
+assert_contains "$(cat "$IXFILE")" "vendor/github.com/x/y/y.go" "declared the team's own, it is indexed"
+assert_not_contains "$out" "Vendored by default" "and nothing is reported as left out"
+
 # --- what lands in someone's repository, and what is said about it --------------------------------
 
 fixture

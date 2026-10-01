@@ -5,7 +5,28 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
-## [2.41.6] — 2026-10-01
+## [2.41.7] — 2026-10-01
+
+A repo's `vendor/` no longer disappears from the index without a word, and a team that writes its
+own code there can say so.
+
+### Changed
+
+- **`vendor/` is left out by Linguist's default, and counted (#529).** The walker had dropped every
+  `vendor/` by name, tracked or not, with no count. That contradicted Cortex's own rule that
+  vendored code is declared, never guessed. Now:
+  - the index CLI prints *Vendored by default: N files under vendor/*;
+  - `vendor/** -linguist-vendored`, or `linguist-vendored=false`, in `.gitattributes` indexes that
+    `vendor/` as the team's own, one subtree at a time if needed;
+  - outside git, `vendor/` is pruned as before.
+
+  The option the issue first recommended was to index every tracked `vendor/` and mark it vendored.
+  It was measured on runc and docker/cli, whose committed Go trees are two thirds of their files,
+  and rejected. It tripled docker/cli's index and made findings ten times slower. It put a vendored
+  package's `requirements.txt` into the detected stack. It also filled "untested" with
+  `golang.org/x/sys` until the team's own untested modules fell off the list. Skipped files under
+  `vendor/` are counted without being read, so indexing time is unchanged.
+
 
 Two `claude-setup` checks stop reporting files and agents that are fine, both found on real repos.
 
@@ -4174,6 +4195,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.7]: https://github.com/marinvch/Cortex/releases/tag/v2.41.7
 [2.41.6]: https://github.com/marinvch/Cortex/releases/tag/v2.41.6
 [2.41.5]: https://github.com/marinvch/Cortex/releases/tag/v2.41.5
 [2.41.4]: https://github.com/marinvch/Cortex/releases/tag/v2.41.4

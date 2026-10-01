@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: A diagnosis loop for hard bugs and performance regressions, run against the repo's own map — blast radius, documented invariants, untested dependents. Use when the user says "diagnose" or "debug this", or reports something broken, throwing, failing, flaky or slow.
+description: Diagnose a hard bug or performance regression with a loop that can go red, ranked against the repo's invariants and untested dependents. Triggers — "diagnose", "debug this", or something broken, failing, flaky or slow.
 metadata:
   capability: judgment
 ---

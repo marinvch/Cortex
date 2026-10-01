@@ -1,6 +1,6 @@
 ---
 name: weekly-review
-description: Weekly maintenance pass that keeps the vault from rotting. Empties the inbox, updates projects, restamps current-focus, and archives stale items. Trigger on "weekly review", "process my inbox", "clean up the vault", or as a Friday ritual.
+description: Weekly vault maintenance — empty the inbox, update projects, restamp current-focus, archive what is stale. Triggers — "weekly review", "process my inbox", "clean up the vault".
 metadata:
   capability: judgment
 ---

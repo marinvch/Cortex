@@ -1,6 +1,6 @@
 ---
 name: grilling
-description: Interview the user relentlessly about a plan, decision or idea until every branch of the design tree is resolved. Use when thinking needs stress-testing before it becomes work, or when another ritual reaches a decision it must not guess at. Triggers — "grill me", "stress-test this", "poke holes in this", "what am I missing", "interview me about this".
+description: Interview the user relentlessly about a plan or decision until every branch is resolved. Triggers — "grill me", "stress-test this", "poke holes in this", or a ritual reaching a decision it must not guess.
 effort: high
 metadata:
   capability: strong

@@ -1,6 +1,6 @@
 ---
 name: wizard
-description: Generate an interactive wizard script that walks a human through steps only they can perform — provisioning infrastructure, setting up credentials or CI secrets, clicking through an unfamiliar third-party dashboard, running a one-off migration or cutover. Triggers — "walk me through", "set up the env vars", "I need to do this by hand", "make a setup script". Don't use it for steps the agent can perform itself.
+description: Generate a script that walks a human through steps only they can do — credentials, CI secrets, a third-party dashboard, a one-off cutover. Triggers — "walk me through", "I need to do this by hand", "make a setup script".
 metadata:
   capability: judgment
 ---

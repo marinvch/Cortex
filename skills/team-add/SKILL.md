@@ -1,6 +1,6 @@
 ---
 name: team-add
-description: Team member — join the shared team-brain from inside a product repo. Use when a dev says "connect this repo to the team brain", "add me to the team context", "join the team brain". Clones the team-brain locally and drops a generic connector into the product repo.
+description: Join the shared team-brain from a product repo — clone it locally and drop a connector into the repo. Triggers — "connect this repo to the team brain", "join the team brain".
 effort: low
 metadata:
   capability: mechanical

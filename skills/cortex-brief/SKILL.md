@@ -1,6 +1,6 @@
 ---
 name: cortex-brief
-description: Write a scoped AGENTS.md brief for a part of a repo that earns one, and wire it into a root routing table, so an agent loads narrow context for the area it is touching instead of the whole monolith. Use when a directory is critical, high-churn or holds invariants an agent could violate. Triggers — "this area needs its own context", "give this part its own brain", "split AGENTS.md", "give billing its own brief", "this area is critical". Proposes candidates from the index, or takes a directory you name; the user confirms each one.
+description: Write a scoped AGENTS.md for a critical, high-churn or invariant-heavy directory, and wire it into the root routing table. Triggers — "this area needs its own context", "split AGENTS.md", "give billing its own brief".
 metadata:
   capability: judgment
 ---

@@ -1,6 +1,6 @@
 ---
 name: daily
-description: Start today's daily note and surface what matters this morning — priorities, what's due, what's still open from yesterday. Trigger on "daily", "start my day", "good morning", "what's on today", "open today's note", or as a morning ritual.
+description: Open today's vault note and surface the priorities, what's due and what is still open. Triggers — "daily", "start my day", "good morning", "what's on today".
 effort: low
 metadata:
   capability: mechanical

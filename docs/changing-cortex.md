@@ -153,6 +153,12 @@ before overturning one; the line here is the trigger, not the case.
   or a hard drop of more than 0.2 unless you pass `--accept-drop "<why>"`. Frontmatter edits are
   exempt.
   [ADR 0018](adr/0018-skill-quality-is-measured-by-evals-not-telemetry.md).
+- **A model-invocable description is paid for in every session, so it stays short and owns its
+  triggers.** Claude Code drops descriptions once the whole skill listing, every plugin's together,
+  passes its budget. A ritual listed by name alone cannot be reached from a request. Write the leading
+  word first, then one trigger per distinct case. `core/test/plugin.test.js` caps each description
+  and their total, and fails when two rituals claim the same trigger phrase.
+  [ADR 0020](adr/0020-the-vault-rituals-stay-in-the-one-plugin.md) has the measurement.
 - **Before a ritual writes, it asks `tools/cortex-preflight.mjs` rather than re-deriving the answer.**
   Root, profile and index freshness are the three facts every ritual needs first, and each prose copy
   of them is a copy that drifts — the mode/audience bullet in `AGENTS.md` still said *two questions*

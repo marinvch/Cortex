@@ -233,8 +233,8 @@ test("the absence markers are a closed, tested list", () => {
 
 test("the two classes nothing can separate mechanically land in suspected, and never gate", () => {
   // The spec names four false-positive classes. Two are detectable — an ADR, and a stated absence.
-  // The other two are not: a path can illustrate another ecosystem's convention (`bin/cli.js` in
-  // index/AGENTS.md), and a path can be absent from the index because git ignores it by design
+  // The other two are not: a path can illustrate another ecosystem's convention (npm's `bin/cli.js`,
+  // as the fixture below does), and a path can be absent from the index because git ignores it by design
   // (`decisions/log.md` in the root brief). Neither is separable from real drift by regex. They are
   // caught here as `suspected`, which reports and never fails the check — that is the whole reason
   // the gate is narrowed to `provable`.

@@ -387,6 +387,7 @@ test("each formatter is read from the config the formatter itself reads", () => 
   const prettier = "npx --no-install prettier --write --ignore-unknown";
   const cases = [
     [{ "go.mod": "module x\n" }, ["gofmt -w"]],
+    [{ "vendor.mod": "module x\n" }, ["gofmt -w"]],
     [{ "pyproject.toml": "[tool.ruff]\nline-length = 100\n" }, ["ruff format --quiet"]],
     [{ "ruff.toml": "" }, ["ruff format --quiet"]],
     [{ "pyproject.toml": "[tool.black]\nline-length = 100\n" }, ["black --quiet"]],

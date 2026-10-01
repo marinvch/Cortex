@@ -20,24 +20,25 @@
 // Nothing is EXCLUDED from the index by this. The index stays git-truth, because a file you cannot
 // see is worse than one you can rank correctly. What changes is that consumers can now tell "code
 // this team writes" from "code this team vendored", and say which they counted.
+//
+// One exception, and it lives in lib/walk.mjs: `vendor/`, vendored by Linguist's default, is left
+// out of the index and counted, unless the repo declares it its own (`declaredOwn` below). Indexed
+// and marked vendored instead, a committed Go tree tripled docker/cli's index and reached every
+// consumer that does not ask `vendored` — the stack, the areas, "untested" (#529).
 
 import { execFileSync } from "node:child_process";
 
 const ATTRS = ["linguist-vendored", "linguist-generated"];
 
 /**
- * Ask git which of `paths` are marked vendored or generated.
- *
- * One `git check-attr` call for every path at once — per-file calls cost more than the whole index
- * on a large repo. Absent git or absent `.gitattributes`, the answer is simply "none", which is the
- * correct answer for a repo that has not declared anything.
+ * `git check-attr` for every path at once, as `[path, attr, value]` rows. One call — per-file calls
+ * cost more than the whole index on a large repo. Absent git or absent `.gitattributes`, no rows.
  */
-export function vendoredPaths(root, paths) {
-  const marked = new Set();
-  if (!paths.length) return marked;
+function checkAttr(root, paths, attrs) {
+  if (!paths.length) return [];
   let out;
   try {
-    out = execFileSync("git", ["check-attr", "--stdin", ...ATTRS], {
+    out = execFileSync("git", ["check-attr", "--stdin", ...attrs], {
       cwd: root,
       input: paths.join("\n"),
       encoding: "utf8",
@@ -45,21 +46,33 @@ export function vendoredPaths(root, paths) {
       maxBuffer: 64 * 1024 * 1024,
     });
   } catch {
-    return marked; // no git, or no attributes — nothing is declared, which is a real answer
+    return []; // no git, or no attributes — nothing is declared, which is a real answer
   }
+  const rows = [];
   // `<path>: <attr>: <value>`; a path may contain ": ", so split from the right on the known tail.
   for (const line of out.split("\n")) {
     if (!line) continue;
     const cut = line.lastIndexOf(": ");
     if (cut === -1) continue;
-    const value = line.slice(cut + 2).trim();
-    if (value !== "set" && value !== "true") continue;
     const rest = line.slice(0, cut);
     const attrCut = rest.lastIndexOf(": ");
     if (attrCut === -1) continue;
-    marked.add(rest.slice(0, attrCut));
+    rows.push([rest.slice(0, attrCut), rest.slice(attrCut + 2), line.slice(cut + 2).trim()]);
   }
-  return marked;
+  return rows;
+}
+
+/** Which of `paths` are marked vendored or generated. A repo that declares nothing gets none. */
+export function vendoredPaths(root, paths) {
+  return new Set(checkAttr(root, paths, ATTRS).filter(([, , v]) => v === "set" || v === "true").map(([p]) => p));
+}
+
+/**
+ * Which of `paths` the repo declares its own: `-linguist-vendored` or `linguist-vendored=false`.
+ * `lib/walk.mjs` asks this of `vendor/`, the one directory it leaves out by Linguist's default (#529).
+ */
+export function declaredOwn(root, paths) {
+  return new Set(checkAttr(root, paths, ["linguist-vendored"]).filter(([, , v]) => v === "unset" || v === "false").map(([p]) => p));
 }
 
 /**

@@ -246,17 +246,57 @@ function frontmatterOf(r, p) {
 // The checks — one row per finding kind
 // ---------------------------------------------------------------------------------------------
 
-const READ_ONLY =
-  /\bread[- ]only\b|\bchanges? nothing\b|\bmakes? no changes\b|\breport[- ]only\b|\bdiagnoses only\b|\bnever (?:edits?|modif(?:y|ies)) anything\b|\bdoes not (?:edit|modify) (?:any|the code)/gi;
+// What the agent does: these can only describe the agent, wherever they stand.
+const READ_ONLY_ACT =
+  /\bchanges? nothing\b|\bmakes? no changes\b|\bdiagnoses only\b|\bnever (?:edits?|modif(?:y|ies)) anything\b|\bdoes not (?:edit|modify) (?:any|the code)/gi;
+// An adjective, which can describe anything — so it counts only where the agent is described.
+const READ_ONLY_ADJ = /\bread[- ]only\b|\breport[- ]only\b/gi;
+
+// A conditional opens the sentence or a clause before the match ("If the brief is wrong, change
+// nothing"), or follows it ("change nothing until it is approved").
+const CONDITION_BEFORE = /(?:^|[,;]\s*|\b(?:and|then)\s+)(?:if|when|whenever|unless|otherwise|in case)\b/i;
+const CONDITION_AFTER = /^\s*,?\s*(?:if|when|whenever|unless|until|otherwise)\b/i;
+
+/** The sentence `text` is in up to `at`: back to the last sentence end, blank line or list item. */
+function sentenceTo(text, at) {
+  let start = 0;
+  for (const m of text.slice(0, at).matchAll(/[.!?:;](?=\s)|\n\s*\n|\n\s*(?:[-*+]|\d+\.)\s/g)) start = m.index + m[0].length;
+  return text.slice(start, at).replace(/\s+/g, " ").replace(/^[\s*_>#-]+/, "");
+}
+
+/** The opening statement of an agent's role: the body's first paragraph, headings skipped. */
+function openingOf(body) {
+  const lines = prose(body);
+  const prose_ = (l) => !/^\s*$/.test(l) && !/^\s*#/.test(l);
+  const from = lines.findIndex(prose_);
+  if (from === -1) return "";
+  const to = lines.findIndex((l, i) => i > from && !prose_(l));
+  return lines.slice(from, to === -1 ? undefined : to).join("\n");
+}
 
 /**
- * Does the prose claim the agent is read-only? Code is stripped and a negated mention does not
- * count — "marks destructive, not read-only" is an agent that edits saying so. Found on this repo's
- * own docs-owner, which the first version of this check reported as read-only.
+ * Does the agent claim to be read-only? "Change nothing" and its kin describe what the agent does,
+ * so they count anywhere in the body. "Read-only" and "report-only" are adjectives, and below the
+ * description and the opening statement of its role they describe something else: a CSP's
+ * report-only mode, read-only workflow state, operations a policy should not gate. Reading them
+ * from the whole body reported 8 agents in wshobson/agents, all 8 wrong (#523). Code is stripped,
+ * and two mentions never count:
+ * - a negated one — "marks destructive, not read-only" is an agent that edits saying so. Found on
+ *   this repo's own docs-owner, which the first version of this check reported as read-only;
+ * - a conditional one — "if the brief cannot be verified, change nothing" guards one failure in an
+ *   agent built to edit. Found on four editing agents in one real repo, all four reported (#523).
  */
-export function claimsReadOnly(text) {
-  const plain = prose(text).join("\n");
-  return [...plain.matchAll(READ_ONLY)].some((m) => !/\b(?:not|no|never|isn't|aren't)\s+$/i.test(plain.slice(Math.max(0, m.index - 12), m.index)));
+export function claimsReadOnly(description, body = "") {
+  const claims = (text, re) => {
+    const plain = prose(text).join("\n");
+    return [...plain.matchAll(re)].some((m) => {
+      if (/\b(?:not|no|never|isn't|aren't)\s+$/i.test(plain.slice(Math.max(0, m.index - 12), m.index))) return false;
+      if (CONDITION_BEFORE.test(sentenceTo(plain, m.index))) return false;
+      return !CONDITION_AFTER.test(plain.slice(m.index + m[0].length));
+    });
+  };
+  const head = `${description ?? ""}\n\n`;
+  return claims(head + openingOf(body), READ_ONLY_ADJ) || claims(head + body, READ_ONLY_ACT);
 }
 const REASONING =
   // "your" and not "the": "explain the reasoning so the model understands" is advice to a skill
@@ -384,22 +424,28 @@ const CHECKS = [
         const src = r.read(p);
         if (typeof src !== "string") return [];
         const dir = posix.dirname(p);
+        const pr = r.plugin.skill(p);
         const out = [];
         prose(src).forEach((line, i) => {
           for (const m of line.matchAll(/\]\(([^)\s]+)\)/g)) {
             const target = m[1].split("#")[0];
             // A file reference has an extension or a directory; `[Title](URL)` in an example does not.
             if (!/[./]/.test(target) || /^[a-z]+:/i.test(target) || target.startsWith("/") || /[{<*$]/.test(target)) continue;
-            let resolved;
+            let resolved, fromRoot;
             try {
               resolved = posix.normalize(posix.join(dir, decodeURI(target)));
+              fromRoot = posix.normalize(decodeURI(target));
             } catch {
               continue;
             }
-            if (!resolved.startsWith("..") && !r.exists(resolved)) out.push(`${p}:${i + 1} — ${target}`);
+            if (resolved.startsWith("..") || r.exists(resolved)) continue;
+            // A project skill runs with the repo root as Claude's working directory, so a link written
+            // from the root is followed too (#522). A plugin skill's working directory is the user's
+            // project, never the plugin, so a link only the plugin's root can resolve stays reported.
+            if (pr === null && !fromRoot.startsWith("..") && r.exists(fromRoot)) continue;
+            out.push(`${p}:${i + 1} — ${target}`);
           }
         });
-        const pr = r.plugin.skill(p);
         if (pr !== null) {
           src.replace(/\r\n?/g, "\n").split("\n").forEach((line, i) => {
             for (const m of line.matchAll(/\$\{CLAUDE_PLUGIN_ROOT\}\/([^\s`"'),\]]+)/g)) {
@@ -492,7 +538,7 @@ const CHECKS = [
       r.agents.flatMap((p) => {
         const fm = frontmatterOf(r, p);
         if (fm?.state !== "ok") return [];
-        if (!claimsReadOnly(`${fm.data.description ?? ""}\n${fm.body}`)) return [];
+        if (!claimsReadOnly(fm.data.description, fm.body)) return [];
         const tools = toolList(fm.data.tools);
         const denied = new Set(toolList(fm.data.disallowedTools) ?? []);
         const canEdit = (tools ?? EDIT_TOOLS).filter((t) => EDIT_TOOLS.includes(t) && !denied.has(t));

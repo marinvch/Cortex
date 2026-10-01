@@ -5,6 +5,15 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Changed
+
+- **`/cortex` keeps its two side branches in `skills/cortex/RUNS.md`.** Being invoked with a row
+  (`/cortex evals`, `bands`, `team`) and running unattended under `claude -p` are reached on few runs,
+  and their 50 lines were read on every one. `SKILL.md` names both cases before step 1 and points
+  there. It is 437 lines, down from 479; Anthropic asks for under 500. The re-run rules for
+  stamped files stay in `SKILL.md`, because every re-run reads them and the `/cortex` eval scores
+  them.
+
 ## [2.41.4] — 2026-10-01
 
 Cortex's ritual descriptions are 45% shorter, so more rituals can still be reached by a plain request

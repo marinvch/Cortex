@@ -5,6 +5,37 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.4] — 2026-10-01
+
+Cortex's ritual descriptions are 45% shorter, so more rituals can still be reached by a plain request
+in a session with several plugins installed. The vault rituals stay in the one plugin, and an ADR
+records why.
+
+### Changed
+
+- **Every model-invocable description is shorter, 14,847 characters to 8,119.** Claude Code drops
+  descriptions once the whole skill listing, every installed plugin's together, passes a budget it
+  does not state. In a session with several plugins, about twenty Cortex rituals were listed by name
+  alone, including `/cortex-next`, `/diagnosing-bugs` and `/domain-modeling`. A ritual listed that
+  way cannot be reached from a request. Each description now puts its leading word first, with one
+  trigger per distinct case. The Bulgarian triggers stay. That is about 1,700 tokens less in every
+  session.
+  - `/install-project` no longer claims "install cortex on this project", which belongs to
+    `/cortex`.
+  - "write the AGENTS.md" was claimed by both `/cortex-scaffold` and `/writing-for-agents`, so the
+    model picked between them at random. It is `/cortex-scaffold`'s now.
+  - `core/test/plugin.test.js` caps each description at 320 characters and their total at 8,500,
+    and fails when two rituals claim one trigger phrase. `docs/changing-cortex.md` states the rule.
+
+### Decided
+
+- **The vault rituals stay in the one plugin
+  ([ADR 0020](docs/adr/0020-the-vault-rituals-stay-in-the-one-plugin.md)).** A separate
+  `cortex-vault` plugin was proposed to cut context. Measured, the vault descriptions were about 720
+  tokens a session. Claude Code cannot exclude part of a plugin's `skills/`, and an installed plugin
+  cannot reach files outside its directory. `skillOverrides` does not apply to plugin skills. So a
+  split would have been a breaking move for a small saving. The ADR says when to measure again.
+
 ## [2.41.3] — 2026-09-30
 
 `/cortex` has an eval, and the first run found one thing its text got wrong. When a newer Cortex
@@ -4099,6 +4130,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.4]: https://github.com/marinvch/Cortex/releases/tag/v2.41.4
 [2.41.3]: https://github.com/marinvch/Cortex/releases/tag/v2.41.3
 [2.41.2]: https://github.com/marinvch/Cortex/releases/tag/v2.41.2
 [2.41.1]: https://github.com/marinvch/Cortex/releases/tag/v2.41.1

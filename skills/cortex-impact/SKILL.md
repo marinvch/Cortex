@@ -1,6 +1,6 @@
 ---
 name: cortex-impact
-description: Answer "what breaks if I change this" before the change, from the repo's own import graph — who depends on these files, how far out, and which of them no test exercises. With --against, answer "does my change collide with another session's" — files both touch, and one-hop import edges between the two sets. Use when the user asks what a file touches, what a diff could break, which tests to run for a change, whether an edit is safe, or whether a parallel session, worktree or branch is editing the same code. Deterministic; writes nothing.
+description: What breaks if I change this — the files' dependents, how far out, and which no test covers, from the import graph. --against checks a collision with another session's change set, --size recommends one agent or a team. Triggers — "is this edit safe", "which tests to run", "what does this file touch".
 effort: low
 metadata:
   capability: mechanical

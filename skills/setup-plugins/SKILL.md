@@ -1,6 +1,6 @@
 ---
 name: setup-plugins
-description: Install the Cortex Core plugin bundle out-of-the-box, and offer the optional tiers by role. Use when the user says "set up plugins", "install the core plugins", "give this machine the Cortex toolset", or after connecting the brain. Core is default; Browser/QA, Dev-tools, Platform are opt-in.
+description: Install the Cortex Core plugin bundle, and offer the optional tiers by role. Triggers — "set up plugins", "install the core plugins", "give this machine the Cortex toolset".
 effort: low
 metadata:
   capability: mechanical

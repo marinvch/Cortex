@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Weekly read-only health report for the Cortex Vault. Scores the four layers (Capture, Knowledge, Context, Cadence) out of 25 each and lists the top gaps to close. Never edits anything except an optional saved report. Trigger on "audit my vault", "is my brain healthy", "score my setup".
+description: Read-only health score for a personal vault — four layers out of 25 each, and the top gaps to close. Triggers — "audit my vault", "is my brain healthy", "score my setup".
 metadata:
   capability: judgment
 ---

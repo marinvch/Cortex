@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Get finished work onto the main branch without stranding any of it — judge the change against the repo's own docs, open one PR at a time, merge in an order that keeps every branch mergeable, and clean up what merged. Use on "open a PR", "which PR do I merge first", "push this to master", "merge and continue", "clean up the old branches", "качи го", "комитни и push". Also use when several branches or open PRs have piled up and the order is unclear.
+description: Get finished work onto main without stranding any — judge it against the repo's docs, one PR at a time, merge in a safe order, clean up. Triggers — "open a PR", "which PR first", "merge and continue", "clean up the old branches", "качи го", "комитни и push".
 metadata:
   capability: judgment
 ---

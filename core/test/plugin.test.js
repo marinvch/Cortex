@@ -87,6 +87,34 @@ test("every skill has frontmatter a router can read (tools/cortex-frontmatter.mj
   assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
 });
 
+// Every model-invocable description is loaded into every session, beside every other plugin's, and
+// Claude Code drops descriptions once the whole listing passes a budget it does not state. In a
+// session with several plugins installed, about twenty Cortex rituals were listed by name alone,
+// with nothing to route a request to them. 2.41.4 cut the descriptions from 14,847 characters to
+// about 8,100. These limits keep them from growing back one edit at a time, and stop two rituals
+// from claiming one trigger phrase, which leaves the model to pick between them at random.
+const DESCRIPTION_MAX = 320;
+const DESCRIPTIONS_TOTAL_MAX = 8500;
+
+test("model-invocable descriptions stay short, in total and each, and no two claim one trigger", () => {
+  const skillsDir = join(REPO_ROOT, "skills");
+  let total = 0;
+  const owner = new Map();
+  for (const name of readdirSync(skillsDir).filter((n) => statSync(join(skillsDir, n)).isDirectory())) {
+    const src = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
+    if (/^disable-model-invocation:\s*true$/m.test(src)) continue;
+    const desc = (/^description: (.*)$/m.exec(src)?.[1] ?? "").trim();
+    assert.ok(desc.length <= DESCRIPTION_MAX, `${name}: description is ${desc.length} characters (max ${DESCRIPTION_MAX})`);
+    total += desc.length;
+    for (const [, phrase] of desc.matchAll(/"([^"]+)"/g)) {
+      const key = phrase.toLowerCase();
+      assert.ok(!owner.has(key), `"${phrase}" is a trigger of both ${owner.get(key)} and ${name}`);
+      owner.set(key, name);
+    }
+  }
+  assert.ok(total <= DESCRIPTIONS_TOTAL_MAX, `model-invocable descriptions total ${total} characters (max ${DESCRIPTIONS_TOTAL_MAX})`);
+});
+
 test("the once-only rituals stay user-invocable only", () => {
   // These are destructive or one-time. The flag is easy to drop in an unrelated frontmatter edit,
   // and nothing else would notice until an agent auto-fired /migrate-engine on someone's repo.

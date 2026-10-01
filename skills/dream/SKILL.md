@@ -1,6 +1,6 @@
 ---
 name: dream
-description: End-of-day consolidation for a codebase. Reads what actually changed, writes a dated digest into the repo's committed .cortex/memory/, so tomorrow's agents and the rest of the team start with today's context instead of re-deriving it. Use at the end of a working session, or when the user says "dream", "wrap up the day", "consolidate", "what did we learn today".
+description: End-of-day consolidation — a dated digest of what changed and what was learned, written into the repo's committed .cortex/memory/. Triggers — "dream", "wrap up the day", "what did we learn today".
 metadata:
   capability: judgment
 ---

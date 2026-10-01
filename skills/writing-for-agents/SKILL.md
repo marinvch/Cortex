@@ -1,6 +1,6 @@
 ---
 name: writing-for-agents
-description: Writing documents an agent consumes. Use when creating or editing a skill, a root or scoped AGENTS.md, a CONTEXT.md, or any doc reached by a pointer. Triggers — "write the AGENTS.md", "this brief is bloated", "why doesn't the agent pick this up", "should this be its own skill".
+description: The discipline for writing documents an agent reads — skills, AGENTS.md, CONTEXT.md, any doc behind a pointer. Triggers — "this brief is bloated", "why doesn't the agent pick this up", "should this be its own skill".
 metadata:
   capability: judgment
 ---

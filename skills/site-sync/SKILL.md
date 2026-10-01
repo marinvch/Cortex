@@ -1,6 +1,6 @@
 ---
 name: site-sync
-description: Bring Cortex's own public docs site back in line with the source after a release — refresh its site-facts.json, redraft only the pages whose sources changed, show the diff, and open a PR on the site repo once the user approves. Use when a `site-drift` issue is open, when `cortex-site-facts.mjs --check` reports drift, or on "sync the site", "the site is out of date", "update the docs site". Maintains the Cortex site only, not a user's docs.
+description: Bring Cortex's own public site in line after a release — refresh site-facts.json, redraft the changed pages, open a PR once approved. Triggers — a site-drift issue, "sync the site", "the site is out of date".
 metadata:
   capability: judgment
 ---

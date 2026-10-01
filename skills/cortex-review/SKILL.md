@@ -1,6 +1,6 @@
 ---
 name: cortex-review
-description: Review a change against the repo's OWN documented context — the AGENTS.md, CONTEXT.md and ADRs Cortex wrote — on two axes. Does the change break a documented rule, and did it just make one of those documents wrong? Use when the user asks to review a diff, check a change before committing, or asks whether the docs still match the code.
+description: Review a change against the repo's own AGENTS.md, CONTEXT.md and ADRs — does it break a documented rule, and did it make a doc wrong? Triggers — "review this diff", "check before I commit", "do the docs still match the code".
 metadata:
   capability: judgment
 ---

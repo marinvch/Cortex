@@ -1,6 +1,6 @@
 ---
 name: cortex-view
-description: Render this repo as one self-contained HTML page you can open in a browser — an overview of its state (index freshness, coverage, churn, findings, next steps, timeline), the import graph, the context layer as a tree, every file with who imports it, the areas, and the gaps. Use when someone wants to SEE the codebase rather than read a report, on the triggers "show me the graph", "visualise this repo", "what does the architecture look like", "open the map", "cortex view". Writes only under .cortex/.
+description: Render the repo as one offline HTML page — state overview, import graph, context tree, files, areas and gaps. Triggers — "show me the graph", "visualise this repo", "open the map", "cortex view".
 effort: low
 metadata:
   capability: mechanical

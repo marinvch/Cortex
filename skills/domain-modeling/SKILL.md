@@ -1,6 +1,6 @@
 ---
 name: domain-modeling
-description: Build and sharpen a repo's domain model — challenge fuzzy terms, stress-test them against scenarios, and write the glossary and decisions down as they crystallise. Use when discussing a codebase's terminology, writing or editing its CONTEXT.md, or recording an ADR. Triggers — "what should we call this", "these two words mean the same thing", "record this decision", "write an ADR". Runs inside a target repo, not the vault.
+description: Sharpen a repo's domain language — challenge fuzzy terms, and write its CONTEXT.md glossary and ADRs. Triggers — "what should we call this", "these two words mean the same thing", "record this decision", "write an ADR".
 metadata:
   capability: judgment
 ---

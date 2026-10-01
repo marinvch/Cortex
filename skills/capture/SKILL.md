@@ -1,6 +1,6 @@
 ---
 name: capture
-description: Drop a thought into the vault in one step with zero friction. Use when the user says "capture this", "note this down", "remember that", "add to inbox", or pastes a stray idea/link they want to keep. Speed over structure — file it, don't organize it.
+description: Drop a thought, link or idea into the vault inbox in one step, unorganized. Triggers — "capture this", "note this down", "remember that", "add to inbox".
 effort: low
 metadata:
   capability: mechanical

@@ -29,6 +29,9 @@ const MEMORY = "https://code.claude.com/docs/en/memory";
 const BEST = "https://code.claude.com/docs/en/best-practices";
 const MODES = "https://code.claude.com/docs/en/permission-modes";
 const HEADLESS = "https://code.claude.com/docs/en/headless";
+const MODS = "https://code.claude.com/docs/en/plugins/mods/overview";
+const MODS_REF = "https://code.claude.com/docs/en/plugins/mods/reference";
+const MODS_ADMIN = "https://code.claude.com/docs/en/plugins/mods/admin";
 const OPUS_5_5 =
   "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5";
 
@@ -241,6 +244,76 @@ export const RULES = Object.freeze([
     source: BEST,
     evidence:
       "If Claude keeps skipping one instruction, add emphasis such as \"IMPORTANT\" to that line alone. If you emphasize many lines, none of them stands out.",
+  },
+
+  // --- AGENTS.md: when Claude Code reads it without a CLAUDE.md, and what the shim costs -----------
+  //
+  // /cortex-scaffold writes CLAUDE.md as one line, `@AGENTS.md`. These are the sentences that say the
+  // shim is still valid, and that a CLAUDE.md at the root stops a subdirectory's AGENTS.md loading
+  // on its own. docs/adr/0021 holds the decision to keep it.
+  {
+    id: "agents-md.default-needs-no-claude-md",
+    value: "claude-md-or-agents-md",
+    source: MEMORY,
+    evidence:
+      "By default, Claude reads `AGENTS.md` only when you have no `CLAUDE.md` in your working directory or above it.",
+  },
+  {
+    id: "agents-md.setting-loads-both",
+    value: "claude-md-and-agents-md",
+    source: MEMORY,
+    evidence:
+      "Your `CLAUDE.md` and `AGENTS.md` files together, each directory's `CLAUDE.md` files first and its `AGENTS.md` after them.",
+  },
+  {
+    id: "agents-md.import-not-read-twice",
+    value: "@AGENTS.md",
+    source: MEMORY,
+    evidence:
+      "Keeping the import never makes Claude read `AGENTS.md` twice, whichever **Project instructions** value you use.",
+  },
+  {
+    id: "agents-md.min-version",
+    value: "2.1.277",
+    source: MEMORY,
+    evidence: "Reading `AGENTS.md` directly requires Claude Code v2.1.277 or later.",
+  },
+
+  // --- mods: a plugin whose handlers run inside Claude Code ---------------------------------------
+  //
+  // The docs call the older kind "settings hooks" and use "hook" for a mod's handler. The `hook.*`
+  // rules above are all about settings hooks.
+  {
+    id: "mod.min-version",
+    value: "2.1.287",
+    source: MODS,
+    evidence: "Mods require Claude Code v2.1.287 or later, and they're on by default.",
+  },
+  {
+    id: "mod.not-sandboxed",
+    value: true,
+    source: MODS,
+    evidence:
+      "If you turn on sandboxing, the sandbox isolates the Bash commands Claude runs, and a process that a mod starts runs outside it.",
+  },
+  {
+    id: "mod.hooks-json.modules",
+    value: "modules",
+    source: MODS_REF,
+    evidence: "`modules`: an array with one path, relative to this file, to the hooks module",
+  },
+  {
+    id: "mod.module.extensions",
+    value: [".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", ".tsx"],
+    source: MODS_REF,
+    evidence: "Named `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.mts`, `.cts`, or `.tsx`.",
+  },
+  {
+    id: "mod.approves-past-pretooluse",
+    value: "PreToolUse",
+    source: MODS_ADMIN,
+    evidence:
+      "A user's mod that approves tool calls can approve a call that an `ask` rule would prompt for, or that a `PreToolUse` hook outside managed settings blocked.",
   },
 
   // --- permissions: why an unattended /cortex cannot write under .claude/ ------------------------

@@ -5,6 +5,10 @@
 # across lines, a word turned into a link, a table row padded with spaces — so a pass here means the
 # matcher reads through markdown, not that it compares a string to itself. Each mutation after that
 # is one way the docs can move, and each must be caught as the right kind of failure.
+#
+# The second half is discovery: each fixture dir also holds the docs index (llms.txt) and the blog's
+# front page (blog.html), built from tools/claude-docs-seen.json, so a clean dir lists exactly what
+# Cortex has seen and every case after it adds, removes or breaks one thing.
 
 . "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
 
@@ -14,7 +18,7 @@ cd "$WORK" || exit 1
 # pages <dir> — one fixture page per source URL, stating every rule's evidence in docs-style markdown.
 pages() {
   node --input-type=module -e '
-    import { mkdirSync, writeFileSync } from "node:fs";
+    import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
     import { join } from "node:path";
     import { pathToFileURL } from "node:url";
     const [repo, dir] = process.argv.slice(1);
@@ -39,6 +43,14 @@ pages() {
       byPage.set(name, lines);
     }
     for (const [name, lines] of byPage) writeFileSync(join(dir, `${name}.md`), lines.join("\n"));
+    const seen = JSON.parse(readFileSync(join(repo, "tools", "claude-docs-seen.json"), "utf8"));
+    const index = ["# Claude Code Docs", "", "## Section", ""];
+    for (const p of seen.docs) index.push(`- [Title of ${p}](https://code.claude.com/docs/en/${p}.md): What it covers.`);
+    index.push("", "- [French (220 pages)](https://code.claude.com/docs/_llms/fr.md): Another index.");
+    writeFileSync(join(dir, "llms.txt"), index.join("\n"));
+    const html = seen.blog.map((p, i) => `<a class="card" href="${i % 2 ? "https://claude.com" : ""}/blog/${p}">Post</a>`);
+    html.push(`<a href="/blog/category/product-announcements">Category</a>`, `<a href="/blog">All</a>`);
+    writeFileSync(join(dir, "blog.html"), html.join("\n"));
   ' "$REPO_ROOT" "$1"
 }
 
@@ -86,3 +98,68 @@ run gone --check --json
 assert_eq "1" "$rc" "--json keeps the exit code"
 assert_contains "$out" '"ok": false' "and the payload says the run is not ok"
 assert_contains "$out" '"id": "skill.body.max-lines"' "and lists the stale rule"
+
+# --- discovery: pages the docs index or the blog lists that Cortex has not seen ------------------
+
+run good --json
+assert_contains "$out" '"newDocs": []' "a clean index reports nothing new"
+
+pages newdoc
+printf '\n- [Brand new](https://code.claude.com/docs/en/plugins/brand/new-page.md): A feature.\n' >> newdoc/llms.txt
+run newdoc --check
+assert_eq "3" "$rc" "a docs page not in the seen-list fails --check on its own exit code"
+assert_contains "$out" "new    docs page: https://code.claude.com/docs/en/plugins/brand/new-page — Brand new" "and names it with its title"
+assert_contains "$out" "cortex-claude-docs.mjs --accept" "and says how to record it"
+run newdoc
+assert_eq "0" "$rc" "without --check a new page reports but does not fail"
+
+pages newpost
+printf '\n<a href="/blog/a-post-nobody-has-read">Post</a>\n' >> newpost/blog.html
+run newpost --check
+assert_eq "3" "$rc" "a blog post not in the seen-list fails --check the same way"
+assert_contains "$out" "new    blog post: https://claude.com/blog/a-post-nobody-has-read" "and names it"
+assert_not_contains "$out" "blog post: https://claude.com/blog/category" "a category link is not a post"
+
+pages scrolled
+printf '<a href="/blog/claude-code-mods">Post</a>\n' > scrolled/blog.html
+run scrolled --check
+assert_eq "0" "$rc" "a post that scrolled off the blog's front page is not a change"
+
+pages removed
+grep -v '/docs/en/quickstart.md' removed/llms.txt > removed/llms.tmp && mv removed/llms.tmp removed/llms.txt
+run removed --check
+assert_eq "0" "$rc" "a docs page that left the index is not a failure"
+assert_contains "$out" "gone   docs page: https://code.claude.com/docs/en/quickstart" "but it is reported"
+
+pages noindex
+rm noindex/llms.txt
+run noindex --check
+assert_eq "2" "$rc" "an index that could not be read fails as unread, never as nothing new"
+assert_contains "$out" "new pages went unlooked for" "and the summary says so"
+
+pages emptied
+printf '# Claude Code Docs\n\nMoved.\n' > emptied/llms.txt
+run emptied --check
+assert_eq "2" "$rc" "an index that reads but lists no pages is unread too"
+assert_contains "$out" "no pages found in the index" "and says why"
+
+pages both
+grep -v "500 lines" both/skills.md > both/skills.tmp && mv both/skills.tmp both/skills.md
+printf '\n- [Brand new](https://code.claude.com/docs/en/brand-new.md): A feature.\n' >> both/llms.txt
+run both --check
+assert_eq "1" "$rc" "a stale rule outranks a new page"
+assert_contains "$out" "new    docs page" "and the new page is still listed"
+
+# --accept writes the seen-list, so every case below points --seen at a copy.
+cp "$REPO_ROOT/tools/claude-docs-seen.json" seen.json
+run noindex --seen seen.json --accept
+assert_eq "2" "$rc" "--accept refuses when an index was not read"
+assert_eq "$(cat "$REPO_ROOT/tools/claude-docs-seen.json")" "$(cat seen.json)" "and leaves the seen-list as it was"
+run newdoc --seen seen.json --accept
+assert_eq "0" "$rc" "--accept records what is published"
+run newdoc --seen seen.json --check
+assert_eq "0" "$rc" "after which the same pages are no longer new"
+run scrolled --seen seen.json --accept
+run newpost --seen seen.json --check
+assert_eq "3" "$rc" "accepting a short front page keeps the posts already seen"
+assert_not_contains "$out" "blog post: https://claude.com/blog/claude-code-mods" "so only the unread post is new"

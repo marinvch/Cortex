@@ -17,9 +17,15 @@ and `CLAUDE.md` size and content guidance.
 ```bash
 node tools/cortex-claude-docs.mjs --check   # exit 1: a rule's sentence left its page · 2: a page could not be read
 node tools/cortex-claude-docs.mjs --json
+node tools/cortex-claude-docs.mjs --accept  # record the pages now published as seen
 ```
 
-A weekly workflow runs the same check and opens a `docs-drift` issue when it fails. Users never
+The same run exits 3 when the docs index (`llms.txt`) or `claude.com/blog` lists a page that
+`tools/claude-docs-seen.json` does not. The rule check only watches pages a rule already cites, so
+this is how a feature with a page of its own gets noticed. A new page is read by a maintainer, who
+then decides whether Cortex owes it a rule; `--accept` records it.
+
+A daily workflow runs the same check and opens a `docs-drift` issue when it fails. Users never
 fetch the docs — they get updated rules with a plugin update. Why it works this way, and what was
 rejected: [ADR 0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
 

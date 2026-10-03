@@ -19,7 +19,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-09-27";
+export const CHECKED = "2026-10-03";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -322,7 +322,7 @@ export const RULES = Object.freeze([
     value: "reasoning_extraction",
     source: OPUS_5_5,
     evidence:
-      "Requests that push the model to reproduce its internal reasoning in the response text can be declined with the `reasoning_extraction` category, which is new if you're coming from Claude Opus 5.",
+      "Requests that push the model to reproduce its internal reasoning in the response text may be declined with the `reasoning_extraction` category.",
   },
   {
     id: "model.agentic.end-turn-is-a-report",

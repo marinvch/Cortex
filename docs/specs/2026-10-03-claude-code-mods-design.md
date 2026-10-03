@@ -122,13 +122,16 @@ mods pages share no basename with an existing source, but `overview` is a common
 
 | Finding kind | Rule | Severity | Fires when |
 |---|---|---|---|
-| `mod-hooks-json-not-json` | `mod.hooks-json.modules` | medium | `hooks/hooks.json` beside a plugin manifest does not parse |
 | `mod-module-missing` | `mod.hooks-json.modules` | medium | a `modules` path, resolved from `hooks.json`, names no file |
 | `mod-modules-not-one` | `mod.hooks-json.modules` | medium | `modules` is not an array of exactly one string |
 | `mod-module-extension` | `mod.module.extensions` | medium | the module exists and its extension is not one of the eight |
 | `mod-present` | `mod.not-sandboxed` | low | a mod parses and its module exists |
 
 One more fact is reported outside this table, as a line in the findings summary and in `cortex-next` (see Risks for why it is not a finding): a root `CLAUDE.md` counts and at least one leaf `AGENTS.md` exists, so the leaves load only by routing. It cites `agents-md.default-needs-no-claude-md` and names the setting in `agents-md.setting-loads-both`.
+
+A `hooks/hooks.json` that does not parse needs no mod finding: the checker already reads a
+plugin's `hooks.json` as a settings file, so it is reported as `settings-not-json` (found while
+building step 2; the draft of this spec listed a fifth finding for it).
 
 Invariants this must not break, from the leaf briefs and `docs/changing-cortex.md`:
 

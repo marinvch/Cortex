@@ -581,6 +581,40 @@ const CHECKS = [
     run: (r, _m, hooks) => hooks.postExit2,
   },
 
+  // --- mods -----------------------------------------------------------------------------------
+  {
+    kind: "mod-modules-not-one",
+    rule: "mod.hooks-json.modules",
+    severity: "medium",
+    title: (n) => `${n} mod${n === 1 ? "" : "s"} whose modules key is not one path`,
+    what: "A mod's hooks.json names its hooks module as an array holding one path. Anything else is not the shape the reference describes.",
+    run: (r, _m, hooks) => hooks.modNotOne,
+  },
+  {
+    kind: "mod-module-missing",
+    rule: "mod.hooks-json.modules",
+    severity: "medium",
+    title: (n) => `${n} mod${n === 1 ? "" : "s"} naming a hooks module that does not exist`,
+    what: "The path is relative to hooks.json. A mod whose module is not there has no entry point, so none of its hooks is registered.",
+    run: (r, _m, hooks) => hooks.modMissing,
+  },
+  {
+    kind: "mod-module-extension",
+    rule: "mod.module.extensions",
+    severity: "medium",
+    title: (n) => `${n} hooks module${n === 1 ? "" : "s"} with an extension a mod cannot use`,
+    what: "A hooks module is an ES module with one of the listed JavaScript or TypeScript extensions.",
+    run: (r, _m, hooks) => hooks.modExtension,
+  },
+  {
+    kind: "mod-present",
+    rule: "mod.not-sandboxed",
+    severity: "low",
+    title: (n) => `${n} mod${n === 1 ? "" : "s"} shipped from this repo`,
+    what: `Not a defect: a statement of what installing this plugin grants. A mod's handlers run inside Claude Code with the user's permissions, on Claude Code v${limit("mod.min-version")} or later. Run "claude plugin validate <plugin dir>" to list the events it handles and the calls it makes; Cortex does not read the module's code.`,
+    run: (r, _m, hooks) => hooks.modPresent,
+  },
+
   // --- direct Messages API use ----------------------------------------------------------------
   {
     kind: "api-first-block-as-text",
@@ -665,9 +699,42 @@ function linesMatching(src, re) {
   return out;
 }
 
+const noHooks = () => ({
+  unreadable: [], missing: [], notExecutable: [], postExit2: [],
+  modNotOne: [], modMissing: [], modExtension: [], modPresent: [],
+});
+
+/**
+ * A plugin's `hooks/hooks.json` that names a hooks module is a mod. Only what a file listing proves
+ * is judged here — the shape of `modules`, that the path names a file, and its extension. What the
+ * module's code handles and calls is `claude plugin validate`'s to say, and a regex copy of it
+ * would disagree with the real one.
+ */
+function inspectMod(res, r, p, modules) {
+  const one = Array.isArray(modules) && modules.length === 1 && typeof modules[0] === "string";
+  if (!one) {
+    const got = Array.isArray(modules) ? `${modules.length} entries` : `a ${modules === null ? "null" : typeof modules}`;
+    res.modNotOne.push(`${p} — modules is ${got}`);
+  }
+  const named = (Array.isArray(modules) ? modules : []).filter((m) => typeof m === "string");
+  let sound = one;
+  for (const m of named) {
+    const rel = posix.normalize(posix.join(posix.dirname(p), m));
+    if (rel.startsWith("..")) continue; // outside the repo — cannot be seen from here
+    if (!r.exists(rel)) {
+      res.modMissing.push(`${p} → ${m} — ${rel} not found`);
+      sound = false;
+    } else if (!limit("mod.module.extensions").includes(posix.extname(rel))) {
+      res.modExtension.push(`${p} → ${m} — ${posix.extname(rel) || "no extension"}`);
+      sound = false;
+    }
+  }
+  if (sound) res.modPresent.push(`${p} → ${modules[0]}`);
+}
+
 /** Walk every hook command once; the hook rows read the result. */
 function inspectHooks(r) {
-  const res = { unreadable: [], missing: [], notExecutable: [], postExit2: [] };
+  const res = noHooks();
   for (const p of r.settings) {
     const src = r.read(p);
     if (typeof src !== "string") continue;
@@ -678,11 +745,13 @@ function inspectHooks(r) {
       res.unreadable.push(`${p} — ${String(e.message).split("\n")[0]}`);
       continue;
     }
-    const hooks = json && typeof json === "object" ? json.hooks : null;
-    if (!hooks || typeof hooks !== "object") continue;
     // A plugin's hooks resolve against its plugin root; a settings file's against the project dir,
     // which for `<dir>/.claude/settings.json` is `<dir>`.
     const pr = r.plugin.hooks(p);
+    const modules = limit("mod.hooks-json.modules");
+    if (pr !== null && json && typeof json === "object" && modules in json) inspectMod(res, r, p, json[modules]);
+    const hooks = json && typeof json === "object" ? json.hooks : null;
+    if (!hooks || typeof hooks !== "object") continue;
     const project = pr ?? posix.dirname(posix.dirname(p));
     for (const [event, groups] of Object.entries(hooks)) {
       for (const g of Array.isArray(groups) ? groups : []) {
@@ -767,11 +836,11 @@ export function claudeSetupFindings(index, root, opts = {}) {
 export function subagentGrades(index, root, opts = {}) {
   const r = gather(index, root, opts);
   const none = { files: [], missing: [] };
-  const noHooks = { unreadable: [], missing: [], notExecutable: [], postExit2: [] };
+  const empty = noHooks();
   return r.agents.map((p) => {
     const one = { ...r, agents: [p], skills: [], claudeMd: [], code: [], settings: [] };
     const findings = CHECKS.flatMap((check) => {
-      const evidence = [...new Set(check.run(one, none, noHooks))].sort();
+      const evidence = [...new Set(check.run(one, none, empty))].sort();
       return evidence.length ? [{ kind: PREFIX + check.kind, rule: check.rule, severity: check.severity, evidence }] : [];
     });
     const text = r.read(p);

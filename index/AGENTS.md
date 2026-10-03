@@ -169,6 +169,17 @@ description) has a test.
   anthropics/claude-code-playground (each reports `mod-present` and nothing else), with nine guards
   mutated and nine test failures.
 
+### How the scoped briefs load — `lib/instructions.mjs`
+
+- **A fact, not a finding.** Under a root `CLAUDE.md`, Claude Code does not read a subdirectory's
+  `AGENTS.md` on its own. The setting that changes it is ignored in project settings, so no edit to
+  the repo fixes it, and `tools/test/cortex-follows-its-own-rules.test.sh` fails on anything a repo
+  could fix. It is therefore one sentence in the findings report's glance and on `cortex-next`'s
+  brief step, both read from `leavesNote`. Do not move it into `claude-setup.mjs`.
+- Validated on anthropics/claude-code and claude-code-playground (a `CLAUDE.md` and no scoped
+  brief: silent), openai/codex (a scoped brief and no `CLAUDE.md`: silent) and this repo (four
+  briefs under the shim: stated). Seven guards mutated, seven test failures.
+
 ### The agents a repo already has — `lib/agents.mjs`
 
 - Validated by hand on 83 agents in seven public repos (octez-manager, metaxy, spica, kapi-sprints,

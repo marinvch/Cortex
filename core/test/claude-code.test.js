@@ -4,7 +4,7 @@ import { CHECKED, RULES, rule, limit, protectedClaudePath } from "../claude-code
 
 // core/claude-code.js is only worth anything if every rule can be traced to a sentence on an
 // official page. These pin the shape that makes that true; tools/test/claude-docs.test.sh pins the
-// check that the sentences are still there, and the weekly workflow runs it against the live docs.
+// check that the sentences are still there, and the daily workflow runs it against the live docs.
 
 test("every rule names its id, value, source, evidence and the date it was confirmed", () => {
   for (const r of RULES) {
@@ -56,6 +56,31 @@ test("the Opus 5.5 prompting rules are present and sourced from the platform doc
   }
   assert.equal(limit("model.effort.default-medium"), "medium");
   assert.equal(limit("model.agentic.continuation-cap"), 3);
+});
+
+// What Cortex says about the shim it writes and about mods rests on these. Pinned by id and page so
+// a finding or a template note can cite them, and a later edit cannot quietly drop one.
+test("the AGENTS.md and mods rules are present and sourced from their pages", () => {
+  for (const id of [
+    "agents-md.default-needs-no-claude-md",
+    "agents-md.setting-loads-both",
+    "agents-md.import-not-read-twice",
+    "agents-md.min-version",
+  ]) {
+    assert.equal(rule(id).source, "https://code.claude.com/docs/en/memory", id);
+  }
+  for (const id of [
+    "mod.min-version",
+    "mod.not-sandboxed",
+    "mod.hooks-json.modules",
+    "mod.module.extensions",
+    "mod.approves-past-pretooluse",
+  ]) {
+    assert.match(rule(id).source, /^https:\/\/code\.claude\.com\/docs\/en\/plugins\/mods\/(overview|reference|admin)$/, id);
+  }
+  assert.equal(limit("agents-md.setting-loads-both"), "claude-md-and-agents-md");
+  assert.equal(limit("mod.hooks-json.modules"), "modules");
+  assert.ok(limit("mod.module.extensions").includes(".tsx"));
 });
 
 test("a key-list rule carries the keys as an array of strings", () => {

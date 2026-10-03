@@ -330,10 +330,13 @@ test("the authoring rituals state the official limits, in the official units", a
   assert.ok(creator.includes(`${limit("skill.body.max-lines")} **lines**`), "/skill-creator states the body limit in lines");
   assert.doesNotMatch(creator, /\d+\s+words/i, "and no longer states it in words");
 
-  // Two families are not about writing a document an agent reads: MCP output limits, and the
-  // permission rules for unattended runs (which paths a headless session may write).
+  // Three families are not about writing a document an agent reads: MCP output limits, the
+  // permission rules for unattended runs (which paths a headless session may write), and mods,
+  // which are code that runs inside Claude Code.
   const writing = readFileSync(join(REPO_ROOT, "skills", "writing-for-agents", "SKILL.md"), "utf8");
-  const pages = [...new Set(RULES.map((r) => r.source))].filter((url) => !/\/(mcp|permission-modes|headless)$/.test(url));
+  const pages = [...new Set(RULES.map((r) => r.source))].filter(
+    (url) => !/\/(mcp|permission-modes|headless)$/.test(url) && !url.includes("/plugins/mods/"),
+  );
   const uncited = pages.filter((url) => !writing.includes(`(${url})`));
   assert.deepEqual(uncited, [], "/writing-for-agents links every page an authoring rule is vendored from");
 });

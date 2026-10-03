@@ -5,6 +5,29 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.10] — 2026-10-03
+
+Cortex's rules now cover Claude Code mods and how `AGENTS.md` loads without a `CLAUDE.md`.
+
+### Added
+
+- **Nine rules from four pages, each with its sentence.** Five from the mods pages: the minimum
+  version, that a mod is not sandboxed, the `modules` key of `hooks/hooks.json`, the extensions a
+  hooks module may have, and that a user's mod can approve a call a `PreToolUse` hook outside
+  managed settings blocked. Four from the memory page: `AGENTS.md` is read directly only when no
+  `CLAUDE.md` is at or above the working directory, the setting that reads both, that an
+  `@AGENTS.md` import is never read twice, and the minimum version. Nothing consumes them yet; the
+  daily check now watches their pages.
+- **The design and plan for what Cortex does about mods.**
+  `docs/specs/2026-10-03-claude-code-mods-design.md` and `docs/plans/2026-10-03-claude-code-mods.md`.
+  This release is step 1 of five.
+
+### Changed
+
+- **`cortex-claude-docs.mjs --pages` names a fixture by the page's path under `/docs/en/`,** with
+  `/` written `__`. It used the last segment, so `plugins/mods/overview` and any other `overview`
+  would have shared one file.
+
 ## [2.41.9] — 2026-10-03
 
 The docs check now notices a page Anthropic published that Cortex has never read.
@@ -4234,6 +4257,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.10]: https://github.com/marinvch/Cortex/releases/tag/v2.41.10
 [2.41.9]: https://github.com/marinvch/Cortex/releases/tag/v2.41.9
 [2.41.8]: https://github.com/marinvch/Cortex/releases/tag/v2.41.8
 [2.41.7]: https://github.com/marinvch/Cortex/releases/tag/v2.41.7

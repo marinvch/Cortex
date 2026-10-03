@@ -6,7 +6,8 @@
 //                                                     #      3 if the docs or the blog have a page not seen before
 //   node tools/cortex-claude-docs.mjs --json
 //   node tools/cortex-claude-docs.mjs --accept        # record every page now published as seen
-//   node tools/cortex-claude-docs.mjs --pages <dir>   # read <dir>/<page>.md, llms.txt and blog.html instead of the network
+//   node tools/cortex-claude-docs.mjs --pages <dir>   # read <dir>/<page>.md, llms.txt and blog.html instead of the network;
+//                                                     #      <page> is the path under /docs/en/ with / written __
 //   node tools/cortex-claude-docs.mjs --seen <file>   # the seen-list to read and write (default: beside this file)
 //
 // core/claude-code.js vendors each rule with the sentence on its source page that states it. This
@@ -168,7 +169,13 @@ async function readText(url, fixture) {
   }
 }
 
-const readPage = (source) => readText(`${source}.md`, `${source.split("/").pop()}.md`);
+/**
+ * A source's fixture name: its path under /docs/en/ with the slashes flattened. The last segment
+ * alone is not a name — plugins/mods/overview and agent-sdk/overview are different pages.
+ */
+const fixtureOf = (source) => `${source.replace(/^https:\/\/[^/]+\/docs\/en\//, "").replaceAll("/", "__")}.md`;
+
+const readPage = (source) => readText(`${source}.md`, fixtureOf(source));
 
 async function main() {
   const sources = [...new Set(RULES.map((r) => r.source))];

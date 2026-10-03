@@ -5,6 +5,29 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.9] — 2026-10-03
+
+The docs check now notices a page Anthropic published that Cortex has never read.
+
+### Added
+
+- **`cortex-claude-docs.mjs` reports new docs pages and blog posts.** The check confirmed sentences
+  on the nine pages a rule cites, so a feature documented on a page of its own went unnoticed.
+  Claude Code mods shipped on 2026-10-01 with ten docs pages and the check stayed green. It now
+  reads the docs index (`llms.txt`) and the front page of `claude.com/blog`, and `--check` exits 3
+  when either lists a page missing from `tools/claude-docs-seen.json`. `--accept` records the pages
+  now published. An index that cannot be read, or reads with no pages in it, exits 2 like an unread
+  rule page. The blog's front page mixes customer stories with product posts and the tool does not
+  tell them apart.
+- **The `claude-docs` workflow runs daily.** It calls no model, so the cost is Actions seconds. A
+  report already on the open `docs-drift` issue is not posted again, and a new page does not turn
+  the run red.
+
+### Fixed
+
+- **`model.prompt.no-reasoning-in-response` cites the sentence the page has now.** Anthropic
+  reworded it between 2026-09-28 and 2026-10-03; the rule and its value are unchanged.
+
 ## [2.41.8] — 2026-10-01
 
 A Go repo that declares its module in `vendor.mod` now has an import graph.
@@ -4211,6 +4234,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.9]: https://github.com/marinvch/Cortex/releases/tag/v2.41.9
 [2.41.8]: https://github.com/marinvch/Cortex/releases/tag/v2.41.8
 [2.41.7]: https://github.com/marinvch/Cortex/releases/tag/v2.41.7
 [2.41.6]: https://github.com/marinvch/Cortex/releases/tag/v2.41.6

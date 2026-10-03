@@ -1,10 +1,14 @@
 name: claude docs drift
 # The Claude Code rules in core/claude-code.js are vendored with the sentence that states each one.
-# This re-reads Anthropic's docs weekly and opens (or comments on) one `docs-drift` issue when a
-# sentence has left its page, or a page could not be read. Users never run this — ADR 0017.
+# This re-reads Anthropic's docs daily and opens (or comments on) one `docs-drift` issue when a
+# sentence has left its page, a page could not be read, or the docs index or the blog lists a page
+# that tools/claude-docs-seen.json does not. Users never run this — ADR 0017.
+#
+# It runs a Node script and calls no model, so a daily run costs Actions seconds and no tokens. The
+# same report is posted once: an unanswered finding would otherwise add a comment every morning.
 on:
   schedule:
-    - cron: "17 6 * * 1"
+    - cron: "17 6 * * *"
   workflow_dispatch:
 
 permissions:
@@ -23,7 +27,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check the vendored rules against the live docs
+      - name: Check the vendored rules and the page lists against the live docs
         id: check
         run: |
           set +e
@@ -38,11 +42,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CODE: ${{ steps.check.outputs.code }}
         run: |
-          if [ "$CODE" = "1" ]; then
-            what="A Claude Code rule Cortex ships is no longer stated on its source page."
-          else
-            what="The weekly check could not read one or more Claude Code docs pages, so the rules went unchecked."
-          fi
+          case "$CODE" in
+            1)
+              what="A Claude Code rule Cortex ships is no longer stated on its source page."
+              fix='Fix: update `core/claude-code.js` (value, evidence, `CHECKED`), then whatever consumes the rule.'
+              ;;
+            3)
+              what="Anthropic published a docs page or a blog post Cortex has not seen."
+              fix='Fix: read each new page, decide what Cortex owes it, then run `node tools/cortex-claude-docs.mjs --accept` and commit `tools/claude-docs-seen.json`.'
+              ;;
+            *)
+              what="The daily check could not read one or more Claude Code docs pages, so the rules or the page lists went unchecked."
+              fix='Fix: re-run the workflow. If a page moved, update its URL in `core/claude-code.js` or `tools/cortex-claude-docs.mjs`.'
+              ;;
+          esac
+          # The run URL changes daily and the report does not, so the marker hashes the report alone.
+          marker="<!-- docs-drift-report:$(sha256sum report.txt | cut -d' ' -f1) -->"
           {
             echo "$what"
             echo
@@ -52,13 +67,19 @@ jobs:
             echo
             echo "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
             echo
-            echo 'Fix: update `core/claude-code.js` (value, evidence, `CHECKED`), then whatever consumes the rule.'
+            echo "$fix"
+            echo
+            echo "$marker"
           } > body.md
-          gh label create docs-drift --color d93f0b --description "Claude Code docs changed under a vendored rule" --force
+          gh label create docs-drift --color d93f0b --description "Claude Code docs changed under a vendored rule, or a new page appeared" --force
           existing="$(gh issue list --label docs-drift --state open --json number --jq '.[0].number')"
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --body-file body.md
-          else
+          if [ -z "$existing" ]; then
             gh issue create --title "Claude Code docs drift" --label docs-drift --body-file body.md
+          elif gh issue view "$existing" --json body,comments --jq '[.body, .comments[].body] | join("\n")' | grep -qF -- "$marker"; then
+            echo "Issue #$existing already carries this report."
+          else
+            gh issue comment "$existing" --body-file body.md
           fi
+          # A new page is news, not a failure: only a stale rule or an unread page turns the run red.
+          if [ "$CODE" = "3" ]; then exit 0; fi
           exit 1

@@ -5,6 +5,25 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.13] — 2026-10-03
+
+The fences Cortex stamps say what a mod can override, and the decisions about mods are on record.
+
+### Changed
+
+- **Both stamped fences state the mod limit.** `templates/loop/protected-paths.sh` and the Tester's
+  fence in `templates/team/README.md` are `PreToolUse` hooks outside managed settings. A Claude Code
+  mod the user installed can approve an edit they blocked. Each now says so and links the page. A
+  repo stamped by an earlier release is offered the updated `protected-paths.sh` on its next
+  `/cortex` run.
+- **`/cortex-scaffold` says why the `CLAUDE.md` shim is still written** now that Claude Code can
+  read `AGENTS.md` directly.
+
+### Added
+
+- **ADR 0021: Cortex ships no mod and keeps the `CLAUDE.md` shim**, with the alternatives rejected.
+  Steps 4 and 5 of the mods plan, which is now complete.
+
 ## [2.41.12] — 2026-10-03
 
 Cortex says when a repo's scoped briefs are reached only through the routing table.
@@ -4288,6 +4307,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.13]: https://github.com/marinvch/Cortex/releases/tag/v2.41.13
 [2.41.12]: https://github.com/marinvch/Cortex/releases/tag/v2.41.12
 [2.41.11]: https://github.com/marinvch/Cortex/releases/tag/v2.41.11
 [2.41.10]: https://github.com/marinvch/Cortex/releases/tag/v2.41.10

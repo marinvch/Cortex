@@ -6,6 +6,10 @@
 # A block explains itself. Exit 2 blocks the action and sends the message to Claude, so the reason
 # and the route to approval have to be IN the message; a bare refusal teaches the user only that
 # Claude stopped.
+#
+# One thing this cannot stop: a Claude Code mod the user installed. A mod that approves tool calls
+# can approve an edit this hook blocked, unless the hook runs from managed settings.
+# https://code.claude.com/docs/en/plugins/mods/admin#know-what-happens-by-default
 set -uo pipefail
 
 # Fail CLOSED. Claude Code treats any exit other than 2 as a non-blocking error, so the first

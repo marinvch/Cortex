@@ -30,6 +30,7 @@ import { fileURLToPath } from "node:url";
 import { buildIndex } from "../lib/build.mjs";
 import { claudeSetupFindings, readFrontmatter } from "../lib/claude-setup.mjs";
 import { placeholdersOf, renderTemplate, unfilledPlaceholders } from "../lib/placeholders.mjs";
+import { rule } from "../../core/claude-code.js";
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
 const TEAM = join(REPO, "templates", "team");
@@ -454,6 +455,20 @@ test("no template sets agent: — the main session orchestrates (T1)", () => {
     assert.doesNotMatch(source(name), /^\s*"?agent"?\s*:/m, `${name} sets agent:`);
     assert.doesNotMatch(source(name), /--agent\b/, `${name} starts a session as an agent`);
   }
+});
+
+// A template that says something is refused ships the thing that refuses it, and says who can
+// overrule it. Both fences are PreToolUse hooks outside managed settings, which an installed mod
+// that approves tool calls can approve past (rule mod.approves-past-pretooluse). The sentence is
+// prose a reader of a stamped repo depends on, so the test is that it is there.
+test("both fences say an installed mod can approve an edit they blocked", () => {
+  const admin = rule("mod.approves-past-pretooluse").source;
+  const readme = readFileSync(join(TEAM, "README.md"), "utf8");
+  assert.match(readme, /\*\*An installed mod\.\*\*/);
+  assert.ok(readme.includes(admin), "the README links the page the rule comes from");
+  const loop = readFileSync(join(TEAM, "..", "loop", "protected-paths.sh"), "utf8");
+  assert.match(loop, /a Claude Code mod the user installed/);
+  assert.ok(loop.includes(admin), "the hook's header links the page the rule comes from");
 });
 
 test("the roles' debate pointer names the path the team skill is stamped to", () => {

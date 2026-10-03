@@ -87,7 +87,10 @@ From `${CLAUDE_PLUGIN_ROOT}/templates/`:
 - **`CLAUDE.md` and `GEMINI.md`**: each is written as one line, `@AGENTS.md`. Never restate the
   brief in them, because a copy drifts. `/cortex` later appends one thing to `CLAUDE.md`: the
   `## Verifying your work` block. It is the one Claude-specific section, and it belongs there.
-  `GEMINI.md` stays one line.
+  `GEMINI.md` stays one line. Claude Code v2.1.277 and later can read `AGENTS.md` with no
+  `CLAUDE.md` at all, and the shim is still written: older versions and some sessions cannot, and
+  the import is never read twice
+  ([memory](https://code.claude.com/docs/en/memory#remove-an-earlier-agents-md-workaround)).
 - **`CONTEXT.md`** — seed from terms that genuinely appear in the code and are ambiguous. Three
   sharp entries beat twenty obvious ones. Delete the worked example.
 - **The ADR directory**: copy `adr.md` as `<dir>/TEMPLATE.md`. Do **not** invent records; ADRs are

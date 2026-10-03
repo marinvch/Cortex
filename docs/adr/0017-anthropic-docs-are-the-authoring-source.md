@@ -31,7 +31,7 @@ hard-code them.
 **Keeping them true is the maintainer's job, done by a tool, not by users.**
 `tools/cortex-claude-docs.mjs --check` fetches each source page and confirms every sentence is still
 on it; for the frontmatter key lists it also reads the reference table and reports keys Cortex does
-not know. `.github/workflows/claude-docs.yml` runs it weekly and opens one `docs-drift` issue when a
+not know. `.github/workflows/claude-docs.yml` runs it on a schedule (weekly at first, daily since the amendment below) and opens one `docs-drift` issue when a
 sentence has gone or a page could not be read. Users receive rule changes the ordinary way — a
 plugin update.
 
@@ -61,5 +61,13 @@ opinion about good practice.
   need changing with it. That cost is the point: a rule that changes should be looked at.
 - The evidence match is textual. A page that rewords a sentence without changing its meaning raises
   a false alarm; the fix is to copy the new sentence, which takes a minute.
+- **Amended 2026-10-03, Cortex 2.41.9.** The check confirmed sentences on pages a rule already
+  cited, so it could not see a page no rule cited. Claude Code mods shipped on 2026-10-01 with ten
+  docs pages and a blog post, and the run reported nothing. The tool now also reads the docs index
+  (`llms.txt`) and the front page of `claude.com/blog`, and reports any page missing from
+  `tools/claude-docs-seen.json`. The workflow runs daily instead of weekly and posts a given report
+  once. A new page creates no rule: a maintainer reads it, and a rule still enters
+  `core/claude-code.js` only with a sentence that states it. The seen-list lives in `tools/`
+  because it records what the maintainer has read, which is not something Cortex ships to users.
 - `/writing-for-agents` still cites mattpocock/skills as its source. It should cite these rules and
   the Anthropic pages behind them as well — a follow-up, not part of this change.

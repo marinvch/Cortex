@@ -44,6 +44,11 @@ What it does not cover:
   ([subagents](https://code.claude.com/docs/en/sub-agents#hooks-in-subagent-frontmatter)).
 - **Bash.** The Tester has it to run tests, and a shell command can write any file. The body tells
   the Tester to write through Edit and Write only; that is an instruction, not a fence.
+- **An installed mod.** A Claude Code mod that approves tool calls can approve an edit this hook
+  blocked, because the hook is not in managed settings
+  ([mods](https://code.claude.com/docs/en/plugins/mods/admin#know-what-happens-by-default)). The
+  same holds for the loop's `protected-paths.sh`. An organisation stops it with
+  `allowManagedModsOnly`; a repo cannot.
 - **Windows without Git Bash.** The command runs `bash`, and without Git Bash Claude Code runs
   hooks in PowerShell. Whether a PowerShell failure there still exits 2 depends on its version, so
   treat Git Bash as required, as it already is for `protected-paths.sh`.

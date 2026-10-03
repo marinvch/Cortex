@@ -84,6 +84,10 @@ before overturning one; the line here is the trigger, not the case.
   an unrecognised top-level key without a word. `tools/test/cortex-follows-its-own-rules.test.sh`
   runs the `claude-setup/` findings over this repo and fails on any: fix the repo, never the
   checker, since loosening a check loosens it for every user.
+- **The plugin ships no mod and no hooks, and `/cortex-scaffold` keeps the `CLAUDE.md` shim.** A
+  mod runs unsandboxed in every user's session and does not load under the policy a work machine is
+  likeliest to have. The shim is what sessions that cannot read `AGENTS.md` directly depend on.
+  [ADR 0021](adr/0021-cortex-ships-no-mod-and-keeps-the-claude-md-shim.md).
 - **`mode`, `audience` and `profile` are three questions, never two.** `mcp/lib/mode.js` answers
   repo-vs-vault, `mcp/lib/resolve.js` answers solo/team/server, `core/profile.js` answers
   home/work/lab. A work laptop can run a repo brain on a team. `core/profile.js` reads **only**

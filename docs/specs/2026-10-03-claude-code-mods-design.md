@@ -1,7 +1,7 @@
 # Design: what Cortex owes Claude Code mods and native `AGENTS.md` loading
 
 - **Date:** 2026-10-03
-- **Status:** Draft for review
+- **Status:** Accepted 2026-10-03; built in 2.41.10–2.41.13
 - **Decided by:** the maintainer, in the brainstorm that followed 2.41.9 (the docs check that now
   reports unread pages)
 - **Area:** `core/claude-code.js` (new rules), `index/lib/claude-setup.mjs` (new findings),

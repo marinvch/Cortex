@@ -430,3 +430,81 @@ test("the report is deterministic", () => {
   };
   assert.deepEqual(check(files), check(files));
 });
+
+// --- mods --------------------------------------------------------------------------------------
+
+/** A plugin at `plugins/m/` whose hooks.json is `json`, plus whatever else the case needs. */
+const mod = (json, files = {}) =>
+  check({ "plugins/m/.claude-plugin/plugin.json": "{}", "plugins/m/hooks/hooks.json": JSON.stringify(json), ...files });
+
+test("a mod whose module exists is reported once, as a statement and not a defect", () => {
+  const fs = mod({ modules: ["./register.js"] }, { "plugins/m/hooks/register.js": "export function register() {}\n" });
+  const f = assertFinding(fs, "mod-present");
+  assert.equal(f.severity, "low");
+  assert.match(f.evidence[0], /plugins\/m\/hooks\/hooks\.json → \.\/register\.js/);
+  assert.equal(fs.length, 1, kinds(fs).join(", "));
+});
+
+test("a hooks module that is not there", () => {
+  const fs = mod({ modules: ["./register.js"] });
+  const f = assertFinding(fs, "mod-module-missing");
+  assert.match(f.evidence[0], /plugins\/m\/hooks\/register\.js not found/);
+  assert.deepEqual(only(fs, "mod-present"), []);
+});
+
+test("the module path is relative to hooks.json, not to the plugin root", () => {
+  const fs = mod({ modules: ["./register.js"] }, { "plugins/m/register.js": "export function register() {}\n" });
+  assertFinding(fs, "mod-module-missing");
+});
+
+test("modules that is not an array of one path", () => {
+  const two = mod(
+    { modules: ["./a.js", "./b.js"] },
+    { "plugins/m/hooks/a.js": "export function register() {}\n", "plugins/m/hooks/b.js": "export function register() {}\n" },
+  );
+  assert.match(assertFinding(two, "mod-modules-not-one").evidence[0], /2 entries/);
+  assert.deepEqual(only(two, "mod-present"), []);
+  assert.match(assertFinding(mod({ modules: "./register.js" }), "mod-modules-not-one").evidence[0], /a string/);
+  assert.match(assertFinding(mod({ modules: [] }), "mod-modules-not-one").evidence[0], /0 entries/);
+  assertFinding(mod({ modules: [42] }), "mod-modules-not-one");
+});
+
+test("a modules key in a settings file is not a mod — only a plugin's hooks.json is", () => {
+  const fs = check({ ".claude/settings.json": JSON.stringify({ modules: ["./register.js"] }) });
+  assert.deepEqual(fs, []);
+});
+
+test("a hooks module with an extension a mod cannot use", () => {
+  const fs = mod({ modules: ["./register.py"] }, { "plugins/m/hooks/register.py": "def register(): pass\n" });
+  assert.match(assertFinding(fs, "mod-module-extension").evidence[0], /\.py/);
+  assert.deepEqual(only(fs, "mod-present"), []);
+  for (const ext of [".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", ".tsx"]) {
+    const ok = mod({ modules: [`./register${ext}`] }, { [`plugins/m/hooks/register${ext}`]: "export function register() {}\n" });
+    assert.deepEqual(kinds(ok), ["claude-setup/mod-present"], ext);
+  }
+});
+
+test("settings hooks in a plugin's hooks.json, with no modules key, are not a mod", () => {
+  const fs = mod(
+    { hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard.sh" }] }] } },
+    { "plugins/m/hooks/guard.sh": "exit 0\n" },
+  );
+  assert.deepEqual(fs, []);
+});
+
+test("a hooks.json with modules and no plugin manifest beside it is not a mod", () => {
+  const fs = check({ "hooks/hooks.json": JSON.stringify({ modules: ["./register.js"] }) });
+  assert.deepEqual(fs, []);
+});
+
+test("a mod that also carries settings hooks gets both read", () => {
+  const fs = mod(
+    {
+      modules: ["./register.js"],
+      hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "${CLAUDE_PLUGIN_ROOT}/hooks/guard.sh" }] }] },
+    },
+    { "plugins/m/hooks/register.js": "export function register() {}\n" },
+  );
+  assertFinding(fs, "mod-present");
+  assertFinding(fs, "hook-script-missing");
+});

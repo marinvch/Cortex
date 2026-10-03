@@ -160,6 +160,15 @@ Validated on superpowers, anthropics/skills and anthropics/claude-code; each fal
 there (a negated "not read-only", `[Title](URL)`, "explain the reasoning", unindented prose in a
 description) has a test.
 
+- **A mod is judged by its files, never by its code.** A plugin's `hooks/hooks.json` with a
+  `modules` key is a mod. The checker reads the shape of `modules`, whether the path (relative to
+  `hooks.json`) names a file, and its extension. Which events the module handles and which calls it
+  makes is what `claude plugin validate` prints; a regex copy would disagree with it. A
+  `hooks.json` that does not parse is already `settings-not-json`, so mods have no finding of
+  their own for it. Validated on the four mods in anthropics/claude-code and the three in
+  anthropics/claude-code-playground (each reports `mod-present` and nothing else), with nine guards
+  mutated and nine test failures.
+
 ### The agents a repo already has — `lib/agents.mjs`
 
 - Validated by hand on 83 agents in seven public repos (octez-manager, metaxy, spica, kapi-sprints,

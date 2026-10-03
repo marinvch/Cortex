@@ -10,7 +10,8 @@ disagree with them. Checkers import it and never hard-code a limit.
 
 What it covers today: skill and subagent frontmatter keys, the skill description cap and body
 length, which subagent fields a plugin cannot use, MCP output limits, hook exit codes and timeouts,
-and `CLAUDE.md` size and content guidance.
+`CLAUDE.md` size and content guidance, when Claude Code reads `AGENTS.md` without a `CLAUDE.md`, and
+the layout of a mod and what it can override.
 
 ## Keeping it current
 

@@ -26,7 +26,7 @@ pages() {
     mkdirSync(dir, { recursive: true });
     const byPage = new Map();
     for (const r of RULES) {
-      const name = r.source.split("/").pop();
+      const name = r.source.replace(/^https:\/\/[^/]+\/docs\/en\//, "").replaceAll("/", "__");
       const lines = byPage.get(name) ?? ["> ## Documentation Index", ""];
       if (r.evidence.startsWith("|")) lines.push(r.evidence.replace(/ \|/g, "     |"));
       else {
@@ -98,6 +98,13 @@ run gone --check --json
 assert_eq "1" "$rc" "--json keeps the exit code"
 assert_contains "$out" '"ok": false' "and the payload says the run is not ok"
 assert_contains "$out" '"id": "skill.body.max-lines"' "and lists the stale rule"
+
+# A fixture is named for the page's whole path: two pages called "overview" are two files.
+pages samename
+mv samename/plugins__mods__overview.md samename/overview.md
+run samename --check
+assert_eq "2" "$rc" "a page is read by its path, so another page's file with the same last segment is not it"
+assert_contains "$out" "https://code.claude.com/docs/en/plugins/mods/overview — could not check" "and the unread page is named in full"
 
 # --- discovery: pages the docs index or the blog lists that Cortex has not seen ------------------
 

@@ -21,6 +21,7 @@ import {
   adoptionCandidates, olderPlugin, readStamps, runningCortex, stampStatus, stampsIgnoreRule, STAMPS_REL,
 } from "./stamps.mjs";
 import { sectionReport } from "./sections.mjs";
+import { leavesNotLoaded, leavesNote } from "./instructions.mjs";
 
 // The templates this Cortex ships — what a stamped file is compared against. Next to this file in a
 // clone and in an installed plugin alike.
@@ -223,6 +224,7 @@ export function readState(root, index = null, overrides = {}) {
   const memory = filesIn(root, ".cortex/memory");
   // docs/adr/ unless docs/ is a published site — adr.mjs owns that answer and its evidence.
   const adr = adrLocation(root);
+  const briefs = scopedBriefs(root, index);
   return {
     root,
     legacyEngine: LEGACY_ENGINES.filter((d) => has(root, d)),
@@ -235,7 +237,8 @@ export function readState(root, index = null, overrides = {}) {
     adrs: filesIn(root, adr.dir),
     adrDir: adr.dir,
     adrWhy: adr.why,
-    briefs: scopedBriefs(root, index),
+    briefs,
+    leaves: leavesNotLoaded({ briefs, exists: (p) => has(root, p) }),
     skills: repoSkills(root),
     skillDrift: driftedSkills(root, index),
     memory,
@@ -400,8 +403,9 @@ function steps(s) {
     title: "Give critical areas their own scoped brief",
     cmd: "/cortex-brief <dir>",
     done: s.briefs.length > 0,
+    // The note is a fact about how they load, not a step: nothing in the repo changes it.
     why: s.briefs.length
-      ? plural(s.briefs.length, "scoped brief") + ": " + s.briefs.join(", ")
+      ? plural(s.briefs.length, "scoped brief") + ": " + s.briefs.join(", ") + (s.leaves ? ". " + leavesNote(s.leaves) : "")
       : "one leaf per area that earns one — never a blanket pass",
   });
 

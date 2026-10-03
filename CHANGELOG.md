@@ -5,6 +5,21 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.12] — 2026-10-03
+
+Cortex says when a repo's scoped briefs are reached only through the routing table.
+
+### Added
+
+- **The findings report and `cortex-next` state how scoped `AGENTS.md` briefs load.** Claude Code
+  reads a subdirectory's `AGENTS.md` on its own only when no `CLAUDE.md` is at the root. Under the
+  `CLAUDE.md` → `@AGENTS.md` shim that `/cortex-scaffold` writes, the briefs are reached through
+  the root's routing table and no other way. The report's glance and the brief step now say so,
+  name `claude-md-and-agents-md` as the setting a developer can change, and cite the rule. It is a
+  statement and not a finding: a repo's own settings cannot change it, so there is nothing in the
+  repo to fix. A brief whose directory has its own `CLAUDE.md` is not counted. Step 3 of the mods
+  plan.
+
 ## [2.41.11] — 2026-10-03
 
 A repo that ships a Claude Code mod is told so, and told when the mod's files are wrong.
@@ -4273,6 +4288,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.12]: https://github.com/marinvch/Cortex/releases/tag/v2.41.12
 [2.41.11]: https://github.com/marinvch/Cortex/releases/tag/v2.41.11
 [2.41.10]: https://github.com/marinvch/Cortex/releases/tag/v2.41.10
 [2.41.9]: https://github.com/marinvch/Cortex/releases/tag/v2.41.9

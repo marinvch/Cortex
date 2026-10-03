@@ -5,6 +5,22 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.11] — 2026-10-03
+
+A repo that ships a Claude Code mod is told so, and told when the mod's files are wrong.
+
+### Added
+
+- **Four findings for a plugin that holds a mod.** A plugin's `hooks/hooks.json` with a `modules`
+  key is a mod. `mod-module-missing` fires when the path, read relative to `hooks.json`, names no
+  file. `mod-modules-not-one` fires when `modules` is not an array of one path.
+  `mod-module-extension` fires when the module is not one of the eight JavaScript or TypeScript
+  extensions the reference lists. `mod-present` is a low-severity statement, not a defect: the
+  module runs inside Claude Code with the user's permissions, and `claude plugin validate` lists
+  what it handles and calls. Cortex reads the files and never the module's code. The seven mods in
+  anthropics/claude-code and anthropics/claude-code-playground each report `mod-present` and
+  nothing else. Step 2 of the mods plan.
+
 ## [2.41.10] — 2026-10-03
 
 Cortex's rules now cover Claude Code mods and how `AGENTS.md` loads without a `CLAUDE.md`.
@@ -4257,6 +4273,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.11]: https://github.com/marinvch/Cortex/releases/tag/v2.41.11
 [2.41.10]: https://github.com/marinvch/Cortex/releases/tag/v2.41.10
 [2.41.9]: https://github.com/marinvch/Cortex/releases/tag/v2.41.9
 [2.41.8]: https://github.com/marinvch/Cortex/releases/tag/v2.41.8

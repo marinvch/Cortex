@@ -166,14 +166,23 @@ separately instead of as one version number. Read-only. `/plugin-sync` is the ri
 that states it. This re-reads those pages and confirms every sentence is still there.
 
 ```bash
-node tools/cortex-claude-docs.mjs --check          # exit 1 if a rule went stale, 2 if a page could not be read
+node tools/cortex-claude-docs.mjs --check          # exit 1 if a rule went stale, 2 if a page could not be read,
+                                                   #      3 if the docs or the blog have a page not seen before
 node tools/cortex-claude-docs.mjs --json
-node tools/cortex-claude-docs.mjs --pages <dir>    # read <dir>/<page>.md instead of the network
+node tools/cortex-claude-docs.mjs --accept         # record every page now published as seen
+node tools/cortex-claude-docs.mjs --pages <dir>    # read <dir>/<page>.md, llms.txt and blog.html instead of the network
+node tools/cortex-claude-docs.mjs --seen <file>    # the seen-list to read and write
 ```
 
 A page it could not fetch is reported as unchecked, never as ok — an offline run that printed green
 would be the silent pass this exists to prevent. For the frontmatter key lists it also reports keys
-the docs list that Cortex does not know, which is informational. Maintainer-only: the weekly
+the docs list that Cortex does not know, which is informational.
+
+It also reads the docs index (`llms.txt`) and the front page of `claude.com/blog`, and reports each
+page missing from `tools/claude-docs-seen.json`. The rule check cannot see a page no rule cites,
+which is how Claude Code mods shipped with ten pages of docs and nothing here noticed. The blog's
+front page lists customer stories beside product posts and the tool does not tell them apart; read
+the titles and `--accept`. Maintainer-only: the daily
 `claude-docs.yml` workflow runs it and opens a `docs-drift` issue. [ADR
 0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
 

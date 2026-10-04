@@ -60,3 +60,42 @@ assert_exit 1 "a placeholder reflowed across lines is still a placeholder" \
 assert_exit 1 "a named file that does not exist fails — it was never written" \
   -- env -C "$ok" node "$PH" GEMINI.md
 assert_exit 2 "no files named is a usage error, not a clean bill" -- env -C "$ok" node "$PH"
+
+# --- the agent team's files are stamped files too (#548) ----------------------------------------------
+# A real re-run printed "untemplated … not stamped from a template" for all six team files, while the
+# stamp record listed each with its template. The check was a no-op for the largest row of the pass.
+team="$WORK/team"
+mkdir -p "$team/.claude/agents" "$team/.claude/hooks" "$team/.claude/skills/team"
+for role in architect implementer tester reviewer project-manager; do
+  cp "$T/team/$role.md" "$team/.claude/agents/$role.md"
+done
+cp "$T/team/test-paths.sh" "$team/.claude/hooks/test-paths.sh"
+cp "$T/team/team-skill.md" "$team/.claude/skills/team/SKILL.md"
+{ printf '@AGENTS.md\n\n'; cat "$T/team/playbook.md"; } > "$team/CLAUDE.md"
+
+out="$(cd "$team" || exit 1; node "$PH" .claude CLAUDE.md 2>&1)"
+assert_exit 1 "raw team templates fail the check" -- env -C "$team" node "$PH" .claude CLAUDE.md
+for role in architect implementer tester reviewer project-manager; do
+  assert_contains "$out" "unfilled     .claude/agents/$role.md:" "the $role's placeholders are named"
+done
+assert_contains "$out" "unfilled     .claude/hooks/test-paths.sh:" "the Tester's fence is checked"
+assert_contains "$out" "{{TEST_GLOBS}}" "by the name of what it still needs"
+assert_contains "$out" "{{ROSTER}}" "the playbook appended to CLAUDE.md is checked beside the verification block"
+assert_not_contains "$out" "untemplated  .claude/agents/" "no team agent is waved through as untemplated"
+
+# A team somebody wrote by hand shares the file names and none of the placeholders.
+own="$WORK/own"
+mkdir -p "$own/.claude/agents"
+printf -- '---\nname: architect\ndescription: Our own architect.\n---\n\nUse `{{ slot }}` in Vue templates.\n' > "$own/.claude/agents/architect.md"
+assert_exit 0 "a hand-written agent with a stamped file's name passes" -- env -C "$own" node "$PH" .claude
+
+# The stamp record is the authority on what a file was stamped from, wherever the file lives.
+rec="$WORK/rec"
+mkdir -p "$rec/.cortex" "$rec/tools/agents"
+cp "$T/team/tester.md" "$rec/tools/agents/qa.md"
+printf '{"version":1,"files":{"tools/agents/qa.md":{"template":"team/tester.md"}}}\n' > "$rec/.cortex/stamps.json"
+out="$(cd "$rec" || exit 1; node "$PH" tools/agents/qa.md 2>&1)"
+assert_contains "$out" "unfilled     tools/agents/qa.md:" "a file the stamp record names is checked against the template it names"
+printf 'not json\n' > "$rec/.cortex/stamps.json"
+assert_exit 0 "an unreadable record is not this check's failure; the path table still applies" \
+  -- env -C "$rec" node "$PH" tools/agents/qa.md

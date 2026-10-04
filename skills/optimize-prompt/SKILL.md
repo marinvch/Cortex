@@ -36,7 +36,8 @@ ritual.
    Under 4 — act on the prompt as written, say nothing. **Bypass entirely** (no score, no
    directive) when the prompt:
    - is empty, starts with `/`, is over 2000 characters, or is over 60 words;
-   - is a steer of two words or fewer (`yes`, `ok`, `go ahead`, `stop`, …);
+   - is a steer of two words or fewer (`yes`, `ok`, `go ahead`, `stop`, …), or the same typed in
+     Cyrillic (`ок`, `да`, `добре`, `давай`, `продължи`);
    - is a word of approval alone, or in front of a go-ahead phrase: super, great, perfect, nice,
      cool, awesome, excellent (`super do it`, `great, go ahead`). In front of anything else
      (`great work on the graph`) the prompt still scores;

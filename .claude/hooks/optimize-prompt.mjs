@@ -79,13 +79,34 @@ const STEER_WORDS =
  *
  * yes / ok / sure followed by ANY action verb is a go-ahead: "yes write the spec" answers the
  * proposal it follows. The verb list is the scorer's own, so one list decides both questions.
+ * `let's` may sit before the verb ("ok lets go by the recommendations").
+ *
+ * `yes` needs no verb at all: nobody opens a new task with it, so "yes, dream then the hook" and
+ * "yes the second one" are answers. `ok` and `sure` keep the verb, because "okay so the graph is
+ * broken" is a report of a problem and must still score.
  */
 const GO_AHEAD_VERB = new RegExp(
-  `^(yes|ok(ay)?|sure)[,\\s]+(please[,\\s]+)?(${ACTION_VERB_LIST.join('|')}|do|go|proceed)(s|es|d|ed|ing)?\\b`,
+  `^(yes|ok(ay)?|sure)[,\\s]+(please[,\\s]+)?(let'?s\\s+)?(${ACTION_VERB_LIST.join('|')}|do|go|proceed)(s|es|d|ed|ing)?\\b`,
   'i',
 );
+const YES_REPLY = /^yes\b/i;
 const STEER_PHRASE =
   /^(go ahead|carry on|sounds good|agreed?|lgtm|yes[,\s]+please|do (it|all|them|that|this|both|everything|the rest))\b/i;
+
+/**
+ * A report that work landed — "merged", "16 merged", "#541 is merged", "all done". It tells the
+ * agent to carry on with what it was waiting for. Capped at 4 words, so "merged the wrong thing
+ * into the flow" still scores.
+ */
+const LANDED_REPORT =
+  /^(all\s+|both\s+|(pr\s*)?#?\d+([,\s]+(and\s+)?#?\d+)*\s+)?((is|are|was|were|got)\s+)?(merged|landed|closed|approved|deployed|done)\b/i;
+
+/**
+ * "what is next", "ok so what is left". It asks the agent to choose, so there is nothing in it to
+ * sharpen. The question has to end there: "what is next to the cache" is about the code.
+ */
+const WHAT_NEXT =
+  /^((ok(ay)?|so|and|now|then)[,\s]+)*what('?s|\s+is|\s+are)?\s+(next|left|remaining|remains|now)(\s+(to do|then|here))?[?.!\s]*$/i;
 
 export function wordCount(s) {
   return String(s ?? '').trim().split(/\s+/).filter(Boolean).length;
@@ -100,7 +121,10 @@ export function shouldBypass(prompt, env = process.env) {
   if (wordCount(p) > 60) return true;                       // already detailed
   if (STEER_WORDS.test(p) && wordCount(p) <= 2) return true; // "yes", "continue" — SHORT mid-flow steering only
   if ((STEER_PHRASE.test(p) || GO_AHEAD_VERB.test(p)) && wordCount(p) <= 8) return true; // "go ahead do all of them", "yes write the spec" — a go-ahead, not a new ask
+  if (YES_REPLY.test(p) && wordCount(p) <= 8) return true;  // "yes, dream then the hook" — an answer, whatever follows
   if (STATUS_QUESTION.test(p) && wordCount(p) <= 8) return true; // "is it done" — a status check, not a work request
+  if (LANDED_REPORT.test(p) && wordCount(p) <= 4) return true; // "16 merged" — a report the agent was waiting for
+  if (WHAT_NEXT.test(p)) return true;                       // "ok so what is next" — asks the agent to choose
   if (BYPASS_WORDS.test(p)) return true;                    // user signalled "small, don't ceremony this"
   if (FILE_LOCATOR.test(p)) return true;                    // exact target named
   return false;

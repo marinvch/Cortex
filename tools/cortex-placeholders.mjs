@@ -35,17 +35,27 @@ import { placeholdersOf } from "../index/lib/placeholders.mjs";
 const TEMPLATES = fileURLToPath(new URL("../templates/", import.meta.url));
 
 // Where each stamped file comes from, by the path it lands at. `/cortex` step 7 and
-// `/cortex-scaffold` step 3 are the tables this mirrors; a file not listed here was not stamped from
-// a template (a scoped brief, a skill, GEMINI.md) and has no placeholders to leave behind.
+// `/cortex-scaffold` step 3 are the tables this mirrors. A file in neither this table nor the stamp
+// record was not stamped from a template (a scoped brief, a skill, GEMINI.md) and has no placeholders
+// to leave behind. A row with two templates is a file that takes a block from each.
 const SOURCES = [
   { match: (p) => basename(p) === "TEMPLATE.md", template: null, kept: true },
   { match: (p) => /^AGENTS(\.generated)?\.md$/.test(basename(p)), template: "target-AGENTS.md" },
   { match: (p) => basename(p) === "CONTEXT.md", template: "CONTEXT.md" },
-  { match: (p) => basename(p) === "CLAUDE.md", template: "loop/verification.md" },
+  // CLAUDE.md takes two blocks: the verification block, and the team's playbook when a team is stamped.
+  { match: (p) => basename(p) === "CLAUDE.md", template: ["loop/verification.md", "team/playbook.md"] },
   { match: (p) => /^REVIEW(\.generated)?\.md$/.test(basename(p)), template: "loop/REVIEW.md" },
   { match: (p) => /(^|\/)\.claude\/agents\/verifier\.md$/.test(p), template: "loop/verifier.md" },
   { match: (p) => /(^|\/)\.claude\/hooks\/format-changed\.sh$/.test(p), template: "loop/format-changed.sh" },
   { match: (p) => /(^|\/)\.claude\/hooks\/protected-paths\.sh$/.test(p), template: "loop/protected-paths.sh" },
+  // The agent team (`index/lib/team.mjs` names the same paths). These rows were missing, so the check
+  // called every team file "untemplated" on the pass that had just stamped them (#548).
+  ...["architect", "implementer", "tester", "reviewer", "project-manager"].map((role) => ({
+    match: (p) => new RegExp(`(^|/)\\.claude/agents/${role}\\.md$`).test(p),
+    template: `team/${role}.md`,
+  })),
+  { match: (p) => /(^|\/)\.claude\/hooks\/test-paths\.sh$/.test(p), template: "team/test-paths.sh" },
+  { match: (p) => /(^|\/)\.claude\/skills\/team\/SKILL\.md$/.test(p), template: "team/team-skill.md" },
   { match: (p) => /(^|\/)intent\/README\.md$/.test(p), template: "loop/intent-README.md" },
   { match: (p) => basename(p) === "agent-evals.yml", template: "loop/agent-evals.yml" },
   { match: (p) => basename(p) === "bands.yaml", template: "loop/bands.yaml" },
@@ -67,22 +77,49 @@ function tokensFor(template) {
   return templateCache.get(template);
 }
 
+/**
+ * What the stamp record says each file was stamped from: `{ "<path>": "<template>" }`. The record is
+ * the authority — it knows a file stamped to a path the table above has never heard of. It is read
+ * as plain JSON and only for that one field; a repo with no record, or one that does not parse, has
+ * the table alone, because judging the record is `cortex-stamps.mjs`'s job and not this check's.
+ */
+function recorded(cwd) {
+  try {
+    const doc = JSON.parse(readFileSync(join(cwd, ".cortex", "stamps.json"), "utf8"));
+    const out = {};
+    for (const [path, entry] of Object.entries(doc.files ?? {})) {
+      if (entry && typeof entry.template === "string") out[path] = entry.template;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 /** Check one written file. `rel` is its repo-relative path with forward slashes. */
-function checkFile(abs, rel) {
+function checkFile(abs, rel, record) {
   const source = SOURCES.find((s) => s.match(rel));
-  if (!source) return { path: rel, status: "untemplated", hits: [] };
-  if (source.kept) return { path: rel, status: "kept", hits: [] };
+  if (source?.kept) return { path: rel, status: "kept", hits: [] };
+  // A template the record names but this Cortex does not ship (an older or newer release's) cannot
+  // be read here, so it adds nothing rather than failing the run.
+  const templates = [...new Set([record[rel], ...[source?.template ?? []].flat()])]
+    .filter((t) => t && existsSync(join(TEMPLATES, t)));
+  if (!templates.length) return { path: rel, status: "untemplated", hits: [] };
   const text = readFileSync(abs, "utf8");
   const hits = [];
-  for (const { token, re } of tokensFor(source.template)) {
+  const seen = new Set();
+  for (const { token, re } of templates.flatMap(tokensFor)) {
     for (const m of text.matchAll(re)) {
       // `$` directly before the braces is an Actions expression that happens to share a name.
       if (m.index > 0 && text[m.index - 1] === "$") continue;
+      // Two templates of one file can share a placeholder; one hit per place in the file.
+      if (seen.has(m.index)) continue;
+      seen.add(m.index);
       hits.push({ line: text.slice(0, m.index).split("\n").length, token: token.replace(/\s+/g, " ") });
     }
   }
   hits.sort((a, b) => a.line - b.line);
-  return { path: rel, template: source.template, status: hits.length ? "unfilled" : "ok", hits };
+  return { path: rel, template: templates.join(" + "), status: hits.length ? "unfilled" : "ok", hits };
 }
 
 function expand(arg, cwd) {
@@ -110,11 +147,12 @@ function main(argv) {
     return 2;
   }
   const cwd = process.cwd();
+  const record = recorded(cwd);
   const results = [];
   for (const arg of args) {
     for (const f of expand(arg, cwd)) {
       const rel = relative(cwd, f.abs).split("\\").join("/");
-      results.push(f.missing ? { path: rel, status: "missing", hits: [] } : checkFile(f.abs, rel));
+      results.push(f.missing ? { path: rel, status: "missing", hits: [] } : checkFile(f.abs, rel, record));
     }
   }
   const failed = results.some((r) => r.status === "unfilled" || r.status === "missing");

@@ -70,6 +70,10 @@ const STATUS_QUESTION =
 const BYPASS_WORDS = /\b(just|quickly|only|typo|rename)\b/i;
 const STEER_WORDS =
   /^(y|yes|no|ok|okay|sure|continue|go ahead|proceed|stop|undo|next|thanks|ty)\b/i;
+// The same steers typed on a Bulgarian layout. `\b` is ASCII-only in JavaScript, so the end of the
+// word is spelled out. "ок" fired at 5 of 5 as the answer to "merge it and I'll start".
+const STEER_WORDS_BG =
+  /^(ок|окей|да|не|добре|давай|продължи|продължавай|стоп|готово|благодаря|мерси)(?=$|[\s,.!?])/iu;
 
 /**
  * A go-ahead with a tail — "go ahead do all of them", "ok merge it", "yes do both". It points at a
@@ -125,7 +129,7 @@ export function shouldBypass(prompt, env = process.env) {
   if (p.startsWith('/')) return true;                     // an explicit ritual is already named
   if (p.length > 2000) return true;                        // whitespace-poor paste (base64/minified) — word count won't catch it
   if (wordCount(p) > 60) return true;                       // already detailed
-  if (STEER_WORDS.test(p) && wordCount(p) <= 2) return true; // "yes", "continue" — SHORT mid-flow steering only
+  if ((STEER_WORDS.test(p) || STEER_WORDS_BG.test(p)) && wordCount(p) <= 2) return true; // "yes", "continue", "ок" — SHORT mid-flow steering only
   if ((STEER_PHRASE.test(p) || GO_AHEAD_VERB.test(p)) && wordCount(p) <= 8) return true; // "go ahead do all of them", "yes write the spec" — a go-ahead, not a new ask
   if (PRAISE.test(p)) {                                     // "super do it" — approval, then a go-ahead
     const rest = p.replace(PRAISE, '');

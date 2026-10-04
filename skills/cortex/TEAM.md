@@ -14,6 +14,7 @@ and their placeholders are in `${CLAUDE_PLUGIN_ROOT}/templates/team/README.md`.
 | `unmapped` | agents the mapper would not guess about | ask what role each plays, if any |
 | `upgrade` | the verifier, offered the Reviewer's template (T9) | one yes/no |
 | `proposals` | per existing agent, edits provable from its file | one question per agent, with the diff |
+| `stamped` | the roles Cortex wrote here before, each with `changed`: the values that differ today from the ones the file was rendered with | a role with `changed` goes in the *Update* row, named with what changed ("architect: the scoped brief list"). On yes, pick it again (below) |
 
 ## The questions
 
@@ -45,9 +46,21 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-loop.mjs" . --team architect,tester [--
 `--team none` when no role was picked but the existing agents are the team. It writes nothing and
 prints `{ files, values, needs, conflicts, upgrade }`, or refuses a pick that is not on offer, naming why.
 
-1. Put each of `conflicts` to the user first, before anything is written: today that is a
+**Run it after every scoped brief of this pass is written**, whatever the worklist order says. The
+Architect's brief list is read off disk at the moment of this call, with no reindex needed, so a
+brief written afterwards is missing from the file.
+
+**A role in `stamped` can be picked again.** Its files come back with `refresh: true`: the same
+template rendered over the file Cortex wrote, with today's values. An answer given on the first pass
+is taken from the record and not asked again. Use it when a value changed after the role was
+written, such as a new scoped brief or a test command detected since. An agent the team wrote
+itself is in no record and is still refused.
+
+1. Put each of `conflicts` to the user first, before anything is written. One is a
    `.claude/skills/team/SKILL.md` Cortex did not write, which the playbook would load in place of the
-   team protocol. It is never overwritten.
+   team protocol; it is never overwritten. The other is a `refresh` file the team edited since it was
+   stamped: show `cortex-stamps.mjs diff . <path>` and ask, and on a no leave the file alone and
+   apply the changed value by hand.
 2. Put `values` in the values file. Ask each of `needs` — its `question` is written for the user —
    and add the answer under its `placeholder`. Never invent one: an agent told to run a command the
    repo never declared fails the first time it runs.

@@ -5,6 +5,37 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.20] — 2026-10-04
+
+A team role's values follow the repo after the role is stamped. Second fix from the field report
+in #548.
+
+### Fixed
+
+- **The Architect's brief list is read off disk (#548, item 2).** `SCOPED_BRIEFS` came from the
+  index, so a pass that wrote scoped briefs and the team stamped the Architect with the briefs of
+  the last index run. The index now says which folders belong to the repo and the disk says which
+  of them hold an `AGENTS.md`, with no reindex in between.
+- **A role Cortex stamped can be picked again.** `cortex-loop.mjs . --team architect` refused a
+  stamped role as "covered by `architect`", so there was no way to fresh values short of editing
+  the values JSON by hand. A role the stamp record holds now comes back with `refresh: true` and
+  today's values. An answer given on the first pass is taken from the record, not asked again. A
+  file the team edited since is a conflict to ask about. An agent the team wrote itself is in no
+  record and is still refused.
+- **A stamped role keeps its name on the roster.** A later pick wrote a role stamped earlier as
+  `` `architect` (architect) ``; it stays `` `architect` ``.
+
+### Added
+
+- **`state.agentTeam.stamped`** in `cortex-loop.mjs . --json`: each role Cortex wrote, whether its
+  file was edited, and `changed`, the values that differ today from the ones it was rendered with.
+  `/cortex` names such a role in the *Update* row.
+
+### Changed
+
+- **`/cortex` calls `--team` after the pass's scoped briefs are written**, whatever the worklist
+  order says (`skills/cortex/TEAM.md`).
+
 ## [2.41.19] — 2026-10-04
 
 The placeholder check reads the agent team's files. First fix from the field report in #548.
@@ -4415,6 +4446,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.20]: https://github.com/marinvch/Cortex/releases/tag/v2.41.20
 [2.41.19]: https://github.com/marinvch/Cortex/releases/tag/v2.41.19
 [2.41.18]: https://github.com/marinvch/Cortex/releases/tag/v2.41.18
 [2.41.17]: https://github.com/marinvch/Cortex/releases/tag/v2.41.17

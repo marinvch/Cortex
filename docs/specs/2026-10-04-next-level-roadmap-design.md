@@ -234,8 +234,15 @@ In scope, and not sharp enough to decide today. Each belongs to its part's own s
 
 ## Owed before part 1
 
-Two pieces of work were approved on 2026-10-04 and are not part of this roadmap's four parts. The
-plan puts them first.
+**The field report comes first.** Issue #548 is a report from a real `/cortex` re-run on an installed
+repo at 2.41.16. It lists ten things that went wrong or cost extra work, all observed in use: among
+them a placeholder check that skips the team files, an answer about existing agents that is not
+remembered, and three loop rows blocked on a CI that one of them would create. The maintainer's
+condition for this roadmap was a stable base, and this is the best evidence on it, so the plan opens
+with those fixes (steps F1–F8).
+
+Two more pieces of work were approved on 2026-10-04 and are not part of this roadmap's four parts.
+The plan puts them after the field report and before part 1.
 
 - The skill authoring page as a rule source, and the platform docs index watched for the agent
   skills, prompt engineering and evaluation sections only. The use-case guides are left out.

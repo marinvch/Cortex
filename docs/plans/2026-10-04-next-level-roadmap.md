@@ -15,6 +15,25 @@ Spec: [the next-level roadmap](../specs/2026-10-04-next-level-roadmap-design.md)
 - Part 4 is the one wide change, and it is planned as expand, then migrate. Every other step is a
   vertical slice.
 
+## First: the field report (#548)
+
+A real `/cortex` re-run on an installed repo at 2.41.16 reported ten things that went wrong or cost
+extra work. The roadmap starts only on a stable base, so these come before everything else. Each
+step begins by reproducing the report on a fixture as a failing test; a report that does not
+reproduce is answered on the issue and dropped from the step. The file lists are where the work is
+expected to land and are confirmed by that reproduction.
+
+| # | Step | Report | Files | Verified by |
+|---|---|---|---|---|
+| F1 | The placeholder check reads files stamped from `team/*` templates | 1 | `tools/cortex-placeholders.mjs`, `tools/test/` | a team file with a leftover placeholder is reported; a clean one passes |
+| F2 | A team role's values are not stale after briefs are written in the same pass | 2 | `index/lib/loop.mjs`, `index/lib/team.mjs`, `skills/cortex/SKILL.md`, `skills/cortex/TEAM.md` | a pass that takes briefs and the team stamps the architect with the new brief list; values for a role already stamped can be read again |
+| F3 | An answer of "not a role" for an existing agent is remembered | 3 | `index/lib/agents.mjs`, `index/lib/stamps.mjs`, `index/cortex-loop.mjs` | a second run lists no agent as unmapped that was answered `none` in the first |
+| F4 | The playback says what a row changes: a skill edited since it was written, and that the team row makes later sessions ask "single agent or team" | 4, 10 | `skills/cortex/SKILL.md`, `skills/cortex-skills/SKILL.md`, `index/lib/loop.mjs`; re-measure the `cortex` eval | the row text carries both facts; the eval baseline is re-recorded |
+| F5 | Skill drift checks a claim about scripts against the manifest, reports a stale path in a description, and proposes retiring a setup skill whose premise is gone | 5, 6 | `index/lib/skill-drift.mjs`, `index/lib/skills.mjs`, `index/cortex-skills.mjs`, their tests | each of the three cases from the report is a fixture that now yields a finding; run on cloned public repos |
+| F6 | `cortex-review.yml` is offered on a repo with a GitHub remote and no workflows | 7 | `index/lib/loop.mjs`, `index/test/loop.test.mjs` | the row is `missing`, not `blocked`, on that fixture; a repo with no GitHub remote still blocks |
+| F7 | A stamped hook script and a test setup file are not counted as tests | 8 | `index/lib/` (test detection), its tests | the count is unchanged by stamping the Tester's hook; validated on cloned public repos |
+| F8 | A block appended or merged into an existing file takes that file's line endings | 9 | `index/lib/section.mjs`, `index/lib/shared-plugin.mjs`, `skills/cortex/SKILL.md` | appending to a CRLF file leaves no LF line in it |
+
 ## Owed before part 1
 
 | # | Step | Files | Verified by |

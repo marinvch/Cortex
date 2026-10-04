@@ -21,13 +21,13 @@
 //
 // Reads files; writes nothing. Deterministic for a given tree: no model, no clock, no network.
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ROLES, agentReport } from "./agents.mjs";
 import { adrLocation } from "./adr.mjs";
 import { placeholderMatches } from "./placeholders.mjs";
-import { readStamps } from "./stamps.mjs";
+import { hashText, readStamps } from "./stamps.mjs";
 import { findSections } from "./section.mjs";
 
 const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -144,13 +144,73 @@ function recordedRun(root, verifierPath) {
 }
 
 /**
+ * The repo's scoped briefs as they are on disk now, sorted. The index says which folders belong to
+ * the repo; the disk says which of them hold an `AGENTS.md`. Reading the list off the index alone
+ * stamped the Architect with the briefs of the last index run, in the very pass that wrote new
+ * ones (#548). Never the root brief, and never one under `.claude/` or `.cortex/`.
+ */
+function scopedBriefs(root, index) {
+  const dirs = new Set();
+  for (const f of index.files ?? []) {
+    const segs = f.path.split("/").slice(0, -1);
+    if (segs[0] === ".claude" || segs[0] === ".cortex") continue;
+    for (let i = 1; i <= segs.length; i++) dirs.add(segs.slice(0, i).join("/"));
+  }
+  const holdsBrief = (dir) => {
+    // By listing, not `existsSync`: a case-insensitive disk answers yes for `agents.md`.
+    try { return readdirSync(join(root, ...dir.split("/"))).includes("AGENTS.md"); } catch { return false; }
+  };
+  return [...dirs].filter(holdsBrief).map((d) => `${d}/AGENTS.md`).sort();
+}
+
+/**
+ * The roles Cortex stamped here, from the stamp record: a role file at the role's path, recorded
+ * with the role's template. Each `{ role, path, edited, changed, kept, needs }`:
+ *
+ *   - `edited`  — the file differs from what was recorded, so a re-render replaces the team's edits.
+ *   - `changed` — the placeholders whose value today differs from the one it was rendered with.
+ *   - `kept`    — recorded answers to values that are not detected, so a question is asked once.
+ *   - `needs`   — what is neither detected nor recorded, with its question.
+ *
+ * An agent of the same name the team wrote itself is in no record and is never listed. A damaged
+ * record lists nothing; next.mjs reports it as its own row.
+ */
+function stampedRoles(root, values) {
+  let record;
+  try { record = readStamps(root); } catch { return []; }
+  const out = [];
+  for (const role of ROLES) {
+    const { path, template } = roleFile(role);
+    const entry = record?.files?.[path];
+    const text = readText(join(root, ...path.split("/")));
+    if (!entry || entry.template !== template || text === null) continue;
+    const recorded = entry.values ?? {};
+    const used = usedBy(role);
+    const kept = {};
+    for (const p of used) {
+      if (values[p] === null && typeof recorded[p] === "string" && recorded[p].trim()) kept[p] = recorded[p];
+    }
+    out.push({
+      role,
+      path,
+      edited: entry.fileSha256 !== hashText(text),
+      changed: used.filter((p) => values[p] !== null && values[p] !== undefined && (recorded[p] ?? "") !== values[p]),
+      kept,
+      needs: needsFor(role, values).filter((n) => !(n.placeholder in kept)),
+    });
+  }
+  return out;
+}
+
+/**
  * What the team row offers this repo, or `null` without an index. Options: `testCmd` (the loop's
  * detected test command), `verifierPath` (where /cortex stamps its verifier) and `as` (the developer's
  * own mapping of existing agents, `{ path: role | null }`).
  *
- * `{ report, playbook, teamSkill, values, covered, offer, withheld, upgrade, unmapped, proposals }`.
+ * `{ report, playbook, teamSkill, values, covered, stamped, offer, withheld, upgrade, unmapped, proposals }`.
  * `values` holds each detected value and `null` for one that was not; `offer` is the roles to ask
- * about, each with the questions its files need.
+ * about, each with the questions its files need. `stamped` is the roles Cortex wrote here before,
+ * which are never offered again and can be picked again to re-render with today's values.
  */
 export function teamState(root, index, { testCmd = null, verifierPath = null, as = {} } = {}) {
   if (!index) return null;
@@ -158,10 +218,7 @@ export function teamState(root, index, { testCmd = null, verifierPath = null, as
   const claudeMd = readText(join(root, "CLAUDE.md")) ?? "";
   const tests = testLocations(index);
   const planDirs = PLAN_DIRS.filter((d) => isDir(join(root, ...d.split("/"))));
-  const briefs = (index.files ?? [])
-    .map((f) => f.path)
-    .filter((p) => /\/AGENTS\.md$/.test(p) && !p.startsWith(".claude/") && !p.startsWith(".cortex/"))
-    .sort();
+  const briefs = scopedBriefs(root, index);
 
   const values = {
     TEST_CMD: testCmd || null,
@@ -220,6 +277,7 @@ export function teamState(root, index, { testCmd = null, verifierPath = null, as
     teamSkill: skillState(root),
     values,
     covered,
+    stamped: stampedRoles(root, values),
     offer,
     withheld,
     upgrade: upgrade ? { ...upgrade, needs: needsFor("reviewer", values) } : null,
@@ -231,13 +289,17 @@ export function teamState(root, index, { testCmd = null, verifierPath = null, as
   };
 }
 
-/** The questions a role's files need answered: each placeholder they use that was not detected. */
-function needsFor(role, values) {
+/** The placeholders a role's files use, sorted: its agent file, and the fence for the Tester. */
+function usedBy(role) {
   const used = new Set(placeholdersIn(roleFile(role).template));
   if (role === "tester") for (const p of placeholdersIn(FENCE.template)) used.add(p);
-  return [...used]
+  return [...used].sort();
+}
+
+/** The questions a role's files need answered: each placeholder they use that was not detected. */
+function needsFor(role, values) {
+  return usedBy(role)
     .filter((p) => values[p] === null && QUESTIONS[p])
-    .sort()
     .map((placeholder) => ({ placeholder, question: QUESTIONS[placeholder] }));
 }
 
@@ -256,12 +318,19 @@ function needsFor(role, values) {
  * A pick that is not on offer is refused with the reason: a covered role, a withheld Project manager,
  * or a name that is not a role. Picking `reviewer` where the verifier holds the role accepts T9's
  * upgrade.
+ *
+ * A role in `state.stamped` can be picked again. Its files carry `refresh: true`: the same template
+ * rendered over the file Cortex wrote, with today's values. That is how a brief written after the
+ * Architect reaches the Architect's list (#548). A refreshed file the team edited since is a
+ * `conflicts` entry, because the render replaces the edits.
  */
 export function teamValues(state, picked) {
+  const again = (role) => (state.offer.some((o) => o.role === role) ? null : state.stamped.find((x) => x.role === role) ?? null);
   for (const role of picked) {
     if (!ROLES.includes(role)) throw new Error(`${role} is not a role — one of ${ROLES.join(", ")}`);
     if (state.offer.some((o) => o.role === role)) continue;
     if (role === "reviewer" && state.upgrade) continue;
+    if (again(role)) continue;
     const w = state.withheld.find((x) => x.role === role);
     throw new Error(`${role} is not offered here: ${w?.why ?? "not on offer"}`);
   }
@@ -269,12 +338,20 @@ export function teamValues(state, picked) {
   const upgrading = Boolean(state.upgrade) && chosen.includes("reviewer");
 
   const files = [];
+  const conflicts = [];
   for (const role of chosen) {
-    files.push({ ...roleFile(role), mode: "write", recorded: true, executable: false });
-    if (role === "tester") files.push({ ...FENCE, mode: "write", recorded: true, executable: true });
+    const was = again(role);
+    const refresh = was ? { refresh: true } : {};
+    files.push({ ...roleFile(role), mode: "write", recorded: true, executable: false, ...refresh });
+    if (role === "tester") files.push({ ...FENCE, mode: "write", recorded: true, executable: true, ...refresh });
+    if (was?.edited) {
+      conflicts.push(
+        `${was.path} was edited since Cortex stamped it, and rendering it again replaces those edits. ` +
+          "Show the diff and ask; on no, leave the file and apply the changed value by hand.",
+      );
+    }
   }
   const roster = rosterFor(chosen, state, upgrading);
-  const conflicts = [];
   if (roster) {
     if (!state.teamSkill) files.push({ ...SKILL, mode: "write", recorded: true, executable: false });
     if (state.teamSkill === "theirs") {
@@ -290,9 +367,14 @@ export function teamValues(state, picked) {
   if (roster) values.ROSTER = roster;
   const needs = [];
   for (const role of chosen) {
-    const asked = role === "reviewer" && upgrading ? state.upgrade.needs : state.offer.find((o) => o.role === role).needs;
+    const was = again(role);
+    // What the record already answers is not asked twice; a detected value still outranks it.
+    if (was) for (const [k, v] of Object.entries(was.kept)) values[k] ??= v;
+    const asked = was ? was.needs : role === "reviewer" && upgrading ? state.upgrade.needs : state.offer.find((o) => o.role === role).needs;
     for (const n of asked) if (!needs.some((x) => x.placeholder === n.placeholder)) needs.push(n);
   }
+  // One role's recorded answer answers the same question for every role picked with it.
+  for (let i = needs.length - 1; i >= 0; i--) if (needs[i].placeholder in values) needs.splice(i, 1);
   return {
     files,
     values,
@@ -305,14 +387,19 @@ export function teamValues(state, picked) {
 /**
  * `{{ROSTER}}`: the roles stamped in this run by role name, then every existing agent that plays a
  * role as `` `name` (role) `` — minus a verifier the Reviewer just replaced. Roster order, then path.
- * An empty string when nobody is on the team, which means no playbook.
+ * An empty string when nobody is on the team, which means no playbook. A role Cortex stamped on an
+ * earlier pass is named by role too, picked again or not: the roster line reads the same after a
+ * later pick as it did when the role was written.
  */
 function rosterFor(chosen, state, upgrading) {
-  const stamped = chosen.map((r) => ({ order: ROLES.indexOf(r), path: "", text: span(r) }));
+  const ours = new Set(state.stamped.map((x) => x.path));
+  const roles = ROLES.filter((r) => chosen.includes(r) || state.stamped.some((x) => x.role === r));
+  const stamped = roles.map((r) => ({ order: ROLES.indexOf(r), path: "", text: span(r) }));
   const existing = [];
   for (const [role, agents] of Object.entries(state.covered)) {
     for (const a of agents) {
       if (upgrading && state.upgrade && a.path === state.upgrade.path) continue;
+      if (ours.has(a.path)) continue;
       existing.push({ order: ROLES.indexOf(role), path: a.path, text: `${span(a.name)} (${role})` });
     }
   }

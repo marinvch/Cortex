@@ -28,7 +28,7 @@ not list, or the table lists one that no template uses.
 | `{{TEST_GLOBS}}` | `test-paths` | the same locations as shell globs, one double-quoted glob per line indented two spaces, such as `"*/test/*"` or `"*.test.ts"`; each is matched against `/` plus the path from the repo root | the files the index marks `isTest` | ask; an empty list refuses every edit |
 | `{{PLAN_DIRS}}` | `project-manager` | the plan folders that exist, as comma-separated code spans | which of `intent/`, `docs/specs/` and `docs/plans/` exist | the role is not offered |
 | `{{ROSTER}}` | `playbook` | the agent playing each role, as comma-separated code spans such as `` `architect`, `tester` ``; an existing agent mapped to a role carries the role after it, as `` `code-reviewer` (reviewer) `` | the roles the developer picked in this run, plus any existing agent mapped to a role | never empty: with no agent on the team, picked or already here, the playbook is not written |
-| `{{SCOPED_BRIEFS}}` | `architect` | one line per scoped brief, in the form `` - `<dir>/AGENTS.md` `` indented three spaces, under step 1 | every `<dir>/AGENTS.md` in the index | empty, which removes the line |
+| `{{SCOPED_BRIEFS}}` | `architect` | one line per scoped brief, in the form `` - `<dir>/AGENTS.md` `` indented three spaces, under step 1 | every `<dir>/AGENTS.md` on disk, in a folder the index lists | empty, which removes the line |
 
 ## The Tester's fence
 

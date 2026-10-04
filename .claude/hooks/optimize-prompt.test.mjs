@@ -208,6 +208,49 @@ test('a go-ahead with a short tail bypasses; a long tail or a bare "continue" + 
   }
 });
 
+// Four replies from one session, 2026-10-04. Each answered a question the agent had just asked, and
+// each fired at 4 or 5 of 5.
+const REPLIES = [
+  'ok lets go by recomdendations',   // fired 5/5: `lets` sat between ok and the verb
+  '16 merged',                       // fired 4/5: a bare number is not a component reference
+  'ok so what is next',              // fired 5/5: asks the agent to pick, and has nothing to sharpen
+  'yes, dream then the hook',        // fired 4/5: `dream` is a ritual, not a verb on the list
+];
+
+test('regression: replies to a question the agent asked do not fire', () => {
+  for (const p of REPLIES) assert.equal(evaluate(p, {}), null, `expected no directive for "${p}"`);
+});
+
+test('a report that work landed bypasses; the same words opening a task do not', () => {
+  for (const p of ['merged', 'done', '16 merged', '#541 is merged', 'pr 540 merged', '539 and 540 merged', 'all done']) {
+    assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
+  }
+  for (const p of ['merged the wrong thing into the flow', 'done is better than perfect so make it faster']) {
+    assert.equal(shouldBypass(p, {}), false, `expected "${p}" to reach scoring`);
+  }
+});
+
+test('a "what is next" question bypasses; a "what is" question about the code does not', () => {
+  for (const p of ['what is next', "what's next", 'ok so what is next', 'so what is left', 'and what now', 'what remains']) {
+    assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
+  }
+  for (const p of ['what is the graph', 'what is next to the thing that broke the whole flow yesterday']) {
+    assert.equal(shouldBypass(p, {}), false, `expected "${p}" to reach scoring`);
+  }
+});
+
+test('"yes" opens a reply whatever follows it; "ok" and "sure" still need a verb', () => {
+  for (const p of ['yes, dream then the hook', 'yes the second one', 'ok lets go by recomdendations', "ok let's do the first"]) {
+    assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
+  }
+  for (const p of [
+    'okay so the graph is broken',
+    'yes and also the whole booking flow needs a new state machine around it',
+  ]) {
+    assert.equal(shouldBypass(p, {}), false, `expected "${p}" to reach scoring`);
+  }
+});
+
 test('verbs match inflected; a ritual named mid-sentence counts as a component', () => {
   assert.equal(scoreVagueness('merged it'), scoreVagueness('merge it'));
   assert.ok(scoreVagueness('run /ship on this') < scoreVagueness('run the thing on this'));

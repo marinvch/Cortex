@@ -90,6 +90,12 @@ const GO_AHEAD_VERB = new RegExp(
   'i',
 );
 const YES_REPLY = /^yes\b/i;
+
+/**
+ * A word of approval in front of a go-ahead — "super do it", "great, go ahead". Alone it is a
+ * reply; in front of anything else ("great work on the graph") the prompt still scores.
+ */
+const PRAISE = /^(super|great|perfect|nice|cool|awesome|excellent)\b[,.!\s]*/i;
 const STEER_PHRASE =
   /^(go ahead|carry on|sounds good|agreed?|lgtm|yes[,\s]+please|do (it|all|them|that|this|both|everything|the rest))\b/i;
 
@@ -121,6 +127,10 @@ export function shouldBypass(prompt, env = process.env) {
   if (wordCount(p) > 60) return true;                       // already detailed
   if (STEER_WORDS.test(p) && wordCount(p) <= 2) return true; // "yes", "continue" — SHORT mid-flow steering only
   if ((STEER_PHRASE.test(p) || GO_AHEAD_VERB.test(p)) && wordCount(p) <= 8) return true; // "go ahead do all of them", "yes write the spec" — a go-ahead, not a new ask
+  if (PRAISE.test(p)) {                                     // "super do it" — approval, then a go-ahead
+    const rest = p.replace(PRAISE, '');
+    if (!rest || (STEER_PHRASE.test(rest) && wordCount(rest) <= 8)) return true;
+  }
   if (YES_REPLY.test(p) && wordCount(p) <= 8) return true;  // "yes, dream then the hook" — an answer, whatever follows
   if (STATUS_QUESTION.test(p) && wordCount(p) <= 8) return true; // "is it done" — a status check, not a work request
   if (LANDED_REPORT.test(p) && wordCount(p) <= 4) return true; // "16 merged" — a report the agent was waiting for

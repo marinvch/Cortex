@@ -548,6 +548,7 @@ none.
 | `cortex-placeholders.mjs` | Did a file Cortex stamped keep a placeholder from its template; exit 1 if so |
 | `cortex-claude-docs.mjs` | Are the Claude Code rules Cortex ships still stated on Anthropic's pages, and has Anthropic published a page Cortex has not seen; `--check` exits 1 on a stale rule, 3 on a new page |
 | `cortex-site-facts.mjs` | The facts the public site states, read from source; `--check` names each one that drifted |
+| `cortex-site-demo.mjs` | What a `/cortex` run prints on a new repo, a working project and a team's repo, captured for the site's walkthrough |
 | `server/server-setup.sh` | Set up a team brain: the bare repo on a server, a clone on each machine, the cron lines |
 | `server/cortex-cron.sh` | Run by cron on the server: pull the team brain, write a daily digest or weekly audit, push it |
 

@@ -49,7 +49,7 @@ ritual.
    - is a status check of eight words or fewer opening with is/are/was/were/did/does/do/has/have
      + it/this/that/we/they/everything/all (`is it done`, `did it work`);
    - is a report of four words or fewer that work landed: merged, landed, closed, approved,
-     deployed or done, alone or after `all`, `both` or PR numbers (`16 merged`, `#541 is merged`);
+     deployed or done, alone or after `all`, `both` or PR numbers (`16 merged`, `#541 is merged`, `542 its merged`);
    - asks only what is next, left or remaining (`what is next`, `ok so what is left`). It asks you
      to choose, so there is nothing to sharpen;
    - contains `just`, `quickly`, `only`, `typo`, or `rename`;

@@ -5,6 +5,36 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.17] — 2026-10-04
+
+The public site can show a `/cortex` run and the real Cortex View, and both come from the source.
+
+### Added
+
+- **`tools/cortex-site-demo.mjs` records a `/cortex` run for the site's home page.** It builds three
+  small repos in the OS temp dir (a new one, a working Express service, and the same service with a
+  team-brain connector), runs the indexer, the findings and the loop on each, and writes what they
+  said as `site-demo.json`. Two runs give the same bytes: no timings, absolute paths, commit ids or
+  dates. The apply step is not run, because a model does that; each loop row names the paths it
+  would write. `--check <file>` exits 1 when the file is not what a run gives now.
+- **`/site-sync` refreshes two captured files on every sync.** `site-demo.json`, and
+  `public/cortex-view-demo.html`, the Cortex View that the site's `/cortex-view` page embeds. The
+  view is rendered from a fresh clone of the repository and never from a working checkout: it puts
+  the folder name in its title and the titles of `.cortex/memory/` digests on its timeline, and a
+  checkout holds digests that were never committed. `PAGES.md` marks both routes as captured.
+
+### Changed
+
+- **ADR 0021 is a source for the site's `/principles` page**, so the page can say that Cortex ships
+  no mod.
+
+### Fixed
+
+- **The prompt gate reads `super do it` as a go-ahead.** It fired at 5 of 5 as the answer to a
+  ten-question design round. A word of approval (super, great, perfect, nice, cool, awesome,
+  excellent) bypasses alone or in front of a go-ahead phrase. In front of anything else, such as
+  `great work on the graph`, the prompt still scores.
+
 ## [2.41.16] — 2026-10-04
 
 Cortex's own skills pass every mechanical rule on Anthropic's skill authoring page.
@@ -4352,6 +4382,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.17]: https://github.com/marinvch/Cortex/releases/tag/v2.41.17
 [2.41.16]: https://github.com/marinvch/Cortex/releases/tag/v2.41.16
 [2.41.15]: https://github.com/marinvch/Cortex/releases/tag/v2.41.15
 [2.41.14]: https://github.com/marinvch/Cortex/releases/tag/v2.41.14

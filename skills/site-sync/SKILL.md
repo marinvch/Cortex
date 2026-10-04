@@ -65,7 +65,9 @@ when one of its sources appears in step 2's log, or when step 1 named a fact it 
 
   **Render the view from that fresh clone, never from this checkout.** The view puts the repo's
   folder name in its title and the titles of `.cortex/memory/` digests on its timeline. A working
-  checkout holds digests that were never committed, and the page is published. If the site has
+  checkout holds digests that were never committed, and the page is published. The indexer writes
+  into the clone, which is thrown away, so this step never creates `.cortex/` in this checkout or
+  in the site. If the site has
   neither file yet, it has not adopted them; leave them out.
 - **Prose pages** need a draft. Read the changed sources and the page as it stands; change only the
   sentences the source change made false or incomplete. Keep the page's voice and structure — this

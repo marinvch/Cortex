@@ -204,6 +204,28 @@ table joined with the skill folders, and a row or folder the other lacks **fails
 rather than being skipped. MCP tools come from the checkout's own `mcp/server.js`, spawned in repo
 mode and vault mode and asked for `tools/list` — what users get, not a reading of `mcp/lib/`.
 
+## `cortex-site-demo.mjs` — a `/cortex` run on three small repos, captured for the site
+
+The site's home page plays a `/cortex` run step by step. This records the output it plays, so the
+walkthrough is what Cortex prints and not a copy somebody typed. It builds three repos in the OS
+temp dir, runs the indexer, the findings and the loop on each, and removes them:
+
+- `new`: an empty git repo.
+- `legacy`: a small Express service with tests and CI, and no agent files.
+- `team`: the same service with a team-brain connector, so the shared-plugin row is offered.
+
+```bash
+node tools/cortex-site-demo.mjs                  # print site-demo.json
+node tools/cortex-site-demo.mjs --out <file>     # write it
+node tools/cortex-site-demo.mjs --check <file>   # exit 1 when <file> is not what a run gives now
+```
+
+Byte-identical across runs: no timings, no absolute paths, no commit ids. The apply step is not
+run, because a model does that; each loop row names the paths it would write and the site shows
+those. It needs `git` on the path, calls no network, and exits 2 when a CLI fails. `/site-sync`
+refreshes the file together with `site-facts.json`; nothing checks it on every push, since a
+reworded loop row is not drift until a release ships it.
+
 ## `cortex-skill-usage.mjs` — which skills anyone actually reached
 
 Every other audit reads the skills. This reads the **session record**, because a skill's real defect

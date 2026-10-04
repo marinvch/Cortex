@@ -52,6 +52,21 @@ when one of its sources appears in step 2's log, or when step 1 named a fact it 
 
 - **Facts pages** need nothing but the refreshed file:
   `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-site-facts.mjs" --out "$dir/site-facts.json"`.
+- **Captured pages** play or embed real output, and are refreshed on every sync, whatever changed:
+  `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-site-demo.mjs" --out "$dir/site-demo.json"` for the
+  home page's walkthrough, and the view of Cortex that `/cortex-view` embeds:
+
+  ```bash
+  pub="$(mktemp -d)/Cortex"
+  git clone --depth 200 "$(git remote get-url origin)" "$pub"
+  node "${CLAUDE_PLUGIN_ROOT}/index/cortex-index.mjs" "$pub"
+  node "${CLAUDE_PLUGIN_ROOT}/index/cortex-view.mjs" "$pub" --out "$dir/public/cortex-view-demo.html" --no-open
+  ```
+
+  **Render the view from that fresh clone, never from this checkout.** The view puts the repo's
+  folder name in its title and the titles of `.cortex/memory/` digests on its timeline. A working
+  checkout holds digests that were never committed, and the page is published. If the site has
+  neither file yet, it has not adopted them; leave them out.
 - **Prose pages** need a draft. Read the changed sources and the page as it stands; change only the
   sentences the source change made false or incomplete. Keep the page's voice and structure — this
   is an update, not a rewrite.

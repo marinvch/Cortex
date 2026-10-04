@@ -242,6 +242,16 @@ test('a "what is next" question bypasses; a "what is" question about the code do
   }
 });
 
+test('a word of approval before a go-ahead bypasses; before a task it does not', () => {
+  // "super do it" fired 5/5 on 2026-10-04, as the answer to a ten-question design round.
+  for (const p of ['super do it', 'super', 'great, go ahead', 'perfect do all of them', 'nice!']) {
+    assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
+  }
+  for (const p of ['great work on the graph', 'super slow, make it faster', 'nice to have a faster thing']) {
+    assert.equal(shouldBypass(p, {}), false, `expected "${p}" to reach scoring`);
+  }
+});
+
 test('"yes" opens a reply whatever follows it; "ok" and "sure" still need a verb', () => {
   for (const p of ['yes, dream then the hook', 'yes the second one', 'ok lets go by recomdendations', "ok let's do the first"]) {
     assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);

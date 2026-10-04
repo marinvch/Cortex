@@ -99,7 +99,7 @@ const STEER_PHRASE =
  * into the flow" still scores.
  */
 const LANDED_REPORT =
-  /^(all\s+|both\s+|(pr\s*)?#?\d+([,\s]+(and\s+)?#?\d+)*\s+)?((is|are|was|were|got)\s+)?(merged|landed|closed|approved|deployed|done)\b/i;
+  /^(all\s+|both\s+|it\s+|(pr\s*)?#?\d+([,\s]+(and\s+)?#?\d+)*\s+)?((it'?s|is|are|was|were|got)\s+)?(merged|landed|closed|approved|deployed|done)\b/i;
 
 /**
  * "what is next", "ok so what is left". It asks the agent to choose, so there is nothing in it to

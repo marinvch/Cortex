@@ -5,6 +5,17 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.15] — 2026-10-04
+
+The prompt gate reads "542 its merged" as a report.
+
+### Fixed
+
+- **`its` and `it's` count in a report that work landed.** 2.41.14 accepted `is` between the PR
+  number and `merged`, and the first report typed after it was `542 its merged`, which fired at 4
+  of 5. `its`, `it's` and a leading `it` now count (`542 its merged`, `its merged`,
+  `it is merged`). The four-word cap is unchanged.
+
 ## [2.41.14] — 2026-10-04
 
 The prompt gate no longer treats an answer as a vague prompt.
@@ -4323,6 +4334,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.15]: https://github.com/marinvch/Cortex/releases/tag/v2.41.15
 [2.41.14]: https://github.com/marinvch/Cortex/releases/tag/v2.41.14
 [2.41.13]: https://github.com/marinvch/Cortex/releases/tag/v2.41.13
 [2.41.12]: https://github.com/marinvch/Cortex/releases/tag/v2.41.12

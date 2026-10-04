@@ -5,6 +5,22 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.14] — 2026-10-04
+
+The prompt gate no longer treats an answer as a vague prompt.
+
+### Fixed
+
+- **`/optimize-prompt` stays quiet on a reply.** Four short answers to a question the agent had
+  just asked fired at 4 or 5 of 5 in one session: `ok lets go by recomdendations`, `16 merged`,
+  `ok so what is next` and `yes, dream then the hook`. The bypass rules now cover them. A prompt of
+  eight words or fewer that opens with `yes` is an answer whatever follows. `let's` may sit between
+  `ok` and the verb. A report of four words or fewer that work landed (`merged`, `16 merged`,
+  `#541 is merged`, `all done`) bypasses, and so does a question that asks only what is next or
+  left. `ok` and `sure` still need a verb, so `okay so the graph is broken` scores as before, and
+  `what is next to the cache` is still a question about the code. `skills/optimize-prompt/SKILL.md`
+  states the same rules for agents without the hook. Eight guards mutated, eight test failures.
+
 ## [2.41.13] — 2026-10-03
 
 The fences Cortex stamps say what a mod can override, and the decisions about mods are on record.
@@ -4307,6 +4323,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.14]: https://github.com/marinvch/Cortex/releases/tag/v2.41.14
 [2.41.13]: https://github.com/marinvch/Cortex/releases/tag/v2.41.13
 [2.41.12]: https://github.com/marinvch/Cortex/releases/tag/v2.41.12
 [2.41.11]: https://github.com/marinvch/Cortex/releases/tag/v2.41.11

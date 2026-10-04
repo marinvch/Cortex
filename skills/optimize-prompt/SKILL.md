@@ -40,10 +40,18 @@ ritual.
    - is a go-ahead of eight words or fewer — `go ahead`, `carry on`, `sounds good`, `agreed`,
      `lgtm`, `yes please`, `ok`/`yes`/`sure` + any action verb above (or do/go/proceed), or
      `do it/all/them/both/the rest` — followed by anything (`go ahead do all of them`,
-     `ok merge it`, `yes write the spec`). It points at a proposal already on the table. A bare
-     `continue` + task is a task and still scores;
+     `ok merge it`, `yes write the spec`). It points at a proposal already on the table.
+     `let's` may sit before the verb (`ok lets go by the recommendations`). A bare `continue` +
+     task is a task and still scores;
+   - opens with `yes` and is eight words or fewer, whatever follows (`yes, dream then the hook`).
+     Nobody opens a new task with `yes`. `ok` and `sure` still need the verb: `okay so the graph is
+     broken` reports a problem and scores;
    - is a status check of eight words or fewer opening with is/are/was/were/did/does/do/has/have
      + it/this/that/we/they/everything/all (`is it done`, `did it work`);
+   - is a report of four words or fewer that work landed: merged, landed, closed, approved,
+     deployed or done, alone or after `all`, `both` or PR numbers (`16 merged`, `#541 is merged`);
+   - asks only what is next, left or remaining (`what is next`, `ok so what is left`). It asks you
+     to choose, so there is nothing to sharpen;
    - contains `just`, `quickly`, `only`, `typo`, or `rename`;
    - names an exact file path or `file:line`.
 

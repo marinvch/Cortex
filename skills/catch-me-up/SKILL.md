@@ -1,6 +1,6 @@
 ---
 name: catch-me-up
-description: Summarize what changed on a project while you were away, from vault notes and git history. Triggers — "catch me up", "what did I miss", "what changed while I was away".
+description: Summarize what changed on a project while the user was away, from vault notes and git history. Triggers — "catch me up", "what did I miss", "what changed while I was away".
 metadata:
   capability: judgment
 ---

@@ -5,6 +5,24 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.16] — 2026-10-04
+
+Cortex's own skills pass every mechanical rule on Anthropic's skill authoring page.
+
+### Fixed
+
+- **Two descriptions no longer address the reader.** `/catch-me-up` and
+  `/improve-codebase-architecture` said "you" in their descriptions. The
+  [authoring page](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+  asks for third person, because the description is injected into the system prompt.
+- **`improve-codebase-architecture/HTML-REPORT.md` opens with a table of contents.** It is 123
+  lines, and the page asks for one in a reference file over 100, so a partial read still shows
+  what the file holds.
+
+All 45 skills were measured against the page's other mechanical rules (name shape and reserved
+words, description length and XML tags, body under 500 lines, references one level deep, forward
+slashes) and already passed.
+
 ## [2.41.15] — 2026-10-04
 
 The prompt gate reads "542 its merged" as a report.
@@ -4334,6 +4352,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.16]: https://github.com/marinvch/Cortex/releases/tag/v2.41.16
 [2.41.15]: https://github.com/marinvch/Cortex/releases/tag/v2.41.15
 [2.41.14]: https://github.com/marinvch/Cortex/releases/tag/v2.41.14
 [2.41.13]: https://github.com/marinvch/Cortex/releases/tag/v2.41.13

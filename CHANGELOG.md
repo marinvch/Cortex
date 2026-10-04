@@ -5,6 +5,25 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.19] — 2026-10-04
+
+The placeholder check reads the agent team's files. First fix from the field report in #548.
+
+### Fixed
+
+- **`cortex-placeholders.mjs` checks the files stamped from `team/` templates (#548, item 1).** Its
+  table of stamped files had no rows for the five role agents, the Tester's fence or the team
+  skill, so on a pass that had just stamped them it printed "not stamped from a template, nothing
+  to check" for each. A leftover `{{TEST_CMD}}` in an agent file went unreported. The rows are
+  there now, and `CLAUDE.md` is checked against the team playbook as well as the verification
+  block.
+- **The check asks the stamp record first.** A file that `.cortex/stamps.json` lists is checked
+  against the template the record names, wherever the file lives. The path table still covers a
+  repo with no record. A record that does not parse is left to `cortex-stamps.mjs` to report.
+- **The prompt gate reads `ок` as a steer.** It fired at 5 of 5 on a one-word Cyrillic reply. The
+  short steers are matched in Cyrillic too (`ок`, `да`, `добре`, `давай`, `продължи`), with the
+  same two-word cap.
+
 ## [2.41.18] — 2026-10-04
 
 The import graph on Cortex View's Overview zooms.
@@ -4396,6 +4415,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.19]: https://github.com/marinvch/Cortex/releases/tag/v2.41.19
 [2.41.18]: https://github.com/marinvch/Cortex/releases/tag/v2.41.18
 [2.41.17]: https://github.com/marinvch/Cortex/releases/tag/v2.41.17
 [2.41.16]: https://github.com/marinvch/Cortex/releases/tag/v2.41.16

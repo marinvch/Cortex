@@ -67,6 +67,16 @@ test('shouldBypass: short steers (<=2 words) still bypass', () => {
   }
 });
 
+test('shouldBypass: the same short steers in Cyrillic bypass; a Cyrillic task does not', () => {
+  // "ок" fired 5/5 on 2026-10-04. The Latin list never matched it, and \b does not see Cyrillic.
+  for (const p of ['ок', 'Ок', 'да', 'добре', 'давай', 'продължи', 'ок, давай', 'благодаря']) {
+    assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
+  }
+  for (const p of ['оправи го', 'окото на графа е счупено', 'да оправим цялата графика сега моля']) {
+    assert.equal(shouldBypass(p, {}), false, `expected "${p}" to reach scoring`);
+  }
+});
+
 test('shouldBypass: short status questions bypass — clarifying them improves nothing', () => {
   for (const p of [
     'is it done',

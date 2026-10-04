@@ -602,6 +602,36 @@ test("the same index opens as the same cloud", () => {
   assert.equal(renderHtml(buildView(bigIndex(300), "/tmp/x")), renderHtml(buildView(bigIndex(300), "/tmp/x")));
 });
 
+test("the cloud zooms in fixed steps about its centre, and stops at both ends", () => {
+  // A reader who cannot make out one point among 262 had the Map's wheel zoom and nothing here.
+  const page = runOverview(buildView(bigIndex(300), "/tmp/x"));
+  const spread = () => { page.OV.frame(); const xs = page.OV.screen(); return Math.max(...xs) - Math.min(...xs); };
+  // The stub canvas is 1600 wide, so the cloud's centre is x = 800. Every point's offset from it
+  // doubles at 2x, the outermost ones included.
+  const offset = () => { const xs = page.OV.screen(); return (Math.max(...xs) + Math.min(...xs)) / 2 - 800; };
+  const at1 = spread(), off1 = offset();
+  assert.equal(page.OV.zoom(-1), 1, "it does not zoom out past the whole cloud");
+  assert.equal(page.OV.zoom(+2), 2, "two steps in is 2x: 1, 1.5, 2");
+  assert.ok(Math.abs(spread() / at1 - 2) < 0.01, "at 2x the points are twice as far apart on screen");
+  assert.ok(Math.abs(offset() - 2 * off1) < 0.5, "and the cloud grows about its centre, so nothing slides away");
+  for (let i = 0; i < 10; i++) page.OV.zoom(+1);
+  assert.equal(page.OV.zoom(+1), 5, "it stops at 5x");
+  const before = { ...page.calls };
+  page.OV.frame();
+  assert.equal(page.calls.drawImage - before.drawImage, 300, "a zoomed frame is still one sprite per file");
+});
+
+test("zoom has buttons a keyboard and a screen reader can reach, and a bare wheel still scrolls the page", () => {
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  for (const label of ["Zoom out", "Reset zoom", "Zoom in"]) {
+    assert.match(html, new RegExp(`<button type="button" id="ovz[ori]" aria-label="${label}">`), `a "${label}" button`);
+  }
+  assert.match(html, /role="group" aria-label="Zoom the import graph"/);
+  // The cloud sits in a page that scrolls. Taking every wheel event would trap the reader on it.
+  assert.match(html, /addEventListener\('wheel',e=>\{if\(!e\.ctrlKey&&!e\.metaKey\)return;/);
+  assert.match(html, /plus and minus zoom it/, "the canvas's label says the keys");
+});
+
 // ── enrichment reaches the cards ───────────────────────────────────────────────────────────────
 // Two mismatches in one seam, both silent. `merge` writes `.cortex/index/enriched.json` while the
 // viewer and the sequence looked for `enrichment.json`; and `mergeEnrichment` writes `files` as an

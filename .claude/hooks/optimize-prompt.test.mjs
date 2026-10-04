@@ -222,7 +222,10 @@ test('regression: replies to a question the agent asked do not fire', () => {
 });
 
 test('a report that work landed bypasses; the same words opening a task do not', () => {
-  for (const p of ['merged', 'done', '16 merged', '#541 is merged', 'pr 540 merged', '539 and 540 merged', 'all done']) {
+  for (const p of [
+    'merged', 'done', '16 merged', '#541 is merged', 'pr 540 merged', '539 and 540 merged', 'all done',
+    '542 its merged', "542 it's merged", 'its merged', 'it is merged',   // "542 its merged" fired 4/5 after #542
+  ]) {
     assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
   }
   for (const p of ['merged the wrong thing into the flow', 'done is better than perfect so make it faster']) {

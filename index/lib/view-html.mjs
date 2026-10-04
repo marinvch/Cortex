@@ -170,9 +170,15 @@ button{font:inherit;color:inherit}
 #ovc{position:relative;min-width:0;min-height:0;overflow:hidden}
 #ov{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
 #ov:active{cursor:grabbing}
-#ovcap{position:absolute;left:24px;top:18px;right:24px;max-width:560px;font-size:14px;line-height:1.5;
+#ovcap{position:absolute;left:24px;top:18px;right:190px;max-width:560px;font-size:14px;line-height:1.5;
   color:var(--ink-2);pointer-events:none;text-shadow:0 0 8px var(--bg),0 0 3px var(--bg),0 0 1px var(--bg)}
 #ovcap b{color:var(--ink)}
+/* Zoom is buttons first: a wheel over the cloud has to keep scrolling the page it sits in. */
+#ovz{position:absolute;right:16px;top:16px;display:flex;gap:6px}
+#ovz button{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:9px;
+  min-width:40px;height:40px;padding:0 10px;font-size:16px;font-weight:600;cursor:pointer;font-variant-numeric:tabular-nums}
+#ovz button:hover:not(:disabled){border-color:var(--acc)}
+#ovz button:disabled{opacity:.45;cursor:default}
 #hero{position:absolute;left:0;right:0;bottom:0;padding:64px 20px 22px;text-align:center;pointer-events:none;
   background:linear-gradient(to top,var(--bg) 0,var(--bg) 60%,transparent)}
 #hero .lbl{font:600 15px ${DISPLAY};letter-spacing:.3em;text-transform:uppercase;color:var(--label)}
@@ -359,6 +365,7 @@ td.num{font-variant-numeric:tabular-nums;color:var(--ink-2);width:1%;white-space
   #q{order:3;flex:1 1 100%;width:auto;min-width:0;margin-left:0}
   #tabs{order:4;flex:1 1 100%;flex-wrap:wrap}
   #ovc{height:420px}
+  #ovcap{right:24px;top:66px}
   #ovbar{padding:10px 14px}
   #ovbar .when{margin-left:0;white-space:normal}
   .st{white-space:normal}
@@ -544,10 +551,18 @@ function retheme(){T={glow:css('--glow'),hot:css('--glow-hot'),link:css('--link'
 function resize(){if(!ctx)return;const r=cv.getBoundingClientRect();if(!r.width||!r.height){W=0;return;}
   dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
   cx=W/2;cy=H*.43;R=Math.max(60,Math.min(W*.44,H*.4));ambient=null;}
-function project(){const cy_=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);
+// Zoom grows the cloud about its centre, in fixed steps so a reader lands on the same size twice.
+// Turning the cloud brings any point to the middle, so there is no pan to learn. Points grow with
+// the square root of the zoom: at 4x the gaps open up four times and the dots only twice.
+const ZOOMS=[1,1.5,2,3,4,5];let zi=0,zoom=1;
+function project(){const cy_=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch),Rz=R*zoom;
   for(let i=0;i<n;i++){const x=X[i]*cy_-Z[i]*sy,z1=X[i]*sy+Z[i]*cy_,y=Y[i]*cp-z1*sp,z=Y[i]*sp+z1*cp,f=2.6/(2.6+z);
-    PX[i]=cx+x*R*f;PY[i]=cy+y*R*f;PS[i]=f;PZ[i]=z;}}
-const sizeOf=i=>(3+12*HS[i])*PS[i]*(R/240);
+    PX[i]=cx+x*Rz*f;PY[i]=cy+y*Rz*f;PS[i]=f;PZ[i]=z;}}
+const sizeOf=i=>(3+12*HS[i])*PS[i]*(R/240)*Math.sqrt(zoom);
+function setZoom(i){zi=Math.max(0,Math.min(ZOOMS.length-1,i));zoom=ZOOMS[zi];
+  const o=$('ovzo'),r=$('ovzr'),p=$('ovzi');if(o)o.disabled=zi===0;if(p)p.disabled=zi===ZOOMS.length-1;
+  if(r)r.textContent=Math.round(zoom*100)+'%';
+  setHover(-1);hideTip();if(!run)frame();}
 function frame(){if(!ctx||!W)return;project();ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);
   const add=T.blend==='lighter';ctx.globalCompositeOperation='source-over';
   if(!ambient){ambient=ctx.createRadialGradient(cx,cy,0,cx,cy,R*1.5);
@@ -579,7 +594,11 @@ function tick(){if(!run)return;if(!visible||document.hidden){run=false;return;}
   if(!drag&&hover<0)yaw+=.0016;frame();requestAnimationFrame(tick);}
 function start(){if(!visible||!ctx)return;if(REDUCED){frame();return;}if(!run){run=true;requestAnimationFrame(tick);}}
 if(cv&&ctx){
-  cv.setAttribute('aria-label','Import graph: '+plural(n,'code file')+' and '+plural(L.length/2,'import')+'. Arrow keys turn it. The Files tab lists every file.');
+  cv.setAttribute('aria-label','Import graph: '+plural(n,'code file')+' and '+plural(L.length/2,'import')+'. Arrow keys turn it, plus and minus zoom it, zero resets. The Files tab lists every file.');
+  const zb=(id,f)=>{const b=$(id);if(b)b.addEventListener('click',f);};
+  zb('ovzo',()=>setZoom(zi-1));zb('ovzi',()=>setZoom(zi+1));zb('ovzr',()=>setZoom(0));setZoom(0);
+  // Only with Ctrl or Cmd held: a bare wheel belongs to the page.
+  cv.addEventListener('wheel',e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();setZoom(zi+(e.deltaY<0?1:-1));},{passive:false});
   cv.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY,yaw,pitch};moved=false;try{cv.setPointerCapture(e.pointerId);}catch(err){}});
   cv.addEventListener('pointermove',e=>{const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
     if(drag){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>4)moved=true;
@@ -589,14 +608,18 @@ if(cv&&ctx){
   cv.addEventListener('pointerleave',()=>{if(!drag){setHover(-1);hideTip();}});
   cv.addEventListener('keydown',e=>{const k=e.key,s=.14;
     if(k==='ArrowLeft')yaw-=s;else if(k==='ArrowRight')yaw+=s;else if(k==='ArrowUp')pitch=Math.max(-1.2,pitch-s);
-    else if(k==='ArrowDown')pitch=Math.min(1.2,pitch+s);else return;e.preventDefault();if(!run)frame();});}
+    else if(k==='ArrowDown')pitch=Math.min(1.2,pitch+s);
+    else if(k==='+'||k==='='){e.preventDefault();setZoom(zi+1);return;}
+    else if(k==='-'||k==='_'){e.preventDefault();setZoom(zi-1);return;}
+    else if(k==='0'){e.preventDefault();setZoom(0);return;}
+    else return;e.preventDefault();if(!run)frame();});}
 function hero(){$('hero').innerHTML='<div class="lbl">Files indexed</div><div class="big">'+fmt(S.files)+'</div><div class="rule"></div>'
   +'<div class="strip"><span><b>'+fmt(S.edges)+'</b>import edges</span><span><b>'+fmt(D.areas.length)+'</b>areas</span>'
   +'<span><b>'+fmt(S.tests)+'</b>'+(S.tests===1?'test':'tests')+'</span><span><b>'+fmt(S.lines)+'</b>'+(S.lines===1?'line':'lines')+'</span></div>';
   // The cloud draws the code files and the imports between them — a subset of both headline
   // numbers — so it says which subset rather than letting one read as the other.
   const drawn=S.mapEdges!==undefined?S.mapEdges:L.length/2;
-  $('ovcap').innerHTML=n?'<b>The import graph.</b> Each point is one of '+plural(n,'code file')+' and each line one of the '+plural(drawn,'import')+' between them; the larger and brighter a point, the more files import it. Drag to turn it, click a point to open the file.'
+  $('ovcap').innerHTML=n?'<b>The import graph.</b> Each point is one of '+plural(n,'code file')+' and each line one of the '+plural(drawn,'import')+' between them; the larger and brighter a point, the more files import it. Drag to turn it, click a point to open the file, and zoom with the buttons or Ctrl and the scroll wheel.'
     :'<b>No code files to draw.</b> The Files tab lists everything that was indexed.';}
 
 // ---- structure -----------------------------------------------------------------------------
@@ -698,7 +721,8 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden)start();})
 $('ovr').addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-copy]');if(b)copy(b.getAttribute('data-copy'),b);});
 $('spane').addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-go]');if(b)go(b.getAttribute('data-go'));});
 status();vitals();rightCol();hero();structure();retheme();
-window.OV={show,frame,resize,count:n,links:L.length/2,points:()=>[...X,...Y,...Z]};
+window.OV={show,frame,resize,count:n,links:L.length/2,points:()=>[...X,...Y,...Z],
+  zoom:step=>{setZoom(zi+step);return zoom;},screen:()=>[...PX]};
 show('ov');
 })();
 `;
@@ -1275,7 +1299,7 @@ ${tabs}
 <input id="q" placeholder="Search paths…  /" aria-label="Search file paths" autocomplete="off" spellcheck="false"/>
 <button type="button" id="theme">Theme</button></div>
 <div id="main">
-<div class="view on" id="v-ov"><div id="ovbar" role="status"></div><aside class="col" id="ovl" aria-label="Repo vitals"></aside><section id="ovc" aria-label="Import graph"><canvas id="ov" tabindex="0" role="img" aria-label="Import graph"></canvas><div id="ovcap"></div><div id="hero"></div></section><aside class="col" id="ovr" aria-label="Next steps and timeline"></aside></div>
+<div class="view on" id="v-ov"><div id="ovbar" role="status"></div><aside class="col" id="ovl" aria-label="Repo vitals"></aside><section id="ovc" aria-label="Import graph"><canvas id="ov" tabindex="0" role="img" aria-label="Import graph"></canvas><div id="ovcap"></div><div id="ovz" role="group" aria-label="Zoom the import graph"><button type="button" id="ovzo" aria-label="Zoom out">−</button><button type="button" id="ovzr" aria-label="Reset zoom">100%</button><button type="button" id="ovzi" aria-label="Zoom in">+</button></div><div id="hero"></div></section><aside class="col" id="ovr" aria-label="Next steps and timeline"></aside></div>
 <div class="view" id="v-map"><canvas id="cv"></canvas><div class="float" id="hud"></div><div class="float" id="legend"></div></div>
 <div class="view" id="v-structure"><div class="pane" id="spane"></div></div>
 <div class="view" id="v-files"><div class="list" id="flist"></div><div id="reader"><div id="empty">Pick a file on the left, or click a point on the Overview or the Map.</div></div></div>

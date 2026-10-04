@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.18] — 2026-10-04
+
+The import graph on Cortex View's Overview zooms.
+
+### Added
+
+- **Zoom on the Overview's import graph.** The Map tab zoomed with the wheel; the cloud on the
+  Overview did not zoom at all, so one point among a few hundred could not be made out. It now has
+  three buttons (zoom out, the current level, zoom in), the `+`, `-` and `0` keys on the focused
+  canvas, and Ctrl or Cmd with the scroll wheel. A bare wheel still scrolls the page the cloud sits
+  in. The steps are fixed at 1, 1.5, 2, 3, 4 and 5 times. The cloud grows about its centre, and
+  turning it brings any point to the middle, so there is no pan. Points grow with the square root
+  of the zoom, so the gaps open faster than the dots swell.
+
 ## [2.41.17] — 2026-10-04
 
 The public site can show a `/cortex` run and the real Cortex View, and both come from the source.
@@ -4382,6 +4396,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.18]: https://github.com/marinvch/Cortex/releases/tag/v2.41.18
 [2.41.17]: https://github.com/marinvch/Cortex/releases/tag/v2.41.17
 [2.41.16]: https://github.com/marinvch/Cortex/releases/tag/v2.41.16
 [2.41.15]: https://github.com/marinvch/Cortex/releases/tag/v2.41.15

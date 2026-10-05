@@ -128,9 +128,30 @@ assert_eq "current" "$(field "$(node "$STAMPS" "$P" --json --templates "$TPL" 2>
 json="$(node "$LOOP" "$P" --index "$IDX" --json 2>&1)"
 assert_eq "present" "$(field "$json" '["missing","present","blocked"].find((b) => j[b].some((e) => e.id === "team"))')" "team: a re-run reads the team as present"
 assert_eq '["implementer"]' "$(field "$json" 'j.state.agentTeam.offer.map((o) => o.role)')" "team: only the declined role is still on offer"
-out="$(node "$LOOP" "$P" --index "$IDX" --team tester 2>&1)"; rc=$?
-assert_eq "1" "$rc" "team: a covered role cannot be picked again"
-assert_contains "$out" 'covered by `tester`' "and the refusal names the agent that covers it"
 none="$(node "$LOOP" "$P" --index "$IDX" --team none 2>&1)"
 assert_eq '["CLAUDE.md roster"]' "$(field "$none" 'j.files.map((f) => f.path + " " + f.mode)')" \
   "team: --team none picks no role, and the playbook already there only has its roster rewritten"
+
+# --- a role Cortex stamped can be picked again, for values that changed since (#548) -----------------
+# This used to be refused as "covered by `tester`", which left no CLI path to fresh values.
+
+again="$(node "$LOOP" "$P" --index "$IDX" --team tester 2>&1)"; rc=$?
+assert_eq "0" "$rc" "team: a role the stamp record holds can be picked again"
+assert_eq '[".claude/agents/tester.md true",".claude/hooks/test-paths.sh true","CLAUDE.md undefined"]' \
+  "$(field "$again" 'j.files.map((f) => f.path + " " + f.refresh)')" "team: its files come back marked refresh, and the playbook keeps its mode"
+assert_eq "[]" "$(field "$again" 'j.needs')" "team: nothing answered on the first pass is asked again"
+
+# A brief written after the index was built is on the Architect's list without a reindex.
+mkdir -p "$P/src" && printf '# src\n' > "$P/src/AGENTS.md"
+json="$(node "$LOOP" "$P" --index "$IDX" --json 2>&1)"
+assert_eq '["SCOPED_BRIEFS"]' "$(field "$json" 'j.state.agentTeam.stamped.find((s) => s.role === "architect").changed')" \
+  "team: the loop names the value that went stale"
+again="$(node "$LOOP" "$P" --index "$IDX" --team architect 2>&1)"
+assert_contains "$(field "$again" 'j.values.SCOPED_BRIEFS')" 'src/AGENTS.md' "team: and picking the Architect again carries the new brief"
+rm "$P/src/AGENTS.md"
+
+# The record is what makes the file Cortex's. Without the entry it is the team's own agent.
+node "$STAMPS" forget "$P" .claude/agents/tester.md >/dev/null 2>&1
+out="$(node "$LOOP" "$P" --index "$IDX" --team tester 2>&1)"; rc=$?
+assert_eq "1" "$rc" "team: a covered role nobody recorded cannot be picked"
+assert_contains "$out" 'covered by `tester`' "and the refusal names the agent that covers it"

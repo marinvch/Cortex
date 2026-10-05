@@ -12,7 +12,7 @@
 import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -313,6 +313,109 @@ test("SCOPED_BRIEFS lists the repo's scoped briefs, never the root one or a file
     ".cortex/memory/AGENTS.md": "x\n",
   });
   assert.equal(s.values.SCOPED_BRIEFS, "   - `src/billing/AGENTS.md`");
+});
+
+// #548, item 2. A pass that takes scoped briefs and the team stamped the Architect with the old brief
+// list: the list came from the index, and the index was built before the briefs were written.
+test("SCOPED_BRIEFS is read off disk, so a brief written after the index was built is on the list", () => {
+  const w = world({ "src/a.js": "x\n", "src/billing/pay.js": "x\n", "src/billing/AGENTS.md": "x\n", "src/old/AGENTS.md": "x\n", "src/old/b.js": "x\n" });
+  // Written by /cortex-brief in this pass; the index has never seen it.
+  writeFileSync(join(w.root, "src", "AGENTS.md"), "# src\n");
+  // Deleted since the index was built; the index still lists it.
+  rmSync(join(w.root, "src", "old", "AGENTS.md"));
+  const s = teamState(w.root, w.index, { testCmd: "npm test", verifierPath: VERIFIER });
+  assert.equal(s.values.SCOPED_BRIEFS, "   - `src/AGENTS.md`\n   - `src/billing/AGENTS.md`");
+});
+
+/**
+ * A repo whose `roles` Cortex stamped and recorded, as a first team pass leaves it: each file is its
+ * template rendered with the values detected then, plus `answers` for what was asked.
+ */
+function stampedTeam(roles, { files = {}, answers = {}, opts = {} } = {}) {
+  const w = world({ "src/a.js": "x\n", "src/a.test.js": "x\n", ...files });
+  const options = { testCmd: "npm test", verifierPath: VERIFIER, ...opts };
+  const first = teamValues(teamState(w.root, w.index, options), roles);
+  const values = { ...first.values, ...answers };
+  let record = null;
+  for (const f of first.files.filter((x) => x.recorded)) {
+    const templateText = readFileSync(join(REPO, "templates", f.template), "utf8");
+    const fileText = renderTemplate(templateText, values);
+    mkdirSync(join(w.root, f.path, ".."), { recursive: true });
+    writeFileSync(join(w.root, f.path), fileText);
+    w.index.files.push({ path: f.path, category: f.path.endsWith(".md") ? "docs" : "config", isTest: false });
+    record = recordStamp(record, { path: f.path, template: f.template, version: "2.41.0", templateText, fileText, values });
+  }
+  writeStamps(w.root, record);
+  return { ...w, options };
+}
+const ARCHITECT = ".claude/agents/architect.md";
+
+test("a role Cortex stamped can be picked again, for values that changed since; it is never offered as new", () => {
+  const w = stampedTeam(["architect"]);
+  const quiet = teamState(w.root, w.index, w.options).stamped;
+  assert.deepEqual(quiet.map((x) => [x.role, x.path, x.edited, x.changed]), [["architect", ARCHITECT, false, []]], "nothing changed, nothing to refresh");
+
+  writeFileSync(join(w.root, "src", "AGENTS.md"), "# src\n"); // /cortex-brief, later in the same pass
+  const s = teamState(w.root, w.index, w.options);
+  assert.ok(!offered(s).includes("architect"), "it is still not offered as a new role");
+  assert.deepEqual(s.stamped[0].changed, ["SCOPED_BRIEFS"], "the state names what went stale");
+  const t = teamValues(s, ["architect"]);
+  assert.deepEqual(t.files.find((f) => f.path === ARCHITECT), {
+    path: ARCHITECT, template: "team/architect.md", mode: "write", recorded: true, executable: false, refresh: true,
+  });
+  assert.equal(t.values.SCOPED_BRIEFS, "   - `src/AGENTS.md`", "with the brief list as it is now");
+  assert.deepEqual(t.conflicts, [], "an untouched file is re-rendered without a question");
+  assert.ok(!t.files.some((f) => f.path === ".claude/skills/team/SKILL.md"), "the team skill is already here");
+});
+
+test("a stamped role stays on the roster by role name, picked again or not", () => {
+  const w = stampedTeam(["architect", "tester"]);
+  const s = teamState(w.root, w.index, w.options);
+  assert.equal(teamValues(s, ["architect"]).values.ROSTER, "`architect`, `tester`", "once each: the file on disk is the same agent");
+  assert.equal(teamValues(s, ["implementer"]).values.ROSTER, "`architect`, `implementer`, `tester`");
+  assert.ok(teamValues(s, ["implementer"]).files.every((f) => !f.refresh), "a new role is a plain write");
+  const fence = teamValues(s, ["tester"]).files.find((f) => f.path === ".claude/hooks/test-paths.sh");
+  assert.equal(fence.refresh, true, "the Tester's fence is rendered again with the Tester");
+});
+
+test("rendering again over a file the team edited is a conflict to ask about", () => {
+  const w = stampedTeam(["architect"]);
+  appendFileSync(join(w.root, ARCHITECT), "\nAlways read the runbook first.\n");
+  const s = teamState(w.root, w.index, w.options);
+  assert.equal(s.stamped[0].edited, true);
+  const t = teamValues(s, ["architect"]);
+  assert.equal(t.conflicts.length, 1);
+  assert.match(t.conflicts[0], /\.claude\/agents\/architect\.md was edited since Cortex stamped it.*replaces those edits/);
+});
+
+test("an answer given on the first pass is kept from the record, not asked again", () => {
+  // No test command detected: the first pass asked, and the answer went into the record.
+  const w = stampedTeam(["implementer"], { answers: { TEST_CMD: "make check" }, opts: { testCmd: null } });
+  const s = teamState(w.root, w.index, w.options);
+  assert.deepEqual(s.stamped[0].kept, { TEST_CMD: "make check" });
+  assert.deepEqual(s.stamped[0].needs, []);
+  const t = teamValues(s, ["implementer"]);
+  assert.equal(t.values.TEST_CMD, "make check");
+  assert.deepEqual(t.needs, []);
+  // A command detected since outranks the recorded answer, and is named as changed.
+  const now = teamState(w.root, w.index, { ...w.options, testCmd: "npm test" });
+  assert.deepEqual(now.stamped[0].changed, ["TEST_CMD"]);
+  assert.equal(teamValues(now, ["implementer"]).values.TEST_CMD, "npm test");
+});
+
+test("an agent the team wrote itself is still never picked over, record or no record", () => {
+  // Same file name, no entry in the record: theirs.
+  const own = state({ "src/a.js": "x\n", [ARCHITECT]: agentFile("architect", "Plans the change before code is written.") }).s;
+  assert.deepEqual(own.stamped, []);
+  assert.throws(() => teamValues(own, ["architect"]), /not offered here/);
+  // A record entry for another template at that path is not the role's stamp either.
+  const w = stampedTeam(["architect"]);
+  const doc = JSON.parse(readFileSync(join(w.root, ".cortex", "stamps.json"), "utf8"));
+  doc.files[ARCHITECT].template = "loop/verifier.md";
+  writeFileSync(join(w.root, ".cortex", "stamps.json"), JSON.stringify(doc));
+  const other = teamState(w.root, w.index, w.options);
+  assert.deepEqual(other.stamped, []);
+  assert.throws(() => teamValues(other, ["architect"]), /not offered here/);
 });
 
 test("the playbook's roster is never empty and every role is a real template", () => {

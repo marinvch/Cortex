@@ -126,7 +126,10 @@ holds the rules for that module alone — read it before editing the module.
   heuristic into a third caller — two copies would agree today and disagree in a month, with
   nothing to say which is right.
 - **A skill Cortex wrote is checked against the repo it describes, by `lib/skill-drift.mjs`.**
-  Validated on the first upgraded repo (#462): 12 findings, all real.
+  Validated on the first upgraded repo (#462): 12 findings, all real. The `no-script`, description
+  and `premise` checks were run on 13 public repos holding 116 skills: one description finding,
+  real (emanote), after a first pass called "canvas/WebGL/Three.js" a path (three-flatland).
+  Mutation-checked: 15 guards, each breaking a test.
 - **`cortex-impact.mjs` reads the graph backwards** — who imports me, not what do I import — and
   every count it returns is a floor, named `atLeast` so a caller cannot print it as a total.
 - **`--size` recommends and never decides** (`lib/sizing.mjs`). A finer sizing-local area key was

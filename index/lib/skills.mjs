@@ -103,6 +103,11 @@ export const SKILL_CANDIDATES = [
     // jest in devDependencies and no test files (create-expo-app, CRA, and most starters) used to
     // fall past this row into add-test, and be told to extend a convention that does not exist yet.
     when: (s) => s.stats.tests === 0 && s.stats.files > 5,
+    // A setup skill's premise is an absence, and the index can refute it: once test files exist
+    // there is no first test left to write. `add-test` takes over where its own `when` holds.
+    gone: (s) => s.stats.tests > 0,
+    goneWhy: (s) => `it sets up a first test, and the index counts ${s.stats.tests} test file${s.stats.tests === 1 ? "" : "s"}, so its premise is gone`,
+    successor: "add-test",
     why: (s) =>
       s.stack.test.length > 0
         ? `${named(s.stack.test)} is in a manifest but no test file exists — the runner is installed, not used`
@@ -246,6 +251,27 @@ export function proposeSkills(index) {
       return { id: c.id, title: c.title, rank: c.rank, why: c.why(s), brief: c.brief, paths, pathsLine: pathsLine(paths) };
     })
     .sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id));
+}
+
+/**
+ * `{ why, successor }` when the skill named `id` is a setup candidate whose premise this index
+ * refutes, else `null`. Only a candidate that declares `gone` can be retired this way: a skill
+ * the team wrote, or one whose trigger merely stopped matching, is never proposed for deletion on
+ * a detection that may have missed something. `successor` is named only where its own `when` holds.
+ */
+export function premiseGone(id, index) {
+  const c = SKILL_CANDIDATES.find((x) => x.id === id && typeof x.gone === "function");
+  if (!c || !index) return null;
+  const stack = { languages: [], frameworks: [], data: [], services: [], test: [], delivery: [], manifests: [], ...(index.stack ?? {}) };
+  const tests = index.stats?.tests ?? (index.files ?? []).filter((f) => f.isTest).length;
+  const s = { stack, stats: { files: 0, ...(index.stats ?? {}), tests } };
+  try {
+    if (!c.gone(s)) return null;
+    const next = SKILL_CANDIDATES.find((x) => x.id === c.successor);
+    return { why: c.goneWhy(s), successor: next && next.when(s) ? next.id : null };
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -5,6 +5,35 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.23] — 2026-10-08
+
+Skill drift checks three more claims the disk can refute. Fifth fix from the field report in #548.
+
+### Added
+
+- **A script the skill says is missing, and a manifest declares (#548, item 5).** "Not wired into a
+  standalone npm script" in a skill named `type-check`, beside a `typecheck` script, is now a
+  `no-script` finding. The line has to name the script: in backticks, as `npm run X`, or by the
+  skill being named after it. A conditional or historical sentence is left alone, and so is every
+  claim while a `package.json` cannot be read.
+- **"No test runner installed", beside a runner the index detected and real test files.** Reported
+  as a `tests` finding.
+- **A stale path in a skill's `description` (#548, item 5).** Frontmatter was never read. The
+  description is now read for paths only, and the finding is marked `frontmatter: true`:
+  `/cortex-skills` shows it and changes it only on a yes, because the description decides when
+  the skill fires. A path written without backticks must start in a directory the repo has.
+- **A setup skill whose premise is gone is proposed for retirement (#548, item 6).** A
+  `write-first-test` skill in a repo that now has tests gets a `premise` finding, and its `drift`
+  entry carries `retire: { successor }`, naming `add-test` where that skill fits. Only a setup
+  skill Cortex proposes itself can be retired this way; one the team named differently is not
+  guessed at.
+
+### Changed
+
+- `cortex-skills.mjs .` prints the proposal and the frontmatter mark on the skill's own lines.
+- `/cortex-skills` reads `retire` and `frontmatter` from the drift list
+  (`skills/cortex-skills/SKILL.md`).
+
 ## [2.41.22] — 2026-10-08
 
 The playback says what a row changes, so the one confirmation covers it. Fourth fix from the field
@@ -4502,6 +4531,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.23]: https://github.com/marinvch/Cortex/releases/tag/v2.41.23
 [2.41.22]: https://github.com/marinvch/Cortex/releases/tag/v2.41.22
 [2.41.21]: https://github.com/marinvch/Cortex/releases/tag/v2.41.21
 [2.41.20]: https://github.com/marinvch/Cortex/releases/tag/v2.41.20

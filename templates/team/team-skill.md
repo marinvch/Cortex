@@ -46,7 +46,10 @@ yet.
 1. `tester` writes the failing test and shows it red.
 2. `implementer` makes the change inside the planned files until the test is green.
 3. `reviewer` checks the change independently: it runs it, exercises what sits next to it, and
-   reads the diff against the repo's documents. Run `/cortex-review` and give it the output.
+   reads the diff against the repo's documents. Run `/cortex-review` and give it the output. Hand
+   it the diff, the plan and the acceptance criteria. Leave out the Implementer's account of the
+   change and your own view of it: a reviewer told the change works looks for agreement, and one
+   given the plan looks for the gap.
 4. Put the Reviewer's findings to the developer. A change they call for goes back through
    `implementer` and `reviewer`, like the first one; so does a planned edit an agent declined.
 5. Report to the developer: what changed, the test output, and the Reviewer's findings. Commit,

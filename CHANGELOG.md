@@ -5,6 +5,25 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.38] — 2026-10-08
+
+`evals/` gets a scoped brief, and each scenario gets tests of its own. Step 2.0 of the roadmap.
+
+### Added
+
+- **`evals/AGENTS.md`.** The rules for changing the eval code: one scorer, ground truth built and
+  never judged, the four exports of a scenario, weights as part of the contract, no model run in
+  CI. It also records that a baseline is keyed to a skill's body and not to its tasks, so a
+  generator change needs the baseline recorded again. The root routing table points at it.
+- **Five test files**, 37 tests: `ship`, `resume`, `team-ask`, `cortex` and `score`. Each pins a
+  scenario's weights and reason text on a state written by hand, so an expected number can be
+  checked by reading the test. `score.test.mjs` holds the function and the command to the same
+  result. No scorer changed.
+
+### Not done
+
+- `evals/skillopt/cortex_skill/adapter.py` still has no test. The suite is Node only.
+
 ## [2.41.37] — 2026-10-08
 
 A release's notes are extracted by a tested script. Step 1.1 of the roadmap.
@@ -4814,6 +4833,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.38]: https://github.com/marinvch/Cortex/releases/tag/v2.41.38
 [2.41.37]: https://github.com/marinvch/Cortex/releases/tag/v2.41.37
 [2.41.36]: https://github.com/marinvch/Cortex/releases/tag/v2.41.36
 [2.41.35]: https://github.com/marinvch/Cortex/releases/tag/v2.41.35

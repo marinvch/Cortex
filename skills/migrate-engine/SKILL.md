@@ -21,6 +21,10 @@ artifact until its knowledge is in `AGENTS.md` or `docs/decisions.md`.** Re-gene
 
 ## Step 0 — Confirm scope & require a clean git tree
 - Work ONLY inside the target repo (default: cwd). Never touch the personal vault.
+- **If the cwd is not inside a git work tree** (`git rev-parse --show-toplevel` fails), there is no
+  target yet. Do not scan the directory you happen to be in: "no engine found" there answers a
+  question nobody asked. Ask which repo is meant, and offer the git repos one level down as choices
+  (`ls -d */.git`).
 - Check `git status` is clean (or stash). The migration is recoverable via git + the backup archive,
   but a clean tree makes the diff reviewable.
 - If there's no new brain yet (`AGENTS.md` absent), run `/install-project` first — this ritual
@@ -36,6 +40,30 @@ Scan for any of these (presence of one = engine installed):
 - An engine-style `.github/copilot-instructions.md` (references MCP tools like `get_session_context`)
 
 List exactly what exists before touching anything.
+
+Two more places hold the old setup and are not in the checked-out tree. Both checks are read-only.
+
+**Other branches.** A branch that is not checked out can still carry the engine, and a
+`memory.jsonl` on a forgotten branch is exactly what this ritual exists to save. Scan every local
+and remote-tracking ref:
+
+```bash
+git for-each-ref --format='%(refname:short)' refs/heads refs/remotes | while read -r ref; do
+  git ls-tree -r --name-only "$ref" 2>/dev/null |
+    grep -E '(^|/)(\.ai-os/|\.github/(ai-os|agents|copilot|instructions)/|\.github/COPILOT_CONTEXT\.md$|\.github/workflows/ai-os-)|\.chatprompt\.md$|(^|/)toolsets\.json$|(^|/)memory\.jsonl$' |
+    sed "s|^|$ref: |"
+done
+```
+
+Report the hits per branch. Harvest from a branch with `git show <ref>:<path>`, without checking it
+out. Removing files from another branch is that branch's own change: name it to the user and leave
+it to them.
+
+**MCP registrations outside the repo.** The engine's server can be registered at user scope, where
+no file in the repo shows it. Run `claude mcp list` and, for every server whose command ends in
+`mcp/server.js`, `claude mcp get <name>`: it prints the scope and the `AI_OS_ROOT` the server
+reads. List each with its root. One whose root is inside something this migration deletes, or
+inside a repo that is no longer there, will stop starting.
 
 ## Step 2 — Harvest (high-signal → into the brain)
 Read these, pull only durable, verified facts, and **fold them in**:
@@ -85,11 +113,15 @@ Delete only what you backed up and harvested:
   entry, delete the file.
 - **`.github/copilot-instructions.md`:** replace engine content with a shim → `AGENTS.md`
   (or leave the Cortex shim if `/install-project` already wrote one). Move old `*.bak` into the tarball.
+- **A registration listed in Step 1 whose root you are deleting:** repoint it or remove it, with the
+  user's yes. `claude mcp get <name>` prints the exact remove command for its scope.
 - Clean stragglers: `.gitignore` lines that only referenced `.ai-os`/`.github/ai-os`; the
   `eslint.config.mjs` `.ai-os/**` ignore.
 
 ## Step 6 — Verify
 - No engine artifacts remain: re-run the Step 1 scan → empty.
+- The branch scan is run again. Hits on other branches are listed as still there, never as cleaned.
+- Every registration from Step 1 points at a root that exists, or is gone.
 - `AGENTS.md` now contains the harvested facts; `docs/decisions.md` has the migration entry.
 - The backup tarball exists.
 - `npm run lint` (or the repo's lint) still passes.

@@ -29,6 +29,12 @@ people learn to skim is a review that stops catching things.
 
 Anything a CI check already fails the build on.
 
+## Lowering the bar
+
+A change that switches a check off, skips or removes a test, removes an assertion or lowers a
+threshold is named in the review, with the reason the change gives for it. No reason given is a
+finding.
+
 ## Closing the gap
 
 The second time a review catches the same mistake, the fix goes into `CLAUDE.md` in the same PR,

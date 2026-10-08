@@ -151,3 +151,32 @@ test("one normaliser for every changed path: separators, ./ and absolute paths i
   const outside = resolve("other-root", "a.js");
   assert.equal(normalizeChangedPath(outside, root), outside.split("\\").join("/"));
 });
+
+// --- the text of the change set, for lib/lowered-bar.mjs -------------------------------------------
+
+import { changedDiff } from "../lib/changed.mjs";
+
+const D = "diff -U0 -M --no-color --no-ext-diff";
+
+test("the diff comes from the same sources, by the same fallbacks, as the file list", () => {
+  assert.equal(changedDiff("/x", { staged: true, git: stub({ [`${D} --cached`]: "STAGED\n" }) }).diff, "STAGED\n");
+  assert.equal(changedDiff("/x", { staged: true, git: stub({ [`${D} --cached`]: "", [D]: "WORKTREE\n" }) }).diff, "WORKTREE\n");
+  assert.equal(changedDiff("/x", { since: "main", git: stub({ [`${D} main...HEAD`]: "MERGE\n" }) }).diff, "MERGE\n");
+  assert.equal(changedDiff("/x", { since: "main", git: stub({ [`${D} main...HEAD`]: new Error("no merge base"), [`${D} main`]: "DIRECT\n" }) }).diff, "DIRECT\n");
+});
+
+test("named paths with no other source are compared with the last commit", () => {
+  const r = changedDiff("/x", { paths: ["a.js", "b c.js"], git: stub({ [`${D} HEAD -- a.js b c.js`]: "NAMED\n" }) });
+  assert.deepEqual(r, { diff: "NAMED\n", failures: [] });
+  // With --staged the paths are extra files to look up, and the staged diff is the text.
+  assert.equal(changedDiff("/x", { paths: ["a.js"], staged: true, git: stub({ [`${D} --cached`]: "STAGED\n" }) }).diff, "STAGED\n");
+});
+
+test("a diff git could not read is a failure, never an empty diff", () => {
+  const r = changedDiff("/x", { since: "nope", git: stub({}) });
+  assert.equal(r.diff, "");
+  assert.equal(r.failures.length, 1);
+  assert.equal(r.failures[0].source, "--since nope");
+  const clean = changedDiff("/x", { staged: true, git: stub({ [`${D} --cached`]: "", [D]: "" }) });
+  assert.deepEqual(clean, { diff: "", failures: [] });
+});

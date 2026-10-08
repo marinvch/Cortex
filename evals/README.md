@@ -154,6 +154,12 @@ trained document is a **proposal**: compare its test score to the baseline, read
 the edits into `skills/<skill>/SKILL.md` by hand. Frontmatter is never trained — it is routing
 metadata, checked by `tools/cortex-frontmatter.mjs`.
 
+## What was tried and dropped
+
+[`REJECTED.md`](REJECTED.md) lists changes to a ritual's text that an eval did not support: the text,
+the runs, the numbers. Read it before proposing an edit to an evaled ritual, and add to it when a
+measured change is not kept, or is kept without a gain.
+
 ## Adding a skill
 
 Add `scenarios/<skill>.mjs` exporting `generate`, `render`, `truth` and `score`; register it in

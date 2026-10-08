@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.31] — 2026-10-08
+
+A link from a ritual to its supporting file is checked, and rejected skill changes are kept.
+
+### Added
+
+- **`node tools/cortex-skill-links.mjs --check`** fails when a markdown link under `skills/`
+  names a file that is not there or a heading its target does not have. A ritual reaches the detail
+  in `RUNS.md` or `TEAM.md` only through such a link, and a renamed heading broke it without any
+  error. It resolves from the linking file's directory, skips links in a code fence or span, and
+  fails if it followed no link at all. Today it follows 37 and all resolve.
+- **`evals/REJECTED.md`** records changes to a ritual's text that an eval did not support, with
+  the runs and the numbers. It opens with the two `/cortex` comparisons of 2026-10-08.
+
 ## [2.41.30] — 2026-10-08
 
 Three Claude Code rules are re-confirmed against the pages they cite.
@@ -4673,6 +4687,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.31]: https://github.com/marinvch/Cortex/releases/tag/v2.41.31
 [2.41.30]: https://github.com/marinvch/Cortex/releases/tag/v2.41.30
 [2.41.29]: https://github.com/marinvch/Cortex/releases/tag/v2.41.29
 [2.41.28]: https://github.com/marinvch/Cortex/releases/tag/v2.41.28

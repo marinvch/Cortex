@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "what should we call this concept, order or booking",
+    "these two terms mean the same thing in our code, pick one",
+    "write an ADR for the decision we just made"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "write a design spec for the feature",
+      "owner": "analyze-spec"
+    }
+  ]
+}

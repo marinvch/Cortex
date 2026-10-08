@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "review this diff against our docs before I commit",
+    "did my change make any of the documentation wrong",
+    "check that this change doesn't break a rule in AGENTS.md"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "what breaks if I change this file",
+      "owner": "cortex-impact"
+    }
+  ]
+}

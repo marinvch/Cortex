@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "which skills would suit this project",
+    "write skills that fit our stack, we use Prisma and Stripe",
+    "add project skills for this codebase"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "turn this repeated task into a slash command",
+      "owner": "skill-creator"
+    }
+  ]
+}

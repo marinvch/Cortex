@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "before we build the billing export, let's design it properly and write up a plan",
+    "this refactor is risky, I want a design doc first and no code yet",
+    "can you draft a spec for the new permissions model"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "poke holes in my plan for the migration",
+      "owner": "grilling"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "index this codebase and report what you find, nothing else",
+    "show me the findings for this repo without setting anything up",
+    "I only want the read-only report on this project"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "set this repo up with the whole loop",
+      "owner": "cortex"
+    }
+  ]
+}

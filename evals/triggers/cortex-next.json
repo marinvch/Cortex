@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "I installed cortex, what do I run now",
+    "where am I in the sequence",
+    "what is the next command for this repo"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "what's left on the feature I was working on",
+      "owner": "resume"
+    }
+  ]
+}

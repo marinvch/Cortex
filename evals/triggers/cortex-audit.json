@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "my vault has orphan notes and broken links, find and fix them",
+    "run the full structural health check on the vault",
+    "there are duplicate and misplaced files in my notes, clean it up"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "give me a health score for my vault",
+      "owner": "audit"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "let's wrap up for the day",
+    "what did we learn today, write it into the repo memory",
+    "end of day, consolidate today's work into a digest"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "what changed while I was away",
+      "owner": "catch-me-up"
+    }
+  ]
+}

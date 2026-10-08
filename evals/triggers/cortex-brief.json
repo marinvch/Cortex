@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "the payments directory needs its own AGENTS.md",
+    "our root AGENTS.md is getting too big, split out the auth area",
+    "write a scoped brief for src/billing, it has invariants people keep breaking"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "our AGENTS.md is bloated, slim it down",
+      "owner": "optimize-context"
+    }
+  ]
+}

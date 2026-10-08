@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "let's pick up where we stopped yesterday",
+    "what's left to do on this branch",
+    "продължи работата от вчера"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "what did I miss while I was away",
+      "owner": "catch-me-up"
+    }
+  ]
+}

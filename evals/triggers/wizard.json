@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "walk me through setting the CI secrets",
+    "I have to do this in the Stripe dashboard by hand, make me a script",
+    "generate a setup script for the credentials"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "set up the plugins on this machine",
+      "owner": "setup-plugins"
+    }
+  ]
+}

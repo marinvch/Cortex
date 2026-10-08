@@ -1075,6 +1075,64 @@ test("review-ci is offered on GitHub Actions with a brief, and names what it wai
   rmSync(noBrief, { recursive: true, force: true });
 });
 
+// #548, item 7: the row waited on "GitHub Actions" in a repo hosted on GitHub with no workflow yet —
+// and cortex-review.yml is itself the workflow that would be the first one.
+const gitConfig = (url) => `[core]\n\tbare = false\n[remote "origin"]\n\turl = ${url}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n`;
+const reviewCiRow = (root) => {
+  const plan = loopPlan(root, indexOf(["src/a.js"]));
+  for (const bucket of ["present", "missing", "blocked"]) {
+    const e = plan[bucket].find((x) => x.id === "review-ci");
+    if (e) return { bucket, ...e };
+  }
+  return null;
+};
+
+test("review-ci is offered on a repo with a GitHub remote and no workflows, since it would be the first", () => {
+  for (const url of ["https://github.com/acme/app.git", "git@github.com:acme/app.git", "ssh://git@github.com/acme/app"]) {
+    const root = repo(({ put }) => { put("AGENTS.md"); put(".github/CODEOWNERS"); put(".git/config", gitConfig(url)); });
+    const row = reviewCiRow(root);
+    assert.equal(row.bucket, "missing", url);
+    assert.deepEqual(row.needs, []);
+    assert.match(row.why, /hosted on GitHub.*first workflow/);
+    assert.equal(loopPlan(root, indexOf(["src/a.js"])).state.githubRemote, true);
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("review-ci still waits where nothing says GitHub runs this repo's CI", () => {
+  const cases = {
+    "no remote at all": ({ put }) => { put("AGENTS.md"); put(".git/config", "[core]\n\tbare = false\n"); },
+    "no git directory": ({ put }) => put("AGENTS.md"),
+    "a remote on another host": ({ put }) => { put("AGENTS.md"); put(".git/config", gitConfig("https://gitlab.com/acme/app.git")); },
+    // A path that merely contains the word is not the host.
+    "github in the path, not the host": ({ put }) => { put("AGENTS.md"); put(".git/config", gitConfig("https://example.org/mirrors/github.com/app.git")); },
+    // The repo already chose a CI, and a GitHub workflow beside it is a file nothing was asked to run.
+    "a GitHub remote beside GitLab CI": ({ put }) => { put("AGENTS.md"); put(".gitlab-ci.yml"); put(".git/config", gitConfig("https://github.com/acme/app.git")); },
+  };
+  for (const [name, build] of Object.entries(cases)) {
+    const root = repo(build);
+    const row = reviewCiRow(root);
+    assert.equal(row.bucket, "blocked", name);
+    assert.ok(row.needs.some((n) => /GitHub Actions/.test(n)), `${name}: ${row.needs.join("; ")}`);
+    rmSync(root, { recursive: true, force: true });
+  }
+  // The brief is still required: a review against no documents has nothing to say.
+  const noBrief = repo(({ put }) => put(".git/config", gitConfig("https://github.com/acme/app.git")));
+  assert.deepEqual(reviewCiRow(noBrief).needs, ["AGENTS.md — the documents a pull request is reviewed against"]);
+  rmSync(noBrief, { recursive: true, force: true });
+});
+
+test("a GitHub remote is read through a worktree's .git file, and never by running git", () => {
+  const main = repo(({ put }) => put(".git/config", gitConfig("https://github.com/acme/app.git")));
+  mkdirSync(join(main, ".git", "worktrees", "wt"), { recursive: true });
+  writeFileSync(join(main, ".git", "worktrees", "wt", "commondir"), "../..\n");
+  const wt = repo(({ put }) => put("AGENTS.md"));
+  writeFileSync(join(wt, ".git"), `gitdir: ${join(main, ".git", "worktrees", "wt")}\n`);
+  assert.equal(reviewCiRow(wt).bucket, "missing");
+  rmSync(main, { recursive: true, force: true });
+  rmSync(wt, { recursive: true, force: true });
+});
+
 test("cortex-review.yml, stamped, is a PR workflow that needs no secret and blocks only on opt-in", async () => {
   const { parseYaml } = await import("./yaml-lite.mjs");
   const stamped = fsRead(REVIEW_TEMPLATE, "utf8").replaceAll("{{CORTEX_REF}}", "v2.38.0");

@@ -26,6 +26,11 @@
 // claude-docs-seen.json. It judges nothing: a new page is something for a maintainer to read, and
 // --accept is how they say they have. An index that read but listed no pages counts as unread.
 //
+// A third index is the platform docs' llms.txt. It lists about 800 pages, most of them API
+// reference, so only three sections are watched: agent skills, prompt engineering, and
+// test-and-evaluate. Those are the pages Cortex's own skills and its authoring rules rest on. A new
+// page anywhere else there is not reported.
+//
 // Maintainer-only. Users never run this; they get the rules with the plugin. ADR 0017.
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -36,6 +41,9 @@ import { CHECKED, RULES } from "../core/claude-code.js";
 const DOCS_INDEX = "https://code.claude.com/docs/llms.txt";
 const DOCS_ROOT = "https://code.claude.com/docs/en/";
 const BLOG_INDEX = "https://claude.com/blog";
+const PLATFORM_INDEX = "https://platform.claude.com/llms.txt";
+const PLATFORM_ROOT = "https://platform.claude.com/docs/en/";
+const PLATFORM_SECTIONS = ["agents-and-tools/agent-skills/", "build-with-claude/prompt-engineering/", "test-and-evaluate/"];
 
 const args = process.argv.slice(2);
 const asJson = args.includes("--json");
@@ -106,6 +114,14 @@ function docPages(md) {
   return found;
 }
 
+/** The platform index → Map of page path → title, for the watched sections only. */
+function platformPages(md) {
+  const found = new Map();
+  const link = /\[([^\]]+)\]\(https:\/\/platform\.claude\.com\/docs\/en\/([^)\s]+?)\.md\)/g;
+  for (const m of md.matchAll(link)) if (PLATFORM_SECTIONS.some((s) => m[2].startsWith(s))) found.set(m[2], m[1]);
+  return found;
+}
+
 /** The blog's front page → the post slugs it links. A category or tag link has a second segment. */
 function blogPosts(html) {
   const found = new Set();
@@ -117,8 +133,19 @@ function blogPosts(html) {
  * What the two indexes list that the seen-list does not. The blog's front page shows only recent
  * posts, so a slug missing from it has scrolled off, not gone — only the docs can report `gone`.
  */
-function discover(seen, docsIndex, blogIndex) {
-  const out = { newDocs: [], goneDocs: [], newPosts: [], unread: [], docs: null, posts: null };
+function discover(seen, docsIndex, blogIndex, platformIndex) {
+  const out = { newDocs: [], goneDocs: [], newPosts: [], newPlatform: [], gonePlatform: [], unread: [], docs: null, posts: null, platform: null };
+  if (typeof platformIndex !== "string") out.unread.push({ source: PLATFORM_INDEX, reason: platformIndex.message });
+  else {
+    const live = platformPages(platformIndex);
+    // None at all means the sections were renamed, and a watch on names that no longer exist sees nothing.
+    if (!live.size) out.unread.push({ source: PLATFORM_INDEX, reason: "no pages found in the watched sections" });
+    else {
+      out.platform = [...live.keys()].sort();
+      out.newPlatform = out.platform.filter((p) => !seen.platform.includes(p)).map((p) => ({ path: p, title: live.get(p) }));
+      out.gonePlatform = seen.platform.filter((p) => !live.has(p));
+    }
+  }
   if (typeof docsIndex !== "string") out.unread.push({ source: DOCS_INDEX, reason: docsIndex.message });
   else {
     const live = docPages(docsIndex);
@@ -144,9 +171,9 @@ function discover(seen, docsIndex, blogIndex) {
 function readSeen() {
   try {
     const seen = JSON.parse(readFileSync(seenAt, "utf8"));
-    return { docs: seen.docs ?? [], blog: seen.blog ?? [] };
+    return { docs: seen.docs ?? [], blog: seen.blog ?? [], platform: seen.platform ?? [] };
   } catch {
-    return { docs: [], blog: [] };
+    return { docs: [], blog: [], platform: [] };
   }
 }
 
@@ -180,14 +207,15 @@ const readPage = (source) => readText(`${source}.md`, fixtureOf(source));
 async function main() {
   const sources = [...new Set(RULES.map((r) => r.source))];
   const pages = new Map();
-  const [docsIndex, blogIndex] = await Promise.all([
+  const [docsIndex, blogIndex, platformIndex] = await Promise.all([
     readText(DOCS_INDEX, "llms.txt"),
     readText(BLOG_INDEX, "blog.html"),
+    readText(PLATFORM_INDEX, "platform-llms.txt"),
     ...sources.map(async (s) => pages.set(s, await readPage(s))),
   ]);
   const { stale, unchecked, newKeys } = judge(RULES, pages);
-  const found = discover(readSeen(), docsIndex, blogIndex);
-  const fresh = found.newDocs.length + found.newPosts.length;
+  const found = discover(readSeen(), docsIndex, blogIndex, platformIndex);
+  const fresh = found.newDocs.length + found.newPosts.length + found.newPlatform.length;
 
   if (accept) {
     if (found.unread.length) {
@@ -195,9 +223,9 @@ async function main() {
       process.stderr.write("Nothing recorded: accepting a list that was not read would hide whatever is on it.\n");
       process.exit(2);
     }
-    const seen = { checked: new Date().toISOString().slice(0, 10), docs: found.docs, blog: found.posts };
+    const seen = { checked: new Date().toISOString().slice(0, 10), docs: found.docs, blog: found.posts, platform: found.platform };
     writeFileSync(seenAt, `${JSON.stringify(seen, null, 2)}\n`);
-    process.stdout.write(`Recorded ${found.docs.length} docs pages and ${found.posts.length} blog posts as seen (${fresh} new).\n`);
+    process.stdout.write(`Recorded ${found.docs.length} docs pages, ${found.posts.length} blog posts and ${found.platform.length} platform pages as seen (${fresh} new).\n`);
     return;
   }
 
@@ -219,6 +247,8 @@ async function main() {
         newDocs: found.newDocs,
         goneDocs: found.goneDocs,
         newPosts: found.newPosts,
+        newPlatform: found.newPlatform,
+        gonePlatform: found.gonePlatform,
         unread: found.unread,
       },
       ok: code === 0,
@@ -247,10 +277,12 @@ async function main() {
       out.push("", `${unchecked.length} rule(s) could not be checked — this is not a pass.`);
     }
     if (code === 1) out.push("", "A stale rule means the docs moved: update core/claude-code.js, then whatever consumes the rule.");
-    if (fresh || found.goneDocs.length || found.unread.length) out.push("");
+    if (fresh || found.goneDocs.length || found.gonePlatform.length || found.unread.length) out.push("");
     for (const d of found.newDocs) out.push(`new    docs page: ${DOCS_ROOT}${d.path} — ${d.title}`);
     for (const p of found.newPosts) out.push(`new    blog post: ${BLOG_INDEX}/${p}`);
+    for (const d of found.newPlatform) out.push(`new    platform page: ${PLATFORM_ROOT}${d.path} — ${d.title}`);
     for (const p of found.goneDocs) out.push(`gone   docs page: ${DOCS_ROOT}${p} (informational)`);
+    for (const p of found.gonePlatform) out.push(`gone   platform page: ${PLATFORM_ROOT}${p} (informational)`);
     for (const u of found.unread) out.push(`  ?      ${u.source} — could not check (${u.reason})`);
     if (found.unread.length) out.push("", "An index could not be read, so new pages went unlooked for — this is not a pass.");
     if (fresh) {

@@ -26,6 +26,12 @@
 // holding exactly the new text — or nothing is returned, like the shared-plugin merge: a text edit
 // is trusted only once the reader agrees with it.
 //
+// **The append.** A block Cortex adds to the end of such a file takes the file's line endings, the
+// ones most of its lines have. Its templates are LF and a `core.autocrlf` checkout is CRLF on disk,
+// so an append as-is left one file with two kinds of ending (#548). Every byte that was there stays
+// where it was: the block goes after it, behind exactly one blank line. A file that is not there, or
+// has no line ending yet, gets LF.
+//
 // Pure: no filesystem, no clock.
 
 import { lineDiff } from "./linediff.mjs";
@@ -182,6 +188,33 @@ export function sectionState(fileText, { heading, template, earlier = [] }) {
   if (!values) values = lineValues([template, ...earlier.map((e) => e.text)], body);
   const proposed = normal(renderTemplate(template, values));
   return { ...base, state, version, values, proposed, unfilled: unfilledPlaceholders(template, values), diff: lineDiff(body, proposed) };
+}
+
+/** The line ending most of `text`'s lines have: `"\r\n"` or `"\n"`. LF for none, and for a tie. */
+export function eolOf(text) {
+  const all = (String(text ?? "").match(/\n/g) ?? []).length;
+  const crlf = (String(text ?? "").match(/\r\n/g) ?? []).length;
+  return crlf > all - crlf ? "\r\n" : "\n";
+}
+
+/**
+ * `fileText` with `block` appended in the file's own line endings (`eolOf`), after exactly one blank
+ * line, ending in one newline. `fileText` may be `null` for a file that is not there. Every byte of
+ * `fileText` is kept where it was. Throws `SectionRefused` (code 1) for a block with nothing in it,
+ * and an Error when the result does not start with the file as it was.
+ */
+export function appendBlock(fileText, block) {
+  const body = lf(block).replace(/^\n+/, "").replace(/\s+$/, "");
+  if (!body) throw new SectionRefused("there is nothing to append: the block is empty", 1);
+  const before = fileText ?? "";
+  const eol = eolOf(before);
+  // What the file already ends with decides the separator: nothing for an empty file or one that
+  // ends in a blank line, one ending after a last line that has its own, two after one that has none.
+  const tail = lf(before);
+  const sep = tail === "" || tail.endsWith("\n\n") ? "" : tail.endsWith("\n") ? eol : eol + eol;
+  const out = before + sep + body.split("\n").join(eol) + eol;
+  if (!out.startsWith(before)) throw new Error("appending the block changed the file before it — nothing was written");
+  return out;
 }
 
 /**

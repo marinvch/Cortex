@@ -34,6 +34,27 @@ expected to land and are confirmed by that reproduction.
 | F7 | A stamped hook script and a test setup file are not counted as tests | 8 | `index/lib/` (test detection), its tests | the count is unchanged by stamping the Tester's hook; validated on cloned public repos |
 | F8 | A block appended or merged into an existing file takes that file's line endings | 9 | `index/lib/section.mjs`, `index/lib/shared-plugin.mjs`, `skills/cortex/SKILL.md` | appending to a CRLF file leaves no LF line in it |
 
+## Then: what the agent-skills survey gave
+
+A read of [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) at its 2026-10-03
+commit, approved by the maintainer on 2026-10-08 on one condition: an idea is taken only where it
+benefits Cortex, and it is built by Cortex's own means and principles. So nothing here copies a
+skill or a script. Each step takes one idea and builds it the way this repo builds things: no
+runtime dependency (ADR 0004), a check that finds and cites and never judges, a rule about Claude
+Code only with the sentence from the docs that states it (ADR 0017), no hook and no mod (ADR 0021).
+
+Each step begins by showing the gap in Cortex as a failing test or a reproduced run. An idea whose
+gap does not reproduce is answered in the spec and dropped. The spec lists what was left out and
+why, so it is not proposed again. These come after F8 and before the steps owed before part 1.
+
+| # | Step | Idea taken | Files | Verified by |
+|---|---|---|---|---|
+| H1 | A ritual's description is checked against what people say, with no model | Their tier-2 trigger eval: prompts that should reach a skill, and prompts that belong to a named other skill, ranked against every description | `evals/triggers/<ritual>.json`, a ranker in `evals/`, `evals/run.mjs --check`, `evals/README.md`, `evals/test/` | every model-invocable ritual has prompts; removing a trigger word from a description fails the check; a negative prompt fails when its owner does not outrank the ritual; the rank-1 rate is recorded and only raised |
+| H2 | **spec** — whether `claude plugin eval` can measure that a ritual fires and what it adds, through Claude Code's own router | Their plugin eval cases: one folder per case, graders on the reply, a with-plugin and a without-plugin arm | `docs/specs/` | each fact about the command is cited from Anthropic's docs with its sentence; one case for `/resume` is run by hand with the model pinned and its numbers recorded; approved by the maintainer |
+| H3 | `/cortex-review` cites a change that lowers the bar | Their floor guard: a diff that adds a suppression, skips or deletes a test, strips an assertion, or edits a threshold down | `index/lib/review.mjs`, `index/cortex-review.mjs`, `skills/cortex-review/SKILL.md`, `templates/loop/REVIEW.md`, their tests; re-measure the `cortex-review` eval | each of the four is a fixture diff that yields a cited line and no verdict; run over real commit history of cloned public repos and every finding opened; mutation-checked |
+| H4 | The authoring rules, in one change | Write the procedure and not the workaround for one model; read before asking, and give every question a default; hand a reviewer the artifact and its contract and not the conclusion; say what an interview ritual does with nobody to answer | `skills/writing-for-agents/SKILL.md` (also the ADR 0017 follow-up: cite the Anthropic pages), `skills/cortex/TEAM.md`, `skills/onboard/SKILL.md`, `skills/grilling/SKILL.md`, `templates/team/team-skill.md`; re-measure every eval whose body changes | each rule is first shown missing in the file it is added to, and left out where it is already there; the evals are re-measured over several runs, since one run of the `cortex` eval moved by 0.07 on unchanged text |
+| H5 | A link from a ritual to its supporting file resolves, heading included; rejected skill changes are kept | Their reference-link check, and their ledger of changes rejected on eval evidence | `tools/test/` (beside the link check for `docs/changing-cortex.md`), `evals/REJECTED.md`, `evals/README.md` | a link to a missing file or heading under `skills/` fails the suite; the ledger opens with the 2026-10-08 comparison of the `cortex` eval |
+
 ## Owed before part 1
 
 | # | Step | Files | Verified by |

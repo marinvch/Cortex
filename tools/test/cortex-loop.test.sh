@@ -494,6 +494,33 @@ assert_contains "$json" '"gaps": [' "agents: --json carries the gaps for /cortex
 assert_contains "$json" '"upgrade": {' "agents: and the verifier's upgrade"
 assert_eq "$agents_before" "$(git -C "$agents_repo" status --porcelain)" "agents: reading them writes nothing into the repo"
 
+# An answer is kept (#548): five agents answered "not a role" were all asked about again on the next
+# run, because `--as` lasted for one call. Without --remember that is still so, and nothing is written.
+SEC=".claude/agents/security-reviewer.md"
+unmapped() { node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(j.state.agentTeam.unmapped.map((a) => a.path).join(","));'; }
+assert_eq "$SEC" "$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json | unmapped)" "answers: before any answer, the specialist is asked about"
+assert_eq "" "$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json --as "$SEC=none" | unmapped)" "answers: answered in this call, it is not asked about"
+assert_eq "$agents_before" "$(git -C "$agents_repo" status --porcelain)" "answers: and without --remember the answer writes nothing"
+assert_eq "$SEC" "$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json | unmapped)" "answers: so the next call asks again"
+
+out="$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json --as ".claude/agents/nobody.md=none" --remember 2>&1)"; rc=$?
+assert_eq "1" "$rc" "answers: an answer about an agent that is not here is refused"
+assert_eq "$agents_before" "$(git -C "$agents_repo" status --porcelain)" "answers: and a refused answer is never recorded"
+out="$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --remember 2>&1)"; rc=$?
+assert_eq "1" "$rc" "answers: --remember with no answer is refused"
+
+out="$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json --as "$SEC=none" --remember 2>&1 >/dev/null)"
+assert_contains "$out" ".cortex/agents.json" "answers: --remember names the file it wrote"
+assert_eq "?? .cortex/" "$(git -C "$agents_repo" status --porcelain)" "answers: and that file is the one thing it wrote"
+assert_eq "" "$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json | unmapped)" "answers: the second run lists no agent as unmapped that was answered none in the first"
+out="$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" 2>&1)"
+assert_contains "$out" "security-reviewer.md  not a role — answered" "answers: and the report says why it is not asked about"
+assert_not_contains "$out" "undefined" "answers: with no hole in the sentence"
+
+node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json --as "$SEC=ask" --remember >/dev/null 2>&1
+assert_eq "$SEC" "$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json | unmapped)" "answers: =ask takes the answer back, and the agent is asked about again"
+rm -rf "$agents_repo/.cortex"
+
 # A repo with no agents reads exactly as before; with no index the question is unanswered, not "none".
 fresh_repo noagents
 assert_not_contains "$(run noagents)" "Agents already here" "agents: a repo without agents prints no agents section"

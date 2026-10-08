@@ -184,7 +184,10 @@ description) has a test.
 
 - Validated by hand on 83 agents in seven public repos (octez-manager, metaxy, spica, kapi-sprints,
   a-safe-pulse, Heimdall, posthog). Two mappings are still wrong, and both are recoverable because
-  the developer confirms every mapping. octez-manager's `architect` is a pre-merge architecture
+  the developer confirms every mapping. The answer is kept in `.cortex/agents.json`
+  (`lib/agent-answers.mjs`, whose header holds the rules): reading it may only lose an answer, and
+  `cortex-loop.mjs --remember` is its one writer. Checked on kapi-sprints: two unmapped agents
+  answered `none`, and the next run asked about neither. octez-manager's `architect` is a pre-merge architecture
   reviewer, and the name outranks a description with no job words. spica's `pr-review-analyst`
   reviews other reviewers' comments. Mutation-checked: 32 guards, each breaking a test.
 

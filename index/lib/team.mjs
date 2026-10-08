@@ -24,6 +24,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readAgentAnswers } from "./agent-answers.mjs";
 import { ROLES, agentReport } from "./agents.mjs";
 import { adrLocation } from "./adr.mjs";
 import { placeholderMatches } from "./placeholders.mjs";
@@ -205,16 +206,18 @@ function stampedRoles(root, values) {
 /**
  * What the team row offers this repo, or `null` without an index. Options: `testCmd` (the loop's
  * detected test command), `verifierPath` (where /cortex stamps its verifier) and `as` (the developer's
- * own mapping of existing agents, `{ path: role | null }`).
+ * own mapping of existing agents, `{ path: role | null }`). The answers an earlier run recorded
+ * (`.cortex/agents.json`) are read here, so every caller gets them; `as` outranks them.
  *
- * `{ report, playbook, teamSkill, values, covered, stamped, offer, withheld, upgrade, unmapped, proposals }`.
+ * `{ report, playbook, teamSkill, values, covered, stamped, offer, withheld, upgrade, unmapped, answered, proposals }`.
+ * `unmapped` is the agents still to ask about; `answered` the ones the developer already placed.
  * `values` holds each detected value and `null` for one that was not; `offer` is the roles to ask
  * about, each with the questions its files need. `stamped` is the roles Cortex wrote here before,
  * which are never offered again and can be picked again to re-render with today's values.
  */
 export function teamState(root, index, { testCmd = null, verifierPath = null, as = {} } = {}) {
   if (!index) return null;
-  const report = agentReport(root, index, { verifierPath, as });
+  const report = agentReport(root, index, { verifierPath, as, remembered: readAgentAnswers(root) });
   const claudeMd = readText(join(root, "CLAUDE.md")) ?? "";
   const tests = testLocations(index);
   const planDirs = PLAN_DIRS.filter((d) => isDir(join(root, ...d.split("/"))));
@@ -281,7 +284,10 @@ export function teamState(root, index, { testCmd = null, verifierPath = null, as
     offer,
     withheld,
     upgrade: upgrade ? { ...upgrade, needs: needsFor("reviewer", values) } : null,
-    unmapped: report.agents.filter((a) => a.loads && !a.mapping.role).map((a) => ({ path: a.path, name: a.name, reason: a.mapping.reason })),
+    unmapped: report.agents
+      .filter((a) => report.unmapped.includes(a.path))
+      .map((a) => ({ path: a.path, name: a.name, reason: a.mapping.reason })),
+    answered: report.answered,
     // The upgrade is the verifier's proposal; its own line edits would be superseded by it.
     proposals: members
       .filter((a) => a.proposals.length && !a.mapping.upgrade)

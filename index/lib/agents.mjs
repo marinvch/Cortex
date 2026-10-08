@@ -557,7 +557,11 @@ function answered(mapping, agent, as, verifierPath) {
  * about. `null` without an index — an unanswered question, never an empty roster.
  *
  * `opts.verifierPath` is where /cortex stamps its verifier (T9); `opts.as` is the developer's own
- * mapping, `{ path: role | null }`, which outranks the mapper's.
+ * mapping, `{ path: role | null }`, which outranks the mapper's. `opts.remembered` is the same
+ * shape, read from an earlier run (`agent-answers.mjs`): `as` outranks it, and an entry naming no
+ * agent here or no role is skipped rather than refused, because the agent may have been deleted
+ * since. `answered` lists every agent the developer placed; none of them is `unmapped`, which is
+ * the list of agents still to ask about.
  */
 export function agentReport(root, index, opts = {}) {
   if (!index) return null;
@@ -570,8 +574,13 @@ export function agentReport(root, index, opts = {}) {
     if (!listed.some((a) => a.path === path)) throw new Error(`there is no agent at ${path} to map`);
     if (role !== null && !ROLES.includes(role)) throw new Error(`${role} is not a role — one of ${ROLES.join(", ")}, or none`);
   }
+  const said = {};
+  for (const [path, role] of Object.entries(opts.remembered ?? {})) {
+    if (role === null || ROLES.includes(role)) said[path] = role; // a path with no agent here matches nothing below
+  }
+  Object.assign(said, as);
   const agents = listed.map((a) => {
-    const mapping = answered(mapRole(a, { verifierPath: opts.verifierPath ?? null }), a, as, opts.verifierPath ?? null);
+    const mapping = answered(mapRole(a, { verifierPath: opts.verifierPath ?? null }), a, said, opts.verifierPath ?? null);
     return {
       path: a.path,
       name: a.name,
@@ -593,7 +602,8 @@ export function agentReport(root, index, opts = {}) {
     agents,
     covered,
     gaps: rosterGaps(agents.map((a) => a.mapping)),
-    unmapped: agents.filter((a) => a.loads && !a.mapping.role).map((a) => a.path),
+    unmapped: agents.filter((a) => a.loads && !a.mapping.role && a.mapping.reason !== "developer").map((a) => a.path),
+    answered: agents.filter((a) => a.mapping.reason === "developer").map((a) => ({ path: a.path, role: a.mapping.role })),
     notLoaded: agents.filter((a) => !a.loads).map((a) => a.path),
     grounding,
   };

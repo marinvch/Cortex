@@ -6,13 +6,18 @@
 //   node index/cortex-loop.mjs . --json   # the worklist, for /cortex to walk
 //   node index/cortex-loop.mjs . --team tester,reviewer [--as <agent path>=<role|none> ...]
 //                                          # after the picks: the team files, values and roster
+//   node index/cortex-loop.mjs . --as <agent path>=<role|none|ask> --remember [--json]
+//                                          # keep the answers, so the next run does not ask again
 //
-// Read-only in the strongest sense: it writes nothing, not even under `.cortex/`.
+// Read-only in the strongest sense: it writes nothing, not even under `.cortex/`. `--remember` is
+// the one exception, and it writes one file: the `--as` answers of this call go to
+// `.cortex/agents.json` (lib/agent-answers.mjs). Without the flag an answer lasts for one call.
 //
 // This is `/cortex`'s script the way the findings report is `/cortex-install`'s (ADR 0006). The
 // ritual walks `missing` top-down, so the rank in `lib/loop.mjs` is control flow — it decides which
 // artifact a user is offered first, not merely how a report reads.
 
+import { ANSWERS_REL, rememberAgentAnswers } from "./lib/agent-answers.mjs";
 import { loopPlan, loopLine, STAGES } from "./lib/loop.mjs";
 import { teamValues } from "./lib/team.mjs";
 import { normalizeChangedPath } from "./lib/changed.mjs";
@@ -23,8 +28,8 @@ import { openTarget } from "./lib/open.mjs";
 // rather than to a wrong answer. Running this before the indexer is the ordinary case on a repo
 // where `/cortex` has only just started.
 const { root, args, index } = openTarget(process.argv.slice(2), {
-  usage: "usage: node index/cortex-loop.mjs [root] [--line] [--json] [--team ROLES|none] [--as PATH=ROLE|none ...]",
-  flags: { "--json": "boolean", "--line": "boolean", "--index": "value", "--team": "list", "--as": "multi" },
+  usage: "usage: node index/cortex-loop.mjs [root] [--line] [--json] [--team ROLES|none] [--as PATH=ROLE|none|ask ...] [--remember]",
+  flags: { "--json": "boolean", "--line": "boolean", "--index": "value", "--team": "list", "--as": "multi", "--remember": "boolean" },
   root: "positional",
   index: "optional",
   freshness: (a) => !a.json && !a.line && !a.team.length,
@@ -37,16 +42,33 @@ const fail = (text) => {
 
 // The developer's answer to "is this agent that role": `--as .claude/agents/x.md=reviewer`, or
 // `=none`. A mapping is a proposal the developer confirms, so the answer outranks the mapper.
+// `=ask` takes a remembered answer back: the mapper's proposal stands again, and is asked about.
 const as = {};
+const forget = [];
 for (const kv of args.as) {
   const eq = kv.lastIndexOf("=");
-  if (eq <= 0) fail(`--as must be <agent path>=<role|none>: ${kv}`);
-  as[normalizeChangedPath(kv.slice(0, eq))] = kv.slice(eq + 1) === "none" ? null : kv.slice(eq + 1);
+  if (eq <= 0) fail(`--as must be <agent path>=<role|none|ask>: ${kv}`);
+  const path = normalizeChangedPath(kv.slice(0, eq));
+  const said = kv.slice(eq + 1);
+  if (said === "ask") forget.push(path);
+  else as[path] = said === "none" ? null : said;
 }
+if (args.remember && !args.as.length) fail("--remember keeps the answers given with --as, and none was given");
+if (forget.length && !args.remember) fail(`--as ${forget[0]}=ask takes back a remembered answer, so it needs --remember`);
 
+// Validated before the write: `loopPlan` refuses a path that is no agent here and a role the roster
+// does not have, so a refused answer is never recorded. Then the plan is read again, off the file,
+// which is what the next run will see.
 let plan;
 try {
   plan = loopPlan(root, index, Object.keys(as).length ? { agentsAs: as } : {});
+  if (args.remember) {
+    if (!plan.state.agentTeam) fail("no index, so the agents already here cannot be read — run node index/cortex-index.mjs first");
+    rememberAgentAnswers(root, { ...as, ...Object.fromEntries(forget.map((p) => [p, undefined])) });
+    process.stderr.write(`Recorded ${args.as.length} answer(s) in ${ANSWERS_REL} — commit it, so the next run and your teammates are not asked again.
+`);
+    plan = loopPlan(root, index, {});
+  }
 } catch (e) {
   fail(e.message);
 }
@@ -160,16 +182,19 @@ if (agents?.agents.length) {
     dropped: (m) => `unmapped — ask: ${m.dropped[0]?.why ?? "every candidate was ruled out"}`,
     lens: (m) => `unmapped — a specialist: ${m.note}`,
     "outside-roster": (m) => `unmapped — ${m.note}`,
+    developer: () => "not a role — answered, so it is not asked about again",
     "not-loaded": () => "not loaded by Claude Code — its frontmatter lacks a name or description",
   };
   console.log(b(`Agents already here — ${agents.agents.length} in .claude/agents/`));
   for (const a of agents.agents) {
     const m = a.mapping;
     const file = a.path.split("/").pop();
-    const said = m.role
+    const said = m.role && m.reason === "developer"
+      ? `${m.role} — answered`
+      : m.role
       ? `${m.role} — ${[...m.evidence.name.map((w) => `name "${w}"`), ...m.evidence.description.slice(0, 2).map((w) => `"${w}"`)].join(", ")}`
       : REASON[m.reason](m);
-    console.log(`  ${m.role ? green("✓") : dim("?")} ${file}  ${dim(said)}`);
+    console.log(`  ${m.role ? green("✓") : m.reason === "developer" ? dim("·") : dim("?")} ${file}  ${dim(said)}`);
     if (m.upgrade) console.log(`      ${dim(`offered the upgrade to ${m.upgrade.template} — it keeps working until you accept`)}`);
     for (const f of a.findings) console.log(`      ${dim(`${f.kind}: ${f.evidence[0]}`)}`);
     for (const p of a.proposals) {

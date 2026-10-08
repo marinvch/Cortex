@@ -408,3 +408,41 @@ test("the roster is read from templates/team — the tools table has one home", 
     assert.match(roster[role].grounding, /AGENTS\.md/, role);
   }
 });
+
+// --- an answer from an earlier run (#548) ------------------------------------------------------------
+
+test("a remembered answer is applied like the developer's own, and an answered agent is not asked about again", () => {
+  const { index, opts } = repo({
+    ".claude/agents/code-reviewer.md": agentFile("name: code-reviewer\ndescription: Reviews the diff."),
+    ".claude/agents/helper.md": agentFile("name: helper\ndescription: Explains code."),
+    ".claude/agents/owner.md": agentFile("name: owner\ndescription: Owns the billing area."),
+  });
+  const before = agentReport(null, index, opts);
+  assert.deepEqual(before.unmapped, [".claude/agents/helper.md", ".claude/agents/owner.md"]);
+  assert.deepEqual(before.answered, []);
+
+  const remembered = { ".claude/agents/helper.md": null, ".claude/agents/code-reviewer.md": "tester" };
+  const r = agentReport(null, index, { ...opts, remembered });
+  assert.deepEqual(r.unmapped, [".claude/agents/owner.md"], "answered none: no longer asked; never answered: still asked");
+  assert.deepEqual(r.covered, { tester: [".claude/agents/code-reviewer.md"] });
+  assert.deepEqual(r.answered, [
+    { path: ".claude/agents/code-reviewer.md", role: "tester" },
+    { path: ".claude/agents/helper.md", role: null },
+  ]);
+});
+
+test("this run's answer outranks a remembered one, and a remembered answer that no longer fits is ignored", () => {
+  const { index, opts } = repo({
+    ".claude/agents/helper.md": agentFile("name: helper\ndescription: Explains code."),
+  });
+  const remembered = { ".claude/agents/helper.md": null, ".claude/agents/gone.md": "tester", ".claude/agents/old.md": "boss" };
+  // Stale entries are not an error: the file is committed, and an agent can be deleted after it was answered.
+  const r = agentReport(null, index, { ...opts, remembered });
+  assert.deepEqual(r.unmapped, []);
+  const now = agentReport(null, index, { ...opts, remembered, as: { ".claude/agents/helper.md": "tester" } });
+  assert.deepEqual(now.covered, { tester: [".claude/agents/helper.md"] });
+  // A role the roster does not have maps nothing: the agent is asked about, as if never answered.
+  const bad = agentReport(null, index, { ...opts, remembered: { ".claude/agents/helper.md": "boss" } });
+  assert.deepEqual(bad.unmapped, [".claude/agents/helper.md"]);
+  assert.deepEqual(bad.covered, {});
+});

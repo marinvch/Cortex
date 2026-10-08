@@ -5,6 +5,33 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.21] — 2026-10-08
+
+An answer about an agent already in the repo is asked once. Third fix from the field report in
+#548.
+
+### Fixed
+
+- **"Not a role" is remembered (#548, item 3).** `--as <agent>=none` lasted for one call, so a repo
+  with five area-owner agents was asked the same five questions on every `/cortex` run.
+  `cortex-loop.mjs . --as <agent path>=<role|none> --remember` now writes the answer to
+  `.cortex/agents.json`, which is committed, so a teammate is not asked either. A role answer is
+  kept the same way. `--as <agent path>=ask --remember` takes one back.
+- **`cortex-loop.mjs . --as <agent>=none` no longer crashes the plain report.** It printed
+  through a table with no entry for an answered agent. The line now reads "not a role — answered".
+
+### Added
+
+- **`state.agentTeam.answered`** in `cortex-loop.mjs . --json`: the agents a developer placed, in
+  this run or an earlier one. `unmapped` is now only the agents still to ask about.
+
+### Changed
+
+- **`/cortex` asks about several unmapped agents in one question** and records the answer
+  (`skills/cortex/TEAM.md`).
+- A file that cannot be read as answers asks again and maps nothing. A write refuses to replace
+  such a file, because it may hold a teammate's answers.
+
 ## [2.41.20] — 2026-10-04
 
 A team role's values follow the repo after the role is stamped. Second fix from the field report
@@ -4446,6 +4473,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.21]: https://github.com/marinvch/Cortex/releases/tag/v2.41.21
 [2.41.20]: https://github.com/marinvch/Cortex/releases/tag/v2.41.20
 [2.41.19]: https://github.com/marinvch/Cortex/releases/tag/v2.41.19
 [2.41.18]: https://github.com/marinvch/Cortex/releases/tag/v2.41.18

@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.41.20** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
+**v2.41.21** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
@@ -176,6 +176,8 @@ intent/            where a change starts: intent → spec → plan
                    updates the untouched ones and asks about the ones your team edited
   sections.json    COMMITTED — a CLAUDE.md section your team edited and chose to keep, so it
                    is asked about once, and again only when a release changes its text
+  agents.json      COMMITTED — what you answered about an agent already in the repo (which
+                   role it plays, or none), so it is asked once
 ```
 
 ### The agent team
@@ -458,10 +460,11 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
 
 - **The indexer, findings, View and every `index/` script** read the repo on disk and write only
   under its `.cortex/` (the first index run also appends three lines to `.gitignore`). They make no
-  network calls and install nothing — Cortex has no runtime dependencies. Two things there are
+  network calls and install nothing — Cortex has no runtime dependencies. Four things there are
   meant to be committed: `.cortex/memory/`; `.cortex/stamps.json`, the record of which files
-  Cortex stamped into the repo and from which release; and `.cortex/sections.json`, which
-  `CLAUDE.md` sections your team edited and kept. Three scripts write outside `.cortex/`, and
+  Cortex stamped into the repo and from which release; `.cortex/sections.json`, which
+  `CLAUDE.md` sections your team edited and kept; and `.cortex/agents.json`, what you answered
+  about the agents the repo already had. Three scripts write outside `.cortex/`, and
   `/cortex` runs each only on what you confirmed:
   - `cortex-stamps.mjs update` rewrites only a file Cortex stamped that nobody has touched since,
     and never when `.cortex/stamps.json` names a newer Cortex than the one running. That check

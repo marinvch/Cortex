@@ -20,7 +20,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { openBrain, NoRootError, UnknownProfileError } from "../lib/brain.js";
+import { openBrain, MissingRootError, NoRootError, UnknownProfileError } from "../lib/brain.js";
 import { tempDir } from "./tmp.js";
 
 const MCP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -282,4 +282,53 @@ test("an unset AI_OS_ROOT names the command that needed it", () => {
   });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /AI_OS_ROOT is not set \(required for team operations\)/);
+});
+
+// --- a root that is not there (#550) ----------------------------------------------------------------
+//
+// An unset root and an unknown profile were fatal at entry, and a root that does not exist was not:
+// the server started, the client listed it as connected, and the first tool call an agent made
+// mid-task came back as a raw ENOENT. Same class of mistake, so the same place to fail.
+
+test("a root that does not exist fails at entry, naming the path — in both modes", () => {
+  const base = tempDir("brain-missing-");
+  const vault = join(base, "no-such-vault");
+  assert.throws(() => openBrain({ cwd: base, env: { AI_OS_ROOT: vault } }), (e) => e instanceof MissingRootError && e.path === vault);
+  // Repo mode: the root is <repo>/.cortex, and it is the REPO that has to exist.
+  const repoRoot = join(base, "gone-repo", ".cortex");
+  assert.throws(() => openBrain({ cwd: base, env: { AI_OS_ROOT: repoRoot } }), (e) => e instanceof MissingRootError && e.path === join(base, "gone-repo") && /repo/.test(e.message));
+});
+
+test("a repo that has no .cortex/ yet still opens — the first write creates it", () => {
+  const base = tempDir("brain-fresh-");
+  mkdirSync(join(base, "repo"));
+  const brain = openBrain({ cwd: base, env: { AI_OS_ROOT: join(base, "repo", ".cortex") } });
+  assert.equal(brain.isRepo, true);
+});
+
+test("a root that is a file is refused like one that is missing", () => {
+  const base = tempDir("brain-file-");
+  writeFileSync(join(base, "vault"), "not a directory\n");
+  assert.throws(() => openBrain({ cwd: base, env: { AI_OS_ROOT: join(base, "vault") } }), MissingRootError);
+});
+
+test("the server exits at startup on a missing root, with one line that says what to set", () => {
+  const base = tempDir("brain-server-");
+  const root = join(base, "gone-repo", ".cortex");
+  const r = spawnSync(process.execPath, [SERVER], { env: { ...process.env, AI_OS_ROOT: root, CORTEX_PROFILE: "home" }, input: "", encoding: "utf8" });
+  assert.equal(r.status, 1);
+  assert.equal(r.stdout, "", "nothing on the protocol channel");
+  const lines = r.stderr.trim().split(/\r?\n/);
+  assert.equal(lines.length, 1, r.stderr);
+  assert.ok(lines[0].includes(join(base, "gone-repo")), lines[0]);
+  assert.match(lines[0], /does not exist/);
+  assert.match(lines[0], /AI_OS_ROOT/);
+});
+
+test("the CLI says the same thing, even for the one command that may run without a root", () => {
+  const base = tempDir("brain-cli-");
+  const r = spawnSync(process.execPath, [CLI, "catch-up", "--project", "x", "--since", "2026-01-01"], { cwd: base, env: { ...process.env, AI_OS_ROOT: join(base, "nope"), CORTEX_PROFILE: "home" }, encoding: "utf8" });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr + r.stdout, /does not exist/);
+  assert.doesNotMatch(r.stderr + r.stdout, /ENOENT/);
 });

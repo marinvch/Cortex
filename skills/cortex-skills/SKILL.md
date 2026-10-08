@@ -141,10 +141,14 @@ carries the same list as `drift`. Each finding is provable from disk; prose the 
 2. **Fix the flagged lines, in the body, from the code.** Open what the line described and write
    what is there now — the moved path (a `hint` names a same-named file; open it before trusting
    it), the real test count and command, a script the manifest declares. Frontmatter stays exactly
-   as it is; so does every line nobody flagged and you did not verify wrong.
+   as it is; so does every line nobody flagged and you did not verify wrong. The one exception is
+   a finding marked `frontmatter: true`, a path in the `description` that is gone: show the line
+   and the path, and change it only on a yes, because the description decides when the skill fires.
 3. **Retire a skill whose premise is gone.** A setup skill for a harness that now exists has
-   nothing left to say. Propose deleting it — the tool's own proposal usually names its successor —
-   and delete only on a yes.
+   nothing left to say. A `drift` entry with `retire` set is that proposal, and its `successor`,
+   when there is one, is the skill to offer in its place. Propose deleting it and delete only on a
+   yes. The tool raises this only for a setup skill it proposes itself; one the team named
+   differently is yours to spot from its `tests` findings.
 4. **Re-run `cortex-skills.mjs .`** — a refreshed skill no longer appears under the drift heading.
    If it still does, the line is still wrong.
 

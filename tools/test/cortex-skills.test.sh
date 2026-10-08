@@ -161,6 +161,38 @@ assert_eq "true|edited since it was written, 2 commits" "$(edited)" "edited: a s
 assert_contains "$(run)" "/type-check  .claude/skills/type-check/SKILL.md — edited since it was written, 2 commits" "and the report says so on the skill's own line"
 rm -rf "$PROJ/.claude/skills/type-check"
 
+# The field report's three (#548): a script the skill says is missing and package.json declares, a
+# stale path in the description, and a setup skill whose premise is gone. The fixture has one test
+# file and a manifest, so each is provable from disk.
+node -e 'const fs=require("fs");const p=process.argv[1];const j=JSON.parse(fs.readFileSync(p,"utf8"));j.scripts={...(j.scripts||{}),lint:"eslint ."};fs.writeFileSync(p,JSON.stringify(j,null,2)+"\n")' "$PROJ/package.json"
+mkdir -p "$PROJ/.claude/skills/lint" "$PROJ/.claude/skills/write-first-test" || exit 1
+cat > "$PROJ/.claude/skills/lint/SKILL.md" <<'MD'
+---
+name: lint
+description: Lint the code. Use when editing src/components/Nav.tsx.
+---
+
+Linting is not wired into a standalone npm script, so call the binary.
+MD
+cat > "$PROJ/.claude/skills/write-first-test/SKILL.md" <<'MD'
+---
+name: write-first-test
+description: Get a real test running for the first time.
+---
+
+Pick a runner and write one test.
+MD
+( cd "$PROJ" && git add -A >/dev/null 2>&1 && git commit -qm "three more skills" >/dev/null 2>&1 )
+node "$INDEX" "$PROJ" >/dev/null 2>&1
+out="$(run)"
+assert_contains "$out" 'line 6: says there is no such script, and package.json declares a "lint" script' "a script the skill calls missing is refuted by the manifest"
+assert_contains "$out" "line 3: the description names src/components/Nav.tsx, which is not in the repo (frontmatter" "a stale path in the description is reported, and marked"
+assert_contains "$out" "/write-first-test  .claude/skills/write-first-test/SKILL.md" "a setup skill whose premise is gone is listed"
+assert_contains "$out" "proposal: retire this skill" "and proposed for retirement, not refreshed"
+retire="$(run --offers | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{console.log(JSON.parse(s).drift.filter(d=>d.retire).map(d=>d.skill).join(","))})')"
+assert_eq "write-first-test" "$retire" "--offers carries the proposal for a ritual to ask about"
+rm -rf "$PROJ/.claude/skills/lint" "$PROJ/.claude/skills/write-first-test"
+
 # --- a repo whose stack cannot be known ---------------------------------------------------------------
 
 # Nothing stack-specific can be proposed honestly without a manifest, and the honest answer is to

@@ -5,6 +5,28 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.25] — 2026-10-08
+
+A file about tests is not counted as a test. Seventh fix from the field report in #548.
+
+### Fixed
+
+- **The Tester's hook no longer raises the test count (#548, item 8).** `/cortex` stamps
+  `.claude/hooks/test-paths.sh`, which is named like a shell test, so installing the agent team
+  took a repo from 38 tests to 39. Under `.claude/` a file is now a test only when it is named as
+  one (`x.test.mjs`, `x_test.py`), not because its name starts with `test-` or it sits in a
+  `tests/` folder there.
+- **A runner's setup file in a test directory is not a test.** `src/test/setup.ts`,
+  `tests/vitest.setup.ts`, `test/global-setup.ts` and the like are loaded by the runner's config
+  and hold no test. A file named as a test still is one (`tests/setup.test.js`), and other files
+  in the directory keep their status.
+
+### Changed
+
+- **Test counts can go down by the number of setup files.** On pmndrs/zustand the index now counts
+  14 tests where it counted 15. The count feeds the findings report, coverage and the skill drift
+  check, so a number quoted from an earlier run may differ by that much.
+
 ## [2.41.24] — 2026-10-08
 
 The PR review workflow is offered where it would be the first workflow. Sixth fix from the field
@@ -4556,6 +4578,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.25]: https://github.com/marinvch/Cortex/releases/tag/v2.41.25
 [2.41.24]: https://github.com/marinvch/Cortex/releases/tag/v2.41.24
 [2.41.23]: https://github.com/marinvch/Cortex/releases/tag/v2.41.23
 [2.41.22]: https://github.com/marinvch/Cortex/releases/tag/v2.41.22

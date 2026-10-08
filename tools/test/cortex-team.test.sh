@@ -41,6 +41,8 @@ node "$STAMPS" render loop/verifier.md --value "RUN=npm run dev" --templates "$T
 node "$STAMPS" record "$P" .claude/agents/verifier.md loop/verifier.md --value "RUN=npm run dev" --templates "$TPL" >/dev/null 2>&1
 git -C "$P" add -A && git -C "$P" commit -q -m "an earlier /cortex pass"
 node "$INDEXER" "$P" --out "$IDX" >/dev/null 2>&1
+test_count() { node -e 'const i = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(i.stats.tests + " " + i.files.filter((f) => f.isTest).map((f) => f.path).join(","));' "$IDX"; }
+tests_before="$(test_count)"
 
 # --- the offer --------------------------------------------------------------------------------------
 
@@ -95,6 +97,10 @@ assert_eq "absent" "$([ -e "$P/.claude/agents/verifier.md" ] && echo present || 
 # --- every stamped file passes the checker, and the fence holds -------------------------------------
 
 node "$INDEXER" "$P" --out "$IDX" >/dev/null 2>&1
+# The Tester's fence is named like a shell test. Installing the team must not change the count the
+# findings and the drift check quote (#548): Cortex's own output would be changing its own report.
+assert_eq "1 test/app.test.js" "$tests_before" "team: before the team, the repo has its one test"
+assert_eq "$tests_before" "$(test_count)" "team: stamping the Tester's hook leaves the test count unchanged"
 findings="$(node --input-type=module -e '
   import { pathToFileURL } from "node:url";
   import { readFileSync } from "node:fs";

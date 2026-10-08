@@ -55,16 +55,30 @@ export function categoryOf(lang) {
 
 // Test detection is convention-based across the ecosystems Cortex is likely to meet. Getting this
 // wrong in either direction matters: a missed test file reads as "untested" in the findings report.
-const TEST_PATTERNS = [
-  /(^|\/)__tests__\//, /(^|\/)tests?\//, /(^|\/)spec\//,
+//
+// Three kinds of pattern, kept apart because two exceptions below turn on which kind matched: a
+// test DIRECTORY, a file NAMED as a test, and a name that merely starts with `test-`.
+const TEST_DIR_PATTERNS = [/(^|\/)__tests__\//, /(^|\/)tests?\//, /(^|\/)spec\//];
+const TEST_NAME_PATTERNS = [
   /\.test\.[a-z]+$/, /\.spec\.[a-z]+$/, /_test\.[a-z]+$/, /_spec\.[a-z]+$/,
   /(^|\/)test_[^/]+\.py$/, /(^|\/)conftest\.py$/,
   // The hyphenated prefix is how shell and ops repos have named tests for decades — `test-foo.sh`
   // next to `foo.sh` — and bats is the other shell convention. Restricted to these extensions on
   // purpose: `src/test-utils.ts` is a helper, not a test.
-  /(^|\/)test-[^/]+\.(sh|bash|zsh|py)$/, /\.bats$/,
+  /\.bats$/,
   /Test[s]?\.(java|kt|cs|scala)$/, /Spec\.(kt|scala)$/,
 ];
+const TEST_PREFIX_PATTERN = /(^|\/)test-[^/]+\.(sh|bash|zsh|py)$/;
+
+// A runner's setup file: its config loads it, and it holds no test. In a test directory it was
+// counted because of where it sits (`src/test/setup.ts`, #548). Only these names, and only when the
+// directory is the sole reason: `tests/setup.test.js` is a test, `tests/helpers.ts` keeps its status.
+const SETUP_FILE = /(^|\/)(?:setup|setup-?tests|test-?setup|(?:vitest|jest|playwright)\.setup|global-?setup|global-?teardown|teardown)\.[a-z]+$/i;
+
+// Agent configuration. A hook or a skill's script under `.claude/` is named for what it guards —
+// /cortex's own `.claude/hooks/test-paths.sh` fences the Tester — so there only a file NAMED as a
+// test is one. Without this, installing the agent team raised the repo's test count by one.
+const AGENT_CONFIG = /(^|\/)\.claude\//;
 
 /**
  * Whether a file is the kind of thing that can BE a test: code, a script, or a `.bats` suite.
@@ -84,7 +98,11 @@ export function canBeTest(path) {
 }
 
 export function isTestPath(path) {
-  return canBeTest(path) && TEST_PATTERNS.some((re) => re.test(path));
+  if (!canBeTest(path)) return false;
+  if (TEST_NAME_PATTERNS.some((re) => re.test(path))) return true;
+  if (AGENT_CONFIG.test(path)) return false;
+  if (TEST_PREFIX_PATTERN.test(path)) return true;
+  return TEST_DIR_PATTERNS.some((re) => re.test(path)) && !SETUP_FILE.test(path);
 }
 
 // Common entry points, used so an entry file is never reported as an unreferenced orphan.

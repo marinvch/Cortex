@@ -431,7 +431,7 @@ function steps(s) {
       cmd: "/cortex-skills",
       done: false,
       why:
-        s.skillDrift.map((d) => `${d.skill} (${d.findings.length})`).join(", ") +
+        s.skillDrift.map((d) => `${d.skill} (${d.findings.length}${d.editedNote ? `; ${d.editedNote}` : ""})`).join(", ") +
         ` — ${plural(lines, "line")} the repo on disk contradicts; \`cortex-skills.mjs .\` lists each`,
       drift: s.skillDrift,
     });

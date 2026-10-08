@@ -130,11 +130,14 @@ finding — `line 8: says the repo has no tests, and the index counts 9 test fil
 carries the same list as `drift`. Each finding is provable from disk; prose the check cannot prove
 (a lint baseline that has since gone) is yours to spot while the file is open.
 
-1. **Ask whether it was edited since it was written.** `git log --format='%h %an %s' --
-   .claude/skills/<id>/SKILL.md` shows every commit that touched it, and `git status --short` shows
-   uncommitted edits. More than the commit that added it, or any uncommitted change, means a person
-   worked on it: **ask about that skill by name before you touch it**, even after `[a]ll` in
-   `/cortex`. Their edit may be the only correct part.
+1. **Check whether it was edited since it was written.** Each `drift` entry carries `edited` and,
+   when it is true, `editedNote` ("edited since it was written, 2 commits"): more than the commit
+   that added it, or an uncommitted change, means a person worked on it, and their edit may be the
+   only correct part. `git log --format='%h %an %s' -- .claude/skills/<id>/SKILL.md` shows who.
+   The user must have seen that note before you touch the skill. When `/cortex` sent you here, its
+   playback row carried it, so the one confirmation covers it and you do not ask again. Run on its
+   own, **ask about that skill by name first**. `edited: null` means git could not say (no
+   checkout): ask.
 2. **Fix the flagged lines, in the body, from the code.** Open what the line described and write
    what is there now — the moved path (a `hint` names a same-named file; open it before trusting
    it), the real test count and command, a script the manifest declares. Frontmatter stays exactly

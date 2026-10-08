@@ -176,7 +176,9 @@ the step out and produced exactly that.
 `--json` output lists each skill the repo now contradicts, with its lines in `drift[].findings` —
 a path that is gone, "no tests" beside a test suite, a script no manifest declares. Every line is
 provable from disk. Add each drifted skill to the merged worklist as one row naming its lines, so
-the single confirmation in step 6 covers exactly what the user saw. `present` in the loop means the
+the single confirmation in step 6 covers exactly what the user saw. When `drift[].editedNote` is
+set, a person worked on that skill after it was written: put the note on the row, word for word.
+The confirmation then covers the edit too, and nothing is asked about that skill afterwards. `present` in the loop means the
 file exists; it never meant the file is still true.
 
 **Loop files an earlier pass stamped are checked against this release's templates.**
@@ -238,9 +240,12 @@ Cortex will write, in one pass:
   Test      CLAUDE.md § Verifying your work, .claude/agents/verifier.md
   Team      [x] architect  [x] tester (+ .claude/hooks/test-paths.sh)  [ ] implementer
             .claude/skills/team/SKILL.md, CLAUDE.md § Working as a team
+            changes: every later session here stops before a code task and asks
+            "Single agent or team?", and plans or edits nothing until you answer
   Deploy    REVIEW.md, .github/workflows/cortex-review.yml,
             .claude/settings.json, .claude/hooks/protected-paths.sh
-  Refresh   .claude/skills/type-check/SKILL.md — lines 8, 55 (no tests; a moved path)
+  Refresh   .claude/skills/type-check/SKILL.md — lines 8, 55 (no tests; a moved path);
+            edited since it was written, 2 commits
   Update    .claude/hooks/protected-paths.sh, CLAUDE.md § Working as a team (templates changed)
   Ask each  REVIEW.md — you edited it and its template changed (diff shown above)
 
@@ -251,6 +256,11 @@ Cortex will write, in one pass:
 
   [a]ll   [p]ick a subset   [n]one
 ```
+
+**A row that changes more than its files says so.** A worklist row with an `effect` gets that
+sentence under its paths, as the Team row above shows. A path does not tell the user that the
+playbook changes how every later session starts, and a yes to something they were not told is not
+consent.
 
 Name the ADR directory the scaffold will use. It is `docs/adr/`, or `adr/` when `docs/` is a
 published site ([`/cortex-scaffold`](../cortex-scaffold/SKILL.md) step 3).

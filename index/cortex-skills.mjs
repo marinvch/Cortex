@@ -98,7 +98,7 @@ if (present.length) {
 if (drift.length) {
   console.log(`\n${drift.length} skill${drift.length === 1 ? "" : "s"} here the repo has moved away from — each line below is provable from disk:\n`);
   for (const d of drift) {
-    console.log(`  /${d.skill}  ${d.path}`);
+    console.log(`  /${d.skill}  ${d.path}${d.editedNote ? ` — ${d.editedNote}` : ""}`);
     for (const f of d.findings) {
       console.log(`      line ${f.line}: ${f.why}`);
       if (f.hint) console.log(`        a file of that name is at ${f.hint}`);

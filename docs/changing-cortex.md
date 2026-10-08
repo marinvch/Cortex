@@ -140,6 +140,12 @@ before overturning one; the line here is the trigger, not the case.
   [ADR 0002](adr/0002-committed-repo-memory.md) — the gate is mandatory *because* the store is
   committed; the two cannot be reasoned about apart.
 
+- **A ritual a model may invoke has trigger prompts.** `evals/triggers/<ritual>.json` holds what a
+  person would type to reach it, and one prompt that belongs to another ritual. `node evals/run.mjs
+  --check` fails without the file, and when an edit to a `description` drops the words those prompts
+  use. It counts shared words and is not the router: [`evals/README.md`](../evals/README.md) says
+  what a failure means.
+
 - **A ritual must be reachable from another ritual, or say what reaches it.**
   `node tools/cortex-skill-graph.mjs --check` fails when one is isolated in both directions, and
   `tools/test/skill-graph.test.sh` runs it. **A pass is weaker than this rule** — one outbound edge

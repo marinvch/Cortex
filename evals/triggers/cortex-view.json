@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "show me the import graph",
+    "open the map of this repo in the browser",
+    "visualise the codebase as an HTML page"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "rebuild the vault's navigator graph",
+      "owner": "reindex"
+    }
+  ]
+}

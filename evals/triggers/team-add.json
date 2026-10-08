@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "hook this repository up to our team brain",
+    "I want to join the shared team brain from this project",
+    "clone the team brain and add the connector here"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "which profile is this laptop on",
+      "owner": "cortex-profile"
+    }
+  ]
+}

@@ -5,6 +5,26 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.32] — 2026-10-08
+
+A ritual's description is checked against what people say, with no model.
+
+### Added
+
+- **`node evals/triggers.mjs`**, run by `node evals/run.mjs --check` and so by CI. Each of the 39
+  rituals a model may invoke has `evals/triggers/<ritual>.json`: three prompts that should reach
+  it and one that belongs to a named other ritual. Every prompt is ranked against every
+  description with BM25. The check fails when a prompt ranks its ritual below the top three, when
+  a neighbour's prompt ranks the ritual above its owner, or when the share ranked first falls
+  below the recorded one. Today 112 of 117 rank first and all 117 are within three.
+- It measures shared words and not Claude Code's router. `evals/README.md` says what a failure
+  does and does not mean.
+
+### Changed
+
+- **`/ship`'s description says "pull request".** It said "PR" only, and "open a pull request for
+  this" ranked `/daily`, `/cortex-view` and `/site-sync` above it. The check found it.
+
 ## [2.41.31] — 2026-10-08
 
 A link from a ritual to its supporting file is checked, and rejected skill changes are kept.
@@ -4687,6 +4707,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.32]: https://github.com/marinvch/Cortex/releases/tag/v2.41.32
 [2.41.31]: https://github.com/marinvch/Cortex/releases/tag/v2.41.31
 [2.41.30]: https://github.com/marinvch/Cortex/releases/tag/v2.41.30
 [2.41.29]: https://github.com/marinvch/Cortex/releases/tag/v2.41.29

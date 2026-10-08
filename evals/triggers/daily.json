@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "good morning, what's on today",
+    "morning, let's start the day",
+    "open today's note and show me what's due"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "do my weekly review and empty the inbox",
+      "owner": "weekly-review"
+    }
+  ]
+}

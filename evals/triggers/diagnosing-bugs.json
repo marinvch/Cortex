@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "this test is flaky and I can't work out why",
+    "the page got slow after last week's release, find the regression",
+    "debug this, the upload fails only in production"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "review my fix before I commit",
+      "owner": "cortex-review"
+    }
+  ]
+}

@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { SKILLS, SKILL_FILES } from "./skills.mjs";
+import { checkTriggers } from "./triggers.mjs";
 import { scoreTask } from "./score.mjs";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -230,7 +231,15 @@ export async function main(argv, deps = {}) {
     const { ok, problems } = check({ root, skills, files });
     for (const p of problems) error(p.message);
     log(ok ? `every evaled skill matches its baseline (${skills.join(", ")})` : `${problems.length} skill(s) need re-measuring`);
-    return ok ? 0 : 1;
+    // The second no-model check: each description still holds the words people ask with
+    // (evals/triggers.mjs). A caller that injects its own root has its own skills and no prompts for
+    // them, so it gets this check only by injecting it too.
+    const triggers = (deps.checkTriggers ?? (deps.root ? null : checkTriggers))?.();
+    if (triggers) {
+      for (const m of triggers.problems) error(m);
+      log(triggers.ok ? `${triggers.rank1} of ${triggers.reach} trigger prompts rank their ritual first (${triggers.rate})` : `${triggers.problems.length} trigger problem(s) — see \`node evals/triggers.mjs\``);
+    }
+    return ok && (triggers?.ok ?? true) ? 0 : 1;
   }
 
   const [skill] = o.positional;

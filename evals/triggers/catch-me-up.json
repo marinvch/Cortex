@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "I've been on holiday for two weeks, what changed on the project",
+    "what did I miss while I was out",
+    "summarize what happened in this repo since last Monday"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "let's pick up where we stopped yesterday",
+      "owner": "resume"
+    }
+  ]
+}

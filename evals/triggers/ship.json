@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "open a pull request for this",
+    "which of these PRs should be merged first",
+    "качи го и отвори PR"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "review this diff before I commit",
+      "owner": "cortex-review"
+    }
+  ]
+}

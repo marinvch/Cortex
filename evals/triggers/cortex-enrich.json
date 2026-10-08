@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "add summaries and tags to the index so recall knows what each file means",
+    "enrich the index for this repo",
+    "write a short summary for every file in the index"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "show me the import graph as a page",
+      "owner": "cortex-view"
+    }
+  ]
+}

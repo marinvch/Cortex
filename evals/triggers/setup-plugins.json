@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "get the core plugin bundle installed",
+    "set up the Cortex toolset on this machine",
+    "which optional plugin tiers should I add for a frontend role"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "update the plugin, it's running the old version",
+      "owner": "plugin-sync"
+    }
+  ]
+}

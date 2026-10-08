@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "how healthy is my vault, give me a score",
+    "score my second brain setup and tell me the biggest gaps",
+    "run a read-only health check on my notes"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "fix the dead links and orphan notes in my vault",
+      "owner": "cortex-audit"
+    }
+  ]
+}

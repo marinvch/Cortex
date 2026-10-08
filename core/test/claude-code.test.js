@@ -118,10 +118,12 @@ test("the protected-path rules an unattended install depends on are present and 
     assert.match(rule(id).source, /^https:\/\/code\.claude\.com\/docs\/en\/(permission-modes|headless)$/, id);
   }
   assert.equal(limit("permission.protected-path.claude-dir"), ".claude");
+  assert.equal(limit("permission.protected-path.claude-dir.worktrees"), ".claude/worktrees");
 });
 
 test("protectedClaudePath answers for .claude/ and nothing that merely looks like it", () => {
-  const yes = [".claude", ".claude/settings.json", ".claude/agents/verifier.md", "./.claude/hooks/x.sh", ".claude\\skills\\a\\SKILL.md"];
+  // .claude/agent-memory is an exception on the page only without --restricted, which Cortex cannot see.
+  const yes = [".claude", ".claude/agent-memory/reviewer/notes.md", ".claude/worktrees-old/x", ".claude/settings.json", ".claude/agents/verifier.md", "./.claude/hooks/x.sh", ".claude\\skills\\a\\SKILL.md"];
   for (const p of yes) assert.equal(protectedClaudePath(p), true, p);
   const no = [".claude/worktrees", ".claude/worktrees/agent-1/AGENTS.md", "CLAUDE.md", ".claudeignore", "docs/.claude/x", "CLAUDE.md#Verifying your work"];
   for (const p of no) assert.equal(protectedClaudePath(p), false, p);

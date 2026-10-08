@@ -508,3 +508,94 @@ test("a mod that also carries settings hooks gets both read", () => {
   assertFinding(fs, "mod-present");
   assertFinding(fs, "hook-script-missing");
 });
+
+// --- the skill authoring page (plan step 0a) --------------------------------------------------------
+//
+// These three are limits of the Agent Skills format, stated on the platform's authoring page. Claude
+// Code loads a skill that breaks them; the API and a claude.ai upload refuse it, or read it worse.
+// So each is low severity and says which of the two it is about.
+
+test("a skill name the Agent Skills format refuses: its characters, its length, a reserved word", () => {
+  const fs = check({
+    ".claude/skills/a/SKILL.md": skill("name: Writing Hookify Rules\ndescription: Writes rules."),
+    ".claude/skills/b/SKILL.md": skill("name: claude-handoff\ndescription: Hands off."),
+    ".claude/skills/c/SKILL.md": skill(`name: ${"x".repeat(65)}\ndescription: Long name.`),
+    ".claude/skills/d/SKILL.md": skill("name: my_skill\ndescription: Underscore."),
+    ".claude/skills/ok-1/SKILL.md": skill("name: processing-pdfs-2\ndescription: Fine."),
+    // "Cannot contain" is about the letters, so a longer word that holds one is refused too.
+    ".claude/skills/ok-2/SKILL.md": skill("name: declaude\ndescription: Holds a reserved word."),
+  });
+  const f = assertFinding(fs, "skill-name-not-portable");
+  assert.equal(f.severity, "low");
+  assert.deepEqual(f.evidence, [
+    ".claude/skills/a/SKILL.md — \"Writing Hookify Rules\": characters other than lowercase letters, numbers and hyphens",
+    ".claude/skills/b/SKILL.md — \"claude-handoff\": contains the reserved word \"claude\"",
+    `.claude/skills/c/SKILL.md — "${"x".repeat(65)}": 65 characters`,
+    ".claude/skills/d/SKILL.md — \"my_skill\": characters other than lowercase letters, numbers and hyphens",
+    ".claude/skills/ok-2/SKILL.md — \"declaude\": contains the reserved word \"claude\"",
+  ]);
+  assert.match(f.detail ?? f.what ?? "", /Claude Code still loads/);
+});
+
+test("a skill with no name is checked by its directory, which is the name Claude Code gives it", () => {
+  const f = assertFinding(check({ ".claude/skills/Anthropic_Helper/SKILL.md": skill("description: No name key.") }), "skill-name-not-portable");
+  assert.match(f.evidence[0], /"Anthropic_Helper": characters other than/);
+  assert.deepEqual(only(check({ ".claude/skills/pdf-forms/SKILL.md": skill("description: No name key.") }), "skill-name-not-portable"), []);
+});
+
+test("a description over 1,024 characters is over the format's limit while under Claude Code's", () => {
+  const fs = check({
+    ".claude/skills/x/SKILL.md": skill(`name: x\ndescription: ${"d".repeat(1025)}`),
+    ".claude/skills/y/SKILL.md": skill(`name: y\ndescription: ${"d".repeat(1024)}`),
+    // when_to_use is Claude Code's own key and is not part of the format's description.
+    ".claude/skills/z/SKILL.md": skill(`name: z\ndescription: ${"d".repeat(900)}\nwhen_to_use: ${"w".repeat(400)}`),
+  });
+  const f = assertFinding(fs, "skill-description-not-portable");
+  assert.equal(f.severity, "low");
+  assert.deepEqual(f.evidence, [".claude/skills/x/SKILL.md — 1025 characters"]);
+  assert.deepEqual(only(fs, "skill-description-too-long"), [], "1,025 is under Claude Code's own 1,536");
+});
+
+test("a reference file over 100 lines with no table of contents at the top", () => {
+  const long = (head) => head + Array.from({ length: 120 }, (_, i) => `line ${i}`).join("\n") + "\n";
+  const fs = check({
+    ".claude/skills/x/SKILL.md": skill("name: x\ndescription: Does x.", "See [a](A.md), [b](B.md), [c](C.md), [short](SHORT.md) and [deep](refs/D.md).\n"),
+    ".claude/skills/x/A.md": long("# A\n\n"),
+    ".claude/skills/x/B.md": long("# B\n\n## Contents\n\n- One\n- Two\n\n"),
+    ".claude/skills/x/C.md": long("# C\n\n- [One](#one)\n- [Two](#two)\n- [Three](#three)\n\n"),
+    ".claude/skills/x/SHORT.md": "# Short\n\nTen lines.\n",
+    ".claude/skills/x/refs/D.md": long("# D\n\nIntro.\n\n### Table of Contents\n\n"),
+    // Long, with no contents, and no skill points at it: not a reference file.
+    ".claude/skills/x/NOTES.md": long("# Notes\n\n"),
+  });
+  const f = assertFinding(fs, "skill-reference-no-contents");
+  assert.equal(f.severity, "low");
+  assert.deepEqual(f.evidence, [".claude/skills/x/A.md — 122 lines"]);
+});
+
+test("a long file outside the skill's directory is not its reference file, and one linked twice is one row", () => {
+  const long = "# Guide\n\n" + Array.from({ length: 120 }, (_, i) => `line ${i}`).join("\n") + "\n";
+  const fs = check({
+    ".claude/skills/x/SKILL.md": skill("name: x\ndescription: Does x.", "See [the guide](../../../docs/guide.md), [a](A.md) and again [a](A.md#part).\n"),
+    ".claude/skills/x/A.md": long,
+    "docs/guide.md": long,
+  });
+  assert.deepEqual(assertFinding(fs, "skill-reference-no-contents").evidence, [".claude/skills/x/A.md — 122 lines"]);
+});
+
+test("exactly 100 lines needs no contents, and three in-page links are the fewest that count", () => {
+  const lines = (n, head = "") => head + Array.from({ length: n }, (_, i) => `line ${i}`).join("\n") + "\n";
+  const fs = check({
+    ".claude/skills/x/SKILL.md": skill("name: x\ndescription: Does x.", "See [a](A.md), [b](B.md) and [c](C.md).\n"),
+    ".claude/skills/x/A.md": lines(100),
+    ".claude/skills/x/B.md": lines(120, "# B\n\n- [One](#one)\n- [Two](#two)\n\n"),
+    ".claude/skills/x/C.md": lines(120, "# C\n\n- [One](#one)\n- [Two](#two)\n- [Three](#three)\n\n"),
+  });
+  assert.deepEqual(assertFinding(fs, "skill-reference-no-contents").evidence, [".claude/skills/x/B.md — 125 lines"]);
+});
+
+test("a contents list far down the file is not at the top", () => {
+  const body = "# A\n\n" + Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n") + "\n\n## Contents\n\n" + Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n") + "\n";
+  const fs = check({ ".claude/skills/x/SKILL.md": skill("name: x\ndescription: Does x.", "See [a](A.md).\n"), ".claude/skills/x/A.md": body });
+  assertFinding(fs, "skill-reference-no-contents");
+});

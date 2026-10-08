@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.41.35** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
+**v2.41.36** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
@@ -552,7 +552,7 @@ none.
 | `cortex-skill-links.mjs` | Whether every link from a ritual to a file or a heading resolves; `--check` fails on a dead one |
 | `cortex-skill-usage.mjs` | Which rituals your sessions have actually reached |
 | `cortex-placeholders.mjs` | Did a file Cortex stamped keep a placeholder from its template; exit 1 if so |
-| `cortex-claude-docs.mjs` | Are the Claude Code rules Cortex ships still stated on Anthropic's pages, and has Anthropic published a page Cortex has not seen; `--check` exits 1 on a stale rule, 3 on a new page |
+| `cortex-claude-docs.mjs` | Are the Claude Code rules Cortex ships still stated on Anthropic's pages, and has Anthropic published a page Cortex has not seen (the Claude Code docs, the blog, and three sections of the platform docs); `--check` exits 1 on a stale rule, 3 on a new page |
 | `cortex-site-facts.mjs` | The facts the public site states, read from source; `--check` names each one that drifted |
 | `cortex-site-demo.mjs` | What a `/cortex` run prints on a new repo, a working project and a team's repo, captured for the site's walkthrough |
 | `server/server-setup.sh` | Set up a team brain: the bare repo on a server, a clone on each machine, the cron lines |

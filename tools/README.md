@@ -167,10 +167,11 @@ that states it. This re-reads those pages and confirms every sentence is still t
 
 ```bash
 node tools/cortex-claude-docs.mjs --check          # exit 1 if a rule went stale, 2 if a page could not be read,
-                                                   #      3 if the docs or the blog have a page not seen before
+                                                   #      3 if an index lists a page not seen before
 node tools/cortex-claude-docs.mjs --json
 node tools/cortex-claude-docs.mjs --accept         # record every page now published as seen
-node tools/cortex-claude-docs.mjs --pages <dir>    # read <dir>/<page>.md, llms.txt and blog.html instead of the network
+node tools/cortex-claude-docs.mjs --pages <dir>    # read <dir>/<page>.md, llms.txt, platform-llms.txt and blog.html
+                                                   #      instead of the network
 node tools/cortex-claude-docs.mjs --seen <file>    # the seen-list to read and write
 ```
 
@@ -182,7 +183,15 @@ It also reads the docs index (`llms.txt`) and the front page of `claude.com/blog
 page missing from `tools/claude-docs-seen.json`. The rule check cannot see a page no rule cites,
 which is how Claude Code mods shipped with ten pages of docs and nothing here noticed. The blog's
 front page lists customer stories beside product posts and the tool does not tell them apart; read
-the titles and `--accept`. Maintainer-only: the daily
+the titles and `--accept`.
+
+A third index is the platform docs' `llms.txt`. It lists about 800 pages, most of them API
+reference, so three sections are watched and the rest ignored: `agents-and-tools/agent-skills/`,
+`build-with-claude/prompt-engineering/` and `test-and-evaluate/`. Those are the pages Cortex's
+skills and authoring rules rest on. If the index reads but holds no page in any of the three, the
+sections were renamed, and that is reported as unread instead of as nothing new.
+
+Maintainer-only: the daily
 `claude-docs.yml` workflow runs it and opens a `docs-drift` issue. [ADR
 0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
 

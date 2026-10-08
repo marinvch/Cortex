@@ -5,6 +5,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.35] — 2026-10-08
+
+Two small things from the field report in #548 (item 13).
+
+### Fixed
+
+- **A TypeScript declaration file is not reported as unreferenced (#548).** `src/vite-env.d.ts`
+  is read by the compiler through `tsconfig`'s `include` and nothing imports it, which is true of
+  every ambient declaration. `*.d.ts`, `*.d.mts` and `*.d.cts` are no longer candidates. On ten
+  public repos the list went from 510 files to 484, and all 26 that left are declaration files.
+
+### Changed
+
+- **`/migrate-engine` step 1 starts from `cortex-next.mjs --json`**, whose `state.legacyEngine`
+  already says which of the engine's two directories exist. The skill says what that field does
+  not look for, so an empty answer is not read as "no engine".
+
 ## [2.41.34] — 2026-10-08
 
 Four authoring rules, each added only where the file did not already hold it.
@@ -4754,6 +4771,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.35]: https://github.com/marinvch/Cortex/releases/tag/v2.41.35
 [2.41.34]: https://github.com/marinvch/Cortex/releases/tag/v2.41.34
 [2.41.33]: https://github.com/marinvch/Cortex/releases/tag/v2.41.33
 [2.41.32]: https://github.com/marinvch/Cortex/releases/tag/v2.41.32

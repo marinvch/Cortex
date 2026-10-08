@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.41.36** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
+**v2.41.37** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
@@ -546,6 +546,7 @@ none.
 | `cortex-capability.mjs` | What each ritual needs from the setup running it |
 | `cortex-frontmatter.mjs` | Is every ritual's frontmatter readable by a router; `--check` fails on the first bad line, strictly |
 | `cortex-version.mjs` | `--set X.Y.Z` — stamp the version at all seven sites, refuse without a changelog entry |
+| `cortex-release-notes.mjs` | `X.Y.Z` — that version's section of the changelog, for a release's notes; exit 1 if the section cannot be bounded exactly |
 | `cortex-preflight.mjs` | Root, profile and index freshness — what every ritual asks before it writes |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |

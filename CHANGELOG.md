@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.37] — 2026-10-08
+
+A release's notes are extracted by a tested script. Step 1.1 of the roadmap.
+
+### Added
+
+- **`tools/cortex-release-notes.mjs <x.y.z>`** prints that version's section of the changelog. It
+  refuses, with exit 1 and nothing on stdout, a version with no section or two, an empty section,
+  a section that ends at a heading that is not a lower `## [x.y.z] — YYYY-MM-DD`, and a section
+  holding a line that looks like a version heading at the wrong level. For 2.41.8 to 2.41.18 the
+  output equals the body of the release already published. It creates no tag and no release.
+- **The stamped version's notes are extracted in the test suite**, so a section that cannot be
+  published fails the pull request that wrote it.
+
 ## [2.41.36] — 2026-10-08
 
 The skill authoring page becomes a rule source, and three sections of the platform docs are watched
@@ -4800,6 +4814,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.37]: https://github.com/marinvch/Cortex/releases/tag/v2.41.37
 [2.41.36]: https://github.com/marinvch/Cortex/releases/tag/v2.41.36
 [2.41.35]: https://github.com/marinvch/Cortex/releases/tag/v2.41.35
 [2.41.34]: https://github.com/marinvch/Cortex/releases/tag/v2.41.34

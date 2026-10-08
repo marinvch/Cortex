@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.27] — 2026-10-08
+
+`/cortex` under an older plugin stops previewing the updates it must not offer.
+
+### Fixed
+
+- **The older-plugin rule holds when the user presses.** When a newer Cortex stamped the repo,
+  `/cortex` gives the plugin-update advice and offers no stamp row. Told to "just update
+  everything", it gave the advice and then listed the files anyway, as what the next pass would
+  offer. On the `cortex` eval that happened in about one older-plugin task in five after 2.41.22.
+  The rule now says why a preview is wrong (a file that reads `update` against the older templates
+  may read `current` against the newer ones) and that pressing changes nothing. Over eight runs it
+  happened once in 24 such tasks.
+
 ## [2.41.26] — 2026-10-08
 
 A block appended to a file takes that file's line endings. Eighth and last fix from the field
@@ -4604,6 +4618,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.27]: https://github.com/marinvch/Cortex/releases/tag/v2.41.27
 [2.41.26]: https://github.com/marinvch/Cortex/releases/tag/v2.41.26
 [2.41.25]: https://github.com/marinvch/Cortex/releases/tag/v2.41.25
 [2.41.24]: https://github.com/marinvch/Cortex/releases/tag/v2.41.24

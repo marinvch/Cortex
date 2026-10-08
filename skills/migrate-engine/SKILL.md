@@ -31,6 +31,11 @@ artifact until its knowledge is in `AGENTS.md` or `docs/decisions.md`.** Re-gene
   *enriches* the brain, it doesn't create it.
 
 ## Step 1 — Detect the old engine
+Start with what a command already reads off disk:
+`node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --json`. Its `state.legacyEngine` lists which of
+the engine's two directories, `.ai-os` and `.github/ai-os`, are there. It looks for nothing else on
+this list, so an empty answer is not "no engine": the rest is still a scan by hand.
+
 Scan for any of these (presence of one = engine installed):
 - `.ai-os/` (the MCP server) and an `ai-os` entry in `.mcp.json` / `.vscode/mcp.json`
 - `.github/ai-os/` (config.json, manifest.json, context/, **memory/**, recommendations.md, tools.json)

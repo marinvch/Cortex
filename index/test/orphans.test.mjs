@@ -229,3 +229,28 @@ test("package-info.java and module-info.java are never orphan candidates", () =>
   };
   assert.deepEqual(unimported(index).map((f) => f.path), [DEAD]);
 });
+
+// --- a TypeScript declaration file (#548, item 13) --------------------------------------------------
+
+test("a TypeScript declaration file is never an orphan candidate, and its neighbours still are", () => {
+  // `src/vite-env.d.ts` is read by the compiler through tsconfig's `include`, and declares ambient
+  // types nothing imports. "Nothing imports it" is true of every ambient declaration ever written.
+  const root = repo({
+    "src/vite-env.d.ts": '/// <reference types="vite/client" />\n',
+    "src/globals.d.mts": "declare const __VERSION__: string;\n",
+    "types/legacy.d.cts": "declare module 'legacy';\n",
+    "src/main.ts": "export const main = 1;\n",
+    "src/dead.ts": "export const dead = 1;\n",
+    // Named like a declaration file and not one.
+    "src/d.ts": "export const d = 1;\n",
+    "src/pad.ts": "export const pad = 1;\n",
+    "package.json": '{ "main": "src/main.ts" }\n',
+  });
+  const index = buildIndex(root);
+  assert.deepEqual(unimported(index).map((f) => f.path).filter((p) => /\.d\.[cm]?ts$/.test(p)), []);
+  const orphans = findOrphans(index, root).map((f) => f.path);
+  assert.ok(orphans.includes("src/dead.ts"), orphans.join(", "));
+  assert.ok(orphans.includes("src/d.ts"), "a file called d.ts is ordinary code");
+  assert.ok(orphans.includes("src/pad.ts"));
+  assert.ok(!orphans.includes("src/vite-env.d.ts"));
+});

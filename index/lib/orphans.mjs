@@ -42,7 +42,12 @@ import { textSource } from "./repo-text.mjs";
 // package's javadoc and annotations, `module-info.java` its module declaration. Neither declares a
 // class, so "nothing imports it" is true of every one ever written — on spring-petclinic they were
 // five of its six "unreferenced" files.
-const DECLARATION_ONLY = /(^|\/)(package|module)-info\.java$/;
+//
+// A TypeScript declaration file is the same case. `src/vite-env.d.ts` is read through tsconfig's
+// `include` and declares ambient types, so nothing imports it and nothing ever will. One that IS
+// imported has an inbound edge and was never a candidate. A stale one is still loaded by the
+// compiler, so "unreferenced" is the wrong word for it either way (#548).
+const DECLARATION_ONLY = /(^|\/)(package|module)-info\.java$|\.d\.[cm]?ts$/;
 
 /** Candidates by the import graph alone — the old definition, kept separate so it stays testable. */
 export function unimported(index) {

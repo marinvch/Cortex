@@ -1310,3 +1310,23 @@ test("LOOP_STAMPS carries every team file, none of them adoptable, beside the lo
   assert.ok(LOOP_STAMPS.filter((s) => s.row !== "team").every((s) => s.adopt !== false), "the loop's own files are still adopted");
   for (const s of team) assert.ok(fsExists(new URL(`../../templates/${s.template}`, import.meta.url)), s.template);
 });
+
+// --- what a row changes beyond its files (#548, item 10) ---------------------------------------------
+
+test("the team row says what it changes for every later session, not only which files it writes", () => {
+  const root = repo(({ put }) => put("src/a.js"));
+  const plan = loopPlan(root, indexOf(["src/a.js"]));
+  rmSync(root, { recursive: true, force: true });
+  const team = [...plan.missing, ...plan.present, ...plan.blocked].find((e) => e.id === "team");
+  assert.match(team.effect, /every later session/i);
+  assert.match(team.effect, /until you answer/);
+  // The sentence describes the playbook, so both must name the same question and the same command.
+  const playbook = fsRead(new URL("../../templates/team/playbook.md", import.meta.url), "utf8");
+  for (const said of ['"Single agent or team?"', "`/cortex-impact --size`"]) {
+    assert.ok(team.effect.includes(said), `the row names ${said}`);
+    assert.ok(playbook.includes(said), `and the playbook still says ${said}`);
+  }
+  // Rows that only add files say nothing, so the one that changes behaviour stands out.
+  const others = [...plan.missing, ...plan.present, ...plan.blocked].filter((e) => e.id !== "team");
+  assert.ok(others.length > 5 && others.every((e) => e.effect === null));
+});

@@ -5,6 +5,35 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.22] — 2026-10-08
+
+The playback says what a row changes, so the one confirmation covers it. Fourth fix from the field
+report in #548.
+
+### Fixed
+
+- **A skill edited since it was written is said on its playback row (#548, item 4).**
+  `/cortex-skills` asked about such a skill by name after `[a]ll`. In an active repo nearly every
+  skill has a second commit, so a second question always followed the one confirmation. Each
+  `drift` entry now carries `edited` and `editedNote` ("edited since it was written, 2 commits"),
+  read from git. `/cortex` puts the note on the *Refresh* row, and `/cortex-skills` asks only when
+  it runs on its own or git cannot say.
+- **The team row says what it changes (#548, item 10).** The row listed
+  `CLAUDE.md § Working as a team`, and what that section does is stop every later session before
+  a code task to ask "Single agent or team?". The row now carries that sentence as `effect`, and
+  the playback shows it under the row's paths.
+
+### Added
+
+- **`effect`** on each row of `cortex-loop.mjs . --json`: what the row changes beyond its files,
+  or `null`. Only the team row has one today. The plain report prints it as `changes:`.
+- **`edited` and `editedNote`** on each `drift` entry of `cortex-skills.mjs . --offers` and of
+  `cortex-next.mjs . --json`. `edited` is `null` where git cannot answer.
+
+### Changed
+
+- The `cortex` eval baseline was re-measured for the new `skills/cortex/SKILL.md`.
+
 ## [2.41.21] — 2026-10-08
 
 An answer about an agent already in the repo is asked once. Third fix from the field report in
@@ -4473,6 +4502,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.22]: https://github.com/marinvch/Cortex/releases/tag/v2.41.22
 [2.41.21]: https://github.com/marinvch/Cortex/releases/tag/v2.41.21
 [2.41.20]: https://github.com/marinvch/Cortex/releases/tag/v2.41.20
 [2.41.19]: https://github.com/marinvch/Cortex/releases/tag/v2.41.19

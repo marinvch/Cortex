@@ -148,6 +148,17 @@ assert_eq "$before" "$(tree_state "$PROJ")" "reporting drift changes nothing in 
 
 drift="$(run --offers | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const d=JSON.parse(s).drift;console.log(d.map(x=>x.skill+":"+x.findings.map(f=>f.line).join("/")).join(","))}catch(e){console.log("UNPARSEABLE")}})')"
 assert_eq "type-check:6/7/11" "$drift" "--offers carries the same findings for a ritual to walk"
+
+# Edited since it was written (#548): git is the witness, so this has to be a real checkout. The fact
+# rides on the row /cortex plays back, so its one confirmation covers a skill the user was told about.
+edited() { run --offers | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s).drift[0];console.log(d.edited+"|"+d.editedNote)})'; }
+assert_eq "false|null" "$(edited)" "edited: one commit is the one that wrote it"
+assert_not_contains "$(run)" "edited since it was written" "and the report says nothing about it"
+printf '\nA person added this line.\n' >> "$PROJ/.claude/skills/type-check/SKILL.md"
+assert_eq "true|edited since it was written, uncommitted changes" "$(edited)" "edited: an uncommitted change is a person's work"
+( cd "$PROJ" && git add -A >/dev/null 2>&1 && git commit -qm "a person edits the skill" >/dev/null 2>&1 )
+assert_eq "true|edited since it was written, 2 commits" "$(edited)" "edited: a second commit is named with the count"
+assert_contains "$(run)" "/type-check  .claude/skills/type-check/SKILL.md — edited since it was written, 2 commits" "and the report says so on the skill's own line"
 rm -rf "$PROJ/.claude/skills/type-check"
 
 # --- a repo whose stack cannot be known ---------------------------------------------------------------

@@ -136,3 +136,41 @@ test("a JVM class that merely mentions main or Spring Boot is not an entry point
     for (const body of bodies) assert.equal(isEntrySource(body, lang), false, `${lang}: ${body}`);
   }
 });
+
+// --- a file about tests is not a test (#548, item 8) -----------------------------------------------
+
+test("a runner's setup file in a test directory is not a test", () => {
+  // src/test/setup.ts registers matchers; the runner's config loads it and it holds no test. It made
+  // the test count the drift check quotes back at skills one too high.
+  for (const p of [
+    "src/test/setup.ts",
+    "test/setup.js",
+    "tests/setupTests.tsx",
+    "tests/vitest.setup.ts",
+    "test/jest.setup.cjs",
+    "tests/global-setup.ts",
+    "e2e/tests/globalTeardown.mjs",
+    "__tests__/teardown.js",
+  ]) {
+    assert.equal(isTestPath(p), false, `${p} should not be a test`);
+  }
+});
+
+test("a setup file named as a test is one, and neighbours of a setup file keep their status", () => {
+  // The last two: a name that only contains the word, and a shell test outside a test directory,
+  // which was a test before this rule and is not this rule's business.
+  for (const p of ["test/setup.test.js", "tests/setup_test.go", "tests/setup.spec.ts", "tests/helpers.ts", "tests/setup/db.ts", "tests/conftest.py", "tests/db-setup-helpers.ts", "scripts/test-setup.sh"]) {
+    assert.ok(isTestPath(p), `${p} should be a test`);
+  }
+});
+
+test("under .claude/ only a file named as a test is one — a hook called test-paths.sh guards tests", () => {
+  // /cortex stamps .claude/hooks/test-paths.sh for the Tester. Named like a shell test, it took a
+  // repo from 38 tests to 39 the moment the team was installed: Cortex's output changed its count.
+  for (const p of [".claude/hooks/test-paths.sh", ".claude/hooks/test-guard.py", ".claude/skills/add-test/scripts/test-run.sh", ".claude/tests/notes.sh", "packages/web/.claude/hooks/test-paths.sh"]) {
+    assert.equal(isTestPath(p), false, `${p} should not be a test`);
+  }
+  for (const p of [".claude/hooks/optimize-prompt.test.mjs", ".claude/hooks/guard_test.py", "tools/test-homelab-drift.sh"]) {
+    assert.ok(isTestPath(p), `${p} should be a test`);
+  }
+});

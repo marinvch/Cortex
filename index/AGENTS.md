@@ -9,7 +9,7 @@ holds the rules for that module alone — read it before editing the module.
 - **Nothing here may modify a target repository**, except by writing under `.cortex/`. `findings`
   returns data; `/cortex-scaffold` is the separate skill that applies changes. This separation is
   what makes "the user decides" structural rather than a promise a model has to keep — if you add
-  a write to a source file here, you have broken the product's central claim. **Four named
+  a write to a source file here, you have broken the product's central claim. **Five named
   exceptions.** The first, `cortex-stamps.mjs update`, rewrites a file Cortex itself stamped, and only in state
   `update` — untouched since it was recorded, re-renderable, template changed. `/cortex` runs it
   only for the paths the user confirmed. The rule lives in the code (`planUpdates`), not in the
@@ -34,6 +34,10 @@ holds the rules for that module alone — read it before editing the module.
   `edited`. The fourth, **`ensureGitignored`** (`lib/generated.mjs`), appends the generated
   directories a target's `.gitignore` lacks when a CLI writes under that repo's `.cortex/` — append
   only, never `.cortex/memory/` (it is committed), and nothing at all when `--out` points elsewhere.
+  The fifth, **`cortex-section.mjs --append`**, adds a block to the end of a markdown file inside the
+  repo, in that file's own line endings (`appendBlock`, `lib/section.mjs`). Every byte already there
+  stays where it was, a block whose heading is already a section is refused, and the path goes
+  through `resolveInRoot`. Never let it take a file that is not markdown.
 - **Tests that count loop rows delete `CORTEX_PROFILE` at the top of the file**, because a developer
   on a work profile must get CI's answers. Which repo is a team's is `teamServed`
   (`lib/shared-plugin.mjs`).

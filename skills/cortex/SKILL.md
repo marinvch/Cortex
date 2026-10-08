@@ -343,7 +343,11 @@ lets a later release update the file safely.
 
 `verification.md`, `playbook.md` and `settings.hooks.json` are **not recorded**: two are appended to
 `CLAUDE.md` and one merged into `settings.json`. Each is a block inside a file the team also writes.
-Write them as before; `cortex-section.mjs` tracks the playbook by its shipped texts instead. The
+Append a block with the CLI, never by hand: save the filled block to a file outside the repo and run
+`node "${CLAUDE_PLUGIN_ROOT}/index/cortex-section.mjs" . --append CLAUDE.md --from <that file>`. It
+gives the block the line endings `CLAUDE.md` already has, so a CRLF checkout is not left with both
+kinds, and it refuses a block whose heading is already there.
+`cortex-section.mjs` tracks the playbook by its shipped texts instead. The
 `team-plugin` entries are such a block too, and the CLI above writes them. Every other team file in
 the table above is recorded.
 
@@ -354,7 +358,8 @@ the repo's test script ran `prettier --list-different`, and ten files Cortex had
 failed it. The format hook stamped in this pass only takes effect in the *next* session, so this
 session has to format by hand.
 
-1. **Write LF line endings**, whatever your checkout of the templates has.
+1. **Write LF line endings** in every file you create, whatever your checkout of the templates has.
+   A block added to a file that is already there takes that file's endings, which is what `--append` does.
 2. **Run the repo's formatter on exactly the files you wrote.** `state.formatters` in the step 4
    `--json` output lists what this repo declares, as `{ glob, command }`. Run
    `<command> <file>` for each file you wrote that matches a glob. Never run it on `.`: that

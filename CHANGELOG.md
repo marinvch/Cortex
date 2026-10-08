@@ -5,6 +5,30 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.34] — 2026-10-08
+
+Four authoring rules, each added only where the file did not already hold it.
+
+### Changed
+
+- **`/writing-for-agents`: write the procedure, not the workaround for one model.** A sentence
+  whose only reason is one model's habit goes in an issue with its transcript, not in a skill.
+- **`/grilling`: with nobody to answer**, the frontier is written once with its recommended
+  answers and named as the blocker. Nothing is built on a recommendation.
+- **`/onboard`: read before asking, and nobody to answer.** On a re-run, what a `context/` file
+  already holds is the default answer. In a headless run it writes nothing and prints the
+  questions.
+- **The team skill (`templates/team/team-skill.md`): the Reviewer is handed the diff, the plan
+  and the acceptance criteria**, and not the Implementer's account of the change. A repo with an
+  untouched stamped team skill is offered the update by `/cortex`.
+
+### Unchanged
+
+- `skills/cortex/TEAM.md` already detects before it asks and already points at
+  `RUNS.md` for an unattended run. `/grilling` already says finding facts is never the user's
+  job. `/writing-for-agents` already cites the Anthropic pages its limits come from. None was
+  edited for a rule it already holds.
+
 ## [2.41.33] — 2026-10-08
 
 `/cortex-review` cites a change that lowers the bar it is judged against.
@@ -4730,6 +4754,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.34]: https://github.com/marinvch/Cortex/releases/tag/v2.41.34
 [2.41.33]: https://github.com/marinvch/Cortex/releases/tag/v2.41.33
 [2.41.32]: https://github.com/marinvch/Cortex/releases/tag/v2.41.32
 [2.41.31]: https://github.com/marinvch/Cortex/releases/tag/v2.41.31

@@ -70,5 +70,11 @@ just settled — personal repos on a personal install, never a repo under a work
 ## Rules
 - Idempotent — re-run any time. If a `context/*` file already has real content, ask before
   overwriting; back up the old one to `archives/onboard-{date}/`.
+- Read before asking. On a re-run, read each file a step fills before that step. Where it has real
+  content, show it and ask what changed: what is there is the default answer, and a question the
+  vault already answers is not asked again.
+- With nobody to answer (a headless run), write nothing, Step 0's templates included: which world
+  the vault holds is the first answer. Print the questions and stop. A vault filled with guesses is
+  worse than an empty one.
 - One-shot scaffold after the interview — write all files in a batch, don't ping-pong.
 - Never invent facts. Only write what the user actually said.

@@ -58,11 +58,21 @@ Two Cortex rules apply while grilling, because a grilling session is where they 
 - The employer firewall holds. Grilling a personal project must not pull day-job systems,
   colleagues or client names into the conversation record.
 
+## With nobody to answer
+
+Grilling needs a person. In a headless run (`claude -p`), inside a subagent, or when the user has
+said they are away, nobody will answer the round.
+
+Then write the frontier once, each question with its recommended answer, and name it as the
+blocker: which decisions are open, and what work waits on each. A recommended answer is still a
+recommendation, so nothing is built on it. Carry on only with work no open decision touches. When
+the user or the calling ritual answers the round, grilling resumes from there.
+
 ---
 
 Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The design-tree and
-frontier method is upstream and unmodified; the "Where this fits in Cortex" section is a Cortex
-addition.
+frontier method is upstream and unmodified; the "Where this fits in Cortex" and "With nobody to
+answer" sections are Cortex additions.
 
 ## When the floor is not met
 

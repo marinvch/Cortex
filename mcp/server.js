@@ -9,7 +9,7 @@ import { VERSION } from "./lib/version.js";
 import { append as rememberNote, recent as recentMemory } from "../core/memory.js";
 import { stamp } from "../core/date.js";
 import { toolsFor, assertAvailable, assertPublishable } from "./lib/tools.js";
-import { openBrain, NoRootError, UnknownProfileError } from "./lib/brain.js";
+import { openBrain, MissingRootError, NoRootError, UnknownProfileError } from "./lib/brain.js";
 
 // Three independent questions, composed by one module and answered by three. `mode` is
 // repo-vs-vault — what KIND of brain this root is. `audience` is solo/team/server — WHO it serves.
@@ -29,7 +29,7 @@ try {
     console.error("ai-os-mcp: AI_OS_ROOT is not set. Set it to your vault path, or a repo's .cortex/.");
     process.exit(1);
   }
-  if (e instanceof UnknownProfileError) {
+  if (e instanceof UnknownProfileError || e instanceof MissingRootError) {
     console.error("cortex: " + e.message);
     process.exit(1);
   }

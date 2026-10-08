@@ -5,6 +5,27 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.28] — 2026-10-08
+
+The MCP server refuses to start on a root that does not exist.
+
+### Fixed
+
+- **A missing root fails at startup, with one line naming the path (#550).** With `AI_OS_ROOT`
+  pointing at a repo that was gone, the server started, the client listed it as connected, and the
+  first `recall` came back as `ENOENT: no such file or directory, lstat …`. It now exits 1 before
+  answering anything: `cortex: the repo at <path> does not exist, so AI_OS_ROOT points at a
+  .cortex/ with no repo around it.` A root that is a file is refused the same way.
+- **The `ai-os` CLI says the same line** in place of the raw error, `catch-up` included. An unset
+  root still lets `catch-up` read the repo it is run in; a root that is set and wrong does not.
+
+### Unchanged
+
+- A repo that has never run Cortex still opens: in repo mode the repo has to exist, and
+  `.cortex/` is created by the first write.
+- A root that exists but belongs to an abandoned repo is not detected. The issue lists that as
+  optional, and it needs the index's commit, which `mcp/` may not read from `index/`.
+
 ## [2.41.27] — 2026-10-08
 
 `/cortex` under an older plugin stops previewing the updates it must not offer.
@@ -4618,6 +4639,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.28]: https://github.com/marinvch/Cortex/releases/tag/v2.41.28
 [2.41.27]: https://github.com/marinvch/Cortex/releases/tag/v2.41.27
 [2.41.26]: https://github.com/marinvch/Cortex/releases/tag/v2.41.26
 [2.41.25]: https://github.com/marinvch/Cortex/releases/tag/v2.41.25

@@ -22,7 +22,7 @@
 // answer). A 2 is never a pass: a page rendered from half the facts is the failure this exists for.
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -119,6 +119,9 @@ function listTools(root, mode) {
   // audience, a connector override) is a fact about that shell, not about the product.
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CORTEX_") && k !== "AI_OS_ROOT"));
   env.AI_OS_ROOT = brain;
+  // The server refuses a root that is not there (#550). In repo mode the repo has to exist, and
+  // `.cortex/` need not.
+  mkdirSync(mode === "repo" ? join(base, "repo") : brain, { recursive: true });
 
   const child = spawn(process.execPath, [join(root, "mcp", "server.js")], { cwd: base, env, stdio: ["pipe", "pipe", "pipe"] });
   const exited = new Promise((res) => child.once("exit", res));

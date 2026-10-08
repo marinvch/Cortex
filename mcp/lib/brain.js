@@ -29,16 +29,48 @@
 // the connector or the cwd may move the profile. Composing them here does not give this module
 // licence to collapse them; it is a record with three fields, not a fourth question.
 //
-// Opening also means FAILING at entry. Both errors are thrown here, before a command picks a
+// Opening also means FAILING at entry. A root that does not exist is the third such error
+// (`MissingRootError`, below). Both of the first two are thrown here, before a command picks a
 // branch, so a missing root or a misspelt `CORTEX_PROFILE` fails the same way in both adapters
 // rather than at whichever branch happens to look first. `ai-os.js` resolved the profile inside
 // `team init` only, which is why `team add` never noticed a typo.
 
+import { statSync } from "node:fs";
+import { dirname } from "node:path";
 import { detectMode, REPO } from "./mode.js";
 import { resolveBrain, NoRootError } from "./resolve.js";
 import { resolveProfile, UnknownProfileError } from "../../core/profile.js";
 
 export { NoRootError, UnknownProfileError };
+
+/**
+ * The root was given and nothing is there. `path` is the directory that is missing: the root itself
+ * for a vault, and the REPO for a repo-mode root — `<repo>/.cortex` is created by the first write,
+ * so a repo that has never run Cortex is fine, and a repo that is gone is not.
+ *
+ * Fatal at entry for the reason an unset root is (#550): a server that starts on a root that does
+ * not exist is listed as connected, and the fault shows as a raw ENOENT in whichever tool an agent
+ * calls first. The message names the path and the variable, and is the one line both adapters print.
+ */
+export class MissingRootError extends Error {
+  constructor(path, { repo }) {
+    super(
+      repo
+        ? `the repo at ${path} does not exist, so AI_OS_ROOT points at a .cortex/ with no repo around it. Set AI_OS_ROOT to <an existing repo>/.cortex, or to your vault path.`
+        : `${path} does not exist or is not a directory. Set AI_OS_ROOT to your vault path, or to a repo's .cortex/.`,
+    );
+    this.name = "MissingRootError";
+    this.path = path;
+  }
+}
+
+const isDir = (p) => {
+  try {
+    return statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+};
 
 /**
  * openBrain({ cwd, env }) → the brain this process is talking to.
@@ -62,6 +94,8 @@ export function openBrain({ cwd, env }) {
   const world = resolveProfile({ env });
   const located = resolveBrain({ cwd, env });
   const mode = detectMode(located.root);
+  const mustExist = mode === REPO ? dirname(located.root) : located.root;
+  if (!isDir(mustExist)) throw new MissingRootError(mustExist, { repo: mode === REPO });
 
   const brain = {
     root: located.root,

@@ -23,7 +23,7 @@
 // failure a deterministic module cannot detect in itself.
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { labelsFor } from "./stack.mjs";
 import { categoryOf, detectLanguage } from "./langs.mjs";
 import { protectedClaudePath } from "../../core/claude-code.js";
@@ -38,6 +38,29 @@ const VERIFIER_AT = ".claude/agents/verifier.md";
 export const STAGES = ["plan", "design", "build", "test", "deploy", "maintain"];
 
 const has = (root, rel) => existsSync(join(root, rel));
+
+// Whether a remote of this checkout is on GitHub, read from git's own config file. A file fact like
+// every other in this module: git is not run, so the answer is the same in CI, in a sandbox and on a
+// machine with no git on its PATH. `.git` is a directory in a clone and a one-line file in a
+// worktree or a submodule, whose `commondir` names the directory that holds the config.
+// The host has to be GitHub's: `github.com`, or a `github.` host of a company's own server. A
+// path that merely contains the word is some other host's mirror. Anything unreadable is "no".
+const GITHUB_REMOTE = /^\s*url\s*=\s*(?:[a-z+]+:\/\/)?(?:[^@\/\s]+@)?github\.[\w.-]+[:\/]/im;
+function githubRemote(root) {
+  try {
+    let dir = join(root, ".git");
+    if (statSync(dir).isFile()) {
+      const m = /^gitdir:\s*(.+)$/m.exec(readFileSync(dir, "utf8"));
+      if (!m) return false;
+      dir = isAbsolute(m[1].trim()) ? m[1].trim() : resolve(root, m[1].trim());
+      const common = join(dir, "commondir");
+      if (existsSync(common)) dir = resolve(dir, readFileSync(common, "utf8").trim());
+    }
+    return GITHUB_REMOTE.test(readFileSync(join(dir, "config"), "utf8"));
+  } catch {
+    return false;
+  }
+}
 
 const read = (root, rel) => {
   try {
@@ -75,6 +98,10 @@ function workflowsRunning(root, needle) {
 }
 
 const named = (ids) => labelsFor(ids ?? []).join(", ");
+
+// Where a GitHub workflow would run: the repo has workflows, or it has no CI at all and is hosted on
+// GitHub. Never beside another CI the repo already chose.
+const onGitHubActions = (s) => s.ci === ".github/workflows" || (!s.ci && Boolean(s.githubRemote));
 
 // Whether either hook template would do anything here: protected-paths.sh needs a path to block,
 // format-changed.sh a formatter to run. Nothing else — a test command is not hook work, because no
@@ -618,6 +645,9 @@ export function readLoopState(root, index = null, overrides = {}) {
     formatters: detectFormatters(root),
     protectedPaths: protectedPaths(root, index),
     ci: has(root, ciDir) ? ciDir : has(root, ".gitlab-ci.yml") ? ".gitlab-ci.yml" : null,
+    // Hosted on GitHub, whether or not a workflow exists yet. `ci` says a CI runs here; this says
+    // where one would, which is what the first workflow needs to know (#548).
+    githubRemote: githubRemote(root),
     frontend: (stack.frameworks ?? []).some((f) => /next|react|vue|svelte|angular|remix|astro/i.test(f)),
 
     // Artifact presence. Each is a file fact — "does this repo have it" — never a judgment about
@@ -822,11 +852,13 @@ export const LOOP_ARTIFACTS = [
     stamps: [{ path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml" }],
     present: (s) => s.reviewCi,
     // A review against no documents has nothing to say, and the template is a GitHub workflow — on
-    // any other CI it is a file nothing runs.
-    when: (s) => s.ci === ".github/workflows" && s.rootBrief,
+    // any other CI it is a file nothing runs. A repo hosted on GitHub with no workflow yet is not
+    // "no CI": this file would be its first, and waiting for a workflow to exist before offering
+    // the workflow is a circle (#548). A repo that already chose another CI keeps waiting.
+    when: (s) => onGitHubActions(s) && s.rootBrief,
     needs: (s) => [
-      s.ci !== ".github/workflows" &&
-        `GitHub Actions — the template is a GitHub workflow${s.ci ? `, and this repo's CI is ${s.ci}` : ""}`,
+      !onGitHubActions(s) &&
+        `GitHub Actions — the template is a GitHub workflow${s.ci ? `, and this repo's CI is ${s.ci}` : ", and no remote of this repo is on GitHub"}`,
       !s.rootBrief && "AGENTS.md — the documents a pull request is reviewed against",
     ],
     why: (s) => {
@@ -835,6 +867,11 @@ export const LOOP_ARTIFACTS = [
         return s.rootBrief
           ? "AGENTS.md and .github/workflows are both here, so every PR can be read against the documents it may have made wrong — deterministic, no API key"
           : ".github/workflows is here, but there is no AGENTS.md yet for a PR to be read against";
+      }
+      if (onGitHubActions(s)) {
+        return s.rootBrief
+          ? "the repo is hosted on GitHub and has no workflow yet, so this would be its first workflow — every PR read against AGENTS.md, deterministic, no API key"
+          : "the repo is hosted on GitHub, but there is no AGENTS.md yet for a PR to be read against";
       }
       return s.ci
         ? `this repo's CI is ${s.ci}, and the template is a GitHub workflow`

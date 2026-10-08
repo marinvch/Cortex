@@ -5,6 +5,31 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.24] — 2026-10-08
+
+The PR review workflow is offered where it would be the first workflow. Sixth fix from the field
+report in #548.
+
+### Fixed
+
+- **`cortex-review.yml` no longer waits for a workflow to exist (#548, item 7).** The row was
+  blocked on "GitHub Actions" in a repo hosted on GitHub with a `.github/` directory and no
+  workflows, and the file it offers is the workflow. A repo with no CI and a remote on GitHub is
+  now offered the row. A repo that already chose another CI still waits, and so does one with no
+  GitHub remote, which now says so.
+
+### Added
+
+- **`state.githubRemote`** in `cortex-loop.mjs . --json`: whether a remote of the checkout is on
+  GitHub. It is read from git's config file, through a worktree's `.git` file too, and git is
+  never run. The host has to be `github.com` or a `github.` host; a path that contains the word
+  is not one.
+
+### Unchanged
+
+- The `evals` and `bands` rows still wait for a CI system. Stamping `cortex-review.yml` creates
+  `.github/workflows/`, so they are offered on the next run.
+
 ## [2.41.23] — 2026-10-08
 
 Skill drift checks three more claims the disk can refute. Fifth fix from the field report in #548.
@@ -4531,6 +4556,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.24]: https://github.com/marinvch/Cortex/releases/tag/v2.41.24
 [2.41.23]: https://github.com/marinvch/Cortex/releases/tag/v2.41.23
 [2.41.22]: https://github.com/marinvch/Cortex/releases/tag/v2.41.22
 [2.41.21]: https://github.com/marinvch/Cortex/releases/tag/v2.41.21

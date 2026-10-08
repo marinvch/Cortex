@@ -241,6 +241,44 @@ remembered, and three loop rows blocked on a CI that one of them would create. T
 condition for this roadmap was a stable base, and this is the best evidence on it, so the plan opens
 with those fixes (steps F1–F8).
 
+**Then the agent-skills survey.** On 2026-10-08 the maintainer approved taking ideas from
+[addyosmani/agent-skills](https://github.com/addyosmani/agent-skills), read at its 2026-10-03
+commit, where they benefit Cortex and are built by its own means and principles. The plan carries
+them as steps H1–H5, after the field report.
+
+What the survey found that Cortex lacks:
+
+- **Nothing checks that a ritual is reached.** `evals/run.mjs` gives the skill body to the model as
+  its system prompt, so a ritual that never fires on a natural request scores the same as one that
+  does. `core/test/plugin.test.js` only stops two rituals claiming one exact phrase. Their answer
+  has two halves: a lexical ranking of realistic prompts against every description, which needs no
+  model and runs in CI, and `claude plugin eval`, which runs a case with and without the plugin
+  through Claude Code's own router. Their notes say firing is stochastic and the default model
+  changed twice in one day, so numbers are reported with the model pinned and the version named.
+- **Nothing cites a change that lowers the bar.** `/cortex-review` judges a change against the
+  repo's documents. It does not point at an added `@ts-ignore`, a skipped or deleted test, or a
+  threshold edited down. Those are facts a diff states, so `review.mjs` can find and cite them.
+- **Four authoring rules.** A step that can only be justified by naming a model belongs in an issue
+  and not in a skill. Never ask what can be read, and give every question a default. A reviewer
+  handed the author's conclusion confirms it. An interview with nobody to answer flags the blocker.
+
+What was left out, and why:
+
+- **Their session-start hook, which injects a router skill.** Cortex ships no hook (ADR 0021), and
+  their own script says not to wire it where the host already routes skills.
+- **The twenty-five lifecycle skills.** They are general by design. A skill Cortex writes has to
+  cite what was detected in the repo (`skills.mjs`).
+- **One question at a time.** `/grilling` asks the whole frontier in one round on purpose, and the
+  field report asked for fewer questions.
+- **A rationalizations table in every skill.** It is their house style. Cortex's descriptions and
+  bodies are held to a size budget (ADR 0020).
+- **A lexical ranking as a judge of meaning.** It can say a description lacks a word people use. It
+  cannot say a ritual is the right one, so H1 is a floor and H2 is where firing is measured.
+
+`claude plugin eval` compares a session with and without the plugin. The harness in part 2 compares
+a repo with and without the context layer. They answer different questions, and H2 decides only
+whether the case and grader format is worth reusing in step 2.2.
+
 Two more pieces of work were approved on 2026-10-04 and are not part of this roadmap's four parts.
 The plan puts them after the field report and before part 1.
 

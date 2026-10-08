@@ -143,6 +143,13 @@ holds the rules for that module alone — read it before editing the module.
 - **`--size` recommends and never decides** (`lib/sizing.mjs`). A finer sizing-local area key was
   tried and rejected: zustand's `vanilla.ts`, `react.ts` and `traditional.ts` share one directory,
   so no directory key sees that refactor as spread.
+- **`cortex-review` cites the lines where a change may have lowered the bar, and never judges them**
+  (`lib/lowered-bar.mjs`; its header lists the five kinds and what it cannot see). It reads the text
+  of the same change set the file list comes from (`changedDiff`, `lib/changed.mjs`), and a diff git
+  could not read is reported as unread, never as nothing found. The exit code does not move. Run
+  over 2,990 commits of ten public repos: an import of an assertion library, a runner hook counted
+  as a test, and `@ts-expect-error` in a type test were the false positives, and each is a test now.
+  Change a pattern only with a run over real history; the fixtures agreed with every one of those.
 - **Every path two change sets compare goes through `normalizeChangedPath`** (`lib/changed.mjs`).
   `--against` itself is `lib/overlap.mjs`'s header.
 - **Where ADRs live is `lib/adr.mjs`'s one answer** (`isAdrPath`, `adrLocation`); no reader keeps

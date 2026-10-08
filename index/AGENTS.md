@@ -154,7 +154,9 @@ Its rules are in its comments and `loop.test.mjs`; the second-round rows are `SE
 - Validated on `got` (npm), `fzf` (Make, Go) and `flask` (Python, nested example manifests), and
   mutation-tested: nine guards broken one at a time, nine test failures. The watcher, lockfile and
   hooks rules were validated on bulletproof-react, vitest (root and examples), zustand, the Nest
-  starter, a CRA app, ripgrep and fzf, with nineteen more guards mutated. Do both again when a row
+  starter, a CRA app, ripgrep and fzf, with nineteen more guards mutated. `githubRemote` was read
+  off four GitHub clones (kapi-sprints has no workflows and now waits on its brief alone), with
+  seven guards mutated. Do both again when a row
   or a detector changes — fixtures here share the author's blind spots.
 
 ### The Claude-setup checker — `lib/claude-setup.mjs`

@@ -5,6 +5,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.30] — 2026-10-08
+
+Three Claude Code rules are re-confirmed against the pages they cite.
+
+### Changed
+
+- **`mod.min-version`** keeps its value, 2.1.287. The docs now say it per place: "In the terminal,
+  use Claude Code v2.1.287 or later", and the Desktop app runs mods from v2.1.286. Cortex states the
+  terminal's floor.
+- **`permission.protected-path.claude-dir`** cites the page's new wording. The page now lists
+  several exceptions under `.claude`, where it had one. The one Cortex applies, `.claude/worktrees`,
+  is its own rule with its own sentence (`permission.protected-path.claude-dir.worktrees`), so the
+  rule count is 51. The other exceptions are under `~/.claude` or depend on a session flag Cortex
+  cannot see, and `/cortex` stamps into none of them, so `protectedClaudePath()` answers as before.
+- **`subagent.name.no-colon`** lost the full stop its sentence no longer ends with.
+- `CHECKED` is 2026-10-08.
+
 ## [2.41.29] — 2026-10-08
 
 `/migrate-engine` looks in three places the old setup hides.
@@ -4656,6 +4673,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.30]: https://github.com/marinvch/Cortex/releases/tag/v2.41.30
 [2.41.29]: https://github.com/marinvch/Cortex/releases/tag/v2.41.29
 [2.41.28]: https://github.com/marinvch/Cortex/releases/tag/v2.41.28
 [2.41.27]: https://github.com/marinvch/Cortex/releases/tag/v2.41.27

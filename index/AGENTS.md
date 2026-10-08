@@ -122,7 +122,7 @@ holds the rules for that module alone — read it before editing the module.
 - **A file about tests is not a test** (`isTestPath`, `lib/langs.mjs`): a runner's setup file in a
   test directory, and anything under `.claude/` that is not named as a test. Compared with the old
   rule over 5,581 files in ten public repos: four files changed, all setup files with no test in
-  them (zustand, three-flatland, create-react-app), and none became a test. Eight guards mutated, eight failures.
+  them (zustand, three-flatland, create-react-app), and none became a test. Six guards mutated, six failures.
 - **Coverage uses three signals** — name, import, and a quoted string mention — and lives in
   `lib/coverage.mjs`, shared by `findings.mjs` and `impact.mjs`. Each alone misreports: naming
   alone called `mcp/lib` untested when its tests live in `mcp/test`; a CLI spawned as a subprocess

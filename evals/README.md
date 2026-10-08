@@ -1,5 +1,7 @@
 # Skill evals
 
+Changing code here? [`AGENTS.md`](AGENTS.md) holds the rules that must stay true.
+
 Scored tasks for the Cortex skills whose **text** decides the outcome — not deterministic code — and
 whose outcome can be checked exactly. They exist so a skill can be *measured* before and after an
 edit, and trained with an optimizer that only keeps edits that measurably help.
@@ -31,7 +33,8 @@ the skill's own table, and so is the promise to write nothing before that confir
   `skills.mjs`. `team-ask` names the playbook template this way, and `--check` follows that file.
   Its scenario's `system(body)` fills `{{ROSTER}}` first. SkillOpt's adapter still reads
   `skills/<name>/SKILL.md` only, so `team-ask` is measured here but not trained there.
-- `test/` — the scorer is tested before anything trusts it: every correct answer scores 1, and each
+- `test/` — `evals.test.mjs` runs every generated task, and `<skill>.test.mjs` pins one scenario's
+  weights and reasons on a state written by hand. The scorer is tested before anything trusts it: every correct answer scores 1, and each
   trap (deleting a squash-merged branch that kept commits, flagging a CHANGELOG line, inventing a
   finding on a clean change) scores below 1. A scorer that passed a wrong answer would train a skill
   toward the wrong behaviour and report it as an improvement.
@@ -186,7 +189,8 @@ measured change is not kept, or is kept without a gain.
 ## Adding a skill
 
 Add `scenarios/<skill>.mjs` exporting `generate`, `render`, `truth` and `score`; register it in
-`skills.mjs`; add its correct-answer builder and at least one trap to `test/evals.test.mjs`; run
+`skills.mjs`; add its correct-answer builder and at least one trap to `test/evals.test.mjs`, and a
+`test/<skill>.test.mjs` that pins its weights on a state written by hand; run
 `node evals/generate.mjs <skill>`; then `node evals/run.mjs <skill> --record`, because `--check`
 fails on a registered skill with no baseline. Also run it once with no skill at all, which is the
 control in the table above, so you know whether its alarm can fire. A skill earns a row only if its correct answer is known by

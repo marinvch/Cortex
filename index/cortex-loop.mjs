@@ -156,6 +156,7 @@ for (const stage of STAGES) {
     // label, since neither version tells them how to unlock it.
     if (e.mark === "blocked") console.log(`      ${dim("needs: " + (e.needs.join("; ") || "an earlier artifact"))}`);
     if (e.mark !== "present") console.log(`      ${dim(e.paths.join("  "))}`);
+    if (e.mark === "missing" && e.effect) console.log(`      ${dim("changes: " + e.effect)}`);
     // Said on the row, because it is the row a headless /cortex leaves missing while reporting
     // success: Claude Code never auto-approves a write under .claude/, and `claude -p` has nobody
     // to ask. Naming the flag here is the difference between a gap and a gap with a way through.

@@ -190,3 +190,41 @@ test("a fenced example is illustration, not a citation", () => {
   });
   assert.deepEqual(skillDrift(root, index, { isIgnored: none }).drifted, []);
 });
+
+// --- edited since it was written (#548, item 4) ------------------------------------------------------
+
+const STALE = { files: { "src/a.ts": "x" }, skills: { stale: skill("Read `src/gone.ts` first.") } };
+
+test("a drifted skill says whether a person edited it since it was written, with the sentence a playback row shows", () => {
+  const { root, index } = repo(STALE);
+  const at = (h) => skillDrift(root, index, { isIgnored: none, history: () => h }).drifted[0];
+
+  const once = at({ commits: 1, uncommitted: false });
+  assert.equal(once.edited, false);
+  assert.equal(once.editedNote, null);
+
+  const twice = at({ commits: 2, uncommitted: false });
+  assert.equal(twice.edited, true);
+  assert.equal(twice.editedNote, "edited since it was written, 2 commits");
+
+  assert.equal(at({ commits: 3, uncommitted: true }).editedNote, "edited since it was written, 3 commits and uncommitted changes");
+  assert.equal(at({ commits: 1, uncommitted: true }).editedNote, "edited since it was written, uncommitted changes");
+  // Never committed: nothing says who wrote it, so it is a person's until git says otherwise.
+  assert.equal(at({ commits: 0, uncommitted: true }).edited, true);
+});
+
+test("when git cannot say, `edited` is null — unanswered, never 'not edited'", () => {
+  const { root, index } = repo(STALE);
+  const d = skillDrift(root, index, { isIgnored: none, history: () => null }).drifted[0];
+  assert.equal(d.edited, null);
+  assert.equal(d.editedNote, null);
+  // The default asks git, and a directory that is no checkout has no answer.
+  assert.equal(skillDrift(root, index, { isIgnored: none }).drifted[0].edited, null);
+});
+
+test("history is asked only about skills that drifted", () => {
+  const { root, index } = repo({ files: { "src/a.ts": "x" }, skills: { clean: skill("Read `src/a.ts`."), stale: skill("Read `src/gone.ts`.") } });
+  const asked = [];
+  skillDrift(root, index, { isIgnored: none, history: (rel) => (asked.push(rel), null) });
+  assert.deepEqual(asked, [".claude/skills/stale/SKILL.md"]);
+});

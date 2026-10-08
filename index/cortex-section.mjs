@@ -4,6 +4,8 @@
 //   node index/cortex-section.mjs <repo> [--json]        # each section's state, and its diff; writes nothing
 //   node index/cortex-section.mjs <repo> --replace team  # replace an outdated section with this release's text
 //   node index/cortex-section.mjs <repo> --keep team     # the team keeps its edited section: stop asking until the template changes
+//   node index/cortex-section.mjs <repo> --append CLAUDE.md --from <file>
+//                                                        # add a rendered block to the end, in the file's own line endings
 //
 // Today there is one section: the team playbook, `CLAUDE.md` § Working as a team. It is appended to a
 // file the team also writes, so the stamp record cannot hold it, and a repo stamped by 2.41.0 kept the
@@ -18,20 +20,26 @@
 // and the answer is recorded with `--keep`, so a `kept` section is not asked about again until a
 // release changes its template. `cortex-next` names outdated and edited sections, never kept ones. `--replace` writes only an outdated section: every byte outside it stays
 // where it was, the result is read back before it is written, and it goes through a temp file renamed
-// into place. This is the third script in index/ that writes outside `.cortex/`, beside
+// into place. This is the third script in index/ that writes outside `.cortex/` (`--append`, below, is its second such write), beside
 // `cortex-stamps.mjs update` and `cortex-shared-plugin.mjs --write`. `--keep` writes only
 // `.cortex/sections.json`, committed, and only for an edited section.
 //
-// Exit codes: 0 for a status, a replace, a keep, or nothing to do; 1 for a bad argument or a refused
+// `--append` is how /cortex adds a block to a file the team also writes: the verification block and
+// the playbook, into `CLAUDE.md`. The block takes the line endings most of the file's lines have, so a
+// CRLF checkout is left with no LF line (#548). It only adds to the end of a markdown file inside the
+// repo, creates it when it is not there, and refuses a block whose heading is already a section.
+//
+// Exit codes: 0 for a status, a replace, a keep, an append, or nothing to do; 1 for a bad argument or a refused
 // replace or keep (an edited section, an unknown id, a value the new text needs, Cortex's own text
 // to keep); 2 for a file state it will not write into (no CLAUDE.md, no section, two sections, a
 // `.cortex/sections.json` that does not read).
 
+import { readFileSync } from "node:fs";
 import { openTarget } from "./lib/open.mjs";
 import { SectionRefused } from "./lib/section.mjs";
-import { sectionKeep, sectionReport, sectionReplace } from "./lib/sections.mjs";
+import { blockAppend, sectionKeep, sectionReport, sectionReplace } from "./lib/sections.mjs";
 
-const USAGE = "usage: node index/cortex-section.mjs <repo> [--json] [--replace <section> | --keep <section>]";
+const USAGE = "usage: node index/cortex-section.mjs <repo> [--json] [--replace <section> | --keep <section> | --append <file.md> --from <block file>]";
 
 const refuse = (text, code) => {
   process.stderr.write(text.endsWith("\n") ? text : text + "\n");
@@ -40,12 +48,31 @@ const refuse = (text, code) => {
 
 const { root, args } = openTarget(process.argv.slice(2), {
   usage: USAGE,
-  flags: { "--json": "boolean", "--replace": "value", "--keep": "value" },
+  flags: { "--json": "boolean", "--replace": "value", "--keep": "value", "--append": "value", "--from": "value" },
   root: "positional",
   index: "none",
 });
 
 if (args.replace != null && args.keep != null) refuse(`--replace and --keep answer two different states; give one\n${USAGE}`, 1);
+
+if (args.append != null || args.from != null) {
+  if (args.append == null || args.from == null) refuse(`--append names the file to add to and --from the file holding the block; give both\n${USAGE}`, 1);
+  if (args.replace != null || args.keep != null || args.json) refuse(`--append is its own action\n${USAGE}`, 1);
+  let block;
+  try {
+    block = readFileSync(args.from, "utf8");
+  } catch (e) {
+    refuse(`could not read the block at ${args.from}: ${e.message}\nNothing was written.`, 1);
+  }
+  try {
+    const r = blockAppend(root, args.append, block);
+    console.log(`Appended to ${r.path} with its own line endings (${r.eol}). Every line that was there is as it was.`);
+    process.exit(0);
+  } catch (e) {
+    if (!(e instanceof SectionRefused)) throw e;
+    refuse(`${e.message}\nNothing was written.`, e.code);
+  }
+}
 
 if (args.keep != null) {
   if (args.json) refuse(`--keep and --json are separate: read the state, then keep\n${USAGE}`, 1);

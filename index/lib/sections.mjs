@@ -30,7 +30,8 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SectionRefused, replaceSection, sectionState } from "./section.mjs";
+import { OutsideRootError, resolveInRoot } from "../../core/paths.js";
+import { SectionRefused, appendBlock, eolOf, findSections, replaceSection, sectionState } from "./section.mjs";
 import { SHIPPED_SECTIONS } from "./shipped-sections.mjs";
 import { hashText, runningCortex } from "./stamps.mjs";
 import { PLAYBOOK_HEADING } from "./team.mjs";
@@ -159,6 +160,42 @@ export function sectionReplace(root, id, { templatesDir = TEMPLATES_DIR } = {}) 
     written: true, section: sectionName(s), version: st.version,
     why: `it was Cortex ${st.version}'s text, and is now this release's, with the values it held kept`,
   };
+}
+
+/**
+ * Append `block` to the markdown file at `rel`, in that file's own line endings (`appendBlock`), and
+ * create the file when it is not there. `{ written, path, eol }`, `eol` being `"CRLF"` or `"LF"`.
+ *
+ * This is how /cortex adds the verification block and the team playbook to `CLAUDE.md`. It only ever
+ * adds to the end: every byte already in the file stays. Throws `SectionRefused` and writes nothing —
+ * code 1 for a path that is not a markdown file inside the repo or an empty block, code 2 when the
+ * block opens with a heading the file already has as a section, which would be the same block twice.
+ */
+export function blockAppend(root, rel, block) {
+  const path = String(rel).replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!/\.md$/i.test(path)) throw new SectionRefused(`${path} is not a markdown file — a block is appended only to one`, 1);
+  let abs;
+  try {
+    abs = resolveInRoot(root, path);
+  } catch (e) {
+    if (!(e instanceof OutsideRootError)) throw e;
+    throw new SectionRefused(`${path} is outside this repo`, 1);
+  }
+  const before = readText(abs);
+  const heading = /^ {0,3}#{2,6}[ \t]+(.+?)[ \t]*$/.exec(String(block).replace(/\r\n/g, "\n").replace(/^\n+/, "").split("\n")[0] ?? "");
+  if (before !== null && heading && findSections(before, heading[1]).length) {
+    throw new SectionRefused(`${path} already has a section headed "${heading[1]}", so the block is not added a second time`, 2);
+  }
+  const next = appendBlock(before, block);
+  const tmp = `${abs}.cortex-tmp`;
+  try {
+    writeFileSync(tmp, next);
+    renameSync(tmp, abs);
+  } catch (e) {
+    rmSync(tmp, { force: true });
+    throw new SectionRefused(`could not write ${path}: ${e.message}`, 2);
+  }
+  return { written: true, path, eol: eolOf(before ?? "") === "\r\n" ? "CRLF" : "LF" };
 }
 
 /**

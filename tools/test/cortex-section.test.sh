@@ -104,3 +104,30 @@ assert_eq "" "$(git -C "$D" status --porcelain)" "and nothing is written"
 
 out="$(node "$SEC" "$D" --replace nope 2>&1)"; rc=$?
 assert_eq "1" "$rc" "an unknown section id is refused"
+
+# --- --append: a block takes the file's own line endings (#548) ------------------------------------
+#
+# On a core.autocrlf checkout CLAUDE.md is CRLF on disk and the templates are LF. Appending the
+# playbook as-is left one file with both. A real checkout with autocrlf on, so git itself wrote the
+# CRLF: the file must end with no bare LF, and git must see added lines only.
+A="$WORK/append-crlf"
+mkrepo "$A"
+git -C "$A" config core.autocrlf true
+printf '@AGENTS.md\n\n## Verifying your work\n\nRun the tests.\n' > "$A/CLAUDE.md"
+printf '# demo\n' > "$A/AGENTS.md"
+git -C "$A" add -A 2>/dev/null && git -C "$A" commit -q -m first
+rm "$A/CLAUDE.md" && git -C "$A" checkout -q -- CLAUDE.md    # checked out again, now CRLF on disk
+bare_lf() { node -e 'const t = require("fs").readFileSync(process.argv[1], "utf8"); process.stdout.write(String((t.match(/(?<!\r)\n/g) || []).length) + " " + String((t.match(/\r\n/g) || []).length > 0));' "$1"; }
+assert_eq "0 true" "$(bare_lf "$A/CLAUDE.md")" "append: the fixture's CLAUDE.md is CRLF on disk"
+node "$REPO_ROOT/index/cortex-stamps.mjs" render team/playbook.md --value 'ROSTER=`tester`' > "$WORK/playbook.block"
+out="$(node "$SEC" "$A" --append CLAUDE.md --from "$WORK/playbook.block" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "append: the playbook is appended"
+assert_contains "$out" "with its own line endings (CRLF)" "and the report names the endings it used"
+assert_eq "0 true" "$(bare_lf "$A/CLAUDE.md")" "append: no LF line is left in the CRLF file"
+assert_eq "" "$(git -C "$A" diff --numstat -- CLAUDE.md | awk '$2 != 0')" "append: git sees added lines and no changed or removed one"
+assert_contains "$(node "$SEC" "$A" 2>&1)" "current: CLAUDE.md § Working as a team" "append: and the section reads as this release's text"
+out="$(node "$SEC" "$A" --append CLAUDE.md --from "$WORK/playbook.block" 2>&1)"; rc=$?
+assert_eq "2" "$rc" "append: a second append of the same block is refused"
+out="$(node "$SEC" "$A" --append src/app.js --from "$WORK/playbook.block" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "append: a file that is not markdown is refused"
+assert_eq " M CLAUDE.md" "$(git -C "$A" status --porcelain)" "append: and CLAUDE.md is the one file that changed"

@@ -147,14 +147,16 @@ test("without an index nothing is proven, and that is null rather than a clean b
   assert.equal(skillDrift(root, null), null);
 });
 
-test("what the repo ignores, a file the skill creates, and the frontmatter are never reported", () => {
+test("what the repo ignores, a file the skill creates, and frontmatter outside the description are never reported", () => {
   const { root, index } = repo({
     files: { "src/a.ts": "x" },
     skills: {
       s: [
         "---",
         "name: s",
-        "description: see `src/old/path.ts`",
+        "description: a skill",
+        "paths: src/old/**/*.ts",
+        "argument-hint: src/old/path.ts",
         "---",
         "Incremental state lives in `node_modules/.vite/deps/react.js`.",
         "Output goes to `dist/assets/app.js`.",
@@ -227,4 +229,110 @@ test("history is asked only about skills that drifted", () => {
   const asked = [];
   skillDrift(root, index, { isIgnored: none, history: (rel) => (asked.push(rel), null) });
   assert.deepEqual(asked, [".claude/skills/stale/SKILL.md"]);
+});
+
+// --- claims the manifest refutes, a stale description, a premise that is gone (#548, items 5 and 6) ---
+
+const kinds = (r) => r.drifted.flatMap((d) => d.findings.map((f) => `${f.kind}@${f.line}`));
+
+test("a claim that a script does not exist is refuted by the manifest that declares it", () => {
+  const pkg = JSON.stringify({ scripts: { typecheck: "tsc --noEmit", lint: "eslint ." } });
+  const { root, index } = repo({
+    files: { "package.json": pkg, "src/a.ts": "x" },
+    skills: {
+      "type-check": skill([
+        "The checker is not wired into a standalone npm script.",   // names nothing: the skill's own name is the script
+        "There is no `lint` script here.",
+        "`npm run typecheck` does not exist yet, so call tsc directly.",
+        "There is no `deploy` script.",                              // true: nothing declares it
+        "If there is no `lint` script, add one.",                    // conditional
+        "There was no `lint` script before the migration.",          // historical
+      ].join("\n")),
+    },
+  });
+  const r = skillDrift(root, index, { isIgnored: none });
+  assert.deepEqual(kinds(r), ["no-script@6", "no-script@7", "no-script@8"], JSON.stringify(r.drifted, null, 2));
+  const [a, b] = r.drifted[0].findings;
+  assert.match(a.why, /package\.json declares a "typecheck" script/);
+  assert.match(b.why, /package\.json declares a "lint" script/);
+});
+
+test("a no-script claim proves nothing when a manifest cannot be read, or the skill's name is no script", () => {
+  const { root, index } = repo({
+    files: { "package.json": "{ not json", "pkg/package.json": JSON.stringify({ scripts: { lint: "x" } }), "src/a.ts": "x" },
+    // The second line names nothing and is not about scripts, so the skill's name proves nothing.
+    skills: { lint: skill(["There is no `lint` script here.", "The config does not exist."].join("\n")) },
+  });
+  assert.deepEqual(skillDrift(root, index, { isIgnored: none }).drifted, []);
+  const readable = repo({ files: { "package.json": JSON.stringify({ scripts: { lint: "x" } }), "src/a.ts": "x" }, skills: { lint: skill("The config does not exist.") } });
+  assert.deepEqual(skillDrift(readable.root, readable.index, { isIgnored: none }).drifted, []);
+  const other = repo({
+    files: { "package.json": JSON.stringify({ scripts: { build: "x" } }), "src/a.ts": "x" },
+    skills: { "type-check": skill("The checker is not wired into a standalone npm script.") },
+  });
+  assert.deepEqual(skillDrift(other.root, other.index, { isIgnored: none }).drifted, []);
+});
+
+test("a stale path in the description is reported, and marked as frontmatter a refresh does not touch", () => {
+  const body = "---\nname: s\ndescription: Use when editing src/components/Nav.tsx or `src/old/` code,\n  or docs at https://example.com/a/b.html and src/app/page.tsx. CI/CD and and/or are words, like canvas/WebGL/Three.js. Not `example.com/docs/a.md`, not `src/old/*.ts`.\nallowed-tools: Read\n---\n\nRead `src/app/page.tsx`.\n";
+  const { root, index } = repo({ files: { "src/app/page.tsx": "x", "src/features/Nav.tsx": "x" }, skills: { s: body } });
+  const f = skillDrift(root, index, { isIgnored: none }).drifted[0].findings;
+  assert.deepEqual(f.map((x) => [x.line, x.kind, x.cited, x.frontmatter]), [
+    [3, "path", "src/components/Nav.tsx", true],
+    [3, "path", "src/old/", true],
+  ]);
+  assert.equal(f[0].hint, "src/features/Nav.tsx");
+  assert.match(f[0].why, /description names src\/components\/Nav\.tsx/);
+});
+
+test("a description path that ends its sentence is still read", () => {
+  const body = "---\nname: s\ndescription: Use when touching src/gone/Card.tsx.\n---\n\nBody.\n";
+  const { root, index } = repo({ files: { "src/a.ts": "x" }, skills: { s: body } });
+  assert.deepEqual(skillDrift(root, index, { isIgnored: none }).drifted[0].findings.map((f) => f.cited), ["src/gone/Card.tsx"]);
+});
+
+test("a body finding carries no frontmatter mark, and a path under another frontmatter key is not read", () => {
+  const body = "---\nname: s\ndescription: A skill.\npaths: src/gone/**/*.ts\n---\n\nRead `src/gone/a.ts`.\n";
+  const { root, index } = repo({ files: { "src/a.ts": "x" }, skills: { s: body } });
+  const f = skillDrift(root, index, { isIgnored: none }).drifted[0].findings;
+  assert.equal(f.length, 1);
+  assert.equal(f[0].line, 7);
+  assert.equal("frontmatter" in f[0], false);
+});
+
+test("a skill that says no test runner is installed is refuted by the runner the index detected", () => {
+  const made = repo({
+    files: { "package.json": PKG, "src/a.ts": "x" },
+    tests: ["src/a.test.ts"],
+    skills: { s: "---\nname: s\ndescription: A skill.\n---\n\nThere is no test runner installed in this project.\nIf no test runner is configured, stop.\n" },
+  });
+  const index = { ...made.index, stack: { test: ["vitest"] } };
+  const f = skillDrift(made.root, index, { isIgnored: none }).drifted[0].findings;
+  assert.deepEqual(f.map((x) => `${x.kind}@${x.line}`), ["tests@6"]);
+  assert.match(f[0].why, /says no test runner is installed, and the index detected Vitest/);
+  // Without a detected runner the claim cannot be refuted.
+  assert.deepEqual(skillDrift(made.root, made.index, { isIgnored: none }).drifted, []);
+});
+
+test("a setup skill whose premise is gone is proposed for retirement, with its successor", () => {
+  const clean = "---\nname: write-first-test\ndescription: Get a real test running for the first time.\n---\n\nPick a runner and write one test.\n";
+  const made = repo({ files: { "package.json": PKG, "src/a.ts": "x" }, tests: ["src/a.test.ts", "src/b.test.ts"], skills: { "write-first-test": clean, "add-route": clean } });
+  const index = { ...made.index, stack: { test: ["vitest"] } };
+  const r = skillDrift(made.root, index, { isIgnored: none });
+  assert.deepEqual(r.drifted.map((d) => d.skill), ["write-first-test"], "only the skill whose premise the index refutes");
+  const d = r.drifted[0];
+  assert.deepEqual(d.retire, { successor: "add-test" });
+  assert.equal(d.findings[0].kind, "premise");
+  assert.match(d.findings[0].why, /the index counts 2 test files/);
+  assert.match(d.findings[0].why, /add-test/);
+
+  // No tests yet: the premise holds, and nothing is said.
+  const before = repo({ files: { "package.json": PKG, "src/a.ts": "x" }, skills: { "write-first-test": clean } });
+  assert.deepEqual(skillDrift(before.root, before.index, { isIgnored: none }).drifted, []);
+  // Tests but no detected runner: retire is still proposed, and no successor is named.
+  const bare = skillDrift(made.root, made.index, { isIgnored: none }).drifted[0];
+  assert.deepEqual(bare.retire, { successor: null });
+  // A skill that only drifted has no retire key to act on.
+  const stale = repo({ files: { "src/a.ts": "x" }, skills: { stale: skill("Read `src/gone.ts`.") } });
+  assert.equal(skillDrift(stale.root, stale.index, { isIgnored: none }).drifted[0].retire, null);
 });

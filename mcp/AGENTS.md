@@ -56,6 +56,11 @@ the repo by commit count, and — like every other part — **dependency-free**.
   see that it is off. `tools.test.js` drives the property off the table and `mode.test.js` proves
   it over a spawned server — the unit test alone passes happily when the dispatch never calls it.
   The refusal stays in `core/scrub.js`: it refuses rather than sanitises and names only the kind.
+- **A root that does not exist is a hard exit too** (`MissingRootError`, `lib/brain.js`, #550). The
+  server used to start on it and fail in the first tool an agent called, with a raw `ENOENT`. In repo
+  mode the directory that must exist is the repo, not `.cortex/`: the first write creates that. This
+  holds for `ai-os catch-up` as well. A root that is set and wrong is not the unset root it may
+  degrade on.
 - **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
   notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
   falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds

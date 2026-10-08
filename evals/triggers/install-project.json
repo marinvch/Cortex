@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "give this repository a brain",
+    "set up the project brain with plain files, no engine",
+    "stamp a codebase brain into this repo"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "scan my projects and see which have a brain",
+      "owner": "scan-projects"
+    }
+  ]
+}

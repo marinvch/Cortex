@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "grill me on this plan",
+    "stress-test my design and find the holes",
+    "interview me until this decision has no open questions"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "write the design doc for this",
+      "owner": "analyze-spec"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "I edited a skill and my change isn't showing up",
+    "why is it still running the old version of the plugin",
+    "update the cortex plugin to match the repo"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "install the core plugins on this machine",
+      "owner": "setup-plugins"
+    }
+  ]
+}

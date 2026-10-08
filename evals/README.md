@@ -154,6 +154,29 @@ trained document is a **proposal**: compare its test score to the baseline, read
 the edits into `skills/<skill>/SKILL.md` by hand. Frontmatter is never trained — it is routing
 metadata, checked by `tools/cortex-frontmatter.mjs`.
 
+## Triggers: is a ritual's description made of the words people use?
+
+A ritual a model may invoke is found through its `description`. Edit that sentence and nothing
+fails; the ritual is reached less. `triggers/<ritual>.json` holds, for each of those rituals:
+
+- `reach`: at least three things a person would type to get it;
+- `elsewhere`: at least one prompt that sounds close and belongs to a named other ritual (`owner`).
+
+`node evals/triggers.mjs` ranks every prompt against every model-invocable ritual's name and
+description, with BM25 and no model. `node evals/run.mjs --check` runs it too, so CI does. It fails
+when a `reach` prompt ranks its ritual below the top three, when an `elsewhere` prompt ranks the
+ritual above its owner, when a `reach` prompt is only one of the description's own quoted triggers,
+or when the share of `reach` prompts ranked first falls below `baselines/triggers.json`.
+`--record` writes that share and refuses to lower it. `node evals/triggers.mjs <ritual>` shows one
+ritual prompt by prompt, with what outranked it.
+
+**It measures words, not routing.** Claude Code's router reads meaning; this counts shared words. A
+prompt ranked first here can still go elsewhere, and a paraphrase that shares no word with the
+description fails here while the router would reach it. So a failing prompt is a question, with two
+honest answers: the description lacks a word people say (add it), or the prompt is a paraphrase
+this ranker cannot see (replace it, and do not bend the description to a word nobody uses).
+Whether the real router reaches a ritual is a separate measurement, not made here.
+
 ## What was tried and dropped
 
 [`REJECTED.md`](REJECTED.md) lists changes to a ritual's text that an eval did not support: the text,

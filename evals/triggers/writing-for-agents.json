@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "why doesn't the agent pick up this doc",
+    "should this be its own skill or a section in AGENTS.md",
+    "I'm writing a brief for agents, what is the discipline"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "slim our bloated AGENTS.md",
+      "owner": "optimize-context"
+    }
+  ]
+}

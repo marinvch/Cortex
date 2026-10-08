@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "the rebase stopped with conflicts, resolve them",
+    "git says CONFLICT (content) in three files",
+    "finish this merge, both sides changed the same function"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "which PR should I merge first",
+      "owner": "ship"
+    }
+  ]
+}

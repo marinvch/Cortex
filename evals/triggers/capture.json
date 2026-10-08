@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "note this down: try the new cache key idea",
+    "save this link to my inbox for later",
+    "quick thought to remember, don't organize it"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "record this decision as an ADR",
+      "owner": "domain-modeling"
+    }
+  ]
+}

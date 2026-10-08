@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "the site is out of date after the release",
+    "sync the public site with the new version",
+    "there's a site-drift issue, fix the pages"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "update the plugin to the new version",
+      "owner": "plugin-sync"
+    }
+  ]
+}

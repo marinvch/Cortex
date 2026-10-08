@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "time for my weekly review",
+    "process my inbox and archive the stale notes",
+    "update my projects and restamp current focus"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "what's on today",
+      "owner": "daily"
+    }
+  ]
+}

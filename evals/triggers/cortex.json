@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "set this repo up with cortex",
+    "this is a legacy codebase with no AGENTS.md, onboard it",
+    "install cortex here, the whole loop"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "only index this repo and show me the findings, don't write anything",
+      "owner": "cortex-install"
+    }
+  ]
+}

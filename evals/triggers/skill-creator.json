@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "make a skill for cutting a release",
+    "turn this repeated task into a slash command",
+    "add a new ritual to cortex"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "what skills should this repo have",
+      "owner": "cortex-skills"
+    }
+  ]
+}

@@ -11,7 +11,8 @@ and their placeholders are in `${CLAUDE_PLUGIN_ROOT}/templates/team/README.md`.
 | `offer` | roles no agent here plays, each with its file and its `needs` | one yes/no **per role** (T4) |
 | `withheld` | roles not offered, with `why`: an agent plays it, no plan folder for the Project manager, or another agent already has the role's file or name | name each once; never offer it |
 | `covered` | role → the agents playing it | confirm each mapping (below) |
-| `unmapped` | agents the mapper would not guess about | ask what role each plays, if any |
+| `unmapped` | agents the mapper would not guess about, and nobody has answered for | ask what role each plays, if any |
+| `answered` | agents a developer already placed, in this run or an earlier one | never ask again; name them once ("5 agents were answered as not a role") |
 | `upgrade` | the verifier, offered the Reviewer's template (T9) | one yes/no |
 | `proposals` | per existing agent, edits provable from its file | one question per agent, with the diff |
 | `stamped` | the roles Cortex wrote here before, each with `changed`: the values that differ today from the ones the file was rendered with | a role with `changed` goes in the *Update* row, named with what changed ("architect: the scoped brief list"). On yes, pick it again (below) |
@@ -21,7 +22,11 @@ and their placeholders are in `${CLAUDE_PLUGIN_ROOT}/templates/team/README.md`.
 1. **Confirm the mapping first.** "`code-reviewer` plays the reviewer — right?" A mapping is the
    mapper's guess from words and tools; the developer's answer wins. For a no, or for an unmapped
    agent they place, re-read with `--as <agent path>=<role>` or `--as <agent path>=none`, repeated
-   per agent. Then the offer is recomputed, so a role freed by a no is offered.
+   per agent. Then the offer is recomputed, so a role freed by a no is offered. Add `--remember` to
+   that call: it writes the answers to `.cortex/agents.json`, which is committed, so no later run
+   and no teammate is asked the same question. Without it the answer lasts for one call. Several
+   unmapped agents are one question in the playback ("these five play no role in the team — right?"),
+   not one each. To take an answer back, `--as <agent path>=ask --remember`.
 2. **Each role on `offer` is its own line in the playback** — `[x] architect  [ ] implementer …`.
    `[a]ll` ticks them all; a user can untick any. Say that the Project manager is offered only where
    a plan folder exists, when it is withheld for that reason.

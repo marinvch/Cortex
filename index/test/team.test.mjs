@@ -429,3 +429,27 @@ test("the team state is deterministic", () => {
   const b = teamState(w.root, w.index, { testCmd: "npm test", verifierPath: VERIFIER });
   assert.deepEqual(a, b);
 });
+
+// --- an answer from an earlier run (#548) ------------------------------------------------------------
+
+test("an agent answered `none` in an earlier run is read off .cortex/agents.json and not listed as unmapped", () => {
+  const LENS = ".claude/agents/review/security.md";
+  const files = {
+    "src/a.js": "x\n",
+    [LENS]: agentFile("security-reviewer", "Reviews for vulnerabilities."),
+    ".claude/agents/owner.md": agentFile("owner", "Owns the billing area."),
+  };
+  const w = world(files);
+  const opts = { testCmd: "npm test", verifierPath: VERIFIER };
+  assert.deepEqual(teamState(w.root, w.index, opts).unmapped.map((a) => a.path), [".claude/agents/owner.md", LENS]);
+
+  mkdirSync(join(w.root, ".cortex"), { recursive: true });
+  writeFileSync(join(w.root, ".cortex/agents.json"), JSON.stringify({ format: 1, answers: { [LENS]: "none", ".claude/agents/owner.md": "tester" } }));
+  const s = teamState(w.root, w.index, opts);
+  assert.deepEqual(s.unmapped, []);
+  assert.ok(!offered(s).includes("tester"), "a remembered role covers it, so it is not offered");
+  assert.deepEqual(s.answered, [{ path: ".claude/agents/owner.md", role: "tester" }, { path: LENS, role: null }]);
+  // This run's answer still wins over the file.
+  const again = teamState(w.root, w.index, { ...opts, as: { ".claude/agents/owner.md": null } });
+  assert.ok(offered(again).includes("tester"));
+});

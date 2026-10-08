@@ -195,6 +195,29 @@ Maintainer-only: the daily
 `claude-docs.yml` workflow runs it and opens a `docs-drift` issue. [ADR
 0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
 
+## `cortex-release-notes.mjs` — one version's section of the changelog
+
+A release's notes are that version's section of `CHANGELOG.md`. This prints the section's body and
+nothing else, so it can be piped into whatever cuts the release.
+
+```bash
+node tools/cortex-release-notes.mjs 2.41.36                 # the body, on stdout
+node tools/cortex-release-notes.mjs v2.41.36                # a tag name works too
+node tools/cortex-release-notes.mjs 2.41.36 --changelog <file>
+```
+
+It exits 1 and prints nothing on stdout when the section cannot be bounded exactly: the version has
+no section or two, the section is empty, it ends at a `## ` heading that is not
+`## [x.y.z] — YYYY-MM-DD` or at a version that is not lower, or a line inside it looks like a
+version heading at the wrong level. Each of those is a heading that is nearly right, which is how a
+hand-copied section runs on into the version below it. Exit 2 is a usage error.
+
+Code fences are not tracked. The changelog has a prose line that begins with four backticks, and a
+fence tracker reads it as an opening fence and hides eleven version headings after it.
+
+For 2.41.8 to 2.41.18 its output equals the body of the release already published. One old
+section is refused: 2.0.0 ends at a second `## [Unreleased]` heading further down the file.
+
 ## `cortex-site-facts.mjs` — the facts a public page states, read from source
 
 The public site restated Cortex's facts by hand and drifted from v0.15 to v2.38 unnoticed (#415).

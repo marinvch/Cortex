@@ -5,6 +5,35 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.36] — 2026-10-08
+
+The skill authoring page becomes a rule source, and three sections of the platform docs are watched
+for new pages. Step 0a of the roadmap.
+
+### Added
+
+- **Five rules from the platform's skill authoring page**, each with the sentence that states it:
+  a name of at most 64 characters, in lowercase letters, numbers and hyphens, holding neither
+  "anthropic" nor "claude"; a description of at most 1,024 characters; a table of contents at the
+  top of a reference file over 100 lines. `core/claude-code.js` now holds 56 rules from 13 pages,
+  all confirmed against pages downloaded on 2026-10-08.
+- **Three findings built on them, all low.** `skill-name-not-portable`,
+  `skill-description-not-portable` and `skill-reference-no-contents`. These are limits of the
+  Agent Skills format that the API and a claude.ai upload read. Claude Code loads a skill that
+  breaks them, and each finding says so. Run on 292 skills in six public repos: 3 names, 1
+  description and 22 reference files reported, every one opened and true.
+- **`cortex-claude-docs.mjs` watches the platform docs index** for new pages under
+  `agents-and-tools/agent-skills/`, `build-with-claude/prompt-engineering/` and
+  `test-and-evaluate/`. The other 800 pages there, mostly API reference, are not reported. An
+  index with no page in any of the three sections counts as unread. The seen-list records the 22
+  pages published today.
+
+### Changed
+
+- **`skills/cortex/TEAM.md` opens with a contents list.** It is 104 lines and the new finding
+  reported it.
+- **`/writing-for-agents` links the authoring page** and says which limits come from it.
+
 ## [2.41.35] — 2026-10-08
 
 Two small things from the field report in #548 (item 13).
@@ -4771,6 +4800,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.36]: https://github.com/marinvch/Cortex/releases/tag/v2.41.36
 [2.41.35]: https://github.com/marinvch/Cortex/releases/tag/v2.41.35
 [2.41.34]: https://github.com/marinvch/Cortex/releases/tag/v2.41.34
 [2.41.33]: https://github.com/marinvch/Cortex/releases/tag/v2.41.33

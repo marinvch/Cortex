@@ -305,6 +305,17 @@ const REASONING =
 const ANTHROPIC = /anthropic|\/v1\/messages|messages\.create|\bclaude-(?:opus|sonnet|haiku|fable)/i;
 const EMPHASIS = /\b(?:IMPORTANT|CRITICAL|MUST|NEVER|ALWAYS)\b/;
 
+// "At the top" has to be a number to be checked. Forty lines is a title, an introduction and the
+// list itself; the number is Cortex's, and the finding says so.
+const CONTENTS_WITHIN = 40;
+
+/** Does a reference file open with a table of contents: a "Contents" heading, or three in-page links? */
+function hasContents(md) {
+  const head = prose(md).slice(0, CONTENTS_WITHIN);
+  if (head.some((l) => /^#{1,6}\s+(?:table of )?contents\s*$/i.test(l.trim()))) return true;
+  return head.join("\n").match(/\]\(#[^)\s]+\)/g)?.length >= 3;
+}
+
 const CHECKS = [
   // --- CLAUDE.md and what it loads ------------------------------------------------------------
   {
@@ -411,6 +422,73 @@ const CHECKS = [
         if (fm?.state !== "ok" || String(fm.data["disable-model-invocation"]).trim() !== "true") return [];
         const hit = triggerPhrasing(String(fm.data.description ?? ""));
         return hit ? [`${p} — "${hit}"`] : [];
+      }),
+  },
+  {
+    kind: "skill-name-not-portable",
+    rule: "skill.name.charset",
+    severity: "low",
+    title: (n) => `${n} skill name${n === 1 ? "" : "s"} the Agent Skills format refuses`,
+    what: `Claude Code still loads these. The Agent Skills format, which the API and a claude.ai upload read, takes a name of at most ${limit("skill.name.max-chars")} characters, in ${limit("skill.name.charset")}, holding neither of ${limit("skill.name.reserved-words").map((w) => `"${w}"`).join(" and ")} (\`skill.name.max-chars\`, \`skill.name.reserved-words\`). It matters only for a skill that is meant to move there.`,
+    run: (r) =>
+      r.skills.flatMap((p) => {
+        const fm = frontmatterOf(r, p);
+        if (!fm || fm.state === "broken") return [];
+        // With no `name`, Claude Code names the skill after its directory.
+        const name = typeof fm.data?.name === "string" && fm.data.name.trim() ? fm.data.name.trim() : posix.basename(posix.dirname(p));
+        const why = [];
+        if (!/^[a-z0-9-]+$/.test(name)) why.push("characters other than lowercase letters, numbers and hyphens");
+        if ([...name].length > limit("skill.name.max-chars")) why.push(`${[...name].length} characters`);
+        for (const w of limit("skill.name.reserved-words")) if (name.toLowerCase().includes(w)) why.push(`contains the reserved word "${w}"`);
+        return why.length ? [`${p} — "${name}": ${why.join("; ")}`] : [];
+      }),
+  },
+  {
+    kind: "skill-description-not-portable",
+    rule: "skill.description.portable-max-chars",
+    severity: "low",
+    title: (n) => `${n} skill description${n === 1 ? "" : "s"} over the Agent Skills format's ${limit("skill.description.portable-max-chars").toLocaleString("en-US")} characters`,
+    what: `Claude Code still loads these and truncates later, at ${limit("skill.description.max-chars").toLocaleString("en-US")}. The Agent Skills format, which the API and a claude.ai upload read, stops at this length. It matters only for a skill that is meant to move there.`,
+    run: (r) =>
+      r.skills.flatMap((p) => {
+        const fm = frontmatterOf(r, p);
+        if (fm?.state !== "ok" || typeof fm.data.description !== "string") return [];
+        const n = [...fm.data.description].length;
+        return n > limit("skill.description.portable-max-chars") ? [`${p} — ${n} characters`] : [];
+      }),
+  },
+  {
+    kind: "skill-reference-no-contents",
+    rule: "skill.reference.contents-over-lines",
+    severity: "low",
+    title: (n) => `${n} long reference file${n === 1 ? "" : "s"} with no table of contents`,
+    what: `A skill's reference file can be previewed with a partial read. Over ${limit("skill.reference.contents-over-lines")} lines, a contents list at the top is what lets Claude see everything the file holds before deciding to read on. Looked for in the first ${CONTENTS_WITHIN} lines: a "Contents" heading, or three links to headings in the file.`,
+    run: (r) =>
+      r.skills.flatMap((p) => {
+        const src = r.read(p);
+        if (typeof src !== "string") return [];
+        const dir = posix.dirname(p);
+        const out = [];
+        for (const line of prose(src)) {
+          for (const m of line.matchAll(/\]\(([^)\s]+)\)/g)) {
+            const target = m[1].split("#")[0];
+            if (!/\.md$/i.test(target) || /^[a-z]+:/i.test(target) || /[{<*$]/.test(target)) continue;
+            let ref;
+            try {
+              ref = posix.normalize(posix.join(dir, decodeURI(target)));
+            } catch {
+              continue;
+            }
+            // A reference file is one the skill ships, so it is inside the skill's own directory. A
+            // link out to the repo's docs is somebody else's file.
+            if (!ref.startsWith(dir + "/")) continue;
+            const body = r.read(ref);
+            if (typeof body !== "string") continue;
+            const n = lineCount(body);
+            if (n > limit("skill.reference.contents-over-lines") && !hasContents(body)) out.push(`${ref} — ${n} lines`);
+          }
+        }
+        return out;
       }),
   },
   {

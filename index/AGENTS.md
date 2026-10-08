@@ -180,6 +180,16 @@ Validated on superpowers, anthropics/skills and anthropics/claude-code; each fal
 there (a negated "not read-only", `[Title](URL)`, "explain the reasoning", unindented prose in a
 description) has a test.
 
+- **Two bars for a skill, and the finding says which.** A rule from the Claude Code skills page is
+  about what Claude Code does with the file, and its finding is medium. A rule from the platform's
+  skill authoring page is a limit of the Agent Skills format that the API and a claude.ai upload
+  read: Claude Code loads a skill that breaks it. Those three findings (`skill-name-not-portable`,
+  `skill-description-not-portable`, `skill-reference-no-contents`) are low and their text says
+  Claude Code still loads the skill. Do not raise them. The description limit shows why: the format
+  stops at 1,024 characters and Claude Code truncates at 1,536. "At the top" of a reference file
+  is the first 40 lines, which is Cortex's number and stated in the finding. Run on 292 skills in
+  six public repos: 3 names, 1 description and 22 reference files reported, each opened and each
+  true.
 - **A mod is judged by its files, never by its code.** A plugin's `hooks/hooks.json` with a
   `modules` key is a mod. The checker reads the shape of `modules`, whether the path (relative to
   `hooks.json`) names a file, and its extension. Which events the module handles and which calls it

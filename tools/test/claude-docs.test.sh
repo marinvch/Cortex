@@ -51,6 +51,11 @@ pages() {
     const html = seen.blog.map((p, i) => `<a class="card" href="${i % 2 ? "https://claude.com" : ""}/blog/${p}">Post</a>`);
     html.push(`<a href="/blog/category/product-announcements">Category</a>`, `<a href="/blog">All</a>`);
     writeFileSync(join(dir, "blog.html"), html.join("\n"));
+    // The platform index: the watched pages Cortex has seen, among pages it does not watch.
+    const platform = ["# Claude Platform", "", "- [Create a message](https://platform.claude.com/docs/en/api/messages/create.md) - Create"];
+    for (const p of seen.platform ?? []) platform.push(`- [Title of ${p}](https://platform.claude.com/docs/en/${p}.md) - What it covers`);
+    platform.push("- [A use case](https://platform.claude.com/docs/en/about-claude/use-case-guides/ticket-routing.md) - Guide");
+    writeFileSync(join(dir, "platform-llms.txt"), platform.join("\n"));
   ' "$REPO_ROOT" "$1"
 }
 
@@ -170,3 +175,63 @@ run scrolled --seen seen.json --accept
 run newpost --seen seen.json --check
 assert_eq "3" "$rc" "accepting a short front page keeps the posts already seen"
 assert_not_contains "$out" "blog post: https://claude.com/blog/claude-code-mods" "so only the unread post is new"
+
+# --- the platform docs index: three sections watched, the rest ignored ------------------------------
+#
+# platform.claude.com lists about 800 pages, most of them API reference. Cortex's own writing rests
+# on three sections: agent skills, prompt engineering, and test-and-evaluate. A new page there is
+# something to read; a new API reference page is not.
+
+run good --json
+assert_contains "$out" '"newPlatform": []' "a clean platform index reports nothing new"
+
+pages newskillpage
+printf '\n- [Skill evals](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/evaluating-skills.md) - How to evaluate a Skill\n' >> newskillpage/platform-llms.txt
+run newskillpage --check
+assert_eq "3" "$rc" "a new page in a watched platform section fails --check as a new page"
+assert_contains "$out" "new    platform page: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/evaluating-skills — Skill evals" "and names it with its title"
+
+pages newprompting
+printf '\n- [Prompting Claude Opus 6](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-6.md)\n- [Grade it](https://platform.claude.com/docs/en/test-and-evaluate/grading.md) - Grading\n' >> newprompting/platform-llms.txt
+run newprompting --check
+assert_eq "3" "$rc" "the prompt-engineering and test-and-evaluate sections are watched too"
+assert_contains "$out" "prompt-engineering/prompting-claude-opus-6 — Prompting Claude Opus 6" "a link with no description after it is still read"
+assert_contains "$out" "test-and-evaluate/grading" "and the third section's page is named"
+
+pages newapipage
+printf '\n- [Create a thing](https://platform.claude.com/docs/en/api/beta/things/create.md) - Create\n- [A guide](https://platform.claude.com/docs/en/about-claude/use-case-guides/new-guide.md) - Guide\n' >> newapipage/platform-llms.txt
+run newapipage --check
+assert_eq "0" "$rc" "a new page outside the three sections is not reported"
+assert_not_contains "$out" "things/create" "and is not named"
+
+pages platformgone
+grep -v 'agent-skills/quickstart.md' platformgone/platform-llms.txt > platformgone/p.tmp && mv platformgone/p.tmp platformgone/platform-llms.txt
+run platformgone --check
+assert_eq "0" "$rc" "a watched page that left the platform index is not a failure"
+assert_contains "$out" "gone   platform page: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/quickstart" "but it is reported"
+
+pages noplatform
+rm noplatform/platform-llms.txt
+run noplatform --check
+assert_eq "2" "$rc" "a platform index that could not be read is unread, never nothing new"
+assert_contains "$out" "https://platform.claude.com/llms.txt — could not check" "and it is named"
+
+pages platformmoved
+printf '# Claude Platform\n\n- [Create](https://platform.claude.com/docs/en/api/messages/create.md) - Create\n' > platformmoved/platform-llms.txt
+run platformmoved --check
+assert_eq "2" "$rc" "a platform index with no page in the watched sections is unread too: the sections moved"
+
+cp "$REPO_ROOT/tools/claude-docs-seen.json" seen2.json
+run newskillpage --seen seen2.json --accept
+assert_eq "0" "$rc" "--accept records the platform pages too"
+assert_contains "$out" "platform pages" "and says how many"
+run newskillpage --seen seen2.json --check
+assert_eq "0" "$rc" "after which the page is no longer new"
+assert_contains "$(cat seen2.json)" "agents-and-tools/agent-skills/evaluating-skills" "and the seen-list holds it"
+assert_not_contains "$(cat seen2.json)" "api/beta" "and holds no page outside the watched sections"
+
+# A seen-list written before the platform index was watched has no platform key. That is every page
+# unseen, which is what it is: say so rather than pass.
+node -e 'const fs=require("fs");const s=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));delete s.platform;fs.writeFileSync("old-seen.json",JSON.stringify(s))' "$REPO_ROOT/tools/claude-docs-seen.json"
+run good --seen old-seen.json --check
+assert_eq "3" "$rc" "a seen-list with no platform pages reports them all as new"

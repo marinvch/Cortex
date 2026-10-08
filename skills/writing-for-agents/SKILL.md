@@ -93,6 +93,14 @@ You win twice: fewer tokens, and a sharper hook for the agent to hang its thinki
   section.)*
 - Check every line for **relevance**: does it still bear on what the document does? A line loses relevance by never bearing on the task (mere exposition, or a branch that should be disclosed) or by going stale as the behaviour or world it describes changes. Shorter documents are easier to keep relevant. Without a pruning discipline the default fate is **sediment**: stale layers that settle because adding feels safe and removing feels risky, until you must core down through them to find what is still live.
 - Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test — does it change behaviour versus the default? — is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a stronger word (_relentless_), not a different technique.
+- **Write the procedure, not the workaround for one model.** A step earns its place when it reads
+  right to any capable reader: what to do, and why. When the only reason for a sentence is that one
+  model skips a step or overdoes another, the sentence is a patch for that model. The next model
+  reads it as a rule with no cause, and nobody can tell when it is safe to delete. Put the
+  observation in an issue, with the transcript that shows it. If the step is under-specified for
+  every reader, fix the step and give its reason. A capability floor is a different thing: it is
+  declared once in frontmatter, and the ritual says what to do below it. *(Cortex addition to this
+  section.)*
 
 ## What this governs in Cortex
 
@@ -144,6 +152,7 @@ build.
 ---
 
 Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The reference body
-and `SKILL-MECHANICS.md` are upstream and unmodified apart from the citation bullet under Pruning,
-which is marked in place so a re-sync can tell it apart; "What this governs in Cortex" and "The
+and `SKILL-MECHANICS.md` are upstream and unmodified apart from two bullets under Pruning, the one
+on citations and the one on a workaround for one model. Each is marked in place so a re-sync can
+tell it apart; "What this governs in Cortex" and "The
 official rules this sits on" are Cortex additions.

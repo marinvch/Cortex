@@ -73,7 +73,8 @@ itself is in no record and is still refused.
    - `write` — render as in step 7's *Render each whole-file row*, from `team/<template>`. The
      Tester's `test-paths.sh` comes with `tester.md` and never alone; the hook runs it through `bash`,
      so no executable bit is needed.
-   - `append` — render `team/playbook.md` and append it to `CLAUDE.md`, like the verification block.
+   - `append` — render `team/playbook.md` to a file outside the repo and append it with
+     `cortex-section.mjs . --append CLAUDE.md --from <that file>`, like the verification block.
    - `roster` — the block is already there: replace its roster line with the new `ROSTER`, nothing else.
 4. When `upgrade` is set, delete `upgrade.remove` and drop it from the record:
    `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" forget . .claude/agents/verifier.md`.

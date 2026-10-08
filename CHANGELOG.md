@@ -5,6 +5,32 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.26] — 2026-10-08
+
+A block appended to a file takes that file's line endings. Eighth and last fix from the field
+report in #548.
+
+### Fixed
+
+- **An appended block no longer leaves a file with two kinds of line ending (#548, item 9).**
+  `/cortex` appended the verification block and the team playbook to `CLAUDE.md` by hand, in LF.
+  On a `core.autocrlf` checkout the file is CRLF on disk, so the developer converted the block
+  themselves. `/cortex` now appends through the CLI below.
+
+### Added
+
+- **`cortex-section.mjs <repo> --append <file.md> --from <block file>`** adds a block to the end of
+  a markdown file in the file's own line endings: the ones most of its lines have, and LF for a new
+  file. Every byte already in the file stays where it was, one blank line separates the block, and
+  a block whose heading is already a section of the file is refused. The path must be a markdown
+  file inside the repo.
+
+### Unchanged
+
+- The settings merge (`cortex-shared-plugin.mjs --write`) already kept a CRLF file CRLF. A test
+  now pins it.
+- A whole file Cortex creates is still LF. Git prints its usual warning for it on a CRLF checkout.
+
 ## [2.41.25] — 2026-10-08
 
 A file about tests is not counted as a test. Seventh fix from the field report in #548.
@@ -4578,6 +4604,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.26]: https://github.com/marinvch/Cortex/releases/tag/v2.41.26
 [2.41.25]: https://github.com/marinvch/Cortex/releases/tag/v2.41.25
 [2.41.24]: https://github.com/marinvch/Cortex/releases/tag/v2.41.24
 [2.41.23]: https://github.com/marinvch/Cortex/releases/tag/v2.41.23

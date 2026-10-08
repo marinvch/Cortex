@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.41.25** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
+**v2.41.26** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
@@ -473,6 +473,8 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
     file if there is none, and leaves every other key as it was. It refuses a file that does not
     parse as JSON. `--auto-update`, a separate choice, also writes `"autoUpdate": true` on a
     `cortex` entry it adds, and never changes one already there.
+  - `cortex-section.mjs --append CLAUDE.md --from <file>` adds a block to the end of a markdown
+    file in the repo, in that file's own line endings, and changes nothing already in it.
   - `cortex-section.mjs --replace team` rewrites the `## Working as a team` section of `CLAUDE.md`,
     and only when it is an earlier release's text that nobody has changed. Every other line of the
     file stays as it was, and a section the team edited is never replaced.

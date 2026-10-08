@@ -778,6 +778,13 @@ export const LOOP_ARTIFACTS = [
       s.greenfield && "code in the repo — a team has nothing yet to plan, test or review",
     ],
     why: (s) => teamWhy(s.agentTeam),
+    // The largest behaviour change in the pass, and a path cannot show it (#548): the playbook is
+    // loaded by every session, and it stops each one before a code task. The words are the
+    // playbook's own (templates/team/playbook.md), and loop.test.mjs fails if they part.
+    effect:
+      'Every later session in this repo stops before a task that changes code, says what ' +
+      '`/cortex-impact --size` recommends, asks "Single agent or team?", and plans or edits nothing ' +
+      "until you answer. Deleting the CLAUDE.md section undoes it.",
     brief:
       "Ask per role, never as one bundle: every role in state.agentTeam.offer is its own yes/no (T4). " +
       "A covered role is not offered; say which agent covers it. The verifier's upgrade to the Reviewer " +
@@ -1016,6 +1023,9 @@ export function loopPlan(root, index = null, overrides = {}) {
       paths: row.paths,
       template: row.template,
       why: row.why(s),
+      // What the row changes beyond the files in `paths`, or null. A playback lists paths, and a
+      // path does not say that a file changes how every later session behaves.
+      effect: row.effect ?? null,
       brief: row.brief,
       // Carried on every entry, not only the blocked ones, so a caller rendering a blocked row
       // never has to reach back into LOOP_ARTIFACTS to find out what it is waiting on. "Waiting on

@@ -20,8 +20,16 @@
 // has two baseline errors" — is where most drift actually lives and is deliberately not chased:
 // the same line `citationDrift` draws in review.mjs, for the same reason.
 //
-// Reads files; writes nothing. Deterministic for a given tree and index — the one outside question
-// it asks is `git check-ignore`, which is the repo's own declaration of what is generated.
+// Reads files; writes nothing. Deterministic for a given tree and index — the outside questions it
+// asks are both git's: `git check-ignore`, the repo's own declaration of what is generated, and the
+// history of each drifted skill file.
+//
+// That history is `edited`: whether a person worked on the skill since it was written. More than
+// the commit that added it, or an uncommitted change, means someone did, and their edit may be the
+// only correct part. /cortex puts the fact on the playback row (`editedNote`), so its one
+// confirmation covers a skill the user was told about; before, the question came after the
+// confirmation, on nearly every skill in an active repo (#548). `null` when git cannot say — a
+// directory that is no checkout — which is unanswered, never "not edited".
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -73,6 +81,31 @@ function defaultIsIgnored(root) {
       return new Set();
     }
   };
+}
+
+function defaultHistory(root) {
+  const git = (args) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  return (rel) => {
+    try {
+      // --porcelain first: it fails outside a checkout, where `git log` on some versions prints nothing.
+      const uncommitted = git(["status", "--porcelain", "--", rel]).trim() !== "";
+      const commits = git(["log", "--format=%h", "--", rel]).split(/\r?\n/).filter(Boolean).length;
+      return { commits, uncommitted };
+    } catch {
+      return null;
+    }
+  };
+}
+
+/** `{ edited, editedNote }` for a skill file's history — see the header. */
+function editedSince(h) {
+  if (!h) return { edited: null, editedNote: null };
+  const edited = h.commits > 1 || h.uncommitted;
+  if (!edited) return { edited, editedNote: null };
+  const parts = [];
+  if (h.commits > 1) parts.push(`${h.commits} commits`);
+  if (h.uncommitted) parts.push("uncommitted changes");
+  return { edited, editedNote: `edited since it was written, ${parts.join(" and ")}` };
 }
 
 // --- tests -----------------------------------------------------------------------------------------
@@ -177,11 +210,13 @@ function scan(text) {
  * Every provable contradiction between a repo's skills and the repo.
  *
  * Returns `{ checked, drifted }`: `checked` names every skill read, `drifted` holds only the ones
- * with findings — `{ skill, path, findings: [{ line, kind, cited, why, text, hint? }] }`. Without an
+ * with findings — `{ skill, path, edited, editedNote, findings: [{ line, kind, cited, why, text, hint? }] }`.
+ * `edited` is whether a person worked on the file since it was written (`null`: git cannot say) and
+ * `editedNote` the sentence a playback row carries when they did. Without an
  * index nothing can be proven, so it returns `null` rather than a clean bill: "not checked" and
  * "checked, nothing wrong" must stay two answers.
  */
-export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root) } = {}) {
+export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root), history = defaultHistory(root) } = {}) {
   if (!index || !Array.isArray(index.files)) return null;
 
   const known = new Set(index.files.map((f) => f.path));
@@ -303,6 +338,6 @@ export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root) } =
   for (const d of drifted) d.findings.sort((a, b) => a.line - b.line || a.kind.localeCompare(b.kind) || a.cited.localeCompare(b.cited));
   return {
     checked: checked.map((s) => s.name),
-    drifted: drifted.filter((d) => d.findings.length),
+    drifted: drifted.filter((d) => d.findings.length).map((d) => ({ skill: d.skill, path: d.path, ...editedSince(history(d.path)), findings: d.findings })),
   };
 }

@@ -224,3 +224,97 @@ test("--fix declines to touch anything it cannot prove", () => {
   const out = run("cortex-review.mjs", ["--citations", "--fix"], root);
   assert.match(out, /nothing to fix/i);
 });
+
+// --- cortex-review cites a change that lowers the bar (lib/lowered-bar.mjs) -------------------------
+//
+// On a real repository, because the reader takes git's own diff: line numbers, a rename and the
+// staged-then-worktree fallback are git's behaviour, and a stub agrees with whoever wrote it.
+
+function gitFixtureWithATestSuite({ contextLayer = true } = {}) {
+  const root = tempDir("cortex-bar-");
+  const g = (...a) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", "-c", "core.autocrlf=false", ...a], { cwd: root, stdio: "ignore" });
+  mkdirSync(join(root, "src"), { recursive: true });
+  writeFileSync(join(root, "src", "pay.js"), "export function refund(n) {\n  return n;\n}\n");
+  writeFileSync(join(root, "src", "pay.test.js"), "import { refund } from './pay.js';\n\nit('refunds once', () => {\n  expect(refund(1)).toBe(1);\n});\n\nit('refunds twice', () => {\n  expect(refund(2)).toBe(2);\n  expect(refund(2)).not.toBe(3);\n});\n");
+  writeFileSync(join(root, "src", "old.test.js"), "it('old', () => {\n  expect(1).toBe(1);\n});\n");
+  writeFileSync(join(root, "package.json"), '{\n  "name": "fixture",\n  "scripts": {\n    "lint": "eslint . --max-warnings 0"\n  }\n}\n');
+  writeFileSync(join(root, "jest.config.js"), "export default {\n  coverageThreshold: {\n    global: {\n      branches: 80,\n    },\n  },\n};\n");
+  if (contextLayer) writeFileSync(join(root, "AGENTS.md"), "# Brief\n\nRefunds live in `src/pay.js`.\n");
+  g("init", "-q");
+  g("add", "-A");
+  g("commit", "-qm", "init");
+  // The change: every way of lowering the bar, in one commit's worth of edits.
+  writeFileSync(join(root, "src", "pay.js"), "export function refund(n) {\n  // eslint-disable-next-line no-undef\n  return n + fudge;\n}\n");
+  writeFileSync(join(root, "src", "pay.test.js"), "import { refund } from './pay.js';\n\nit('refunds once', () => {\n  expect(refund(1)).toBe(1);\n});\n\nit.skip('refunds twice', () => {\n  expect(refund(2)).toBe(2);\n});\n");
+  g("rm", "-q", "src/old.test.js");
+  writeFileSync(join(root, "package.json"), '{\n  "name": "fixture",\n  "scripts": {\n    "lint": "eslint . --max-warnings 20"\n  }\n}\n');
+  writeFileSync(join(root, "jest.config.js"), "export default {\n  coverageThreshold: {\n    global: {\n      branches: 50,\n    },\n  },\n};\n");
+  return { root, g };
+}
+
+test("cortex-review --staged --json cites each line that lowers the bar, by git's own line numbers", () => {
+  const { root, g } = gitFixtureWithATestSuite();
+  run("cortex-index.mjs", ["."], root);
+  g("add", "-A");
+  const r = JSON.parse(run("cortex-review.mjs", ["--staged", "--json"], root));
+  assert.equal(r.loweredBar.read, true);
+  assert.deepEqual(
+    r.loweredBar.citations.map((c) => `${c.kind} ${c.path}:${c.line} ${c.side}`),
+    [
+      "threshold jest.config.js:4 added",
+      "threshold package.json:4 added",
+      "deleted-test src/old.test.js:null removed",
+      "suppression src/pay.js:2 added",
+      "skipped-test src/pay.test.js:7 added",
+      "stripped-assertion src/pay.test.js:9 removed",
+    ],
+  );
+  assert.equal(r.loweredBar.citations.find((c) => c.kind === "threshold" && c.path === "jest.config.js").note, "was 80");
+});
+
+test("unstaged, the same change is read from the worktree, and the report says a citation is not a verdict", () => {
+  const { root, g } = gitFixtureWithATestSuite();
+  // `git rm` staged the deletion. With anything staged, --staged reads the index alone, so unstage
+  // it: this case is the fallback to the worktree.
+  g("reset", "-q");
+  run("cortex-index.mjs", ["."], root);
+  const out = run("cortex-review.mjs", ["--staged"], root);
+  assert.match(out, /may have lowered the bar it is judged against \(6\)/);
+  assert.match(out, /src\/pay\.js:2 {2}\/\/ eslint-disable-next-line no-undef/);
+  assert.match(out, /src\/pay\.test\.js:9 \(removed\) {2}expect\(refund\(2\)\)\.not\.toBe\(3\);/);
+  assert.match(out, /A citation is not a defect/);
+  assert.match(out, /src\/old\.test\.js {2}\n {10}this test file is deleted/);
+});
+
+test("a named file is compared with the last commit, and a repo with no context layer is still read", () => {
+  const { root } = gitFixtureWithATestSuite({ contextLayer: false });
+  run("cortex-index.mjs", ["."], root);
+  const out = run("cortex-review.mjs", ["src/pay.test.js"], root);
+  assert.match(out, /no context layer/);
+  assert.match(out, /a test skipped \(1\)/);
+  assert.doesNotMatch(out, /eslint-disable/, "only the named file's lines");
+});
+
+test("a change that lowers nothing says so, and says what it cannot see", () => {
+  const { root, g } = gitFixtureWithATestSuite();
+  g("add", "-A");
+  g("commit", "-qm", "lowered");
+  writeFileSync(join(root, "src", "pay.js"), "export function refund(n) {\n  return n;\n}\n");
+  run("cortex-index.mjs", ["."], root);
+  const out = run("cortex-review.mjs", ["--staged"], root);
+  assert.match(out, /No line of this change switches a check off/);
+  assert.match(out, /not proof the bar held/);
+});
+
+test("a ref git cannot resolve is reported as unread, not as nothing lowered", () => {
+  const { root } = gitFixtureWithATestSuite();
+  run("cortex-index.mjs", ["."], root);
+  let r;
+  try {
+    r = JSON.parse(run("cortex-review.mjs", ["src/pay.js", "--since", "no-such-ref", "--json"], root));
+  } catch (e) {
+    r = JSON.parse(String(e.stdout));
+  }
+  assert.equal(r.loweredBar.read, false);
+  assert.deepEqual(r.loweredBar.citations, []);
+});

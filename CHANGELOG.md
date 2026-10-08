@@ -5,6 +5,29 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.33] — 2026-10-08
+
+`/cortex-review` cites a change that lowers the bar it is judged against.
+
+### Added
+
+- **`cortex-review.mjs` cites five kinds of line from the diff**, with `--staged`, `--since` or
+  named files: a check switched off (`eslint-disable`, `# noqa`, `#[allow(`, and the like in ten
+  ecosystems), a test skipped or focused, a test file deleted or test declarations removed,
+  assertions removed from a test that stays, and a numeric threshold lowered or removed. Each is
+  cited with its file, line and text, and no verdict. `--json` carries them as
+  `loweredBar: { read, citations }`. The exit code does not change.
+- **`/cortex-review` gives each cited line one of three verdicts**: explained (the change says
+  why, quoted), unexplained, or against a written rule.
+- **`templates/loop/REVIEW.md` gains "Lowering the bar"**: such a change is named in the review
+  with the reason the change gives. A repo with an untouched stamped `REVIEW.md` is offered the
+  update by `/cortex`.
+
+### Unchanged
+
+- It reads lines, so a test weakened by changing what it asserts, a lint rule switched off by name
+  in a config, and a job removed from CI are not seen. The report says so when it finds nothing.
+
 ## [2.41.32] — 2026-10-08
 
 A ritual's description is checked against what people say, with no model.
@@ -4707,6 +4730,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.33]: https://github.com/marinvch/Cortex/releases/tag/v2.41.33
 [2.41.32]: https://github.com/marinvch/Cortex/releases/tag/v2.41.32
 [2.41.31]: https://github.com/marinvch/Cortex/releases/tag/v2.41.31
 [2.41.30]: https://github.com/marinvch/Cortex/releases/tag/v2.41.30

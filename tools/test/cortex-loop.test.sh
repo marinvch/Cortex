@@ -525,3 +525,27 @@ rm -rf "$agents_repo/.cortex"
 fresh_repo noagents
 assert_not_contains "$(run noagents)" "Agents already here" "agents: a repo without agents prints no agents section"
 assert_contains "$(run noagents --json)" '"agents": null' "agents: with no index, --json says unanswered (null), never an empty roster"
+
+# --- cortex-review.yml is offered where it would be the first workflow (#548) ----------------------
+#
+# The row waited on "GitHub Actions" in a repo hosted on GitHub with no workflow yet, and the file it
+# offers is the workflow. Real git writes the config here, because its format is what is read.
+gh_repo="$WORK/on-github"
+mkrepo "$gh_repo"
+mkdir -p "$gh_repo/src" "$gh_repo/.github" || exit 1
+printf 'export const a = 1;\n' > "$gh_repo/src/a.js"
+printf '# demo\n' > "$gh_repo/AGENTS.md"
+printf '* @owner\n' > "$gh_repo/.github/CODEOWNERS"
+git -C "$gh_repo" add -A && git -C "$gh_repo" commit -q -m first
+node "$REPO_ROOT/index/cortex-index.mjs" "$gh_repo" --out "$WORK/gh-index.json" >/dev/null 2>&1
+bucket_of() { node "$LOOP" "$gh_repo" --index "$WORK/gh-index.json" --json | node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(["missing","present","blocked"].find((b) => j[b].some((e) => e.id === "review-ci")));'; }
+assert_eq "blocked" "$(bucket_of)" "review-ci: with no remote, the row still waits"
+assert_contains "$(node "$LOOP" "$gh_repo" --index "$WORK/gh-index.json" 2>&1)" "no remote of this repo is on GitHub" "and says what it waits on"
+git -C "$gh_repo" remote add upstream https://gitlab.com/acme/app.git
+assert_eq "blocked" "$(bucket_of)" "review-ci: a remote on another host does not unblock it"
+git -C "$gh_repo" remote add origin git@github.com:acme/app.git
+assert_eq "missing" "$(bucket_of)" "review-ci: a GitHub remote and no workflows — the row is offered"
+assert_contains "$(node "$LOOP" "$gh_repo" --index "$WORK/gh-index.json" 2>&1)" "this would be its first workflow" "and says why"
+printf 'stages: [test]\n' > "$gh_repo/.gitlab-ci.yml"
+assert_eq "blocked" "$(bucket_of)" "review-ci: beside a CI the repo already chose, it waits"
+rm -f "$gh_repo/.gitlab-ci.yml"

@@ -5,6 +5,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.29] — 2026-10-08
+
+`/migrate-engine` looks in three places the old setup hides.
+
+### Fixed
+
+- **A cwd that is not a repo is asked about, not scanned (#551).** Run from a home directory, the
+  ritual scanned it, found nothing and reported "no engine found". It now asks which repo is meant
+  and offers the repos one level down.
+- **Other branches are scanned (#551).** The engine's files, a `memory.jsonl` among them, can sit
+  on a branch that is not checked out. Step 1 lists hits per local and remote-tracking ref, and
+  Step 6 lists what is still there instead of reporting an empty scan.
+- **User-scope MCP registrations are listed (#551).** A server registered outside the repo is shown
+  with the root it reads, and Step 5 says to repoint or remove one whose root is being deleted.
+
+All three are read-only additions to `skills/migrate-engine/SKILL.md`.
+
 ## [2.41.28] — 2026-10-08
 
 The MCP server refuses to start on a root that does not exist.
@@ -4639,6 +4656,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.29]: https://github.com/marinvch/Cortex/releases/tag/v2.41.29
 [2.41.28]: https://github.com/marinvch/Cortex/releases/tag/v2.41.28
 [2.41.27]: https://github.com/marinvch/Cortex/releases/tag/v2.41.27
 [2.41.26]: https://github.com/marinvch/Cortex/releases/tag/v2.41.26

@@ -248,5 +248,29 @@
     "salesforce-in-claude",
     "the-ai-native-sdlc-playbook",
     "working-at-the-frontier-how-balyasny-asset-management-evaluates-and-governs-claude-fable-5"
+  ],
+  "platform": [
+    "agents-and-tools/agent-skills/best-practices",
+    "agents-and-tools/agent-skills/claude-api-skill",
+    "agents-and-tools/agent-skills/enterprise",
+    "agents-and-tools/agent-skills/overview",
+    "agents-and-tools/agent-skills/quickstart",
+    "build-with-claude/prompt-engineering/claude-prompting-best-practices",
+    "build-with-claude/prompt-engineering/overview",
+    "build-with-claude/prompt-engineering/prompting-claude-fable-5",
+    "build-with-claude/prompt-engineering/prompting-claude-fable-5-1",
+    "build-with-claude/prompt-engineering/prompting-claude-haiku-5-5",
+    "build-with-claude/prompt-engineering/prompting-claude-opus-4-8",
+    "build-with-claude/prompt-engineering/prompting-claude-opus-5",
+    "build-with-claude/prompt-engineering/prompting-claude-opus-5-5",
+    "build-with-claude/prompt-engineering/prompting-claude-sonnet-5",
+    "build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5",
+    "test-and-evaluate/develop-tests",
+    "test-and-evaluate/strengthen-guardrails/handle-streaming-refusals",
+    "test-and-evaluate/strengthen-guardrails/increase-consistency",
+    "test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks",
+    "test-and-evaluate/strengthen-guardrails/reduce-hallucinations",
+    "test-and-evaluate/strengthen-guardrails/reduce-latency",
+    "test-and-evaluate/strengthen-guardrails/reduce-prompt-leak"
   ]
 }

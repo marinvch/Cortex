@@ -29,6 +29,7 @@ const MEMORY = "https://code.claude.com/docs/en/memory";
 const BEST = "https://code.claude.com/docs/en/best-practices";
 const MODES = "https://code.claude.com/docs/en/permission-modes";
 const HEADLESS = "https://code.claude.com/docs/en/headless";
+const AUTHORING = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices";
 const MODS = "https://code.claude.com/docs/en/plugins/mods/overview";
 const MODS_REF = "https://code.claude.com/docs/en/plugins/mods/reference";
 const MODS_ADMIN = "https://code.claude.com/docs/en/plugins/mods/admin";
@@ -95,6 +96,43 @@ export const RULES = Object.freeze([
     source: SKILLS,
     evidence:
       "If the frontmatter YAML is malformed, Claude Code loads the skill body with empty metadata, so `/skill-name` still works but Claude can't match against your `description`.",
+  },
+
+  // --- skills: the Agent Skills format, from the platform's authoring page ------------------------
+  //
+  // These are limits of the format a skill is uploaded in (the API, claude.ai), not of Claude Code,
+  // which loads a skill that breaks them. So they are a second, lower bar: what a skill has to meet
+  // to be moved between the two. The description limit is the clearest case. Claude Code truncates
+  // at 1,536 characters (`skill.description.max-chars`); the format stops at 1,024.
+  {
+    id: "skill.name.max-chars",
+    value: 64,
+    source: AUTHORING,
+    evidence: "Maximum 64 characters",
+  },
+  {
+    id: "skill.name.charset",
+    value: "lowercase letters, numbers and hyphens",
+    source: AUTHORING,
+    evidence: "Must contain only lowercase letters, numbers, and hyphens",
+  },
+  {
+    id: "skill.name.reserved-words",
+    value: ["anthropic", "claude"],
+    source: AUTHORING,
+    evidence: 'Cannot contain reserved words: "anthropic", "claude"',
+  },
+  {
+    id: "skill.description.portable-max-chars",
+    value: 1024,
+    source: AUTHORING,
+    evidence: "Maximum 1,024 characters",
+  },
+  {
+    id: "skill.reference.contents-over-lines",
+    value: 100,
+    source: AUTHORING,
+    evidence: "For reference files longer than 100 lines, include a table of contents at the top.",
   },
 
   // --- subagents ---------------------------------------------------------------------------------

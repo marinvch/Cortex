@@ -136,6 +136,11 @@ wrong however well it reads. The pages that state them:
 - [Skills](https://code.claude.com/docs/en/skills) — the frontmatter keys Claude Code recognises
   (anything else is ignored without an error; custom data goes under `metadata:`), `description`
   plus `when_to_use` truncated at 1,536 characters, `SKILL.md` kept under 500 lines.
+- [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
+  — the limits of the Agent Skills format, which the API and a claude.ai upload read: a name of at
+  most 64 characters in lowercase letters, numbers and hyphens, a description of at most 1,024
+  characters, and a table of contents at the top of a reference file over 100 lines. Claude Code
+  loads a skill that breaks these, so Cortex reports them as low.
 - [Subagents](https://code.claude.com/docs/en/sub-agents) — their own frontmatter keys, and the tool
   list a subagent inherits when it names none.
 - [Memory](https://code.claude.com/docs/en/memory) and

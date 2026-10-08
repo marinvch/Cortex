@@ -4,6 +4,15 @@
 [the agent-team spec](../../docs/specs/2026-09-28-agent-team-design.md) (T4, T6, T9); the templates
 and their placeholders are in `${CLAUDE_PLUGIN_ROOT}/templates/team/README.md`.
 
+## Contents
+
+- [The facts](#the-facts): what `state.agentTeam` carries, field by field
+- [The questions](#the-questions): mapping, each role, the upgrade, each agent's proposals
+- [Writing](#writing): the `--team` call and the order the files are written in
+- [A re-run](#a-re-run-the-section-in-claudemd): the section in `CLAUDE.md`
+
+## The facts
+
 `cortex-loop.mjs . --json` carries the row's facts in `state.agentTeam`:
 
 | Field | What it is | What you do |

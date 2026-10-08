@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "rebuild the vault graph",
+    "which topics need a map of content",
+    "tidy the vault and fix dead links in the navigator"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "show me the repo's import graph",
+      "owner": "cortex-view"
+    }
+  ]
+}

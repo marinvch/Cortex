@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "this is my work laptop, set the profile",
+    "which profile is this install on",
+    "why was my capture refused, I think the firewall is wrong"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "connect this repo to the team brain",
+      "owner": "team-add"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "are any of my skills redundant",
+    "Claude never picks this skill, why",
+    "review my skill collection, which ones are never reached"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "make a new skill for deployments",
+      "owner": "skill-creator"
+    }
+  ]
+}

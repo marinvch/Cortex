@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "which repos on this machine have a brain",
+    "scan my projects folder and register them",
+    "sync the vault with my local repositories"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "give this repo a brain",
+      "owner": "install-project"
+    }
+  ]
+}

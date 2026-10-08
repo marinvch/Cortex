@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "write the AGENTS.md and the shims for this repo",
+    "add the context layer here",
+    "apply the findings: create CONTEXT.md and docs/adr"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "give the billing folder its own brief",
+      "owner": "cortex-brief"
+    }
+  ]
+}

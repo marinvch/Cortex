@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "what should I have asked instead",
+    "sharpen this prompt before you start",
+    "my prompt was too vague, improve it"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "this brief is bloated",
+      "owner": "writing-for-agents"
+    }
+  ]
+}

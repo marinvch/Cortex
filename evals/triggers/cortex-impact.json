@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "what breaks if I change src/auth/session.ts",
+    "which tests should I run after editing this file",
+    "who depends on this module, is it safe to edit"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "review my diff before I commit",
+      "owner": "cortex-review"
+    }
+  ]
+}

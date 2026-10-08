@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Get finished work onto main without stranding any — judge it against the repo's docs, one PR at a time, merge in a safe order, clean up. Triggers — "open a PR", "which PR first", "merge and continue", "clean up the old branches", "качи го", "комитни и push".
+description: Get finished work onto main without stranding any — judge it against the repo's docs, one pull request at a time, merge in a safe order, clean up. Triggers — "open a PR", "which PR first", "merge and continue", "clean up the old branches", "качи го", "комитни и push".
 metadata:
   capability: judgment
 ---

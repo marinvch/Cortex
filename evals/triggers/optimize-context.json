@@ -1,0 +1,13 @@
+{
+  "reach": [
+    "our AGENTS.md is bloated, slim it",
+    "my global CLAUDE.md has grown too long, tidy it",
+    "the agents keep drifting off our conventions, audit the context files"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "this area needs its own brief",
+      "owner": "cortex-brief"
+    }
+  ]
+}

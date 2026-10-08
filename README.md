@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.41.30** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
+**v2.41.31** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
@@ -549,6 +549,7 @@ none.
 | `cortex-preflight.mjs` | Root, profile and index freshness — what every ritual asks before it writes |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |
+| `cortex-skill-links.mjs` | Whether every link from a ritual to a file or a heading resolves; `--check` fails on a dead one |
 | `cortex-skill-usage.mjs` | Which rituals your sessions have actually reached |
 | `cortex-placeholders.mjs` | Did a file Cortex stamped keep a placeholder from its template; exit 1 if so |
 | `cortex-claude-docs.mjs` | Are the Claude Code rules Cortex ships still stated on Anthropic's pages, and has Anthropic published a page Cortex has not seen; `--check` exits 1 on a stale rule, 3 on a new page |

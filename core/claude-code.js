@@ -19,7 +19,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-10-03";
+export const CHECKED = "2026-10-08";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -141,7 +141,7 @@ export const RULES = Object.freeze([
     value: ":",
     source: SUBAGENTS,
     evidence:
-      "Names can't contain `:`, which is reserved for plugin-scoped identifiers such as `my-plugin:reviewer`.",
+      "Names can't contain `:`, which is reserved for plugin-scoped identifiers such as `my-plugin:reviewer`",
   },
   {
     id: "subagent.descriptions.max-tokens",
@@ -287,7 +287,9 @@ export const RULES = Object.freeze([
     id: "mod.min-version",
     value: "2.1.287",
     source: MODS,
-    evidence: "Mods require Claude Code v2.1.287 or later, and they're on by default.",
+    // The terminal's floor. The same paragraph says the Desktop app carries its own copy of Claude
+    // Code and runs mods from v2.1.286; Cortex states the terminal's, the higher of the two.
+    evidence: "In the terminal, use Claude Code v2.1.287 or later.",
   },
   {
     id: "mod.not-sandboxed",
@@ -319,13 +321,19 @@ export const RULES = Object.freeze([
   // --- permissions: why an unattended /cortex cannot write under .claude/ ------------------------
   //
   // /cortex stamps .claude/agents/, .claude/hooks/ and .claude/settings.json. Headless (`claude -p`)
-  // those writes are refused, and no allow rule changes that — the four rules below are the chain
+  // those writes are refused, and no allow rule changes that — the five rules below are the chain
   // of sentences that says so, and `protectedClaudePath()` is the one place the directory test lives.
   {
     id: "permission.protected-path.claude-dir",
     value: ".claude",
     source: MODES,
-    evidence: "`.claude`, except for `.claude/worktrees` where Claude stores its own git worktrees",
+    evidence: "`.claude`, with a few exceptions, such as:",
+  },
+  {
+    id: "permission.protected-path.claude-dir.worktrees",
+    value: ".claude/worktrees",
+    source: MODES,
+    evidence: "Claude's own git worktrees under `.claude/worktrees/`",
   },
   {
     id: "permission.protected-path.never-auto-approved",
@@ -428,14 +436,19 @@ export function limit(id) {
  * Is a write to this repo-relative path one Claude Code treats as a protected-path write under
  * `.claude/`? Those are never auto-approved outside `bypassPermissions`, an allow rule does not
  * change that, and in a `claude -p` run nobody is there to answer the prompt — so the write is
- * refused. `.claude/worktrees` is the one documented exception. Cortex stamps no other protected
- * directory, so this answers only for `.claude`; widen it from the rule's page, not from memory.
+ * refused. `.claude/worktrees` is the one exception applied here. The page lists others (the
+ * session's plan files and a background session's scratch directory, both under `~/.claude`, and
+ * markdown in an auto-memory or `.claude/agent-memory/` directory when the session was not started
+ * with `--restricted`). Cortex stamps into none of them and cannot see that flag, so they stay
+ * protected here: the answer errs toward "this write may be refused". Cortex stamps no other
+ * protected directory, so this answers only for `.claude`; widen it from the rule's page, not from
+ * memory.
  */
 export function protectedClaudePath(rel) {
   const dir = limit("permission.protected-path.claude-dir");
   const p = String(rel).replace(/\\/g, "/").replace(/^(\.\/)+/, "");
   const inside = p === dir || p.startsWith(`${dir}/`);
-  const worktrees = `${dir}/worktrees`;
+  const worktrees = limit("permission.protected-path.claude-dir.worktrees");
   return inside && p !== worktrees && !p.startsWith(`${worktrees}/`);
 }
 

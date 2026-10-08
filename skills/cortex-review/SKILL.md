@@ -68,9 +68,13 @@ Deterministic and read-only. It finds and cites; it never judges. It gives you:
   the root. Both apply: a review consulting only the leaf misses the repo-wide invariants.
 - **Glossary terms** the change works in, from `CONTEXT.md`.
 - **Documents that NAME something the change touched** — the drift candidates.
+- **Lines where the change may have lowered the bar it is judged against**: a check switched off, a
+  test skipped or removed, assertions removed, a threshold lowered or removed. They come from the
+  diff's own lines, so they are there with or without a context layer.
 
-If it reports no context layer, say so and stop. There is nothing to review against, and
-`/cortex-install` is the answer, not a review improvised from general principles.
+If it reports no context layer, say so. There are no documents to review against, and
+`/cortex-install` is the answer, not a review improvised from general principles. Report the
+lowered-bar lines all the same (step 4 below), then stop.
 
 ### The same pass on every pull request
 
@@ -122,6 +126,22 @@ rewritten loop now reads the clock or randomness or iterates in a different orde
 line as unverified and name the exact hunk or check that would settle it. Do not put it in the
 stale list on suspicion, and do not clear it without saying you took the summary on trust.
 
+### Lowered-bar lines
+
+4. **For each lowered-bar line, find the reason the change gives for it.** Look on the line, in the
+   lines beside it, in the commit message and in the PR text. Then give it one of three verdicts:
+   - **explained**: the change says why, and the reason is about this line. Quote it.
+   - **unexplained**: no reason is given. Say so and ask for one. Do not supply a reason yourself.
+   - **against a rule**: a governing document forbids it. Quote the rule, as in step 2.
+
+   The citation is not the finding. A test skipped on a platform it cannot run on is correct, and a
+   suppression with a stated cause can be the honest fix. What you report is whether the author
+   said why. A removed assertion or test is cited by its line in the old file, so read it with
+   `git show <base>:<path>`.
+
+   When the pass says the diff could not be read, say that these lines were not looked for. An
+   empty list then means nothing.
+
 ## Optional — a second opinion from one angle
 
 The two axes above are about the repo's **documents**: did this break a stated rule, and did it make
@@ -145,7 +165,8 @@ for.
 
 ## Reporting
 
-Lead with drift, then broken rules, then everything else. Drift comes first because it is the
+Lead with drift, then broken rules, then the lowered-bar lines with their verdicts, then everything
+else. Drift comes first because it is the
 finding the author cannot see for themselves — the code in front of them looks right, and the
 sentence describing it is somewhere else.
 

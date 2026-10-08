@@ -8,6 +8,10 @@
 //   node index/cortex-review.mjs --citations
 //   node index/cortex-review.mjs --citations --since HEAD~20
 //
+// With a change set it also cites the lines where the change may have lowered the bar it is judged
+// against: a suppression added, a test skipped or removed, an assertion stripped, a threshold edited
+// down (lib/lowered-bar.mjs). Cited, never judged, and the exit code does not move.
+//
 // Read-only in the strongest sense: it writes nothing, not even under .cortex/.
 //
 // It finds and cites. It never judges — deciding whether a change actually violates a documented
@@ -16,7 +20,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { reviewContext, citationDrift } from "./lib/review.mjs";
-import { changedFiles, failureLines, gitReader } from "./lib/changed.mjs";
+import { changedDiff, changedFiles, failureLines, gitReader } from "./lib/changed.mjs";
+import { loweredBar } from "./lib/lowered-bar.mjs";
 import { openTarget } from "./lib/open.mjs";
 
 // Bare arguments are FILE PATHS, so the root comes from `--root`. The index is required: this
@@ -177,6 +182,51 @@ if (args.citations) {
 
 const r = reviewContext(index, changed, { readText });
 
+// The text of the same change set. Read after the paths, from the same sources, so a failure here is
+// reported in the same sentence.
+const bar = changedDiff(root, { paths, staged: args.staged, since: args.since, git: run });
+r.loweredBar = { read: bar.failures.length === 0, citations: loweredBar(bar.diff) };
+
+const BAR_TITLES = {
+  suppression: "a check switched off",
+  "skipped-test": "a test skipped",
+  "deleted-test": "a test removed",
+  "stripped-assertion": "assertions removed",
+  threshold: "a threshold lowered or removed",
+};
+const BAR_SHOWN = 8;
+
+function printLoweredBar() {
+  const { read, citations } = r.loweredBar;
+  if (!read) {
+    for (const line of failureLines(bar.failures)) console.error(line);
+    console.log(`\nThe diff could not be read, so nothing was looked for among its lines. This is git`);
+    console.log(`failing, not a change that lowered no bar.`);
+    return;
+  }
+  if (!citations.length) {
+    console.log(`\nNo line of this change switches a check off, skips or removes a test, or lowers a threshold.`);
+    console.log(`That is not proof the bar held — a test weakened by changing what it asserts is invisible here.`);
+    return;
+  }
+  console.log(`\nLines where this change may have lowered the bar it is judged against (${citations.length}) — read these:`);
+  for (const [kind, title] of Object.entries(BAR_TITLES)) {
+    const group = citations.filter((c) => c.kind === kind);
+    if (!group.length) continue;
+    console.log(`\n  ${title} (${group.length}):`);
+    for (const c of group.slice(0, BAR_SHOWN)) {
+      console.log(`      ${c.path}${c.line == null ? "" : `:${c.line}`}${c.side === "removed" && c.line != null ? " (removed)" : ""}  ${c.text}`);
+      console.log(`          ${c.note}`);
+    }
+    if (group.length > BAR_SHOWN) {
+      const rest = group.slice(BAR_SHOWN);
+      console.log(`      ... and ${rest.length} more in ${new Set(rest.map((c) => c.path)).size} file(s) — --json lists every one`);
+    }
+  }
+  console.log(`\nA citation is not a defect. A skip can be right and a suppression can be the honest fix.`);
+  console.log(`It is the line a review of the logic does not look at, so it is the one to ask about.`);
+}
+
 if (args.json) {
   console.log(JSON.stringify(r, null, 2));
   process.exit(0);
@@ -186,6 +236,8 @@ if (!r.hasContextLayer) {
   // The honest answer, and an actionable one: there is nothing to review against yet.
   console.log(`\nThis repo has no context layer — no AGENTS.md, CONTEXT.md or ADRs.`);
   console.log(`There is nothing to review the change against. Run /cortex-install to add one.`);
+  // The lines below are read from the diff and need no context layer.
+  printLoweredBar();
   process.exit(0);
 }
 
@@ -225,3 +277,5 @@ if (r.stale.length) {
   console.log(`That is not proof the docs are still right — only that none of them says the file's`);
   console.log(`name. A rule described in prose, without naming a path, is invisible here.`);
 }
+
+printLoweredBar();

@@ -105,6 +105,54 @@ export function changedFiles(root, { paths = [], staged = false, since = null, g
   return { files: [...new Set(files)], failures };
 }
 
+// `-U0`: only the changed lines, which is all a reader of added and removed lines needs. `-M`: a
+// renamed test file is a rename, and without it git prints a deletion.
+const DIFF = ["diff", "-U0", "-M", "--no-color", "--no-ext-diff"];
+
+/**
+ * The TEXT of the same change set `changedFiles` names, as one unified diff: `{ diff, failures }`.
+ *
+ * The same sources and the same fallback chains, so the lines read are the lines of the files
+ * listed. Named paths with no `--staged` or `--since` are compared with the last commit, which is
+ * what "review this file" means for a file someone is editing. A source git could not read is a
+ * failure and not an empty diff: "nothing lowered the bar" must not be said about a diff nobody saw.
+ */
+export function changedDiff(root, { paths = [], staged = false, since = null, git = null } = {}) {
+  const run = git ?? gitReader(root);
+  const parts = [];
+  const failures = [];
+
+  if (staged) {
+    const cached = run([...DIFF, "--cached"]);
+    if (!cached.error && cached.out.trim()) {
+      parts.push(cached.out);
+    } else {
+      const worktree = run(DIFF);
+      if (worktree.error) failures.push({ source: "--staged", error: cached.error ?? worktree.error });
+      else parts.push(worktree.out);
+    }
+  }
+
+  if (since) {
+    const merge = run([...DIFF, `${since}...HEAD`]);
+    if (!merge.error) {
+      parts.push(merge.out);
+    } else {
+      const direct = run([...DIFF, since]);
+      if (direct.error) failures.push({ source: `--since ${since}`, error: direct.error });
+      else parts.push(direct.out);
+    }
+  }
+
+  if (paths.length && !staged && !since) {
+    const named = run([...DIFF, "HEAD", "--", ...paths]);
+    if (named.error) failures.push({ source: "the named paths", error: named.error });
+    else parts.push(named.out);
+  }
+
+  return { diff: parts.filter(Boolean).join("\n"), failures };
+}
+
 /**
  * What another branch changed since it diverged from HEAD — the other half of an overlap check
  * (#408), for a second session working in its own worktree on its own branch.

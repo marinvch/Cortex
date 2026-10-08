@@ -14,6 +14,16 @@
 //   - script  — `npm run X` / `pnpm X` / `yarn X` names a script no package.json declares, or
 //               `./mvnw` / `./gradlew` names a wrapper that is not there
 //
+// And three more from the first field report (#548), each as narrow as the disk allows:
+//
+//   - no-script — the skill says a script does not exist, and a package.json declares it
+//   - tests     — also "no test runner installed", beside a detected runner and real test files
+//   - premise   — a setup skill Cortex proposes (`gone` in skills.mjs) whose premise the index
+//                 refutes; the entry carries `retire`, a proposal the ritual asks about
+//
+// The description is read for paths only, and such a finding is marked `frontmatter: true`: a
+// refresh never edits frontmatter, so it is reported and asked about, not fixed in passing.
+//
 // The direction of error is chosen, as in `orphans.mjs`: every rule below can only DROP a candidate.
 // A missed stale line costs what the repo already had; an invented one costs trust in every other
 // finding, and a user who is told a correct skill is wrong stops reading the report. Prose — "lint
@@ -34,6 +44,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { premiseGone } from "./skills.mjs";
+import { labelsFor } from "./stack.mjs";
 
 export const SKILLS_REL = ".claude/skills";
 
@@ -144,6 +156,27 @@ const WRAPPER_CMD = /(?<![\w/.-])(\.\/)?(mvnw|gradlew)(?![\w.-])/g;
 // "once `npm test` passes", "add a `lint` script". Setup skills are written before their scripts.
 const ABOUT_A_COMMAND = /\b(?:does not exist|doesn't exist|do not exist|not exist|no longer|not yet|once|until|add|adds|adding|create|creates|missing|removed|deleted|retired|used to|instead of|rather than)\b/i;
 
+// The opposite claim: prose saying a script is NOT there. Refuted only by a manifest that declares
+// it, and only when the line names the script — in backticks, as `npm run X`, or by being the skill
+// named after it ("not wired into a standalone npm script", in a skill called type-check, beside a
+// `typecheck` script). A claim that names nothing a manifest declares is left alone.
+const NO_SCRIPT = [
+  /\bno\s+(?:[\w:-]+\s+){0,2}script\b/i,
+  /\bnot\s+(?:yet\s+)?(?:wired|exposed|declared|defined|available|set\s+up)\s+(?:into|in|as|via|through)\s+(?:a|an|any)\s+(?:[\w-]+\s+){0,2}script\b/i,
+  /\b(?:does\s+not|doesn't|do\s+not|don't)\s+exist\b/i,
+];
+const squash = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// "no test runner installed" — refuted by a runner the index detected, beside test files.
+const NO_RUNNER = /\bno\s+test(?:ing)?\s+(?:runner|framework|harness)\b/i;
+
+// A path in a description is rarely backticked, so a bare token is read too. It still has to look
+// like a repo path (`candidatePath`), and a first segment with a dot inside it is a host name. A
+// bare token must also start in a directory the repo has: three-flatland's description says
+// "canvas/WebGL/Three.js", which is prose with slashes and ends in what looks like an extension.
+const BARE_PATH = /(?<![\w@:/.-])`?((?:\.{1,2}\/)?[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.*-]+)+\/?)`?/g;
+const HOSTLIKE = /^[^./][^/]*\.[^/]+\//;
+
 function scriptFor(tool, run, word) {
   if (run) return word;
   if (tool === "npm") return NPM_SHORTHAND[word] ?? null;
@@ -171,12 +204,12 @@ export function listRepoSkills(root) {
 
 function declaredScripts(root, index) {
   const manifests = (index?.files ?? []).map((f) => f.path).filter((p) => p === "package.json" || p.endsWith("/package.json"));
-  const scripts = new Set();
+  const scripts = new Map(); // script → the first manifest that declares it
   let unreadable = false;
   for (const rel of manifests) {
     try {
       const pkg = JSON.parse(readFileSync(join(root, rel), "utf8"));
-      for (const k of Object.keys(pkg?.scripts ?? {})) scripts.add(k);
+      for (const k of Object.keys(pkg?.scripts ?? {})) if (!scripts.has(k)) scripts.set(k, rel);
     } catch {
       // A manifest that cannot be read might declare the very script in question, so while one
       // exists no script can be proven missing. An empty `scripts` is different: that is read.
@@ -204,13 +237,28 @@ function scan(text) {
   return out;
 }
 
+/** The lines of the frontmatter's `description`, with their numbers: the key's line and its continuations. */
+function descriptionLines(text) {
+  const lines = text.split(/\r?\n/);
+  if (lines[0]?.trim() !== "---") return [];
+  const out = [];
+  let inside = false;
+  for (let i = 1; i < lines.length && lines[i].trim() !== "---"; i++) {
+    const key = /^([A-Za-z_][\w-]*):/.exec(lines[i]);
+    if (key) inside = key[1] === "description";
+    if (inside) out.push({ n: i + 1, line: key ? lines[i].slice(key[0].length) : lines[i] });
+  }
+  return out;
+}
+
 // --- the check -------------------------------------------------------------------------------------
 
 /**
  * Every provable contradiction between a repo's skills and the repo.
  *
  * Returns `{ checked, drifted }`: `checked` names every skill read, `drifted` holds only the ones
- * with findings — `{ skill, path, edited, editedNote, findings: [{ line, kind, cited, why, text, hint? }] }`.
+ * with findings — `{ skill, path, edited, editedNote, retire, findings: [{ line, kind, cited, why, text, hint?, frontmatter? }] }`.
+ * `retire` is `{ successor }` when the skill's premise is gone, else `null`.
  * `edited` is whether a person worked on the file since it was written (`null`: git cannot say) and
  * `editedNote` the sentence a playback row carries when they did. Without an
  * index nothing can be proven, so it returns `null` rather than a clean bill: "not checked" and
@@ -237,6 +285,7 @@ export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root), hi
   const tests = index.files.filter((f) => f.isTest).map((f) => f.path).sort();
   const testCount = index.stats?.tests ?? tests.length;
   const { manifests, scripts, unreadable } = declaredScripts(root, index);
+  const runners = Array.isArray(index.stack?.test) ? index.stack.test : [];
 
   const checked = listRepoSkills(root);
   const drifted = [];
@@ -253,7 +302,58 @@ export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root), hi
     const findings = [];
     const add = (f) => findings.push({ ...f, text: f.text.trim().slice(0, 160) });
 
+    // The description — paths only. It decides when the skill fires, so a path in it that is gone is
+    // worth saying, and it is marked: a refresh leaves frontmatter as it is, so this one is asked about.
+    for (const { n, line } of descriptionLines(text)) {
+      const seen = new Set();
+      for (const m of line.matchAll(BARE_PATH)) {
+        const token = m[1].replace(/[.,;:]+$/, ""); // a path that ends the sentence
+        const c = HOSTLIKE.test(token) || token.includes("*") ? null : candidatePath(token);
+        if (!c || seen.has(c.path)) continue;
+        seen.add(c.path);
+        if (!m[0].startsWith("`") && !onDisk(c.path.split("/")[0])) continue;
+        if (c.path.split("/").some((s) => NEVER_COMMITTED.has(s))) continue;
+        if (onDisk(c.path) || onDisk(`${home}/${c.path}`) || suffixOf(c.path)) continue;
+        pendingPaths.push({ findings, finding: { line: n, kind: "path", cited: token, path: c.path, dir: c.dir, text: line, frontmatter: true } });
+      }
+    }
+
     for (const { n, line, fence } of scan(text)) {
+      // "no such script" — prose only, refuted by the manifest that declares it
+      if (!fence && !unreadable && scripts.size) {
+        const plain = line.replace(/[*_`]/g, "");
+        const claim = NO_SCRIPT.map((re) => re.exec(plain)).find(Boolean);
+        if (claim && !CONDITIONAL_BEFORE.test(plain.slice(0, claim.index)) && !HISTORICAL.test(plain)) {
+          const named = [
+            ...[...line.matchAll(/`([\w:.-]+)`/g)].map((m) => m[1]),
+            ...[...line.matchAll(PKG_CMD)].map((m) => scriptFor(m[1], m[2], m[3].replace(/[.:]+$/, ""))).filter(Boolean),
+          ];
+          // "does not exist" is about whatever the line names; only the two script phrasings may
+          // fall back to the skill's own name.
+          const aboutScripts = /script/i.test(claim[0]);
+          let script = named.find((w) => scripts.has(w));
+          if (!script && aboutScripts && !named.length) script = [...scripts.keys()].find((k) => squash(k) === squash(skill.name));
+          if (script) {
+            add({
+              line: n, kind: "no-script", cited: claim[0], text: line,
+              why: `says there is no such script, and ${scripts.get(script)} declares a "${script}" script`,
+            });
+          }
+        }
+      }
+
+      // "no test runner" — prose only, refuted by a detected runner beside real test files
+      if (!fence && testCount > 0 && runners.length) {
+        const plain = line.replace(/[*_`]/g, "");
+        const m = NO_RUNNER.exec(plain);
+        if (m && !CONDITIONAL_BEFORE.test(plain.slice(0, m.index)) && !HISTORICAL.test(plain)) {
+          add({
+            line: n, kind: "tests", cited: m[0], text: line,
+            why: `says no test runner is installed, and the index detected ${labelsFor(runners).join(", ")} beside ${testCount} test file${testCount === 1 ? "" : "s"}`,
+          });
+        }
+      }
+
       // paths — backticked, outside fences (a fence is a command, and its words are not citations)
       if (!fence) {
         const seen = new Set();
@@ -311,7 +411,15 @@ export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root), hi
       }
     }
 
-    drifted.push({ skill: skill.name, path: skill.rel, findings });
+    // A setup skill whose premise the index refutes has nothing left to say (skills.mjs, `gone`).
+    const premise = premiseGone(skill.name, index);
+    if (premise) {
+      findings.push({
+        line: 1, kind: "premise", cited: skill.name, text: skill.name,
+        why: premise.why + (premise.successor ? ` — \`${premise.successor}\` is the skill for this repo now` : ""),
+      });
+    }
+    drifted.push({ skill: skill.name, path: skill.rel, retire: premise ? { successor: premise.successor } : null, findings });
   }
 
   // One `git check-ignore` for every missing path in every skill: a path the repo declares generated
@@ -326,9 +434,10 @@ export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root), hi
       kind: "path",
       cited: finding.cited,
       text: finding.text.trim().slice(0, 160),
-      why: finding.dir
+      why: (finding.frontmatter ? "the description " : "") + (finding.dir
         ? `names the directory ${finding.path}/, which is not in the repo`
-        : `names ${finding.path}, which is not in the repo`,
+        : `names ${finding.path}, which is not in the repo`),
+      ...(finding.frontmatter ? { frontmatter: true } : {}),
       // A hint, never a correction: one file with the same name is where it probably went, and the
       // refresh still has to open it and confirm.
       ...(same.length === 1 ? { hint: same[0] } : {}),
@@ -338,6 +447,6 @@ export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root), hi
   for (const d of drifted) d.findings.sort((a, b) => a.line - b.line || a.kind.localeCompare(b.kind) || a.cited.localeCompare(b.cited));
   return {
     checked: checked.map((s) => s.name),
-    drifted: drifted.filter((d) => d.findings.length).map((d) => ({ skill: d.skill, path: d.path, ...editedSince(history(d.path)), findings: d.findings })),
+    drifted: drifted.filter((d) => d.findings.length).map((d) => ({ skill: d.skill, path: d.path, ...editedSince(history(d.path)), retire: d.retire, findings: d.findings })),
   };
 }

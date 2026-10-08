@@ -100,9 +100,10 @@ if (drift.length) {
   for (const d of drift) {
     console.log(`  /${d.skill}  ${d.path}${d.editedNote ? ` — ${d.editedNote}` : ""}`);
     for (const f of d.findings) {
-      console.log(`      line ${f.line}: ${f.why}`);
+      console.log(`      line ${f.line}: ${f.why}${f.frontmatter ? " (frontmatter — a refresh leaves it, so it is asked about)" : ""}`);
       if (f.hint) console.log(`        a file of that name is at ${f.hint}`);
     }
+    if (d.retire) console.log("      proposal: retire this skill — it is deleted only on a yes");
     console.log("");
   }
   console.log("Nothing has been changed. /cortex-skills refreshes the lines above, and asks before touching");

@@ -41,6 +41,12 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `.cortex/memory/` here. `recall` in repo mode needs no rule of its own: it searches every `.md`
   under `.cortex/` through the Vault, and the path of a hit names the author. More authors mean
   more text for the same `days`; the transport cap below is what stops it, and it says so.
+- **`remember` passes no author; `core/memory.js` finds it** (`CORTEX_AUTHOR`, then git
+  `user.name` in the repo). The result is `{ path, day, author, layout }`. `layout` is `"author"`
+  for `<date>/<author>.md` and `"day"` when no name was usable and the entry went to `<date>.md`;
+  only then is there a `notice`, which is how the model learns to tell the person. Do not drop it.
+  A test that spawns the server sets `CORTEX_AUTHOR` (`serverEnv` in `test/mode.test.js`), so it
+  never reads the machine's git name.
 - **`server.js` stays a thin switch.** All logic lives in `lib/`; the transport layer is a
   dispatch over tool names and nothing more.
 - **Two modes, decided by the root — never configured.** A root ending in `.cortex` is

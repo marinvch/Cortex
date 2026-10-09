@@ -5,14 +5,40 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.48] — 2026-10-09
+
+Memory is written one file per author per day, so two developers writing on one day merge with no
+conflict. Step 4.2 of the team-memory design.
+
+### Changed
+
+- **`/dream`, `cortex-memory.mjs append` and the `remember` tool write
+  `.cortex/memory/<date>/<author>.md`.** The file is headed `# <date> · <author>`. No setting turns
+  this on. Existing `<date>.md` files are never moved or rewritten, and one date can hold both
+  layouts.
+- **The author is `CORTEX_AUTHOR` if set, otherwise git `user.name` in the repo.** Only its slug is
+  written: `a-z`, `0-9` and `-`, at most 40 characters. No email address is read. A `CORTEX_AUTHOR`
+  that is set and gives no slug refuses the write with `invalid_author` and writes nothing.
+- **With no usable name the entry goes to the old `<date>.md`.** That is a machine with no git
+  name, or a name with no ASCII letter or digit. The command says so in one line on stderr on every
+  such write and still exits 0. Such a writer keeps the old conflict.
+- **`remember` returns `{ path, day, author, layout }`.** It returned `{ path, day }`. `layout` is
+  `author` or `day`, and a `notice` is added on a day write.
+
+The secret gate still runs first: a refused write leaves no file and no day directory. A Cortex
+older than 2.41.43 does not read day directories, so a developer on one sees fewer entries, never
+wrong ones, until they update. The same person on two machines, or two people whose names give the
+same slug, share one file and can still conflict; setting `CORTEX_AUTHOR` ends that. The skills,
+templates and `CONTEXT.md` still describe the old layout until step 4.3.
+
 ### Added
 
 - **A merge to `master` that raises `VERSION` is released by `.github/workflows/release.yml`.** It
   creates the tag `v<version>` on the merge commit and a GitHub release holding that version's
   changelog section, marked Latest when it is the highest version. A merge that leaves `VERSION`
   alone releases nothing, and a re-run with the tag present does nothing.
-  [ADR 0022](docs/adr/0022-stamping-a-version-on-master-releases-it.md). Step 1.2 of the roadmap,
-  which is not stamped: the first stamped merge after it is the first automatic release.
+  [ADR 0022](docs/adr/0022-stamping-a-version-on-master-releases-it.md). Step 1.2 of the roadmap.
+  It merged unstamped, and this version is the first one it releases.
 - **`tools/cortex-release-plan.mjs` decides what a push releases.**
   `tools/test/release-plan.test.sh` runs it on scratch repos, since the workflow cannot be run
   before it is pushed.
@@ -5009,6 +5035,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.48]: https://github.com/marinvch/Cortex/releases/tag/v2.41.48
 [2.41.47]: https://github.com/marinvch/Cortex/releases/tag/v2.41.47
 [2.41.46]: https://github.com/marinvch/Cortex/releases/tag/v2.41.46
 [2.41.45]: https://github.com/marinvch/Cortex/releases/tag/v2.41.45

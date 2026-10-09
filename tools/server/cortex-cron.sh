@@ -14,11 +14,13 @@
 # of `crontab -l`, which is the one command people run to check their schedule.
 #
 # Env:
-#   BRAIN_DIR           path to a git clone of the brain repo. Falls back to AI_OS_ROOT, which is
+#   BRAIN_DIR           path to a git clone of the brain repo. Falls back to CORTEX_ROOT, which is
 #                       what the rest of Cortex uses — the two halves of server mode should not
 #                       need two different variable names to say the same thing. BRAIN_DIR still
-#                       wins when both are set, so existing crontabs keep working.
-#   AI_OS_ROOT          alias for BRAIN_DIR (see above)
+#                       wins when it is set, so existing crontabs keep working.
+#   CORTEX_ROOT         used when BRAIN_DIR is unset (see above)
+#   AI_OS_ROOT          the older name for CORTEX_ROOT, still read. CORTEX_ROOT wins when both are
+#                       set, and the script says so once when they differ.
 #   ANTHROPIC_API_KEY   optional; enables an AI summary of the changes
 #   CORTEX_MODEL        optional; Claude model id. Model ids age out — when the log says "summary
 #                       unavailable", this default is the first thing to check.
@@ -26,9 +28,29 @@
 #                       testable — a hardcoded URL cannot be exercised without the network.
 set -euo pipefail
 
+# A copy of cortex_root from tools/_cortex-lib.sh, which is not on the server to source: this
+# script lands there beside only server-setup.sh. tools/test/cortex-root.test.sh fails when the two
+# differ by a character, so edit the lib's and paste it here.
+cortex_root(){
+  local new="${CORTEX_ROOT:-}" old="${AI_OS_ROOT:-}"
+  new="${new#"${new%%[![:space:]]*}"}"; new="${new%"${new##*[![:space:]]}"}"
+  old="${old#"${old%%[![:space:]]*}"}"; old="${old%"${old##*[![:space:]]}"}"
+  if [ -n "$new" ]; then
+    if [ -n "$old" ] && [ "$old" != "$new" ]; then
+      echo "cortex: CORTEX_ROOT and AI_OS_ROOT are both set and differ. Using CORTEX_ROOT ($new); AI_OS_ROOT ($old) is ignored." >&2
+    fi
+    printf '%s\n' "$new"
+    return 0
+  fi
+  [ -n "$old" ] || return 1
+  printf '%s\n' "$old"
+}
+
 MODE="${1:---daily}"
-BRAIN_DIR="${BRAIN_DIR:-${AI_OS_ROOT:-}}"
-: "${BRAIN_DIR:?set BRAIN_DIR (or AI_OS_ROOT) to your brain clone}"
+# BRAIN_DIR first, and cortex_root is not even asked when it is set: a crontab that names its clone
+# gets no line about two variables it never read.
+BRAIN_DIR="${BRAIN_DIR:-$(cortex_root || true)}"
+: "${BRAIN_DIR:?set BRAIN_DIR (or CORTEX_ROOT; AI_OS_ROOT, the older name, is still read) to your brain clone}"
 MODEL="${CORTEX_MODEL:-claude-sonnet-5}"
 API_URL="${CORTEX_API_URL:-https://api.anthropic.com/v1/messages}"
 cd "$BRAIN_DIR"

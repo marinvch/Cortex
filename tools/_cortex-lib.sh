@@ -37,6 +37,35 @@ cortex_today(){ date +%Y-%m-%d || { echo "cortex: cannot read the date" >&2; ret
 cortex_timestamp(){ date +%Y%m%d-%H%M%S || { echo "cortex: cannot read the date" >&2; return 1; }; }
 cortex_epoch(){ date +%s || { echo "cortex: cannot read the date" >&2; return 1; }; }
 
+# cortex_root — echo the root the environment names, or return 1 when it names none.
+#
+# The shell counterpart of rootFromEnv() in core/paths.js, and the one place this half puts the two
+# names in order. CORTEX_ROOT is the name to set. AI_OS_ROOT is what an install made before #552
+# carries and is still read, with no warning and no removal date. CORTEX_ROOT wins when both are
+# set; when they name different paths that is said once, on stderr, so the line never becomes part
+# of the path a caller captures. An empty or blank value is an unset one, so an empty CORTEX_ROOT
+# does not shadow a set AI_OS_ROOT.
+#
+# It never guesses and never checks the disk: a caller that gets 1 stops, and a root that is set
+# and wrong is the caller's error to report, not a reason to try the other name.
+#
+# tools/server/cortex-cron.sh cannot source this file and carries a copy of this function, held
+# identical by tools/test/cortex-root.test.sh. Change one, change both.
+cortex_root(){
+  local new="${CORTEX_ROOT:-}" old="${AI_OS_ROOT:-}"
+  new="${new#"${new%%[![:space:]]*}"}"; new="${new%"${new##*[![:space:]]}"}"
+  old="${old#"${old%%[![:space:]]*}"}"; old="${old%"${old##*[![:space:]]}"}"
+  if [ -n "$new" ]; then
+    if [ -n "$old" ] && [ "$old" != "$new" ]; then
+      echo "cortex: CORTEX_ROOT and AI_OS_ROOT are both set and differ. Using CORTEX_ROOT ($new); AI_OS_ROOT ($old) is ignored." >&2
+    fi
+    printf '%s\n' "$new"
+    return 0
+  fi
+  [ -n "$old" ] || return 1
+  printf '%s\n' "$old"
+}
+
 # resolve_in_root <root> <path> — echo the absolute path, or exit non-zero if it escapes <root>.
 #
 # The shell counterpart of core/paths.js. ADR 0007 made mcp/lib/vault.js the only door onto a vault

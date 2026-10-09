@@ -25,8 +25,10 @@ let brain;
 try {
   brain = openBrain({ cwd: process.cwd(), env: process.env });
 } catch (e) {
+  // Every line this process writes to stderr starts with `cortex:`. One of these used to say
+  // `ai-os-mcp:`, so a single server read in a log as two programs (#552).
   if (e instanceof NoRootError) {
-    console.error("ai-os-mcp: AI_OS_ROOT is not set. Set it to your vault path, or a repo's .cortex/.");
+    console.error(`cortex: ${e.message}. Set it to your vault path, or a repo's .cortex/. AI_OS_ROOT, the older name, is still read.`);
     process.exit(1);
   }
   if (e instanceof UnknownProfileError || e instanceof MissingRootError) {
@@ -35,7 +37,7 @@ try {
   }
   throw e;
 }
-const AI_OS_ROOT = brain.root;
+const root = brain.root;
 
 // Pointed at a repo's .cortex/, Cortex is a context manager for that codebase: memory is committed
 // and shared, and the vault's personal tools (projects, daily notes, team-brain) do not apply.
@@ -58,16 +60,16 @@ async function callTool(name, args) {
   // than the only way through. Refuses, never sanitises (core/scrub.js).
   assertPublishable(name, args);
   switch (name) {
-    case "recall": return recall(AI_OS_ROOT, args);
+    case "recall": return recall(root, args);
     case "remember": {
-      const r = rememberNote(AI_OS_ROOT, args.content, { kind: args.kind || "note" });
+      const r = rememberNote(root, args.content, { kind: args.kind || "note" });
       return { path: r.path, day: r.day };
     }
-    case "recall_memory": return recentMemory(AI_OS_ROOT, { days: args.days || 7 });
+    case "recall_memory": return recentMemory(root, { days: args.days || 7 });
     // The team and the policy come off the record, as they do for capture: a brain on a team lists
     // that team's project files beside the vault's own, and the profile decides which it may show.
-    case "list_projects": return listProjects(AI_OS_ROOT, { team: brain.team, policy: brain.policy });
-    case "get_project_context": return getProjectContext(AI_OS_ROOT, args.project);
+    case "list_projects": return listProjects(root, { team: brain.team, policy: brain.policy });
+    case "get_project_context": return getProjectContext(root, args.project);
     // The team comes from the resolution, not from the caller. Requiring the agent to pass `team`
     // was the seam leaking: it made the dev side learn which world it was in, which is exactly what
     // the resolver exists to prevent. The argument survives as an explicit override.
@@ -84,9 +86,9 @@ async function callTool(name, args) {
       // Same reasoning for the project: the connector names it, so a team note with none lands under
       // this repo's project rather than the team-brain's `inbox`.
       if (team && !args.project && brain.project) cargs.project = brain.project;
-      return capture(AI_OS_ROOT, cargs);
+      return capture(root, cargs);
     }
-    case "catch_me_up": return catchMeUp(AI_OS_ROOT, { ...args, team: args.team ?? brain.team ?? undefined });
+    case "catch_me_up": return catchMeUp(root, { ...args, team: args.team ?? brain.team ?? undefined });
     // assertAvailable already rejected anything the table does not name, so reaching here means a
     // tool was declared in lib/tools.js and never wired up.
     default: throw new Error(`tool declared but not implemented: ${name}`);
@@ -97,6 +99,10 @@ async function callTool(name, args) {
 // stream. Worth saying out loud because the audience is now load-bearing: if this says `solo` in a
 // repo you expected to be connected, the connector is missing or unreadable, and `source` says
 // which.
+//
+// The notices come first: today that is the one line saying CORTEX_ROOT and AI_OS_ROOT name
+// different roots and which was used. Each already starts with `cortex:` (lib/brain.js).
+for (const line of brain.notices) console.error(line);
 console.error(brain.describe());
 
 serve({ name: "cortex", version: VERSION, tools: TOOLS, call: callTool });

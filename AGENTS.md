@@ -23,7 +23,7 @@ security boundary. That covers personal notes, employer or client names, work ti
 names, and any team's internal architecture. Examples in docs and fixtures stay generic.
 
 A **vault** — the optional personal second brain the capture rituals serve — lives in its own
-private repository and is reached through `AI_OS_ROOT`. Its operating manual, including the
+private repository and is reached through `CORTEX_ROOT`. Its operating manual, including the
 firewall that keeps a `home` vault and a `work` vault apart, is
 [`templates/vault-AGENTS.md`](templates/vault-AGENTS.md); a vault carries a copy as its own
 `AGENTS.md`. When a ritual says "the firewall", that file holds the rule and

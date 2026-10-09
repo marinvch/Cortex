@@ -5,6 +5,27 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.47] — 2026-10-09
+
+`CORTEX_ROOT` is the name of the root, and `AI_OS_ROOT` is still read (#552).
+
+### Changed
+
+- **`CORTEX_ROOT` names the root.** `AI_OS_ROOT` is still read, with no warning and no removal
+  date, so an existing registration needs no change. `CORTEX_ROOT` wins when both are set, and two
+  different paths are reported in one line on stderr. Neither set is still a hard exit. A
+  `CORTEX_ROOT` that does not exist is refused, never replaced by an `AI_OS_ROOT` that does.
+- **Every line the MCP server writes to stderr starts with `cortex:`.** One path said `ai-os-mcp:`.
+- **The README and `/connect-brain` register the server as `cortex`.** The plugin manifest sets
+  `CORTEX_ROOT`. A registration named `ai-os` keeps working and keeps its tool names.
+- **The retired engine's MCP entry is told by where it points (`.ai-os/`), not by the name
+  `ai-os`.** `/migrate-engine`, `/install-project` and `cortex-init.sh` used the name, which sent a
+  repo with a current Cortex registration to `/migrate-engine`.
+
+The file `mcp/ai-os.js`, the `ai-os` command and the `ai-os-mcp` package name are not renamed;
+`cortex-mcp` is added as a second bin name. Anyone who exports `AI_OS_ROOT` in their shell and also
+uses the plugin will see the "both set and differ" line when the plugin's server starts.
+
 ## [2.41.46] — 2026-10-09
 
 The outcome harness's scorer no longer fails on Windows when its temp copy is still held.
@@ -4975,6 +4996,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.47]: https://github.com/marinvch/Cortex/releases/tag/v2.41.47
 [2.41.46]: https://github.com/marinvch/Cortex/releases/tag/v2.41.46
 [2.41.45]: https://github.com/marinvch/Cortex/releases/tag/v2.41.45
 [2.41.44]: https://github.com/marinvch/Cortex/releases/tag/v2.41.44

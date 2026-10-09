@@ -21,8 +21,8 @@ Run one command inside a target repo and it scaffolds an `AGENTS.md` + agent shi
 (Claude/Gemini/Copilot/Cursor) + dev-cycle skills + `docs/decisions.md`.
 
 ```bash
-# from a clone of the vault, inside the target repo:
-bash /path/to/ai-os/tools/cortex-init.sh
+# from a clone of Cortex, inside the target repo:
+bash /path/to/cortex/tools/cortex-init.sh
 
 # or one-liner, no clone:
 curl -fsSL https://raw.githubusercontent.com/marinvch/Cortex/master/tools/cortex-init.sh | bash
@@ -52,8 +52,9 @@ bash tools/cortex-init.sh --yes
 1. **Detects** (does not read your source): `package.json` deps + scripts, lockfile → package
    manager, `tsconfig` (strict + `@/*` alias), eslint/prettier/CI presence, README first line,
    source dirs. Maps deps → framework (Next.js, Nuxt, Remix, Vue, Svelte, React, Express).
-2. **Detects an old engine** (`.ai-os/`, `.github/ai-os/`, ai-os MCP entry) and tells you to run
-   `/migrate-engine` first so its memory isn't lost.
+2. **Detects an old engine** (`.ai-os/`, `.github/ai-os/`, an MCP entry whose command points into
+   `.ai-os/`) and tells you to run `/migrate-engine` first so its memory isn't lost. An entry named
+   `ai-os` that runs Cortex's own `mcp/server.js` is a current registration, not the engine.
 3. **Suggests skills** for the stack (e.g. React → `vercel-react-best-practices`).
 4. **Scaffolds** into the current repo only (existing files → `*.bak`): `AGENTS.md` (source of
    truth), shims, `.claude/skills/plan-feature` + `investigate-bug`, `docs/decisions.md`.

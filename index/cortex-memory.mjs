@@ -10,6 +10,11 @@
 //
 // Every append goes through the scrub gate. A refused write exits 2 and prints what kind of secret
 // was found — never the secret itself.
+//
+// An append lands in `memory/<day>/<author>.md`. Who the author is belongs to core/memory.js and
+// core/author.js, not to this file: CORTEX_AUTHOR, otherwise git `user.name` in the repo. With no
+// usable name the entry goes to `memory/<day>.md`, the exit is still 0, and one line on stderr says
+// so. A CORTEX_AUTHOR that is set and unusable writes nothing and exits 1.
 
 import { resolve } from "node:path";
 import { append, recent } from "../core/memory.js";
@@ -42,6 +47,9 @@ if (args.cmd === "append") {
   try {
     const r = append(root, args.text, { kind: args.kind });
     process.stdout.write(`wrote ${r.path}\n`);
+    // The entry is written and the exit is 0, so stdout stays the one `wrote` line a caller parses.
+    // The notice goes to stderr, on every such write: a day file is the layout that conflicts.
+    if (r.layout === "day") process.stderr.write(`${r.notice}\n`);
   } catch (e) {
     if (e.code === "refused_write") {
       const kinds = [...new Set(e.findings.map((f) => f.kind))].join(", ");

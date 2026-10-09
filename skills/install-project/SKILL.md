@@ -28,8 +28,9 @@ to it, and a ritual invoked one directory off writes a plausible-looking brain i
 ## Step 2 — Check for an OLD engine first
 
 Look for a pre-existing engine-based AI OS: `.ai-os/`, `.github/ai-os/` (especially its `memory/`),
-`.github/agents/`, `.github/COPILOT_CONTEXT.md`, or an `ai-os` entry in `.mcp.json` /
-`.vscode/mcp.json`.
+`.github/agents/`, `.github/COPILOT_CONTEXT.md`, or an entry in `.mcp.json` / `.vscode/mcp.json`
+whose command points into `.ai-os/`. An entry that runs Cortex's own `mcp/server.js` is a current
+registration and not the engine, even when it is named `ai-os`.
 
 If any exist, **stop.** That memory store holds hand-verified knowledge a plain `/install-project`
 would silently discard. Tell the user, and offer `/migrate-engine` first — it harvests the memory

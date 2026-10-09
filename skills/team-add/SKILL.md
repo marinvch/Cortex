@@ -28,7 +28,7 @@ Here it is the requirement, and it holds only because the connector carries no l
 
 ## What to do
 
-1. From the product repo root, with `AI_OS_ROOT` set to your vault, run
+1. From the product repo root, with `CORTEX_ROOT` set to your vault, run
    `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team add --name <team> --repo <team-brain-git-url> --project <this-project-slug>`.
    The script ships with the plugin; the vault is only where the clone goes. From a clone of the
    Cortex repo rather than the plugin, use that clone's path. `--name` is the team — the name in
@@ -46,5 +46,5 @@ Here it is the requirement, and it holds only because the connector carries no l
 ## Don't
 
 - NEVER auto-commit to the product repo — always leave that to the user.
-- The connector must stay generic (no personal/machine paths). Local state (AI_OS_ROOT, clone path)
+- The connector must stay generic (no personal/machine paths). Local state (CORTEX_ROOT, clone path)
   lives in user config only. This is what makes committing it safe, so it is not a style rule.

@@ -347,16 +347,28 @@ available in **every project on this machine**, not just this repo. One-time, us
 
 ```bash
 # no install step — the server has no dependencies
-claude mcp add --scope user ai-os --env AI_OS_ROOT=/path/to/ai-os -- node /path/to/ai-os/mcp/server.js
+claude mcp add --scope user cortex --env CORTEX_ROOT=/path/to/your-vault -- node /path/to/cortex/mcp/server.js
 ```
 
 **Cursor / other MCP agents** — add to the agent's `mcpServers` config:
 ```json
-{ "ai-os": { "command": "node", "args": ["/path/to/ai-os/mcp/server.js"], "env": { "AI_OS_ROOT": "/path/to/ai-os" } } }
+{ "cortex": { "command": "node", "args": ["/path/to/cortex/mcp/server.js"], "env": { "CORTEX_ROOT": "/path/to/your-vault" } } }
 ```
 
-`AI_OS_ROOT` (this vault's path) is the only configuration — nothing else to set. Say "connect the
-brain" (or run `/connect-brain`) to have your agent do this for you.
+`CORTEX_ROOT` (your vault's path) is the only configuration — nothing else to set. The tools then
+appear as `mcp__cortex__recall`, `mcp__cortex__capture` and so on. Say "connect the brain" (or run
+`/connect-brain`) to have your agent do this for you.
+
+**Already registered as `ai-os`, with `AI_OS_ROOT`?** That registration keeps working and needs
+no change. `AI_OS_ROOT` is still read, with no warning and no removal date; its tools keep the
+names `mcp__ai-os__…`. If both variables are set, `CORTEX_ROOT` is used, and when the two name
+different paths the server says so in one line on stderr. To move to the new name, run
+`claude mcp remove ai-os` and then the command above. Do not keep both registrations: they are two
+servers over one vault, and every tool appears twice.
+
+Three names were left as they are, because each is typed in a command or stored in a config that
+this change cannot rewrite: the CLI file `mcp/ai-os.js` and its command name `ai-os`, and the
+package name `ai-os-mcp` in `mcp/package.json` (its `bin` now also answers to `cortex-mcp`).
 
 ---
 
@@ -377,18 +389,19 @@ This is the part that makes any AI coding agent faster and safer on a specific c
 
 - **Fast, deterministic** — from a terminal inside the repo:
   ```bash
-  bash /path/to/ai-os/tools/cortex-init.sh
+  bash /path/to/cortex/tools/cortex-init.sh
   ```
   Detects the stack (package manager, framework, language, scripts, tsconfig, lint/CI, source dirs),
   scaffolds `AGENTS.md` + shims + skills, and **suggests relevant skills** for your stack.
 
 **Step 3 — if the repo has an OLD engine** (`.ai-os/`, `.github/ai-os/`): both paths detect it and
 tell you to run **`/migrate-engine`** first — it harvests the old memory into `AGENTS.md`, then
-removes the cruft, so no knowledge is lost.
+removes the cruft, so no knowledge is lost. An MCP server registered as `ai-os` whose command is
+Cortex's own `mcp/server.js` is not that engine, and neither path treats it as one.
 
 **Step 4 — register it with your vault** (optional, metadata only — no code leaves the repo):
 ```bash
-bash /path/to/ai-os/tools/cortex-init.sh --register-to-vault /path/to/ai-os
+bash /path/to/cortex/tools/cortex-init.sh --register-to-vault /path/to/your-vault
 ```
 Now the repo shows up in the **Repos** tab of `cortex.html`.
 

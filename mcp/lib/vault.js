@@ -24,10 +24,12 @@
 import {
   appendFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
@@ -164,6 +166,33 @@ export function openVault(root) {
       const p = abs(rel);
       mkdirSync(dirname(p), { recursive: true });
       appendFileSync(p, text);
+    },
+
+    /**
+     * Delete ONE regular file, and return the path it had. The only operation here that destroys,
+     * so it refuses everything it is not sure of:
+     *
+     *   - an escaping path — `abs` realpaths the nearest existing ancestor, so `..` and a link out
+     *     of the root both throw `OutsideRootError` before anything is touched;
+     *   - a directory (`not_a_file`). There is no recursive form, and there must not be one: memory
+     *     lives in folders, and a slip of one path segment would take a project's notes with it;
+     *   - a link, even one that stays inside the root (`not_a_file`). `lstat`, not `stat`: the
+     *     question is what sits AT this path, not what it points to;
+     *   - a file that is not there (`not_found`). Reporting success for a delete that did nothing
+     *     lets a caller commit "removed x" over a typo.
+     */
+    remove(rel) {
+      const p = abs(rel);
+      let st;
+      try {
+        st = lstatSync(p);
+      } catch (e) {
+        if (e?.code !== "ENOENT" && e?.code !== "ENOTDIR") throw e;
+        throw Object.assign(new Error(`nothing to remove at ${rel}`), { code: "not_found" });
+      }
+      if (!st.isFile()) throw Object.assign(new Error(`not a file, so not removed: ${rel}`), { code: "not_a_file" });
+      unlinkSync(p);
+      return p;
     },
   };
 }

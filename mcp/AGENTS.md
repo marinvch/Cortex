@@ -3,6 +3,19 @@
 An optional Node MCP server exposing Cortex over stdio, plus the `ai-os` CLI. The busiest part of
 the repo by commit count, and — like every other part — **dependency-free**.
 
+## The `ai-os` CLI
+
+| Command | Does | Needs |
+|---|---|---|
+| `ai-os setup-plugins` | install the Cortex Core plugin bundle | nothing |
+| `ai-os team init` | seed and push a team-brain | a vault |
+| `ai-os team add` | write this repo's project file into the team-brain, then the connector | a vault |
+| `ai-os project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
+| `ai-os project check` | validate the team's project files; exit 1 on an error or a withheld file | a vault, a team |
+| `ai-os project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
+| `ai-os digest` | append a git digest to a file | nothing |
+| `ai-os catch-up` | notes and history since a date | a repo or a vault |
+
 ## Invariants
 
 - **No runtime dependencies, ever.** A plugin install clones the repo and never runs
@@ -96,8 +109,10 @@ the repo by commit count, and — like every other part — **dependency-free**.
   is the only module here that joins onto a vault root or calls `node:fs` on one; it wraps
   `core/paths.js` so the guard is unavoidable rather than remembered. If you need an operation it
   does not have, add it to the Vault — do not reach around it.
-  The full surface is `list` · `entries` · `read` · `append` · `write` · `abs` · `exists` ·
-  `isFile` · `isDirectory` · `mtimeMs`, all taking root-relative paths.
+  The full surface is `list` · `entries` · `read` · `append` · `write` · `remove` · `abs` ·
+  `exists` · `isFile` · `isDirectory` · `mtimeMs`, all taking root-relative paths. `remove` deletes
+  one regular file and refuses a directory, a link and a missing file; there is no recursive form,
+  because notes live in folders.
   `test/vault-is-the-only-door.test.js` fails the build otherwise, and it checks **twice**: a scan
   for `join(root, …)`, plus an assertion that the converted modules import no `node:fs` at all —
   because `recall` once bypassed the guard through a closure variable without ever writing that
@@ -140,6 +155,41 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `lib/brain.js` opens at entry, which is where the profile is resolved once. A new publish
   path that does not is the same bug again — write locally, decline the push, and tell the caller
   which, the way `capture()` does.
+- **A project file is written, listed and removed by `lib/project-files.js`, and judged by
+  `core/project-file.js`.** A project file is `projects/<slug>.md` at the top of a team-brain, and
+  a workspace is the set of them ([ADR 0024](../docs/adr/0024-a-workspace-is-project-files.md)).
+  The rules that hold for every caller:
+  - **The gates run before the write, in one order: valid, allowed by the profile, free of
+    secrets.** `judge()` is the only way to a write. The first refusal throws `ProjectFileRefused`
+    and leaves both repositories as they were. `ai-os team add` writes the connector last, so a repo
+    whose project is refused has not joined.
+  - **The profile check takes the policy object, never a profile name.** `profileRefusal(data,
+    policy)` reads `policy.refuses`, and both adapters pass `brain.policy`. Do not write
+    `brain.profile === "home"` at a call site. On a profile that refuses employer material, the
+    writer refuses the whole file and `list_projects` returns `{ slug, path, source, withheld }` for
+    it: title, links and relations are withheld, and the file is never deleted or moved.
+  - **The check is a floor.** It recognises a private-network host and a tenant of a few hosted
+    work tools. Never describe a file that passed as cleared, in a message or in a skill.
+  - **A credential is refused, not stripped.** An `origin` carrying one stops `team add` with a
+    request for `--project-repo`. The text is also passed through `core/scrub.js` before the write,
+    because it is about to be pushed.
+  - **An existing file is left byte for byte** unless a field flag is passed. Then
+    `setFrontmatter` changes those lines only and the whole file is judged again.
+  - **No repo, no file.** A checkout with no usable `origin` and no `--project-repo` still joins;
+    its project is listed as `unregistered`. A project file with no `repo` is never written.
+  - **Removal resolves the slug against the team's `projects/` directory, through the Vault's
+    `remove`.** That root is what makes `../x` an `OutsideRootError` and not a string check. After
+    the guard the target must be a slug, exist, and parse as `type: project`. Removal runs `git rm`
+    and commits `project: remove <slug>`. It never deletes the notes folder and never edits another
+    file's `related:` line; it reports both in `left`.
+  - **Every commit is pushed only when `policy.outwardSync` allows.** On `lab` the commit stays
+    local and the result says `outward_sync_disabled`, for a write and for a removal.
+  - **`list_projects` grew fields, not a tool.** Each entry has `source: "vault" | "team"`. A vault
+    entry is a project stub or a notes folder; a team entry is a project file. The two share a
+    filename and are never merged. A `.md` under the team's `projects/` with no `type: project` is
+    skipped and counted. `ai-os project list|check|remove` are the CLI's half and are refused in
+    repo mode, because the clone lives under the vault.
+  - **A link is never fetched**, here or in `core/`. No title lookup and no reachability check.
 - **`mcp/` never imports from `index/`.**
 
 ## Gotchas

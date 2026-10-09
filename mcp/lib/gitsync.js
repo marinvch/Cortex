@@ -27,6 +27,41 @@ export function commitAndPush(cloneDir, files, message) {
   catch (e) { return { ok: true, pushed: false, error: "push_failed: " + String(e.stderr || e.message) }; }
 }
 
+/**
+ * A clone on a machine with no git identity cannot commit, and a team-brain clone is committed to
+ * by Cortex, not by a person. Set a local one only when none resolves; never touch a real one.
+ */
+export function ensureIdentity(dir) {
+  try { git(dir, ["config", "user.email"]); }
+  catch { git(dir, ["config", "user.email", "cortex@local"]); git(dir, ["config", "user.name", "cortex"]); }
+}
+
+/**
+ * Commit ONE path in a clone, as an addition or as a removal, and nothing else that happens to be
+ * staged or lying in the tree. Separate from `commitAndPush` because a project file is committed
+ * on every profile and pushed only on some: a `lab` install keeps the commit and declines the push
+ * (core/profile.js), and one function that always does both cannot say that.
+ *
+ * `remove` runs `git rm` on a file the Vault has already deleted. `committed: false` with `ok: true`
+ * means git had nothing to record — the file was identical, or was never tracked.
+ */
+export function commitPath(cloneDir, file, message, { remove = false } = {}) {
+  if (!isGitRepo(cloneDir)) return { ok: false, committed: false, error: "not_a_git_repo" };
+  try {
+    ensureIdentity(cloneDir);
+    git(cloneDir, remove ? ["rm", "-q", "--ignore-unmatch", "--", file] : ["add", "--", file]);
+    if (!git(cloneDir, ["status", "--porcelain", "--", file]).trim()) return { ok: true, committed: false };
+    git(cloneDir, ["commit", "-q", "-m", message, "--", file]);
+    return { ok: true, committed: true };
+  } catch (e) { return { ok: false, committed: false, error: String(e.stderr || e.message).trim() }; }
+}
+
+/** Push the current branch to `origin`. Named explicitly, so a clone of an empty remote works too. */
+export function pushHead(cloneDir) {
+  try { git(cloneDir, ["push", "-q", "origin", "HEAD"]); return { ok: true }; }
+  catch (e) { return { ok: false, error: "push_failed: " + String(e.stderr || e.message).trim() }; }
+}
+
 /** The URL `origin` points at in `dir`, or null when there is no repo or no such remote. */
 export function originUrl(dir) {
   if (!isGitRepo(dir)) return null;

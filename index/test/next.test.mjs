@@ -117,6 +117,94 @@ test("once the context layer exists, an old AGENTS.md is Cortex's own and not a 
   rmSync(root, { recursive: true, force: true });
 });
 
+// --- another tool's doc, hand-written, beside a context layer that exists (#548, item 13) ---------
+//
+// The field report: `.github/copilot-instructions.md` was stale and hand-written, `priorDocs`
+// listed it, and no step offered anything, because `reconcile` is only for a repo with no layer yet.
+
+const COPILOT = ".github/copilot-instructions.md";
+const OWN_RULES = "# Copilot instructions\n\nUse the v1 API client.\nRun `npm run test:legacy` first.\nNever touch `lib/old`.\n";
+const SHIM = "All project context and conventions live in AGENTS.md at the repo root. Follow it.\n";
+
+/** A repo whose context layer is written, with whatever `more` adds. */
+function served(more = () => {}) {
+  return repo(({ put, root }) => {
+    put("AGENTS.md");
+    put("CONTEXT.md");
+    put(".cortex/index/index.json", INDEX);
+    put(".cortex/findings/2026-01-01.md");
+    more({ put, root });
+  });
+}
+
+test("a hand-written copilot-instructions beside the context layer is offered for reconciling", () => {
+  const root = served(({ put }) => put(COPILOT, OWN_RULES));
+  const plan = nextSteps(root);
+  const step = plan.steps.find((s) => s.id === "reconcile");
+  assert.ok(step, "the step is there although CONTEXT.md exists");
+  assert.equal(step.cmd, "/optimize-context", "the ritual that never deletes prose without a yes");
+  assert.equal(step.done, false);
+  assert.match(step.why, /\.github\/copilot-instructions\.md/, "it names the file");
+  assert.match(step.why, /AGENTS\.md/);
+  assert.deepEqual(step.docs, [COPILOT]);
+  assert.doesNotMatch(step.why, /BEFORE scaffold/, "the scaffold has run; that sentence belongs to the other case");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("it is an offer: optional, never next, and it does not move the count", () => {
+  // A team may keep its own Copilot rules on purpose. A required step over a choice never clears,
+  // and a sequence that stays open trains the reader to ignore it.
+  const withDoc = served(({ put }) => put(COPILOT, OWN_RULES));
+  const without = served();
+  const a = nextSteps(withDoc);
+  const b = nextSteps(without);
+  assert.equal(a.steps.find((s) => s.id === "reconcile").optional, true);
+  assert.notEqual(a.next?.id, "reconcile");
+  assert.equal(a.next?.id, b.next?.id, "the next command is the one it would be without the file");
+  assert.equal(a.done, b.done);
+  assert.equal(a.total, b.total);
+  assert.equal(nextLine(withDoc), nextLine(without));
+  rmSync(withDoc, { recursive: true, force: true });
+  rmSync(without, { recursive: true, force: true });
+});
+
+test("the Cortex shim is not offered for reconciling", () => {
+  const root = served(({ put }) => put(COPILOT, SHIM));
+  assert.ok(!nextSteps(root).steps.some((s) => s.id === "reconcile"));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the offer sits where reconcile always sat, before the scaffold row", () => {
+  const root = served(({ put }) => put(COPILOT, OWN_RULES));
+  const ids = nextSteps(root).steps.map((s) => s.id);
+  assert.ok(ids.indexOf("reconcile") < ids.indexOf("scaffold"));
+  assert.equal(ids.filter((id) => id === "reconcile").length, 1, "one row, never two");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("before the layer exists the step is the old one: required, and about the scaffold", () => {
+  // No AGENTS.md and no CONTEXT.md. The hand-written file is a prior doc, as it always was.
+  const root = repo(({ put }) => {
+    put(COPILOT, OWN_RULES);
+    put(".cortex/index/index.json", INDEX);
+    put(".cortex/findings/2026-01-01.md");
+  });
+  const plan = nextSteps(root);
+  const rows = plan.steps.filter((s) => s.id === "reconcile");
+  assert.equal(rows.length, 1);
+  assert.notEqual(rows[0].optional, true);
+  assert.match(rows[0].why, /BEFORE scaffold/);
+  assert.equal(plan.next.id, "reconcile");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("reading the state leaves the hand-written file exactly as it was", () => {
+  const root = served(({ put }) => put(COPILOT, OWN_RULES));
+  nextSteps(root);
+  assert.equal(readFileSync(join(root, COPILOT), "utf8"), OWN_RULES);
+  rmSync(root, { recursive: true, force: true });
+});
+
 test("scoped briefs are counted from the index, not from a filesystem sweep", () => {
   const root = repo(({ put }) => put(".cortex/index/index.json", INDEX));
   const index = {

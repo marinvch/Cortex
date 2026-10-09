@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdirSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, existsSync, writeFileSync, realpathSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readdirSync } from "node:fs";
@@ -90,9 +90,48 @@ test("vault mode is unchanged", async () => {
   assert.ok(!names.includes("remember"), "repo memory tools must not leak into a vault");
 });
 
+/**
+ * The environment a spawned server gets. Both names of the root are set or cleared, and so is the
+ * author: `remember` writes one file per author, and a server that inherited no CORTEX_AUTHOR would
+ * ask git who owns the machine the test runs on. `dev-a` unless a test says otherwise.
+ */
+function serverEnv(root, extra = {}) {
+  return { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: root, CORTEX_AUTHOR: "dev-a", ...extra };
+}
+
+/**
+ * An environment in which git finds no identity at all, and no CORTEX_AUTHOR. `dir` is a temp dir
+ * the config file may sit in. Nothing is read from the machine.
+ */
+function noIdentity(dir) {
+  const empty = join(dir, "empty.gitconfig");
+  writeFileSync(empty, "");
+  const cleared = {};
+  for (const k of Object.keys(process.env)) if (/^GIT_/i.test(k)) cleared[k] = undefined;
+  return {
+    ...cleared,
+    CORTEX_AUTHOR: undefined,
+    GIT_CONFIG_GLOBAL: empty,
+    GIT_CONFIG_SYSTEM: empty,
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_CEILING_DIRECTORIES: dir, // a temp dir that sits inside some repo is not that repo
+  };
+}
+
+/** Every file and directory under `dir`, as sorted relative paths with `/`. */
+function tree(dir, prefix = "") {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const rel = `${prefix}${e.name}`;
+    if (e.isDirectory()) out.push(`${rel}/`, ...tree(join(dir, e.name), `${rel}/`));
+    else out.push(rel);
+  }
+  return out.sort();
+}
+
 /** Start the server against `root` and invoke one tool, returning the tools/call result. */
-function callOn(root, tool, args) {
-  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: root } });
+function callOn(root, tool, args, env = {}) {
+  const child = spawn(process.execPath, [serverPath], { env: serverEnv(root, env) });
   let buf = "";
   let errBuf = "";
   child.stderr.on("data", (d) => { errBuf += d.toString(); });
@@ -169,6 +208,88 @@ for (const tool of TOOL_TABLE.filter((t) => t.writes === PUBLISHED)) {
     assert.deepEqual(readdirSync(root), [], `${tool.name} wrote something despite refusing`);
   });
 }
+
+// --- remember writes one file per author per day (plan step 4.2) ----------------------------------
+//
+// The author is the writer's to find (core/memory.js, core/author.js); the server passes none. These
+// run over a spawned server because that is the only place the server's own environment is the one
+// read. docs/specs/2026-10-09-team-memory-design.md.
+
+function repoRoot() {
+  const repo = tempDir("cortex-repo-");
+  const cortex = join(repo, ".cortex");
+  mkdirSync(cortex, { recursive: true });
+  return { repo, cortex };
+}
+
+test("remember writes <day>/<author>.md, says so, and recall_memory reads it back with the author", async () => {
+  const { cortex } = repoRoot();
+
+  const res = await callOn(cortex, "remember", { content: "authoralpha: chose the queue.", kind: "decision" });
+  assert.notEqual(res.isError, true, res.content[0].text);
+  const wrote = JSON.parse(res.content[0].text);
+  assert.equal(wrote.author, "dev-a");
+  assert.equal(wrote.layout, "author");
+  assert.match(wrote.day, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(wrote.path, join(realpathSync(cortex), "memory", wrote.day, "dev-a.md"));
+  assert.equal("notice" in wrote, false, "nothing to warn about when the author is named");
+  assert.deepEqual(tree(cortex), ["memory/", `memory/${wrote.day}/`, `memory/${wrote.day}/dev-a.md`]);
+  assert.match(
+    readFileSync(wrote.path, "utf8"),
+    new RegExp(`^# ${wrote.day} · dev-a\\n\\n## \\d{2}:\\d{2} · decision\\n\\nauthoralpha: chose the queue\\.\\n\\n$`),
+  );
+
+  // A second author on the same day, from a second server: a second file, and the first untouched.
+  const first = readFileSync(wrote.path, "utf8");
+  const other = await callOn(cortex, "remember", { content: "authorbravo: the parser." }, { CORTEX_AUTHOR: "Dev B" });
+  assert.equal(JSON.parse(other.content[0].text).author, "dev-b");
+  assert.equal(readFileSync(wrote.path, "utf8"), first);
+
+  // The 4.1 reader, reading what the real writer wrote.
+  const back = await callOn(cortex, "recall_memory", { days: 1 });
+  const rows = JSON.parse(back.content[0].text);
+  assert.deepEqual(rows.map((r) => [r.day, r.author]), [[wrote.day, "dev-a"], [wrote.day, "dev-b"]]);
+  assert.ok(rows[0].content.includes("authoralpha: chose the queue."));
+  assert.ok(rows[1].content.includes("authorbravo: the parser."));
+});
+
+test("remember with no usable author writes the day file and returns layout: day, every time", async () => {
+  const { repo, cortex } = repoRoot();
+  const env = noIdentity(repo);
+  for (const content of ["first", "second"]) {
+    const res = await callOn(cortex, "remember", { content }, env);
+    assert.notEqual(res.isError, true, res.content[0].text);
+    const wrote = JSON.parse(res.content[0].text);
+    assert.equal(wrote.layout, "day", `said on the ${content} write`);
+    assert.equal(wrote.author, null);
+    assert.equal(wrote.path, join(realpathSync(cortex), "memory", `${wrote.day}.md`));
+    assert.match(wrote.notice, /CORTEX_AUTHOR/, "the model is told what the person can set");
+    assert.deepEqual(tree(cortex), ["memory/", `memory/${wrote.day}.md`], "no day directory");
+  }
+});
+
+test("remember with a CORTEX_AUTHOR that is set and unusable is refused, and nothing is written", async () => {
+  const { cortex } = repoRoot();
+  const res = await callOn(cortex, "remember", { content: "a note" }, { CORTEX_AUTHOR: ".." });
+  assert.equal(res.isError, true);
+  assert.match(res.content[0].text, /^invalid_author: /);
+  assert.match(res.content[0].text, /CORTEX_AUTHOR/);
+  assert.deepEqual(readdirSync(cortex), []);
+});
+
+test("a refused remember leaves no day directory, with an author set and on a day that has entries", async () => {
+  const { cortex } = repoRoot();
+  const refused = await callOn(cortex, "remember", { content: `deploy key ${FAKE_AWS_KEY} for staging` });
+  assert.equal(refused.isError, true);
+  assert.match(refused.content[0].text, /refused_write/);
+  assert.deepEqual(readdirSync(cortex), [], "no memory/, and no day directory inside it");
+
+  await callOn(cortex, "remember", { content: "a note" });
+  const before = tree(cortex);
+  const again = await callOn(cortex, "remember", { content: `key ${FAKE_AWS_KEY}` }, { CORTEX_AUTHOR: "dev-b" });
+  assert.equal(again.isError, true);
+  assert.deepEqual(tree(cortex), before, "no file for the author whose write was refused");
+});
 
 // Both memory layouts, over the wire (plan step 4.1). `recall_memory` is `recent()` in core/memory.js
 // and nothing else, so this is the proof that the server hands on what core returns: every file of a

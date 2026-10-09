@@ -31,11 +31,15 @@ is not obvious for this machine.
 2. With `CORTEX_ROOT` set to your vault — the seeded clone lives under it — run
    `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team init --name <team> --repo <git-url> --projects <slug1,slug2>`.
    From a clone of the Cortex repo rather than the plugin, use that clone's path.
-3. Confirm the team-brain was seeded and pushed.
+3. Confirm the team-brain was seeded and pushed. `--projects` seeds a notes folder per slug,
+   `projects/<slug>/`, and nothing else: it writes no project file, and `team.md` points at
+   `projects/` and lists no project.
 4. **Hand off.** Give members the repo URL *and* the exact `/team-add` invocation they run inside
    each product repo — the command, not a description of it. A leader who shares only the URL leaves
    every member to rediscover the joining step, which is how a team-brain ends up with one
-   contributor.
+   contributor. Say that `/team-add` is also what registers a project: it writes
+   `projects/<slug>.md` with the repo's address and links. Until someone runs it in a repo, that
+   project is a notes folder the workspace lists as unregistered.
 
 ## Don't
 

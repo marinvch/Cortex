@@ -40,6 +40,21 @@ test("seedTeamBrain writes team.md + gitkeeps for each project", () => {
   assert.ok(written.length >= 4);
 });
 
+test("team.md points at projects/ and lists no project — the files there are the registry", () => {
+  // The seed used to write `- unis` and `- acme-web` under Projects. That list was never the
+  // registry and went stale with the first repo that joined later (docs/adr/0024).
+  const dir = tempDir("clone-");
+  seedTeamBrain(dir, { name: "example-team", projects: ["storefront", "billing-api"] });
+  const text = readFileSync(join(dir, "team.md"), "utf8");
+  assert.match(text, /## Projects\n[^#]*`projects\/`/);
+  assert.match(text, /projects\/<slug>\.md/);
+  assert.doesNotMatch(text, /storefront|billing-api/);
+  assert.doesNotMatch(text, /^- (?!\(add members\))/m, "the only list left is the members placeholder");
+  // The seed still writes no project file: a project with no repo is not registered (D4, D14).
+  assert.equal(existsSync(join(dir, "projects", "storefront.md")), false);
+  assert.ok(existsSync(join(dir, "projects", "storefront", ".gitkeep")));
+});
+
 test("cloneTeamBrain clones a local bare repo, and is a no-op if present", () => {
   const remote = bareRemote();
   const root = tempDir("vault-");

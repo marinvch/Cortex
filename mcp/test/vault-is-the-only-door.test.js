@@ -82,7 +82,7 @@ test("vault.js is the only door onto a vault root", () => {
 // This is deliberately a named list, not "every file under lib/". Ten modules import node:fs today
 // and most are not vault readers (`digest`, `team`, `catchup`, `version`). A blanket ban would need
 // a six-entry allowlist, and an allowlist that size stops being a rule.
-const VAULT_CALLERS = ["cortexignore.js", "projects.js", "recall.js", "capture.js"];
+const VAULT_CALLERS = ["cortexignore.js", "projects.js", "recall.js", "capture.js", "project-files.js"];
 
 test("the Vault's callers do not touch the filesystem themselves", () => {
   const offenders = [];

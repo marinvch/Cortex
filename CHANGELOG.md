@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.42] — 2026-10-09
+
+The plugin check can say whether a newer Cortex is published. Item 12 of the field report (#548).
+
+### Added
+
+- **`node tools/cortex-plugin-check.mjs --remote`.** Run from an installed copy, the tool's "repo"
+  row is the cache itself, so its three rows always agreed and "matches the repo" was true by
+  construction. `--remote` reads `VERSION` from the default branch of the plugin's repository and
+  adds it as a fourth row, `upstream`. It fetches into a temp directory and writes nothing else.
+  With `--check`, exit 1 means the running copy is behind what is published, and exit 2 means
+  upstream could not be read. Versions compare as numbers. Without the flag the tool uses no
+  network, as before. `/plugin-sync` names the flag.
+
 ## [2.41.41] — 2026-10-09
 
 A plugin a marketplace lists is checked even when it has no manifest of its own.
@@ -4887,6 +4901,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.42]: https://github.com/marinvch/Cortex/releases/tag/v2.41.42
 [2.41.41]: https://github.com/marinvch/Cortex/releases/tag/v2.41.41
 [2.41.40]: https://github.com/marinvch/Cortex/releases/tag/v2.41.40
 [2.41.39]: https://github.com/marinvch/Cortex/releases/tag/v2.41.39

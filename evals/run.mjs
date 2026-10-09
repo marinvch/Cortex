@@ -18,7 +18,6 @@
 // is a low bar that would hide the next real regression.
 
 import { createHash } from "node:crypto";
-import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -26,6 +25,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { SKILLS, SKILL_FILES } from "./skills.mjs";
 import { checkTriggers } from "./triggers.mjs";
 import { scoreTask } from "./score.mjs";
+import { claudeBin, parseResult, spawnClaude } from "./claude.mjs";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const DROP_LIMIT = 0.1;
@@ -160,37 +160,21 @@ export function judgeRecord(prev, next, acceptDrop) {
 // no MCP servers, no skills, no session saved. The system prompt goes by file because a skill body is
 // longer than cmd.exe's 8,191-character command line, which is what `claude.cmd` runs through on
 // Windows. `--system-prompt-file` replaces Claude Code's default prompt, as `--system-prompt` does.
-export function claudeCall({ model = DEFAULT_MODEL, effort = DEFAULT_EFFORT, bin = process.env.CLAUDE_CLI_BIN || (process.platform === "win32" ? "claude.cmd" : "claude") } = {}) {
+// Starting the process, the `.cmd` quoting on Windows, the kill on abort and the JSON read are in
+// claude.mjs, shared with the outcome harness. The arguments are this runner's own.
+export function claudeCall({ model = DEFAULT_MODEL, effort = DEFAULT_EFFORT, bin = claudeBin() } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "cortex-evals-"));
   const files = new Map();
-  const shell = /\.(cmd|bat)$/i.test(bin);
-  return ({ system, user, signal }) => new Promise((resolve, reject) => {
+  return async ({ system, user, signal }) => {
     const key = createHash("sha256").update(system).digest("hex").slice(0, 12);
     if (!files.has(key)) { files.set(key, join(dir, `system-${key}.md`)); writeFileSync(files.get(key), system); }
     const args = ["-p", "--system-prompt-file", files.get(key), "--setting-sources", "local", "--tools", "",
       "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence",
       "--model", model, "--effort", effort, "--output-format", "json"];
-    // A .cmd shim cannot be spawned without a shell (Node refuses it since the 2024 batch-file fix),
-    // and the shell joins argv unquoted, so quote each argument — including the empty --tools value.
-    const child = shell
-      ? spawn([bin, ...args].map((a) => `"${a}"`).join(" "), { cwd: dir, shell: true, env: { ...process.env, CLAUDE_SETTING_SOURCES: "local" }, windowsHide: true })
-      : spawn(bin, args, { cwd: dir, env: { ...process.env, CLAUDE_SETTING_SOURCES: "local" } });
-    let out = "", err = "";
-    child.stdout.on("data", (d) => { out += d; });
-    child.stderr.on("data", (d) => { err += d; });
-    child.on("error", reject);
-    signal?.addEventListener("abort", () => {
-      if (process.platform === "win32") spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
-      else child.kill("SIGKILL");
-    });
-    child.on("close", (code) => {
-      let j;
-      try { j = JSON.parse(out); } catch { return reject(new Error(`claude exited ${code}: ${(err || out).trim().slice(-300)}`)); }
-      if (j.is_error || j.subtype !== "success") return reject(new Error(`claude: ${j.subtype} ${String(j.result ?? "").slice(0, 300)}`));
-      resolve({ text: j.result ?? "", model: Object.keys(j.modelUsage || {})[0] || model });
-    });
-    child.stdin.end(user);
-  });
+    const j = parseResult(await spawnClaude({ bin, args, cwd: dir, env: { ...process.env, CLAUDE_SETTING_SOURCES: "local" }, input: user, signal }));
+    if (j.is_error || j.subtype !== "success") throw new Error(`claude: ${j.subtype} ${String(j.result ?? "").slice(0, 300)}`);
+    return { text: j.result ?? "", model: Object.keys(j.modelUsage || {})[0] || model };
+  };
 }
 
 // ── the CLI ───────────────────────────────────────────────────────────────────────────────────────

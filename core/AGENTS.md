@@ -1,6 +1,6 @@
 # core/ — the shared kernel
 
-Four modules that both `index/` and `mcp/` depend on. Everything security-critical in Cortex lives
+The modules both `index/` and `mcp/` depend on. Everything security-critical in Cortex lives
 here, which is why the directory is small and stays small.
 
 ## Invariants
@@ -31,6 +31,35 @@ here, which is why the directory is small and stays small.
   limit. It holds no I/O and must stay that way — the fetching lives in
   `tools/cortex-claude-docs.mjs`, which a maintainer runs. A rule no official sentence states does
   not belong here. [ADR 0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
+
+- **`project-file.js` owns the project file's format, for both leaves.** A project file is
+  `projects/<slug>.md` in a team-brain: flat frontmatter, then prose
+  ([ADR 0024](../docs/adr/0024-a-workspace-is-project-files.md)). The rules it keeps:
+  - **Text in, a result out.** It reads no file and no environment variable and cannot make a
+    request. A link is the characters of a URL. `test/project-file.test.js` scans the source for an
+    I/O import.
+  - **Validation never throws.** It returns `{ ok, isProject, data, errors, warnings }`. An error
+    names its line and its key and never repeats a value, because the value may be the secret.
+  - **An unknown key is an error, and so is a repeated one.** Ignoring a misspelt `trakcer:` would
+    drop a link without a word. Do not add a key here without the design spec changing first: teams
+    have these files committed.
+  - **`isProject: false` is not an error to a reader.** A README or a note in `projects/` has no
+    `type: project` line; a listing skips and counts it.
+  - **The grammar is the flat subset `tools/cortex-frontmatter.mjs` holds skills to**, restated
+    here because `core/` may not import `tools/`. No nesting, no list syntax, no block scalar.
+  - **`profileRefusal(data, policy)` reads `policy.refuses` and nothing else.** No profile name, no
+    environment. A missing policy throws; it is never read as "refuses nothing". `profile.js` does
+    not change for this.
+  - **The employer check is a floor, and the message says so.** It recognises a private-network
+    host and a tenant of a hosted work tool. An employer's repo on a public forge passes. Do not
+    word any message as if a passing file were cleared.
+  - **`WORK_TOOLS` is data, and short on purpose.** Every row refuses a person who uses that tool
+    for a project of their own. A row needs a comment saying why the address names an organisation,
+    and an entry in `ROW_EXAMPLES` in the test, which fails without one. A public forge is never a
+    row.
+  - **Rendering does not validate or repair.** `renderProjectFile` and `setFrontmatter` write what
+    they are given; the caller validates the result. `setFrontmatter` returns everything after the
+    frontmatter byte for byte.
 
 ## Gotchas
 

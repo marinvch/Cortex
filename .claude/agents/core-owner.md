@@ -37,9 +37,9 @@ Everything else is in the leaf brief. These three have already been broken here 
    names the *kind* and the line, never the value. This gate is mandatory *because* `.cortex/memory/`
    is committed — [ADR 0002](../../docs/adr/0002-committed-repo-memory.md); the two cannot be
    reasoned about apart.
-3. **Memory is append-only.** Two developers writing on the same day append to one file and git
-   merges it as text. Introducing a rewrite path introduces a lost-update case and breaks the whole
-   shared-memory model.
+3. **Memory is append-only.** Introducing a rewrite path introduces a lost-update case and breaks
+   the whole shared-memory model. Two developers writing on the same day merge cleanly because each
+   writes a file of their own, `memory/<day>/<author>.md`, never because git merges one file.
 
 And one that is a question, not a rule: **`profile.js` reads `CORTEX_PROFILE` and nothing else.**
 Not the root, not the connector, not the cwd. A test asserts it.

@@ -75,7 +75,7 @@ export const TOOL_TABLE = [
     inputSchema: { type: "object", properties: { query: { type: "string" }, project: { type: "string" }, limit: { type: "number" } }, required: ["query"] } },
 
   { name: "remember", mode: REPO, returns: OWN, writes: PUBLISHED,
-    description: "Append a durable note to this repo's committed .cortex/memory/. Refuses anything carrying a credential — memory ships with the code.",
+    description: "Append a durable note to this repo's committed .cortex/memory/, in the author's own file for the day (<date>/<author>.md). Refuses anything carrying a credential — memory ships with the code. A `notice` in the result means the note went to the shared <date>.md instead: tell the user what it says.",
     inputSchema: { type: "object", properties: { content: { type: "string" }, kind: { type: "string", description: "note | decision | dream | drift" } }, required: ["content"] } },
   { name: "recall_memory", mode: REPO, returns: FOREIGN, writes: LOCAL,
     description: `Read back recent days of this repo's committed memory, newest first. ${UNTRUSTED_NOTE}`,

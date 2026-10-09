@@ -46,7 +46,7 @@ Three Cortex rituals move context across a gap, and they are not interchangeable
 | Ritual | Gap it crosses | Where it writes | Lifespan |
 |---|---|---|---|
 | `/handoff` | **this live session → another agent, now** | OS temp dir | ephemeral |
-| `/dream` | today → tomorrow, for the whole team | `.cortex/memory/<date>.md`, committed | permanent |
+| `/dream` | today → tomorrow, for the whole team | `.cortex/memory/<date>/<author>.md`, committed | permanent |
 | `/catch-me-up` | you were away → what changed | nothing; it reads | — |
 
 The cut is **in-flight state versus durable knowledge**. Everything a future reader of the

@@ -5,6 +5,29 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.49] — 2026-10-09
+
+The rituals, briefs and ADR 0002 describe the memory layout the writer has used since 2.41.48.
+Step 4.3 of the team-memory design. No behaviour changes.
+
+### Changed
+
+- **`/dream` describes `.cortex/memory/<date>/<author>.md`.** It says how the author is found, how
+  to choose the published name with `CORTEX_AUTHOR`, what the day-file line on stderr means, and
+  what a refused `CORTEX_AUTHOR` looks like.
+- **`/catch-me-up` attributes an entry only from its `author` field.** A memory row is one file,
+  with an author or none for an old day file, and a day can have several rows.
+- **The `remember` tool's description names the per-author file** and tells the model to pass on a
+  `notice`.
+- **ADR 0002 has a dated amendment.** One file per author per day, the reproduction that showed
+  why, and that `merge=union` was weighed and not taken. Its original text is unchanged.
+
+### Fixed
+
+- **Nothing says two developers appending to one day's file merge as text.** That was false: the
+  merge conflicts. `/dream`, `/handoff`'s table row, `CONTEXT.md`, `core/AGENTS.md`, the header of
+  `core/memory.js` and the `core-owner` agent all said or implied it.
+
 ## [2.41.48] — 2026-10-09
 
 Memory is written one file per author per day, so two developers writing on one day merge with no
@@ -5035,6 +5058,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.49]: https://github.com/marinvch/Cortex/releases/tag/v2.41.49
 [2.41.48]: https://github.com/marinvch/Cortex/releases/tag/v2.41.48
 [2.41.47]: https://github.com/marinvch/Cortex/releases/tag/v2.41.47
 [2.41.46]: https://github.com/marinvch/Cortex/releases/tag/v2.41.46

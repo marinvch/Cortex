@@ -43,6 +43,7 @@ while IFS='|' read -r key what; do
   assert_contains "$doc" "$key" "it still covers: $what"
 done <<'KEYS'
 cortex-version.mjs|never hand-edit a version
+cortex-release-plan.mjs|stamping a version on master releases it
 resolve_in_root|a destructive shell tool routes through the guard
 capability:|every ritual declares a floor
 cortex-follows-its-own-rules.test.sh|Cortex's own Claude setup passes the checker it ships

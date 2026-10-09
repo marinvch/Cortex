@@ -5,6 +5,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, sep } from "node:path";
 import { recall } from "../lib/recall.js";
 import { tempDir } from "./tmp.js";
+import { bothLayouts, ENTRIES } from "../../core/test/memory-fixture.js";
 
 function seed() {
   const root = tempDir("vault-");
@@ -103,4 +104,28 @@ test("recall skips node_modules and .git even with a .cortexignore present", () 
   const hits = recall(root, { query: "PingID cookies" });
   const names = hits.map((h) => h.path.split(sep).join("/"));
   assert.ok(!names.some((p) => /\/(node_modules|\.git)\//.test(p)), "always-skip dirs are never knowledge");
+});
+
+// Repo mode, both memory layouts (plan step 4.1). Recall walks every .md under .cortex/ through the
+// Vault, so a file in a day directory needs no code of its own to be found. This pins that, because
+// the path in the result is the only thing that tells the reader whose entry it is.
+test("recall in repo mode finds an entry in a day directory, and its path names the author", () => {
+  const repo = tempDir("cortex-repo-");
+  const cortex = bothLayouts(join(repo, ".cortex"));
+
+  const hits = recall(cortex, { query: "authorbravo" });
+  assert.equal(hits.length, 1, "the word is in one author's file and nowhere else");
+  assert.ok(hits[0].path.split(sep).join("/").endsWith(".cortex/memory/2026-08-15/dev-b.md"));
+  assert.ok(hits[0].snippet.includes(ENTRIES.devB));
+
+  for (const [word, file] of [
+    ["authoralpha", "memory/2026-08-15/dev-a.md"],
+    ["oldmorning", "memory/2026-08-15.md"],
+    ["oldafternoon", "memory/2026-08-15.md"],
+    ["daybefore", "memory/2026-08-14.md"],
+  ]) {
+    const found = recall(cortex, { query: word }).map((h) => h.path.split(sep).join("/"));
+    assert.equal(found.length, 1, `${word} is found once`);
+    assert.ok(found[0].endsWith(file), `${word} is in ${file}`);
+  }
 });

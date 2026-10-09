@@ -69,7 +69,48 @@ export function append(root, text, { date = new Date(), kind = "note" } = {}) {
   return { path: file, day, created: isNew };
 }
 
-/** Every memory file, newest first. */
+// --- reading -------------------------------------------------------------------------------------
+//
+// Readers accept two layouts, and this is the only place that knows either:
+//
+//   memory/<date>.md             a day file — every author's entries in one file, no author named
+//   memory/<date>/<author>.md    one file per author per day
+//
+// Both can hold the same date, and then both are read: each file is its own row, and no row replaces
+// another. Anything else in the directory is not memory and is skipped, as a stray README always was.
+// The three patterns cannot overlap. A day file ends in `.md` and a day directory does not; an author
+// slug holds no `.`, `/` or `\`, so a file in a day directory can neither read as a date nor leave it.
+// docs/specs/2026-10-09-team-memory-design.md, "Layout".
+const DAY_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/;
+const DAY_DIR = /^\d{4}-\d{2}-\d{2}$/;
+const AUTHOR_FILE = /^([a-z0-9][a-z0-9-]{0,39})\.md$/;
+
+function entriesOf(dir) {
+  try {
+    return readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+}
+
+// Newest day first. Within a day the day file, then authors by slug. Compared by code unit and never
+// by locale, so the order depends on the names alone: the same on every machine, whatever order the
+// file system returned them in and whatever order the branches that added them were merged in.
+function byDayThenAuthor(a, b) {
+  if (a.day !== b.day) return a.day < b.day ? 1 : -1;
+  if (a.author === b.author) return 0;
+  if (a.author === null) return -1;
+  if (b.author === null) return 1;
+  return a.author < b.author ? -1 : 1;
+}
+
+/**
+ * Every memory file, one row each: `{ day, author, path }`. Newest day first; within a day the day
+ * file, then one file per author by slug.
+ *
+ * `author` is the slug in the file's path, or `null` for a day file. It is never read from the
+ * file's heading: the path is what git merges on, and a heading is text anyone can edit.
+ */
 export function list(root) {
   let dir;
   try {
@@ -77,28 +118,42 @@ export function list(root) {
   } catch {
     return [];
   }
-  let entries;
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return [];
+  const rows = [];
+  for (const e of entriesOf(dir)) {
+    if (e.isDirectory()) {
+      if (!DAY_DIR.test(e.name)) continue;
+      const dayDir = join(dir, e.name);
+      for (const f of entriesOf(dayDir)) {
+        const m = f.isDirectory() ? null : AUTHOR_FILE.exec(f.name);
+        if (m) rows.push({ day: e.name, author: m[1], path: join(dayDir, f.name) });
+      }
+      continue;
+    }
+    const m = DAY_FILE.exec(e.name);
+    if (m) rows.push({ day: m[1], author: null, path: join(dir, e.name) });
   }
-  return entries
-    .filter((n) => /^\d{4}-\d{2}-\d{2}\.md$/.test(n))
-    .sort()
-    .reverse()
-    .map((n) => ({ day: n.replace(/\.md$/, ""), path: join(dir, n) }));
+  return rows.sort(byDayThenAuthor);
 }
 
-/** Read back the most recent `days` memory files, newest first. */
+/**
+ * Read back the most recent `days` days, newest first: every file of each, with its `content`.
+ * `days` counts days, not files — a day with five authors is one day.
+ */
 export function recent(root, { days = 7 } = {}) {
-  return list(root)
-    .slice(0, days)
-    .map((e) => {
-      try {
-        return { ...e, content: readFileSync(e.path, "utf8") };
-      } catch {
-        return { ...e, content: "" };
-      }
-    });
+  const kept = new Set();
+  const rows = [];
+  for (const e of list(root)) {
+    if (!kept.has(e.day)) {
+      if (!(kept.size < days)) break;
+      kept.add(e.day);
+    }
+    rows.push(e);
+  }
+  return rows.map((e) => {
+    try {
+      return { ...e, content: readFileSync(e.path, "utf8") };
+    } catch {
+      return { ...e, content: "" };
+    }
+  });
 }

@@ -131,7 +131,10 @@ const PROJECT_USAGE =
 function cmdProject(projectSub, args, brain) {
   if (!["list", "check", "remove"].includes(projectSub)) throw new Error(PROJECT_USAGE);
   if (brain.isRepo) {
-    throw new Error("`ai-os project` reads the team-brain clone under a vault, and AI_OS_ROOT points at a repo's .cortex/. Set AI_OS_ROOT to your vault.");
+    // The variable that was set, as MissingRootError names it: CORTEX_ROOT, or AI_OS_ROOT on an
+    // older registration. That is the line in the user's config to change.
+    const v = brain.sources.root;
+    throw new Error(`\`ai-os project\` reads the team-brain clone under a vault, and ${v} points at a repo's .cortex/. Set ${v} to your vault.`);
   }
   const team = (typeof args.team === "string" ? args.team : null) ?? brain.team;
 
@@ -185,7 +188,7 @@ const CATCH_UP_USAGE = "usage: ai-os catch-up --since <YYYY-MM-DD> [--project <s
 
 // Two sources, and either may be absent. The REPO — the git work tree the cwd sits in, its
 // committed `.cortex/memory/` and its log — is what a plugin install has, because a plugin install
-// has no vault. The VAULT — notes and a team-brain clone — is what AI_OS_ROOT points at, when it is
+// has no vault. The VAULT — notes and a team-brain clone — is what CORTEX_ROOT points at, when it is
 // set to one. This command used to demand the vault and read no repo at all, so on a plugin install
 // `/catch-me-up` failed on its first command in exactly the place it is most often run.
 //
@@ -205,13 +208,13 @@ function cmdCatchUp(args, brain) {
   if (!brain) {
     if (!repo) {
       throw new Error(
-        "catch-up found nothing to read: the current directory is not inside a git repository and AI_OS_ROOT is not set. " +
-        "Run it from the repo to catch up on, or set AI_OS_ROOT to your vault.",
+        "catch-up found nothing to read: the current directory is not inside a git repository and CORTEX_ROOT is not set. " +
+        "Run it from the repo to catch up on, or set CORTEX_ROOT to your vault.",
       );
     }
     console.log(JSON.stringify({
       repo, notes: [], commits: [],
-      skipped: "vault notes and team-brain history — AI_OS_ROOT is not set, so only this repo was read",
+      skipped: "vault notes and team-brain history — CORTEX_ROOT is not set, so only this repo was read",
     }, null, 2));
     return 0;
   }
@@ -241,17 +244,20 @@ function samePath(a, b) {
  * two adapters cannot resolve the same inputs differently (lib/brain.js).
  *
  * `setup-plugins` and `digest` are deliberately not here: neither reads the brain, and demanding
- * AI_OS_ROOT to install plugins would be a new requirement, not a fix.
+ * a root to install plugins would be a new requirement, not a fix.
  */
 function open(what, { rootOptional = false } = {}) {
   try {
-    return openBrain({ cwd: process.cwd(), env: process.env });
+    const brain = openBrain({ cwd: process.cwd(), env: process.env });
+    // stderr, as the server does: stdout is what a caller parses.
+    for (const line of brain.notices) console.error(line);
+    return brain;
   } catch (e) {
     // Only a command that writes nothing and reads no vault it was not given may go on without a
     // root — today that is `catch-up` alone. The profile was settled before this error was thrown
     // (lib/brain.js), so a misspelt CORTEX_PROFILE still fails here rather than riding along.
     if (e instanceof NoRootError && rootOptional) return null;
-    if (e instanceof NoRootError) throw new Error(`AI_OS_ROOT is not set (required for ${what})`);
+    if (e instanceof NoRootError) throw new Error(`${e.message} (required for ${what})`);
     throw e; // an unknown CORTEX_PROFILE already says exactly what is wrong
   }
 }

@@ -32,7 +32,7 @@ key, and the MCP connector approval (which happens in Claude's settings, not in 
 | **Cron rituals** | Nightly digest / weekly audit on the server, hands-off | `tools/server/cortex-cron.sh` (below) |
 
 ### Two repos, clean split (don't mix them)
-- **`ai-os`** (public) — the *code*: `tools/`, `skills/`, `templates/`, `mcp/`. Data-free, shareable.
+- **`cortex`** (public) — the *code*: `tools/`, `skills/`, `templates/`, `mcp/`. Data-free, shareable.
 - **`cortex-brain`** (private, self-hosted) — the *data*: your captured notes. Only you. This is the
   "living memory" that syncs across machines. Keep it a **separate private repo**, never public.
 
@@ -41,7 +41,7 @@ key, and the MCP connector approval (which happens in Claude's settings, not in 
 ## How "capture(team)" already works
 
 `capture({ content, team: "cortex" })` in the MCP:
-1. finds the local clone at `<AI_OS_ROOT>/team/cortex/` (`teamCloneDir`),
+1. finds the local clone at `<CORTEX_ROOT>/team/cortex/` (`teamCloneDir`),
 2. `git pull --ff-only` (gets other machines' latest),
 3. writes a one-note file, then `git commit` + `git push` to your server.
 
@@ -61,7 +61,7 @@ git init --bare cortex-brain.git
 ```
 
 ### 2. On EACH machine — wire the local clone the MCP expects
-`AI_OS_ROOT` = your vault path. The MCP looks for the clone at `<AI_OS_ROOT>/team/cortex/`:
+`CORTEX_ROOT` = your vault path. The MCP looks for the clone at `<CORTEX_ROOT>/team/cortex/`:
 ```bash
 # from your vault root (adjust user@server + path)
 git clone ssh://USER@SERVER/~/git/cortex-brain.git team/cortex
@@ -73,9 +73,10 @@ cd team/cortex && git commit --allow-empty -m "init cortex-brain" && git push -u
 ### 3. Register the connector with Claude
 ```bash
 # nothing to install — the server has no dependencies
-# register (Claude Code / Desktop). AI_OS_ROOT must be an absolute path.
-claude mcp add ai-os --env AI_OS_ROOT="/path/to/ai-os" -- node "/path/to/ai-os/mcp/server.js"
+# register (Claude Code / Desktop). CORTEX_ROOT must be an absolute path.
+claude mcp add cortex --env CORTEX_ROOT="/path/to/your-vault" -- node "/path/to/cortex/mcp/server.js"
 ```
+A machine already registered as `ai-os` with `AI_OS_ROOT` needs no change: that name is still read.
 Now, in any Claude session on that machine, the tools `recall`, `capture`, `list_projects`,
 `get_project_context`, `catch_me_up` are available. **This is the "AI has access any time" part.**
 

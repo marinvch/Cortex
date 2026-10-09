@@ -47,7 +47,7 @@ function sourceFiles(dir, out = []) {
 
 // A join/resolve whose FIRST argument is a root-ish identifier. Deliberately syntactic rather than
 // clever: this must be obvious to a reader, and a false positive is a prompt to use the vault.
-const ROOT_JOIN = /\b(?:join|resolve)\s*\(\s*(root|vaultRoot|aiOsRoot|AI_OS_ROOT)\b/;
+const ROOT_JOIN = /\b(?:join|resolve)\s*\(\s*(root|vaultRoot|aiOsRoot|cortexRoot|AI_OS_ROOT|CORTEX_ROOT)\b/;
 
 test("vault.js is the only door onto a vault root", () => {
   const offenders = [];

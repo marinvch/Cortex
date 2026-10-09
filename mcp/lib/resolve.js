@@ -16,6 +16,7 @@ import { dirname, join, resolve } from "node:path";
 import { originUrl, teamCloneDir } from "./gitsync.js";
 import { slugify } from "./slug.js";
 import { openVault } from "./vault.js";
+import { rootFromEnv, ROOT_VAR } from "../../core/paths.js";
 
 export const SOLO = "solo";
 export const TEAM = "team";
@@ -23,7 +24,9 @@ export const SERVER = "server";
 
 export class NoRootError extends Error {
   constructor() {
-    super("AI_OS_ROOT is not set");
+    // Names the variable to set. `AI_OS_ROOT`, the older name, is not set either, or this would
+    // not have been thrown; the adapters say that it is still read.
+    super(`${ROOT_VAR} is not set`);
     this.name = "NoRootError";
     this.code = "no_root";
   }
@@ -48,14 +51,18 @@ function findConnector(cwd) {
 
 /**
  * @param {{ cwd: string, env: Record<string,string|undefined> }} ctx
- * @returns {{ audience: string, root: string, team: string|null, project: string|null, teamClone: string|null, source: string }}
+ * @returns {{ audience: string, root: string, team: string|null, project: string|null, teamClone: string|null, source: string, rootVariable: string, rootIgnored: string|null }}
  */
 export function resolveBrain({ cwd, env }) {
   // Never inferred. A resolver that invents a root can file a private note into a work repository,
   // and no amount of convenience is worth that. mcp/AGENTS.md states this as an invariant and
   // server.js has always enforced it; the resolver does not get to soften it.
-  const root = String(env.AI_OS_ROOT ?? "").trim();
+  //
+  // Which variable names it is `rootFromEnv`'s answer, not this file's: CORTEX_ROOT, then
+  // AI_OS_ROOT, with an empty value counted as unset. This is the only place in mcp/ that asks.
+  const { root, variable: rootVariable, ignored: rootIgnored } = rootFromEnv(env);
   if (!root) throw new NoRootError();
+  const named = { rootVariable, rootIgnored };
 
   let team = null;
   let project = null;
@@ -87,11 +94,11 @@ export function resolveBrain({ cwd, env }) {
   // prompts, plus a scheduler, plus a model that is not Claude Code — none of which leaves a trace.
   // Guessing from the absence of a TTY would be wrong in CI every time.
   if (env.CORTEX_AUDIENCE === SERVER) {
-    return { audience: SERVER, root, team, project, teamClone, source: "declared" };
+    return { audience: SERVER, root, team, project, teamClone, source: "declared", ...named };
   }
 
-  if (team) return { audience: TEAM, root, team, project, teamClone, source: detected };
-  return { audience: SOLO, root, team: null, project: null, teamClone: null, source: detected ?? "default" };
+  if (team) return { audience: TEAM, root, team, project, teamClone, source: detected, ...named };
+  return { audience: SOLO, root, team: null, project: null, teamClone: null, source: detected ?? "default", ...named };
 }
 
 // A connector committed before the two named fields: `{ slug, teamBrainRepo }`. `team add` put the

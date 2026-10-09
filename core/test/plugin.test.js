@@ -73,6 +73,20 @@ test("every mcpServers entry points at a file that exists", () => {
   }
 });
 
+test("the plugin's server is given its root as CORTEX_ROOT, and only by that name", () => {
+  // CORTEX_ROOT wins over AI_OS_ROOT (core/paths.js). A manifest that set the older name alone
+  // would lose to a CORTEX_ROOT in the user's own environment — the vault path the README tells
+  // them to set — and the repo's server would open the vault and offer `capture` inside a product
+  // repository. Setting both would have the manifest carry the old name for no reader.
+  const p = read(".claude-plugin/plugin.json");
+  const servers = Object.entries(p.mcpServers ?? {});
+  assert.ok(servers.length > 0, "the plugin declares a server");
+  for (const [name, server] of servers) {
+    assert.equal(server.env?.CORTEX_ROOT, "${CLAUDE_PROJECT_DIR}/.cortex", `${name}: the root is the project's .cortex/`);
+    assert.equal("AI_OS_ROOT" in (server.env ?? {}), false, `${name}: the older name is read, never written`);
+  }
+});
+
 // Run, not imported: core/ — tests included — may not reach outside core/ (architecture.test.js),
 // and the validator is not kernel code. It is the one strict frontmatter reader; this test used to
 // carry a second, looser regex that read a block-scalar description as present and long enough.
@@ -180,6 +194,38 @@ test("/handoff makes its artifact say it is a record, not instructions", () => {
     /stale[\s\S]{0,120}let them decide|let them decide[\s\S]{0,120}stale/i,
     "it must mark commands in it stale AND hand the decision to the user; either half alone re-runs",
   );
+});
+
+test("/migrate-engine tells the retired engine's MCP entry from a current Cortex registration", () => {
+  // Cortex's own server was documented under the name `ai-os`, with AI_OS_ROOT, until #552, and
+  // this ritual told its reader to remove "the `ai-os` server entry". By name the two are the same
+  // entry, so a working brain registration was on the removal list. What marks the engine is where
+  // its entry points — the repo's own `.ai-os/` — and that needs a person to read a config, so it
+  // stays prose and the prose is tested (ADR 0016). Properties, not wording.
+  const src = readFileSync(join(REPO_ROOT, "skills", "migrate-engine", "SKILL.md"), "utf8");
+  const section = (n) => src.slice(src.indexOf(`## Step ${n} `), src.indexOf(`## Step ${n + 1} `));
+  const detect = section(1);
+  const remove = section(5);
+  assert.ok(detect.length > 200 && remove.length > 200, "both steps were found");
+
+  assert.match(detect, /points? (at|into) `\.ai-os\/`/, "Step 1 names what marks the engine's entry: it points at .ai-os/");
+  assert.match(detect, /mcp\/server\.js/, "Step 1 names what a current Cortex registration runs");
+  assert.match(detect, /CORTEX_ROOT/, "and the variable it carries now");
+  assert.match(detect, /AI_OS_ROOT/, "and the one an older registration carries");
+  assert.match(detect, /not (the|an?) (old |retired )?engine|is not engine|leave it/i, "and says that one is not the engine");
+  assert.doesNotMatch(detect, /and an `ai-os` entry in `\.mcp\.json`/, "the name alone is no longer the test");
+
+  assert.doesNotMatch(remove, /remove just the `ai-os` server entry/, "Step 5 does not remove an entry by its name");
+  assert.match(remove, /`\.ai-os\/`/, "it removes the entry that points at .ai-os/");
+  assert.match(remove, /mcp\/server\.js|Cortex registration/, "and says the Cortex registration stays");
+});
+
+test("no ritual identifies the retired engine by the name `ai-os` alone", () => {
+  // The same mistake one ritual over: /install-project scans for the engine before it writes.
+  for (const skill of ["install-project", "migrate-engine"]) {
+    const src = readFileSync(join(REPO_ROOT, "skills", skill, "SKILL.md"), "utf8");
+    assert.doesNotMatch(src, /an `ai-os` entry in `\.mcp\.json`/, `${skill}: say what the entry points at, not what it is called`);
+  }
 });
 
 test("skills referenced by other skills exist", () => {

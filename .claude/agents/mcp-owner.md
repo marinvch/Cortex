@@ -39,8 +39,10 @@ still said *two questions* long after `profile` made it three.
    the guard through a closure variable without ever writing that call.
    [ADR 0007](../../docs/adr/0007-the-vault-is-the-only-door.md). The Vault does **not** scrub;
    refusal is policy and stays in `core/scrub.js`.
-4. **`AI_OS_ROOT` unset is a hard exit, not a default.** Guessing a vault path writes someone's
-   notes into the wrong place. `lib/resolve.js` throws `NoRootError` rather than falling back.
+4. **A root that is not set is a hard exit, not a default.** Guessing a vault path writes someone's
+   notes into the wrong place. `lib/resolve.js` throws `NoRootError` rather than falling back. The
+   root is `CORTEX_ROOT`, or `AI_OS_ROOT` on an older registration; `rootFromEnv` in
+   `core/paths.js` orders the two, and nothing in `mcp/` reads either variable itself.
 
 **Vault tools must stay hidden in repo mode.** Offering `capture` or `catch_me_up` there invites an
 agent to write `inbox/` and `daily/` into someone's product repository. `mode.test.js` asserts the

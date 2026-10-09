@@ -83,8 +83,8 @@ const SCENARIOS = [
 // --- running Cortex on one of them ----------------------------------------------------------------
 
 // The profile and the vault root come from the environment of whoever runs this; neither may move
-// what is published, so both are pinned.
-const ENV = { ...process.env, CORTEX_PROFILE: "home", AI_OS_ROOT: "", NO_COLOR: "1" };
+// what is published, so both are pinned — the root under both of its names.
+const ENV = { ...process.env, CORTEX_PROFILE: "home", CORTEX_ROOT: "", AI_OS_ROOT: "", NO_COLOR: "1" };
 
 function run(cmd, args, cwd) {
   const r = spawnSync(cmd, args, { cwd, env: ENV, encoding: "utf8" });

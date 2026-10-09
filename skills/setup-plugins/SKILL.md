@@ -14,7 +14,7 @@ metadata:
    node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --tier core --scope user
    ```
    `${CLAUDE_PLUGIN_ROOT}` is the installed plugin; from a clone of the Cortex repo, use that
-   clone's path instead. No vault and no `AI_OS_ROOT` are needed — this reads only the bundle
+   clone's path instead. No vault and no `CORTEX_ROOT` are needed — this reads only the bundle
    manifest shipped with Cortex.
 2. Then ask the user their role / stack and OFFER optional tiers (do not auto-install):
    - Frontend/QA → `--tier browser-qa` (playwright, chrome-devtools-mcp; heavy: downloads browsers).

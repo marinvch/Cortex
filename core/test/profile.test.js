@@ -92,7 +92,8 @@ test("profile is independent of mode and audience", () => {
   // docs/adr/0008 argues mode and audience must not be welded together; the same holds for the third
   // axis. This module reads only CORTEX_PROFILE — nothing about the root, the connector or the cwd
   // can move it, which is what keeps the axes free to vary.
-  const a = resolveProfile({ env: { CORTEX_PROFILE: "work", AI_OS_ROOT: "/x/.cortex", CORTEX_AUDIENCE: "server" } });
+  // The root under both of its names: neither CORTEX_ROOT nor AI_OS_ROOT is this module's to read.
+  const a = resolveProfile({ env: { CORTEX_PROFILE: "work", CORTEX_ROOT: "/x/.cortex", AI_OS_ROOT: "/y/vault", CORTEX_AUDIENCE: "server" } });
   const b = resolveProfile({ env: { CORTEX_PROFILE: "work" } });
   assert.equal(a.profile, b.profile);
   assert.equal(a.policy.outwardSync, b.policy.outwardSync);

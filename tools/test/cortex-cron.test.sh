@@ -70,23 +70,78 @@ code=$?
 assert_eq "0" "$code" "a second run on the same day still exits 0"
 assert_contains "$out" "no changes to commit" "and says why"
 
-# --- BRAIN_DIR / AI_OS_ROOT precedence (regression for the 2026-08-18 fix) ---
+# --- BRAIN_DIR / CORTEX_ROOT / AI_OS_ROOT precedence ---
+#
+# BRAIN_DIR falling back to the root is the 2026-08-18 fix. The root having two names is #552:
+# CORTEX_ROOT, and AI_OS_ROOT for a host set up before it. Every run below sets or clears all
+# three, so a variable in the shell running the suite cannot pick the clone.
+CLEAR="-u BRAIN_DIR -u CORTEX_ROOT -u AI_OS_ROOT"
 
 setup_brain "$WORK/viaroot"
-out="$(AI_OS_ROOT="$WORK/viaroot" bash "$CRON" --daily 2>&1)"
-assert_eq "0" "$?" "AI_OS_ROOT is accepted when BRAIN_DIR is unset"
+# shellcheck disable=SC2086
+out="$(env $CLEAR AI_OS_ROOT="$WORK/viaroot" bash "$CRON" --daily 2>&1)"
+assert_eq "0" "$?" "AI_OS_ROOT is still accepted when BRAIN_DIR is unset"
 assert_exit 0 "and the digest lands in that directory" -- test -f "$WORK/viaroot/digests/$TODAY.md"
+assert_not_contains "$out" "AI_OS_ROOT" "with no warning about the older name"
+
+setup_brain "$WORK/vianew"
+# shellcheck disable=SC2086
+out="$(env $CLEAR CORTEX_ROOT="$WORK/vianew" bash "$CRON" --daily 2>&1)"
+assert_eq "0" "$?" "CORTEX_ROOT is accepted when BRAIN_DIR is unset"
+assert_exit 0 "and the digest lands in that directory" -- test -f "$WORK/vianew/digests/$TODAY.md"
+
+setup_brain "$WORK/newwins"
+setup_brain "$WORK/oldloses"
+# shellcheck disable=SC2086
+out="$(env $CLEAR CORTEX_ROOT="$WORK/newwins" AI_OS_ROOT="$WORK/oldloses" bash "$CRON" --daily 2>&1)"
+assert_exit 0 "CORTEX_ROOT wins over a different AI_OS_ROOT" -- test -f "$WORK/newwins/digests/$TODAY.md"
+assert_exit 1 "and the AI_OS_ROOT clone is left alone" -- test -f "$WORK/oldloses/digests/$TODAY.md"
+assert_eq "1" "$(printf '%s\n' "$out" | grep -c 'are both set and differ')" "and one line says the two differ"
+assert_contains "$out" "cortex: CORTEX_ROOT and AI_OS_ROOT" "with the cortex: prefix"
+
+setup_brain "$WORK/sameroot"
+# shellcheck disable=SC2086
+out="$(env $CLEAR CORTEX_ROOT="$WORK/sameroot" AI_OS_ROOT="$WORK/sameroot" bash "$CRON" --daily 2>&1)"
+assert_exit 0 "both names on one path is that path" -- test -f "$WORK/sameroot/digests/$TODAY.md"
+assert_not_contains "$out" "differ" "and nothing is reported"
+
+setup_brain "$WORK/emptynew"
+# shellcheck disable=SC2086
+env $CLEAR CORTEX_ROOT="" AI_OS_ROOT="$WORK/emptynew" bash "$CRON" --daily >/dev/null 2>&1
+assert_exit 0 "an empty CORTEX_ROOT does not shadow AI_OS_ROOT" -- test -f "$WORK/emptynew/digests/$TODAY.md"
 
 setup_brain "$WORK/wins"
 setup_brain "$WORK/loses"
-AI_OS_ROOT="$WORK/loses" BRAIN_DIR="$WORK/wins" bash "$CRON" --daily >/dev/null 2>&1
-assert_exit 0 "BRAIN_DIR wins when both are set" -- test -f "$WORK/wins/digests/$TODAY.md"
+setup_brain "$WORK/loses2"
+# shellcheck disable=SC2086
+out="$(env $CLEAR AI_OS_ROOT="$WORK/loses" CORTEX_ROOT="$WORK/loses2" BRAIN_DIR="$WORK/wins" bash "$CRON" --daily 2>&1)"
+assert_exit 0 "BRAIN_DIR wins when all three are set" -- test -f "$WORK/wins/digests/$TODAY.md"
 assert_exit 1 "and AI_OS_ROOT is then ignored" -- test -f "$WORK/loses/digests/$TODAY.md"
+assert_exit 1 "and so is CORTEX_ROOT" -- test -f "$WORK/loses2/digests/$TODAY.md"
+assert_not_contains "$out" "differ" "and a crontab that names BRAIN_DIR hears nothing about the other two"
 
-err="$(env -u BRAIN_DIR -u AI_OS_ROOT bash "$CRON" --daily 2>&1)"
-assert_exit 1 "neither set is a hard failure" -- env -u BRAIN_DIR -u AI_OS_ROOT bash "$CRON" --daily
+# shellcheck disable=SC2086
+err="$(env $CLEAR bash "$CRON" --daily 2>&1)"
+# shellcheck disable=SC2086
+assert_exit 1 "none set is a hard failure" -- env $CLEAR bash "$CRON" --daily
 assert_contains "$err" "BRAIN_DIR" "the error names BRAIN_DIR"
-assert_contains "$err" "AI_OS_ROOT" "and names AI_OS_ROOT, so either fix is discoverable"
+assert_contains "$err" "CORTEX_ROOT" "and CORTEX_ROOT"
+assert_contains "$err" "AI_OS_ROOT" "and AI_OS_ROOT, so any of the three fixes is discoverable"
+
+# shellcheck disable=SC2086
+assert_exit 1 "three empty strings are none set" -- env $CLEAR BRAIN_DIR="" CORTEX_ROOT="" AI_OS_ROOT="" bash "$CRON" --daily
+
+# A root that is set and not there stops the run, under either name: nothing is written anywhere
+# else, and the other name's clone is not tried instead.
+setup_brain "$WORK/bystander"
+for name in CORTEX_ROOT AI_OS_ROOT; do
+  # shellcheck disable=SC2086
+  assert_exit 1 "a $name that does not exist fails the run" -- env $CLEAR "$name=$WORK/no-such-clone" bash "$CRON" --daily
+done
+# shellcheck disable=SC2086
+assert_exit 1 "a missing CORTEX_ROOT is not rescued by a good AI_OS_ROOT" -- \
+  env $CLEAR CORTEX_ROOT="$WORK/no-such-clone" AI_OS_ROOT="$WORK/bystander" bash "$CRON" --daily
+assert_exit 1 "and the AI_OS_ROOT clone was not written to" -- test -f "$WORK/bystander/digests/$TODAY.md"
 
 # --- the silent AI failure (the bug behind the stale model id) ---
 #

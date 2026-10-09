@@ -5,8 +5,9 @@ read and write. Copy this file to the vault root as `AGENTS.md`, beside a `CLAUD
 `@AGENTS.md`. `/onboard` and `tools/cortex-vault-extract.sh` both do that when it is missing.
 
 A vault is **not** the Cortex repository. Cortex is the product — cloned, installed as a plugin and
-pointed at codebases. A vault is one person's data, in its own private repo, and the `ai-os` MCP
-server reaches it through `AI_OS_ROOT`.
+pointed at codebases. A vault is one person's data, in its own private repo, and the Cortex MCP
+server reaches it through `CORTEX_ROOT` (a server registered earlier with `AI_OS_ROOT` keeps
+working; that name is still read).
 
 ## What this is
 

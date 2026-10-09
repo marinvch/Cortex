@@ -14,7 +14,8 @@ import { fileURLToPath } from "node:url";
 import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES } from "./context-docs.mjs";
-import { LOOP_STAMPS, loopPlan } from "./loop.mjs";
+import { LOOP_STAMPS, loopPlan, memoryFiles } from "./loop.mjs";
+import { list as listMemory } from "../../core/memory.js";
 import { adrLocation } from "./adr.mjs";
 import { listRepoSkills, skillDrift } from "./skill-drift.mjs";
 import {
@@ -92,27 +93,20 @@ function filesIn(root, rel, ext = ".md") {
   }
 }
 
-// The newest digest in .cortex/memory/, as the date its filename carries, or null for a memory
-// nobody has started. One file per day is the store's whole shape (ADR 0002), so the name IS the
-// date and reading it costs no clock.
+// The newest day in .cortex/memory/ that holds a digest, or null for a memory nobody has started.
+// The date is in the path — `<date>.md`, or `<date>/<author>.md` — so reading it costs no clock.
 //
-// A maximum rather than the last element. Note honestly what that buys: `filesIn` sorts and ISO
-// dates sort lexically, so today `at(-1)` returns the same value for every input that can reach
-// here — the two are indistinguishable from outside this module and no test can tell them apart.
-// The maximum is kept because it survives `filesIn` ever returning unsorted, not because anything
-// currently proves it. The filter is the half that does carry weight: a stray README.md sorts above
-// every real digest, and without it the evidence would name a file that is not a digest.
+// core/memory.js owns those two layouts and returns its rows newest day first, so this asks it and
+// takes the first. It matched `<date>.md` against the directory listing itself, which answered
+// "never started" for a repo whose every digest sits in a day directory. A stray README.md is not a
+// row, so it can neither be the newest digest nor be counted as one.
 //
 // It does NOT return an age. A duration needs `now`, and this module is deterministic by the same
 // rule as the index: same tree, same answer, tomorrow included. The sequence states the date and
 // the reader supplies today — the division `readEnrichment` already draws, where the reader owns
 // the fact and the caller owns the policy.
-function latestDigest(files) {
-  const dates = files
-    .map((f) => /^(\d{4}-\d{2}-\d{2})\.md$/.exec(f))
-    .filter(Boolean)
-    .map((m) => m[1]);
-  return dates.length ? dates.reduce((a, b) => (b > a ? b : a)) : null;
+function latestDigest(root) {
+  return listMemory(join(root, ".cortex"))[0]?.day ?? null;
 }
 
 // Scoped briefs are <dir>/AGENTS.md anywhere but the root. Prefer the index over the filesystem so
@@ -221,7 +215,7 @@ function priorAgentDocs(root) {
 export function readState(root, index = null, overrides = {}) {
   const indexPath = defaultIndexPath(root);
   const indexed = existsSync(indexPath);
-  const memory = filesIn(root, ".cortex/memory");
+  const memory = memoryFiles(root);
   // docs/adr/ unless docs/ is a published site — adr.mjs owns that answer and its evidence.
   const adr = adrLocation(root);
   const briefs = scopedBriefs(root, index);
@@ -242,7 +236,7 @@ export function readState(root, index = null, overrides = {}) {
     skills: repoSkills(root),
     skillDrift: driftedSkills(root, index),
     memory,
-    memoryLatest: latestDigest(memory),
+    memoryLatest: latestDigest(root),
     priorDocs: priorAgentDocs(root),
     ...stampFacts(root),
     sections: sectionFacts(root),

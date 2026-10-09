@@ -493,7 +493,7 @@ function rightCol(){const n=D.next;let h='<h2 class="sh">Next steps'+(n?' <small
   else{if(!O.timeline.length)h+=NA(O.timelineNote||'no memory entries and no commits were found');
     else h+='<ol class="tl">'+O.timeline.map(e=>'<li class="'+esc(e.kind)+'"><span class="when">'+esc(e.date)
       +(e.time?'<small>'+esc(e.time)+'</small>':'')+'</span><span><span class="tag">'
-      +(e.kind==='memory'?'memory · '+esc(e.tag):'commit '+esc(e.tag))+'</span><span class="tt">'+esc(e.title)+'</span></span></li>').join('')+'</ol>';
+      +(e.kind==='memory'?'memory · '+esc(e.tag)+(e.author?' · '+esc(e.author):''):'commit '+esc(e.tag))+'</span><span class="tt">'+esc(e.title)+'</span></span></li>').join('')+'</ol>';
     if(O.timelineNote&&O.timeline.length)h+=NA(O.timelineNote);
     if(!O.memory||!O.memory.newest)h+='<p class="hint2">No team memory yet. <code>/dream</code> writes the first entry, and it lands here.</p>';}
   $('ovr').innerHTML=h;}

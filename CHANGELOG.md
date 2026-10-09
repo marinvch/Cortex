@@ -5,6 +5,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.44] — 2026-10-09
+
+The outcome harness. Step 2.2 of the roadmap, built to
+[its design](docs/specs/2026-10-09-outcome-harness-design.md).
+
+### Added
+
+- **`node evals/harness/run.mjs`.** It builds one small repo twice, with its context layer and
+  without, runs five tasks three times in each through `claude -p`, and decides every result with a
+  command. `--dry` shows the whole path with a stubbed session. A model run never happens in CI.
+- **`evals/harness/`** holds the fixture, the tasks, the scorer, the runner and the reference
+  patches. `evals/claude.mjs` is the one place that calls the CLI, and the skill runner shares it.
+- A failed call is retried and never scored as zero. The reading rule is fixed before any session
+  runs. Every record carries the fixture's version and tree hash.
+
+No measurement is recorded yet: that is step 2.3. Nothing a plugin user runs changes.
+
 ## [2.41.43] — 2026-10-09
 
 Every reader of `.cortex/memory/` reads both layouts. Step 4.1 of the roadmap, the readers half of
@@ -4919,6 +4936,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.44]: https://github.com/marinvch/Cortex/releases/tag/v2.41.44
 [2.41.43]: https://github.com/marinvch/Cortex/releases/tag/v2.41.43
 [2.41.42]: https://github.com/marinvch/Cortex/releases/tag/v2.41.42
 [2.41.41]: https://github.com/marinvch/Cortex/releases/tag/v2.41.41

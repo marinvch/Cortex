@@ -219,6 +219,38 @@ fence tracker reads it as an opening fence and hides eleven version headings aft
 For 2.41.8 to 2.41.18 its output equals the body of the release already published. One old
 section is refused: 2.0.0 ends at a second `## [Unreleased]` heading further down the file.
 
+## `cortex-release-plan.mjs` — what one push to master releases
+
+`.github/workflows/release.yml` cuts a release when a merge raises `VERSION`
+([ADR 0022](../docs/adr/0022-stamping-a-version-on-master-releases-it.md)). A workflow cannot be
+run before it is pushed, so what it decides is here, where a test runs it on scratch repos.
+
+```bash
+node tools/cortex-release-plan.mjs --before <sha>                # the plan, as key=value lines
+node tools/cortex-release-plan.mjs --before <sha> --sha <sha>    # refuse unless <sha> is checked out
+node tools/cortex-release-plan.mjs --before <sha> --notes-out <file> --repo <dir> --remote <name>
+node tools/cortex-release-plan.mjs --highest < tag-names         # the highest v<x.y.z> on stdin
+```
+
+`--before` is the commit the branch was on before the push. The plan is one of three:
+
+| `action=` | Means | Also printed |
+|---|---|---|
+| `none` | `VERSION` is the same before and after the push. Nothing else is checked | `reason` |
+| `exists` | the tag `v<version>` is already on the remote | `tag`, `points`, `untagged` |
+| `release` | create `v<version>` on the checked-out commit | `tag`, `target`, `previous`, `latest`, `untagged` |
+
+It exits 1 and prints nothing on stdout when the push must not be released: there is no commit
+before it or that commit is not an ancestor, `VERSION` was lowered or is not `x.y.z`, a version
+site disagrees (`cortex-version.mjs`), the notes do not extract (`cortex-release-notes.mjs`), or
+the remote's tags cannot be listed. The tree is judged before the remote is asked for the tag.
+Exit 2 is a usage error.
+
+`latest` is `true` when the version is above every `v<x.y.z>` tag on the remote. `untagged` lists
+every other version with a changelog section and no tag. The notes file is written only for
+`release`. It creates no tag and no release, and reads tags with `git ls-remote`, so a tag that
+exists only in the checkout decides nothing.
+
 ## `cortex-site-facts.mjs` — the facts a public page states, read from source
 
 The public site restated Cortex's facts by hand and drifted from v0.15 to v2.38 unnoticed (#415).

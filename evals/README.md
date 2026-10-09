@@ -14,6 +14,11 @@ edit, and trained with an optimizer that only keeps edits that measurably help.
 | `/cortex` | on a repo it already serves, what the one confirmation offers for the files an earlier pass stamped, from `cortex-stamps.mjs --json` | `UPDATE` as an exact set (only `update` files); `ASK` as an exact set (every `review` and `conflict`, a `missing` file optional); `WRITTEN: none` and no write claimed in the prose; the plugin update named when a newer Cortex stamped the repo. Traps: `review` (untouched, but not re-renderable), `edited`, a newer Cortex's record whose states read as updates, nothing to update, and a user who says to "just update everything" |
 | `team-ask` — the team playbook, `templates/team/playbook.md` | before any work, the session reports the `--size` recommendation, ends with "Single agent or team?" and stops (#498) | per part: the exact question; it is the last line; no code, plan or hand-off; the recommendation reported (or "cannot size" when there is none); no claim the developer answered or that it asked. Traps: team-sized, single-sized, a request to "just do it", and no recommendation |
 
+A second measurement lives here too. [The outcome harness](#the-outcome-harness) asks a different
+question: whether a repo's context layer makes an agent do a task right more often. It is a working
+session with tools, in a built repo, and it shares nothing with the skill evals but the code that
+starts `claude`.
+
 `/cortex-next` is deliberately absent: `index/lib/next.mjs` makes its decisions, so tuning its prose
 would move no score. `/cortex` is measured only where its prose decides. `index/lib/loop.mjs` decides
 which loop rows exist, and is not measured. How a stamp state becomes a row of the one confirmation is
@@ -28,6 +33,9 @@ the skill's own table, and so is the promise to write nothing before that confir
 - `score.mjs` — **the one scorer**. Anything that runs these tasks pipes `{task, prediction}` lines
   through it rather than re-implementing a rule.
 - `run.mjs` — runs a skill's tasks against a real model and records or checks its baseline.
+- `claude.mjs` — starts the `claude` CLI and reads the one JSON object it prints. `run.mjs` and
+  `harness/run.mjs` both call it; each keeps its own arguments.
+- `harness/` — [the outcome harness](#the-outcome-harness): its fixture, tasks, scorer and runner.
 - `baselines/<skill>.json` — the score the current SKILL.md body earned, keyed to that body's hash.
   A skill whose text is not a `skills/<name>/SKILL.md` names its file in `SKILL_FILES` in
   `skills.mjs`. `team-ask` names the playbook template this way, and `--check` follows that file.
@@ -179,6 +187,174 @@ description fails here while the router would reach it. So a failing prompt is a
 honest answers: the description lacks a word people say (add it), or the prompt is a paraphrase
 this ranker cannot see (replace it, and do not bend the description to a word nobody uses).
 Whether the real router reaches a ritual is a separate measurement, not made here.
+
+## The outcome harness
+
+**The claim under test:** an agent given a task in a repo that has the Cortex context layer (a root
+`AGENTS.md`, scoped briefs, `CONTEXT.md`, ADRs) does the task right more often than the same agent
+in the same repo without it. "Right" has two parts: the change does what was asked, and it respects
+the rule the repo's documents state. The design, with the reason for every choice, is
+[`docs/specs/2026-10-09-outcome-harness-design.md`](../docs/specs/2026-10-09-outcome-harness-design.md).
+
+```bash
+node evals/harness/run.mjs --dry                        # no model: the schedule, and a table from a stubbed run
+node evals/harness/run.mjs --probe                      # the preflight and the two probe calls, nothing else
+node evals/harness/run.mjs --tasks search-empty --once  # a partial run: some tasks, one repeat. Never read
+node evals/harness/run.mjs                              # the measurement: 2 probes, then 30 sessions
+node evals/harness/run.mjs --record                     # the same, appended to harness/RESULTS.md
+node evals/harness/run.mjs --resume <run> [--record]    # continue an interrupted run from its records
+node evals/harness/accept.mjs <task> <tree>             # the scorer alone: exit 0 pass · 1 fail · 2 could not run
+```
+
+Only `--dry` and `accept.mjs` run without a model. Everything else spends your own Claude login,
+is run by hand, and refuses when `CI` is set. No flag takes a number: the model, the effort, the
+repeats and the turn limit are constants in `harness/run.mjs`, and a result is never typed.
+
+### What it builds and runs
+
+- **The fixture** is a generated repo named `shop`, a small checkout service in Node with no
+  dependencies. `harness/fixture.mjs` holds every file as a string and builds it twice. The
+  **with-arm** adds the nine files listed in `CONTEXT_LAYER`; the **without-arm** is the same build
+  minus that list. Both are a git repo with one pinned commit, in a directory whose path does not
+  name the arm.
+- **Four rules** are stated only in the layer, are followed by every line of the existing code, and
+  are enforced by no test in the shop's own suite: money goes through one rounding helper, an order
+  is never removed and each status change writes one audit entry, a stored shape changes only
+  through a new migration, and a route module imports services only.
+- **Five tasks** (`harness/tasks.mjs`), each sent as written to both arms. Four depend on one rule
+  each. The fifth, `search-empty`, is the control: the layer says nothing that bears on it.
+
+| Task | Asks for | Rule it depends on |
+|---|---|---|
+| T1 `discount` | 10% off carts of 100.00 or more | R1 money |
+| T2 `cancel` | `DELETE /orders/:id` | R2 orders, reached through the root's routing table |
+| T3 `note` | a free-text note on orders, old ones included | R3 migrations |
+| T4 `by-status` | `GET /orders?status=` | R4 layering |
+| T5 `search-empty` | fix a 500 on an empty catalog search | none (control) |
+
+- **One session** is one `claude -p` process in a fresh copy of one arm, with the prompt on stdin:
+  `claude-sonnet-5` at `medium` effort, `acceptEdits` with an allow-list for `node`, `npm test` and
+  read-only `git`, project and local settings only, no MCP servers, no skills, no saved session, 40
+  turns and 15 minutes at most. `sessionArgs()` is the list, and the spec quotes the docs sentence
+  behind each flag. Both arms get the same bytes of prompt, the same arguments and the same
+  environment. Only the working directory differs.
+- **The schedule** is 5 tasks × 2 arms × 3 repeats. Each repeat runs the tasks in an order rotated
+  by one, and the two arms of a task start together, so whatever drifts during a run reaches both
+  arms of a pair alike. The fifteen pairs run one after another.
+- **Before any session**, the run stops if a `CLAUDE.md`, `CLAUDE.local.md` or `AGENTS.md` sits in
+  any directory above the temp directory (it would load in both arms), or if Claude Code is older
+  than 2.1.259. Then **two probe calls**, one per arm, ask for a codename that only the root brief
+  states. The with-arm must answer it and the without-arm must not, or the run stops before the
+  thirty sessions are spent.
+
+### How a result is decided
+
+`harness/accept.mjs` is the only scorer, and no model judges anything. On a copy of the tree a
+session left, it runs three things under `node --test`:
+
+1. the shop's own tests, written back from the fixture first, so a session that edited or deleted
+   a test cannot pass by it;
+2. `accept/<task>.works.test.mjs`, which tests only what the prompt asks for;
+3. `accept/<task>.rule.test.mjs`, which tests the rule by its property and never by a name the
+   session chose.
+
+`works` is 1 and 2 together, `rule` is 3, and a session **passes** when both hold. The control has
+no rule check. The acceptance files stay in Cortex and are never copied into a working copy.
+
+`harness/solutions/` holds two reference patches for each rule task. `good` is written from the
+base tree alone and passes in both arms, so every task can be done without the layer. `naive` does
+what was asked and breaks the rule, so every rule check can fire. The tests hold both.
+
+**A failed call is not a failed task.**
+
+| What happened | Counted as |
+|---|---|
+| The session ended and the scorer answered pass or fail | a scored session |
+| The session reached `--max-turns` | a scored session, on the tree as left, marked `budget` |
+| The process could not start, printed no result object, reported an error, ran past 15 minutes, or never ran the pinned model | a **failed call**: not scored, retried up to twice, every attempt listed |
+| The scorer itself could not run | a harness fault: the run stops |
+
+A cell's count is over the sessions that were scored. Three repeats with one call lost read `2/2`,
+never `2/3`.
+
+### Reading the table
+
+The table prints raw counts per task and arm, the totals over the four rule tasks, and one reading.
+It prints no percentage and no mean of passes, because twelve sessions do not carry one. Turns and
+tokens are the median with the range, and they never decide anything.
+
+The reading is computed from the counts by a rule fixed before any session ran. The primary number
+is **passes on the rule tasks, out of twelve per arm**. The rows are tried from the top:
+
+| Reading | Condition |
+|---|---|
+| **suspect** | the control differs by 2 or more of 3 between the arms, or more than 6 calls failed. Nothing is read from the run |
+| **tasks do not discriminate** | the without-arm passes 11 or 12 of 12, or the with-arm passes 0 or 1 |
+| **supported, at this size** | the with-arm leads by 4 or more, and leads on at least two tasks |
+| **not shown** | the lead is 1 or less, or the without-arm leads |
+| **inconclusive** | a with-arm lead of 2 or 3, or a lead of 4 or more carried by one task |
+| **not read** | the run was not the full schedule (`--tasks`, `--once`, or cells left unfinished) |
+
+- **No significance is claimed, whatever the result.** If both arms truly passed half the time, a
+  lead of four or more of twelve would still turn up about one run in thirteen. "Supported" means
+  "worth the next thirty sessions".
+- **Five tasks on one fixture is one repo's worth of evidence.** It says nothing about a large
+  codebase, another language, or a stale or bloated layer, and it cannot say which document did the
+  work.
+- **No sentence anywhere cites the harness as evidence unless the reading is "supported".**
+
+### The records and `RESULTS.md`
+
+Each attempt writes its result JSON, the scorer's verdict and the session's diff to
+`.cortex/evals/harness/<run>/`, which is gitignored, and the working copy is deleted. Every record
+carries the fixture's version and the hash of its arm's tree. A run that stops says how to continue
+it, and `--resume` refuses a run made with another fixture version, model or effort.
+
+`harness/RESULTS.md` does not exist until the first `--record`. It is written by that command from
+a run's records and is only ever appended to: one dated section per measurement, holding the model
+the sessions reported, the Claude Code version, the fixture version and both tree hashes, the
+table, every failed session and failed call with its reason, the cost, the time, and whether
+`~/.claude/CLAUDE.md` existed during the run. A section is never edited, and the same run is never
+recorded twice. An incomplete run can be recorded, and its heading says how many of thirty sessions
+were scored. The file is a log and gates nothing, which is how it differs from `baselines/`.
+
+### Before the first measurement
+
+Run these in order. Each one is cheaper than the next and can stop you before it:
+
+1. `node --test evals/test/harness-*.test.mjs` and `node evals/harness/run.mjs --dry`: the harness
+   favours neither arm, shown with a stub.
+2. `node evals/harness/run.mjs --probe`: two calls. The with-arm knows the codename and the
+   without-arm does not.
+3. `node evals/harness/run.mjs --tasks search-empty --once`: one real session of the control in
+   each arm. Read both records under `.cortex/evals/harness/<run>/`. A `denials` count above zero
+   means the session was refused a command; if it was `node` or `npm test`, widen the allow-list in
+   `sessionArgs()`, for both arms.
+4. `node evals/harness/run.mjs --record`: the measurement.
+
+### Not confirmed
+
+The spec listed what the docs did not state. This is where each stands. Nothing below was settled
+by a measured run: step 2.2 made no session, and the first real ones belong to step 2.3.
+
+| Question | Where it stands |
+|---|---|
+| What `--output-format json` prints when `--max-turns` is reached | **Provisional.** `harness/templates/result-max-turns.json` looks like a captured result, but how it was captured is not recorded, so step 2.3 confirms it on its first real session. In it, `subtype` is `error_max_turns`, `is_error` is true, there is an `errors` list and no `result` text, and `total_cost_usd`, `num_turns` and `modelUsage` are present. `classify()` scores such a session on its tree |
+| Whether `permission_denials` appears in `json` output | **Provisional**, on the same two templates: it is there, as a list. The record keeps its length as `denials`; nothing depends on it |
+| `CLAUDE_SETTING_SOURCES` | The harness does not set it. It relies on `--setting-sources` alone |
+| Whether leaving `user` out of `--setting-sources` keeps `~/.claude/CLAUDE.md` and `~/.claude/rules/` out of a session | **Open.** If they load, they reach both arms alike, which cannot favour one and can move both. Each recorded section says whether the file existed |
+| Whether a project `CLAUDE.md` loads when `project` is left out | **Open, and not depended on.** `project` stays in, and the probe checks at the start of every run that the root brief loads |
+| Whether `acceptEdits` plus the allow-list lets a session finish these tasks | **Open** until step 3 above has run once |
+| The cost and length of a session | **Open.** The spec's guess is 3 to 8 minutes a session and one to two hours a run. The first recorded section replaces the guess with a number |
+
+### Changing the harness
+
+- A change to any fixture file or any prompt raises `FIXTURE_VERSION`. Results from two versions
+  are never added together.
+- A new task is a row in `tasks.mjs`, a `works` check, a `rule` check unless it is a control, and a
+  `good` and a `naive` patch. `test/harness-accept.test.mjs` then asks the same questions of it as
+  of the others: not done already, solvable without the layer, and a rule check that can fire.
+- [`AGENTS.md`](AGENTS.md) holds what must stay true.
 
 ## What was tried and dropped
 

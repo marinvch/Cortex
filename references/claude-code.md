@@ -21,7 +21,7 @@ node tools/cortex-claude-docs.mjs --json
 node tools/cortex-claude-docs.mjs --accept  # record the pages now published as seen
 ```
 
-The same run exits 3 when the docs index (`llms.txt`) or `claude.com/blog` lists a page that
+The same run exits 3 when the docs index (`llms.txt`) or the blog's front page (`claude.com/resources/articles`) lists a page that
 `tools/claude-docs-seen.json` does not. The rule check only watches pages a rule already cites, so
 this is how a feature with a page of its own gets noticed. A new page is read by a maintainer, who
 then decides whether Cortex owes it a rule; `--accept` records it.

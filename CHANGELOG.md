@@ -5,6 +5,24 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.39] — 2026-10-09
+
+The docs check reads the blog at its new address. Closes #555.
+
+### Fixed
+
+- **`tools/cortex-claude-docs.mjs` could not see a new blog post.** `claude.com/blog` now redirects
+  to `claude.com/resources/articles`, and the page links its posts under the new path. The tool
+  looked for `/blog/<post>` links, found none, and reported the index as unread on every run. It
+  reads the new address and both link forms. A new post is reported at the address that serves it.
+
+### Changed
+
+- **Seven pages recorded as seen**: the docs page `hipaa-setup` and six blog posts. Each was read.
+  None states a rule about skills, subagents, hooks, plugins or memory files, so no rule was added.
+  `hipaa-setup` turns off WebFetch and artifact publishing in such an organization; no ritual
+  depends on either.
+
 ## [2.41.38] — 2026-10-08
 
 `evals/` gets a scoped brief, and each scenario gets tests of its own. Step 2.0 of the roadmap.
@@ -4833,6 +4851,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.39]: https://github.com/marinvch/Cortex/releases/tag/v2.41.39
 [2.41.38]: https://github.com/marinvch/Cortex/releases/tag/v2.41.38
 [2.41.37]: https://github.com/marinvch/Cortex/releases/tag/v2.41.37
 [2.41.36]: https://github.com/marinvch/Cortex/releases/tag/v2.41.36

@@ -128,6 +128,8 @@ test("once the context layer exists, an old AGENTS.md is Cortex's own and not a 
 test("the state names each engine directory that exists, and nothing when there is none", () => {
   const none = repo(() => {});
   assert.deepEqual(readState(none).legacyEngine, [], "an empty list, never a missing key");
+  // Written out, not read from the code: a directory dropped from the list must fail here.
+  assert.deepEqual(LEGACY_ENGINES, [".ai-os", ".github/ai-os"]);
   for (const dir of LEGACY_ENGINES) {
     const root = repo(({ put }) => put(`${dir}/config.json`, "{}"));
     assert.deepEqual(readState(root).legacyEngine, [dir]);

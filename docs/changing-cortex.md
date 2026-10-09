@@ -94,6 +94,14 @@ before overturning one; the line here is the trigger, not the case.
   `CORTEX_PROFILE` — nothing about the root, the connector or the cwd may move it, and a test
   asserts that. [ADR 0015](adr/0015-a-profile-is-the-world-an-install-serves.md),
   [ADR 0008](adr/0008-three-audiences-one-seam.md).
+- **The root has two names, and one function per language orders them.** `CORTEX_ROOT` is the name;
+  `AI_OS_ROOT` is what an install made before #552 carries, and it stays read with no warning.
+  `rootFromEnv` (`core/paths.js`) and `cortex_root` (`tools/_cortex-lib.sh`) hold the order: the
+  new name wins, an empty value is unset, neither is fatal. Code that needs the root calls one of
+  them and never reads either variable itself. Docs and examples use `CORTEX_ROOT`. A test that
+  starts the server or the CLI sets or clears **both**, because a contributor's shell may carry
+  either. The amendment to [ADR 0008](adr/0008-three-audiences-one-seam.md) lists what was not
+  renamed and why.
 - **`lab` refusing nothing and publishing nothing is ONE decision, stored as one policy object.** A
   profile that refused nothing locally and still pushed would be a way to switch the firewall off
   and keep leaking. If you add a fourth profile, decide both halves together.

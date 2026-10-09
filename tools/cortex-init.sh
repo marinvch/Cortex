@@ -105,7 +105,10 @@ detect_engine(){ local m=()
   has .github/ai-os && m+=(".github/ai-os/ (engine context + memory store)")
   has .github/agents && m+=(".github/agents/ (engine-generated agents)")
   has .github/COPILOT_CONTEXT.md && m+=(".github/COPILOT_CONTEXT.md")
-  { slurp .mcp.json; slurp .vscode/mcp.json; } | grep -qE 'ai-os|AI_OS_ROOT' && m+=("ai-os MCP entry")
+  # The engine's server ran out of the repo's own .ai-os/ directory, so the PATH marks it. The name
+  # `ai-os` and the variable AI_OS_ROOT do not: Cortex's own server was documented under both, and
+  # matching them sent a repo with a working Cortex registration to /migrate-engine (#552).
+  { slurp .mcp.json; slurp .vscode/mcp.json; } | grep -qE '\.ai-os[/\\]' && m+=("MCP entry pointing at .ai-os/")
   slurp .github/copilot-instructions.md | grep -qiE 'get_session_context|AI OS' && m+=(".github/copilot-instructions.md (engine-style)")
   printf '%s\n' "${m[@]}"; }
 ENGINE_FOUND=0; ENGINE_LIST="$(detect_engine | grep -v '^$' || true)"

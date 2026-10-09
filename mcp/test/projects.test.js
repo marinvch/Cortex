@@ -32,7 +32,7 @@ test("getProjectContext throws not_found", () => {
   assert.throws(() => getProjectContext(root, "ghost"), (e) => e.code === "not_found");
 });
 
-// Regression: a caller-supplied slug must never read outside AI_OS_ROOT.
+// Regression: a caller-supplied slug must never read outside the root.
 // Before the fix, `../../secret` returned the file's contents instead of throwing.
 test("getProjectContext refuses a slug that escapes the root", () => {
   const base = tempDir("escape-");

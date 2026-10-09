@@ -116,9 +116,11 @@ function listTools(root, mode) {
   const base = mkdtempSync(join(tmpdir(), "cortex-facts-"));
   const brain = mode === "repo" ? join(base, "repo", ".cortex") : join(base, "vault");
   // A clean environment for the answer: a CORTEX_* variable from the caller's shell (profile,
-  // audience, a connector override) is a fact about that shell, not about the product.
+  // audience, a connector override) is a fact about that shell, not about the product. The filter
+  // drops CORTEX_ROOT with the rest; AI_OS_ROOT, the root's older name, is named because it is
+  // still read and has no such prefix.
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("CORTEX_") && k !== "AI_OS_ROOT"));
-  env.AI_OS_ROOT = brain;
+  env.CORTEX_ROOT = brain;
   // The server refuses a root that is not there (#550). In repo mode the repo has to exist, and
   // `.cortex/` need not.
   mkdirSync(mode === "repo" ? join(base, "repo") : brain, { recursive: true });

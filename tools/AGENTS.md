@@ -29,7 +29,7 @@ that does not exist in the repo it was printed to.
 
 ## The copies that are deliberate, and the tests that pin them
 
-Four rules exist in more than one place **on purpose**, because the files needing them cannot share
+Five rules exist in more than one place **on purpose**, because the files needing them cannot share
 code. `cortex-init.sh` is a zero-dependency installer copied into other repos and parses no JSON.
 `tools/server/cortex-cron.sh` lands on a server beside only `server-setup.sh`. The viewer's slug runs
 in a browser. Each hook template is stamped alone into a repo that has no library to source.
@@ -38,6 +38,7 @@ in a browser. Each hook template is stamped alone into a repo that has no librar
 |---|---|---|
 | the slug | `mcp/lib/slug.js` (canonical), `_cortex-lib.sh`, `cortex-init.sh`, the browser-side `slug()` in `cortex.sh` | `mcp/test/slug-parity.test.js` |
 | the clock | `_cortex-lib.sh`, `cortex-init.sh`, `cortex-cron.sh` | `tools/test/date-parity.test.sh` |
+| the root's two names (`CORTEX_ROOT`, then `AI_OS_ROOT`) | `rootFromEnv` in `core/paths.js` (canonical), `cortex_root` in `_cortex-lib.sh`, its copy in `cortex-cron.sh` | `tools/test/cortex-root.test.sh` — the two shell copies by text, shell against JS by running both over every pairing |
 | the Core plugin tier | `CORE_PLUGINS` in `cortex-init.sh`, `plugins/cortex-core-plugins.json` | `mcp/test/manifest-parity.test.js` |
 | the hook-input reader | `templates/loop/protected-paths.sh`, `templates/loop/format-changed.sh`, `templates/team/test-paths.sh` | `tools/test/test-paths.test.sh` |
 

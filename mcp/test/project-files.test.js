@@ -650,8 +650,9 @@ function envFor(f, extra = {}) {
   const home = join(f.base, "home");
   mkdirSync(home, { recursive: true });
   // No global git config: the commands must work for a member whose machine has no identity set.
+  // The root under both of its names: a shell that carries either one must not pick the vault.
   const e = {
-    ...process.env, AI_OS_ROOT: f.vault, HOME: home, USERPROFILE: home,
+    ...process.env, CORTEX_ROOT: f.vault, AI_OS_ROOT: "", HOME: home, USERPROFILE: home,
     GIT_CONFIG_GLOBAL: join(home, "gitconfig-absent"), GIT_CONFIG_SYSTEM: join(home, "gitsystem-absent"),
   };
   delete e.CORTEX_AUDIENCE;
@@ -798,7 +799,7 @@ test("ai-os project remove removes, and prints what it left", () => {
 test("the project commands do not exist in repo mode", () => {
   const f = workspace();
   for (const sub of ["list", "check", "remove"]) {
-    const r = cli(f, ["project", sub, "--project", "storefront", "--team", TEAM], { AI_OS_ROOT: join(f.repo, ".cortex") });
+    const r = cli(f, ["project", sub, "--project", "storefront", "--team", TEAM], { CORTEX_ROOT: join(f.repo, ".cortex") });
     assert.equal(r.status, 1, sub);
     assert.match(r.stderr, /vault/, sub);
   }

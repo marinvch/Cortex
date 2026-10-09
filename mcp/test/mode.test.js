@@ -263,7 +263,7 @@ test("remember with no usable author writes the day file and returns layout: day
     assert.equal(wrote.layout, "day", `said on the ${content} write`);
     assert.equal(wrote.author, null);
     assert.equal(wrote.path, join(realpathSync(cortex), "memory", `${wrote.day}.md`));
-    assert.match(wrote.notice, /CORTEX_AUTHOR/, "the model is told what the person can set");
+    assert.match(wrote.notice, /Set CORTEX_AUTHOR to /, "the model is told what the person can set");
     assert.deepEqual(tree(cortex), ["memory/", `memory/${wrote.day}.md`], "no day directory");
   }
 });

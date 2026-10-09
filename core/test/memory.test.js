@@ -167,7 +167,7 @@ test("the writer says so on EVERY write that falls back, not only the first", ()
   for (const res of [first, second]) {
     assert.equal(res.layout, "day");
     assert.equal(typeof res.notice, "string", "a fallback nobody notices is the risk");
-    assert.match(res.notice, /CORTEX_AUTHOR/, "the notice names the fix");
+    assert.match(res.notice, /Set CORTEX_AUTHOR to /, "the notice names the fix, as something to do");
     assert.match(res.notice, /2026-08-15\.md/, "and the file the entry went to");
     assert.match(res.notice, /conflict/, "and what the day file costs");
     assert.ok(!res.notice.includes("\n"), "one line");
@@ -187,7 +187,8 @@ test("a git name with no ASCII letter falls back too, and the notice repeats no 
   const res = append(root, "note", { date: DAY, env: {}, git: () => name });
   assert.equal(res.layout, "day");
   assert.equal(res.author, null);
-  assert.match(res.notice, /CORTEX_AUTHOR/);
+  assert.match(res.notice, /Set CORTEX_AUTHOR to /);
+  assert.match(res.notice, /no ASCII letter/, "and says why this name gave no file name");
   assert.ok(!res.notice.includes("Разработчик"), "only a slug is ever written, and there is none");
   assert.ok(!readFileSync(res.path, "utf8").includes("Разработчик"));
 });

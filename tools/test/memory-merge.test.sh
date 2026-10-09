@@ -127,10 +127,10 @@ assert_eq ".cortex/memory/DAY/dev-a.md .cortex/memory/DAY/dev-b.md " "$tracked" 
 base nobody
 write nobody a "first branch, no name."
 assert_eq "0" "$write_code" "a write with no name still succeeds"
-assert_contains "$write_err" "CORTEX_AUTHOR" "and stderr names the setting that fixes it"
+assert_contains "$write_err" "Set CORTEX_AUTHOR to " "and stderr names the setting that fixes it"
 assert_contains "$write_err" "shared day file" "and says where the entry went"
 write nobody b "second branch, no name."
-assert_contains "$write_err" "CORTEX_AUTHOR" "the second write says so too"
+assert_contains "$write_err" "Set CORTEX_AUTHOR to " "the second write says so too"
 merge_both nobody
 assert_eq "1" "$merge_code" "two writers with no name conflict, as every writer did before"
 assert_eq ".cortex/memory/DAY.md " "$unmerged" "in the day file"

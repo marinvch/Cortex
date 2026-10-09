@@ -105,8 +105,9 @@ directory is **the checkouts**: how one machine reaches the workspace's projects
 every developer. Where there is no team-brain, the checkouts stand in for the workspace. A single
 repo with no team-brain is a workspace of one and is rendered as a repo.
 
-Both entries are ahead of the code: roadmap steps 3.1 to 3.3 build to them. Until those merge,
-nothing writes a project file, and the definition here is the one they are held to.
+The project file is built: `ai-os team add` writes it, `list_projects` lists it and
+`ai-os project remove` deletes it (roadmap step 3.1). The page that shows a workspace is ahead of
+the code: steps 3.2 and 3.3 build to this entry, and it is the definition they are held to.
 
 _Avoid_: "workspace" for a JS monorepo's packages (say "workspace package", as
 `index/lib/resolvers.mjs` does) or for Claude Code's folder trust; "portfolio", "registry".

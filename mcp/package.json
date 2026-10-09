@@ -1,6 +1,6 @@
 {
   "name": "ai-os-mcp",
-  "version": "2.41.44",
+  "version": "2.41.46",
   "description": "Cortex brain — local MCP server (recall/capture over the vault).",
   "type": "module",
   "bin": {

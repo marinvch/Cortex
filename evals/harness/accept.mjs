@@ -62,7 +62,9 @@ function nodeTest(files, { cwd, env, timeoutMs }) {
 }
 
 // The decision, as a function. The command below prints exactly this.
-export async function accept(taskId, tree, { timeoutMs = ACCEPT_TIMEOUT_MS } = {}) {
+const removeCopy = (root) => rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+
+export async function accept(taskId, tree, { timeoutMs = ACCEPT_TIMEOUT_MS, remove = removeCopy } = {}) {
   const task = taskById(taskId);
   if (!task) throw new HarnessFault(`unknown task ${JSON.stringify(taskId)}: it is one of ${TASKS.map((t) => t.id).join(", ")}`);
   if (typeof tree !== "string" || !existsSync(tree) || !statSync(tree).isDirectory()) throw new HarnessFault(`no tree at ${tree}`);
@@ -102,7 +104,9 @@ export async function accept(taskId, tree, { timeoutMs = ACCEPT_TIMEOUT_MS } = {
     else if (rule === false) reason = `rule: ${ruleRun.failed}`;
     return { task: task.id, works, rule, pass, reason };
   } finally {
-    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    // The decision is made by now. On Windows a test process killed for running too long can hold
+    // the copy for a moment after it is gone, and a temp directory left behind is not a result.
+    try { remove(root); } catch { /* left for the OS to clear */ }
   }
 }
 

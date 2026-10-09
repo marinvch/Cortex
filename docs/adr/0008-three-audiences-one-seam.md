@@ -45,7 +45,8 @@ The resolver *detects* the audience and *locates* the team clone. It never conju
 > stderr. A `CORTEX_ROOT` that is set and does not exist is refused, and is never replaced by an
 > `AI_OS_ROOT` that does: opening the other brain there would be the guessed root again. The
 > order lives in `rootFromEnv` (`core/paths.js`) and `cortex_root` (`tools/_cortex-lib.sh`), and
-> nowhere else. Maintainer decisions of 2026-10-09, each reversible: `CORTEX_ROOT` wins; no
+> nowhere else. Three choices were made while implementing #552 on 2026-10-09, by the agent doing
+> the work and not yet confirmed by the maintainer, each reversible: `CORTEX_ROOT` wins; no
 > deprecation of `AI_OS_ROOT`; the file `mcp/ai-os.js`, the `ai-os` command and the `ai-os-mcp`
 > package name stay, since renaming any of them breaks a command or a config a user already has.
 

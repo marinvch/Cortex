@@ -31,6 +31,10 @@ node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-plugin-check.mjs"
 It prints all three stages and which are behind. Read the **installed cache** line: that is the one
 deciding behaviour. The repo sitting ahead of both copies mid-release is normal and not a defect.
 
+From an installed copy the three rows always agree, because the "repo" there is the cache. To ask
+whether a newer Cortex is published, add `--remote`: it reads `VERSION` upstream over the network
+and says so.
+
 ## 2. Update — both steps
 
 Updating the marketplace alone does **not** move the installed plugin. That is the whole trap: the

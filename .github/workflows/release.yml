@@ -1,0 +1,96 @@
+name: release
+# A merge to master that changes VERSION is released: a tag v<version> on the pushed commit, and a
+# GitHub release whose notes are that version's section of CHANGELOG.md. Stamping a version on
+# master is releasing it (ADR 0022).
+#
+# Every decision is made by tools/cortex-release-plan.mjs, which tools/test/release-plan.test.sh
+# runs on scratch repos. The steps below only act on what it prints.
+#
+# It runs on every push, with no path filter: a workflow skipped by a filter cannot say why, and
+# the plan step prints "VERSION unchanged" when there is nothing to do.
+#
+# It has no concurrency group. A group cancels the older pending run, so three quick merges would
+# lose the middle release. A second run for a version already tagged finds the tag and stops.
+on:
+  push:
+    branches: [master]
+
+# Naming one permission sets every other to none. contents: write is what creating a release needs.
+# No secret is used. A release made with GITHUB_TOKEN starts no other workflow, and none depends on
+# one.
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    # Not in a fork: syncing a fork's master would publish that fork's own copy of every release.
+    if: github.event.repository.fork == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Full history: the plan reads VERSION at the commit master was on before the push.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Exit 1 here fails the job before anything exists: no commit before the push, VERSION lowered
+      # or malformed, a version site that disagrees, or a changelog section that cannot be bounded.
+      # The tags are read from the remote in this step, the one before the release is created.
+      - name: Plan
+        id: plan
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          node tools/cortex-release-plan.mjs --before "$BEFORE" --sha "$GITHUB_SHA" --notes-out "$RUNNER_TEMP/notes.md" > "$RUNNER_TEMP/plan.txt"
+          cat "$RUNNER_TEMP/plan.txt"
+          cat "$RUNNER_TEMP/plan.txt" >> "$GITHUB_OUTPUT"
+      - name: The tag exists, so nothing is created
+        if: steps.plan.outputs.action == 'exists'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.plan.outputs.tag }}
+          POINTS: ${{ steps.plan.outputs.points }}
+        run: |
+          echo "$TAG is already on the remote, at $POINTS. This run is at $GITHUB_SHA."
+          if ! gh release view "$TAG" --json tagName,publishedAt,url; then
+            echo "::warning::$TAG has a tag and no release. Nothing was created; cut it by hand if it is wanted."
+          fi
+      # --target is the commit, not the branch: master may have moved since the push. gh creates the
+      # tag and the release in one request, so a refusal leaves neither behind.
+      - name: Create the tag and the release
+        if: steps.plan.outputs.action == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.plan.outputs.tag }}
+          LATEST: ${{ steps.plan.outputs.latest }}
+        run: |
+          if [ "$LATEST" = "true" ]; then latest="--latest"; else latest="--latest=false"; fi
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" "$latest"
+      # Two merges minutes apart run two jobs. If a higher version was released while this one ran,
+      # Latest goes back to it.
+      - name: Latest stays on the highest version
+        if: steps.plan.outputs.action == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          gh release list --limit 1000 --exclude-drafts --exclude-pre-releases --json tagName --jq '.[].tagName' > "$RUNNER_TEMP/released.txt"
+          highest="$(node tools/cortex-release-plan.mjs --highest < "$RUNNER_TEMP/released.txt")"
+          echo "The highest released version is $highest."
+          if [ "$highest" != "$TAG" ]; then
+            gh release edit "$highest" --latest
+          fi
+      # A push that carried several stamped merges releases only its tip. The rest are named here
+      # and back-filled by hand.
+      - name: Versions with a changelog section and no tag
+        if: steps.plan.outputs.untagged != ''
+        env:
+          UNTAGGED: ${{ steps.plan.outputs.untagged }}
+        run: |
+          echo "::notice::No tag for: $UNTAGGED. They are back-filled by hand, see docs/adr/0022."

@@ -527,6 +527,10 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
   // Offer a tier only where the index gives a reason for it. Reciting the whole list is how a
   // wizard turns into a catalogue, and a tier nobody has a use for is a question that costs
   // attention and returns nothing.
+  //
+  // Whether a tier is already installed is not asked here, and must not be: that is a fact about
+  // the machine, and the same tree has to give the same findings on every machine. The ritual asks
+  // `ai-os setup-plugins --status` before it puts the row to the user (#548).
   const tiers = [];
   const ext = (p) => p.slice(p.lastIndexOf("."));
   if (index.files.some((f) => [".tsx", ".jsx", ".vue", ".svelte"].includes(ext(f.path)) || ["css", "scss", "html", "vue", "svelte"].includes(f.lang))) {

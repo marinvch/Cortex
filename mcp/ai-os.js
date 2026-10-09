@@ -2,7 +2,8 @@
 import { spawnSync } from "node:child_process";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadManifest, buildPlan, formatCommands } from "./lib/setup-plugins.js";
+import { loadManifest, buildPlan, formatCommands, formatStatus, tierStatus } from "./lib/setup-plugins.js";
+import { pluginsDir, readRegistry } from "../core/plugin-registry.js";
 import { initTeamBrain, writeConnector } from "./lib/team.js";
 import { addProject, listTeamProjects, removeProject } from "./lib/project-files.js";
 import { listProjects } from "./lib/projects.js";
@@ -32,7 +33,26 @@ function claudeAvailable() {
   return r.status === 0;
 }
 
+/**
+ * `setup-plugins --status` — which tiers are already installed. Read-only: it reads the bundle
+ * manifest and Claude Code's plugin registry, starts no `claude` and installs nothing. The findings
+ * offer a tier from the index alone (the index may not read the machine), so this is what a ritual
+ * asks before it offers one (#548). `--plugins-dir` is where the registry is looked for.
+ */
+function cmdPluginStatus(args) {
+  // A flag with no value must not fall back to the real registry: a caller that meant another
+  // directory would be answered about this machine and never know.
+  if (args["plugins-dir"] === true) throw new Error("--plugins-dir needs a directory");
+  const dir = args["plugins-dir"] ?? pluginsDir();
+  const tier = typeof args.tier === "string" ? args.tier : null;
+  const status = tierStatus(loadManifest(REPO_ROOT), readRegistry(dir), { tier, cwd: process.cwd() });
+  if (args.json) console.log(JSON.stringify(status, null, 2));
+  else for (const line of formatStatus(status, dir)) console.log(line);
+  return 0;
+}
+
 function cmdSetupPlugins(args) {
+  if (args.status) return cmdPluginStatus(args);
   const tier = args.tier || "core";
   const scope = args.scope || "user";
   if (!["user", "project", "local"].includes(scope)) throw new Error(`invalid scope: ${scope} (use user|project|local)`);

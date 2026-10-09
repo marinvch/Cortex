@@ -77,7 +77,9 @@ const SECOND_ROUND = {
 // answers reached one user from one command — `cortex-findings` prints `nextLine()` as its footer.
 const AGENT_DOCS = AGENT_DOC_NAMES;
 
-const LEGACY_ENGINES = [".ai-os", ".github/ai-os"];
+// `/migrate-engine` step 1 reads `state.legacyEngine` and names these directories as everything the
+// field looks for. Add one here and that step is wrong until it names it too; next.test.mjs holds it.
+export const LEGACY_ENGINES = [".ai-os", ".github/ai-os"];
 
 function has(root, rel) {
   return existsSync(join(root, rel));

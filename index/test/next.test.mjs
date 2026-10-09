@@ -4,7 +4,8 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { readState, nextSteps, nextLine } from "../lib/next.mjs";
+import { fileURLToPath } from "node:url";
+import { LEGACY_ENGINES, readState, nextSteps, nextLine } from "../lib/next.mjs";
 import { adoptStamp, recordStamp, runningCortex, writeStamps } from "../lib/stamps.mjs";
 import { SHIPPED_SECTIONS } from "../lib/shipped-sections.mjs";
 import { sectionKeep } from "../lib/sections.mjs";
@@ -115,6 +116,42 @@ test("once the context layer exists, an old AGENTS.md is Cortex's own and not a 
   const plan = nextSteps(root);
   assert.ok(!plan.steps.some((s) => s.id === "reconcile"));
   rmSync(root, { recursive: true, force: true });
+});
+
+// --- /migrate-engine step 1 reads this state rather than scanning by hand (#548, item 13) ---------
+//
+// The ritual tells its reader to take `state.legacyEngine` as the answer for the engine's two
+// directories and to scan by hand only for the rest. That is a promise about this module made in
+// prose, so the prose is checked against the code (ADR 0016): the key it cites is the key returned,
+// and every directory the code looks for is one the step names.
+
+test("the state names each engine directory that exists, and nothing when there is none", () => {
+  const none = repo(() => {});
+  assert.deepEqual(readState(none).legacyEngine, [], "an empty list, never a missing key");
+  for (const dir of LEGACY_ENGINES) {
+    const root = repo(({ put }) => put(`${dir}/config.json`, "{}"));
+    assert.deepEqual(readState(root).legacyEngine, [dir]);
+    rmSync(root, { recursive: true, force: true });
+  }
+  const both = repo(({ put }) => LEGACY_ENGINES.forEach((d) => put(`${d}/config.json`, "{}")));
+  assert.deepEqual(readState(both).legacyEngine, LEGACY_ENGINES);
+  rmSync(none, { recursive: true, force: true });
+  rmSync(both, { recursive: true, force: true });
+});
+
+test("/migrate-engine step 1 cites the key this state returns and every directory it looks for", () => {
+  const skill = readFileSync(fileURLToPath(new URL("../../skills/migrate-engine/SKILL.md", import.meta.url)), "utf8");
+  const step1 = skill.slice(skill.indexOf("## Step 1 "), skill.indexOf("## Step 2 "));
+  assert.ok(step1.length > 200, "step 1 was found");
+  assert.match(step1, /cortex-next\.mjs" \. --json/, "it runs the command that prints the state");
+  assert.match(step1, /`state\.legacyEngine`/, "and reads the key by its real path");
+  assert.ok("legacyEngine" in nextSteps(repo(() => {})).state, "which is where --json carries it");
+  for (const dir of LEGACY_ENGINES) assert.ok(step1.includes(`\`${dir}\``), `step 1 names ${dir} as covered by the command`);
+  // What the field does not look for must stay a scan, or an empty list would read as "no engine".
+  assert.match(step1, /empty list is not "no engine"/);
+  for (const byHand of [".mcp.json", ".github/agents/", ".github/COPILOT_CONTEXT.md", ".vscode/toolsets.json", "copilot-instructions.md"]) {
+    assert.ok(step1.includes(byHand), `${byHand} is not in legacyEngine, so step 1 still scans for it`);
+  }
 });
 
 // --- another tool's doc, hand-written, beside a context layer that exists (#548, item 13) ---------

@@ -74,6 +74,14 @@ here, which is why the directory is small and stays small.
   `tools/cortex-claude-docs.mjs`, which a maintainer runs. A rule no official sentence states does
   not belong here. [ADR 0017](../docs/adr/0017-anthropic-docs-are-the-authoring-source.md).
 
+- **`plugin-registry.js` is the one reader of Claude Code's plugin registry**
+  (`<home>/.claude/plugins/installed_plugins.json`). `tools/cortex-plugin-check.mjs` and
+  `mcp/lib/setup-plugins.js` both need it and may not import each other. It only reads.
+  `readRegistry` returns a `state`, and only `read` says what is installed: `absent` and
+  `unreadable` mean unknown, never "nothing installed". The directory is a parameter, so a test
+  hands in its own and never reads the machine's. `installedHere` counts a `user` or `managed`
+  entry everywhere and a `project` or `local` one in its `projectPath` and below.
+
 - **`project-file.js` owns the project file's format, for both leaves.** A project file is
   `projects/<slug>.md` in a team-brain: flat frontmatter, then prose
   ([ADR 0024](../docs/adr/0024-a-workspace-is-project-files.md)). The rules it keeps:

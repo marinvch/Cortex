@@ -5,6 +5,18 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.40] — 2026-10-09
+
+`/grilling` no longer tells `/onboard` to ask in rounds.
+
+### Fixed
+
+- **`/grilling` and `/onboard` disagreed.** `/onboard` says "one question at a time". `/grilling`
+  said `/onboard` and `/level-up` "should ask in rounds with a recommended answer". Rounds with a
+  recommended answer fit decisions. Those two rituals ask a person about themselves, where there is
+  nothing to recommend. `/grilling` now says so and leaves each ritual its own pace. `/onboard` is
+  unchanged.
+
 ## [2.41.39] — 2026-10-09
 
 The docs check reads the blog at its new address. Closes #555.
@@ -4851,6 +4863,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.40]: https://github.com/marinvch/Cortex/releases/tag/v2.41.40
 [2.41.39]: https://github.com/marinvch/Cortex/releases/tag/v2.41.39
 [2.41.38]: https://github.com/marinvch/Cortex/releases/tag/v2.41.38
 [2.41.37]: https://github.com/marinvch/Cortex/releases/tag/v2.41.37

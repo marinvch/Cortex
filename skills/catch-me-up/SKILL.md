@@ -24,7 +24,7 @@ In a repo wired with `/team-add`, the team-brain's history is part of the materi
    No vault is needed. `repo` in the output holds the days of the repo's committed
    `.cortex/memory/` since that date and its git log over the same window; `skipped` says what was
    not read. From a clone of the Cortex repo rather than the plugin, use that clone's path.
-   - **With a vault** (`AI_OS_ROOT` set to it), the output also carries the vault's `notes` for
+   - **With a vault** (`CORTEX_ROOT` set to it), the output also carries the vault's `notes` for
      the project (`--project <slug>`, defaulting to the connector's project, else the repo's name).
      In a repo connected to a team it fast-forwards the team-brain clone first and adds
      `teamNotes` — what every repo of the team captured since the date, newest first, bounded,

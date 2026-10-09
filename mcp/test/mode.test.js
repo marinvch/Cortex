@@ -40,7 +40,7 @@ test("an empty or missing root is treated as a vault, not a repo", () => {
 
 /** Start the server against `root` and return the tool names it advertises. */
 function toolsFor(root) {
-  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: root } });
+  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: root } });
   let buf = "";
   let errBuf = "";
   child.stderr.on("data", (d) => { errBuf += d.toString(); });
@@ -91,7 +91,7 @@ test("vault mode is unchanged", async () => {
 
 /** Start the server against `root` and invoke one tool, returning the tools/call result. */
 function callOn(root, tool, args) {
-  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: root } });
+  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: root } });
   let buf = "";
   let errBuf = "";
   child.stderr.on("data", (d) => { errBuf += d.toString(); });

@@ -23,7 +23,7 @@
         "${CLAUDE_PLUGIN_ROOT}/mcp/server.js"
       ],
       "env": {
-        "AI_OS_ROOT": "${CLAUDE_PROJECT_DIR}/.cortex"
+        "CORTEX_ROOT": "${CLAUDE_PROJECT_DIR}/.cortex"
       }
     }
   }

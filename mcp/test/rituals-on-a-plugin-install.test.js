@@ -55,6 +55,7 @@ function isolatedEnv(home, extra = {}) {
   const e = { ...process.env, HOME: home, USERPROFILE: home,
     GIT_CONFIG_GLOBAL: join(home, "gitconfig-absent"), GIT_CONFIG_SYSTEM: join(home, "gitsystem-absent") };
   delete e.AI_OS_ROOT;
+  delete e.CORTEX_ROOT;
   delete e.CORTEX_AUDIENCE;
   delete e.CORTEX_PROFILE;
   return Object.assign(e, extra);
@@ -109,20 +110,41 @@ test("no ritual looks for Cortex's code inside a vault", () => {
       if (/<vault>\/(mcp|tools|core|index)\//.test(line)) offenders.push(`skills/${d.name}/SKILL.md:${i + 1}: ${line.trim()}`);
     }
   }
-  assert.deepEqual(offenders, [], "use ${CLAUDE_PLUGIN_ROOT}/…, and AI_OS_ROOT for the vault itself");
+  assert.deepEqual(offenders, [], "use ${CLAUDE_PLUGIN_ROOT}/…, and CORTEX_ROOT for the vault itself");
 });
 
 test("/connect-brain registers the plugin's server, not a vault path", () => {
   const text = readFileSync(join(REPO, "skills", "connect-brain", "SKILL.md"), "utf8");
   assert.match(text, /node "\$\{CLAUDE_PLUGIN_ROOT\}\/mcp\/server\.js"/);
-  assert.match(text, /AI_OS_ROOT=<vault>/, "the vault is still named, as AI_OS_ROOT");
+  assert.match(text, /CORTEX_ROOT=<vault>/, "the vault is still named, as CORTEX_ROOT");
+  // #552: the registration is `cortex`, so the tools read `mcp__cortex__…`, and the skill tells a
+  // user who registered `ai-os` earlier that theirs keeps working.
+  assert.match(text, /claude mcp add --scope user cortex /);
+  assert.doesNotMatch(text, /claude mcp add --scope user ai-os /);
+  assert.match(text, /AI_OS_ROOT/, "the older name is mentioned for the reader who has it");
+});
+
+test("the README registers the server as cortex, by CORTEX_ROOT, and says an ai-os registration keeps working", () => {
+  // #552. The README is where a person copies the registration from, so it is where the old name
+  // came back from every time. The section, not the file: `.ai-os/` is named elsewhere on purpose.
+  const readme = readFileSync(join(REPO, "README.md"), "utf8");
+  const start = readme.indexOf("## Connect the live brain");
+  const section = readme.slice(start, readme.indexOf("\n## ", start + 1));
+  assert.ok(start > 0 && section.length > 300, "the section was found");
+  assert.match(section, /claude mcp add --scope user cortex --env CORTEX_ROOT=\S+ -- node \S+\/mcp\/server\.js/);
+  assert.match(section, /\{ "cortex": \{[^\n]*"env": \{ "CORTEX_ROOT": /, "the JSON form carries the same two names");
+  assert.doesNotMatch(section, /mcp add[^\n]* ai-os /, "no command registers under the old name");
+  assert.doesNotMatch(section, /\/path\/to\/ai-os/, "the clone in the examples is /path/to/cortex");
+  assert.match(section, /`ai-os`[\s\S]{0,200}keeps working/, "an existing ai-os registration is said to keep working");
+  assert.match(section, /`AI_OS_ROOT` is still read/, "and so is its variable");
+  assert.match(section, /mcp\/ai-os\.js/, "what was not renamed is said where the new name is introduced");
 });
 
 // ---------------------------------------------------------------------------------------------
 // The commands, as printed, on a plugin install
 // ---------------------------------------------------------------------------------------------
 
-test("/catch-me-up's command reads a plain repo with no vault and no AI_OS_ROOT", () => {
+test("/catch-me-up's command reads a plain repo with no vault and no root set", () => {
   const f = fixture();
   const [line] = commandsIn("catch-me-up").found;
   const r = run(f, argvOf(line, f.pluginRoot, { "<date>": "2026-01-01" }));
@@ -132,7 +154,7 @@ test("/catch-me-up's command reads a plain repo with no vault and no AI_OS_ROOT"
   assert.equal(out.repo.memory.length, 1, "only the memory days on or after --since");
   assert.match(out.repo.memory[0].content, /moved auth to the edge/);
   assert.ok(out.repo.commits.some((c) => /rate-limit the login endpoint/.test(c)), out.repo.commits.join("\n"));
-  assert.match(out.skipped, /AI_OS_ROOT is not set/, "an absent vault is said, not implied by an empty list");
+  assert.match(out.skipped, /CORTEX_ROOT is not set/, "an absent vault is said, not implied by an empty list");
   assert.deepEqual(out.notes, []);
 });
 
@@ -143,7 +165,7 @@ test("/catch-me-up's command with a vault adds its notes to the repo's own histo
   writeFileSync(join(vault, "projects", "product", "n1.md"), "product: decided to drop the legacy API");
   const [line] = commandsIn("catch-me-up").found;
   const argv = [...argvOf(line, f.pluginRoot, { "<date>": "1990-01-01" }), "--project", "product"];
-  const r = run(f, argv, { env: { AI_OS_ROOT: vault } });
+  const r = run(f, argv, { env: { CORTEX_ROOT:vault } });
   assert.equal(r.status, 0, r.stderr);
   const out = JSON.parse(r.stdout);
   assert.ok(out.notes.some((n) => /legacy API/.test(n.snippet)), "the vault half");
@@ -151,13 +173,13 @@ test("/catch-me-up's command with a vault adds its notes to the repo's own histo
   assert.equal(out.skipped, undefined);
 });
 
-test("catch-up with AI_OS_ROOT at a repo's .cortex reads that repo, from any cwd", () => {
+test("catch-up with CORTEX_ROOT at a repo's .cortex reads that repo, from any cwd", () => {
   // Repo mode — what the plugin's own MCP server is configured with. The repo is the root's
   // parent; the cwd need not be inside it, and a project slug is not needed to name it.
   const f = fixture();
   const elsewhere = tempDir("elsewhere-");
   const cli = join(f.pluginRoot, "mcp", "ai-os.js");
-  const r = run(f, [cli, "catch-up", "--since", "2026-01-01"], { cwd: elsewhere, env: { AI_OS_ROOT: join(f.proj, ".cortex") } });
+  const r = run(f, [cli, "catch-up", "--since", "2026-01-01"], { cwd: elsewhere, env: { CORTEX_ROOT:join(f.proj, ".cortex") } });
   assert.equal(r.status, 0, r.stderr);
   const out = JSON.parse(r.stdout);
   assert.equal(out.repo.memory.length, 1);
@@ -172,7 +194,7 @@ test("catch-up with neither a repo nor a vault says so and exits 1", () => {
   // If the OS temp dir happens to sit inside a git work tree, this case cannot be built here.
   if (r.status === 0) return;
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /not inside a git repository and AI_OS_ROOT is not set/);
+  assert.match(r.stderr, /not inside a git repository and CORTEX_ROOT is not set/);
 });
 
 test("catch-up without a root still refuses a misspelt CORTEX_PROFILE", () => {
@@ -195,7 +217,7 @@ test("catch-up writes nothing to the repo it reads", () => {
   assert.equal(status(), before);
 });
 
-test("/setup-plugins' command runs on a plugin install with no AI_OS_ROOT", () => {
+test("/setup-plugins' command runs on a plugin install with no root set", () => {
   // A `claude` stub that fails `--version` sits first on PATH, so the command takes its degrade
   // path and prints the install commands — a test must never actually install plugins.
   const f = fixture();
@@ -210,7 +232,7 @@ test("/setup-plugins' command runs on a plugin install with no AI_OS_ROOT", () =
   const r = run(f, argvOf(line, f.pluginRoot), { env });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /claude plugin install superpowers@/);
-  assert.doesNotMatch(r.stderr, /AI_OS_ROOT/);
+  assert.doesNotMatch(r.stderr, /CORTEX_ROOT|AI_OS_ROOT/);
 });
 
 test("/team-add's command joins a team-brain from a plugin install, cloning into the vault", () => {
@@ -223,7 +245,7 @@ test("/team-add's command joins a team-brain from a plugin install, cloning into
   execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
   const [line] = commandsIn("team-add").found;
   const argv = argvOf(line, f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
-  const r = run(f, argv, { cwd: f.proj, env: { AI_OS_ROOT: vault } });
+  const r = run(f, argv, { cwd: f.proj, env: { CORTEX_ROOT:vault } });
   assert.equal(r.status, 0, `team add failed on a plugin install:\n${r.stderr}`);
   assert.ok(existsSync(join(vault, "team", "core", ".git")), "the team-brain is cloned under the vault");
   const conn = JSON.parse(readFileSync(join(f.proj, ".cortex", "connector.json"), "utf8"));

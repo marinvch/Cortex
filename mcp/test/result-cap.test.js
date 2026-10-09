@@ -19,7 +19,7 @@ test("recall_memory over an oversized memory file comes back capped and marked",
   mkdirSync(memory, { recursive: true });
   writeFileSync(join(memory, `${stamp()}.md`), `# ${stamp()}\n\n` + "A decision and why it was taken.\n".repeat(8000));
 
-  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: join(repo, ".cortex") } });
+  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: join(repo, ".cortex") } });
   let buf = "";
   let err = "";
   child.stderr.on("data", (d) => { err += d.toString(); });

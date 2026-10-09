@@ -60,6 +60,7 @@ const BASE_ENV = (() => {
   };
   delete e.CORTEX_PROFILE;
   delete e.CORTEX_AUDIENCE;
+  delete e.CORTEX_ROOT;
   delete e.AI_OS_ROOT;
   return e;
 })();
@@ -462,7 +463,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
       const connector = JSON.parse(readFileSync(join(r.clone, ".cortex", "connector.json"), "utf8"));
       r.vault = join(WORK, `vault-${r.name}`);
       mkdirSync(r.vault, { recursive: true });
-      r.env = { ...BASE_ENV, AI_OS_ROOT: r.vault };
+      r.env = { ...BASE_ENV, CORTEX_ROOT: r.vault };
       const add = spawnSync(process.execPath, [CLI, "team", "add", "--name", team ?? "", "--repo", remote, "--slug", String(connector.slug ?? "")], {
         cwd: r.clone, env: r.env, encoding: "utf8",
       });

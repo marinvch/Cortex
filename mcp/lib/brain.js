@@ -40,6 +40,7 @@ import { dirname } from "node:path";
 import { detectMode, REPO } from "./mode.js";
 import { resolveBrain, NoRootError } from "./resolve.js";
 import { resolveProfile, UnknownProfileError } from "../../core/profile.js";
+import { ROOT_VAR, LEGACY_ROOT_VAR } from "../../core/paths.js";
 
 export { NoRootError, UnknownProfileError };
 
@@ -51,16 +52,21 @@ export { NoRootError, UnknownProfileError };
  * Fatal at entry for the reason an unset root is (#550): a server that starts on a root that does
  * not exist is listed as connected, and the fault shows as a raw ENOENT in whichever tool an agent
  * calls first. The message names the path and the variable, and is the one line both adapters print.
+ *
+ * `variable` is the one that was SET — `CORTEX_ROOT`, or `AI_OS_ROOT` on an install registered
+ * before #552 — because that is the line in the user's config that holds the wrong path. Telling
+ * someone to fix a variable they never set sends them looking in the wrong place.
  */
 export class MissingRootError extends Error {
-  constructor(path, { repo }) {
+  constructor(path, { repo, variable = ROOT_VAR }) {
     super(
       repo
-        ? `the repo at ${path} does not exist, so AI_OS_ROOT points at a .cortex/ with no repo around it. Set AI_OS_ROOT to <an existing repo>/.cortex, or to your vault path.`
-        : `${path} does not exist or is not a directory. Set AI_OS_ROOT to your vault path, or to a repo's .cortex/.`,
+        ? `the repo at ${path} does not exist, so ${variable} points at a .cortex/ with no repo around it. Set ${variable} to <an existing repo>/.cortex, or to your vault path.`
+        : `${path} does not exist or is not a directory. Set ${variable} to your vault path, or to a repo's .cortex/.`,
     );
     this.name = "MissingRootError";
     this.path = path;
+    this.variable = variable;
   }
 }
 
@@ -80,10 +86,12 @@ const isDir = (p) => {
  *   root: string, mode: string, isRepo: boolean,
  *   audience: string, team: string|null, teamClone: string|null, project: string|null,
  *   profile: string, policy: object,
- *   sources: { audience: string, profile: string },
+ *   sources: { audience: string, profile: string, root: string },
+ *   notices: string[],
  *   describe: () => string,
  * }}
- * @throws {NoRootError} AI_OS_ROOT unset or blank — never guessed (docs/adr/0008)
+ * @throws {NoRootError} CORTEX_ROOT and AI_OS_ROOT both unset or blank — never guessed (docs/adr/0008)
+ * @throws {MissingRootError} the root that was named is not there — never swapped for the other name's
  * @throws {UnknownProfileError} CORTEX_PROFILE set to something that is not a profile
  */
 export function openBrain({ cwd, env }) {
@@ -95,7 +103,15 @@ export function openBrain({ cwd, env }) {
   const located = resolveBrain({ cwd, env });
   const mode = detectMode(located.root);
   const mustExist = mode === REPO ? dirname(located.root) : located.root;
-  if (!isDir(mustExist)) throw new MissingRootError(mustExist, { repo: mode === REPO });
+  if (!isDir(mustExist)) throw new MissingRootError(mustExist, { repo: mode === REPO, variable: located.rootVariable });
+
+  // Two names set to two different paths. CORTEX_ROOT is the one used (core/paths.js); the other is
+  // somebody's older registration or a variable left in a shell profile, and the person who set it
+  // believes that is the brain in use. One line, said once by whichever adapter opened the brain.
+  // An AI_OS_ROOT used on its own earns no line: it is supported, not deprecated.
+  const notices = located.rootIgnored
+    ? [`cortex: ${ROOT_VAR} and ${LEGACY_ROOT_VAR} are both set and differ. Using ${ROOT_VAR} (${located.root}); ${LEGACY_ROOT_VAR} (${located.rootIgnored}) is ignored.`]
+    : [];
 
   const brain = {
     root: located.root,
@@ -117,7 +133,12 @@ export function openBrain({ cwd, env }) {
     policy: world.policy,
 
     // A resolver that cannot explain its own answer is one nobody trusts the moment it is wrong.
-    sources: { audience: located.source, profile: world.source },
+    // `root` is the variable that named it: CORTEX_ROOT, or AI_OS_ROOT on an older registration.
+    sources: { audience: located.source, profile: world.source, root: located.rootVariable },
+
+    // Lines for stderr, each already carrying the `cortex:` prefix. Both adapters print them as
+    // they are, so the two cannot word the same fact differently.
+    notices,
 
     describe: () => describe(brain),
   };

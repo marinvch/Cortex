@@ -5,7 +5,8 @@
   "type": "module",
   "bin": {
     "ai-os": "ai-os.js",
-    "ai-os-mcp": "server.js"
+    "ai-os-mcp": "server.js",
+    "cortex-mcp": "server.js"
   },
   "engines": {
     "node": ">=20"

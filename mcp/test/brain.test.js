@@ -77,7 +77,7 @@ function gitEnv(home) {
 
 /** The environment both adapters get. Built explicitly so the developer's own CORTEX_* cannot leak in. */
 function envFor({ vault, home }, extra = {}) {
-  const e = { ...process.env, AI_OS_ROOT: vault, HOME: home, USERPROFILE: home };
+  const e = { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: vault, HOME: home, USERPROFILE: home };
   delete e.CORTEX_AUDIENCE;
   delete e.CORTEX_PROFILE;
   return Object.assign(e, extra);
@@ -191,7 +191,7 @@ test("every adapter opens the brain at entry — neither re-derives the seam", (
   for (const adapter of ["server.js", "ai-os.js"]) {
     const src = code(adapter);
     assert.match(src, /from\s+["']\.\/lib\/brain\.js["']/, `${adapter} must open the brain`);
-    assert.doesNotMatch(src, /env\.AI_OS_ROOT/, `${adapter} must take the root from the brain, not the environment`);
+    assert.doesNotMatch(src, /env\??\.(CORTEX_ROOT|AI_OS_ROOT)/, `${adapter} must take the root from the brain, not the environment`);
     assert.doesNotMatch(src, /lib\/resolve\.js/, `${adapter} must not resolve the audience itself`);
     assert.doesNotMatch(src, /core\/profile\.js/, `${adapter} must not resolve the profile itself`);
     assert.doesNotMatch(src, /lib\/mode\.js/, `${adapter} must not detect the mode itself`);
@@ -257,31 +257,33 @@ test("the CLI fails on a misspelt CORTEX_PROFILE before it validates its own arg
   assert.doesNotMatch(r.stderr, /usage: ai-os team add/, "the profile must be settled before the arguments are");
 });
 
-test("a command that does not talk to the brain still runs without AI_OS_ROOT", () => {
+test("a command that does not talk to the brain still runs without a root", () => {
   // Opening at entry must not turn `digest` and `setup-plugins` into commands that demand a vault;
   // that would be a new requirement wearing a fix's clothes. `digest` with no arguments reaches its
   // own usage error — if the brain were opened for every command, it would fail on the root first.
   const f = fixture();
   const e = envFor(f);
   delete e.AI_OS_ROOT;
+  delete e.CORTEX_ROOT;
   const r = spawnSync(process.execPath, [CLI, "digest"], { cwd: f.cwd, env: e, encoding: "utf8" });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /usage: ai-os digest/);
-  assert.doesNotMatch(r.stderr, /AI_OS_ROOT/, "digest reads no brain, so it must not demand a root");
+  assert.doesNotMatch(r.stderr, /CORTEX_ROOT|AI_OS_ROOT/, "digest reads no brain, so it must not demand a root");
 });
 
-test("an unset AI_OS_ROOT names the command that needed it", () => {
+test("an unset root names the command that needed it", () => {
   // `team` writes a clone under the vault, so it genuinely needs one. `catch-up` used to be the
   // example here and no longer is: it reads the repo it stands in when no vault is named
   // (test/rituals-on-a-plugin-install.test.js).
   const f = fixture();
   const e = envFor(f);
   delete e.AI_OS_ROOT;
+  delete e.CORTEX_ROOT;
   const r = spawnSync(process.execPath, [CLI, "team", "add"], {
     cwd: f.cwd, env: e, encoding: "utf8",
   });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /AI_OS_ROOT is not set \(required for team operations\)/);
+  assert.match(r.stderr, /CORTEX_ROOT is not set \(required for team operations\)/);
 });
 
 // --- a root that is not there (#550) ----------------------------------------------------------------
@@ -315,19 +317,19 @@ test("a root that is a file is refused like one that is missing", () => {
 test("the server exits at startup on a missing root, with one line that says what to set", () => {
   const base = tempDir("brain-server-");
   const root = join(base, "gone-repo", ".cortex");
-  const r = spawnSync(process.execPath, [SERVER], { env: { ...process.env, AI_OS_ROOT: root, CORTEX_PROFILE: "home" }, input: "", encoding: "utf8" });
+  const r = spawnSync(process.execPath, [SERVER], { env: { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: root, CORTEX_PROFILE: "home" }, input: "", encoding: "utf8" });
   assert.equal(r.status, 1);
   assert.equal(r.stdout, "", "nothing on the protocol channel");
   const lines = r.stderr.trim().split(/\r?\n/);
   assert.equal(lines.length, 1, r.stderr);
   assert.ok(lines[0].includes(join(base, "gone-repo")), lines[0]);
   assert.match(lines[0], /does not exist/);
-  assert.match(lines[0], /AI_OS_ROOT/);
+  assert.match(lines[0], /CORTEX_ROOT/);
 });
 
 test("the CLI says the same thing, even for the one command that may run without a root", () => {
   const base = tempDir("brain-cli-");
-  const r = spawnSync(process.execPath, [CLI, "catch-up", "--project", "x", "--since", "2026-01-01"], { cwd: base, env: { ...process.env, AI_OS_ROOT: join(base, "nope"), CORTEX_PROFILE: "home" }, encoding: "utf8" });
+  const r = spawnSync(process.execPath, [CLI, "catch-up", "--project", "x", "--since", "2026-01-01"], { cwd: base, env: { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: join(base, "nope"), CORTEX_PROFILE: "home" }, encoding: "utf8" });
   assert.notEqual(r.status, 0);
   assert.match(r.stderr + r.stdout, /does not exist/);
   assert.doesNotMatch(r.stderr + r.stdout, /ENOENT/);

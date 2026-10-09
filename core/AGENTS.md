@@ -10,6 +10,13 @@ here, which is why the directory is small and stays small.
 - **Every caller-supplied path goes through `resolveInRoot`.** It realpaths the nearest *existing*
   ancestor, so a symlink escape is caught even for a file that does not exist yet. `projects.js`
   once skipped this and `getProjectContext(root, "../../secret")` read any file on disk.
+- **`rootFromEnv` in `paths.js` is the one place the root's two names are put in order.**
+  `CORTEX_ROOT`, then `AI_OS_ROOT` (the name before #552, still read, never warned about); an empty
+  value is unset; neither set is `root: null` and nothing is guessed. It reads the strings it is
+  handed and never the disk. No other file in `core/` names either variable, and `profile.js` least
+  of all: it reads `CORTEX_PROFILE` only. `test/root-from-env.test.js` holds both. The shell
+  counterpart is `cortex_root` in `tools/_cortex-lib.sh`, and `tools/test/cortex-root.test.sh` runs
+  the two over every pairing.
 - **`scrub.js` refuses; it never sanitises.** `assertWritable` throws `RefusedWriteError` and the
   write does not happen. Silently rewriting a developer's note to remove a secret is a worse
   failure than declining it with a reason.

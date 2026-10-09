@@ -12,7 +12,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CODENAME, CONTEXT_LAYER, FIXTURE_VERSION, hashDir, treeHash } from "../harness/fixture.mjs";
 import { CLOSING, PROBE_PROMPT, TASKS, promptFor } from "../harness/tasks.mjs";
 import { HarnessFault, accept } from "../harness/accept.mjs";
@@ -23,6 +24,7 @@ import {
   summarise, versionAtLeast,
 } from "../harness/run.mjs";
 
+const HERE = dirname(fileURLToPath(import.meta.url));
 const roots = [];
 const temp = (prefix = "cortex-harness-test-") => { const d = mkdtempSync(join(tmpdir(), prefix)); roots.push(d); return d; };
 test.after(() => { for (const r of roots) rmSync(r, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
@@ -45,6 +47,38 @@ function deps(session, extra = {}) {
 }
 const cell = (summary, task, arm) => summary.cells.find((c) => c.task === task && c.arm === arm);
 const counts = (c) => [c.pass, c.works, c.rule, c.scored];
+
+// ── where the harness sits ────────────────────────────────────────────────────────────────────────
+
+// Every relative import and re-export of a module, resolved to a file.
+function importsOf(file) {
+  const text = readFileSync(file, "utf8");
+  const found = [...text.matchAll(/\b(?:import|export)\b[^;'"`]*?\bfrom\s*["'](\.[^"']+)["']/g), ...text.matchAll(/\bimport\s*\(?\s*["'](\.[^"']+)["']/g)];
+  return found.map((m) => resolve(dirname(file), m[1]));
+}
+function modulesUnder(dir) {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory() ? modulesUnder(join(dir, e.name)) : /\.mjs$/.test(e.name) ? [join(dir, e.name)] : []);
+}
+
+test("the harness imports nothing from outside evals/, and nothing in the product imports from it", () => {
+  const evals = resolve(HERE, "..");
+  const repo = resolve(evals, "..");
+  const mine = [...modulesUnder(join(evals, "harness")), join(evals, "claude.mjs")];
+  assert.ok(mine.length >= 20, "the harness's modules were found");
+  for (const file of mine) {
+    for (const to of importsOf(file)) assert.ok(to.startsWith(evals + sep), `${relative(repo, file)} imports ${relative(repo, to)}`);
+  }
+  // The other direction: the kernel, the leaves and the shipped tools never reach into evals/.
+  for (const pkg of ["core", "index", "mcp", "tools"]) {
+    const sources = readdirSync(join(repo, pkg), { recursive: true }).map(String)
+      .filter((f) => /\.(m?js)$/.test(f) && !/(^|[\\/])node_modules[\\/]/.test(f));
+    assert.ok(sources.length > 0, pkg);
+    for (const f of sources) {
+      assert.doesNotMatch(readFileSync(join(repo, pkg, f), "utf8"), /from\s*["'][^"']*evals\/|import\s*\(\s*["'][^"']*evals\//, `${pkg}/${f} imports from evals/`);
+    }
+  }
+});
 
 // ── the launch ────────────────────────────────────────────────────────────────────────────────────
 
@@ -172,6 +206,12 @@ test("every working copy is deleted, and each attempt leaves its result, verdict
   assert.equal(one.result.subtype, "success");
   assert.match(one.diff, /^diff --git a\/src\/cart\/pricing\.js b\/src\/cart\/pricing\.js/m);
   assert.match(one.diff, /^\+.*percent\(subtotal/m);
+  // The fixture's version and the hash of the arm's tree go into every record, not only run.json:
+  // a record read by itself still says which tree it was earned on.
+  for (const name of files.filter((f) => f !== "run.json")) {
+    const record = JSON.parse(readFileSync(join(dir, name), "utf8"));
+    assert.deepEqual(record.fixture, { version: FIXTURE_VERSION, tree: treeHash(record.arm) }, name);
+  }
   const meta = JSON.parse(readFileSync(join(dir, "run.json"), "utf8"));
   assert.equal(meta.model, MODEL);
   assert.equal(meta.cliVersion, "2.1.295");
@@ -220,6 +260,8 @@ test("a call that throws once is retried, listed, and leaves the cell's count at
   assert.match(s.failedCallList[0].reason, /529 overloaded/);
   const attempts = run.records.filter((r) => r.arm === "with" && r.repeat === 2).map((r) => [r.attempt, r.kind]);
   assert.deepEqual(attempts, [[1, "failed"], [2, "scored"]]);
+  const lost = run.records.find((r) => r.kind === "failed");
+  assert.deepEqual(lost.fixture, { version: FIXTURE_VERSION, tree: treeHash("with") }, "a failed call's record names its tree too");
   assert.match(renderTable(run), /6 scored, 1 failed call\b/);
 });
 
@@ -367,8 +409,11 @@ test("a harness fault stops the run and is never scored", async () => {
 });
 
 test("a model run never happens in CI", async () => {
-  const before = process.env.CI;
+  const before = process.env.CI, bin = process.env.CLAUDE_CLI_BIN;
   process.env.CI = "true";
+  // This test runs main() with no injected session. If the refusal ever goes, the real session
+  // must not start on the contributor's login: point it at a binary that does not exist.
+  process.env.CLAUDE_CLI_BIN = join(temp(), "no-such-claude");
   try {
     const errors = [];
     const d = deps(undefined, { error: (m) => errors.push(m) });
@@ -380,6 +425,7 @@ test("a model run never happens in CI", async () => {
     assert.equal(await main(["--dry", "--tasks", "search-empty", "--once"], d), 0);
   } finally {
     if (before === undefined) delete process.env.CI; else process.env.CI = before;
+    if (bin === undefined) delete process.env.CLAUDE_CLI_BIN; else process.env.CLAUDE_CLI_BIN = bin;
   }
 });
 
@@ -556,6 +602,46 @@ test("an interrupted run continues from its records and does not repeat a finish
   assert.equal(readdirSync(join(d.recordsRoot, runId)).length, 7);
   assert.match(lines.join("\n"), /6 scored, 0 failed calls/);
   assert.equal(await main(["--resume", "no-such-run"], d), 2);
+});
+
+test("a cell interrupted after two failed calls still gets its third attempt when the run continues", async () => {
+  let failing = true;
+  const session = stubSession({ plan: (task, arm) => (failing && arm === "with" ? { throws: "claude exited 1: API Error: 529" } : { patch: "good" }) });
+  const d = deps(session, ONE);
+  const run = await measure(d);
+  const dir = join(d.recordsRoot, run.meta.runId);
+  assert.deepEqual(readdirSync(dir).filter((f) => f.includes("-with-")).sort(), ["r1-discount-with-a1.json", "r1-discount-with-a2.json", "r1-discount-with-a3.json"]);
+  // As if the run had stopped before the last retry: two attempts are on record, and one is owed.
+  rmSync(join(dir, "r1-discount-with-a3.json"));
+  failing = false;
+  const made = session.calls.filter((c) => c.prompt !== PROBE_PROMPT).length;
+  const resumed = await measure({ ...d, resume: run.meta.runId });
+  const again = session.calls.filter((c) => c.prompt !== PROBE_PROMPT).slice(made);
+  assert.deepEqual(again.map((c) => [c.seen.task, c.seen.arm]), [["discount", "with"]], "only the owed attempt ran");
+  const mine = resumed.records.filter((r) => r.arm === "with").map((r) => [r.attempt, r.kind]).sort();
+  assert.deepEqual(mine, [[1, "failed"], [2, "failed"], [3, "scored"]]);
+  assert.deepEqual(counts(cell(summarise(resumed), "discount", "with")), [1, 1, 1, 1]);
+});
+
+test("a run is never continued on another version of the fixture, or with another model", async () => {
+  const session = stubSession({ plan: () => ({ patch: "good" }) });
+  const d = deps(session, ONE);
+  const run = await measure(d);
+  const file = join(d.recordsRoot, run.meta.runId, "run.json");
+  const meta = JSON.parse(readFileSync(file, "utf8"));
+  const made = session.calls.length;
+  for (const [change, says] of [
+    [{ fixture: { ...meta.fixture, version: meta.fixture.version + 1 } }, /another version of the fixture/],
+    [{ fixture: { ...meta.fixture, with: "0".repeat(64) } }, /another version of the fixture/],
+    [{ model: "claude-haiku-4-5" }, /claude-haiku-4-5/],
+    [{ effort: "high" }, /at high/],
+  ]) {
+    writeFileSync(file, JSON.stringify({ ...meta, ...change }));
+    const errors = [];
+    assert.equal(await main(["--resume", run.meta.runId], { ...d, error: (m) => errors.push(m) }), 2, JSON.stringify(change));
+    assert.match(errors.join("\n"), says);
+  }
+  assert.equal(session.calls.length, made, "results from two versions are never added together: no call was made");
 });
 
 test("a section is a pure function of a run's records", async () => {

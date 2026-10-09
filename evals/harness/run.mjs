@@ -263,7 +263,9 @@ export async function measure(d = {}) {
 
     // One attempt of one cell, in a copy that is deleted afterwards.
     const attemptOnce = async (task, arm, repeat, attempt, work) => {
-      const base = { repeat, task: task.id, arm, attempt };
+      // Every record names the fixture's version and its arm's tree, so one read by itself still says
+      // what it was earned on. Results from two versions are never added together.
+      const base = { repeat, task: task.id, arm, attempt, fixture: { version: fixture.version, tree: fixture[arm] } };
       const started = Date.now();
       try {
         let result;

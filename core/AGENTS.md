@@ -36,6 +36,27 @@ here, which is why the directory is small and stays small.
   in the directory is skipped. Every reader in `index/` and `mcp/` calls these two; a second
   listing of the directory is how a repo that only has day directories gets told it has no
   memory. [The design](../docs/specs/2026-10-09-team-memory-design.md), "Layout" and "Readers".
+- **`append()` writes one file per author per day, and finds the author itself.** The path is
+  `memory/<day>/<author>.md`, headed `# <day> · <author>`. The author is the `author` option, else
+  `CORTEX_AUTHOR`, else git `user.name` read in the repo that holds `.cortex`
+  (`resolveAuthor`, `author.js`). Only the slug from `authorSlug` is written: never the raw name,
+  and no email is ever read. The rules a change must keep:
+  - **No caller passes the author in production.** The writer resolves it, so neither the CLI nor
+    `remember` can forget to ([ADR 0016](../docs/adr/0016-a-guarantee-belongs-to-the-act-not-to-the-skill.md)).
+    The option, `env` and `git` exist so a test names its author and reads no machine identity.
+  - **No usable name is not an error.** The entry goes to the day file `memory/<day>.md`, and the
+    result carries `layout: "day"` and a `notice` on every such write. Each caller passes the
+    notice on. A day file is the layout that conflicts between branches, so the fallback must
+    never be silent.
+  - **A name someone set and got wrong is refused**: `invalid_author`, for `CORTEX_AUTHOR` and for
+    the option. It is never swapped for git.
+  - **The order is: empty, the secret gate, the root check, the author, then the disk.** A refused
+    write leaves no file and no day directory, and `append()` never creates `.cortex/`.
+    `test/memory.test.js` compares the whole tree after each refusal.
+  - **`author.js` is the one module in `core/` that starts a process**: `git config user.name`, as
+    an argument array. `test/author.test.js` injects git in every case.
+  - `test/memory-fixture.js` builds every reader's fixture with this writer.
+  [The design](../docs/specs/2026-10-09-team-memory-design.md), "What names an author".
 - **`root` means the `.cortex` directory, and `append()` enforces it.** The contract used to live
   in a doc comment, so passing a repo root — the reading the word invites — wrote a dated file to
   `<repo>/memory/`, returned the path it had written and exited 0. Nothing reads there, and

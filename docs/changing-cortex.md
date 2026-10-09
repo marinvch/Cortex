@@ -71,6 +71,12 @@ before overturning one; the line here is the trigger, not the case.
   read one `SITES` list. The `## [x.y.z]` changelog entry is the one thing the tool will not write.
   [ADR 0013](adr/0013-the-version-has-one-home.md), and
   [ADR 0014](adr/0014-the-package-split-stays-rejected.md) before proposing a package split.
+- **Stamping a version on `master` is releasing it.** `.github/workflows/release.yml` tags the merge
+  commit and publishes that version's changelog section minutes after a merge that raises `VERSION`.
+  Nothing sits between the merge and the release, so stamp only what is ready to be public, and
+  never lower `VERSION`. What the workflow does is decided by `tools/cortex-release-plan.mjs` and
+  tested in `tools/test/release-plan.test.sh`; change the rule there, not in the workflow's shell.
+  [ADR 0022](adr/0022-stamping-a-version-on-master-releases-it.md) says how to undo a release.
 - **Every ritual declares a `capability:` floor — `mechanical` · `judgment` · `strong` — under
   its frontmatter's `metadata:` map.** `node tools/cortex-capability.mjs` prints the table from the
   frontmatter, so it cannot drift. The failure it prevents is not a crash: a weak model runs

@@ -56,7 +56,9 @@ test("the shims Cortex writes for another tool point at the root brief", () => {
 test("a doc that never names AGENTS.md holds its own text, however short", () => {
   assert.ok(!pointsAtRootBrief("Use tabs.\n"));
   assert.ok(!pointsAtRootBrief(""), "an empty file points nowhere");
-  assert.ok(!pointsAtRootBrief("See MY-AGENTS.md.backup for the rules.\n"), "another file's name is not the brief");
+  assert.ok(!pointsAtRootBrief("See MY-AGENTS.md for the rules.\n"), "another file's name is not the brief");
+  assert.ok(!pointsAtRootBrief("See OLD.AGENTS.md for the rules.\n"));
+  assert.ok(!pointsAtRootBrief("See AGENTS.md.backup for the rules.\n"));
   assert.ok(!pointsAtRootBrief("See AGENTS.mdx for the rules.\n"));
 });
 

@@ -254,6 +254,9 @@ site disagrees (`cortex-version.mjs`), the notes do not extract (`cortex-release
 the remote's tags cannot be listed. The tree is judged before the remote is asked for the tag.
 Exit 2 is a usage error.
 
+The workflow appends stdout to `$GITHUB_OUTPUT` whole, so every value printed has been matched
+first: a version is `x.y.z`, a commit is hex. Keep it that way when adding a key.
+
 `latest` is `true` when the version is above every `v<x.y.z>` tag on the remote. `untagged` lists
 every other version with a changelog section and no tag. The notes file is written only for
 `release`. It creates no tag and no release, and reads tags with `git ls-remote`, so a tag that

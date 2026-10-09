@@ -27,6 +27,8 @@ defaults:
 
 jobs:
   release:
+    # Not in a fork: syncing a fork's master would publish that fork's own copy of every release.
+    if: github.event.repository.fork == false
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

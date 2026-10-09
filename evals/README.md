@@ -339,8 +339,8 @@ by a measured run: step 2.2 made no session, and the first real ones belong to s
 
 | Question | Where it stands |
 |---|---|
-| What `--output-format json` prints when `--max-turns` is reached | **Settled** by the captured result in `harness/templates/result-max-turns.json`: `subtype` is `error_max_turns`, `is_error` is true, there is an `errors` list and no `result` text, and `total_cost_usd`, `num_turns` and `modelUsage` are present. `classify()` scores such a session on its tree |
-| Whether `permission_denials` appears in `json` output | **Settled** by both captured results: it is there, as a list. The record keeps its length as `denials`; nothing depends on it |
+| What `--output-format json` prints when `--max-turns` is reached | **Provisional.** `harness/templates/result-max-turns.json` looks like a captured result, but how it was captured is not recorded, so step 2.3 confirms it on its first real session. In it, `subtype` is `error_max_turns`, `is_error` is true, there is an `errors` list and no `result` text, and `total_cost_usd`, `num_turns` and `modelUsage` are present. `classify()` scores such a session on its tree |
+| Whether `permission_denials` appears in `json` output | **Provisional**, on the same two templates: it is there, as a list. The record keeps its length as `denials`; nothing depends on it |
 | `CLAUDE_SETTING_SOURCES` | The harness does not set it. It relies on `--setting-sources` alone |
 | Whether leaving `user` out of `--setting-sources` keeps `~/.claude/CLAUDE.md` and `~/.claude/rules/` out of a session | **Open.** If they load, they reach both arms alike, which cannot favour one and can move both. Each recorded section says whether the file existed |
 | Whether a project `CLAUDE.md` loads when `project` is left out | **Open, and not depended on.** `project` stays in, and the probe checks at the start of every run that the root brief loads |

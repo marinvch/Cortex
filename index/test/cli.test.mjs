@@ -264,7 +264,7 @@ test("with no usable author the entry goes to <day>.md, exit 0, and stderr says 
       assert.equal(r.code, 0, "a /dream at the end of a day does not fail over a setting");
       assert.match(r.stdout, /^wrote .*[\\/]memory[\\/]\d{4}-\d{2}-\d{2}\.md\n$/, "stdout is still the one line");
       assert.match(r.stderr, /shared day file \d{4}-\d{2}-\d{2}\.md/, `said on the ${text} write`);
-      assert.match(r.stderr, /CORTEX_AUTHOR/, "the line names the fix");
+      assert.match(r.stderr, /Set CORTEX_AUTHOR to /, "the line names the fix, as something to do");
       assert.equal(r.stderr.trim().split("\n").length, 1, "one line");
       assert.ok(!r.stderr.includes("Разработчик"), "no name is repeated");
     }

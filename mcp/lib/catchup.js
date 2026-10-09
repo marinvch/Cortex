@@ -107,11 +107,13 @@ export function catchUpRepo(repoDir, { since }) {
   const cortex = join(repoDir, ".cortex");
   const filtered = ISO_DAY.test(String(since));
   const day = filtered ? String(since).slice(0, 10) : null;
-  // core/memory.js owns the store's layout (one YYYY-MM-DD.md per day, under the root guard), so
-  // this asks it rather than listing the directory a second way.
+  // core/memory.js owns the store's layout (a day file, or one file per author in a day directory,
+  // under the root guard), so this asks it rather than listing the directory a second way. A row is
+  // one file; `since` filters by day, so every file of a day in the window comes back. `author` is
+  // the slug from the file's path, or null for a day file.
   const memory = (existsSync(cortex) ? recentMemory(cortex, { days: Infinity }) : [])
     .filter((m) => !filtered || m.day >= day)
-    .map(({ day: d, path, content }) => ({ day: d, path, content }));
+    .map(({ day: d, author, path, content }) => ({ day: d, author, path, content }));
   const { commits, truncated } = logSince(repoDir, since);
   const out = { path: repoDir, memory, commits, truncated };
   if (!filtered) out.note = `--since "${since}" is not YYYY-MM-DD, so every memory day is included; git filtered the commits itself`;

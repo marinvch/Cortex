@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { bothLayouts, newLayoutOnly, ENTRIES, ENTRIES_OF_THE_15TH, NEW_ONLY_ENTRY } from "../../core/test/memory-fixture.js";
 
 const INDEX_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 const cli = (name) => join(INDEX_DIR, name);
@@ -120,6 +121,32 @@ test("cortex-memory appends, reads back, and REFUSES a secret with exit 2", () =
   assert.equal(code, 2, "a refused write must exit 2 so a caller can branch on it");
   assert.match(stderr, /REFUSED/);
   assert.ok(!stderr.includes(secret), "the refusal must not echo the secret");
+});
+
+// Both memory layouts (plan step 4.1). `recent` prints every file of each day it was asked for, so a
+// date held by an old day file and by two authors' files prints all four of its entries.
+test("cortex-memory recent prints every entry of a date held by both layouts", () => {
+  const root = fixture();
+  bothLayouts(join(root, ".cortex"));
+
+  const day = run("cortex-memory.mjs", ["recent", "--days", "1"], root);
+  for (const entry of ENTRIES_OF_THE_15TH) assert.ok(day.includes(entry), `missing: ${entry}`);
+  assert.ok(!day.includes(ENTRIES.dayBefore), "--days 1 is one day");
+  assert.ok(!day.includes("strayreadme"), "a stray README is not memory");
+  // Each author's file opens with a header that names them, which is how the output says whose it is.
+  assert.ok(day.indexOf("# 2026-08-15\n") < day.indexOf("# 2026-08-15 · dev-a"), "the old day file first");
+  assert.ok(day.indexOf("# 2026-08-15 · dev-a") < day.indexOf("# 2026-08-15 · dev-b"), "then authors by slug");
+
+  const all = run("cortex-memory.mjs", ["recent"], root);
+  for (const entry of Object.values(ENTRIES)) assert.ok(all.includes(entry), `missing: ${entry}`);
+});
+
+test("cortex-memory recent reads a repo that only ever wrote one file per author", () => {
+  const root = fixture();
+  newLayoutOnly(join(root, ".cortex"));
+  const out = run("cortex-memory.mjs", ["recent", "--days", "1"], root);
+  assert.ok(out.includes(NEW_ONLY_ENTRY));
+  assert.doesNotMatch(out, /no memory yet/);
 });
 
 test("an unknown subcommand fails loudly", () => {

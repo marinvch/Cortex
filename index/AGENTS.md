@@ -69,6 +69,16 @@ holds the rules for that module alone — read it before editing the module.
 - `findings.mjs` and `next.mjs` ask `has(ENRICHED_REL)` and that is correct — "was this step ever
   run" is a question about a file existing, and `next.mjs` may only tick a step on the strength of
   one. Do not route them through the content reader to make the caller count come out at one.
+- **Every reader of `.cortex/memory/` here asks `core/memory.js`, which reads both layouts** — a
+  day file `<date>.md`, and one file per author in a day directory, `<date>/<author>.md`. That is
+  `cortex-memory.mjs recent`, the viewer's timeline (`readMemory` in `lib/overview.mjs`, drawn by
+  `lib/view-html.mjs`), and the memory row of `cortex-next` and the loop state (`memoryFiles` in
+  `lib/loop.mjs`, which `lib/next.mjs` shares). `next.mjs` and `loop.mjs` listed `*.md` in the
+  directory themselves, which tells a repo holding only day directories that its memory was never
+  started. The timeline reads the newest three **days**, and orders a day's entries by time, then
+  no-author before author, then slug: keys read off the files, so the same tree draws the same
+  page. An entry's `author` is the slug from its path, or `null`, and the page shows nothing for
+  `null`.
 - **Validate everything a model produced, but only drop what is actually wrong.** Never let an
   unreported drop happen — a silently incomplete enrichment looks exactly like a complete one. How
   `enrich.mjs` tells a hallucinated path from a renumbered batch is in `validateBatch`.

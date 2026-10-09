@@ -337,6 +337,19 @@ test("the CLI names CORTEX_ROOT when a command needs a root and has none", () =>
   assert.match(r.stderr, /CORTEX_ROOT is not set \(required for team operations\)/);
 });
 
+test("`ai-os project` in repo mode names the variable that holds the repo's root", () => {
+  // The fix is a line in the user's config, so the message has to name the one they set.
+  const base = tempDir("root-cli-project-");
+  mkdirSync(join(base, "repo"));
+  for (const name of ["CORTEX_ROOT", "AI_OS_ROOT"]) {
+    const other = name === "CORTEX_ROOT" ? "AI_OS_ROOT" : "CORTEX_ROOT";
+    const r = cli(["project", "list"], { [name]: join(base, "repo", ".cortex") });
+    assert.equal(r.status, 1, name);
+    assert.match(r.stderr, new RegExp(`Set ${name} to your vault`), r.stderr);
+    assert.ok(!r.stderr.includes(other), `${name}: the other name is not blamed\n${r.stderr}`);
+  }
+});
+
 // ---------------------------------------------------------------------------------------------
 // One reader
 // ---------------------------------------------------------------------------------------------

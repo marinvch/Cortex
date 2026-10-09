@@ -66,7 +66,9 @@ async function callTool(name, args) {
       return { path: r.path, day: r.day };
     }
     case "recall_memory": return recentMemory(root, { days: args.days || 7 });
-    case "list_projects": return listProjects(root);
+    // The team and the policy come off the record, as they do for capture: a brain on a team lists
+    // that team's project files beside the vault's own, and the profile decides which it may show.
+    case "list_projects": return listProjects(root, { team: brain.team, policy: brain.policy });
     case "get_project_context": return getProjectContext(root, args.project);
     // The team comes from the resolution, not from the caller. Requiring the agent to pass `team`
     // was the seam leaking: it made the dev side learn which world it was in, which is exactly what

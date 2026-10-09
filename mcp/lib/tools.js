@@ -85,7 +85,7 @@ export const TOOL_TABLE = [
     description: `Return a project's brief/notes. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: { project: { type: "string" } }, required: ["project"] } },
   { name: "list_projects", mode: VAULT, returns: FOREIGN, writes: LOCAL,
-    description: `List projects registered in the brain. ${UNTRUSTED_NOTE}`,
+    description: `List projects registered in the brain; in a repo joined to a team-brain, also the team's project files with their repo and links. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: {} } },
   { name: "capture", mode: VAULT, returns: OWN, writes: PUBLISHED,
     description: "Append an explicit note to the vault; returns the path. In a repo connected to a team-brain this writes there automatically (one-file-per-note, auto commit+push).",

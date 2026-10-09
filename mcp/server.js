@@ -62,8 +62,14 @@ async function callTool(name, args) {
   switch (name) {
     case "recall": return recall(root, args);
     case "remember": {
+      // No author is passed: the writer finds it (CORTEX_AUTHOR, then git user.name in the repo),
+      // so this caller cannot forget to. `layout` is "author" for <day>/<author>.md and "day" when
+      // no name was usable and the entry went to <day>.md. `notice` is there only then, and is how
+      // the model learns to tell the person, on every such write.
       const r = rememberNote(root, args.content, { kind: args.kind || "note" });
-      return { path: r.path, day: r.day };
+      const out = { path: r.path, day: r.day, author: r.author, layout: r.layout };
+      if (r.notice) out.notice = r.notice;
+      return out;
     }
     case "recall_memory": return recentMemory(root, { days: args.days || 7 });
     // The team and the policy come off the record, as they do for capture: a brain on a team lists

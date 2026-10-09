@@ -79,6 +79,12 @@ holds the rules for that module alone — read it before editing the module.
   no-author before author, then slug: keys read off the files, so the same tree draws the same
   page. An entry's `author` is the slug from its path, or `null`, and the page shows nothing for
   `null`.
+- **`cortex-memory.mjs append` passes no author; `core/memory.js` finds it.** The entry lands in
+  `<date>/<author>.md`. With no usable name it lands in `<date>.md`, the exit is still 0, stdout is
+  still the one `wrote` line, and one line on stderr says so on every such write. A
+  `CORTEX_AUTHOR` that is set and unusable writes nothing and exits 1. A test that runs the CLI
+  sets `CORTEX_AUTHOR` or isolates git (`isolatedGit` in `test/cli.test.mjs`), so it never reads
+  the machine's git name.
 - **Validate everything a model produced, but only drop what is actually wrong.** Never let an
   unreported drop happen — a silently incomplete enrichment looks exactly like a complete one. How
   `enrich.mjs` tells a hallucinated path from a renumbered batch is in `validateBatch`.

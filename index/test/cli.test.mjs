@@ -1,9 +1,9 @@
 import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, basename, delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bothLayouts, newLayoutOnly, ENTRIES, ENTRIES_OF_THE_15TH, NEW_ONLY_ENTRY } from "../../core/test/memory-fixture.js";
 
@@ -99,28 +99,201 @@ test("cortex-enrich plans, reports status, and merges", () => {
   assert.ok(existsSync(join(root, ".cortex", "index", "enriched.json")));
 });
 
-test("cortex-memory appends, reads back, and REFUSES a secret with exit 2", () => {
+// --- cortex-memory append (plan step 4.2) ---------------------------------------------------------
+//
+// The writer writes one file per author per day. Every run below says who is writing, or builds a
+// git that knows nobody: a run that did neither would read the name of whoever owns the machine.
+
+/** An environment in which git can find no identity but the one a fixture repo sets for itself. */
+function isolatedGit(root, extra = {}) {
+  const empty = join(root, "..", `${basename(root)}.gitconfig`);
+  writeFileSync(empty, "");
+  const env = { ...process.env };
+  for (const k of Object.keys(env)) {
+    if (/^GIT_/i.test(k) || k === "CORTEX_AUTHOR") delete env[k];
+  }
+  return {
+    ...env,
+    GIT_CONFIG_GLOBAL: empty,
+    GIT_CONFIG_SYSTEM: empty,
+    GIT_CONFIG_NOSYSTEM: "1",
+    GIT_CEILING_DIRECTORIES: dirname(root), // a temp dir that sits inside some repo is not that repo
+    ...extra,
+  };
+}
+
+/** Run cortex-memory.mjs and return `{ code, stdout, stderr }`, whatever the exit. */
+function memory(args, cwd, env) {
+  const r = spawnSync(process.execPath, [cli("cortex-memory.mjs"), ...args], { cwd, env, encoding: "utf8" });
+  return { code: r.status, stdout: r.stdout, stderr: r.stderr };
+}
+
+/** Every file and directory under `dir`, as sorted relative paths with `/`. */
+function tree(dir, prefix = "") {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const rel = `${prefix}${e.name}`;
+    if (e.isDirectory()) out.push(`${rel}/`, ...tree(join(dir, e.name), `${rel}/`));
+    else out.push(rel);
+  }
+  return out.sort();
+}
+
+function memoryFixture() {
   const root = fixture();
   mkdirSync(join(root, ".cortex"), { recursive: true });
+  return root;
+}
 
-  const wrote = run("cortex-memory.mjs", ["append", "Split a.js out of index.js.", "--kind", "decision"], root);
-  assert.match(wrote, /^wrote /);
+test("cortex-memory append writes <day>/<author>.md for CORTEX_AUTHOR, and reads it back", () => {
+  const root = memoryFixture();
+  const env = isolatedGit(root, { CORTEX_AUTHOR: "dev-a" });
 
-  const back = run("cortex-memory.mjs", ["recent", "--days", "1"], root);
-  assert.match(back, /Split a\.js out of index\.js\./);
+  const wrote = memory(["append", "Split a.js out of index.js.", "--kind", "decision"], root, env);
+  assert.equal(wrote.code, 0, wrote.stderr);
+  assert.match(wrote.stdout, /^wrote .*[\\/]memory[\\/]\d{4}-\d{2}-\d{2}[\\/]dev-a\.md\n$/);
+  assert.equal(wrote.stderr, "", "a write that names its author has nothing to warn about");
 
+  const files = tree(join(root, ".cortex", "memory"));
+  assert.equal(files.length, 2, "one day directory holding one file");
+  assert.match(files[0], /^\d{4}-\d{2}-\d{2}\/$/);
+  assert.equal(files[1], `${files[0]}dev-a.md`);
+  const text = readFileSync(join(root, ".cortex", "memory", files[1]), "utf8");
+  assert.match(text, /^# \d{4}-\d{2}-\d{2} · dev-a\n\n## \d{2}:\d{2} · decision\n\nSplit a\.js out of index\.js\.\n\n$/);
+
+  const back = memory(["recent", "--days", "1"], root, env);
+  assert.match(back.stdout, /Split a\.js out of index\.js\./);
+  assert.match(back.stdout, /^# \d{4}-\d{2}-\d{2} · dev-a$/m, "the header says whose file it is");
+});
+
+test("two authors on one day get two files, through the CLI", () => {
+  const root = memoryFixture();
+  assert.equal(memory(["append", "from the first"], root, isolatedGit(root, { CORTEX_AUTHOR: "dev-a" })).code, 0);
+  assert.equal(memory(["append", "from the second"], root, isolatedGit(root, { CORTEX_AUTHOR: "dev-b" })).code, 0);
+  const files = tree(join(root, ".cortex", "memory")).map((f) => f.replace(/^\d{4}-\d{2}-\d{2}/, "<day>"));
+  assert.deepEqual(files, ["<day>/", "<day>/dev-a.md", "<day>/dev-b.md"]);
+});
+
+test("cortex-memory REFUSES a secret with exit 2, and creates no day directory", () => {
   const secret = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
-  let code = 0;
-  let stderr = "";
-  try {
-    run("cortex-memory.mjs", ["append", `key ${secret} rotated`], root);
-  } catch (e) {
-    code = e.status;
-    stderr = String(e.stderr);
+  // With an author set, with a git identity, and with no name at all: the gate is before all three.
+  const cases = [
+    (root) => isolatedGit(root, { CORTEX_AUTHOR: "dev-a" }),
+    (root) => {
+      gitRepo(root, isolatedGit(root), "Dev B");
+      return isolatedGit(root);
+    },
+    (root) => isolatedGit(root),
+  ];
+  for (const envFor of cases) {
+    const root = memoryFixture();
+    const env = envFor(root);
+    const r = memory(["append", `key ${secret} rotated`], root, env);
+    assert.equal(r.code, 2, "a refused write must exit 2 so a caller can branch on it");
+    assert.match(r.stderr, /REFUSED/);
+    assert.ok(!r.stderr.includes(secret), "the refusal must not echo the secret");
+    assert.equal(r.stdout, "");
+    // The property, not one symptom of it: .cortex/ is as empty as it was. No memory/, no day
+    // directory, no file.
+    assert.deepEqual(tree(join(root, ".cortex")), [], "a refused write leaves nothing behind");
   }
-  assert.equal(code, 2, "a refused write must exit 2 so a caller can branch on it");
-  assert.match(stderr, /REFUSED/);
-  assert.ok(!stderr.includes(secret), "the refusal must not echo the secret");
+});
+
+test("a refused write on a day that has entries adds nothing to it", () => {
+  const root = memoryFixture();
+  const secret = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
+  assert.equal(memory(["append", "a note"], root, isolatedGit(root, { CORTEX_AUTHOR: "dev-a" })).code, 0);
+  const before = tree(join(root, ".cortex"));
+  const r = memory(["append", `key ${secret} rotated`], root, isolatedGit(root, { CORTEX_AUTHOR: "dev-b" }));
+  assert.equal(r.code, 2);
+  assert.deepEqual(tree(join(root, ".cortex")), before, "no file for the author whose write was refused");
+});
+
+/** Make `root` a git repo whose own config names `name`. Nothing is read from the machine. */
+function gitRepo(root, env, name) {
+  const git = (...args) => execFileSync("git", args, { cwd: root, env, stdio: ["ignore", "pipe", "pipe"] });
+  git("init", "-q");
+  if (name !== null) git("config", "user.name", name);
+}
+
+test("with no CORTEX_AUTHOR the author is the repo's git user.name, read by the real git", () => {
+  const root = memoryFixture();
+  const env = isolatedGit(root);
+  gitRepo(root, env, "Dev  B.");
+  const wrote = memory(["append", "from git"], root, env);
+  assert.equal(wrote.code, 0, wrote.stderr);
+  assert.match(wrote.stdout, /[\\/]memory[\\/]\d{4}-\d{2}-\d{2}[\\/]dev-b\.md\n$/);
+  assert.equal(wrote.stderr, "");
+});
+
+test("CORTEX_AUTHOR beats the repo's git user.name, through the CLI", () => {
+  const root = memoryFixture();
+  gitRepo(root, isolatedGit(root), "Dev B");
+  const wrote = memory(["append", "chosen"], root, isolatedGit(root, { CORTEX_AUTHOR: "dev-a" }));
+  assert.match(wrote.stdout, /[\\/]dev-a\.md\n$/);
+});
+
+test("the author is read in the repo that holds --root, not in the directory the CLI ran from", () => {
+  const root = memoryFixture();
+  const env = isolatedGit(root);
+  gitRepo(root, env, "Dev B");
+  const elsewhere = tempDir("cortex-cli-elsewhere-");
+  const wrote = memory(["append", "from elsewhere", "--root", join(root, ".cortex")], elsewhere, {
+    ...env,
+    GIT_CEILING_DIRECTORIES: [dirname(root), dirname(elsewhere)].join(delimiter),
+  });
+  assert.equal(wrote.code, 0, wrote.stderr);
+  assert.match(wrote.stdout, /[\\/]dev-b\.md\n$/);
+});
+
+test("with no usable author the entry goes to <day>.md, exit 0, and stderr says so on every write", () => {
+  // No git identity at all, and a repo whose git name has no ASCII letter. Both fall back.
+  const cases = [
+    (root) => isolatedGit(root),
+    (root) => {
+      gitRepo(root, isolatedGit(root), "Разработчик А"); // "developer A" in Cyrillic: nobody's name
+      return isolatedGit(root);
+    },
+    (root) => isolatedGit(root, { CORTEX_AUTHOR: "" }), // an empty setting is an unset one
+  ];
+  for (const envFor of cases) {
+    const root = memoryFixture();
+    const env = envFor(root);
+    for (const text of ["first", "second"]) {
+      const r = memory(["append", text], root, env);
+      assert.equal(r.code, 0, "a /dream at the end of a day does not fail over a setting");
+      assert.match(r.stdout, /^wrote .*[\\/]memory[\\/]\d{4}-\d{2}-\d{2}\.md\n$/, "stdout is still the one line");
+      assert.match(r.stderr, /shared day file \d{4}-\d{2}-\d{2}\.md/, `said on the ${text} write`);
+      assert.match(r.stderr, /Set CORTEX_AUTHOR to /, "the line names the fix, as something to do");
+      assert.equal(r.stderr.trim().split("\n").length, 1, "one line");
+      assert.ok(!r.stderr.includes("Разработчик"), "no name is repeated");
+    }
+    const files = tree(join(root, ".cortex", "memory"));
+    assert.equal(files.length, 1, "one day file and no day directory");
+    assert.match(files[0], /^\d{4}-\d{2}-\d{2}\.md$/);
+    const text = readFileSync(join(root, ".cortex", "memory", files[0]), "utf8");
+    assert.match(text, /^# \d{4}-\d{2}-\d{2}\n\n## /, "the day file's header names no author");
+    assert.match(text, /first\n\n## \d{2}:\d{2} · note\n\nsecond\n\n$/);
+  }
+});
+
+test("a CORTEX_AUTHOR that is set and unusable writes nothing, and is not swapped for git", () => {
+  for (const bad of ["..", "CON", "***"]) {
+    const root = memoryFixture();
+    gitRepo(root, isolatedGit(root), "Dev B");
+    const r = memory(["append", "a note"], root, isolatedGit(root, { CORTEX_AUTHOR: bad }));
+    assert.equal(r.code, 1, bad);
+    assert.match(r.stderr, /CORTEX_AUTHOR/);
+    assert.equal(r.stdout, "");
+    assert.deepEqual(tree(join(root, ".cortex")), [], "nothing is written, to either layout");
+  }
+});
+
+test("cortex-memory append never creates .cortex", () => {
+  const root = fixture();
+  const r = memory(["append", "a note"], root, isolatedGit(root, { CORTEX_AUTHOR: "dev-a" }));
+  assert.notEqual(r.code, 0);
+  assert.equal(existsSync(join(root, ".cortex")), false, "the consent gate: the writer never makes .cortex/");
 });
 
 // Both memory layouts (plan step 4.1). `recent` prints every file of each day it was asked for, so a

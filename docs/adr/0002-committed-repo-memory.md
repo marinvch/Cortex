@@ -56,7 +56,8 @@ With no usable name the entry goes to the day file `<date>.md`, and the writer s
 such write.
 
 **Why.** The code, its brief and the `/dream` ritual said that two developers appending to the
-same day's file merge as text. It was tried on 2026-10-09 with git 2.47.1 and the real writer, and it is false:
+same day's file merge as text. It was tried on 2026-10-09 with git 2.47.1 and the real writer, and
+it is false:
 
 - The day's file is new on both branches: `CONFLICT (add/add)`, and the merge exits 1.
 - The day's file already existed on the base branch: `CONFLICT (content)`, also when the two

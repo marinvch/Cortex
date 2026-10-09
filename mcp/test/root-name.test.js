@@ -12,7 +12,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, readdirSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openBrain, MissingRootError, NoRootError } from "../lib/brain.js";
@@ -112,6 +112,42 @@ test("the mode is read from the root that won, not from the one that lost", () =
   const repoRoot = join(base, "repo", ".cortex");
   assert.equal(openBrain({ cwd: base, env: { CORTEX_ROOT: repoRoot, AI_OS_ROOT: vault } }).mode, "repo");
   assert.equal(openBrain({ cwd: base, env: { CORTEX_ROOT: vault, AI_OS_ROOT: repoRoot } }).mode, "vault");
+});
+
+test("a declared server and a connected repo keep the same record of the name as a solo install", () => {
+  // `resolveBrain` returns from three places, one per audience, and each has to pass on which
+  // variable named the root and which one lost. Every case above is a solo install, so a return
+  // that dropped the two fields went unseen: the server audience and a team repo printed no notice
+  // for two different roots and blamed CORTEX_ROOT for a missing AI_OS_ROOT.
+  const fresh = tempDir("root-aud-new-");
+  const old = tempDir("root-aud-old-");
+  const repo = tempDir("root-aud-repo-");
+  mkdirSync(join(repo, ".cortex"));
+  writeFileSync(join(repo, ".cortex", "connector.json"), JSON.stringify({ slug: "acme", teamBrainRepo: "ssh://git/acme.git" }));
+  const audiences = {
+    server: { cwd: fresh, env: { CORTEX_AUDIENCE: "server" } },
+    team: { cwd: repo, env: {} },
+  };
+  for (const [audience, { cwd, env }] of Object.entries(audiences)) {
+    const both = openBrain({ cwd, env: { ...env, CORTEX_ROOT: fresh, AI_OS_ROOT: old } });
+    assert.equal(both.audience, audience);
+    assert.equal(both.root, fresh);
+    assert.equal(both.sources.root, "CORTEX_ROOT", audience);
+    assert.equal(both.notices.length, 1, `${audience}: two different roots are still reported`);
+    assert.ok(both.notices[0].includes(old), both.notices[0]);
+
+    const legacy = openBrain({ cwd, env: { ...env, AI_OS_ROOT: old } });
+    assert.equal(legacy.audience, audience);
+    assert.equal(legacy.root, old);
+    assert.equal(legacy.sources.root, "AI_OS_ROOT", audience);
+    assert.deepEqual(legacy.notices, []);
+
+    assert.throws(
+      () => openBrain({ cwd, env: { ...env, AI_OS_ROOT: join(old, "gone") } }),
+      (e) => e instanceof MissingRootError && e.message.includes("AI_OS_ROOT") && !e.message.includes("CORTEX_ROOT"),
+      `${audience}: a missing root is blamed on the variable that was set`,
+    );
+  }
 });
 
 // ---------------------------------------------------------------------------------------------

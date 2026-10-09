@@ -1,15 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { teamCloneDir } from "./gitsync.js";
+import { ensureIdentity, teamCloneDir } from "./gitsync.js";
 
 function git(cwd, args) {
   return execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] }).toString();
-}
-
-function ensureIdentity(dir) {
-  try { git(dir, ["config", "user.email"]); }
-  catch { git(dir, ["config", "user.email", "cortex@local"]); git(dir, ["config", "user.name", "cortex"]); }
 }
 
 // The connector names the TEAM and the PROJECT as two fields, and takes them by name. It used to be
@@ -49,9 +44,18 @@ export function seedTeamBrain(cloneDir, { name, projects = [] }) {
     const k = join(pdir, ".gitkeep");
     writeFileSync(k, ""); written.push(k);
   }
-  const projLines = projects.length ? projects.map((p) => `- ${p}`).join("\n") : "- (none yet)";
+  // No list of projects here. `team.md` used to carry one, and it was never the registry: every
+  // repo that joined later was missing from it, and a list two people edit on the same day is a
+  // merge conflict. The projects are the files in `projects/`, one each, so this points there
+  // (docs/adr/0024).
   const teamMd = join(cloneDir, "team.md");
-  writeFileSync(teamMd, `# Team: ${name}\n\n## Projects\n${projLines}\n\n## Members\n- (add members)\n`);
+  writeFileSync(
+    teamMd,
+    `# Team: ${name}\n\n## Projects\n` +
+      "See `projects/`. Each project is one file there, `projects/<slug>.md`, written when its repo\n" +
+      "joins with `/team-add`. A folder `projects/<slug>/` holds that project's notes.\n" +
+      "\n## Members\n- (add members)\n",
+  );
   written.push(teamMd);
   return written;
 }

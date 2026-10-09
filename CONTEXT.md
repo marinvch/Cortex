@@ -78,6 +78,39 @@ Which world the MCP server is serving, decided by the root it is given. A `.cort
 means **repo mode** (`recall`, `remember`, `recall_memory`); anything else means **vault mode**
 (the personal-brain tools). Detected, never configured.
 
+## Project file
+
+`projects/<slug>.md` at the top of a team-brain: flat frontmatter naming one project's repo, its
+outside links and the projects it relates to, then free prose. **Its links are shown and never
+fetched.** Written by `/team-add`, parsed and validated by `core/project-file.js`, and refused on a
+`home` profile when a link is employer-shaped.
+
+The same filename exists in a personal vault and is a different thing: a **project stub**, written
+by `/scan-projects`, which carries a path on one machine. A stub is never part of a workspace. The
+folder `projects/<slug>/` beside a project file is that project's captured notes, not the file.
+
+_Avoid_: "project stub" for this (that is the vault's), "manifest" or "registry entry" (there is no
+registry, only the files), "connector" (that is `.cortex/connector.json` in the product repo, which
+names the project and holds no link).
+
+## Workspace
+
+The set of project files in one team-brain. **Not a store, a database or a directory**: adding a
+project is adding a file, and removing one is deleting it.
+[ADR 0024](docs/adr/0024-a-workspace-is-project-files.md).
+
+The word had an earlier, narrower use that still shows in a flag. The route map called a directory
+of repo checkouts a workspace, and `cortex-routes.mjs --workspace` takes such a directory. That
+directory is **the checkouts**: how one machine reaches the workspace's projects, different for
+every developer. Where there is no team-brain, the checkouts stand in for the workspace. A single
+repo with no team-brain is a workspace of one and is rendered as a repo.
+
+Both entries are ahead of the code: roadmap steps 3.1 to 3.3 build to them. Until those merge,
+nothing writes a project file, and the definition here is the one they are held to.
+
+_Avoid_: "workspace" for a JS monorepo's packages (say "workspace package", as
+`index/lib/resolvers.mjs` does) or for Claude Code's folder trust; "portfolio", "registry".
+
 ## Layer
 
 Two unrelated meanings — keep them apart:

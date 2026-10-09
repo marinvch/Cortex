@@ -5,6 +5,18 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.46] — 2026-10-09
+
+The outcome harness's scorer no longer fails on Windows when its temp copy is still held.
+
+### Fixed
+
+- **A copy that cannot be removed no longer replaces the result.** `evals/harness/accept.mjs`
+  judges a tree on a temp copy and removes it afterwards. On Windows a test process killed for
+  running too long can hold that directory for a moment, the removal failed with `EBUSY`, and the
+  error was thrown in place of a decision already made. This failed one Windows job in CI on #586.
+  Removal now retries for longer and a failure leaves the result as it was.
+
 ## [2.41.45] — 2026-10-09
 
 A team-brain lists its projects as files. Step 3.1 of the roadmap, built to
@@ -4963,6 +4975,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.46]: https://github.com/marinvch/Cortex/releases/tag/v2.41.46
 [2.41.45]: https://github.com/marinvch/Cortex/releases/tag/v2.41.45
 [2.41.44]: https://github.com/marinvch/Cortex/releases/tag/v2.41.44
 [2.41.43]: https://github.com/marinvch/Cortex/releases/tag/v2.41.43

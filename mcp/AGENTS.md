@@ -8,6 +8,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | Command | Does | Needs |
 |---|---|---|
 | `ai-os setup-plugins` | install the Cortex Core plugin bundle | nothing |
+| `ai-os setup-plugins --status` | per tier, which plugins are installed; `--json`, `--tier`, `--plugins-dir`. Read-only | nothing |
 | `ai-os team init` | seed and push a team-brain | a vault |
 | `ai-os team add` | write this repo's project file into the team-brain, then the connector | a vault |
 | `ai-os project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
@@ -213,6 +214,14 @@ the repo by commit count, and — like every other part — **dependency-free**.
     skipped and counted. `ai-os project list|check|remove` are the CLI's half and are refused in
     repo mode, because the clone lives under the vault.
   - **A link is never fetched**, here or in `core/`. No title lookup and no reachability check.
+- **`setup-plugins --status` reads and never installs** (#548). It starts no `claude` and writes
+  nothing; `test/rituals-on-a-plugin-install.test.js` compares the whole tree. The registry is read
+  by `core/plugin-registry.js`, and `tierStatus` (`lib/setup-plugins.js`) is handed the result, so
+  it has no path of its own. A registry that was not read makes every tier `unknown` and every
+  plugin's `installed` `null`: do not turn that into `false`, which reads as "offer it". The
+  findings offer a tier from the index alone, because the index may not read the machine
+  ([`index/AGENTS.md`](../index/AGENTS.md)); this is the machine's half, and
+  `/cortex-install` and `/setup-plugins` ask it before they offer one.
 - **`mcp/` never imports from `index/`.**
 
 ## Gotchas

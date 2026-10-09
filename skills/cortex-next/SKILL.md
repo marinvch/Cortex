@@ -50,7 +50,7 @@ each time they ask.
 | Index the codebase | `.cortex/index/index.json` exists | `/cortex` |
 | Read the findings | a report in `.cortex/findings/` | `/cortex` |
 | See it as a graph | `.cortex/view/repo.html` exists | `/cortex-view` |
-| Reconcile prior agent docs | *not checkable — offered only while `CONTEXT.md` is missing* | `/optimize-context` |
+| Reconcile prior agent docs | *not checkable — required while `CONTEXT.md` is missing; afterwards optional, and only while `.github/copilot-instructions.md` holds rules of its own* | `/optimize-context` |
 | Write the context layer | `AGENTS.md` **and** `CONTEXT.md` | `/cortex-scaffold` |
 | Scoped briefs | any `<dir>/AGENTS.md` | `/cortex-brief <dir>` |
 | Skills for this stack | any `.claude/skills/*/SKILL.md` | `/cortex-skills` |
@@ -69,8 +69,14 @@ install is, so they never appear as a step.
 An `AGENTS.md` a human wrote before Cortex arrived must be slimmed **before** `/cortex-scaffold`
 runs, not after. Scaffold is brownfield-safe and will not clobber it — which means the user ends up
 with their curated file *plus* an `AGENTS.generated.md`, and a merge to do by hand. Doing
-`/optimize-context` first leaves one file. The step disappears once `CONTEXT.md` exists, because at
-that point the scaffold has run and an `AGENTS.md` older than the index is Cortex's own.
+`/optimize-context` first leaves one file. Once `CONTEXT.md` exists the scaffold has run and an
+`AGENTS.md` older than the index is Cortex's own, so the step no longer names it.
+
+One case keeps the step after that, as an optional row: a `.github/copilot-instructions.md` that
+holds rules of its own where Cortex writes a one-line pointer at `AGENTS.md`. Copilot reads that
+second copy and nobody keeps it true. The row says the file is a second copy, which is all the disk
+can show. Whether it is stale is for `/optimize-context` to find by reading both. Present it as an
+offer: a team may keep rules for one tool on purpose.
 
 ## Related
 

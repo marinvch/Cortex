@@ -123,6 +123,14 @@ candidates; the user narrows the list in their answer.
 | `memory` | a committed `.cortex/memory/` |
 | `triage-secrets` | **nothing.** See below |
 
+**`bundle` is asked only about tiers this machine lacks.** The worklist comes from the index, and
+the index never reads the machine, so a tier in `targets` may already be installed. Before the
+question, run `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --status --json`. It reads
+Claude Code's plugin registry and writes nothing. Drop each target whose tier has `state`
+`installed`, and for a `partial` tier name the plugins it still lacks. When no target is left, skip
+the row and say in one line which tiers were already installed. `unknown` means there was no
+registry to read: ask about every target.
+
 **`enrich` states its token cost before the question, not after.** It is the only offer that spends
 real money, and a user who says yes and then learns the price has been sold something.
 

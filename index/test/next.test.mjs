@@ -4,7 +4,8 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "nod
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { readState, nextSteps, nextLine } from "../lib/next.mjs";
+import { fileURLToPath } from "node:url";
+import { LEGACY_ENGINES, readState, nextSteps, nextLine } from "../lib/next.mjs";
 import { adoptStamp, recordStamp, runningCortex, writeStamps } from "../lib/stamps.mjs";
 import { SHIPPED_SECTIONS } from "../lib/shipped-sections.mjs";
 import { sectionKeep } from "../lib/sections.mjs";
@@ -114,6 +115,132 @@ test("once the context layer exists, an old AGENTS.md is Cortex's own and not a 
   });
   const plan = nextSteps(root);
   assert.ok(!plan.steps.some((s) => s.id === "reconcile"));
+  rmSync(root, { recursive: true, force: true });
+});
+
+// --- /migrate-engine step 1 reads this state rather than scanning by hand (#548, item 13) ---------
+//
+// The ritual tells its reader to take `state.legacyEngine` as the answer for the engine's two
+// directories and to scan by hand only for the rest. That is a promise about this module made in
+// prose, so the prose is checked against the code (ADR 0016): the key it cites is the key returned,
+// and every directory the code looks for is one the step names.
+
+test("the state names each engine directory that exists, and nothing when there is none", () => {
+  const none = repo(() => {});
+  assert.deepEqual(readState(none).legacyEngine, [], "an empty list, never a missing key");
+  // Written out, not read from the code: a directory dropped from the list must fail here.
+  assert.deepEqual(LEGACY_ENGINES, [".ai-os", ".github/ai-os"]);
+  for (const dir of LEGACY_ENGINES) {
+    const root = repo(({ put }) => put(`${dir}/config.json`, "{}"));
+    assert.deepEqual(readState(root).legacyEngine, [dir]);
+    rmSync(root, { recursive: true, force: true });
+  }
+  const both = repo(({ put }) => LEGACY_ENGINES.forEach((d) => put(`${d}/config.json`, "{}")));
+  assert.deepEqual(readState(both).legacyEngine, LEGACY_ENGINES);
+  rmSync(none, { recursive: true, force: true });
+  rmSync(both, { recursive: true, force: true });
+});
+
+test("/migrate-engine step 1 cites the key this state returns and every directory it looks for", () => {
+  const skill = readFileSync(fileURLToPath(new URL("../../skills/migrate-engine/SKILL.md", import.meta.url)), "utf8");
+  const step1 = skill.slice(skill.indexOf("## Step 1 "), skill.indexOf("## Step 2 "));
+  assert.ok(step1.length > 200, "step 1 was found");
+  assert.match(step1, /cortex-next\.mjs" \. --json/, "it runs the command that prints the state");
+  assert.match(step1, /`state\.legacyEngine`/, "and reads the key by its real path");
+  assert.ok("legacyEngine" in nextSteps(repo(() => {})).state, "which is where --json carries it");
+  for (const dir of LEGACY_ENGINES) assert.ok(step1.includes(`\`${dir}\``), `step 1 names ${dir} as covered by the command`);
+  // What the field does not look for must stay a scan, or an empty list would read as "no engine".
+  assert.match(step1, /empty list is not "no engine"/);
+  for (const byHand of [".mcp.json", ".github/agents/", ".github/COPILOT_CONTEXT.md", ".vscode/toolsets.json", "copilot-instructions.md"]) {
+    assert.ok(step1.includes(byHand), `${byHand} is not in legacyEngine, so step 1 still scans for it`);
+  }
+});
+
+// --- another tool's doc, hand-written, beside a context layer that exists (#548, item 13) ---------
+//
+// The field report: `.github/copilot-instructions.md` was stale and hand-written, `priorDocs`
+// listed it, and no step offered anything, because `reconcile` is only for a repo with no layer yet.
+
+const COPILOT = ".github/copilot-instructions.md";
+const OWN_RULES = "# Copilot instructions\n\nUse the v1 API client.\nRun `npm run test:legacy` first.\nNever touch `lib/old`.\n";
+const SHIM = "All project context and conventions live in AGENTS.md at the repo root. Follow it.\n";
+
+/** A repo whose context layer is written, with whatever `more` adds. */
+function served(more = () => {}) {
+  return repo(({ put, root }) => {
+    put("AGENTS.md");
+    put("CONTEXT.md");
+    put(".cortex/index/index.json", INDEX);
+    put(".cortex/findings/2026-01-01.md");
+    more({ put, root });
+  });
+}
+
+test("a hand-written copilot-instructions beside the context layer is offered for reconciling", () => {
+  const root = served(({ put }) => put(COPILOT, OWN_RULES));
+  const plan = nextSteps(root);
+  const step = plan.steps.find((s) => s.id === "reconcile");
+  assert.ok(step, "the step is there although CONTEXT.md exists");
+  assert.equal(step.cmd, "/optimize-context", "the ritual that never deletes prose without a yes");
+  assert.equal(step.done, false);
+  assert.match(step.why, /\.github\/copilot-instructions\.md/, "it names the file");
+  assert.match(step.why, /AGENTS\.md/);
+  assert.deepEqual(step.docs, [COPILOT]);
+  assert.doesNotMatch(step.why, /BEFORE scaffold/, "the scaffold has run; that sentence belongs to the other case");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("it is an offer: optional, never next, and it does not move the count", () => {
+  // A team may keep its own Copilot rules on purpose. A required step over a choice never clears,
+  // and a sequence that stays open trains the reader to ignore it.
+  const withDoc = served(({ put }) => put(COPILOT, OWN_RULES));
+  const without = served();
+  const a = nextSteps(withDoc);
+  const b = nextSteps(without);
+  assert.equal(a.steps.find((s) => s.id === "reconcile").optional, true);
+  assert.notEqual(a.next?.id, "reconcile");
+  assert.equal(a.next?.id, b.next?.id, "the next command is the one it would be without the file");
+  assert.equal(a.done, b.done);
+  assert.equal(a.total, b.total);
+  assert.equal(nextLine(withDoc), nextLine(without));
+  rmSync(withDoc, { recursive: true, force: true });
+  rmSync(without, { recursive: true, force: true });
+});
+
+test("the Cortex shim is not offered for reconciling", () => {
+  const root = served(({ put }) => put(COPILOT, SHIM));
+  assert.ok(!nextSteps(root).steps.some((s) => s.id === "reconcile"));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the offer sits where reconcile always sat, before the scaffold row", () => {
+  const root = served(({ put }) => put(COPILOT, OWN_RULES));
+  const ids = nextSteps(root).steps.map((s) => s.id);
+  assert.ok(ids.indexOf("reconcile") < ids.indexOf("scaffold"));
+  assert.equal(ids.filter((id) => id === "reconcile").length, 1, "one row, never two");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("before the layer exists the step is the old one: required, and about the scaffold", () => {
+  // No AGENTS.md and no CONTEXT.md. The hand-written file is a prior doc, as it always was.
+  const root = repo(({ put }) => {
+    put(COPILOT, OWN_RULES);
+    put(".cortex/index/index.json", INDEX);
+    put(".cortex/findings/2026-01-01.md");
+  });
+  const plan = nextSteps(root);
+  const rows = plan.steps.filter((s) => s.id === "reconcile");
+  assert.equal(rows.length, 1);
+  assert.notEqual(rows[0].optional, true);
+  assert.match(rows[0].why, /BEFORE scaffold/);
+  assert.equal(plan.next.id, "reconcile");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("reading the state leaves the hand-written file exactly as it was", () => {
+  const root = served(({ put }) => put(COPILOT, OWN_RULES));
+  nextSteps(root);
+  assert.equal(readFileSync(join(root, COPILOT), "utf8"), OWN_RULES);
   rmSync(root, { recursive: true, force: true });
 });
 

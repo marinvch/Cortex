@@ -89,7 +89,7 @@ function run(f, argv, { cwd = f.cwd, env = {} } = {}) {
 // The prose
 // ---------------------------------------------------------------------------------------------
 
-for (const skill of ["setup-plugins", "catch-me-up", "team-add", "team-init"]) {
+for (const skill of ["setup-plugins", "cortex-install", "catch-me-up", "team-add", "team-init"]) {
   test(`/${skill} reaches ai-os.js through the plugin root, never a vault path`, () => {
     const { text, found } = commandsIn(skill);
     assert.ok(found.length > 0, `${skill} names no ai-os.js command`);
@@ -233,6 +233,130 @@ test("/setup-plugins' command runs on a plugin install with no root set", () => 
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /claude plugin install superpowers@/);
   assert.doesNotMatch(r.stderr, /CORTEX_ROOT|AI_OS_ROOT/);
+});
+
+// --- the tier status, as the two rituals print it (#548, item 11) ---------------------------------
+//
+// `/cortex-install` and `/setup-plugins` ask it before they offer a tier. The home directory is the
+// fixture's, so the registry read is the one written here and never this machine's.
+
+/** The status command a skill prints: the one line among its `ai-os.js` commands carrying `--status`. */
+function statusCommand(skill) {
+  const lines = commandsIn(skill).found.filter((c) => /--status/.test(c));
+  assert.equal(lines.length, 1, `${skill} prints exactly one status command`);
+  return lines[0];
+}
+
+/** Write a plugin registry into the fixture's home; `null` leaves the home with none. */
+function registryIn(f, plugins) {
+  const dir = join(f.home, ".claude", "plugins");
+  mkdirSync(dir, { recursive: true });
+  if (plugins !== null) writeFileSync(join(dir, "installed_plugins.json"), JSON.stringify({ version: 2, plugins }));
+  return dir;
+}
+
+/** Every file under `dir` with its bytes, so "it wrote nothing" is checked over the whole tree. */
+function fingerprint(dir) {
+  const out = [];
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) { out.push(`${p}/`); walk(p); }
+      else out.push(`${p}\n${readFileSync(p, "base64")}`);
+    }
+  };
+  walk(dir);
+  return out.join("\n");
+}
+
+/** A PATH whose `claude` leaves a file behind when anything starts it. */
+function claudeThatTells(f) {
+  const bin = join(f.base, "bin-status");
+  const told = join(f.base, "claude-was-started");
+  mkdirSync(bin, { recursive: true });
+  if (WIN) writeFileSync(join(bin, "claude.cmd"), `@echo x> "${told}"\r\n@exit /b 0\r\n`);
+  else { writeFileSync(join(bin, "claude"), `#!/bin/sh\necho x > "${told}"\nexit 0\n`); chmodSync(join(bin, "claude"), 0o755); }
+  const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+  return { told, env: { [pathKey]: [bin, dirname(process.execPath)].join(WIN ? ";" : ":") } };
+}
+
+for (const skill of ["cortex-install", "setup-plugins"]) {
+  test(`/${skill}'s status command says which tiers are installed, starts no claude and writes nothing`, () => {
+    const f = fixture();
+    registryIn(f, {
+      "playwright@claude-plugins-official": [{ scope: "user", version: "1.0.0" }],
+      "chrome-devtools-mcp@claude-plugins-official": [{ scope: "user", version: "1.0.0" }],
+      "typescript-lsp@claude-plugins-official": [{ scope: "user", version: "1.0.0" }],
+    });
+    const { told, env } = claudeThatTells(f);
+    const before = fingerprint(f.base);
+    const r = run(f, argvOf(statusCommand(skill), f.pluginRoot), { env });
+    assert.equal(r.status, 0, r.stderr);
+    const status = JSON.parse(r.stdout);
+    const state = Object.fromEntries(status.tiers.map((t) => [t.tier, t.state]));
+    assert.equal(status.registry, "read");
+    assert.equal(state["browser-qa"], "installed", "both of its plugins are in the registry");
+    assert.equal(state["dev-tools"], "partial", "one of two");
+    assert.equal(state.api, "missing");
+    assert.deepEqual(
+      status.tiers.find((t) => t.tier === "dev-tools").plugins.filter((p) => !p.installed).map((p) => p.plugin),
+      ["github@claude-plugins-official"],
+      "a partial tier names what it lacks",
+    );
+    assert.equal(existsSync(told), false, "a status must never start the claude CLI");
+    assert.equal(fingerprint(f.base), before, "and it leaves the home, the repo and the plugin byte-identical");
+    assert.doesNotMatch(r.stderr, /CORTEX_ROOT|AI_OS_ROOT/, "no root is needed to read a registry");
+  });
+
+  test(`/${skill}'s status command says unknown on a machine with no plugin registry`, () => {
+    const f = fixture();
+    const r = run(f, argvOf(statusCommand(skill), f.pluginRoot));
+    assert.equal(r.status, 0, r.stderr);
+    const status = JSON.parse(r.stdout);
+    assert.equal(status.registry, "absent");
+    for (const t of status.tiers) assert.equal(t.state, "unknown", t.tier);
+  });
+}
+
+test("setup-plugins --status reads the directory --plugins-dir names, and prints lines without --json", () => {
+  const f = fixture();
+  registryIn(f, {}); // the home's registry says nothing is installed
+  const other = join(f.base, "other-plugins");
+  mkdirSync(other, { recursive: true });
+  writeFileSync(join(other, "installed_plugins.json"), JSON.stringify({ version: 2, plugins: { "postman@claude-plugins-official": [{ scope: "user" }] } }));
+  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const r = run(f, [cli, "setup-plugins", "--status", "--plugins-dir", other]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^api\s+installed$/m);
+  assert.match(r.stdout, /^core\s+missing$/m);
+  assert.match(r.stdout, /^\s+postman@claude-plugins-official\s+installed$/m);
+
+  const one = run(f, [cli, "setup-plugins", "--status", "--tier", "api", "--json", "--plugins-dir", other]);
+  assert.deepEqual(JSON.parse(one.stdout).tiers.map((t) => t.tier), ["api"], "--tier limits the status to one tier");
+});
+
+test("setup-plugins --status refuses a --plugins-dir with no value, and an unknown tier", () => {
+  // Falling back to the real registry would answer about this machine a caller that meant another.
+  const f = fixture();
+  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const r = run(f, [cli, "setup-plugins", "--status", "--plugins-dir"]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /--plugins-dir needs a directory/);
+  const t = run(f, [cli, "setup-plugins", "--status", "--tier", "nope"]);
+  assert.equal(t.status, 1);
+  assert.match(t.stderr, /unknown tier/);
+});
+
+test("an unreadable registry is unknown, and the printed status says where it looked", () => {
+  const f = fixture();
+  const dir = registryIn(f, null);
+  writeFileSync(join(dir, "installed_plugins.json"), "{ not json");
+  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const r = run(f, [cli, "setup-plugins", "--status"]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout.split(/\r?\n/)[0], /could not be read/);
+  assert.ok(r.stdout.includes(dir), "the directory is named, so the person can look");
+  assert.doesNotMatch(r.stdout, /not installed|missing/);
 });
 
 test("/team-add's command joins a team-brain from a plugin install, cloning into the vault", () => {

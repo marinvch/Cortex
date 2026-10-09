@@ -28,12 +28,14 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pluginsDir, readRegistry } from "../core/plugin-registry.js";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const PLUGINS = join(homedir(), ".claude", "plugins");
+// Where the registry lives, and its shape, are core's: `ai-os setup-plugins --status` reads it too.
+const PLUGINS = pluginsDir();
 
 const args = process.argv.slice(2);
 const asJson = args.includes("--json");
@@ -107,16 +109,14 @@ const clone = clonePath && existsSync(clonePath) ? read(join(clonePath, "VERSION
 // when the three disagree it is the only one worth acting on.
 let installed = null;
 let installPath = null;
-try {
-  const reg = JSON.parse(read(join(PLUGINS, "installed_plugins.json")) || "{}");
-  for (const [key, entries] of Object.entries(reg.plugins || {})) {
-    if (key.split("@")[0] !== name) continue;
-    const e = (entries || []).find((x) => x.scope === "user") || (entries || [])[0];
-    if (!e) continue;
-    installed = e.version ?? null;
-    installPath = e.installPath ?? null;
-  }
-} catch { /* no registry is a valid state: the plugin is simply not installed */ }
+// No registry is a valid state here: the plugin is simply not installed, and `plugins` is empty.
+for (const [key, entries] of Object.entries(readRegistry(PLUGINS).plugins)) {
+  if (key.split("@")[0] !== name) continue;
+  const e = entries.find((x) => x.scope === "user") || entries[0];
+  if (!e) continue;
+  installed = e.version ?? null;
+  installPath = e.installPath ?? null;
+}
 
 const stages = [
   { stage: "repo", version: repo, path: REPO_ROOT, note: "what you edit" },

@@ -295,6 +295,15 @@ test("home refuses an employer-shaped link in any of the four fields", () => {
   }
 });
 
+test("home refuses a tenant link written with a trailing dot on the host", () => {
+  const f = fixture();
+  const before = { remote: fingerprint(f.remote), clone: fingerprint(f.clone), repo: fingerprint(f.repo) };
+  assert.throws(() => add(f, HOME, { fields: { tracker: "https://tenant.atlassian.net./browse/SHOP-12" } }), (e) => e.code === "employer_shaped_link");
+  assert.equal(fingerprint(f.remote), before.remote);
+  assert.equal(fingerprint(f.clone), before.clone);
+  assert.equal(fingerprint(f.repo), before.repo);
+});
+
 test("a home refusal happens before the team-brain is even cloned", () => {
   const base = realpathSync(tempDir("project-files-fresh-"));
   const remote = join(base, "team-brain.git");
@@ -504,6 +513,18 @@ test("on home, a file with an employer-shaped link is listed by slug and reason 
     assert.equal(full.links.tracker, "https://tenant.atlassian.net/browse/LED-1");
     assert.equal(full.withheld, undefined);
   }
+});
+
+test("on home, an invalid file is still withheld when the link that breaks it is employer-shaped", () => {
+  // The link has no scheme, so the file fails validation and is listed with its errors — and the
+  // listing prints a file's links beside its errors. Invalid must not be a way past the withholding.
+  const f = workspace();
+  teammateWrote(f, "ledger", projectText("Quarterly Ledger", "https://github.com/example-org/ledger", "tracker: tracker.internal/browse/LED-1\n"));
+  const onHome = listProjects(f.vault, { team: TEAM, policy: HOME }).find((p) => p.slug === "ledger");
+  assert.deepEqual(Object.keys(onHome).sort(), ["path", "slug", "source", "withheld"]);
+  assert.equal(JSON.stringify(onHome).includes("tracker.internal"), false);
+  const onWork = listProjects(f.vault, { team: TEAM, policy: WORK }).find((p) => p.slug === "ledger");
+  assert.deepEqual(onWork.errors.map((e) => e.key), ["tracker"]);
 });
 
 test("a team with no clone lists nothing for the team, and does not throw", () => {

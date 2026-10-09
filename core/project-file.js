@@ -175,16 +175,30 @@ function linkProblem(key, value) {
   return null;
 }
 
-/** The host and path of a link, lower-cased host, or null when it has neither form. */
+/**
+ * The host and path of a link, or null when it names no host. The host comes back in lower case
+ * and without the trailing dot of a fully-qualified name: `tenant.example.net.` is the same host,
+ * and read literally it would match no suffix below.
+ *
+ * A value with no scheme is read too — `host/path` or `host:path` — as long as the host has a dot
+ * in it. Validation refuses such a link, so no writer writes one, but a reader meets it in a file
+ * somebody committed and must still be able to say what shape it is. A bare word is not a host.
+ */
 function hostOf(link) {
   const v = String(link ?? "").trim();
+  const at = (host, path) => {
+    const h = host.toLowerCase().replace(/\.$/, "");
+    return h ? { host: h, path } : null;
+  };
   if (!v.includes("://")) {
-    const m = v.match(/^[^@\s/:]+@([^:\s/]+):(\S*)$/);
-    return m ? { host: m[1].toLowerCase(), path: m[2] } : null;
+    const scp = v.match(/^[^@\s/:]+@([^:\s/]+):(\S*)$/);
+    if (scp) return at(scp[1], scp[2]);
+    const bare = v.match(/^([^@\s/:]+\.[^@\s/:]+)(?:[/:](\S*))?$/);
+    return bare ? at(bare[1], bare[2] ?? "") : null;
   }
   try {
     const u = new URL(v);
-    return u.hostname ? { host: u.hostname.toLowerCase(), path: u.pathname } : null;
+    return at(u.hostname, u.pathname);
   } catch {
     return null;
   }

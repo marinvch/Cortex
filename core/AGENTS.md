@@ -63,7 +63,9 @@ here, which is why the directory is small and stays small.
     not change for this.
   - **The employer check is a floor, and the message says so.** It recognises a private-network
     host and a tenant of a hosted work tool. An employer's repo on a public forge passes. Do not
-    word any message as if a passing file were cleared.
+    word any message as if a passing file were cleared. The host is read without the trailing dot
+    of a fully-qualified name, and from a link with no scheme too: that link fails validation, but
+    a reader on `home` must still withhold the file that holds it.
   - **`WORK_TOOLS` is data, and short on purpose.** Every row refuses a person who uses that tool
     for a project of their own. A row needs a comment saying why the address names an organisation,
     and an entry in `ROW_EXAMPLES` in the test, which fails without one. A public forge is never a

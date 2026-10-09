@@ -48,8 +48,8 @@ pages() {
     for (const p of seen.docs) index.push(`- [Title of ${p}](https://code.claude.com/docs/en/${p}.md): What it covers.`);
     index.push("", "- [French (220 pages)](https://code.claude.com/docs/_llms/fr.md): Another index.");
     writeFileSync(join(dir, "llms.txt"), index.join("\n"));
-    const html = seen.blog.map((p, i) => `<a class="card" href="${i % 2 ? "https://claude.com" : ""}/blog/${p}">Post</a>`);
-    html.push(`<a href="/blog/category/product-announcements">Category</a>`, `<a href="/blog">All</a>`);
+    const html = seen.blog.map((p, i) => `<a class="card" href="${i % 2 ? "https://claude.com" : ""}/resources/articles/${p}">Post</a>`);
+    html.push(`<a href="/resources/articles/category/product-announcements">Category</a>`, `<a href="/resources/articles">All</a>`);
     writeFileSync(join(dir, "blog.html"), html.join("\n"));
     // The platform index: the watched pages Cortex has seen, among pages it does not watch.
     const platform = ["# Claude Platform", "", "- [Create a message](https://platform.claude.com/docs/en/api/messages/create.md) - Create"];
@@ -126,16 +126,23 @@ run newdoc
 assert_eq "0" "$rc" "without --check a new page reports but does not fail"
 
 pages newpost
-printf '\n<a href="/blog/a-post-nobody-has-read">Post</a>\n' >> newpost/blog.html
+printf '\n<a href="/resources/articles/a-post-nobody-has-read">Post</a>\n' >> newpost/blog.html
 run newpost --check
 assert_eq "3" "$rc" "a blog post not in the seen-list fails --check the same way"
-assert_contains "$out" "new    blog post: https://claude.com/blog/a-post-nobody-has-read" "and names it"
-assert_not_contains "$out" "blog post: https://claude.com/blog/category" "a category link is not a post"
+assert_contains "$out" "new    blog post: https://claude.com/resources/articles/a-post-nobody-has-read" "and names it"
+assert_not_contains "$out" "blog post: https://claude.com/resources/articles/category" "a category link is not a post"
 
+# The blog moved from /blog to /resources/articles on 2026-10; a link in the old form is the same post.
 pages scrolled
 printf '<a href="/blog/claude-code-mods">Post</a>\n' > scrolled/blog.html
 run scrolled --check
 assert_eq "0" "$rc" "a post that scrolled off the blog's front page is not a change"
+
+pages oldform
+printf '\n<a href="https://claude.com/blog/a-post-linked-the-old-way">Post</a>\n' >> oldform/blog.html
+run oldform --check
+assert_eq "3" "$rc" "a post linked under the old /blog path is still read"
+assert_contains "$out" "blog post: https://claude.com/resources/articles/a-post-linked-the-old-way" "and is reported at the address that serves it"
 
 pages removed
 grep -v '/docs/en/quickstart.md' removed/llms.txt > removed/llms.tmp && mv removed/llms.tmp removed/llms.txt
@@ -174,7 +181,7 @@ assert_eq "0" "$rc" "after which the same pages are no longer new"
 run scrolled --seen seen.json --accept
 run newpost --seen seen.json --check
 assert_eq "3" "$rc" "accepting a short front page keeps the posts already seen"
-assert_not_contains "$out" "blog post: https://claude.com/blog/claude-code-mods" "so only the unread post is new"
+assert_not_contains "$out" "blog post: https://claude.com/resources/articles/claude-code-mods" "so only the unread post is new"
 
 # --- the platform docs index: three sections watched, the rest ignored ------------------------------
 #

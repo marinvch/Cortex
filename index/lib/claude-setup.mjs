@@ -166,12 +166,31 @@ function gather(index, root, opts) {
 
   // Plugin roots: every directory holding a `.claude-plugin/` manifest — the repo root for a single
   // plugin, `plugins/<name>/` in a marketplace repo, which is where most public plugins live.
+  // A plugin a marketplace lists by relative path is one too, with or without a manifest of its
+  // own (`plugin.manifest.optional`); the path starts at the directory holding `.claude-plugin/`
+  // (`marketplace.source.relative-root`). Any other source is a plugin that lives somewhere else.
+  const listed = [];
+  for (const p of paths.filter((p) => /(^|\/)\.claude-plugin\/marketplace\.json$/.test(p))) {
+    const marketRoot = posix.dirname(posix.dirname(p));
+    let entries;
+    try {
+      entries = JSON.parse(read(p))?.plugins;
+    } catch {
+      continue; // not JSON: `claude plugin validate` is what reports that
+    }
+    for (const entry of Array.isArray(entries) ? entries : []) {
+      const source = entry?.source;
+      if (typeof source !== "string" || !source.startsWith("./") || source.split("/").includes("..")) continue;
+      listed.push(posix.normalize(posix.join(marketRoot, source)).replace(/\/$/, ""));
+    }
+  }
   const pluginRoots = [
-    ...new Set(
-      paths
+    ...new Set([
+      ...paths
         .filter((p) => /(^|\/)\.claude-plugin\/(plugin|marketplace)\.json$/.test(p))
         .map((p) => posix.dirname(posix.dirname(p))),
-    ),
+      ...listed,
+    ]),
   ];
   /** The plugin root a path ships in (`.` for the repo root), or null when it is not plugin content. */
   const pluginRootOf = (p, shape) => {

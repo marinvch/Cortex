@@ -123,8 +123,10 @@ const versionAt = (commit) => git("show", `${commit}:VERSION`);
 const was = versionAt(before);
 const now = versionAt(head);
 
+// stdout is appended to $GITHUB_OUTPUT whole, so nothing read from the repository is printed before
+// it has been matched: an unchanged VERSION holding a second line would otherwise set a step output.
 if (was !== null && was === now) {
-  process.stdout.write(`action=none\nreason=VERSION unchanged (${now})\n`);
+  process.stdout.write(`action=none\nreason=VERSION unchanged${VERSION.test(now) ? ` (${now})` : ""}\n`);
   process.exit(0);
 }
 if (now === null) refuse(`VERSION is missing at ${head}: nothing is released`);

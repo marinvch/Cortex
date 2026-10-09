@@ -7,8 +7,8 @@
 
 A release was three acts done by hand after a merge: create the tag on the merge commit, copy the
 version's changelog section into a GitHub release, mark it Latest. The acts stopped being done.
-Tags `v2.41.8` to `v2.41.18` sit on their merge commits. On 2026-10-09 `VERSION` was 2.41.39 and
-the twenty-one versions after 2.41.18 had no tag.
+Tags `v2.41.8` to `v2.41.18` sit on their merge commits. By 2026-10-09 every version after
+2.41.18 was on `master` with no tag: 2.41.19 to 2.41.45 on the day this was written, and counting.
 
 Nothing failed when that happened, and three things were wrong. The releases page named 2.41.18 as
 Latest. A version could not be addressed by tag, and `/site-sync` reads `git log v<was>..HEAD` to
@@ -39,6 +39,12 @@ runs a script. Merging a stamped pull request is the release.
   the remote, `--latest=false` otherwise. After creating, the job reads the releases again and
   puts Latest on the highest one.
 - The job holds `GITHUB_TOKEN` with `contents: write` and nothing else. It uses no secret.
+- The only trigger is a push to `master`. A pull request never starts it, from a fork or from
+  here, and nobody can dispatch it by hand. The job is skipped in a fork, where syncing `master`
+  would otherwise publish that fork's own copy of every release.
+- Text from the repository reaches a shell only as an environment variable, and reaches a step
+  output only after the script has matched it: a version is `x.y.z`, a commit is hex. The
+  changelog section goes to `gh` as a file.
 
 **The decisions live in `tools/cortex-release-plan.mjs`, not in the workflow's shell.** A workflow
 cannot be run before it is pushed. The script prints `action=none`, `exists` or `release`, and
@@ -63,7 +69,8 @@ versions that have a changelog section and no tag.
 | A personal token, so the release event starts other workflows | Nothing depends on that event. `site-drift.yml` is started by the same push. A standing token is a cost with no use. |
 | A back-fill mode in the workflow | It would be a workflow able to tag any old commit, kept for one use. |
 | Keep the comparison in the workflow's shell | It could then be tested only by pushing to `master`. |
-| Tags with no releases for the old versions, or a release for the newest only | The first leaves a gap of twenty-one versions on the releases page. The second leaves them unaddressable by tag. |
+| Tags with no releases for the old versions, or a release for the newest only | The first leaves a gap on the releases page from 2.41.18 to the first automatic release. The second leaves those versions unaddressable by tag. |
+| Pin the two actions to commit ids | Every workflow here names `actions/checkout@v4` and `actions/setup-node@v4` by major tag, and nothing here bumps a pinned id. Both are GitHub's own. This is the one workflow holding a write token, so it is the first place to pin if that changes. |
 
 ## Consequences
 
@@ -88,8 +95,14 @@ versions that have a changelog section and no tag.
 The workflow file has never run. `tools/cortex-release-plan.mjs` is tested; these are not, and the
 first real release shows each of them.
 
-- **The YAML itself.** It was read against the workflow syntax and against the other workflows
-  here. No parser has read it.
+- **The YAML itself.** A YAML parser reads it as one job of seven steps with the trigger, the
+  permission and the conditions meant. No workflow linter has read it, and GitHub has not.
+- **`github.event.repository.fork`** in the job's condition. It is a field of the push payload.
+  If it were ever absent the comparison with `false` holds and the job runs, which is the right
+  way to be wrong here.
+- **A tag above the highest release.** Latest is refused to a version below any `v<x.y.z>` tag,
+  and afterwards given to the highest version that has a release. A tag pushed by hand with no
+  release, above the version being released, therefore leaves Latest where it was.
 - **Whether `gh release create --target <sha>` with `GITHUB_TOKEN` is refused for a commit that
   differs from the default branch in a file under `.github/workflows/`.** The docs say the token
   must be authorized for workflows in that case and that `GITHUB_TOKEN` cannot be. The job tags

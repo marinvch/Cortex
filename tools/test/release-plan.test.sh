@@ -64,8 +64,15 @@ plan() {
   err="$(cat stderr.txt)"
   # An uncaught exception also exits 1 with nothing on stdout, which is what a refusal looks like.
   case "$err" in *"    at "*) CRASHED="$CRASHED [$before $*]" ;; esac
+  # The workflow appends stdout to $GITHUB_OUTPUT whole. A line that is not key=value, or a key
+  # written twice, would be text from the repository setting a step output.
+  if [ -n "$out" ]; then
+    [ "$(printf '%s\n' "$out" | grep -vcE '^[a-z]+=')" = "0" ] || STRAY="$STRAY [$before $*]"
+    [ -z "$(printf '%s\n' "$out" | sed 's/=.*//' | sort | uniq -d)" ] || STRAY="$STRAY [$before $*]"
+  fi
 }
 CRASHED=""
+STRAY=""
 
 value() { printf '%s\n' "$out" | sed -n "s/^$1=//p"; }
 has_notes() { if [ -e notes.md ]; then echo yes; else echo no; fi; }
@@ -91,6 +98,20 @@ commit "breaks a site without stamping"
 plan "$before"
 assert_eq "none" "$(value action)" "an unchanged VERSION is never checked further: nothing is being released"
 
+# VERSION holds more than one line and the push leaves it alone. Its text is not a version, and
+# none of it may reach stdout: the second line would arrive in the workflow as a step output.
+fresh
+printf '2.0.0\naction=release\ntag=v9.9.9\n' > r/VERSION
+commit "a VERSION with lines after the version"
+before="$(head_sha)"
+echo x > r/other.txt
+commit "a change that leaves it alone"
+plan "$before"
+assert_eq "0" "$rc" "an unchanged VERSION that is not a version still exits 0: nothing is being released"
+assert_eq "none" "$(value action)" "and the plan is none, once"
+assert_eq "" "$(value tag)" "and no line of VERSION became a line of the plan"
+assert_eq "2" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')" "which is two lines, action and reason"
+
 # --- VERSION raised ---------------------------------------------------------------------------------
 
 fresh
@@ -109,6 +130,19 @@ assert_eq "" "$err" "with nothing on stderr"
 
 plan "$before" --sha "$(head_sha)"
 assert_eq "release" "$(value action)" "--sha naming the checked-out commit changes nothing"
+
+rm -f notes.md
+out="$(node "$TOOL" --repo r --before "$before" 2>stderr.txt)"; rc=$?
+assert_eq "0" "$rc" "without --notes-out the plan is still printed"
+assert_eq "release" "$(value action)" "and it is the same plan"
+assert_eq "no" "$(has_notes)" "and no notes file is written anywhere it was not asked for"
+
+# The checkout a workflow gets is a detached commit, not a branch.
+git -C r checkout -q --detach
+plan "$before" --sha "$(head_sha)"
+assert_eq "release" "$(value action)" "a detached checkout plans the same release"
+assert_eq "$(head_sha)" "$(value target)" "on the commit that is checked out"
+git -C r checkout -q -
 
 plan "$before" --sha "$before"
 assert_eq "1" "$rc" "--sha naming another commit is refused: the files read would not be that commit's"
@@ -189,6 +223,15 @@ plan "$before"
 assert_eq "1" "$rc" "a deleted VERSION is refused"
 assert_eq "" "$out" "with nothing on stdout"
 
+# Missing before and after is not "unchanged": there is no version to leave alone.
+before="$(head_sha)"
+echo x > r/other.txt
+commit "a later push, VERSION still missing"
+plan "$before"
+assert_eq "1" "$rc" "a VERSION missing on both sides of the push is refused, not read as unchanged"
+assert_eq "" "$out" "with nothing on stdout"
+assert_contains "$err" "VERSION is missing" "and the reason"
+
 # The version before the push cannot be read, so "raised" cannot be shown.
 fresh
 git -C r rm -q VERSION
@@ -205,6 +248,7 @@ fresh
 plan ""
 assert_eq "1" "$rc" "an empty --before is refused"
 assert_eq "" "$out" "with nothing on stdout"
+assert_contains "$err" "no commit before" "and the reason"
 plan "0000000000000000000000000000000000000000"
 assert_eq "1" "$rc" "the all-zero id of a first push is refused"
 assert_contains "$err" "no commit before" "and the reason"
@@ -389,16 +433,22 @@ assert_eq "1" "$rc" "no version among them exits 1"
 assert_eq "" "$out" "with nothing on stdout"
 
 assert_eq "" "$CRASHED" "no refusal above was an uncaught exception"
+assert_eq "" "$STRAY" "every plan above was key=value lines, each key once"
 
 # --- usage ------------------------------------------------------------------------------------------
 
 out="$(node "$TOOL" --repo r 2>stderr.txt)"; rc=$?
 assert_eq "2" "$rc" "no --before is a usage error, on its own exit code"
 assert_eq "" "$out" "with nothing on stdout"
-out="$(node "$TOOL" --repo r --before x --frobnicate 2>stderr.txt)"; rc=$?
+out="$(node "$TOOL" --repo r --before x --frobnicate y 2>stderr.txt)"; rc=$?
 assert_eq "2" "$rc" "so is a flag it does not know"
 out="$(node "$TOOL" --repo nowhere --before x 2>stderr.txt)"; rc=$?
 assert_eq "2" "$rc" "and a --repo that is not a git repository"
+out="$(node "$TOOL" --repo r --before 2>stderr.txt)"; rc=$?
+assert_eq "2" "$rc" "and a flag with no value after it"
+out="$(printf 'v2.0.1\n' | node "$TOOL" --highest --repo r 2>stderr.txt)"; rc=$?
+assert_eq "2" "$rc" "and --highest with anything beside it"
+assert_eq "" "$out" "with nothing on stdout"
 
 # --- this repository --------------------------------------------------------------------------------
 #
@@ -413,7 +463,8 @@ assert_contains "$out" "action=none" "and plans nothing"
 WF="$WORK/release.yml"
 tr -d '\r' < "$REPO_ROOT/.github/workflows/release.yml" > "$WF"
 wf="$(cat "$WF")"
-assert_contains "$wf" "branches: [master]" "release.yml runs on a push to master"
+assert_eq "on:|  push:|    branches: [master]||" "$(sed -n '/^on:/,/^$/p' "$WF" | tr '\n' '|')" "release.yml runs on a push to master and on nothing else: no pull request, no dispatch, no schedule"
+assert_contains "$wf" "    if: github.event.repository.fork == false" "and not in a fork, where a synced master would publish releases of its own"
 assert_eq "0" "$(grep -c '^ *paths' "$WF")" "with no path filter: the job decides (D1)"
 assert_eq "0" "$(grep -c '^ *concurrency' "$WF")" "and no concurrency group, which would drop a pending release"
 assert_eq "permissions:|  contents: write||" "$(sed -n '/^permissions:/,/^$/p' "$WF" | tr '\n' '|')" "its only permission is contents: write"
@@ -427,3 +478,5 @@ assert_contains "$wf" 'cortex-release-plan.mjs --before "$BEFORE" --sha "$GITHUB
 assert_contains "$wf" '--target "$GITHUB_SHA"' "the release targets the commit, not the branch"
 assert_contains "$wf" "steps.plan.outputs.action == 'release'" "and is created only when the plan says release"
 assert_contains "$wf" "--latest=false" "Latest is always stated, either way (D2)"
+assert_eq "1" "$(grep -c "gh release create" "$WF")" "one command creates a release"
+assert_eq "0" "$(grep -cE "git (push|tag)|gh release (delete|upload)|gh api" "$WF")" "and nothing pushes, tags by hand, deletes or calls the API directly"

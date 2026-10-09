@@ -162,6 +162,6 @@ for f in "$REPO_ROOT"/tools/*.sh "$REPO_ROOT"/tools/server/*.sh; do
   case "$f" in "$LIB") continue ;; esac
   body="$(grep -v '^[[:space:]]*#' "$f")"
   [ "$f" = "$CRON" ] && body="$(printf '%s\n' "$body" | sed '/^cortex_root(){/,/^}/d')"
-  if printf '%s\n' "$body" | grep -qE '\$\{?(CORTEX_ROOT|AI_OS_ROOT)'; then readers="$readers ${f#"$REPO_ROOT"/}"; fi
+  if grep -qE '\$\{?(CORTEX_ROOT|AI_OS_ROOT)' <<<"$body"; then readers="$readers ${f#"$REPO_ROOT"/}"; fi
 done
 assert_eq "" "$readers" "no shell tool expands CORTEX_ROOT or AI_OS_ROOT outside cortex_root"

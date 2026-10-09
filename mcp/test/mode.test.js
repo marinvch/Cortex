@@ -8,6 +8,7 @@ import { readdirSync } from "node:fs";
 import { detectMode, isRepoMode, REPO, VAULT } from "../lib/mode.js";
 import { TOOL_TABLE, PUBLISHED, REPO as REPO_TOOL } from "../lib/tools.js";
 import { tempDir } from "./tmp.js";
+import { bothLayouts, ENTRIES, ENTRIES_OF_THE_15TH } from "../../core/test/memory-fixture.js";
 
 const serverPath = join(dirname(fileURLToPath(import.meta.url)), "..", "server.js");
 
@@ -168,6 +169,31 @@ for (const tool of TOOL_TABLE.filter((t) => t.writes === PUBLISHED)) {
     assert.deepEqual(readdirSync(root), [], `${tool.name} wrote something despite refusing`);
   });
 }
+
+// Both memory layouts, over the wire (plan step 4.1). `recall_memory` is `recent()` in core/memory.js
+// and nothing else, so this is the proof that the server hands on what core returns: every file of a
+// day that has an old day file AND a directory of author files, each row saying whose it is.
+test("recall_memory returns every entry of a date that holds both layouts, with its author", async () => {
+  const repo = tempDir("cortex-repo-");
+  const cortex = bothLayouts(join(repo, ".cortex"));
+
+  const res = await callOn(cortex, "recall_memory", { days: 1 });
+  assert.notEqual(res.isError, true);
+  const text = res.content[0].text;
+  for (const entry of ENTRIES_OF_THE_15TH) assert.ok(text.includes(entry), `missing: ${entry}`);
+  assert.ok(!text.includes(ENTRIES.dayBefore), "days: 1 is one day, not one file and not four");
+  assert.ok(!text.includes("strayreadme"), "a stray README is not memory");
+
+  const rows = JSON.parse(text);
+  assert.deepEqual(rows.map((r) => [r.day, r.author]), [
+    ["2026-08-15", null],
+    ["2026-08-15", "dev-a"],
+    ["2026-08-15", "dev-b"],
+  ]);
+
+  const all = await callOn(cortex, "recall_memory", {});
+  for (const entry of Object.values(ENTRIES)) assert.ok(all.content[0].text.includes(entry), `missing: ${entry}`);
+});
 
 test("a repo tool invoked in vault mode is refused the same way", async () => {
   const vault = tempDir("vault-");

@@ -16,7 +16,7 @@
 
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
-import { list as listMemory } from "../../core/memory.js";
+import { list as listMemory, recent as recentMemory } from "../../core/memory.js";
 import { resolveProfile } from "../../core/profile.js";
 import { gitReader } from "./changed.mjs";
 import { analyse } from "./findings.mjs";
@@ -24,7 +24,8 @@ import { analyse } from "./findings.mjs";
 const DAY = 86_400;
 export const CHURN_DAYS = 30;
 const TIMELINE_MAX = 10;
-const MEMORY_FILES = 3;
+// Days, not files: a day with five authors is five files and still one day of the timeline.
+const MEMORY_DAYS = 3;
 const SEVERITIES = ["critical", "high", "medium", "low"];
 
 /** `YYYY-MM-DD` of a unix timestamp, in UTC so a machine's timezone cannot move a commit a day. */
@@ -42,7 +43,7 @@ function daysBetween(a, b) {
  * The entries in one memory file: `## HH:MM · kind` headings, each with the first line of its body.
  * A digest is often long; the timeline needs the sentence that says what it is about, not all of it.
  */
-export function memoryEntries(day, text) {
+export function memoryEntries(day, text, author = null) {
   const out = [];
   const lines = String(text).replace(/\r/g, "").split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -55,26 +56,46 @@ export function memoryEntries(day, text) {
     }
     // Markdown emphasis reads as noise in a one-line list; the words stay, the asterisks go.
     body = body.replace(/\*\*|__|`/g, "");
-    out.push({ date: day, time: m[1], kind: "memory", tag: m[2], title: body.length > 140 ? body.slice(0, 139) + "…" : body });
+    out.push({ date: day, time: m[1], kind: "memory", tag: m[2], author, title: body.length > 140 ? body.slice(0, 139) + "…" : body });
   }
   return out;
 }
 
-function readMemory(root) {
-  const files = listMemory(join(root, ".cortex"));
-  if (!files.length) return { newest: null, days: 0, entries: [] };
-  const entries = [];
-  for (const f of files.slice(0, MEMORY_FILES)) {
-    let text = "";
-    try {
-      text = readFileSync(f.path, "utf8");
-    } catch {
-      text = "";
-    }
-    // Newest last within a day in the file; newest first in the timeline.
-    entries.push(...memoryEntries(f.day, text).reverse());
+// The order of memory entries within a day of the timeline: newest minute first. At one minute,
+// entries with no author (an old day file) come before those with one, authors go by slug, and
+// within one file the later entry comes first, because a file is written oldest first. Every key is
+// read off the files, so the order is the same on every machine. `HH:MM` is each writer's own clock
+// with no time zone: this is a stable order for display, not a claim about who wrote first.
+//
+// It does not compare dates. `buildOverview` sorts the whole timeline by day, and that sort is
+// stable, so the order given here survives inside each day.
+function byTimeThenAuthor(a, b) {
+  const [x, y] = [a.e, b.e];
+  if (x.time !== y.time) return x.time < y.time ? 1 : -1;
+  if (x.author !== y.author) {
+    if (x.author === null) return -1;
+    if (y.author === null) return 1;
+    return x.author < y.author ? -1 : 1;
   }
-  return { newest: files[0].day, days: files.length, entries };
+  return b.at - a.at;
+}
+
+// core/memory.js owns the store's layout — a day file, or one file per author in a day directory —
+// so this asks it for rows and never lists the directory itself. The author is the one on the row,
+// which core takes from the path; the heading inside the file is not read for it.
+function readMemory(root) {
+  const cortex = join(root, ".cortex");
+  const files = listMemory(cortex);
+  if (!files.length) return { newest: null, days: 0, entries: [] };
+  const found = [];
+  for (const f of recentMemory(cortex, { days: MEMORY_DAYS })) {
+    memoryEntries(f.day, f.content, f.author).forEach((e, at) => found.push({ e, at }));
+  }
+  return {
+    newest: files[0].day,
+    days: new Set(files.map((f) => f.day)).size,
+    entries: found.sort(byTimeThenAuthor).map((t) => t.e),
+  };
 }
 
 // A shallow clone — `git clone --depth 1`, the natural way to try Cortex on somebody else's repo —
@@ -201,7 +222,7 @@ export function buildOverview(index, root, { stale = null, env = {}, git = gitRe
   const commits = hasGit ? readCommits(git, commit) : [];
 
   // Newest day first. Within a day, memory before commits (it says why; the commits say what), and
-  // each source keeps its own order — git's is already newest first, and memory was reversed above.
+  // each source keeps its own order — git's is already newest first, and memory was sorted above.
   // Ties are broken by that position, never by comparing two empty times, which is not an order.
   const tagged = [...memory.entries, ...commits].map((e, i) => ({ e, i }));
   const timeline = tagged

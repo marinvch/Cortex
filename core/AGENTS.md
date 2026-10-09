@@ -22,9 +22,12 @@ here, which is why the directory is small and stays small.
   failure than declining it with a reason.
 - **No error message may echo a secret.** `redact()` exists for this; `RefusedWriteError` names
   the *kind* of secret and its line, never the value.
-- **Memory is append-only.** `append()` never rewrites an existing entry. Two developers writing
-  on the same day append to one file and git merges it as text; there is no lost-update case, and
-  introducing one would break the whole shared-memory model.
+- **Memory is append-only.** `append()` writes with `appendFileSync` and nothing else: no entry is
+  rewritten and no file is moved, renamed or split, a day file included. A feature that mutates an
+  existing entry brings back the lost update
+  ([ADR 0002](../docs/adr/0002-committed-repo-memory.md)). Append-only does not make two writers
+  merge: two branches that append to one file on one day conflict. The layout in the writer bullet
+  below is what prevents that, by giving each author a path of their own.
 - **`list()` and `recent()` read two memory layouts, and are the only code that knows either.** A
   day is `memory/<date>.md` (a day file, no author) or a directory `memory/<date>/` holding one
   `<author>.md` per author, where the author is a slug matching `[a-z0-9][a-z0-9-]{0,39}`. One date

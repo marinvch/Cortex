@@ -48,8 +48,10 @@ method, not a stage in any one workflow:
 - `/improve-codebase-architecture` runs its grilling loop here, once the user picks a candidate
   from the report.
 - `/analyze-spec` grills the brainstorm before it hardens into a design spec.
-- `/level-up` and `/onboard` interview the user; both should ask in rounds with a recommended
-  answer rather than one question at a time.
+- `/level-up` and `/onboard` interview the user too, but about themselves: what they did this
+  week, who they are. There is no answer to recommend for that, so the rounds here do not apply
+  and each keeps its own pace. `/onboard` asks one question at a time, and on a re-run what the
+  vault already holds is the default. Use rounds where the answers are decisions.
 
 Two Cortex rules apply while grilling, because a grilling session is where they get broken:
 

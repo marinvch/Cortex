@@ -5,6 +5,33 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.50] — 2026-10-09
+
+Three leftovers from the field report in #548.
+
+### Fixed
+
+- **A plugin tier that is already installed is no longer offered (#548, item 11).**
+  `ai-os setup-plugins --status` (`--json`, `--tier`, `--plugins-dir`) reads Claude Code's plugin
+  registry and reports each tier as `installed`, `partial`, `missing` or `unknown`. It installs
+  nothing and starts no `claude`. `/cortex-install` asks it before the `bundle` row, and
+  `/setup-plugins` before it offers the optional tiers. The finding still comes from the index
+  alone, so it stays the same on every machine. With no registry the status is `unknown` and the
+  row is asked as before. `/cortex` still asks once about an installed tier; then `/setup-plugins`
+  sees it is installed and reinstalls nothing.
+- **A hand-written `.github/copilot-instructions.md` is offered for reconciling after the context
+  layer exists (#548, item 13).** `cortex-next` state gains `standaloneDocs`, and an optional
+  `reconcile` row names `/optimize-context`. A shim, which is at most three lines naming
+  `AGENTS.md`, is not reported. Cortex rewrites nothing.
+
+### Changed
+
+- **`/migrate-engine` step 1 takes `.ai-os` and `.github/ai-os` from `state.legacyEngine`** and
+  scans by hand only for what that field does not cover (#548, item 13). A test holds the step's
+  text to the list in the code.
+- **`core/plugin-registry.js` is the one reader of the plugin registry.**
+  `tools/cortex-plugin-check.mjs` uses it.
+
 ## [2.41.49] — 2026-10-09
 
 The rituals, briefs and ADR 0002 describe the memory layout the writer has used since 2.41.48.
@@ -5058,6 +5085,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.50]: https://github.com/marinvch/Cortex/releases/tag/v2.41.50
 [2.41.49]: https://github.com/marinvch/Cortex/releases/tag/v2.41.49
 [2.41.48]: https://github.com/marinvch/Cortex/releases/tag/v2.41.48
 [2.41.47]: https://github.com/marinvch/Cortex/releases/tag/v2.41.47

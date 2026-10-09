@@ -8,12 +8,12 @@
 // checked is reported `optional` and stays visible — claiming a step is finished when nothing on
 // disk says so is worse than admitting the sequence cannot tell.
 
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
-import { AGENT_DOC_NAMES } from "./context-docs.mjs";
+import { AGENT_DOC_NAMES, POINTER_BYTES, SHIMMED_DOC_NAMES, pointsAtRootBrief } from "./context-docs.mjs";
 import { LOOP_STAMPS, loopPlan, memoryFiles } from "./loop.mjs";
 import { list as listMemory } from "../../core/memory.js";
 import { adrLocation } from "./adr.mjs";
@@ -77,7 +77,9 @@ const SECOND_ROUND = {
 // answers reached one user from one command — `cortex-findings` prints `nextLine()` as its footer.
 const AGENT_DOCS = AGENT_DOC_NAMES;
 
-const LEGACY_ENGINES = [".ai-os", ".github/ai-os"];
+// `/migrate-engine` step 1 reads `state.legacyEngine` and names these directories as everything the
+// field looks for. Add one here and that step is wrong until it names it too; next.test.mjs holds it.
+export const LEGACY_ENGINES = [".ai-os", ".github/ai-os"];
 
 function has(root, rel) {
   return existsSync(join(root, rel));
@@ -203,6 +205,29 @@ function priorAgentDocs(root) {
   return AGENT_DOCS.filter((d) => has(root, d));
 }
 
+// Another tool's doc that holds text of its own where Cortex would have written a one-line shim.
+// It is the half `priorDocs` cannot say: that list is every agent doc on disk, the shim included,
+// so once CONTEXT.md existed a hand-written `.github/copilot-instructions.md` was listed and
+// nothing was ever offered about it (#548). A second copy of the rules is read by that tool and
+// kept true by nobody.
+//
+// A file fact, like every other field: the bytes on disk are a pointer or they are not
+// (`pointsAtRootBrief`). It does not say the text is stale, and it never will. That takes reading
+// both files, which is `/optimize-context`'s job. A file that cannot be read is left out: nothing is
+// claimed about what was not seen.
+function standaloneAgentDocs(root) {
+  return SHIMMED_DOC_NAMES.filter((d) => {
+    try {
+      const abs = join(root, d);
+      const stat = statSync(abs);
+      if (!stat.isFile()) return false;
+      return stat.size > POINTER_BYTES || !pointsAtRootBrief(readFileSync(abs, "utf8"));
+    } catch {
+      return false;
+    }
+  });
+}
+
 /**
  * Read a target repo's Cortex state off disk.
  * Pure observation — it opens nothing it does not need and writes nothing at all.
@@ -238,6 +263,7 @@ export function readState(root, index = null, overrides = {}) {
     memory,
     memoryLatest: latestDigest(root),
     priorDocs: priorAgentDocs(root),
+    standaloneDocs: standaloneAgentDocs(root),
     ...stampFacts(root),
     sections: sectionFacts(root),
     ...loopFacts(root, index),
@@ -371,13 +397,36 @@ function steps(s) {
 
   // Only while the context layer is still unwritten. CONTEXT.md is the witness: the scaffold writes
   // it, so once it exists an AGENTS.md here is Cortex's own and not a doc to reconcile.
-  if (s.priorDocs.length && !(s.rootBrief && s.glossary)) {
+  const layerWritten = s.rootBrief && s.glossary;
+  if (s.priorDocs.length && !layerWritten) {
     rows.push({
       id: "reconcile",
       title: "Reconcile the agent docs that were already here",
       cmd: "/optimize-context",
       done: false,
       why: s.priorDocs.join(", ") + " was not written by Cortex — slim it BEFORE scaffold, or you get two files to merge by hand",
+    });
+  } else if (layerWritten && s.standaloneDocs?.length) {
+    // The same row, for what is left once the layer is written: another tool's doc that is still a
+    // brief of its own. The id stays `reconcile` because `/cortex` already reads that step as "ask
+    // about `/optimize-context` first", so the offer reaches the user with no ritual changed.
+    //
+    // Optional, unlike the row above. A team may keep rules for one tool on purpose, and nothing on
+    // disk records that they decided to. A required step over a choice never clears. And it names
+    // `/optimize-context`, which repoints a doc only when the brief already holds every line and
+    // otherwise quotes the difference and waits. Nothing here writes: the row is the offer, and
+    // running that ritual is the person's yes.
+    rows.push({
+      id: "reconcile",
+      title: "Point another tool's agent doc at AGENTS.md",
+      cmd: "/optimize-context",
+      done: false,
+      optional: true,
+      why:
+        s.standaloneDocs.join(", ") +
+        " holds rules of its own beside AGENTS.md, so that tool reads a second copy nobody keeps true — " +
+        "/optimize-context compares the two and points it at AGENTS.md only where AGENTS.md already says every line; what differs it quotes, and waits for a yes",
+      docs: s.standaloneDocs,
     });
   }
 

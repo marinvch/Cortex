@@ -172,6 +172,12 @@ anything — it leaves the user with their file *plus* an `AGENTS.generated.md` 
 which is the double-file a single install exists to avoid. The first version of this skill left
 the step out and produced exactly that.
 
+A `reconcile` step with `optional: true` is a different case: the layer is already written, and the
+files in its `docs` (today only `.github/copilot-instructions.md`) still hold rules of their own
+beside `AGENTS.md`. Add it to the worklist as one ordinary row that offers `/optimize-context` for
+those files. It is not asked first, and a no is a full answer: a team may keep rules for one tool
+on purpose.
+
 **Skills an earlier pass wrote are checked on every re-run.** A `skill-drift` step in the same
 `--json` output lists each skill the repo now contradicts, with its lines in `drift[].findings` —
 a path that is gone, "no tests" beside a test suite, a script no manifest declares. Every line is
@@ -222,8 +228,15 @@ would never share it. That can be true before any record exists. Add one row tha
 one more yes/no, and each agent's `proposals` are asked one agent at a time with the diff, never
 under `[a]ll`. Read [TEAM.md](TEAM.md) before asking; it holds the questions and the writing.
 
-Two rules survive the merge intact:
+Three rules survive the merge intact:
 
+- **`bundle` is asked only about tiers this machine lacks.** The worklist comes from the index, and
+  the index never reads the machine, so a tier in `targets` may already be installed. Before the
+  question, run `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --status --json`. It reads
+  Claude Code's plugin registry and writes nothing. Drop each target whose tier has `state`
+  `installed`, and for a `partial` tier name the plugins it still lacks. When no target is left,
+  leave the row out and say in one line which tiers were already installed. `unknown` means there
+  was no registry to read: ask about every target.
 - **`enrich` states its token cost before the question, not after.** It is the only offer that
   spends real money, and a user who says yes and then learns the price has been sold something.
 - **`triage-secrets` shows and stops.** Present the possible secrets, say some will be fixtures,

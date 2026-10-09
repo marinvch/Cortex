@@ -5,6 +5,33 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.45] — 2026-10-09
+
+A team-brain lists its projects as files. Step 3.1 of the roadmap, built to
+[its design](docs/specs/2026-10-09-workspace-and-project-files-design.md).
+
+### Added
+
+- **`ai-os team add` writes `projects/<slug>.md`** (title, repo, and optionally tracker, design,
+  docs and related), commits it as `project: add <slug>` and pushes it. New flags: `--title`,
+  `--project-repo`, `--tracker`, `--design`, `--docs`, `--related`. An existing file is left byte
+  for byte unless a flag is passed.
+- **`ai-os project list`, `check` and `remove`.** `check` exits 1 on an invalid file.
+  `remove --project <slug>` deletes one project file with `git rm`, commits, pushes, and reports
+  what it left: the notes folder, files that still name it in `related:`, and the connector.
+- **`list_projects` includes the team's project files.** Each entry is marked
+  `source: "vault" | "team"`.
+
+### Changed
+
+- **On a `home` profile a project file with an employer-shaped link is refused whole on write and
+  withheld on read.** That is a private-network host or a tenant of a hosted work tool. The check
+  is a floor: a file that passes is not cleared.
+- **A credential in a link or in `origin` is refused, never stripped.** Links are shown and never
+  fetched.
+- New `team.md` seeds point at `projects/` instead of listing slugs, and `/scan-projects` calls a
+  vault's file a "project stub".
+
 ## [2.41.44] — 2026-10-09
 
 The outcome harness. Step 2.2 of the roadmap, built to
@@ -4936,6 +4963,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.45]: https://github.com/marinvch/Cortex/releases/tag/v2.41.45
 [2.41.44]: https://github.com/marinvch/Cortex/releases/tag/v2.41.44
 [2.41.43]: https://github.com/marinvch/Cortex/releases/tag/v2.41.43
 [2.41.42]: https://github.com/marinvch/Cortex/releases/tag/v2.41.42

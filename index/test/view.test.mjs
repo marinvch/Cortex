@@ -1,9 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { buildView } from "../lib/view.mjs";
+import { buildOverview } from "../lib/overview.mjs";
 import { renderHtml, THEMES, CONTRAST } from "../lib/view-html.mjs";
 import { runPage, runOverview } from "./browser.mjs";
+import { bothLayouts, ENTRIES } from "../../core/test/memory-fixture.js";
 
 function idx(over = {}) {
   return {
@@ -462,6 +468,50 @@ test("the no-git state is named, and memory still reaches the timeline", () => {
   assert.match(page.html("ovr"), /only memory entries can be listed/);
   assert.match(page.html("ovbar"), /last commit <b>date not available<\/b>/);
   assert.match(page.html("ovbar"), /Cortex v9\.9\.9/);
+});
+
+// Both memory layouts (plan step 4.1), from the files to the drawn page. An entry from
+// `<date>/<author>.md` says whose it is; one from an old `<date>.md` has no author, and the page
+// shows nothing there rather than a guess.
+test("the timeline names the author of an entry that has one, and shows nothing for one that has none", () => {
+  const root = mkdtempSync(join(tmpdir(), "cortex-view-memory-"));
+  try {
+    bothLayouts(join(root, ".cortex"));
+    const overview = buildOverview(idx(), root, { git: () => ({ error: "fatal: not a git repository" }) });
+    const html = runOverview(buildView(idx(), "/tmp/x", { overview })).html("ovr");
+    const items = [...html.matchAll(/<li class="memory">([\s\S]*?)<\/li>/g)].map((m) => m[1]);
+    const tag = (item) => /<span class="tag">([^<]*)<\/span>/.exec(item)[1];
+    const title = (item) => /<span class="tt">([^<]*)<\/span>/.exec(item)[1];
+    assert.deepEqual(items.map((i) => [tag(i), title(i)]), [
+      ["memory · note", ENTRIES.oldAfternoon],
+      ["memory · dream · dev-a", ENTRIES.devA],
+      ["memory · dream · dev-b", ENTRIES.devB],
+      ["memory · decision", ENTRIES.oldMorning],
+      ["memory · note", ENTRIES.dayBefore],
+    ]);
+    assert.match(runOverview(buildView(idx(), "/tmp/x", { overview })).html("ovbar"), /2 days of entries/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("an author on a timeline entry is escaped like every other value on the page", () => {
+  const overview = {
+    cortex: "9.9.9", commit: null, commitDate: null, index: "unknown",
+    profile: { name: "home", source: "default" },
+    memory: { newest: "2026-01-02", days: 1, lagDays: null },
+    churn: { unavailable: "not a git repository" },
+    findings: { counts: { critical: 0, high: 0, medium: 0, low: 0 }, total: 0, top: [] },
+    timeline: [
+      { date: "2026-01-02", time: "09:00", kind: "memory", tag: "digest", author: "<b>x</b>", title: "one" },
+      { date: "2026-01-02", time: "", kind: "commit", tag: "abc1234", author: "A Person", title: "two" },
+    ],
+    timelineNote: null,
+    generated: [],
+  };
+  const html = runOverview(buildView(idx(), "/tmp/x", { overview })).html("ovr");
+  assert.ok(html.includes("memory · digest · &lt;b&gt;x&lt;/b&gt;"), "escaped");
+  assert.ok(html.includes('<span class="tag">commit abc1234</span>'), "a commit's tag is unchanged");
 });
 
 test("the Structure tab names what is missing and the command that writes it", () => {

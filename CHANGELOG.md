@@ -5,6 +5,56 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.42] — 2026-10-09
+
+The plugin check can say whether a newer Cortex is published. Item 12 of the field report (#548).
+
+### Added
+
+- **`node tools/cortex-plugin-check.mjs --remote`.** Run from an installed copy, the tool's "repo"
+  row is the cache itself, so its three rows always agreed and "matches the repo" was true by
+  construction. `--remote` reads `VERSION` from the default branch of the plugin's repository and
+  adds it as a fourth row, `upstream`. It fetches into a temp directory and writes nothing else.
+  With `--check`, exit 1 means the running copy is behind what is published, and exit 2 means
+  upstream could not be read. Versions compare as numbers. Without the flag the tool uses no
+  network, as before. `/plugin-sync` names the flag.
+
+## [2.41.41] — 2026-10-09
+
+A plugin a marketplace lists is checked even when it has no manifest of its own.
+
+### Fixed
+
+- **Skills, agents and hooks in a plugin folder with no `plugin.json` were not checked.** Cortex
+  took a folder for a plugin only when it held a `.claude-plugin/` manifest. Claude Code does not
+  need one: the marketplace entry names the plugin. Cortex now also reads each
+  `marketplace.json` and treats every entry whose `source` is a relative path as a plugin root. A
+  source that points outside the marketplace, or holds `..`, names no root. A marketplace file that
+  does not parse changes nothing.
+
+### Added
+
+- **Two rules in `core/claude-code.js`**, each with the sentence that states it:
+  `plugin.manifest.optional` and `marketplace.source.relative-root`. 58 rules from 15 pages.
+
+### Not done
+
+- A skill that teaches plugin writing shows example paths such as
+  `${CLAUDE_PLUGIN_ROOT}/scripts/build.sh`. Those are reported as missing files, as they already
+  were in a plugin with a manifest. The check does not tell an example from a reference.
+
+## [2.41.40] — 2026-10-09
+
+`/grilling` no longer tells `/onboard` to ask in rounds.
+
+### Fixed
+
+- **`/grilling` and `/onboard` disagreed.** `/onboard` says "one question at a time". `/grilling`
+  said `/onboard` and `/level-up` "should ask in rounds with a recommended answer". Rounds with a
+  recommended answer fit decisions. Those two rituals ask a person about themselves, where there is
+  nothing to recommend. `/grilling` now says so and leaves each ritual its own pace. `/onboard` is
+  unchanged.
+
 ## [2.41.39] — 2026-10-09
 
 The docs check reads the blog at its new address. Closes #555.
@@ -4851,6 +4901,9 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.42]: https://github.com/marinvch/Cortex/releases/tag/v2.41.42
+[2.41.41]: https://github.com/marinvch/Cortex/releases/tag/v2.41.41
+[2.41.40]: https://github.com/marinvch/Cortex/releases/tag/v2.41.40
 [2.41.39]: https://github.com/marinvch/Cortex/releases/tag/v2.41.39
 [2.41.38]: https://github.com/marinvch/Cortex/releases/tag/v2.41.38
 [2.41.37]: https://github.com/marinvch/Cortex/releases/tag/v2.41.37

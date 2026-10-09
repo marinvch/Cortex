@@ -3,7 +3,10 @@ import { spawnSync } from "node:child_process";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadManifest, buildPlan, formatCommands } from "./lib/setup-plugins.js";
-import { initTeamBrain, cloneTeamBrain, writeConnector } from "./lib/team.js";
+import { initTeamBrain, writeConnector } from "./lib/team.js";
+import { addProject, listTeamProjects, removeProject } from "./lib/project-files.js";
+import { listProjects } from "./lib/projects.js";
+import { stamp } from "../core/date.js";
 import { digest } from "./lib/digest.js";
 import { catchMeUp, catchUpRepo } from "./lib/catchup.js";
 import { repoTop } from "./lib/gitsync.js";
@@ -73,16 +76,100 @@ function cmdTeam(teamSub, args, brain) {
     // It always meant the project; the connector it wrote was read as the team, which is the bug the
     // two named fields close (lib/team.js).
     const project = args.project ?? args.slug;
-    if (!args.name || !args.repo || !project || project === true) {
-      throw new Error("usage: ai-os team add --name <team> --repo <git-url> --project <project-slug>");
+    if (!args.name || !args.repo || !project || project === true) throw new Error(TEAM_ADD_USAGE);
+    // The project file first, the connector last. A refusal — an invalid field, an employer-shaped
+    // link on a profile that refuses it, a credential — throws out of here, so a repo that may not
+    // be registered is not half-joined either.
+    const fields = {};
+    for (const [flag, key] of Object.entries(PROJECT_FIELD_FLAGS)) {
+      if (args[flag] === undefined) continue;
+      if (args[flag] === true) throw new Error(`--${flag} needs a value\n${TEAM_ADD_USAGE}`);
+      fields[key] = args[flag];
     }
-    const { dir, cloned } = cloneTeamBrain(root, args.name, args.repo);
+    const { dir, cloned, file } = addProject(root, {
+      team: args.name, teamRepo: args.repo, project, cwd: process.cwd(), today: stamp(), policy: brain.policy, fields,
+    });
+    console.log(describeProjectFile(file, brain));
+    for (const w of file.warnings) console.log(`  warning: ${w.msg}`);
     const conn = writeConnector(process.cwd(), { team: args.name, project, teamBrainRepo: args.repo });
     console.log(`Team-brain ${cloned ? "cloned to" : "already at"} ${dir}. Wrote ${conn}.`);
     console.log("Next: commit the connector into THIS repo →  git add .cortex/connector.json");
     return 0;
   }
   throw new Error("usage: ai-os team init|add ...");
+}
+
+const TEAM_ADD_USAGE =
+  "usage: ai-os team add --name <team> --repo <git-url> --project <project-slug>\n" +
+  "         [--title <text>] [--project-repo <url>] [--tracker <url>] [--design <url>] [--docs <url>] [--related <slug,slug>]";
+
+// The flags that fill a project file, and the frontmatter key each one sets. `--repo` was already
+// the team-brain's URL, so the project's own repository is `--project-repo`.
+const PROJECT_FIELD_FLAGS = { title: "title", "project-repo": "repo", tracker: "tracker", design: "design", docs: "docs", related: "related" };
+
+/** One line saying what happened to the project file, including the push that did not happen. */
+function describeProjectFile(file, brain) {
+  if (file.action === "skipped") return `No project file written: ${file.reason}`;
+  if (file.action === "unchanged") return `Project file already at ${file.path}${file.status ? ` (${file.status})` : ""}; left as it is.`;
+  const did = `Project file ${file.action}: ${file.path}`;
+  if (file.pushed) return `${did}, committed and pushed.`;
+  if (file.committed) return `${did}, committed, but NOT pushed: ${file.error} (profile ${brain.profile}).`;
+  return `${did}, but NOT committed: ${file.error}`;
+}
+
+const PROJECT_USAGE =
+  "usage: ai-os project list|check|remove ...\n" +
+  "  ai-os project list [--team <name>]             every project the brain knows, as JSON\n" +
+  "  ai-os project check [--team <name>]            validate the team's project files; exit 1 on any error\n" +
+  "  ai-os project remove --project <slug> [--team <name>]\n" +
+  "                                                 delete a project file (git rm, commit, push)";
+
+// A workspace is the project files in one team-brain (docs/adr/0024), and the clone lives under
+// the vault — so none of this exists in repo mode, where the root is a product repo's `.cortex/`.
+// The team is the connector's, exactly as it is for capture and catch-up; `--team` is the override
+// for a person standing outside any joined repo.
+function cmdProject(projectSub, args, brain) {
+  if (!["list", "check", "remove"].includes(projectSub)) throw new Error(PROJECT_USAGE);
+  if (brain.isRepo) {
+    throw new Error("`ai-os project` reads the team-brain clone under a vault, and AI_OS_ROOT points at a repo's .cortex/. Set AI_OS_ROOT to your vault.");
+  }
+  const team = (typeof args.team === "string" ? args.team : null) ?? brain.team;
+
+  if (projectSub === "list") {
+    console.log(JSON.stringify(listProjects(brain.root, { team, policy: brain.policy }), null, 2));
+    const skipped = team ? listTeamProjects(brain.root, { team, policy: brain.policy }).skipped : 0;
+    if (skipped) console.error(`${skipped} other .md file${skipped === 1 ? "" : "s"} under the team-brain's projects/ ${skipped === 1 ? "is" : "are"} not project files and ${skipped === 1 ? "was" : "were"} skipped.`);
+    return 0;
+  }
+
+  if (!team) throw new Error(`no team: run this inside a repo joined with \`ai-os team add\`, or pass --team <name>\n${PROJECT_USAGE}`);
+
+  if (projectSub === "check") {
+    const { projects, skipped } = listTeamProjects(brain.root, { team, policy: brain.policy });
+    let failed = 0;
+    for (const p of projects) {
+      if (p.unregistered) { console.log(`${p.slug}: unregistered — a notes folder with no project file`); continue; }
+      if (p.withheld) { failed++; console.log(`${p.slug}: withheld on profile ${brain.profile} — ${p.withheld}. It belongs in a work install; nothing was changed.`); continue; }
+      console.log(`${p.slug}: ${p.errors.length ? "INVALID" : "ok"}`);
+      for (const e of p.errors) { failed++; console.log(`  error ${p.slug}.md:${e.line}: ${e.msg}`); }
+      for (const w of p.warnings) console.log(`  warning ${p.slug}.md:${w.line}: ${w.msg}`);
+    }
+    console.log(`${projects.length} listed, ${skipped} other .md skipped, ${failed} problem${failed === 1 ? "" : "s"}.`);
+    return failed ? 1 : 0;
+  }
+
+  const project = args.project;
+  if (!project || project === true) throw new Error("usage: ai-os project remove --project <slug> [--team <name>]");
+  const res = removeProject(brain.root, { team, project, policy: brain.policy });
+  const how = res.pushed ? "committed and pushed"
+    : res.committed ? `committed, but NOT pushed: ${res.error} (profile ${brain.profile})`
+    : `NOT committed: ${res.error ?? "the file was never tracked"}`;
+  console.log(`Removed ${res.path} — ${how}.`);
+  console.log("Left as it was:");
+  console.log(res.left.notes ? `  - ${res.left.notes} — the project's notes. Memory is never deleted.` : "  - no notes folder for this project");
+  for (const slug of res.left.relatedIn) console.log(`  - projects/${slug}.md still names '${project}' in related:. It was not edited; it now validates with a warning.`);
+  console.log(`  - ${res.left.connector}`);
+  return 0;
 }
 
 function cmdDigest(args) {
@@ -177,12 +264,14 @@ try {
       process.exit(cmdSetupPlugins(args));
     case "team":
       process.exit(cmdTeam(rest[0], args, open("team operations")));
+    case "project":
+      process.exit(cmdProject(rest[0], args, open("project operations")));
     case "digest":
       process.exit(cmdDigest(args));
     case "catch-up":
       process.exit(cmdCatchUp(args, open("catch-up", { rootOptional: true })));
     default:
-      console.error("usage: ai-os <setup-plugins|team|digest|catch-up> [--flags]");
+      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up> [--flags]");
       process.exit(sub ? 1 : 2);
   }
 } catch (e) {

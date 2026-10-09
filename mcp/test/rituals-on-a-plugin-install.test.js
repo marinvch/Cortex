@@ -228,4 +228,43 @@ test("/team-add's command joins a team-brain from a plugin install, cloning into
   assert.ok(existsSync(join(vault, "team", "core", ".git")), "the team-brain is cloned under the vault");
   const conn = JSON.parse(readFileSync(join(f.proj, ".cortex", "connector.json"), "utf8"));
   assert.deepEqual(conn, { team: "core", project: "product", teamBrainRepo: remote });
+  // This checkout has no `origin`, so it joins unregistered: no project file without a repo.
+  assert.match(r.stdout, /No project file written/);
+  assert.match(r.stdout, /--project-repo/);
+  assert.equal(existsSync(join(vault, "team", "core", "projects", "product.md")), false);
+});
+
+test("/team-add's command registers the project when the checkout has an origin", () => {
+  // The same printed command, on a machine with no git identity and against a team-brain remote
+  // that is still empty — the first repo of a team to join. The file must reach the remote.
+  const f = fixture();
+  const vault = join(f.base, "vault");
+  mkdirSync(vault, { recursive: true });
+  const remote = join(f.base, "team-brain.git");
+  execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
+  execFileSync("git", ["remote", "add", "origin", "https://github.com/example-org/product.git"], { cwd: f.proj, env: isolatedEnv(f.home) });
+  const [line] = commandsIn("team-add").found;
+  const argv = argvOf(line, f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
+  const r = run(f, [...argv, "--title", "Product"], { cwd: f.proj, env: { AI_OS_ROOT: vault } });
+  assert.equal(r.status, 0, `team add failed on a plugin install:\n${r.stderr}`);
+  assert.match(r.stdout, /committed and pushed/, r.stdout);
+  const pushed = execFileSync("git", ["show", "HEAD:projects/product.md"], { cwd: remote, env: isolatedEnv(f.home) }).toString();
+  assert.match(pushed, /^type: project$/m);
+  assert.match(pushed, /^title: Product$/m);
+  assert.match(pushed, /^repo: https:\/\/github\.com\/example-org\/product\.git$/m);
+  assert.ok(existsSync(join(f.proj, ".cortex", "connector.json")));
+});
+
+test("/team-add names the removal command, and it runs from the plugin root", () => {
+  const { text, found } = commandsIn("team-add");
+  const remove = found.find((c) => / project remove /.test(c));
+  assert.ok(remove, "the skill must name `ai-os project remove`");
+  assert.match(text, /Ask before running/i, "removal pushes a deletion the whole team pulls");
+  const f = fixture();
+  const vault = join(f.base, "vault");
+  mkdirSync(vault, { recursive: true });
+  // No team-brain is joined here, so the command must refuse cleanly rather than crash.
+  const r = run(f, argvOf(remove, f.pluginRoot, { "<slug>": "product" }), { cwd: f.proj, env: { AI_OS_ROOT: vault } });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /no team/);
 });

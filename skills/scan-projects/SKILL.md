@@ -9,7 +9,7 @@ metadata:
 # /scan-projects — bridge repos ↔ vault (metadata only)
 
 Keeps the vault aware of which projects exist **without absorbing any code**. Honors the privacy
-firewall: a project file holds name / path / URL / stack / date only — never code, secrets, or
+firewall: a project stub holds name / path / URL / stack / date only — never code, secrets, or
 client data. This is the vault-side companion to the per-repo brain installed by `/install-project`
 (and by `cortex-init --register-to-vault`). It records what it found in the vault's `connections.md`
 (the empty one ships in Cortex's `templates/vault/`).

@@ -285,6 +285,16 @@ test("a change that never returns is a failed task with its reason, not a hung r
   assert.match(r.reason, /timed out/);
 });
 
+// On Windows a killed test process can hold the copy's directory for a moment after it is gone, and
+// removing it then fails with EBUSY. The result is already decided by then.
+test("a copy that cannot be removed leaves the decision as it was", async () => {
+  const dir = tree("without");
+  const busy = () => { throw Object.assign(new Error("EBUSY: resource busy or locked"), { code: "EBUSY" }); };
+  const r = await accept("search-empty", dir, { remove: busy });
+  assert.equal(typeof r.pass, "boolean");
+  assert.equal(r.task, "search-empty");
+});
+
 test("a tree whose source no longer loads fails the task; it is not a fault", async () => {
   const dir = tree("without");
   mkdirSync(join(dir, "src"), { recursive: true });

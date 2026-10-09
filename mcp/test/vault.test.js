@@ -7,7 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { openVault } from "../lib/vault.js";
 import { OutsideRootError } from "../../core/paths.js";
@@ -140,4 +140,81 @@ test("exists refuses rather than answering false for an escaping path", () => {
 test("list never escapes the root via a scope argument", () => {
   const v = openVault(seed());
   assert.throws(() => v.list(".."), OutsideRootError);
+});
+
+// --- remove. The one operation that destroys, so the one whose refusals matter most. ---
+
+test("remove deletes one file and leaves its neighbours", () => {
+  const root = seed();
+  const v = openVault(root);
+  const gone = v.remove("projects/alpha.md");
+  assert.ok(isAbsolute(gone));
+  assert.equal(existsSync(join(root, "projects", "alpha.md")), false);
+  assert.equal(existsSync(join(root, "projects", "client", "beta.md")), true);
+  assert.equal(existsSync(join(root, "notes.md")), true);
+});
+
+for (const escape of ["../escape.md", "../../etc/passwd", "projects/../../escape.md"]) {
+  test(`remove refuses an escaping path and deletes nothing: ${escape}`, () => {
+    const base = tempDir("vault-rm-");
+    const root = join(base, "vault");
+    mkdirSync(join(root, "projects"), { recursive: true });
+    writeFileSync(join(base, "escape.md"), "outside the root\n");
+    assert.throws(() => openVault(root).remove(escape), OutsideRootError);
+    assert.equal(readFileSync(join(base, "escape.md"), "utf8"), "outside the root\n");
+  });
+}
+
+test("remove refuses a directory — it deletes a file, never a tree", () => {
+  const root = seed();
+  assert.throws(() => openVault(root).remove("projects/client"), (e) => e.code === "not_a_file");
+  assert.throws(() => openVault(root).remove("projects"), (e) => e.code === "not_a_file");
+  assert.throws(() => openVault(root).remove(""), (e) => e.code === "not_a_file");
+  assert.equal(existsSync(join(root, "projects", "client", "beta.md")), true);
+});
+
+test("remove says a missing file is missing rather than succeeding", () => {
+  assert.throws(() => openVault(seed()).remove("projects/ghost.md"), (e) => e.code === "not_found");
+});
+
+test("remove refuses a path that leaves the root through a linked directory", (t) => {
+  // A junction needs no admin rights on Windows, so this case runs on every platform — unlike a
+  // file symlink, which is the next test. A string-prefix check passes this path; the realpath in
+  // core/paths.js is what refuses it.
+  const base = tempDir("vault-rm-link-");
+  const root = join(base, "vault");
+  const outside = join(base, "outside");
+  mkdirSync(join(root, "projects"), { recursive: true });
+  mkdirSync(outside);
+  writeFileSync(join(outside, "secret.md"), "outside the root\n");
+  try {
+    symlinkSync(outside, join(root, "projects", "linked"), "junction");
+  } catch {
+    t.skip("directory links are not permitted in this environment");
+    return;
+  }
+  assert.throws(() => openVault(root).remove("projects/linked/secret.md"), OutsideRootError);
+  assert.equal(readFileSync(join(outside, "secret.md"), "utf8"), "outside the root\n");
+});
+
+test("remove refuses a file symlink, wherever it points", (t) => {
+  const base = tempDir("vault-rm-sym-");
+  const root = join(base, "vault");
+  mkdirSync(join(root, "projects"), { recursive: true });
+  writeFileSync(join(base, "secret.md"), "outside the root\n");
+  writeFileSync(join(root, "projects", "real.md"), "inside\n");
+  try {
+    symlinkSync(join(base, "secret.md"), join(root, "projects", "out.md"));
+    symlinkSync(join(root, "projects", "real.md"), join(root, "projects", "in.md"));
+  } catch {
+    t.skip("symlink creation not permitted in this environment");
+    return;
+  }
+  const v = openVault(root);
+  assert.throws(() => v.remove("projects/out.md"), OutsideRootError);
+  // A link that stays inside the root is still not the file it names: removing "in.md" must not
+  // be a way to delete through it.
+  assert.throws(() => v.remove("projects/in.md"), (e) => e.code === "not_a_file");
+  assert.equal(readFileSync(join(base, "secret.md"), "utf8"), "outside the root\n");
+  assert.equal(readFileSync(join(root, "projects", "real.md"), "utf8"), "inside\n");
 });

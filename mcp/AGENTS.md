@@ -21,6 +21,13 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `truncated: true` plus a hint to narrow the request. Claude Code cuts MCP output at 25,000 tokens
   by default; `recall_memory` returned 272,000 characters on a year of memory before this. Do not
   raise the cap to fit a tool — give the tool a way to return less.
+- **Memory is read through `core/memory.js`, in both layouts.** `recall_memory` and the repo half
+  of a catch-up call `recent()` and hand on its rows: one per file, a day file (`<date>.md`,
+  `author: null`) or one author's file of a day (`<date>/<author>.md`, `author` the slug from the
+  path). `days` and `since` count days, so every file of a day comes back together. Do not list
+  `.cortex/memory/` here. `recall` in repo mode needs no rule of its own: it searches every `.md`
+  under `.cortex/` through the Vault, and the path of a hit names the author. More authors mean
+  more text for the same `days`; the transport cap below is what stops it, and it says so.
 - **`server.js` stays a thin switch.** All logic lives in `lib/`; the transport layer is a
   dispatch over tool names and nothing more.
 - **Two modes, decided by the root — never configured.** A root ending in `.cortex` is

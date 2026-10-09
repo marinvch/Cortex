@@ -25,6 +25,17 @@ here, which is why the directory is small and stays small.
 - **Memory is append-only.** `append()` never rewrites an existing entry. Two developers writing
   on the same day append to one file and git merges it as text; there is no lost-update case, and
   introducing one would break the whole shared-memory model.
+- **`list()` and `recent()` read two memory layouts, and are the only code that knows either.** A
+  day is `memory/<date>.md` (a day file, no author) or a directory `memory/<date>/` holding one
+  `<author>.md` per author, where the author is a slug matching `[a-z0-9][a-z0-9-]{0,39}`. One date
+  can hold both, and then every file is its own row: nothing merges, replaces or deduplicates rows,
+  so one layout cannot hide the other. Rows are `{ day, author, path }`, newest day first; within a
+  day the day file, then authors by slug in code-unit order, so the order depends on the names
+  alone. `author` comes from the path and is `null` for a day file. Never read it from the
+  heading, which is text anyone can edit. `recent({ days })` counts days, not files. Anything else
+  in the directory is skipped. Every reader in `index/` and `mcp/` calls these two; a second
+  listing of the directory is how a repo that only has day directories gets told it has no
+  memory. [The design](../docs/specs/2026-10-09-team-memory-design.md), "Layout" and "Readers".
 - **`root` means the `.cortex` directory, and `append()` enforces it.** The contract used to live
   in a doc comment, so passing a repo root — the reading the word invites — wrote a dated file to
   `<repo>/memory/`, returned the path it had written and exited 0. Nothing reads there, and

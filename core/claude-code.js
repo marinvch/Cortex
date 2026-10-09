@@ -30,6 +30,8 @@ const BEST = "https://code.claude.com/docs/en/best-practices";
 const MODES = "https://code.claude.com/docs/en/permission-modes";
 const HEADLESS = "https://code.claude.com/docs/en/headless";
 const AUTHORING = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices";
+const PLUGINS_REF = "https://code.claude.com/docs/en/plugins-reference";
+const MARKETPLACES = "https://code.claude.com/docs/en/plugin-marketplaces";
 const MODS = "https://code.claude.com/docs/en/plugins/mods/overview";
 const MODS_REF = "https://code.claude.com/docs/en/plugins/mods/reference";
 const MODS_ADMIN = "https://code.claude.com/docs/en/plugins/mods/admin";
@@ -317,6 +319,20 @@ export const RULES = Object.freeze([
     evidence: "Reading `AGENTS.md` directly requires Claude Code v2.1.277 or later.",
   },
 
+  // --- plugins: which folders are a plugin ---------------------------------------------------------
+  {
+    id: "plugin.manifest.optional",
+    value: true,
+    source: PLUGINS_REF,
+    evidence:
+      "The manifest is optional. Without it, Claude Code loads the components it finds in the standard layout.",
+  },
+  {
+    id: "marketplace.source.relative-root",
+    value: ".claude-plugin",
+    source: MARKETPLACES,
+    evidence: "The marketplace root is the directory that contains `.claude-plugin/`.",
+  },
   // --- mods: a plugin whose handlers run inside Claude Code ---------------------------------------
   //
   // The docs call the older kind "settings hooks" and use "hook" for a mod's handler. The `hook.*`

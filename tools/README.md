@@ -154,7 +154,15 @@ repo VERSION  →  marketplace clone  →  installed cache  →  this session
 ```bash
 node tools/cortex-plugin-check.mjs           # all three stages, and where they diverge
 node tools/cortex-plugin-check.mjs --check   # exit 1 if the running copy is behind
+node tools/cortex-plugin-check.mjs --remote  # also: is a newer Cortex published?
 ```
+
+Run from an installed copy, the "repo" is the cache itself, so the three rows always agree and say
+nothing about upstream. `--remote` reads `VERSION` from the default branch of the plugin's
+repository, through a shallow fetch into a temp directory, and adds it as a fourth row. It is the
+only part that uses the network, so it is opt-in. With `--check`, exit 1 means the running copy is
+behind what is published and exit 2 means upstream could not be read. Pass a url after the flag to
+read another repository.
 
 Nothing announces a mismatch: every command is present, every skill loads, and the model follows last
 week's instructions against this week's code — so a fix that was correct looks broken. Updating the

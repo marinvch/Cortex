@@ -202,6 +202,68 @@ test("plugins inside a marketplace repo are found under plugins/<name>/, with th
   assert.deepEqual(only(fs, "skill-reference-missing"), []); // resolved inside plugins/fmt/, where x.sh is
 });
 
+// A plugin needs no manifest of its own: the marketplace entry names it. Seven skills in one public
+// marketplace repo sat in such a folder, and no skill finding looked at them.
+const market = (...sources) => JSON.stringify({ name: "m", plugins: sources.map((source, i) => ({ name: `p${i}`, source })) });
+const LONG = `name: x\ndescription: ${"word ".repeat(260)}`;
+
+test("a plugin listed by a marketplace is checked even with no manifest of its own", () => {
+  const fs = check({
+    ".claude-plugin/marketplace.json": market("./plugins/fmt", "./plugins/lint/"),
+    "plugins/fmt/skills/x/SKILL.md": skill(LONG, "Body.\n"),
+    "plugins/lint/skills/y/SKILL.md": skill("name: y\ndescription: Does y.\nversion: 1", "Body.\n"),
+    "plugins/fmt/agents/r.md": agent("name: r\ndescription: Reviews.\ntools: Read\nhooks: {}"),
+  });
+  const hit = assertFinding(fs, "skill-description-not-portable");
+  assert.match(hit.evidence[0], /^plugins\/fmt\/skills\/x\/SKILL\.md/);
+  assertFinding(fs, "subagent-plugin-ignored-key");
+  // A trailing slash names the same folder.
+  assert.match(assertFinding(fs, "skill-unknown-key").evidence[0], /^plugins\/lint\/skills\/y\/SKILL\.md/);
+});
+
+test("a folder no marketplace entry names is still not plugin content", () => {
+  const fs = check({
+    ".claude-plugin/marketplace.json": market("./plugins/fmt"),
+    "plugins/other/skills/x/SKILL.md": skill(LONG, "Body.\n"),
+    "docs/skills/x/SKILL.md": skill(LONG, "Body.\n"),
+  });
+  assert.deepEqual(kinds(fs), []);
+});
+
+test("a marketplace source resolves from the directory that holds .claude-plugin/", () => {
+  const fs = check({
+    "tools/market/.claude-plugin/marketplace.json": market("./plugins/fmt", "./"),
+    "tools/market/plugins/fmt/skills/x/SKILL.md": skill(LONG, "Body.\n"),
+    "plugins/fmt/skills/x/SKILL.md": skill(LONG, "Body.\n"),
+  });
+  const hit = only(fs, "skill-description-not-portable");
+  assert.equal(hit.length, 1);
+  assert.deepEqual(hit[0].evidence.map((e) => e.split(" — ")[0]), ["tools/market/plugins/fmt/skills/x/SKILL.md"]);
+});
+
+test("a source that is not a path inside the marketplace names no plugin root", () => {
+  for (const source of [{ source: "github", repo: "example-org/fmt" }, "../fmt", "./a/../../fmt", "./plugins/../fmt", "/abs/fmt", "plugins/fmt", "", 7, null]) {
+    const fs = check({
+      ".claude-plugin/marketplace.json": market(source),
+      "plugins/fmt/skills/x/SKILL.md": skill(LONG, "Body.\n"),
+      "fmt/skills/x/SKILL.md": skill(LONG, "Body.\n"),
+    });
+    assert.deepEqual(kinds(fs), [], JSON.stringify(source));
+  }
+});
+
+test("a marketplace file that does not parse, or lists nothing, changes nothing and does not throw", () => {
+  for (const text of ["{ not json", "[]", "{}", '{"plugins": "all"}', '{"plugins": [null, 3, {}]}', null]) {
+    const files = { "plugins/fmt/skills/x/SKILL.md": skill(LONG, "Body.\n") };
+    const fs = claudeSetupFindings(
+      { files: [".claude-plugin/marketplace.json", ...Object.keys(files)].map((path) => ({ path, category: "docs", isTest: false })) },
+      null,
+      { read: (p) => (p in files ? files[p] : p.endsWith("marketplace.json") ? text : null), exists: () => true, modeOf: () => "100644" },
+    );
+    assert.deepEqual(kinds(fs), [], String(text));
+  }
+});
+
 test("unterminated skill frontmatter is one finding, not a crash", () => {
   const fs = check({ ".claude/skills/x/SKILL.md": "---\nname: x\ndescription: Does x.\n\nBody with no closing marker.\n" });
   assertFinding(fs, "skill-frontmatter-unreadable");

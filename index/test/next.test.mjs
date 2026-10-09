@@ -9,6 +9,7 @@ import { adoptStamp, recordStamp, runningCortex, writeStamps } from "../lib/stam
 import { SHIPPED_SECTIONS } from "../lib/shipped-sections.mjs";
 import { sectionKeep } from "../lib/sections.mjs";
 import { renderTemplate } from "../lib/placeholders.mjs";
+import { bothLayouts, newLayoutOnly } from "../../core/test/memory-fixture.js";
 
 // The loop reads this machine's CORTEX_PROFILE for its team-plugin row. These tests describe a repo,
 // not a machine, so a developer on a work profile must get the same answers as CI. A test that is
@@ -214,13 +215,69 @@ test("an unstarted memory has no newest digest and still invites the first one",
 });
 
 test("a digest whose name is not a date does not become the newest one", () => {
-  // `.cortex/memory/` is one file per day, but nothing stops a stray README landing there, and a
-  // non-date sorting above every real digest would pin the evidence to a file that is not a digest.
+  // Nothing stops a stray README landing in `.cortex/memory/`, and a non-date sorting above every
+  // real digest would pin the evidence to a file that is not a digest.
   const root = repo(({ put }) => {
     put(".cortex/memory/README.md");
     put(".cortex/memory/2026-08-23.md");
   });
   assert.equal(readState(root).memoryLatest, "2026-08-23");
+  rmSync(root, { recursive: true, force: true });
+});
+
+// --- both memory layouts (plan step 4.1) ----------------------------------------------------------
+//
+// The step used to count `*.md` directly in `.cortex/memory/` and match `<date>.md` for the newest.
+// A repo whose every digest is `<date>/<author>.md` has no such file, so it was told its memory had
+// never been started. core/memory.js owns the layout now, and the sequence asks it.
+
+test("a repo that only ever wrote one file per author has started its memory", () => {
+  const root = repo(({ root: r }) => newLayoutOnly(join(r, ".cortex")));
+  const step = nextSteps(root).steps.find((s) => s.id === "memory");
+  assert.equal(step.done, true, "a digest in a day directory is a digest");
+  assert.match(step.why, /^1 digest in \.cortex\/memory\/ \(committed\), newest 2026-08-16$/);
+  const state = readState(root);
+  assert.equal(state.memoryLatest, "2026-08-16");
+  assert.deepEqual(state.memory, ["2026-08-16/dev-a.md"]);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("with both layouts on one date, every digest is counted once and no stray file is", () => {
+  const root = repo(({ root: r }) => bothLayouts(join(r, ".cortex")));
+  const state = readState(root);
+  // Oldest first, as before; within a day the old day file, then authors by slug.
+  assert.deepEqual(state.memory, ["2026-08-14.md", "2026-08-15.md", "2026-08-15/dev-a.md", "2026-08-15/dev-b.md"]);
+  assert.equal(state.memoryLatest, "2026-08-15");
+  const step = nextSteps(root).steps.find((s) => s.id === "memory");
+  assert.match(step.why, /^4 digests in .* newest 2026-08-15$/, "the count is of files, and a README is not one");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the newest digest is the newest day, whichever layout holds it", () => {
+  const root = repo(({ put }) => {
+    put(".cortex/memory/2026-08-23.md");
+    put(".cortex/memory/2026-08-24/dev-a.md");
+    put(".cortex/memory/2026-08-09/dev-a.md");
+  });
+  assert.equal(readState(root).memoryLatest, "2026-08-24");
+  rmSync(root, { recursive: true, force: true });
+
+  const older = repo(({ put }) => {
+    put(".cortex/memory/2026-08-25.md");
+    put(".cortex/memory/2026-08-24/dev-a.md");
+  });
+  assert.equal(readState(older).memoryLatest, "2026-08-25");
+  rmSync(older, { recursive: true, force: true });
+});
+
+test("a memory directory holding only a stray file has not been started", () => {
+  const root = repo(({ put }) => {
+    put(".cortex/memory/README.md");
+    put(".cortex/memory/2026-08-15/README.md");
+  });
+  const step = nextSteps(root).steps.find((s) => s.id === "memory");
+  assert.equal(step.done, false, "nothing here is a digest");
+  assert.equal(readState(root).memoryLatest, null);
   rmSync(root, { recursive: true, force: true });
 });
 

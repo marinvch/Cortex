@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 import { detectCommands, detectFormatters, readLoopState, loopPlan, LOOP_ARTIFACTS, STAGES } from "../lib/loop.mjs";
 import { mergeSharedPlugin, teamServed } from "../lib/shared-plugin.mjs";
+import { bothLayouts, newLayoutOnly } from "../../core/test/memory-fixture.js";
 
 // The loop reads this machine's CORTEX_PROFILE for its team-plugin row. These tests describe a repo,
 // not a machine, so a developer on a work profile must get the same answers as CI. A test that is
@@ -29,6 +30,39 @@ const indexOf = (paths, extra = {}) => ({
   files: paths.map((p) => ({ path: p })),
   stats: { files: paths.length, tests: 0 },
   ...extra,
+});
+
+// ---------------------------------------------------------------------------
+// memory — both layouts (plan step 4.1)
+// ---------------------------------------------------------------------------
+//
+// The loop state listed `*.md` directly in `.cortex/memory/`, so a repo whose digests are all
+// `<date>/<author>.md` read as having no memory. core/memory.js owns the layout; the state asks it.
+
+test("the loop state sees memory written one file per author", () => {
+  const root = repo(({ root: r }) => newLayoutOnly(join(r, ".cortex")));
+  assert.deepEqual(readLoopState(root, null).memory, ["2026-08-16/dev-a.md"]);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the loop state lists every digest of a date held by both layouts, and no stray file", () => {
+  const root = repo(({ root: r }) => bothLayouts(join(r, ".cortex")));
+  assert.deepEqual(readLoopState(root, null).memory, [
+    "2026-08-14.md",
+    "2026-08-15.md",
+    "2026-08-15/dev-a.md",
+    "2026-08-15/dev-b.md",
+  ]);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a repo with no memory has an empty list, with or without a .cortex directory", () => {
+  const bare = repo(() => {});
+  assert.deepEqual(readLoopState(bare, null).memory, []);
+  rmSync(bare, { recursive: true, force: true });
+  const indexed = repo(({ put }) => put(".cortex/index/index.json", "{}"));
+  assert.deepEqual(readLoopState(indexed, null).memory, []);
+  rmSync(indexed, { recursive: true, force: true });
 });
 
 // ---------------------------------------------------------------------------

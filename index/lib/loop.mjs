@@ -27,6 +27,7 @@ import { isAbsolute, join, resolve } from "node:path";
 import { labelsFor } from "./stack.mjs";
 import { categoryOf, detectLanguage } from "./langs.mjs";
 import { protectedClaudePath } from "../../core/claude-code.js";
+import { list as listMemory } from "../../core/memory.js";
 import { sharedPluginStatus, teamServed } from "./shared-plugin.mjs";
 import { TEAM_STAMPS, teamState } from "./team.mjs";
 
@@ -88,6 +89,21 @@ function filesIn(root, rel, ext = ".md") {
   } catch {
     return [];
   }
+}
+
+/**
+ * Every digest in `.cortex/memory/`, as its path under that directory, oldest day first:
+ * `2026-08-15.md` for a day file, `2026-08-15/dev-a.md` for one author's file of that day.
+ *
+ * core/memory.js owns the layout and this asks it. Listing `*.md` in the directory, as this did,
+ * misses every digest in a day directory, so a repo that only ever wrote one file per author read as
+ * having no memory. It also counted a stray README as a digest, which this no longer does.
+ * `next.mjs` reads the same list, so the loop and the sequence cannot disagree about it.
+ */
+export function memoryFiles(root) {
+  return listMemory(join(root, ".cortex"))
+    .map((f) => (f.author === null ? `${f.day}.md` : `${f.day}/${f.author}.md`))
+    .sort();
 }
 
 /** Whether any GitHub workflow in this repo names `needle` — a command it runs, not a file it is. */
@@ -669,7 +685,7 @@ export function readLoopState(root, index = null, overrides = {}) {
     hooks: /"hooks"\s*:/.test(read(root, ".claude/settings.json") ?? ""),
     evals: nonEmptyDir(root, "evals"),
     bands: has(root, "bands.yaml") || has(root, ".cortex/bands.yaml"),
-    memory: filesIn(root, ".cortex/memory"),
+    memory: memoryFiles(root),
     // Whether this repo is served for a team (the `work` profile or a team-brain connector), and
     // what its settings.json already says about the shared plugin. The profile is this machine's
     // environment; `overrides.team` is how a test states it instead.

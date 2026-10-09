@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { buildOverview, memoryEntries, CHURN_DAYS } from "../lib/overview.mjs";
+import { bothLayouts, newLayoutOnly, ENTRIES, NEW_ONLY_ENTRY } from "../../core/test/memory-fixture.js";
 
 const DAY = 86_400;
 
@@ -40,9 +41,11 @@ function fakeGit(answers) {
 test("a memory file becomes one entry per heading, with the first line of its body", () => {
   const text = "# 2026-09-20\n\n## 09:15 · digest\n\n**Chose** the `index` path.\nmore\n\n## 17:40 · decision\n\nKeep it.\n";
   assert.deepEqual(memoryEntries("2026-09-20", text), [
-    { date: "2026-09-20", time: "09:15", kind: "memory", tag: "digest", title: "Chose the index path." },
-    { date: "2026-09-20", time: "17:40", kind: "memory", tag: "decision", title: "Keep it." },
+    { date: "2026-09-20", time: "09:15", kind: "memory", tag: "digest", author: null, title: "Chose the index path." },
+    { date: "2026-09-20", time: "17:40", kind: "memory", tag: "decision", author: null, title: "Keep it." },
   ]);
+  // The author is the caller's to give — it comes from the file's path, which this parser never sees.
+  assert.deepEqual(memoryEntries("2026-09-20", "# 2026-09-20 · someone-else\n\n## 09:15 · digest\n\nx\n", "dev-a").map((e) => e.author), ["dev-a"]);
   assert.equal(memoryEntries("2026-09-20", "no headings here").length, 0);
 });
 
@@ -106,6 +109,116 @@ test("memory sits before commits on the same day, and its lag is measured agains
     assert.equal(o.memory.newest, "2026-09-20");
     assert.equal(o.memory.lagDays, 6);
     assert.equal(o.churn.commits, 0, "an empty window is a real zero when git answered");
+  } finally {
+    done();
+  }
+});
+
+// --- both memory layouts (plan step 4.1) ----------------------------------------------------------
+//
+// A day is `<date>.md` (no author) or `<date>/<author>.md`. core/memory.js owns that rule; what is
+// tested here is what the timeline does with the rows: every entry is there, each says whose it is,
+// and the order depends on nothing but the files.
+
+const NO_GIT = () => ({ error: "fatal: not a git repository" });
+
+test("the timeline holds every entry of a date written in both layouts, in a stable order", () => {
+  const { root, done } = tempRepo();
+  try {
+    bothLayouts(join(root, ".cortex"));
+    const o = buildOverview(index(), root, { git: NO_GIT });
+    // The 15th: by time, newest first; at 10:15 the two authors by slug. Then the 14th.
+    assert.deepEqual(o.timeline.map((e) => [e.date, e.time, e.tag, e.author]), [
+      ["2026-08-15", "14:30", "note", null],
+      ["2026-08-15", "10:15", "dream", "dev-a"],
+      ["2026-08-15", "10:15", "dream", "dev-b"],
+      ["2026-08-15", "09:05", "decision", null],
+      ["2026-08-14", "09:00", "note", null],
+    ]);
+    const titles = o.timeline.map((e) => e.title);
+    for (const text of Object.values(ENTRIES)) assert.ok(titles.includes(text), `missing: ${text}`);
+    assert.ok(!titles.some((t) => /strayreadme/.test(t)), "a stray README is not memory");
+    assert.equal(o.memory.newest, "2026-08-15");
+    assert.equal(o.memory.days, 2, "two days, though four files hold them");
+  } finally {
+    done();
+  }
+});
+
+test("a repo that only ever wrote the new layout has a timeline and a newest day", () => {
+  const { root, done } = tempRepo();
+  try {
+    newLayoutOnly(join(root, ".cortex"));
+    const o = buildOverview(index(), root, { git: NO_GIT });
+    assert.deepEqual(o.timeline.map((e) => [e.date, e.time, e.tag, e.author, e.title]), [
+      ["2026-08-16", "08:30", "dream", "dev-a", NEW_ONLY_ENTRY],
+    ]);
+    assert.equal(o.memory.newest, "2026-08-16");
+    assert.equal(o.memory.days, 1);
+  } finally {
+    done();
+  }
+});
+
+test("at one minute an entry with no author comes first, and a later entry in a file before an earlier one", () => {
+  const { root, done } = tempRepo();
+  try {
+    const memory = join(root, ".cortex", "memory");
+    mkdirSync(join(memory, "2026-08-15"), { recursive: true });
+    writeFileSync(join(memory, "2026-08-15.md"), "# 2026-08-15\n\n## 10:15 · note\n\nold first\n\n## 10:15 · note\n\nold second\n\n");
+    writeFileSync(join(memory, "2026-08-15", "dev-b.md"), "## 10:15 · note\n\nb early\n\n## 10:16 · note\n\nb late\n\n");
+    writeFileSync(join(memory, "2026-08-15", "dev-a.md"), "## 10:15 · note\n\na first\n\n## 10:15 · note\n\na second\n\n");
+    const o = buildOverview(index(), root, { git: NO_GIT });
+    assert.deepEqual(o.timeline.map((e) => e.title), [
+      "b late",
+      "old second",
+      "old first",
+      "a second",
+      "a first",
+      "b early",
+    ]);
+  } finally {
+    done();
+  }
+});
+
+test("the timeline reads the newest three days, however many files hold them", () => {
+  const { root, done } = tempRepo();
+  try {
+    const memory = join(root, ".cortex", "memory");
+    const put = (rel, title) => {
+      mkdirSync(join(memory, rel, ".."), { recursive: true });
+      writeFileSync(join(memory, rel), `## 09:00 · note\n\n${title}\n\n`);
+    };
+    put("2026-08-18/dev-a.md", "18 a");
+    put("2026-08-18/dev-b.md", "18 b");
+    put("2026-08-17.md", "17 old");
+    put("2026-08-17/dev-a.md", "17 a");
+    put("2026-08-16/dev-a.md", "16 a");
+    put("2026-08-15.md", "15 old");
+    const o = buildOverview(index(), root, { git: NO_GIT });
+    assert.deepEqual(o.timeline.map((e) => e.title), ["18 a", "18 b", "17 old", "17 a", "16 a"]);
+    assert.equal(o.memory.days, 4, "the count is of every day, not only the ones read");
+  } finally {
+    done();
+  }
+});
+
+test("memory still sits before the commits of its day when the day has several authors", () => {
+  const { root, done } = tempRepo();
+  try {
+    bothLayouts(join(root, ".cortex"));
+    const noon = Date.UTC(2026, 7, 15, 12) / 1000;
+    const git = fakeGit([
+      ["rev-parse --is-inside-work-tree", "true\n"],
+      ["rev-parse --is-shallow-repository", "false\n"],
+      ["show -s --format=%ct", `${noon}\n`],
+      ["log 0123456789abcdef --since", ""],
+      ["log -n 8", `${noon}\x1fccc\x1fA Person\x1fthe same day\n`],
+    ]);
+    const o = buildOverview(index(), root, { git });
+    assert.deepEqual(o.timeline.map((e) => e.tag), ["note", "dream", "dream", "decision", "ccc", "note"]);
+    assert.equal(o.timeline[4].author, "A Person", "a commit keeps the author git gave it");
   } finally {
     done();
   }

@@ -9,9 +9,15 @@ import { authorSlug, resolveAuthor, InvalidAuthorError } from "./author.js";
 // agent working in the repo shares one context that travels with the code. Git is the sync
 // mechanism — no server, no second repo, no protocol.
 //
-// Every file is dated and append-only. Two developers writing on the same day append to the same
-// file and git resolves it as an ordinary text merge; nobody mutates a shared document in place,
-// so there is no lost-update case to reason about.
+// Every file is dated and append-only, and a day has one file per author: memory/<day>/<author>.md.
+// Two developers writing on the same day write two paths, so their branches merge with nothing for
+// git to resolve. An entry is only ever appended, never rewritten, so no update can be lost.
+//
+// A day file, memory/<day>.md, is the layout before that and the fallback when the writer has no
+// usable name. It is read forever and never moved. It is also the one that conflicts: two branches
+// that each append to it on one day do not merge cleanly, add/add when the file is new on both and
+// a content conflict when it already existed. This comment said the opposite until it was tried:
+// docs/specs/2026-10-09-team-memory-design.md, "Reproduction".
 
 export const MEMORY_DIR = "memory";
 

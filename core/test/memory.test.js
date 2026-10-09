@@ -1,11 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { append, list, recent, stamp } from "../memory.js";
 import { RefusedWriteError } from "../scrub.js";
 import { OutsideRootError } from "../paths.js";
 import { tempDir } from "./tmp.js";
+import { bothLayouts, newLayoutOnly, ENTRIES, ENTRIES_OF_THE_15TH, NEW_ONLY_ENTRY } from "./memory-fixture.js";
 
 // Assembled at runtime so no secret-shaped literal ships in the repo — see scrub.test.js.
 const AWS_KEY = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
@@ -92,6 +93,149 @@ test("list() on a vault with no memory yet is empty, not an error", () => {
 });
 
 export { OutsideRootError };
+
+// --- both layouts (plan step 4.1) -----------------------------------------------------------------
+//
+// A day is `<date>.md` (old, no author) or a directory `<date>/` holding one `<author>.md` per
+// author (new). Nothing writes the new layout yet, so these files are built by hand. Every reader
+// in index/ and mcp/ stands on list() and recent(), so the layout rule is tested here once.
+
+const names = (rows) => rows.map((r) => `${r.day} ${r.author}`);
+
+test("list() returns one row per file of either layout, old day file first, then authors by slug", () => {
+  const root = bothLayouts(cortexRoot());
+  const rows = list(root);
+  assert.deepEqual(names(rows), [
+    "2026-08-15 null",
+    "2026-08-15 dev-a",
+    "2026-08-15 dev-b",
+    "2026-08-14 null",
+  ]);
+  const memory = join(root, "memory");
+  assert.deepEqual(rows.map((r) => r.path), [
+    join(memory, "2026-08-15.md"),
+    join(memory, "2026-08-15", "dev-a.md"),
+    join(memory, "2026-08-15", "dev-b.md"),
+    join(memory, "2026-08-14.md"),
+  ]);
+  assert.ok(rows.every((r) => Object.keys(r).join() === "day,author,path"), "a row is day, author, path");
+});
+
+test("recent({ days }) counts days, not files", () => {
+  const root = bothLayouts(cortexRoot());
+  const one = recent(root, { days: 1 });
+  assert.deepEqual(names(one), ["2026-08-15 null", "2026-08-15 dev-a", "2026-08-15 dev-b"]);
+  const two = recent(root, { days: 2 });
+  assert.equal(two.length, 4, "the second day brings the 14th");
+  assert.equal(two[3].day, "2026-08-14");
+  assert.deepEqual(recent(root, { days: 0 }), []);
+  assert.equal(recent(root).length, 4, "the default of seven days holds both");
+  assert.equal(recent(root, { days: Infinity }).length, 4);
+});
+
+test("no entry is lost when one date holds both layouts", () => {
+  const root = bothLayouts(cortexRoot());
+  const all = recent(root, { days: 7 }).map((r) => r.content).join("\n");
+  for (const text of Object.values(ENTRIES)) assert.ok(all.includes(text), `missing: ${text}`);
+  const day = recent(root, { days: 1 }).map((r) => r.content).join("\n");
+  for (const text of ENTRIES_OF_THE_15TH) assert.ok(day.includes(text), `missing from the 15th: ${text}`);
+  assert.ok(!day.includes(ENTRIES.dayBefore), "one day is one day");
+  assert.ok(!all.includes("strayreadme"), "a stray README is not memory, in either directory");
+});
+
+test("a repo that only ever wrote the new layout has memory", () => {
+  const root = newLayoutOnly(cortexRoot());
+  const rows = recent(root, { days: 1 });
+  assert.deepEqual(names(rows), ["2026-08-16 dev-a"]);
+  assert.ok(rows[0].content.includes(NEW_ONLY_ENTRY));
+});
+
+test("the author comes from the path, never from the header", () => {
+  const root = cortexRoot();
+  const day = join(root, "memory", "2026-08-15");
+  mkdirSync(day, { recursive: true });
+  writeFileSync(join(day, "dev-a.md"), "# 2026-08-15 · someone-else\n\n## 10:15 · dream\n\ntext\n\n");
+  writeFileSync(join(root, "memory", "2026-08-14.md"), "# 2026-08-14 · dev-z\n\n## 10:15 · dream\n\ntext\n\n");
+  assert.deepEqual(names(list(root)), ["2026-08-15 dev-a", "2026-08-14 null"]);
+});
+
+test("authors sort by slug in code-unit order, whatever order the directory returns", () => {
+  const root = cortexRoot();
+  const day = join(root, "memory", "2026-08-15");
+  mkdirSync(day, { recursive: true });
+  // Written out of order, and chosen so a locale-aware comparison would order them differently.
+  for (const slug of ["dev-b", "b", "dev-10", "a-b", "dev-2", "ab", "0x"]) writeFileSync(join(day, `${slug}.md`), "x");
+  assert.deepEqual(list(root).map((r) => r.author), ["0x", "a-b", "ab", "b", "dev-10", "dev-2", "dev-b"]);
+});
+
+test("days sort newest first across both layouts", () => {
+  const root = cortexRoot();
+  const memory = join(root, "memory");
+  mkdirSync(join(memory, "2026-08-17"), { recursive: true });
+  mkdirSync(join(memory, "2026-08-09"), { recursive: true });
+  writeFileSync(join(memory, "2026-08-17", "dev-a.md"), "x");
+  writeFileSync(join(memory, "2026-08-09", "dev-a.md"), "x");
+  writeFileSync(join(memory, "2026-08-10.md"), "x");
+  writeFileSync(join(memory, "2026-08-18.md"), "x");
+  assert.deepEqual(list(root).map((r) => r.day), ["2026-08-18", "2026-08-17", "2026-08-10", "2026-08-09"]);
+  assert.deepEqual(recent(root, { days: 3 }).map((r) => r.day), ["2026-08-18", "2026-08-17", "2026-08-10"]);
+});
+
+test("anything that is neither layout is ignored", () => {
+  const root = cortexRoot();
+  const memory = join(root, "memory");
+  const put = (rel, text = "x") => {
+    mkdirSync(join(memory, rel, ".."), { recursive: true });
+    writeFileSync(join(memory, rel), text);
+  };
+  put("2026-08-15/dev-a.md"); // the one real file
+  put("2026-08-15/Dev-A2.md"); // upper case is not a slug
+  put("2026-08-15/dev.b.md"); // a dot is not in a slug
+  put("2026-08-15/-dev.md"); // a slug starts with a letter or a digit
+  put("2026-08-15/dev_c.md"); // an underscore is not in a slug
+  put("2026-08-15/dev-d.txt"); // not markdown
+  put("2026-08-15/dev-e.md.bak");
+  put(`2026-08-15/${"x".repeat(41)}.md`); // a slug is at most 40 characters
+  put("2026-08-15/nested/dev-f.md"); // a day directory holds files, not directories
+  mkdirSync(join(memory, "2026-08-15", "dev-g.md")); // a directory named like an author file
+  put("notes/dev-h.md"); // a directory that is not a date
+  put("2026-8-15/dev-i.md"); // not zero-padded
+  put("2026-08-15x/dev-j.md");
+  put("x2026-08-15/dev-l.md");
+  put("x2026-08-16.md");
+  put("2026-08-16.md.bak");
+  put("2026-08-17"); // a FILE named like a day directory
+  mkdirSync(join(memory, "2026-08-18.md")); // a DIRECTORY named like an old day file
+  put("2026-08-18.md/dev-k.md");
+  assert.deepEqual(names(list(root)), ["2026-08-15 dev-a"]);
+  assert.deepEqual(recent(root, { days: 9 }).map((r) => r.content), ["x"]);
+});
+
+test("a slug of exactly forty characters is an author, and a one-character slug is too", () => {
+  const root = cortexRoot();
+  const day = join(root, "memory", "2026-08-15");
+  mkdirSync(day, { recursive: true });
+  const forty = "a" + "9".repeat(39);
+  writeFileSync(join(day, `${forty}.md`), "x");
+  writeFileSync(join(day, "7.md"), "x");
+  assert.deepEqual(list(root).map((r) => r.author), ["7", forty]);
+});
+
+test("an empty day directory is not a day", () => {
+  const root = cortexRoot();
+  mkdirSync(join(root, "memory", "2026-08-19"), { recursive: true });
+  writeFileSync(join(root, "memory", "2026-08-12.md"), "older");
+  assert.deepEqual(names(list(root)), ["2026-08-12 null"]);
+  assert.deepEqual(recent(root, { days: 1 }).map((r) => r.content), ["older"], "it does not use up a day either");
+});
+
+test("what the writer writes today is still read back, with no author", () => {
+  const root = cortexRoot();
+  append(root, "written by the real writer", { date: DAY });
+  const rows = recent(root, { days: 1 });
+  assert.deepEqual(names(rows), ["2026-08-15 null"]);
+  assert.match(rows[0].content, /written by the real writer/);
+});
 
 // The contract "`root` is the .cortex directory" lived only in a doc comment, so passing a repo
 // root — the reading the word "root" invites — wrote a dated file to <repo>/memory/ and returned

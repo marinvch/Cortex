@@ -31,8 +31,15 @@ _Avoid_: "issues" (implies a tracker), "problems" (some findings are opportuniti
 
 ## Memory
 
-`<repo>/.cortex/memory/` — **committed**, append-only, one file per day. What a team and its agents
-know about the codebase, travelling with the code, synced by git and nothing else.
+`<repo>/.cortex/memory/` — **committed**, append-only, one file per author per day:
+`<date>/<author>.md`. What a team and its agents know about the codebase, travelling with the code,
+synced by git and nothing else.
+
+An **author** is a slug (`a-z`, `0-9`, `-`) of `CORTEX_AUTHOR`, or of git `user.name` when that is
+not set. Never an email address. A **day file**, `<date>.md`, holds every author's entries for a
+day and names none of them. It is what Cortex wrote before 2.41.48 and what it still writes when
+there is no usable name. Both layouts are read, a day file is never moved, and one date can hold
+both. [ADR 0002](docs/adr/0002-committed-repo-memory.md), amended 2026-10-09.
 
 _Avoid_: "the vault" (that is the personal second brain, now a separate repo), "cache" (memory is
 authored, not derived, and is never regenerated).

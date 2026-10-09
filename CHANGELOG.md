@@ -5,6 +5,24 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.43] — 2026-10-09
+
+Every reader of `.cortex/memory/` reads both layouts. Step 4.1 of the roadmap, the readers half of
+[the team memory design](docs/specs/2026-10-09-team-memory-design.md).
+
+### Changed
+
+- **Memory is read from `<date>.md` and from `<date>/<author>.md`.** A date can hold both, and then
+  every file is its own row, so no entry is lost. Rows from `list()` and `recent()` in
+  `core/memory.js` gain `author`: the slug in the file's path, or `null` for a day file. `recent`
+  counts days, not files. Nothing writes the new layout yet; that is step 4.2.
+- **`cortex-next` and the loop ask `core/memory.js` for the digests.** They listed `*.md` in the
+  directory themselves, which would tell a repo holding only day directories that its memory was
+  never started. A stray `README.md` there is no longer counted as a digest.
+- **The viewer timeline reads the newest three days**, where it read the newest three files, and
+  shows an entry's author when it has one.
+- **Catch-me-up rows carry `author`.**
+
 ## [2.41.42] — 2026-10-09
 
 The plugin check can say whether a newer Cortex is published. Item 12 of the field report (#548).
@@ -4901,6 +4919,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.43]: https://github.com/marinvch/Cortex/releases/tag/v2.41.43
 [2.41.42]: https://github.com/marinvch/Cortex/releases/tag/v2.41.42
 [2.41.41]: https://github.com/marinvch/Cortex/releases/tag/v2.41.41
 [2.41.40]: https://github.com/marinvch/Cortex/releases/tag/v2.41.40

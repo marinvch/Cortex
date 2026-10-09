@@ -5,6 +5,30 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.41] — 2026-10-09
+
+A plugin a marketplace lists is checked even when it has no manifest of its own.
+
+### Fixed
+
+- **Skills, agents and hooks in a plugin folder with no `plugin.json` were not checked.** Cortex
+  took a folder for a plugin only when it held a `.claude-plugin/` manifest. Claude Code does not
+  need one: the marketplace entry names the plugin. Cortex now also reads each
+  `marketplace.json` and treats every entry whose `source` is a relative path as a plugin root. A
+  source that points outside the marketplace, or holds `..`, names no root. A marketplace file that
+  does not parse changes nothing.
+
+### Added
+
+- **Two rules in `core/claude-code.js`**, each with the sentence that states it:
+  `plugin.manifest.optional` and `marketplace.source.relative-root`. 58 rules from 15 pages.
+
+### Not done
+
+- A skill that teaches plugin writing shows example paths such as
+  `${CLAUDE_PLUGIN_ROOT}/scripts/build.sh`. Those are reported as missing files, as they already
+  were in a plugin with a manifest. The check does not tell an example from a reference.
+
 ## [2.41.40] — 2026-10-09
 
 `/grilling` no longer tells `/onboard` to ask in rounds.
@@ -4863,6 +4887,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.41]: https://github.com/marinvch/Cortex/releases/tag/v2.41.41
 [2.41.40]: https://github.com/marinvch/Cortex/releases/tag/v2.41.40
 [2.41.39]: https://github.com/marinvch/Cortex/releases/tag/v2.41.39
 [2.41.38]: https://github.com/marinvch/Cortex/releases/tag/v2.41.38

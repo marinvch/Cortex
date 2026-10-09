@@ -461,6 +461,43 @@ test("a public host is not employer-shaped", () => {
   ]) assert.equal(employerShape(link), null, link);
 });
 
+test("a trailing dot on the host hides neither shape", () => {
+  // `tenant.atlassian.net.` is the same host to a browser and to git. Read literally it ends in
+  // `.net.`, matches no suffix, validates as a link, and would be written on a home install.
+  for (const link of [
+    "https://tenant.atlassian.net./browse/SHOP-12",
+    "https://dev.azure.com./tenant/shop/_git/storefront",
+    "git@tenant.visualstudio.com.:v3/tenant/shop/storefront",
+  ]) assert.equal(employerShape(link)?.shape, "work-tool-tenant", link);
+  for (const link of ["https://tracker.internal./x", "git@git.internal.:shop/storefront.git"]) {
+    assert.equal(employerShape(link)?.shape, "private-network", link);
+  }
+  for (const link of ["https://www.atlassian.net./x", "https://github.com./example-org/storefront"]) {
+    assert.equal(employerShape(link), null, link);
+  }
+  const res = check(withLine("tracker", "tracker: https://tenant.atlassian.net./browse/SHOP-12"));
+  assert.equal(res.ok, true, "it is a valid link, so only the profile check stands between it and a write");
+  assert.ok(profileRefusal(res.data, policyFor("home")));
+});
+
+test("a link with no scheme is still read for its host", () => {
+  // Such a value fails validation, so no writer writes it. A reader still meets it in a file a
+  // teammate committed, and on a profile that refuses employer material it must withhold the file
+  // and not print the link beside its errors.
+  for (const link of ["tracker.internal/browse/SHOP-12", "10.2.3.4/x", "git.internal:shop/storefront.git", "tracker.internal"]) {
+    assert.equal(employerShape(link)?.shape, "private-network", link);
+  }
+  assert.equal(employerShape("tenant.atlassian.net/browse/SHOP-12")?.shape, "work-tool-tenant");
+  // A bare word is not a host: `example-org/storefront` is a path somebody shortened, not a
+  // single-label machine name.
+  for (const link of ["example-org/storefront", "storefront.example.com/docs", "storefront", "docs/readme.md"]) {
+    assert.equal(employerShape(link), null, link);
+  }
+  const res = check(withLine("tracker", "tracker: tracker.internal/browse/SHOP-12"));
+  assert.equal(res.ok, false);
+  assert.deepEqual(employerLinks(res.data), [{ field: "tracker", shape: "private-network" }]);
+});
+
 // One test per row of the table. A row with no example here fails the test after these, so a
 // suffix cannot be added without saying what it catches and what it lets through.
 const ROW_EXAMPLES = {

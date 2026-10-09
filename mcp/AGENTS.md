@@ -24,7 +24,10 @@ the repo by commit count, and — like every other part — **dependency-free**.
   reason. `core/test/install.test.js` fails the build if an import creeps back in. See
   [ADR 0004](../docs/adr/0004-no-runtime-dependencies.md).
 - **Only protocol messages go to stdout.** A stray `console.log` corrupts the JSON-RPC stream and
-  the client reports something unrelated. Diagnostics go to stderr.
+  the client reports something unrelated. Diagnostics go to stderr, and **every stderr line the
+  server writes starts with `cortex:`**. One path printed `ai-os-mcp:` until #552, so one process
+  read in a client's log as two programs. `test/root-name.test.js` starts the server every way it
+  can start or refuse to and checks each line.
 - **Every tool result is capped in the transport, never per tool.** `capResult()` in
   `lib/stdio.js` holds a result to `MAX_RESULT_CHARS` (40,000 — about 10k tokens, under 14k even
   at 3 characters per token) and replaces an oversized one with a parseable document marked
@@ -40,10 +43,22 @@ the repo by commit count, and — like every other part — **dependency-free**.
   more text for the same `days`; the transport cap below is what stops it, and it says so.
 - **`server.js` stays a thin switch.** All logic lives in `lib/`; the transport layer is a
   dispatch over tool names and nothing more.
-- **Two modes, decided by the root — never configured.** `AI_OS_ROOT` ending in `.cortex` is
+- **Two modes, decided by the root — never configured.** A root ending in `.cortex` is
   **repo mode** (`recall`, `remember`, `recall_memory`); anything else is **vault mode** (the
   personal-brain tools). Detection keeps the plugin manifest to one env var and makes a
   misconfiguration visible as a changed tool list.
+- **The root has two names, and `rootFromEnv` in `core/paths.js` is the only code that orders
+  them.** `CORTEX_ROOT` is the name to set. `AI_OS_ROOT` is what a registration made before #552
+  carries: it is read with no warning and has no removal date, because that line lives in a user's
+  config. `CORTEX_ROOT` wins when both are set, an empty value counts as unset, and two different
+  paths produce one `cortex:` line on stderr from whichever adapter opened the brain
+  (`brain.notices`). In `mcp/`, `lib/resolve.js` is the one caller; `brain.sources.root` says which
+  variable answered, and `MissingRootError` names that one. A set `CORTEX_ROOT` that does not exist
+  is refused and never swapped for a good `AI_OS_ROOT`. The plugin manifest sets `CORTEX_ROOT`
+  alone, so a vault path in the user's own environment cannot take over the repo's server
+  (`core/test/plugin.test.js`). **Not renamed, each because a command or a config a user already
+  has would break:** the file `ai-os.js`, the CLI command name `ai-os`, the package name
+  `ai-os-mcp`. Its `bin` map also answers to `cortex-mcp`.
 - **Vault tools are hidden *and* refused in repo mode.** Offering `capture` or `catch_me_up` there
   invites an agent to write `inbox/` and `daily/` into someone's product repository — and a client
   that already knows the name never reads `tools/list`, so hiding is not refusing. Which mode a tool
@@ -81,7 +96,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
   mode the directory that must exist is the repo, not `.cortex/`: the first write creates that. This
   holds for `ai-os catch-up` as well. A root that is set and wrong is not the unset root it may
   degrade on.
-- **`AI_OS_ROOT` unset is a hard exit**, not a default. Guessing a vault path would write someone's
+- **A root that is not set is a hard exit**, not a default: neither `CORTEX_ROOT` nor `AI_OS_ROOT`
+  holds a non-blank value. Guessing a vault path would write someone's
   notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
   falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds
   ([ADR 0008](../docs/adr/0008-three-audiences-one-seam.md)). **One CLI command degrades instead:
@@ -130,8 +146,9 @@ the repo by commit count, and — like every other part — **dependency-free**.
 - **Every adapter opens the brain at entry, through `lib/brain.js`.** `server.js` and `ai-os.js` are
   two adapters over the same operations, so the seam between them is real and therefore a module:
   `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · project ·
-  profile · policy · sources · describe()`, and throws `NoRootError` / `UnknownProfileError` **before** a
-  command picks a branch. Neither adapter may read `env.AI_OS_ROOT` or call `resolve.js`,
+  profile · policy · sources · notices · describe()`, and throws `NoRootError` /
+  `UnknownProfileError` **before** a command picks a branch. Neither adapter may read
+  `env.CORTEX_ROOT` or `env.AI_OS_ROOT`, or call `resolve.js`,
   `mode.js` or `core/profile.js` itself — `brain.test.js` scans both for that, because the way this
   rule broke was a second adapter re-deriving the answer by hand: `ai-os catch-up` read the root raw
   and passed `args.team` alone, so inside a repo with a `.cortex/connector.json` it consulted no

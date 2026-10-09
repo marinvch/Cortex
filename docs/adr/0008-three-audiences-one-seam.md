@@ -35,6 +35,21 @@ into a work repository — the exact failure the employer firewall exists to pre
 the back door as a convenience feature. `AI_OS_ROOT` unset, or whitespace-only, throws `NoRootError`.
 The resolver *detects* the audience and *locates* the team clone. It never conjures the root itself.
 
+> **Amended 2026-10-09 — the root has a second name, and the rule above covers both (#552).**
+> `CORTEX_ROOT` is the name to set. `AI_OS_ROOT`, the name this ADR was written with, is still
+> read, with no warning and no removal date, because it sits in MCP registrations that nothing in
+> the repository can rewrite. `NoRootError` is thrown when **neither** holds a non-blank value.
+> Reading a second variable is not the fallback chain rejected here. That chain went on to a path
+> nobody had named; this reads two spellings of the one path a person did name, and stops.
+> `CORTEX_ROOT` wins when both are set, and two different paths are reported in one line on
+> stderr. A `CORTEX_ROOT` that is set and does not exist is refused, and is never replaced by an
+> `AI_OS_ROOT` that does: opening the other brain there would be the guessed root again. The
+> order lives in `rootFromEnv` (`core/paths.js`) and `cortex_root` (`tools/_cortex-lib.sh`), and
+> nowhere else. Three choices were made while implementing #552 on 2026-10-09, by the agent doing
+> the work and not yet confirmed by the maintainer, each reversible: `CORTEX_ROOT` wins; no
+> deprecation of `AI_OS_ROOT`; the file `mcp/ai-os.js`, the `ai-os` command and the `ai-os-mcp`
+> package name stay, since renaming any of them breaks a command or a config a user already has.
+
 ### `audience` is a third axis, not a rename of `mode`
 
 `mcp/lib/mode.js` already owns `mode`: repo versus vault, decided by whether the root ends in

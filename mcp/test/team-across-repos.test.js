@@ -51,7 +51,7 @@ function productRepo(prefix) {
 }
 
 function cli(cwd, vault, ...args) {
-  const env = { ...process.env, ...IDENTITY, AI_OS_ROOT: vault };
+  const env = { ...process.env, ...IDENTITY, AI_OS_ROOT: "", CORTEX_ROOT: vault };
   delete env.CORTEX_PROFILE;
   delete env.CORTEX_AUDIENCE;
   return spawnSync(process.execPath, [CLI, ...args], { cwd, env, encoding: "utf8" });

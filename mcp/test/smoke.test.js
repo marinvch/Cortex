@@ -12,7 +12,7 @@ function rpc(child, msg) { child.stdin.write(JSON.stringify(msg) + "\n"); }
 
 test("server answers tools/list over stdio", async () => {
   const root = tempDir("vault-");
-  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: root } });
+  const child = spawn(process.execPath, [serverPath], { env: { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: root } });
   let buf = "";
   // Capture stderr: a server that dies on startup (missing dep, bad import) otherwise surfaces
   // only as a bare 5s "timeout", hiding the actual cause.
@@ -54,7 +54,7 @@ test("the startup line reports the audience on stderr, and stdout stays pure pro
   const cwd = tempDir("cwd-");
   const child = spawn(process.execPath, [serverPath], {
     cwd,
-    env: { ...process.env, AI_OS_ROOT: root, CORTEX_AUDIENCE: "server" },
+    env: { ...process.env, AI_OS_ROOT: "", CORTEX_ROOT: root, CORTEX_AUDIENCE: "server" },
   });
   let out = "";
   let err = "";

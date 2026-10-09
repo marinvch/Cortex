@@ -37,7 +37,11 @@ the engine's two directories, `.ai-os` and `.github/ai-os`, are there. It looks 
 this list, so an empty answer is not "no engine": the rest is still a scan by hand.
 
 Scan for any of these (presence of one = engine installed):
-- `.ai-os/` (the MCP server) and an `ai-os` entry in `.mcp.json` / `.vscode/mcp.json`
+- `.ai-os/` (the MCP server), and an entry in `.mcp.json` / `.vscode/mcp.json` whose command or
+  args point into `.ai-os/`. **The path marks the engine's entry; the name does not.** Cortex's own
+  server was registered as `ai-os` until recently: an entry that runs `…/mcp/server.js` and carries
+  `CORTEX_ROOT` (or `AI_OS_ROOT`, the older name for it) is a current Cortex registration under
+  either name. It is not the engine. List it as "Cortex registration, kept" and leave it alone.
 - `.github/ai-os/` (config.json, manifest.json, context/, **memory/**, recommendations.md, tools.json)
 - `.github/agents/*.agent.md`, `.github/copilot/**`, `.github/instructions/*.instructions.md`,
   `.github/skills/**`, `.github/COPILOT_CONTEXT.md`, `.github/workflows/ai-os-*.yml`
@@ -64,11 +68,16 @@ Report the hits per branch. Harvest from a branch with `git show <ref>:<path>`, 
 out. Removing files from another branch is that branch's own change: name it to the user and leave
 it to them.
 
-**MCP registrations outside the repo.** The engine's server can be registered at user scope, where
-no file in the repo shows it. Run `claude mcp list` and, for every server whose command ends in
-`mcp/server.js`, `claude mcp get <name>`: it prints the scope and the `AI_OS_ROOT` the server
-reads. List each with its root. One whose root is inside something this migration deletes, or
-inside a repo that is no longer there, will stop starting.
+**MCP registrations outside the repo.** A server can be registered at user scope, where no file in
+the repo shows it. Run `claude mcp list`, then `claude mcp get <name>` for each server that could
+be either kind: it prints the scope, the command and the environment. Sort each into one of two:
+
+- **The engine's**: its command points into a `.ai-os/` directory. It goes with the engine.
+- **A Cortex registration**: its command ends in `mcp/server.js` outside any `.ai-os/`, and it
+  carries `CORTEX_ROOT`, or `AI_OS_ROOT` on one made under the older name. It is not the engine,
+  whatever it is called, `ai-os` included. List it with its root. It is only this migration's
+  business when that root is inside something Step 5 deletes, or inside a repo that is no longer
+  there: then it will stop starting.
 
 ## Step 2 — Harvest (high-signal → into the brain)
 Read these, pull only durable, verified facts, and **fold them in**:
@@ -114,12 +123,13 @@ Delete only what you backed up and harvested:
 - `rm -rf .ai-os .github/ai-os .github/agents .github/copilot .github/instructions .github/skills`
 - `rm -f .github/COPILOT_CONTEXT.md .github/workflows/ai-os-*.yml`
 - `rm -f .vscode/*.chatprompt.md .vscode/toolsets.json` (leave the user's own `settings.json`)
-- **`.mcp.json` / `.vscode/mcp.json`:** remove just the `ai-os` server entry. If it was the only
-  entry, delete the file.
+- **`.mcp.json` / `.vscode/mcp.json`:** remove just the entry that points into `.ai-os/`. If it was
+  the only entry, delete the file. An entry that runs Cortex's `mcp/server.js` stays, under the name
+  `ai-os` too: Step 1 listed it as a Cortex registration.
 - **`.github/copilot-instructions.md`:** replace engine content with a shim → `AGENTS.md`
   (or leave the Cortex shim if `/install-project` already wrote one). Move old `*.bak` into the tarball.
-- **A registration listed in Step 1 whose root you are deleting:** repoint it or remove it, with the
-  user's yes. `claude mcp get <name>` prints the exact remove command for its scope.
+- **A registration listed in Step 1 that is the engine's, or whose root you are deleting:** repoint
+  it or remove it, with the user's yes. `claude mcp get <name>` prints the exact remove command for its scope.
 - Clean stragglers: `.gitignore` lines that only referenced `.ai-os`/`.github/ai-os`; the
   `eslint.config.mjs` `.ai-os/**` ignore.
 

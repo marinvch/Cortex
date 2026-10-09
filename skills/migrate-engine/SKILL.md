@@ -31,18 +31,19 @@ artifact until its knowledge is in `AGENTS.md` or `docs/decisions.md`.** Re-gene
   *enriches* the brain, it doesn't create it.
 
 ## Step 1 — Detect the old engine
-Start with what a command already reads off disk:
-`node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --json`. Its `state.legacyEngine` lists which of
-the engine's two directories, `.ai-os` and `.github/ai-os`, are there. It looks for nothing else on
-this list, so an empty answer is not "no engine": the rest is still a scan by hand.
+The engine's two directories are read by a command, which writes nothing:
+`node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --json`. Its `state.legacyEngine` lists which
+of `.ai-os` (the MCP server) and `.github/ai-os` (config.json, manifest.json, context/,
+**memory/**, recommendations.md, tools.json) are there. Take that answer as it is and do not look
+for those two again.
 
-Scan for any of these (presence of one = engine installed):
-- `.ai-os/` (the MCP server), and an entry in `.mcp.json` / `.vscode/mcp.json` whose command or
+The command looks for nothing else, so an empty list is not "no engine". Each of these is still a
+scan by hand, and one of them present means the engine was installed:
+- An entry in `.mcp.json` / `.vscode/mcp.json` whose command or
   args point into `.ai-os/`. **The path marks the engine's entry; the name does not.** Cortex's own
   server was registered as `ai-os` until recently: an entry that runs `…/mcp/server.js` and carries
   `CORTEX_ROOT` (or `AI_OS_ROOT`, the older name for it) is a current Cortex registration under
   either name. It is not the engine. List it as "Cortex registration, kept" and leave it alone.
-- `.github/ai-os/` (config.json, manifest.json, context/, **memory/**, recommendations.md, tools.json)
 - `.github/agents/*.agent.md`, `.github/copilot/**`, `.github/instructions/*.instructions.md`,
   `.github/skills/**`, `.github/COPILOT_CONTEXT.md`, `.github/workflows/ai-os-*.yml`
 - `.vscode/*.chatprompt.md`, `.vscode/toolsets.json`
@@ -134,7 +135,7 @@ Delete only what you backed up and harvested:
   `eslint.config.mjs` `.ai-os/**` ignore.
 
 ## Step 6 — Verify
-- No engine artifacts remain: re-run the Step 1 scan → empty.
+- No engine artifacts remain: Step 1 again, the command and the scan → `legacyEngine` is `[]` and the scan finds nothing.
 - The branch scan is run again. Hits on other branches are listed as still there, never as cleaned.
 - Every registration from Step 1 points at a root that exists, or is gone.
 - `AGENTS.md` now contains the harvested facts; `docs/decisions.md` has the migration entry.

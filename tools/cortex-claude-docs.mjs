@@ -40,7 +40,8 @@ import { CHECKED, RULES } from "../core/claude-code.js";
 
 const DOCS_INDEX = "https://code.claude.com/docs/llms.txt";
 const DOCS_ROOT = "https://code.claude.com/docs/en/";
-const BLOG_INDEX = "https://claude.com/blog";
+// The blog moved here from /blog in 2026-10. /blog redirects, and the page links posts under the new path.
+const BLOG_INDEX = "https://claude.com/resources/articles";
 const PLATFORM_INDEX = "https://platform.claude.com/llms.txt";
 const PLATFORM_ROOT = "https://platform.claude.com/docs/en/";
 const PLATFORM_SECTIONS = ["agents-and-tools/agent-skills/", "build-with-claude/prompt-engineering/", "test-and-evaluate/"];
@@ -122,10 +123,13 @@ function platformPages(md) {
   return found;
 }
 
-/** The blog's front page → the post slugs it links. A category or tag link has a second segment. */
+/**
+ * The blog's front page → the post slugs it links. A category or tag link has a second segment. A
+ * link under the old /blog path names the same post, so both forms are read.
+ */
 function blogPosts(html) {
   const found = new Set();
-  for (const m of html.matchAll(/href="(?:https:\/\/claude\.com)?\/blog\/([a-z0-9][a-z0-9-]*)"/g)) found.add(m[1]);
+  for (const m of html.matchAll(/href="(?:https:\/\/claude\.com)?\/(?:resources\/articles|blog)\/([a-z0-9][a-z0-9-]*)"/g)) found.add(m[1]);
   return found;
 }
 

@@ -179,7 +179,8 @@ A page it could not fetch is reported as unchecked, never as ok — an offline r
 would be the silent pass this exists to prevent. For the frontmatter key lists it also reports keys
 the docs list that Cortex does not know, which is informational.
 
-It also reads the docs index (`llms.txt`) and the front page of `claude.com/blog`, and reports each
+It also reads the docs index (`llms.txt`) and the blog's front page (`claude.com/resources/articles`, which
+`claude.com/blog` redirects to since 2026-10), and reports each
 page missing from `tools/claude-docs-seen.json`. The rule check cannot see a page no rule cites,
 which is how Claude Code mods shipped with ten pages of docs and nothing here noticed. The blog's
 front page lists customer stories beside product posts and the tool does not tell them apart; read

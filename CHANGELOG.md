@@ -5,6 +5,19 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Added
+
+- **A merge to `master` that raises `VERSION` is released by `.github/workflows/release.yml`.** It
+  creates the tag `v<version>` on the merge commit and a GitHub release holding that version's
+  changelog section, marked Latest when it is the highest version. A merge that leaves `VERSION`
+  alone releases nothing, and a re-run with the tag present does nothing.
+  [ADR 0022](docs/adr/0022-stamping-a-version-on-master-releases-it.md). Step 1.2 of the roadmap,
+  which is not stamped: the first stamped merge after it is the first automatic release.
+- **`tools/cortex-release-plan.mjs` decides what a push releases.**
+  `tools/test/release-plan.test.sh` runs it on scratch repos, since the workflow cannot be run
+  before it is pushed.
+- Versions 2.41.19 onward that were never tagged are named by each run and back-filled by hand.
+
 ## [2.41.47] — 2026-10-09
 
 `CORTEX_ROOT` is the name of the root, and `AI_OS_ROOT` is still read (#552).

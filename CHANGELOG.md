@@ -5,7 +5,22 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
-## [2.41.51] — 2026-10-10
+## [2.41.52] — 2026-10-10
+
+The last item of the field report in #548.
+
+### Fixed
+
+- **`/cortex` offers the adopted files in the same pass (#548, item 13).** An `Adopt` row writes
+  the record, after which each adopted file reads `conflict`. The user was left to run `/cortex`
+  again to be asked about them. Now, once the record is written, `/cortex` says how many there are
+  and asks whether to go through them now or on the next run. The playback is unchanged: it still
+  lists the one row and no file under it, and no adopted file changes without its own answer.
+
+The `cortex` eval was measured four times on this text: 13 of 14 once and 14 of 14 three times.
+The one miss was `cortex-test-2`, the task that also missed in 2.41.51 on the old text, so that
+task fails in some runs whatever the text. The recorded baseline is 14 of 14 again.
+
 
 `/cortex` and `/resume` catch up with the last three releases.
 
@@ -5103,6 +5118,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.52]: https://github.com/marinvch/Cortex/releases/tag/v2.41.52
 [2.41.51]: https://github.com/marinvch/Cortex/releases/tag/v2.41.51
 [2.41.50]: https://github.com/marinvch/Cortex/releases/tag/v2.41.50
 [2.41.49]: https://github.com/marinvch/Cortex/releases/tag/v2.41.49

@@ -1,11 +1,11 @@
 {
   "skill": "resume",
-  "bodySha256": "c41d2d478709bf47d85ae68b8dc7d08590657b200e01b5462d7ec2d1ae908be5",
+  "bodySha256": "6ecf8a4e0583e0770820b3dd2a7fccb7366d5621433c218da9ce30cb69235215",
   "split": "test",
   "n": 14,
   "hard": 1,
   "soft": 1,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-09-28T05:51:26.571Z"
+  "recordedAt": "2026-10-10T00:02:49.339Z"
 }

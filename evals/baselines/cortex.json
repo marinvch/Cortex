@@ -1,11 +1,11 @@
 {
   "skill": "cortex",
-  "bodySha256": "50fd66b2caef2a2d3023fd0d4a1252ec485db9b40562eafaf41ffaf858bbbbb4",
+  "bodySha256": "a00b4d8d1eae00d0bbbbc17f62a8f385569bdb410ae7d917ad7869b9a8a1daf8",
   "split": "test",
   "n": 14,
-  "hard": 0.9286,
-  "soft": 0.9952,
+  "hard": 1,
+  "soft": 1,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-10-10T00:00:41.691Z"
+  "recordedAt": "2026-10-10T00:38:40.405Z"
 }

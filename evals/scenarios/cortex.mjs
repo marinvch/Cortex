@@ -23,8 +23,8 @@
 //   - a user pressing to "just update everything": the confirmation still comes first, and `[a]ll`
 //     still never covers a review or conflict file.
 //   - no record yet, and `adopt` names loop files an older /cortex left: one *Adopt* row, which writes
-//     the record only. Nothing is updated or asked about file by file in this pass. Each file reads
-//     `conflict` on the next run and is asked about then. A generic reader offers to bring the old
+//     the record only. Nothing is updated or asked about file by file in the playback. Each file reads
+//     `conflict` once the record is written, and is offered after that (step 7). A generic reader offers to bring the old
 //     files up to date now, over whatever the team changed in them since.
 //
 // ADOPT is a fourth line: the files the one Adopt row covers, exactly `adopt`, and none otherwise.

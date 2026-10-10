@@ -211,7 +211,7 @@ the state decides the row:
 | `missing` | ask whether to stamp it again or drop it (`cortex-stamps.mjs forget . <path>`) |
 | `retired` | name it; nothing to update it from. Drop it with `forget` if they agree |
 | `edited` | nothing. The team changed it and the template did not, so it is theirs |
-| `adopt` is non-empty | one row, *Adopt N loop files an earlier Cortex stamped*. It covers a repo installed before the record existed. On yes, run `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" adopt .`. That writes the record only; each file then reads `conflict` and is asked about file by file on the next run |
+| `adopt` is non-empty | one row, *Adopt N loop files an earlier Cortex stamped*. It covers a repo installed before the record existed. On yes, run `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" adopt .`. That writes the record only. The playback lists this one row and no file under it, because no diff exists before the record does. Each file then reads `conflict`, and step 7 offers to go through them once the record is written |
 
 Get each diff from the CLI. It compares the file now with this release's template, filled with the
 recorded values: `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" diff . <path>`.
@@ -414,6 +414,13 @@ state `update`. Never re-render a stamped file yourself. A section in the row go
 
 For each `review` or `conflict` file the user answered, apply their choice by hand, then `record`
 it again.
+
+**After an `Adopt` row, offer the adopted files in this pass.** Once everything else confirmed is
+written, read `cortex-stamps.mjs . --json` again: the adopted files now read `conflict`. Say how
+many there are and ask one question: go through them now, or leave them for the next run. On
+"now", ask about each file by itself with its diff, as for any `conflict` file, and change only
+what the user answers. On "later", name them under what was deferred in step 8. Either way no
+adopted file is changed without its own answer.
 
 ## 8. Close
 

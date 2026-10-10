@@ -69,7 +69,8 @@ Deterministic sources, cheapest first — none of these cost a model call:
 
 - `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --line` — which step of the sequence this
   repo is on, read off disk.
-- `.cortex/memory/` — what `/dream` committed. Read the two or three most recent dated files.
+- `.cortex/memory/` — what `/dream` committed. Read the two or three most recent days. A day is
+  a `<date>.md` file, a `<date>/` directory with one file per author, or both.
 - The OS temp dir handoff, if one exists — `/handoff` writes in-flight state there and it is
   deliberately ephemeral, so a stale one is normal and a fresh one is gold.
 - Open PRs: `gh pr list --state open`. A PR is a session's work parked where git status cannot see

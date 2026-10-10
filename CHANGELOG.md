@@ -5,7 +5,25 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
-## [2.41.50] — 2026-10-09
+## [2.41.51] — 2026-10-10
+
+`/cortex` and `/resume` catch up with the last three releases.
+
+### Fixed
+
+- **`/cortex` asks only about plugin tiers the machine lacks (#548, item 11).** It runs
+  `ai-os setup-plugins --status --json` before the `bundle` row, as `/cortex-install` has since
+  2.41.50.
+- **`/cortex` offers the optional `reconcile` row (#548, item 13).** When the layer exists and
+  another tool's doc still holds rules of its own, the row is an ordinary offer of
+  `/optimize-context`, not the first question.
+- **`/resume` reads the most recent days of memory**, where a day is a `<date>.md` file, a
+  `<date>/` directory or both. It said "dated files".
+
+Both skills were measured again. `resume` scored 14 of 14, as before. `cortex` scored 13 of 14,
+against 14 of 14 recorded on 2026-10-08. The text it had before this change also scored 13 of 14
+today, on the same task, so the drop is not from this change; its cause is not known.
+
 
 Three leftovers from the field report in #548.
 
@@ -5085,6 +5103,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.51]: https://github.com/marinvch/Cortex/releases/tag/v2.41.51
 [2.41.50]: https://github.com/marinvch/Cortex/releases/tag/v2.41.50
 [2.41.49]: https://github.com/marinvch/Cortex/releases/tag/v2.41.49
 [2.41.48]: https://github.com/marinvch/Cortex/releases/tag/v2.41.48

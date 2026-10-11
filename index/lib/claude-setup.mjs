@@ -658,7 +658,7 @@ const CHECKS = [
     rule: "hook.exit.other-codes-non-blocking",
     severity: "medium",
     title: (n) => `${n} hook command${n === 1 ? "" : "s"} naming a script that does not exist`,
-    what: "The shell exits non-zero when the script is not there, and a non-zero exit other than 2 does not block — the hook fails on every event without stopping anything, so nothing surfaces it.",
+    what: "The shell exits non-zero when the script is not there, and a non-zero exit other than 2 does not block — the hook fails on every event without stopping anything, so nothing surfaces it. A hook that sets `onFailure: \"block\"` blocks every matching action instead.",
     run: (r, _m, hooks) => hooks.missing,
   },
   {
@@ -666,7 +666,7 @@ const CHECKS = [
     rule: "hook.exit.other-codes-non-blocking",
     severity: "medium",
     title: (n) => `${n} hook script${n === 1 ? "" : "s"} run directly without its executable bit`,
-    what: "Run as the command itself, a script without the bit fails with 'permission denied' — a non-blocking error, so the hook silently does nothing. Invoke it through its interpreter (`bash \"…\"`) or commit it as 100755.",
+    what: "Run as the command itself, a script without the bit fails with 'permission denied' — a non-blocking error, so the hook silently does nothing, or with `onFailure: \"block\"` blocks every matching action. Invoke it through its interpreter (`bash \"…\"`) or commit it as 100755.",
     run: (r, _m, hooks) => hooks.notExecutable,
   },
   {

@@ -5,6 +5,30 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.56] — 2026-10-11
+
+The role reviewer loads with its description and its tool list on Windows again.
+
+### Fixed
+
+- **`cortex-role-reviewer` lost its description and its tool list on a Windows checkout.** Its
+  description read "Read-only: it never edits". Claude Code repairs an unquoted `": "` when the
+  file has LF endings and rejects the block when it has CRLF, so on Windows the agent loaded under
+  its filename with every tool, and `/cortex-review` dispatched a reviewer that could edit. The
+  sentence is reworded, and a test now reads the frontmatter of every agent, skill and stamped
+  template Cortex ships.
+- **`subagent-frontmatter-unreadable` and `skill-frontmatter-unreadable` report three more
+  shapes.** They reported only a block that never closes. They now report a value that ends in a
+  colon, a continuation line holding a colon, and prose pasted unindented under a description,
+  which `claude plugin validate` rejects on any platform. A one-line value holding `": "` is
+  reported as unreadable on a CRLF checkout. Checked against the validator on fourteen public
+  plugins: it rejects four files and the finding names the same four.
+- **The stamped `REVIEW.md` uses Code Review's severity names.** It said blocking and suggestion.
+  It now says Important, Nit and Pre-existing, the levels a managed review reports. A repo
+  stamped earlier is offered the change by `/cortex` like any other template update.
+- **The drift-agent design no longer plans `Write(path)` allow rules.** Claude Code checks paths
+  against `Edit` and `Read` rules only, so the agent's writes would have been denied.
+
 ## [2.41.55] — 2026-10-11
 
 Three findings read the rules 2.41.54 vendored.
@@ -5200,6 +5224,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.56]: https://github.com/marinvch/Cortex/releases/tag/v2.41.56
 [2.41.55]: https://github.com/marinvch/Cortex/releases/tag/v2.41.55
 [2.41.54]: https://github.com/marinvch/Cortex/releases/tag/v2.41.54
 [2.41.53]: https://github.com/marinvch/Cortex/releases/tag/v2.41.53

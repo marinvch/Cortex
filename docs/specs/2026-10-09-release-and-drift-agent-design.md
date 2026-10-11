@@ -309,7 +309,7 @@ number of runs is bounded by the number of pull requests the maintainer merges.
 | Time | `timeout-minutes: 20` on the job | [G18] |
 | Mode | `--permission-mode dontAsk`: it "auto-denies every tool call that would otherwise prompt you", meant for "CI pipelines or restricted environments where you pre-define what Claude may do" | [C4] |
 | Tools | `--tools "Read,Edit,Write,Glob,Grep"`. No `Bash`, no web tools | [C5] |
-| Allow rules | `--allowedTools` with `Edit` and `Write` rules for the allowed paths only; rules use gitignore patterns | [C5] [C8] |
+| Allow rules | `--allowedTools` with `Edit` rules for the allowed paths only; rules use gitignore patterns. An `Edit(path)` rule covers `Write` too, and a `Write(path)` rule is accepted and never matched (`permission.file-rules.tools`) | [C5] [C8] |
 | Settings | `--setting-sources user`; the runner's user settings are empty | [C3] |
 | Persistence | `--no-session-persistence` | [C5] |
 | Prompt | a file in this repository, `.github/drift-agent/<kind>.md` | — |
@@ -630,4 +630,5 @@ Read on 2026-10-09. Each line is the sentence the tag stands for.
 - **[C7]** <https://code.claude.com/docs/en/setup> — "The native installer accepts either a
   specific version number or a release channel (`latest` or `stable`)."
 - **[C8]** <https://code.claude.com/docs/en/permissions> — "Read and Edit rules both use gitignore
-  pattern syntax with four distinct pattern types".
+  pattern syntax with four distinct pattern types". "Claude Code checks file permissions against
+  `Edit(path)` and `Read(path)` rules only."

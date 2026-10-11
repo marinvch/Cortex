@@ -19,6 +19,12 @@ this project now versions independently of any package manager (see `VERSION`).
   hook combine, that file rules are matched for `Edit` and `Read` only, that `.claudeignore` has no
   effect, and that a `claude -p` run skips a project subagent's frontmatter hooks. No finding
   reads them yet.
+- **Four plugin pages are vendored: 21 rules from the manifest reference, the marketplace
+  reference, components and loading.** They cover where a plugin's files go, the path rules, which
+  manifest keys replace a default folder, the reserved name prefixes, and the version rules: a
+  manifest that sets `version` keeps every user on the copy they have until the string changes,
+  and auto-update is off by default for a marketplace that is not Anthropic's. A test holds
+  Cortex's own `plugin.json` and `marketplace.json` to the required fields and the name rule.
 
 ### Changed
 

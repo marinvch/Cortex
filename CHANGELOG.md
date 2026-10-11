@@ -5,6 +5,11 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.54] — 2026-10-11
+
+Fifty-eight more Claude Code rules, each with the sentence that states it. The daily docs check
+now watches 116 rules on 24 pages.
+
 ### Added
 
 - **Eight more rules from the skills page are vendored and watched by the daily docs check.**
@@ -5173,6 +5178,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.54]: https://github.com/marinvch/Cortex/releases/tag/v2.41.54
 [2.41.53]: https://github.com/marinvch/Cortex/releases/tag/v2.41.53
 [2.41.52]: https://github.com/marinvch/Cortex/releases/tag/v2.41.52
 [2.41.51]: https://github.com/marinvch/Cortex/releases/tag/v2.41.51

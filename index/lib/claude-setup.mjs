@@ -611,17 +611,17 @@ const CHECKS = [
   },
   {
     kind: "subagent-plugin-ignored-key",
-    rule: "subagent.plugin.ignored-keys",
+    rule: "plugin.agent.ignored-keys",
     severity: "medium",
     title: (n) => `${n} plugin subagent${n === 1 ? "" : "s"} setting keys a plugin agent ignores`,
-    what: "hooks, mcpServers and permissionMode are ignored when the agent ships in a plugin — the protection they look like they give is not there.",
+    what: "hooks, mcpServers, permissionMode and initialPrompt are ignored when the agent ships in a plugin — the protection they look like they give is not there.",
     run: (r) =>
       r.agents
         .filter((p) => r.plugin.agent(p) !== null)
         .flatMap((p) => {
           const fm = frontmatterOf(r, p);
           if (fm?.state !== "ok") return [];
-          const hit = fm.keys.filter((k) => limit("subagent.plugin.ignored-keys").includes(k));
+          const hit = fm.keys.filter((k) => limit("plugin.agent.ignored-keys").includes(k));
           return hit.length ? [`${p} — ${hit.join(", ")}`] : [];
         }),
   },
@@ -663,7 +663,7 @@ const CHECKS = [
   },
   {
     kind: "hook-script-not-executable",
-    rule: "hook.exit.other-codes-non-blocking",
+    rule: "hook.script.executable",
     severity: "medium",
     title: (n) => `${n} hook script${n === 1 ? "" : "s"} run directly without its executable bit`,
     what: "Run as the command itself, a script without the bit fails with 'permission denied' — a non-blocking error, so the hook silently does nothing, or with `onFailure: \"block\"` blocks every matching action. Invoke it through its interpreter (`bash \"…\"`) or commit it as 100755.",
@@ -676,6 +676,32 @@ const CHECKS = [
     title: (n) => `${n} PostToolUse hook${n === 1 ? "" : "s"} that exit 2 expecting to block`,
     what: "PostToolUse runs after the tool already ran; exit 2 there only shows stderr to Claude. A guard that must stop an edit belongs in PreToolUse.",
     run: (r, _m, hooks) => hooks.postExit2,
+  },
+
+  // --- permission rules and settings a project file cannot set --------------------------------
+  {
+    kind: "permission-rule-never-matched",
+    rule: "permission.file-rules.tools",
+    severity: "medium",
+    title: (n) => `${n} permission rule${n === 1 ? "" : "s"} with a path that Claude Code never consults`,
+    what: "A path rule is matched for Edit and Read only. One written for Write, NotebookEdit, MultiEdit or Glob is accepted and then never checked, so a deny rule in that shape protects nothing. Write Edit(path) in place of the first three and Read(path) in place of Glob.",
+    run: (r, _m, hooks) => hooks.neverMatched,
+  },
+  {
+    kind: "default-mode-ignored-in-project",
+    rule: "settings.default-mode.not-from-project",
+    severity: "medium",
+    title: (n) => `${n} project settings file${n === 1 ? "" : "s"} setting a default mode Claude Code ignores there`,
+    what: "permissions.defaultMode takes auto or bypassPermissions from user or managed settings only. In a project or local file the value does nothing, so the team does not get the mode the file names.",
+    run: (r, _m, hooks) => hooks.modeIgnored,
+  },
+  {
+    kind: "claudeignore-no-effect",
+    rule: "permission.claudeignore.no-effect",
+    severity: "medium",
+    title: (n) => `${n} .claudeignore file${n === 1 ? "" : "s"}, which Claude Code does not read`,
+    what: "Nothing listed in it is kept from Claude. Move each entry into a Read deny rule under permissions.deny in .claude/settings.json.",
+    run: (r) => r.paths.filter((p) => posix.basename(p) === limit("permission.claudeignore.no-effect")),
   },
 
   // --- mods -----------------------------------------------------------------------------------
@@ -797,7 +823,7 @@ function linesMatching(src, re) {
 }
 
 const noHooks = () => ({
-  unreadable: [], missing: [], notExecutable: [], postExit2: [],
+  unreadable: [], missing: [], notExecutable: [], postExit2: [], neverMatched: [], modeIgnored: [],
   modNotOne: [], modMissing: [], modExtension: [], modPresent: [],
 });
 
@@ -829,6 +855,24 @@ function inspectMod(res, r, p, modules) {
   if (sound) res.modPresent.push(`${p} → ${modules[0]}`);
 }
 
+/**
+ * The `permissions` block of a project or local settings file. A tool-name rule with no path, such
+ * as a deny for `Write`, is matched at the tool level and is not reported.
+ */
+function inspectPermissions(res, p, permissions) {
+  if (!permissions || typeof permissions !== "object") return;
+  const fileTools = limit("permission.file-rules.tools");
+  for (const list of ["allow", "ask", "deny"]) {
+    for (const entry of Array.isArray(permissions[list]) ? permissions[list] : []) {
+      const m = typeof entry === "string" ? entry.match(/^([A-Za-z]+)\((.+)\)$/) : null;
+      if (!m || fileTools.includes(m[1])) continue;
+      if ([...EDIT_TOOLS, "Glob"].includes(m[1])) res.neverMatched.push(`${p} — permissions.${list}: ${entry}`);
+    }
+  }
+  const mode = permissions.defaultMode;
+  if (limit("settings.default-mode.not-from-project").includes(mode)) res.modeIgnored.push(`${p} — permissions.defaultMode: ${mode}`);
+}
+
 /** Walk every hook command once; the hook rows read the result. */
 function inspectHooks(r) {
   const res = noHooks();
@@ -847,6 +891,7 @@ function inspectHooks(r) {
     const pr = r.plugin.hooks(p);
     const modules = limit("mod.hooks-json.modules");
     if (pr !== null && json && typeof json === "object" && modules in json) inspectMod(res, r, p, json[modules]);
+    if (pr === null) inspectPermissions(res, p, json?.permissions);
     const hooks = json && typeof json === "object" ? json.hooks : null;
     if (!hooks || typeof hooks !== "object") continue;
     const project = pr ?? posix.dirname(posix.dirname(p));

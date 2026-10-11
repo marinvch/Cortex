@@ -5,6 +5,28 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.55] — 2026-10-11
+
+Three findings read the rules 2.41.54 vendored.
+
+### Added
+
+- **Three findings about a repo's settings file and what it believes is hidden.**
+  `permission-rule-never-matched` reports a path rule written for `Write`, `NotebookEdit`,
+  `MultiEdit` or `Glob`: Claude Code accepts it and checks paths against `Edit` and `Read` rules
+  only, so a deny in that shape protects nothing. `default-mode-ignored-in-project` reports
+  `permissions.defaultMode` set to `auto` or `bypassPermissions` in a project or local file, where
+  it does nothing. `claudeignore-no-effect` reports a `.claudeignore`, which Claude Code does not
+  read. Each cites its rule and page. Run on eleven public repos, where they matched a plain grep
+  of the same files.
+
+### Fixed
+
+- **A plugin subagent that sets `initialPrompt` is reported.** The components page lists four keys
+  a plugin agent ignores; the finding checked three.
+- **`hook-script-not-executable` cites the sentence that states it.** `hook.script.executable`,
+  from the hooks guide, replaces a rule about exit codes.
+
 ## [2.41.54] — 2026-10-11
 
 Fifty-eight more Claude Code rules, each with the sentence that states it. The daily docs check
@@ -5178,6 +5200,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.55]: https://github.com/marinvch/Cortex/releases/tag/v2.41.55
 [2.41.54]: https://github.com/marinvch/Cortex/releases/tag/v2.41.54
 [2.41.53]: https://github.com/marinvch/Cortex/releases/tag/v2.41.53
 [2.41.52]: https://github.com/marinvch/Cortex/releases/tag/v2.41.52

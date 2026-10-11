@@ -439,6 +439,63 @@ test("a PostToolUse hook that exits 2", () => {
   );
 });
 
+// --- permission rules and settings a project file cannot set -------------------------------------
+
+const perms = (permissions) => JSON.stringify({ permissions });
+
+test("a path rule for a tool Claude Code never checks paths against", () => {
+  const fs = check({ ".claude/settings.json": perms({ deny: ["Write(./secrets/**)", "Read(./.env)"], allow: ["Glob(docs/**)"] }) });
+  assertFinding(fs, "permission-rule-never-matched");
+  assert.deepEqual(only(fs, "permission-rule-never-matched")[0].evidence, [
+    ".claude/settings.json — permissions.allow: Glob(docs/**)",
+    ".claude/settings.json — permissions.deny: Write(./secrets/**)",
+  ]);
+  // Edit and Read are the two that are matched. A bare tool name is matched at the tool level, and
+  // Bash, WebFetch and an MCP tool take a specifier that is not a path.
+  assert.deepEqual(
+    check({
+      ".claude/settings.json": perms({
+        deny: ["Write", "NotebookEdit", "Edit(docs/**)", "Read(~/.ssh/**)"],
+        allow: ["Bash(npm run test *)", "WebFetch(domain:example.com)", "mcp__github__get_issue", "Agent(Explore)"],
+      }),
+    }),
+    [],
+  );
+  // A plugin's hooks.json is not a settings file, whatever keys it carries.
+  assert.deepEqual(
+    check({ ".claude-plugin/plugin.json": "{}", "hooks/hooks.json": JSON.stringify({ hooks: {}, permissions: { deny: ["Write(a/**)"] } }) }),
+    [],
+  );
+  // A permissions block that is not the documented shape is not this finding's to report.
+  assert.deepEqual(check({ ".claude/settings.json": perms({ deny: "Write(a/**)", allow: [7, null] }) }), []);
+  assert.deepEqual(check({ ".claude/settings.json": perms({ deny: { a: 1 }, allow: [["Write(a/**)"]] }) }), []);
+});
+
+test("a default mode that only user or managed settings can set", () => {
+  for (const mode of ["auto", "bypassPermissions"]) {
+    const fs = check({ ".claude/settings.json": perms({ defaultMode: mode }) });
+    assertFinding(fs, "default-mode-ignored-in-project");
+    assert.equal(fs.length, 1);
+  }
+  assertFinding(check({ "apps/web/.claude/settings.local.json": perms({ defaultMode: "auto" }) }), "default-mode-ignored-in-project");
+  for (const mode of ["acceptEdits", "plan", "default", "dontAsk"]) {
+    assert.deepEqual(check({ ".claude/settings.json": perms({ defaultMode: mode }) }), [], mode);
+  }
+});
+
+test("a .claudeignore file, at the root or below it", () => {
+  assertFinding(check({ ".claudeignore": "dist/\n" }), "claudeignore-no-effect");
+  const fs = check({ ".claudeignore": "dist/\n", "packages/api/.claudeignore": "*.pem\n" });
+  assert.equal(only(fs, "claudeignore-no-effect")[0].evidence.length, 2);
+  assert.deepEqual(check({ ".gitignore": "dist/\n", "docs/claudeignore.md": "# notes\n", ".claudeignore.bak": "x\n" }), []);
+});
+
+test("initialPrompt is the fourth key a plugin agent ignores", () => {
+  const fm = "---\nname: r\ndescription: Reviews code.\ninitialPrompt: Start by reading the diff.\n---\nBody.\n";
+  assertFinding(check({ ".claude-plugin/plugin.json": "{}", "agents/r.md": fm }), "subagent-plugin-ignored-key");
+  assert.deepEqual(only(check({ ".claude/agents/r.md": fm }), "subagent-plugin-ignored-key"), []);
+});
+
 // --- the Messages API ----------------------------------------------------------------------------
 
 const api = (body) => `import Anthropic from "@anthropic-ai/sdk";\nconst client = new Anthropic();\n${body}\n`;

@@ -382,11 +382,12 @@ test("the authoring rituals state the official limits, in the official units", a
   // are code that runs inside Claude Code, the plugin layout (which folder is a plugin), and
   // settings files with their permission rules, which are JSON that Claude Code reads. Three more
   // pages say how Claude Code behaves around a document, not how to write one: what the managed
-  // Code Review does with REVIEW.md, agent teams, and worktrees.
+  // Code Review does with REVIEW.md, agent teams, and worktrees. The hooks guide is the hooks
+  // reference's walkthrough, and the reference is the page the skill links.
   const writing = readFileSync(join(REPO_ROOT, "skills", "writing-for-agents", "SKILL.md"), "utf8");
   const pages = [...new Set(RULES.map((r) => r.source))].filter(
     (url) =>
-      !/\/(mcp|permission-modes|headless|plugins-reference|plugin-marketplaces|settings|permissions|code-review|agent-teams|worktrees)$/.test(url) &&
+      !/\/(mcp|permission-modes|headless|plugins-reference|plugin-marketplaces|settings|permissions|code-review|agent-teams|worktrees|hooks-guide)$/.test(url) &&
       !url.includes("/plugins/"),
   );
   const uncited = pages.filter((url) => !writing.includes(`(${url})`));

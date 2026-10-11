@@ -34,6 +34,10 @@ const HEADLESS = "https://code.claude.com/docs/en/headless";
 const AUTHORING = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices";
 const PLUGINS_REF = "https://code.claude.com/docs/en/plugins-reference";
 const MARKETPLACES = "https://code.claude.com/docs/en/plugin-marketplaces";
+const MANIFEST = "https://code.claude.com/docs/en/plugins/manifest-reference";
+const MARKETPLACE_REF = "https://code.claude.com/docs/en/plugins/marketplace-reference";
+const COMPONENTS = "https://code.claude.com/docs/en/plugins/components";
+const LOADING = "https://code.claude.com/docs/en/plugins/loading";
 const MODS = "https://code.claude.com/docs/en/plugins/mods/overview";
 const MODS_REF = "https://code.claude.com/docs/en/plugins/mods/reference";
 const MODS_ADMIN = "https://code.claude.com/docs/en/plugins/mods/admin";
@@ -505,6 +509,150 @@ export const RULES = Object.freeze([
     value: ".claude-plugin",
     source: MARKETPLACES,
     evidence: "The marketplace root is the directory that contains `.claude-plugin/`.",
+  },
+
+  // --- plugins: the manifest, the marketplace file, what loads, and when an update reaches a user --
+  //
+  // Cortex is a plugin, and the version rules are why it is stamped: a manifest that sets `version`
+  // keeps every user on the copy they have until the string changes.
+  {
+    id: "plugin.files.at-root",
+    value: ".claude-plugin",
+    source: MANIFEST,
+    evidence: "Put every other plugin file at the plugin root, not inside `.claude-plugin/`.",
+  },
+  {
+    id: "plugin.manifest.unknown-top-level-stripped",
+    value: "stripped",
+    source: MANIFEST,
+    evidence:
+      "An unrecognized top-level key is stripped, and an unrecognized key inside a `userConfig` option, `channels` entry, `lspServers` config, or `monitors` entry is rejected",
+  },
+  {
+    id: "plugin.manifest.path-prefix",
+    value: "./",
+    source: MANIFEST,
+    evidence: "Every component path in a manifest is relative to the plugin root and must start with `./`.",
+  },
+  {
+    id: "plugin.manifest.path-inside-and-exists",
+    value: true,
+    source: MANIFEST,
+    evidence: "Every component path must resolve inside the plugin root and must exist.",
+  },
+  {
+    id: "plugin.manifest.adds-to-default",
+    value: ["skills"],
+    source: MANIFEST,
+    evidence:
+      "**Adds to the default**: `skills`. The `skills/` directory is still scanned, and the listed directories load alongside it",
+  },
+  {
+    id: "plugin.manifest.replaces-default",
+    value: ["commands", "agents", "outputStyles", "workflows", "experimental.themes", "experimental.monitors"],
+    source: MANIFEST,
+    evidence:
+      "**Replaces the default**: `commands`, `agents`, `outputStyles`, `workflows`, `experimental.themes`, `experimental.monitors`.",
+  },
+  {
+    id: "plugin.name.reserved-prefixes",
+    value: ["claude-", "anthropic-", "anthropics-", "cc-plugin-"],
+    source: MANIFEST,
+    evidence: "| Starts with `claude-`, `anthropic-`, `anthropics-`, or `cc-plugin-` | Error |",
+  },
+  {
+    id: "plugin.version.pins",
+    value: "version",
+    source: MANIFEST,
+    evidence: "Setting it pins the plugin to that version until you change it",
+  },
+  {
+    id: "plugin.version.manifest-first",
+    value: "version",
+    source: LOADING,
+    evidence:
+      'Because the manifest comes first, a manifest that pins `"version": "1.0.0"` keeps every user on the cached copy until its author changes the string, however many commits they push.',
+  },
+  {
+    id: "plugin.update.same-version-keeps-copy",
+    value: "installed_plugins.json",
+    source: LOADING,
+    evidence:
+      "`claude plugin update` and background auto-update compute the version again and don't replace the cached copy when it matches what `installed_plugins.json` records.",
+  },
+  {
+    id: "plugin.auto-update.default",
+    value: "off for every other marketplace",
+    source: LOADING,
+    evidence:
+      "**The default**: on for Anthropic's official marketplaces such as `claude-plugins-official`, off for `knowledge-work-plugins` and `first-party-plugins`, on for marketplaces added from claude.ai, and off for every other marketplace",
+  },
+  {
+    id: "plugin.cache.outside-files-not-copied",
+    value: "..",
+    source: LOADING,
+    evidence:
+      "Files outside the plugin directory aren't copied, so when a script inside a copied plugin reads a path above the plugin root, such as `../shared`, it doesn't find them",
+  },
+  {
+    id: "plugin.path.forward-slashes",
+    value: "/",
+    source: LOADING,
+    evidence:
+      "Components declared with backslash paths therefore load on Windows only, so write component paths with forward slashes, such as `./commands/deploy.md`",
+  },
+  {
+    id: "plugin.claude-md.not-loaded",
+    value: "CLAUDE.md",
+    source: COMPONENTS,
+    evidence:
+      "Claude Code doesn't load a `CLAUDE.md` at the plugin root, and `claude plugin validate` warns `CLAUDE.md at the plugin root is not loaded as project context`.",
+  },
+  // The subagents page lists three ignored keys (`subagent.plugin.ignored-keys`); this page adds a fourth.
+  {
+    id: "plugin.agent.ignored-keys",
+    value: ["permissionMode", "hooks", "mcpServers", "initialPrompt"],
+    source: COMPONENTS,
+    evidence: "**Ignored fields**: `permissionMode`, `hooks`, `mcpServers`, and `initialPrompt`.",
+  },
+  {
+    id: "plugin.hooks.file",
+    value: "hooks/hooks.json",
+    source: COMPONENTS,
+    evidence:
+      'Save the plugin\'s hooks in `hooks/hooks.json` at the plugin root, under a top-level `"hooks"` key, in the same shape as the `hooks` object in `settings.json`.',
+  },
+  {
+    id: "plugin.hooks.fire-from-load",
+    value: "session load",
+    source: COMPONENTS,
+    evidence: "Claude Code registers them when a session loads the plugin, and they fire on their events from then on.",
+  },
+  {
+    id: "marketplace.required-fields",
+    value: ["name", "owner", "plugins"],
+    source: MARKETPLACE_REF,
+    evidence: "`name`, `owner`, and `plugins` are required.",
+  },
+  {
+    id: "marketplace.entry.required-fields",
+    value: ["name", "source"],
+    source: MARKETPLACE_REF,
+    evidence: "`name` and `source` are required.",
+  },
+  {
+    id: "marketplace.unknown-key-ignored",
+    value: "ignored",
+    source: MARKETPLACE_REF,
+    evidence:
+      "Claude Code ignores an unknown top-level key or plugin-entry key rather than rejecting it, so a typo loads silently.",
+  },
+  {
+    id: "marketplace.entry.version-manifest-wins",
+    value: "plugin.json",
+    source: MARKETPLACE_REF,
+    evidence:
+      "When `plugin.json` also sets `version`, `plugin.json` takes precedence and `claude plugin validate` warns.",
   },
   // --- mods: a plugin whose handlers run inside Claude Code ---------------------------------------
   //

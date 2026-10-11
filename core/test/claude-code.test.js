@@ -141,6 +141,44 @@ test("the settings and permission rules are present and sourced from their pages
   assert.ok(limit("settings.trust.grants-wait").includes("permissions.allow"));
 });
 
+// Cortex ships as a plugin, and its own manifests are judged by these. The last assertions hold the
+// repo to two of them, since a rule Cortex vendors and breaks is worse than one it never read.
+test("the plugin and marketplace rules are present, and Cortex's own manifests keep them", async () => {
+  const pages = {
+    "plugins/manifest-reference": [
+      "plugin.files.at-root", "plugin.manifest.unknown-top-level-stripped", "plugin.manifest.path-prefix",
+      "plugin.manifest.path-inside-and-exists", "plugin.manifest.adds-to-default", "plugin.manifest.replaces-default",
+      "plugin.name.reserved-prefixes", "plugin.version.pins",
+    ],
+    "plugins/loading": [
+      "plugin.version.manifest-first", "plugin.update.same-version-keeps-copy", "plugin.auto-update.default",
+      "plugin.cache.outside-files-not-copied", "plugin.path.forward-slashes",
+    ],
+    "plugins/components": [
+      "plugin.claude-md.not-loaded", "plugin.agent.ignored-keys", "plugin.hooks.file", "plugin.hooks.fire-from-load",
+    ],
+    "plugins/marketplace-reference": [
+      "marketplace.required-fields", "marketplace.entry.required-fields", "marketplace.unknown-key-ignored",
+      "marketplace.entry.version-manifest-wins",
+    ],
+  };
+  for (const [page, ids] of Object.entries(pages)) {
+    for (const id of ids) assert.equal(rule(id).source, `https://code.claude.com/docs/en/${page}`, id);
+  }
+  // The components page lists every key the subagents page does, and one more.
+  for (const k of limit("subagent.plugin.ignored-keys")) assert.ok(limit("plugin.agent.ignored-keys").includes(k), k);
+
+  const { readFileSync } = await import("node:fs");
+  const read = (p) => JSON.parse(readFileSync(new URL(`../../.claude-plugin/${p}`, import.meta.url), "utf8"));
+  const market = read("marketplace.json");
+  for (const k of limit("marketplace.required-fields")) assert.ok(k in market, `marketplace.json has ${k}`);
+  for (const entry of market.plugins) {
+    for (const k of limit("marketplace.entry.required-fields")) assert.ok(k in entry, `the ${entry.name} entry has ${k}`);
+  }
+  const name = read("plugin.json").name;
+  for (const prefix of limit("plugin.name.reserved-prefixes")) assert.ok(!name.startsWith(prefix), `${name} does not start with ${prefix}`);
+});
+
 test("a key-list rule carries the keys as an array of strings", () => {
   const lists = RULES.filter((r) => r.table === "frontmatter");
   assert.ok(lists.length >= 2, "the skill and subagent key lists are both here");

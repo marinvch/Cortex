@@ -48,6 +48,10 @@ If no sentence states the rule, it is an opinion, and it does not belong in that
 - Subagents — https://code.claude.com/docs/en/sub-agents
 - Hooks — https://code.claude.com/docs/en/hooks
 - MCP — https://code.claude.com/docs/en/mcp
+- Plugins — https://code.claude.com/docs/en/plugins/manifest-reference,
+  https://code.claude.com/docs/en/plugins/marketplace-reference,
+  https://code.claude.com/docs/en/plugins/components and
+  https://code.claude.com/docs/en/plugins/loading
 - Settings — https://code.claude.com/docs/en/settings
 - Permissions — https://code.claude.com/docs/en/permissions
 - Memory and `CLAUDE.md` — https://code.claude.com/docs/en/memory

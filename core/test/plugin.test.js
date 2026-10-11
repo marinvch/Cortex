@@ -383,7 +383,7 @@ test("the authoring rituals state the official limits, in the official units", a
   // settings files with their permission rules, which are JSON that Claude Code reads.
   const writing = readFileSync(join(REPO_ROOT, "skills", "writing-for-agents", "SKILL.md"), "utf8");
   const pages = [...new Set(RULES.map((r) => r.source))].filter(
-    (url) => !/\/(mcp|permission-modes|headless|plugins-reference|plugin-marketplaces|settings|permissions)$/.test(url) && !url.includes("/plugins/mods/"),
+    (url) => !/\/(mcp|permission-modes|headless|plugins-reference|plugin-marketplaces|settings|permissions)$/.test(url) && !url.includes("/plugins/"),
   );
   const uncited = pages.filter((url) => !writing.includes(`(${url})`));
   assert.deepEqual(uncited, [], "/writing-for-agents links every page an authoring rule is vendored from");

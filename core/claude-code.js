@@ -99,6 +99,58 @@ export const RULES = Object.freeze([
     evidence:
       "If the frontmatter YAML is malformed, Claude Code loads the skill body with empty metadata, so `/skill-name` still works but Claude can't match against your `description`.",
   },
+  {
+    id: "skill.frontmatter.first-line",
+    value: "---",
+    source: SKILLS,
+    evidence: "Claude Code reads the frontmatter only when the opening `---` is the file's first line.",
+  },
+  {
+    id: "skill.metadata.must-be-map",
+    value: "map",
+    source: SKILLS,
+    evidence: "Claude Code doesn't act on its contents, and drops a value that isn't a map.",
+  },
+  {
+    id: "skill.name.reserved-namespace",
+    value: "anthropic-skills",
+    source: SKILLS,
+    evidence:
+      "Claude Code reserves the name `anthropic-skills`, and every name inside that namespace such as `anthropic-skills:pdf`, for skills synced from claude.ai, so a synced skill's full name never runs anything else.",
+  },
+  {
+    id: "skill.frontmatter.portable-keys",
+    value: ["name", "description", "license", "compatibility", "metadata", "allowed-tools"],
+    source: SKILLS,
+    evidence:
+      "claude.ai skill uploads, the Skills API, and packaging with `package_skill.py` from anthropics/skills | `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`",
+  },
+  {
+    id: "skill.listing.budget-fraction",
+    value: 0.01,
+    source: SKILLS,
+    evidence: "The budget scales at 1% of the model's context window.",
+  },
+  {
+    id: "skill.compaction.kept-tokens",
+    value: 5000,
+    source: SKILLS,
+    evidence:
+      "When the conversation is summarized to free context, Claude Code re-attaches the most recent invocation of each skill after the summary, keeping the first 5,000 tokens of each.",
+  },
+  {
+    id: "skill.compaction.shared-budget-tokens",
+    value: 25000,
+    source: SKILLS,
+    evidence: "Re-attached skills share a combined budget of 25,000 tokens.",
+  },
+  {
+    id: "skill.allowed-tools.ignores-workspace-trust",
+    value: "allowed-tools",
+    source: SKILLS,
+    evidence:
+      "Claude Code applies a project skill's `allowed-tools` even in a `-p` run in a folder you've never trusted.",
+  },
 
   // --- skills: the Agent Skills format, from the platform's authoring page ------------------------
   //

@@ -5,6 +5,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Three hook exit-code rules cite the sentences the hooks page states now (#595).** The page was
+  reworded and `hook.exit.blocking-code`, `hook.exit.one-does-not-block` and
+  `hook.exit.other-codes-non-blocking` had lost their evidence. The values did not change: exit 2
+  blocks, exit 1 and every other code do not. `CHECKED` is 2026-10-11.
+- **The two hook-script findings name `onFailure: "block"`.** The page now documents it: a hook
+  that sets it blocks the action when its script is missing or cannot run, where the findings said
+  the failure is always silent.
+- **The `## [2.41.51]` and `## [2.41.50]` headings are back in this file.** Each was overwritten by
+  the heading of the release after it, so both sections read as part of 2.41.52.
+
+### Changed
+
+- **`auto-mode-classifier-billing` is recorded as seen.** A new docs page about a billing notice in
+  auto mode. It states no rule Cortex vendors.
+
 ## [2.41.52] — 2026-10-10
 
 The last item of the field report in #548.
@@ -21,6 +38,7 @@ The `cortex` eval was measured four times on this text: 13 of 14 once and 14 of 
 The one miss was `cortex-test-2`, the task that also missed in 2.41.51 on the old text, so that
 task fails in some runs whatever the text. The recorded baseline is 14 of 14 again.
 
+## [2.41.51] — 2026-10-10
 
 `/cortex` and `/resume` catch up with the last three releases.
 
@@ -39,6 +57,7 @@ Both skills were measured again. `resume` scored 14 of 14, as before. `cortex` s
 against 14 of 14 recorded on 2026-10-08. The text it had before this change also scored 13 of 14
 today, on the same task, so the drop is not from this change; its cause is not known.
 
+## [2.41.50] — 2026-10-09
 
 Three leftovers from the field report in #548.
 

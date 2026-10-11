@@ -215,6 +215,15 @@ description) has a test.
   anthropics/claude-code-playground (each reports `mod-present` and nothing else), with nine guards
   mutated and nine test failures.
 
+- **A permission rule is read for its shape, never for what it would match.** Three findings read a
+  project or local settings file: a path rule for `Write`, `NotebookEdit`, `MultiEdit` or `Glob`
+  (`permission-rule-never-matched`), a `defaultMode` of `auto` or `bypassPermissions`
+  (`default-mode-ignored-in-project`), and a `.claudeignore` anywhere in the tree
+  (`claudeignore-no-effect`). A bare tool name is matched at the tool level and is not reported. A
+  plugin's `hooks.json` is not a settings file. Run on eleven public repos and compared with a
+  plain grep of the same files: four of four, three of three and two of two, and nothing in
+  anthropics/claude-code or superpowers. Twelve guards mutated, twelve test failures.
+
 ### How the scoped briefs load — `lib/instructions.mjs`
 
 - **A fact, not a finding.** Under a root `CLAUDE.md`, Claude Code does not read a subdirectory's

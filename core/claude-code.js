@@ -25,6 +25,7 @@ const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
 const MCP = "https://code.claude.com/docs/en/mcp";
 const HOOKS = "https://code.claude.com/docs/en/hooks";
+const HOOKS_GUIDE = "https://code.claude.com/docs/en/hooks-guide";
 const MEMORY = "https://code.claude.com/docs/en/memory";
 const BEST = "https://code.claude.com/docs/en/best-practices";
 const SETTINGS = "https://code.claude.com/docs/en/settings";
@@ -305,6 +306,12 @@ export const RULES = Object.freeze([
     value: "PostToolUse",
     source: HOOKS,
     evidence: "| `PostToolUse`         | No         | Shows stderr to Claude; the tool already ran |",
+  },
+  {
+    id: "hook.script.executable",
+    value: true,
+    source: HOOKS_GUIDE,
+    evidence: "Hook scripts must be executable for Claude Code to run them:",
   },
   {
     id: "hook.timeout.default-seconds",

@@ -107,6 +107,101 @@ test("the skills page rules about loading, the listing and compaction are presen
   for (const k of limit("skill.frontmatter.portable-keys")) assert.ok(limit("skill.frontmatter.keys").includes(k), k);
 });
 
+// /cortex writes hooks into a committed .claude/settings.json and two fences that exit 2. What that
+// file does for a teammate, and where a fence does not reach, is on these two pages. Pinned by id
+// and page so prose can cite them and a later edit cannot quietly drop one.
+test("the settings and permission rules are present and sourced from their pages", () => {
+  for (const id of [
+    "settings.strict-json",
+    "settings.project.commit-to-share",
+    "settings.trust.grants-wait",
+    "settings.trust.deny-and-ask-apply-at-once",
+    "settings.default-mode.not-from-project",
+    "settings.reload.without-restart",
+  ]) {
+    assert.equal(rule(id).source, "https://code.claude.com/docs/en/settings", id);
+  }
+  for (const id of [
+    "settings.local.tracked-is-repository-supplied",
+    "permission.deny.any-level-wins",
+    "permission.hook.does-not-bypass-rules",
+    "permission.hook.exit-2-before-allow-rules",
+    "permission.file-rules.tools",
+    "permission.claudeignore.no-effect",
+    "permission.path.single-slash-anchors-at-source",
+    "permission.bash.compound-matches-each",
+    "permission.trust.headless-no-dialog",
+    "permission.trust.subagent-hooks-need-trust",
+  ]) {
+    assert.equal(rule(id).source, "https://code.claude.com/docs/en/permissions", id);
+  }
+  // The hook that blocks and the exit code that blocks are one number, stated on two pages.
+  assert.equal(limit("permission.hook.exit-2-before-allow-rules"), limit("hook.exit.blocking-code"));
+  assert.deepEqual(limit("permission.file-rules.tools"), ["Edit", "Read"]);
+  assert.ok(limit("settings.trust.grants-wait").includes("permissions.allow"));
+});
+
+// Cortex ships as a plugin, and its own manifests are judged by these. The last assertions hold the
+// repo to two of them, since a rule Cortex vendors and breaks is worse than one it never read.
+test("the plugin and marketplace rules are present, and Cortex's own manifests keep them", async () => {
+  const pages = {
+    "plugins/manifest-reference": [
+      "plugin.files.at-root", "plugin.manifest.unknown-top-level-stripped", "plugin.manifest.path-prefix",
+      "plugin.manifest.path-inside-and-exists", "plugin.manifest.adds-to-default", "plugin.manifest.replaces-default",
+      "plugin.name.reserved-prefixes", "plugin.version.pins",
+    ],
+    "plugins/loading": [
+      "plugin.version.manifest-first", "plugin.update.same-version-keeps-copy", "plugin.auto-update.default",
+      "plugin.cache.outside-files-not-copied", "plugin.path.forward-slashes",
+    ],
+    "plugins/components": [
+      "plugin.claude-md.not-loaded", "plugin.agent.ignored-keys", "plugin.hooks.file", "plugin.hooks.fire-from-load",
+    ],
+    "plugins/marketplace-reference": [
+      "marketplace.required-fields", "marketplace.entry.required-fields", "marketplace.unknown-key-ignored",
+      "marketplace.entry.version-manifest-wins",
+    ],
+  };
+  for (const [page, ids] of Object.entries(pages)) {
+    for (const id of ids) assert.equal(rule(id).source, `https://code.claude.com/docs/en/${page}`, id);
+  }
+  // The components page lists every key the subagents page does, and one more.
+  for (const k of limit("subagent.plugin.ignored-keys")) assert.ok(limit("plugin.agent.ignored-keys").includes(k), k);
+
+  const { readFileSync } = await import("node:fs");
+  const read = (p) => JSON.parse(readFileSync(new URL(`../../.claude-plugin/${p}`, import.meta.url), "utf8"));
+  const market = read("marketplace.json");
+  for (const k of limit("marketplace.required-fields")) assert.ok(k in market, `marketplace.json has ${k}`);
+  for (const entry of market.plugins) {
+    for (const k of limit("marketplace.entry.required-fields")) assert.ok(k in entry, `the ${entry.name} entry has ${k}`);
+  }
+  const name = read("plugin.json").name;
+  for (const prefix of limit("plugin.name.reserved-prefixes")) assert.ok(!name.startsWith(prefix), `${name} does not start with ${prefix}`);
+});
+
+// Each of these is a sentence a Cortex template or ritual already relies on: when a scoped brief
+// loads, what the managed reviewer does with REVIEW.md, and how the stamped team behaves as
+// teammates and in worktrees.
+test("the nested-brief, code review, team and worktree rules are present and sourced", () => {
+  const pages = {
+    memory: ["claude-md.nested.loads-on-touch", "agents-md.nested.loads-on-read"],
+    "code-review": [
+      "review.review-md.location", "review.claude-md.violations-are-nits",
+      "review.claude-md.outdated-is-flagged", "review.check-run.neutral",
+    ],
+    "agent-teams": [
+      "team.off-by-default", "team.definition.skills-not-applied", "team.one-per-session",
+      "team.no-nested", "team.permissions.from-lead",
+    ],
+    worktrees: ["worktree.gitignore", "worktree.subagent.instructions-from-main"],
+  };
+  for (const [page, ids] of Object.entries(pages)) {
+    for (const id of ids) assert.equal(rule(id).source, `https://code.claude.com/docs/en/${page}`, id);
+  }
+  // The worktree folder the page says to ignore is the one exception to the protected .claude path.
+  assert.equal(limit("worktree.gitignore"), `${limit("permission.protected-path.claude-dir.worktrees")}/`);
+});
+
 test("a key-list rule carries the keys as an array of strings", () => {
   const lists = RULES.filter((r) => r.table === "frontmatter");
   assert.ok(lists.length >= 2, "the skill and subagent key lists are both here");

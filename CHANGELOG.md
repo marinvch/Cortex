@@ -12,6 +12,25 @@ this project now versions independently of any package manager (see `VERSION`).
   `skill.frontmatter.portable-keys`, `skill.listing.budget-fraction`,
   `skill.compaction.kept-tokens`, `skill.compaction.shared-budget-tokens` and
   `skill.allowed-tools.ignores-workspace-trust`. No finding reads them yet.
+- **The settings and permissions pages are vendored: 16 rules, and the daily check watches both.**
+  The `settings.*` rules say what a committed `.claude/settings.json` does for a teammate: strict
+  JSON, allow rules that wait for workspace trust, deny and ask rules that do not, the two
+  `defaultMode` values a project file cannot set. The `permission.*` rules say how a rule and a
+  hook combine, that file rules are matched for `Edit` and `Read` only, that `.claudeignore` has no
+  effect, and that a `claude -p` run skips a project subagent's frontmatter hooks. No finding
+  reads them yet.
+- **Four plugin pages are vendored: 21 rules from the manifest reference, the marketplace
+  reference, components and loading.** They cover where a plugin's files go, the path rules, which
+  manifest keys replace a default folder, the reserved name prefixes, and the version rules: a
+  manifest that sets `version` keeps every user on the copy they have until the string changes,
+  and auto-update is off by default for a marketplace that is not Anthropic's. A test holds
+  Cortex's own `plugin.json` and `marketplace.json` to the required fields and the name rule.
+- **Thirteen rules a Cortex template or ritual already relied on are vendored**, from the memory,
+  code review, agent teams and worktrees pages: when a nested `CLAUDE.md` or `AGENTS.md` loads,
+  what the managed Code Review does with `REVIEW.md` and `CLAUDE.md`, that agent teams are off by
+  default and a teammate does not take a definition's `skills`, and that `.claude/worktrees/`
+  belongs in `.gitignore`. The plugin evals page is left out, as decision 10 of the plugin eval
+  design says.
 
 ### Changed
 

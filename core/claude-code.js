@@ -27,11 +27,20 @@ const MCP = "https://code.claude.com/docs/en/mcp";
 const HOOKS = "https://code.claude.com/docs/en/hooks";
 const MEMORY = "https://code.claude.com/docs/en/memory";
 const BEST = "https://code.claude.com/docs/en/best-practices";
+const SETTINGS = "https://code.claude.com/docs/en/settings";
+const PERMISSIONS = "https://code.claude.com/docs/en/permissions";
 const MODES = "https://code.claude.com/docs/en/permission-modes";
 const HEADLESS = "https://code.claude.com/docs/en/headless";
 const AUTHORING = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices";
 const PLUGINS_REF = "https://code.claude.com/docs/en/plugins-reference";
 const MARKETPLACES = "https://code.claude.com/docs/en/plugin-marketplaces";
+const CODE_REVIEW = "https://code.claude.com/docs/en/code-review";
+const TEAMS = "https://code.claude.com/docs/en/agent-teams";
+const WORKTREES = "https://code.claude.com/docs/en/worktrees";
+const MANIFEST = "https://code.claude.com/docs/en/plugins/manifest-reference";
+const MARKETPLACE_REF = "https://code.claude.com/docs/en/plugins/marketplace-reference";
+const COMPONENTS = "https://code.claude.com/docs/en/plugins/components";
+const LOADING = "https://code.claude.com/docs/en/plugins/loading";
 const MODS = "https://code.claude.com/docs/en/plugins/mods/overview";
 const MODS_REF = "https://code.claude.com/docs/en/plugins/mods/reference";
 const MODS_ADMIN = "https://code.claude.com/docs/en/plugins/mods/admin";
@@ -304,6 +313,226 @@ export const RULES = Object.freeze([
     evidence: "Defaults: 600 for `command`, `http`, and `mcp_tool`; 30 for `prompt`; 60 for `agent`.",
   },
 
+  // --- nested instruction files: when a scoped brief is actually read ----------------------------
+  //
+  // /cortex-brief writes `<dir>/AGENTS.md` leaves. These say when Claude Code loads one.
+  {
+    id: "claude-md.nested.loads-on-touch",
+    value: "on demand",
+    source: MEMORY,
+    evidence:
+      "Instead of loading them at launch, Claude Code loads each one once Claude reads, writes, or edits another file in that subdirectory.",
+  },
+  {
+    id: "agents-md.nested.loads-on-read",
+    value: "Read",
+    source: MEMORY,
+    evidence:
+      "**As Claude works in subdirectories**: a subdirectory's `AGENTS.md`, when Claude opens a file there with the Read tool and that subdirectory has none of the three `CLAUDE.md` files of its own",
+  },
+
+  // --- code review: what REVIEW.md is to Claude Code's own reviewer -------------------------------
+  //
+  // /cortex writes a REVIEW.md. These are what the managed Code Review does with it and with
+  // CLAUDE.md. The second CLAUDE.md rule is the axis /cortex-review calls "did the change make a
+  // document wrong".
+  {
+    id: "review.review-md.location",
+    value: "REVIEW.md",
+    source: CODE_REVIEW,
+    evidence: "`REVIEW.md` is a file at your repository root that tailors Code Review to your repo.",
+  },
+  {
+    id: "review.claude-md.violations-are-nits",
+    value: "nit",
+    source: CODE_REVIEW,
+    evidence:
+      "Code Review reads your repository's `CLAUDE.md` files and treats newly introduced violations as nit-level findings.",
+  },
+  {
+    id: "review.claude-md.outdated-is-flagged",
+    value: true,
+    source: CODE_REVIEW,
+    evidence:
+      "if your PR changes code in a way that makes a `CLAUDE.md` statement outdated, Claude flags that the docs need updating too.",
+  },
+  {
+    id: "review.check-run.neutral",
+    value: "neutral",
+    source: CODE_REVIEW,
+    evidence:
+      "The check run always completes with a neutral conclusion so it never blocks merging through branch protection rules.",
+  },
+
+  // --- agent teams and worktrees: what the stamped team can rely on -------------------------------
+  //
+  // `templates/team/team-skill.md` tells a developer how the team's agents behave as teammates. The
+  // page lists what a teammate takes from a definition; it has no sentence saying hooks are left
+  // out, so that claim stays prose in the template and is not a rule here.
+  {
+    id: "team.off-by-default",
+    value: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    source: TEAMS,
+    evidence:
+      "Agent teams are experimental and disabled by default. Enable them by setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in your settings.json or environment.",
+  },
+  {
+    id: "team.definition.skills-not-applied",
+    value: "skills",
+    source: TEAMS,
+    evidence: "Claude Code doesn't apply the definition's `skills` to a teammate in either display mode.",
+  },
+  {
+    id: "team.one-per-session",
+    value: 1,
+    source: TEAMS,
+    evidence: "a session has exactly one team, scoped to that session.",
+  },
+  {
+    id: "team.no-nested",
+    value: true,
+    source: TEAMS,
+    evidence: "teammates cannot spawn their own teammates.",
+  },
+  {
+    id: "team.permissions.from-lead",
+    value: "dontAsk",
+    source: TEAMS,
+    evidence: "Teammates start with the lead's permission mode, except `dontAsk` mode, which they don't inherit.",
+  },
+  {
+    id: "worktree.gitignore",
+    value: ".claude/worktrees/",
+    source: WORKTREES,
+    evidence:
+      "Add `.claude/worktrees/` to your `.gitignore` so worktree contents don't appear as untracked files in your main checkout.",
+  },
+  {
+    id: "worktree.subagent.instructions-from-main",
+    value: "main conversation",
+    source: WORKTREES,
+    evidence:
+      "A subagent in its own worktree takes the instruction files it starts with from your main conversation, not from its worktree.",
+  },
+
+  // --- settings files ----------------------------------------------------------------------------
+  //
+  // What a committed `.claude/settings.json` does for the people who clone it, which is the file
+  // /cortex writes hooks into. The trust rules are the ones a team trips over: an allow rule waits
+  // for each teammate, a deny rule does not.
+  {
+    id: "settings.strict-json",
+    value: "json",
+    source: SETTINGS,
+    evidence:
+      "Settings files are strict JSON: a `//` comment or a trailing comma is a syntax error, and Claude Code reports the file as a Settings Error at the next start.",
+  },
+  {
+    id: "settings.project.commit-to-share",
+    value: ".claude/settings.json",
+    source: SETTINGS,
+    evidence:
+      "Commit `.claude/settings.json` so everyone who clones the repository gets the same permissions, hooks, and plugins.",
+  },
+  {
+    id: "settings.trust.grants-wait",
+    value: ["permissions.allow", "permissions.additionalDirectories", "extraKnownMarketplaces", "env"],
+    source: SETTINGS,
+    evidence:
+      "`permissions.allow` rules, `permissions.additionalDirectories`, `extraKnownMarketplaces`, and most `env` values apply only after each teammate trusts the folder.",
+  },
+  {
+    id: "settings.trust.deny-and-ask-apply-at-once",
+    value: ["deny", "ask"],
+    source: SETTINGS,
+    evidence: "`deny` and `ask` rules apply right away.",
+  },
+  {
+    id: "settings.default-mode.not-from-project",
+    value: ["auto", "bypassPermissions"],
+    source: SETTINGS,
+    evidence:
+      "`permissions.defaultMode` values `auto` and `bypassPermissions` don't take effect from project or local settings",
+  },
+  {
+    id: "settings.reload.without-restart",
+    value: ["permissions", "hooks"],
+    source: SETTINGS,
+    evidence:
+      "Claude Code watches your settings files and reloads them when they change, so it applies most edits to the running session without a restart, including edits to `permissions`, `hooks`, and credential helpers such as `apiKeyHelper`.",
+  },
+  {
+    id: "settings.local.tracked-is-repository-supplied",
+    value: ".claude/settings.local.json",
+    source: PERMISSIONS,
+    evidence:
+      "When the file is tracked in git, or `.claude` is a symlink, Claude Code treats it as repository-supplied instead and holds its rules until you trust the folder.",
+  },
+
+  // --- permission rules --------------------------------------------------------------------------
+  //
+  // How a rule and a hook combine, and the rule shapes that are accepted and then never matched.
+  // `protected-paths.sh` and the Tester's fence both rest on the exit-2 rule; the trust rows say
+  // where a fence written into a repository does not reach.
+  {
+    id: "permission.deny.any-level-wins",
+    value: "deny",
+    source: PERMISSIONS,
+    evidence: "If a tool is denied at any level, no other level can allow it.",
+  },
+  {
+    id: "permission.hook.does-not-bypass-rules",
+    value: "PreToolUse",
+    source: PERMISSIONS,
+    evidence: "PreToolUse hook decisions don't bypass permission rules.",
+  },
+  {
+    id: "permission.hook.exit-2-before-allow-rules",
+    value: 2,
+    source: PERMISSIONS,
+    evidence:
+      "A hook that exits with code 2 stops the tool call before permission rules are evaluated, so the block applies even when an allow rule would otherwise let the call proceed.",
+  },
+  {
+    id: "permission.file-rules.tools",
+    value: ["Edit", "Read"],
+    source: PERMISSIONS,
+    evidence: "Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules only.",
+  },
+  {
+    id: "permission.claudeignore.no-effect",
+    value: ".claudeignore",
+    source: PERMISSIONS,
+    evidence:
+      "If your project has a `.claudeignore` file, it has no effect, so move its entries into `Read` deny rules.",
+  },
+  {
+    id: "permission.path.single-slash-anchors-at-source",
+    value: "/",
+    source: PERMISSIONS,
+    evidence: "The single leading slash anchors at the settings source, not the filesystem root.",
+  },
+  {
+    id: "permission.bash.compound-matches-each",
+    value: "each subcommand",
+    source: PERMISSIONS,
+    evidence: "A rule must match each subcommand independently.",
+  },
+  {
+    id: "permission.trust.headless-no-dialog",
+    value: "claude -p",
+    source: PERMISSIONS,
+    evidence:
+      "A `claude -p` run or an SDK session never shows it, and trusting a parent folder doesn't count for these rules",
+  },
+  {
+    id: "permission.trust.subagent-hooks-need-trust",
+    value: "not used",
+    source: PERMISSIONS,
+    evidence:
+      "Frontmatter hooks in a project subagent, a project `@skills-dir` plugin, and `extraKnownMarketplaces` entries from the repository or an `--add-dir` directory | Not used, and no dialog is offered | Not used |",
+  },
+
   // --- CLAUDE.md ---------------------------------------------------------------------------------
   {
     id: "claude-md.max-lines",
@@ -385,6 +614,150 @@ export const RULES = Object.freeze([
     value: ".claude-plugin",
     source: MARKETPLACES,
     evidence: "The marketplace root is the directory that contains `.claude-plugin/`.",
+  },
+
+  // --- plugins: the manifest, the marketplace file, what loads, and when an update reaches a user --
+  //
+  // Cortex is a plugin, and the version rules are why it is stamped: a manifest that sets `version`
+  // keeps every user on the copy they have until the string changes.
+  {
+    id: "plugin.files.at-root",
+    value: ".claude-plugin",
+    source: MANIFEST,
+    evidence: "Put every other plugin file at the plugin root, not inside `.claude-plugin/`.",
+  },
+  {
+    id: "plugin.manifest.unknown-top-level-stripped",
+    value: "stripped",
+    source: MANIFEST,
+    evidence:
+      "An unrecognized top-level key is stripped, and an unrecognized key inside a `userConfig` option, `channels` entry, `lspServers` config, or `monitors` entry is rejected",
+  },
+  {
+    id: "plugin.manifest.path-prefix",
+    value: "./",
+    source: MANIFEST,
+    evidence: "Every component path in a manifest is relative to the plugin root and must start with `./`.",
+  },
+  {
+    id: "plugin.manifest.path-inside-and-exists",
+    value: true,
+    source: MANIFEST,
+    evidence: "Every component path must resolve inside the plugin root and must exist.",
+  },
+  {
+    id: "plugin.manifest.adds-to-default",
+    value: ["skills"],
+    source: MANIFEST,
+    evidence:
+      "**Adds to the default**: `skills`. The `skills/` directory is still scanned, and the listed directories load alongside it",
+  },
+  {
+    id: "plugin.manifest.replaces-default",
+    value: ["commands", "agents", "outputStyles", "workflows", "experimental.themes", "experimental.monitors"],
+    source: MANIFEST,
+    evidence:
+      "**Replaces the default**: `commands`, `agents`, `outputStyles`, `workflows`, `experimental.themes`, `experimental.monitors`.",
+  },
+  {
+    id: "plugin.name.reserved-prefixes",
+    value: ["claude-", "anthropic-", "anthropics-", "cc-plugin-"],
+    source: MANIFEST,
+    evidence: "| Starts with `claude-`, `anthropic-`, `anthropics-`, or `cc-plugin-` | Error |",
+  },
+  {
+    id: "plugin.version.pins",
+    value: "version",
+    source: MANIFEST,
+    evidence: "Setting it pins the plugin to that version until you change it",
+  },
+  {
+    id: "plugin.version.manifest-first",
+    value: "version",
+    source: LOADING,
+    evidence:
+      'Because the manifest comes first, a manifest that pins `"version": "1.0.0"` keeps every user on the cached copy until its author changes the string, however many commits they push.',
+  },
+  {
+    id: "plugin.update.same-version-keeps-copy",
+    value: "installed_plugins.json",
+    source: LOADING,
+    evidence:
+      "`claude plugin update` and background auto-update compute the version again and don't replace the cached copy when it matches what `installed_plugins.json` records.",
+  },
+  {
+    id: "plugin.auto-update.default",
+    value: "off for every other marketplace",
+    source: LOADING,
+    evidence:
+      "**The default**: on for Anthropic's official marketplaces such as `claude-plugins-official`, off for `knowledge-work-plugins` and `first-party-plugins`, on for marketplaces added from claude.ai, and off for every other marketplace",
+  },
+  {
+    id: "plugin.cache.outside-files-not-copied",
+    value: "..",
+    source: LOADING,
+    evidence:
+      "Files outside the plugin directory aren't copied, so when a script inside a copied plugin reads a path above the plugin root, such as `../shared`, it doesn't find them",
+  },
+  {
+    id: "plugin.path.forward-slashes",
+    value: "/",
+    source: LOADING,
+    evidence:
+      "Components declared with backslash paths therefore load on Windows only, so write component paths with forward slashes, such as `./commands/deploy.md`",
+  },
+  {
+    id: "plugin.claude-md.not-loaded",
+    value: "CLAUDE.md",
+    source: COMPONENTS,
+    evidence:
+      "Claude Code doesn't load a `CLAUDE.md` at the plugin root, and `claude plugin validate` warns `CLAUDE.md at the plugin root is not loaded as project context`.",
+  },
+  // The subagents page lists three ignored keys (`subagent.plugin.ignored-keys`); this page adds a fourth.
+  {
+    id: "plugin.agent.ignored-keys",
+    value: ["permissionMode", "hooks", "mcpServers", "initialPrompt"],
+    source: COMPONENTS,
+    evidence: "**Ignored fields**: `permissionMode`, `hooks`, `mcpServers`, and `initialPrompt`.",
+  },
+  {
+    id: "plugin.hooks.file",
+    value: "hooks/hooks.json",
+    source: COMPONENTS,
+    evidence:
+      'Save the plugin\'s hooks in `hooks/hooks.json` at the plugin root, under a top-level `"hooks"` key, in the same shape as the `hooks` object in `settings.json`.',
+  },
+  {
+    id: "plugin.hooks.fire-from-load",
+    value: "session load",
+    source: COMPONENTS,
+    evidence: "Claude Code registers them when a session loads the plugin, and they fire on their events from then on.",
+  },
+  {
+    id: "marketplace.required-fields",
+    value: ["name", "owner", "plugins"],
+    source: MARKETPLACE_REF,
+    evidence: "`name`, `owner`, and `plugins` are required.",
+  },
+  {
+    id: "marketplace.entry.required-fields",
+    value: ["name", "source"],
+    source: MARKETPLACE_REF,
+    evidence: "`name` and `source` are required.",
+  },
+  {
+    id: "marketplace.unknown-key-ignored",
+    value: "ignored",
+    source: MARKETPLACE_REF,
+    evidence:
+      "Claude Code ignores an unknown top-level key or plugin-entry key rather than rejecting it, so a typo loads silently.",
+  },
+  {
+    id: "marketplace.entry.version-manifest-wins",
+    value: "plugin.json",
+    source: MARKETPLACE_REF,
+    evidence:
+      "When `plugin.json` also sets `version`, `plugin.json` takes precedence and `claude plugin validate` warns.",
   },
   // --- mods: a plugin whose handlers run inside Claude Code ---------------------------------------
   //

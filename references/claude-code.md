@@ -11,7 +11,8 @@ disagree with them. Checkers import it and never hard-code a limit.
 What it covers today: skill and subagent frontmatter keys, the skill description cap and body
 length, when a skill's frontmatter is read, the keys a skill may carry outside Claude Code, the
 skill listing's budget, what compaction keeps of an invoked skill, which subagent fields a plugin
-cannot use, MCP output limits, hook exit codes and timeouts,
+cannot use, MCP output limits, hook exit codes and timeouts, what a committed settings file does for a teammate
+and which of it waits for workspace trust, how permission rules and hooks combine,
 `CLAUDE.md` size and content guidance, when Claude Code reads `AGENTS.md` without a `CLAUDE.md`, and
 the layout of a mod and what it can override.
 
@@ -47,6 +48,15 @@ If no sentence states the rule, it is an opinion, and it does not belong in that
 - Subagents — https://code.claude.com/docs/en/sub-agents
 - Hooks — https://code.claude.com/docs/en/hooks
 - MCP — https://code.claude.com/docs/en/mcp
+- Plugins — https://code.claude.com/docs/en/plugins/manifest-reference,
+  https://code.claude.com/docs/en/plugins/marketplace-reference,
+  https://code.claude.com/docs/en/plugins/components and
+  https://code.claude.com/docs/en/plugins/loading
+- Code review — https://code.claude.com/docs/en/code-review
+- Agent teams — https://code.claude.com/docs/en/agent-teams
+- Worktrees — https://code.claude.com/docs/en/worktrees
+- Settings — https://code.claude.com/docs/en/settings
+- Permissions — https://code.claude.com/docs/en/permissions
 - Memory and `CLAUDE.md` — https://code.claude.com/docs/en/memory
 - Best practices — https://code.claude.com/docs/en/best-practices
 - Prompting Claude Opus 5.5 (the `model.*` rules: effort, thinking and `max_tokens`, reading a

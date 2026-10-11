@@ -34,6 +34,9 @@ const HEADLESS = "https://code.claude.com/docs/en/headless";
 const AUTHORING = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices";
 const PLUGINS_REF = "https://code.claude.com/docs/en/plugins-reference";
 const MARKETPLACES = "https://code.claude.com/docs/en/plugin-marketplaces";
+const CODE_REVIEW = "https://code.claude.com/docs/en/code-review";
+const TEAMS = "https://code.claude.com/docs/en/agent-teams";
+const WORKTREES = "https://code.claude.com/docs/en/worktrees";
 const MANIFEST = "https://code.claude.com/docs/en/plugins/manifest-reference";
 const MARKETPLACE_REF = "https://code.claude.com/docs/en/plugins/marketplace-reference";
 const COMPONENTS = "https://code.claude.com/docs/en/plugins/components";
@@ -308,6 +311,108 @@ export const RULES = Object.freeze([
     value: { command: 600, prompt: 30, agent: 60 },
     source: HOOKS,
     evidence: "Defaults: 600 for `command`, `http`, and `mcp_tool`; 30 for `prompt`; 60 for `agent`.",
+  },
+
+  // --- nested instruction files: when a scoped brief is actually read ----------------------------
+  //
+  // /cortex-brief writes `<dir>/AGENTS.md` leaves. These say when Claude Code loads one.
+  {
+    id: "claude-md.nested.loads-on-touch",
+    value: "on demand",
+    source: MEMORY,
+    evidence:
+      "Instead of loading them at launch, Claude Code loads each one once Claude reads, writes, or edits another file in that subdirectory.",
+  },
+  {
+    id: "agents-md.nested.loads-on-read",
+    value: "Read",
+    source: MEMORY,
+    evidence:
+      "**As Claude works in subdirectories**: a subdirectory's `AGENTS.md`, when Claude opens a file there with the Read tool and that subdirectory has none of the three `CLAUDE.md` files of its own",
+  },
+
+  // --- code review: what REVIEW.md is to Claude Code's own reviewer -------------------------------
+  //
+  // /cortex writes a REVIEW.md. These are what the managed Code Review does with it and with
+  // CLAUDE.md. The second CLAUDE.md rule is the axis /cortex-review calls "did the change make a
+  // document wrong".
+  {
+    id: "review.review-md.location",
+    value: "REVIEW.md",
+    source: CODE_REVIEW,
+    evidence: "`REVIEW.md` is a file at your repository root that tailors Code Review to your repo.",
+  },
+  {
+    id: "review.claude-md.violations-are-nits",
+    value: "nit",
+    source: CODE_REVIEW,
+    evidence:
+      "Code Review reads your repository's `CLAUDE.md` files and treats newly introduced violations as nit-level findings.",
+  },
+  {
+    id: "review.claude-md.outdated-is-flagged",
+    value: true,
+    source: CODE_REVIEW,
+    evidence:
+      "if your PR changes code in a way that makes a `CLAUDE.md` statement outdated, Claude flags that the docs need updating too.",
+  },
+  {
+    id: "review.check-run.neutral",
+    value: "neutral",
+    source: CODE_REVIEW,
+    evidence:
+      "The check run always completes with a neutral conclusion so it never blocks merging through branch protection rules.",
+  },
+
+  // --- agent teams and worktrees: what the stamped team can rely on -------------------------------
+  //
+  // `templates/team/team-skill.md` tells a developer how the team's agents behave as teammates. The
+  // page lists what a teammate takes from a definition; it has no sentence saying hooks are left
+  // out, so that claim stays prose in the template and is not a rule here.
+  {
+    id: "team.off-by-default",
+    value: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    source: TEAMS,
+    evidence:
+      "Agent teams are experimental and disabled by default. Enable them by setting `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in your settings.json or environment.",
+  },
+  {
+    id: "team.definition.skills-not-applied",
+    value: "skills",
+    source: TEAMS,
+    evidence: "Claude Code doesn't apply the definition's `skills` to a teammate in either display mode.",
+  },
+  {
+    id: "team.one-per-session",
+    value: 1,
+    source: TEAMS,
+    evidence: "a session has exactly one team, scoped to that session.",
+  },
+  {
+    id: "team.no-nested",
+    value: true,
+    source: TEAMS,
+    evidence: "teammates cannot spawn their own teammates.",
+  },
+  {
+    id: "team.permissions.from-lead",
+    value: "dontAsk",
+    source: TEAMS,
+    evidence: "Teammates start with the lead's permission mode, except `dontAsk` mode, which they don't inherit.",
+  },
+  {
+    id: "worktree.gitignore",
+    value: ".claude/worktrees/",
+    source: WORKTREES,
+    evidence:
+      "Add `.claude/worktrees/` to your `.gitignore` so worktree contents don't appear as untracked files in your main checkout.",
+  },
+  {
+    id: "worktree.subagent.instructions-from-main",
+    value: "main conversation",
+    source: WORKTREES,
+    evidence:
+      "A subagent in its own worktree takes the instruction files it starts with from your main conversation, not from its worktree.",
   },
 
   // --- settings files ----------------------------------------------------------------------------

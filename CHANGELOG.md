@@ -25,6 +25,12 @@ this project now versions independently of any package manager (see `VERSION`).
   manifest that sets `version` keeps every user on the copy they have until the string changes,
   and auto-update is off by default for a marketplace that is not Anthropic's. A test holds
   Cortex's own `plugin.json` and `marketplace.json` to the required fields and the name rule.
+- **Thirteen rules a Cortex template or ritual already relied on are vendored**, from the memory,
+  code review, agent teams and worktrees pages: when a nested `CLAUDE.md` or `AGENTS.md` loads,
+  what the managed Code Review does with `REVIEW.md` and `CLAUDE.md`, that agent teams are off by
+  default and a teammate does not take a definition's `skills`, and that `.claude/worktrees/`
+  belongs in `.gitignore`. The plugin evals page is left out, as decision 10 of the plugin eval
+  design says.
 
 ### Changed
 

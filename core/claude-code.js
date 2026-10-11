@@ -19,7 +19,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-10-08";
+export const CHECKED = "2026-10-11";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -223,20 +223,21 @@ export const RULES = Object.freeze([
     id: "hook.exit.blocking-code",
     value: 2,
     source: HOOKS,
-    evidence: "For most hook events, exit code 2 is the only exit code that blocks through the code alone.",
+    evidence: "**Blocking error**: your hook exits 2. On events that can block, Claude Code stops the action.",
   },
   {
     id: "hook.exit.one-does-not-block",
     value: 1,
     source: HOOKS,
     evidence:
-      "Without valid JSON on stdout, Claude Code treats exit code 1 as a non-blocking error and proceeds with the action, even though 1 is the conventional Unix failure code.",
+      "Without valid JSON on stdout, Claude Code treats exit code 1 as a non-blocking error, even though 1 is the conventional Unix failure code.",
   },
   {
     id: "hook.exit.other-codes-non-blocking",
     value: "non-blocking",
     source: HOOKS,
-    evidence: "Any other exit code doesn't block on its own for most hook events.",
+    evidence:
+      "**Non-blocking error**: your hook exits with any other code, or fails in some other way, such as not starting or printing invalid JSON.",
   },
   {
     id: "hook.post-tool-use.cannot-block",

@@ -5,6 +5,10 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.53] — 2026-10-11
+
+The Claude Code docs drift in #595.
+
 ### Fixed
 
 - **Three hook exit-code rules cite the sentences the hooks page states now (#595).** The page was
@@ -5137,6 +5141,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.53]: https://github.com/marinvch/Cortex/releases/tag/v2.41.53
 [2.41.52]: https://github.com/marinvch/Cortex/releases/tag/v2.41.52
 [2.41.51]: https://github.com/marinvch/Cortex/releases/tag/v2.41.51
 [2.41.50]: https://github.com/marinvch/Cortex/releases/tag/v2.41.50

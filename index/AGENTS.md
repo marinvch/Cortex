@@ -224,6 +224,19 @@ description) has a test.
   plain grep of the same files: four of four, three of three and two of two, and nothing in
   anthropics/claude-code or superpowers. Twelve guards mutated, twelve test failures.
 
+- **Which frontmatter is unreadable was learned from `claude plugin validate`, not from YAML.**
+  The validator (2.1.296) repairs some blocks a YAML parser rejects, so each shape was put to it.
+  It rejects a value that ends in a colon, a continuation line holding a colon, and an unindented
+  line that is neither a key nor a list item. `readFrontmatter` returns `broken` for those. A
+  one-line value holding `": "` parses with LF endings and is rejected with CRLF, so it comes back
+  `ok` with `fragile` set: the two unreadable findings report it and every other check still reads
+  the block. It is reported whatever the endings on this checkout, because the index must not
+  differ between a Windows clone and a Linux one. A duplicate key and an extra key are accepted
+  and stay `loose`. Across the fourteen plugins in anthropics/claude-code, superpowers and
+  tdd-guard the validator rejects four files and `broken` names the same four; 658 other files
+  with frontmatter in eleven repos report none. Fourteen guards mutated, fourteen test failures.
+  Re-run the probe before changing any of it: the repair is not documented and may change.
+
 ### How the scoped briefs load — `lib/instructions.mjs`
 
 - **A fact, not a finding.** Under a root `CLAUDE.md`, Claude Code does not read a subdirectory's

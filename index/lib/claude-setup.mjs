@@ -47,7 +47,9 @@ const unquote = (v) => {
  * normalised first, since both are ordinary in a repo edited on Windows.
  *
  * Returns { state: "none" } when the file opens without `---`, { state: "broken", reason } when it
- * opens one and never closes it, else { state: "ok", keys, data, loose, body }.
+ * opens one and never closes it or an unquoted colon breaks it, else
+ * { state: "ok", keys, data, loose, fragile, body }. `fragile` is the reason a block that parses
+ * with LF endings stops parsing with CRLF, or undefined.
  *
  * `loose` marks a block with an unindented line that is not a key, or a key given twice — prose
  * pasted into a description without indenting it, as some published plugins do. A strict YAML
@@ -64,10 +66,18 @@ export function readFrontmatter(src) {
   const keys = [];
   const data = {};
   let loose = false;
+  let fragile;
   for (let i = 1; i < end; i++) {
     const m = lines[i].match(/^([A-Za-z_][\w-]*)\s*:(.*)$/);
     if (!m) {
-      if (lines[i].trim() && !/^\s*#/.test(lines[i])) loose = true;
+      if (!lines[i].trim() || /^\s*#/.test(lines[i])) continue;
+      // An unindented line that is neither a key nor a list item is prose pasted under a
+      // description. The validator rejects it. A line that could be a key the pattern above does
+      // not cover, a quoted one say, stays loose because nothing was learned about it.
+      if (/^[^\s\-\]}"']/.test(lines[i]) && !/:(\s|$)/.test(lines[i])) {
+        return { state: "broken", reason: `line ${i + 1} is neither a key nor indented under one` };
+      }
+      loose = true;
       continue;
     }
     const key = m[1];
@@ -91,10 +101,24 @@ export function readFrontmatter(src) {
     } else if (raw.startsWith("[") && raw.endsWith("]")) {
       data[key] = raw.slice(1, -1).split(",").map(unquote).filter(Boolean);
     } else {
+      // An unquoted value holding a colon reads as a second mapping. `claude plugin validate`
+      // (2.1.296) was asked about each shape: a value that ends in ":" and a continuation line
+      // holding ": " are rejected everywhere, and the whole block is lost, not the one field. A
+      // one-line value holding ": " is repaired when the file has LF endings and rejected when it
+      // has CRLF. Cortex shipped an agent like that: on a Windows checkout it loaded with no
+      // description and every tool. That shape is reported and the block is still read, because
+      // on LF it parses and the other checks apply.
+      if (!/^["'{[]/.test(raw)) {
+        const bare = (l) => l.replace(/\s#.*$/, "");
+        if (/:$/.test(bare(raw)) || block.some((l) => /:(\s|$)/.test(bare(l)))) {
+          return { state: "broken", reason: `${key} holds an unquoted colon at a line end or on a continuation line, which YAML reads as a second key` };
+        }
+        if (/:\s/.test(bare(raw))) fragile ??= `${key} holds an unquoted ": ", which stops the block parsing on a checkout with CRLF line endings, the Windows default`;
+      }
       data[key] = unquote([raw, ...block].join(" "));
     }
   }
-  return { state: "ok", keys, data, loose, body: lines.slice(end + 1).join("\n") };
+  return { state: "ok", keys, data, loose, fragile, body: lines.slice(end + 1).join("\n") };
 }
 
 /** A tools field — "Read, Grep", a YAML list, or absent — as a list of tool names. */
@@ -379,11 +403,11 @@ const CHECKS = [
     rule: "skill.frontmatter.malformed",
     severity: "medium",
     title: (n) => `${n} skill${n === 1 ? "" : "s"} with frontmatter that cannot be read`,
-    what: "A frontmatter block that never closes does not parse, so the skill keeps working by name while the router never sees its description.",
+    what: "A frontmatter block that never closes, or one an unquoted colon breaks, does not parse, so the skill keeps working by name while the router never sees its description.",
     run: (r) =>
       r.skills.flatMap((p) => {
         const fm = frontmatterOf(r, p);
-        return fm?.state === "broken" ? [`${p} — ${fm.reason}`] : [];
+        return fm?.state === "broken" ? [`${p} — ${fm.reason}`] : fm?.fragile ? [`${p} — ${fm.fragile}`] : [];
       }),
   },
   {
@@ -562,11 +586,11 @@ const CHECKS = [
     rule: "subagent.frontmatter.malformed",
     severity: "medium",
     title: (n) => `${n} subagent${n === 1 ? "" : "s"} with frontmatter that cannot be read`,
-    what: "A frontmatter block that never closes does not parse, and a subagent whose frontmatter does not parse is not loaded at all.",
+    what: "A frontmatter block that never closes, or one an unquoted colon breaks, does not parse, and a subagent whose frontmatter does not parse is not loaded at all.",
     run: (r) =>
       r.agents.flatMap((p) => {
         const fm = frontmatterOf(r, p);
-        return fm?.state === "broken" ? [`${p} — ${fm.reason}`] : [];
+        return fm?.state === "broken" ? [`${p} — ${fm.reason}`] : fm?.fragile ? [`${p} — ${fm.fragile}`] : [];
       }),
   },
   {

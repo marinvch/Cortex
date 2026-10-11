@@ -6,6 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readdirSync, readFileSync } from "node:fs";
 import { claudeSetupFindings, readFrontmatter, CLAUDE_SETUP_KINDS } from "../lib/claude-setup.mjs";
 import { RULES } from "../../core/claude-code.js";
 
@@ -310,7 +311,7 @@ test("unknown subagent key — a snake_case spelling is not the camelCase key", 
   );
   assert.match(f.evidence[0], /disallowed_tools/);
   // Prose pasted unindented into a description is a loose block: its lines are not reported as keys.
-  const loose = "---\nname: r\ndescription: Use this agent when.\nContext: x\nuser: \"a\"\n<example>\nuser: \"b\"\n---\nBody\n";
+  const loose = "---\nname: r\ndescription: Use this agent when.\nContext: x\nuser: \"a\"\nuser: \"b\"\n---\nBody\n";
   assert.equal(readFrontmatter(loose).loose, true);
   assert.deepEqual(check({ ".claude/agents/r.md": loose }), []);
 });
@@ -375,6 +376,59 @@ test("an agent described as read-only that can still edit", () => {
 
 test("unterminated subagent frontmatter is one finding, not a crash", () => {
   assertFinding(check({ ".claude/agents/r.md": "---\nname: r\n" }), "subagent-frontmatter-unreadable");
+});
+
+// Each shape below was put to `claude plugin validate` 2.1.296, and the verdict here is its verdict.
+test("an unquoted colon the validator rejects makes the block unreadable", () => {
+  const rejected = {
+    "a value that ends in a colon": ["name: r\ndescription: Reviews things. Examples:\ntools: Read", /description holds an unquoted colon/],
+    "a continuation line holding a colon": ["name: r\ndescription: Use this agent\n  when Read-only: it never edits", /description holds an unquoted colon/],
+    "a continuation line ending in a colon": ["name: r\ndescription: Use this agent\n  for these cases:", /description holds an unquoted colon/],
+    "prose pasted under a description": ["name: r\ndescription: Reviews.\n<example>\ntools: Read", /line 4 is neither a key/],
+  };
+  for (const [what, [fm, reason]] of Object.entries(rejected)) {
+    const agentFs = check({ ".claude/agents/r.md": agent(fm) });
+    assert.deepEqual(kinds(agentFs), ["claude-setup/subagent-frontmatter-unreadable"], what);
+    assert.match(assertFinding(agentFs, "subagent-frontmatter-unreadable").evidence[0], reason, what);
+    const skillFs = check({ ".claude/skills/r/SKILL.md": agent(fm.replace(/\ntools: Read/, "")) });
+    assert.match(assertFinding(skillFs, "skill-frontmatter-unreadable").evidence[0], reason, what);
+  }
+});
+
+test("a one-line value holding a colon and a space is reported for CRLF checkouts and still read", () => {
+  const src = agent("name: r\ndescription: Reviews a diff. Read-only: it never edits.\ntools: Read, Edit");
+  const fm = readFrontmatter(src);
+  assert.equal(fm.state, "ok");
+  assert.match(fm.fragile, /description holds an unquoted ": ".*CRLF/);
+  assert.equal(fm.data.description, "Reviews a diff. Read-only: it never edits.");
+  const fs = check({ ".claude/agents/r.md": src });
+  assert.match(assertFinding(fs, "subagent-frontmatter-unreadable").evidence[0], /CRLF/);
+  // The block is still read, so the check that needs its fields still runs.
+  assertFinding(fs, "subagent-read-only-can-edit");
+  assert.match(
+    assertFinding(check({ ".claude/skills/r/SKILL.md": agent("name: r\ndescription: Does x. Note: only on request.") }), "skill-frontmatter-unreadable").evidence[0],
+    /CRLF/,
+  );
+});
+
+test("a colon the validator accepts is not reported", () => {
+  const accepted = [
+    'description: "Read-only: it never edits"',
+    "description: 'Read-only: it never edits'",
+    "description: See http://x.test/a and file:line evidence at 12:30",
+    "description: Reviews a diff # note: a comment",
+    "description: Reviews.\ntools:\n- Read\n- Grep",
+    'description: Reviews.\n"quoted key": x',
+    "description: >\n  Folded text. Read-only: it never edits.\n  Examples:",
+    "description: |\n  Literal text.\n  Note: kept as written",
+    "description: Reviews.\ntools: [Read, Grep]",
+  ];
+  for (const fm of accepted) {
+    const read = readFrontmatter(agent(`name: r\n${fm}`));
+    assert.equal(read.state, "ok", fm);
+    assert.equal(read.fragile, undefined, fm);
+    assert.deepEqual(only(check({ ".claude/agents/r.md": agent(`name: r\n${fm}`) }), "subagent-frontmatter-unreadable"), [], fm);
+  }
 });
 
 // --- hooks -------------------------------------------------------------------------------------
@@ -717,4 +771,26 @@ test("a contents list far down the file is not at the top", () => {
   const body = "# A\n\n" + Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n") + "\n\n## Contents\n\n" + Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n") + "\n";
   const fs = check({ ".claude/skills/x/SKILL.md": skill("name: x\ndescription: Does x.", "See [a](A.md).\n"), ".claude/skills/x/A.md": body });
   assertFinding(fs, "skill-reference-no-contents");
+});
+
+// --- Cortex's own files ------------------------------------------------------------------------
+
+// `agents/cortex-role-reviewer.md` shipped a description reading "Read-only: it never edits". On a
+// Windows checkout the block did not parse, so the reviewer loaded with no description and every
+// tool. Nothing here failed, because no test read Cortex's own frontmatter.
+test("every agent, skill and stamped template Cortex ships has frontmatter that parses on any checkout", () => {
+  const root = new URL("../../", import.meta.url);
+  const dir = (rel) => readdirSync(new URL(rel, root), { withFileTypes: true });
+  const files = [
+    ...dir("agents/").filter((e) => e.name.endsWith(".md")).map((e) => `agents/${e.name}`),
+    ...dir("skills/").filter((e) => e.isDirectory()).map((e) => `skills/${e.name}/SKILL.md`),
+    ...dir("templates/loop/").filter((e) => e.name.endsWith(".md")).map((e) => `templates/loop/${e.name}`),
+    ...dir("templates/team/").filter((e) => e.name.endsWith(".md")).map((e) => `templates/team/${e.name}`),
+  ];
+  assert.ok(files.length > 50, `read only ${files.length} files`);
+  const bad = files.flatMap((rel) => {
+    const fm = readFrontmatter(readFileSync(new URL(rel, root), "utf8"));
+    return fm.state === "broken" ? [`${rel} — ${fm.reason}`] : fm.fragile ? [`${rel} — ${fm.fragile}`] : [];
+  });
+  assert.deepEqual(bad, []);
 });

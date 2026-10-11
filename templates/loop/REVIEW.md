@@ -15,12 +15,15 @@ Label every finding with the lens that produced it.
 
 ## Severity
 
-A finding is **blocking** only if merging it would break behaviour, expose data, or violate a
-written rule. Everything else — naming, formatting, taste — is a **suggestion**.
+These are Claude Code Review's own levels, so a managed review and a person read the same words.
+
+A finding is **Important** only if merging it would break behaviour, expose data, or violate a
+written rule. Everything else — naming, formatting, taste — is a **Nit** at most. A bug the change
+did not introduce is **Pre-existing**: name it once and do not hold the change for it.
 
 ## Volume
 
-At most **{{NIT_CAP}}** suggestions per review; report any beyond that as a single count. A review
+At most **{{NIT_CAP}}** Nits per review; report any beyond that as a single count. A review
 people learn to skim is a review that stops catching things.
 
 ## Out of scope

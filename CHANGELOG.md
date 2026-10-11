@@ -5,6 +5,19 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Added
+
+- **Eight more rules from the skills page are vendored and watched by the daily docs check.**
+  `skill.frontmatter.first-line`, `skill.metadata.must-be-map`, `skill.name.reserved-namespace`,
+  `skill.frontmatter.portable-keys`, `skill.listing.budget-fraction`,
+  `skill.compaction.kept-tokens`, `skill.compaction.shared-budget-tokens` and
+  `skill.allowed-tools.ignores-workspace-trust`. No finding reads them yet.
+
+### Changed
+
+- **ADR 0020 and a test comment said Claude Code does not state the skill listing's budget.** The
+  page states it now: 1% of the model's context window. Both cite the rule.
+
 ## [2.41.53] — 2026-10-11
 
 The Claude Code docs drift in #595.

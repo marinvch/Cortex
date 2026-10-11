@@ -83,6 +83,30 @@ test("the AGENTS.md and mods rules are present and sourced from their pages", ()
   assert.ok(limit("mod.module.extensions").includes(".tsx"));
 });
 
+// What the skills page says about a skill that loads and still does not work as written: frontmatter
+// that is not read, a name that is reserved, a listing that drops descriptions, a body cut at
+// compaction. No finding reads these yet. They are pinned so the daily check watches the sentences
+// and a later edit cannot quietly drop one.
+test("the skills page rules about loading, the listing and compaction are present", () => {
+  for (const id of [
+    "skill.frontmatter.first-line",
+    "skill.metadata.must-be-map",
+    "skill.name.reserved-namespace",
+    "skill.frontmatter.portable-keys",
+    "skill.listing.budget-fraction",
+    "skill.compaction.kept-tokens",
+    "skill.compaction.shared-budget-tokens",
+    "skill.allowed-tools.ignores-workspace-trust",
+  ]) {
+    assert.equal(rule(id).source, "https://code.claude.com/docs/en/skills", id);
+  }
+  assert.equal(limit("skill.listing.budget-fraction"), 0.01);
+  assert.equal(limit("skill.compaction.kept-tokens"), 5000);
+  assert.equal(limit("skill.name.reserved-namespace"), "anthropic-skills");
+  // Every portable key is a key Claude Code reads too, so a portable skill loads there unchanged.
+  for (const k of limit("skill.frontmatter.portable-keys")) assert.ok(limit("skill.frontmatter.keys").includes(k), k);
+});
+
 test("a key-list rule carries the keys as an array of strings", () => {
   const lists = RULES.filter((r) => r.table === "frontmatter");
   assert.ok(lists.length >= 2, "the skill and subagent key lists are both here");

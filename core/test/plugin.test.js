@@ -102,7 +102,8 @@ test("every skill has frontmatter a router can read (tools/cortex-frontmatter.mj
 });
 
 // Every model-invocable description is loaded into every session, beside every other plugin's, and
-// Claude Code drops descriptions once the whole listing passes a budget it does not state. In a
+// Claude Code drops descriptions once the whole listing passes its budget, 1% of the model's context
+// window (`skill.listing.budget-fraction`), starting with the skills invoked least. In a
 // session with several plugins installed, about twenty Cortex rituals were listed by name alone,
 // with nothing to route a request to them. 2.41.4 cut the descriptions from 14,847 characters to
 // about 8,100. These limits keep them from growing back one edit at a time, and stop two rituals

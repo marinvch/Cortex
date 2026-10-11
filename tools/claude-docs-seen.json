@@ -1,5 +1,5 @@
 {
-  "checked": "2026-10-09",
+  "checked": "2026-10-11",
   "docs": [
     "accessibility",
     "admin-setup",
@@ -43,6 +43,7 @@
     "analytics",
     "artifacts",
     "authentication",
+    "auto-mode-classifier-billing",
     "auto-mode-config",
     "best-practices",
     "champion-kit",

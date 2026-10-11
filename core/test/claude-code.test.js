@@ -179,6 +179,29 @@ test("the plugin and marketplace rules are present, and Cortex's own manifests k
   for (const prefix of limit("plugin.name.reserved-prefixes")) assert.ok(!name.startsWith(prefix), `${name} does not start with ${prefix}`);
 });
 
+// Each of these is a sentence a Cortex template or ritual already relies on: when a scoped brief
+// loads, what the managed reviewer does with REVIEW.md, and how the stamped team behaves as
+// teammates and in worktrees.
+test("the nested-brief, code review, team and worktree rules are present and sourced", () => {
+  const pages = {
+    memory: ["claude-md.nested.loads-on-touch", "agents-md.nested.loads-on-read"],
+    "code-review": [
+      "review.review-md.location", "review.claude-md.violations-are-nits",
+      "review.claude-md.outdated-is-flagged", "review.check-run.neutral",
+    ],
+    "agent-teams": [
+      "team.off-by-default", "team.definition.skills-not-applied", "team.one-per-session",
+      "team.no-nested", "team.permissions.from-lead",
+    ],
+    worktrees: ["worktree.gitignore", "worktree.subagent.instructions-from-main"],
+  };
+  for (const [page, ids] of Object.entries(pages)) {
+    for (const id of ids) assert.equal(rule(id).source, `https://code.claude.com/docs/en/${page}`, id);
+  }
+  // The worktree folder the page says to ignore is the one exception to the protected .claude path.
+  assert.equal(limit("worktree.gitignore"), `${limit("permission.protected-path.claude-dir.worktrees")}/`);
+});
+
 test("a key-list rule carries the keys as an array of strings", () => {
   const lists = RULES.filter((r) => r.table === "frontmatter");
   assert.ok(lists.length >= 2, "the skill and subagent key lists are both here");

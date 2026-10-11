@@ -52,6 +52,9 @@ If no sentence states the rule, it is an opinion, and it does not belong in that
   https://code.claude.com/docs/en/plugins/marketplace-reference,
   https://code.claude.com/docs/en/plugins/components and
   https://code.claude.com/docs/en/plugins/loading
+- Code review — https://code.claude.com/docs/en/code-review
+- Agent teams — https://code.claude.com/docs/en/agent-teams
+- Worktrees — https://code.claude.com/docs/en/worktrees
 - Settings — https://code.claude.com/docs/en/settings
 - Permissions — https://code.claude.com/docs/en/permissions
 - Memory and `CLAUDE.md` — https://code.claude.com/docs/en/memory

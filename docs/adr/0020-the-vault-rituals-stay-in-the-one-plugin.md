@@ -74,6 +74,9 @@ Revisit if any of these becomes true, and measure again before deciding:
 - The listing starts to be cut short. Claude Code has a total budget it does not state, and when
   the listing exceeds it, it writes a warning to the `--debug` log. The Skills row of `/context`
   shows the size after the budget is applied.
+  **Amended 2026-10-11.** The skills page states the budget now: 1% of the model's context window,
+  with descriptions dropped starting from the skills invoked least. It is vendored as
+  `skill.listing.budget-fraction`. The decision does not change.
 
 Measure with:
 

@@ -27,6 +27,8 @@ const MCP = "https://code.claude.com/docs/en/mcp";
 const HOOKS = "https://code.claude.com/docs/en/hooks";
 const MEMORY = "https://code.claude.com/docs/en/memory";
 const BEST = "https://code.claude.com/docs/en/best-practices";
+const SETTINGS = "https://code.claude.com/docs/en/settings";
+const PERMISSIONS = "https://code.claude.com/docs/en/permissions";
 const MODES = "https://code.claude.com/docs/en/permission-modes";
 const HEADLESS = "https://code.claude.com/docs/en/headless";
 const AUTHORING = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices";
@@ -302,6 +304,124 @@ export const RULES = Object.freeze([
     value: { command: 600, prompt: 30, agent: 60 },
     source: HOOKS,
     evidence: "Defaults: 600 for `command`, `http`, and `mcp_tool`; 30 for `prompt`; 60 for `agent`.",
+  },
+
+  // --- settings files ----------------------------------------------------------------------------
+  //
+  // What a committed `.claude/settings.json` does for the people who clone it, which is the file
+  // /cortex writes hooks into. The trust rules are the ones a team trips over: an allow rule waits
+  // for each teammate, a deny rule does not.
+  {
+    id: "settings.strict-json",
+    value: "json",
+    source: SETTINGS,
+    evidence:
+      "Settings files are strict JSON: a `//` comment or a trailing comma is a syntax error, and Claude Code reports the file as a Settings Error at the next start.",
+  },
+  {
+    id: "settings.project.commit-to-share",
+    value: ".claude/settings.json",
+    source: SETTINGS,
+    evidence:
+      "Commit `.claude/settings.json` so everyone who clones the repository gets the same permissions, hooks, and plugins.",
+  },
+  {
+    id: "settings.trust.grants-wait",
+    value: ["permissions.allow", "permissions.additionalDirectories", "extraKnownMarketplaces", "env"],
+    source: SETTINGS,
+    evidence:
+      "`permissions.allow` rules, `permissions.additionalDirectories`, `extraKnownMarketplaces`, and most `env` values apply only after each teammate trusts the folder.",
+  },
+  {
+    id: "settings.trust.deny-and-ask-apply-at-once",
+    value: ["deny", "ask"],
+    source: SETTINGS,
+    evidence: "`deny` and `ask` rules apply right away.",
+  },
+  {
+    id: "settings.default-mode.not-from-project",
+    value: ["auto", "bypassPermissions"],
+    source: SETTINGS,
+    evidence:
+      "`permissions.defaultMode` values `auto` and `bypassPermissions` don't take effect from project or local settings",
+  },
+  {
+    id: "settings.reload.without-restart",
+    value: ["permissions", "hooks"],
+    source: SETTINGS,
+    evidence:
+      "Claude Code watches your settings files and reloads them when they change, so it applies most edits to the running session without a restart, including edits to `permissions`, `hooks`, and credential helpers such as `apiKeyHelper`.",
+  },
+  {
+    id: "settings.local.tracked-is-repository-supplied",
+    value: ".claude/settings.local.json",
+    source: PERMISSIONS,
+    evidence:
+      "When the file is tracked in git, or `.claude` is a symlink, Claude Code treats it as repository-supplied instead and holds its rules until you trust the folder.",
+  },
+
+  // --- permission rules --------------------------------------------------------------------------
+  //
+  // How a rule and a hook combine, and the rule shapes that are accepted and then never matched.
+  // `protected-paths.sh` and the Tester's fence both rest on the exit-2 rule; the trust rows say
+  // where a fence written into a repository does not reach.
+  {
+    id: "permission.deny.any-level-wins",
+    value: "deny",
+    source: PERMISSIONS,
+    evidence: "If a tool is denied at any level, no other level can allow it.",
+  },
+  {
+    id: "permission.hook.does-not-bypass-rules",
+    value: "PreToolUse",
+    source: PERMISSIONS,
+    evidence: "PreToolUse hook decisions don't bypass permission rules.",
+  },
+  {
+    id: "permission.hook.exit-2-before-allow-rules",
+    value: 2,
+    source: PERMISSIONS,
+    evidence:
+      "A hook that exits with code 2 stops the tool call before permission rules are evaluated, so the block applies even when an allow rule would otherwise let the call proceed.",
+  },
+  {
+    id: "permission.file-rules.tools",
+    value: ["Edit", "Read"],
+    source: PERMISSIONS,
+    evidence: "Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules only.",
+  },
+  {
+    id: "permission.claudeignore.no-effect",
+    value: ".claudeignore",
+    source: PERMISSIONS,
+    evidence:
+      "If your project has a `.claudeignore` file, it has no effect, so move its entries into `Read` deny rules.",
+  },
+  {
+    id: "permission.path.single-slash-anchors-at-source",
+    value: "/",
+    source: PERMISSIONS,
+    evidence: "The single leading slash anchors at the settings source, not the filesystem root.",
+  },
+  {
+    id: "permission.bash.compound-matches-each",
+    value: "each subcommand",
+    source: PERMISSIONS,
+    evidence: "A rule must match each subcommand independently.",
+  },
+  {
+    id: "permission.trust.headless-no-dialog",
+    value: "claude -p",
+    source: PERMISSIONS,
+    evidence:
+      "A `claude -p` run or an SDK session never shows it, and trusting a parent folder doesn't count for these rules",
+  },
+  {
+    id: "permission.trust.subagent-hooks-need-trust",
+    value: "not used",
+    source: PERMISSIONS,
+    evidence:
+      "Frontmatter hooks in a project subagent, a project `@skills-dir` plugin, and `extraKnownMarketplaces` entries from the repository or an `--add-dir` directory | Not used, and no dialog is offered | Not used |",
   },
 
   // --- CLAUDE.md ---------------------------------------------------------------------------------

@@ -107,6 +107,40 @@ test("the skills page rules about loading, the listing and compaction are presen
   for (const k of limit("skill.frontmatter.portable-keys")) assert.ok(limit("skill.frontmatter.keys").includes(k), k);
 });
 
+// /cortex writes hooks into a committed .claude/settings.json and two fences that exit 2. What that
+// file does for a teammate, and where a fence does not reach, is on these two pages. Pinned by id
+// and page so prose can cite them and a later edit cannot quietly drop one.
+test("the settings and permission rules are present and sourced from their pages", () => {
+  for (const id of [
+    "settings.strict-json",
+    "settings.project.commit-to-share",
+    "settings.trust.grants-wait",
+    "settings.trust.deny-and-ask-apply-at-once",
+    "settings.default-mode.not-from-project",
+    "settings.reload.without-restart",
+  ]) {
+    assert.equal(rule(id).source, "https://code.claude.com/docs/en/settings", id);
+  }
+  for (const id of [
+    "settings.local.tracked-is-repository-supplied",
+    "permission.deny.any-level-wins",
+    "permission.hook.does-not-bypass-rules",
+    "permission.hook.exit-2-before-allow-rules",
+    "permission.file-rules.tools",
+    "permission.claudeignore.no-effect",
+    "permission.path.single-slash-anchors-at-source",
+    "permission.bash.compound-matches-each",
+    "permission.trust.headless-no-dialog",
+    "permission.trust.subagent-hooks-need-trust",
+  ]) {
+    assert.equal(rule(id).source, "https://code.claude.com/docs/en/permissions", id);
+  }
+  // The hook that blocks and the exit code that blocks are one number, stated on two pages.
+  assert.equal(limit("permission.hook.exit-2-before-allow-rules"), limit("hook.exit.blocking-code"));
+  assert.deepEqual(limit("permission.file-rules.tools"), ["Edit", "Read"]);
+  assert.ok(limit("settings.trust.grants-wait").includes("permissions.allow"));
+});
+
 test("a key-list rule carries the keys as an array of strings", () => {
   const lists = RULES.filter((r) => r.table === "frontmatter");
   assert.ok(lists.length >= 2, "the skill and subagent key lists are both here");

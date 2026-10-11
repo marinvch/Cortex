@@ -12,6 +12,13 @@ this project now versions independently of any package manager (see `VERSION`).
   `skill.frontmatter.portable-keys`, `skill.listing.budget-fraction`,
   `skill.compaction.kept-tokens`, `skill.compaction.shared-budget-tokens` and
   `skill.allowed-tools.ignores-workspace-trust`. No finding reads them yet.
+- **The settings and permissions pages are vendored: 16 rules, and the daily check watches both.**
+  The `settings.*` rules say what a committed `.claude/settings.json` does for a teammate: strict
+  JSON, allow rules that wait for workspace trust, deny and ask rules that do not, the two
+  `defaultMode` values a project file cannot set. The `permission.*` rules say how a rule and a
+  hook combine, that file rules are matched for `Edit` and `Read` only, that `.claudeignore` has no
+  effect, and that a `claude -p` run skips a project subagent's frontmatter hooks. No finding
+  reads them yet.
 
 ### Changed
 

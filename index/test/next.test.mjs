@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 import { fileURLToPath } from "node:url";
@@ -694,5 +695,18 @@ test("a damaged record is a required row naming the file, never a silent pass", 
   assert.ok(row);
   assert.ok(!row.optional);
   assert.match(row.why, /stamps\.json/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a record the repo's own .gitignore hides is read as ignored, from git and not from a guess", () => {
+  const root = repo((r) => {
+    r.put("src/app.ts");
+    r.put(".gitignore", ".cortex/\n");
+    stampedReview(r, "# Review\n");
+  });
+  assert.equal(spawnSync("git", ["init", "-q"], { cwd: root }).status, 0);
+  const ignored = readState(root).stampsIgnored;
+  assert.equal(ignored.source, ".gitignore");
+  assert.equal(ignored.line, 1);
   rmSync(root, { recursive: true, force: true });
 });

@@ -10,7 +10,6 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES, POINTER_BYTES, SHIMMED_DOC_NAMES, pointsAtRootBrief } from "./context-docs.mjs";
@@ -18,15 +17,12 @@ import { LOOP_STAMPS, loopPlan, memoryFiles } from "./loop.mjs";
 import { list as listMemory } from "../../core/memory.js";
 import { adrLocation } from "./adr.mjs";
 import { listRepoSkills, skillDrift } from "./skill-drift.mjs";
-import {
-  adoptionCandidates, olderPlugin, readStamps, runningCortex, stampStatus, stampsIgnoreRule, STAMPS_REL,
-} from "./stamps.mjs";
+import { STAMPS_REL, stampReport } from "./stamps.mjs";
 import { sectionReport } from "./sections.mjs";
 import { leavesNotLoaded, leavesNote } from "./instructions.mjs";
 
 // The templates this Cortex ships — what a stamped file is compared against. Next to this file in a
 // clone and in an installed plugin alike.
-const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
 
 // Facts about the artifact chain, borrowed rather than recomputed. `loop.mjs` owns which artifacts
 // a repo is missing and why; this file owns the order of the sequence. Two modules each keeping
@@ -157,7 +153,7 @@ function driftedSkills(root, index) {
   }
 }
 
-// The stamp record, read the way `cortex-stamps.mjs . --json` reads it (spec S4). `stamps` is the
+// The stamp record, from the one report `cortex-stamps.mjs . --json` prints (`stampReport`, spec S4). `stamps` is the
 // per-file status, or null with no record; `stampsAdopt` is what an older /cortex left and nothing
 // recorded; `stampsIgnored` is the rule that keeps the record out of git; `stampsOlderPlugin` is set
 // when the record was written by a newer Cortex than this one (spec S5). Only asked when there is
@@ -167,16 +163,8 @@ function driftedSkills(root, index) {
 function stampFacts(root) {
   const none = { stamps: null, stampsAdopt: [], stampsIgnored: null, stampsOlderPlugin: null, stampsError: null };
   try {
-    const record = readStamps(root);
-    const adopt = adoptionCandidates(root, record, LOOP_STAMPS);
-    if (!record && !adopt.length) return none;
-    return {
-      stamps: record ? stampStatus({ repoRoot: root, record, templatesDir: TEMPLATES_DIR }) : null,
-      stampsAdopt: adopt,
-      stampsIgnored: stampsIgnoreRule(root),
-      stampsOlderPlugin: olderPlugin(record, runningCortex()),
-      stampsError: null,
-    };
+    const r = stampReport(root, { sites: LOOP_STAMPS });
+    return { stamps: r.files, stampsAdopt: r.adopt, stampsIgnored: r.ignored, stampsOlderPlugin: r.olderPlugin, stampsError: null };
   } catch (e) {
     return { ...none, stampsError: e.message };
   }

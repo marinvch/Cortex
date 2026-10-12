@@ -58,7 +58,7 @@ help a human decide, not to take the decision away from them.
 | T2 | **The human is always in the loop.** For each new task the session recommends *single* or *team* from repo evidence, and the developer chooses | Deciding on the developer's behalf; Cortex is not a vibe-coding system |
 | T3 | **One job per agent.** Each agent has one responsibility, a description that says when to call it, and the least tools that do the job | General-purpose agents that do everything and debate nothing |
 | T4 | **Core roster:** Architect, Implementer, Tester, Reviewer. The **Project manager** is offered only when the repo has something to manage: issues, a spec or plan folder, or `intent/`. Every role is offered, and the developer picks each one | All five everywhere, sized the same for a script and a monorepo |
-| T5 | **Debate is bounded and evidence-only.** The Architect proposes; the Tester and Reviewer object. Every objection cites a `path:line`, an ADR or a test, and an objection without one is dropped. At most two rounds. Remaining disagreements go to the human side by side. Debate runs on team-sized tasks only | Arguing to consensus: expensive and can loop. Debate only in teams mode: plain-subagent users would get none |
+| T5 | **Debate is bounded and evidence-only.** The Architect proposes; the Tester and Reviewer object. Every objection cites a `path:line`, an ADR or a test, and an objection without one is dropped. At most two rounds (a setting from 1 to 5 since 2026-10-12, ADR 0019's amendment). Remaining disagreements go to the human side by side. Debate runs on team-sized tasks only | Arguing to consensus: expensive and can loop. Debate only in teams mode: plain-subagent users would get none |
 | T6 | **Existing agents are graded, mapped and improved.** They are graded with `claude-setup.mjs`, mapped to a role, and given concrete proposed edits (grounding, trimmed tools, a sharper description), each confirmed per agent. A covered role is never duplicated | Only filling gaps: leaves weak agents weak. Replacing them: loses the repo's own tuning |
 | T7 | **Compatible with teams mode, off by default.** Agents are written so they work as teammates, and the playbook says how to start a team. Cortex never sets the experimental flag | Setting the flag: turns a large token cost on for everyone |
 | T8 | **The team is written into the repo** (`.claude/agents/`, project scope), not shipped as plugin agents | Plugin agents: not documented as teammates; `hooks` and `permissionMode` are ignored on them |
@@ -137,7 +137,7 @@ touch, whether any has a scoped brief (a critical area), dependents and untested
 ## Risks & edges
 
 - **Token cost.** A team task costs several agents. Mitigations: single agent is the default
-  recommendation for small tasks, debate is capped at two rounds, and teams mode stays off.
+  recommendation for small tasks, debate is capped at two rounds unless the team sets another limit up to five, and teams mode stays off.
 - **Persona fluff.** A role label with no grounding produces generic advice. Every body is rendered
   from repo state, and uncited objections are dropped.
 - **Stale grounding.** The paths and commands in an agent go stale as the repo moves. The stamp

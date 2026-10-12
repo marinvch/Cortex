@@ -17,7 +17,7 @@
 //   - the playbook appended to CLAUDE.md and the `team` skill (spec T1, T2, T5): stamped into the same
 //     fixture, they pass the checker and the skill-frontmatter rules, the playbook names only the roles
 //     that were stamped and has the session ask rather than decide, and the skill holds the debate's
-//     two-round cap and its citation rule.
+//     round limit and its citation rule.
 
 import { tempDir } from "./tmp.mjs";
 import { test } from "node:test";
@@ -57,6 +57,7 @@ const VALUES = {
   SCOPED_BRIEFS: "   - `src/billing/AGENTS.md`\n   - `src/auth/AGENTS.md`",
   TEST_GLOBS: '  "*/test/*"\n  "*.test.ts"',
   ROSTER: "`architect`, `implementer`, `tester`, `reviewer`",
+  DEBATE_ROUNDS: "2",
 };
 
 /** Every template file, by the name the README's "Used by" column gives it. */
@@ -267,11 +268,13 @@ test("every role carries the shared citation rule and the scoped-brief rule, wor
   }
 });
 
-test("the three debating roles point at the team skill, and only point — two rounds, then the developer", () => {
+test("the three debating roles point at the team skill, and only point — the limit, then the developer", () => {
   for (const role of ["architect", "tester", "reviewer"]) {
     const body = source(role).replace(/\s*\n\s*/g, " ");
     assert.ok(body.includes(DEBATE), `${role}: no pointer to the team skill`);
-    assert.match(body, /two rounds/, `${role}: the round cap is not stated`);
+    assert.match(body, /At the round limit/, `${role}: the round limit is not stated`);
+    // The number lives in the team skill alone, so a new limit rewrites one file and not four.
+    assert.doesNotMatch(body, /\b(two|2) rounds\b|DEBATE_ROUNDS/, `${role}: the limit's number is the team skill's to state`);
     assert.match(body, /goes to the developer/, `${role}: open disagreements do not go to the developer`);
   }
   for (const role of ["implementer", "project-manager"]) assert.ok(!source(role).includes(DEBATE), `${role} does not debate`);
@@ -401,9 +404,12 @@ test("the team skill will not start a team the developer has not chosen", () => 
   assert.match(text, /If they have not, ask it and stop/);
 });
 
-test("the team skill carries the debate: citations or dropped, two rounds, then the developer", () => {
+test("the team skill carries the debate: citations or dropped, a round limit, then the developer", () => {
   const text = source("team-skill").replace(/\s*\n\s*/g, " ");
-  assert.match(text, /at most two rounds/i);
+  assert.match(text, /The round limit in this repo is \{\{DEBATE_ROUNDS\}\}\./);
+  assert.match(text, /stop at the limit/);
+  assert.match(render("team-skill").replace(/\s*\n\s*/g, " "), /The round limit in this repo is 2\./);
+  assert.match(render("team-skill", { ...VALUES, DEBATE_ROUNDS: "4" }), /The round limit in this repo is 4\./);
   assert.match(text, /Drop every objection that does not cite a `path:line`, an ADR or a test/);
   assert.match(text, /accepts each one, or rebuts it with a citation/);
   assert.match(text, /side by side/);

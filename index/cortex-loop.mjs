@@ -4,8 +4,9 @@
 //   node index/cortex-loop.mjs .          # the loop by stage, with ✓ / → / ·
 //   node index/cortex-loop.mjs . --line   # one line, for another tool's footer
 //   node index/cortex-loop.mjs . --json   # the worklist, for /cortex to walk
-//   node index/cortex-loop.mjs . --team tester,reviewer [--as <agent path>=<role|none> ...]
-//                                          # after the picks: the team files, values and roster
+//   node index/cortex-loop.mjs . --team tester,reviewer [--as <agent path>=<role|none> ...] [--rounds N]
+//                                          # after the picks: the team files, values and roster;
+//                                          # --rounds sets the debate's round limit, 1 to 5
 //   node index/cortex-loop.mjs . --as <agent path>=<role|none|ask> --remember [--json]
 //                                          # keep the answers, so the next run does not ask again
 //
@@ -28,8 +29,8 @@ import { openTarget } from "./lib/open.mjs";
 // rather than to a wrong answer. Running this before the indexer is the ordinary case on a repo
 // where `/cortex` has only just started.
 const { root, args, index } = openTarget(process.argv.slice(2), {
-  usage: "usage: node index/cortex-loop.mjs [root] [--line] [--json] [--team ROLES|none] [--as PATH=ROLE|none|ask ...] [--remember]",
-  flags: { "--json": "boolean", "--line": "boolean", "--index": "value", "--team": "list", "--as": "multi", "--remember": "boolean" },
+  usage: "usage: node index/cortex-loop.mjs [root] [--line] [--json] [--team ROLES|none] [--as PATH=ROLE|none|ask ...] [--rounds 1-5] [--remember]",
+  flags: { "--json": "boolean", "--line": "boolean", "--index": "value", "--team": "list", "--as": "multi", "--rounds": "value", "--remember": "boolean" },
   root: "positional",
   index: "optional",
   freshness: (a) => !a.json && !a.line && !a.team.length,
@@ -53,6 +54,8 @@ for (const kv of args.as) {
   if (said === "ask") forget.push(path);
   else as[path] = said === "none" ? null : said;
 }
+// The limit is written into the team skill, so it is asked for with the picks and nowhere else.
+if (args.rounds !== null && !args.team.length) fail("--rounds sets the limit the team skill is written with, so it needs --team <roles|none>");
 if (args.remember && !args.as.length) fail("--remember keeps the answers given with --as, and none was given");
 if (forget.length && !args.remember) fail(`--as ${forget[0]}=ask takes back a remembered answer, so it needs --remember`);
 
@@ -61,7 +64,10 @@ if (forget.length && !args.remember) fail(`--as ${forget[0]}=ask takes back a re
 // which is what the next run will see.
 let plan;
 try {
-  plan = loopPlan(root, index, Object.keys(as).length ? { agentsAs: as } : {});
+  plan = loopPlan(root, index, {
+    ...(Object.keys(as).length ? { agentsAs: as } : {}),
+    ...(args.rounds !== null ? { debateRounds: args.rounds } : {}),
+  });
   if (args.remember) {
     if (!plan.state.agentTeam) fail("no index, so the agents already here cannot be read — run node index/cortex-index.mjs first");
     rememberAgentAnswers(root, { ...as, ...Object.fromEntries(forget.map((p) => [p, undefined])) });

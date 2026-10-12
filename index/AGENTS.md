@@ -274,6 +274,13 @@ description) has a test.
 
 ### The team offer — `lib/team.mjs`
 
+- **The debate's round limit is the one setting, and its default lives in `stamps.mjs`.**
+  `VALUE_DEFAULTS` is what lets a template gain `{{DEBATE_ROUNDS}}` and still update a file stamped
+  before it; any other new placeholder is refused. `team.mjs` reads the limit in this order: the
+  `rounds` option, the value in the team skill's record, the default. Only
+  `templates/team/team-skill.md` may hold the placeholder: the roles and the playbook say "the round
+  limit", and `team-templates.test.mjs` fails a role that states a number.
+
 - Validated on kapi-sprints (offers the architect only; four roles covered), octez-manager (tester
   and Project manager; `docs/plans/` exists) and zustand (no agents: four roles, the Project manager
   waits). Mutation-checked with `agents.mjs`, `loop.mjs`, `stamps.mjs` and the CLI: 41 guards,

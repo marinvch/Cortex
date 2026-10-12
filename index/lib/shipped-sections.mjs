@@ -19,7 +19,7 @@ const lines = (...l) => l.join("\n");
 
 export const SHIPPED_SECTIONS = {
   "team/playbook.md": {
-    current: "77ecfa440a1213b3dd17f5efa3d4b42ccaf988422b31025f5bb8644f2b5be430",
+    current: "7683f4f5c08d9beb112c5e34b51645a458fd8eaa2e9c0ae86551afef2dd39e04",
     earlier: [
       {
         // The playbook that asked in its own words, and gave way to "just do it" (#498).
@@ -36,6 +36,27 @@ export const SHIPPED_SECTIONS = {
           "   with its reasons.",
           "2. Give the developer that recommendation and its reasons, and ask the developer which to use.",
           "   The developer decides.",
+          "3. On \"single\", work as usual. On \"team\", load the `team` skill and follow it: a plan, at most two",
+          "   rounds of cited objections, then a failing test, the change and an independent review.",
+          "",
+          "To stop using the team, delete this section, `.claude/skills/team/` and the agents.",
+        ),
+      },
+      {
+        // The playbook that named the debate's limit as two rounds, before the limit was a setting.
+        version: "2.41.1",
+        sha256: "77ecfa440a1213b3dd17f5efa3d4b42ccaf988422b31025f5bb8644f2b5be430",
+        text: lines(
+          "## Working as a team",
+          "",
+          "This repo has single-job agents in `.claude/agents/`: {{ROSTER}}. This session runs them.",
+          "Before any work on a new task that changes code:",
+          "",
+          "1. Run `/cortex-impact --size` on the files the task will touch, and tell the developer what it",
+          "   recommends, in words (single, team, or that it cannot size the task), and why.",
+          "2. Then end your reply with the exact question \"Single agent or team?\" and stop: plan, edit and",
+          "   delegate nothing until they answer. The developer decides, even on a single recommendation or",
+          "   a request to just do it. Never say you asked unless that question is in your reply.",
           "3. On \"single\", work as usual. On \"team\", load the `team` skill and follow it: a plan, at most two",
           "   rounds of cited objections, then a failing test, the change and an independent review.",
           "",

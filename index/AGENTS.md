@@ -53,6 +53,11 @@ holds the rules for that module alone — read it before editing the module.
   prints it and `lib/next.mjs` ranks from it. A new fact about the record goes in the report, never
   in one of the two readers. `TEMPLATES_DIR` is exported from `lib/stamps.mjs` for the same
   reason: four files each resolved the plugin's `templates/` folder.
+- **A command reads the repo once.** One that holds a plan prints its last line with `loopLineOf`
+  or `nextLineOf`; `loopLine` and `nextLine` read the repo, and are for a command that has no plan
+  (`cortex-index`, and `cortex-findings` after it wrote its report). `findings.mjs` takes
+  `contextLayer`, never `readState`, which also plans the loop and asks git. `indexed` is two
+  facts under one name: in the loop state an index was handed in, in `readState` the file is on disk.
 - **A section Cortex appends to a shared file** (`current` · `outdated` · `edited` · `kept`) is
   defined in the headers of `lib/section.mjs`, `lib/sections.mjs` and `lib/shipped-sections.mjs`.
   Recomputing the roster from the agents would not do: `rosterFor` (`lib/team.mjs`) writes a

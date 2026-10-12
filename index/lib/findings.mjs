@@ -7,7 +7,7 @@ import { buildCoverage, testStem } from "./coverage.mjs";
 import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
 import { findOrphans } from "./orphans.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
-import { readState } from "./next.mjs";
+import { contextLayer } from "./next.mjs";
 import { claudeSetupFindings } from "./claude-setup.mjs";
 import { leavesNotLoaded, leavesNote } from "./instructions.mjs";
 
@@ -198,7 +198,7 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
   // prints `nextLine()` as its footer — so a repo whose only agent doc was `.cursorrules` was told
   // "No agent context file" and, four lines later, "Reconcile the agent docs that were already
   // here". The claim was not merely narrow, it was false: an agent does load that file.
-  const layer = readState(root, index);
+  const layer = contextLayer(root);
 
   if (!layer.rootBrief && !has("CLAUDE.md")) {
     // A repo carrying another tool's brief is not starting from zero, and the offer is not the same

@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync as fsExists, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { detectCommands, detectFormatters, readLoopState, loopPlan, LOOP_ARTIFACTS, STAGES } from "../lib/loop.mjs";
+import { detectCommands, detectFormatters, readLoopState, loopPlan, loopLine, loopLineOf, filesIn, has, LOOP_ARTIFACTS, STAGES } from "../lib/loop.mjs";
 import { mergeSharedPlugin, teamServed } from "../lib/shared-plugin.mjs";
 import { bothLayouts, newLayoutOnly } from "../../core/test/memory-fixture.js";
 
@@ -1421,4 +1421,35 @@ test("the team row says what it changes for every later session, not only which 
   // Rows that only add files say nothing, so the one that changes behaviour stands out.
   const others = [...plan.missing, ...plan.present, ...plan.blocked].filter((e) => e.id !== "team");
   assert.ok(others.length > 5 && others.every((e) => e.effect === null));
+});
+
+// --- the footer line, from a plan already in hand ------------------------------------------------
+
+test("loopLineOf names the first missing artifact and its stage, from the plan it is given", () => {
+  const root = repo(({ put }) => put("src/app.ts"));
+  const plan = loopPlan(root);
+  assert.ok(plan.missing.length, "a bare repo is missing something");
+  const first = plan.missing[0];
+  assert.equal(loopLineOf(plan), `Loop ${plan.served}/${plan.total} — next: ${first.paths[0]} (${first.stage})`);
+  assert.equal(loopLine(root), loopLineOf(plan), "the reading form gives the same line");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("loopLineOf reads nothing: a plan with nothing missing is closed, whatever is on disk", () => {
+  assert.equal(loopLineOf({ complete: true, served: 4, total: 4, missing: [] }), "Loop closed — 4/4 artifacts in place");
+  assert.equal(
+    loopLineOf({ complete: false, served: 1, total: 3, missing: [{ paths: ["REVIEW.md", "x"], stage: "test" }, { paths: ["y"], stage: "build" }] }),
+    "Loop 1/3 — next: REVIEW.md (test)",
+  );
+});
+
+test("has and filesIn answer for a missing directory, and filesIn sorts and filters", () => {
+  const root = repo(({ put }) => { put("docs/adr/0002-b.md"); put("docs/adr/0001-a.md"); put("docs/adr/notes.txt"); });
+  assert.equal(has(root, "docs/adr"), true);
+  assert.equal(has(root, "docs/none"), false);
+  assert.deepEqual(filesIn(root, "docs/adr"), ["0001-a.md", "0002-b.md"]);
+  assert.deepEqual(filesIn(root, "docs/adr", ".txt"), ["notes.txt"]);
+  assert.deepEqual(filesIn(root, "docs/none"), []);
+  assert.deepEqual(filesIn(root, "docs/adr/0001-a.md"), [], "a file is not a directory of files");
+  rmSync(root, { recursive: true, force: true });
 });

@@ -38,7 +38,8 @@ const VERIFIER_AT = ".claude/agents/verifier.md";
 /** The six stages, in loop order. A row belongs to exactly one. */
 export const STAGES = ["plan", "design", "build", "test", "deploy", "maintain"];
 
-const has = (root, rel) => existsSync(join(root, rel));
+/** Whether `rel` exists under `root`. `next.mjs` asks the same question and imports this one. */
+export const has = (root, rel) => existsSync(join(root, rel));
 
 // Whether a remote of this checkout is on GitHub, read from git's own config file. A file fact like
 // every other in this module: git is not run, so the answer is the same in CI, in a sandbox and on a
@@ -81,7 +82,8 @@ function nonEmptyDir(root, rel) {
 }
 
 /** Every `.md` under a dir, sorted. Used for the intent home and the eval suite. */
-function filesIn(root, rel, ext = ".md") {
+/** The `ext` files directly in `rel`, sorted; `[]` when it is missing or unreadable. Shared with `next.mjs`. */
+export function filesIn(root, rel, ext = ".md") {
   try {
     return readdirSync(join(root, rel))
       .filter((f) => f.endsWith(ext))
@@ -639,6 +641,8 @@ export function readLoopState(root, index = null, overrides = {}) {
   // Whether an index was supplied at all, which is a different question from what it says. Kept
   // separate because every row that cites the stack has to be able to tell "detected nothing" from
   // "never looked", and one value cannot carry both.
+  // An index was handed in. `next.mjs` has a field of the same name that asks whether the index file
+  // is on disk, which is a different fact: a caller may hold neither, either or both.
   const indexed = index !== null && index !== undefined;
   const detected = commandsWithNotes(root);
 
@@ -1115,10 +1119,18 @@ export function loopPlan(root, index = null, overrides = {}) {
   };
 }
 
-/** One line for a CLI footer: what the loop is still missing, or that it is closed. */
-export function loopLine(root, index = null) {
-  const plan = loopPlan(root, index);
+/**
+ * One line for a CLI footer: what the loop is still missing, or that it is closed. Takes a plan
+ * `loopPlan` already gave, so a command that printed the plan does not read the repo a second time
+ * to print its last line.
+ */
+export function loopLineOf(plan) {
   if (plan.complete) return `Loop closed — ${plan.served}/${plan.total} artifacts in place`;
   const first = plan.missing[0];
   return `Loop ${plan.served}/${plan.total} — next: ${first.paths[0]} (${first.stage})`;
+}
+
+/** `loopLineOf` for a caller with no plan in hand: reads the repo. */
+export function loopLine(root, index = null) {
+  return loopLineOf(loopPlan(root, index));
 }

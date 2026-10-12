@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.59] — 2026-10-12
+
+`/cortex-brief` writes rules the rule ledger can read, and reports what they rest on.
+
+### Changed
+
+- **`/cortex-brief` heads a leaf's two lists `## Invariants` and `## Gotchas`.** Those are the
+  headings `cortex-review.mjs --rules` reads, so the rules a leaf states appear in the ledger.
+- **It names the test in the item when one already fails with the invariant.** Only a test it
+  opened and read. It never writes a test to have one to name.
+- **Its report ends with the ledger for the leaves it wrote:** how many rules name a test file,
+  how many name other files only, and which name no test, each with its line. That list is stated
+  as it is and nothing is fixed from it.
+
 ## [2.41.58] — 2026-10-12
 
 Two long rituals account for what they opened before they finish.
@@ -5257,6 +5271,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.59]: https://github.com/marinvch/Cortex/releases/tag/v2.41.59
 [2.41.58]: https://github.com/marinvch/Cortex/releases/tag/v2.41.58
 [2.41.57]: https://github.com/marinvch/Cortex/releases/tag/v2.41.57
 [2.41.56]: https://github.com/marinvch/Cortex/releases/tag/v2.41.56

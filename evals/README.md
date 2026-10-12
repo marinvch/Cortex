@@ -357,6 +357,21 @@ fail before another thirty sessions are worth spending. The with-arm used fewer 
 every rule task and the control did not differ; by the rule above that decides nothing, and it is
 written here only so the next fixture's author has seen it.
 
+**What the second run showed, on `shop` v2 (2026-10-12, 30 sessions): supported, at this size.**
+The with-arm passed 11 of 12 rule-task sessions and the without-arm 7 of 12, a lead of 4 carried by
+two tasks. Read it with its limits:
+
+- The lead is `note` (2 of 3 against 0 of 3) and `revenue` (3 of 3 against 1 of 3). `unit-price` and
+  `cancel` passed in every session of both arms, so half the rule tasks still do not discriminate.
+- The with-arm failed `note` once: the layer was there and the session still wrote no migration.
+- "Supported" means worth the next thirty sessions. It claims no significance: three repeats of
+  four tasks on one small repo is one repo's worth of evidence.
+- v2 was built so that the code beside the edit does not show the rule. That is the case the layer
+  is for, and it is not every task in every repo. A sentence that cites this run says so.
+- The control did not differ, and turns and cost did not favour either arm this time.
+
+The next step the reading names is more repeats of these five tasks, before a second fixture.
+
 ### Changing the harness
 
 - A change to any fixture file or any prompt raises `FIXTURE_VERSION`. Results from two versions

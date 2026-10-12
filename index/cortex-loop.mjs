@@ -19,7 +19,7 @@
 // artifact a user is offered first, not merely how a report reads.
 
 import { ANSWERS_REL, rememberAgentAnswers } from "./lib/agent-answers.mjs";
-import { loopPlan, loopLine, STAGES } from "./lib/loop.mjs";
+import { loopPlan, loopLine, loopLineOf, STAGES } from "./lib/loop.mjs";
 import { teamValues } from "./lib/team.mjs";
 import { normalizeChangedPath } from "./lib/changed.mjs";
 import { openTarget } from "./lib/open.mjs";
@@ -63,17 +63,23 @@ if (forget.length && !args.remember) fail(`--as ${forget[0]}=ask takes back a re
 // does not have, so a refused answer is never recorded. Then the plan is read again, off the file,
 // which is what the next run will see.
 let plan;
+// Answers given for this run only are not on disk. The last line says what the next run will see,
+// so it is read again when the plan holds any; otherwise the plan in hand is that read.
+const answers = {
+  ...(Object.keys(as).length ? { agentsAs: as } : {}),
+  ...(args.rounds !== null ? { debateRounds: args.rounds } : {}),
+};
+let asOnDisk = !Object.keys(answers).length;
+const lastLine = () => (asOnDisk ? loopLineOf(plan) : loopLine(root, index));
 try {
-  plan = loopPlan(root, index, {
-    ...(Object.keys(as).length ? { agentsAs: as } : {}),
-    ...(args.rounds !== null ? { debateRounds: args.rounds } : {}),
-  });
+  plan = loopPlan(root, index, answers);
   if (args.remember) {
     if (!plan.state.agentTeam) fail("no index, so the agents already here cannot be read — run node index/cortex-index.mjs first");
     rememberAgentAnswers(root, { ...as, ...Object.fromEntries(forget.map((p) => [p, undefined])) });
     process.stderr.write(`Recorded ${args.as.length} answer(s) in ${ANSWERS_REL} — commit it, so the next run and your teammates are not asked again.
 `);
     plan = loopPlan(root, index, {});
+    asOnDisk = true;
   }
 } catch (e) {
   fail(e.message);
@@ -103,7 +109,7 @@ if (args.json) {
   process.exit(0);
 }
 if (args.line) {
-  console.log(loopLine(root, index));
+  console.log(lastLine());
   process.exit(0);
 }
 
@@ -215,5 +221,5 @@ if (agents?.agents.length) {
   console.log("");
 }
 
-console.log(loopLine(root, index));
+console.log(lastLine());
 console.log(dim("`/cortex` stamps what is missing, in one pass, after one confirmation."));

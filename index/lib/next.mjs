@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { defaultIndexPath } from "./format.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { AGENT_DOC_NAMES, POINTER_BYTES, SHIMMED_DOC_NAMES, pointsAtRootBrief } from "./context-docs.mjs";
-import { LOOP_STAMPS, loopPlan, memoryFiles } from "./loop.mjs";
+import { LOOP_STAMPS, filesIn, has, loopPlan, memoryFiles } from "./loop.mjs";
 import { list as listMemory } from "../../core/memory.js";
 import { adrLocation } from "./adr.mjs";
 import { listRepoSkills, skillDrift } from "./skill-drift.mjs";
@@ -76,20 +76,6 @@ const AGENT_DOCS = AGENT_DOC_NAMES;
 // `/migrate-engine` step 1 reads `state.legacyEngine` and names these directories as everything the
 // field looks for. Add one here and that step is wrong until it names it too; next.test.mjs holds it.
 export const LEGACY_ENGINES = [".ai-os", ".github/ai-os"];
-
-function has(root, rel) {
-  return existsSync(join(root, rel));
-}
-
-function filesIn(root, rel, ext = ".md") {
-  const dir = join(root, rel);
-  if (!existsSync(dir)) return [];
-  try {
-    return readdirSync(dir).filter((f) => f.endsWith(ext)).sort();
-  } catch {
-    return [];
-  }
-}
 
 // The newest day in .cortex/memory/ that holds a digest, or null for a memory nobody has started.
 // The date is in the path — `<date>.md`, or `<date>/<author>.md` — so reading it costs no clock.
@@ -229,9 +215,9 @@ export function readState(root, index = null, overrides = {}) {
   const indexPath = defaultIndexPath(root);
   const indexed = existsSync(indexPath);
   const memory = memoryFiles(root);
-  // docs/adr/ unless docs/ is a published site — adr.mjs owns that answer and its evidence.
-  const adr = adrLocation(root);
   const briefs = scopedBriefs(root, index);
+  // `priorDocs` keeps its place further down: the state is printed as JSON, and key order is output.
+  const { priorDocs, ...layer } = contextLayer(root);
   return {
     root,
     legacyEngine: LEGACY_ENGINES.filter((d) => has(root, d)),
@@ -239,18 +225,14 @@ export function readState(root, index = null, overrides = {}) {
     findings: filesIn(root, ".cortex/findings"),
     view: has(root, ".cortex/view/repo.html"),
     enriched: has(root, ENRICHED_REL),
-    rootBrief: has(root, "AGENTS.md"),
-    glossary: has(root, "CONTEXT.md"),
-    adrs: filesIn(root, adr.dir),
-    adrDir: adr.dir,
-    adrWhy: adr.why,
+    ...layer,
     briefs,
     leaves: leavesNotLoaded({ briefs, exists: (p) => has(root, p) }),
     skills: repoSkills(root),
     skillDrift: driftedSkills(root, index),
     memory,
     memoryLatest: latestDigest(root),
-    priorDocs: priorAgentDocs(root),
+    priorDocs,
     standaloneDocs: standaloneAgentDocs(root),
     ...stampFacts(root),
     sections: sectionFacts(root),
@@ -553,6 +535,24 @@ export const PER_CHANGE = [
 ];
 
 /**
+ * The context layer alone: the root brief, the glossary, the ADRs and the agent docs already here.
+ * `readState` holds these among everything else; `findings.mjs` needs only these, and reading the
+ * whole state for them also planned the loop, read the stamp record and asked git.
+ */
+export function contextLayer(root) {
+  // docs/adr/ unless docs/ is a published site — adr.mjs owns that answer and its evidence.
+  const adr = adrLocation(root);
+  return {
+    rootBrief: has(root, "AGENTS.md"),
+    glossary: has(root, "CONTEXT.md"),
+    adrs: filesIn(root, adr.dir),
+    adrDir: adr.dir,
+    adrWhy: adr.why,
+    priorDocs: priorAgentDocs(root),
+  };
+}
+
+/**
  * The ordered runbook plus the single next command.
  * `next` is the first blocking step, else the first unfinished non-optional step, else null.
  */
@@ -579,9 +579,16 @@ export function nextSteps(root, index = null, overrides = {}) {
   };
 }
 
-/** One line for a CLI footer: the single thing to run now. */
-export function nextLine(root, index = null) {
-  const { next } = nextSteps(root, index);
+/**
+ * One line for a CLI footer: the single thing to run now. Takes what `nextSteps` already gave, so a
+ * command that printed the sequence does not read the repo a second time to print its last line.
+ */
+export function nextLineOf({ next }) {
   if (!next) return "Next → sequence complete. Per change: /cortex-impact before, /cortex-review before committing.";
   return "Next → " + next.cmd + "   (" + next.title.toLowerCase() + ")";
+}
+
+/** `nextLineOf` for a caller with no sequence in hand: reads the repo. */
+export function nextLine(root, index = null) {
+  return nextLineOf(nextSteps(root, index));
 }

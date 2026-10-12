@@ -25,15 +25,13 @@
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { readAgentAnswers } from "./agent-answers.mjs";
 import { ROLES, agentReport } from "./agents.mjs";
 import { adrLocation } from "./adr.mjs";
 import { placeholderMatches } from "./placeholders.mjs";
-import { VALUE_DEFAULTS, hashText, readStamps } from "./stamps.mjs";
+import { TEMPLATES_DIR, VALUE_DEFAULTS, hashText, readStamps } from "./stamps.mjs";
 import { findSections } from "./section.mjs";
 
-const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
 
 /** The heading the playbook block writes into CLAUDE.md — how a repo is known to have a team. */
 export const PLAYBOOK_HEADING = "Working as a team";

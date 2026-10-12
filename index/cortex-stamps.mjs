@@ -57,14 +57,13 @@
 
 import { readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { normalizeChangedPath } from "./lib/changed.mjs";
 import { LOOP_STAMPS } from "./lib/loop.mjs";
 import { openTarget, parseArgv } from "./lib/open.mjs";
 import { renderTemplate, unfilledPlaceholders } from "./lib/placeholders.mjs";
 import {
-  STAMPS_REL, STATES, adoptStamp, adoptionCandidates, forgetStamp, ignoreAdvice, olderPlugin, planUpdates, readStamps,
-  StampRefused, applyUpdates, recordStamp, runningCortex, stampDiff, stampFile, stampPathProblem, stampStatus, stampsIgnoreRule, writeStamps,
+  STAMPS_REL, TEMPLATES_DIR, StampRefused, adoptStamp, adoptionCandidates, applyUpdates, forgetStamp, ignoreAdvice, olderPlugin,
+  planUpdates, readStamps, recordStamp, runningCortex, stampDiff, stampFile, stampPathProblem, stampReport, stampsIgnoreRule, writeStamps,
 } from "./lib/stamps.mjs";
 
 const USAGE = {
@@ -95,7 +94,7 @@ function versionFrom(args, usage) {
 
 /** `--templates DIR`, or the plugin's own `templates/`. A directory that is not there is refused. */
 function templatesDirFrom(args, usage) {
-  const dir = args.templates ? resolve(args.templates) : fileURLToPath(new URL("../templates/", import.meta.url));
+  const dir = args.templates ? resolve(args.templates) : TEMPLATES_DIR;
   if (!isDir(dir)) refuse(`templates directory not found: ${dir}\n${usage}`, 1);
   return dir;
 }
@@ -292,32 +291,28 @@ function status(argv) {
     index: "none",
   });
   const templatesDir = templatesDirFrom(args, USAGE.status);
-  const rec = readRecordOrRefuse(root);
-  const files = stampStatus({ repoRoot: root, record: rec, templatesDir });
-  const running = runningCortex();
-  const adopt = adoptionCandidates(root, rec, LOOP_STAMPS);
-  const behind = olderPlugin(rec, running);
+  let report;
+  try {
+    // Asked about the ignore rule with or without a record: a first install reads this BEFORE writing
+    // one, so the fix can be offered inside its one confirmation. git answers for a path not there yet.
+    report = stampReport(root, { sites: LOOP_STAMPS, templatesDir, whenEmpty: true });
+  } catch (e) {
+    refuse(`${e.message}\nNothing was written. Fix the file, or delete it to start the record again.`, 2);
+  }
+  const { files, running, adopt, olderPlugin: behind, ignored: rule } = report;
 
   if (args.json) {
     // The machine form `cortex-next` reads. `files: null` is "no record", never an empty list — an
     // empty list would read as "everything current". Paths are repo-relative, and no absolute path is
     // printed: this is pasted into issues and PRs.
-    let counts = null;
-    if (files) {
-      counts = Object.fromEntries(STATES.map((s) => [s, 0]));
-      for (const f of files) counts[f.state]++;
-    }
-    // Asked with or without a record: a first install reads this BEFORE writing one, so the fix can
-    // be offered inside its one confirmation. git answers for a path that does not exist yet.
-    const rule = stampsIgnoreRule(root);
     console.log(JSON.stringify({
-      record: rec ? STAMPS_REL : null,
-      cortex: rec?.cortex ?? null,
+      record: report.recorded ? STAMPS_REL : null,
+      cortex: report.cortex,
       running,
       // Set when a newer Cortex wrote the record: `{ stamped, running, commands, advice }`. While it is,
       // the states below are measured against this plugin's older templates, and `update` refuses.
       olderPlugin: behind,
-      counts,
+      counts: report.counts,
       files,
       // Loop files an older /cortex left, with no record to say so. Always an array; empty once a
       // record exists, because adoption is offered only at first contact with one.
@@ -327,7 +322,7 @@ function status(argv) {
     return;
   }
 
-  if (!rec) {
+  if (!report.recorded) {
     console.log(`No stamp record at ${STAMPS_REL}, so nothing Cortex wrote here can be compared.`);
     if (adopt.length) {
       console.log(`\n${adopt.length} loop file${adopt.length === 1 ? "" : "s"} sit where /cortex writes them — an earlier Cortex stamped them before the record existed:`);
@@ -341,7 +336,7 @@ function status(argv) {
   }
 
   console.log(`${files.length} stamped file${files.length === 1 ? "" : "s"} in ${STAMPS_REL} — newest writer ` +
-    (rec.cortex ? `Cortex ${rec.cortex}` : "unknown (adopted)") + (running ? `, this is Cortex ${running}.` : "."));
+    (report.cortex ? `Cortex ${report.cortex}` : "unknown (adopted)") + (running ? `, this is Cortex ${running}.` : "."));
   if (behind) {
     console.log(`\n${behind.advice}`);
     console.log("Until then, the states below compare the files with this plugin's older templates — an `update` among them is not one.");
@@ -361,7 +356,7 @@ function status(argv) {
     }
     if (!args.all && current.length) console.log(`\n${current.length} current (not listed; --all shows them).`);
   }
-  warnIfIgnored(root);
+  if (rule) process.stderr.write(`\nWarning: ${ignoreAdvice(rule)}\n`);
   console.log("\nNothing was changed.");
 }
 

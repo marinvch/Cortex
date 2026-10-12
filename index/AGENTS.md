@@ -49,6 +49,10 @@ holds the rules for that module alone — read it before editing the module.
   runs agree exactly.
 - **A stamped file's state, adoption and the hash rule are `lib/stamps.mjs`'s header.** Where each
   loop file lands is `LOOP_STAMPS` in `lib/loop.mjs` — do not keep a second list.
+- **What the stamp record says is read once, by `stampReport`.** `cortex-stamps.mjs . --json`
+  prints it and `lib/next.mjs` ranks from it. A new fact about the record goes in the report, never
+  in one of the two readers. `TEMPLATES_DIR` is exported from `lib/stamps.mjs` for the same
+  reason: four files each resolved the plugin's `templates/` folder.
 - **A section Cortex appends to a shared file** (`current` · `outdated` · `edited` · `kept`) is
   defined in the headers of `lib/section.mjs`, `lib/sections.mjs` and `lib/shipped-sections.mjs`.
   Recomputing the roster from the agents would not do: `rosterFor` (`lib/team.mjs`) writes a

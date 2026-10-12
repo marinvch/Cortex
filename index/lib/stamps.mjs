@@ -89,10 +89,14 @@ import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
+import { fileURLToPath } from "node:url";
 import { lineDiff } from "./linediff.mjs";
 import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
 export const STAMPS_REL = ".cortex/stamps.json";
+
+/** The templates this plugin ships: `../../templates/`, the same layout in a clone and in an install. */
+export const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
 
 /**
  * Settings: a placeholder with a value Cortex stamps unless the team asks for another. A template
@@ -668,4 +672,50 @@ export function applyUpdates({ repoRoot, record, plan, version }) {
   }
   if (plan.updates.length) writeStamps(repoRoot, next);
   return plan.updates.map((u) => u.path);
+}
+
+// --- the stamp report ----------------------------------------------------------------------------
+
+/**
+ * Everything a reader asks of the stamp record, read once: `cortex-stamps.mjs . --json` prints it
+ * and `next.mjs` ranks from it. They assembled the same five reads separately, so a fact added to
+ * one could be missing from the other.
+ *
+ *   recorded     whether `.cortex/stamps.json` exists
+ *   cortex       the newest Cortex that wrote it, or null (no record, or adopted only)
+ *   running      this plugin's version, or null
+ *   olderPlugin  set when a newer Cortex wrote the record (`olderPlugin`)
+ *   files        the per-file status, or null with no record: never `[]`, which reads as all current
+ *   counts       files per state, or null with no record
+ *   adopt        loop files an older /cortex left and nothing recorded; `[]` once a record exists
+ *   ignored      the rule that keeps the record out of git, or null
+ *   empty        no record and nothing to adopt
+ *
+ * `sites` is `LOOP_STAMPS`, required for the reason `adoptionCandidates` gives. An empty repo is
+ * not asked about the ignore rule, which costs a git process, unless `whenEmpty` is set: a first
+ * install reads it before writing a record, to offer the fix inside its one confirmation.
+ * A damaged record throws, as `readStamps` does; it is never read as "no record". `git` is the
+ * seam `stampsIgnoreRule` takes, for a test.
+ */
+export function stampReport(repoRoot, { sites, templatesDir = TEMPLATES_DIR, running = runningCortex(), whenEmpty = false, git } = {}) {
+  const record = readStamps(repoRoot);
+  const adopt = adoptionCandidates(repoRoot, record, sites);
+  const empty = !record && !adopt.length;
+  const files = record ? stampStatus({ repoRoot, record, templatesDir }) : null;
+  let counts = null;
+  if (files) {
+    counts = Object.fromEntries(STATES.map((s) => [s, 0]));
+    for (const f of files) counts[f.state]++;
+  }
+  return {
+    recorded: !!record,
+    cortex: record?.cortex ?? null,
+    running,
+    olderPlugin: olderPlugin(record, running),
+    files,
+    counts,
+    adopt,
+    ignored: empty && !whenEmpty ? null : stampsIgnoreRule(repoRoot, git ? { git } : undefined),
+    empty,
+  };
 }

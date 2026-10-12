@@ -698,6 +698,7 @@ export function readLoopState(root, index = null, overrides = {}) {
       testCmd: overrides.commands?.test ?? detected.commands.test,
       verifierPath: VERIFIER_AT,
       as: overrides.agentsAs ?? {},
+      rounds: overrides.debateRounds ?? null,
     }),
     ...overrides,
   };

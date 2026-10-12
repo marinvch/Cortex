@@ -6,8 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  PLUGIN_UPDATE_COMMANDS, STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice,
-  olderPlugin, planUpdates, readStamps, recordStamp, runningCortex, stampDiff, stampStatus, stampsIgnoreRule, writeStamps,
+  PLUGIN_UPDATE_COMMANDS, STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice, olderPlugin, planUpdates, readStamps, recordStamp, runningCortex, stampDiff, stampStatus, stampsIgnoreRule, writeStamps, VALUE_DEFAULTS,
 } from "../lib/stamps.mjs";
 import { LOOP_STAMPS } from "../lib/loop.mjs";
 import { lineDiff } from "../lib/linediff.mjs";
@@ -670,4 +669,40 @@ test("forgetStamp drops one entry and nothing else, purely", () => {
   assert.equal(next.cortex, "2.40.0");
   assert.equal(JSON.stringify(r), before);
   assert.throws(() => forgetStamp(r, "zzz.md"), /not in the record/);
+});
+
+// --- settings: a placeholder with a default (the debate's round limit) --------------------------------
+
+test("a template that gains a setting updates a file stamped before it, at the default, and records it", () => {
+  assert.equal(VALUE_DEFAULTS.DEBATE_ROUNDS, "2");
+  const w = stamped();
+  w.putTemplate("loop/REVIEW.md", TPL + "Limit: {{DEBATE_ROUNDS}}\n");
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
+  assert.deepEqual(plan.refused, []);
+  assert.equal(plan.updates[0].text, OUT + "Limit: 2\n");
+  assert.equal(plan.updates[0].values.DEBATE_ROUNDS, "2", "the value is recorded, so the next update renders the same file");
+  assert.equal(plan.updates[0].values.NIT_CAP, "3");
+  assert.equal(w.record.files["REVIEW.md"].values.DEBATE_ROUNDS, undefined, "planning changes no record");
+  const d = stampDiff({ repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir, path: "REVIEW.md" });
+  assert.match(d.diff, /^\+Limit: 2$/m, "the diff shows the file the update would write");
+
+  // A template that does not use the setting records none: the record holds what rendered the file.
+  const other = stamped();
+  other.putTemplate("loop/REVIEW.md", TPL + "\nNew rule.\n");
+  const plain = planUpdates({ running: RUNNING, repoRoot: other.repoRoot, record: other.record, templatesDir: other.templatesDir });
+  assert.deepEqual(plain.updates[0].values, { NIT_CAP: "3" });
+});
+
+test("a recorded setting outranks its default, and a setting does not excuse another unfilled placeholder", () => {
+  const w = stamped();
+  const record = recordStamp(w.record, { path: "REVIEW.md", template: "loop/REVIEW.md", version: "2.40.0", templateText: TPL, fileText: OUT, values: { NIT_CAP: "3", DEBATE_ROUNDS: "4" } });
+  w.putTemplate("loop/REVIEW.md", TPL + "Limit: {{DEBATE_ROUNDS}}\n");
+  const kept = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
+  assert.equal(kept.updates[0].text, OUT + "Limit: 4\n");
+
+  w.putTemplate("loop/REVIEW.md", TPL + "Limit: {{DEBATE_ROUNDS}}\nOwner: {{OWNER}}\n");
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
+  assert.deepEqual(plan.updates, []);
+  assert.match(plan.refused[0].why, /adds \{\{OWNER\}\}, which/);
+  assert.doesNotMatch(plan.refused[0].why, /DEBATE_ROUNDS/);
 });

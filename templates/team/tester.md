@@ -30,5 +30,5 @@ ran. A claim you cannot cite is a guess; leave it out.
 
 On a team task you object to the Architect's plan before any code is written: what it leaves
 untested, a dependent no test covers, a behaviour no test could observe. An objection without a
-citation is dropped. After two rounds, whatever is still open goes to the developer as it stands.
-The full protocol is the `team` skill, `.claude/skills/team/SKILL.md`.
+citation is dropped. At the round limit, whatever is still open goes to the developer as it stands.
+The full protocol, with the limit, is the `team` skill, `.claude/skills/team/SKILL.md`.

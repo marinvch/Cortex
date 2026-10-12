@@ -1,6 +1,7 @@
 ---
 name: capture
-description: Drop a thought, link or idea into the vault inbox in one step, unorganized. Triggers — "capture this", "note this down", "remember that", "add to inbox".
+description: Drop a thought, link or idea into the vault inbox in one step, unorganized.
+disable-model-invocation: true
 effort: low
 metadata:
   capability: mechanical

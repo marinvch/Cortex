@@ -138,8 +138,9 @@ the check proves a ritual is **wired to something**, not that anything leads **t
 total disconnection, which is real and worth catching, and nothing short of it.
 
 Inbound edges are also not equal, and counting them hides that. `/connect-brain` and
-`/migrate-engine` have one each — from `/setup-plugins` and `/install-project`, both causally
-correct, and both from rituals the session record shows at 0/0. A door behind a door nobody opens.
+`/migrate-engine` had one each until 2.42.0 — from `/setup-plugins` and `/install-project`, both causally
+correct, and both from rituals the session record showed at 0/0. A door behind a door nobody opens;
+both of those rituals were folded away for it.
 `cortex-skill-usage.mjs` is the instrument for that half; no static graph can answer it.
 
 A tool added here that answers a question about the repo should get a `--check` mode and a test. The

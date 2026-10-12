@@ -1,6 +1,6 @@
 ---
 name: writing-for-agents
-description: The discipline for writing documents an agent reads — skills, AGENTS.md, CONTEXT.md, any doc behind a pointer. Triggers — "this brief is bloated", "why doesn't the agent pick this up", "should this be its own skill".
+description: The discipline for writing documents an agent reads — skills, AGENTS.md, CONTEXT.md, any doc behind a pointer — and the steps that create and wire a new Cortex skill. Triggers — "this brief is bloated", "why doesn't the agent pick this up", "make a skill for X", "add a ritual".
 metadata:
   capability: judgment
 ---
@@ -8,6 +8,8 @@ metadata:
 Reference for writing any document an agent consumes — a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable — the agent taking the same _process_ every run, not producing the same output.
 
 When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills.
+
+When the job is to **create** a new Cortex skill, or to turn a repeated task into a `/slash` command, follow [`NEW-SKILL.md`](NEW-SKILL.md): name it, write it, wire it into the tables, give it an edge, verify. Ask before writing.
 
 ## Context pointers
 
@@ -112,7 +114,7 @@ behind the rituals that produce them:
 | root `AGENTS.md` + the routing table | `/cortex-scaffold` | the table **is** a set of context pointers — their wording decides whether a leaf is ever reached |
 | scoped `AGENTS.md` leaves | `/cortex-brief` | disclosure: a leaf exists so the root stays legible |
 | `CONTEXT.md` | `/domain-modeling` | single source of truth — a term defined twice is defined nowhere |
-| `skills/<name>/SKILL.md` | `/skill-creator` | see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) |
+| `skills/<name>/SKILL.md` | this ritual, by [`NEW-SKILL.md`](NEW-SKILL.md) | see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) |
 | `.cortex/memory/` digests | `/dream` | relevance — a digest that restates the diff is sediment on arrival |
 
 Two Cortex-specific notes:
@@ -125,7 +127,7 @@ Two Cortex-specific notes:
   as context load versus cognitive load. Cortex adds safety: a once-only or destructive ritual must
   never auto-fire, and that outranks the load trade. Keep the flag when editing their frontmatter.
   `grep -l '^disable-model-invocation: true' skills/*/SKILL.md` is the list of record — anchor it,
-  because this page and `/skill-creator` discuss the flag in prose and an unanchored grep counts
+  because this page and `NEW-SKILL.md` discuss the flag in prose and an unanchored grep counts
   them as carrying it.
 
 ## The official rules this sits on

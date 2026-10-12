@@ -1,6 +1,7 @@
 ---
 name: weekly-review
-description: Weekly vault maintenance — empty the inbox, update projects, restamp current-focus, archive what is stale. Triggers — "weekly review", "process my inbox", "clean up the vault".
+description: Weekly vault maintenance — empty the inbox, update projects, restamp current-focus, archive what is stale.
+disable-model-invocation: true
 metadata:
   capability: judgment
 ---
@@ -33,4 +34,4 @@ Append any decisions made during review to `decisions/log.md`.
 
 ## Close
 One-line summary: items processed, notes created, projects closed, focus updated. Suggest running
-`/audit` if it's been a week, or `/level-up` if it's been two.
+`/cortex-audit score` if it's been a week, or `/level-up` if it's been two.

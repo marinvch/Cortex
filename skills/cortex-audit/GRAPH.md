@@ -1,12 +1,4 @@
----
-name: reindex
-description: Rebuild the vault's navigator graph, nominate topics for a Map of Content, and fix dead links. Triggers — "reindex", "rebuild the graph", "what needs a MOC", "tidy the vault".
-effort: low
-metadata:
-  capability: mechanical
----
-
-# /reindex — keep navigation healthy as the brain grows
+# `/cortex-audit graph` — keep navigation healthy as the brain grows
 
 Plain files scale only if navigation keeps up. This ritual refreshes the views, surfaces where the
 vault is outgrowing its structure, and fixes broken links. No engine — bash + judgement.
@@ -40,7 +32,7 @@ For each remaining dead `[[target]]`, pick with the user:
 
 ## Step 5 — Close
 Summarise: views regenerated, MOCs created/suggested, dead links resolved, orphans flagged. Suggest
-re-running `/reindex` on a cadence (e.g. with `/weekly-review`).
+re-running `/cortex-audit graph` on a cadence, for example with the weekly review.
 
 ## Rules
 - Navigate by MOCs + links, not folder depth. One filename idioms; keep it boring.

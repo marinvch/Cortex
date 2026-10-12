@@ -138,7 +138,7 @@ function buildRepos(){const p=ce('rpane');let h='<h2 class="vh">Registered repos
 // gaps
 function buildGaps(){const p=ce('gpane');
   let h='<div><span class="stat"><b>'+DATA.stats.notes+'</b><span>notes</span></span><span class="stat"><b>'+DATA.stats.links+'</b><span>links</span></span><span class="stat"><b>'+DATA.stats.orphans.length+'</b><span>orphans</span></span><span class="stat"><b>'+DATA.stats.dead+'</b><span>dead</span></span></div>';
-  h+='<h2 class="vh">Orphan notes — real gaps to connect</h2><div class="hint">These notes have no [[links]] in or out. A note with no links is a dead end — link each into a MOC or a related note (run <code>/reindex</code>).</div>';
+  h+='<h2 class="vh">Orphan notes — real gaps to connect</h2><div class="hint">These notes have no [[links]] in or out. A note with no links is a dead end — link each into a MOC or a related note (run <code>/cortex-audit graph</code>).</div>';
   h+=DATA.stats.orphans.length?DATA.nodes.filter(n=>n.real&&n.deg===0).map(n=>'<span class="pill" data-id="'+n.id+'">'+esc(n.label)+'</span>').join(''):'<span class="hint">None 🎉 every note is connected.</span>';
   h+='<h2 class="vh" style="margin-top:22px">Dead links to fix</h2><div class="hint">Links pointing at notes that don\'t exist. Create the note, fix the typo, or remove the link.</div>';
   h+=DATA.stats.dead?DATA.stats.deadList.map(t=>'<span class="pill bad">'+esc(t)+'</span>').join(''):'<span class="hint">None 🎉</span>';

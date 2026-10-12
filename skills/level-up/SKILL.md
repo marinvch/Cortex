@@ -1,6 +1,7 @@
 ---
 name: level-up
-description: Biweekly vault ritual — Notice, Decide, Build, to find one piece of leverage and ship it. Triggers — "level up", "what should I automate next", "find me leverage".
+description: Biweekly vault ritual — Notice, Decide, Build, to find one piece of leverage and ship it.
+disable-model-invocation: true
 effort: high
 metadata:
   capability: strong
@@ -59,4 +60,4 @@ remind the user to run it manually for a week before trusting it.
 
 Notice → Decide → Build asks the model to survey everything, pick the one piece of leverage, and ship it. The survey is the part that degrades: a weaker setup picks the most recent thing rather than the most leveraged, and the ritual becomes a to-do list.
 
-Below the floor: run **`/audit`** instead. It scores the four layers against fixed criteria and names the top three gaps by a stated weighting, so the ranking comes from the rubric rather than from judgment.
+Below the floor: run **`/cortex-audit score`** instead. It scores the four layers against fixed criteria and names the top three gaps by a stated weighting, so the ranking comes from the rubric rather than from judgment.

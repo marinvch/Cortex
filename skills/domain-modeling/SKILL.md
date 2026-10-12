@@ -13,7 +13,7 @@ down the moment it settles. Merely *reading* a glossary for vocabulary is not th
 a one-line habit any ritual can do. Reach for this when you're **changing** the model.
 
 Pairs with [[codebase-design]] (which names the *shape* of code) the way a glossary pairs with a
-blueprint. `/install-project` stamps the brain; this ritual sharpens the language inside it.
+blueprint. `/cortex` stamps the brain; this ritual sharpens the language inside it.
 
 ## Two different "context" — don't confuse them
 

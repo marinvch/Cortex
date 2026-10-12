@@ -1,17 +1,55 @@
 ---
 name: connect-brain
-description: Connect this machine to the live Cortex MCP brain, so recall and capture work in every project. One-time, user scope.
+description: Set up this machine for Cortex — install the plugin bundle, and connect the live MCP brain so recall and capture work in every project. Per machine, user scope.
 effort: low
 disable-model-invocation: true
 metadata:
   capability: mechanical
 ---
 
-# /connect-brain — one-line live brain
+# /connect-brain — set this machine up
+
+Two jobs a machine needs once, and they are independent: the **plugin bundle** needs no vault, and
+the **brain** needs one. Do the half that was asked for, and offer the other in one line.
+`/setup-plugins` was a separate ritual until 2.42.0; someone who types that name wants the first half.
+
+## The plugin bundle
+
+1. Run this — it installs the Core tier (superpowers, skill-creator, claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier, context7):
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --tier core --scope user
+   ```
+   `${CLAUDE_PLUGIN_ROOT}` is the installed plugin; from a clone of the Cortex repo, use that
+   clone's path instead. No vault and no `CORTEX_ROOT` are needed — this reads only the bundle
+   manifest shipped with Cortex.
+2. Read what this machine already has: `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --status --json`.
+   It reads Claude Code's plugin registry and installs nothing. Each tier's `state` is `installed`,
+   `partial`, `missing` or `unknown`, and each plugin carries `installed`.
+3. Then ask the user their role / stack and OFFER the optional tiers whose `state` is not
+   `installed` (do not auto-install). For a `partial` tier, name the plugins it still lacks. When
+   every tier that fits is `installed`, say so in one line and offer none. `unknown` means there
+   was no registry to read: offer by role, as on a machine with nothing installed.
+   - Frontend/QA → `--tier browser-qa` (playwright, chrome-devtools-mcp; heavy: downloads browsers).
+   - TS repos / lots of PRs → `--tier dev-tools` (typescript-lsp, github).
+   - Deploys to Vercel/Cloudflare → `--tier platform`.
+4. If the `claude` CLI is unavailable, the command prints the exact commands instead of failing — relay them for guided setup.
+5. Confirm which tiers were installed in one line.
+
+Installing is not staying current: an update to the marketplace does not move the installed plugin,
+so a machine can sit for weeks running a version nobody meant to run. `/plugin-sync` is that check,
+and it is the first thing to suspect when a skill edit appears to have no effect.
+
+- Don't auto-install the heavy or platform tiers — offer them by role.
+- Don't fail hard if the CLI is missing; the command degrades to printing commands.
+
+## The brain
+
+Plugins give this machine the tools; they do not give it recall. This half is the step people skip
+after a clean plugin install — the commands are all there and nothing remembers anything.
 
 Register the Cortex MCP server at **user scope** so every project on this machine can `recall`/`capture`.
 
-## What to do
+### What to do
 1. Ask for the vault's absolute path → `CORTEX_ROOT`. The vault is its own private repo, not this
    one and not the plugin. The server is `${CLAUDE_PLUGIN_ROOT}/mcp/server.js` — it ships with the
    plugin, not the vault. From a clone of the Cortex repo rather than the plugin, use that clone's
@@ -43,6 +81,8 @@ Register the Cortex MCP server at **user scope** so every project on this machin
    re-run `/connect-brain` after updating — or register a Cortex clone's path, which does not move.
 5. Confirm in one line: *"Brain connected (user scope). recall/capture available in every project."*
 
-## Don't
+### Don't
 - Don't register at project scope (defeats the "zero setup per project" goal).
 - Don't touch the current project's git or files.
+
+Inside a repo, `/cortex-next` names what that repo is waiting on.

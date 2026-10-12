@@ -7,7 +7,7 @@ tags: [reference, framework]
 
 # Vault Architecture — the four layers
 
-The Cortex Vault stands on four layers. `/audit` scores each out of 25. Build them in order:
+The Cortex Vault stands on four layers. `/cortex-audit score` scores each out of 25. Build them in order:
 a later layer is hollow without the ones beneath it.
 
 | # | Layer | One-liner | "This layer is real" test |
@@ -38,7 +38,7 @@ applies to any AI-agent context file — see [[context-engineering]].
 
 ## 4. Cadence
 The rituals and schedules that make the vault work while you don't: `/daily`, `/weekly-review`,
-`/audit`, `/level-up`, and any scheduled briefings. Don't automate a cadence until the manual
+`/cortex-audit score`, `/level-up`, and any scheduled briefings. Don't automate a cadence until the manual
 version works — automating a broken process just breaks it faster. The always-on build-out — the
 MCP brain plus server cron that runs these rituals while you're away — is wired in [[living-cortex]].
 

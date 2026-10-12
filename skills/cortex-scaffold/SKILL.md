@@ -162,6 +162,10 @@ Then offer the two natural next steps: `/cortex-brief` for the areas the finding
 and `/cortex-skills` for skills that fit this stack. Say what the second one is for — the context
 layer you just wrote is tailored to this repo, and its skills are not yet.
 
+If reading the repo turned up setup a person has to do by hand — `.env.example` keys with no
+values, a `secrets.*` reference in a workflow, a dashboard the README sends you to — say so and tell
+the user `/wizard` writes a script that walks them through it. It is typed by them, never run from here.
+
 ## Gotchas
 
 - **The root brief gets shorter over time, not longer.** As leaves appear, area-specific detail

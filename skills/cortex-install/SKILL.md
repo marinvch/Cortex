@@ -181,7 +181,7 @@ never-clobber rules and the post-write verification; do not duplicate that logic
 
 **Scoped briefs** — hand off to `/cortex-brief` for each area they picked.
 
-**Bundle** — hand off to `/setup-plugins`, which reads `plugins/cortex-core-plugins.json`:
+**Bundle** — run `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --tier <tier> --scope user` for each tier they picked. It reads `plugins/cortex-core-plugins.json`, and `/connect-brain` is the same step typed by a person:
 
 | Tier | Holds | When |
 |---|---|---|

@@ -1,6 +1,7 @@
 ---
 name: scan-projects
-description: Sync the vault with the repos on this machine — which have a codebase brain, which are registered in projects/, and register the rest as metadata. Triggers — "scan my projects", "which repos have a brain".
+description: Sync the vault with the repos on this machine — which have a codebase brain, which are registered in projects/, and register the rest as metadata.
+disable-model-invocation: true
 effort: low
 metadata:
   capability: mechanical
@@ -10,7 +11,7 @@ metadata:
 
 Keeps the vault aware of which projects exist **without absorbing any code**. Honors the privacy
 firewall: a project stub holds name / path / URL / stack / date only — never code, secrets, or
-client data. This is the vault-side companion to the per-repo brain installed by `/install-project`
+client data. This is the vault-side companion to the per-repo brain installed by `/cortex`
 (and by `cortex-init --register-to-vault`). It records what it found in the vault's `connections.md`
 (the empty one ships in Cortex's `templates/vault/`).
 
@@ -33,7 +34,7 @@ Never open source files. Folder listing + `package.json` + git metadata only.
 Repo                 Brain   Registered
 my-app               ✅      ✅
 client-api           ✅      ❌  ← can register
-old-script           ❌      ❌  ← no brain (run /install-project there)
+old-script           ❌      ❌  ← no brain (run /cortex there)
 ```
 End with a summary: `N repos · M with brains · K registered`.
 
@@ -69,5 +70,5 @@ after installing new brains.
 ## Rules
 - Read-only **except** the opt-in `projects/*.md` stubs and the one `connections.md` row.
 - Metadata only — the firewall stays intact; company code never enters the vault.
-- A repo with no brain → suggest running `/install-project` (or `bash "${CLAUDE_PLUGIN_ROOT}/tools/cortex-init.sh"`) there.
+- A repo with no brain → suggest running `/cortex` (or `bash "${CLAUDE_PLUGIN_ROOT}/tools/cortex-init.sh"`) there.
 - One repo = one stub. Re-running refreshes the metadata (path/stack/date), never deletes notes.

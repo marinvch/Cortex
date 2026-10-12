@@ -27,7 +27,7 @@ artifact until its knowledge is in `AGENTS.md` or `docs/decisions.md`.** Re-gene
   (`ls -d */.git`).
 - Check `git status` is clean (or stash). The migration is recoverable via git + the backup archive,
   but a clean tree makes the diff reviewable.
-- If there's no new brain yet (`AGENTS.md` absent), run `/install-project` first — this ritual
+- If there's no new brain yet (`AGENTS.md` absent), run `/cortex` first — this ritual
   *enriches* the brain, it doesn't create it.
 
 ## Step 1 — Detect the old engine
@@ -128,7 +128,7 @@ Delete only what you backed up and harvested:
   the only entry, delete the file. An entry that runs Cortex's `mcp/server.js` stays, under the name
   `ai-os` too: Step 1 listed it as a Cortex registration.
 - **`.github/copilot-instructions.md`:** replace engine content with a shim → `AGENTS.md`
-  (or leave the Cortex shim if `/install-project` already wrote one). Move old `*.bak` into the tarball.
+  (or leave the Cortex shim if `/cortex` already wrote one). Move old `*.bak` into the tarball.
 - **A registration listed in Step 1 that is the engine's, or whose root you are deleting:** repoint
   it or remove it, with the user's yes. `claude mcp get <name>` prints the exact remove command for its scope.
 - Clean stragglers: `.gitignore` lines that only referenced `.ai-os`/`.github/ai-os`; the

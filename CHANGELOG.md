@@ -5,6 +5,25 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.57] — 2026-10-12
+
+One command lists the rules a repo's briefs state and the test files each rule names.
+
+### Added
+
+- **`node index/cortex-review.mjs --rules` lists every rule in the briefs and what it names.** A
+  rule is a list item under a heading that says invariants, gotchas or rules, in `AGENTS.md` at any
+  depth and in a `CLAUDE.md` or `GEMINI.md` with text of its own. Each rule is in one of three
+  states: it names a test file, it names other files and no test, or it names no file. The
+  command prints the three counts and the rules in the last two states, and `--json` lists every
+  row. It reads the whole repo, takes no change set, writes nothing and always exits 0.
+- **It reports what a rule names and never whether the rule holds.** A gotcha states a limit no
+  test could pin, and a test can hold a rule that does not name it. A brief that keeps its rules
+  under another heading lists nothing, and the command says how many briefs that is.
+- **No ritual runs it yet, and it is not a finding in the install report.** On six public repos
+  only one brief had such a section. The numbers are in
+  `docs/specs/2026-10-12-rule-ledger-design.md`.
+
 ## [2.41.56] — 2026-10-11
 
 The role reviewer loads with its description and its tool list on Windows again.
@@ -5224,6 +5243,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.57]: https://github.com/marinvch/Cortex/releases/tag/v2.41.57
 [2.41.56]: https://github.com/marinvch/Cortex/releases/tag/v2.41.56
 [2.41.55]: https://github.com/marinvch/Cortex/releases/tag/v2.41.55
 [2.41.54]: https://github.com/marinvch/Cortex/releases/tag/v2.41.54

@@ -116,9 +116,9 @@ test("no prompt names a document or states a rule, and every prompt ends with th
 test("the schedule is the spec's: five tasks, rotated by one each repeat, the same on every call", () => {
   const ids = (s) => s.map((p) => `${p.repeat}:${p.task.id}`);
   assert.deepEqual(ids(schedule()), [
-    "1:discount", "1:cancel", "1:note", "1:by-status", "1:search-empty",
-    "2:cancel", "2:note", "2:by-status", "2:search-empty", "2:discount",
-    "3:note", "3:by-status", "3:search-empty", "3:discount", "3:cancel",
+    "1:unit-price", "1:cancel", "1:note", "1:revenue", "1:search-empty",
+    "2:cancel", "2:note", "2:revenue", "2:search-empty", "2:unit-price",
+    "3:note", "3:revenue", "3:search-empty", "3:unit-price", "3:cancel",
   ]);
   assert.deepEqual(ids(schedule()), ids(schedule()));
   assert.deepEqual(ids(schedule({ tasks: [TASKS[4]], repeats: 1 })), ["1:search-empty"]);
@@ -200,12 +200,12 @@ test("every working copy is deleted, and each attempt leaves its result, verdict
   const dir = join(d.recordsRoot, run.meta.runId);
   const files = readdirSync(dir).sort();
   assert.equal(files.length, 31, "thirty attempts and run.json");
-  const one = JSON.parse(readFileSync(join(dir, "r1-discount-with-a1.json"), "utf8"));
+  const one = JSON.parse(readFileSync(join(dir, "r1-unit-price-with-a1.json"), "utf8"));
   assert.equal(one.kind, "scored");
-  assert.deepEqual(one.accept, { task: "discount", works: true, rule: true, pass: true, reason: "pass" });
+  assert.deepEqual(one.accept, { task: "unit-price", works: true, rule: true, pass: true, reason: "pass" });
   assert.equal(one.result.subtype, "success");
   assert.match(one.diff, /^diff --git a\/src\/cart\/pricing\.js b\/src\/cart\/pricing\.js/m);
-  assert.match(one.diff, /^\+.*percent\(subtotal/m);
+  assert.match(one.diff, /^\+.*divide\(subtotal/m);
   // The fixture's version and the hash of the arm's tree go into every record, not only run.json:
   // a record read by itself still says which tree it was earned on.
   for (const name of files.filter((f) => f !== "run.json")) {
@@ -253,10 +253,10 @@ test("a call that throws once is retried, listed, and leaves the cell's count at
   });
   const run = await measure(deps(session, TWO));
   const s = summarise(run);
-  assert.deepEqual(counts(cell(s, "discount", "with")), [3, 3, 3, 3], "the retry was scored");
-  assert.equal(cell(s, "discount", "with").failedCalls, 1);
+  assert.deepEqual(counts(cell(s, "unit-price", "with")), [3, 3, 3, 3], "the retry was scored");
+  assert.equal(cell(s, "unit-price", "with").failedCalls, 1);
   assert.equal(s.failedCalls, 1);
-  assert.deepEqual(s.failedCallList.map((f) => [f.task, f.arm, f.repeat, f.attempt]), [["discount", "with", 2, 1]]);
+  assert.deepEqual(s.failedCallList.map((f) => [f.task, f.arm, f.repeat, f.attempt]), [["unit-price", "with", 2, 1]]);
   assert.match(s.failedCallList[0].reason, /529 overloaded/);
   const attempts = run.records.filter((r) => r.arm === "with" && r.repeat === 2).map((r) => [r.attempt, r.kind]);
   assert.deepEqual(attempts, [[1, "failed"], [2, "scored"]]);
@@ -270,8 +270,8 @@ test("a call that fails on every attempt is never a zero: the cell reads 2/2, no
   const session = stubSession({ plan: (task, arm, n) => (arm === "without" && n >= 3 ? { throws: "timed out" } : { patch: "good" }) });
   const run = await measure(deps(session, TWO));
   const s = summarise(run);
-  assert.deepEqual(counts(cell(s, "discount", "without")), [2, 2, 2, 2]);
-  assert.equal(cell(s, "discount", "without").failedCalls, MAX_RETRIES + 1, "tried, then retried twice");
+  assert.deepEqual(counts(cell(s, "unit-price", "without")), [2, 2, 2, 2]);
+  assert.equal(cell(s, "unit-price", "without").failedCalls, MAX_RETRIES + 1, "tried, then retried twice");
   assert.match(renderTable(run), /without\s+2\/2\s+2\/2\s+2\/2/);
   assert.doesNotMatch(renderTable(run), /2\/3/);
   assert.equal(s.scored, 5);
@@ -283,20 +283,20 @@ test("a session that reaches the turn limit is scored on the tree it left, and m
   const run = await measure(deps(session, ONE));
   const s = summarise(run);
   assert.equal(s.failedCalls, 0, "reaching the limit is not a failed call");
-  assert.deepEqual(counts(cell(s, "discount", "with")), [1, 1, 1, 1]);
-  assert.deepEqual(counts(cell(s, "discount", "without")), [0, 0, 0, 1]);
+  assert.deepEqual(counts(cell(s, "unit-price", "with")), [1, 1, 1, 1]);
+  assert.deepEqual(counts(cell(s, "unit-price", "without")), [0, 0, 0, 1]);
   assert.deepEqual(run.records.map((r) => r.budget), [true, true]);
-  assert.equal(cell(s, "discount", "with").budget, 1);
+  assert.equal(cell(s, "unit-price", "with").budget, 1);
   assert.match(renderTable(run), /budget/);
 });
 
 test("a result that reports another model is a failed call, and so is one that reports an error", async () => {
   const wrong = stubSession({ plan: (task, arm) => (arm === "with" ? { patch: "good", model: "claude-haiku-4-5" } : { patch: "good" }) });
   const s = summarise(await measure(deps(wrong, ONE)));
-  assert.deepEqual(counts(cell(s, "discount", "with")), [0, 0, 0, 0]);
-  assert.equal(cell(s, "discount", "with").failedCalls, 3);
+  assert.deepEqual(counts(cell(s, "unit-price", "with")), [0, 0, 0, 0]);
+  assert.equal(cell(s, "unit-price", "with").failedCalls, 3);
   assert.match(s.failedCallList[0].reason, /claude-sonnet-5.*claude-haiku-4-5/);
-  assert.deepEqual(counts(cell(s, "discount", "without")), [1, 1, 1, 1]);
+  assert.deepEqual(counts(cell(s, "unit-price", "without")), [1, 1, 1, 1]);
 
   const good = template("success");
   assert.deepEqual(classify(good), { kind: "scored", budget: false });
@@ -403,7 +403,7 @@ test("a harness fault stops the run and is never scored", async () => {
   const session = stubSession({ plan: () => ({ patch: "good" }) });
   const errors = [];
   const faulty = async () => { throw new HarnessFault("node --test could not start"); };
-  const code = await main(["--tasks", "discount", "--once"], deps(session, { accept: faulty, error: (m) => errors.push(m) }));
+  const code = await main(["--tasks", "unit-price", "--once"], deps(session, { accept: faulty, error: (m) => errors.push(m) }));
   assert.equal(code, 2);
   assert.match(errors.join("\n"), /harness fault: node --test could not start/);
 });
@@ -483,9 +483,9 @@ test("the table prints raw counts, a row per task and arm, the rule-task totals 
   const { run } = await runSame();
   const table = renderTable(run);
   const lines = table.split("\n");
-  assert.match(lines[0], /^outcome harness · shop v1 · claude-sonnet-5 · medium · 2026-10-09 +· +30 scored, 0 failed calls$/);
+  assert.match(lines[0], /^outcome harness · shop v2 · claude-sonnet-5 · medium · 2026-10-09 +· +30 scored, 0 failed calls$/);
   assert.match(lines[1], /^task +arm +pass +works +rule +turns +tokens +cost +failed calls$/);
-  assert.match(table, /^T1 discount +with +3\/3 +3\/3 +3\/3 +\d+ \(\d+–\d+\) +\S+ \(\S+–\S+\) +\$\d+\.\d\d +0$/m);
+  assert.match(table, /^T1 unit-price +with +3\/3 +3\/3 +3\/3 +\d+ \(\d+–\d+\) +\S+ \(\S+–\S+\) +\$\d+\.\d\d +0$/m);
   assert.match(table, /^T5 search-empty +with +3\/3 +3\/3 +— /m);
   assert.match(table, /^ +\(control\) +without +3\/3 +3\/3 +— /m);
   assert.match(table, /^rule tasks T1–T4 +with +12\/12 +12\/12 +12\/12$/m);
@@ -502,9 +502,9 @@ test("--dry prints the schedule and a table from a stubbed run, and writes nothi
   assert.equal(await main(["--dry"], d), 0);
   const out = lines.join("\n");
   assert.match(out, /dry run: a stubbed session, no model/);
-  assert.match(out, /repeat 1: +discount, cancel, note, by-status, search-empty/);
-  assert.match(out, /repeat 2: +cancel, note, by-status, search-empty, discount/);
-  assert.match(out, /repeat 3: +note, by-status, search-empty, discount, cancel/);
+  assert.match(out, /repeat 1: +unit-price, cancel, note, revenue, search-empty/);
+  assert.match(out, /repeat 2: +cancel, note, revenue, search-empty, unit-price/);
+  assert.match(out, /repeat 3: +note, revenue, search-empty, unit-price, cancel/);
   assert.match(out, /^rule tasks T1–T4 +with +12\/12/m);
   assert.match(out, /^reading: /m);
   assert.equal(existsSync(d.resultsFile), false, "a dry run records nothing");
@@ -530,7 +530,7 @@ test("--record writes the section from a run's records and leaves every earlier 
   assert.match(section, /- total cost: \$\d+\.\d\d · wall-clock: /);
   assert.match(section, /rule tasks T1–T4 +with +12\/12 +12\/12 +12\/12/);
   assert.match(section, /\*\*Reading: supported, at this size\.\*\*/);
-  assert.match(section, /### Failed sessions\n\n- T1 discount · without · repeat 1: rule: /);
+  assert.match(section, /### Failed sessions\n\n- T1 unit-price · without · repeat 1: rule: /);
   assert.equal((section.match(/^- T\d \S+ · without · repeat \d: rule: /gm) ?? []).length, 12, "every failed session is listed with its reason");
 
   // A second measurement is a new section; the first is untouched, byte for byte.
@@ -576,7 +576,7 @@ test("an incomplete run can be recorded, and its heading says how many of thirty
   assert.match(text, /^T3 note +with +2\/2 +2\/2 +2\/2 /m);
 
   const partial = deps(stubSession({ plan: () => ({ patch: "good" }) }));
-  assert.equal(await main(["--tasks", "search-empty,discount", "--once", "--record"], partial), 0);
+  assert.equal(await main(["--tasks", "search-empty,unit-price", "--once", "--record"], partial), 0);
   const short = readFileSync(partial.resultsFile, "utf8");
   assert.match(short, /^## 2026-10-09 · 4 of 30 sessions scored · run /m);
   assert.match(short, /\*\*Reading: not read\.\*\*/);
@@ -590,7 +590,7 @@ test("an interrupted run continues from its records and does not repeat a finish
   assert.equal(await main([], { ...d, error: (m) => errors.push(m) }), 2);
   const [runId] = readdirSync(d.recordsRoot);
   const before = readdirSync(join(d.recordsRoot, runId)).sort();
-  assert.deepEqual(before, ["r1-cancel-with-a1.json", "r1-cancel-without-a1.json", "r1-discount-with-a1.json", "r1-discount-without-a1.json", "run.json"]);
+  assert.deepEqual(before, ["r1-cancel-with-a1.json", "r1-cancel-without-a1.json", "r1-unit-price-with-a1.json", "r1-unit-price-without-a1.json", "run.json"]);
   assert.match(errors.join("\n"), new RegExp(`--resume ${runId}`), "the run says how to continue it");
 
   stop = false;
@@ -610,17 +610,17 @@ test("a cell interrupted after two failed calls still gets its third attempt whe
   const d = deps(session, ONE);
   const run = await measure(d);
   const dir = join(d.recordsRoot, run.meta.runId);
-  assert.deepEqual(readdirSync(dir).filter((f) => f.includes("-with-")).sort(), ["r1-discount-with-a1.json", "r1-discount-with-a2.json", "r1-discount-with-a3.json"]);
+  assert.deepEqual(readdirSync(dir).filter((f) => f.includes("-with-")).sort(), ["r1-unit-price-with-a1.json", "r1-unit-price-with-a2.json", "r1-unit-price-with-a3.json"]);
   // As if the run had stopped before the last retry: two attempts are on record, and one is owed.
-  rmSync(join(dir, "r1-discount-with-a3.json"));
+  rmSync(join(dir, "r1-unit-price-with-a3.json"));
   failing = false;
   const made = session.calls.filter((c) => c.prompt !== PROBE_PROMPT).length;
   const resumed = await measure({ ...d, resume: run.meta.runId });
   const again = session.calls.filter((c) => c.prompt !== PROBE_PROMPT).slice(made);
-  assert.deepEqual(again.map((c) => [c.seen.task, c.seen.arm]), [["discount", "with"]], "only the owed attempt ran");
+  assert.deepEqual(again.map((c) => [c.seen.task, c.seen.arm]), [["unit-price", "with"]], "only the owed attempt ran");
   const mine = resumed.records.filter((r) => r.arm === "with").map((r) => [r.attempt, r.kind]).sort();
   assert.deepEqual(mine, [[1, "failed"], [2, "failed"], [3, "scored"]]);
-  assert.deepEqual(counts(cell(summarise(resumed), "discount", "with")), [1, 1, 1, 1]);
+  assert.deepEqual(counts(cell(summarise(resumed), "unit-price", "with")), [1, 1, 1, 1]);
 });
 
 test("a run is never continued on another version of the fixture, or with another model", async () => {

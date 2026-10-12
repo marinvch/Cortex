@@ -42,7 +42,7 @@ function command(task, dir) {
 }
 
 test("there are five tasks: four that depend on a rule and one control", () => {
-  assert.deepEqual(TASKS.map((t) => t.id), ["discount", "cancel", "note", "by-status", "search-empty"]);
+  assert.deepEqual(TASKS.map((t) => t.id), ["unit-price", "cancel", "note", "revenue", "search-empty"]);
   assert.deepEqual(RULE_TASKS.map((t) => t.rule), ["R1", "R2", "R3", "R4"]);
   assert.equal(CONTROL.id, "search-empty");
   assert.equal(CONTROL.rule, null);
@@ -129,7 +129,7 @@ test("the function and the command agree on every patch, and the exit code is th
 });
 
 test("a session cannot pass by editing the repo's tests", async () => {
-  // The naive discount breaks no test of the repo's own, so there is nothing to delete. This change
+  // The naive patches break no test of the repo's own, so there is nothing to delete. This change
   // does break one: it drops the tax from an order's total, and then deletes the test that says so.
   const sabotage = [
     { path: "src/orders/service.js", find: "total: subtotal + tax,", replace: "total: subtotal," },
@@ -154,9 +154,9 @@ test("a file named like an acceptance test, added to the tree, changes no result
     { path: `accept/${task}.rule.test.mjs`, content: "import { test } from \"node:test\";\ntest(\"planted\", () => {});\n" },
     { path: `test/${task}.works.test.mjs`, content: "import { test } from \"node:test\";\ntest(\"planted\", () => { throw new Error(\"planted failure\"); });\n" },
   ];
-  const naive = await accept("discount", tree("without", [...SOLUTIONS.discount.naive, ...plant("discount")]));
+  const naive = await accept("unit-price", tree("without", [...SOLUTIONS["unit-price"].naive, ...plant("unit-price")]));
   assert.equal(naive.rule, false, "a planted passing rule test does not pass the rule");
-  const good = await accept("discount", tree("without", [...SOLUTIONS.discount.good, ...plant("discount")]));
+  const good = await accept("unit-price", tree("without", [...SOLUTIONS["unit-price"].good, ...plant("unit-price")]));
   assert.equal(good.pass, true, "a planted failing test does not fail a good change");
 });
 
@@ -182,19 +182,34 @@ test("the acceptance files never enter a working copy", () => {
 const edit = (path, find, replace) => ({ path, find, replace });
 
 test("R1: truncating fails the rule even though rounding half up was not used", async () => {
-  const truncating = SOLUTIONS.discount.naive.map((op) => ({ ...op, replace: op.replace.replace("Math.round(subtotal * 0.1)", "Math.floor(subtotal / 10)") }));
-  assert.notDeepEqual(truncating, SOLUTIONS.discount.naive);
-  const r = await accept("discount", tree("without", truncating));
+  const truncating = SOLUTIONS["unit-price"].naive.map((op) => ({ ...op, replace: op.replace.replace("Math.round(subtotal / units)", "Math.floor(subtotal / units)") }));
+  assert.notDeepEqual(truncating, SOLUTIONS["unit-price"].naive);
+  const r = await accept("unit-price", tree("without", truncating));
   assert.equal(r.works, true, r.reason);
   assert.equal(r.rule, false);
-  assert.match(r.reason, /10015/);
+  assert.match(r.reason, /451 over 2 units/);
 });
 
 test("R1: an amount that is not an integer fails the rule", async () => {
-  const fractional = SOLUTIONS.discount.naive.map((op) => ({ ...op, replace: op.replace.replace("Math.round(subtotal * 0.1)", "subtotal / 10") }));
-  const r = await accept("discount", tree("without", fractional));
+  const fractional = SOLUTIONS["unit-price"].naive.map((op) => ({ ...op, replace: op.replace.replace("Math.round(subtotal / units)", "subtotal / units") }));
+  assert.notDeepEqual(fractional, SOLUTIONS["unit-price"].naive);
+  const r = await accept("unit-price", tree("without", fractional));
   assert.equal(r.works, true, r.reason);
   assert.equal(r.rule, false);
+});
+
+test("R1: the rule check does not depend on where the rounding lives or what it is called", async () => {
+  // The same half-to-even division written inline in pricing.js, with no helper in money.js at all.
+  const inline = SOLUTIONS["unit-price"].naive.map((op) => ({
+    ...op,
+    replace: op.replace.replace(
+      "Math.round(subtotal / units)",
+      "(() => { const whole = Math.floor(subtotal / units); const rest = subtotal - whole * units; return rest * 2 > units || (rest * 2 === units && whole % 2 === 1) ? whole + 1 : whole; })()",
+    ),
+  }));
+  assert.notDeepEqual(inline, SOLUTIONS["unit-price"].naive);
+  const r = await accept("unit-price", tree("without", inline));
+  assert.equal(r.pass, true, r.reason);
 });
 
 test("R2: cancelling without an audit entry, or with two, fails the rule", async () => {
@@ -221,6 +236,33 @@ test("R2: a refused cancellation that still writes an audit entry fails the rule
   assert.equal(r.rule, false);
 });
 
+test("R2: removing the order fails the rule, as it did before the stock clause", async () => {
+  const good = SOLUTIONS.cancel.good;
+  const save = "  const cancelled = saveOrder(ctx.db, { ...order, status: \"cancelled\" });\n";
+  const removed = good.map((op) => (op.replace?.includes(save) ? { ...op, replace: op.replace.replace(save, "  ctx.db.remove(\"orders\", id);\n  const cancelled = null;\n") } : op));
+  assert.notDeepEqual(removed, good);
+  const r = await accept("cancel", tree("without", removed));
+  assert.equal(r.works, true, r.reason);
+  assert.equal(r.rule, false);
+  assert.match(r.reason, /still in the store/);
+});
+
+test("R2: stock given back twice, or on a refused cancellation, fails the rule", async () => {
+  const good = SOLUTIONS.cancel.good;
+  const back = "  for (const line of order.lines) release(ctx, line.sku, line.quantity);\n";
+  const guard = "  if (order.status === \"shipped\") throw new ConflictError(";
+  const twice = good.map((op) => (op.replace?.includes(back) ? { ...op, replace: op.replace.replace(back, back + back) } : op));
+  const early = good.map((op) => (op.replace?.includes(back) ? { ...op, replace: op.replace.replace(back, "").replace(guard, back + guard) } : op));
+  assert.notDeepEqual(twice, good);
+  assert.notDeepEqual(early, good);
+  for (const patch of [twice, early]) {
+    const r = await accept("cancel", tree("without", patch));
+    assert.equal(r.works, true, r.reason);
+    assert.equal(r.rule, false);
+    assert.match(r.reason, /stock/);
+  }
+});
+
 test("R3: editing a shipped migration fails the rule, even when a new one is added too", async () => {
   const edited = [...SOLUTIONS.note.good, edit("src/store/migrations/003-order-currency.js", "currency: \"EUR\"", "currency: \"EUR\", note: \"\"")];
   const r = await accept("note", tree("without", edited));
@@ -232,29 +274,38 @@ test("R3: editing a shipped migration fails the rule, even when a new one is add
 test("R3: a new migration that does not backfill the stored rows fails the rule", async () => {
   const hollow = SOLUTIONS.note.good.map((op) => (op.path.includes("004") ? { ...op, content: op.content.replace(/up\(db\) \{[\s\S]*\n  \},/, "up(db) {},") } : op));
   assert.notDeepEqual(hollow, SOLUTIONS.note.good);
-  const patched = [...hollow, ...SOLUTIONS.note.naive.filter((op) => op.path === "src/orders/repository.js")];
+  const onRead = edit("src/orders/repository.js", "export function findOrder(db, id) {\n  return db.get(\"orders\", id);\n}\n", "export function findOrder(db, id) {\n  const order = db.get(\"orders\", id);\n  return order ? { note: \"\", ...order } : null;\n}\n");
+  const patched = [...hollow, onRead];
   const r = await accept("note", tree("without", patched));
   assert.equal(r.works, true, r.reason);
   assert.equal(r.rule, false);
   assert.match(r.reason, /stored/);
 });
 
-test("R4: a dynamic import of the store from a route fails the rule, and so does a re-export", async () => {
-  const good = SOLUTIONS["by-status"].good;
-  const dynamic = [...good, edit("src/routes/health.js", "export function healthRoutes() {", "export const peek = () => import(\"../store/db.js\");\n\nexport function healthRoutes() {")];
-  const reexport = [...good, edit("src/routes/health.js", "export function healthRoutes() {", "export { allOrders } from \"../orders/repository.js\";\n\nexport function healthRoutes() {")];
-  const nested = [...good, { path: "src/routes/admin/orders.js", content: "import { createDb } from \"../../store/db.js\";\n\nexport const db = createDb;\n" }];
-  for (const patch of [dynamic, reexport, nested]) {
-    const r = await accept("by-status", tree("without", patch));
+test("R4: counting every order, or every order but the placed ones, fails the rule", async () => {
+  const naive = SOLUTIONS.revenue.naive;
+  const paidFor = "(order) => order.status === \"paid\" || order.status === \"shipped\"";
+  const all = naive.map((op) => (op.replace?.includes(paidFor) ? { ...op, replace: op.replace.replace(paidFor, "() => true") } : op));
+  assert.notDeepEqual(all, naive);
+  for (const [patch, why] of [[naive, /paid and has not shipped/], [all, /only placed/]]) {
+    const r = await accept("revenue", tree("without", patch));
     assert.equal(r.works, true, r.reason);
     assert.equal(r.rule, false);
+    assert.match(r.reason, why);
   }
 });
 
-test("R4: the rule check does not depend on what the service function is called", async () => {
-  const renamed = SOLUTIONS["by-status"].good.map((op) => ({ ...op, replace: op.replace.replaceAll("listOrders", "ordersInStatus") }));
-  assert.notDeepEqual(renamed, SOLUTIONS["by-status"].good);
-  const r = await accept("by-status", tree("without", renamed));
+test("R4: the rule check does not depend on what the function is called or where it lives", async () => {
+  // The same sum, written in the route's own service module under another name, filtering the
+  // orders by status and never calling ledgerLines.
+  const good = SOLUTIONS.revenue.good;
+  const viaLedger = "add(...ledgerLines(ctx).map((line) => line.amount))";
+  const renamed = good.map((op) => {
+    const text = (op.replace ?? op.content)?.replaceAll("revenueToDate", "takings").replace(viaLedger, "add(...allOrders(ctx.db).filter((order) => order.status === \"shipped\").map((order) => order.total))");
+    return op.content ? { ...op, content: text } : { ...op, replace: text };
+  });
+  assert.notDeepEqual(renamed, good);
+  const r = await accept("revenue", tree("without", renamed));
   assert.equal(r.pass, true, r.reason);
 });
 
@@ -263,16 +314,16 @@ test("R4: the rule check does not depend on what the service function is called"
 test("a harness fault is exit 2 and is never a failed task", async () => {
   const dir = tree("without");
   await assert.rejects(accept("no-such-task", dir), HarnessFault);
-  await assert.rejects(accept("discount", join(dir, "nowhere")), HarnessFault);
+  await assert.rejects(accept("unit-price", join(dir, "nowhere")), HarnessFault);
   const empty = mkdtempSync(join(tmpdir(), "cortex-harness-test-"));
   roots.push(empty);
-  await assert.rejects(accept("discount", empty), /not a built fixture/);
+  await assert.rejects(accept("unit-price", empty), /not a built fixture/);
 
   const unknown = command("no-such-task", dir);
   assert.equal(unknown.status, 2);
   assert.equal(unknown.result.pass, null);
   assert.match(unknown.result.reason, /^harness fault: /);
-  assert.equal(command("discount", join(dir, "nowhere")).status, 2);
+  assert.equal(command("unit-price", join(dir, "nowhere")).status, 2);
   const usage = spawnSync(process.execPath, [ACCEPT], { encoding: "utf8" });
   assert.equal(usage.status, 2);
   assert.match(usage.stderr, /usage: node evals\/harness\/accept\.mjs <task> <tree>/);
@@ -280,7 +331,7 @@ test("a harness fault is exit 2 and is never a failed task", async () => {
 
 test("a change that never returns is a failed task with its reason, not a hung run", async () => {
   const dir = tree("without", [edit("src/cart/pricing.js", "  const subtotal =", "  for (;;) {}\n  const subtotal =")]);
-  const r = await accept("discount", dir, { timeoutMs: 4000 });
+  const r = await accept("unit-price", dir, { timeoutMs: 4000 });
   assert.equal(r.pass, false);
   assert.match(r.reason, /timed out/);
 });
@@ -299,7 +350,7 @@ test("a tree whose source no longer loads fails the task; it is not a fault", as
   const dir = tree("without");
   mkdirSync(join(dir, "src"), { recursive: true });
   writeFileSync(join(dir, "src", "server.js"), "export const nothing = (;\n");
-  const r = await accept("discount", dir);
+  const r = await accept("unit-price", dir);
   assert.equal(r.pass, false);
   assert.equal(readFileSync(join(dir, "src", "server.js"), "utf8"), "export const nothing = (;\n");
 });

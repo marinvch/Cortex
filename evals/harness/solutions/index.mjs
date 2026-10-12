@@ -17,21 +17,21 @@
 
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import discountGood from "./discount/good.mjs";
-import discountNaive from "./discount/naive.mjs";
+import unitPriceGood from "./unit-price/good.mjs";
+import unitPriceNaive from "./unit-price/naive.mjs";
 import cancelGood from "./cancel/good.mjs";
 import cancelNaive from "./cancel/naive.mjs";
 import noteGood from "./note/good.mjs";
 import noteNaive from "./note/naive.mjs";
-import byStatusGood from "./by-status/good.mjs";
-import byStatusNaive from "./by-status/naive.mjs";
+import revenueGood from "./revenue/good.mjs";
+import revenueNaive from "./revenue/naive.mjs";
 import searchEmptyGood from "./search-empty/good.mjs";
 
 export const SOLUTIONS = {
-  discount: { good: discountGood, naive: discountNaive },
+  "unit-price": { good: unitPriceGood, naive: unitPriceNaive },
   cancel: { good: cancelGood, naive: cancelNaive },
   note: { good: noteGood, naive: noteNaive },
-  "by-status": { good: byStatusGood, naive: byStatusNaive },
+  revenue: { good: revenueGood, naive: revenueNaive },
   "search-empty": { good: searchEmptyGood },
 };
 

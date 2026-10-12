@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.58] — 2026-10-12
+
+Two long rituals account for what they opened before they finish.
+
+### Changed
+
+- **`/diagnosing-bugs` closes its hypothesis list.** After cleanup it marks each hypothesis from
+  Phase 3 confirmed, ruled out or not tested, and reports the list with the fix. One left not
+  tested that would change the fix is tested first, or reported as open: two causes can produce
+  one symptom, and a fix for the first leaves the second in place.
+- **`/analyze-spec` accounts for every question the brainstorm raised.** Before asking for
+  approval, each one is in the spec as a locked decision, under Not yet specified, or under Out of
+  scope, and any that is in none of the three is named.
+
 ## [2.41.57] — 2026-10-12
 
 One command lists the rules a repo's briefs state and the test files each rule names.
@@ -5243,6 +5257,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.58]: https://github.com/marinvch/Cortex/releases/tag/v2.41.58
 [2.41.57]: https://github.com/marinvch/Cortex/releases/tag/v2.41.57
 [2.41.56]: https://github.com/marinvch/Cortex/releases/tag/v2.41.56
 [2.41.55]: https://github.com/marinvch/Cortex/releases/tag/v2.41.55

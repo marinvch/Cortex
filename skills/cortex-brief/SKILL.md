@@ -71,6 +71,14 @@ these files rot: two copies drift and neither is trusted.
 Everything in a leaf must be **observed**, not assumed. Read the code. If you cannot name a real
 invariant, the area does not need a brief yet — say so and move on.
 
+**Head the two lists `## Invariants` and `## Gotchas`, one list item per rule.** Those are the
+headings the root template uses, and the ones `cortex-review.mjs --rules` reads.
+
+**When a test already fails if an invariant breaks, name that test file in the item.** Look for it
+before writing the item: a rule that names its test tells the next agent what to run, and one that
+names nothing rests on this sentence alone. Name only a test you opened and read. Never write one
+to have something to name, and never name one that merely sits in the same directory.
+
 ## 3. Wire the routing table
 
 The root `AGENTS.md` gets a table, and nothing else changes:
@@ -101,6 +109,18 @@ still fails on a file you wrote, report it with the output in step 4.
 
 List the files written and show the routing table you added. Suggest committing them together —
 a leaf without its routing row is invisible.
+
+Then say what the rules you wrote rest on. Re-index, and read the ledger:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-index.mjs" .
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" --rules --json
+```
+
+For the leaves written in this run, report how many rules name a test file, how many name other
+files only, and list the ones that name no test, each with its `doc:line`. Report it as it is. A
+gotcha states a limit no test could pin, so a rule in that list is not a defect and needs no fix
+here. It is the list the user reads to decide which invariant deserves a test next.
 
 ## Gotchas
 

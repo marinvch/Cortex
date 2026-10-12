@@ -166,7 +166,8 @@ test("the fixture is the size the spec gave it: small enough for a session, with
   assert.ok(count >= 26 && count <= 36, `${count} base files`);
   assert.ok(lines(base) >= 500 && lines(base) <= 900, `${lines(base)} base lines`);
   const layer = Object.fromEntries(CONTEXT_LAYER.map((rel) => [rel, fixtureFiles("with")[rel]]));
-  assert.ok(lines(layer) >= 120 && lines(layer) <= 260, `${lines(layer)} layer lines`);
+  // 260 until fixture v2, which added the stock clause and the two ledger terms: 267 lines.
+  assert.ok(lines(layer) >= 120 && lines(layer) <= 280, `${lines(layer)} layer lines`);
   assert.ok(lines({ a: layer["AGENTS.md"] }) <= 120, "the root brief stays short, as the template asks");
 });
 

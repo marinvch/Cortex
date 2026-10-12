@@ -218,18 +218,20 @@ repeats and the turn limit are constants in `harness/run.mjs`, and a result is n
   minus that list. Both are a git repo with one pinned commit, in a directory whose path does not
   name the arm.
 - **Four rules** are stated only in the layer, are followed by every line of the existing code, and
-  are enforced by no test in the shop's own suite: money goes through one rounding helper, an order
-  is never removed and each status change writes one audit entry, a stored shape changes only
-  through a new migration, and a route module imports services only.
+  are enforced by no test in the shop's own suite: a division of money rounds half to even, an
+  order is never removed and a cancelled one gives its stock back, a stored shape changes only
+  through a new migration, and revenue is what the ledger holds. Since fixture v2 the code's
+  evidence for each sits away from the file the task edits; the spec's *Fixture v2* section says
+  where, and why v1's did not discriminate.
 - **Five tasks** (`harness/tasks.mjs`), each sent as written to both arms. Four depend on one rule
   each. The fifth, `search-empty`, is the control: the layer says nothing that bears on it.
 
 | Task | Asks for | Rule it depends on |
 |---|---|---|
-| T1 `discount` | 10% off carts of 100.00 or more | R1 money |
+| T1 `unit-price` | an `averageUnitPrice` on a cart, which needs a division no helper does | R1 money |
 | T2 `cancel` | `DELETE /orders/:id` | R2 orders, reached through the root's routing table |
-| T3 `note` | a free-text note on orders, old ones included | R3 migrations |
-| T4 `by-status` | `GET /orders?status=` | R4 layering |
+| T3 `note` | a free-text note on orders; the prompt does not mention old ones | R3 migrations |
+| T4 `revenue` | `GET /reports/revenue` | R4 revenue, a glossary term |
 | T5 `search-empty` | fix a 500 on an empty catalog search | none (control) |
 
 - **One session** is one `claude -p` process in a fresh copy of one arm, with the prompt on stdin:
@@ -354,6 +356,21 @@ read from it, in either direction. `shop` v1 needs a second version with tasks t
 fail before another thirty sessions are worth spending. The with-arm used fewer turns and tokens on
 every rule task and the control did not differ; by the rule above that decides nothing, and it is
 written here only so the next fixture's author has seen it.
+
+**What the second run showed, on `shop` v2 (2026-10-12, 30 sessions): supported, at this size.**
+The with-arm passed 11 of 12 rule-task sessions and the without-arm 7 of 12, a lead of 4 carried by
+two tasks. Read it with its limits:
+
+- The lead is `note` (2 of 3 against 0 of 3) and `revenue` (3 of 3 against 1 of 3). `unit-price` and
+  `cancel` passed in every session of both arms, so half the rule tasks still do not discriminate.
+- The with-arm failed `note` once: the layer was there and the session still wrote no migration.
+- "Supported" means worth the next thirty sessions. It claims no significance: three repeats of
+  four tasks on one small repo is one repo's worth of evidence.
+- v2 was built so that the code beside the edit does not show the rule. That is the case the layer
+  is for, and it is not every task in every repo. A sentence that cites this run says so.
+- The control did not differ, and turns and cost did not favour either arm this time.
+
+The next step the reading names is more repeats of these five tasks, before a second fixture.
 
 ### Changing the harness
 

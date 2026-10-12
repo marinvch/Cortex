@@ -3,7 +3,8 @@
 // after templates/target-AGENTS.md, the one-line shims, a glossary, three ADRs and two scoped
 // briefs. No hook, verifier, REVIEW.md or team file is part of it (the spec's M2).
 //
-// Each of the four rules is stated in these files and nowhere in the base tree. The words the leak
+// Each of the four rules is stated in these files and nowhere in the base tree. ADR 0003 and the
+// layering line in the root brief are still here as documents; since fixture v2 no task tests them. The words the leak
 // check looks for are listed beside each rule in ../fixture.mjs.
 //
 // A change to any string here changes the measured repo: raise FIXTURE_VERSION in ../fixture.mjs.
@@ -30,7 +31,7 @@ to install.
 | \`src/server.js\` | \`createApp({ db, clock })\` and the route table |
 | \`src/routes/\` | one module per resource: request in, service call, response out |
 | \`src/cart/\` | carts and their totals |
-| \`src/orders/\` | the order lifecycle, its audit log, tax |
+| \`src/orders/\` | the order lifecycle, its audit log, tax, the ledger |
 | \`src/catalog/\` | products and stock |
 | \`src/money/\` | the only place amounts are divided or rounded |
 | \`src/store/\` | the store and its migrations |
@@ -59,6 +60,9 @@ Things that must stay true. No test in \`test/\` enforces any of them.
 - **Routes call services.** A module under \`src/routes/\` imports services only. It never imports
   from \`src/store/\` or a \`repository.js\`, even for a read.
   [ADR 0003](docs/adr/0003-routes-call-services.md).
+- **Revenue is recognised when an order ships.** Any figure called revenue is the sum of the
+  ledger's amounts (\`ledgerLines\` in \`src/orders/ledger.js\`). An order that is placed, or paid
+  and not yet shipped, is not revenue: the money may still go back. \`CONTEXT.md\` has the terms.
 - **The stored shape of a table changes only through a new numbered migration.** Migrations are
   append-only. [ADR 0002](docs/adr/0002-migrations-are-append-only.md), and
   [\`src/store/AGENTS.md\`](src/store/AGENTS.md) before touching the store.
@@ -112,7 +116,11 @@ Terms mean what this file says they mean. Decisions and their reasons are in \`d
   the shopper has gone.
 - **status** — where an order is: \`placed\`, then \`paid\`, then \`shipped\`.
 - **cancelled** — a status, not an absence. A cancelled order is still in the store. An order is
-  never removed, because a refund and the monthly export both need to find it.
+  never removed, because a refund and the monthly export both need to find it. A cancelled order
+  gives back the stock it reserved.
+- **ledger** — one line per order that has shipped, with its total. It is what finance reads.
+- **revenue** — the sum of the ledger's amounts. Revenue is recognised when an order ships, so an
+  order that is placed or paid and has not shipped is not revenue yet.
 - **audit entry** — one row saying that one order changed status, and when. Every status change
   appends exactly one audit entry. The audit log is what refunds and the monthly export read.
 - **migration** — a numbered file under \`src/store/migrations/\` that changes the stored shape of a
@@ -234,14 +242,19 @@ reads and writes order rows and knows no rules. \`audit.js\` records what happen
 - **Every status change appends exactly one audit entry**, in the service function that makes the
   change, with the order's id. Not zero and not two. \`payOrder\` and \`shipOrder\` are the pattern:
   save the new status, then \`recordAudit\`.
-- **A change that is refused writes nothing.** Check the status first and throw; neither the order
-  nor the audit log changes.
+- **An order that ends before it ships gives back the stock it reserved.** \`placeOrder\` calls
+  \`reserve\` for every line; ending the order calls \`release\` (\`src/catalog/stock.js\`) for every
+  line, once. Stock that is never given back is sold out on the site and sitting in the warehouse.
+- **A change that is refused writes nothing.** Check the status first and throw; neither the order,
+  the stock nor the audit log changes.
 
 ## Gotchas
 
 - Refunds and the monthly export read the audit log, not the order's status. An order whose status
   changed with no audit entry is invisible to both.
 - Amounts on an order are fixed when it is placed. The root brief has the rule for computing them.
+- \`ledger.js\` lists shipped orders only. Revenue is recognised at shipping, so a report of revenue
+  sums the ledger and never the orders table.
 
 ## Checks
 

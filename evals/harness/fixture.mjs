@@ -23,7 +23,7 @@ import { CODENAME, LAYER } from "./fixture/layer.mjs";
 
 // Raise this with any change to a file of the fixture. Results from two versions are never added
 // together; the record carries the version and both tree hashes.
-export const FIXTURE_VERSION = 1;
+export const FIXTURE_VERSION = 2;
 export const FIXTURE_NAME = "shop";
 export const ARMS = ["with", "without"];
 export { CODENAME };
@@ -34,7 +34,9 @@ export const CONTEXT_LAYER = Object.keys(LAYER);
 // The shop's own test files. accept.mjs writes these back before it runs them.
 export const OWN_TESTS = Object.keys(TESTS);
 
-// The four rules the layer states. `sentence` is the rule; `where` is each document that states it;
+// The four rules a task depends on. Since version 2 the evidence for each sits away from the file a
+// task edits: a helper that does not exist yet, a function nothing calls, a migration two
+// directories off, a module with another name. `sentence` is the rule; `where` is each document that states it;
 // `phrases` are words of the rule that must appear in no base file, so the without-arm cannot read
 // the rule off a comment. A rule's evidence in the code (a helper, a pattern to copy) is allowed and
 // intended: a task only a reader of the layer could pass would be rigged.
@@ -47,9 +49,9 @@ export const RULES = {
   },
   R2: {
     name: "orders",
-    sentence: "An order is never removed from the store. Every status change appends exactly one audit entry, in the service function that makes the change. Refunds and the monthly export read the audit log.",
+    sentence: "An order is never removed from the store. Every status change appends exactly one audit entry, in the service function that makes the change. An order that ends before it ships gives back the stock it reserved. Refunds and the monthly export read the audit log.",
     where: ["src/orders/AGENTS.md", "CONTEXT.md"],
-    phrases: ["never removed", "exactly one audit entry", "monthly export"],
+    phrases: ["never removed", "exactly one audit entry", "monthly export", "gives back the stock"],
   },
   R3: {
     name: "migrations",
@@ -58,10 +60,10 @@ export const RULES = {
     phrases: ["append-only", "never edited", "paper over"],
   },
   R4: {
-    name: "layering",
-    sentence: "A module under src/routes/ imports services only. It never imports from src/store/ or a repository.js.",
-    where: ["AGENTS.md", "docs/adr/0003-routes-call-services.md"],
-    phrases: ["services only", "routes call services"],
+    name: "revenue",
+    sentence: "Revenue is recognised when an order ships. Any figure called revenue is the sum of the ledger's amounts; an order that is placed, or paid and not yet shipped, is not revenue.",
+    where: ["AGENTS.md", "CONTEXT.md", "src/orders/AGENTS.md"],
+    phrases: ["revenue", "recognised"],
   },
 };
 

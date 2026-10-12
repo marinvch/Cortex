@@ -19,7 +19,7 @@ import { execFile } from "node:child_process";
 import { platform } from "node:process";
 import { buildView } from "./lib/view.mjs";
 import { renderHtml } from "./lib/view-html.mjs";
-import { nextSteps, nextLine } from "./lib/next.mjs";
+import { nextSteps, nextLineOf } from "./lib/next.mjs";
 import { readEnrichment } from "./lib/enrich.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
 import { generatedNotice, openTarget, indexFreshness } from "./lib/open.mjs";
@@ -115,7 +115,9 @@ if (enrich.state === "absent") {
   process.stderr.write(enrich.note);
 }
 console.log("");
-console.log(nextLine(root, index));
+// The same sequence the page carries. Its one override, the view step, is optional and so never the
+// next command: the line is what a fresh read would give.
+console.log(nextLineOf(seq));
 
 if (wantOpen) {
   const [cmd, argv] =

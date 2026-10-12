@@ -13,7 +13,7 @@
 // sequence is a fact about the filesystem, and asking a model to re-derive it every session is how
 // a user gets a different answer each time.
 
-import { nextSteps, nextLine } from "./lib/next.mjs";
+import { nextSteps, nextLineOf } from "./lib/next.mjs";
 import { openTarget } from "./lib/open.mjs";
 
 // `index: "optional"` — this command's whole job is answering on a repo where nothing has been run
@@ -36,7 +36,7 @@ if (args.json) {
   process.exit(0);
 }
 if (args.line) {
-  console.log(nextLine(root, index));
+  console.log(nextLineOf(plan));
   process.exit(0);
 }
 
@@ -65,4 +65,4 @@ for (const s of plan.steps) {
 console.log(b("Per change — not a sequence, a lookup"));
 for (const p of plan.perChange) console.log(`  ${p.when.padEnd(34)} ${cyan(p.cmd)}`);
 console.log("");
-console.log(nextLine(root, index));
+console.log(nextLineOf(plan));

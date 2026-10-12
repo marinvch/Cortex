@@ -10,6 +10,9 @@ this project now versions independently of any package manager (see `VERSION`).
 - The stamp status and `/cortex-next` read the stamp record through one function (`stampReport` in
   `index/lib/stamps.mjs`). They assembled the same facts separately. What either prints is
   unchanged.
+- `cortex-next`, `cortex-view` and `cortex-loop` read the repo once per run. Each read it a second
+  time to print its last line. The findings report reads only the context layer, where it read the
+  whole state for four facts. What each prints is unchanged; they run 10 to 25% faster.
 
 ## [2.44.0] — 2026-10-12
 

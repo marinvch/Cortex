@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 import { fileURLToPath } from "node:url";
-import { LEGACY_ENGINES, readState, nextSteps, nextLine } from "../lib/next.mjs";
+import { LEGACY_ENGINES, contextLayer, readState, nextSteps, nextLine, nextLineOf } from "../lib/next.mjs";
 import { adoptStamp, recordStamp, runningCortex, writeStamps } from "../lib/stamps.mjs";
 import { SHIPPED_SECTIONS } from "../lib/shipped-sections.mjs";
 import { sectionKeep } from "../lib/sections.mjs";
@@ -709,4 +709,57 @@ test("a record the repo's own .gitignore hides is read as ignored, from git and 
   assert.equal(ignored.source, ".gitignore");
   assert.equal(ignored.line, 1);
   rmSync(root, { recursive: true, force: true });
+});
+
+// --- one read per command ------------------------------------------------------------------------
+
+test("nextLineOf gives the line from a sequence already read, and reads nothing itself", () => {
+  const root = repo(({ put }) => put("src/app.ts"));
+  const seq = nextSteps(root);
+  assert.equal(nextLineOf(seq), nextLine(root));
+  assert.equal(nextLineOf(seq), "Next → " + seq.next.cmd + "   (" + seq.next.title.toLowerCase() + ")");
+  assert.match(nextLineOf({ next: null }), /^Next → sequence complete\./);
+  assert.equal(nextLineOf({ next: { cmd: "/x", title: "Do The Thing" } }), "Next → /x   (do the thing)");
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("contextLayer is the same six facts readState holds, without the rest of the state", () => {
+  const root = repo(({ put }) => {
+    put("AGENTS.md", "# brief");
+    put(".cursorrules", "rules");
+    put("docs/adr/0001-first.md", "# 1");
+  });
+  const layer = contextLayer(root);
+  assert.deepEqual(Object.keys(layer).sort(), ["adrDir", "adrWhy", "adrs", "glossary", "priorDocs", "rootBrief"]);
+  assert.equal(layer.rootBrief, true);
+  assert.equal(layer.glossary, false);
+  assert.deepEqual(layer.adrs, ["0001-first.md"]);
+  assert.equal(layer.adrDir, "docs/adr");
+  assert.ok(layer.priorDocs.includes(".cursorrules"));
+  const state = readState(root);
+  for (const k of Object.keys(layer)) assert.deepEqual(state[k], layer[k], `readState and contextLayer disagree on ${k}`);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("the state's keys keep their order, because the state is printed as JSON", () => {
+  const root = repo(({ put }) => put("src/app.ts"));
+  const keys = Object.keys(readState(root));
+  const at = (k) => keys.indexOf(k);
+  assert.deepEqual(keys.slice(0, 6), ["root", "legacyEngine", "indexed", "findings", "view", "enriched"]);
+  assert.ok(at("rootBrief") < at("glossary") && at("glossary") < at("adrs") && at("adrWhy") < at("briefs"));
+  assert.ok(at("memoryLatest") < at("priorDocs") && at("priorDocs") < at("standaloneDocs"));
+  rmSync(root, { recursive: true, force: true });
+});
+
+test("a command that holds its plan prints the last line from it, and findings reads only the context layer", () => {
+  const src = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+  for (const cli of ["../cortex-next.mjs", "../cortex-view.mjs"]) {
+    assert.doesNotMatch(src(cli), /\bnextLine\(/, `${cli} reads the repo again for its last line`);
+    assert.match(src(cli), /\bnextLineOf\(/);
+  }
+  assert.doesNotMatch(src("../lib/findings.mjs"), /\breadState\(/, "findings.mjs reads the whole state for the context layer");
+  // cortex-loop reads again only when the plan holds answers that are not on disk.
+  const loop = src("../cortex-loop.mjs");
+  assert.equal((loop.match(/\bloopLine\(/g) ?? []).length, 1, "cortex-loop has one reading call, behind lastLine");
+  assert.match(loop, /asOnDisk \? loopLineOf\(plan\) : loopLine\(root, index\)/);
 });

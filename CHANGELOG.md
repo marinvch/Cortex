@@ -5,6 +5,12 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Changed
+
+- The stamp status and `/cortex-next` read the stamp record through one function (`stampReport` in
+  `index/lib/stamps.mjs`). They assembled the same facts separately. What either prints is
+  unchanged.
+
 ## [2.44.0] — 2026-10-12
 
 Stamping a file is one command. It was two, with the path, the template and the values carried

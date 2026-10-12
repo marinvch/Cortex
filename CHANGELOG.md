@@ -5,6 +5,20 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.43.1] — 2026-10-12
+
+### Fixed
+
+- **On a `home` profile, `ai-os team add` no longer joins a project it has to withhold.** When a
+  teammate's `projects/<slug>.md` held an employer-shaped link, the command printed "withheld on
+  this profile" and wrote the connector anyway. It now refuses: the file is left as it is and no
+  connector is written. The same join works on a `work` install.
+
+### Changed
+
+- ADR 0008 records that the maintainer confirmed the three choices made for `CORTEX_ROOT` in
+  2.41.x: the new name wins, `AI_OS_ROOT` is not deprecated, and the `ai-os` command keeps its name.
+
 ## [2.43.0] — 2026-10-12
 
 The agent team's debate limit is a setting. It was fixed at two rounds.
@@ -5343,6 +5357,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.43.1]: https://github.com/marinvch/Cortex/releases/tag/v2.43.1
 [2.43.0]: https://github.com/marinvch/Cortex/releases/tag/v2.43.0
 [2.42.0]: https://github.com/marinvch/Cortex/releases/tag/v2.42.0
 [2.41.60]: https://github.com/marinvch/Cortex/releases/tag/v2.41.60

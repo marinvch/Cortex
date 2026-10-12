@@ -67,9 +67,9 @@ Build a MOC note in `notes/` whenever a topic grows past ~7 related notes. Link 
 | Each morning | `/daily` | Opens today's note, surfaces priorities + due items |
 | Anytime | `/capture` | One-line drop to inbox |
 | Weekly | `/weekly-review` | Empties inbox, updates projects, archives stale |
-| Weekly | `/audit` | Health score of the four vault layers |
+| Weekly | `/cortex-audit score` | Health score of the four vault layers |
 | Biweekly | `/level-up` | Find one piece of leverage, ship one artifact |
-| Per repo | `/install-project` | Give a specific codebase its own brain + dev-cycle skills |
+| Per repo | `/cortex` | Give a specific codebase its own context layer and skills |
 | Once | `/onboard` | Teaches the brain who you are |
 
 ## 📚 How this brain thinks

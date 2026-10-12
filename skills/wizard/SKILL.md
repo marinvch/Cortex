@@ -1,6 +1,7 @@
 ---
 name: wizard
-description: Generate a script that walks a human through steps only they can do — credentials, CI secrets, a third-party dashboard, a one-off cutover. Triggers — "walk me through", "I need to do this by hand", "make a setup script".
+description: Generate a script that walks a human through steps only they can do — credentials, CI secrets, a third-party dashboard, a one-off cutover.
+disable-model-invocation: true
 metadata:
   capability: judgment
 ---

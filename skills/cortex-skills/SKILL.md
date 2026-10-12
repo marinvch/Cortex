@@ -123,6 +123,14 @@ List the skills written as paths, and say they are committed with the repo so th
 them. Then offer the natural next step: `/cortex-brief` for any area whose skill turned out to need
 more depth than a skill body should hold.
 
+## The two dev-cycle skills
+
+`/plan-feature` and `/investigate-bug` fit any stack, so no row in the index proposes them. Offer
+them once, after the stack-fit proposals, to a repo that has neither. On a yes, write them
+verbatim from [DEV-CYCLE.md](DEV-CYCLE.md), which also holds `docs/decisions.md`. `/analyze-spec`
+names `/plan-feature` as its lightweight path, so a repo without it has only the heavy one.
+`/install-project` wrote these until 2.42.0; `bash tools/cortex-init.sh` still does, with no Node.
+
 ## Refreshing a skill that drifted
 
 Step 1's output ends with the skills already here that the repo now contradicts, one line per

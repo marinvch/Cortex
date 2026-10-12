@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.41.60** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
+**v2.42.0** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
@@ -382,10 +382,10 @@ This is the part that makes any AI coding agent faster and safer on a specific c
 
 - **Deep (recommended), AI-driven** — in Claude Code / Cowork, run:
   ```
-  /install-project
+  /cortex
   ```
-  It reads the actual code and writes a real `AGENTS.md` (stack, architecture, conventions,
-  gotchas) + agent shims + `/plan-feature` and `/investigate-bug` skills.
+  It indexes the code, asks once, and writes a real `AGENTS.md` (stack, architecture, conventions,
+  gotchas), the agent shims and the rest of the loop. `/cortex-skills` adds skills that fit the stack.
 
 - **Fast, deterministic** — from a terminal inside the repo:
   ```bash
@@ -433,7 +433,7 @@ or refreshes a skill that changed. `--check` reports the drift without writing.
 | `/capture` | anytime | One-line drop to the inbox |
 | `/daily` | each morning | Today's note + priorities + due items |
 
-**That is 6 of 45.** The complete table — every ritual, when to run it, and the notes on which
+**That is 6 of 40.** The complete table — every ritual, when to run it, and the notes on which
 pairs are *not* interchangeable — lives in [`AGENTS.md`](AGENTS.md#the-rituals) and is the single
 source of truth. This README used to carry a second table of 20 rows that read as the list. Ten
 skills were missing from it and nothing caught that, because a partial copy and a complete one look
@@ -521,8 +521,8 @@ tickets, colleagues, or internal architecture. Even role-level detail counts ("f
 telecom provider"): the aggregate is the leak. A `work` vault is the same rule from the other side.
 
 Work knowledge a team shares belongs in the **work repo's own context layer**, which stays inside that
-repo. Every ritual enforces this: `/capture` and `/daily` refuse the write, `/audit` and
-`/cortex-audit` treat a breach as a critical finding, `/scan-projects` skips repos under a work
+repo. Every ritual enforces this: `/capture` and `/daily` refuse the write, `/cortex-audit`
+treats a breach as a critical finding, `/scan-projects` skips repos under a work
 directory.
 
 Full rule: [`templates/vault-AGENTS.md`](templates/vault-AGENTS.md) — the manual a vault carries as
@@ -532,7 +532,7 @@ its own `AGENTS.md`.
 
 `.cortexignore` is the single source of truth for what *isn't* knowledge (scaffolding, backups,
 generated views, skills). Every generator reads it (via `tools/_cortex-lib.sh`), so the graph stays
-clean and there's no per-script drift. `/audit` flags anything noisy that creeps in.
+clean and there's no per-script drift. `/cortex-audit score` flags anything noisy that creeps in.
 
 ## Tools (`tools/`)
 

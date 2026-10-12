@@ -1,11 +1,4 @@
----
-name: audit
-description: Read-only health score for a personal vault — four layers out of 25 each, and the top gaps to close. Triggers — "audit my vault", "is my brain healthy", "score my setup".
-metadata:
-  capability: judgment
----
-
-# /audit — four-layer health report
+# `/cortex-audit score` — four-layer health report
 
 Read-only. Score the vault against [[vault-architecture]]. **Never modify files** except the
 optional saved report at the end. Be honest, not generous — most real setups land 40-70.
@@ -81,4 +74,4 @@ Suggested next: {single most leveraged action}
 
 ## Step 5
 Offer to save to `archives/audits/audit-{date}.md` so the score can be tracked over time. That's
-the only write. To explore what the vault could *do* that it can't yet, point them to `/level-up`.
+the only write. To explore what the vault could *do* that it can't yet, point them to `/level-up` (typed by the user).

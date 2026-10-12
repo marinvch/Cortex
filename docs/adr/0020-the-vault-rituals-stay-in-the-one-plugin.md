@@ -1,7 +1,7 @@
 # 0020. The vault rituals stay in the one plugin
 
 **Date:** 2026-09-30
-**Status:** accepted
+**Status:** accepted. Amended by [ADR 0025](0025-the-collection-is-sized-by-use.md): five of the nine vault rituals are now typed only, and `/audit` and `/reindex` are modes of `/cortex-audit`.
 
 ## Context
 

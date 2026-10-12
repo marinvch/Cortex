@@ -37,7 +37,7 @@ Deliberate repetition of a safety control is not redundancy. Before cutting a re
 what breaks if only one copy survives. Rules 1–4 never override this one.
 
 ## Applying it
-`/optimize-context` audits a repo against these rules. `/skill-creator` follows them when writing a
+`/optimize-context` audits a repo against these rules. `/writing-for-agents` follows them when writing a
 new ritual. `/cortex-brief` is Rule 2 for directories.
 
 Related: [[vault-architecture]] · [[nested-briefs]] · [[operating-principles]]

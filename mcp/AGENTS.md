@@ -221,7 +221,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   plugin's `installed` `null`: do not turn that into `false`, which reads as "offer it". The
   findings offer a tier from the index alone, because the index may not read the machine
   ([`index/AGENTS.md`](../index/AGENTS.md)); this is the machine's half, and
-  `/cortex-install` and `/setup-plugins` ask it before they offer one.
+  `/cortex-install` and `/connect-brain` ask it before they offer one.
 - **`mcp/` never imports from `index/`.**
 
 ## Gotchas

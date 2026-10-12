@@ -29,7 +29,7 @@ Never write any of this into the Cortex repository itself; the vault is a separa
   volunteered — point them to the work-machine vault or the work repo's own `AGENTS.md` instead.
   In step 2, ask only about their **own** projects.
 - **Work machine** → keep it to *this employer's* work. No personal side projects, and never paste
-  company code into the vault (it belongs in the repo's `AGENTS.md` via `/install-project`).
+  company code into the vault (it belongs in the repo's `AGENTS.md` via `/cortex`).
 
 ## Steps
 
@@ -56,7 +56,7 @@ Never write any of this into the Cortex repository itself; the vault is a separa
 ```
 ✓ Your brain knows who you are, what matters this quarter, and how you sound.
 Today: ask me — "what should I focus on this week?"
-Then: /daily each morning, /weekly-review on Fridays, /audit weekly.
+Then: /daily each morning, /weekly-review on Fridays, /cortex-audit score weekly.
 ```
 
 When they ask the focus question, answer using ONLY the new context files: 3 bullets in their

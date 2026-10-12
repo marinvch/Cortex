@@ -313,7 +313,7 @@ fi
 # ── 8. done ───────────────────────────────────────────────────────────────────
 say ""; say "  ✅ Done. This repo now has a brain."
 say "  For a deep, AI-driven pass that fills Architecture/Conventions/Gotchas from the"
-say "  actual code, open this repo in Claude Code and run /install-project."
+say "  actual code, open this repo in Claude Code and run /cortex."
   say "  For critical parts (auth, billing, a pipeline), run /cortex-brief to give them a deep brief."
 if [ $PLUGIN_STAMPED -eq 1 ]; then
   say "  Stamped the Core plugin bundle into .claude/settings.json (superpowers, skill-creator,"

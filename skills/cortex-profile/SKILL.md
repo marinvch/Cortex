@@ -61,7 +61,7 @@ Do not just set it. Say what changes, because a profile decides what Cortex will
 
 - **home** — the firewall in the vault's `AGENTS.md` (`templates/vault-AGENTS.md`). Day-job material is refused and named, never sanitised and
   filed anyway. If they want work knowledge kept, it goes in a work install or the work repo's own
-  `AGENTS.md` via `/install-project`.
+  `AGENTS.md` via `/cortex`.
 - **work** — the same rule read from the other side. Employer material is expected; personal notes
   are what gets refused. The two installs never sync, so a private note filed into a work brain is
   the mirror of the leak `home` guards against.

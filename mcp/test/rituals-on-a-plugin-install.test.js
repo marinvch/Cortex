@@ -89,7 +89,7 @@ function run(f, argv, { cwd = f.cwd, env = {} } = {}) {
 // The prose
 // ---------------------------------------------------------------------------------------------
 
-for (const skill of ["setup-plugins", "cortex-install", "catch-me-up", "team-add", "team-init"]) {
+for (const skill of ["connect-brain", "cortex-install", "catch-me-up", "team-add", "team-init"]) {
   test(`/${skill} reaches ai-os.js through the plugin root, never a vault path`, () => {
     const { text, found } = commandsIn(skill);
     assert.ok(found.length > 0, `${skill} names no ai-os.js command`);
@@ -217,7 +217,7 @@ test("catch-up writes nothing to the repo it reads", () => {
   assert.equal(status(), before);
 });
 
-test("/setup-plugins' command runs on a plugin install with no root set", () => {
+test("/connect-brain's bundle command runs on a plugin install with no root set", () => {
   // A `claude` stub that fails `--version` sits first on PATH, so the command takes its degrade
   // path and prints the install commands — a test must never actually install plugins.
   const f = fixture();
@@ -228,7 +228,7 @@ test("/setup-plugins' command runs on a plugin install with no root set", () => 
   const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
   const env = { [pathKey]: [bin, dirname(process.execPath)].join(WIN ? ";" : ":") };
 
-  const [line] = commandsIn("setup-plugins").found;
+  const [line] = commandsIn("connect-brain").found;
   const r = run(f, argvOf(line, f.pluginRoot), { env });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /claude plugin install superpowers@/);
@@ -280,7 +280,7 @@ function claudeThatTells(f) {
   return { told, env: { [pathKey]: [bin, dirname(process.execPath)].join(WIN ? ";" : ":") } };
 }
 
-for (const skill of ["cortex-install", "setup-plugins"]) {
+for (const skill of ["cortex-install", "connect-brain"]) {
   test(`/${skill}'s status command says which tiers are installed, starts no claude and writes nothing`, () => {
     const f = fixture();
     registryIn(f, {

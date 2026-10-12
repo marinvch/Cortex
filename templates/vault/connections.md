@@ -10,7 +10,7 @@ tags: [reference, connections]
 # 🔌 Connections
 
 Every system the vault can reach. The brain is only as useful as the data it can pull.
-Filled during `/onboard`, grown whenever you wire a new tool. `/audit` checks coverage + freshness.
+Filled during `/onboard`, grown whenever you wire a new tool. `/cortex-audit score` checks coverage + freshness.
 
 > **Firewall:** never wire an employer or client system into this personal vault — no work
 > calendar, work mail, or company drive. See the firewall in the vault's `AGENTS.md`.

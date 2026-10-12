@@ -2,12 +2,14 @@
   "reach": [
     "my vault has orphan notes and broken links, find and fix them",
     "run the full structural health check on the vault",
-    "there are duplicate and misplaced files in my notes, clean it up"
+    "there are duplicate and misplaced files in my notes, clean it up",
+    "give me a health score for my vault",
+    "rebuild the vault's navigator graph and tell me what needs a MOC"
   ],
   "elsewhere": [
     {
-      "prompt": "give me a health score for my vault",
-      "owner": "audit"
+      "prompt": "audit and slim the AGENTS.md in this repo",
+      "owner": "optimize-context"
     }
   ]
 }

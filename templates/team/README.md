@@ -14,7 +14,8 @@ offered and fills every value below it can detect; `cortex-loop.mjs . --team <ro
 | `playbook.md` | appended to `CLAUDE.md` |
 | `team-skill.md` | `.claude/skills/team/SKILL.md` |
 
-Render with `node index/cortex-stamps.mjs render team/<file> --values-file <json>`. A value
+Stamp a whole file with `node index/cortex-stamps.mjs stamp <repo> <lands at> team/<file> --values-file <json>`;
+`render team/playbook.md --values-file <json>` prints the block that is appended. A value
 `/cortex` did not detect is a question for the user, never a guess.
 `index/test/team-templates.test.mjs` fails when a template uses a placeholder this table does
 not list, or the table lists one that no template uses.

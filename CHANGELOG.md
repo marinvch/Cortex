@@ -5,6 +5,29 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.44.0] — 2026-10-12
+
+Stamping a file is one command. It was two, with the path, the template and the values carried
+between them by hand.
+
+### Added
+
+- **`cortex-stamps.mjs stamp <repo> <path> <template>`** renders the template, writes the file and
+  records it in `.cortex/stamps.json`, as one act. `/cortex` uses it for every whole file it
+  stamps, the agent team's included.
+- **It refuses to write over a file it did not record, or one edited since it was stamped.** It
+  exits 3 and writes nothing. `--force` writes over it once the developer has agreed. "Never
+  clobber a curated file" was an instruction in the ritual and is now kept by the command.
+
+### Changed
+
+- `/cortex` no longer redirects `render` into a file, so a shell cannot change the file's
+  encoding on the way. `render` stays for a block appended to a shared file.
+- `record` is now only for a file a formatter rewrote after it was stamped, or one settled by
+  hand.
+- `update` writes through the same function as `stamp` (`applyUpdates` in
+  `index/lib/stamps.mjs`). Its behaviour is unchanged.
+
 ## [2.43.1] — 2026-10-12
 
 ### Fixed
@@ -5357,6 +5380,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.44.0]: https://github.com/marinvch/Cortex/releases/tag/v2.44.0
 [2.43.1]: https://github.com/marinvch/Cortex/releases/tag/v2.43.1
 [2.43.0]: https://github.com/marinvch/Cortex/releases/tag/v2.43.0
 [2.42.0]: https://github.com/marinvch/Cortex/releases/tag/v2.42.0

@@ -27,7 +27,7 @@ import {
 import { RefusedWriteError, assertWritable } from "../../core/scrub.js";
 import { commitPath, originUrl, pull, pushHead, teamCloneDir } from "./gitsync.js";
 import { slugify } from "./slug.js";
-import { cloneTeamBrain } from "./team.js";
+import { cloneTeamBrain, writeConnector } from "./team.js";
 import { openVault } from "./vault.js";
 
 /** A project-file operation that was declined, with a `code` a caller can branch on. */
@@ -284,4 +284,45 @@ export function removeProject(root, { team, project, policy }) {
       connector: `.cortex/connector.json in the product repo still names project '${project}'; edit or delete it there`,
     },
   };
+}
+
+// --- the two decisions the CLI held ---------------------------------------------------------------
+
+/**
+ * Validate a team's project files and count what is wrong. One row per project, in listing order:
+ *
+ *   state `unregistered`  a notes folder with no project file: reported, never a problem
+ *   state `withheld`      a file this profile refuses: one problem, whatever it holds
+ *   state `invalid`       one problem per error; warnings are listed and never counted
+ *   state `ok`
+ *
+ * `problems` is what makes `ai-os project check` exit 1. The CLI prints the rows; the count is
+ * decided here so it can be tested without starting a process.
+ */
+export function checkProjects(root, { team, policy }) {
+  const { projects, skipped } = listTeamProjects(root, { team, policy });
+  let problems = 0;
+  const rows = projects.map((p) => {
+    if (p.unregistered) return { slug: p.slug, state: "unregistered", errors: [], warnings: [] };
+    if (p.withheld) {
+      problems++;
+      return { slug: p.slug, state: "withheld", withheld: p.withheld, errors: [], warnings: [] };
+    }
+    problems += p.errors.length;
+    return { slug: p.slug, state: p.errors.length ? "invalid" : "ok", errors: p.errors, warnings: p.warnings };
+  });
+  return { rows, listed: projects.length, skipped, problems };
+}
+
+/**
+ * Join a repo to a team-brain: the project file first, the connector last. A refusal throws out of
+ * `addProject` (an invalid field, an employer-shaped link on a profile that refuses it, a
+ * credential), so a repo that may not be registered is not half-joined either: no connector is
+ * written for a join that did not happen. Returns `addProject`'s result with `connector`, the path
+ * written.
+ */
+export function joinProject(root, { team, teamRepo, project, cwd, today, policy, fields = {} }) {
+  const added = addProject(root, { team, teamRepo, project, cwd, today, policy, fields });
+  const connector = writeConnector(cwd, { team, project, teamBrainRepo: teamRepo });
+  return { ...added, connector };
 }

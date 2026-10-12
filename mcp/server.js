@@ -3,7 +3,7 @@ import { serve } from "./lib/stdio.js";
 import { recall } from "./lib/recall.js";
 import { listProjects, getProjectContext } from "./lib/projects.js";
 import { capture } from "./lib/capture.js";
-import { catchMeUp } from "./lib/catchup.js";
+import { catchMeUp, catchUpTeam } from "./lib/catchup.js";
 import { genNoteId } from "./lib/noteid.js";
 import { VERSION } from "./lib/version.js";
 import { append as rememberNote, recent as recentMemory } from "../core/memory.js";
@@ -94,7 +94,7 @@ async function callTool(name, args) {
       if (team && !args.project && brain.project) cargs.project = brain.project;
       return capture(root, cargs);
     }
-    case "catch_me_up": return catchMeUp(root, { ...args, team: args.team ?? brain.team ?? undefined });
+    case "catch_me_up": return catchMeUp(root, { ...args, team: catchUpTeam(args.team, brain) });
     // assertAvailable already rejected anything the table does not name, so reaching here means a
     // tool was declared in lib/tools.js and never wired up.
     default: throw new Error(`tool declared but not implemented: ${name}`);

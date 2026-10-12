@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  PLUGIN_UPDATE_COMMANDS, STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice, olderPlugin, planUpdates, readStamps, recordStamp, runningCortex, stampDiff, stampStatus, stampsIgnoreRule, writeStamps, VALUE_DEFAULTS,
+  PLUGIN_UPDATE_COMMANDS, STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice, olderPlugin, planUpdates, readStamps, recordStamp, runningCortex, stampDiff, stampStatus, stampsIgnoreRule, writeStamps, VALUE_DEFAULTS, StampRefused, applyUpdates, stampFile,
 } from "../lib/stamps.mjs";
 import { LOOP_STAMPS } from "../lib/loop.mjs";
 import { lineDiff } from "../lib/linediff.mjs";
@@ -705,4 +705,92 @@ test("a recorded setting outranks its default, and a setting does not excuse ano
   assert.deepEqual(plan.updates, []);
   assert.match(plan.refused[0].why, /adds \{\{OWNER\}\}, which/);
   assert.doesNotMatch(plan.refused[0].why, /DEBATE_ROUNDS/);
+});
+
+// --- the stamp act: render, write and record as one call ----------------------------------------------
+
+const act = (w, extra = {}) => stampFile({ repoRoot: w.repoRoot, templatesDir: w.templatesDir, path: "REVIEW.md", template: "loop/REVIEW.md", values: { NIT_CAP: "3" }, version: RUNNING, ...extra });
+const onDisk = (w, rel = "REVIEW.md") => readFileSync(join(w.repoRoot, ...rel.split("/")), "utf8");
+
+test("stampFile writes the render and records it, so the file is current from the first read", () => {
+  const w = world({ templates: { "loop/REVIEW.md": TPL } });
+  const done = act(w);
+  assert.equal(done.action, "created");
+  assert.equal(onDisk(w), OUT);
+  assert.deepEqual(done.unfilled, []);
+  const record = readStamps(w.repoRoot);
+  assert.deepEqual(record, done.record, "what it returns is what it wrote");
+  assert.deepEqual(record.files["REVIEW.md"].values, { NIT_CAP: "3" });
+  assert.equal(record.files["REVIEW.md"].renderable, true);
+  assert.deepEqual(stateOf(w, record).map((e) => [e.path, e.state]), [["REVIEW.md", "current"]]);
+});
+
+test("stampFile writes LF whatever the template was checked out as, and makes the folders", () => {
+  const w = world({ templates: { "loop/REVIEW.md": TPL.replace(/\n/g, "\r\n") } });
+  act(w, { path: ".claude/agents/deep/REVIEW.md" });
+  assert.equal(onDisk(w, ".claude/agents/deep/REVIEW.md"), OUT);
+});
+
+test("stampFile names the placeholders it left as written", () => {
+  const w = world({ templates: { "loop/REVIEW.md": TPL + "Owner: {{OWNER}}\n" } });
+  assert.deepEqual(act(w).unfilled, ["OWNER"]);
+  assert.match(onDisk(w), /Owner: \{\{OWNER\}\}/);
+});
+
+test("stampFile never writes over a file Cortex did not record", () => {
+  const w = world({ files: { "REVIEW.md": "# Ours\n" }, templates: { "loop/REVIEW.md": TPL } });
+  assert.throws(() => act(w), (e) => e instanceof StampRefused && e.code === "not_ours" && /Cortex did not write it/.test(e.message));
+  assert.equal(onDisk(w), "# Ours\n");
+  assert.equal(readStamps(w.repoRoot), null, "and a refusal records nothing");
+  assert.equal(act(w, { force: true }).action, "replaced");
+  assert.equal(onDisk(w), OUT);
+  // What is recorded is the file it wrote, not the one it replaced.
+  assert.deepEqual(stateOf(w, readStamps(w.repoRoot)).map((e) => e.state), ["current"]);
+});
+
+test("stampFile never writes over a stamped file the team edited since", () => {
+  const w = world({ templates: { "loop/REVIEW.md": TPL } });
+  act(w);
+  const before = readStamps(w.repoRoot);
+  w.put("REVIEW.md", OUT + "Our own rule.\n");
+  assert.throws(() => act(w, { values: { NIT_CAP: "5" } }), (e) => e instanceof StampRefused && e.code === "edited");
+  assert.equal(onDisk(w), OUT + "Our own rule.\n");
+  assert.deepEqual(readStamps(w.repoRoot), before, "the record still holds the values the file was rendered with");
+});
+
+test("stampFile replaces its own untouched file with new values, and leaves an identical one alone", () => {
+  const w = world({ templates: { "loop/REVIEW.md": TPL } });
+  act(w);
+  assert.equal(act(w).action, "unchanged");
+  const again = act(w, { values: { NIT_CAP: "5" } });
+  assert.equal(again.action, "replaced");
+  assert.equal(onDisk(w), "# Review\n\nAt most 5 suggestions.\n");
+  assert.deepEqual(readStamps(w.repoRoot).files["REVIEW.md"].values, { NIT_CAP: "5" });
+  // A file that is already what the render gives, written by anyone, is recorded and not refused.
+  const same = world({ files: { "REVIEW.md": OUT }, templates: { "loop/REVIEW.md": TPL } });
+  assert.equal(act(same).action, "unchanged");
+  assert.equal(readStamps(same.repoRoot).files["REVIEW.md"].renderable, true);
+});
+
+test("stampFile refuses a missing template and a path outside the repo before any write", () => {
+  const w = world({ templates: { "loop/REVIEW.md": TPL } });
+  assert.throws(() => act(w, { template: "loop/gone.md" }), (e) => e instanceof StampRefused && e.code === "no_template");
+  assert.throws(() => act(w, { path: "../REVIEW.md" }), TypeError);
+  assert.throws(() => act(w, { values: { NIT_CAP: 3 } }), TypeError, "a value that is not a string");
+  assert.equal(existsSync(join(w.repoRoot, "REVIEW.md")), false);
+  assert.equal(readStamps(w.repoRoot), null);
+});
+
+test("applyUpdates writes each planned file, records it, and reads current afterwards", () => {
+  const w = stamped();
+  writeStamps(w.repoRoot, w.record);
+  w.putTemplate("loop/REVIEW.md", TPL + "\nNew rule, cap {{NIT_CAP}}.\n");
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir });
+  assert.deepEqual(applyUpdates({ repoRoot: w.repoRoot, record: w.record, plan, version: RUNNING }), ["REVIEW.md"]);
+  assert.equal(onDisk(w), OUT + "\nNew rule, cap 3.\n");
+  assert.deepEqual(stateOf(w, readStamps(w.repoRoot)).map((e) => e.state), ["current"]);
+  // An empty plan writes nothing, not even the record.
+  const idle = stamped();
+  assert.deepEqual(applyUpdates({ repoRoot: idle.repoRoot, record: idle.record, plan: { updates: [], refused: [] }, version: RUNNING }), []);
+  assert.equal(readStamps(idle.repoRoot), null);
 });

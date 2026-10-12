@@ -448,3 +448,50 @@ node "$STAMPS" adopt "$OLD2" REVIEW.md .claude/agents/verifier.md >/dev/null 2>&
 json="$(node "$STAMPS" "$OLD2" --json 2>&1)"
 n="$(node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(j.files.map((f) => f.path).join(","));' <<< "$json")"
 assert_eq ".claude/agents/verifier.md,REVIEW.md" "$n" "adopting named paths records exactly those"
+
+# --- stamp: render, write and record as one command ---------------------------------------------------
+# The ritual used to render with one command, redirect it into the file, and record with another,
+# carrying the path, the template and the values across both. `stamp` is the one act.
+
+SA="$WORK/stamp-act"
+mkrepo "$SA"
+SV="$WORK/stamp-values.json"
+printf '{ "RUN": "npm run dev" }\n' > "$SV"
+STAMP_CLI="$REPO_ROOT/index/cortex-stamps.mjs"
+
+out="$(node "$STAMP_CLI" stamp "$SA" .claude/agents/verifier.md loop/verifier.md --values-file "$SV" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "stamp: writes a file that is not there"
+assert_contains "$out" "Stamped .claude/agents/verifier.md" "and says what it stamped"
+assert_contains "$(cat "$SA/.claude/agents/verifier.md")" "npm run dev" "stamp: the file holds the value"
+assert_eq "0" "$(node -e 'process.stdout.write(String(require("fs").readFileSync(process.argv[1]).filter((x) => x === 13).length))' "$SA/.claude/agents/verifier.md")" "stamp: the file is written with LF endings"
+status="$(node "$STAMP_CLI" "$SA" --json 2>&1)"
+assert_contains "$status" '"state": "current"' "stamp: the file reads current straight away, with no second command"
+
+out="$(node "$STAMP_CLI" stamp "$SA" .claude/agents/verifier.md loop/verifier.md --values-file "$SV" 2>&1)"; rc=$?
+assert_eq "0" "$rc" "stamp: the same stamp again is no error"
+assert_contains "$out" "already as rendered" "and it says nothing was rewritten"
+
+printf '\nA line the team added.\n' >> "$SA/.claude/agents/verifier.md"
+before="$(cat "$SA/.claude/agents/verifier.md")"
+out="$(node "$STAMP_CLI" stamp "$SA" .claude/agents/verifier.md loop/verifier.md --value "RUN=make run" 2>&1)"; rc=$?
+assert_eq "3" "$rc" "stamp: a file the team edited is refused with its own exit code"
+assert_contains "$out" "edited since Cortex stamped it" "naming why"
+assert_contains "$out" "Nothing was written." "and that nothing changed"
+assert_eq "$before" "$(cat "$SA/.claude/agents/verifier.md")" "stamp: the edited file is byte for byte as the team left it"
+
+printf '# Ours\n' > "$SA/REVIEW.md"
+out="$(node "$STAMP_CLI" stamp "$SA" REVIEW.md loop/verifier.md --values-file "$SV" 2>&1)"; rc=$?
+assert_eq "3" "$rc" "stamp: a file Cortex never recorded is refused"
+assert_contains "$out" "Cortex did not write it" "naming why"
+assert_eq "# Ours" "$(cat "$SA/REVIEW.md")" "stamp: and left alone"
+
+out="$(node "$STAMP_CLI" stamp "$SA" .claude/agents/verifier.md loop/verifier.md --value "RUN=make run" --force 2>&1)"; rc=$?
+assert_eq "0" "$rc" "stamp: --force writes over it once the developer has agreed"
+assert_contains "$(cat "$SA/.claude/agents/verifier.md")" "make run" "with the new value"
+assert_not_contains "$(cat "$SA/.claude/agents/verifier.md")" "A line the team added." "and the render alone"
+
+out="$(node "$STAMP_CLI" stamp "$SA" ../outside.md loop/verifier.md --values-file "$SV" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "stamp: a path outside the repo is a bad argument"
+out="$(node "$STAMP_CLI" stamp "$SA" x.md loop/no-such.md --values-file "$SV" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "stamp: so is a template that does not exist"
+assert_eq "absent" "$([ -e "$SA/x.md" ] && echo present || echo absent)" "stamp: and neither wrote a file"

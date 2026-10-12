@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.43.1** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
+**v2.44.0** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
@@ -479,6 +479,8 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   `CLAUDE.md` sections your team edited and kept; and `.cortex/agents.json`, what you answered
   about the agents the repo already had. Three scripts write outside `.cortex/`, and
   `/cortex` runs each only on what you confirmed:
+  - `cortex-stamps.mjs stamp` writes one file you confirmed, from a template, and records it. It
+    refuses to write over a file it did not record, or one edited since, unless you said to.
   - `cortex-stamps.mjs update` rewrites only a file Cortex stamped that nobody has touched since,
     and never when `.cortex/stamps.json` names a newer Cortex than the one running. That check
     compares the record with the plugin's own `VERSION` file; nothing is fetched to make it.

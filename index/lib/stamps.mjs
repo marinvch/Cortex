@@ -88,7 +88,7 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
-import { join, posix } from "node:path";
+import { dirname, join, posix } from "node:path";
 import { lineDiff } from "./linediff.mjs";
 import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
@@ -585,4 +585,87 @@ export function stampDiff({ repoRoot, record, templatesDir, path }) {
   if (templateText === null) return { path, state: s.state, diff: null };
   const fileText = readIfFile(join(repoRoot, ...path.split("/"))) ?? "";
   return { path, state: s.state, diff: lineDiff(fileText, renderTemplate(templateText, withDefaults(templateText, e.values))) };
+}
+
+// --- the stamp act -------------------------------------------------------------------------------
+
+/** A stamp that was refused before anything was written. `code` says which rule refused it. */
+export class StampRefused extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "StampRefused";
+    this.code = code;
+  }
+}
+
+/**
+ * Stamp one file: render its template from `values`, write it, and record it, as one act. This is
+ * what makes "the file is what its recorded values reproduce" true by construction; a ritual that
+ * rendered with one command and recorded with another had to carry the path, the template and the
+ * values across both by hand (ADR 0016: a guarantee belongs to the act).
+ *
+ * The file is written as LF bytes, then the record. An interrupted run therefore leaves a file
+ * newer than its entry, which status reads as `conflict`, the state that asks.
+ *
+ * What is already at `path` decides whether it may be written:
+ *
+ *   - nothing there                               written (`created`)
+ *   - the same bytes the render gives             recorded, not rewritten (`unchanged`)
+ *   - a file the record holds, untouched since    written over (`replaced`): it is Cortex's own
+ *   - a file the record does not hold             refused, `not_ours`: somebody wrote it
+ *   - a file the record holds, edited since       refused, `edited`: the edit would be lost
+ *
+ * `force` writes over either refusal. It is the caller saying the developer saw the diff and said yes.
+ *
+ * Returns `{ path, template, action, unfilled, record }`. `unfilled` names the placeholders left as
+ * written because no value was given, which is right for `intent/TEMPLATE.md` and wrong elsewhere;
+ * only the caller knows which this is. Throws `StampRefused`, or a TypeError for a bad argument.
+ */
+export function stampFile({ repoRoot, templatesDir, path, template, values = {}, version, force = false }) {
+  const pp = relPathProblem(path);
+  if (pp) throw new TypeError(`stampFile: path ${pp}`);
+  const tp = relPathProblem(template);
+  if (tp) throw new TypeError(`stampFile: template ${tp}`);
+  const templateText = readIfFile(join(templatesDir, ...template.split("/")));
+  if (templateText === null) throw new StampRefused("no_template", `no template ${template} in ${templatesDir}`);
+
+  const before = readStamps(repoRoot);
+  const text = renderTemplate(templateText, values);
+  const at = join(repoRoot, ...path.split("/"));
+  const now = readIfFile(at);
+  const entry = before?.files?.[path] ?? null;
+
+  let action = "created";
+  if (now !== null) {
+    if (hashText(now) === hashText(text)) action = "unchanged";
+    else if (entry && entry.fileSha256 === hashText(now)) action = "replaced";
+    else if (!force) {
+      throw entry
+        ? new StampRefused("edited", `${path} was edited since Cortex stamped it, and stamping it again replaces those edits. Show the diff and ask; --force writes over it.`)
+        : new StampRefused("not_ours", `${path} is already here and Cortex did not write it. Stamp beside it under another name and say to diff, or pass --force once the developer has said to replace it.`);
+    } else action = "replaced";
+  }
+
+  // The record is checked before the write, so a value the record would refuse costs no file.
+  const next = recordStamp(before, { path, template, version, templateText, fileText: text, values });
+  if (action !== "unchanged") {
+    mkdirSync(dirname(at), { recursive: true });
+    writeFileSync(at, Buffer.from(text, "utf8"));
+  }
+  writeStamps(repoRoot, next);
+  return { path, template, action, unfilled: unfilledPlaceholders(templateText, values), record: next };
+}
+
+/**
+ * Apply a plan from `planUpdates`: write each file, record it again, and write the record once.
+ * Returns the paths written. Files go first and the record last, for the reason `stampFile` gives.
+ */
+export function applyUpdates({ repoRoot, record, plan, version }) {
+  let next = record;
+  for (const u of plan.updates) {
+    writeFileSync(join(repoRoot, ...u.path.split("/")), Buffer.from(u.text, "utf8"));
+    next = recordStamp(next, { path: u.path, template: u.template, version, templateText: u.templateText, fileText: u.text, values: u.values });
+  }
+  if (plan.updates.length) writeStamps(repoRoot, next);
+  return plan.updates.map((u) => u.path);
 }

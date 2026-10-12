@@ -339,23 +339,29 @@ file that is wrong once is not trusted on the parts the reader cannot check.
 `<name>.generated.md` beside it and say to diff. `.claude/settings.json` is merged into, key by
 key — replacing it takes out hooks and permissions somebody else depends on.
 
-### Render each whole-file row
+### Stamp each whole-file row
 
-Every row above that lands a whole file is rendered by the CLI, not filled by hand. That is what
-lets a later release update the file safely.
+Every row above that lands a whole file is written by the CLI, not filled by hand. One command
+renders the template, writes the file and records it, so the file is exactly what its recorded
+values reproduce. That is what lets a later release update it safely.
 
 1. Put the values you decided in a JSON object in the OS temp dir, for example
    `{ "TEST_CMD": "npm test", "SETUP_STEPS": "" }`. The values are the detected commands, the
    user's answers, and the multi-line blocks such as CI steps or formatter lines. Two rules:
    - an empty value deletes a placeholder that sits alone on its line;
    - a placeholder with no value is left as written, which is right only for `intent/TEMPLATE.md`.
-2. Render it:
+2. Stamp it:
 
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" render loop/<template> --values-file <json> > <lands at>
+   node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" stamp . <lands at> loop/<template> --values-file <json>
    ```
 
-   GitHub Actions `${{ … }}` passes through untouched.
+   It makes the folders, writes LF, and writes `.cortex/stamps.json`. GitHub Actions `${{ … }}`
+   passes through untouched. Never redirect `render` into a file: a shell redirect can change the
+   encoding, and nothing records it.
+3. **Exit 3 means it refused, and nothing was written.** The file is already there and Cortex did
+   not record it, or the team edited it since. That is the rule above, kept by the command. Show
+   the user the diff and ask. On a yes, run it again with `--force`; on a no, leave the file.
 
 `verification.md`, `playbook.md` and `settings.hooks.json` are **not recorded**: two are appended to
 `CLAUDE.md` and one merged into `settings.json`. Each is a block inside a file the team also writes.
@@ -388,9 +394,12 @@ session has to format by hand.
    failure with its output in step 8. Never edit the repo's formatter or lint config to make it
    pass. If no formatter is declared, say so; step 3 still runs.
 
-### Record what you stamped, and apply the updates
+### Record what the formatter changed, and apply the updates
 
-**After formatting, record each whole-file loop file**, with the same values file:
+**After formatting, record again each stamped file the formatter rewrote.** `stamp` records a file
+as it wrote it, so a formatter's rewrite reads as `edited`, as if the team had changed it.
+`node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" .` lists them. For each one from this pass,
+with the same values file:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" record . <lands at> loop/<template> --values-file <json>

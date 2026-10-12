@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // cortex-stamps.mjs — render and record what /cortex stamps into a repo, and bring it up to date.
 //
+//   node index/cortex-stamps.mjs stamp <repo> <path> <template> [--value K=V ...] [--values-file F]
+//                                      [--force] [--version X.Y.Z] [--templates DIR]
 //   node index/cortex-stamps.mjs render <template> [--value K=V ...] [--values-file F] [--templates DIR]
 //   node index/cortex-stamps.mjs record <repo> <path> <template> [--version X.Y.Z] [--value K=V ...]
 //                                       [--values-file F] [--templates DIR]
@@ -16,10 +18,16 @@
 // writes the record and not one byte of any loop file, and refuses once a record exists. `forget`
 // drops an entry — a file removed on purpose, a retired template — and leaves the file alone.
 //
-// `render` prints a template filled from values (lib/placeholders.mjs), writing nothing. `/cortex`
-// writes a loop file with it, so the file is exactly what the recorded values reproduce.
+// `stamp` is how /cortex writes a whole file: it renders the template from the values, writes the
+// file as LF and records it, as one act (`stampFile` in lib/stamps.mjs). It refuses to write over a
+// file Cortex did not record, or one the team edited since, unless `--force` says the developer
+// agreed. Exit 3 is that refusal.
 //
-// `record` is called by /cortex after each file it writes (spec S2): the model never computes a
+// `render` prints a template filled from values (lib/placeholders.mjs), writing nothing. It is for
+// a block that is appended to a shared file, such as the playbook, and for looking at a template.
+//
+// `record` records a file as it is on disk now: after a formatter rewrote a stamped file, or after
+// a `review` or `conflict` file was settled by hand (spec S2). The model never computes a
 // hash, because that is the one step that must never be approximate. It reads the file as written
 // and the template it came from, and writes one entry to `.cortex/stamps.json` — the only file it
 // touches. When the values do not reproduce the file, the entry is still written but marked not
@@ -47,7 +55,7 @@
 // passed as `./record`. Templates and version default to the plugin this file ships in:
 // `../templates/` and `../VERSION`, the same layout in a clone and in an installed plugin.
 
-import { readFileSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeChangedPath } from "./lib/changed.mjs";
@@ -56,10 +64,11 @@ import { openTarget, parseArgv } from "./lib/open.mjs";
 import { renderTemplate, unfilledPlaceholders } from "./lib/placeholders.mjs";
 import {
   STAMPS_REL, STATES, adoptStamp, adoptionCandidates, forgetStamp, ignoreAdvice, olderPlugin, planUpdates, readStamps,
-  recordStamp, runningCortex, stampDiff, stampPathProblem, stampStatus, stampsIgnoreRule, writeStamps,
+  StampRefused, applyUpdates, recordStamp, runningCortex, stampDiff, stampFile, stampPathProblem, stampStatus, stampsIgnoreRule, writeStamps,
 } from "./lib/stamps.mjs";
 
 const USAGE = {
+  stamp: "usage: node index/cortex-stamps.mjs stamp <repo> <path> <template> [--value KEY=VAL ...] [--values-file FILE] [--force] [--version X.Y.Z] [--templates DIR]",
   render: "usage: node index/cortex-stamps.mjs render <template> [--value KEY=VAL ...] [--values-file FILE] [--templates DIR]",
   record: "usage: node index/cortex-stamps.mjs record <repo> <path> <template> [--version X.Y.Z] [--value KEY=VAL ...] [--values-file FILE] [--templates DIR]",
   status: "usage: node index/cortex-stamps.mjs <repo> [--json] [--all] [--templates DIR]",
@@ -179,6 +188,42 @@ function render(argv) {
   // for intent/TEMPLATE.md and wrong everywhere else, and only the caller knows which this is.
   const left = unfilledPlaceholders(text, values);
   if (left.length) process.stderr.write(`kept as written, no value given: ${left.map((n) => `{{${n}}}`).join(", ")}\n`);
+}
+
+// --- stamp -------------------------------------------------------------------------------------------
+
+function stamp(argv) {
+  const { root, args, paths } = openTarget(argv, {
+    usage: USAGE.stamp,
+    flags: { "--version": "value", "--value": "multi", "--values-file": "value", "--templates": "value", "--force": "boolean" },
+    root: "first",
+    index: "none",
+  });
+  if (paths.length !== 2) refuse(`stamp needs a repo, a path and a template
+${USAGE.stamp}`, 1);
+  const path = normalizeChangedPath(paths[0], root);
+  const pathIssue = stampPathProblem(path);
+  if (pathIssue) refuse(`path ${pathIssue}, relative to the repo: ${paths[0]}`, 1);
+  const version = versionFrom(args, USAGE.stamp);
+  const values = valuesFrom(args);
+  const templatesDir = templatesDirFrom(args, USAGE.stamp);
+  const { template } = templateFrom(paths[1], templatesDir);
+  const first = !readRecordOrRefuse(root);
+
+  let done;
+  try {
+    done = stampFile({ repoRoot: root, templatesDir, path, template, values, version, force: args.force });
+  } catch (e) {
+    if (e instanceof StampRefused) refuse(`not stamped: ${e.message}
+Nothing was written.`, 3);
+    throw e;
+  }
+  const said = { created: "Stamped", replaced: "Stamped over", unchanged: "Recorded, already as rendered:" }[done.action];
+  console.log(`${said} ${path} (template ${template}, Cortex ${version}), recorded in ${STAMPS_REL}.`);
+  if (done.unfilled.length) process.stderr.write(`kept as written, no value given: ${done.unfilled.map((n) => `{{${n}}}`).join(", ")}
+`);
+  const rule = warnIfIgnored(root);
+  if (first && !rule) console.log(`Commit ${STAMPS_REL}: it is how the next /cortex run tells your edits from its own.`);
 }
 
 // --- record ------------------------------------------------------------------------------------------
@@ -375,12 +420,7 @@ function update(argv) {
     refuse(plan.refused.map((r) => `not updated: ${r.why}`).join("\n") + "\nNothing was written.", 1);
   }
 
-  let next = rec;
-  for (const u of plan.updates) {
-    writeFileSync(join(root, ...u.path.split("/")), u.text);
-    next = recordStamp(next, { path: u.path, template: u.template, version, templateText: u.templateText, fileText: u.text, values: u.values });
-  }
-  if (plan.updates.length) writeStamps(root, next);
+  applyUpdates({ repoRoot: root, record: rec, plan, version });
 
   for (const u of plan.updates) console.log(`Updated ${u.path} (template ${u.template}, Cortex ${version}).`);
   for (const r of plan.refused) console.log(`Not updated: ${r.why}`);
@@ -434,7 +474,7 @@ function forget(argv) {
   console.log(`Dropped from ${STAMPS_REL}: ${named.join(", ")}. The files themselves were not touched.`);
 }
 
-const COMMANDS = { render, record, diff, update, adopt, forget };
+const COMMANDS = { stamp, render, record, diff, update, adopt, forget };
 const argv = process.argv.slice(2);
 if (Object.hasOwn(COMMANDS, argv[0])) COMMANDS[argv[0]](argv.slice(1));
 else status(argv);

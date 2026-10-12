@@ -92,7 +92,12 @@ step" that is actually 400 files and therefore neither small, reviewable, nor re
 ## Step 5 — Route the knowledge back
 If the spec produced a durable invariant or gotcha, say where it belongs: the relevant **scoped
 `AGENTS.md`** (preferred) or root. Append the decision to `docs/decisions.md`. This is how the
-brain compounds. Then ask the user to approve the spec + plan before any implementation.
+brain compounds.
+
+**Before asking for approval, account for every question the brainstorm raised.** Each one is in
+the spec as a locked decision, under Not yet specified, or under Out of scope. Name any that is in
+none of the three: a question that was raised and then left out of the spec has been decided by
+nobody. Then ask the user to approve the spec + plan before any implementation.
 
 ## Rules
 - Spec/plan only — never implement in this ritual.

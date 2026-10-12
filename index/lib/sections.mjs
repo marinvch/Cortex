@@ -29,14 +29,12 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { OutsideRootError, resolveInRoot } from "../../core/paths.js";
 import { SectionRefused, appendBlock, eolOf, findSections, replaceSection, sectionState } from "./section.mjs";
 import { SHIPPED_SECTIONS } from "./shipped-sections.mjs";
-import { hashText, runningCortex } from "./stamps.mjs";
+import { TEMPLATES_DIR, hashText, runningCortex } from "./stamps.mjs";
 import { PLAYBOOK_HEADING } from "./team.mjs";
 
-const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
 
 /** Every section Cortex writes into a shared file. `id` is what `cortex-section.mjs --replace` and `--keep` take. */
 export const CORTEX_SECTIONS = [

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  PLUGIN_UPDATE_COMMANDS, STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice, olderPlugin, planUpdates, readStamps, recordStamp, runningCortex, stampDiff, stampStatus, stampsIgnoreRule, writeStamps, VALUE_DEFAULTS, StampRefused, applyUpdates, stampFile,
+  PLUGIN_UPDATE_COMMANDS, STAMPS_REL, STAMPS_FORMAT, adoptStamp, adoptionCandidates, forgetStamp, hashText, ignoreAdvice, olderPlugin, planUpdates, readStamps, recordStamp, runningCortex, stampDiff, stampStatus, stampsIgnoreRule, writeStamps, VALUE_DEFAULTS, StampRefused, applyUpdates, stampFile, stampReport, STATES, TEMPLATES_DIR,
 } from "../lib/stamps.mjs";
 import { LOOP_STAMPS } from "../lib/loop.mjs";
 import { lineDiff } from "../lib/linediff.mjs";
@@ -793,4 +793,81 @@ test("applyUpdates writes each planned file, records it, and reads current after
   const idle = stamped();
   assert.deepEqual(applyUpdates({ repoRoot: idle.repoRoot, record: idle.record, plan: { updates: [], refused: [] }, version: RUNNING }), []);
   assert.equal(readStamps(idle.repoRoot), null);
+});
+
+// --- the stamp report: what the status command prints and what cortex-next ranks from ----------------
+
+const SITES = [{ path: "REVIEW.md", template: "loop/REVIEW.md" }, { path: "intent/README.md", template: "loop/intent-README.md" }];
+// A git that counts how often it is asked, and answers with one ignore rule or none.
+const countingGit = (rule = null) => {
+  const g = () => { g.calls++; return rule ? { status: 0, stdout: `${rule}\t.cortex/stamps.json\n` } : { status: 1, stdout: "" }; };
+  g.calls = 0;
+  return g;
+};
+const report = (w, extra = {}) => stampReport(w.repoRoot, { sites: SITES, templatesDir: w.templatesDir, running: RUNNING, git: countingGit(), ...extra });
+
+test("stampReport on a repo Cortex never touched is empty, and does not ask git", () => {
+  const w = world({ templates: { "loop/REVIEW.md": TPL } });
+  const git = countingGit(".gitignore:1:.cortex/");
+  const r = report(w, { git });
+  assert.deepEqual(r, { recorded: false, cortex: null, running: RUNNING, olderPlugin: null, files: null, counts: null, adopt: [], ignored: null, empty: true });
+  assert.equal(git.calls, 0, "an untouched repo costs no git process");
+  // A first install asks anyway, to offer the fix before the record is written.
+  const first = report(w, { git, whenEmpty: true });
+  assert.ok(git.calls > 0, "and then git is asked");
+  assert.deepEqual({ source: first.ignored.source, line: first.ignored.line }, { source: ".gitignore", line: 1 });
+  assert.equal(first.empty, true);
+});
+
+test("stampReport with no record names what an older /cortex left, and files stay null", () => {
+  const w = world({ files: { "REVIEW.md": "# old\n" }, templates: { "loop/REVIEW.md": TPL } });
+  const git = countingGit();
+  const r = report(w, { git });
+  assert.deepEqual(r.adopt, [{ path: "REVIEW.md", template: "loop/REVIEW.md" }]);
+  assert.equal(r.files, null, "null is no record; an empty list would read as all current");
+  assert.equal(r.counts, null);
+  assert.equal(r.empty, false);
+  assert.ok(git.calls > 0, "something to adopt is something to ask about");
+});
+
+test("stampReport with a record gives each file's state and the count per state", () => {
+  const w = stamped();
+  writeStamps(w.repoRoot, w.record);
+  const r = report(w);
+  assert.equal(r.recorded, true);
+  assert.equal(r.cortex, "2.40.0");
+  assert.deepEqual(r.files, stateOf(w), "the same per-file status stampStatus gives");
+  assert.deepEqual(Object.keys(r.counts), STATES, "every state is counted, the zeros too");
+  assert.equal(r.counts.current, 1);
+  assert.equal(Object.values(r.counts).reduce((a, b) => a + b, 0), r.files.length);
+  assert.deepEqual(r.adopt, [], "nothing is adopted once a record exists");
+  w.put("REVIEW.md", OUT + "ours\n");
+  assert.equal(report(w).counts.edited, 1);
+  assert.equal(report(w).counts.current, 0);
+});
+
+test("stampReport says when the record was written by a newer Cortex, and when it is ignored", () => {
+  const w = stamped();
+  writeStamps(w.repoRoot, w.record);
+  assert.equal(report(w).olderPlugin, null);
+  const behind = report(w, { running: "2.39.0" });
+  assert.deepEqual(behind.olderPlugin, olderPlugin(w.record, "2.39.0"));
+  assert.equal(behind.olderPlugin.stamped, "2.40.0");
+  assert.equal(behind.running, "2.39.0");
+  assert.equal(report(w, { git: countingGit(".gitignore:4:.cortex/") }).ignored.line, 4);
+});
+
+test("stampReport refuses a damaged record and a missing list of sites", () => {
+  const w = world({ files: { ".cortex/stamps.json": "{ not json" } });
+  assert.throws(() => report(w), /not readable as JSON/);
+  const ok = world();
+  assert.throws(() => stampReport(ok.repoRoot, { running: RUNNING }), TypeError);
+});
+
+test("the templates this plugin ships are found from the library, in one place", () => {
+  assert.ok(existsSync(join(TEMPLATES_DIR, "loop", "REVIEW.md")));
+  for (const file of ["../lib/next.mjs", "../lib/team.mjs", "../lib/sections.mjs", "../cortex-stamps.mjs"]) {
+    const src = readFileSync(fileURLToPath(new URL(file, import.meta.url)), "utf8");
+    assert.doesNotMatch(src, /new URL\("[./]*templates\/"/, `${file} resolves the templates folder itself`);
+  }
 });

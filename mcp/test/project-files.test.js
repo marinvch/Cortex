@@ -316,6 +316,26 @@ test("a home refusal happens before the team-brain is even cloned", () => {
   assert.deepEqual(readdirSync(vault), [], "nothing was cloned into the vault");
 });
 
+test("home refuses to join a project whose file already holds an employer-shaped link", () => {
+  // #586 left this open: the file was reported as withheld and the connector written anyway.
+  const f = fixture();
+  const text = projectText("Storefront", "https://github.com/example-org/storefront", "tracker: https://tracker.internal/browse/SHOP\n");
+  teammateWrote(f, "storefront", text);
+  const head = remoteHead(f);
+  const repoBefore = fingerprint(f.repo);
+  assert.throws(
+    () => add(f, HOME),
+    (e) => e.code === "employer_shaped_link" && /already in the team-brain/.test(e.message) && /no connector was written/.test(e.message) &&
+      // It names the field and where the project belongs, and never prints the link itself.
+      e.message.includes("`tracker` is a link to") && /belongs in a work install/.test(e.message) && !e.message.includes("tracker.internal"),
+  );
+  assert.equal(readFileSync(join(f.clone, "projects", "storefront.md"), "utf8"), text, "the file is left byte for byte");
+  assert.equal(remoteHead(f), head, "nothing was committed or pushed");
+  assert.equal(fingerprint(f.repo), repoBefore, "and the product repo is as it was");
+  // The same file joins on a profile that refuses nothing.
+  assert.equal(add(f, WORK).file.action, "unchanged");
+});
+
 test("home refuses to add a flag to a file that already holds an employer-shaped link", () => {
   const f = fixture();
   const text = projectText("Storefront", "https://github.com/example-org/storefront", "tracker: https://tracker.internal/browse/SHOP\n");

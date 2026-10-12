@@ -177,9 +177,20 @@ Before declaring done:
       person to touch this learns what you learned. If it contradicts something in `AGENTS.md`,
       `CONTEXT.md` or an ADR, fix that sentence too — a bug caused by a stale document recurs.
 
+### Close the list from Phase 3
+
+Go back to the ranked hypotheses and mark each one **confirmed**, **ruled out** (name the probe
+that ruled it out) or **not tested**. Report the list with the fix.
+
+A hypothesis left not tested is fine when the confirmed one explains every symptom. It is not fine
+when it would change the fix: two causes can produce one symptom, and a fix for the first leaves
+the second in place. Test that one before calling the diagnosis complete, or say plainly that it
+is open.
+
 ---
 
 Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). Phases 1–6 are
 upstream, lightly reworded. Phase 0, the invariant-ranking note in Phase 3, and the
 fails-for-the-right-reason step in Phase 5 are Cortex additions — they are what the index and the
-context layer make possible.
+context layer make possible. Closing the Phase 3 list is adapted from the finishing checklist in
+[morluto/rea](https://github.com/morluto/rea)'s investigation skill (MIT).

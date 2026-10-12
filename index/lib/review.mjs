@@ -26,7 +26,7 @@ import { isAdrPath } from "./adr.mjs";
 // is why it consumes the predicate rather than `readState`. See the note at the top of that file.
 
 /** The directory a path sits in, "" for repo root. */
-function dirOf(path) {
+export function dirOf(path) {
   const i = path.lastIndexOf("/");
   return i < 0 ? "" : path.slice(0, i);
 }
@@ -155,8 +155,8 @@ export function reviewContext(index, changed, { readText = () => null } = {}) {
 // stale — and unlike the `stale` pass above, this needs no diff: the file the document names is
 // gone, so no change can ever touch it and seed the check. That is the exact shape of the failure
 // this module's header cites (`mcp/lib/scrub.js`), and the shape the diff-driven pass cannot see.
-const CITATION_IN_CODE = /`([A-Za-z0-9_.\/-]+)`/g;
-const CITATION_IN_LINK = /\]\(([^)\s]+)\)/g;
+export const CITATION_IN_CODE = /`([A-Za-z0-9_.\/-]+)`/g;
+export const CITATION_IN_LINK = /\]\(([^)\s]+)\)/g;
 
 /** Paths that are absent by design rather than by drift. */
 function isExcludedCitation(cited) {
@@ -172,13 +172,13 @@ function isExcludedCitation(cited) {
 //     name and every absolute system path
 //   - its last segment carries an extension — `tools/call` and `node_modules/` name a method and a
 //     directory, not a file, and a document naming a directory is far weaker evidence anyway
-function looksLikePath(cited) {
+export function looksLikePath(cited) {
   if (!cited.includes("/") || cited.startsWith("/") || cited.startsWith("#")) return false;
   return /\.[A-Za-z0-9]{1,6}$/.test(cited);
 }
 
 /** Resolve `../` and `./` against the directory a citation was written in. */
-function normalizeFrom(home, cited) {
+export function normalizeFrom(home, cited) {
   const out = [];
   for (const part of `${home ? `${home}/` : ""}${cited}`.split("/")) {
     if (part === "." || part === "") continue;

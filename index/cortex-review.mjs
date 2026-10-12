@@ -7,6 +7,7 @@
 //   node index/cortex-review.mjs src/lib/db.ts --json
 //   node index/cortex-review.mjs --citations
 //   node index/cortex-review.mjs --citations --since HEAD~20
+//   node index/cortex-review.mjs --rules
 //
 // With a change set it also cites the lines where the change may have lowered the bar it is judged
 // against: a suppression added, a test skipped or removed, an assertion stripped, a threshold edited
@@ -22,6 +23,7 @@ import { join } from "node:path";
 import { reviewContext, citationDrift } from "./lib/review.mjs";
 import { changedDiff, changedFiles, failureLines, gitReader } from "./lib/changed.mjs";
 import { loweredBar } from "./lib/lowered-bar.mjs";
+import { ruleLedger } from "./lib/rule-ledger.mjs";
 import { openTarget } from "./lib/open.mjs";
 
 // Bare arguments are FILE PATHS, so the root comes from `--root`. The index is required: this
@@ -29,11 +31,12 @@ import { openTarget } from "./lib/open.mjs";
 const { root, args, paths, index } = openTarget(process.argv.slice(2), {
   usage:
     "usage: node index/cortex-review.mjs [paths...] [--staged] [--since REF] " +
-    "[--citations] [--fix] [--root DIR] [--index FILE] [--json]",
+    "[--citations] [--fix] [--rules] [--root DIR] [--index FILE] [--json]",
   flags: {
     "--staged": "boolean",
     "--citations": "boolean",
     "--fix": "boolean",
+    "--rules": "boolean",
     "--json": "boolean",
     "--since": "value",
     "--index": "value",
@@ -45,6 +48,70 @@ const { root, args, paths, index } = openTarget(process.argv.slice(2), {
   // either stream would be a parse error, not a warning.
   freshness: (a) => !a.json && !a.fix,
 });
+
+const readText = (p) => {
+  try {
+    return readFileSync(join(root, p), "utf8");
+  } catch {
+    return null;
+  }
+};
+
+// --rules: every rule the briefs state, and which test files each one names (lib/rule-ledger.mjs).
+// It reads the whole repo and takes no change set, so it runs before one is read, and a change set
+// passed beside it is refused, never ignored. The exit code is 0 whatever it lists: a rule that
+// names no test is a place to look, and a check that fails a build over accurate prose is
+// switched off.
+if (args.rules) {
+  const mixed = ["--staged", "--since", "--citations", "--fix"].filter((f) => args[f.slice(2)]);
+  if (paths.length) mixed.push("the file paths");
+  if (mixed.length) {
+    console.error(`--rules reads every brief in the repo and takes no change set. Remove ${mixed.join(", ")}.`);
+    process.exit(2);
+  }
+  const l = ruleLedger(index, { readText });
+  if (args.json) {
+    console.log(JSON.stringify(l, null, 2));
+    process.exit(0);
+  }
+  for (const u of l.unread) console.error(`could not read ${u}, so its rules are not listed`);
+  if (!l.hasBriefs) {
+    console.log(`\nThis repo has no brief: no AGENTS.md, and no CLAUDE.md or GEMINI.md with rules of its own.`);
+    console.log(`There is nothing whose rules could be listed. Run /cortex-install to add one.`);
+    process.exit(0);
+  }
+  const briefs = `${l.briefs} brief${l.briefs === 1 ? "" : "s"}`;
+  if (!l.rows.length) {
+    console.log(`\n${briefs} read, and none holds a list item that opens with bold text.`);
+    console.log(`That is the format this reads. It is not proof the briefs state no rules.`);
+    process.exit(0);
+  }
+  const STATES = [
+    ["test", "name a test file"],
+    ["other", "name other files, none of them a test"],
+    ["none", "name no file"],
+  ];
+  const SHOWN = 8;
+  console.log(`\nRules in this repo's briefs (${l.rows.length}, from ${briefs}):\n`);
+  for (const [state, title] of STATES) console.log(`  ${String(l.counts[state]).padStart(4)}  ${title}`);
+  // The rows that name a test are counted and not listed: the question is which rules do not.
+  for (const [state, title] of STATES.slice(1)) {
+    const group = l.rows.filter((r) => r.state === state);
+    if (!group.length) continue;
+    console.log(`\n${title} (${group.length}):\n`);
+    for (const r of group.slice(0, SHOWN)) {
+      console.log(`  ${r.doc}:${r.line}  ${r.text}`);
+      if (r.others.length) console.log(`      names ${r.others.join(", ")}`);
+    }
+    if (group.length > SHOWN) {
+      const rest = group.slice(SHOWN);
+      console.log(`  ... and ${rest.length} more in ${new Set(rest.map((r) => r.doc)).size} file(s) — --json lists every one`);
+    }
+  }
+  console.log(`\nA row is not a defect. A gotcha states a limit no test could pin, and a test can hold a`);
+  console.log(`rule that does not name it. This reads what a rule names, never whether the rule holds.`);
+  process.exit(0);
+}
 
 // The rename log below and the change set share one runner, so they share one buffer size. The
 // maxBuffer fix lived here and not in cortex-impact.mjs for exactly as long as there were two
@@ -72,13 +139,6 @@ if (!changed.length && !args.citations) {
   process.exit(2);
 }
 
-const readText = (p) => {
-  try {
-    return readFileSync(join(root, p), "utf8");
-  } catch {
-    return null;
-  }
-};
 if (args.citations) {
   // Where a deleted path went, from git's own rename record. Deterministic: history is append-only.
   //

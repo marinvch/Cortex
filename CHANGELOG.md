@@ -5,6 +5,22 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.41.60] — 2026-10-12
+
+The rule ledger reads a rule that names a type, and stops counting an appended shim as a brief.
+
+### Fixed
+
+- **`cortex-review --rules` counted no test for a rule that named one as a type.** A brief for a
+  Java, Kotlin, C# or Swift repo says "Covered by `ShipmentServiceTest.someMethod`", not a path.
+  On the first repo `/cortex-brief` was run on after 2.41.59, seven rules named a real test that
+  way and the ledger reported that none did. A type name, alone or followed by one member, now
+  counts when exactly one indexed file is named for it. The name must start with a capital
+  letter, so `build` or `index` in a sentence is never read as a file.
+- **A `CLAUDE.md` that `/cortex` appended a section to was reported as a brief with no rules
+  section.** It is the `@AGENTS.md` shim with the verification block under it. A file that
+  imports the root brief is counted as a brief only once it states rules of its own.
+
 ## [2.41.59] — 2026-10-12
 
 `/cortex-brief` writes rules the rule ledger can read, and reports what they rest on.
@@ -5271,6 +5287,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.41.60]: https://github.com/marinvch/Cortex/releases/tag/v2.41.60
 [2.41.59]: https://github.com/marinvch/Cortex/releases/tag/v2.41.59
 [2.41.58]: https://github.com/marinvch/Cortex/releases/tag/v2.41.58
 [2.41.57]: https://github.com/marinvch/Cortex/releases/tag/v2.41.57

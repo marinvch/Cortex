@@ -98,6 +98,38 @@ The one that did not is splitting on `\r?\n` against `\n`: a trailing carriage r
 reaches a row, because every reader of a line trims it or stops before it, so the two are the
 same program.
 
+### The first scaffolded repo (2.41.60)
+
+`/cortex-brief` at 2.41.59 was run headlessly on a clone of a Java service that `/cortex` had set
+up: a root brief with `## Invariants` and `## Gotchas` as plain items, and no scoped briefs. It
+wrote two leaves under those headings, 16 rules, and moved seven rules out of the root. Two things
+were wrong with the ledger, and neither was visible on this repo.
+
+- **Seven rules named a real test and the ledger counted none.** The leaves say "Covered by
+  `ShipmentServiceTest.trackingOnlyMovesForward`": a type and a method, as a Java reader writes it,
+  and all six methods exist in the classes named. L8 read file paths only. A type name, alone or
+  with one member, now counts when exactly one indexed file is named for it and the name starts
+  with a capital letter. A lower-case word never does: `build`, `index` and `test` are words in
+  every brief and file stems in most repos.
+- **`CLAUDE.md` was counted as a brief with no rules section.** There it is the `@AGENTS.md` shim
+  plus the verification block `/cortex` appends, so every installed repo was told one of its
+  briefs was not counted. A file that imports the root brief is now a brief of its own only once
+  it holds a rules section.
+
+| | Before | After |
+|---|---|---|
+| Briefs read | 4, one "with no rules section" | 3 |
+| Rules | 20 | 20 |
+| test · other · none | 0 · 1 · 19 | 9 · 9 · 2 |
+
+All 20 rows were opened after the change and each is in the right state. The two that name nothing
+are rules about another repo and about the README's error codes. This repo's counts did not move,
+and the six public repos read as before. 42 guards mutated, 41 test failures.
+
+**What that run did not show.** The session reached its turn limit before it printed the report
+the ritual now ends with, after nine commands were refused by the allow-list the test gave it. So
+the report step of `/cortex-brief` has still not been seen to complete.
+
 ## Architecture
 
 ```

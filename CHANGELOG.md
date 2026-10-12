@@ -13,6 +13,9 @@ this project now versions independently of any package manager (see `VERSION`).
 - `cortex-next`, `cortex-view` and `cortex-loop` read the repo once per run. Each read it a second
   time to print its last line. The findings report reads only the context layer, where it read the
   whole state for four facts. What each prints is unchanged; they run 10 to 25% faster.
+- The `ai-os` CLI's three decisions moved into `mcp/lib/`, where a test can import them: which
+  sources a catch-up reads, what `project check` counts as a problem, and the order of a join. The
+  CLI parses flags and prints. What it prints and its exit codes are unchanged.
 
 ## [2.44.0] — 2026-10-12
 

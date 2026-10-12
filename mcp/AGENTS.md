@@ -50,6 +50,13 @@ the repo by commit count, and — like every other part — **dependency-free**.
   never reads the machine's git name.
 - **`server.js` stays a thin switch.** All logic lives in `lib/`; the transport layer is a
   dispatch over tool names and nothing more.
+- **`ai-os.js` parses flags and prints; it decides nothing.** It exports nothing and exits at
+  module level, so a decision made in it can only be tested by starting a process. Three used to
+  live there and are in `lib/` now: which sources, repo and project a catch-up reads (`catchUp` in
+  `lib/catchup.js`), what `project check` counts as a problem (`checkProjects`), and the order of a
+  join, project file before connector (`joinProject`, both in `lib/project-files.js`). The team a
+  catch-up reads is `catchUpTeam`, which the server calls too. A new rule goes in `lib/` with a
+  test that imports it; the subprocess tests are for wiring.
 - **Two modes, decided by the root — never configured.** A root ending in `.cortex` is
   **repo mode** (`recall`, `remember`, `recall_memory`); anything else is **vault mode** (the
   personal-brain tools). Detection keeps the plugin manifest to one env var and makes a

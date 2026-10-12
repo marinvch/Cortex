@@ -166,6 +166,15 @@ holds the rules for that module alone — read it before editing the module.
   over 2,990 commits of ten public repos: an import of an assertion library, a runner hook counted
   as a test, and `@ts-expect-error` in a type test were the false positives, and each is a test now.
   Change a pattern only with a run over real history; the fixtures agreed with every one of those.
+- **`cortex-review --rules` lists what each rule in the briefs names, and never says a rule is
+  enforced** (`lib/rule-ledger.mjs`; the design and its numbers are in
+  [`docs/specs/2026-10-12-rule-ledger-design.md`](../docs/specs/2026-10-12-rule-ledger-design.md)).
+  A rule is a list item under a heading that says invariants, gotchas or rules: the sections
+  `templates/target-AGENTS.md` stamps. Reading any bold-led item was built first and dropped. On
+  vercel/ai all 21 such items were definitions, and the template's own invariants are plain items.
+  Run on this repo and six public ones: nine rows outside this repo, each opened and each a rule.
+  34 guards mutated, 33 test failures, the other an equivalent program. Add a heading word only
+  with real briefs that use it for rules.
 - **Every path two change sets compare goes through `normalizeChangedPath`** (`lib/changed.mjs`).
   `--against` itself is `lib/overlap.mjs`'s header.
 - **Where ADRs live is `lib/adr.mjs`'s one answer** (`isAdrPath`, `adrLocation`); no reader keeps

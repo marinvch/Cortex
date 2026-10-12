@@ -82,8 +82,12 @@ if (args.rules) {
   }
   const briefs = `${l.briefs} brief${l.briefs === 1 ? "" : "s"}`;
   if (!l.rows.length) {
-    console.log(`\n${briefs} read, and none holds a list item that opens with bold text.`);
-    console.log(`That is the format this reads. It is not proof the briefs state no rules.`);
+    console.log(
+      l.withSections
+        ? `\n${briefs} read, and the rules sections found hold no list item.`
+        : `\n${briefs} read, and none has a section headed Invariants, Gotchas or Rules.`,
+    );
+    console.log(`That is where this looks. It is not proof the briefs state no rules.`);
     process.exit(0);
   }
   const STATES = [
@@ -92,7 +96,12 @@ if (args.rules) {
     ["none", "name no file"],
   ];
   const SHOWN = 8;
+  const silent = l.briefs - l.withSections;
   console.log(`\nRules in this repo's briefs (${l.rows.length}, from ${briefs}):\n`);
+  if (silent) {
+    console.log(`  ${silent} of those briefs ${silent === 1 ? "has" : "have"} no section headed Invariants, Gotchas or Rules, and`);
+    console.log(`  ${silent === 1 ? "is" : "are"} not counted below.\n`);
+  }
   for (const [state, title] of STATES) console.log(`  ${String(l.counts[state]).padStart(4)}  ${title}`);
   // The rows that name a test are counted and not listed: the question is which rules do not.
   for (const [state, title] of STATES.slice(1)) {

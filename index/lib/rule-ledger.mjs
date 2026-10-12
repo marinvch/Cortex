@@ -8,17 +8,23 @@
 // This finds and cites, and never judges, for the reason `review.mjs` gives. A row says what the
 // rule NAMES. It does not say the rule is enforced, and it does not say it is not: deciding that a
 // test covers a sentence needs a model, and a gotcha ("import resolution is regex-based") is a
-// fact no test could pin. Measured on this repo, 102 of 134 rule-shaped items name no test, and
-// many of those are gotchas. So no field or state here carries the word, and a test holds that.
+// fact no test could pin. So no field or state here carries the word, and a test holds that.
 //
 // Direction of error is chosen: a row may say a rule names no test when it does (a directory, a
-// file name two files share, a test cited only in a later paragraph), and never the reverse.
-// Telling someone a rule is pinned when it is not costs more than a second look.
+// file name two files share), and never the reverse. Telling someone a rule is pinned when it is
+// not costs more than a second look.
 //
-// What a rule is, is a FORMAT: a top-level list item that opens with bold text. Briefs head their
-// lists "Invariants", "Gotchas" or "The rules", and a target repo may use any word, so the heading
-// is not read. A brief written as paragraphs yields no rows, and the caller is told how many
-// briefs were read so that an empty ledger is not taken for a clean one.
+// What a rule is, is a PLACE: a top-level list item in a section whose heading says invariants,
+// gotchas or rules. Those are the two sections `templates/target-AGENTS.md` stamps, plus the word
+// this repo's own briefs use. The first version read a FORMAT instead, any item opening with bold
+// text, and it was wrong in both directions on the first real repos it met: every bold-led item in
+// vercel/ai's brief was a definition ("**Node.js**: v22.13+"), and the template Cortex itself
+// stamps writes its invariants as plain items, so a scaffolded repo would have listed nothing.
+// Bold is one repo's habit. The heading is what the product writes.
+//
+// A brief that keeps its rules under another heading, or in paragraphs, yields no rows. The caller
+// is told how many briefs were read and how many held such a section, so that an empty ledger is
+// not taken for a clean one.
 //
 // The citation rules are `review.mjs`'s, imported and not copied. `looksLikePath` took that module
 // from 157 findings to 7, and a second copy would not inherit the next fix. One rule is added: a
@@ -33,8 +39,14 @@ import { canBeTest } from "./langs.mjs";
 /** The three names a brief goes by. `CONTEXT.md` defines terms and an ADR records history. */
 const BRIEF = /(^|\/)(AGENTS|CLAUDE|GEMINI)\.md$/i;
 
+/** A heading that opens a rules section. Whole words, so "Rulebook" and "Overrules" do not. */
+const RULES_HEADING = /\b(invariants?|gotchas?|rules?)\b/i;
+
 /** A file name with an extension and no directory: `build.test.mjs`. */
 const BARE_FILE = /^[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6}$/;
+
+/** What a template leaves where a rule goes: `- {{an invariant, and why it holds}}`. */
+const PLACEHOLDER = /^\{\{.*\}\}$/;
 
 const TEXT_SHOWN = 120;
 
@@ -45,14 +57,21 @@ function isShim(text) {
 }
 
 /**
- * The top-level list items of a markdown text that open with bold: `{ line, lines }`.
+ * The rules a markdown text states: `{ sections, items: [{ line, section, lines }] }`.
  *
- * An item runs from its `- ` at column 0 through every indented line after it. A blank line or a
- * line at column 0 ends it. Lines inside a code fence are never items: a brief that shows an
- * example rule is not stating one.
+ * A rules section runs from its heading to the next heading at the same level or above, so a
+ * subsection belongs to it and carries its own name. `sections` counts the headings that opened
+ * one.
+ *
+ * An item runs from its `- ` at column 0 through every indented line after it, across blank lines:
+ * an indented paragraph under an item is still that item, as markdown reads it. Text at column 0
+ * ends it. Lines inside a code fence are neither headings nor items: a brief that shows an example
+ * rule is not stating one.
  */
-function ruleItems(text) {
+function readRules(text) {
   const items = [];
+  const open = []; // the headings above this line: { level, name, rules }
+  let sections = 0;
   let cur = null;
   let fenced = false;
   const lines = text.split(/\r?\n/);
@@ -64,24 +83,35 @@ function ruleItems(text) {
       continue;
     }
     if (fenced) continue;
-    if (/^- /.test(l)) {
-      cur = /^- \*\*/.test(l) ? { line: i + 1, lines: [l] } : null;
+    const h = l.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+    if (h) {
+      const level = h[1].length;
+      while (open.length && open.at(-1).level >= level) open.pop();
+      const name = h[2].replace(/[`*_]/g, "").trim();
+      const rules = RULES_HEADING.test(name);
+      if (rules) sections++;
+      open.push({ level, name, rules });
+      cur = null;
+    } else if (/^- /.test(l)) {
+      const inRules = open.some((s) => s.rules);
+      cur = inRules && !PLACEHOLDER.test(l.slice(2).trim()) ? { line: i + 1, section: open.at(-1).name, lines: [l] } : null;
       if (cur) items.push(cur);
     } else if (cur && /^\s+\S/.test(l)) {
       cur.lines.push(l);
-    } else {
+    } else if (l.trim() !== "") {
       cur = null;
     }
   }
-  return items;
+  return { sections, items };
 }
 
 /**
- * ruleLedger(index, { readText }) → { hasBriefs, briefs, unread, rows, counts }
+ * ruleLedger(index, { readText }) → { hasBriefs, briefs, withSections, unread, rows, counts }
  *
  * `readText(path)` returns a document's contents or null. A row is
- * `{ doc, line, text, state, tests, others }`, with `state` one of `test` (the item names at least
- * one file the index marks as a test), `other` (it names files, none of them a test) and `none`.
+ * `{ doc, line, section, text, state, tests, others }`, with `state` one of `test` (the item names
+ * at least one file the index marks as a test), `other` (it names files, none of them a test) and
+ * `none`. `withSections` is how many of the briefs read hold a rules section at all.
  */
 export function ruleLedger(index, { readText = () => null } = {}) {
   const known = new Map(index.files.map((f) => [f.path, f]));
@@ -115,6 +145,7 @@ export function ruleLedger(index, { readText = () => null } = {}) {
   const rows = [];
   const unread = [];
   let briefs = 0;
+  let withSections = 0;
   for (const doc of docs) {
     const text = readText(doc);
     if (text === null) {
@@ -124,7 +155,9 @@ export function ruleLedger(index, { readText = () => null } = {}) {
     if (isShim(text)) continue;
     briefs++;
     const home = dirOf(doc);
-    for (const item of ruleItems(text)) {
+    const { sections, items } = readRules(text);
+    if (sections) withSections++;
+    for (const item of items) {
       const tests = new Set();
       const others = new Set();
       for (const l of item.lines) {
@@ -140,6 +173,7 @@ export function ruleLedger(index, { readText = () => null } = {}) {
       rows.push({
         doc,
         line: item.line,
+        section: item.section,
         text: item.lines[0].replace(/^- /, "").trim().slice(0, TEXT_SHOWN),
         state: tests.size ? "test" : others.size ? "other" : "none",
         tests: [...tests].sort(),
@@ -150,5 +184,5 @@ export function ruleLedger(index, { readText = () => null } = {}) {
 
   const counts = { test: 0, other: 0, none: 0 };
   for (const r of rows) counts[r.state]++;
-  return { hasBriefs: briefs > 0, briefs, unread, rows, counts };
+  return { hasBriefs: briefs > 0, briefs, withSections, unread, rows, counts };
 }

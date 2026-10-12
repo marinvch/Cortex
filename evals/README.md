@@ -334,18 +334,26 @@ Run these in order. Each one is cheaper than the next and can stop you before it
 
 ### Not confirmed
 
-The spec listed what the docs did not state. This is where each stands. Nothing below was settled
-by a measured run: step 2.2 made no session, and the first real ones belong to step 2.3.
+The spec listed what the docs did not state. This is where each stands after the first measured
+run (step 2.3, 2026-10-12, 30 sessions, in [`harness/RESULTS.md`](harness/RESULTS.md)). A row that
+run did not reach still says so.
 
 | Question | Where it stands |
 |---|---|
 | What `--output-format json` prints when `--max-turns` is reached | **Provisional.** `harness/templates/result-max-turns.json` looks like a captured result, but how it was captured is not recorded, so step 2.3 confirms it on its first real session. In it, `subtype` is `error_max_turns`, `is_error` is true, there is an `errors` list and no `result` text, and `total_cost_usd`, `num_turns` and `modelUsage` are present. `classify()` scores such a session on its tree |
-| Whether `permission_denials` appears in `json` output | **Provisional**, on the same two templates: it is there, as a list. The record keeps its length as `denials`; nothing depends on it |
+| Whether `permission_denials` appears in `json` output | **Confirmed** on Claude Code 2.1.296: all 32 real results carry it, as a list. The record keeps its length as `denials`; nothing depends on it. The first row is still provisional, because no session reached `--max-turns` |
 | `CLAUDE_SETTING_SOURCES` | The harness does not set it. It relies on `--setting-sources` alone |
 | Whether leaving `user` out of `--setting-sources` keeps `~/.claude/CLAUDE.md` and `~/.claude/rules/` out of a session | **Open.** If they load, they reach both arms alike, which cannot favour one and can move both. Each recorded section says whether the file existed |
 | Whether a project `CLAUDE.md` loads when `project` is left out | **Open, and not depended on.** `project` stays in, and the probe checks at the start of every run that the root brief loads |
-| Whether `acceptEdits` plus the allow-list lets a session finish these tasks | **Open** until step 3 above has run once |
-| The cost and length of a session | **Open.** The spec's guess is 3 to 8 minutes a session and one to two hours a run. The first recorded section replaces the guess with a number |
+| Whether `acceptEdits` plus the allow-list lets a session finish these tasks | **Confirmed.** 32 of 32 sessions finished with `subtype: success`. One was denied one command, a `cat >` to a file outside the working copy (without-arm, `by-status`, third repeat), and still passed. Neither `node` nor `npm test` was ever denied, so the allow-list is unchanged |
+| The cost and length of a session | **Measured**, replacing the spec's guess of 3 to 8 minutes a session and one to two hours a run. A session took 24 seconds to 1 minute 22 seconds, and the thirty took 13 minutes and a reported $4.36 |
+
+**What the first run showed is that the fixture is too easy.** Both arms passed 12 of 12 rule-task
+sessions, so the reading is "tasks do not discriminate" and nothing about the context layer can be
+read from it, in either direction. `shop` v1 needs a second version with tasks the without-arm can
+fail before another thirty sessions are worth spending. The with-arm used fewer turns and tokens on
+every rule task and the control did not differ; by the rule above that decides nothing, and it is
+written here only so the next fixture's author has seen it.
 
 ### Changing the harness
 

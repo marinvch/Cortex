@@ -396,15 +396,16 @@ session has to format by hand.
 
 ### Record what the formatter changed, and apply the updates
 
-`stamp` already recorded each file. A formatter that rewrote one afterwards leaves it reading
-`edited`, as if the team had changed it. Run `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" .` and, for each file
-of this pass it lists as `edited`, record what is on disk now, with the same values file:
+**After formatting, record again each stamped file the formatter rewrote.** `stamp` records a file
+as it wrote it, so a formatter's rewrite reads as `edited`, as if the team had changed it.
+`node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" .` lists them. For each one from this pass,
+with the same values file:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" record . <lands at> loop/<template> --values-file <json>
 ```
 
-The command writes `.cortex/stamps.json` and nothing else. With no formatter, skip this.
+Record what is on disk now. The command writes `.cortex/stamps.json` and nothing else.
 
 If it warns **not re-renderable**, the file holds lines its values do not produce, usually because
 the formatter rewrote them. It is still recorded, but a later template change will ask about it

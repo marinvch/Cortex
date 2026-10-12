@@ -105,15 +105,19 @@ test("/cortex says the indexer's first run also edits .gitignore", () => {
   assert.match(body, /\.gitignore/);
 });
 
-test("/cortex renders and records every whole-file loop file, and updates only through the CLI", () => {
+test("/cortex stamps every whole-file loop file in one command, and updates only through the CLI", () => {
   // The stamp record is only as good as the step that writes it, and that step is prose: a model
   // following skills/cortex/SKILL.md. So the prose is pinned — render, record after formatting,
   // update and diff through cortex-stamps, the two shared-file templates left out on purpose, and
   // the .gitignore fix written only when the user picks it.
   const body = read("skills/cortex/SKILL.md");
-  for (const cmd of ["render", "record", "update", "diff", "adopt"]) {
+  for (const cmd of ["stamp", "record", "update", "diff", "adopt"]) {
     assert.match(body, new RegExp(`cortex-stamps\\.mjs"? ${cmd}\\b`), `/cortex never runs cortex-stamps ${cmd}`);
   }
+  // One act: a render redirected into a file is written by the shell and recorded by nobody.
+  assert.doesNotMatch(body, /cortex-stamps\.mjs"? render[^\n]*>/, "/cortex redirects a render into a file");
+  assert.match(body, /Exit 3 means it refused, and nothing was written/, "/cortex is told what a refused stamp is");
+  assert.match(body, /On a yes, run it again with `--force`/, "and that --force follows the yes");
   assert.match(body, /cortex-stamps\.mjs"? \. --json/, "/cortex reads the stamp status on a re-run");
   assert.match(body, /`verification\.md`[^\n]*`settings\.hooks\.json`[^\n]*not recorded|not recorded[^\n]*`verification\.md`/i,
     "/cortex says the appended and merged templates stay out of the record");

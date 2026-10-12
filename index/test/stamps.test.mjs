@@ -744,6 +744,8 @@ test("stampFile never writes over a file Cortex did not record", () => {
   assert.equal(readStamps(w.repoRoot), null, "and a refusal records nothing");
   assert.equal(act(w, { force: true }).action, "replaced");
   assert.equal(onDisk(w), OUT);
+  // What is recorded is the file it wrote, not the one it replaced.
+  assert.deepEqual(stateOf(w, readStamps(w.repoRoot)).map((e) => e.state), ["current"]);
 });
 
 test("stampFile never writes over a stamped file the team edited since", () => {

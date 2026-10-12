@@ -45,6 +45,7 @@ A small checkout service: carts, orders and a product catalog. It has no depende
 | POST /orders/:id/pay | 200, the paid order |
 | POST /orders/:id/ship | 200, the shipped order |
 | GET /orders/:id/history | 200, what happened to the order |
+| GET /ledger | 200, one line per order that has shipped |
 | GET /catalog?q=text | 200, the products whose name contains the text |
 | GET /catalog/:id | 200, one product |
 | GET /health | 200 |
@@ -56,7 +57,7 @@ An error answers { error } with status 400, 404 or 409.
     src/server.js     createApp({ db, clock }) and the route table
     src/routes/       one module per resource
     src/cart/         carts and their totals
-    src/orders/       placing, paying and shipping an order
+    src/orders/       placing, paying and shipping an order, and the ledger
     src/catalog/      products and stock
     src/money/        arithmetic on amounts
     src/store/        the store and its migrations
@@ -77,6 +78,7 @@ import { cartRoutes } from "./routes/carts.js";
 import { orderRoutes } from "./routes/orders.js";
 import { catalogRoutes } from "./routes/catalog.js";
 import { healthRoutes } from "./routes/health.js";
+import { ledgerRoutes } from "./routes/ledger.js";
 
 // "/orders/:id/pay" becomes a function that answers the params of a matching path, or null.
 function compile(route) {
@@ -97,7 +99,7 @@ function compile(route) {
 export function createApp({ db, clock }) {
   migrate(db);
   const ctx = { db, clock };
-  const routes = [...cartRoutes(), ...orderRoutes(), ...catalogRoutes(), ...healthRoutes()].map(compile);
+  const routes = [...cartRoutes(), ...orderRoutes(), ...catalogRoutes(), ...healthRoutes(), ...ledgerRoutes()].map(compile);
 
   function request(method, path, body) {
     const url = new URL(path, "http://shop.local");
@@ -242,6 +244,19 @@ export function healthRoutes() {
 }
 `,
 
+  "src/routes/ledger.js": js`import { ledgerLines } from "../orders/ledger.js";
+
+export function ledgerRoutes() {
+  return [
+    {
+      method: "GET",
+      path: "/ledger",
+      handle: (ctx) => ({ status: 200, body: ledgerLines(ctx) }),
+    },
+  ];
+}
+`,
+
   "src/cart/cart.js": js`import { NotFoundError, ValidationError } from "../lib/errors.js";
 import { nextId } from "../lib/ids.js";
 import { findProduct } from "../catalog/catalog.js";
@@ -380,6 +395,16 @@ export function recordAudit(ctx, orderId, event) {
 
 export function auditFor(ctx, orderId) {
   return ctx.db.all("audit").filter((entry) => entry.orderId === orderId);
+}
+`,
+
+  "src/orders/ledger.js": js`import { allOrders } from "./repository.js";
+
+// What finance reads: one line per order that has shipped, oldest first.
+export function ledgerLines(ctx) {
+  return allOrders(ctx.db)
+    .filter((order) => order.status === "shipped")
+    .map((order) => ({ orderId: order.id, amount: order.total, currency: order.currency }));
 }
 `,
 

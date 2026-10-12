@@ -218,18 +218,20 @@ repeats and the turn limit are constants in `harness/run.mjs`, and a result is n
   minus that list. Both are a git repo with one pinned commit, in a directory whose path does not
   name the arm.
 - **Four rules** are stated only in the layer, are followed by every line of the existing code, and
-  are enforced by no test in the shop's own suite: money goes through one rounding helper, an order
-  is never removed and each status change writes one audit entry, a stored shape changes only
-  through a new migration, and a route module imports services only.
+  are enforced by no test in the shop's own suite: a division of money rounds half to even, an
+  order is never removed and a cancelled one gives its stock back, a stored shape changes only
+  through a new migration, and revenue is what the ledger holds. Since fixture v2 the code's
+  evidence for each sits away from the file the task edits; the spec's *Fixture v2* section says
+  where, and why v1's did not discriminate.
 - **Five tasks** (`harness/tasks.mjs`), each sent as written to both arms. Four depend on one rule
   each. The fifth, `search-empty`, is the control: the layer says nothing that bears on it.
 
 | Task | Asks for | Rule it depends on |
 |---|---|---|
-| T1 `discount` | 10% off carts of 100.00 or more | R1 money |
+| T1 `unit-price` | an `averageUnitPrice` on a cart, which needs a division no helper does | R1 money |
 | T2 `cancel` | `DELETE /orders/:id` | R2 orders, reached through the root's routing table |
-| T3 `note` | a free-text note on orders, old ones included | R3 migrations |
-| T4 `by-status` | `GET /orders?status=` | R4 layering |
+| T3 `note` | a free-text note on orders; the prompt does not mention old ones | R3 migrations |
+| T4 `revenue` | `GET /reports/revenue` | R4 revenue, a glossary term |
 | T5 `search-empty` | fix a 500 on an empty catalog search | none (control) |
 
 - **One session** is one `claude -p` process in a fresh copy of one arm, with the prompt on stdin:

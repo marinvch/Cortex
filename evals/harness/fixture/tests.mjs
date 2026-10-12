@@ -4,8 +4,7 @@
 //
 // Two things are deliberate, and a test that breaks either makes a correct change fail:
 //   - no test pins a whole response body, because three tasks add a field to one;
-//   - no test places an order of 100.00 or more, or pins the store's version to a number, because
-//     a task changes each.
+//   - no test pins the store's version to a number, because a task changes it.
 //
 // A change to any string here changes the measured repo: raise FIXTURE_VERSION in ../fixture.mjs.
 
@@ -167,6 +166,24 @@ test("an order needs a cart that exists and holds something", () => {
   assert.equal(app.request("POST", "/orders", { cartId: "cart-9999" }).status, 404);
   assert.equal(app.request("POST", "/orders", { cartId: cartOf(app, []) }).status, 400);
   assert.equal(app.request("GET", "/orders/order-9999").status, 404);
+});
+`,
+
+  "test/ledger.test.js": js`import { test } from "node:test";
+import assert from "node:assert/strict";
+import { cartOf, makeApp } from "./helpers.js";
+
+test("the ledger has a line for an order once it has shipped", () => {
+  const { app } = makeApp();
+  const first = app.request("POST", "/orders", { cartId: cartOf(app, [["notebook", 2]]) }).body;
+  const second = app.request("POST", "/orders", { cartId: cartOf(app, [["mug-enamel", 1]]) }).body;
+  app.request("POST", "/orders/" + first.id + "/pay");
+  app.request("POST", "/orders/" + second.id + "/pay");
+  assert.deepEqual(app.request("GET", "/ledger").body, []);
+  app.request("POST", "/orders/" + first.id + "/ship");
+  const ledger = app.request("GET", "/ledger");
+  assert.equal(ledger.status, 200);
+  assert.deepEqual(ledger.body, [{ orderId: first.id, amount: first.total, currency: "EUR" }]);
 });
 `,
 

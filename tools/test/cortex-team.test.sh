@@ -1,7 +1,7 @@
 # The agent team, stamped end to end on a real git fixture (plan step 14).
 #
 # This is the path /cortex follows: `cortex-loop.mjs --json` offers the team, `--team <roles>` gives
-# the files, values and roster, `cortex-stamps.mjs render` writes each file, `record` records it. The
+# the files, values and roster, `cortex-stamps.mjs stamp` writes and records each whole file. The
 # promises it checks are the ones a user acts on:
 #
 #   - what is offered: every core role, the Project manager only with a plan folder, the verifier
@@ -64,12 +64,12 @@ assert_eq "[]" "$(field "$picks" 'j.needs')" "team: every value was detected, so
 assert_eq '`architect`, `tester`, `reviewer`, `project-manager`' "$(field "$picks" 'j.values.ROSTER')" "team: the roster is the team as picked"
 field "$picks" 'j.values' > "$WORK/values.json"
 
-# Walk the files the way /cortex does: render each, append the playbook, retire the verifier.
+# Walk the files the way /cortex does: stamp each whole file, append the playbook, retire the verifier.
 while IFS='|' read -r template path mode; do
   case "$mode" in
     write)
-      mkdir -p "$(dirname "$P/$path")" || exit 1
-      node "$STAMPS" render "$template" --values-file "$WORK/values.json" --templates "$TPL" > "$P/$path"
+      node "$STAMPS" stamp "$P" "$path" "$template" --values-file "$WORK/values.json" --templates "$TPL" >/dev/null 2>&1 \
+        || _fail "team: stamp $path"
       ;;
     append)
       { printf '\n'; node "$STAMPS" render "$template" --values-file "$WORK/values.json" --templates "$TPL"; } >> "$P/$path"
@@ -80,11 +80,6 @@ removed="$(field "$picks" 'j.upgrade.remove')"
 assert_eq ".claude/agents/verifier.md" "$removed" "team: accepting the upgrade names the verifier to remove"
 rm -f "$P/$removed"
 node "$STAMPS" forget "$P" "$removed" >/dev/null 2>&1
-while IFS='|' read -r template path; do
-  [ -n "$path" ] || continue
-  node "$STAMPS" record "$P" "$path" "$template" --values-file "$WORK/values.json" --templates "$TPL" >/dev/null 2>&1 \
-    || _fail "team: record $path"
-done < <(field "$picks" 'j.files.filter((f) => f.recorded).map((f) => [f.template, f.path].join("|")).join("\n")'; echo)
 git -C "$P" add -A && git -C "$P" commit -q -m "the team"
 
 assert_contains "$(cat "$P/CLAUDE.md")" '## Working as a team' "team: the playbook is appended to CLAUDE.md"
@@ -183,8 +178,7 @@ assert_eq "[\"$SKILL_MD true\"]" "$(field "$three" 'j.files.filter((f) => f.mode
 assert_eq "[]" "$(field "$three" 'j.conflicts')" "rounds: untouched since it was stamped, so there is nothing to ask"
 
 field "$three" 'j.values' > "$WORK/values3.json"
-node "$STAMPS" render team/team-skill.md --values-file "$WORK/values3.json" --templates "$TPL" > "$P/$SKILL_MD"
-node "$STAMPS" record "$P" "$SKILL_MD" team/team-skill.md --values-file "$WORK/values3.json" --templates "$TPL" >/dev/null 2>&1 || _fail "rounds: record the team skill"
+node "$STAMPS" stamp "$P" "$SKILL_MD" team/team-skill.md --values-file "$WORK/values3.json" --templates "$TPL" >/dev/null 2>&1 || _fail "rounds: stamp the team skill"
 assert_contains "$(cat "$P/$SKILL_MD")" "The round limit in this repo is 3." "rounds: the stamped skill carries the new limit"
 
 later="$(node "$LOOP" "$P" --index "$IDX" --team none 2>&1)"

@@ -10,8 +10,11 @@ holds the rules for that module alone — read it before editing the module.
   returns data; `/cortex-scaffold` is the separate skill that applies changes. This separation is
   what makes "the user decides" structural rather than a promise a model has to keep — if you add
   a write to a source file here, you have broken the product's central claim. **Five named
-  exceptions.** The first, `cortex-stamps.mjs update`, rewrites a file Cortex itself stamped, and only in state
-  `update` — untouched since it was recorded, re-renderable, template changed. `/cortex` runs it
+  exceptions.** The first is `cortex-stamps.mjs`, in two commands. `stamp` writes one file
+  `/cortex` was told to stamp, renders and records it in the same act (`stampFile`), and refuses
+  to write over a file the record does not hold or one edited since, unless `--force` carries the
+  developer's yes. `update` rewrites a file Cortex itself stamped, and only in state
+  `update` — untouched since it was recorded, re-renderable, template changed. `/cortex` runs each
   only for the paths the user confirmed. The rule lives in the code (`planUpdates`), not in the
   skill, because a guarantee belongs to the act (ADR 0016). Never widen it to `edited`,
   `conflict` or `review`. **And never from an older plugin:** when the record's `cortex` is newer

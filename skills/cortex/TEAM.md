@@ -60,7 +60,7 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-loop.mjs" . --team architect,tester [--
 
 Add `--rounds <1-5>` only when the user asked for a debate limit other than the one in place. The
 default is 2, and a limit already stamped is kept without the flag. With a new limit, `files` holds
-`.claude/skills/team/SKILL.md` with `refresh: true`: render and record it like any `write` file.
+`.claude/skills/team/SKILL.md` with `refresh: true`: stamp it like any `write` file.
 
 `--team none` when no role was picked but the existing agents are the team. It writes nothing and
 prints `{ files, values, needs, conflicts, upgrade }`, or refuses a pick that is not on offer, naming why.
@@ -84,7 +84,8 @@ itself is in no record and is still refused.
    and add the answer under its `placeholder`. Never invent one: an agent told to run a command the
    repo never declared fails the first time it runs.
 3. Walk `files` in order:
-   - `write` — render as in step 7's *Render each whole-file row*, from `team/<template>`. The
+   - `write` — stamp as in step 7's *Stamp each whole-file row*, from `team/<template>`. A
+     `refresh` file the user agreed to replace in step 1 takes `--force`. The
      Tester's `test-paths.sh` comes with `tester.md` and never alone; the hook runs it through `bash`,
      so no executable bit is needed.
    - `append` — render `team/playbook.md` to a file outside the repo and append it with
@@ -92,7 +93,7 @@ itself is in no record and is still refused.
    - `roster` — the block is already there: replace its roster line with the new `ROSTER`, nothing else.
 4. When `upgrade` is set, delete `upgrade.remove` and drop it from the record:
    `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stamps.mjs" forget . .claude/agents/verifier.md`.
-5. Format, then `record` every `write` file with the same values file, as step 7 says. The playbook
+5. Format, then `record` again any `write` file the formatter changed, as step 7 says. The playbook
    is not recorded.
 
 Everything here lands under `.claude/`, so an unattended run needs `--permission-mode auto`

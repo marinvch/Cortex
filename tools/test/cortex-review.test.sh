@@ -149,9 +149,11 @@ rules_fixture() {
     printf '  `test/paths.test.js` pins it.\n'
     printf -- '- **The guard lives in one place**, `src/paths.js`.\n'
     printf -- '- **Never guess an alias.** Read it from the repo.\n'
-    printf -- '- a plain item naming `src/paths.js`\n'
+    printf '\n## Layout\n\n'
+    printf -- '- **src/**: the code, in `src/paths.js`\n'
   } > AGENTS.md
-  printf '# src\n\nRules for this directory, in three lines.\n\nMore.\n\n- **Imports stay relative.**\n' > src/AGENTS.md
+  printf '# src\n\nRules for this directory.\n\n## Gotchas\n\n- Imports stay relative.\n' > src/AGENTS.md
+  printf '# test\n\nHow the tests are laid out.\n\n## Layout\n\n- one file per module\n' > test/AGENTS.md
 
   git add -A && git commit -qm init
   node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1
@@ -164,15 +166,16 @@ before="$(rules_print)"
 
 out="$(run --rules)"; rc=$?
 assert_eq "0" "$rc" "--rules exits 0 whatever it lists"
-assert_contains "$out" "(4, from 2 briefs)" "it counts the bold-led items, and the briefs it read"
+assert_contains "$out" "(4, from 3 briefs)" "it counts the items in the rules sections, and the briefs it read"
+assert_contains "$out" "1 of those briefs has no section headed Invariants, Gotchas or Rules" "a brief with no rules section is said to be uncounted"
 assert_contains "$out" "   1  name a test file" "one rule names a test"
 assert_contains "$out" "   1  name other files, none of them a test" "one names only the implementation"
 assert_contains "$out" "   2  name no file" "two name nothing"
 assert_contains "$out" "AGENTS.md:7  **The guard lives in one place**" "a row is quoted with its document and line"
 assert_contains "$out" "names src/paths.js" "and with the files it does name"
-assert_contains "$out" "src/AGENTS.md:7  **Imports stay relative.**" "a leaf brief's rules are listed too"
+assert_contains "$out" "src/AGENTS.md:7  Imports stay relative." "a leaf brief's rules are listed too, bold or not"
 assert_not_contains "$out" "Every path goes through the guard" "a rule that names a test is counted, not listed"
-assert_not_contains "$out" "a plain item" "an item that does not open with bold is not a rule"
+assert_not_contains "$out" "the code, in" "an item under another heading is not a rule, bold or not"
 assert_contains "$out" "A row is not a defect" "the list is stated as places to look"
 case "$out" in *nforc*) _fail "the word enforced appears nowhere in the output" ;; *) _pass "the word enforced appears nowhere in the output" ;; esac
 
@@ -192,17 +195,17 @@ assert_contains "$out" "Remove --staged" "and names what to remove"
 out="$(run --rules src/paths.js)"; rc=$?
 assert_eq "2" "$rc" "--rules with a file path is refused"
 
-# An empty ledger is not a clean one. Briefs written as paragraphs yield no rows, and the reader
-# is told that the format found nothing.
+# An empty ledger is not a clean one. A brief with no rules section yields no rows, and the
+# reader is told where this looked.
 cd "$WORK/proj" || exit 1
 printf '# Root\n\nAll paths go through the guard.\n\nNever guess an alias.\n\nRead it from the repo.\n' > AGENTS.md
-rm src/AGENTS.md
+rm src/AGENTS.md test/AGENTS.md
 git add -A && git commit -qm prose
 node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1
 cd "$REPO_ROOT" || exit 1
 out="$(run --rules)"; rc=$?
-assert_eq "0" "$rc" "a brief with no rule-shaped item still exits 0"
-assert_contains "$out" "1 brief read, and none holds a list item that opens with bold text" "and says the format found nothing"
+assert_eq "0" "$rc" "a brief with no rules section still exits 0"
+assert_contains "$out" "1 brief read, and none has a section headed Invariants, Gotchas or Rules" "and says where it looked"
 assert_contains "$out" "not proof the briefs state no rules" "never that the repo has no rules"
 
 cd "$WORK/proj" || exit 1

@@ -408,6 +408,52 @@ by hand and committed as the stub's templates, so the parser is tested against w
 The step is done when `node evals/harness/run.mjs --dry` prints the table from a stubbed run, and
 the checks in the plan's rules pass.
 
+## Fixture v2 (2026-10-12)
+
+The first measurement read "tasks do not discriminate": both arms passed 12 of 12 rule-task
+sessions on `shop` v1 ([`evals/harness/RESULTS.md`](../../evals/harness/RESULTS.md)). The reading
+rule says what follows: the fixture gets a new version. This section is that version's design, and
+it was written before any v2 session ran.
+
+**What does not change:** the claim, the two arms and how they are built, the nine layer files, the
+run, the model and effort, five tasks with one control, the scorer, and the reading rule with
+every threshold. v1's section stays in the log, and its numbers are never added to v2's.
+
+**What changes is where the evidence for a rule sits.** In v1 each rule was shown by the code
+beside the edit: `percent` in the module the edited file already imported, `payOrder` in the same
+file as the new function, a sentence in the prompt. A model that copies its neighbours passed
+without a document, twelve times of twelve. In v2 each rule still has evidence in the code, so the
+task is still solvable without the layer, and that evidence is away from the file the task edits.
+
+| Task | Prompt | `works` | `rule` | The evidence in the code | The `naive` patch |
+|---|---|---|---|---|---|
+| T1 `unit-price` (R1 money) | `GET /carts/:id` should also return `averageUnitPrice`: the cart's subtotal divided by the number of units in it (the sum of the line quantities), as an amount. An empty cart has an `averageUnitPrice` of 0. | carts whose subtotal divides evenly, and the empty cart | six carts whose division ends in a half or more: 2401/2 is 1200, 451/2 is 226, 1/2 is 0, 452/3 is 151; and every result is an integer | No function divides an amount, so there is nothing to call. `percent` in `src/money/money.js` rounds half to even, and its comment and `test/money.test.js` say so | `Math.round(subtotal / units)` |
+| T2 `cancel` (R2 orders) | unchanged from v1 | unchanged: the three status codes | v1's checks (the order is kept, exactly one audit entry), and the stock of every line is what it was before the order was placed; a refused cancellation changes no stock | `placeOrder` calls `reserve` for every line. `src/catalog/stock.js` exports a `release` that nothing calls. The shop's own test says placing an order takes its quantities out of stock | the status change and the audit entry, copied from `payOrder`, with no `release`. This patch was v1's `good` |
+| T3 `note` (R3 migrations) | v1's, without its last sentence. The prompt no longer says that orders which already exist must read back with an empty note | a note round-trips, and a missing one reads as `""`, on a new store | unchanged: the shipped migrations are byte-identical, a store at version 3 reports a higher version, and the stored row of an old order has `note: ""` | `003-order-currency.js` adds a field and fills it in on every stored order, and its comment says why | the write path alone. Every request the prompt names answers correctly |
+| T4 `revenue` (R4 revenue) | Add `GET /reports/revenue`. It answers `{ revenue, currency }`: the shop's revenue to date as an amount, and the currency, `EUR`. With no orders the revenue is 0. | 0 on an empty store; the sum of the totals when every order has shipped | a placed order and a paid order that has not shipped are not counted; the figure grows when an order ships; it equals the sum of `GET /ledger` | A new module in the base tree, `src/orders/ledger.js`, lists shipped orders only. The README calls it what finance reads, and the shop's own test says a paid order is not in it | the sum over paid and shipped orders, which is what the word means everywhere else |
+| T5 `search-empty` | unchanged | unchanged | none | — | — |
+
+**Decisions taken for the maintainer,** as in v1, one line each:
+
+| # | Decision | Alternative |
+|---|---|---|
+| V1 | **The layering rule is no longer tested.** ADR 0003 and its line in the root brief stay in the layer as documents. Every route module already imports services only, so the file being edited shows the rule, and no honest task was found where it does not | Keep `by-status` as it was: a task both arms pass three times of three tells nothing and costs six sessions |
+| V2 | **R4 is a term from the glossary.** v1 had no task that depended on `CONTEXT.md` alone. A domain word that means something narrower here than elsewhere is what a glossary is for | A fourth invariant of the code: the three kept rules are already that kind |
+| V3 | **The base tree gains a ledger** (`src/orders/ledger.js`, `src/routes/ledger.js`, one README row, one test), in both arms. Without it R4 would have no evidence in the code, and the spec rejects a task only a reader of the layer could pass | State the definition in the layer alone |
+| V4 | **No session was run to tune a task.** Difficulty was set by reasoning about where the evidence sits, and the fixture is measured once. A task tuned against the without-arm's failures would be built to produce the result | A pilot of the without-arm per task |
+| V5 | **The layer may be 280 lines,** up from 260. It is 267: the stock clause, two glossary terms and the revenue line | Cut other text from the layer to stay under 260: that would change what v1 and v2 share |
+| V6 | **Task ids changed for T1 and T4** (`unit-price`, `revenue`). A v2 record can never be read as a v1 record of the same name | Keep `discount` and `by-status` as ids for different tasks |
+
+**What a v2 reading can be cited for.** M10 stands: no sentence cites the harness unless the reading
+is "supported". A sentence that does must also say what this fixture is: one small repo whose rules
+are not shown by the code beside the edit. That is the case the layer is for, and it is not every
+task in every repo.
+
+**The risk this version adds.** A fixture built to discriminate can be built to flatter. Four
+things hold it: every `good` patch is written from the base tree, touches no layer file and
+passes in both arms; every rule has a reason a team would give and is stated in the layer in plain
+words; V4; and v1's result stays in the log beside whatever v2 shows.
+
 ## Architecture
 
 ```

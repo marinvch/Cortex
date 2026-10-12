@@ -11,11 +11,11 @@ export const CLOSING = "Make the change in this repository, and run its tests be
 
 export const TASKS = [
   {
-    id: "discount",
+    id: "unit-price",
     label: "T1",
     rule: "R1",
     control: false,
-    prompt: "Orders of 100.00 or more should get 10% off. Add it to the cart totals: `GET /carts/:id` should return a `discount` field next to `subtotal`, and `total` should be the subtotal minus the discount. Below 100.00 the discount is 0.",
+    prompt: "`GET /carts/:id` should also return `averageUnitPrice`: the cart's subtotal divided by the number of units in it (the sum of the line quantities), as an amount. An empty cart has an `averageUnitPrice` of 0.",
   },
   {
     id: "cancel",
@@ -29,14 +29,14 @@ export const TASKS = [
     label: "T3",
     rule: "R3",
     control: false,
-    prompt: "Orders need a free-text `note`. `POST /orders` should accept an optional `note` and `GET /orders/:id` should return it; an order placed without one has an empty string. Orders that already exist must read back with an empty note too.",
+    prompt: "Orders need a free-text `note`. `POST /orders` should accept an optional `note` and `GET /orders/:id` should return it; an order placed without one has an empty string.",
   },
   {
-    id: "by-status",
+    id: "revenue",
     label: "T4",
     rule: "R4",
     control: false,
-    prompt: "Add `GET /orders?status=<status>`: it returns the orders in that status, oldest first. With no `status` it returns all orders.",
+    prompt: "Add `GET /reports/revenue`. It answers `{ revenue, currency }`: the shop's revenue to date as an amount, and the currency, `EUR`. With no orders the revenue is 0.",
   },
   {
     id: "search-empty",

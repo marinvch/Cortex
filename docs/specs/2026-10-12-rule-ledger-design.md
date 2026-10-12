@@ -161,8 +161,11 @@ here; `--citations` already reports it.
   needs real briefs that use it for rules, and the sample has none.
 - **When it becomes a finding.** What the numbers on real repos must look like before a row enters
   `analyse()`, and at what severity.
-- **Which ritual reads it.** `/cortex-review`, `/optimize-context` and `/cortex-brief` could each
-  use the ledger. Chosen after the flag has been used by hand.
+- **Which other ritual reads it.** `/cortex-brief` does since 2.41.59: it heads its lists
+  `Invariants` and `Gotchas`, names a test in an item where one already fails with the rule, and
+  reports the ledger for the leaves it wrote. It was chosen first because it writes the rules the
+  ledger reads and always has an index. `/optimize-context` must run in a repo with no index, and
+  `/cortex-review` has a measured baseline, so both wait.
 - **The reverse direction.** A test whose text names a brief or quotes a rule is evidence the item
   does not carry. Whether that is worth a pass over the test files is not known.
 

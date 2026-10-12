@@ -5,6 +5,38 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.42.0] — 2026-10-12
+
+The ritual collection is sized by use: 45 rituals become 40, and the ones a request can reach
+go from 39 to 28. [ADR 0025](docs/adr/0025-the-collection-is-sized-by-use.md) has the measurement.
+
+### Changed
+
+- **Five command names are gone, and what each did is in the ritual that had the job.** This is
+  the breaking part.
+
+  | Was | Is now |
+  |---|---|
+  | `/audit` | `/cortex-audit score` |
+  | `/reindex` | `/cortex-audit graph` |
+  | `/skill-creator` | `/writing-for-agents`, which follows its `NEW-SKILL.md` |
+  | `/setup-plugins` | the first half of `/connect-brain` |
+  | `/install-project` | `/cortex`; `/cortex-skills` offers `/plan-feature` and `/investigate-bug` |
+
+- **Six rituals run only when typed:** `/capture`, `/daily`, `/weekly-review`, `/level-up`,
+  `/scan-projects` and `/wizard`. "Capture this" no longer reaches `/capture`; type the command.
+  This overturns part of ADR 0020, which is amended.
+- **The skill listing is 6,302 characters, down from 8,142.** Claude Code gives every plugin's
+  descriptions together 1% of the context window and drops the rest. The cap the tests hold is
+  now 6,800, down from 8,500.
+- `/cortex` and `/cortex-install` install a plugin tier with the command itself, because the
+  ritual that did it is now typed.
+
+### Fixed
+
+- **The prompt gate never routed a bug to `/diagnosing-bugs`.** It named another plugin's
+  debugging skill only.
+
 ## [2.41.60] — 2026-10-12
 
 The rule ledger reads a rule that names a type, and stops counting an appended shim as a brief.
@@ -5287,6 +5319,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.42.0]: https://github.com/marinvch/Cortex/releases/tag/v2.42.0
 [2.41.60]: https://github.com/marinvch/Cortex/releases/tag/v2.41.60
 [2.41.59]: https://github.com/marinvch/Cortex/releases/tag/v2.41.59
 [2.41.58]: https://github.com/marinvch/Cortex/releases/tag/v2.41.58

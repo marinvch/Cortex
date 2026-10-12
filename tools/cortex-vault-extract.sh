@@ -111,7 +111,7 @@ done
 
 # The skeleton, for whatever this run did not bring. connections.md and voice.md used to be tracked
 # here, so a vault extracted after they moved to templates/vault/ would arrive without the files
-# /onboard, /audit and /scan-projects write into. Only what is missing: a file the copy above just
+# /onboard, /cortex-audit score and /scan-projects write into. Only what is missing: a file the copy above just
 # delivered, or one the user already has in the destination, is theirs and is never overwritten.
 if [ -d "$SKELETON" ]; then
   seeded=0

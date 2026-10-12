@@ -6,8 +6,8 @@
   ],
   "elsewhere": [
     {
-      "prompt": "install the core plugins on this machine",
-      "owner": "setup-plugins"
+      "prompt": "install Cortex in this repo and stamp the whole loop",
+      "owner": "cortex"
     }
   ]
 }

@@ -22,7 +22,7 @@ this ritual flags means reaching for that skill, not improvising.
 
 You cannot mechanically tell *redundant* from *deliberately repeated because it is load-bearing*
 ([[context-engineering]] Rule 5). In the Cortex vault itself, the employer-firewall enforcement
-repeated across `/capture`, `/audit` and `/onboard` scores as textbook duplication — and cutting it
+repeated across `/capture`, `/cortex-audit score` and `/onboard` scores as textbook duplication — and cutting it
 would silently remove a safety control.
 
 So: automatic changes are limited to moves that **preserve total information**. Anything that

@@ -45,7 +45,7 @@ test("isContextDoc governs code; it deliberately does not include another tool's
 // --- a doc for another tool: a pointer at AGENTS.md, or text of its own (#548, item 13) -----------
 
 test("the shims Cortex writes for another tool point at the root brief", () => {
-  // The two texts in circulation: /install-project's template and tools/cortex-init.sh's.
+  // The two texts in circulation: the retired /install-project template's and tools/cortex-init.sh's.
   assert.ok(pointsAtRootBrief("All project context and conventions live in AGENTS.md at the repo root. Follow it.\n"));
   assert.ok(pointsAtRootBrief("All project context and conventions live in `AGENTS.md` at the repo root. Read and follow it.\n"));
   assert.ok(pointsAtRootBrief("@AGENTS.md\n"));

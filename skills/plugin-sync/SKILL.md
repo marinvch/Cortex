@@ -82,8 +82,8 @@ steps 1–3 do not apply. `cortex-plugin-check.mjs` says so rather than inventin
 - **A skill edit needs a restart even in this checkout.** Syncing the mirror updates files on disk;
   the session already loaded the old ones.
 - **If the versions match and the skill still misbehaves, it is the skill.** That is the point of
-  checking first — it converts "my change did nothing" from a guess into a fact. `/skill-creator`
-  step 5 is where a skill gets read back and tested.
+  checking first — it converts "my change did nothing" from a guess into a fact. `/writing-for-agents`,
+  in its `NEW-SKILL.md` step 5, is where a skill gets read back and tested.
 - **The MCP server is a separate lifecycle.** `/mcp` shows whether it connected. A failed connection
   is not a version problem and updating the plugin will not fix it — read the server's error first.
 - **Version numbers are never hand-edited**: `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-version.mjs" --set <x.y.z>` stamps

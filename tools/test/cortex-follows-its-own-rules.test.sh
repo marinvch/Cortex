@@ -44,8 +44,9 @@ out="$(node "$WORK/own-rules.mjs" "$REPO_ROOT" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "the checker runs over this repository without crashing"
 
 # An index that saw no skills would pass by checking nothing — the silent version of this test.
+# The floor is well under the 40 rituals shipped since 2.42.0, so a fold does not trip it.
 seen="$(printf '%s\n' "$out" | sed -n 's/^skills-seen //p')"
-if [ "${seen:-0}" -gt 40 ]; then
+if [ "${seen:-0}" -ge 30 ]; then
   _pass "the checker walked the rituals ($seen SKILL.md files)"
 else
   _fail "the checker walked the rituals" "saw ${seen:-none} — an empty walk would pass for the wrong reason"

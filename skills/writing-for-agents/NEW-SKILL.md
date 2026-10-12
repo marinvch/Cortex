@@ -1,18 +1,11 @@
----
-name: skill-creator
-description: Create a new Cortex skill or ritual, or turn a repeated task into a /slash command, asking first. Triggers — "make a skill for X", "add a ritual", "turn this into a skill".
-metadata:
-  capability: judgment
----
-
-# /skill-creator — create a tailored Cortex skill
+# Creating a new Cortex skill
 
 Turn a repeated need into a reusable **ritual**: a plain `skills/<name>/SKILL.md` that any AI
 agent can discover and run as a `/slash` command. A skill captures a *reusable technique*, not a
 one-off — if it's a single task, just do it; if you'd reach for it again, make a skill.
 
-This scaffolds the skill; `/writing-for-agents` is how to *write* it well — and its
-`SKILL-MECHANICS.md` decides the one choice this ritual cannot make for you: model-invoked (the
+These are the steps that scaffold and wire a skill. [SKILL.md](SKILL.md) is how to *write* it well, and
+[SKILL-MECHANICS.md](SKILL-MECHANICS.md) decides the one choice these steps cannot make for you: model-invoked (the
 description stays loaded every turn, and other skills can reach it) versus user-invoked
 (`disable-model-invocation: true`, zero context load, only a human can fire it).
 

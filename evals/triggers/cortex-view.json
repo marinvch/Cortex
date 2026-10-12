@@ -6,8 +6,8 @@
   ],
   "elsewhere": [
     {
-      "prompt": "rebuild the vault's navigator graph",
-      "owner": "reindex"
+      "prompt": "rebuild the vault navigator graph and fix dead links",
+      "owner": "cortex-audit"
     }
   ]
 }

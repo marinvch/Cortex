@@ -109,7 +109,7 @@ test("every skill has frontmatter a router can read (tools/cortex-frontmatter.mj
 // about 8,100. These limits keep them from growing back one edit at a time, and stop two rituals
 // from claiming one trigger phrase, which leaves the model to pick between them at random.
 const DESCRIPTION_MAX = 320;
-const DESCRIPTIONS_TOTAL_MAX = 8500;
+const DESCRIPTIONS_TOTAL_MAX = 6800;
 
 test("model-invocable descriptions stay short, in total and each, and no two claim one trigger", () => {
   const skillsDir = join(REPO_ROOT, "skills");
@@ -222,8 +222,8 @@ test("/migrate-engine tells the retired engine's MCP entry from a current Cortex
 });
 
 test("no ritual identifies the retired engine by the name `ai-os` alone", () => {
-  // The same mistake one ritual over: /install-project scans for the engine before it writes.
-  for (const skill of ["install-project", "migrate-engine"]) {
+  // /install-project made the same mistake one ritual over, until it was folded into /cortex.
+  for (const skill of ["migrate-engine"]) {
     const src = readFileSync(join(REPO_ROOT, "skills", skill, "SKILL.md"), "utf8");
     assert.doesNotMatch(src, /an `ai-os` entry in `\.mcp\.json`/, `${skill}: say what the entry points at, not what it is called`);
   }
@@ -373,8 +373,8 @@ test("the authoring rituals state the official limits, in the official units", a
   // come from. Both are prose a model reads, so the guarantee is that the prose is there (ADR 0016),
   // with the number and the pages read from core/claude-code.js rather than typed a second time.
   const { RULES, limit } = await import("../claude-code.js");
-  const creator = readFileSync(join(REPO_ROOT, "skills", "skill-creator", "SKILL.md"), "utf8");
-  assert.ok(creator.includes(`${limit("skill.body.max-lines")} **lines**`), "/skill-creator states the body limit in lines");
+  const creator = readFileSync(join(REPO_ROOT, "skills", "writing-for-agents", "NEW-SKILL.md"), "utf8");
+  assert.ok(creator.includes(`${limit("skill.body.max-lines")} **lines**`), "NEW-SKILL.md states the body limit in lines");
   assert.doesNotMatch(creator, /\d+\s+words/i, "and no longer states it in words");
 
   // Five families are not about writing a document an agent reads: MCP output limits, the

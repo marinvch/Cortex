@@ -214,7 +214,7 @@ recognisable cases cannot be written by accident. ADR 0015 stands unchanged.
 
 | Profile | Writing | Reading (the listing, the page) |
 |---|---|---|
-| `home` | A file with an employer-shaped link is refused whole. The message names the field and the shape, and says it belongs in a `work` install. There is no override flag | The entry carries the slug and the reason. Title, links and prose are withheld |
+| `home` | A file with an employer-shaped link is refused whole. The message names the field and the shape, and says it belongs in a `work` install. There is no override flag. A file a teammate already pushed is refused the same way when this repo tries to join it, with no flag passed: the file is left as it is and no connector is written (settled 2026-10-12) | The entry carries the slug and the reason. Title, links and prose are withheld |
 | `work` | Every link is accepted. No shape marks a link as personal, so nothing is refused by code; the prose rule covers personal material | Shown in full |
 | `lab` | Every link is accepted and the file is committed locally. Nothing is pushed | Shown in full |
 

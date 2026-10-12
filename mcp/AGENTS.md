@@ -198,7 +198,9 @@ the repo by commit count, and — like every other part — **dependency-free**.
     request for `--project-repo`. The text is also passed through `core/scrub.js` before the write,
     because it is about to be pushed.
   - **An existing file is left byte for byte** unless a field flag is passed. Then
-    `setFrontmatter` changes those lines only and the whole file is judged again.
+    `setFrontmatter` changes those lines only and the whole file is judged again. With no flag, an
+    existing file the profile refuses stops the join: the file stays as it is and no connector is
+    written. Reporting it as withheld and joining anyway was #586's open choice, settled 2026-10-12.
   - **No repo, no file.** A checkout with no usable `origin` and no `--project-repo` still joins;
     its project is listed as `unregistered`. A project file with no `repo` is never written.
   - **Removal resolves the slug against the team's `projects/` directory, through the Vault's

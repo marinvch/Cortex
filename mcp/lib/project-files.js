@@ -121,7 +121,8 @@ export function listTeamProjects(root, { team, policy }) {
  *
  * - The file does not exist: it is written from `fields`, with `repo` falling back to the
  *   checkout's `origin`, `title` to the slug, and `created` to `today`.
- * - It exists and no field was passed: it is left byte for byte.
+ * - It exists and no field was passed: it is left byte for byte. Where the profile refuses it, the
+ *   join is refused too, with the file still byte for byte.
  * - It exists and a field was passed: those frontmatter lines change, the prose does not, and the
  *   whole file is judged again.
  *
@@ -187,6 +188,17 @@ export function addProject(root, { team, teamRepo, project, cwd, today, policy, 
   } else {
     const current = vault.read(rel);
     if (!Object.keys(given).length) {
+      // A file a teammate wrote that this profile withholds is not joined either. Writing the
+      // connector would tie this repo to a project the install may not hold (#586, settled 2026-10-12).
+      const held = validateProjectFile(current, { slug: project });
+      const refusal = held.isProject ? profileRefusal(held.data, policy) : null;
+      if (refusal) {
+        throw new ProjectFileRefused(
+          refusal.code,
+          `projects/${project}.md is already in the team-brain, and joining it is ${refusal.message} This repo was not joined: the file is as it was, and no connector was written.`,
+          { links: refusal.links },
+        );
+      }
       return { dir, cloned, file: { path, action: "unchanged", committed: false, pushed: false, warnings: [], status: existingStatus(current, project, policy) } };
     }
     text = setFrontmatter(current, given);
@@ -205,7 +217,6 @@ export function addProject(root, { team, teamRepo, project, cwd, today, policy, 
 function existingStatus(text, slug, policy) {
   const v = validateProjectFile(text, { slug });
   if (!v.isProject) return "not a project file";
-  if (profileRefusal(v.data, policy)) return "withheld on this profile";
   return v.ok ? "valid" : `invalid — ${describe(v.errors)}`;
 }
 

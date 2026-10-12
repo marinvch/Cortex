@@ -26,7 +26,9 @@ that step yourself and say so.
    is installed on each machine.
 3. `architect` returns the plan: the files, their blast radius, and the rules each must keep.
 
-## 2. Debate, at most two rounds
+## 2. Debate, to a round limit
+
+The round limit in this repo is {{DEBATE_ROUNDS}}.
 
 1. Give the plan to `tester` and `reviewer`. Each returns its objections.
 2. Drop every objection that does not cite a `path:line`, an ADR or a test, and tell the
@@ -34,12 +36,17 @@ that step yourself and say so.
    without one costs a round and settles nothing.
 3. Give the remaining objections to `architect`, which accepts each one, or rebuts it with a
    citation.
-4. That is one round. Run a second only while an objection is still open, and stop after it.
+4. That is one round. Run another only while an objection is still open, and stop at the limit.
 5. Show the developer each open disagreement side by side: the objection, the rebuttal, and both
    citations. The developer decides; a tie is theirs to break, not yours.
 
 The plan and the debate stay in this conversation. Where a team keeps that record is not decided
 yet.
+
+The limit is a setting, from 1 to 5, and `/cortex` stamps 2 unless asked. To change it, ask
+`/cortex` for another limit: it writes this file again and records the value, so a later update
+keeps it. Editing the number here by hand works too, and makes this file one Cortex asks about
+before updating.
 
 ## 3. Build and check
 

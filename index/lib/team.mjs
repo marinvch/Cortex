@@ -10,6 +10,8 @@
 //     carried per agent instead, for a per-agent question with its diff.
 //   - **The verifier /cortex stamped is offered the upgrade to the Reviewer** (T9). Declining keeps it,
 //     and it keeps the Reviewer covered, so the role is still not offered twice.
+//   - **The debate's round limit is a setting** (ADR 0019, amended): 2 unless the developer asks for
+//     another from 1 to 5, kept in the team skill's stamp record so a later run does not put it back.
 //   - **Every value a template needs is detected or asked** — `needs`, per role, with the question.
 //     Nothing is invented: a command a repo never declared, written into an agent, fails the first
 //     time the agent runs it.
@@ -28,7 +30,7 @@ import { readAgentAnswers } from "./agent-answers.mjs";
 import { ROLES, agentReport } from "./agents.mjs";
 import { adrLocation } from "./adr.mjs";
 import { placeholderMatches } from "./placeholders.mjs";
-import { hashText, readStamps } from "./stamps.mjs";
+import { VALUE_DEFAULTS, hashText, readStamps } from "./stamps.mjs";
 import { findSections } from "./section.mjs";
 
 const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.meta.url));
@@ -59,6 +61,9 @@ const QUESTIONS = {
   TEST_PATHS: "Where do this repo's tests live? The index marks no file as a test.",
   TEST_GLOBS: "Which files may the Tester edit, as shell globs such as \"*/test/*\"? The index marks no test, and an empty list refuses every edit.",
 };
+
+/** The round limits a team may ask for. Above 5 the debate is no longer bounded in any useful sense. */
+export const DEBATE_ROUNDS = { min: 1, max: 5, default: VALUE_DEFAULTS.DEBATE_ROUNDS };
 
 const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return false; } };
 const readText = (p) => { try { return readFileSync(p, "utf8"); } catch { return null; } };
@@ -132,6 +137,30 @@ function skillState(root) {
   } catch {
     return "theirs";
   }
+}
+
+/**
+ * The debate's round limit: `{ value, changed, edited }`. `value` is what was asked for, else what the
+ * team skill was stamped with, else the default. `changed` when Cortex's team skill is here and holds
+ * another limit, so it is written again; `edited` when the team changed that file since. A skill
+ * stamped before the setting existed says two rounds in words and records no value, which is the
+ * default. Throws on a limit outside 1 to 5: a refused value is never rendered.
+ */
+function roundLimit(root, asked, skill) {
+  const said = asked === null || asked === undefined ? null : String(asked).trim();
+  if (said !== null && !(/^[0-9]+$/.test(said) && Number(said) >= DEBATE_ROUNDS.min && Number(said) <= DEBATE_ROUNDS.max)) {
+    throw new Error(`the debate's round limit is a whole number from ${DEBATE_ROUNDS.min} to ${DEBATE_ROUNDS.max}, and ${JSON.stringify(said)} is not one`);
+  }
+  let entry = null;
+  try { entry = readStamps(root)?.files?.[SKILL.path] ?? null; } catch { /* next.mjs names a damaged record */ }
+  const recorded = typeof entry?.values?.DEBATE_ROUNDS === "string" ? entry.values.DEBATE_ROUNDS : null;
+  const value = said !== null ? String(Number(said)) : recorded ?? DEBATE_ROUNDS.default;
+  const text = skill === "ours" ? readText(join(root, ...SKILL.path.split("/"))) : null;
+  return {
+    value,
+    changed: skill === "ours" && value !== (recorded ?? DEBATE_ROUNDS.default),
+    edited: text !== null && Boolean(entry) && entry.fileSha256 !== hashText(text),
+  };
 }
 
 /** The run command the verifier was stamped with, or null. A damaged record costs this value only. */
@@ -209,14 +238,19 @@ function stampedRoles(root, values) {
  * own mapping of existing agents, `{ path: role | null }`). The answers an earlier run recorded
  * (`.cortex/agents.json`) are read here, so every caller gets them; `as` outranks them.
  *
- * `{ report, playbook, teamSkill, values, covered, stamped, offer, withheld, upgrade, unmapped, answered, proposals }`.
+ * `rounds` is the debate's round limit when the developer asked for one; without it the limit the
+ * team skill was stamped with stands.
+ *
+ * `{ report, playbook, teamSkill, rounds, values, covered, stamped, offer, withheld, upgrade, unmapped, answered, proposals }`.
  * `unmapped` is the agents still to ask about; `answered` the ones the developer already placed.
  * `values` holds each detected value and `null` for one that was not; `offer` is the roles to ask
  * about, each with the questions its files need. `stamped` is the roles Cortex wrote here before,
  * which are never offered again and can be picked again to re-render with today's values.
  */
-export function teamState(root, index, { testCmd = null, verifierPath = null, as = {} } = {}) {
+export function teamState(root, index, { testCmd = null, verifierPath = null, as = {}, rounds: askedRounds = null } = {}) {
   if (!index) return null;
+  const teamSkill = skillState(root);
+  const rounds = roundLimit(root, askedRounds, teamSkill);
   const report = agentReport(root, index, { verifierPath, as, remembered: readAgentAnswers(root) });
   const claudeMd = readText(join(root, "CLAUDE.md")) ?? "";
   const tests = testLocations(index);
@@ -231,6 +265,7 @@ export function teamState(root, index, { testCmd = null, verifierPath = null, as
     TEST_GLOBS: tests ? tests.globs.map((g) => `  ${g}`).join("\n") : null,
     PLAN_DIRS: planDirs.length ? planDirs.map((d) => span(`${d}/`)).join(", ") : null,
     SCOPED_BRIEFS: briefs.map((b) => `   - ${span(b)}`).join("\n"),
+    DEBATE_ROUNDS: rounds.value,
   };
 
   const members = report.agents.filter((a) => a.loads && a.mapping.role);
@@ -277,7 +312,8 @@ export function teamState(root, index, { testCmd = null, verifierPath = null, as
     report,
     // The one reader of the section (lib/section.mjs): a heading in a code fence is not the playbook.
     playbook: findSections(claudeMd, PLAYBOOK_HEADING).length > 0,
-    teamSkill: skillState(root),
+    teamSkill,
+    rounds,
     values,
     covered,
     stamped: stampedRoles(root, values),
@@ -325,6 +361,9 @@ function needsFor(role, values) {
  * or a name that is not a role. Picking `reviewer` where the verifier holds the role accepts T9's
  * upgrade.
  *
+ * A round limit that differs from the one in Cortex's team skill puts that skill in `files` with
+ * `refresh: true`, whatever was picked, and names it in `conflicts` when the team edited it.
+ *
  * A role in `state.stamped` can be picked again. Its files carry `refresh: true`: the same template
  * rendered over the file Cortex wrote, with today's values. That is how a brief written after the
  * Architect reaches the Architect's list (#548). A refreshed file the team edited since is a
@@ -360,6 +399,16 @@ export function teamValues(state, picked) {
   const roster = rosterFor(chosen, state, upgrading);
   if (roster) {
     if (!state.teamSkill) files.push({ ...SKILL, mode: "write", recorded: true, executable: false });
+    // A new round limit is written into the skill Cortex stamped, which is the one file that states it.
+    if (state.teamSkill === "ours" && state.rounds.changed) {
+      files.push({ ...SKILL, mode: "write", recorded: true, executable: false, refresh: true });
+      if (state.rounds.edited) {
+        conflicts.push(
+          `${SKILL.path} was edited since Cortex stamped it, and writing the round limit ${state.rounds.value} renders it again, replacing those edits. ` +
+            "Show the diff and ask; on no, leave the file and change the limit in it by hand.",
+        );
+      }
+    }
     if (state.teamSkill === "theirs") {
       conflicts.push(
         `${SKILL.path} is already here and not Cortex's. The playbook tells every session to load the skill named team, ` +

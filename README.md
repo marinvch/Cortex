@@ -1,6 +1,6 @@
 # 🧠 Cortex — a context manager for new and legacy codebases
 
-**v2.42.0** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
+**v2.43.0** · installable as a Claude plugin · docs at [marinvch.github.io/cortex-site](https://marinvch.github.io/cortex-site/) · see [CHANGELOG.md](CHANGELOG.md)
 
 Point Cortex at a repository — new or legacy, yours alone or one a whole team shares — and it
 builds real knowledge of it: what is there, how it is wired, where it is changing, and what is
@@ -202,8 +202,8 @@ verifier is offered the upgrade to the Reviewer, and keeps the verifier if it sa
 A short section in `CLAUDE.md` puts the team to work. For each new task, your session runs
 `/cortex-impact --size` on the files the task will touch, tells you whether it recommends one agent
 or the team and why, and **asks you**. On "team" it loads the `team` skill. The Architect plans, and
-the Tester and Reviewer object. An objection with no citation is dropped. After at most two rounds,
-whatever is still open comes to you side by side, and you decide. Then comes a failing test, the
+the Tester and Reviewer object. An objection with no citation is dropped. After at most two rounds
+(a setting, from 1 to 5), whatever is still open comes to you side by side, and you decide. Then comes a failing test, the
 change and an independent review. Nothing is committed, pushed or merged unless you ask.
 
 Claude Code's experimental agent teams can run the same agents as teammates. Cortex never turns that

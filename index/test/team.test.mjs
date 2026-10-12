@@ -453,3 +453,78 @@ test("an agent answered `none` in an earlier run is read off .cortex/agents.json
   const again = teamState(w.root, w.index, { ...opts, as: { ".claude/agents/owner.md": null } });
   assert.ok(offered(again).includes("tester"));
 });
+
+// --- the debate's round limit (ADR 0019, amended) ----------------------------------------------------
+
+const SKILL_AT = ".claude/skills/team/SKILL.md";
+const skillTpl = () => readFileSync(join(REPO, "templates/team/team-skill.md"), "utf8");
+/** A repo whose team skill Cortex stamped with `values`, as the record holds it. */
+function withSkill(values, edit = (t) => t) {
+  const tpl = skillTpl();
+  const text = renderTemplate(tpl, values);
+  const w = world({ "src/a.js": "x\n", [SKILL_AT]: edit(text) });
+  writeStamps(w.root, recordStamp(null, { path: SKILL_AT, template: "team/team-skill.md", version: "2.43.0", templateText: tpl, fileText: text, values }));
+  return w;
+}
+const OPTS = { testCmd: "npm test", verifierPath: VERIFIER };
+
+test("the round limit is 2 unless asked, and is always a value the team skill is rendered with", () => {
+  const { s } = state({ "src/a.js": "x\n" });
+  assert.deepEqual(s.rounds, { value: "2", changed: false, edited: false });
+  assert.equal(teamValues(s, ["architect"]).values.DEBATE_ROUNDS, "2");
+  const asked = state({ "src/a.js": "x\n" }, { rounds: "4" }).s;
+  assert.equal(teamValues(asked, ["architect"]).values.DEBATE_ROUNDS, "4");
+  assert.equal(state({ "src/a.js": "x\n" }, { rounds: 3 }).s.rounds.value, "3", "a number is the same answer as its digits");
+});
+
+test("a round limit outside 1 to 5 is refused, never rendered", () => {
+  for (const bad of ["0", "6", "-1", "2.5", "two", "", "1e1"]) {
+    assert.throws(() => state({ "src/a.js": "x\n" }, { rounds: bad }), /whole number from 1 to 5/, `${JSON.stringify(bad)} was accepted`);
+  }
+  for (const ok of ["1", "5"]) assert.equal(state({ "src/a.js": "x\n" }, { rounds: ok }).s.rounds.value, ok);
+});
+
+test("the limit the team skill was stamped with stands on a later run that asks for none", () => {
+  const w = withSkill({ DEBATE_ROUNDS: "4" });
+  const s = teamState(w.root, w.index, OPTS);
+  assert.deepEqual(s.rounds, { value: "4", changed: false, edited: false });
+  const t = teamValues(s, ["architect"]);
+  assert.equal(t.values.DEBATE_ROUNDS, "4", "a re-run does not put the default back");
+  assert.ok(!t.files.some((f) => f.path === SKILL_AT), "and the skill is not written again");
+});
+
+test("a new limit writes Cortex's team skill again, whatever was picked", () => {
+  const w = withSkill({ DEBATE_ROUNDS: "2" });
+  const s = teamState(w.root, w.index, { ...OPTS, rounds: "3" });
+  assert.deepEqual(s.rounds, { value: "3", changed: true, edited: false });
+  const t = teamValues(s, ["architect"]);
+  assert.deepEqual(t.files.filter((f) => f.path === SKILL_AT), [{ path: SKILL_AT, template: "team/team-skill.md", mode: "write", recorded: true, executable: false, refresh: true }]);
+  assert.deepEqual(t.conflicts, []);
+  assert.match(renderTemplate(skillTpl(), t.values), /The round limit in this repo is 3\./);
+  // Asking for the limit it already has changes nothing.
+  assert.equal(teamState(w.root, w.index, { ...OPTS, rounds: "2" }).rounds.changed, false);
+});
+
+test("a team skill stamped before the setting existed holds the default, so only another limit rewrites it", () => {
+  const tpl = skillTpl();
+  const w = world({ "src/a.js": "x\n", [SKILL_AT]: "old text\n" });
+  writeStamps(w.root, recordStamp(null, { path: SKILL_AT, template: "team/team-skill.md", version: "2.41.2", templateText: "old text\n", fileText: "old text\n" }));
+  assert.equal(teamState(w.root, w.index, OPTS).rounds.changed, false, "the template update is the stamp record's job");
+  assert.equal(teamState(w.root, w.index, { ...OPTS, rounds: "1" }).rounds.changed, true);
+  assert.ok(tpl.includes("{{DEBATE_ROUNDS}}"));
+});
+
+test("a new limit over a team skill the team edited is a conflict to ask about", () => {
+  const w = withSkill({ DEBATE_ROUNDS: "2" }, (t) => t + "\nOur own rule.\n");
+  const s = teamState(w.root, w.index, { ...OPTS, rounds: "5" });
+  assert.deepEqual(s.rounds, { value: "5", changed: true, edited: true });
+  const t = teamValues(s, ["architect"]);
+  assert.equal(t.conflicts.length, 1);
+  assert.match(t.conflicts[0], /SKILL\.md was edited since Cortex stamped it, and writing the round limit 5/);
+});
+
+test("a team skill that is not Cortex's is never written for a new limit", () => {
+  const { s } = state({ "src/a.js": "x\n", [SKILL_AT]: "---\nname: team\ndescription: Our standup notes.\n---\n" }, { rounds: "3" });
+  assert.equal(s.rounds.changed, false);
+  assert.ok(!teamValues(s, ["architect"]).files.some((f) => f.path === SKILL_AT));
+});

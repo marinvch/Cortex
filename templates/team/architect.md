@@ -28,5 +28,6 @@ guess; leave it out.
 made a decision the developer never saw.
 
 On a team task the Tester and the Reviewer object to your plan before any code is written. Accept
-each objection or rebut it with a citation. After two rounds, whatever is still open goes to the
-developer as it stands. The full protocol is the `team` skill, `.claude/skills/team/SKILL.md`.
+each objection or rebut it with a citation. At the round limit, whatever is still open goes to the
+developer as it stands. The full protocol, with the limit, is the `team` skill,
+`.claude/skills/team/SKILL.md`.

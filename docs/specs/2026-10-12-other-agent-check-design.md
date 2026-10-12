@@ -65,8 +65,9 @@ nothing from `core/`, `index/` or `mcp/`; a failed call is never a zero.
 
 ## Not yet specified
 
-- **Which client is first.** It should be the one the team at work uses beside Claude Code, and
-  that has not been stated.
+- **Which client is first** is settled as: none. The maintainer said on 2026-10-12 that each team
+  chooses its agent, so the lane takes any client on the command line (A3) and ships no client's
+  flags of its own.
 - **Each client's headless invocation**, its way to point at a disposable profile, and how it
   reports its version. None is installed here to read it from, and a spec written from memory of
   another vendor's flags would be a guess.

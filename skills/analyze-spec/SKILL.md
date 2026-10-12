@@ -108,4 +108,4 @@ nobody. Then ask the user to approve the spec + plan before any implementation.
 
 This is the heavyweight path on purpose: brainstorm, then a design spec, then a plan, with no code. A weaker setup produces a plan that reads well and skips the branch that mattered.
 
-Below the floor: use **`/plan-feature`** (written into the repo by `/install-project`), which is the lightweight path for routine tickets and expects far less. Reserve this ritual for the risky change, on a setup that can carry it.
+Below the floor: use **`/plan-feature`** (written into the repo by `/cortex-skills`), which is the lightweight path for routine tickets and expects far less. Reserve this ritual for the risky change, on a setup that can carry it.

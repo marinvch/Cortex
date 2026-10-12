@@ -50,10 +50,8 @@ and needs no mirror at all.
 | `/capture` | anytime | one-line drop to `inbox/` or today's daily note |
 | `/daily` | each day | open today's note; surface priorities + due items |
 | `/weekly-review` | weekly | empty `inbox/`, update `projects/`, restamp `current-focus` |
-| `/audit` | weekly | read-only four-layer health score + top gaps |
 | `/level-up` | biweekly | Notice→Decide→Build interview; ship one artifact |
-| `/reindex` | periodic | regenerate the navigator graph, nominate MOCs, fix dead links |
-| `/cortex-audit` | periodic | find + fix orphans, dead links, stale/duplicate/misplaced files, privacy leaks |
+| `/cortex-audit` | periodic | vault health: find + fix orphans, dead links, misplaced files, privacy leaks; `score` for the read-only four-layer score, `graph` to rebuild the navigator |
 | `/cortex-next` | any time you are lost | where this repo is in the sequence, and the one command to run now |
 | `/resume` | starting on work already in flight | committed · uncommitted · diverged, then what is left — before touching anything |
 | `/ship` | work is finished | judge it against the repo's docs, one PR at a time, merge in an order that strands nothing |
@@ -72,23 +70,20 @@ and needs no mirror at all.
 | `/dream` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/handoff` | leaving work mid-flight | compact this conversation to the OS temp dir for the next agent |
 | `/optimize-context` | per repo | audit + slim that repo's agent context files |
-| `/writing-for-agents` | writing any agent-facing doc | the authoring discipline behind every file Cortex writes |
-| `/install-project` | per repo | stamp a codebase brain into a repo — stays in that repo |
+| `/writing-for-agents` | writing any agent-facing doc, or a new skill | the authoring discipline behind every file Cortex writes, and the steps that create and wire a new `skills/<name>/SKILL.md` |
 | `/domain-modeling` | per repo, ongoing | sharpen that repo's glossary — write its `CONTEXT.md` + ADRs |
 | `/analyze-spec` | per risky feature | brainstorm → design spec → plan. **No code.** |
 | `/migrate-engine` | per repo, once | move off the retired `.ai-os/` engine |
 | `/resolving-merge-conflicts` | on conflict | resolve a stuck merge/rebase by intent, hunk by hunk. Never `--abort` |
 | `/wizard` | on request | generate a script that walks a *human* through steps only they can do |
 | `/scan-projects` | anytime | register personal repos into `projects/` — metadata only |
-| `/connect-brain` | once per machine | register `mcp/server.js` at user scope for recall/capture |
-| `/setup-plugins` | per machine | install the Cortex Core plugin bundle |
+| `/connect-brain` | once per machine | install the Cortex Core plugin bundle, and register `mcp/server.js` at user scope for recall/capture |
 | `/team-init` | leader, once | create + seed the shared team-brain repo |
 | `/team-add` | per product repo | clone the team-brain; drop `.cortex/connector.json` |
 | `/catch-me-up` | after time away | brain notes + team-brain git history → what changed & why |
 | `/grilling` | before committing to a plan | interview in rounds until the design tree has no unresolved branch |
 | `/improve-codebase-architecture` | on request | find deepening opportunities in a repo, report them as HTML, work one |
 | `/skill-audit` | when the collection has grown | which skills are never reached, redundant, or a prompt would do better |
-| `/skill-creator` | on request | write a new `skills/<name>/SKILL.md` and wire it in |
 | `/optimize-prompt` | automatic | the prompt gate — scores a vague prompt and sharpens it before work starts |
 
 Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it, and
@@ -113,13 +108,15 @@ by a user who already knows it exists, which is the same failure as it not being
 - `/diagnosing-bugs` and `/cortex-review` both read the context layer and are not interchangeable:
   review judges a **change** you already made, diagnosis hunts a **symptom** you cannot explain. The
   overlap is Phase 0, where diagnosis borrows the review evidence to rank its hypotheses.
-- The three health rituals are not interchangeable — `/audit` scores *content* and writes nothing,
-  `/cortex-audit` finds and fixes *structure*, `/reindex` rebuilds the *graph*.
+- **Six rituals are typed, never reached from a request**: `/capture`, `/daily`, `/weekly-review`,
+  `/level-up`, `/scan-projects` and `/wizard` carry `disable-model-invocation`, beside the once-only
+  ones. A ritual that hands off to one tells the user to type it.
+  [ADR 0025](docs/adr/0025-the-collection-is-sized-by-use.md) has the measurement.
 - `/migrate-engine` **harvests the old memory store into `AGENTS.md` before deleting anything.**
   Harvest first, delete second — otherwise knowledge is lost across the breaking change.
-- `/analyze-spec` is the heavyweight path; `/plan-feature` (written by `/install-project`) stays the
+- `/analyze-spec` is the heavyweight path; `/plan-feature` (written by `/cortex-skills`) stays the
   lightweight one for routine tickets.
-- `/scan-projects` and `/install-project` never let company code into a `home` vault — that's the
+- `/scan-projects` never lets company code into a `home` vault — that's the
   vault firewall in [`templates/vault-AGENTS.md`](templates/vault-AGENTS.md), not a style preference.
 - `/cortex-brief` nests one filename (`AGENTS.md`), never a sprawl of per-topic files. Split only
   where a real invariant or gotcha lives.

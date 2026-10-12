@@ -50,7 +50,7 @@ shares through that repo and which never enters a vault.
   detail.
 - `/capture`, `/daily` — material from the other world: **refuse the write** and say where it
   belongs. Never "sanitize and file anyway."
-- `/audit`, `/cortex-audit` — content from the other world is a **critical finding**, not a style
+- `/cortex-audit`, in every mode — content from the other world is a **critical finding**, not a style
   nit. Move it out of the vault and report it.
 - `/scan-projects` — on `home`, personal repos only; never a repo under a work directory.
 

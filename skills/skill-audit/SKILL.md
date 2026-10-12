@@ -92,7 +92,7 @@ One table, ranked by what you would act on first:
 removal is nearly always weaker than it looks after five minutes of reading. Merging two skills, or
 adding one line of routing, resolves most of what this finds.
 
-Where the fix is a rewrite, `/writing-for-agents` is the authoring discipline and `/skill-creator`
+Where the fix is a rewrite, `/writing-for-agents` is the authoring discipline, and its `NEW-SKILL.md`
 is what wires a changed skill back in.
 
 ## Gotchas

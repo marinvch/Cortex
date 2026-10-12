@@ -1,6 +1,7 @@
 ---
 name: daily
-description: Open today's vault note and surface the priorities, what's due and what is still open. Triggers — "daily", "start my day", "good morning", "what's on today".
+description: Open today's vault note and surface the priorities, what's due and what is still open.
+disable-model-invocation: true
 effort: low
 metadata:
   capability: mechanical

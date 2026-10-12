@@ -53,7 +53,7 @@ call, e.g. a merge or a "stale vs. just quiet" verdict).
 - **Knowledge** — enough notes; share with ≥1 link; any MOC (`type: moc`); PARA folders real?
 - **Context** — are `context/*` filled vs. placeholder; is `current-focus.md` fresh?
 - **Cadence** — recent activity; a recurring ritual actually run?
-Keep this to a few bullets — deep scoring is `/audit`'s job. Flag only clear gaps.
+Keep this to a few bullets — deep scoring is `/cortex-audit score`'s job. Flag only clear gaps.
 
 ## Method (all read-only)
 

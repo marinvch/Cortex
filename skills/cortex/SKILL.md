@@ -300,7 +300,7 @@ what drifts.
 | scoped `AGENTS.md` leaves | `/cortex-brief`, once per area they picked |
 | `.claude/skills/` | `/cortex-skills`, from `index.stack` |
 | a drifted skill | `/cortex-skills` § Refreshing a skill that drifted — the flagged lines only, and it asks again before touching a skill someone edited |
-| the plugin bundle | `/setup-plugins` |
+| the plugin bundle | `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --tier <tier> --scope user`, once per tier they picked. `/connect-brain` is the same step typed by a person |
 | `.cortex/memory/` | create it, and say it is **committed** on purpose |
 | the team plugin (`team-plugin`) | `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-shared-plugin.mjs" . --write`. It merges and refuses a file that does not parse; never hand-edit the JSON |
 

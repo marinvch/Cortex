@@ -1,6 +1,6 @@
 ---
 name: cortex-audit
-description: Find and fix structural problems in a Cortex vault — orphans, dead links, stale, duplicate or misplaced files, wiring drift, privacy leaks — through the read-only cortex-auditor subagent. Triggers — "cortex audit", "fix dead links", "full health check".
+description: Vault health in one ritual — find and fix orphans, dead links, stale, duplicate or misplaced files and privacy leaks; `score` gives the read-only four-layer score, `graph` rebuilds the navigator. Triggers — "cortex audit", "fix dead links", "score my vault", "rebuild the graph", "what needs a MOC".
 effort: high
 metadata:
   capability: strong
@@ -12,8 +12,16 @@ One command for a complete health pass. It **delegates the scan** to the `cortex
 subagent (`agents/cortex-auditor.md`), which runs read-only in its own context so the heavy
 globbing/link-mapping never bloats this conversation — then **you apply the fixes** here.
 
-> Structure, not content. `/audit` scores the four knowledge layers and writes nothing; this finds
-> and fixes the files those scores are computed over.
+## Three modes, one ritual
+
+| Asked for | Mode | Do |
+|---|---|---|
+| a health score, "is my brain healthy", "score my setup" | `/cortex-audit score` | read [SCORE.md](SCORE.md) and follow it. It scores content and writes nothing but an optional saved report |
+| rebuild the graph, "what needs a MOC", "tidy the vault" | `/cortex-audit graph` | read [GRAPH.md](GRAPH.md) and follow it |
+| anything else: orphans, dead links, misplaced files, a full check | `/cortex-audit` | the steps below. They find and fix structure |
+
+`/audit` and `/reindex` were separate rituals until 2.42.0. Someone who types either name wants
+`score` or `graph`.
 
 ## What to do
 
@@ -51,8 +59,8 @@ globbing/link-mapping never bloats this conversation — then **you apply the fi
 Default: auto-apply `[safe]` fixes, pause for the user on every `[judgment]` call. If the user asks
 to approve each edit, switch to proposing all fixes first.
 
-Pairs with [[reindex]] (regenerate the graph after cleanup) and complements [[audit]] (content
-scoring). Targets **this vault** — `/optimize-context` is the same instinct pointed at another repo.
+After a cleanup, the `graph` mode regenerates the views. Targets **this vault** —
+`/optimize-context` is the same instinct pointed at another repo.
 
 ## When the floor is not met
 

@@ -6,8 +6,8 @@
   ],
   "elsewhere": [
     {
-      "prompt": "turn this repeated task into a slash command",
-      "owner": "skill-creator"
+      "prompt": "make a skill for this repeated task and add a ritual for it",
+      "owner": "writing-for-agents"
     }
   ]
 }

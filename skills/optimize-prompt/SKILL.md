@@ -76,10 +76,10 @@ ritual.
 | Prompt shape | Ritual |
 |---|---|
 | new feature or non-trivial change | `superpowers:brainstorming`, then `/analyze-spec` if risky |
-| bug, test failure, surprise behavior | `superpowers:systematic-debugging` |
-| stray thought, link, task | `/capture` |
+| bug, test failure, surprise behavior | `/diagnosing-bugs`; `superpowers:systematic-debugging` where Cortex has no index of the repo |
+| stray thought, link, task | `/capture`, typed by the user — it is not model-invocable |
 | vault structure or health | `/cortex-audit` |
-| "make a ritual for X" | `/skill-creator` |
+| "make a ritual for X" | `/writing-for-agents` |
 
 ## Record format
 

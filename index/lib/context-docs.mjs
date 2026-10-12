@@ -46,7 +46,7 @@ export const CORTEX_BRIEF_NAMES = ["AGENTS.md", "CLAUDE.md", "GEMINI.md"];
 
 /**
  * The other tools' docs Cortex has a one-line shim for, so "replace it with the shim" is an offer
- * that exists. `/install-project` and `tools/cortex-init.sh` write it. `.cursorrules` and
+ * that exists. `tools/cortex-init.sh` writes it, and `/install-project` did until 2.42.0. `.cursorrules` and
  * `.windsurfrules` have no shim, and `CLAUDE.md` is not here because `/cortex` appends sections to
  * it on purpose: text of its own there is not a second brief.
  */

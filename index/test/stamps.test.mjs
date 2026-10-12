@@ -685,6 +685,12 @@ test("a template that gains a setting updates a file stamped before it, at the d
   assert.equal(w.record.files["REVIEW.md"].values.DEBATE_ROUNDS, undefined, "planning changes no record");
   const d = stampDiff({ repoRoot: w.repoRoot, record: w.record, templatesDir: w.templatesDir, path: "REVIEW.md" });
   assert.match(d.diff, /^\+Limit: 2$/m, "the diff shows the file the update would write");
+
+  // A template that does not use the setting records none: the record holds what rendered the file.
+  const other = stamped();
+  other.putTemplate("loop/REVIEW.md", TPL + "\nNew rule.\n");
+  const plain = planUpdates({ running: RUNNING, repoRoot: other.repoRoot, record: other.record, templatesDir: other.templatesDir });
+  assert.deepEqual(plain.updates[0].values, { NIT_CAP: "3" });
 });
 
 test("a recorded setting outranks its default, and a setting does not excuse another unfilled placeholder", () => {

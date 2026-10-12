@@ -45,6 +45,19 @@ const RULES_HEADING = /\b(invariants?|gotchas?|rules?)\b/i;
 /** A file name with an extension and no directory: `build.test.mjs`. */
 const BARE_FILE = /^[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6}$/;
 
+/**
+ * A type name, alone or followed by one member: `ShipmentServiceTest`, `Shipment.status`.
+ *
+ * A brief for a Java, Kotlin, C# or Swift repo names types, not paths. The first scaffolded repo
+ * this was run on wrote seven rules ending "Covered by `ShipmentServiceTest.someMethod`", every
+ * method real, and the ledger counted none. A capital first letter is required: `build`, `index`
+ * and `test` are words in every brief and stems of files in most repos.
+ */
+const TYPE_NAME = /^([A-Z][A-Za-z0-9_]*)(\.[A-Za-z_][A-Za-z0-9_]*)?$/;
+
+/** A line that imports the root brief: `@AGENTS.md`. */
+const IMPORTS_ROOT = /^@(\.\/)?AGENTS\.md\s*$/m;
+
 /** What a template leaves where a rule goes: `- {{an invariant, and why it holds}}`. */
 const PLACEHOLDER = /^\{\{.*\}\}$/;
 
@@ -116,10 +129,16 @@ function readRules(text) {
 export function ruleLedger(index, { readText = () => null } = {}) {
   const known = new Map(index.files.map((f) => [f.path, f]));
   const byBase = new Map(); // basename → [paths]
+  const byStem = new Map(); // basename without its last extension → [paths]
   for (const f of index.files) {
     const base = f.path.split("/").pop();
     if (!byBase.has(base)) byBase.set(base, []);
     byBase.get(base).push(f.path);
+    // The stem is the name minus its last extension only: `Cart.test.tsx` is named `Cart.test`,
+    // so a brief saying `Cart` is not credited with naming Cart's test.
+    const stem = base.replace(/\.[A-Za-z0-9]+$/, "");
+    if (!byStem.has(stem)) byStem.set(stem, []);
+    byStem.get(stem).push(f.path);
   }
 
   /** The indexed file a citation names, or null. Doc-relative, then repo-root, then a unique name. */
@@ -129,12 +148,17 @@ export function ruleLedger(index, { readText = () => null } = {}) {
       if (known.has(near)) return near;
       return known.has(cited) ? cited : null;
     }
-    if (!BARE_FILE.test(cited)) return null;
-    const near = normalizeFrom(home, cited);
-    if (known.has(near)) return near;
-    if (known.has(cited)) return cited;
-    const named = byBase.get(cited) || [];
-    return named.length === 1 ? named[0] : null;
+    if (BARE_FILE.test(cited)) {
+      const near = normalizeFrom(home, cited);
+      if (known.has(near)) return near;
+      if (known.has(cited)) return cited;
+      const named = byBase.get(cited) || [];
+      if (named.length === 1) return named[0];
+    }
+    // `Shipment.status` has the shape of a file name too, so a type is tried after one, not instead.
+    const type = cited.match(TYPE_NAME);
+    const typed = type ? byStem.get(type[1]) || [] : [];
+    return typed.length === 1 ? typed[0] : null;
   };
 
   const docs = index.files
@@ -153,9 +177,12 @@ export function ruleLedger(index, { readText = () => null } = {}) {
       continue;
     }
     if (isShim(text)) continue;
+    const { sections, items } = readRules(text);
+    // A shim Cortex appended a section to (the verification block lands in `CLAUDE.md`) is still
+    // the root brief under another name. It is a brief of its own only once it states rules.
+    if (!sections && IMPORTS_ROOT.test(text)) continue;
     briefs++;
     const home = dirOf(doc);
-    const { sections, items } = readRules(text);
     if (sections) withSections++;
     for (const item of items) {
       const tests = new Set();

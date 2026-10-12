@@ -153,6 +153,47 @@ test("a bare file name shared by two files is not evidence for either", () => {
   assert.equal(r.rows[0].state, "none");
 });
 
+// A Java, Kotlin, C# or Swift brief names a type, not a path. On the first scaffolded repo the
+// ledger was run on, seven rules named a real test as `ShipmentServiceTest.someMethod` and the
+// ledger counted none of them.
+const JAVA = ["AGENTS.md", "src/main/Shipment.java", "src/test/ShipmentServiceTest.java"];
+const JAVA_TESTS = ["src/test/ShipmentServiceTest.java"];
+
+test("a type name counts when exactly one indexed file is named for it", () => {
+  const r = ledger(JAVA, JAVA_TESTS, { "AGENTS.md": inv("- Status moves forward. Covered by `ShipmentServiceTest`.\n") });
+  assert.deepEqual(r.rows[0].tests, ["src/test/ShipmentServiceTest.java"]);
+});
+
+test("a type name followed by a member names the type's file", () => {
+  const r = ledger(JAVA, JAVA_TESTS, {
+    "AGENTS.md": inv("- `Shipment.status` is read off the last event. Covered by `ShipmentServiceTest.trackingOnlyMovesForward`.\n"),
+  });
+  assert.equal(r.rows[0].state, "test");
+  assert.deepEqual(r.rows[0].others, ["src/main/Shipment.java"]);
+});
+
+test("a type name two files are named for is not evidence for either", () => {
+  const paths = ["AGENTS.md", "a/Config.java", "b/Config.kt"];
+  const r = ledger(paths, [], { "AGENTS.md": inv("- Read `Config` first.\n") });
+  assert.equal(r.rows[0].state, "none");
+});
+
+test("a lower-case word is never read as a type name", () => {
+  // `build`, `index` and `test` are ordinary words in a brief, and each is also a file's stem.
+  const r = ledger(["AGENTS.md", "src/build.mjs"], [], { "AGENTS.md": inv("- Run `build` before `build.first`.\n") });
+  assert.equal(r.rows[0].state, "none");
+});
+
+test("a type name is matched on the whole stem, in its own case", () => {
+  const r = ledger(["AGENTS.md", "src/ShipmentView.java"], [], { "AGENTS.md": inv("- `Shipment` and `SHIPMENTVIEW` are not that file.\n") });
+  assert.equal(r.rows[0].state, "none");
+});
+
+test("a file with a compound extension is named for the stem before its first dot", () => {
+  const r = ledger(["AGENTS.md", "src/Cart.test.tsx"], ["src/Cart.test.tsx"], { "AGENTS.md": inv("- Totals are rounded once. See `Cart`.\n") });
+  assert.equal(r.rows[0].state, "none");
+});
+
 test("a citation that does not resolve is not evidence", () => {
   // --citations reports it. Here it is simply not a test the index knows.
   const r = root("- Pinned by `test/gone.test.js`.\n");
@@ -191,6 +232,31 @@ test("a shim is not a brief, and a CLAUDE.md with rules of its own is", () => {
   });
   assert.equal(r.briefs, 2);
   assert.deepEqual(r.rows.map((x) => x.doc), ["AGENTS.md", "GEMINI.md"]);
+});
+
+test("a pointer written in prose is a shim too", () => {
+  // Not every shim is an `@` import: another tool's file may only say where the brief is.
+  const r = ledger(["AGENTS.md", "GEMINI.md"], [], {
+    "AGENTS.md": inv("- Root rule.\n"),
+    "GEMINI.md": "Read AGENTS.md for this repo's rules.\n",
+  });
+  assert.equal(r.briefs, 1);
+});
+
+test("a shim that Cortex appended sections to is still the root brief, not a second one", () => {
+  // `/cortex` appends the verification block to `CLAUDE.md` under its `@AGENTS.md` line. Counting
+  // that file told every installed repo that one of its briefs had no rules section.
+  const appended = "@AGENTS.md\n\n## Verifying your work\n\n| Check | Command |\n|---|---|\n| Test | `npm test` |\n\nDone means these ran.\n";
+  const r = ledger(["AGENTS.md", "CLAUDE.md"], [], { "AGENTS.md": inv("- Root rule.\n"), "CLAUDE.md": appended });
+  assert.equal(r.briefs, 1);
+  assert.equal(r.withSections, 1);
+});
+
+test("a file that imports the root brief and states rules of its own is read", () => {
+  const own = "@AGENTS.md\n\n## Rules\n\n- Only Claude reads this one.\n\nMore text here.\n\nAnd more.\n";
+  const r = ledger(["AGENTS.md", "CLAUDE.md"], [], { "AGENTS.md": inv("- Root rule.\n"), "CLAUDE.md": own });
+  assert.equal(r.briefs, 2);
+  assert.deepEqual(r.rows.map((x) => x.doc), ["AGENTS.md", "CLAUDE.md"]);
 });
 
 test("a brief that could not be read is counted as unread, never as empty", () => {

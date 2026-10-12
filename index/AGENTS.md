@@ -173,8 +173,12 @@ holds the rules for that module alone — read it before editing the module.
   `templates/target-AGENTS.md` stamps. Reading any bold-led item was built first and dropped. On
   vercel/ai all 21 such items were definitions, and the template's own invariants are plain items.
   Run on this repo and six public ones: nine rows outside this repo, each opened and each a rule.
-  34 guards mutated, 33 test failures, the other an equivalent program. Add a heading word only
-  with real briefs that use it for rules.
+  A rule may name a type instead of a path (`ShipmentServiceTest.someMethod`), which counts when
+  one indexed file is named for it and the name starts with a capital. That came from the first
+  scaffolded repo it met: `/cortex-brief` wrote 16 rules into a Java service, seven ended with a
+  real test named that way, and the ledger counted none. After the change all 20 rows there were
+  opened and each is in the right state. 42 guards mutated, 41 test failures, the other an
+  equivalent program. Add a heading word only with real briefs that use it for rules.
 - **Every path two change sets compare goes through `normalizeChangedPath`** (`lib/changed.mjs`).
   `--against` itself is `lib/overlap.mjs`'s header.
 - **Where ADRs live is `lib/adr.mjs`'s one answer** (`isAdrPath`, `adrLocation`); no reader keeps

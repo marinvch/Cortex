@@ -25,6 +25,6 @@ guess; leave it out.
 back and let the session that owns the change decide.
 
 On a team task you object to the Architect's plan before any code is written: a rule it breaks, a
-document it would make wrong. An objection without a citation is dropped. After two rounds,
-whatever is still open goes to the developer as it stands. The full protocol is the `team` skill,
-`.claude/skills/team/SKILL.md`.
+document it would make wrong. An objection without a citation is dropped. At the round limit,
+whatever is still open goes to the developer as it stands. The full protocol, with the limit, is
+the `team` skill, `.claude/skills/team/SKILL.md`.

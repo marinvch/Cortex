@@ -5,6 +5,30 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.43.0] — 2026-10-12
+
+The agent team's debate limit is a setting. It was fixed at two rounds.
+[ADR 0019](docs/adr/0019-the-agent-team-is-written-into-the-repo-and-run-by-the-main-session.md)
+is amended.
+
+### Added
+
+- **`--rounds <1-5>` on `cortex-loop.mjs . --team`.** It sets how many rounds of cited objections
+  the team runs before open disagreements go to the developer. The default is still 2. Ask
+  `/cortex` for another limit and it writes the team skill again with it.
+- The limit is recorded in `.cortex/stamps.json`, so a later run and a template update keep it.
+
+### Changed
+
+- **The number is stated in one file.** `.claude/skills/team/SKILL.md` says "The round limit in
+  this repo is N". The Architect, the Tester, the Reviewer and the playbook in `CLAUDE.md` now say
+  "the round limit" and no number.
+- **A repo with a team is offered these as updates.** The agents and the team skill update from
+  the stamp record; a skill stamped before this release gets the default, 2. The playbook
+  section reads `outdated` and is replaced on a yes.
+- An update no longer refuses a template that gains a setting. It still refuses one that gains
+  any other placeholder with no recorded value.
+
 ## [2.42.0] — 2026-10-12
 
 The ritual collection is sized by use: 45 rituals become 40, and the ones a request can reach
@@ -5319,6 +5343,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.43.0]: https://github.com/marinvch/Cortex/releases/tag/v2.43.0
 [2.42.0]: https://github.com/marinvch/Cortex/releases/tag/v2.42.0
 [2.41.60]: https://github.com/marinvch/Cortex/releases/tag/v2.41.60
 [2.41.59]: https://github.com/marinvch/Cortex/releases/tag/v2.41.59

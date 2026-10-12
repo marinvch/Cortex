@@ -24,6 +24,7 @@ and their placeholders are in `${CLAUDE_PLUGIN_ROOT}/templates/team/README.md`.
 | `answered` | agents a developer already placed, in this run or an earlier one | never ask again; name them once ("5 agents were answered as not a role") |
 | `upgrade` | the verifier, offered the Reviewer's template (T9) | one yes/no |
 | `proposals` | per existing agent, edits provable from its file | one question per agent, with the diff |
+| `rounds` | the debate's round limit: `value`, and `changed` when it differs from the one in Cortex's team skill | say the limit once in the playback ("debate: at most 2 rounds"). Ask nothing unless the user wants another |
 | `stamped` | the roles Cortex wrote here before, each with `changed`: the values that differ today from the ones the file was rendered with | a role with `changed` goes in the *Update* row, named with what changed ("architect: the scoped brief list"). On yes, pick it again (below) |
 
 ## The questions
@@ -57,6 +58,10 @@ and their placeholders are in `${CLAUDE_PLUGIN_ROOT}/templates/team/README.md`.
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-loop.mjs" . --team architect,tester [--as <path>=<role> ...]
 ```
 
+Add `--rounds <1-5>` only when the user asked for a debate limit other than the one in place. The
+default is 2, and a limit already stamped is kept without the flag. With a new limit, `files` holds
+`.claude/skills/team/SKILL.md` with `refresh: true`: render and record it like any `write` file.
+
 `--team none` when no role was picked but the existing agents are the team. It writes nothing and
 prints `{ files, values, needs, conflicts, upgrade }`, or refuses a pick that is not on offer, naming why.
 
@@ -73,7 +78,7 @@ itself is in no record and is still refused.
 1. Put each of `conflicts` to the user first, before anything is written. One is a
    `.claude/skills/team/SKILL.md` Cortex did not write, which the playbook would load in place of the
    team protocol; it is never overwritten. The other is a `refresh` file the team edited since it was
-   stamped: show `cortex-stamps.mjs diff . <path>` and ask, and on a no leave the file alone and
+   stamped, a role or the team skill under a new round limit: show `cortex-stamps.mjs diff . <path>` and ask, and on a no leave the file alone and
    apply the changed value by hand.
 2. Put `values` in the values file. Ask each of `needs` — its `question` is written for the user —
    and add the answer under its `placeholder`. Never invent one: an agent told to run a command the

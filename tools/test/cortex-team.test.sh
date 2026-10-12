@@ -161,3 +161,38 @@ node "$STAMPS" forget "$P" .claude/agents/tester.md >/dev/null 2>&1
 out="$(node "$LOOP" "$P" --index "$IDX" --team tester 2>&1)"; rc=$?
 assert_eq "1" "$rc" "team: a covered role nobody recorded cannot be picked"
 assert_contains "$out" 'covered by `tester`' "and the refusal names the agent that covers it"
+
+# --- the debate's round limit is a setting (ADR 0019, amended) ---------------------------------------
+# 2 unless asked. A new limit writes the team skill again and is recorded, so the next run keeps it.
+
+SKILL_MD=".claude/skills/team/SKILL.md"
+assert_contains "$(cat "$P/$SKILL_MD")" "The round limit in this repo is 2." "rounds: the team skill is stamped with the default limit"
+
+out="$(node "$LOOP" "$P" --index "$IDX" --rounds 3 2>&1)"; rc=$?
+assert_eq "1" "$rc" "rounds: the limit is asked for with the picks, never alone"
+assert_contains "$out" "needs --team" "and the refusal says so"
+out="$(node "$LOOP" "$P" --index "$IDX" --team none --rounds 9 2>&1)"; rc=$?
+assert_eq "1" "$rc" "rounds: a limit past 5 is refused"
+assert_contains "$out" "whole number from 1 to 5" "naming the range"
+
+assert_eq "2" "$(field "$(node "$LOOP" "$P" --index "$IDX" --team none 2>&1)" 'j.values.DEBATE_ROUNDS')" "rounds: unasked, the value is the one the skill holds"
+three="$(node "$LOOP" "$P" --index "$IDX" --team none --rounds 3 2>&1)"
+assert_eq "3" "$(field "$three" 'j.values.DEBATE_ROUNDS')" "rounds: asked, the value is the answer"
+assert_eq "[\"$SKILL_MD true\"]" "$(field "$three" 'j.files.filter((f) => f.mode === "write").map((f) => f.path + " " + f.refresh)')" \
+  "rounds: and the one file that states the limit is written again"
+assert_eq "[]" "$(field "$three" 'j.conflicts')" "rounds: untouched since it was stamped, so there is nothing to ask"
+
+field "$three" 'j.values' > "$WORK/values3.json"
+node "$STAMPS" render team/team-skill.md --values-file "$WORK/values3.json" --templates "$TPL" > "$P/$SKILL_MD"
+node "$STAMPS" record "$P" "$SKILL_MD" team/team-skill.md --values-file "$WORK/values3.json" --templates "$TPL" >/dev/null 2>&1 || _fail "rounds: record the team skill"
+assert_contains "$(cat "$P/$SKILL_MD")" "The round limit in this repo is 3." "rounds: the stamped skill carries the new limit"
+
+later="$(node "$LOOP" "$P" --index "$IDX" --team none 2>&1)"
+assert_eq "3" "$(field "$later" 'j.values.DEBATE_ROUNDS')" "rounds: a later run that asks for none keeps it"
+assert_eq "[]" "$(field "$later" 'j.files.filter((f) => f.mode === "write")')" "rounds: and writes the skill no more"
+
+# A release that changes the skill's template updates the file with the recorded limit, not the default.
+printf '\nOne more line in a newer release.\n' >> "$TPL/team/team-skill.md"
+node "$STAMPS" update "$P" "$SKILL_MD" --templates "$TPL" >/dev/null 2>&1
+assert_contains "$(cat "$P/$SKILL_MD")" "One more line in a newer release." "rounds: a template update reaches the skill"
+assert_contains "$(cat "$P/$SKILL_MD")" "The round limit in this repo is 3." "rounds: and keeps the team's limit"

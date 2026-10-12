@@ -50,9 +50,28 @@ ungrounded expert persona "returns advice that is true everywhere and actionable
      The session drops one that does not, and says how many it dropped.
    - The Architect accepts each remaining objection or rebuts it with a citation.
    - After at most two rounds, whatever is still open goes to the developer side by side, and the
-     developer decides.
+     developer decides. The limit became a setting on 2026-10-12; see the amendment below.
 4. **Agent teams are compatible and never enabled** (T7). The agent files work as teammates. The
    `team` skill says how a developer starts a team; Cortex never sets the flag.
+
+## Amended 2026-10-12: the round limit is a setting
+
+The maintainer asked for the limit to be a setting. It stays bounded, and the default stays two.
+
+- **One value, in one file.** `.claude/skills/team/SKILL.md` states "The round limit in this repo
+  is N". The three debating agents and the playbook say "the round limit" and no number, so a new
+  limit rewrites one file and not five.
+- **From 1 to 5.** `cortex-loop.mjs . --team <roles|none> --rounds N` gives the values to stamp, and
+  refuses anything else. Zero would remove the debate, which is choosing "single". Past five the
+  cost argument in the table below applies again.
+- **Recorded, so it holds.** The value is `DEBATE_ROUNDS` in the skill's entry in
+  `.cortex/stamps.json`. A later `/cortex` run that asks for no limit reads it from there, and a
+  template update renders with it.
+- **A repo stamped before this updates cleanly.** Its record holds no `DEBATE_ROUNDS`.
+  `VALUE_DEFAULTS` in `index/lib/stamps.mjs` fills a setting the record lacks with its default, so
+  the update is not refused as it is for any other new placeholder.
+
+"Debate until the agents agree" stays rejected. The setting moves the bound and does not remove it.
 
 ## Alternatives rejected
 

@@ -93,6 +93,21 @@ import { lineDiff } from "./linediff.mjs";
 import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
 export const STAMPS_REL = ".cortex/stamps.json";
+
+/**
+ * Settings: a placeholder with a value Cortex stamps unless the team asks for another. A template
+ * that gains one must still update a file stamped before it existed, so an update fills it from
+ * here and records it. Only a value the team never had to give belongs in this list: a command or
+ * a path has no default, and a file whose template gains one of those is still refused.
+ */
+export const VALUE_DEFAULTS = { DEBATE_ROUNDS: "2" };
+
+/** The recorded values, with each setting the template uses and the record lacks at its default. */
+function withDefaults(templateText, values) {
+  const out = { ...values };
+  for (const n of unfilledPlaceholders(templateText, values)) if (Object.hasOwn(VALUE_DEFAULTS, n)) out[n] = VALUE_DEFAULTS[n];
+  return out;
+}
 export const STAMPS_FORMAT = 1;
 
 export const STATES = ["current", "update", "review", "conflict", "edited", "missing", "retired"];
@@ -505,7 +520,8 @@ export function stampStatus({ repoRoot, record, templatesDir }) {
  * it by name. Without `paths`, every `update` file, and the other states are simply not planned.
  *
  * One more refusal: a new template can add a placeholder no recorded value fills. Rendering would
- * leave `{{OWNER}}` in the file, so that file is refused, naming it. A placeholder the file as written
+ * leave `{{OWNER}}` in the file, so that file is refused, naming it. A setting (`VALUE_DEFAULTS`) is
+ * the exception: it is filled with its default, and the update records it. A placeholder the file as written
  * still holds (it is untouched, so it is the file as written) was kept on purpose, as
  * `intent/TEMPLATE.md` keeps `{{TITLE}}`, and stays.
  *
@@ -542,7 +558,8 @@ export function planUpdates({ repoRoot, record, templatesDir, paths = null, runn
     const templateText = readFileSync(join(templatesDir, ...e.template.split("/")), "utf8");
     const fileNow = readFileSync(join(repoRoot, ...s.path.split("/")), "utf8");
     const kept = new Set(placeholderMatches(fileNow).map((m) => m.name));
-    const unvalued = unfilledPlaceholders(templateText, e.values).filter((n) => !kept.has(n));
+    const values = withDefaults(templateText, e.values);
+    const unvalued = unfilledPlaceholders(templateText, values).filter((n) => !kept.has(n));
     if (unvalued.length) {
       refused.push({
         path: s.path,
@@ -550,7 +567,7 @@ export function planUpdates({ repoRoot, record, templatesDir, paths = null, runn
       });
       continue;
     }
-    updates.push({ path: s.path, template: e.template, templateText, text: renderTemplate(templateText, e.values), values: e.values });
+    updates.push({ path: s.path, template: e.template, templateText, text: renderTemplate(templateText, values), values });
   }
   return { updates, refused };
 }
@@ -567,5 +584,5 @@ export function stampDiff({ repoRoot, record, templatesDir, path }) {
   const templateText = readIfFile(join(templatesDir, ...e.template.split("/")));
   if (templateText === null) return { path, state: s.state, diff: null };
   const fileText = readIfFile(join(repoRoot, ...path.split("/"))) ?? "";
-  return { path, state: s.state, diff: lineDiff(fileText, renderTemplate(templateText, e.values)) };
+  return { path, state: s.state, diff: lineDiff(fileText, renderTemplate(templateText, withDefaults(templateText, e.values))) };
 }

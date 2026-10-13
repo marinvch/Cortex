@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { addProject, listTeamProjects, removeProject, ProjectFileRefused } from "../lib/project-files.js";
+import { addProject, checkProjects, joinProject, listTeamProjects, removeProject, ProjectFileRefused } from "../lib/project-files.js";
 import { listProjects } from "../lib/projects.js";
 import { initTeamBrain } from "../lib/team.js";
 import { validateProjectFile } from "../../core/project-file.js";
@@ -832,4 +832,62 @@ test("the usage line names the project command", () => {
   assert.equal(r.status, 1);
   assert.match(r.stderr, /usage: ai-os <[^>]*\bproject\b[^>]*>/);
   assert.match(cli(f, ["project"]).stderr, /usage: ai-os project list\|check\|remove/);
+});
+
+// ---------------------------------------------------------------------------------------------
+// The two decisions lifted out of the CLI: what counts as a problem, and the order of a join
+// ---------------------------------------------------------------------------------------------
+
+test("checkProjects counts one problem per error and one per withheld file, and no warning", () => {
+  const f = workspace();
+  const clean = checkProjects(f.vault, { team: TEAM, policy: WORK });
+  assert.equal(clean.problems, 0);
+  assert.equal(clean.listed, clean.rows.length);
+  const state = (res, slug) => res.rows.find((r) => r.slug === slug)?.state;
+  assert.equal(state(clean, "storefront"), "ok");
+  assert.equal(state(clean, "docs-site"), "unregistered", "a notes folder with no file is reported, never a problem");
+  assert.ok(clean.rows.some((r) => r.warnings.length), "the workspace has a warning, and it is not counted");
+  assert.ok(clean.skipped >= 1, "the stray .md files are skipped, not listed");
+
+  // Two errors in one file are two problems.
+  teammateWrote(f, "auth-service", "---\ntype: project\ntitle: Auth\nrepo: http://github.com/example-org/auth\ntracker: not-a-url\n---\n");
+  const bad = checkProjects(f.vault, { team: TEAM, policy: WORK });
+  const auth = bad.rows.find((r) => r.slug === "auth-service");
+  assert.equal(auth.state, "invalid");
+  assert.ok(auth.errors.length >= 2);
+  assert.equal(bad.problems, auth.errors.length);
+
+  // A withheld file is one problem whatever it holds, and carries no content of the file.
+  const g = workspaceWithLedger(workspace());
+  assert.equal(checkProjects(g.vault, { team: TEAM, policy: WORK }).problems, 0);
+  const onHome = checkProjects(g.vault, { team: TEAM, policy: HOME });
+  const ledger = onHome.rows.find((r) => r.slug === "ledger");
+  assert.equal(ledger.state, "withheld");
+  assert.deepEqual([ledger.errors, ledger.warnings], [[], []]);
+  assert.equal(onHome.problems, 1);
+  assert.doesNotMatch(JSON.stringify(ledger), /atlassian|Quarterly/);
+});
+
+test("joinProject writes the project file, then the connector, and returns both", () => {
+  const f = fixture();
+  const res = joinProject(f.vault, { team: TEAM, teamRepo: f.remote, project: "storefront", cwd: f.repo, today: "2026-10-09", policy: WORK });
+  assert.equal(res.file.action, "written");
+  assert.ok(remoteHas(f, "projects/storefront.md"));
+  assert.equal(res.connector, join(f.repo, ".cortex", "connector.json"));
+  assert.deepEqual(JSON.parse(readFileSync(res.connector, "utf8")), { team: TEAM, project: "storefront", teamBrainRepo: f.remote });
+});
+
+test("joinProject writes no connector for a join that was refused", () => {
+  const f = fixture({ origin: INTERNAL_ORIGIN });
+  const before = { remote: fingerprint(f.remote), repo: fingerprint(f.repo) };
+  assert.throws(() => joinProject(f.vault, { team: TEAM, teamRepo: f.remote, project: "storefront", cwd: f.repo, today: "2026-10-09", policy: HOME }), ProjectFileRefused);
+  assert.equal(existsSync(join(f.repo, ".cortex", "connector.json")), false);
+  assert.deepEqual({ remote: fingerprint(f.remote), repo: fingerprint(f.repo) }, before);
+});
+
+test("the CLI holds neither decision: it prints checkProjects' rows and calls joinProject", () => {
+  const src = readFileSync(CLI, "utf8");
+  assert.doesNotMatch(src, /writeConnector|addProject\(|failed\+\+/);
+  assert.match(src, /return problems \? 1 : 0;/);
+  assert.match(src, /joinProject\(root,/);
 });

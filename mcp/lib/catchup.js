@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { recall } from "./recall.js";
-import { teamCloneDir, logSince, pull } from "./gitsync.js";
+import { teamCloneDir, logSince, pull, repoTop } from "./gitsync.js";
 import { slugify } from "./slug.js";
 import { openVault } from "./vault.js";
 import { recent as recentMemory } from "../../core/memory.js";
@@ -118,4 +118,72 @@ export function catchUpRepo(repoDir, { since }) {
   const out = { path: repoDir, memory, commits, truncated };
   if (!filtered) out.note = `--since "${since}" is not YYYY-MM-DD, so every memory day is included; git filtered the commits itself`;
   return out;
+}
+
+// --- which sources a catch-up reads ---------------------------------------------------------------
+
+/** A catch-up that cannot be answered. `code` is `nothing_to_read` or `no_project`. */
+export class CatchUpRefused extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "CatchUpRefused";
+    this.code = code;
+  }
+}
+
+function samePath(a, b) {
+  const norm = (p) => resolve(p).replace(/[\\/]+$/, "");
+  return process.platform === "win32" ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b);
+}
+
+/**
+ * The team a catch-up reads: the one asked for, else the one the brain resolved from the connector.
+ * An explicit team is an override, never the switch that turns team mode on. The CLI and the MCP
+ * server both ask here, so one cannot consult the connector while the other does not.
+ */
+export function catchUpTeam(given, brain) {
+  return given ?? brain.team ?? undefined;
+}
+
+/**
+ * A whole catch-up, from whichever sources exist. Two, and either may be absent. The REPO is the
+ * git work tree: its committed `.cortex/memory/` and its log. A plugin install has only this. The
+ * VAULT is notes and a team-brain clone, when a root names one.
+ *
+ * `brain` is null when no root is set. That is a degradation and not a guess: nothing is read from
+ * a vault that was not named, and `skipped` says which half is missing, so an empty result cannot
+ * pass for a quiet week. Writes nothing.
+ *
+ * The decisions, which the CLI used to hold and only a subprocess could test:
+ *   - a repo-mode root IS a repo's `.cortex/`, so its repo is the directory above it, whatever the cwd
+ *   - a cwd inside the vault's own checkout is not a repo to catch up on: its log is the vault's
+ *     notes arriving, which the notes half already reports
+ *   - the project is the one asked for, else the connector's, else the repo's folder name
+ *
+ * `top` finds the work tree above a directory; it is a parameter so a test needs no git.
+ * Throws `CatchUpRefused`.
+ */
+export function catchUp({ brain, since, project: asked, team: givenTeam, cwd, top = repoTop }) {
+  const repoDir = brain?.isRepo ? dirname(resolve(brain.root)) : top(cwd);
+  const isTheVault = brain && !brain.isRepo && repoDir && samePath(repoDir, brain.root);
+  const repo = repoDir && !isTheVault ? catchUpRepo(repoDir, { since }) : null;
+
+  if (!brain) {
+    if (!repo) {
+      throw new CatchUpRefused(
+        "nothing_to_read",
+        "catch-up found nothing to read: the current directory is not inside a git repository and CORTEX_ROOT is not set. " +
+        "Run it from the repo to catch up on, or set CORTEX_ROOT to your vault.",
+      );
+    }
+    return {
+      repo, notes: [], commits: [],
+      skipped: "vault notes and team-brain history — CORTEX_ROOT is not set, so only this repo was read",
+    };
+  }
+
+  const project = asked ?? brain.project ?? (repoDir ? basename(repoDir) : null);
+  if (!project) throw new CatchUpRefused("no_project", "catch-up needs a project, and none was given or found");
+  const res = catchMeUp(brain.root, { project, since, team: catchUpTeam(givenTeam, brain) });
+  return { ...(repo ? { repo } : {}), ...res };
 }

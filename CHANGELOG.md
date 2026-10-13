@@ -5,6 +5,11 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.44.1] — 2026-10-13
+
+Three commands read what they need once, and three decisions moved to where a test can reach them.
+Nothing a command prints has changed.
+
 ### Changed
 
 - The stamp status and `/cortex-next` read the stamp record through one function (`stampReport` in
@@ -5392,6 +5397,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.44.1]: https://github.com/marinvch/Cortex/releases/tag/v2.44.1
 [2.44.0]: https://github.com/marinvch/Cortex/releases/tag/v2.44.0
 [2.43.1]: https://github.com/marinvch/Cortex/releases/tag/v2.43.1
 [2.43.0]: https://github.com/marinvch/Cortex/releases/tag/v2.43.0

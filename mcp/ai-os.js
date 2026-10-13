@@ -1,16 +1,15 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { basename, dirname, resolve } from "node:path";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadManifest, buildPlan, formatCommands, formatStatus, tierStatus } from "./lib/setup-plugins.js";
 import { pluginsDir, readRegistry } from "../core/plugin-registry.js";
-import { initTeamBrain, writeConnector } from "./lib/team.js";
-import { addProject, listTeamProjects, removeProject } from "./lib/project-files.js";
+import { initTeamBrain } from "./lib/team.js";
+import { checkProjects, joinProject, listTeamProjects, removeProject } from "./lib/project-files.js";
 import { listProjects } from "./lib/projects.js";
 import { stamp } from "../core/date.js";
 import { digest } from "./lib/digest.js";
-import { catchMeUp, catchUpRepo } from "./lib/catchup.js";
-import { repoTop } from "./lib/gitsync.js";
+import { CatchUpRefused, catchUp } from "./lib/catchup.js";
 import { openBrain, NoRootError } from "./lib/brain.js";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
@@ -97,22 +96,19 @@ function cmdTeam(teamSub, args, brain) {
     // two named fields close (lib/team.js).
     const project = args.project ?? args.slug;
     if (!args.name || !args.repo || !project || project === true) throw new Error(TEAM_ADD_USAGE);
-    // The project file first, the connector last. A refusal — an invalid field, an employer-shaped
-    // link on a profile that refuses it, a credential — throws out of here, so a repo that may not
-    // be registered is not half-joined either.
     const fields = {};
     for (const [flag, key] of Object.entries(PROJECT_FIELD_FLAGS)) {
       if (args[flag] === undefined) continue;
       if (args[flag] === true) throw new Error(`--${flag} needs a value\n${TEAM_ADD_USAGE}`);
       fields[key] = args[flag];
     }
-    const { dir, cloned, file } = addProject(root, {
+    // The order (project file, then connector) is `joinProject`'s: a refused join writes no connector.
+    const { dir, cloned, file, connector } = joinProject(root, {
       team: args.name, teamRepo: args.repo, project, cwd: process.cwd(), today: stamp(), policy: brain.policy, fields,
     });
     console.log(describeProjectFile(file, brain));
     for (const w of file.warnings) console.log(`  warning: ${w.msg}`);
-    const conn = writeConnector(process.cwd(), { team: args.name, project, teamBrainRepo: args.repo });
-    console.log(`Team-brain ${cloned ? "cloned to" : "already at"} ${dir}. Wrote ${conn}.`);
+    console.log(`Team-brain ${cloned ? "cloned to" : "already at"} ${dir}. Wrote ${connector}.`);
     console.log("Next: commit the connector into THIS repo →  git add .cortex/connector.json");
     return 0;
   }
@@ -168,17 +164,17 @@ function cmdProject(projectSub, args, brain) {
   if (!team) throw new Error(`no team: run this inside a repo joined with \`ai-os team add\`, or pass --team <name>\n${PROJECT_USAGE}`);
 
   if (projectSub === "check") {
-    const { projects, skipped } = listTeamProjects(brain.root, { team, policy: brain.policy });
-    let failed = 0;
-    for (const p of projects) {
-      if (p.unregistered) { console.log(`${p.slug}: unregistered — a notes folder with no project file`); continue; }
-      if (p.withheld) { failed++; console.log(`${p.slug}: withheld on profile ${brain.profile} — ${p.withheld}. It belongs in a work install; nothing was changed.`); continue; }
-      console.log(`${p.slug}: ${p.errors.length ? "INVALID" : "ok"}`);
-      for (const e of p.errors) { failed++; console.log(`  error ${p.slug}.md:${e.line}: ${e.msg}`); }
+    // What counts as a problem is `checkProjects`'s; this prints its rows.
+    const { rows, listed, skipped, problems } = checkProjects(brain.root, { team, policy: brain.policy });
+    for (const p of rows) {
+      if (p.state === "unregistered") { console.log(`${p.slug}: unregistered — a notes folder with no project file`); continue; }
+      if (p.state === "withheld") { console.log(`${p.slug}: withheld on profile ${brain.profile} — ${p.withheld}. It belongs in a work install; nothing was changed.`); continue; }
+      console.log(`${p.slug}: ${p.state === "invalid" ? "INVALID" : "ok"}`);
+      for (const e of p.errors) console.log(`  error ${p.slug}.md:${e.line}: ${e.msg}`);
       for (const w of p.warnings) console.log(`  warning ${p.slug}.md:${w.line}: ${w.msg}`);
     }
-    console.log(`${projects.length} listed, ${skipped} other .md skipped, ${failed} problem${failed === 1 ? "" : "s"}.`);
-    return failed ? 1 : 0;
+    console.log(`${listed} listed, ${skipped} other .md skipped, ${problems} problem${problems === 1 ? "" : "s"}.`);
+    return problems ? 1 : 0;
   }
 
   const project = args.project;
@@ -206,56 +202,24 @@ function cmdDigest(args) {
 
 const CATCH_UP_USAGE = "usage: ai-os catch-up --since <YYYY-MM-DD> [--project <slug>] [--team <name>]";
 
-// Two sources, and either may be absent. The REPO — the git work tree the cwd sits in, its
-// committed `.cortex/memory/` and its log — is what a plugin install has, because a plugin install
-// has no vault. The VAULT — notes and a team-brain clone — is what CORTEX_ROOT points at, when it is
-// set to one. This command used to demand the vault and read no repo at all, so on a plugin install
-// `/catch-me-up` failed on its first command in exactly the place it is most often run.
-//
-// A missing root is a degradation here, not a guess: nothing is read from a vault that was not
-// named, nothing is written anywhere, and `skipped` says which half is missing so an empty result
-// cannot pass for a quiet week.
+// Which sources are read, which repo and which project is `catchUp`'s (lib/catchup.js). This parses
+// the flags, prints the document, and turns a refusal into this command's own words.
 function cmdCatchUp(args, brain) {
   if (!args.since || args.since === true) throw new Error(CATCH_UP_USAGE);
-  const cwd = process.cwd();
-  // A repo-mode root IS a repo's `.cortex/`, so its repo is the directory above it, whatever the cwd.
-  const repoDir = brain?.isRepo ? dirname(resolve(brain.root)) : repoTop(cwd);
-  // In vault mode, a cwd inside the vault's own checkout is not a repo to catch up on — its log is
-  // the vault's notes arriving, which the notes half already reports.
-  const isTheVault = brain && !brain.isRepo && repoDir && samePath(repoDir, brain.root);
-  const repo = repoDir && !isTheVault ? catchUpRepo(repoDir, { since: args.since }) : null;
-
-  if (!brain) {
-    if (!repo) {
-      throw new Error(
-        "catch-up found nothing to read: the current directory is not inside a git repository and CORTEX_ROOT is not set. " +
-        "Run it from the repo to catch up on, or set CORTEX_ROOT to your vault.",
-      );
-    }
-    console.log(JSON.stringify({
-      repo, notes: [], commits: [],
-      skipped: "vault notes and team-brain history — CORTEX_ROOT is not set, so only this repo was read",
-    }, null, 2));
+  try {
+    const res = catchUp({
+      brain,
+      since: args.since,
+      project: args.project && args.project !== true ? args.project : undefined,
+      team: args.team,
+      cwd: process.cwd(),
+    });
+    console.log(JSON.stringify(res, null, 2));
     return 0;
+  } catch (e) {
+    if (e instanceof CatchUpRefused && e.code === "no_project") throw new Error(CATCH_UP_USAGE);
+    throw e;
   }
-
-  const project = args.project && args.project !== true
-    ? args.project
-    : (brain.project ?? (repoDir ? basename(repoDir) : null));
-  if (!project) throw new Error(CATCH_UP_USAGE);
-  // The team comes from the resolution, exactly as it does in server.js. `--team` survives as an
-  // explicit override, never as the switch that turns team mode on: this command used to pass
-  // `args.team` alone, so run inside a repo with a `.cortex/connector.json` it consulted no
-  // connector, reached no team clone, and printed `commits: []` as a success.
-  const team = args.team ?? brain.team ?? undefined;
-  const res = catchMeUp(brain.root, { project, since: args.since, team });
-  console.log(JSON.stringify({ ...(repo ? { repo } : {}), ...res }, null, 2));
-  return 0;
-}
-
-function samePath(a, b) {
-  const norm = (p) => resolve(p).replace(/[\\/]+$/, "");
-  return WIN ? norm(a).toLowerCase() === norm(b).toLowerCase() : norm(a) === norm(b);
 }
 
 /**

@@ -659,6 +659,23 @@ repo. Every ritual enforces this: `/capture` and `/daily` refuse the write, `/co
 treats a breach as a critical finding, `/scan-projects` skips repos under a work
 directory.
 
+**What code enforces on `home`, and what is still a floor.** Code refuses a published write —
+`capture`, `remember`, `ask`, `answer`, a project file, a contract — whose text matches a line of
+your **employer denylist**: a file outside every repository, `~/.cortex/employer-denylist` or the
+path in `CORTEX_DENYLIST`, one `org:`, `domain:`, `owner:`, `ticket:` (a regex such as `EXC-\d+`)
+or `pattern:` per line. The refusal names the line, never the text. With no file nothing is checked,
+and `tools/cortex-preflight.mjs` says so. Code also refuses an employer-shaped link in a project
+file. Anything you did not list — a client named in passing, a colleague, a work repo on a public
+forge — passes the code, and only the rituals' judgment stops it.
+[ADR 0026](docs/adr/0026-the-employer-firewall-checks-the-names-you-give-it.md).
+
+**Personal data.** The same gate looks for email addresses, phone numbers, IBANs and card numbers
+in anything it publishes. By default it warns and writes (`CORTEX_PII=warn`); `CORTEX_PII=refuse`
+refuses, `off` stops the scan. Committed memory is append-only, so removing personal data later
+means rewriting git history and replacing every clone: [`docs/erasure.md`](docs/erasure.md) has the
+procedure, and `CORTEX_AUTHOR=<pseudonym>` keeps your real name out of memory paths.
+[ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md).
+
 Full rule: [`templates/vault-AGENTS.md`](templates/vault-AGENTS.md) — the manual a vault carries as
 its own `AGENTS.md`.
 

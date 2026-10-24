@@ -114,7 +114,13 @@ the repo by commit count, and — like every other part — **dependency-free**.
   cannot know whether it publishes, and a gate conditional on that is off exactly when nobody can
   see that it is off. `tools.test.js` drives the property off the table and `mode.test.js` proves
   it over a spawned server — the unit test alone passes happily when the dispatch never calls it.
-  The refusal stays in `core/scrub.js`: it refuses rather than sanitises and names only the kind.
+  The refusal stays in `core/`: it refuses rather than sanitises and names only the kind. The gate
+  is `core/gate.js` — the credential scan, the employer denylist on `home`, personal data under
+  `CORTEX_PII` — and `server.js` passes `brain.policy`, so the profile comes off the brain opened
+  once. What it returns without refusing (`warnings`) rides back on the tool result; a caller that
+  drops it hides a personal-data warning from the model that should tell the person.
+  `contract.js` and `project-files.js` write published files outside the table and apply the
+  credential scan and the denylist themselves.
 - **A root that does not exist is a hard exit too** (`MissingRootError`, `lib/brain.js`, #550). The
   server used to start on it and fail in the first tool an agent called, with a raw `ENOENT`. In repo
   mode the directory that must exist is the repo, not `.cortex/`: the first write creates that. This

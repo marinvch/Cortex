@@ -1,7 +1,8 @@
 import { appendFileSync, mkdirSync, readFileSync, readdirSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { resolveInRoot } from "./paths.js";
-import { assertWritable } from "./scrub.js";
+import { assertPublished } from "./gate.js";
+import { resolveProfile } from "./profile.js";
 import { stamp, clock } from "./date.js";
 import { authorSlug, resolveAuthor, InvalidAuthorError } from "./author.js";
 
@@ -73,11 +74,16 @@ function dayFileNotice(day, why) {
  * `memory/<day>.md` and the result says so: `layout: "day"`, with a `notice` to show the person.
  * `env` and `git` are passed to `resolveAuthor`, so a test reads no machine identity.
  *
- * Returns `{ path, day, created, author, layout: "author" | "day" }`, and `notice` on a day write.
- * Throws `empty`, `refused_write`, `not_cortex_root` or `invalid_author`, each before anything
- * touches the disk.
+ * The publish gate (`core/gate.js`) runs first: a credential, an employer denylist entry on a
+ * `home` profile, and personal data under CORTEX_PII. `policy` is the profile's; without it the
+ * profile is resolved from `env`, so no caller skips the denylist by not passing one.
+ *
+ * Returns `{ path, day, created, author, layout: "author" | "day" }`, `notice` on a day write, and
+ * `warnings` when the gate had something to say (personal data in `warn` mode, a bad denylist line).
+ * Throws `empty`, `refused_write`, `employer_denylist`, `personal_data`, `not_cortex_root` or
+ * `invalid_author`, each before anything touches the disk.
  */
-export function append(root, text, { date = new Date(), kind = "note", author, env = process.env, git } = {}) {
+export function append(root, text, { date = new Date(), kind = "note", author, env = process.env, git, policy } = {}) {
   const body = String(text ?? "").trim();
   if (!body) throw Object.assign(new Error("refusing to write an empty memory entry"), { code: "empty" });
 
@@ -89,7 +95,10 @@ export function append(root, text, { date = new Date(), kind = "note", author, e
   // It is also before the author is asked for and before any path is computed. A refused write
   // leaves no file and no day directory behind, and core/test/memory.test.js compares the whole
   // tree to say so.
-  assertWritable(body);
+  //
+  // The employer denylist and the personal-data scan ride the same call (core/gate.js), so a write
+  // refused for either leaves the same nothing behind.
+  const gate = assertPublished(body, { policy: policy ?? resolveProfile({ env }).policy, env });
   assertCortexRoot(root); // throws not_cortex_root — before anything touches disk
 
   // Resolves the root first, so a .cortex that does not exist throws here and is never created:
@@ -115,6 +124,7 @@ export function append(root, text, { date = new Date(), kind = "note", author, e
 
   const result = { path: file, day, created: isNew, author: who.slug, layout };
   if (layout === "day") result.notice = dayFileNotice(day, who.why);
+  if (gate.warnings.length) result.warnings = gate.warnings;
   return result;
 }
 

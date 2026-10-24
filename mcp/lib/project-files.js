@@ -25,6 +25,7 @@ import {
   validateProjectFile,
 } from "../../core/project-file.js";
 import { RefusedWriteError, assertWritable } from "../../core/scrub.js";
+import { assertNotDenied } from "../../core/denylist.js";
 import { commitPath, originUrl, pull, pushHead, teamCloneDir } from "./gitsync.js";
 import { slugify } from "./slug.js";
 import { cloneTeamBrain, readTeamSource, writeConnector } from "./team.js";
@@ -57,8 +58,12 @@ function judge(text, slug, policy, others) {
   if (refusal) throw new ProjectFileRefused(refusal.code, `projects/${slug}.md: ${refusal.message}`, { links: refusal.links });
   try {
     assertWritable(text);
+    // The employer denylist (home only), the check the link shapes above cannot make. Its message
+    // names the entry's kind and line in the person's own denylist, never the text.
+    assertNotDenied(text, { policy });
   } catch (e) {
     if (!(e instanceof RefusedWriteError)) throw e;
+    if (e.code === "employer_denylist") throw new ProjectFileRefused(e.code, `projects/${slug}.md: ${e.message}`);
     // The gate's own message says "memory"; this is the same refusal for a different file. Only
     // the KIND of secret is named, as there.
     const kinds = [...new Set(e.findings.map((f) => f.kind))].join(", ");

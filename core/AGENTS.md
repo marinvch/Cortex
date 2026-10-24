@@ -22,6 +22,25 @@ here, which is why the directory is small and stays small.
   failure than declining it with a reason.
 - **No error message may echo a secret.** `redact()` exists for this; `RefusedWriteError` names
   the *kind* of secret and its line, never the value.
+- **`gate.js` is the publish gate, and both callers go through it** — `append()` here and
+  `assertPublishable` in `mcp/lib/tools.js`. Three checks, in order: a credential (`scrub.js`), the
+  employer denylist (`denylist.js`, only where `policy.refuses === "employer"`), personal data
+  (`scanPersonal`, by `CORTEX_PII`). Add a fourth check here, never at one caller. Every refusal is a
+  `RefusedWriteError` subclass with its own `code` (`employer_denylist`, `personal_data`), so a
+  handler written for credentials still stops the write. [ADR 0026](../docs/adr/0026-the-employer-firewall-checks-the-names-you-give-it.md),
+  [ADR 0027](../docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md).
+- **`denylist.js` matches names the person gave it; it detects nothing.** The file lives outside any
+  repo (`CORTEX_DENYLIST`, else `~/.cortex/employer-denylist`) and never ships in a fixture with a
+  real name. No file at the default path is no check, and preflight says so; a `CORTEX_DENYLIST` set
+  to no readable file refuses every published write on `home`, because a typo must not switch the
+  check off. A bad line is a `problem` with its line number and the rest still apply. A refusal names
+  the entry's kind and line in the denylist — never the matched text, never the entry. It reads
+  `policy.refuses` and no profile name; tests hand it a HOME of their own.
+- **The personal-data scan reports kind and line only** — not even a redacted value, since a
+  half-starred email address is most of one. It is conservative on purpose: a phone detector that
+  fires on dates and versions is a gate people learn to skip, so add a false-positive case to
+  `test/personal-data.test.js` with every new shape. An unknown `CORTEX_PII` throws, like an unknown
+  profile.
 - **Memory is append-only.** `append()` writes with `appendFileSync` and nothing else: no entry is
   rewritten and no file is moved, renamed or split, a day file included. A feature that mutates an
   existing entry brings back the lost update
@@ -53,7 +72,7 @@ here, which is why the directory is small and stays small.
     never be silent.
   - **A name someone set and got wrong is refused**: `invalid_author`, for `CORTEX_AUTHOR` and for
     the option. It is never swapped for git.
-  - **The order is: empty, the secret gate, the root check, the author, then the disk.** A refused
+  - **The order is: empty, the publish gate (`gate.js`), the root check, the author, then the disk.** A refused
     write leaves no file and no day directory, and `append()` never creates `.cortex/`.
     `test/memory.test.js` compares the whole tree after each refusal.
   - **`author.js` is the one module in `core/` that starts a process**: `git config user.name`, as

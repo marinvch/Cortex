@@ -224,7 +224,7 @@ export function buildIndex(root, opts = {}) {
     // transform of its inputs and testable from literals — the convention lib/repo-text.mjs
     // now applies to every scanner that reads a repo back.
     stack: detectStack(files, (rel) => text.read(rel)),
-    // The route facts of this repo — front-end calls, gateway routes, Spring handlers — for
+    // The route facts of this repo — calls, gateway routes, route handlers — for
     // `cortex-routes.mjs` to join across a workspace. Always present, so "found none" and "an index
     // older than the route map" stay different answers. See lib/routes.mjs.
     routes: extractRoutes(files, (rel) => text.read(rel)),

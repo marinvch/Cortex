@@ -7,6 +7,12 @@
 // - `resolveRoutes(repos)` joins those rows across the repos of one workspace. Also pure; the CLI
 //   (`cortex-routes.mjs`) owns finding the repos and reading their indexes.
 //
+// `index.routes` has a second reader since #621: `lib/contract.mjs` turns one repo's handlers and
+// calls into the contract it publishes to a team-brain. Handlers come from Spring, and since #621
+// from Express-style routers, NestJS decorators and FastAPI/Flask decorators; calls from JS/TS and,
+// since #621, Python's `requests`/`httpx`/client objects. One detector — the contract does not keep
+// a second.
+//
 // Regex over text, like every resolver here (ADR 0004): a URL assembled at runtime is invisible, so
 // it is COUNTED in `unread` rather than guessed at, and every "nothing calls this" is a floor.
 //
@@ -16,29 +22,14 @@
 
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { normalizeRoutePath } from "../../core/route-path.js";
 
 // --- the normal form ------------------------------------------------------------------------------
 
-const VAR_SEGMENT = /\$\{\}|\{[^/{}]*\}|^:[\w$]+[?]?$/;
-
-/**
- * A URL or route pattern → `/a/{}/b`, or null when it is not a path.
- *
- * Origin, query, fragment, doubled and trailing slashes go; every variable becomes `{}`.
- */
-export function normalizeRoutePath(raw) {
-  if (typeof raw !== "string") return null;
-  let s = raw.replace(/\r/g, "").trim();
-  const origin = s.match(/^[a-z][a-z0-9+.-]*:\/\/[^/?#]*/i);
-  if (origin) s = s.slice(origin[0].length) || "/";
-  if (!s.startsWith("/")) return null;
-  s = s.replace(/[?#].*$/s, "");
-  const segs = s
-    .split("/")
-    .filter(Boolean)
-    .map((seg) => (VAR_SEGMENT.test(seg) ? "{}" : seg));
-  return `/${segs.join("/")}`;
-}
+// The normal form lives in core/ since #621: `mcp/lib/contract.js` matches a question against the
+// contracts this index produces, and the leaves may not import each other. Re-exported, so every
+// caller here keeps its import.
+export { normalizeRoutePath };
 
 /** Trailing catch-alls — `*`, `**`, `:path*`, `(.*)`, `{*rest}` — mark a prefix, not a segment. */
 function stripWildcards(raw) {
@@ -349,7 +340,8 @@ function urlOf(value) {
   if (!path) return null;
   // `base + "/" + id` spells `/{}`: every segment unknown is a URL built at runtime, not a route.
   if (path !== "/" && segsOf(path).every((s) => s === "{}")) return "unread";
-  const host = (raw.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#:]*)/i) ?? [])[1] ?? "";
+  // Past any `user:pass@`, so the host is the host and a credential is never recorded as one.
+  const host = (raw.match(/^[a-z][a-z0-9+.-]*:\/\/(?:[^/?#@]*@)?([^/?#:]*)/i) ?? [])[1] ?? "";
   return { path, raw, host: host.toLowerCase() || null };
 }
 
@@ -437,7 +429,8 @@ function jsCalls(file, scan, at, rows, unread) {
     let method = null;
     let byName = false;
     if (receiver && verb) {
-      if (!clientish(receiver)) continue;
+      // `apiRouter.get("/x", list)` declares a route; `jsHandlers` reads it. "api" made it a client.
+      if (!clientish(receiver) || serverish(receiver)) continue;
       method = verb;
     } else if (named) {
       byName = true;
@@ -505,15 +498,47 @@ function configMethod(entries) {
  * endpoint's `query: (…) => "/path"` or `=> ({ url })`. A bare `{ url: "/about" }` is a nav link or a
  * sitemap row and is not read.
  */
+/**
+ * The HTTP verb of the member call whose first argument is the object at `open` — `x.post({`,
+ * `x.post<A, B>({` — or null. Read backwards: `(`, an optional type-argument list, `.verb`.
+ */
+function verbBefore(scan, open) {
+  const { code, mask } = scan;
+  let j = open - 1;
+  while (j >= 0 && /\s/.test(code[j])) j--;
+  if (code[j] !== "(" || mask[j]) return null;
+  j--;
+  while (j >= 0 && /\s/.test(code[j])) j--;
+  if (code[j] === ">") {
+    let depth = 0;
+    for (; j >= 0; j--) {
+      if (code[j] === ">") depth++;
+      else if (code[j] === "<" && --depth === 0) break;
+    }
+    j--;
+  }
+  const { word, start } = identBefore(code, j + 1);
+  const verb = VERBS.get(word.toLowerCase());
+  if (!verb) return null;
+  let k = start - 1;
+  while (k >= 0 && /\s/.test(code[k])) k--;
+  return code[k] === "." ? verb : null;
+}
+
 function jsConfigCalls(file, scan, at, rows) {
   const { code, mask } = scan;
   for (const open of enclosingObjects(scan, /\burl\s*:/g)) {
     const entries = objectEntries(scan, open);
     const url = entries.find((e) => e.key === "url" && e.valueLit);
-    if (!url || !entries.some((e) => CONFIG_KEYS.has(e.key))) continue;
+    // Handed straight to a verb, `{ url }` alone is a request: `client.get({ url: "/items" })`.
+    const verb = url ? verbBefore(scan, open) : null;
+    if (!url || (!verb && !entries.some((e) => CONFIG_KEYS.has(e.key)))) continue;
     if (entries.some((e) => PREFIX_KEYS.has(e.key) && staticValue(e.valueLit)?.startsWith("/"))) continue; // a gateway row
     const u = urlOf(url.valueLit.value);
-    if (u && u !== "unread") rows.push(callRow(file, at(url.at), configMethod(entries), u));
+    // A generated client passes the object to a verb — `client.post<R>({ url, headers })` — and
+    // the verb is the method when the object names none (#621, found on full-stack-fastapi-template).
+    const method = entries.some((e) => e.key === "method") ? configMethod(entries) : (verb ?? "GET");
+    if (u && u !== "unread") rows.push(callRow(file, at(url.at), method, u));
   }
   for (const m of code.matchAll(/\bquery\s*:\s*(?:async\s*)?(?:\([^()]*\)|[\w$]+)\s*=>\s*/g)) {
     if (mask[m.index]) continue;
@@ -733,6 +758,287 @@ function jsProxyMounts(file, scan, at, rows) {
   }
 }
 
+// --- JS/TS: route handlers (#621) -----------------------------------------------------------------
+//
+// Express, Koa-router, Fastify and Hono declare a route as `<app|router|server>.<verb>("/path", …)`,
+// and Express chains `router.route("/path").get(a).post(b)`. The receiver has to earn it the way a
+// client does in `jsCalls`: its last word is one of SERVER_WORDS (`app`, `userRouter`, `server`).
+// A route needs a second argument — `app.get("env")` reads a setting. A path built at runtime is
+// counted in `unread.handlers`, never guessed. A mount prefix in another file
+// (`app.use("/api", router)`) is not followed: the path is the one this file declares.
+
+const SERVER_WORDS = new Set(["app", "router", "server", "fastify", "hono", "routes"]);
+const serverish = memo((name) => {
+  const w = words(name);
+  return w.length > 0 && SERVER_WORDS.has(w[w.length - 1]);
+});
+const HANDLER_VERBS = new Map([...VERBS, ["all", "ANY"]]);
+const ROUTE_CALL = /\.\s*(get|post|put|patch|delete|del|head|options|all|route)\s*\(/g;
+
+/** The last identifier of a handler argument list — `list`, `items.list` → `list`; null for an inline function. */
+function handlerName(code, from, to) {
+  const rest = code.slice(from, to).trim();
+  const m = rest.match(/([\w$]+)\s*$/);
+  return m && !/^(?:async|function)$/.test(m[1]) ? m[1] : null;
+}
+
+/** A literal route path → its normal form, `"unread"` when built at runtime, null when it is not a path. */
+function handlerPath(value) {
+  if (value === null) return "unread";
+  if (value.includes(HOLE)) return "unread";
+  if (!value.startsWith("/") || /[()]/.test(value)) return null; // a regex route is not a path
+  return normalizeRoutePath(stripWildcards(value));
+}
+
+function jsHandlers(file, scan, at, rows, unread) {
+  const { code, mask } = scan;
+  for (const m of code.matchAll(ROUTE_CALL)) {
+    if (mask[m.index]) continue;
+    const recv = identBefore(code, m.index).word;
+    if (!recv || !serverish(recv)) continue;
+    const open = m.index + m[0].length - 1;
+    const args = readArgs(scan, open);
+    if (args.close < 0) continue;
+    const first = args.branches.length === 1 ? args.branches[0] : null;
+    const firstOpen = code.slice(open + 1, args.firstEnd).trimStart()[0];
+    // `fastify.route({ method, url })` is a route described as data; not read, and not counted.
+    if (firstOpen === "{") continue;
+    const path = handlerPath(first ? branchValue(first) : null);
+    if (path === null) continue;
+    if (m[1] === "route") {
+      // `router.route("/p").get(a).post(b)` — each chained verb is a handler on the one path.
+      let j = args.close + 1;
+      for (;;) {
+        const link = code.slice(j).match(/^\s*\.\s*(get|post|put|patch|delete|del|head|options|all)\s*\(/);
+        if (!link) break;
+        const linkOpen = j + link[0].length - 1;
+        const la = readArgs(scan, linkOpen);
+        if (la.close < 0) break;
+        if (path === "unread") unread.handlers += 1;
+        else rows.push({ file, line: at(m.index), method: HANDLER_VERBS.get(link[1]), path, raw: branchValue(first), name: handlerName(code, linkOpen + 1, la.close) });
+        j = la.close + 1;
+      }
+      continue;
+    }
+    if (args.firstEnd >= args.close) continue; // one argument: a setting, not a route
+    if (path === "unread") {
+      unread.handlers += 1;
+      continue;
+    }
+    rows.push({ file, line: at(m.index), method: HANDLER_VERBS.get(m[1]), path, raw: branchValue(first), name: handlerName(code, args.firstEnd + 1, args.close) });
+  }
+}
+
+// NestJS: `@Controller("items")` on the class, `@Get(":id")` on the method. A literal, an array of
+// literals, or `{ path }`; anything else is counted in `unread.handlers`.
+const NEST = /@(Controller|Get|Post|Put|Patch|Delete|Head|Options|All)\s*\(/g;
+
+/** The literal paths a decorator's first argument declares: `[""]` for none, null when unreadable. */
+function decoratorPaths(scan, open) {
+  const args = readArgs(scan, open);
+  if (args.close < 0) return { close: -1, paths: null };
+  const region = scan.code.slice(open + 1, args.firstEnd);
+  const lead = region.length - region.trimStart().length;
+  const at = open + 1 + lead;
+  const text = region.trim();
+  if (!text) return { close: args.close, paths: [""] };
+  if (text.startsWith("{")) {
+    const e = objectEntries(scan, at).find((x) => x.key === "path");
+    const v = e ? staticValue(e.valueLit) : null;
+    return { close: args.close, paths: e ? (v === null ? null : [v]) : [""] };
+  }
+  const lits = [];
+  let rest = "";
+  for (let i = at; i < args.firstEnd; i++) {
+    const lit = scan.literals.get(i);
+    if (lit) {
+      lits.push(lit);
+      i = lit.end - 1;
+      continue;
+    }
+    rest += scan.code[i];
+  }
+  if (!lits.length || rest.replace(/[[\],\s]/g, "") !== "") return { close: args.close, paths: null };
+  const values = lits.map(staticValue);
+  return { close: args.close, paths: values.includes(null) ? null : values };
+}
+
+function nestHandlers(file, scan, at, rows, unread) {
+  const { code, mask } = scan;
+  if (!/@Controller\s*\(/.test(code)) return;
+  let prefixes = [""];
+  for (const m of code.matchAll(NEST)) {
+    if (mask[m.index]) continue;
+    const open = m.index + m[0].length - 1;
+    const { close, paths } = decoratorPaths(scan, open);
+    if (close < 0) continue;
+    if (m[1] === "Controller") {
+      prefixes = paths;
+      continue;
+    }
+    if (paths === null || prefixes === null) {
+      unread.handlers += 1;
+      continue;
+    }
+    const after = code.slice(close + 1, close + 600).replace(/@[\w$.]+\s*(?:\([^()]*(?:\([^()]*\)[^()]*)*\))?/g, " ");
+    const name = (after.match(/^\s*(?:(?:public|private|protected|static|async|readonly)\s+)*([\w$]+)\s*[(<]/) ?? [])[1] ?? null;
+    const method = m[1] === "All" ? "ANY" : m[1].toUpperCase();
+    for (const p of prefixes) {
+      for (const q of paths) {
+        const raw = joinPaths(p, q);
+        rows.push({ file, line: at(m.index), method, path: normalizeRoutePath(raw), raw, name });
+      }
+    }
+  }
+}
+
+// --- Python: FastAPI and Flask (#621) -------------------------------------------------------------
+//
+// `@app.get("/items")`, `@router.post(...)`, `@bp.route("/items", methods=["GET", "POST"])`. A router
+// declared in the same file with `APIRouter(prefix="/x")` or `Blueprint(..., url_prefix="/x")` lends
+// its prefix; one mounted elsewhere (`include_router(r, prefix=…)`) is not followed. Flask's
+// `<int:id>` is a variable like `{id}`. A first argument that is not a plain literal is counted in
+// `unread.handlers`. Calls through `requests`, `httpx` or a client/session object are read too.
+
+const PY_DECORATOR = /^[ \t]*@([\w.]+)\.(get|post|put|patch|delete|head|options|route|api_route)[ \t]*\(/gm;
+const PY_ROUTER = /^[ \t]*([\w]+)[ \t]*(?::[^=\n]*)?=[ \t]*(?:[\w.]+\.)?(APIRouter|Blueprint)[ \t]*\(/gm;
+
+/** A Python string literal at the start of `s`: `{ value, f }`, or null. */
+function pyLiteral(s) {
+  const m = s.match(/^([rRbBuUfF]{0,2})("""|'''|"|')/);
+  if (!m) return null;
+  const q = m[2];
+  let i = m[0].length;
+  let value = "";
+  while (i < s.length && !s.startsWith(q, i)) {
+    if (s[i] === "\\" && !/r/i.test(m[1])) {
+      value += s[i + 1] ?? "";
+      i += 2;
+      continue;
+    }
+    if (q.length === 1 && s[i] === "\n") return null;
+    value += s[i++];
+  }
+  if (i >= s.length) return null;
+  return { value, f: /f/i.test(m[1]), end: i + q.length };
+}
+
+/** The `(…)` argument text from `open`, stepping over strings; null when unclosed. */
+function pyArgText(text, open) {
+  const close = closeParen(text, open);
+  return close < 0 ? null : { args: text.slice(open + 1, close), close };
+}
+
+const pyKeyword = (args, key) => {
+  const m = args.match(new RegExp(`\\b${key}\\s*=\\s*`));
+  return m ? pyLiteral(args.slice(m.index + m[0].length)) : null;
+};
+
+const flaskVars = (p) => p.replace(/<[^<>]*>/g, "{}");
+
+/**
+ * Python text with comments and triple-quoted strings blanked, offsets and newlines kept. A
+ * docstring showing `@app.route("/")` is documentation, not a route: Flask's own source has five,
+ * which the first run on pallets/flask read as handlers. One-line strings stay, because a route's
+ * path is one.
+ */
+function pyMask(text) {
+  const out = text.split("");
+  const n = text.length;
+  let i = 0;
+  const blank = (a, b) => {
+    for (let k = a; k < b; k++) if (out[k] !== "\n") out[k] = " ";
+  };
+  while (i < n) {
+    const c = text[i];
+    if (c === "#") {
+      const end = text.indexOf("\n", i);
+      const stop = end < 0 ? n : end;
+      blank(i, stop);
+      i = stop;
+    } else if (text.startsWith('"""', i) || text.startsWith("'''", i)) {
+      const q = text.slice(i, i + 3);
+      const end = text.indexOf(q, i + 3);
+      const stop = end < 0 ? n : end + 3;
+      blank(i, stop);
+      i = stop;
+    } else if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < n && text[j] !== c && text[j] !== "\n") j += text[j] === "\\" ? 2 : 1;
+      i = j + 1;
+    } else {
+      i++;
+    }
+  }
+  return out.join("");
+}
+
+function pyHandlers(file, raw, at, rows, unread) {
+  if (!/@[\w.]+\.(?:get|post|put|patch|delete|head|options|route|api_route)\s*\(/.test(raw)) return;
+  const text = pyMask(raw);
+  const prefix = new Map();
+  for (const m of text.matchAll(PY_ROUTER)) {
+    const a = pyArgText(text, m.index + m[0].length - 1);
+    if (!a) continue;
+    const lit = pyKeyword(a.args, m[2] === "Blueprint" ? "url_prefix" : "prefix");
+    prefix.set(m[1], lit && !lit.f ? lit.value : "");
+  }
+  for (const m of text.matchAll(PY_DECORATOR)) {
+    const a = pyArgText(text, m.index + m[0].length - 1);
+    if (!a) continue;
+    const head = a.args.trimStart();
+    const lit = pyLiteral(head.replace(/^path\s*=\s*/, ""));
+    if (!lit || lit.f) {
+      if (head) unread.handlers += 1;
+      continue;
+    }
+    if (!lit.value.startsWith("/") && lit.value !== "") continue;
+    const recv = m[1].split(".").pop();
+    const raw = joinPaths(prefix.get(recv) ?? "", lit.value);
+    let methods;
+    if (m[2] === "route" || m[2] === "api_route") {
+      const list = a.args.match(/\bmethods\s*=\s*[[(]([^\])]*)[\])]/);
+      methods = list ? [...list[1].matchAll(/["']([A-Za-z]+)["']/g)].map((x) => x[1].toUpperCase()) : ["GET"];
+      if (!methods.length) methods = ["GET"];
+    } else {
+      methods = [m[2].toUpperCase()];
+    }
+    const name = (text.slice(a.close, a.close + 2000).match(/^[ \t]*(?:async[ \t]+)?def[ \t]+([\w]+)/m) ?? [])[1] ?? null;
+    for (const method of [...new Set(methods)]) {
+      rows.push({ file, line: at(m.index + m[0].indexOf("@")), method, path: normalizeRoutePath(flaskVars(raw)), raw, name });
+    }
+  }
+}
+
+const PY_CALL = /\b([\w]+)\.(get|post|put|patch|delete|head|options)[ \t]*\(/g;
+const PY_CLIENTS = new Set(["requests", "httpx", "aiohttp"]);
+const pyClientish = (name) => PY_CLIENTS.has(name) || words(name).some((w) => w === "client" || w === "session" || w === "http");
+
+function pyCalls(file, raw, at, rows, unread) {
+  if (!/requests|httpx|client|session|http/i.test(raw)) return;
+  const text = pyMask(raw);
+  for (const m of text.matchAll(PY_CALL)) {
+    if (!pyClientish(m[1])) continue;
+    const line = text.slice(text.lastIndexOf("\n", m.index) + 1, m.index);
+    if (/^\s*#/.test(line) || /^\s*@/.test(line)) continue;
+    const a = pyArgText(text, m.index + m[0].length - 1);
+    if (!a) continue;
+    const head = a.args.trimStart().replace(/^url\s*=\s*/, "");
+    const lit = pyLiteral(head);
+    if (!lit) {
+      if (head && PY_CLIENTS.has(m[1])) unread.calls += 1;
+      continue;
+    }
+    const value = lit.f ? lit.value.replace(/\{[^{}]*\}/g, HOLE) : lit.value;
+    const u = urlOf(value);
+    if (u === "unread") {
+      unread.calls += 1;
+      continue;
+    }
+    if (u) rows.push(callRow(file, at(m.index), m[2].toUpperCase(), u));
+  }
+}
+
 // --- Java: Spring handlers ------------------------------------------------------------------------
 
 const MAPPING = /@(RequestMapping|GetMapping|PostMapping|PutMapping|DeleteMapping|PatchMapping)\b/g;
@@ -941,6 +1247,8 @@ export function extractRoutes(files, read) {
     const t = read(origPath.get(p) ?? p);
     return typeof t === "string" ? lf(t) : null;
   };
+  const nest = [];
+  const globalPrefixes = new Set();
 
   for (const f of list) {
     if (SERVICE_FILE.test(f.path) && !f.isTest) {
@@ -962,11 +1270,34 @@ export function extractRoutes(files, read) {
       jsBases(f.path, scan, at, routes.bases);
       jsGatewayObjects(f.path, scan, at, routes.gateways);
       jsProxyMounts(f.path, scan, at, routes.gateways);
+      jsHandlers(f.path, scan, at, routes.handlers, routes.unread);
+      nestHandlers(f.path, scan, at, nest, routes.unread);
+      for (const g of scan.code.matchAll(/\.\s*setGlobalPrefix\s*\(/g)) {
+        if (scan.mask[g.index]) continue;
+        globalPrefixes.add(staticValue(literalAfter(scan, g.index + g[0].length)));
+      }
     } else if (f.path.endsWith(".java")) {
       const text = textOf(f.path);
       if (text === null || !/@(?:Request|Get|Post|Put|Delete|Patch)Mapping\b/.test(text)) continue;
       javaHandlers(f.path, text, lineIndex(text), routes.handlers, routes.unread);
+    } else if (f.path.endsWith(".py")) {
+      const text = textOf(f.path);
+      if (text === null || !text) continue;
+      const at = lineIndex(text);
+      pyHandlers(f.path, text, at, routes.handlers, routes.unread);
+      pyCalls(f.path, text, at, routes.calls, routes.unread);
     }
+  }
+
+  // NestJS's `app.setGlobalPrefix("api")` sits in main.ts and applies to every controller. Applied
+  // only when the repo declares exactly one, as a literal; otherwise the paths stay as declared.
+  const gp = globalPrefixes.size === 1 ? [...globalPrefixes][0] : null;
+  for (const h of nest) {
+    if (gp) {
+      h.raw = joinPaths(gp, h.raw);
+      h.path = normalizeRoutePath(h.raw);
+    }
+    routes.handlers.push(h);
   }
 
   // A context path is part of every handler in its module. The deepest module claiming a file wins.
@@ -1232,7 +1563,7 @@ export function resolveRoutes(repos) {
       finding(
         "route-dead-gateway",
         `Gateway route ${g.gateway.prefix} reaches no handler Cortex can see`,
-        `It forwards to ${g.gateway.rewrite ?? g.gateway.prefix} on ${g.gateway.target}, and no Spring handler in the workspace is under that path.`,
+        `It forwards to ${g.gateway.rewrite ?? g.gateway.prefix} on ${g.gateway.target}, and no handler Cortex can see in the workspace is under that path.`,
         [where(g.gateway)],
       ),
     );

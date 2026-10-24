@@ -52,11 +52,20 @@ Here it is the requirement, and it holds only because the connector carries no l
    author name: `CORTEX_AUTHOR`, else their git `user.name` as a slug; pass `--handle` only to
    override it. Running it again replaces their roles and projects. Without this step, asks sent
    to their role never reach them.
-5. Offer to commit the connector so teammates inherit the wiring:
+5. **Offer to publish this repo's contract**: what it serves, calls and emits, so other repos can
+   ask who calls an endpoint without cloning this one. On a yes, run
+   `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-contract.mjs" . --out .cortex/index/contract.json`, then
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" contract publish --file .cortex/index/contract.json`.
+   The first writes only under `.cortex/index/`, which it adds to `.gitignore` as indexing does. The
+   second commits `contract: update <slug>` to the team-brain and pushes, only when it changed.
+   Pass on what it printed, including an empty contract's reason. Run both again after the API
+   changes.
+6. Offer to commit the connector so teammates inherit the wiring:
    `git add .cortex/connector.json && git commit -m "chore: add cortex team connector"`.
-6. Tell the user what joining gave them. `/catch-me-up` pulls the team-brain and returns what every
-   repo of the team captured. The `ask`, `inbox` and `answer` tools carry a question to a role in
-   another repo and the answer back; an agent calls `inbox` at the start of a task.
+7. Tell the user what joining gave them. `/catch-me-up` pulls the team-brain and returns what every
+   repo of the team captured, and which contracts changed. The `ask`, `inbox` and `answer` tools
+   carry a question to a role in another repo and the answer back; an agent calls `inbox` at the
+   start of a task. The `contract` tool answers who serves and who calls an endpoint.
 
 ## The project file
 

@@ -6,6 +6,7 @@ import { capture } from "./lib/capture.js";
 import { catchMeUp, catchUpTeam } from "./lib/catchup.js";
 import { genNoteId } from "./lib/noteid.js";
 import { askFrom, inboxFrom, answerFrom, asksInstructions, authorFor } from "./lib/asks.js";
+import { contractFrom } from "./lib/contract.js";
 import { VERSION } from "./lib/version.js";
 import { append as rememberNote, recent as recentMemory } from "../core/memory.js";
 import { stamp } from "../core/date.js";
@@ -101,6 +102,8 @@ async function callTool(name, args) {
     case "ask": return askFrom(brain, args, { env: process.env, cwd: process.cwd(), id: genNoteId(), today: stamp() });
     case "inbox": return inboxFrom(brain, { env: process.env, cwd: process.cwd() });
     case "answer": return answerFrom(brain, args, { env: process.env, cwd: process.cwd(), today: stamp() });
+    // Contracts (#621): read-only over the team-brain clone; lib/contract.js decides which question.
+    case "contract": return contractFrom(brain, args);
     // assertAvailable already rejected anything the table does not name, so reaching here means a
     // tool was declared in lib/tools.js and never wired up.
     default: throw new Error(`tool declared but not implemented: ${name}`);

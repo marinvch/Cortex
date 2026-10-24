@@ -67,6 +67,27 @@ this project now versions independently of any package manager (see `VERSION`).
 - In a product repo the team-brain is cloned on first use from the connector's `teamBrainRepo`, to
   `.cortex/team/<team>/`, and that directory is added to the repo's `.gitignore` before the clone.
   The `.gitignore` writer moved to `core/gitignore.js`, shared by `index/` and `mcp/`.
+- **Each repo publishes a contract to the team-brain (#621).** `index/cortex-contract.mjs` writes
+  a deterministic summary of what a repo serves, calls and emits: `serves` from an OpenAPI or
+  Swagger file (JSON, or YAML through a small built-in reader) with operation ids and response
+  schema names, else from the route handlers the index detects; `calls` with method, path and
+  host; `events` from an AsyncAPI file and Kafka or RabbitMQ topics in code; and `unread`, what it
+  could not read and why. It holds no code, no line numbers, no query strings and no environment
+  values. A repo with no HTTP surface gets an empty contract with a `reason`.
+  `ai-os contract publish --file <it>` writes `projects/<slug>/contract.json` and `contract.md`,
+  commits `contract: update <slug>` only when the content changed, and pushes (not on `lab`). The
+  whole text passes the secret gate first. `/team-add` offers both steps.
+- **A `contract` MCP tool.** With `project` it returns that project's contract, narrowed by `path`;
+  with `calls` it returns which projects call an endpoint and which serve it. A method prefix, a
+  trailing slash and `:id` or `{id}` all match. The CLI has `ai-os contract show | who-calls |
+  list`. `catch_me_up` reports each project's contract drift since the date — endpoints added,
+  removed and changed — from the brain's git history.
+- **The route map reads more back ends.** Route handlers now come from Express-style routers
+  (`app.get`, `router.route().get()`), NestJS decorators with a literal global prefix, and FastAPI
+  and Flask decorators with a same-file router prefix, beside Spring. Python calls through
+  `requests`, `httpx` or a client object are read, a generated client's `client.post({ url })`
+  takes its method from the verb, and a host is read past `user:pass@`. `cortex-routes.mjs` gains
+  these too. The path normal form moved to `core/route-path.js`.
 
 ## [2.44.1] — 2026-10-13
 

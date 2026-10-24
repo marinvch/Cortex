@@ -80,6 +80,11 @@ here, which is why the directory is small and stays small.
   entries under a marker line, never rewrites one, and honours a bare `.cortex/` the user wrote.
   Which entries is the caller's: `index/lib/generated.mjs` passes the generated directories, and
   `mcp/lib/team.js` passes `.cortex/team/` before it clones a team-brain into a product repo.
+- **`route-path.js` is the one normal form for an HTTP path** (#621): `/items/{}`, every variable
+  spelling folded to `{}`. `index/lib/routes.mjs` writes the route map and the contract in it, and
+  `mcp/lib/contract.js` normalises a "who calls" question with it. `callReaches` is the route
+  map's rule — a call's `{}` meets only an endpoint's `{}` — so both leaves match the same way.
+  Pure; it reads nothing.
 
 - **`claude-code.js` is data, not policy code.** Anthropic's Claude Code rules, each with the
   sentence on its source page that states it. Checkers read values from it and never hard-code a

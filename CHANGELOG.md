@@ -5,6 +5,14 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [2.45.0] — 2026-10-24
+
+A team-brain now carries work between people, not just notes. A question goes to a role and comes
+back answered. Each repo's API is readable from the other repos. Copilot, Gemini CLI and Codex
+teammates reach the same brain, and GitHub, ServiceNow and Jira stay in step with it. The publish
+gate gained an employer denylist and a personal-data scan, and stamped CI verifies the Cortex it
+runs.
+
 ### Changed
 
 - **The Claude Code rules match the docs as of 2026-10-24 (#625).** The Code Review page split into
@@ -170,6 +178,10 @@ this project now versions independently of any package manager (see `VERSION`).
   adapt it, states that the quotations of Anthropic's documentation in `core/claude-code.js` are
   © Anthropic and not under Cortex's licence, and grants the files Cortex stamps into your
   repository under MIT-0 — no attribution required, and no header added to them.
+- **Tracker sync passes the whole publish gate, both ways.** A tracker comment coming into the
+  team-brain, and a brain entry going out to a tracker, used to meet only the credential scan.
+  They now meet the employer denylist on `home` and personal data in `refuse` mode too. A comment
+  the gate refuses is withheld, and the brain records only that it was.
 
 ## [2.44.1] — 2026-10-13
 
@@ -5563,6 +5575,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[2.45.0]: https://github.com/marinvch/Cortex/releases/tag/v2.45.0
 [2.44.1]: https://github.com/marinvch/Cortex/releases/tag/v2.44.1
 [2.44.0]: https://github.com/marinvch/Cortex/releases/tag/v2.44.0
 [2.43.1]: https://github.com/marinvch/Cortex/releases/tag/v2.43.1

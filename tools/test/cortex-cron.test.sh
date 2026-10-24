@@ -14,6 +14,12 @@
 CRON="$REPO_ROOT/tools/server/cortex-cron.sh"
 TODAY="$(date +%F)"
 
+# The cron scrubs what it sends and pushes, and the scrubber reads the employer denylist, by default
+# under $HOME. This file names its own, empty until a case fills it, so no run reads the machine's.
+export CORTEX_DENYLIST="$WORK/cron-denylist"
+: > "$CORTEX_DENYLIST"
+unset CORTEX_PROFILE CORTEX_PII CORTEX_SCRUB
+
 # A brain clone with a real upstream, plus a note committed far enough back to be "since" anything.
 setup_brain() { # dir
   local dir="$1" bare="$1.git"
@@ -216,3 +222,83 @@ assert_contains "$digest" "## Files changed" "and the deterministic digest is st
 canned cutoff '{"content":[{"type":"thinking","thinking":""},{"type":"text","text":"Half a sen"}],"stop_reason":"max_tokens"}'
 assert_contains "$out" "stop_reason: max_tokens" "a reply cut off at max_tokens is named on stderr"
 assert_not_contains "$digest" "Half a sen" "and its truncated text is not published as the summary"
+
+# --- the scrubber: nothing leaves the server unscanned (tools/cortex-scrub.mjs, core/gate.js) ---
+#
+# The diff goes to a third party and the digest to a remote. Before this, up to 60 KB of raw history
+# went to the API and the result was pushed with no gate on either. The stub curl above records
+# whether the API was called at all: its body file exists only if it was.
+
+# Assembled at runtime, so no credential-shaped literal ships in this file.
+FAKE_KEY="AKIA""IOSFODNN7""EXAMPLE"
+
+# scrubrun <name> <response-json> [env...] — run the daily cron with the stub API; sets $out, $code.
+scrubrun() {
+  local name="$1" resp="$2"
+  shift 2
+  printf '%s' "$resp" > "$WORK/$name.response.json"
+  code=0
+  out="$(env PATH="$WORK/fakebin:$PATH" FAKE_CURL_RESPONSE="$WORK/$name.response.json" \
+         FAKE_CURL_BODY="$WORK/$name.body.json" BRAIN_DIR="$WORK/$name" \
+         ANTHROPIC_API_KEY="test-key-not-real" "$@" bash "$CRON" --daily 2>&1)" || code=$?
+}
+OK_RESPONSE='{"content":[{"type":"text","text":"A quiet day."}],"stop_reason":"end_turn"}'
+
+# A credential in the brain's history: the run stops before the API is called.
+setup_brain "$WORK/leaky"
+printf 'deploy key %s for staging\n' "$FAKE_KEY" > "$WORK/leaky/notes/oops.md"
+git -C "$WORK/leaky" add -A && git -C "$WORK/leaky" commit -q -m "a note with a key" && git -C "$WORK/leaky" push -q
+scrubrun leaky "$OK_RESPONSE"
+assert_eq "3" "$code" "a credential in the changes aborts the run, exit 3"
+assert_exit 1 "and the API was never called" -- test -f "$WORK/leaky.body.json"
+assert_exit 1 "and no digest was written" -- test -f "$WORK/leaky/digests/$TODAY.md"
+assert_not_contains "$(git -C "$WORK/leaky.git" log --oneline 2>/dev/null || true)" "cron:" "and nothing was pushed"
+assert_contains "$out" "AWS access key id" "the log names the kind of what was found"
+assert_not_contains "$out" "$FAKE_KEY" "and never the value"
+assert_contains "$out" "refusing to send the changes" "and says what it refused to do"
+
+# A credential the MODEL wrote into the summary: the digest is refused before it is written.
+setup_brain "$WORK/echoes"
+scrubrun echoes "{\"content\":[{\"type\":\"text\",\"text\":\"Rotate $FAKE_KEY today.\"}],\"stop_reason\":\"end_turn\"}"
+assert_eq "3" "$code" "a credential in the generated digest aborts the push, exit 3"
+assert_exit 0 "the clean diff did go to the API" -- test -f "$WORK/echoes.body.json"
+assert_exit 1 "the refused digest was never written" -- test -f "$WORK/echoes/digests/$TODAY.md"
+assert_not_contains "$(git -C "$WORK/echoes.git" log --oneline 2>/dev/null || true)" "cron:" "and nothing was pushed"
+assert_contains "$out" "refusing to push" "and the log says so"
+assert_not_contains "$out" "$FAKE_KEY" "without repeating the value"
+
+# The employer denylist applies on a home profile, from the list this file named.
+setup_brain "$WORK/employer"
+printf 'standup: EXC-4521 is blocked\n' > "$WORK/employer/notes/work.md"
+git -C "$WORK/employer" add -A && git -C "$WORK/employer" commit -q -m "a work note" && git -C "$WORK/employer" push -q
+printf 'ticket: EXC-\\d+\n' > "$CORTEX_DENYLIST"
+scrubrun employer "$OK_RESPONSE"
+assert_eq "3" "$code" "on home, a denylisted employer name in the changes aborts the run"
+assert_exit 1 "before the API is called" -- test -f "$WORK/employer.body.json"
+assert_contains "$out" "employer denylist" "naming the denylist"
+assert_not_contains "$out" "EXC-4521" "and not the name"
+scrubrun employer "$OK_RESPONSE" CORTEX_PROFILE=work
+assert_eq "0" "$code" "a work-profile server does not apply it"
+: > "$CORTEX_DENYLIST"
+
+# Personal data warns by default and refuses under CORTEX_PII=refuse.
+setup_brain "$WORK/personal"
+printf 'call %s %s %s %s\n' "+44" "20" "7946" "0958" > "$WORK/personal/notes/call.md"
+git -C "$WORK/personal" add -A && git -C "$WORK/personal" commit -q -m "a phone" && git -C "$WORK/personal" push -q
+scrubrun personal "$OK_RESPONSE" CORTEX_PII=refuse
+assert_eq "3" "$code" "CORTEX_PII=refuse: personal data in the changes aborts the run"
+assert_contains "$out" "phone number" "naming the kind"
+setup_brain "$WORK/personalwarn"
+printf 'call %s %s %s %s\n' "+44" "20" "7946" "0958" > "$WORK/personalwarn/notes/call.md"
+git -C "$WORK/personalwarn" add -A && git -C "$WORK/personalwarn" commit -q -m "a phone" && git -C "$WORK/personalwarn" push -q
+scrubrun personalwarn "$OK_RESPONSE"
+assert_eq "0" "$code" "by default personal data is a warning, and the run goes on"
+assert_contains "$out" "personal data" "and the warning is in the log"
+
+# No scrubber: the API is not called, and the deterministic digest is still written and pushed.
+setup_brain "$WORK/noscrub"
+scrubrun noscrub "$OK_RESPONSE" CORTEX_SCRUB="$WORK/no-such-scrubber.mjs"
+assert_eq "0" "$code" "without a scrubber the run still succeeds"
+assert_exit 1 "but the changes are not sent to the API unscanned" -- test -f "$WORK/noscrub.body.json"
+assert_contains "$out" "scrubber is not available" "and the log says why there is no summary"
+assert_contains "$(git -C "$WORK/noscrub.git" log --oneline 2>/dev/null || true)" "cron:" "the deterministic digest is pushed"

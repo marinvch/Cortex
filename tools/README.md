@@ -142,6 +142,23 @@ writing anything sensitive; with no paths it always exits 0.
 Staleness is mtime-based, so a fresh clone reads as stale. That error points at re-running a cheap
 deterministic index; the opposite error hands someone a confident map of code that has moved.
 
+It also reports the **employer denylist** (`core/denylist.js`): not applied off `home`, `empty` when
+there is no file, `MISSING` when `CORTEX_DENYLIST` names none, otherwise the entries by kind and any
+line that could not be used. It never prints an entry.
+
+## `cortex-scrub.mjs` — the publish gate, for a shell script
+
+```bash
+node tools/cortex-scrub.mjs --check < text     # or: --check <file>
+```
+
+Runs `core/gate.js` — credentials, the employer denylist on `home`, personal data under `CORTEX_PII`
+— over text a shell script is about to send or push. Exit 0 is clean (a personal-data warning goes
+to stderr), 2 is refused, 1 is "could not run" (a bad `CORTEX_PROFILE` or `CORTEX_PII`, an
+unreadable file). It names kinds and lines and never the text. `server/cortex-cron.sh` runs it over
+the diff before the API call and over the digest before the push; `CORTEX_SCRUB` points the cron at
+it when the cron script was copied somewhere without it.
+
 ## `cortex-plugin-check.mjs` — is the Cortex you run the Cortex you edit
 
 A plugin reaches a session through three copies, each able to sit at a different version:

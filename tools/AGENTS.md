@@ -41,7 +41,9 @@ gets user scope instead.
 
 Five rules exist in more than one place **on purpose**, because the files needing them cannot share
 code. `cortex-init.sh` is a zero-dependency installer copied into other repos and parses no JSON.
-`tools/server/cortex-cron.sh` lands on a server beside only `server-setup.sh`. The viewer's slug runs
+`tools/server/cortex-cron.sh` lands on a server beside only `server-setup.sh` (it reaches
+`tools/cortex-scrub.mjs` by path, or `CORTEX_SCRUB`, and skips the API call when neither is there —
+never a bash copy of the gate). The viewer's slug runs
 in a browser. Each hook template is stamped alone into a repo that has no library to source.
 
 | Rule | Copies | Pinned by |

@@ -166,6 +166,10 @@ this project now versions independently of any package manager (see `VERSION`).
   `master` into a shell; it clones a release tag.
 - **`SECURITY.md`**: supported versions, private reporting through GitHub security advisories,
   scope, and what to expect.
+- **`THIRD_PARTY_NOTICES.md`** carries the full MIT notice of mattpocock/skills and the files that
+  adapt it, states that the quotations of Anthropic's documentation in `core/claude-code.js` are
+  © Anthropic and not under Cortex's licence, and grants the files Cortex stamps into your
+  repository under MIT-0 — no attribution required, and no header added to them.
 
 ## [2.44.1] — 2026-10-13
 

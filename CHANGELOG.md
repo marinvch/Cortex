@@ -155,6 +155,17 @@ this project now versions independently of any package manager (see `VERSION`).
   pushed, and the log names only the kind and line. With no scrubber available the API is not
   called and the deterministic digest is written as before. `CORTEX_SCRUB` names the scrubber when
   the cron script lives outside a Cortex checkout.
+- **A stamped `cortex-review.yml` verifies the Cortex it clones.** It cloned by release tag, and a
+  tag can be moved. The template gains `{{CORTEX_SHA256}}`, a digest of the `core/` and `index/` code
+  taken from the plugin at stamp time; a step after the clone recomputes it and fails the job on a
+  mismatch before anything from the clone runs. The stamp act fills it with `CORTEX_REF` (as
+  `v<VERSION>`), and a workflow stamped before is offered as an update that pins the running
+  release. [ADR 0028](docs/adr/0028-stamped-ci-verifies-cortex-by-content-digest.md).
+- **`agent-evals.yml` installs Claude Code by a pinned npm version** instead of piping
+  `claude.ai/install.sh` into bash, with the auto-updater off. `tools/README.md` no longer pipes
+  `master` into a shell; it clones a release tag.
+- **`SECURITY.md`**: supported versions, private reporting through GitHub security advisories,
+  scope, and what to expect.
 
 ## [2.44.1] — 2026-10-13
 

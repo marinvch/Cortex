@@ -5,7 +5,7 @@
 [ADR 0004](../docs/adr/0004-no-runtime-dependencies.md).
 
 The split is by reader, not by taste. A tool a *user* runs on a machine that may not have Node is
-bash (`cortex-init.sh` is curl-pipeable into any repo). A tool that reads structured state the code
+bash (`cortex-init.sh` is one self-contained file you can run in any repo). A tool that reads structured state the code
 already models — the version sites, the capability floors, the profile policy — is `.mjs`, so it
 imports that model instead of re-deriving it in shell. `cortex-preflight.mjs` is the clearest case:
 re-implementing `core/profile.js` in bash would be a fourth copy of the firewall rule.
@@ -24,9 +24,15 @@ Run one command inside a target repo and it scaffolds an `AGENTS.md` + agent shi
 # from a clone of Cortex, inside the target repo:
 bash /path/to/cortex/tools/cortex-init.sh
 
-# or one-liner, no clone:
-curl -fsSL https://raw.githubusercontent.com/marinvch/Cortex/master/tools/cortex-init.sh | bash
+# or a shallow clone of one release, then run it from there — replace v<release> with a tag from
+# github.com/marinvch/Cortex/releases:
+git clone --depth 1 --branch v<release> https://github.com/marinvch/Cortex.git /tmp/cortex
+bash /tmp/cortex/tools/cortex-init.sh
 ```
+
+There is deliberately no `curl … | bash` line here. A pipe from `master` runs whatever the branch
+holds at that minute, unread, with your shell's permissions; a tagged clone is a file you can read
+before you run it, and the same file every time.
 
 ### Non-interactive (CI, scripts, no TTY)
 With no TTY it reads answers from stdin (name, what-it-does, key rule, agents) — blanks fall back

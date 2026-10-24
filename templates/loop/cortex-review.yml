@@ -19,10 +19,16 @@
 # provable class ever fails — a path gone with git's record of where it went. A mention of a touched
 # file never does: it is where a defect would hide, not a defect.
 #
-# Two values are Cortex placeholders, in double braces with no dollar sign: CORTEX_REPO, the git URL
-# Cortex is cloned from (upstream, or the organisation's fork), and CORTEX_REF, the Cortex release
-# tag this runs. A dollar-sign expression is GitHub Actions syntax, resolved at run time — leave it
-# exactly as written.
+# Three values are Cortex placeholders, in double braces with no dollar sign: CORTEX_REPO, the git
+# URL Cortex is cloned from (upstream, or the organisation's fork), CORTEX_REF, the Cortex release
+# tag this runs, and CORTEX_SHA256, a hash of that release's code taken when this file was stamped.
+# A dollar-sign expression is GitHub Actions syntax, resolved at run time — leave it exactly as
+# written.
+#
+# A tag is a name, and whoever can push to the source can point it at other code later. So the clone
+# is checked against CORTEX_SHA256 before anything in it runs, and a mismatch fails the job whether
+# or not the review is blocking: the code that would run against this repository is not the code
+# that was stamped. If Cortex was updated on purpose, stamp this file again from the new release.
 name: cortex-review
 
 on:
@@ -42,6 +48,7 @@ jobs:
     env:
       CORTEX_REPO: {{CORTEX_REPO}}
       CORTEX_REF: {{CORTEX_REF}}
+      CORTEX_SHA256: "{{CORTEX_SHA256}}"
     steps:
       # Full history: the diff is taken from the PR's base, and a moved file is proven by git's
       # rename record, which a shallow clone does not have.
@@ -53,6 +60,37 @@ jobs:
       # a copy of Cortex inside the checkout would be reviewed as if it were this repo's code.
       - name: Fetch Cortex
         run: git clone -q --depth 1 --branch "$CORTEX_REF" "$CORTEX_REPO" "$RUNNER_TEMP/cortex"
+      # Nothing from the clone runs before this, and this script is not from the clone. It hashes
+      # what the two commands below load — core/ and index/ without their tests, and VERSION — the
+      # way Cortex's index/lib/cortex-digest.mjs does when it stamps this file.
+      - name: Verify Cortex is the code that was stamped
+        run: |
+          node -e '
+            const { createHash } = require("node:crypto");
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const root = process.argv[1];
+            const sha = (s) => createHash("sha256").update(s).digest("hex");
+            const files = [];
+            const walk = (rel) => {
+              for (const e of fs.readdirSync(path.join(root, rel), { withFileTypes: true })) {
+                const p = rel + "/" + e.name;
+                if (e.isDirectory()) { if (e.name !== "test") walk(p); }
+                else if (e.isFile()) files.push(p);
+              }
+            };
+            walk("core");
+            walk("index");
+            if (fs.existsSync(path.join(root, "VERSION"))) files.push("VERSION");
+            files.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+            const lines = files.map((p) => sha(fs.readFileSync(path.join(root, p), "utf8").replace(/\r\n/g, "\n")) + "  " + p + "\n");
+            const got = sha(lines.join(""));
+            if (got !== process.env.CORTEX_SHA256) {
+              console.log("::error::Cortex " + process.env.CORTEX_REF + " from " + process.env.CORTEX_REPO + " is not the code this workflow was stamped from (expected " + process.env.CORTEX_SHA256 + ", got " + got + "). The tag may have moved. Nothing from it was run. If Cortex was updated on purpose, stamp this workflow again from the new release.");
+              process.exit(1);
+            }
+            console.log("Cortex " + process.env.CORTEX_REF + " matches the stamped digest " + got);
+          ' "$RUNNER_TEMP/cortex"
       - name: Review the change against this repo's documents
         env:
           CORTEX: ${{ runner.temp }}/cortex

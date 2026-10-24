@@ -1030,9 +1030,12 @@ test("agent-evals.yml, stamped, parses as a workflow with every field a job need
   assert.ok(uses[0]?.startsWith("actions/checkout@"), "checkout comes first");
   assert.ok(uses.includes("actions/setup-java@v4"), "the repo's own toolchain setup landed as a step");
 
-  const install = job.steps.find((s) => /claude\.ai\/install\.sh/.test(s.run ?? ""));
-  assert.ok(install, "Claude Code is installed with the documented native installer");
-  assert.match(install.run, /GITHUB_PATH/, "and put on PATH for the steps after it");
+  // A pinned npm version, never a script piped from a URL (docs/adr/0028).
+  const install = job.steps.find((s) => /@anthropic-ai\/claude-code/.test(s.run ?? ""));
+  assert.ok(install, "Claude Code is installed from npm, the documented package");
+  assert.match(install.run, /npm install -g @anthropic-ai\/claude-code@\d+\.\d+\.\d+\s*$/, "at an exact version");
+  assert.equal(install.env?.DISABLE_AUTOUPDATER, "1", "and the run stays on the version reviewed");
+  assert.doesNotMatch(fsRead(new URL("../../templates/loop/agent-evals.yml", import.meta.url), "utf8"), /curl[^\n]*\|\s*(ba)?sh/, "nothing is piped into a shell");
 
   const cases = job.steps.find((s) => /claude -p/.test(s.run ?? ""));
   assert.ok(cases, "a step runs the cases");
@@ -1171,7 +1174,8 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   const { parseYaml } = await import("./yaml-lite.mjs");
   const stamped = fsRead(REVIEW_TEMPLATE, "utf8")
     .replaceAll("{{CORTEX_REF}}", "v2.38.0")
-    .replaceAll("{{CORTEX_REPO}}", "https://github.com/acme/cortex.git");
+    .replaceAll("{{CORTEX_REPO}}", "https://github.com/acme/cortex.git")
+    .replaceAll("{{CORTEX_SHA256}}", "0".repeat(64));
   assert.doesNotMatch(stamped.replace(/\$\{\{[^}]*\}\}/g, ""), /\{\{/, "a Cortex placeholder is left unfilled");
   // The deterministic half runs on a fork's PR too, where no secret is available.
   assert.doesNotMatch(stamped, /secrets\./, "it asks for no secret");
@@ -1196,6 +1200,17 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   assert.match(fetch?.run ?? "", /--branch "\$CORTEX_REF" "\$CORTEX_REPO"/, "Cortex is fetched from the stamped source at the pinned ref");
   assert.doesNotMatch(stamped, /marinvch\/Cortex/, "no upstream URL is left for a fork's workflow to fetch");
   assert.match(fetch.run, /\$RUNNER_TEMP\/cortex/, "outside the workspace, so the indexer never reads Cortex as this repo");
+
+  // The clone is checked against the stamped digest before anything in it runs (docs/adr/0028).
+  assert.equal(job.env?.CORTEX_SHA256, "0".repeat(64), "the digest is stamped beside the ref");
+  const iFetch = job.steps.indexOf(fetch);
+  const verify = job.steps.find((s) => /CORTEX_SHA256/.test(s.run ?? ""));
+  const iFirstRun = job.steps.findIndex((s) => /\$CORTEX\/index\//.test(s.run ?? ""));
+  assert.ok(verify, "a step verifies the clone");
+  assert.equal(job.steps.indexOf(verify), iFetch + 1, "right after the clone");
+  assert.ok(iFirstRun > job.steps.indexOf(verify), "and before any of its code runs");
+  assert.doesNotMatch(verify.run, /\$CORTEX\/|RUNNER_TEMP\/cortex\/[a-z]/, "the check does not run code from the clone it checks");
+  assert.doesNotMatch(verify.run, /BLOCKING/, "a mismatch fails whether or not the review blocks");
   assert.doesNotMatch(stamped, /npm (ci|install)|setup-node/, "nothing is installed: index/ has no dependencies");
 
   const review = job.steps.find((s) => /cortex-review\.mjs/.test(s.run ?? ""));
@@ -1209,9 +1224,10 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
 
 test("cortex-review.yml carries only the placeholders /cortex or the stamp act fills", () => {
   const src = fsRead(REVIEW_TEMPLATE, "utf8").replace(/\$\{\{[^}]*\}\}/g, "");
-  const found = [...new Set([...src.matchAll(/\{\{([A-Z_]+)\}\}/g)].map((m) => m[1]))].sort();
+  const found = [...new Set([...src.matchAll(/\{\{([A-Z0-9_]+)\}\}/g)].map((m) => m[1]))].sort();
   // CORTEX_REPO is where Cortex is cloned from (#622): upstream unless an organisation runs a fork.
-  assert.deepEqual(found, ["CORTEX_REF", "CORTEX_REPO"]);
+  // CORTEX_SHA256 is the digest of the code it clones (docs/adr/0028), filled by the stamp act.
+  assert.deepEqual(found, ["CORTEX_REF", "CORTEX_REPO", "CORTEX_SHA256"]);
   for (const name of found) assert.equal(src.split(`{{${name}}}`).length - 1, 1, `{{${name}}} appears once, where it is filled`);
   const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
   const row = skill.split("\n").find((l) => l.startsWith("| `cortex-review.yml`"));
@@ -1219,6 +1235,7 @@ test("cortex-review.yml carries only the placeholders /cortex or the stamp act f
   // {{CORTEX_REPO}} is filled by stampFile from the resolved source (stamps.test.mjs), not by the
   // skill: the instruction in this row pulled /cortex's evals down from 0.93 to 0.71–0.79.
   assert.ok(!row.includes("CORTEX_REPO"), "the stamp act fills {{CORTEX_REPO}}; the skill must not have to");
+  assert.ok(!row.includes("CORTEX_SHA256"), "and {{CORTEX_SHA256}}, which only the act can compute");
   assert.ok(row.includes("CORTEX_REVIEW_BLOCKING"), "and it names the switch that makes the check blocking");
 });
 

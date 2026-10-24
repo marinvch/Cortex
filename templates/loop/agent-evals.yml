@@ -53,10 +53,16 @@ jobs:
       # The steps from this repo's own CI that install its toolchain and dependencies, copied as
       # they are there, so the test command runs here the way it runs there. None needed: delete it.
       {{SETUP_STEPS}}
+      # A pinned version from npm, not a script piped from a URL: an npm version is immutable once
+      # published, and npm checks the package against the registry's integrity hash, while a piped script is
+      # whatever the URL serves that minute — run with this job's ANTHROPIC_API_KEY in reach. The npm
+      # package installs the same native binary as the installer (code.claude.com/docs/en/setup,
+      # "Install with npm"). Raise the version on purpose, in a reviewed change; the auto-updater is
+      # off so the run stays on the version reviewed.
       - name: Install Claude Code
-        run: |
-          curl -fsSL https://claude.ai/install.sh | bash
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        run: npm install -g @anthropic-ai/claude-code@2.1.308
+        env:
+          DISABLE_AUTOUPDATER: "1"
       - name: Run every case
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

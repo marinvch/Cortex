@@ -12,7 +12,8 @@ the reason the rules below have to be written down: the layering test will not c
 ## `.sh` or `.mjs` — decided by the reader, not by taste
 
 - **`.sh`** when a *user* runs it on a machine that may not have Node. `cortex-init.sh` is
-  curl-pipeable into any repo; that is the whole reason it exists in bash.
+  one self-contained file that runs in any repo; that is the whole reason it exists in bash. The
+  docs show it run from a tagged clone, never piped from `master` (SECURITY.md).
 - **`.mjs`** when the script reads structured state the product already models — the version sites,
   the capability floors, the profile policy. It imports that model instead of re-deriving it.
   `cortex-preflight.mjs` is the clearest case: reimplementing `core/profile.js` in bash would be a

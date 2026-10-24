@@ -39,7 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
   `CORTEX_SOURCE` variable, then the `source` in `.cortex/connector.json`, and defaults to
   `marinvch/Cortex`. The `cortex` marketplace entry `cortex-shared-plugin.mjs` adds to
   `.claude/settings.json` points at it, and a stamped `cortex-review.yml` clones it, through a new
-  `{{CORTEX_REPO}}` placeholder recorded in `.cortex/stamps.json`. A URL carrying a credential is
+  `{{CORTEX_REPO}}` placeholder that the stamp command fills from the source and records in
+  `.cortex/stamps.json`. A directory source is not stamped into CI, because a runner cannot clone
+  a local path. A URL carrying a credential is
   refused. With nothing set, every file Cortex writes is what it was, and an existing `cortex`
   entry is still left as it is. `core/source.js` holds the shapes and the order.
 - **A team-brain carries its fork.** `ai-os team init --source <owner/repo|git-url>` writes it to

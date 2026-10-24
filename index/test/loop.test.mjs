@@ -1207,7 +1207,7 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   assert.doesNotMatch(review.run, /set -e/, "one failing command must not skip the report");
 });
 
-test("cortex-review.yml carries only the placeholders the /cortex skill tells it how to fill", () => {
+test("cortex-review.yml carries only the placeholders /cortex or the stamp act fills", () => {
   const src = fsRead(REVIEW_TEMPLATE, "utf8").replace(/\$\{\{[^}]*\}\}/g, "");
   const found = [...new Set([...src.matchAll(/\{\{([A-Z_]+)\}\}/g)].map((m) => m[1]))].sort();
   // CORTEX_REPO is where Cortex is cloned from (#622): upstream unless an organisation runs a fork.
@@ -1216,8 +1216,9 @@ test("cortex-review.yml carries only the placeholders the /cortex skill tells it
   const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
   const row = skill.split("\n").find((l) => l.startsWith("| `cortex-review.yml`"));
   assert.ok(row?.includes("CORTEX_REF"), "the skill's cortex-review.yml row does not say how to fill {{CORTEX_REF}}");
-  assert.ok(row.includes("CORTEX_REPO"), "the skill's cortex-review.yml row does not say how to fill {{CORTEX_REPO}}");
-  assert.ok(row.includes("cloneUrl") && /directory/.test(row), "it fills it from the resolved source, and says what a directory source means");
+  // {{CORTEX_REPO}} is filled by stampFile from the resolved source (stamps.test.mjs), not by the
+  // skill: the instruction in this row pulled /cortex's evals down from 0.93 to 0.71–0.79.
+  assert.ok(!row.includes("CORTEX_REPO"), "the stamp act fills {{CORTEX_REPO}}; the skill must not have to");
   assert.ok(row.includes("CORTEX_REVIEW_BLOCKING"), "and it names the switch that makes the check blocking");
 });
 

@@ -55,6 +55,17 @@ test("tracking does not rescue node_modules — that name is never ambiguous", (
   assert.ok(!paths(root).some((p) => p.startsWith("node_modules/")), "vendored deps stay out even when committed");
 });
 
+test("another tool's generated graph is not indexed as the repo's code", () => {
+  const root = gitFixture();
+  mkdirSync(join(root, "graphify-out"));
+  writeFileSync(join(root, "graphify-out", "graph.json"), "{}\n");
+  writeFileSync(join(root, "graphify-out", "GRAPH_REPORT.md"), "# report\n");
+  const found = paths(root);
+
+  assert.ok(!found.some((p) => p.startsWith("graphify-out/")), "untracked graphify-out/ stays out");
+  assert.ok(found.includes("README.md"));
+});
+
 test("outside a git repo, bin/ and obj/ are skipped as before", () => {
   const root = tempDir("cortex-walk-nogit-");
   mkdirSync(join(root, "bin"));

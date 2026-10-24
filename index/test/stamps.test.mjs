@@ -737,6 +737,34 @@ test("cortex-review.yml stamped before {{CORTEX_REPO}} existed updates to the sa
   assert.match(readFileSync(join(fork.repoRoot, ".github", "workflows", "cortex-review.yml"), "utf8"), /CORTEX_REPO: https:\/\/github\.com\/acme\/cortex\.git\n/);
 });
 
+// The act fills {{CORTEX_REPO}} from the resolved source, so /cortex never has to (#622).
+test("stampFile fills CORTEX_REPO from the connector's source, upstream by default, and refuses a directory", () => {
+  const now = readFileSync(join(TEMPLATES_DIR, "loop", "cortex-review.yml"), "utf8");
+  const stampReview = (w) => stampFile({
+    repoRoot: w.repoRoot, templatesDir: w.templatesDir, path: ".github/workflows/cortex-review.yml",
+    template: "loop/cortex-review.yml", values: { CORTEX_REF: "v2.44.1" }, version: RUNNING,
+  });
+  const saved = process.env.CORTEX_SOURCE;
+  delete process.env.CORTEX_SOURCE;
+  try {
+    const plain = world({ templates: { "loop/cortex-review.yml": now } });
+    stampReview(plain);
+    assert.equal(readStamps(plain.repoRoot).files[".github/workflows/cortex-review.yml"].values.CORTEX_REPO, "https://github.com/marinvch/Cortex.git");
+
+    const fork = world({ files: { ".cortex/connector.json": JSON.stringify({ team: "t", project: "p", source: "acme/cortex" }) }, templates: { "loop/cortex-review.yml": now } });
+    stampReview(fork);
+    assert.match(readFileSync(join(fork.repoRoot, ".github", "workflows", "cortex-review.yml"), "utf8"), /CORTEX_REPO: https:\/\/github\.com\/acme\/cortex\.git\n/);
+
+    process.env.CORTEX_SOURCE = process.platform === "win32" ? "C:\\cortex" : "/srv/cortex";
+    const local = world({ templates: { "loop/cortex-review.yml": now } });
+    assert.throws(() => stampReview(local), (e) => e.code === "directory_source" && /cannot clone a path/.test(e.message));
+    assert.equal(existsSync(join(local.repoRoot, ".github", "workflows", "cortex-review.yml")), false, "nothing written");
+  } finally {
+    if (saved === undefined) delete process.env.CORTEX_SOURCE;
+    else process.env.CORTEX_SOURCE = saved;
+  }
+});
+
 // --- the stamp act: render, write and record as one call ----------------------------------------------
 
 const act = (w, extra = {}) => stampFile({ repoRoot: w.repoRoot, templatesDir: w.templatesDir, path: "REVIEW.md", template: "loop/REVIEW.md", values: { NIT_CAP: "3" }, version: RUNNING, ...extra });

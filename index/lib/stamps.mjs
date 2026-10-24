@@ -90,7 +90,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
-import { DEFAULT_MARKETPLACE_SOURCE, cloneUrl } from "../../core/source.js";
+import { DEFAULT_MARKETPLACE_SOURCE, cloneUrl, connectorSource, resolveSource } from "../../core/source.js";
 import { lineDiff } from "./linediff.mjs";
 import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
@@ -110,6 +110,25 @@ export const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.me
  * recorded with the file; it is never a default.
  */
 export const VALUE_DEFAULTS = { DEBATE_ROUNDS: "2", CORTEX_REPO: cloneUrl(DEFAULT_MARKETPLACE_SOURCE) };
+
+/**
+ * A first stamp fills `{{CORTEX_REPO}}` from the source this repo resolves to (`core/source.js`:
+ * `CORTEX_SOURCE`, then the connector's `source`, then upstream), unless the caller gave one. The
+ * act fills it, so no ritual has to: the instruction once lived in /cortex's table and measurably
+ * pulled its evals down. A directory source is refused — a CI runner cannot clone a local path.
+ */
+function withSource(repoRoot, templateText, values, env = process.env) {
+  if (Object.hasOwn(values, "CORTEX_REPO") || !unfilledPlaceholders(templateText, values).includes("CORTEX_REPO")) return values;
+  const resolved = resolveSource({ env, connector: connectorSource(repoRoot) });
+  const url = cloneUrl(resolved.source);
+  if (url === null) {
+    throw new StampRefused(
+      "directory_source",
+      `Cortex's source here is the local path ${resolved.text} (from ${resolved.from}), and a CI runner cannot clone a path on this machine, so the workflow is not stamped.`,
+    );
+  }
+  return { ...values, CORTEX_REPO: url };
+}
 
 /** The recorded values, with each setting the template uses and the record lacks at its default. */
 function withDefaults(templateText, values) {
@@ -638,6 +657,7 @@ export function stampFile({ repoRoot, templatesDir, path, template, values = {},
   const templateText = readIfFile(join(templatesDir, ...template.split("/")));
   if (templateText === null) throw new StampRefused("no_template", `no template ${template} in ${templatesDir}`);
 
+  values = withSource(repoRoot, templateText, values);
   const before = readStamps(repoRoot);
   const text = renderTemplate(templateText, values);
   const at = join(repoRoot, ...path.split("/"));

@@ -101,3 +101,62 @@ export function logSince(dir, since, { max = 200 } = {}) {
   }
   return { commits: lines.slice(0, max), truncated: lines.length > max };
 }
+
+/**
+ * Commit SEVERAL paths in a clone as one commit, and nothing else staged or lying in the tree. A
+ * contract is two files (`contract.json` and `contract.md`) that change together, so one commit
+ * carries both. `committed: false` with `ok: true` means git had nothing to record.
+ */
+export function commitPaths(cloneDir, files, message) {
+  if (!isGitRepo(cloneDir)) return { ok: false, committed: false, error: "not_a_git_repo" };
+  try {
+    ensureIdentity(cloneDir);
+    git(cloneDir, ["add", "--", ...files]);
+    if (!git(cloneDir, ["status", "--porcelain", "--", ...files]).trim()) return { ok: true, committed: false };
+    git(cloneDir, ["commit", "-q", "-m", message, "--", ...files]);
+    return { ok: true, committed: true };
+  } catch (e) { return { ok: false, committed: false, error: String(e.stderr || e.message).trim() }; }
+}
+
+/**
+ * `YYYY-MM-DD` → the start of that day, which is what a person means by "since". git reads a bare
+ * date as that date at the CURRENT time of day, so a commit made this morning is not "since today".
+ * Anything else is handed to git as it was given.
+ */
+export function sinceArg(since) {
+  const s = String(since);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s} 00:00:00` : s;
+}
+
+/**
+ * The last commit touching `path` before `since`, or null when the path did not exist then (or
+ * there is no repo). The other end of a drift report is `HEAD`.
+ */
+export function revBefore(cloneDir, path, since) {
+  if (!isGitRepo(cloneDir)) return null;
+  try {
+    return git(cloneDir, ["rev-list", "-1", `--before=${sinceArg(since)}`, "HEAD", "--", path]).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Did any commit since `since` touch `path`? */
+export function touchedSince(cloneDir, path, since) {
+  if (!isGitRepo(cloneDir)) return false;
+  try {
+    return git(cloneDir, ["log", "-1", "--format=%H", `--since=${sinceArg(since)}`, "HEAD", "--", path]).trim() !== "";
+  } catch {
+    return false;
+  }
+}
+
+/** The text of `path` at `rev`, or null when it is not there. Argument array, never a shell string. */
+export function showAt(cloneDir, rev, path) {
+  if (!isGitRepo(cloneDir) || !rev) return null;
+  try {
+    return git(cloneDir, ["show", `${rev}:${path}`]);
+  } catch {
+    return null;
+  }
+}

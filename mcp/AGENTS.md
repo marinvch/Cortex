@@ -15,6 +15,10 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `ai-os ask` | send `--to <role\|project> --title --body` as `asks/<id>.md`; commit, push | a root, a team |
 | `ai-os inbox` | pull, then the open asks for you and the answers to yours; `--json` | a root, a team |
 | `ai-os answer` | append `--body` to ask `--id`, set `--status`; commit, push | a root, a team |
+| `ai-os contract publish` | write `--file <contract.json>` as `projects/<slug>/contract.json` + `.md`; commit, push when changed | a root, a team |
+| `ai-os contract show` | one project's contract (`--project`, `--path`); `--json` | a root, a team |
+| `ai-os contract who-calls` | which projects call `--path "[METHOD] /p"`, and which serve it; `--json` | a root, a team |
+| `ai-os contract list` | the projects that have published a contract | a root, a team |
 | `ai-os project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
 | `ai-os project check` | validate the team's project files; exit 1 on an error or a withheld file | a vault, a team |
 | `ai-os project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
@@ -85,7 +89,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   added without saying where it runs. `mode.test.js` asserts the exact list for both modes **and**
   that a vault tool invoked in repo mode comes back refused with nothing written.
 - **A tool that returns someone else's text says so in its description.** `recall`,
-  `recall_memory`, `get_project_context`, `list_projects`, `catch_me_up` and `inbox` all hand the model text
+  `recall_memory`, `get_project_context`, `list_projects`, `catch_me_up`, `inbox` and `contract` all hand the model text
   written outside the conversation — a teammate's committed `.cortex/memory/`, a note in a shared
   vault — and the result itself carries nothing marking it as data rather than instruction, which is
   the standard prompt-injection path through a retrieval tool. The description is the one place the
@@ -161,9 +165,28 @@ the repo by commit count, and — like every other part — **dependency-free**.
     hook (ADR 0021). It reads the local clone, never pulls, never throws: a failure drops the count.
   - Asks and answers commit one path with `commitPath` and push only when `policy.outwardSync`
     allows; on `lab` the result says `outward_sync_disabled`.
+- **A contract is `projects/<slug>/contract.json` plus `contract.md`, and `lib/contract.js` owns
+  both** (#621, the design's R12–R14). `index/cortex-contract.mjs` extracts it; this package
+  publishes and reads it. The rules:
+  - **Publishing re-serialises; it never copies.** `parseContract` keeps the known keys, caps every
+    string, sorts every list and refuses a file path that is absolute or climbs out. The bytes are
+    a function of the contract, so an unchanged republish is no commit.
+  - **The gate is in `publishContract`, on the input text and on the text written.** No tool row
+    publishes a contract — it is a CLI step of `/team-add` — so the one function that writes is
+    the act the guarantee attaches to (ADR 0016). Do not add a second write path around it.
+  - **`contract` is one tool for two questions** (R6): `project` (narrowed by `path`) or `calls`.
+    There is no `who_calls`. It is `mode: ANY`, team only, `FOREIGN`, `LOCAL`, and pulls ff-only
+    first, returning a failed pull in `pull`.
+  - **Matching is the route map's**, through `core/route-path.js`: one normal form (`/items/{}`), and
+    a call's `{}` meets only an endpoint's `{}`. A question may carry a method and a trailing slash.
+    Every answer is a floor and says so.
+  - **Drift reads git, not the files**: `contractDrift` compares HEAD with the last commit before
+    the day (`revBefore`, with `sinceArg` turning `YYYY-MM-DD` into midnight, since git reads a
+    bare date as that day at the current time). Bounded per project and in projects.
 - **`catch_me_up` pulls (ff-only) and reads the team's notes, not only its log.** A failed pull is
   returned in `pull`, never swallowed, and the local notes still come back; team notes are bounded
-  in `catchup.js` so the result fits under the transport cap rather than being cut by it.
+  in `catchup.js` so the result fits under the transport cap rather than being cut by it. Its
+  `contracts` field is each project's contract drift since the date.
 - **Every vault path goes through `lib/vault.js`** — not through `resolveInRoot` directly. The Vault
   is the only module here that joins onto a vault root or calls `node:fs` on one; it wraps
   `core/paths.js` so the guard is unavoidable rather than remembered. If you need an operation it

@@ -132,6 +132,23 @@ this project now versions independently of any package manager (see `VERSION`).
   takes its method from the verb, and a host is read past `user:pass@`. `cortex-routes.mjs` gains
   these too. The path normal form moved to `core/route-path.js`.
 
+### Security
+
+- **On `home`, a published write that names your employer is refused.** Keep an employer denylist
+  outside every repository — `~/.cortex/employer-denylist`, or the file `CORTEX_DENYLIST` names —
+  with one `org:`, `domain:`, `owner:`, `ticket:` (a regex such as `EXC-\d+`) or `pattern:` per
+  line. `remember`, `capture`, `ask`, `answer`, project files and contracts are refused when their
+  text matches a line; the refusal names the line and its kind, never the text. `work` and `lab`
+  do not apply it. No file means no check, and `cortex-preflight.mjs` prints `denylist  empty`; a
+  `CORTEX_DENYLIST` that names no file refuses every published write until it is fixed. A bad line
+  is reported with its number and skipped. [ADR 0026](docs/adr/0026-the-employer-firewall-checks-the-names-you-give-it.md).
+- **Personal data is caught at the same gate.** Email addresses, phone numbers, IBANs (mod-97) and
+  card numbers (Luhn) in a published write produce a `warnings` sentence on the tool result, or on
+  stderr from the CLIs. `CORTEX_PII=refuse` refuses instead, `off` stops the scan. The gate is now
+  one module, `core/gate.js`, for both of its callers. [`docs/erasure.md`](docs/erasure.md) is the
+  procedure for removing personal data from committed memory's history.
+  [ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md).
+
 ## [2.44.1] — 2026-10-13
 
 Three commands read what they need once, and three decisions moved to where a test can reach them.

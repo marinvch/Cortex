@@ -10,7 +10,8 @@
 // the guard are derived from it. They cannot disagree, and a tool cannot be added without saying
 // where it runs.
 
-import { assertWritable } from "../../core/scrub.js";
+import { assertPublished } from "../../core/gate.js";
+import { resolveProfile } from "../../core/profile.js";
 
 /** A tool that needs a repo's `.cortex/` — committed, shared, code-adjacent memory. */
 export const REPO = "repo";
@@ -172,13 +173,23 @@ export function assertAvailable(name, repoMode) {
  * one `remember` has always charged. `core/scrub.js`'s PLACEHOLDER list keeps `${VAR}` and
  * `<your-key-here>` out of it.
  *
+ * The gate is `core/gate.js`, the same call `remember`'s writer makes: a credential, then an
+ * employer denylist entry when the profile refuses employer material (`home`), then personal data
+ * under CORTEX_PII. `policy` is the brain's profile policy; without one the profile is resolved from
+ * `env`, so a caller that forgets it still gets the profile the machine declared, never "refuses
+ * nothing".
+ *
+ * Returns `{ warnings }` — sentences the caller passes on with its result (personal data in `warn`
+ * mode, a denylist line that could not be used). A LOCAL tool returns none.
+ *
  * @param {string} name    the tool the client asked for
  * @param {{content?: string}} args
+ * @param {{policy?: {refuses: string}, env?: object}} [opts]
  */
-export function assertPublishable(name, args) {
+export function assertPublishable(name, args, { policy, env = process.env } = {}) {
   const tool = TOOL_TABLE.find((t) => t.name === name);
   if (!tool) throw new Error(`unknown tool: ${name}`);
-  if (tool.writes !== PUBLISHED) return;
+  if (tool.writes !== PUBLISHED) return { warnings: [] };
   // `content` and not a scan of every argument: `assertWellFormed` refuses a publishing row that
   // does not take its payload there, so this cannot silently miss the field that gets written.
   //
@@ -189,7 +200,10 @@ export function assertPublishable(name, args) {
     if (Array.isArray(v)) return v.map((x) => String(x));
     return v === undefined || v === null ? [] : [String(v)];
   });
-  assertWritable([args?.content ?? "", ...extra].join("\n"));
+  return assertPublished([args?.content ?? "", ...extra].join("\n"), {
+    policy: policy ?? resolveProfile({ env }).policy,
+    env,
+  });
 }
 
 /**

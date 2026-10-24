@@ -26,6 +26,8 @@
 // Every read and write in the clone goes through the Vault; git goes through gitsync.js.
 
 import { assertWritable } from "../../core/scrub.js";
+import { assertNotDenied } from "../../core/denylist.js";
+import { resolveProfile } from "../../core/profile.js";
 import { callReaches, normalizeRoutePath, routeSegments } from "../../core/route-path.js";
 import { commitPaths, pull, pushHead, revBefore, showAt, teamCloneDir, touchedSince } from "./gitsync.js";
 import { openVault } from "./vault.js";
@@ -235,12 +237,14 @@ function publish(clone, rels, message, outwardSync) {
  * @param {string} clone
  * @param {{ slug: string, input: string, outwardSync?: boolean }} opts
  */
-export function publishContract(clone, { slug, input, outwardSync = true }) {
+export function publishContract(clone, { slug, input, outwardSync = true, policy }) {
   const s = slugify(slug ?? "");
   if (!s) throw new ContractRefused("no_project", "a contract needs a project slug: pass --project, or run it in a repo joined with /team-add");
   // The gate first, on the text as given: a credential anywhere in it is a reason to stop, even in
-  // a field the parser would have dropped.
+  // a field the parser would have dropped. Then the employer denylist, on a `home` profile only;
+  // without a policy the profile is resolved from the environment, never read as "refuses nothing".
   assertWritable(String(input));
+  assertNotDenied(String(input), { policy: policy ?? resolveProfile({ env: process.env }).policy });
   const contract = { ...parseContract(input), project: s };
   const json = renderContract(contract);
   const md = renderContractMd(s, contract);
@@ -504,5 +508,5 @@ export function publishFrom(brain, { input, project = null, team = null }) {
   // remote for it.
   const target = team && team !== brain.team ? { ...brain, team, teamClone: teamCloneDir(brain.root, team), teamBrainRepo: null } : brain;
   const { dir } = ensureTeamClone(target, "contract publish");
-  return publishContract(dir, { slug, input, outwardSync: brain.policy.outwardSync });
+  return publishContract(dir, { slug, input, outwardSync: brain.policy.outwardSync, policy: brain.policy });
 }

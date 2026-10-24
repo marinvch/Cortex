@@ -24,6 +24,7 @@ import { existsSync } from "node:fs";
 import { join, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveProfile, UnknownProfileError } from "../core/profile.js";
+import { loadDenylist } from "../core/denylist.js";
 import { indexFreshness } from "../index/lib/open.mjs";
 
 const args = process.argv.slice(2);
@@ -70,6 +71,29 @@ try {
   }
   throw err;
 }
+
+// --- the employer denylist -------------------------------------------------------------------------
+
+// The one part of the home firewall code can check (core/denylist.js, docs/adr/0026). Read here so
+// a ritual learns whether it is on — an empty list means only the project-file link check runs — and
+// so a bad line is seen before a write trips over it. `applies` is the policy's answer, not a profile
+// name compared here: home refuses employer material, work and lab do not.
+function denylistState() {
+  const l = loadDenylist({ env: process.env });
+  const kinds = {};
+  for (const e of l.entries) kinds[e.kind] = (kinds[e.kind] ?? 0) + 1;
+  return {
+    applies: profile.policy.refuses === "employer",
+    path: l.path,
+    from: l.from,
+    state: l.state,
+    entries: l.entries.length,
+    kinds,
+    problems: l.problems,
+  };
+}
+
+const denylist = denylistState();
 
 // --- index freshness ----------------------------------------------------------------------------
 
@@ -126,7 +150,7 @@ const checked = paths.map(ignoreState);
 // --- report ---------------------------------------------------------------------------------------
 
 if (asJson) {
-  console.log(JSON.stringify({ root, inGit, kind, profile, index, paths: checked }, null, 2));
+  console.log(JSON.stringify({ root, inGit, kind, profile, denylist, index, paths: checked }, null, 2));
   process.exit(0);
 }
 
@@ -150,6 +174,19 @@ console.log(`kind      ${kind} — ${KINDS[kind]}`);
 console.log(`profile   ${profile.profile} (${profile.source})`);
 console.log(`          refuses: ${profile.policy.refuses} · outward sync: ${profile.policy.outwardSync ? "allowed" : "sealed"}`);
 console.log(`          ${profile.policy.summary}`);
+
+if (!denylist.applies) {
+  console.log(`denylist  not applied — the ${profile.profile} profile does not refuse employer material`);
+} else if (denylist.state === "absent") {
+  console.log(`denylist  empty — no file at ${denylist.path}, so no published text is checked for employer names`);
+  console.log("          add one line per name (org:, domain:, owner:, ticket:, pattern:) to turn the check on");
+} else if (denylist.state === "missing") {
+  console.log(`denylist  MISSING — CORTEX_DENYLIST names ${denylist.path}, which is not a readable file; every published write is refused until it is fixed`);
+} else {
+  const by = Object.entries(denylist.kinds).map(([k, n]) => `${k} ${n}`).join(", ");
+  console.log(`denylist  ${denylist.entries} entr${denylist.entries === 1 ? "y" : "ies"}${by ? ` (${by})` : ""} from ${denylist.path}`);
+  for (const p of denylist.problems) console.log(`          line ${p.line} ${p.why}`);
+}
 
 if (!index.present) {
   console.log(`index     none — run \`${indexCmd}\` before reading one`);

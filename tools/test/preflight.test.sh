@@ -72,6 +72,27 @@ assert_contains "$out" "home (default)" "an undeclared machine defaults to home 
 assert_exit 2 "an unrecognised CORTEX_PROFILE fails loudly rather than falling back" \
   -- env -C "$repo" CORTEX_PROFILE=works node "$PF"
 
+# --- the employer denylist (core/denylist.js, docs/adr/0026) -------------------------------------------
+#
+# $HOME is this test's own, so the machine's real list is never read. Names are invented.
+
+out="$(cd "$repo" && env -u CORTEX_PROFILE -u CORTEX_DENYLIST node "$PF" 2>&1)"
+assert_contains "$out" "denylist  empty" "no denylist file on home is said, not silently skipped"
+
+mkdir -p "$HOME/.cortex"
+printf 'org: Example Corp\nticket: EXC-(\n' > "$HOME/.cortex/employer-denylist"
+out="$(cd "$repo" && env -u CORTEX_PROFILE -u CORTEX_DENYLIST node "$PF" 2>&1)"
+assert_contains "$out" "1 entry (org 1)" "a denylist is counted by kind"
+assert_contains "$out" "line 2 is not a valid regular expression" "and a bad line is reported, not a crash"
+assert_not_contains "$out" "Example Corp" "and its names are never printed"
+
+out="$(cd "$repo" && CORTEX_PROFILE=work node "$PF" 2>&1)"
+assert_contains "$out" "denylist  not applied" "work does not apply it — employer material is expected there"
+
+out="$(cd "$repo" && env -u CORTEX_PROFILE CORTEX_DENYLIST="$work/no-such-list" node "$PF" 2>&1)"
+assert_contains "$out" "denylist  MISSING" "a CORTEX_DENYLIST naming no file is loud: every published write is refused"
+rm -f "$HOME/.cortex/employer-denylist"
+
 # --- it writes nothing --------------------------------------------------------------------------------
 #
 # Asserted on the whole tree rather than on one expected artefact: a test naming the symptom it

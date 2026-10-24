@@ -15,7 +15,8 @@
 // developers share one context. The asymmetry is the point, and it is why this appends specific
 // subdirectories rather than the parent.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
+import { ensureGitignored as ensureGitignoredIn } from "../../core/gitignore.js";
 import { join, dirname, sep } from "node:path";
 
 /** The generated subdirectories. `.cortex/memory/` is absent on purpose — it is committed. */
@@ -29,36 +30,12 @@ const MARKER = "# Cortex — generated, safe to delete. .cortex/memory/ is commi
  * Append-only and never clobbering: existing content is untouched, and an entry already present —
  * including a broader `.cortex/` the user wrote themselves — is left alone rather than duplicated.
  * Returns the entries it added, so a caller can tell the user what changed rather than editing
- * their repo silently.
+ * their repo silently. The writing is `core/gitignore.js`'s, shared with `mcp/`, which ignores a
+ * team-brain clone made inside a product repo the same way; WHICH directories are generated is
+ * this file's.
  */
 export function ensureGitignored(root, dirs = GENERATED_DIRS) {
-  const file = join(root, ".gitignore");
-  let existing = "";
-  try {
-    existing = readFileSync(file, "utf8");
-  } catch {
-    existing = "";
-  }
-
-  const lines = existing.split(/\r?\n/).map((l) => l.trim());
-  // A bare `.cortex/` already covers every subdirectory. Honour it: adding narrower entries under
-  // it would be noise, and worse, it would imply memory/ is ignored when that line already ignores
-  // it — a disagreement between the file and us that the user would have to resolve.
-  if (lines.includes(".cortex/") || lines.includes(".cortex")) return [];
-
-  const missing = dirs.filter((d) => !lines.includes(d) && !lines.includes(d.replace(/\/$/, "")));
-  if (!missing.length) return [];
-
-  // Named `lead`, not `sep` — the path separator is imported under that name, and a block-scoped
-  // shadow of it inside the one function that also joins paths is a trap for the next reader.
-  const lead = existing === "" ? "" : existing.endsWith("\n") ? "\n" : "\n\n";
-  const block = `${lead}${MARKER}\n${missing.join("\n")}\n`;
-  try {
-    writeFileSync(file, existing + block);
-  } catch {
-    return []; // an unwritable .gitignore costs the entry, never the run
-  }
-  return missing;
+  return ensureGitignoredIn(root, dirs, MARKER);
 }
 
 /**

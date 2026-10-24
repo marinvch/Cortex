@@ -62,6 +62,24 @@ test("initialize answers with the server identity and a protocol version", async
   assert.ok(res.result.capabilities.tools, "tools capability must be declared or no tool is offered");
 });
 
+test("initialize carries instructions when given, asks for them each time, and drops them when they fail", async () => {
+  const init = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {} } };
+  assert.equal("instructions" in (await (async () => { const h = harness(); await h.send(init); return h.seen[0].result; })()), false, "none by default");
+
+  let n = 0;
+  const h = harness({ instructions: () => `call inbox (${++n})` });
+  await h.send(init);
+  await h.send({ ...init, id: 2 });
+  assert.deepEqual(h.seen.map((m) => m.result.instructions), ["call inbox (1)", "call inbox (2)"]);
+
+  for (const instructions of [() => { throw new Error("no clone"); }, () => null, () => "  "]) {
+    const bad = harness({ instructions });
+    await bad.send(init);
+    assert.equal("instructions" in bad.seen[0].result, false);
+    assert.equal(bad.seen[0].result.serverInfo.name, "cortex", "a failing line never costs the session");
+  }
+});
+
 test("an unsupported protocol version falls back to one we do support", async () => {
   const h = harness();
   await h.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "1999-01-01" } });

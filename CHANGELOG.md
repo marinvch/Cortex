@@ -48,6 +48,25 @@ this project now versions independently of any package manager (see `VERSION`).
   the brain's `team.json`, and `team add` copies it into each repo's connector, so members pass no
   flag. The README's "Running from your organisation's fork" says how to take an upstream release
   into the fork, and that `autoUpdate` follows the fork.
+- **Asks between roles across repos (#620).** Three MCP tools, in repo and vault mode alike, on a
+  brain joined to a team. `ask` sends a question to a role or a project; it writes `asks/<id>.md`
+  to the team-brain, commits and pushes it. `inbox` pulls the brain, then returns the open asks for
+  your roles and projects and the answers to the asks you sent. `answer` appends a reply and sets
+  the status: `answered`, `decided` or `wontfix`. A `to` that no member holds and no project
+  matches is refused with the lists. The CLI has the same three: `ai-os ask`, `ai-os inbox [--json]`
+  and `ai-os answer`. On a solo brain they refuse and name `/team-add`; on `lab` they commit and do
+  not push. The ask's title and links pass the secret gate with its text.
+- **A team roster.** The team-brain's `team.json` gains `members`: each member's handle, roles and
+  projects. A handle is the memory author name (`CORTEX_AUTHOR`, or your git `user.name` as a
+  slug). `ai-os team member --roles a,b --projects x` adds or updates yours and pushes it, and
+  `/team-add` asks the joining member for their role. A caller who is not in the roster still sees
+  the asks for the repo they are in, and `inbox` says what to set.
+- **The MCP server says at start-up how many asks wait for you.** On a team its `initialize` result
+  carries `instructions`: the count of open asks, and to call `inbox` at the start of a task. It
+  reads the local clone, does not pull, and leaves the count out when it cannot read it.
+- In a product repo the team-brain is cloned on first use from the connector's `teamBrainRepo`, to
+  `.cortex/team/<team>/`, and that directory is added to the repo's `.gitignore` before the clone.
+  The `.gitignore` writer moved to `core/gitignore.js`, shared by `index/` and `mcp/`.
 
 ## [2.44.1] — 2026-10-13
 

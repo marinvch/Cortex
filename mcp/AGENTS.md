@@ -11,6 +11,10 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `ai-os setup-plugins --status` | per tier, which plugins are installed; `--json`, `--tier`, `--plugins-dir`. Read-only | nothing |
 | `ai-os team init` | seed and push a team-brain | a vault |
 | `ai-os team add` | write this repo's project file into the team-brain, then the connector | a vault |
+| `ai-os team member` | add or update one member (`--handle`, `--roles`, `--projects`) in the brain's `team.json`; commit, push | a root, a team |
+| `ai-os ask` | send `--to <role\|project> --title --body` as `asks/<id>.md`; commit, push | a root, a team |
+| `ai-os inbox` | pull, then the open asks for you and the answers to yours; `--json` | a root, a team |
+| `ai-os answer` | append `--body` to ask `--id`, set `--status`; commit, push | a root, a team |
 | `ai-os project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
 | `ai-os project check` | validate the team's project files; exit 1 on an error or a withheld file | a vault, a team |
 | `ai-os project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
@@ -81,7 +85,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   added without saying where it runs. `mode.test.js` asserts the exact list for both modes **and**
   that a vault tool invoked in repo mode comes back refused with nothing written.
 - **A tool that returns someone else's text says so in its description.** `recall`,
-  `recall_memory`, `get_project_context`, `list_projects` and `catch_me_up` all hand the model text
+  `recall_memory`, `get_project_context`, `list_projects`, `catch_me_up` and `inbox` all hand the model text
   written outside the conversation — a teammate's committed `.cortex/memory/`, a note in a shared
   vault — and the result itself carries nothing marking it as data rather than instruction, which is
   the standard prompt-injection path through a retrieval tool. The description is the one place the
@@ -135,6 +139,28 @@ the repo by commit count, and — like every other part — **dependency-free**.
   optional field, `source`, is the team's Cortex fork: `team init --source` writes it to the
   brain's `team.json`, `team add` copies it here (`readTeamSource`, `lib/team.js`), and
   `core/source.js` reads it. The resolver here ignores it.
+- **Asks are one file per thread, `asks/<id>.md`, in the team-brain** (#620,
+  [the design](../docs/specs/2026-10-24-team-brain-rollout-design.md) R1–R11). `lib/asks.js` owns
+  the file, the addressing and the inbox; `lib/roster.js` owns `team.json`'s `members`. The rules:
+  - **`to` is a role some member holds or a project in `projects/`, else refused** with both lists.
+    A name that is both is the role. Never accept an addressee nobody is placed to see.
+  - **The caller's handle is the memory author** (`core/author.js`, asked in the product repo in
+    repo mode). A caller not in `members` still reads the asks for the connector's project, and
+    `inbox` returns a `notice` naming `CORTEX_AUTHOR`. Do not refuse them.
+  - **`ask`, `inbox` and `answer` are `mode: ANY` and need a team**: on a solo brain they throw
+    `no_team`, naming `/team-add`. The clone is the brain's `teamClone`, cloned on first use from
+    the connector's `teamBrainRepo` (`ensureTeamClone`, `lib/team.js`). In repo mode that is inside
+    the product repo, so `.cortex/team/` is added to its `.gitignore` first, on every call, through
+    `core/gitignore.js` — `index/lib/generated.mjs` uses the same writer.
+  - **The gate covers every field written into the pushed file.** A row's `alsoPublishes` names
+    arguments besides `content` that `assertPublishable` scans — an ask's `title` and `links`.
+    `assertWellFormed` refuses a name the schema does not take. The CLI calls `assertPublishable`
+    with the tool's name before it calls `lib/`, so both adapters pass the same gate.
+  - **`inbox` pulls ff-only first, and a failed pull is returned in `pull`**, with the local asks.
+  - **The start-up count is `instructions` on the `initialize` result** (`asksInstructions`), not a
+    hook (ADR 0021). It reads the local clone, never pulls, never throws: a failure drops the count.
+  - Asks and answers commit one path with `commitPath` and push only when `policy.outwardSync`
+    allows; on `lab` the result says `outward_sync_disabled`.
 - **`catch_me_up` pulls (ff-only) and reads the team's notes, not only its log.** A failed pull is
   returned in `pull`, never swallowed, and the local notes still come back; team notes are bounded
   in `catchup.js` so the result fits under the transport cap rather than being cut by it.
@@ -162,7 +188,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   reads only `CORTEX_PROFILE` — nothing here may move it.
 - **Every adapter opens the brain at entry, through `lib/brain.js`.** `server.js` and `ai-os.js` are
   two adapters over the same operations, so the seam between them is real and therefore a module:
-  `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · project ·
+  `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · project · teamBrainRepo ·
   profile · policy · sources · notices · describe()`, and throws `NoRootError` /
   `UnknownProfileError` **before** a command picks a branch. Neither adapter may read
   `env.CORTEX_ROOT` or `env.AI_OS_ROOT`, or call `resolve.js`,

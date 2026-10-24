@@ -19,6 +19,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `ai-os contract show` | one project's contract (`--project`, `--path`); `--json` | a root, a team |
 | `ai-os contract who-calls` | which projects call `--path "[METHOD] /p"`, and which serve it; `--json` | a root, a team |
 | `ai-os contract list` | the projects that have published a contract | a root, a team |
+| `ai-os integrations list\|add\|remove\|workflow` | the trackers in `team.json`; `workflow --write` commits the scheduled sync | a root, a team |
+| `ai-os sync` | asks ↔ trackers, one commit per run; `--dry-run`, `--status`, `--clone <checkout>` | a root, a team |
 | `ai-os project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
 | `ai-os project check` | validate the team's project files; exit 1 on an error or a withheld file | a vault, a team |
 | `ai-os project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
@@ -165,6 +167,36 @@ the repo by commit count, and — like every other part — **dependency-free**.
     hook (ADR 0021). It reads the local clone, never pulls, never throws: a failure drops the count.
   - Asks and answers commit one path with `commitPath` and push only when `policy.outwardSync`
     allows; on `lab` the result says `outward_sync_disabled`.
+- **Trackers are adapters behind one interface, and sync is the only caller** (#624, the design's
+  R17–R20). `lib/trackers/{github,servicenow,jira}.js` each give `find`, `create`, `read`,
+  `comment`, `close` over `lib/trackers/http.js`; `lib/integrations.js` owns `team.json →
+  integrations | primary | routes`; `lib/sync.js` owns the run. The rules:
+  - **The network is reached only when the team selected a tracker, and never on `lab`.**
+    `syncAsks` returns before naming an adapter when `integrations` is empty or
+    `policy.outwardSync` is false — calling a tracker is publishing. `trackers.test.js` runs the
+    asks path with `fetch` replaced by a function that throws (R19). `fetch` is looked up at call
+    time, so that test exercises the real path.
+  - **Idempotent by construction.** The link (`{ kind, state: "pending" }`) is written to the ask
+    file before `create` is called, and `find` searches the tracker for the ask's marker
+    (`[ask:<id>]` in a GitHub title, `correlation_id` in ServiceNow, a label in Jira) before
+    anything is created. Comments Cortex posts end with `[cortex:<ask>/<entry>]`, so a pull skips
+    its own and a push skips what the tracker already holds. A run that learns nothing writes
+    nothing, and so commits nothing; do not add a field that changes on every run.
+  - **Conflicts:** the primary wins on status, and only when its status changed since the last
+    sync (`link.status`) — an answer in the brain is not undone by a tracker it has not reached.
+    The brain wins on the text. Pull from every tracker before pushing to any, or a comment takes
+    two runs to cross and the second run commits.
+  - **Scrub both ways.** Every text posted out and every comment pulled in passes `core/scrub.js`;
+    a comment carrying a credential is withheld and the brain records only that it was.
+  - **No credential in `team.json`**: `checkIntegration` refuses a key named like one and any
+    credential-shaped value, and adapters read the environment only, naming the variable when it
+    is missing. A missing credential leaves the link `pending`; it never fails the ask.
+  - **`syncAfter` never throws**, and returns null with no integration, so `ask`/`answer`/`inbox`
+    results on a team without trackers are the ones #620 shipped. No MCP tool configures trackers.
+  - Removing an integration keeps its links in every ask; sync ignores a link whose kind is not
+    selected, and `sync --status` lists it as inactive.
+  - `templates/team-brain/sync.yml` is rendered by `lib/sync-workflow.js`, printed by default and
+    written only with `--write` (ADR 0009).
 - **A contract is `projects/<slug>/contract.json` plus `contract.md`, and `lib/contract.js` owns
   both** (#621, the design's R12–R14). `index/cortex-contract.mjs` extracts it; this package
   publishes and reads it. The rules:

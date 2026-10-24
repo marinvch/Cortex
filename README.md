@@ -155,6 +155,34 @@ and runs `ai-os team member --roles backend`. Your handle is your memory author 
 
 The asks travel by `git` alone. A credential in an ask is refused before anything is written.
 
+### Asks in GitHub, ServiceNow or Jira
+
+A team that plans in a tracker can have each ask filed there too. Pick none, one or several when
+you create the brain, or later:
+
+```bash
+ai-os team init --name acme --repo <git-url> --integrations github,servicenow \
+  --servicenow-instance https://acme.service-now.com --servicenow-groups backend="Backend Team"
+ai-os integrations add jira --jira-site https://acme.atlassian.net --jira-project ACME
+ai-os integrations list        # what is selected, the primary, and whether each credential is set
+ai-os integrations remove jira # stops syncing it; its links stay in every ask
+```
+
+- A new ask becomes one item per tracker: a GitHub issue in the repo of the ask's project, a
+  ServiceNow story, a Jira issue. Answers and comments go both ways, and status comes back from the
+  **primary** tracker, which is the agile tracker when one is selected. `--route backend=servicenow`
+  sends a role's asks to only some trackers.
+- Credentials come from the environment and never from `team.json`, which refuses one:
+  `GITHUB_TOKEN` or `GH_TOKEN`; `SERVICENOW_TOKEN`, or `SERVICENOW_USER` and `SERVICENOW_PASSWORD`;
+  `JIRA_EMAIL` and `JIRA_API_TOKEN`. A missing one leaves the link `pending` and names the variable.
+- Sync runs on every `ask`, `answer` and `inbox`, and on demand with `ai-os sync` (`--dry-run`
+  prints the plan, `--status` lists what is stuck). Each run that changes anything is one commit.
+  `ai-os integrations workflow --write` commits a scheduled GitHub Actions sync to the brain, so
+  status moves when nobody has an agent open; it reads the credentials from the repo's secrets.
+
+With no tracker selected, nothing but `git` touches the network. On the `lab` profile no tracker is
+called.
+
 ### Who serves this endpoint, and who calls it
 
 Each repo can publish a **contract** to the team-brain: the endpoints it serves, the ones it calls,
@@ -600,7 +628,10 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   before a catch-up and an `inbox`, and on a team `capture`, `ask` and `answer` commit and
   `git push` there. In a product repo the clone is `.cortex/team/<team>/`, and Cortex adds that
   directory to the repo's `.gitignore` before it clones. With no
-  team brain connected it makes no network call at all. The note passes the secret gate before it
+  team brain connected it makes no network call at all. The one exception is a team that selected
+  a tracker in `team.json`: then `ask`, `answer` and `inbox` also call that tracker's REST API —
+  GitHub, the team's ServiceNow instance or its Jira site — with the credential from your
+  environment, and never on the `lab` profile. The note passes the secret gate before it
   is written, and the `home`/`work` profile decides which captures may leave the machine.
 - **The rituals** are instructions Claude follows, and say before each step that touches the
   network — `gh` for pull requests, `git clone` of a public repo you name — so it runs only when

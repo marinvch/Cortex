@@ -34,6 +34,23 @@ is not obvious for this machine.
    If the organisation runs Cortex from its own fork, add `--source <owner/repo|git-url>`. It is
    written to `team.json` in the brain, and every `/team-add` copies it into that repo's connector,
    so `/cortex` stamps the fork there with no flag from members. A URL carrying a token is refused.
+   Ask which trackers the team plans in, as one checkbox list, before running the command:
+
+   ```
+   Connect this team-brain to:
+     [ ] GitHub issues      (in the owning repo of each ask)
+     [ ] ServiceNow Agile   (instance URL, table, group per role)
+     [ ] Jira               (site, project, issue type)
+     [ ] none: asks stay in the brain only
+   ```
+
+   Pass the answer as `--integrations github,servicenow,jira` (or `none`), with each tracker's
+   flags: `--servicenow-instance <url> [--servicenow-table rm_story] [--servicenow-groups role=group,…]`,
+   `--jira-site <url> --jira-project <KEY> [--jira-issue-type Task]`, and for GitHub nothing, or
+   `--github-repo <owner/name>` for asks whose project names no GitHub repo. `--primary <kind>` picks
+   whose status wins; the default is the agile tracker. Never put a credential in a flag: the command
+   prints the environment variable each tracker reads. It also prints the scheduled sync workflow;
+   add `--write-sync-workflow` only once the user has read it and said yes.
 3. Confirm the team-brain was seeded and pushed. `--projects` seeds a notes folder per slug,
    `projects/<slug>/`, and nothing else: it writes no project file, and `team.md` points at
    `projects/` and lists no project.

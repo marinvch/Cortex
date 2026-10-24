@@ -22,6 +22,7 @@ import { pull, commitPath, pushHead, teamCloneDir } from "./gitsync.js";
 import { openVault } from "./vault.js";
 import { readRoster, rolesOf, setMember, RosterError } from "./roster.js";
 import { ensureTeamClone } from "./team.js";
+import { syncAfter } from "./sync.js";
 
 export const STATUSES = ["open", "answered", "decided", "wontfix"];
 /** What an answer may set. `open` is where an ask starts, not something a reply sets. */
@@ -29,8 +30,10 @@ export const ANSWER_STATUSES = ["answered", "decided", "wontfix"];
 
 const ID = /^[0-9a-z][0-9a-z-]{0,63}$/;
 const ANSWER_HEAD = /^## Answer · (\d{4}-\d{2}-\d{2}) · ([^·\n]*?) · (open|answered|decided|wontfix)[ \t]*$/m;
-// The same header with no capture groups: `split` would otherwise splice the groups into its result.
-const ANSWER_SPLIT = /^(?=## Answer · \d{4}-\d{2}-\d{2} · [^·\n]*? · (?:open|answered|decided|wontfix)[ \t]*$)/m;
+// A comment pulled from a tracker by sync (#624): `## Comment · <date> · <author> · <kind>:<origin id>`.
+const COMMENT_HEAD = /^## Comment · (\d{4}-\d{2}-\d{2}) · ([^·\n]*?) · ([a-z]+):(\S+)[ \t]*$/m;
+// Both headers with no capture groups: `split` would otherwise splice the groups into its result.
+const ANSWER_SPLIT = /^(?=## Answer · \d{4}-\d{2}-\d{2} · [^·\n]*? · (?:open|answered|decided|wontfix)[ \t]*$|## Comment · \d{4}-\d{2}-\d{2} · [^·\n]*? · [a-z]+:\S+[ \t]*$)/m;
 
 // What one inbox call may return. The transport caps a whole result at 40,000 characters
 // (lib/stdio.js) and a capped result is a truncation marker, not the asks, so this stays under it.
@@ -102,13 +105,53 @@ export function parseAsk(text) {
   const parts = rest.split(ANSWER_SPLIT);
   const question = parts[0].trim();
   const answers = [];
+  const comments = [];
   for (const part of parts.slice(1)) {
+    const c = part.startsWith("## Comment") ? part.match(COMMENT_HEAD) : null;
+    if (c) {
+      comments.push({ date: c[1], author: c[2].trim(), kind: c[3], origin: c[4], text: part.slice(c[0].length).trim() });
+      continue;
+    }
     const h = part.match(ANSWER_HEAD);
     if (!h) continue;
     answers.push({ date: h[1], handle: h[2].trim(), status: h[3], text: part.slice(h[0].length).trim() });
   }
-  return { meta, question, answers };
+  return { meta, question, answers, comments };
 }
+
+/**
+ * Change frontmatter lines of an ask's text and keep everything else byte for byte. A key that is
+ * not there yet is added before the closing `---`; a value of `null` removes the line. `links` is
+ * written as one line of JSON, as `renderAsk` writes it.
+ *
+ * @param {string} text
+ * @param {Record<string, string|object[]|null>} changes
+ */
+export function setAskMeta(text, changes) {
+  const src = String(text).replace(/\r\n/g, "\n");
+  const fm = src.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!fm) throw new AskRefused("not_an_ask", "not an ask file");
+  let lines = fm[1].split("\n");
+  for (const [key, value] of Object.entries(changes)) {
+    const at = lines.findIndex((l) => l.startsWith(`${key}:`));
+    if (value === null || value === undefined) {
+      if (at !== -1) lines = lines.filter((_, i) => i !== at);
+      continue;
+    }
+    const line = `${key}: ${typeof value === "string" ? oneLine(value) : JSON.stringify(value)}`;
+    if (at === -1) lines.push(line);
+    else lines[at] = line;
+  }
+  return `---\n${lines.join("\n")}\n---\n${src.slice(fm[0].length)}`;
+}
+
+/** Append one `## Answer` or `## Comment` section to an ask's text. */
+export function appendSection(text, head, body) {
+  return `${String(text).replace(/\r\n/g, "\n").replace(/\n*$/, "\n")}\n${head}\n\n${String(body).trim()}\n`;
+}
+
+/** A name safe in a section header: one line, no `·`, at most 60 characters. */
+export const headerName = (s) => oneLine(s).replace(/·/g, "-").slice(0, 60) || "someone";
 
 // ---------------------------------------------------------------------------------------------
 // Addressing
@@ -301,9 +344,18 @@ export function readInbox(clone, { caller, pulled = { ok: true } }) {
       if (t.clipped) truncated = true;
       return { date: x.date, handle: x.handle, status: x.status, text: t.text };
     });
+    const comments = (a.comments ?? []).map((x) => {
+      const t = clip(x.text, Math.max(0, Math.min(TEXT_CHARS, budget)));
+      budget -= t.text.length;
+      if (t.clipped) truncated = true;
+      return { date: x.date, author: x.author, kind: x.kind, text: t.text };
+    });
     if (q.clipped) truncated = true;
-    const { id, title, from, fromProject, to, toKind, status, created, updated, links } = a.meta;
-    return { id, title, from, fromProject, to, toKind, status, created, updated, links, question: q.text, answers };
+    const { id, title, from, fromProject, to, toKind, status, created, updated, links, assignee } = a.meta;
+    const out = { id, title, from, fromProject, to, toKind, status, created, updated, links, question: q.text, answers };
+    if (assignee) out.assignee = assignee;
+    if (comments.length) out.comments = comments;
+    return out;
   };
 
   const waitingAll = all.filter((a) => a.meta.status === "open" && addressedTo(a.meta, caller));
@@ -377,35 +429,47 @@ function openClone(brain, tool, ctx) {
   return { dir, author };
 }
 
+// Each of the three runs a tracker sync for the asks it touched (#624), after its own write is
+// committed. `syncAfter` returns null when the team selected no integration — then no tracker is
+// named, no `fetch` is reached, and the result is the one #620 shipped — and never throws: a
+// tracker that is down leaves the link pending, it does not fail the ask.
+
 /** `ask`: send one. `id` and `today` come from the adapter (lib/noteid.js, core/date.js). */
-export function askFrom(brain, args, ctx) {
+export async function askFrom(brain, args, ctx) {
   const { dir, author } = openClone(brain, "ask", ctx);
   const caller = placeCaller(author, [], brain.project);
-  return sendAsk(dir, {
+  const res = sendAsk(dir, {
     to: args.to, content: args.content, title: args.title, links: args.links ?? [],
     caller, id: ctx.id, today: ctx.today, outwardSync: brain.policy.outwardSync,
   });
+  const sync = await syncAfter(brain, dir, [res.id], ctx);
+  return sync ? { ...res, sync } : res;
 }
 
-/** `inbox`: pull (ff-only), then the asks for the caller and the answers to theirs. */
-export function inboxFrom(brain, ctx) {
+/** `inbox`: pull (ff-only), sync the asks it is about to show, then the asks for the caller and the answers to theirs. */
+export async function inboxFrom(brain, ctx) {
   const { dir, author } = openClone(brain, "inbox", ctx);
   const pulled = pull(dir);
   const { members, errors } = readRoster(dir);
   const caller = placeCaller(author, members, brain.project);
+  const involved = listAsks(dir).filter((a) => (a.meta.status === "open" && addressedTo(a.meta, caller)) || sentBy(a.meta, caller)).map((a) => a.meta.id);
+  const sync = involved.length ? await syncAfter(brain, dir, involved, ctx) : null;
   const out = readInbox(dir, { caller, pulled });
   if (errors.length) out.rosterErrors = errors;
+  if (sync) out.sync = sync;
   return out;
 }
 
 /** `answer`: append a reply and set the status. */
-export function answerFrom(brain, args, ctx) {
+export async function answerFrom(brain, args, ctx) {
   const { dir, author } = openClone(brain, "answer", ctx);
   const caller = placeCaller(author, [], brain.project);
-  return answerAsk(dir, {
+  const res = answerAsk(dir, {
     id: args.id, content: args.content, status: args.status ?? "answered",
     caller, today: ctx.today, outwardSync: brain.policy.outwardSync,
   });
+  const sync = await syncAfter(brain, dir, [res.id], ctx);
+  return sync ? { ...res, sync } : res;
 }
 
 /**

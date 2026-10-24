@@ -155,6 +155,25 @@ and runs `ai-os team member --roles backend`. Your handle is your memory author 
 
 The asks travel by `git` alone. A credential in an ask is refused before anything is written.
 
+### Who serves this endpoint, and who calls it
+
+Each repo can publish a **contract** to the team-brain: the endpoints it serves, the ones it calls,
+and the events it publishes or consumes. `node index/cortex-contract.mjs . --out .cortex/index/contract.json`
+extracts it — from an OpenAPI or Swagger file when the repo has one, else from route handlers
+(Spring, Express-style routers, NestJS, FastAPI, Flask) — and
+`ai-os contract publish --file .cortex/index/contract.json` writes `projects/<slug>/contract.json`
+to the brain and pushes it when it changed. `/team-add` offers both.
+
+- `contract` with `project` returns what that project serves, calls and emits; with `calls`
+  (`"/items"`, `"GET /items/{id}"`) it returns who calls the endpoint and who serves it. The CLI
+  has `ai-os contract show`, `who-calls` and `list`.
+- `catch_me_up` reports each project's contract drift since the date: endpoints added, removed or
+  changed.
+
+Every list is a floor: a URL built at runtime, or a router mounted under a prefix in another file,
+is not read, and the contract's `unread` says so. It carries no code, no line numbers and no
+environment values, and the whole text passes the secret gate before it is written.
+
 ### The order, and how to stop guessing at it
 
 A list of commands is a menu, not an answer. **`/cortex-next` reads the repo you are standing in
@@ -318,6 +337,7 @@ node index/cortex-findings.mjs .   # writes .cortex/findings/<date>.md
 node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 node index/cortex-routes.mjs . --workspace  # which back-end handler serves each front-end call
+node index/cortex-contract.mjs .   # what this repo serves, calls and emits, as JSON; writes nothing without --out
 node index/cortex-stamps.mjs .     # which files /cortex stamped are out of date; writes nothing
 node index/cortex-section.mjs .    # whether CLAUDE.md's team section is an older release's text; writes nothing
 node index/cortex-loop.mjs . --team architect,tester  # the team files, values and roster for those picks; writes nothing

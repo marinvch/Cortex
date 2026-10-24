@@ -105,6 +105,11 @@ export const TOOL_TABLE = [
   { name: "answer", mode: ANY, returns: OWN, writes: PUBLISHED,
     description: "Reply to an ask by id and set its status (answered by default; decided or wontfix). The asker's next `inbox` shows it. Commits and pushes.",
     inputSchema: { type: "object", properties: { id: { type: "string" }, content: { type: "string", description: "The answer. Link the PR or ADR that settles it." }, status: { type: "string", enum: ["answered", "decided", "wontfix"] } }, required: ["id", "content"] } },
+  // Contracts (#621). One tool for both questions (R6): a project's surface, or who calls an endpoint.
+  // It reads; publishing is `ai-os contract publish`, a step of /team-add.
+  { name: "contract", mode: ANY, returns: FOREIGN, writes: LOCAL,
+    description: `The API contracts the team's repos publish to the team-brain. With \`project\`: what it serves (method, path, operation id, response schema), calls and emits — narrow with \`path\`. With \`calls\`: which projects call an endpoint ("/items", "GET /items/{id}") and which serve it. With neither: the projects that have published one. Pulls first; every list is a floor. ${UNTRUSTED_NOTE}`,
+    inputSchema: { type: "object", properties: { project: { type: "string", description: "A project slug in the team-brain." }, path: { type: "string", description: "With project: only endpoints under this path." }, calls: { type: "string", description: "An endpoint, optionally led by a method: who calls it, and who serves it." } } } },
 ];
 
 const runsHere = (mode, repoMode) => mode === ANY || (repoMode ? mode === REPO : mode === VAULT);

@@ -74,7 +74,7 @@ const out = [];
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 out.push(`Route map — ${plural(repos.length, "repo")}: ${repos.map((r) => `${r.name}${r.source === "memory" ? " (built in memory)" : ""}`).join(", ")}`);
 out.push(
-  `Found ${plural(s.calls, "front-end call")}, ${plural(s.gateways, "gateway route")}, ${plural(s.handlers, "Spring handler")}` +
+  `Found ${plural(s.calls, "front-end call")}, ${plural(s.gateways, "gateway route")}, ${plural(s.handlers, "route handler")}` +
     (s.unread.calls || s.unread.handlers
       ? `; ${s.unread.calls + s.unread.handlers} more built at runtime and not read (${s.unread.calls} call${s.unread.calls === 1 ? "" : "s"}, ${s.unread.handlers} handler${s.unread.handlers === 1 ? "" : "s"})`
       : ""),
@@ -82,7 +82,7 @@ out.push(
 
 if (!s.calls && !s.handlers && !s.gateways) {
   out.push("");
-  out.push("No routes in reach: no fetch/axios-style call, gateway route table or Spring mapping was found.");
+  out.push("No routes in reach: no fetch/axios-style call, gateway route table or route handler (Spring, Express-style, NestJS, FastAPI, Flask) was found.");
   out.push("That is a statement about what Cortex reads (docs/specs/2026-09-27-route-map-design.md), not proof there are none.");
   process.stdout.write(`${out.join("\n")}\n`);
   process.exit(0);
@@ -131,7 +131,7 @@ if (map.findings.length) {
   out.push("Findings: none — every call reached a handler and every handler was reached.");
 }
 if (!s.calls && s.handlers) out.push("No front-end call was found, so no endpoint is reported as unused — there was nothing to reach it.");
-if (!s.handlers && !s.gateways && s.calls) out.push("No gateway route or Spring handler was found, so no call is reported as unmatched — there was nothing to match it against.");
+if (!s.handlers && !s.gateways && s.calls) out.push("No gateway route or route handler was found, so no call is reported as unmatched — there was nothing to match it against.");
 if (s.external) out.push(`${plural(s.external, "call")} to another host ${s.external === 1 ? "was" : "were"} left unresolved and not reported.`);
 out.push("");
 out.push("A floor, not a total: runtime-built URLs, service-to-service clients and generated controllers are not read.");

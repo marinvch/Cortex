@@ -150,7 +150,22 @@ holds the rules for that module alone — read it before editing the module.
   [`docs/specs/2026-09-27-route-map-design.md`](../docs/specs/2026-09-27-route-map-design.md)) was
   validated on the Harbor workspace (7/7 calls, 3/3 gateway routes, each to one repo), the RealWorld
   React + Spring pair (22/22 calls, 19/19 handlers) and spring-petclinic; every cited `file:line`
-  was opened and checked.
+  was opened and checked. Since #621 it has two readers, `cortex-routes.mjs` and the contract
+  below, and reads Express-style, NestJS, FastAPI and Flask handlers and Python calls too.
+  Validated on node-express-realworld (20/20 handlers), nestjs-realworld (21/21, global prefix
+  applied), full-stack-fastapi-template (23/23 handlers, and 23 generated-client calls with the
+  right verbs) and pallets/flask (every example route, none of the five docstring examples in its
+  library source). A mount prefix in another file (`app.use("/api", router)`,
+  `include_router(r, prefix=…)`) is not followed, so those paths lack it: a floor, stated.
+- **The contract** (`lib/contract.mjs`, `cortex-contract.mjs`, #621) is what a repo publishes to a
+  team-brain: `serves` from an OpenAPI/Swagger file, else from `index.routes.handlers`; `calls`
+  from `index.routes.calls`; `events`; `unread`. **It reads the route map and never detects routes
+  itself** — a second detector would disagree with the first. YAML goes through `parseYaml`, a
+  subset reader that throws `YamlUnsupported` (anchors, merge keys, complex keys) rather than guess;
+  the file is then reported in `unread`. No line numbers and no query strings, so an unrelated
+  edit is not a contract change. It never writes into a team-brain: `mcp/` publishes. Validated on
+  swagger-petstore (19/19 operations, ids and response schemas, `servers` prefix applied), and two
+  extracts of each of five repos were byte-identical.
 - **A file about tests is not a test** (`isTestPath`, `lib/langs.mjs`): a runner's setup file in a
   test directory, and anything under `.claude/` that is not named as a test. Compared with the old
   rule over 5,581 files in ten public repos: four files changed, all setup files with no test in

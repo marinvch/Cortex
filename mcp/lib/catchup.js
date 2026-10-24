@@ -5,6 +5,7 @@ import { teamCloneDir, logSince, pull, repoTop } from "./gitsync.js";
 import { slugify } from "./slug.js";
 import { openVault } from "./vault.js";
 import { recent as recentMemory } from "../../core/memory.js";
+import { contractDrift } from "./contract.js";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/;
 
@@ -49,7 +50,17 @@ export function catchMeUp(root, { project, since, team }) {
 
   const log = logSince(clone, since, { max: TEAM_COMMITS_MAX });
   const read = teamNotes(root, team, since);
-  return { ...out, teamNotes: read.notes, commits: log.commits, truncated: read.truncated || log.truncated };
+  // What each project's published contract gained, lost or changed in the window (#621, R14), from
+  // the clone's history of `projects/*/contract.json`. A consumer learns a backend dropped an
+  // endpoint without reading the backend's repo.
+  const drift = contractDrift(clone, since);
+  return {
+    ...out,
+    teamNotes: read.notes,
+    commits: log.commits,
+    contracts: drift.projects,
+    truncated: read.truncated || log.truncated || drift.truncated,
+  };
 }
 
 // Every note under `team/<team>/projects/*/`, through the Vault like any other vault read. Dated by

@@ -5,6 +5,16 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The README's "What Cortex runs, sends and fetches" names `tools/server/cortex-cron.sh`.** That
+  script sends the scrubbed changes to the Anthropic API when a key is set, and the list never said
+  so.
+- **The site's page map covers the 2.45.0 sections.** `/site-sync` routes the README's fork, mixed
+  agents, asks, trackers, contracts and licence sections, ADRs 0026–0028, `docs/erasure.md` and
+  `SECURITY.md` to the site pages drafted from them. Before this, the next sync would have missed
+  them.
+
 ## [2.45.0] — 2026-10-24
 
 A team-brain now carries work between people, not just notes. A question goes to a role and comes

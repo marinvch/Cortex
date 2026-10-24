@@ -27,6 +27,16 @@ as cwd. Anything they read from Cortex (templates) or print as a command resolve
 `import.meta.url`, never from cwd. Preflight used to print `node index/cortex-index.mjs .`, a path
 that does not exist in the repo it was printed to.
 
+**`cortex-setup.mjs` writes into other agents' configs (#623), so its formats are pinned.** The
+logic lives in `_setup-agents.mjs` (a library: the leading `_`), whose header holds each agent's
+config path, format, doc URL and the date it was checked. Re-check those pages before changing a
+format, and change the fixture in `test/fixtures/setup/` in the same commit —
+`test/cortex-setup.test.sh` compares every generated file with it. The JSON merge is
+`core/json-text.js`, shared with `index/lib/shared-plugin.mjs`; the TOML half is a scanner that
+refuses what it cannot read and only ever appends. A committed config never holds a path on one
+machine: it starts `${CORTEX_HOME}/mcp/server.js`, and an agent that expands no variables (Codex)
+gets user scope instead.
+
 ## The copies that are deliberate, and the tests that pin them
 
 Five rules exist in more than one place **on purpose**, because the files needing them cannot share

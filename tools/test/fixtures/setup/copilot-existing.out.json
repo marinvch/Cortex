@@ -1,0 +1,18 @@
+{
+    "inputs": [
+        { "type": "promptString", "id": "api-key", "description": "API key", "password": true }
+    ],
+    "servers": {
+        "playwright": { "type": "stdio", "command": "npx", "args": ["-y", "@playwright/mcp@latest"] },
+        "cortex": {
+            "type": "stdio",
+            "command": "node",
+            "args": [
+                "${env:CORTEX_HOME}/mcp/server.js"
+            ],
+            "env": {
+                "CORTEX_ROOT": "${workspaceFolder}/.cortex"
+            }
+        }
+    }
+}

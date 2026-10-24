@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { connectorObject, writeConnector, cloneTeamBrain, seedTeamBrain, initTeamBrain } from "../lib/team.js";
+import { TEAM_JSON, connectorObject, writeConnector, cloneTeamBrain, seedTeamBrain, initTeamBrain, readTeamSource } from "../lib/team.js";
 import { tempDir } from "./tmp.js";
 
 function bareRemote() {
@@ -17,6 +17,52 @@ test("connectorObject returns team + project + teamBrainRepo only", () => {
     connectorObject({ team: "acme", project: "shop", teamBrainRepo: "git@x:acme/brain.git", extra: 1 }),
     { team: "acme", project: "shop", teamBrainRepo: "git@x:acme/brain.git" },
   );
+});
+
+test("connectorObject carries a source only when the team set one (#622)", () => {
+  const base = { team: "acme", project: "shop", teamBrainRepo: "git@x:acme/brain.git" };
+  assert.deepEqual(connectorObject({ ...base, source: null }), base, "upstream: the connector it always was");
+  assert.deepEqual(connectorObject({ ...base, source: "acme/cortex" }), { ...base, source: "acme/cortex" });
+  const p = writeConnector(tempDir("proj-"), { ...base, source: "acme/cortex" });
+  assert.equal(JSON.parse(readFileSync(p, "utf8")).source, "acme/cortex");
+});
+
+test("initTeamBrain --source writes team.json holding the source and nothing else, and pushes it", () => {
+  const remote = bareRemote();
+  const root = tempDir("vault-");
+  const { dir, pushed } = initTeamBrain(root, { name: "acme", repo: remote, projects: [], source: "acme/cortex" });
+  assert.equal(pushed, true);
+  assert.equal(readFileSync(join(dir, TEAM_JSON), "utf8"), '{\n  "source": "acme/cortex"\n}\n');
+  assert.equal(readTeamSource(dir), "acme/cortex");
+  const verify = tempDir("verify-");
+  execFileSync("git", ["clone", "-q", remote, "."], { cwd: verify, stdio: ["ignore", "pipe", "pipe"] });
+  assert.equal(readTeamSource(verify), "acme/cortex", "every member's clone gets it");
+});
+
+test("initTeamBrain without a source writes no team.json", () => {
+  const { dir } = initTeamBrain(tempDir("vault-"), { name: "acme", repo: bareRemote(), projects: [] });
+  assert.equal(existsSync(join(dir, TEAM_JSON)), false);
+  assert.equal(readTeamSource(dir), null);
+});
+
+test("initTeamBrain refuses an unusable source before anything is cloned", () => {
+  const root = tempDir("vault-");
+  const remote = bareRemote();
+  const token = "gh" + "p_" + "B".repeat(36);
+  for (const bad of ["../cortex", `https://${token}@github.com/acme/cortex.git`, "not a source"]) {
+    assert.throws(() => initTeamBrain(root, { name: "acme", repo: remote, source: bad }), (e) => e.code === "source_refused" && !e.message.includes(token));
+  }
+  assert.equal(existsSync(join(root, "team")), false, "nothing was cloned");
+});
+
+test("readTeamSource refuses a team.json it cannot use, and reads a blank source as none", () => {
+  const dir = tempDir("clone-");
+  writeFileSync(join(dir, TEAM_JSON), "{ bad");
+  assert.throws(() => readTeamSource(dir), /team\.json in the team-brain is not valid JSON/);
+  writeFileSync(join(dir, TEAM_JSON), JSON.stringify({ source: "  " }));
+  assert.equal(readTeamSource(dir), null);
+  writeFileSync(join(dir, TEAM_JSON), JSON.stringify({ source: "nope" }));
+  assert.throws(() => readTeamSource(dir), (e) => e.code === "source_refused");
 });
 
 test("writeConnector writes generic .cortex/connector.json (no machine paths)", () => {

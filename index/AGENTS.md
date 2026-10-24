@@ -286,9 +286,10 @@ description) has a test.
 
 ### The team offer — `lib/team.mjs`
 
-- **The debate's round limit is the one setting, and its default lives in `stamps.mjs`.**
+- **The debate's round limit is the team's one setting, and its default lives in `stamps.mjs`.**
   `VALUE_DEFAULTS` is what lets a template gain `{{DEBATE_ROUNDS}}` and still update a file stamped
-  before it; any other new placeholder is refused. `team.mjs` reads the limit in this order: the
+  before it; any other new placeholder is refused. `CORTEX_REPO` (`cortex-review.yml`) is the other
+  entry: upstream's clone URL, which every file stamped before #622 holds. `team.mjs` reads the limit in this order: the
   `rounds` option, the value in the team skill's record, the default. Only
   `templates/team/team-skill.md` may hold the placeholder: the roles and the playbook say "the round
   limit", and `team-templates.test.mjs` fails a role that states a number.

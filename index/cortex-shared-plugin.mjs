@@ -8,7 +8,7 @@
 //
 // `/cortex` offers this on a team's repo (the `team-plugin` row in lib/loop.mjs: the `work` profile or
 // a team-brain connector) and runs `--write` only when the user picked it. The entries are the
-// documented ones — `extraKnownMarketplaces.cortex` (GitHub marinvch/Cortex) and
+// documented ones — `extraKnownMarketplaces.cortex` (GitHub marinvch/Cortex, or the source set below) and
 // `enabledPlugins["cortex@cortex"]` — and lib/shared-plugin.mjs merges them: every other key stays
 // byte-for-byte, an entry already there is left alone whatever it says, and a file that does not
 // parse is refused, never rewritten.
@@ -17,6 +17,13 @@
 // `autoUpdate` Boolean (settings-reference, `extraKnownMarketplaces`) as `true` on a cortex entry this
 // run adds, so every teammate's Claude Code pulls new Cortex releases in the background. A cortex
 // entry already in the file keeps its `autoUpdate` — true, false or unset — and the output says so.
+//
+// Where the cortex entry points is resolved, not fixed (#622): `--source`, then `CORTEX_SOURCE`, then
+// the `source` in `.cortex/connector.json` (a team-brain's `team.json` puts it there), then
+// marinvch/Cortex — `core/source.js` holds the order and the shapes. Only a source that is not the
+// default is reported: a line in the text output, a `source` object in `--json` (with the URL CI
+// clones it from, `cloneUrl`). With nothing set, the output and the file written are what they were.
+// A source that is set and unusable — a relative path, a URL carrying a token — is refused, exit 1.
 //
 // This is one of three scripts in index/ that write outside `.cortex/` (the others are
 // `cortex-stamps.mjs update` and `cortex-section.mjs --replace`), and it writes one file: `.claude/settings.json`, through a temp file
@@ -28,9 +35,9 @@
 import { mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { openTarget } from "./lib/open.mjs";
-import { SETTINGS_REL, mergeSharedPlugin, sharedPluginStatus, teamServed } from "./lib/shared-plugin.mjs";
+import { SETTINGS_REL, mergeSharedPlugin, sharedPluginSource, sharedPluginStatus, teamServed } from "./lib/shared-plugin.mjs";
 
-const USAGE = "usage: node index/cortex-shared-plugin.mjs <repo> [--json] [--write [--auto-update]]";
+const USAGE = "usage: node index/cortex-shared-plugin.mjs <repo> [--json] [--write [--auto-update]] [--source <owner/repo|git-url|abs-path>]";
 
 const refuse = (text, code) => {
   process.stderr.write(text.endsWith("\n") ? text : text + "\n");
@@ -56,12 +63,27 @@ function autoUpdateLine(outcome) {
 
 const { root, args } = openTarget(process.argv.slice(2), {
   usage: USAGE,
-  flags: { "--json": "boolean", "--write": "boolean", "--auto-update": "boolean" },
+  flags: { "--json": "boolean", "--write": "boolean", "--auto-update": "boolean", "--source": "value" },
   root: "positional",
   index: "none",
 });
 
 const abs = join(root, ...SETTINGS_REL.split("/"));
+
+let source;
+try {
+  source = sharedPluginSource(root, { argument: args.source, env: process.env });
+} catch (e) {
+  if (e.code !== "source_refused") throw e;
+  refuse(`${e.message}\n${USAGE}\nNothing was written.`, 1);
+}
+
+/** One line naming a source that is not the default, or null for the default. */
+const FROM = { argument: "--source", CORTEX_SOURCE: "CORTEX_SOURCE", connector: ".cortex/connector.json" };
+const sourceLine = () =>
+  source.isDefault ? null : `Cortex source: ${source.text} (from ${FROM[source.from]}), not the default marinvch/Cortex.`;
+const sourceJson = () =>
+  source.isDefault ? {} : { source: { text: source.text, from: source.from, entry: source.source, cloneUrl: source.cloneUrl } };
 
 /** The settings text, or null with no file. A path that is there but cannot be read is refused. */
 function readSettings() {
@@ -79,11 +101,12 @@ if (!args.write) {
   const status = sharedPluginStatus(root);
   const team = teamServed(root);
   if (args.json) {
-    console.log(JSON.stringify({ settings: SETTINGS_REL, ...status, team }, null, 2));
+    console.log(JSON.stringify({ settings: SETTINGS_REL, ...status, team, ...sourceJson() }, null, 2));
     process.exit(0);
   }
   if (status.settings === "unreadable") refuse(status.problem, 2);
   console.log(team.team ? `A team's repo: ${team.why}.` : "Not a team's repo (no work profile, no team-brain connector); /cortex does not offer this here.");
+  if (sourceLine()) console.log(sourceLine());
   if (status.served) {
     console.log(`${SETTINGS_REL} already registers the cortex marketplace and names cortex@cortex.`);
   } else {
@@ -103,10 +126,16 @@ if (!args.write) {
 const before = readSettings();
 let merged;
 try {
-  merged = mergeSharedPlugin(before, { autoUpdate: args.autoUpdate === true });
+  merged = mergeSharedPlugin(before, { autoUpdate: args.autoUpdate === true, source: source.source });
 } catch (e) {
   if (e.code !== "settings_unreadable") throw e;
   refuse(`${e.message}\nNothing was written.`, 2);
+}
+
+// Only a cortex entry this run adds points at the resolved source; one already there keeps its own.
+const addsEntry = merged.added.some((m) => m.endsWith(".cortex"));
+if (sourceLine()) {
+  console.log(addsEntry ? `${sourceLine()} The new cortex entry points there.` : `${sourceLine()} The cortex entry already in ${SETTINGS_REL} is left pointing where it does.`);
 }
 
 if (!merged.added.length) {

@@ -90,6 +90,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
+import { DEFAULT_MARKETPLACE_SOURCE, cloneUrl } from "../../core/source.js";
 import { lineDiff } from "./linediff.mjs";
 import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
@@ -103,8 +104,12 @@ export const TEMPLATES_DIR = fileURLToPath(new URL("../../templates/", import.me
  * that gains one must still update a file stamped before it existed, so an update fills it from
  * here and records it. Only a value the team never had to give belongs in this list: a command or
  * a path has no default, and a file whose template gains one of those is still refused.
+ *
+ * `CORTEX_REPO` (`cortex-review.yml`, #622) is the URL every file stamped before it existed clones,
+ * so an update renders that file exactly as it was. A fork's URL is a value given at stamp time and
+ * recorded with the file; it is never a default.
  */
-export const VALUE_DEFAULTS = { DEBATE_ROUNDS: "2" };
+export const VALUE_DEFAULTS = { DEBATE_ROUNDS: "2", CORTEX_REPO: cloneUrl(DEFAULT_MARKETPLACE_SOURCE) };
 
 /** The recorded values, with each setting the template uses and the record lacks at its default. */
 function withDefaults(templateText, values) {

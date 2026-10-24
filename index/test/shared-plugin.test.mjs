@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
-  CORTEX_MARKETPLACE, CORTEX_PLUGIN, SETTINGS_REL, mergeSharedPlugin, sharedPluginStatus, teamServed,
+  CORTEX_MARKETPLACE, CORTEX_PLUGIN, SETTINGS_REL, mergeSharedPlugin, sharedPluginSource, sharedPluginStatus, teamServed,
 } from "../lib/shared-plugin.mjs";
 import { tempDir } from "./tmp.mjs";
 
@@ -281,6 +281,56 @@ test("the choice is idempotent: a second run with it changes nothing", () => {
   assert.equal(twice.text, once);
   assert.deepEqual(twice.added, []);
   assert.equal(twice.autoUpdate, "kept true");
+});
+
+// --- the source: an organisation's fork (#622) ------------------------------------------------------
+
+test("a new cortex entry points at the source it is given, in each documented shape", () => {
+  for (const source of [
+    { source: "github", repo: "acme/cortex" },
+    { source: "git", url: "https://git.example.com/acme/cortex.git" },
+    { source: "directory", path: "/srv/marketplaces/cortex" },
+  ]) {
+    for (const text of [null, "{}\n", TEAM]) {
+      const r = mergeSharedPlugin(text, { source });
+      assert.deepEqual(JSON.parse(r.text).extraKnownMarketplaces.cortex, { source }, JSON.stringify(source));
+      assert.equal(JSON.parse(r.text).enabledPlugins["cortex@cortex"], true);
+      if (text === TEAM) onlyInserted(TEAM, r.text);
+    }
+    const auto = mergeSharedPlugin(null, { source, autoUpdate: true });
+    assert.deepEqual(JSON.parse(auto.text).extraKnownMarketplaces.cortex, { source, autoUpdate: true }, "autoUpdate follows the fork");
+  }
+  assert.match(mergeSharedPlugin(TEAM, { source: { source: "github", repo: "acme/cortex" } }).text, /"repo": "acme\/cortex"/);
+});
+
+test("with no source given, the merge is byte-for-byte what it was before sources existed", () => {
+  for (const text of [null, "{}\n", TEAM, '{ "model": "sonnet" }\n']) {
+    const plain = mergeSharedPlugin(text).text;
+    assert.equal(mergeSharedPlugin(text, { source: CORTEX_MARKETPLACE.entry.source }).text, plain, JSON.stringify(text));
+    assert.equal(mergeSharedPlugin(text, { source: sharedPluginSource(repoWith(), { env: {} }).source }).text, plain, "the resolved default too");
+  }
+});
+
+test("an existing cortex entry from another source is still left alone when a fork is the source", () => {
+  const text = JSON.stringify({ extraKnownMarketplaces: { cortex: OURS.extraKnownMarketplaces.cortex } }, null, 2) + "\n";
+  const r = mergeSharedPlugin(text, { source: { source: "github", repo: "acme/cortex" } });
+  assert.deepEqual(JSON.parse(r.text).extraKnownMarketplaces.cortex, OURS.extraKnownMarketplaces.cortex, "upstream stays upstream");
+  assert.deepEqual(r.kept, ["extraKnownMarketplaces.cortex"]);
+});
+
+test("sharedPluginSource reads the connector's source below CORTEX_SOURCE and --source", () => {
+  const connected = repoWith({ ".cortex/connector.json": JSON.stringify({ team: "platform", project: "api", teamBrainRepo: "git@example.com:t/brain.git", source: "acme/cortex" }) });
+  assert.deepEqual(sharedPluginSource(connected, { env: {} }), {
+    text: "acme/cortex", from: "connector", source: { source: "github", repo: "acme/cortex" }, isDefault: false,
+    cloneUrl: "https://github.com/acme/cortex.git",
+  });
+  assert.equal(sharedPluginSource(connected, { env: { CORTEX_SOURCE: "other-org/cortex" } }).text, "other-org/cortex");
+  assert.equal(sharedPluginSource(connected, { argument: "third/cortex", env: { CORTEX_SOURCE: "other-org/cortex" } }).text, "third/cortex");
+  const plain = sharedPluginSource(repoWith(), { env: {} });
+  assert.equal(plain.isDefault, true);
+  assert.equal(plain.cloneUrl, "https://github.com/marinvch/Cortex.git");
+  assert.equal(sharedPluginSource(repoWith(), { env: { CORTEX_SOURCE: "/srv/cortex" } }).cloneUrl, null, "CI cannot clone a directory");
+  assert.throws(() => sharedPluginSource(repoWith(), { env: { CORTEX_SOURCE: "../cortex" } }), (e) => e.code === "source_refused");
 });
 
 test("status says what the cortex entry's autoUpdate is", () => {

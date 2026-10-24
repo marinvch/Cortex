@@ -104,6 +104,40 @@ So the committed value comes before each teammate's own `/plugin` toggle. Cortex
 on a `cortex` entry it is adding. An entry already in the file keeps its `autoUpdate`, whether it is
 `true`, `false` or unset, and the script's output says so.
 
+### Running from your organisation's fork
+
+Many organisations allow plugins only from a repository they host and review. Fork or mirror
+Cortex into your organisation, then tell Cortex where it comes from. The source is a GitHub
+`owner/repo`, a git URL (`https://`, `ssh://` or `git@host:path`), or an absolute path to a local
+marketplace. Cortex refuses a URL carrying a password or a token.
+
+- **For a team:** `/team-init --source acme/cortex` writes it to `team.json` in the team-brain.
+  Every `/team-add` copies it into that repo's `.cortex/connector.json`, so members pass no flag.
+- **For one machine or one run:** set `CORTEX_SOURCE=acme/cortex`, or pass
+  `cortex-shared-plugin.mjs . --write --source acme/cortex`.
+
+The order is `--source`, then `CORTEX_SOURCE`, then the connector, then `marinvch/Cortex`. With
+none set, everything Cortex writes is what it always was. The source decides two things. The
+`cortex` entry `/cortex` adds to `.claude/settings.json` points at your fork. A stamped
+`cortex-review.yml` clones your fork at the release tag that stamped it, and `.cortex/stamps.json`
+records that URL. A `cortex` entry already in the file is left as it is, whichever source it names.
+A local path cannot be cloned by a CI runner, so on a directory source `/cortex` does not stamp the
+workflow.
+
+To take an upstream release, bring its tag into the fork. The CI clone needs the tag, and the
+marketplace reads your default branch:
+
+```bash
+git remote add upstream https://github.com/marinvch/Cortex.git   # once
+git fetch upstream --tags
+git merge vX.Y.Z                     # the release tag, after your review
+git push origin HEAD vX.Y.Z
+```
+
+`autoUpdate` follows the fork, not upstream. Teammates get a release when you push it, never
+before. The stamp record's "older plugin" check compares against the `VERSION` of the plugin that
+is running, which is your fork's.
+
 ### The order, and how to stop guessing at it
 
 A list of commands is a menu, not an answer. **`/cortex-next` reads the repo you are standing in
@@ -506,11 +540,12 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   network — `gh` for pull requests, `git clone` of a public repo you name — so it runs only when
   you ask for it.
 - **Stamped into your repo, not run by the plugin:** `/cortex` can write GitHub Actions workflows.
-  `cortex-review.yml` clones this repository at a pinned release tag inside your CI to review each
-  PR; `agent-evals.yml` installs Claude Code in your CI to run your eval cases. Both are files you
-  read and commit. On a team's repo it can also add the `cortex` marketplace to
-  `.claude/settings.json`. Then Claude Code, not Cortex, clones `github.com/marinvch/Cortex` on each
-  teammate's machine once they trust the folder. The agent team is instructions too: agent files and
+  `cortex-review.yml` clones this repository, or your fork when a source is set, at a pinned
+  release tag inside your CI to review each PR; `agent-evals.yml` installs Claude Code in your CI to
+  run your eval cases. Both are files you read and commit. On a team's repo it can also add the
+  `cortex` marketplace to `.claude/settings.json`. Then Claude Code, not Cortex, clones
+  `github.com/marinvch/Cortex`, or your fork, on each teammate's machine once they trust the
+  folder. The agent team is instructions too: agent files and
   a skill your own sessions follow. They run your repo's own commands. The one network step they
   name is the Project manager reading an issue with `gh issue view` when a task names one.
 - **No telemetry.** Nothing is sent to the author or to any service Cortex runs.

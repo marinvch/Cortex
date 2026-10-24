@@ -1034,7 +1034,8 @@ export const LOOP_ARTIFACTS = [
     },
     brief:
       "Merge with `node \"${CLAUDE_PLUGIN_ROOT}/index/cortex-shared-plugin.mjs\" . --write`, never by hand: " +
-      "it adds the marketplace (GitHub marinvch/Cortex) and cortex@cortex, keeps every other key, and " +
+      "it adds the marketplace (GitHub marinvch/Cortex, or the organisation's fork when CORTEX_SOURCE or the " +
+      "connector's source names one) and cortex@cortex, keeps every other key, and " +
       "refuses a file that does not parse. Say in the offer what committing it does and does not do: " +
       "once a teammate trusts the folder Claude Code registers the marketplace, and the docs still have " +
       "each teammate install the plugin once — claude plugin install cortex@cortex --scope project. " +

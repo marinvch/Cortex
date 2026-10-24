@@ -131,7 +131,10 @@ the repo by commit count, and — like every other part — **dependency-free**.
   It used to be `{ slug, teamBrainRepo }`, with `team add` writing the project into `slug` and the
   resolver reading it as the team, so every connected repo captured into `team/<project>/`, a
   directory that was not a clone. Old connectors are still read (`legacyTeam` in `resolve.js`
-  matches the clone by its `origin`); do not reintroduce a field that means two things.
+  matches the clone by its `origin`); do not reintroduce a field that means two things. A fourth,
+  optional field, `source`, is the team's Cortex fork: `team init --source` writes it to the
+  brain's `team.json`, `team add` copies it here (`readTeamSource`, `lib/team.js`), and
+  `core/source.js` reads it. The resolver here ignores it.
 - **`catch_me_up` pulls (ff-only) and reads the team's notes, not only its log.** A failed pull is
   returned in `pull`, never swallowed, and the local notes still come back; team notes are bounded
   in `catchup.js` so the result fits under the transport cap rather than being cut by it.

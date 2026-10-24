@@ -19,7 +19,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-10-11";
+export const CHECKED = "2026-10-24";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -35,7 +35,9 @@ const HEADLESS = "https://code.claude.com/docs/en/headless";
 const AUTHORING = "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices";
 const PLUGINS_REF = "https://code.claude.com/docs/en/plugins-reference";
 const MARKETPLACES = "https://code.claude.com/docs/en/plugin-marketplaces";
-const CODE_REVIEW = "https://code.claude.com/docs/en/code-review";
+const REVIEW_CUSTOMIZE = "https://code.claude.com/docs/en/code-review-customize";
+const REVIEW_PRS = "https://code.claude.com/docs/en/code-review-pull-requests";
+const REVIEW_LOCAL = "https://code.claude.com/docs/en/code-review-local";
 const TEAMS = "https://code.claude.com/docs/en/agent-teams";
 const WORKTREES = "https://code.claude.com/docs/en/worktrees";
 const MANIFEST = "https://code.claude.com/docs/en/plugins/manifest-reference";
@@ -205,7 +207,7 @@ export const RULES = Object.freeze([
     value: [
       "name", "description", "tools", "disallowedTools", "model", "permissionMode", "maxTurns",
       "skills", "mcpServers", "hooks", "memory", "background", "omitClaudeMd", "effort",
-      "isolation", "color", "initialPrompt", "experimental",
+      "isolation", "color", "initialPrompt", "experimental", "autoCompactWindow",
     ],
     table: "frontmatter",
     source: SUBAGENTS,
@@ -292,7 +294,7 @@ export const RULES = Object.freeze([
     value: 1,
     source: HOOKS,
     evidence:
-      "Without valid JSON on stdout, Claude Code treats exit code 1 as a non-blocking error, even though 1 is the conventional Unix failure code.",
+      "Exit code 1 without valid JSON output is a non-blocking error unless the hook is one [whose failure blocks the action](#block-the-action-when-a-hook-fails), even though 1 is the conventional Unix failure code.",
   },
   {
     id: "hook.exit.other-codes-non-blocking",
@@ -341,34 +343,41 @@ export const RULES = Object.freeze([
   // --- code review: what REVIEW.md is to Claude Code's own reviewer -------------------------------
   //
   // /cortex writes a REVIEW.md. These are what the managed Code Review does with it and with
-  // CLAUDE.md. The second CLAUDE.md rule is the axis /cortex-review calls "did the change make a
-  // document wrong".
+  // CLAUDE.md. The managed reviewer no longer promises to flag a CLAUDE.md the change made wrong
+  // (the docs dropped that sentence in October 2026), so the stamped REVIEW.md asks for it in its
+  // own words and /cortex-review keeps it as its second axis. The local /code-review command does
+  // not read REVIEW.md at all, so a rule both reviewers must apply belongs in CLAUDE.md.
   {
     id: "review.review-md.location",
     value: "REVIEW.md",
-    source: CODE_REVIEW,
-    evidence: "`REVIEW.md` is a file at your repository root that tailors Code Review to your repo.",
+    source: REVIEW_CUSTOMIZE,
+    evidence: "`REVIEW.md` is a file at your repository root that tailors Code Review to your repository.",
   },
   {
-    id: "review.claude-md.violations-are-nits",
-    value: "nit",
-    source: CODE_REVIEW,
-    evidence:
-      "Code Review reads your repository's `CLAUDE.md` files and treats newly introduced violations as nit-level findings.",
-  },
-  {
-    id: "review.claude-md.outdated-is-flagged",
+    id: "review.review-md.subdirectory",
     value: true,
-    source: CODE_REVIEW,
+    source: REVIEW_CUSTOMIZE,
     evidence:
-      "if your PR changes code in a way that makes a `CLAUDE.md` statement outdated, Claude flags that the docs need updating too.",
+      "You can also add a `REVIEW.md` in a subdirectory to add checks for changes under that path, on top of the root file.",
+  },
+  {
+    id: "review.claude-md.violation-is-a-finding",
+    value: "finding",
+    source: REVIEW_CUSTOMIZE,
+    evidence:
+      "A change that violates one of their rules becomes a finding at whichever severity level fits the issue.",
   },
   {
     id: "review.check-run.neutral",
     value: "neutral",
-    source: CODE_REVIEW,
-    evidence:
-      "The check run always completes with a neutral conclusion so it never blocks merging through branch protection rules.",
+    source: REVIEW_PRS,
+    evidence: "It never concludes as a failure, so a finished review doesn't fail a required check.",
+  },
+  {
+    id: "review.local-command.no-review-md",
+    value: "CLAUDE.md",
+    source: REVIEW_LOCAL,
+    evidence: "It doesn't read `REVIEW.md`.",
   },
 
   // --- agent teams and worktrees: what the stamped team can rely on -------------------------------
@@ -798,11 +807,18 @@ export const RULES = Object.freeze([
     evidence: "Named `.js`, `.mjs`, `.cjs`, `.jsx`, `.ts`, `.mts`, `.cts`, or `.tsx`.",
   },
   {
-    id: "mod.approves-past-pretooluse",
+    id: "mod.guard.pretooluse-wins",
     value: "PreToolUse",
     source: MODS_ADMIN,
+    evidence: "The mod can't approve a call that any `PreToolUse` hook blocked, either.",
+  },
+  {
+    // Only with the guard loaded. Without it nothing says a hook wins, so the fences name the gap.
+    id: "mod.guard.loads-when",
+    value: ["managed settings", "Team or Enterprise login"],
+    source: MODS_ADMIN,
     evidence:
-      "A user's mod that approves tool calls can approve a call that an `ask` rule would prompt for, or that a `PreToolUse` hook outside managed settings blocked.",
+      "A user who authenticates with an API key, or through Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry, gets the guard only on a machine that has managed settings.",
   },
 
   // --- permissions: why an unattended /cortex cannot write under .claude/ ------------------------
@@ -869,7 +885,7 @@ export const RULES = Object.freeze([
     value: "text",
     source: OPUS_5_5,
     evidence:
-      "Check each block's type instead of assuming the first content block is text: a response may or may not begin with a `thinking` block, whose `thinking` field is empty under the default `display: \"omitted\"`.",
+      "Check each block's type instead of assuming the first content block is text: a response might or might not start with a `thinking` block, whose `thinking` field is empty under the default `display: \"omitted\"`.",
   },
   {
     id: "model.response.refusal-stop-reason",
@@ -890,7 +906,7 @@ export const RULES = Object.freeze([
     value: "reasoning_extraction",
     source: OPUS_5_5,
     evidence:
-      "Requests that push the model to reproduce its internal reasoning in the response text may be declined with the `reasoning_extraction` category.",
+      "Requests that push the model to reproduce its internal reasoning in the response text might be declined with the `reasoning_extraction` category.",
   },
   {
     id: "model.agentic.end-turn-is-a-report",

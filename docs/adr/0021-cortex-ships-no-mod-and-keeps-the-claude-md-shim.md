@@ -54,5 +54,9 @@ never reads a hooks module's code.
 - The fences Cortex stamps (`protected-paths.sh`, the Tester's `test-paths.sh`) are `PreToolUse`
   hooks outside managed settings, and a mod a user installed can approve an edit they blocked. Both
   now say so. Cortex cannot close that from inside a repo.
+  *Amended 2026-10-24:* the mods admin page now says a `PreToolUse` hook wins over a user's mod
+  whenever the built-in guard loads — on a machine with managed settings or a Team or Enterprise
+  login. The gap remains only without the guard, and both fences now name that case
+  (`mod.guard.pretooluse-wins`, `mod.guard.loads-when`).
 - Revisit the shim when the versions that cannot read `AGENTS.md` directly are no longer in use by
   the people Cortex serves. The rule `agents-md.min-version` is the number to check against.

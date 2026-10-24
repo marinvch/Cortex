@@ -25,6 +25,13 @@ this project now versions independently of any package manager (see `VERSION`).
 - The hook exit-1 rule and two Opus 5.5 rules cite the reworded sentences. Their meaning is
   unchanged.
 
+### Fixed
+
+- **Graphify's output is no longer indexed as the repo's own code.** Graphify writes
+  `graphify-out/` untracked at the repo root. The indexer counts untracked files that are not
+  ignored, so one Graphify run put a generated graph of the repo into Cortex's index.
+  `graphify-out` now joins the directories the indexer always skips.
+
 ## [2.44.1] — 2026-10-13
 
 Three commands read what they need once, and three decisions moved to where a test can reach them.

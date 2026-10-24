@@ -13,6 +13,10 @@ export const CODE_SKIP_DIRS = new Set([
   ".next", ".nuxt", ".svelte-kit", ".turbo", ".cache", ".venv", "venv", "__pycache__",
   ".pytest_cache", ".mypy_cache", ".gradle", ".idea",
   ".cortex", ".ua", ".understand-anything",
+  // Graphify's output (graph.json, graph.html, GRAPH_REPORT.md). It is written untracked at the
+  // repo root, and git-aware listing counts untracked files, so one run of Graphify put a
+  // generated graph of the repo into the repo's own index.
+  "graphify-out",
 ]);
 
 // These two names mean build output in some ecosystems and hand-written source in others —

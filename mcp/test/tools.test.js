@@ -26,10 +26,10 @@ test("every tool declares a mode, exactly once", () => {
 });
 
 test("the advertised list is exactly the tools that run in that mode", () => {
-  assert.deepEqual(toolsFor(true).map((t) => t.name).sort(), ["answer", "ask", "inbox", "recall", "recall_memory", "remember"]);
+  assert.deepEqual(toolsFor(true).map((t) => t.name).sort(), ["answer", "ask", "contract", "inbox", "recall", "recall_memory", "remember"]);
   assert.deepEqual(
     toolsFor(false).map((t) => t.name).sort(),
-    ["answer", "ask", "capture", "catch_me_up", "get_project_context", "inbox", "list_projects", "recall"],
+    ["answer", "ask", "capture", "catch_me_up", "contract", "get_project_context", "inbox", "list_projects", "recall"],
   );
 });
 

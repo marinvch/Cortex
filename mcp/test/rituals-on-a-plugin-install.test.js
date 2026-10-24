@@ -433,3 +433,29 @@ test("/team-add names the removal command, and it runs from the plugin root", ()
   assert.equal(r.status, 1);
   assert.match(r.stderr, /no team/);
 });
+
+test("/team-add's contract step extracts and publishes from a plugin install (#621)", () => {
+  const f = fixture();
+  // The contract step also runs the indexer, which a plugin install carries beside mcp/.
+  cpSync(join(REPO, "index"), join(f.pluginRoot, "index"), { recursive: true, filter: (src) => !src.split(sep).includes("test") });
+  const vault = join(f.base, "vault");
+  mkdirSync(vault, { recursive: true });
+  const remote = join(f.base, "team-brain.git");
+  execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
+  const { text, found } = commandsIn("team-add");
+  const join_ = argvOf(found[0], f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
+  assert.equal(run(f, join_, { cwd: f.proj, env: { CORTEX_ROOT: vault } }).status, 0);
+
+  const extract = text.match(/`(node "\$\{CLAUDE_PLUGIN_ROOT\}\/index\/cortex-contract\.mjs"[^`]*)`/);
+  assert.ok(extract, "the skill must name the contract extractor through the plugin root");
+  const publish = found.find((c) => / contract publish /.test(c));
+  assert.ok(publish, "the skill must name `ai-os contract publish`");
+
+  const e = run(f, argvOf(extract[1], f.pluginRoot), { cwd: f.proj });
+  assert.equal(e.status, 0, e.stderr);
+  const p = run(f, argvOf(publish, f.pluginRoot), { cwd: f.proj, env: { CORTEX_ROOT: vault } });
+  assert.equal(p.status, 0, p.stderr);
+  assert.match(p.stdout, /Contract for product created \(none: 0 served/);
+  const pushed = execFileSync("git", ["show", "HEAD:projects/product/contract.json"], { cwd: remote, env: isolatedEnv(f.home) }).toString();
+  assert.match(pushed, /"reason": "No HTTP surface/);
+});

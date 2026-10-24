@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadManifest, buildPlan, formatCommands, formatStatus, tierStatus } from "./lib/setup-plugins.js";
@@ -13,6 +14,7 @@ import { CatchUpRefused, catchUp } from "./lib/catchup.js";
 import { openBrain, NoRootError } from "./lib/brain.js";
 import { askFrom, inboxFrom, answerFrom, memberFrom } from "./lib/asks.js";
 import { assertPublishable } from "./lib/tools.js";
+import { contractFrom, publishFrom } from "./lib/contract.js";
 import { genNoteId } from "./lib/noteid.js";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
@@ -192,6 +194,69 @@ function cmdAnswer(args, brain) {
   return 0;
 }
 
+const CONTRACT_USAGE =
+  "usage: ai-os contract publish|show|who-calls|list ...\n" +
+  "  ai-os contract publish --file <contract.json> [--project <slug>] [--team <name>]\n" +
+  "                                                 write projects/<slug>/contract.json + .md; commit, push when changed\n" +
+  "  ai-os contract show --project <slug> [--path </items>] [--json]\n" +
+  "  ai-os contract who-calls --path <[METHOD] /items> [--json]\n" +
+  "  ai-os contract list [--json]";
+
+// The CLI half of contracts (#621). `publish` is the write; its gate is inside `publishContract`,
+// the one function that writes, because no tool row publishes a contract. The reads are the
+// `contract` tool's, through the same `contractFrom`.
+function cmdContract(sub, args, brain) {
+  for (const k of ["file", "project", "team", "path"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${CONTRACT_USAGE}`);
+  if (sub === "publish") {
+    if (typeof args.file !== "string") throw new Error(CONTRACT_USAGE);
+    const input = readFileSync(args.file, "utf8");
+    const res = publishFrom(brain, { input, project: args.project ?? null, team: args.team ?? null });
+    const what = `${res.source}: ${res.serves} served, ${res.calls} called, ${res.events} events`;
+    if (res.action === "unchanged") { console.log(`Contract for ${res.project} unchanged (${what}). Nothing to commit.`); return 0; }
+    console.log(`Contract for ${res.project} ${res.action} (${what}) — ${describePublish(res, brain)}.`);
+    console.log(res.path);
+    return 0;
+  }
+  let res;
+  if (sub === "show") {
+    if (typeof args.project !== "string") throw new Error(CONTRACT_USAGE);
+    res = contractFrom(brain, { project: args.project, path: args.path });
+  } else if (sub === "who-calls") {
+    if (typeof args.path !== "string") throw new Error(CONTRACT_USAGE);
+    res = contractFrom(brain, { calls: args.path });
+  } else if (sub === "list") {
+    res = contractFrom(brain, {});
+  } else {
+    throw new Error(CONTRACT_USAGE);
+  }
+  if (args.json) { console.log(JSON.stringify(res, null, 2)); return 0; }
+  if (!res.pull.ok) console.log(`Pull failed, showing the local clone: ${res.pull.error}`);
+  const ep = (r) => `${r.method.padEnd(6)} ${r.raw ?? r.path}`;
+  if (sub === "list") {
+    if (!res.contracts.length) console.log("No project has published a contract yet. /team-add publishes one.");
+    for (const c of res.contracts) console.log(c.error ? `  ${c.project}: unreadable — ${c.error}` : `  ${c.project}: ${c.source}, ${c.serves} served, ${c.calls} called, ${c.events} events`);
+    return 0;
+  }
+  if (sub === "show") {
+    console.log(`Contract of ${res.project} (source ${res.source})${res.reason ? ` — ${res.reason}` : ""}`);
+    console.log(`Serves (${res.serves.length}):`);
+    for (const r of res.serves) console.log(`  ${ep(r)}${r.operationId ? `  ${r.operationId}` : ""}${r.response ? ` → ${r.response}` : ""}`);
+    console.log(`Calls (${res.calls.length}):`);
+    for (const r of res.calls) console.log(`  ${ep(r)}${r.host ? `  on ${r.host}` : ""}`);
+    if (res.events.length) console.log(`Events: ${res.events.map((e) => `${e.kind} ${e.name}`).join(", ")}`);
+    for (const u of res.unread) console.log(`  not read: ${u.what} — ${u.why}`);
+    if (res.truncated) console.log("(more than shown; narrow with --path, or use --json)");
+    return 0;
+  }
+  console.log(`${res.endpoint.method} ${res.endpoint.path} — read ${res.read} contract${res.read === 1 ? "" : "s"}`);
+  console.log(`Called by (${res.callers.length}):`);
+  for (const c of res.callers) console.log(`  ${c.project}: ${c.calls.map((r) => `${r.method} ${r.path}`).join(", ")}`);
+  console.log(`Served by (${res.servedBy.length}):`);
+  for (const s of res.servedBy) console.log(`  ${s.project}: ${ep(s)}${s.operationId ? `  ${s.operationId}` : ""}${s.response ? ` → ${s.response}` : ""}`);
+  console.log(res.note);
+  return 0;
+}
+
 const TEAM_ADD_USAGE =
   "usage: ai-os team add --name <team> --repo <git-url> --project <project-slug>\n" +
   "         [--title <text>] [--project-repo <url>] [--tracker <url>] [--design <url>] [--docs <url>] [--related <slug,slug>]";
@@ -343,8 +408,10 @@ try {
       process.exit(cmdInbox(args, open("inbox")));
     case "answer":
       process.exit(cmdAnswer(args, open("answer")));
+    case "contract":
+      process.exit(cmdContract(rest[0], args, open("contract")));
     default:
-      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer> [--flags]");
+      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract> [--flags]");
       process.exit(sub ? 1 : 2);
   }
 } catch (e) {

@@ -67,3 +67,8 @@ Kotlin, Go, …) and Spring Cloud Gateway YAML; back-end-to-back-end clients (Fe
 `WebClient`) — so an endpoint only another service calls reads as unused, which is why that finding
 is phrased as a floor; proxy `rewrite` *functions*; query-string and header routing; profile-specific
 `application-*.yml`. The Cortex View does not draw the route map yet (follow-up).
+
+**Amended by #621.** Express-style routers, NestJS, FastAPI and Flask handlers and Python client
+calls are now read (`lib/routes.mjs`), and OpenAPI/Swagger is read by the contract
+(`lib/contract.mjs`), which publishes one repo's half to a team-brain. A mount prefix declared in
+another file is still not followed.

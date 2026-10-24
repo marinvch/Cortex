@@ -587,7 +587,10 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
       if (!wfPath) {
         wfPath = join(r.clone, ".github", "workflows", "cortex-review.yml");
         mkdirSync(dirname(wfPath), { recursive: true });
-        const body = readFileSync(join(REPO_ROOT, "templates", "loop", "cortex-review.yml"), "utf8").replaceAll("{{CORTEX_REF}}", `v${version}`);
+        // Upstream's clone URL, the default source (core/source.js); a fork stamps its own.
+        const body = readFileSync(join(REPO_ROOT, "templates", "loop", "cortex-review.yml"), "utf8")
+          .replaceAll("{{CORTEX_REF}}", `v${version}`)
+          .replaceAll("{{CORTEX_REPO}}", "https://github.com/marinvch/Cortex.git");
         writeFileSync(wfPath, body);
         git(r.clone, ["add", "--", ".github/workflows/cortex-review.yml"]);
         git(r.clone, ["commit", "-q", "-m", "Stamp cortex-review.yml", "--", ".github/workflows/cortex-review.yml"]);

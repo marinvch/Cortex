@@ -68,6 +68,14 @@ here, which is why the directory is small and stays small.
   given. Keep the check on the write path — it is the reason `cortex-memory.mjs` can rejoin the
   `rootProblem` check the other eight `index/` CLIs share.
 
+- **`source.js` is the one place that says where Cortex comes from** (#622). An organisation's fork
+  names itself in the marketplace entry `index/lib/shared-plugin.mjs` writes and in the clone URL
+  of `cortex-review.yml`, and both ask here. The order is `--source`, `CORTEX_SOURCE`, the
+  connector's `source`, then `marinvch/Cortex`, and an empty value is unset. A value that is set and
+  wrong is refused, never skipped for the next one down: a fork that misspelt its source must not
+  quietly get upstream. A URL carrying a credential is refused through `carriesCredential`, and the
+  message never repeats it. The default's entry stays byte-for-byte what Cortex wrote before.
+
 - **`claude-code.js` is data, not policy code.** Anthropic's Claude Code rules, each with the
   sentence on its source page that states it. Checkers read values from it and never hard-code a
   limit. It holds no I/O and must stay that way — the fetching lives in

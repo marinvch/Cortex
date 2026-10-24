@@ -234,7 +234,7 @@ cat > "$VALS/agent-evals.yml.json" <<'JSON'
 { "TEST_CMD": "npm test", "SETUP_STEPS": "" }
 JSON
 cat > "$VALS/cortex-review.yml.json" <<'JSON'
-{ "CORTEX_REF": "v2.40.0" }
+{ "CORTEX_REF": "v2.40.0", "CORTEX_REPO": "https://github.com/acme/cortex.git" }
 JSON
 cat > "$VALS/bands.yaml.json" <<'JSON'
 { "METRIC": "p95 checkout latency", "READONLY_CMD": "curl -s https://metrics.example/p95", "RUNBOOK": "docs/runbook.md" }

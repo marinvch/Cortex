@@ -877,6 +877,27 @@ test("joinProject writes the project file, then the connector, and returns both"
   assert.deepEqual(JSON.parse(readFileSync(res.connector, "utf8")), { team: TEAM, project: "storefront", teamBrainRepo: f.remote });
 });
 
+test("joinProject copies the team's Cortex source from team.json into the connector (#622)", () => {
+  const f = fixture();
+  writeFileSync(join(f.clone, "team.json"), JSON.stringify({ source: "acme/cortex" }) + "\n");
+  git(f.clone, "add", "team.json");
+  git(f.clone, "commit", "-qm", "team: run Cortex from acme/cortex");
+  git(f.clone, "push", "-q", "origin", "HEAD");
+  const res = joinProject(f.vault, { team: TEAM, teamRepo: f.remote, project: "storefront", cwd: f.repo, today: "2026-10-09", policy: WORK });
+  assert.equal(res.source, "acme/cortex");
+  assert.deepEqual(JSON.parse(readFileSync(res.connector, "utf8")), { team: TEAM, project: "storefront", teamBrainRepo: f.remote, source: "acme/cortex" });
+});
+
+test("joinProject refuses an unusable team.json source before the connector is written", () => {
+  const f = fixture();
+  writeFileSync(join(f.clone, "team.json"), JSON.stringify({ source: "../cortex" }) + "\n");
+  assert.throws(
+    () => joinProject(f.vault, { team: TEAM, teamRepo: f.remote, project: "storefront", cwd: f.repo, today: "2026-10-09", policy: WORK }),
+    (e) => e.code === "source_refused" && /team\.json/.test(e.message),
+  );
+  assert.equal(existsSync(join(f.repo, ".cortex", "connector.json")), false);
+});
+
 test("joinProject writes no connector for a join that was refused", () => {
   const f = fixture({ origin: INTERNAL_ORIGIN });
   const before = { remote: fingerprint(f.remote), repo: fingerprint(f.repo) };

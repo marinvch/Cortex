@@ -12,6 +12,9 @@
 
 . "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
 
+# A contributor's shell may name a fork; every expectation below that is not about one is upstream's.
+unset CORTEX_SOURCE
+
 SP="$REPO_ROOT/index/cortex-shared-plugin.mjs"
 LOOP="$REPO_ROOT/index/cortex-loop.mjs"
 
@@ -195,6 +198,45 @@ assert_not_contains "$out" "    at " "not a stack trace"
 assert_eq "$broken" "$(cat "$B/.claude/settings.json")" "and the file is exactly as it was"
 assert_eq "" "$(git -C "$B" status --porcelain -uall)" "nothing else was written, not even a temp file"
 assert_eq "blocked" "$(row_bucket "$(CORTEX_PROFILE=work node "$LOOP" "$B" --json 2>/dev/null)")" "the loop names the row as blocked on it"
+
+# --- an organisation's fork (#622) -------------------------------------------------------------------------
+# The source is resolved: --source, then CORTEX_SOURCE, then the connector's `source`, then upstream.
+
+F="$WORK/fork"
+mkrepo "$F"
+out="$(CORTEX_SOURCE=acme/cortex node "$SP" "$F" --write 2>&1)"; rc=$?
+assert_eq "0" "$rc" "--write with CORTEX_SOURCE exits 0"
+assert_eq '{"source":{"source":"github","repo":"acme/cortex"}}' "$(cortex_entry "$F/.claude/settings.json")" "the new cortex entry points at the fork"
+assert_contains "$out" "Cortex source: acme/cortex (from CORTEX_SOURCE)" "and the output names the source and where it came from"
+fork_after="$(cat "$F/.claude/settings.json")"
+out="$(node "$SP" "$F" --write 2>&1)"
+assert_eq "$fork_after" "$(cat "$F/.claude/settings.json")" "with the source unset, an existing fork entry is left exactly as it is"
+assert_not_contains "$out" "Cortex source:" "and the default source is not announced"
+
+json="$(CORTEX_SOURCE=git@git.example.com:acme/cortex.git node "$SP" "$F" --json 2>&1)"
+assert_contains "$json" '"cloneUrl": "git@git.example.com:acme/cortex.git"' "--json reports a non-default source with the URL CI clones"
+assert_not_contains "$(node "$SP" "$F" --json 2>&1)" '"source": {' "and reports none for the default"
+
+FC="$WORK/fork-connected"
+mkrepo "$FC"
+mkdir -p "$FC/.cortex"
+printf '{ "team": "platform", "project": "api", "teamBrainRepo": "git@example.com:t/brain.git", "source": "acme/cortex" }\n' > "$FC/.cortex/connector.json"
+node "$SP" "$FC" --write >/dev/null 2>&1
+assert_eq '{"source":{"source":"github","repo":"acme/cortex"}}' "$(cortex_entry "$FC/.claude/settings.json")" "a connector's source is the fork with no variable set"
+rm -f "$FC/.claude/settings.json"
+# A git URL rather than a path: Git Bash rewrites a leading-slash argument on its way to node.
+# The directory shape is covered in index/test/shared-plugin.test.mjs.
+node "$SP" "$FC" --write --source https://git.example.com/acme/cortex.git >/dev/null 2>&1
+assert_eq '{"source":{"source":"git","url":"https://git.example.com/acme/cortex.git"}}' "$(cortex_entry "$FC/.claude/settings.json")" "--source outranks the connector"
+
+out="$(CORTEX_SOURCE=../cortex node "$SP" "$N" --write 2>&1)"; rc=$?
+assert_eq "1" "$rc" "a source that is set and unusable is refused (exit 1)"
+assert_contains "$out" "relative path" "with a sentence"
+assert_eq "$want" "$(cat "$N/.claude/settings.json")" "and nothing is written"
+tok="gh""p_$(printf 'A%.0s' $(seq 1 36))"
+out="$(CORTEX_SOURCE="https://${tok}@github.com/acme/cortex.git" node "$SP" "$N" 2>&1)"; rc=$?
+assert_eq "1" "$rc" "a source URL carrying a token is refused"
+assert_not_contains "$out" "$tok" "and the token is not echoed"
 
 # --- arguments ---------------------------------------------------------------------------------------------
 

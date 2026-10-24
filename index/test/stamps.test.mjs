@@ -707,6 +707,36 @@ test("a recorded setting outranks its default, and a setting does not excuse ano
   assert.doesNotMatch(plan.refused[0].why, /DEBATE_ROUNDS/);
 });
 
+test("cortex-review.yml stamped before {{CORTEX_REPO}} existed updates to the same bytes, and records upstream (#622)", () => {
+  const UPSTREAM = "https://github.com/marinvch/Cortex.git";
+  assert.equal(VALUE_DEFAULTS.CORTEX_REPO, UPSTREAM);
+  const now = readFileSync(join(TEMPLATES_DIR, "loop", "cortex-review.yml"), "utf8");
+  // The template as it shipped before #622: the URL written in, CORTEX_REF the only placeholder.
+  const before = now.replace("{{CORTEX_REPO}}", UPSTREAM);
+  assert.notEqual(before, now);
+  const file = before.replace("{{CORTEX_REF}}", "v2.44.1");
+  const w = world({ files: { ".github/workflows/cortex-review.yml": file }, templates: { "loop/cortex-review.yml": before } });
+  const record = recordStamp(null, {
+    path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml", version: RUNNING,
+    templateText: before, fileText: file, values: { CORTEX_REF: "v2.44.1" },
+  });
+  w.putTemplate("loop/cortex-review.yml", now);
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
+  assert.deepEqual(plan.refused, []);
+  assert.equal(plan.updates[0].text, file, "the old workflow, byte for byte");
+  assert.deepEqual(plan.updates[0].values, { CORTEX_REF: "v2.44.1", CORTEX_REPO: UPSTREAM });
+
+  // A fork's URL, given at stamp time, is what the record holds and what an update keeps.
+  const fork = world({ templates: { "loop/cortex-review.yml": now } });
+  const done = stampFile({
+    repoRoot: fork.repoRoot, templatesDir: fork.templatesDir, path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml",
+    values: { CORTEX_REF: "v2.44.1", CORTEX_REPO: "https://github.com/acme/cortex.git" }, version: RUNNING,
+  });
+  assert.deepEqual(done.unfilled, []);
+  assert.equal(readStamps(fork.repoRoot).files[".github/workflows/cortex-review.yml"].values.CORTEX_REPO, "https://github.com/acme/cortex.git");
+  assert.match(readFileSync(join(fork.repoRoot, ".github", "workflows", "cortex-review.yml"), "utf8"), /CORTEX_REPO: https:\/\/github\.com\/acme\/cortex\.git\n/);
+});
+
 // --- the stamp act: render, write and record as one call ----------------------------------------------
 
 const act = (w, extra = {}) => stampFile({ repoRoot: w.repoRoot, templatesDir: w.templatesDir, path: "REVIEW.md", template: "loop/REVIEW.md", values: { NIT_CAP: "3" }, version: RUNNING, ...extra });

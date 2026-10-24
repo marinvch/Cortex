@@ -27,7 +27,7 @@ import {
 import { RefusedWriteError, assertWritable } from "../../core/scrub.js";
 import { commitPath, originUrl, pull, pushHead, teamCloneDir } from "./gitsync.js";
 import { slugify } from "./slug.js";
-import { cloneTeamBrain, writeConnector } from "./team.js";
+import { cloneTeamBrain, readTeamSource, writeConnector } from "./team.js";
 import { openVault } from "./vault.js";
 
 /** A project-file operation that was declined, with a `code` a caller can branch on. */
@@ -319,10 +319,13 @@ export function checkProjects(root, { team, policy }) {
  * `addProject` (an invalid field, an employer-shaped link on a profile that refuses it, a
  * credential), so a repo that may not be registered is not half-joined either: no connector is
  * written for a join that did not happen. Returns `addProject`'s result with `connector`, the path
- * written.
+ * written, and `source`: the team's Cortex fork from the brain's `team.json`, copied into the
+ * connector, or null when the team runs upstream (#622). A `team.json` source that is unusable
+ * throws before the connector is written.
  */
 export function joinProject(root, { team, teamRepo, project, cwd, today, policy, fields = {} }) {
   const added = addProject(root, { team, teamRepo, project, cwd, today, policy, fields });
-  const connector = writeConnector(cwd, { team, project, teamBrainRepo: teamRepo });
-  return { ...added, connector };
+  const source = readTeamSource(teamCloneDir(root, team));
+  const connector = writeConnector(cwd, { team, project, teamBrainRepo: teamRepo, source });
+  return { ...added, connector, source };
 }

@@ -32,6 +32,21 @@ this project now versions independently of any package manager (see `VERSION`).
   ignored, so one Graphify run put a generated graph of the repo into Cortex's index.
   `graphify-out` now joins the directories the indexer always skips.
 
+### Added
+
+- **Cortex can run from an organisation's fork (#622).** One source setting holds a GitHub
+  `owner/repo`, a git URL or an absolute local path. It is read from `--source`, then the
+  `CORTEX_SOURCE` variable, then the `source` in `.cortex/connector.json`, and defaults to
+  `marinvch/Cortex`. The `cortex` marketplace entry `cortex-shared-plugin.mjs` adds to
+  `.claude/settings.json` points at it, and a stamped `cortex-review.yml` clones it, through a new
+  `{{CORTEX_REPO}}` placeholder recorded in `.cortex/stamps.json`. A URL carrying a credential is
+  refused. With nothing set, every file Cortex writes is what it was, and an existing `cortex`
+  entry is still left as it is. `core/source.js` holds the shapes and the order.
+- **A team-brain carries its fork.** `ai-os team init --source <owner/repo|git-url>` writes it to
+  the brain's `team.json`, and `team add` copies it into each repo's connector, so members pass no
+  flag. The README's "Running from your organisation's fork" says how to take an upstream release
+  into the fork, and that `autoUpdate` follows the fork.
+
 ## [2.44.1] — 2026-10-13
 
 Three commands read what they need once, and three decisions moved to where a test can reach them.

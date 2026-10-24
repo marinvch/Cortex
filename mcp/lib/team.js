@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { parseSource } from "../../core/source.js";
 import { ensureIdentity, teamCloneDir } from "./gitsync.js";
 
 function git(cwd, args) {
@@ -12,16 +13,42 @@ function git(cwd, args) {
 // as the team — one field, two meanings, three positional strings — so every connected repo looked
 // for its team-brain clone at `team/<project>` and captured into a directory that was not a clone.
 // lib/resolve.js still reads the old shape (`legacyTeam` there).
-export function connectorObject({ team, project, teamBrainRepo }) {
-  return { team, project, teamBrainRepo };
+//
+// `source` is where the team runs Cortex from, when it is an organisation's fork (#622): copied from
+// the team-brain's `team.json` by `team add`, and read by `core/source.js` below `CORTEX_SOURCE`. It
+// is written only when the team set one, so a team on upstream gets the connector it always had.
+export function connectorObject({ team, project, teamBrainRepo, source = null }) {
+  return source ? { team, project, teamBrainRepo, source } : { team, project, teamBrainRepo };
 }
 
-export function writeConnector(cwd, { team, project, teamBrainRepo }) {
+export function writeConnector(cwd, { team, project, teamBrainRepo, source = null }) {
   const dir = join(cwd, ".cortex");
   mkdirSync(dir, { recursive: true });
   const path = join(dir, "connector.json");
-  writeFileSync(path, JSON.stringify(connectorObject({ team, project, teamBrainRepo }), null, 2) + "\n");
+  writeFileSync(path, JSON.stringify(connectorObject({ team, project, teamBrainRepo, source }), null, 2) + "\n");
   return path;
+}
+
+// `team.json` in a team-brain holds the team's Cortex source and nothing else: `{ "source": … }`.
+// `team init --source` writes it once, so every `team add` stamps the fork without each member
+// passing a flag. Both ends validate it through `parseSource`, which refuses a URL carrying a
+// credential: the value is pushed to the brain and committed into every product repo.
+export const TEAM_JSON = "team.json";
+
+/** The team-brain clone's source, validated, or null when it has no `team.json` or no source. */
+export function readTeamSource(cloneDir) {
+  const path = join(cloneDir, TEAM_JSON);
+  if (!existsSync(path)) return null;
+  let doc;
+  try {
+    doc = JSON.parse(readFileSync(path, "utf8"));
+  } catch (e) {
+    throw new Error(`${TEAM_JSON} in the team-brain is not valid JSON (${e.message}); fix it there and run again`);
+  }
+  const v = typeof doc?.source === "string" ? doc.source.trim() : "";
+  if (!v) return null;
+  parseSource(v, `the source in the team-brain's ${TEAM_JSON}`);
+  return v;
 }
 
 export function cloneTeamBrain(root, name, repo) {
@@ -32,7 +59,7 @@ export function cloneTeamBrain(root, name, repo) {
   return { dir, cloned: true };
 }
 
-export function seedTeamBrain(cloneDir, { name, projects = [] }) {
+export function seedTeamBrain(cloneDir, { name, projects = [], source = null }) {
   const written = [];
   const projectsDir = join(cloneDir, "projects");
   mkdirSync(projectsDir, { recursive: true });
@@ -57,12 +84,23 @@ export function seedTeamBrain(cloneDir, { name, projects = [] }) {
       "\n## Members\n- (add members)\n",
   );
   written.push(teamMd);
+  if (source) {
+    const teamJson = join(cloneDir, TEAM_JSON);
+    writeFileSync(teamJson, JSON.stringify({ source }, null, 2) + "\n");
+    written.push(teamJson);
+  }
   return written;
 }
 
-export function initTeamBrain(root, { name, repo, projects = [], outwardSync = true }) {
+/**
+ * Seed, commit and push a team-brain. `source` (an owner/repo, git URL or absolute path) is the
+ * team's Cortex fork, written to `team.json`; it is validated before anything is cloned or written.
+ */
+export function initTeamBrain(root, { name, repo, projects = [], outwardSync = true, source = null }) {
+  const src = source === null || source === undefined ? null : String(source).trim();
+  if (source !== null && source !== undefined) parseSource(src, "--source");
   const { dir } = cloneTeamBrain(root, name, repo);
-  seedTeamBrain(dir, { name, projects });
+  seedTeamBrain(dir, { name, projects, source: src });
   ensureIdentity(dir);
   git(dir, ["add", "."]);
   const pending = git(dir, ["status", "--porcelain"]).trim();

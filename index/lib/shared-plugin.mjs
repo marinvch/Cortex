@@ -34,6 +34,13 @@
 // The two entries are a block inside a shared file, like the hooks merged into the same file, so
 // they are not in the stamp record (`stamps.mjs` tracks whole files only).
 //
+// Where the marketplace entry points is not this file's to decide (#622). An organisation that runs
+// Cortex from its own fork sets the source, and `core/source.js` resolves it — `--source`, then
+// `CORTEX_SOURCE`, then the `source` in `.cortex/connector.json`, then `marinvch/Cortex` — into one
+// of the documented source shapes (github, git, directory). `mergeSharedPlugin` takes the resolved
+// object and writes it into a NEW cortex entry only; an entry already there, from whatever source,
+// is still left exactly as it is. With nothing set the entry is byte-for-byte the default's.
+//
 // Auto-update is a separate choice, off unless asked (`{ autoUpdate: true }`). The settings reference
 // documents it as "an optional `autoUpdate` Boolean" on the marketplace entry: `true` makes every
 // teammate's Claude Code refresh the marketplace and update Cortex in the background after startup,
@@ -45,21 +52,24 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { WORK, resolveProfile } from "../../core/profile.js";
+import { CONNECTOR_REL, DEFAULT_MARKETPLACE_SOURCE, cloneUrl, connectorSource, resolveSource } from "../../core/source.js";
 
 export const SETTINGS_REL = ".claude/settings.json";
-export const CONNECTOR_REL = ".cortex/connector.json";
+export { CONNECTOR_REL };
 
-/** The marketplace entry, keyed by the name the plugin id uses after its `@`. */
-export const CORTEX_MARKETPLACE = { name: "cortex", entry: { source: { source: "github", repo: "marinvch/Cortex" } } };
+/** The default marketplace entry, keyed by the name the plugin id uses after its `@`. */
+export const CORTEX_MARKETPLACE = { name: "cortex", entry: { source: { ...DEFAULT_MARKETPLACE_SOURCE } } };
 export const CORTEX_PLUGIN = "cortex@cortex";
 
 // What a merge adds, in order. `keys` lists the spellings Claude Code reads for the same setting:
 // `additionalMarketplaces` is the documented alias of `extraKnownMarketplaces`, so a file that uses
-// it gets the entry there rather than a second, competing key beside it.
-const WANTS = [
-  { keys: ["extraKnownMarketplaces", "additionalMarketplaces"], name: CORTEX_MARKETPLACE.name, value: CORTEX_MARKETPLACE.entry, marketplace: true },
+// it gets the entry there rather than a second, competing key beside it. `source` is a resolved
+// marketplace source object (`core/source.js`); the default when none is given.
+const wantsFor = (source = DEFAULT_MARKETPLACE_SOURCE) => [
+  { keys: ["extraKnownMarketplaces", "additionalMarketplaces"], name: CORTEX_MARKETPLACE.name, value: { source: { ...source } }, marketplace: true },
   { keys: ["enabledPlugins"], name: CORTEX_PLUGIN, value: true },
 ];
+const WANTS = wantsFor();
 
 /** A settings file Cortex will not write into. `code` lets a caller tell it from a bug. */
 export class SettingsUnreadable extends Error {
@@ -105,6 +115,18 @@ export function teamServed(root, env = process.env) {
   return { team: false, why: null };
 }
 
+// --- where Cortex comes from ----------------------------------------------------------------------------
+
+/**
+ * The source a new cortex entry would point at, for this repo: `resolveSource` (`core/source.js`)
+ * fed the repo's connector, plus the URL CI would clone it from (`null` for a directory source).
+ * Throws `SourceRefused` for a source that is set and unusable; nothing here falls back past it.
+ */
+export function sharedPluginSource(root, { argument = null, env = process.env } = {}) {
+  const r = resolveSource({ argument, env, connector: connectorSource(root) });
+  return { ...r, cloneUrl: cloneUrl(r.source) };
+}
+
 // --- what is on disk ----------------------------------------------------------------------------------
 
 function parseSettings(text) {
@@ -120,8 +142,8 @@ function parseSettings(text) {
 }
 
 /** For each wanted entry: the key it lives or would live under, and whether it is there already. */
-function plan(doc) {
-  return WANTS.map((w) => {
+function plan(doc, wanted = WANTS) {
+  return wanted.map((w) => {
     const key = w.keys.find((k) => own(doc, k)) ?? w.keys[0];
     if (own(doc, key) && !isObject(doc[key])) {
       throw new SettingsUnreadable(`\`${key}\` is not an object in ${SETTINGS_REL}, so Cortex will not write into it`);
@@ -249,23 +271,26 @@ function insertMember(t, open, name, value, style) {
  * Merge Cortex's two entries into a `.claude/settings.json` text (`null` when there is no file).
  * Returns `{ text, added, kept, autoUpdate }`, with `added` and `kept` as `key.name` and
  * `autoUpdate` as `autoUpdateOutcome` says. `{ autoUpdate: true }` asks for it on a new cortex entry.
+ * `{ source }` is the marketplace source object a NEW cortex entry points at — `resolveSource(...)
+ * .source` from `core/source.js` — and the default's when omitted. An existing entry keeps its own.
  * Throws `SettingsUnreadable` for a file it will not write into. Pure: the caller writes `text`, and
  * only when `added` is not empty.
  */
-export function mergeSharedPlugin(text, { autoUpdate = false } = {}) {
+export function mergeSharedPlugin(text, { autoUpdate = false, source = DEFAULT_MARKETPLACE_SOURCE } = {}) {
+  const wanted = wantsFor(source);
   if (text === null || text === undefined) {
     const doc = {};
-    for (const w of WANTS) doc[w.keys[0]] = { [w.name]: valueFor(w, autoUpdate) };
+    for (const w of wanted) doc[w.keys[0]] = { [w.name]: valueFor(w, autoUpdate) };
     return {
       text: JSON.stringify(doc, null, 2) + "\n",
-      added: WANTS.map((w) => `${w.keys[0]}.${w.name}`),
+      added: wanted.map((w) => `${w.keys[0]}.${w.name}`),
       kept: [],
       autoUpdate: autoUpdate === true ? "set" : "not asked",
     };
   }
 
   const doc = parseSettings(text);
-  const wants = plan(doc);
+  const wants = plan(doc, wanted);
   const bom = text.startsWith("\uFEFF") ? "\uFEFF" : "";
   let t = text.slice(bom.length);
   const root = skipWs(t, 0);

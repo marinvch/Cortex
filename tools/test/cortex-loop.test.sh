@@ -400,7 +400,7 @@ node --input-type=module -e '
   import { pathToFileURL } from "node:url";
   const [root, out] = process.argv.slice(1);
   const { parseYaml } = await import(pathToFileURL(root + "/index/test/yaml-lite.mjs").href);
-  const src = readFileSync(root + "/templates/loop/cortex-review.yml", "utf8").replaceAll("{{CORTEX_REF}}", "v0.0.0");
+  const src = readFileSync(root + "/templates/loop/cortex-review.yml", "utf8").replaceAll("{{CORTEX_REF}}", "v0.0.0").replaceAll("{{CORTEX_REPO}}", "https://github.com/marinvch/Cortex.git");
   writeFileSync(out, parseYaml(src).jobs.review.steps.find((s) => /cortex-review\.mjs/.test(s.run ?? "")).run);
 ' "$REPO_ROOT" "$WORK/review-run.sh"
 

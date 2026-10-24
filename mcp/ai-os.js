@@ -78,11 +78,14 @@ function cmdSetupPlugins(args) {
 function cmdTeam(teamSub, args, brain) {
   const root = brain.root;
   if (teamSub === "init") {
-    if (!args.name || !args.repo) throw new Error("usage: ai-os team init --name <team> --repo <git-url> [--projects a,b]");
+    const usage = "usage: ai-os team init --name <team> --repo <git-url> [--projects a,b] [--source <owner/repo|git-url>]";
+    if (!args.name || !args.repo || args.source === true) throw new Error(usage);
     const projects = typeof args.projects === "string" ? args.projects.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    const source = typeof args.source === "string" ? args.source : null;
     const { dir, pushed, error } = initTeamBrain(root, {
-      name: args.name, repo: args.repo, projects, outwardSync: brain.policy.outwardSync,
+      name: args.name, repo: args.repo, projects, outwardSync: brain.policy.outwardSync, source,
     });
+    if (source) console.log(`Cortex source for this team: ${source.trim()} (team.json). Every \`team add\` copies it into the repo's connector.`);
     if (!pushed) {
       console.log(`Team-brain seeded at ${dir}, but NOT pushed: ${error} (profile ${brain.profile}).`);
       return 0;
@@ -103,12 +106,13 @@ function cmdTeam(teamSub, args, brain) {
       fields[key] = args[flag];
     }
     // The order (project file, then connector) is `joinProject`'s: a refused join writes no connector.
-    const { dir, cloned, file, connector } = joinProject(root, {
+    const { dir, cloned, file, connector, source } = joinProject(root, {
       team: args.name, teamRepo: args.repo, project, cwd: process.cwd(), today: stamp(), policy: brain.policy, fields,
     });
     console.log(describeProjectFile(file, brain));
     for (const w of file.warnings) console.log(`  warning: ${w.msg}`);
     console.log(`Team-brain ${cloned ? "cloned to" : "already at"} ${dir}. Wrote ${connector}.`);
+    if (source) console.log(`The team runs Cortex from ${source}: the connector names it, so /cortex stamps that source here.`);
     console.log("Next: commit the connector into THIS repo →  git add .cortex/connector.json");
     return 0;
   }

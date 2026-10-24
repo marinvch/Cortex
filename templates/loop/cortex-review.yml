@@ -19,9 +19,10 @@
 # provable class ever fails — a path gone with git's record of where it went. A mention of a touched
 # file never does: it is where a defect would hide, not a defect.
 #
-# One value is a Cortex placeholder, in double braces with no dollar sign: CORTEX_REF, the Cortex
-# release tag this runs. A dollar-sign expression is GitHub Actions syntax, resolved at run time —
-# leave it exactly as written.
+# Two values are Cortex placeholders, in double braces with no dollar sign: CORTEX_REPO, the git URL
+# Cortex is cloned from (upstream, or the organisation's fork), and CORTEX_REF, the Cortex release
+# tag this runs. A dollar-sign expression is GitHub Actions syntax, resolved at run time — leave it
+# exactly as written.
 name: cortex-review
 
 on:
@@ -39,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      CORTEX_REPO: https://github.com/marinvch/Cortex.git
+      CORTEX_REPO: {{CORTEX_REPO}}
       CORTEX_REF: {{CORTEX_REF}}
     steps:
       # Full history: the diff is taken from the PR's base, and a moved file is proven by git's

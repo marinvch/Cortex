@@ -1169,7 +1169,9 @@ test("a GitHub remote is read through a worktree's .git file, and never by runni
 
 test("cortex-review.yml, stamped, is a PR workflow that needs no secret and blocks only on opt-in", async () => {
   const { parseYaml } = await import("./yaml-lite.mjs");
-  const stamped = fsRead(REVIEW_TEMPLATE, "utf8").replaceAll("{{CORTEX_REF}}", "v2.38.0");
+  const stamped = fsRead(REVIEW_TEMPLATE, "utf8")
+    .replaceAll("{{CORTEX_REF}}", "v2.38.0")
+    .replaceAll("{{CORTEX_REPO}}", "https://github.com/acme/cortex.git");
   assert.doesNotMatch(stamped.replace(/\$\{\{[^}]*\}\}/g, ""), /\{\{/, "a Cortex placeholder is left unfilled");
   // The deterministic half runs on a fork's PR too, where no secret is available.
   assert.doesNotMatch(stamped, /secrets\./, "it asks for no secret");
@@ -1183,6 +1185,7 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   assert.equal(job?.["runs-on"], "ubuntu-latest");
   assert.ok(Number.isInteger(job["timeout-minutes"]));
   assert.equal(job.env?.CORTEX_REF, "v2.38.0", "the Cortex release is pinned, not master");
+  assert.equal(job.env?.CORTEX_REPO, "https://github.com/acme/cortex.git", "Cortex is cloned from the source stamped in, a fork's included");
   for (const step of job.steps) assert.ok(step.uses || step.run, `a step with neither uses nor run: ${JSON.stringify(step)}`);
 
   const [checkout] = job.steps;
@@ -1190,7 +1193,8 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   assert.equal(String(checkout.with?.["fetch-depth"]), "0", "full history: the base and git's rename record are needed");
 
   const fetch = job.steps.find((s) => /git clone/.test(s.run ?? ""));
-  assert.match(fetch?.run ?? "", /--branch "\$CORTEX_REF"/, "Cortex is fetched at the pinned ref");
+  assert.match(fetch?.run ?? "", /--branch "\$CORTEX_REF" "\$CORTEX_REPO"/, "Cortex is fetched from the stamped source at the pinned ref");
+  assert.doesNotMatch(stamped, /marinvch\/Cortex/, "no upstream URL is left for a fork's workflow to fetch");
   assert.match(fetch.run, /\$RUNNER_TEMP\/cortex/, "outside the workspace, so the indexer never reads Cortex as this repo");
   assert.doesNotMatch(stamped, /npm (ci|install)|setup-node/, "nothing is installed: index/ has no dependencies");
 
@@ -1203,14 +1207,18 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   assert.doesNotMatch(review.run, /set -e/, "one failing command must not skip the report");
 });
 
-test("cortex-review.yml carries only the placeholder the /cortex skill tells it how to fill", () => {
+test("cortex-review.yml carries only the placeholders /cortex or the stamp act fills", () => {
   const src = fsRead(REVIEW_TEMPLATE, "utf8").replace(/\$\{\{[^}]*\}\}/g, "");
-  const found = [...new Set([...src.matchAll(/\{\{([A-Z_]+)\}\}/g)].map((m) => m[1]))];
-  assert.deepEqual(found, ["CORTEX_REF"]);
-  assert.equal(src.split("{{CORTEX_REF}}").length - 1, 1, "{{CORTEX_REF}} appears once, where it is filled");
+  const found = [...new Set([...src.matchAll(/\{\{([A-Z_]+)\}\}/g)].map((m) => m[1]))].sort();
+  // CORTEX_REPO is where Cortex is cloned from (#622): upstream unless an organisation runs a fork.
+  assert.deepEqual(found, ["CORTEX_REF", "CORTEX_REPO"]);
+  for (const name of found) assert.equal(src.split(`{{${name}}}`).length - 1, 1, `{{${name}}} appears once, where it is filled`);
   const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
   const row = skill.split("\n").find((l) => l.startsWith("| `cortex-review.yml`"));
   assert.ok(row?.includes("CORTEX_REF"), "the skill's cortex-review.yml row does not say how to fill {{CORTEX_REF}}");
+  // {{CORTEX_REPO}} is filled by stampFile from the resolved source (stamps.test.mjs), not by the
+  // skill: the instruction in this row pulled /cortex's evals down from 0.93 to 0.71–0.79.
+  assert.ok(!row.includes("CORTEX_REPO"), "the stamp act fills {{CORTEX_REPO}}; the skill must not have to");
   assert.ok(row.includes("CORTEX_REVIEW_BLOCKING"), "and it names the switch that makes the check blocking");
 });
 

@@ -31,6 +31,9 @@ is not obvious for this machine.
 2. With `CORTEX_ROOT` set to your vault — the seeded clone lives under it — run
    `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team init --name <team> --repo <git-url> --projects <slug1,slug2>`.
    From a clone of the Cortex repo rather than the plugin, use that clone's path.
+   If the organisation runs Cortex from its own fork, add `--source <owner/repo|git-url>`. It is
+   written to `team.json` in the brain, and every `/team-add` copies it into that repo's connector,
+   so `/cortex` stamps the fork there with no flag from members. A URL carrying a token is refused.
 3. Confirm the team-brain was seeded and pushed. `--projects` seeds a notes folder per slug,
    `projects/<slug>/`, and nothing else: it writes no project file, and `team.md` points at
    `projects/` and lists no project.

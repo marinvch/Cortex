@@ -39,8 +39,9 @@ Here it is the requirement, and it holds only because the connector carries no l
    docs site and the projects it relates to. The file is committed as `project: add <slug>` and
    pushed. Read the line the command prints about it and pass that on. See *The project file*
    below for the flags and for what it refuses.
-3. It then writes a generic `.cortex/connector.json`: `{ team, project, teamBrainRepo }` and
-   nothing else. A connector already committed in the old `{ slug, teamBrainRepo }` shape still
+3. It then writes a generic `.cortex/connector.json`: `{ team, project, teamBrainRepo }`, plus
+   `source` when the brain's `team.json` names the team's Cortex fork, and nothing else. Pass on
+   the line naming the source: `/cortex` stamps that fork into this repo. A connector already committed in the old `{ slug, teamBrainRepo }` shape still
    works — the startup line says it is the old shape — and running step 1 again rewrites it;
    commit that change.
 4. Offer to commit the connector so teammates inherit the wiring:

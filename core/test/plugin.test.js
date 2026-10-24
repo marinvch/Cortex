@@ -387,7 +387,7 @@ test("the authoring rituals state the official limits, in the official units", a
   const writing = readFileSync(join(REPO_ROOT, "skills", "writing-for-agents", "SKILL.md"), "utf8");
   const pages = [...new Set(RULES.map((r) => r.source))].filter(
     (url) =>
-      !/\/(mcp|permission-modes|headless|plugins-reference|plugin-marketplaces|settings|permissions|code-review|agent-teams|worktrees|hooks-guide)$/.test(url) &&
+      !/\/(mcp|permission-modes|headless|plugins-reference|plugin-marketplaces|settings|permissions|code-review(-[a-z-]+)?|agent-teams|worktrees|hooks-guide)$/.test(url) &&
       !url.includes("/plugins/"),
   );
   const uncited = pages.filter((url) => !writing.includes(`(${url})`));

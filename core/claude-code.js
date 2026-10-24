@@ -1,4 +1,10 @@
 // core/claude-code.js — what Anthropic's Claude Code docs say, as data Cortex can check against.
+//
+// Licence note: every `evidence` string below is a short quotation from Anthropic's documentation,
+// © Anthropic, reproduced so a reader can verify the rule against its cited page. The quotations
+// are not licensed under this repository's MIT licence; the code and the rest of this file are.
+// THIRD_PARTY_NOTICES.md says the same.
+//
 // The `model.*` rules come from the platform docs instead: how the model itself behaves, which is
 // what a direct Messages API caller or an unattended runner has to assume.
 //

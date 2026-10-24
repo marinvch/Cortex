@@ -735,3 +735,9 @@ prompt-gate hook in `.claude/hooks/`.
 ## License
 
 MIT — see [LICENSE](LICENSE). Your notes are yours.
+
+**Files Cortex stamps into your repository are yours too**: they are granted to you under MIT-0, so
+no attribution and no notice is required, and Cortex adds no licence header to them. Rituals adapted
+from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT), and the short quotations of
+Anthropic's documentation in `core/claude-code.js` (© Anthropic, not covered by Cortex's licence),
+are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

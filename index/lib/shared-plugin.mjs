@@ -53,6 +53,7 @@ import { join } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { WORK, resolveProfile } from "../../core/profile.js";
 import { CONNECTOR_REL, DEFAULT_MARKETPLACE_SOURCE, cloneUrl, connectorSource, resolveSource } from "../../core/source.js";
+import { insertUnder, skipWs, textStyle } from "../../core/json-text.js";
 
 export const SETTINGS_REL = ".claude/settings.json";
 export { CONNECTOR_REL };
@@ -194,78 +195,8 @@ export function sharedPluginStatus(root) {
 
 // --- the merge ----------------------------------------------------------------------------------------
 //
-// A scanner over text already known to be valid JSON (it was parsed first), so it only has to find
-// where things are, never to judge them.
-
-const WS = new Set([" ", "\t", "\n", "\r"]);
-const skipWs = (t, i) => { while (i < t.length && WS.has(t[i])) i++; return i; };
-
-function skipString(t, i) {
-  for (i++; i < t.length && t[i] !== '"'; i++) if (t[i] === "\\") i++;
-  return i + 1;
-}
-
-function skipValue(t, i) {
-  if (t[i] === '"') return skipString(t, i);
-  if (t[i] === "{" || t[i] === "[") {
-    let depth = 0;
-    for (; i < t.length; i++) {
-      if (t[i] === '"') { i = skipString(t, i) - 1; continue; }
-      if (t[i] === "{" || t[i] === "[") depth++;
-      else if ((t[i] === "}" || t[i] === "]") && --depth === 0) return i + 1;
-    }
-  }
-  while (i < t.length && !WS.has(t[i]) && t[i] !== "," && t[i] !== "}" && t[i] !== "]") i++;
-  return i;
-}
-
-/** The members of the object whose `{` is at `open`, and where its `}` is. */
-function objectAt(t, open) {
-  const members = [];
-  let i = skipWs(t, open + 1);
-  if (t[i] === "}") return { members, close: i };
-  for (;;) {
-    // Unreachable on text that parsed as an object; it stops a broken caller from scanning forever.
-    if (t[i] !== '"') throw new Error(`no object member at offset ${i} of ${SETTINGS_REL}`);
-    const keyStart = i;
-    const keyEnd = skipString(t, i);
-    const valueStart = skipWs(t, skipWs(t, keyEnd) + 1);
-    const valueEnd = skipValue(t, valueStart);
-    members.push({ key: JSON.parse(t.slice(keyStart, keyEnd)), keyStart, valueStart, valueEnd });
-    i = skipWs(t, valueEnd);
-    if (t[i] === "}") return { members, close: i };
-    i = skipWs(t, i + 1);
-  }
-}
-
-/** The whitespace a line starts with — the indentation of whatever sits at `pos`. */
-function lineIndent(t, pos) {
-  const start = t.lastIndexOf("\n", pos - 1) + 1;
-  let end = start;
-  while (t[end] === " " || t[end] === "\t") end++;
-  return t.slice(start, end);
-}
-
-/** Insert `"name": value` as the last member of the object at `open`, in the file's own style. */
-function insertMember(t, open, name, value, style) {
-  const { members, close } = objectAt(t, open);
-  const key = JSON.stringify(name);
-  if (!members.length) {
-    const outer = lineIndent(t, open);
-    const indent = outer + style.unit;
-    const body = JSON.stringify(value, null, style.unit).split("\n").join(style.eol + indent);
-    return t.slice(0, open + 1) + style.eol + indent + `${key}: ${body}` + style.eol + outer + t.slice(close);
-  }
-  const last = members[members.length - 1];
-  const between = t.slice(open + 1, members[0].keyStart);
-  if (!between.includes("\n")) {
-    // A one-line object stays one line.
-    return t.slice(0, last.valueEnd) + `, ${key}: ${JSON.stringify(value)}` + t.slice(last.valueEnd);
-  }
-  const indent = lineIndent(t, members[0].keyStart);
-  const body = JSON.stringify(value, null, style.unit).split("\n").join(style.eol + indent);
-  return t.slice(0, last.valueEnd) + "," + style.eol + indent + `${key}: ${body}` + t.slice(last.valueEnd);
-}
+// The scanner and the text insertion are `core/json-text.js`, shared with `tools/cortex-setup.mjs`.
+// What is added, and that an entry already there is kept, is decided here.
 
 /**
  * Merge Cortex's two entries into a `.claude/settings.json` text (`null` when there is no file).
@@ -294,12 +225,8 @@ export function mergeSharedPlugin(text, { autoUpdate = false, source = DEFAULT_M
   const bom = text.startsWith("\uFEFF") ? "\uFEFF" : "";
   let t = text.slice(bom.length);
   const root = skipWs(t, 0);
-  const first = objectAt(t, root).members[0];
-  const style = {
-    eol: t.includes("\r\n") ? "\r\n" : "\n",
-    // The file's own indent unit, read off its first top-level member; two spaces for a file with none.
-    unit: first && t.slice(root + 1, first.keyStart).includes("\n") ? lineIndent(t, first.keyStart) || "  " : "  ",
-  };
+  // The file's own line ending and indent unit; two spaces for a file with none.
+  const style = textStyle(t, root);
 
   const expected = structuredClone(doc);
   const added = [];
@@ -309,14 +236,9 @@ export function mergeSharedPlugin(text, { autoUpdate = false, source = DEFAULT_M
     if (w.present) { kept.push(id); continue; }
     added.push(id);
     const value = valueFor(w, autoUpdate);
-    const top = objectAt(t, root).members.filter((m) => m.key === w.key).pop();
-    if (top) {
-      expected[w.key][w.name] = value;
-      t = insertMember(t, top.valueStart, w.name, value, style);
-    } else {
-      expected[w.key] = { [w.name]: value };
-      t = insertMember(t, root, w.key, { [w.name]: value }, style);
-    }
+    if (own(expected, w.key)) expected[w.key][w.name] = value;
+    else expected[w.key] = { [w.name]: value };
+    t = insertUnder(t, root, w.key, w.name, value, style);
   }
 
   // The text edit is trusted only once the parser agrees it is exactly the intended merge.

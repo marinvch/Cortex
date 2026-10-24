@@ -1,0 +1,27 @@
+# A user's Codex config, with the shapes the scanner must read past.
+model = "gpt-5"
+approval_policy = "on-request"
+notes = """
+a multi-line string with [brackets] and "quotes" and a # that is not a comment
+"""
+
+[mcp_servers.context7]
+command = "npx"
+args = [
+  "-y",
+  "@upstash/context7-mcp", # an inline comment
+]
+
+[mcp_servers.context7.env]
+LOG = 'C:\literal\path'
+
+[projects."/home/someone/code/app"]
+trust_level = "trusted"
+
+[[profiles_list]]
+name = "fast"
+
+[mcp_servers.cortex]
+command = "node"
+args = ["@CORTEX_HOME@/mcp/server.js"]
+env = { CORTEX_ROOT = ".cortex" }

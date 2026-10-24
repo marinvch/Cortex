@@ -34,6 +34,32 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **Asks reach GitHub, ServiceNow and Jira, with two-way sync (#624).** A team picks none, one or
+  several trackers with `ai-os team init --integrations github,servicenow,jira` or later with
+  `ai-os integrations add|remove|list`. The choice goes to `team.json → integrations`, with a
+  `primary` for status (the agile tracker when one is selected, otherwise GitHub) and optional
+  `routes` per role or project. `team.json` refuses a credential, by its shape or by its key's name.
+  Credentials come from the environment only: `GITHUB_TOKEN`/`GH_TOKEN`,
+  `SERVICENOW_TOKEN` or `SERVICENOW_USER` + `SERVICENOW_PASSWORD`, `JIRA_EMAIL` + `JIRA_API_TOKEN`.
+  - The adapters live in `mcp/lib/trackers/` behind one interface (`create`, `read`, `comment`,
+    `close`) and use the global `fetch`, so there is still no dependency. A GitHub issue goes to the
+    repo in the ask's project file. A ServiceNow record goes to a configurable table (`rm_story` by
+    default) with its field and state mapping in config. A Jira issue uses REST v3, with ADF bodies
+    and a transition to close it. Each adapter's header records the vendor doc URLs and the date
+    they were checked.
+  - `ask`, `answer` and `inbox` sync the asks they touch. `ai-os sync` syncs all of them, with
+    `--dry-run` for the plan and `--status` for links stuck `pending`. Sync is idempotent: the
+    link is written before the create call, and the tracker is searched for the ask's marker before
+    anything is created, so a retry after a timeout makes no duplicate. The primary tracker wins on
+    status and the brain wins on the ask's text. Comments are de-duplicated by origin id. Each run
+    that changes anything is one commit, such as `sync: servicenow 1 updated, github 1 created`.
+  - Every text sent to a tracker and every comment pulled into the brain passes the secret gate. A
+    tracker comment carrying a credential is withheld, and the brain records only that it was.
+  - `templates/team-brain/sync.yml` is a scheduled GitHub Actions sync for the brain. Its actions
+    are pinned by SHA, and it clones Cortex at the stamping release. `team init` prints it, and
+    `--write-sync-workflow` or `ai-os integrations workflow --write` commits it.
+  - With no tracker selected, nothing but `git` touches the network, and a test proves it with a
+    `fetch` that throws. On `lab` no tracker is called. No MCP tool was added.
 - **Copilot, Gemini CLI and Codex get the same brain as Claude Code (#623).**
   `node tools/cortex-setup.mjs --agents copilot,gemini,codex` registers the Cortex MCP server in
   each agent's own config. Copilot in VS Code gets `.vscode/mcp.json` and Gemini CLI gets

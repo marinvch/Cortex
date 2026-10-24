@@ -7,8 +7,9 @@
 # and the route to approval have to be IN the message; a bare refusal teaches the user only that
 # Claude stopped.
 #
-# One thing this cannot stop: a Claude Code mod the user installed. A mod that approves tool calls
-# can approve an edit this hook blocked, unless the hook runs from managed settings.
+# One thing this may not stop: a Claude Code mod the user installed. The docs say a PreToolUse hook
+# wins over a mod only when the built-in mod guard loads, which needs managed settings or a Team or
+# Enterprise login. On a personal API-key login a mod that approves tool calls may approve past it.
 # https://code.claude.com/docs/en/plugins/mods/admin#know-what-happens-by-default
 set -uo pipefail
 

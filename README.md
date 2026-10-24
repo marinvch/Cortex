@@ -638,8 +638,11 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   you ask for it.
 - **Stamped into your repo, not run by the plugin:** `/cortex` can write GitHub Actions workflows.
   `cortex-review.yml` clones this repository, or your fork when a source is set, at a pinned
-  release tag inside your CI to review each PR; `agent-evals.yml` installs Claude Code in your CI to
-  run your eval cases. Both are files you read and commit. On a team's repo it can also add the
+  release tag inside your CI to review each PR, and refuses to run it unless its code matches the
+  digest recorded when the file was stamped, so a moved tag cannot change what runs
+  ([ADR 0028](docs/adr/0028-stamped-ci-verifies-cortex-by-content-digest.md)); `agent-evals.yml`
+  installs a pinned version of Claude Code from npm in your CI to run your eval cases. Both are
+  files you read and commit. On a team's repo it can also add the
   `cortex` marketplace to `.claude/settings.json`. Then Claude Code, not Cortex, clones
   `github.com/marinvch/Cortex`, or your fork, on each teammate's machine once they trust the
   folder. The agent team is instructions too: agent files and

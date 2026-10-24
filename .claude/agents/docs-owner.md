@@ -64,7 +64,7 @@ result bloated.
 
 ## `.sh` or `.mjs` is decided by the reader
 
-`.sh` when a *user* runs it on a machine that may not have Node — `cortex-init.sh` is curl-pipeable.
+`.sh` when a *user* runs it on a machine that may not have Node — `cortex-init.sh` runs as one self-contained file.
 `.mjs` when the script reads structured state the product already models, so it imports that model
 instead of re-deriving it. Reimplementing `core/profile.js` in bash would be a fourth copy of the
 firewall rule.

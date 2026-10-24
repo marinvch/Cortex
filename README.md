@@ -638,8 +638,11 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   you ask for it.
 - **Stamped into your repo, not run by the plugin:** `/cortex` can write GitHub Actions workflows.
   `cortex-review.yml` clones this repository, or your fork when a source is set, at a pinned
-  release tag inside your CI to review each PR; `agent-evals.yml` installs Claude Code in your CI to
-  run your eval cases. Both are files you read and commit. On a team's repo it can also add the
+  release tag inside your CI to review each PR, and refuses to run it unless its code matches the
+  digest recorded when the file was stamped, so a moved tag cannot change what runs
+  ([ADR 0028](docs/adr/0028-stamped-ci-verifies-cortex-by-content-digest.md)); `agent-evals.yml`
+  installs a pinned version of Claude Code from npm in your CI to run your eval cases. Both are
+  files you read and commit. On a team's repo it can also add the
   `cortex` marketplace to `.claude/settings.json`. Then Claude Code, not Cortex, clones
   `github.com/marinvch/Cortex`, or your fork, on each teammate's machine once they trust the
   folder. The agent team is instructions too: agent files and
@@ -658,6 +661,23 @@ Work knowledge a team shares belongs in the **work repo's own context layer**, w
 repo. Every ritual enforces this: `/capture` and `/daily` refuse the write, `/cortex-audit`
 treats a breach as a critical finding, `/scan-projects` skips repos under a work
 directory.
+
+**What code enforces on `home`, and what is still a floor.** Code refuses a published write —
+`capture`, `remember`, `ask`, `answer`, a project file, a contract — whose text matches a line of
+your **employer denylist**: a file outside every repository, `~/.cortex/employer-denylist` or the
+path in `CORTEX_DENYLIST`, one `org:`, `domain:`, `owner:`, `ticket:` (a regex such as `EXC-\d+`)
+or `pattern:` per line. The refusal names the line, never the text. With no file nothing is checked,
+and `tools/cortex-preflight.mjs` says so. Code also refuses an employer-shaped link in a project
+file. Anything you did not list — a client named in passing, a colleague, a work repo on a public
+forge — passes the code, and only the rituals' judgment stops it.
+[ADR 0026](docs/adr/0026-the-employer-firewall-checks-the-names-you-give-it.md).
+
+**Personal data.** The same gate looks for email addresses, phone numbers, IBANs and card numbers
+in anything it publishes. By default it warns and writes (`CORTEX_PII=warn`); `CORTEX_PII=refuse`
+refuses, `off` stops the scan. Committed memory is append-only, so removing personal data later
+means rewriting git history and replacing every clone: [`docs/erasure.md`](docs/erasure.md) has the
+procedure, and `CORTEX_AUTHOR=<pseudonym>` keeps your real name out of memory paths.
+[ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md).
 
 Full rule: [`templates/vault-AGENTS.md`](templates/vault-AGENTS.md) — the manual a vault carries as
 its own `AGENTS.md`.
@@ -695,7 +715,8 @@ none.
 | `cortex-version.mjs` | `--set X.Y.Z` — stamp the version at all seven sites, refuse without a changelog entry |
 | `cortex-release-notes.mjs` | `X.Y.Z` — that version's section of the changelog, for a release's notes; exit 1 if the section cannot be bounded exactly |
 | `cortex-release-plan.mjs` | `--before <sha>` — what one push to master releases: nothing, a tag that already exists, or a new release and whether it takes Latest. The release workflow acts on it; it creates nothing itself |
-| `cortex-preflight.mjs` | Root, profile and index freshness — what every ritual asks before it writes |
+| `cortex-preflight.mjs` | Root, profile, employer denylist and index freshness — what every ritual asks before it writes |
+| `cortex-scrub.mjs` | The publish gate for shell scripts: credentials, the employer denylist on `home`, personal data; `--check` exits 2 on a refusal and names only kinds |
 | `cortex-setup.mjs` | `--agents copilot,gemini,codex` — register the Cortex MCP server in each agent's own config, project scope where it can be committed; a dry run unless `--write` |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |
@@ -714,3 +735,9 @@ prompt-gate hook in `.claude/hooks/`.
 ## License
 
 MIT — see [LICENSE](LICENSE). Your notes are yours.
+
+**Files Cortex stamps into your repository are yours too**: they are granted to you under MIT-0, so
+no attribution and no notice is required, and Cortex adds no licence header to them. Rituals adapted
+from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT), and the short quotations of
+Anthropic's documentation in `core/claude-code.js` (© Anthropic, not covered by Cortex's licence),
+are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

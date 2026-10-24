@@ -132,6 +132,45 @@ this project now versions independently of any package manager (see `VERSION`).
   takes its method from the verb, and a host is read past `user:pass@`. `cortex-routes.mjs` gains
   these too. The path normal form moved to `core/route-path.js`.
 
+### Security
+
+- **On `home`, a published write that names your employer is refused.** Keep an employer denylist
+  outside every repository — `~/.cortex/employer-denylist`, or the file `CORTEX_DENYLIST` names —
+  with one `org:`, `domain:`, `owner:`, `ticket:` (a regex such as `EXC-\d+`) or `pattern:` per
+  line. `remember`, `capture`, `ask`, `answer`, project files and contracts are refused when their
+  text matches a line; the refusal names the line and its kind, never the text. `work` and `lab`
+  do not apply it. No file means no check, and `cortex-preflight.mjs` prints `denylist  empty`; a
+  `CORTEX_DENYLIST` that names no file refuses every published write until it is fixed. A bad line
+  is reported with its number and skipped. [ADR 0026](docs/adr/0026-the-employer-firewall-checks-the-names-you-give-it.md).
+- **Personal data is caught at the same gate.** Email addresses, phone numbers, IBANs (mod-97) and
+  card numbers (Luhn) in a published write produce a `warnings` sentence on the tool result, or on
+  stderr from the CLIs. `CORTEX_PII=refuse` refuses instead, `off` stops the scan. The gate is now
+  one module, `core/gate.js`, for both of its callers. [`docs/erasure.md`](docs/erasure.md) is the
+  procedure for removing personal data from committed memory's history.
+  [ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md).
+- **`tools/server/cortex-cron.sh` scrubs what leaves the server.** It used to send up to 60 KB of the
+  brain's raw diff to the Anthropic API and push the result with no gate on either. The diff now
+  passes the new `tools/cortex-scrub.mjs` (the same gate as above) before the API call, and the
+  digest before it is written and pushed; a finding stops the run with exit 3, nothing sent or
+  pushed, and the log names only the kind and line. With no scrubber available the API is not
+  called and the deterministic digest is written as before. `CORTEX_SCRUB` names the scrubber when
+  the cron script lives outside a Cortex checkout.
+- **A stamped `cortex-review.yml` verifies the Cortex it clones.** It cloned by release tag, and a
+  tag can be moved. The template gains `{{CORTEX_SHA256}}`, a digest of the `core/` and `index/` code
+  taken from the plugin at stamp time; a step after the clone recomputes it and fails the job on a
+  mismatch before anything from the clone runs. The stamp act fills it with `CORTEX_REF` (as
+  `v<VERSION>`), and a workflow stamped before is offered as an update that pins the running
+  release. [ADR 0028](docs/adr/0028-stamped-ci-verifies-cortex-by-content-digest.md).
+- **`agent-evals.yml` installs Claude Code by a pinned npm version** instead of piping
+  `claude.ai/install.sh` into bash, with the auto-updater off. `tools/README.md` no longer pipes
+  `master` into a shell; it clones a release tag.
+- **`SECURITY.md`**: supported versions, private reporting through GitHub security advisories,
+  scope, and what to expect.
+- **`THIRD_PARTY_NOTICES.md`** carries the full MIT notice of mattpocock/skills and the files that
+  adapt it, states that the quotations of Anthropic's documentation in `core/claude-code.js` are
+  © Anthropic and not under Cortex's licence, and grants the files Cortex stamps into your
+  repository under MIT-0 — no attribution required, and no header added to them.
+
 ## [2.44.1] — 2026-10-13
 
 Three commands read what they need once, and three decisions moved to where a test can reach them.

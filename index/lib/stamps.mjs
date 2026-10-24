@@ -91,6 +91,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { dirname, join, posix } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_MARKETPLACE_SOURCE, cloneUrl, connectorSource, resolveSource } from "../../core/source.js";
+import { PLUGIN_ROOT, cortexDigest } from "./cortex-digest.mjs";
 import { lineDiff } from "./linediff.mjs";
 import { placeholderMatches, renderTemplate, unfilledPlaceholders } from "./placeholders.mjs";
 
@@ -128,6 +129,34 @@ function withSource(repoRoot, templateText, values, env = process.env) {
     );
   }
   return { ...values, CORTEX_REPO: url };
+}
+
+/**
+ * `{{CORTEX_SHA256}}` (`cortex-review.yml`, docs/adr/0028) is the digest of the Cortex code the
+ * workflow will clone (`cortex-digest.mjs`), and it can only be taken of the Cortex running here. So
+ * the act fills it together with `{{CORTEX_REF}}`, as `v<this plugin's VERSION>`: a ref given by the
+ * caller for another release is refused, because its code is not on this machine to hash. A value
+ * already recorded or given is kept as it is.
+ *
+ * The same fill runs on an update of a file stamped before the placeholder existed (`moveRef`). That
+ * moves the file's recorded ref to the running release, which is the one whose template the update
+ * renders; once recorded, the pair stays as written, like every other value. Pure apart from reading
+ * this plugin's own files: no git, no network.
+ */
+function withPin(templateText, values, { moveRef = false } = {}) {
+  if (Object.hasOwn(values, "CORTEX_SHA256") || !unfilledPlaceholders(templateText, values).includes("CORTEX_SHA256")) return values;
+  const running = runningCortex();
+  if (running === null) {
+    throw new StampRefused("no_version", "this plugin's VERSION file cannot be read, so the release cortex-review.yml would pin is unknown and nothing is stamped.");
+  }
+  const ref = `v${running}`;
+  if (!moveRef && Object.hasOwn(values, "CORTEX_REF") && values.CORTEX_REF !== ref) {
+    throw new StampRefused(
+      "ref_not_running",
+      `CORTEX_REF ${values.CORTEX_REF} is not the Cortex stamping this file (${ref}). The workflow checks the code it clones against a digest of this plugin's own code, so it can only pin the release running here: stamp it with ${ref}, or from the release you want.`,
+    );
+  }
+  return { ...values, CORTEX_REF: ref, CORTEX_SHA256: cortexDigest(PLUGIN_ROOT) };
 }
 
 /** The recorded values, with each setting the template uses and the record lacks at its default. */
@@ -586,7 +615,14 @@ export function planUpdates({ repoRoot, record, templatesDir, paths = null, runn
     const templateText = readFileSync(join(templatesDir, ...e.template.split("/")), "utf8");
     const fileNow = readFileSync(join(repoRoot, ...s.path.split("/")), "utf8");
     const kept = new Set(placeholderMatches(fileNow).map((m) => m.name));
-    const values = withDefaults(templateText, e.values);
+    let values;
+    try {
+      values = withPin(templateText, withDefaults(templateText, e.values), { moveRef: true });
+    } catch (err) {
+      if (!(err instanceof StampRefused)) throw err;
+      refused.push({ path: s.path, why: err.message });
+      continue;
+    }
     const unvalued = unfilledPlaceholders(templateText, values).filter((n) => !kept.has(n));
     if (unvalued.length) {
       refused.push({
@@ -612,7 +648,14 @@ export function stampDiff({ repoRoot, record, templatesDir, path }) {
   const templateText = readIfFile(join(templatesDir, ...e.template.split("/")));
   if (templateText === null) return { path, state: s.state, diff: null };
   const fileText = readIfFile(join(repoRoot, ...path.split("/"))) ?? "";
-  return { path, state: s.state, diff: lineDiff(fileText, renderTemplate(templateText, withDefaults(templateText, e.values))) };
+  // The values an update would render with, pin included, so the diff shows what it would write.
+  let values = withDefaults(templateText, e.values);
+  try {
+    values = withPin(templateText, values, { moveRef: true });
+  } catch (err) {
+    if (!(err instanceof StampRefused)) throw err;
+  }
+  return { path, state: s.state, diff: lineDiff(fileText, renderTemplate(templateText, values)) };
 }
 
 // --- the stamp act -------------------------------------------------------------------------------
@@ -657,7 +700,7 @@ export function stampFile({ repoRoot, templatesDir, path, template, values = {},
   const templateText = readIfFile(join(templatesDir, ...template.split("/")));
   if (templateText === null) throw new StampRefused("no_template", `no template ${template} in ${templatesDir}`);
 
-  values = withSource(repoRoot, templateText, values);
+  values = withPin(templateText, withSource(repoRoot, templateText, values));
   const before = readStamps(repoRoot);
   const text = renderTemplate(templateText, values);
   const at = join(repoRoot, ...path.split("/"));

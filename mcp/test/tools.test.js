@@ -5,9 +5,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { policyFor } from "../../core/profile.js";
 import {
   TOOL_TABLE, toolsFor, assertAvailable, assertWellFormed, assertPublishable,
   REPO, VAULT, ANY, FOREIGN, OWN, LOCAL, PUBLISHED, UNTRUSTED_NOTE,
@@ -165,6 +167,42 @@ test("every tool that publishes refuses a credential", () => {
     );
     assert.doesNotThrow(() => assertPublishable(t.name, { content: "an ordinary note" }), t.name);
   }
+});
+
+// The employer denylist (core/denylist.js, docs/adr/0026). Its own HOME, so no run reads the
+// machine's denylist; the names are invented.
+function denylistHome() {
+  const home = mkdtempSync(join(tmpdir(), "cortex-tools-deny-"));
+  mkdirSync(join(home, ".cortex"));
+  writeFileSync(join(home, ".cortex", "employer-denylist"), "org: Example Corp\n");
+  return { HOME: home, USERPROFILE: home, CORTEX_PII: "off" };
+}
+
+test("on home, every tool that publishes refuses an employer denylist match; on work and lab none does", () => {
+  const env = denylistHome();
+  try {
+    for (const t of TOOL_TABLE.filter((x) => x.writes === PUBLISHED)) {
+      assert.throws(
+        () => assertPublishable(t.name, { content: "Example Corp standup" }, { policy: policyFor("home"), env }),
+        (e) => e.code === "employer_denylist" && !e.message.includes("Example Corp"),
+        t.name,
+      );
+      for (const p of ["work", "lab"]) {
+        assert.deepEqual(assertPublishable(t.name, { content: "Example Corp standup" }, { policy: policyFor(p), env }), { warnings: [] }, `${t.name} on ${p}`);
+      }
+    }
+    // A field in alsoPublishes passes the same gate: an ask's title is published beside its body.
+    assert.throws(() => assertPublishable("ask", { content: "fine", title: "Example Corp" }, { policy: policyFor("home"), env }), /employer denylist/);
+  } finally {
+    rmSync(env.HOME, { recursive: true, force: true });
+  }
+});
+
+test("personal data in warn mode passes and comes back as a warning for the result", () => {
+  const mail = ["jane.roe", "mailhost.dev"].join("@");
+  const r = assertPublishable("capture", { content: `ask ${mail}` }, { policy: policyFor("work"), env: { CORTEX_PII: "warn", CORTEX_DENYLIST: "", HOME: tmpdir() } });
+  assert.equal(r.warnings.length, 1);
+  assert.match(r.warnings[0], /email address/);
 });
 
 test("the declaration decides, not the content — a local tool is not scanned", () => {

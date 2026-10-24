@@ -10,6 +10,7 @@ import {
 } from "../lib/stamps.mjs";
 import { LOOP_STAMPS } from "../lib/loop.mjs";
 import { lineDiff } from "../lib/linediff.mjs";
+import { PLUGIN_ROOT, cortexDigest } from "../lib/cortex-digest.mjs";
 import { tempDir } from "./tmp.mjs";
 
 // A target repo and a templates directory, both on disk, each file stated by the test. Every state
@@ -707,12 +708,23 @@ test("a recorded setting outranks its default, and a setting does not excuse ano
   assert.doesNotMatch(plan.refused[0].why, /DEBATE_ROUNDS/);
 });
 
-test("cortex-review.yml stamped before {{CORTEX_REPO}} existed updates to the same bytes, and records upstream (#622)", () => {
+// The template as it shipped before the digest pin (docs/adr/0028): no CORTEX_SHA256 line and no
+// verify step. Built from today's template so the test follows it rather than a frozen copy.
+function withoutPin(template) {
+  const out = template
+    .replace('      CORTEX_SHA256: "{{CORTEX_SHA256}}"\n', "")
+    .replace(/ {6}# Nothing from the clone runs before this[\s\S]*?' "\$RUNNER_TEMP\/cortex"\n/, "");
+  assert.ok(!out.includes("{{CORTEX_SHA256}}") && !out.includes("Verify Cortex"), "the pin was stripped");
+  return out;
+}
+const PINNED_REF = `v${runningCortex()}`;
+
+test("cortex-review.yml stamped before {{CORTEX_REPO}} existed keeps its upstream URL on update, and records it (#622)", () => {
   const UPSTREAM = "https://github.com/marinvch/Cortex.git";
   assert.equal(VALUE_DEFAULTS.CORTEX_REPO, UPSTREAM);
   const now = readFileSync(join(TEMPLATES_DIR, "loop", "cortex-review.yml"), "utf8");
   // The template as it shipped before #622: the URL written in, CORTEX_REF the only placeholder.
-  const before = now.replace("{{CORTEX_REPO}}", UPSTREAM);
+  const before = withoutPin(now).replace("{{CORTEX_REPO}}", UPSTREAM);
   assert.notEqual(before, now);
   const file = before.replace("{{CORTEX_REF}}", "v2.44.1");
   const w = world({ files: { ".github/workflows/cortex-review.yml": file }, templates: { "loop/cortex-review.yml": before } });
@@ -720,7 +732,8 @@ test("cortex-review.yml stamped before {{CORTEX_REPO}} existed updates to the sa
     path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml", version: RUNNING,
     templateText: before, fileText: file, values: { CORTEX_REF: "v2.44.1" },
   });
-  w.putTemplate("loop/cortex-review.yml", now);
+  // Today's template minus the pin: the #622 property alone, the URL default giving the old bytes.
+  w.putTemplate("loop/cortex-review.yml", withoutPin(now));
   const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
   assert.deepEqual(plan.refused, []);
   assert.equal(plan.updates[0].text, file, "the old workflow, byte for byte");
@@ -730,7 +743,7 @@ test("cortex-review.yml stamped before {{CORTEX_REPO}} existed updates to the sa
   const fork = world({ templates: { "loop/cortex-review.yml": now } });
   const done = stampFile({
     repoRoot: fork.repoRoot, templatesDir: fork.templatesDir, path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml",
-    values: { CORTEX_REF: "v2.44.1", CORTEX_REPO: "https://github.com/acme/cortex.git" }, version: RUNNING,
+    values: { CORTEX_REF: PINNED_REF, CORTEX_REPO: "https://github.com/acme/cortex.git" }, version: RUNNING,
   });
   assert.deepEqual(done.unfilled, []);
   assert.equal(readStamps(fork.repoRoot).files[".github/workflows/cortex-review.yml"].values.CORTEX_REPO, "https://github.com/acme/cortex.git");
@@ -742,7 +755,7 @@ test("stampFile fills CORTEX_REPO from the connector's source, upstream by defau
   const now = readFileSync(join(TEMPLATES_DIR, "loop", "cortex-review.yml"), "utf8");
   const stampReview = (w) => stampFile({
     repoRoot: w.repoRoot, templatesDir: w.templatesDir, path: ".github/workflows/cortex-review.yml",
-    template: "loop/cortex-review.yml", values: { CORTEX_REF: "v2.44.1" }, version: RUNNING,
+    template: "loop/cortex-review.yml", values: { CORTEX_REF: PINNED_REF }, version: RUNNING,
   });
   const saved = process.env.CORTEX_SOURCE;
   delete process.env.CORTEX_SOURCE;
@@ -763,6 +776,62 @@ test("stampFile fills CORTEX_REPO from the connector's source, upstream by defau
     if (saved === undefined) delete process.env.CORTEX_SOURCE;
     else process.env.CORTEX_SOURCE = saved;
   }
+});
+
+// --- the digest pin: CORTEX_SHA256 and CORTEX_REF, filled by the act (docs/adr/0028) -----------------
+
+test("stampFile pins cortex-review.yml to the running release and its code digest, and records both", () => {
+  const now = readFileSync(join(TEMPLATES_DIR, "loop", "cortex-review.yml"), "utf8");
+  const w = world({ templates: { "loop/cortex-review.yml": now } });
+  const done = stampFile({ repoRoot: w.repoRoot, templatesDir: w.templatesDir, path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml", values: {}, version: RUNNING });
+  assert.deepEqual(done.unfilled, []);
+  const values = readStamps(w.repoRoot).files[".github/workflows/cortex-review.yml"].values;
+  assert.equal(values.CORTEX_REF, PINNED_REF, "the ref is the release doing the stamping");
+  assert.equal(values.CORTEX_SHA256, cortexDigest(PLUGIN_ROOT), "the digest is this plugin's own code");
+  assert.match(values.CORTEX_SHA256, /^[0-9a-f]{64}$/);
+  const text = readFileSync(join(w.repoRoot, ".github", "workflows", "cortex-review.yml"), "utf8");
+  assert.match(text, new RegExp(`CORTEX_SHA256: "${values.CORTEX_SHA256}"\\n`));
+  assert.equal(readStamps(w.repoRoot).files[".github/workflows/cortex-review.yml"].renderable, true, "the pin is a value, so the file re-renders");
+});
+
+test("a CORTEX_REF for another release is refused: its code is not here to hash", () => {
+  const now = readFileSync(join(TEMPLATES_DIR, "loop", "cortex-review.yml"), "utf8");
+  const w = world({ templates: { "loop/cortex-review.yml": now } });
+  assert.throws(
+    () => stampFile({ repoRoot: w.repoRoot, templatesDir: w.templatesDir, path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml", values: { CORTEX_REF: "v0.0.1" }, version: RUNNING }),
+    (e) => e instanceof StampRefused && e.code === "ref_not_running" && e.message.includes(PINNED_REF),
+  );
+  assert.equal(existsSync(join(w.repoRoot, ".github", "workflows", "cortex-review.yml")), false, "nothing written");
+});
+
+test("a cortex-review.yml stamped before the pin is offered as an update that pins the running release", () => {
+  const UPSTREAM = "https://github.com/marinvch/Cortex.git";
+  const now = readFileSync(join(TEMPLATES_DIR, "loop", "cortex-review.yml"), "utf8");
+  const before = withoutPin(now);
+  const values = { CORTEX_REF: "v2.44.1", CORTEX_REPO: UPSTREAM };
+  const file = before.replace("{{CORTEX_REF}}", values.CORTEX_REF).replace("{{CORTEX_REPO}}", UPSTREAM);
+  const w = world({ files: { ".github/workflows/cortex-review.yml": file }, templates: { "loop/cortex-review.yml": before } });
+  const record = recordStamp(null, { path: ".github/workflows/cortex-review.yml", template: "loop/cortex-review.yml", version: RUNNING, templateText: before, fileText: file, values });
+  w.putTemplate("loop/cortex-review.yml", now);
+
+  assert.equal(stampStatus({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir })[0].state, "update", "untouched, template moved: an update");
+  const plan = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record, templatesDir: w.templatesDir });
+  assert.deepEqual(plan.refused, [], "not refused for a placeholder no recorded value fills");
+  const u = plan.updates[0];
+  assert.deepEqual(u.values, { CORTEX_REF: PINNED_REF, CORTEX_REPO: UPSTREAM, CORTEX_SHA256: cortexDigest(PLUGIN_ROOT) });
+  assert.doesNotMatch(u.text, /\{\{CORTEX_/, "every Cortex placeholder is filled");
+  assert.match(u.text, /Verify Cortex is the code that was stamped/);
+  // What the per-file question shows is what the update writes.
+  const d = stampDiff({ repoRoot: w.repoRoot, record, templatesDir: w.templatesDir, path: ".github/workflows/cortex-review.yml" });
+  assert.ok(d.diff.includes(`CORTEX_SHA256: "${u.values.CORTEX_SHA256}"`), "the diff shows the pin the update writes");
+
+  // Once recorded, the pair is kept as written, like every other value: a later template change
+  // re-renders with the same ref and digest.
+  const next = recordStamp(record, { path: u.path, template: u.template, version: RUNNING, templateText: u.templateText, fileText: u.text, values: u.values });
+  writeFileSync(join(w.repoRoot, ".github", "workflows", "cortex-review.yml"), u.text);
+  w.putTemplate("loop/cortex-review.yml", now + "# a later comment\n");
+  const later = planUpdates({ running: RUNNING, repoRoot: w.repoRoot, record: next, templatesDir: w.templatesDir });
+  assert.deepEqual(later.updates[0].values, u.values);
 });
 
 // --- the stamp act: render, write and record as one call ----------------------------------------------

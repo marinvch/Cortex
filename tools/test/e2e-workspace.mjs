@@ -570,6 +570,9 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
   // $CORTEX pointed at this checkout — the release the workflow would have cloned.
   const { parseYaml } = await import(pathToFileURL(join(REPO_ROOT, "index", "test", "yaml-lite.mjs")).href);
   const version = readFileSync(join(REPO_ROOT, "VERSION"), "utf8").trim();
+  // The digest the stamp act pins (docs/adr/0028), of this checkout — the code $CORTEX points at.
+  const { cortexDigest } = await import(pathToFileURL(join(REPO_ROOT, "index", "lib", "cortex-digest.mjs")).href);
+  const digest = cortexDigest(REPO_ROOT);
   const reviewWorkflow = (dir) => {
     const wf = join(dir, ".github", "workflows");
     if (!existsSync(wf)) return null;
@@ -590,7 +593,8 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
         // Upstream's clone URL, the default source (core/source.js); a fork stamps its own.
         const body = readFileSync(join(REPO_ROOT, "templates", "loop", "cortex-review.yml"), "utf8")
           .replaceAll("{{CORTEX_REF}}", `v${version}`)
-          .replaceAll("{{CORTEX_REPO}}", "https://github.com/marinvch/Cortex.git");
+          .replaceAll("{{CORTEX_REPO}}", "https://github.com/marinvch/Cortex.git")
+          .replaceAll("{{CORTEX_SHA256}}", digest);
         writeFileSync(wfPath, body);
         git(r.clone, ["add", "--", ".github/workflows/cortex-review.yml"]);
         git(r.clone, ["commit", "-q", "-m", "Stamp cortex-review.yml", "--", ".github/workflows/cortex-review.yml"]);

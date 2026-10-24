@@ -12,7 +12,8 @@ the reason the rules below have to be written down: the layering test will not c
 ## `.sh` or `.mjs` — decided by the reader, not by taste
 
 - **`.sh`** when a *user* runs it on a machine that may not have Node. `cortex-init.sh` is
-  curl-pipeable into any repo; that is the whole reason it exists in bash.
+  one self-contained file that runs in any repo; that is the whole reason it exists in bash. The
+  docs show it run from a tagged clone, never piped from `master` (SECURITY.md).
 - **`.mjs`** when the script reads structured state the product already models — the version sites,
   the capability floors, the profile policy. It imports that model instead of re-deriving it.
   `cortex-preflight.mjs` is the clearest case: reimplementing `core/profile.js` in bash would be a
@@ -41,7 +42,9 @@ gets user scope instead.
 
 Five rules exist in more than one place **on purpose**, because the files needing them cannot share
 code. `cortex-init.sh` is a zero-dependency installer copied into other repos and parses no JSON.
-`tools/server/cortex-cron.sh` lands on a server beside only `server-setup.sh`. The viewer's slug runs
+`tools/server/cortex-cron.sh` lands on a server beside only `server-setup.sh` (it reaches
+`tools/cortex-scrub.mjs` by path, or `CORTEX_SCRUB`, and skips the API call when neither is there —
+never a bash copy of the gate). The viewer's slug runs
 in a browser. Each hook template is stamped alone into a repo that has no library to source.
 
 | Rule | Copies | Pinned by |

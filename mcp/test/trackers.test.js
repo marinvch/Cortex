@@ -267,6 +267,24 @@ test("ask --to backend files one GitHub issue and one ServiceNow story; closing 
   assert.equal(mine.assignee, "Jane Doe");
 });
 
+test("on a home profile, a tracker comment naming a denylisted employer is withheld like a credential", async () => {
+  const sn = await track(mockServiceNow());
+  const remote = brainRemote({ integrations: [{ kind: "servicenow", instance: sn.url }] });
+  const repoA = productRepo("web-a", remote);
+  const sent = await askFrom(brainIn(repoA), { to: "backend", content: "Which version of the orders API?" }, ctx(repoA));
+  sn.humanNote(sn.records[0].sys_id, "jane.doe", "Initech's gateway team owns that one");
+
+  const list = join(tempDir("trk-deny-"), "employer-denylist");
+  writeFileSync(list, "org: Initech\n");
+  const root = tempDir("trk-homeroot-");
+  const home = openBrain({ cwd: root, env: { CORTEX_ROOT: root, CORTEX_PROFILE: "home" } });
+  const run = await syncFrom(home, { clone: ciCheckout(remote) }, { env: creds({ CORTEX_DENYLIST: list }), today: TODAY });
+  assert.equal(run.committed, true, JSON.stringify(run));
+  const note = remoteAsk(remote, sent.id).comments.find((c) => c.kind === "servicenow");
+  assert.match(note.text, /^\(withheld: this servicenow comment was refused by the publish gate \(employer_denylist\)/);
+  assert.ok(!git(remote, "log", "-p", "--all").includes("Initech"), "the employer's name never reached the brain");
+});
+
 test("an answer in the brain is posted to every tracker and closes them; a comment comes back once", async () => {
   const gh = await track(mockGitHub());
   const sn = await track(mockServiceNow());

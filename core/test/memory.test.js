@@ -498,3 +498,49 @@ test("append names the root it was given when it refuses", () => {
   const repo = tempDir("cortex-mem-");
   assert.throws(() => append(repo, "x", { date: DAY, ...DEV_A }), (e) => e.message.includes(repo));
 });
+
+// --- the employer denylist and personal data (core/gate.js, docs/adr/0026, docs/adr/0027) ---------
+
+/** An environment whose HOME holds this denylist, so no run reads the machine's own. */
+function denylistEnv(extra = {}) {
+  const home = tempDir("cortex-mem-home-");
+  mkdirSync(join(home, ".cortex"), { recursive: true });
+  writeFileSync(join(home, ".cortex", "employer-denylist"), "org: Example Corp\nticket: EXC-\\d+\n");
+  return { HOME: home, USERPROFILE: home, ...extra };
+}
+
+test("on home, an entry matching the employer denylist is refused before anything touches the disk", () => {
+  const root = cortexRoot();
+  const env = denylistEnv();
+  assert.throws(() => append(root, "EXC-12 is blocked on review", { ...DEV_A, env, date: DAY }), (e) => {
+    assert.equal(e.code, "employer_denylist");
+    assert.ok(e instanceof RefusedWriteError);
+    assert.ok(!e.message.includes("EXC-12"));
+    return true;
+  });
+  assert.deepEqual(tree(root), [], "a refused write leaves no memory/ and no day directory");
+});
+
+test("on work and lab the denylist does not apply: work expects employer material, lab publishes nothing", () => {
+  for (const profile of ["work", "lab"]) {
+    const r = append(cortexRoot(), "Example Corp kickoff notes", { ...DEV_A, env: denylistEnv({ CORTEX_PROFILE: profile }), date: DAY });
+    assert.equal(r.layout, "author", profile);
+  }
+});
+
+test("personal data is written with a warning by default, and refused under CORTEX_PII=refuse", () => {
+  const mail = ["jane.roe", "mailhost.dev"].join("@");
+  const r = append(cortexRoot(), `ask ${mail} about the cut-over`, { ...DEV_A, env: denylistEnv(), date: DAY });
+  assert.equal(r.warnings.length, 1);
+  assert.match(r.warnings[0], /email address \(line 1\)/);
+  assert.ok(!r.warnings[0].includes(mail));
+
+  const root = cortexRoot();
+  assert.throws(() => append(root, `ask ${mail}`, { ...DEV_A, env: denylistEnv({ CORTEX_PII: "refuse" }), date: DAY }), (e) => e.code === "personal_data");
+  assert.deepEqual(tree(root), []);
+});
+
+test("a clean entry carries no warnings field", () => {
+  const r = append(cortexRoot(), "the build is green", { ...DEV_A, env: denylistEnv(), date: DAY });
+  assert.equal(r.warnings, undefined);
+});

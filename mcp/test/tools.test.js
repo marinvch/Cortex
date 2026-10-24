@@ -26,10 +26,10 @@ test("every tool declares a mode, exactly once", () => {
 });
 
 test("the advertised list is exactly the tools that run in that mode", () => {
-  assert.deepEqual(toolsFor(true).map((t) => t.name).sort(), ["recall", "recall_memory", "remember"]);
+  assert.deepEqual(toolsFor(true).map((t) => t.name).sort(), ["answer", "ask", "inbox", "recall", "recall_memory", "remember"]);
   assert.deepEqual(
     toolsFor(false).map((t) => t.name).sort(),
-    ["capture", "catch_me_up", "get_project_context", "list_projects", "recall"],
+    ["answer", "ask", "capture", "catch_me_up", "get_project_context", "inbox", "list_projects", "recall"],
   );
 });
 
@@ -128,6 +128,20 @@ test("a publishing row must carry its payload in `content` — the field the gat
   assert.throws(() => assertWellFormed([{ ...row, inputSchema: { type: "object", properties: { body: { type: "string" } } } }]), /payload must be the `content` argument/);
   assert.throws(() => assertWellFormed([{ ...row, inputSchema: {} }]), /payload must be the `content` argument/);
   assert.doesNotThrow(() => assertWellFormed([{ ...row, inputSchema: { type: "object", properties: { content: { type: "string" } } } }]));
+});
+
+test("a field named in alsoPublishes is gated too, and must be one the schema takes", () => {
+  // An ask's title and links are written into the same pushed file as its question.
+  const ask = TOOL_TABLE.find((t) => t.name === "ask");
+  assert.deepEqual(ask.alsoPublishes, ["title", "links"]);
+  assert.throws(() => assertPublishable("ask", { content: "fine", title: `key ${FAKE_AWS_KEY}` }), /AWS access key id/);
+  assert.throws(() => assertPublishable("ask", { content: "fine", links: ["https://example.com", `?k=${FAKE_AWS_KEY}`] }), /AWS access key id/);
+  assert.doesNotThrow(() => assertPublishable("ask", { content: "fine", title: "t", links: ["https://example.com"] }));
+
+  const row = { name: "t", mode: ANY, returns: OWN, description: "d", writes: PUBLISHED, inputSchema: { type: "object", properties: { content: { type: "string" } } } };
+  assert.throws(() => assertWellFormed([{ ...row, alsoPublishes: ["title"] }]), /alsoPublishes names `title`/);
+  assert.throws(() => assertWellFormed([{ ...row, writes: LOCAL, alsoPublishes: ["content"] }]), /alsoPublishes needs writes: published/);
+  for (const t of toolsFor(true).concat(toolsFor(false))) assert.equal("alsoPublishes" in t, false, "our own field never reaches the client");
 });
 
 test("every tool that publishes refuses a credential", () => {

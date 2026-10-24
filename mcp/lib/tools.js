@@ -93,6 +93,18 @@ export const TOOL_TABLE = [
   { name: "catch_me_up", mode: VAULT, returns: FOREIGN, writes: LOCAL,
     description: `Assemble notes + team-brain git history since <since> as raw material for the agent to summarize. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: { project: { type: "string" }, since: { type: "string" }, team: { type: "string", description: "Override the team-brain to read. Defaults to the connected team." } }, required: ["project", "since"] } },
+
+  // Asks between roles across repos (#620). They run in either mode because the plugin install is a
+  // repo-mode server, and they need a team: on a solo brain they refuse naming /team-add.
+  { name: "ask", mode: ANY, returns: OWN, writes: PUBLISHED, alsoPublishes: ["title", "links"],
+    description: "Send a question to a role (backend, architect…) or a project in the team-brain; the member who holds it sees it in their `inbox`. Commits and pushes `asks/<id>.md`. A `to` nobody holds is refused with the roles and projects that exist.",
+    inputSchema: { type: "object", properties: { to: { type: "string", description: "A role some member holds, or a project slug." }, content: { type: "string", description: "The question." }, title: { type: "string" }, links: { type: "array", items: { type: "string" }, description: "A spec, a PR or a page the question is about." } }, required: ["to", "content"] } },
+  { name: "inbox", mode: ANY, returns: FOREIGN, writes: LOCAL,
+    description: `Open asks addressed to your roles or projects, and the answers to asks you sent. Pulls the team-brain first. Call it at the start of a task. ${UNTRUSTED_NOTE}`,
+    inputSchema: { type: "object", properties: {} } },
+  { name: "answer", mode: ANY, returns: OWN, writes: PUBLISHED,
+    description: "Reply to an ask by id and set its status (answered by default; decided or wontfix). The asker's next `inbox` shows it. Commits and pushes.",
+    inputSchema: { type: "object", properties: { id: { type: "string" }, content: { type: "string", description: "The answer. Link the PR or ADR that settles it." }, status: { type: "string", enum: ["answered", "decided", "wontfix"] } }, required: ["id", "content"] } },
 ];
 
 const runsHere = (mode, repoMode) => mode === ANY || (repoMode ? mode === REPO : mode === VAULT);
@@ -107,7 +119,7 @@ const runsHere = (mode, repoMode) => mode === ANY || (repoMode ? mode === REPO :
 export function toolsFor(repoMode) {
   return TOOL_TABLE
     .filter((t) => runsHere(t.mode, repoMode))
-    .map(({ mode, returns, writes, ...descriptor }) => descriptor);
+    .map(({ mode, returns, writes, alsoPublishes, ...descriptor }) => descriptor);
 }
 
 /**
@@ -164,7 +176,15 @@ export function assertPublishable(name, args) {
   if (tool.writes !== PUBLISHED) return;
   // `content` and not a scan of every argument: `assertWellFormed` refuses a publishing row that
   // does not take its payload there, so this cannot silently miss the field that gets written.
-  assertWritable(args?.content ?? "");
+  //
+  // `alsoPublishes` names the other arguments a row writes into the same published file — an ask's
+  // title and links sit in its frontmatter — so they pass the same gate rather than riding past it.
+  const extra = (tool.alsoPublishes ?? []).flatMap((k) => {
+    const v = args?.[k];
+    if (Array.isArray(v)) return v.map((x) => String(x));
+    return v === undefined || v === null ? [] : [String(v)];
+  });
+  assertWritable([args?.content ?? "", ...extra].join("\n"));
 }
 
 /**
@@ -183,6 +203,11 @@ export function assertWellFormed(table) {
     // close, wearing a different field name.
     if (t.writes === PUBLISHED && !t.inputSchema?.properties?.content) {
       throw new Error(`tool ${t.name}: publishes, so its payload must be the \`content\` argument — that is what the gate reads`);
+    }
+    // A field named here that the schema does not take would be a gate on nothing.
+    for (const k of t.alsoPublishes ?? []) {
+      if (t.writes !== PUBLISHED) throw new Error(`tool ${t.name}: alsoPublishes needs writes: published`);
+      if (!t.inputSchema?.properties?.[k]) throw new Error(`tool ${t.name}: alsoPublishes names \`${k}\`, which its schema does not take`);
     }
     // Stating the boundary once and appending it is what keeps seven copies from drifting apart;
     // this is what keeps a new foreign tool from shipping with none of them.

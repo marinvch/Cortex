@@ -84,7 +84,7 @@ const isDir = (p) => {
  * @param {{ cwd: string, env: Record<string,string|undefined> }} ctx
  * @returns {{
  *   root: string, mode: string, isRepo: boolean,
- *   audience: string, team: string|null, teamClone: string|null, project: string|null,
+ *   audience: string, team: string|null, teamClone: string|null, project: string|null, teamBrainRepo: string|null,
  *   profile: string, policy: object,
  *   sources: { audience: string, profile: string, root: string },
  *   notices: string[],
@@ -126,6 +126,8 @@ export function openBrain({ cwd, env }) {
     // The project this checkout is in the team-brain, from the connector — the default for a capture
     // or catch-up that names none, so an agent in a connected repo does not have to know it.
     project: located.project ?? null,
+    // The connector's `teamBrainRepo`: where a missing clone is cloned from on first use (#620).
+    teamBrainRepo: located.teamBrainRepo ?? null,
 
     profile: world.profile,
     // The policy object, not a copy of its fields: `lab` refusing nothing and publishing nothing is

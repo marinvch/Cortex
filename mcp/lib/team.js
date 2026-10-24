@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { parseSource } from "../../core/source.js";
+import { ensureGitignored } from "../../core/gitignore.js";
 import { ensureIdentity, teamCloneDir } from "./gitsync.js";
 
 function git(cwd, args) {
@@ -57,6 +58,47 @@ export function cloneTeamBrain(root, name, repo) {
   mkdirSync(dirname(dir), { recursive: true });
   execFileSync("git", ["clone", "-q", repo, dir], { stdio: ["ignore", "pipe", "pipe"] });
   return { dir, cloned: true };
+}
+
+/** The line written above `.cortex/team/` in a product repo's `.gitignore`. */
+export const CLONE_MARKER = "# Cortex — a team-brain clone, re-cloned on first use. Not this repo's code.";
+
+export class NoTeamError extends Error {
+  constructor(tool) {
+    super(`${tool} needs a team-brain, and this brain is not joined to one. Run /team-add in this repo to join.`);
+    this.name = "NoTeamError";
+    this.code = "no_team";
+  }
+}
+
+/**
+ * The team-brain clone this brain reads and writes, cloned on first use (#620, design R7).
+ *
+ * In repo mode the clone sits inside the product repo, at `.cortex/team/<team>/`, and a nested
+ * clone the repo does not ignore shows up in `git status` as an embedded repository someone will
+ * one day `git add`. So `.cortex/team/` is ignored before the clone is made — the guarantee attaches
+ * to the act (ADR 0016), and it is checked on every call, so a clone made before this existed is
+ * covered the first time an ask tool runs. `core/gitignore.js` writes the line; `index/` uses the
+ * same function for its generated directories.
+ *
+ * Cloning is inbound, so it happens on every profile; publishing is what `lab` seals.
+ *
+ * @param {{ team: string|null, teamClone: string|null, teamBrainRepo: string|null, root: string, isRepo: boolean }} brain
+ * @param {string} tool  the tool or command asking, for the refusal
+ * @returns {{ dir: string, cloned: boolean, ignored: string[] }}
+ */
+export function ensureTeamClone(brain, tool) {
+  if (!brain.team || !brain.teamClone) throw new NoTeamError(tool);
+  const ignored = brain.isRepo ? ensureGitignored(dirname(brain.root), [".cortex/team/"], CLONE_MARKER) : [];
+  if (existsSync(join(brain.teamClone, ".git"))) return { dir: brain.teamClone, cloned: false, ignored };
+  if (!brain.teamBrainRepo) {
+    throw Object.assign(
+      new Error(`${tool}: there is no team-brain clone at ${brain.teamClone}, and the connector names no teamBrainRepo to clone. Run /team-add in this repo again.`),
+      { code: "no_clone" },
+    );
+  }
+  const { dir } = cloneTeamBrain(brain.root, brain.team, brain.teamBrainRepo);
+  return { dir, cloned: true, ignored };
 }
 
 export function seedTeamBrain(cloneDir, { name, projects = [], source = null }) {

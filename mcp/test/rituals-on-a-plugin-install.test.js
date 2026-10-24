@@ -401,6 +401,25 @@ test("/team-add's command registers the project when the checkout has an origin"
   assert.ok(existsSync(join(f.proj, ".cortex", "connector.json")));
 });
 
+test("/team-add's member command writes the joining member's roles into team.json from a plugin install", () => {
+  const f = fixture();
+  const vault = join(f.base, "vault");
+  mkdirSync(vault, { recursive: true });
+  const remote = join(f.base, "team-brain.git");
+  execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
+  const { found } = commandsIn("team-add");
+  const join_ = argvOf(found[0], f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
+  assert.equal(run(f, join_, { cwd: f.proj, env: { CORTEX_ROOT: vault } }).status, 0);
+
+  const member = found.find((c) => / team member /.test(c));
+  assert.ok(member, "the skill must name `ai-os team member`");
+  const argv = argvOf(member, f.pluginRoot, { "<role,role>": "backend", "<slug,slug>": "product" });
+  const r = run(f, argv, { cwd: f.proj, env: { CORTEX_ROOT: vault, CORTEX_AUTHOR: "dev-a" } });
+  assert.equal(r.status, 0, r.stderr);
+  const doc = JSON.parse(readFileSync(join(vault, "team", "core", "team.json"), "utf8"));
+  assert.deepEqual(doc.members, [{ handle: "dev-a", roles: ["backend"], projects: ["product"] }]);
+});
+
 test("/team-add names the removal command, and it runs from the plugin root", () => {
   const { text, found } = commandsIn("team-add");
   const remove = found.find((c) => / project remove /.test(c));

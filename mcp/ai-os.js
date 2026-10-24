@@ -199,7 +199,7 @@ async function cmdAsk(args, brain) {
     title: typeof args.title === "string" ? args.title : undefined,
     links: typeof args.links === "string" ? args.links.split(",").map((s) => s.trim()).filter(Boolean) : [],
   };
-  assertPublishable("ask", a);
+  for (const w of assertPublishable("ask", a, { policy: brain.policy, env: process.env }).warnings) console.error(w);
   const res = await askFrom(brain, a, { env: process.env, cwd: process.cwd(), id: genNoteId(), today: stamp() });
   console.log(`Ask ${res.id} sent to ${res.toKind} '${res.to}' — ${describePublish(res, brain)}.`);
   console.log(res.path);
@@ -232,7 +232,7 @@ async function cmdInbox(args, brain) {
 async function cmdAnswer(args, brain) {
   if (typeof args.id !== "string" || typeof args.body !== "string" || args.status === true) throw new Error(ANSWER_USAGE);
   const a = { id: args.id, content: args.body, status: typeof args.status === "string" ? args.status : undefined };
-  assertPublishable("answer", a);
+  for (const w of assertPublishable("answer", a, { policy: brain.policy, env: process.env }).warnings) console.error(w);
   const res = await answerFrom(brain, a, { env: process.env, cwd: process.cwd(), today: stamp() });
   console.log(`Answered ${res.id} (${res.status}) — ${describePublish(res, brain)}.`);
   if (res.sync) console.log(describeSync(res.sync, brain));

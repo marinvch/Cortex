@@ -60,7 +60,19 @@ async function callTool(name, args) {
   // machine. `remember` was gated in core/memory.js and `capture` — which commits and PUSHES to a
   // shared remote on a team — was not, because that gate was a convention callers applied rather
   // than the only way through. Refuses, never sanitises (core/scrub.js).
-  assertPublishable(name, args);
+  //
+  // The profile comes off the brain, opened once above, so the employer denylist (core/denylist.js)
+  // applies on `home` and nowhere else. What the gate had to say without refusing — personal data in
+  // `warn` mode, a denylist line it could not use — rides back on the result, where the model reads it.
+  const gate = assertPublishable(name, args, { policy: brain.policy, env: process.env });
+  const result = await dispatch(name, args);
+  if (gate.warnings.length && result && typeof result === "object" && !Array.isArray(result) && !result.warnings) {
+    return { ...result, warnings: gate.warnings };
+  }
+  return result;
+}
+
+async function dispatch(name, args) {
   switch (name) {
     case "recall": return recall(root, args);
     case "remember": {
@@ -68,9 +80,10 @@ async function callTool(name, args) {
       // so this caller cannot forget to. `layout` is "author" for <day>/<author>.md and "day" when
       // no name was usable and the entry went to <day>.md. `notice` is there only then, and is how
       // the model learns to tell the person, on every such write.
-      const r = rememberNote(root, args.content, { kind: args.kind || "note" });
+      const r = rememberNote(root, args.content, { kind: args.kind || "note", policy: brain.policy });
       const out = { path: r.path, day: r.day, author: r.author, layout: r.layout };
       if (r.notice) out.notice = r.notice;
+      if (r.warnings) out.warnings = r.warnings;
       return out;
     }
     case "recall_memory": return recentMemory(root, { days: args.days || 7 });

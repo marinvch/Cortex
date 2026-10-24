@@ -131,9 +131,18 @@ stderr instead of quietly writing a digest with no summary.
 
 - `git pull` the brain,
 - gathers notes changed since the last run,
+- runs that diff through `tools/cortex-scrub.mjs` — credentials, the employer denylist on a `home`
+  profile, personal data under `CORTEX_PII` — and stops the run (exit 3, nothing sent or pushed)
+  on a finding, naming only its kind and line,
 - optionally summarizes them with the Claude API,
+- scrubs the digest the same way before writing it,
 - writes `digests/<date>.md` (daily) or `audits/<date>.md` (weekly),
 - `git commit` + `git push`.
+
+The scrubber needs Node and a Cortex checkout. Without them the run skips the API call and writes
+the deterministic digest; set `CORTEX_SCRUB` in `cron.env` when the cron script lives somewhere other
+than `tools/server/` of a checkout. A team brain on a work server sets `CORTEX_PROFILE=work` there
+too, or a `home` default applies whatever denylist that machine holds.
 
 Next time you open the brain from any machine, `pull` brings the digest down. The AI "wrote something
 while you were away" — the living part.

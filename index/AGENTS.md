@@ -307,7 +307,12 @@ description) has a test.
   entry: upstream's clone URL, which every file stamped before #622 holds. A first stamp fills
   `CORTEX_REPO` itself from `core/source.js` (`withSource` in `stamps.mjs`) and refuses a directory
   source; /cortex's table does not mention it, because the instruction there measurably lowered
-  that skill's evals. `team.mjs` reads the limit in this order: the
+  that skill's evals. `CORTEX_SHA256` is filled the same way (`withPin`, [ADR 0028](../docs/adr/0028-stamped-ci-verifies-cortex-by-content-digest.md)):
+  the digest of this plugin's `core/` and `index/` (`cortex-digest.mjs`), with `CORTEX_REF` set to
+  `v<VERSION>` beside it — a ref for another release is refused. An update of a file stamped before
+  it fills the pair too, which is the one case an update moves a recorded value. The workflow's
+  inline check is a second copy of `cortexDigest`; `test/cortex-digest.test.mjs` runs one against
+  the other. `team.mjs` reads the limit in this order: the
   `rounds` option, the value in the team skill's record, the default. Only
   `templates/team/team-skill.md` may hold the placeholder: the roles and the playbook say "the round
   limit", and `team-templates.test.mjs` fails a role that states a number.

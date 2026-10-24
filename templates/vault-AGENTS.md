@@ -45,6 +45,22 @@ records why it is declared rather than detected. The MCP server's startup line p
 sync), or the repo's own committed context layer — `AGENTS.md`, `.cortex/memory/` — which a team
 shares through that repo and which never enters a vault.
 
+**What code refuses, and what is still the rituals' floor.** On `home`, two checks are code:
+
+- **The employer denylist.** List the names that matter — `org: Example Corp`, `domain:
+  corp.example`, `owner: example-corp`, `ticket: EXC-\d+`, `pattern: <regex>`, one per line — in
+  `~/.cortex/employer-denylist` (or the file `CORTEX_DENYLIST` names). Every published write —
+  `capture`, `remember`, `ask`, `answer`, a project file, a contract — whose text matches a line is
+  refused, naming the line, never the text. Keep the file **outside** this vault and every other
+  repository: it is a list of exactly what the firewall keeps out. With no file, nothing is checked
+  and `cortex-preflight.mjs` says the denylist is empty.
+- **Employer-shaped links in a project file** — a private-network host or a hosted work tool's
+  tenant.
+
+Everything else above is judgment: a client named in passing, a colleague, role-level detail, an
+employer you never listed, a work repo on a public forge. Those pass the code and must be refused
+by the rituals below. A write the code let through is not cleared.
+
 **Enforcement — every ritual obeys this:**
 - `/onboard` — asks which world first, and on `home` never asks for employer, client or day-job
   detail.

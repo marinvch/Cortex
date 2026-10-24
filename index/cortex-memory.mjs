@@ -8,8 +8,9 @@
 // ERR_UNSUPPORTED_ESM_URL_SCHEME, so every caller would have to remember pathToFileURL. A command
 // works the same on every platform.
 //
-// Every append goes through the scrub gate. A refused write exits 2 and prints what kind of secret
-// was found — never the secret itself.
+// Every append goes through the publish gate (core/gate.js). A refused write — a credential, an
+// employer denylist entry on a `home` profile, or personal data under CORTEX_PII=refuse — exits 2 and
+// prints what kind it found and on which line, never the text itself.
 //
 // An append lands in `memory/<day>/<author>.md`. Who the author is belongs to core/memory.js and
 // core/author.js, not to this file: CORTEX_AUTHOR, otherwise git `user.name` in the repo. With no
@@ -50,7 +51,15 @@ if (args.cmd === "append") {
     // The entry is written and the exit is 0, so stdout stays the one `wrote` line a caller parses.
     // The notice goes to stderr, on every such write: a day file is the layout that conflicts.
     if (r.layout === "day") process.stderr.write(`${r.notice}\n`);
+    // Personal data in `warn` mode, or a denylist line that could not be used: written, and said.
+    for (const w of r.warnings ?? []) process.stderr.write(`${w}\n`);
   } catch (e) {
+    // The employer denylist (home profile) and personal data under CORTEX_PII=refuse are refusals
+    // too, and exit 2 like a credential. Their messages name the kind and line, never the text.
+    if (e.code === "employer_denylist" || e.code === "personal_data") {
+      process.stderr.write(`REFUSED — ${e.message}\n`);
+      process.exit(2);
+    }
     if (e.code === "refused_write") {
       const kinds = [...new Set(e.findings.map((f) => f.kind))].join(", ");
       process.stderr.write(

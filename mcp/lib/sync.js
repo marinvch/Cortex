@@ -29,7 +29,19 @@
 //   comment pulled in is scanned before it is written: one carrying a credential is withheld, and
 //   the brain records that it was, and why — never the text.
 
-import { scan } from "../../core/scrub.js";
+import { RefusedWriteError, scan } from "../../core/scrub.js";
+import { assertPublished } from "../../core/gate.js";
+
+/** The refusal code the publish gate (`core/gate.js`) gives this text, or null when it may cross. */
+function refusedBy(text, gate) {
+  try {
+    assertPublished(text, gate);
+    return null;
+  } catch (e) {
+    if (e instanceof RefusedWriteError) return e.code;
+    throw e;
+  }
+}
 import { stamp, clock } from "../../core/date.js";
 import { parseProjectFile } from "../../core/project-file.js";
 import { openVault } from "./vault.js";
@@ -99,7 +111,7 @@ function entriesOf(parsed) {
  * Sync one ask against every tracker it is routed to. Mutates nothing it was handed; reads and
  * writes the ask file through `vault`. Returns what happened per kind.
  */
-async function syncOne(rel, { vault, config, kinds, members, adapter, now, today }) {
+async function syncOne(rel, { vault, config, kinds, members, adapter, now, today, gate }) {
   const original = vault.read(rel).replace(/\r\n/g, "\n");
   let text = original;
   let parsed = parseAsk(text);
@@ -205,13 +217,18 @@ async function syncOne(rel, { vault, config, kinds, members, adapter, now, today
         }
         if (link.originIds.includes(c.id)) continue;
         const found = scan(`${c.author}\n${c.text}`);
+        // Past a credential, the rest of the gate: the employer denylist on `home`, personal data
+        // in `refuse` mode. A comment crossing into the brain is a publish like any other.
+        const refused = found.length ? null : refusedBy(`${c.author}\n${c.text}`, gate);
         const body = found.length
           ? `(withheld: this ${kind} comment carries a ${[...new Set(found.map((f) => f.kind))].join(", ")}, so it was not copied into the team-brain. Read it in ${kind}, and ask its author to remove the credential there.)`
-          : c.text;
+          : refused
+            ? `(withheld: this ${kind} comment was refused by the publish gate (${refused}), so it was not copied into the team-brain. Read it in ${kind}.)`
+            : c.text;
         text = appendSection(text, `## Comment · ${today} · ${headerName(c.author)} · ${kind}:${c.id}`, body || "(empty comment)");
         link.originIds.push(c.id);
         // A withheld comment is never posted onward: there is nothing to post.
-        if (found.length) link.pushed.push(`${kind}:${c.id}`);
+        if (found.length || refused) link.pushed.push(`${kind}:${c.id}`);
       }
       parsed = parseAsk(text);
       delete link.error;
@@ -228,7 +245,7 @@ async function syncOne(rel, { vault, config, kinds, members, adapter, now, today
         if (e.from === kind || link.pushed.includes(e.id)) continue;
         if (e.kind === "comment" && e.text.startsWith("(withheld:")) { link.pushed.push(e.id); continue; }
         const out = outgoing(id, e);
-        if (scan(out).length) { link.pushed.push(e.id); continue; } // the gate on the way out
+        if (scan(out).length || refusedBy(out, gate)) { link.pushed.push(e.id); continue; } // the gate on the way out
         await api.comment(link.key, out);
         link.pushed.push(e.id);
       }
@@ -294,7 +311,7 @@ export async function syncAsks(clone, { ids = null, policy, env = {}, fetch, tim
     if (want && !want.has(a.meta.id)) continue;
     const kinds = routedKinds(config, a.meta.to);
     if (!needsSync(a.meta, kinds)) continue;
-    const { changed: did, result } = await syncOne(a.rel, { vault, config, kinds, members, adapter, now, today });
+    const { changed: did, result } = await syncOne(a.rel, { vault, config, kinds, members, adapter, now, today, gate: { policy, env } });
     if (did) changed.push(a.rel);
     for (const [k, r] of Object.entries(result)) {
       if (r.created) counts[k].created++;

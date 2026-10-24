@@ -138,6 +138,23 @@ git push origin HEAD vX.Y.Z
 before. The stamp record's "older plugin" check compares against the `VERSION` of the plugin that
 is running, which is your fork's.
 
+### Asking another role
+
+On a team, an agent can send a question to a role or a project instead of to a person. The
+team-brain's `team.json` lists each member's handle, roles and projects; `/team-add` asks for yours
+and runs `ai-os team member --roles backend`. Your handle is your memory author name:
+`CORTEX_AUTHOR`, or your git `user.name` as a slug.
+
+- `ask` (or `ai-os ask --to backend --title … --body …`) writes `asks/<id>.md` to the team-brain,
+  commits and pushes it. A `to` that no member holds and no project matches is refused, with the
+  list of roles and projects that exist.
+- `inbox` pulls the brain, then returns the open asks for your roles and projects and the answers
+  to the asks you sent. The MCP server's start-up instructions say how many asks are open for you,
+  so an agent sees them at the start of a session.
+- `answer` appends a reply and sets the status: `answered`, `decided` or `wontfix`.
+
+The asks travel by `git` alone. A credential in an ask is refused before anything is written.
+
 ### The order, and how to stop guessing at it
 
 A list of commands is a menu, not an answer. **`/cortex-next` reads the repo you are standing in
@@ -533,7 +550,9 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
 - **The MCP server** (`mcp/server.js`, started as `node ${CLAUDE_PLUGIN_ROOT}/mcp/server.js`) runs
   `git` and nothing else that reaches a network, and only against a **team-brain** repository the
   user set up with `/team-init` or `/team-add`: it clones that repository once, `git pull`s it
-  before a catch-up, and on a team `capture` commits the note and `git push`es it there. With no
+  before a catch-up and an `inbox`, and on a team `capture`, `ask` and `answer` commit and
+  `git push` there. In a product repo the clone is `.cortex/team/<team>/`, and Cortex adds that
+  directory to the repo's `.gitignore` before it clones. With no
   team brain connected it makes no network call at all. The note passes the secret gate before it
   is written, and the `home`/`work` profile decides which captures may leave the machine.
 - **The rituals** are instructions Claude follows, and say before each step that touches the

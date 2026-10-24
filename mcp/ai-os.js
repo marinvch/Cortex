@@ -11,6 +11,9 @@ import { stamp } from "../core/date.js";
 import { digest } from "./lib/digest.js";
 import { CatchUpRefused, catchUp } from "./lib/catchup.js";
 import { openBrain, NoRootError } from "./lib/brain.js";
+import { askFrom, inboxFrom, answerFrom, memberFrom } from "./lib/asks.js";
+import { assertPublishable } from "./lib/tools.js";
+import { genNoteId } from "./lib/noteid.js";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
 const WIN = process.platform === "win32";
@@ -116,7 +119,77 @@ function cmdTeam(teamSub, args, brain) {
     console.log("Next: commit the connector into THIS repo →  git add .cortex/connector.json");
     return 0;
   }
-  throw new Error("usage: ai-os team init|add ...");
+  if (teamSub === "member") {
+    const list = (flag) => {
+      if (args[flag] === undefined) return undefined;
+      if (args[flag] === true) throw new Error(`--${flag} needs a value\n${TEAM_MEMBER_USAGE}`);
+      return args[flag].split(",").map((s) => s.trim()).filter(Boolean);
+    };
+    for (const flag of ["handle", "github", "team"]) if (args[flag] === true) throw new Error(`--${flag} needs a value\n${TEAM_MEMBER_USAGE}`);
+    const input = { roles: list("roles") ?? [], projects: list("projects") ?? [] };
+    if (typeof args.handle === "string") input.handle = args.handle;
+    if (typeof args.github === "string") input.github = args.github;
+    const res = memberFrom(brain, input, { env: process.env, cwd: process.cwd() }, { team: typeof args.team === "string" ? args.team : null });
+    const m = res.member;
+    const what = `${m.handle}: roles ${m.roles.join(", ") || "(none)"}; projects ${m.projects.join(", ") || "(none)"}`;
+    if (res.action === "unchanged") { console.log(`Member already in team.json as given — ${what}. Nothing to commit.`); return 0; }
+    console.log(`Member ${res.action} in team.json — ${what}, ${describePublish(res, brain)}.`);
+    return 0;
+  }
+  throw new Error("usage: ai-os team init|add|member ...");
+}
+
+const TEAM_MEMBER_USAGE = "usage: ai-os team member [--handle <handle>] --roles <role,role> [--projects <slug,slug>] [--github <login>] [--team <name>]";
+
+/** How far a write to the team-brain got: committed and pushed, or which step it stopped at. */
+function describePublish(res, brain) {
+  if (res.pushed) return "committed and pushed";
+  if (res.committed) return `committed, but NOT pushed: ${res.error} (profile ${brain.profile})`;
+  return `NOT committed: ${res.error ?? "nothing changed"}`;
+}
+
+const ASK_USAGE = "usage: ai-os ask --to <role|project> --title <title> --body <text> [--links <url,url>]";
+const ANSWER_USAGE = "usage: ai-os answer --id <ask-id> --body <text> [--status answered|decided|wontfix]";
+
+// The CLI half of the ask tools (#620). The gate is the declaration's, the same one the server's
+// dispatch applies: what `ask` and `answer` write is pushed to a remote the team pulls.
+function cmdAsk(args, brain) {
+  for (const k of ["to", "body"]) if (typeof args[k] !== "string") throw new Error(ASK_USAGE);
+  if (args.title === true || args.links === true) throw new Error(ASK_USAGE);
+  const a = {
+    to: args.to,
+    content: args.body,
+    title: typeof args.title === "string" ? args.title : undefined,
+    links: typeof args.links === "string" ? args.links.split(",").map((s) => s.trim()).filter(Boolean) : [],
+  };
+  assertPublishable("ask", a);
+  const res = askFrom(brain, a, { env: process.env, cwd: process.cwd(), id: genNoteId(), today: stamp() });
+  console.log(`Ask ${res.id} sent to ${res.toKind} '${res.to}' — ${describePublish(res, brain)}.`);
+  console.log(res.path);
+  return 0;
+}
+
+function cmdInbox(args, brain) {
+  const res = inboxFrom(brain, { env: process.env, cwd: process.cwd() });
+  if (args.json) { console.log(JSON.stringify(res, null, 2)); return 0; }
+  if (!res.pull.ok) console.log(`Pull failed, showing the local clone: ${res.pull.error}`);
+  if (res.notice) console.log(res.notice);
+  for (const e of res.rosterErrors ?? []) console.log(`team.json: ${e}`);
+  console.log(`Waiting for you (${res.waiting.length}):`);
+  for (const a of res.waiting) console.log(`  ${a.id}  to ${a.toKind} ${a.to}, from ${a.from || "?"}${a.fromProject ? ` in ${a.fromProject}` : ""} — ${a.title}`);
+  console.log(`Sent by you (${res.sent.length}):`);
+  for (const a of res.sent) console.log(`  ${a.id}  ${a.status}, to ${a.toKind} ${a.to}, ${a.answers.length} answer${a.answers.length === 1 ? "" : "s"} — ${a.title}`);
+  if (res.truncated) console.log("(more than shown; use --json for the text, and answer or close the oldest)");
+  return 0;
+}
+
+function cmdAnswer(args, brain) {
+  if (typeof args.id !== "string" || typeof args.body !== "string" || args.status === true) throw new Error(ANSWER_USAGE);
+  const a = { id: args.id, content: args.body, status: typeof args.status === "string" ? args.status : undefined };
+  assertPublishable("answer", a);
+  const res = answerFrom(brain, a, { env: process.env, cwd: process.cwd(), today: stamp() });
+  console.log(`Answered ${res.id} (${res.status}) — ${describePublish(res, brain)}.`);
+  return 0;
 }
 
 const TEAM_ADD_USAGE =
@@ -264,8 +337,14 @@ try {
       process.exit(cmdDigest(args));
     case "catch-up":
       process.exit(cmdCatchUp(args, open("catch-up", { rootOptional: true })));
+    case "ask":
+      process.exit(cmdAsk(args, open("ask")));
+    case "inbox":
+      process.exit(cmdInbox(args, open("inbox")));
+    case "answer":
+      process.exit(cmdAnswer(args, open("answer")));
     default:
-      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up> [--flags]");
+      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer> [--flags]");
       process.exit(sub ? 1 : 2);
   }
 } catch (e) {

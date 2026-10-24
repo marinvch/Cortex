@@ -42,7 +42,7 @@ test("server answers tools/list over stdio", async () => {
   rpc(child, { jsonrpc: "2.0", id: 1, method: "tools/list" });
   const res = await got;
   const names = res.result.tools.map((t) => t.name).sort();
-  assert.deepEqual(names, ["capture", "catch_me_up", "get_project_context", "list_projects", "recall"]);
+  assert.deepEqual(names, ["answer", "ask", "capture", "catch_me_up", "get_project_context", "inbox", "list_projects", "recall"]);
   child.kill();
 });
 

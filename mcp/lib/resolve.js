@@ -51,7 +51,7 @@ function findConnector(cwd) {
 
 /**
  * @param {{ cwd: string, env: Record<string,string|undefined> }} ctx
- * @returns {{ audience: string, root: string, team: string|null, project: string|null, teamClone: string|null, source: string, rootVariable: string, rootIgnored: string|null }}
+ * @returns {{ audience: string, root: string, team: string|null, project: string|null, teamClone: string|null, teamBrainRepo: string|null, source: string, rootVariable: string, rootIgnored: string|null }}
  */
 export function resolveBrain({ cwd, env }) {
   // Never inferred. A resolver that invents a root can file a private note into a work repository,
@@ -67,6 +67,9 @@ export function resolveBrain({ cwd, env }) {
   let team = null;
   let project = null;
   let teamClone = null;
+  // Where the team-brain is cloned from when there is no clone yet: a repo-mode server clones it on
+  // the first ask (lib/team.js `ensureTeamClone`). Read, never fetched here.
+  let teamBrainRepo = null;
   let detected = null;
 
   const connectorPath = findConnector(cwd);
@@ -82,6 +85,7 @@ export function resolveBrain({ cwd, env }) {
         detected = `connector:${connectorPath} (old {slug} shape — re-run \`ai-os team add\` to rewrite it)`;
       }
       if (team) teamClone = teamCloneDir(root, team);
+      if (team && typeof parsed.teamBrainRepo === "string" && parsed.teamBrainRepo.trim()) teamBrainRepo = parsed.teamBrainRepo.trim();
     } catch {
       // A brain that refuses to start because one JSON file is corrupt has turned a papercut into an
       // outage. Degrade to solo and say so in `source`, so the startup line explains itself.
@@ -94,11 +98,11 @@ export function resolveBrain({ cwd, env }) {
   // prompts, plus a scheduler, plus a model that is not Claude Code — none of which leaves a trace.
   // Guessing from the absence of a TTY would be wrong in CI every time.
   if (env.CORTEX_AUDIENCE === SERVER) {
-    return { audience: SERVER, root, team, project, teamClone, source: "declared", ...named };
+    return { audience: SERVER, root, team, project, teamClone, teamBrainRepo, source: "declared", ...named };
   }
 
-  if (team) return { audience: TEAM, root, team, project, teamClone, source: detected, ...named };
-  return { audience: SOLO, root, team: null, project: null, teamClone: null, source: detected ?? "default", ...named };
+  if (team) return { audience: TEAM, root, team, project, teamClone, teamBrainRepo, source: detected, ...named };
+  return { audience: SOLO, root, team: null, project: null, teamClone: null, teamBrainRepo: null, source: detected ?? "default", ...named };
 }
 
 // A connector committed before the two named fields: `{ slug, teamBrainRepo }`. `team add` put the

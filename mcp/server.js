@@ -5,6 +5,7 @@ import { listProjects, getProjectContext } from "./lib/projects.js";
 import { capture } from "./lib/capture.js";
 import { catchMeUp, catchUpTeam } from "./lib/catchup.js";
 import { genNoteId } from "./lib/noteid.js";
+import { askFrom, inboxFrom, answerFrom, asksInstructions, authorFor } from "./lib/asks.js";
 import { VERSION } from "./lib/version.js";
 import { append as rememberNote, recent as recentMemory } from "../core/memory.js";
 import { stamp } from "../core/date.js";
@@ -95,6 +96,11 @@ async function callTool(name, args) {
       return capture(root, cargs);
     }
     case "catch_me_up": return catchMeUp(root, { ...args, team: catchUpTeam(args.team, brain) });
+    // Asks (#620). Which clone, which caller and whether the commit is pushed are lib/asks.js's,
+    // from the brain record and the policy; the gate above already scanned what they publish.
+    case "ask": return askFrom(brain, args, { env: process.env, cwd: process.cwd(), id: genNoteId(), today: stamp() });
+    case "inbox": return inboxFrom(brain, { env: process.env, cwd: process.cwd() });
+    case "answer": return answerFrom(brain, args, { env: process.env, cwd: process.cwd(), today: stamp() });
     // assertAvailable already rejected anything the table does not name, so reaching here means a
     // tool was declared in lib/tools.js and never wired up.
     default: throw new Error(`tool declared but not implemented: ${name}`);
@@ -111,4 +117,9 @@ async function callTool(name, args) {
 for (const line of brain.notices) console.error(line);
 console.error(brain.describe());
 
-serve({ name: "cortex", version: VERSION, tools: TOOLS, call: callTool });
+// On a team, the initialize result tells the agent how many asks wait for this person and to call
+// `inbox` first (#620, R10). No hook: the plugin ships none (ADR 0021), and every MCP client reads
+// `instructions`. Local clone only, no pull, and a failure drops the count rather than the session.
+const instructions = () => asksInstructions(brain, () => authorFor(brain, { env: process.env, cwd: process.cwd() }));
+
+serve({ name: "cortex", version: VERSION, tools: TOOLS, call: callTool, instructions });

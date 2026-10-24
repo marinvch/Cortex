@@ -42,7 +42,10 @@ is not obvious for this machine.
    every member to rediscover the joining step, which is how a team-brain ends up with one
    contributor. Say that `/team-add` is also what registers a project: it writes
    `projects/<slug>.md` with the repo's address and links. Until someone runs it in a repo, that
-   project is a notes folder the workspace lists as unregistered.
+   project is a notes folder the workspace lists as unregistered. `/team-add` also asks each
+   member for their roles and writes them to `team.json`; an ask to a role reaches whoever holds
+   it there, so add yourself the same way:
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --team <team> --roles <role,role>`.
 
 ## Don't
 

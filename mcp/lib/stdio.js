@@ -67,11 +67,13 @@ export function capResult(text, max = MAX_RESULT_CHARS) {
  *        Runs a tool and resolves to plain data, which is serialized into a text content block.
  *        Throwing marks the result `isError` — the call was delivered and the tool refused, which
  *        is a different thing from the transport failing.
+ * @param {string|(() => string|null)|null} [opts.instructions]
+ *        The `instructions` an initialize result carries, or a function asked on each initialize.
  * @param {number} [opts.maxResultChars]  the cap `capResult` applies; tests pass a small one
  * @param {NodeJS.ReadableStream} [opts.input]
  * @param {NodeJS.WritableStream} [opts.output]
  */
-export function serve({ name, version, tools, call, maxResultChars = MAX_RESULT_CHARS, input = process.stdin, output = process.stdout }) {
+export function serve({ name, version, tools, call, instructions = null, maxResultChars = MAX_RESULT_CHARS, input = process.stdin, output = process.stdout }) {
   // Only protocol messages may ever reach stdout — a stray console.log corrupts the stream and the
   // client reports something unrelated. Diagnostics go to stderr.
   const send = (msg) => output.write(JSON.stringify(msg) + "\n");
@@ -86,11 +88,22 @@ export function serve({ name, version, tools, call, maxResultChars = MAX_RESULT_
     switch (msg.method) {
       case "initialize": {
         const asked = msg.params?.protocolVersion;
-        return respond(msg.id, {
+        const result = {
           protocolVersion: PROTOCOL_VERSIONS.includes(asked) ? asked : PREFERRED,
           capabilities: { tools: {} },
           serverInfo: { name, version },
-        });
+        };
+        // Every MCP client reads `instructions`, so it is how a server says something at session
+        // start without a hook (ADR 0021). Asked for on each initialize, so the line is current;
+        // a function that throws or returns nothing leaves the field out, never the session.
+        let text = null;
+        try {
+          text = typeof instructions === "function" ? instructions() : instructions;
+        } catch {
+          text = null;
+        }
+        if (typeof text === "string" && text.trim()) result.instructions = text;
+        return respond(msg.id, result);
       }
       case "ping":
         return respond(msg.id, {});

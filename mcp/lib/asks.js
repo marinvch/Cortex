@@ -1,0 +1,428 @@
+// Asks: a question addressed to a role or a project, carried by the team-brain (#620, R4–R11).
+//
+// An ask is ONE file, `asks/<id>.md`, in the team-brain clone. The frontmatter says who asked, from
+// which project, to whom, and where the thread stands; the body is the question, and each answer is
+// appended below it as `## Answer · <date> · <handle> · <status>`. One file per thread rather than
+// one per message, because a thread split across files is the thing an inbox would have to stitch
+// back together.
+//
+// `to` is a role some member of `team.json` holds, or a project in `projects/`, and nothing else:
+// an ask nobody is placed to see is refused with the list of what exists, never accepted silently.
+//
+// What does NOT live here:
+//   - the secret gate. `ask` and `answer` are `writes: PUBLISHED` in lib/tools.js and the dispatch
+//     scrubs them, in the server and in the CLI alike (ADR 0007 rejected a scrub inside the module);
+//   - the filesystem. Every read and write goes through the Vault opened on the clone;
+//   - the profile. The caller passes `outwardSync`, which is how a `lab` install commits and does not
+//     push, exactly as `capture` does.
+
+import { dirname } from "node:path";
+import { resolveAuthor } from "../../core/author.js";
+import { pull, commitPath, pushHead, teamCloneDir } from "./gitsync.js";
+import { openVault } from "./vault.js";
+import { readRoster, rolesOf, setMember, RosterError } from "./roster.js";
+import { ensureTeamClone } from "./team.js";
+
+export const STATUSES = ["open", "answered", "decided", "wontfix"];
+/** What an answer may set. `open` is where an ask starts, not something a reply sets. */
+export const ANSWER_STATUSES = ["answered", "decided", "wontfix"];
+
+const ID = /^[0-9a-z][0-9a-z-]{0,63}$/;
+const ANSWER_HEAD = /^## Answer · (\d{4}-\d{2}-\d{2}) · ([^·\n]*?) · (open|answered|decided|wontfix)[ \t]*$/m;
+// The same header with no capture groups: `split` would otherwise splice the groups into its result.
+const ANSWER_SPLIT = /^(?=## Answer · \d{4}-\d{2}-\d{2} · [^·\n]*? · (?:open|answered|decided|wontfix)[ \t]*$)/m;
+
+// What one inbox call may return. The transport caps a whole result at 40,000 characters
+// (lib/stdio.js) and a capped result is a truncation marker, not the asks, so this stays under it.
+const WAITING_MAX = 30;
+const SENT_MAX = 20;
+const TEXT_CHARS = 2_000;
+const BUDGET = 28_000;
+
+export class AskRefused extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "AskRefused";
+    this.code = code;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The file
+// ---------------------------------------------------------------------------------------------
+
+const oneLine = (s) => String(s ?? "").replace(/\s+/g, " ").trim();
+
+/** The text of an ask file. `links` is a JSON array on one line, so the frontmatter stays flat. */
+export function renderAsk(meta, question) {
+  const lines = [
+    "---",
+    "type: ask",
+    `id: ${meta.id}`,
+    `title: ${oneLine(meta.title)}`,
+    `from: ${meta.from ?? ""}`,
+    `fromProject: ${meta.fromProject ?? ""}`,
+    `to: ${meta.to}`,
+    `toKind: ${meta.toKind}`,
+    `status: ${meta.status}`,
+    `created: ${meta.created}`,
+    `updated: ${meta.updated}`,
+    `links: ${JSON.stringify(meta.links ?? [])}`,
+    "---",
+    "",
+    String(question).trim(),
+    "",
+  ];
+  return lines.join("\n");
+}
+
+/**
+ * Parse an ask file into `{ meta, question, answers }`, or null when it is not one. Tolerant of
+ * CRLF, since a clone on Windows may check files out that way.
+ */
+export function parseAsk(text) {
+  const src = String(text).replace(/\r\n/g, "\n");
+  const m = src.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!m) return null;
+  const meta = {};
+  for (const line of m[1].split("\n")) {
+    const i = line.indexOf(":");
+    if (i < 1) continue;
+    meta[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  if (meta.type !== "ask" || !meta.id) return null;
+  try {
+    meta.links = meta.links ? JSON.parse(meta.links) : [];
+    if (!Array.isArray(meta.links)) meta.links = [];
+  } catch {
+    meta.links = [];
+  }
+  const rest = src.slice(m[0].length);
+  // Split only on a whole answer header, so a question that merely mentions one keeps its text.
+  const parts = rest.split(ANSWER_SPLIT);
+  const question = parts[0].trim();
+  const answers = [];
+  for (const part of parts.slice(1)) {
+    const h = part.match(ANSWER_HEAD);
+    if (!h) continue;
+    answers.push({ date: h[1], handle: h[2].trim(), status: h[3], text: part.slice(h[0].length).trim() });
+  }
+  return { meta, question, answers };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Addressing
+// ---------------------------------------------------------------------------------------------
+
+/** Every project the team-brain knows: a project file `projects/<slug>.md` or a notes folder. */
+export function teamProjects(clone) {
+  const vault = openVault(clone);
+  const out = new Set();
+  for (const e of vault.entries("projects", { ignore: false })) {
+    if (e.name.startsWith(".")) continue;
+    if (e.isDirectory) out.add(e.name);
+    else if (e.isFile && e.name.endsWith(".md")) out.add(e.name.slice(0, -3));
+  }
+  return [...out].sort();
+}
+
+/**
+ * What `to` names: a role some member holds, else a project. A name that is both is the role —
+ * a role is a person who answers, a project is a place someone may look. Anything else is refused,
+ * and the refusal lists what exists so the caller can pick (#620's acceptance).
+ */
+export function resolveAddressee(clone, to, members) {
+  const want = oneLine(to).toLowerCase();
+  const roles = rolesOf(members);
+  const projects = teamProjects(clone);
+  if (want && roles.includes(want)) return { to: want, toKind: "role" };
+  if (want && projects.includes(want)) return { to: want, toKind: "project" };
+  const list = (xs) => (xs.length ? xs.join(", ") : "none");
+  throw new AskRefused(
+    "unknown_addressee",
+    `no role or project in this team is named '${want}'. Roles: ${list(roles)}. Projects: ${list(projects)}. ` +
+      "A role exists once a member holds it in team.json (`ai-os team member`); a project once its repo joins (`/team-add`).",
+  );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Who is asking
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Place the caller in the roster: their roles, and the projects they own plus the project of the
+ * repo they are in. A caller whose handle is not in `members` — or who has none — is still served:
+ * they read asks addressed to this repo's project, and `notice` says why that is all (R3).
+ *
+ * @param {{ slug: string|null, why?: string }} author  core/author.js's answer
+ * @param {object[]} members
+ * @param {string|null} project  the connector's project
+ */
+export function placeCaller(author, members, project) {
+  const handle = author?.slug ?? null;
+  const me = handle ? members.find((m) => m.handle === handle) : null;
+  const projects = [...new Set([...(me?.projects ?? []), ...(project ? [project] : [])])];
+  const caller = { handle, placed: Boolean(me), roles: me?.roles ?? [], projects, project: project ?? null };
+  if (!me) {
+    const who = handle
+      ? `the handle '${handle}' is not a member in the team-brain's team.json`
+      : `no handle could be found (${author?.why ?? "CORTEX_AUTHOR is not set"})`;
+    const scope = project ? `asks addressed to this repo's project '${project}'` : "no asks addressed to you";
+    caller.notice =
+      `Could not place you in the team: ${who}. Set CORTEX_AUTHOR to your handle there, or add yourself with ` +
+      "`ai-os team member --handle <handle> --roles <role,...>`. " +
+      `Until then the inbox shows ${scope}, and answers to asks you sent.`;
+  }
+  return caller;
+}
+
+const addressedTo = (meta, caller) =>
+  (meta.toKind === "role" && caller.roles.includes(meta.to)) ||
+  (meta.toKind === "project" && caller.projects.includes(meta.to));
+
+const sentBy = (meta, caller) =>
+  caller.handle ? meta.from === caller.handle : Boolean(caller.project) && !meta.from && meta.fromProject === caller.project;
+
+/** Every ask in the clone, parsed, newest update first. A file that is not an ask is skipped. */
+export function listAsks(clone) {
+  const vault = openVault(clone);
+  const out = [];
+  for (const rel of vault.list("asks", { ext: ".md" })) {
+    const ask = parseAsk(vault.read(rel));
+    if (ask) out.push({ ...ask, rel });
+  }
+  out.sort((a, b) => String(b.meta.updated).localeCompare(String(a.meta.updated)) || b.meta.id.localeCompare(a.meta.id));
+  return out;
+}
+
+/** How many open asks are addressed to the caller. Local clone only: no pull. */
+export function countWaiting(clone, caller) {
+  return listAsks(clone).filter((a) => a.meta.status === "open" && addressedTo(a.meta, caller)).length;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The three operations
+// ---------------------------------------------------------------------------------------------
+
+function publish(clone, rel, message, outwardSync) {
+  const c = commitPath(clone, rel, message);
+  if (!c.ok) return { committed: false, pushed: false, error: c.error };
+  if (!outwardSync) return { committed: c.committed, pushed: false, error: "outward_sync_disabled" };
+  const p = pushHead(clone);
+  return p.ok ? { committed: c.committed, pushed: true } : { committed: c.committed, pushed: false, error: p.error };
+}
+
+/**
+ * Send an ask. `content` is the question; `title` defaults to its first line.
+ *
+ * @param {string} clone
+ * @param {{ to: string, content: string, title?: string, links?: string[], caller: object, id: string, today: string, outwardSync?: boolean }} opts
+ */
+export function sendAsk(clone, { to, content, title, links = [], caller, id, today, outwardSync = true }) {
+  const question = String(content ?? "").trim();
+  if (!question) throw new AskRefused("empty", "an ask needs a question in `content`");
+  if (!ID.test(id)) throw new AskRefused("bad_id", "the ask id is not a-z, 0-9 and -");
+  if (!Array.isArray(links) || links.some((l) => typeof l !== "string")) throw new AskRefused("bad_links", "links must be a list of strings");
+
+  // Best-effort, as capture does: the roster and the projects are read after it. Pointless when the
+  // commit will not be pushed.
+  if (outwardSync) pull(clone);
+  const { members } = readRoster(clone);
+  const addressee = resolveAddressee(clone, to, members);
+
+  const vault = openVault(clone);
+  const rel = `asks/${id}.md`;
+  if (vault.exists(rel)) throw new AskRefused("exists", `an ask with the id ${id} already exists; nothing was written`);
+  const meta = {
+    id,
+    title: oneLine(title) || oneLine(question.split("\n")[0]).slice(0, 80),
+    from: caller.handle ?? "",
+    fromProject: caller.project ?? "",
+    ...addressee,
+    status: "open",
+    created: today,
+    updated: today,
+    links: links.map((l) => l.trim()).filter(Boolean),
+  };
+  vault.write(rel, renderAsk(meta, question));
+  const res = publish(clone, rel, `ask: ${id} to ${meta.toKind} ${meta.to}`, outwardSync);
+  return { id, path: vault.abs(rel), to: meta.to, toKind: meta.toKind, status: meta.status, ...res };
+}
+
+/**
+ * Append an answer to an ask and set its status. The question and earlier answers are kept byte
+ * for byte; only the `status:` and `updated:` lines of the frontmatter change.
+ */
+export function answerAsk(clone, { id, content, status = "answered", caller, today, outwardSync = true }) {
+  const text = String(content ?? "").trim();
+  if (!text) throw new AskRefused("empty", "an answer needs its text in `content`");
+  if (typeof id !== "string" || !ID.test(id)) throw new AskRefused("bad_id", "id must be an ask id: a-z, 0-9 and -");
+  if (!ANSWER_STATUSES.includes(status)) {
+    throw new AskRefused("bad_status", `status must be one of ${ANSWER_STATUSES.join(" | ")}`);
+  }
+
+  if (outwardSync) pull(clone);
+  const vault = openVault(clone);
+  const rel = `asks/${id}.md`;
+  if (!vault.isFile(rel)) throw new AskRefused("not_found", `no ask with the id ${id} in the team-brain`);
+  const before = vault.read(rel).replace(/\r\n/g, "\n");
+  if (!parseAsk(before)) throw new AskRefused("not_an_ask", `asks/${id}.md is not an ask file`);
+
+  const fm = before.match(/^---\n[\s\S]*?\n---\n?/)[0];
+  const head = fm.replace(/^status: .*$/m, `status: ${status}`).replace(/^updated: .*$/m, `updated: ${today}`);
+  const body = before.slice(fm.length).replace(/\n*$/, "\n");
+  const who = caller.handle ?? "unknown";
+  vault.write(rel, `${head}${body}\n## Answer · ${today} · ${who} · ${status}\n\n${text}\n`);
+  const res = publish(clone, rel, `answer: ${id} ${status}`, outwardSync);
+  return { id, path: vault.abs(rel), status, ...res };
+}
+
+function clip(text, room) {
+  const s = String(text);
+  return s.length > room ? { text: s.slice(0, room), clipped: true } : { text: s, clipped: false };
+}
+
+/**
+ * The caller's inbox: open asks addressed to their roles or projects, and the asks they sent with
+ * every answer so far. `pulled` is the result of the ff-only pull the caller made first; a failed
+ * pull is returned, never swallowed — the local asks still come back, because an empty answer must
+ * never pass for a quiet week (R11).
+ */
+export function readInbox(clone, { caller, pulled = { ok: true } }) {
+  const all = listAsks(clone);
+  let budget = BUDGET;
+  let truncated = false;
+  const shape = (a) => {
+    const q = clip(a.question, Math.max(0, Math.min(TEXT_CHARS, budget)));
+    budget -= q.text.length;
+    const answers = a.answers.map((x) => {
+      const t = clip(x.text, Math.max(0, Math.min(TEXT_CHARS, budget)));
+      budget -= t.text.length;
+      if (t.clipped) truncated = true;
+      return { date: x.date, handle: x.handle, status: x.status, text: t.text };
+    });
+    if (q.clipped) truncated = true;
+    const { id, title, from, fromProject, to, toKind, status, created, updated, links } = a.meta;
+    return { id, title, from, fromProject, to, toKind, status, created, updated, links, question: q.text, answers };
+  };
+
+  const waitingAll = all.filter((a) => a.meta.status === "open" && addressedTo(a.meta, caller));
+  const sentAll = all.filter((a) => sentBy(a.meta, caller));
+  if (waitingAll.length > WAITING_MAX || sentAll.length > SENT_MAX) truncated = true;
+  const waiting = waitingAll.slice(0, WAITING_MAX).map(shape);
+  const sent = sentAll.slice(0, SENT_MAX).map(shape);
+
+  const me = { handle: caller.handle, placed: caller.placed, roles: caller.roles, projects: caller.projects };
+  const out = {
+    pull: pulled.ok ? { ok: true } : { ok: false, error: String(pulled.error).split("\n").slice(0, 3).join("\n").trim() },
+    me,
+    waiting,
+    sent,
+    truncated,
+  };
+  if (caller.notice) out.notice = caller.notice;
+  return out;
+}
+
+/**
+ * The line the server's `initialize` result carries on a team (R10): how many asks wait for the
+ * caller, and to call `inbox` first. Reads the local clone and never pulls, so starting a session
+ * costs no network. Never throws: a clone that is missing or a roster that is broken just drops the
+ * count from the line.
+ *
+ * @param {{ team: string|null, teamClone: string|null, project: string|null }} brain
+ * @param {() => { slug: string|null, why?: string }} author
+ * @returns {string|null}
+ */
+export function asksInstructions(brain, author) {
+  if (!brain.team) return null;
+  const call = "Call the `inbox` tool at the start of a task to read asks addressed to you, and `answer` to reply.";
+  let count = null;
+  let handle = null;
+  try {
+    const { members } = readRoster(brain.teamClone);
+    const caller = placeCaller(author(), members, brain.project);
+    handle = caller.handle;
+    count = countWaiting(brain.teamClone, caller);
+  } catch {
+    count = null;
+  }
+  const team = `This repo is joined to the team-brain '${brain.team}'.`;
+  if (count === null) return `${team} ${call}`;
+  const n = count === 1 ? "1 ask is" : `${count} asks are`;
+  return `${team} ${n} open for you${handle ? ` (${handle})` : ""}. ${call}`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// From a brain: what both adapters call
+// ---------------------------------------------------------------------------------------------
+//
+// `server.js` and `ai-os.js` are two adapters over these, so neither decides which clone, which
+// caller or which push: the brain record says which team and clone, `core/author.js` says who, and
+// the policy says whether the commit leaves the machine.
+
+/**
+ * Who is calling: the author slug, resolved as memory resolves it (CORTEX_AUTHOR, then git
+ * `user.name` in the repo). In repo mode git is asked in the product repo, not wherever the process
+ * happens to stand. A CORTEX_AUTHOR that is set and unusable throws `InvalidAuthorError`.
+ */
+export function authorFor(brain, { env, cwd, git } = {}) {
+  return resolveAuthor({ env, cwd: brain.isRepo ? dirname(brain.root) : cwd, ...(git ? { git } : {}) });
+}
+
+function openClone(brain, tool, ctx) {
+  // The author first: a CORTEX_AUTHOR that is set and wrong refuses before anything is cloned.
+  const author = authorFor(brain, ctx);
+  const { dir } = ensureTeamClone(brain, tool);
+  return { dir, author };
+}
+
+/** `ask`: send one. `id` and `today` come from the adapter (lib/noteid.js, core/date.js). */
+export function askFrom(brain, args, ctx) {
+  const { dir, author } = openClone(brain, "ask", ctx);
+  const caller = placeCaller(author, [], brain.project);
+  return sendAsk(dir, {
+    to: args.to, content: args.content, title: args.title, links: args.links ?? [],
+    caller, id: ctx.id, today: ctx.today, outwardSync: brain.policy.outwardSync,
+  });
+}
+
+/** `inbox`: pull (ff-only), then the asks for the caller and the answers to theirs. */
+export function inboxFrom(brain, ctx) {
+  const { dir, author } = openClone(brain, "inbox", ctx);
+  const pulled = pull(dir);
+  const { members, errors } = readRoster(dir);
+  const caller = placeCaller(author, members, brain.project);
+  const out = readInbox(dir, { caller, pulled });
+  if (errors.length) out.rosterErrors = errors;
+  return out;
+}
+
+/** `answer`: append a reply and set the status. */
+export function answerFrom(brain, args, ctx) {
+  const { dir, author } = openClone(brain, "answer", ctx);
+  const caller = placeCaller(author, [], brain.project);
+  return answerAsk(dir, {
+    id: args.id, content: args.content, status: args.status ?? "answered",
+    caller, today: ctx.today, outwardSync: brain.policy.outwardSync,
+  });
+}
+
+/**
+ * `ai-os team member`: add or update one member of `team.json`, then commit and push it. `team`
+ * overrides the connector's, for a lead standing in the vault rather than in a joined repo; its
+ * clone must already be there (`team init` made it), since no connector names a remote for it.
+ */
+export function memberFrom(brain, input, ctx, { team = null } = {}) {
+  const author = authorFor(brain, ctx);
+  const handle = input.handle ?? author.slug;
+  if (!handle) throw new RosterError(`no handle given and none could be found (${author.why}). Pass --handle, or set CORTEX_AUTHOR.`);
+  const target = team && team !== brain.team
+    ? { ...brain, team, teamClone: teamCloneDir(brain.root, team), teamBrainRepo: null }
+    : brain;
+  const { dir } = ensureTeamClone(target, "team member");
+  if (brain.policy.outwardSync) pull(dir);
+  const res = setMember(dir, { ...input, handle });
+  if (res.action === "unchanged") return { ...res, committed: false, pushed: false };
+  return { ...res, ...publish(dir, res.rel, `team: member ${handle}`, brain.policy.outwardSync) };
+}

@@ -76,6 +76,11 @@ here, which is why the directory is small and stays small.
   quietly get upstream. A URL carrying a credential is refused through `carriesCredential`, and the
   message never repeats it. The default's entry stays byte-for-byte what Cortex wrote before.
 
+- **`gitignore.js` is the `.gitignore` writer both leaves share** (#620). It appends missing
+  entries under a marker line, never rewrites one, and honours a bare `.cortex/` the user wrote.
+  Which entries is the caller's: `index/lib/generated.mjs` passes the generated directories, and
+  `mcp/lib/team.js` passes `.cortex/team/` before it clones a team-brain into a product repo.
+
 - **`claude-code.js` is data, not policy code.** Anthropic's Claude Code rules, each with the
   sentence on its source page that states it. Checkers read values from it and never hard-code a
   limit. It holds no I/O and must stay that way — the fetching lives in

@@ -43,12 +43,20 @@ Here it is the requirement, and it holds only because the connector carries no l
    `source` when the brain's `team.json` names the team's Cortex fork, and nothing else. Pass on
    the line naming the source: `/cortex` stamps that fork into this repo. A connector already committed in the old `{ slug, teamBrainRepo }` shape still
    works — the startup line says it is the old shape — and running step 1 again rewrites it;
-   commit that change.
-4. Offer to commit the connector so teammates inherit the wiring:
+   commit that change. A repo-mode server clones the team-brain into `.cortex/team/` on first use
+   and adds that directory to the repo's `.gitignore`.
+4. **Ask the member which roles they hold** — `frontend`, `backend`, `architect`, whatever this
+   team uses — and which projects they own. Then run
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --roles <role,role> --projects <slug,slug>`.
+   It adds them to the team-brain's `team.json`, commits and pushes. Their handle is their memory
+   author name: `CORTEX_AUTHOR`, else their git `user.name` as a slug; pass `--handle` only to
+   override it. Running it again replaces their roles and projects. Without this step, asks sent
+   to their role never reach them.
+5. Offer to commit the connector so teammates inherit the wiring:
    `git add .cortex/connector.json && git commit -m "chore: add cortex team connector"`.
-5. Tell the user that `/catch-me-up` now works in this repo — it pulls the team-brain and returns
-   what every repo of the team captured, alongside the local brain notes, and it is the reason
-   joining was worth doing.
+6. Tell the user what joining gave them. `/catch-me-up` pulls the team-brain and returns what every
+   repo of the team captured. The `ask`, `inbox` and `answer` tools carry a question to a role in
+   another repo and the answer back; an agent calls `inbox` at the start of a task.
 
 ## The project file
 

@@ -464,13 +464,14 @@ test("no template sets agent: — the main session orchestrates (T1)", () => {
 });
 
 // A template that says something is refused ships the thing that refuses it, and says who can
-// overrule it. Both fences are PreToolUse hooks outside managed settings, which an installed mod
-// that approves tool calls can approve past (rule mod.approves-past-pretooluse). The sentence is
-// prose a reader of a stamped repo depends on, so the test is that it is there.
-test("both fences say an installed mod can approve an edit they blocked", () => {
-  const admin = rule("mod.approves-past-pretooluse").source;
+// overrule it. A PreToolUse hook wins over a mod only when the built-in guard loads (rules
+// mod.guard.pretooluse-wins and mod.guard.loads-when), so both fences name the case where it does
+// not. The sentence is prose a reader of a stamped repo depends on, so the test is that it is there.
+test("both fences say when an installed mod can approve an edit they blocked", () => {
+  const admin = rule("mod.guard.pretooluse-wins").source;
+  assert.equal(rule("mod.guard.loads-when").source, admin);
   const readme = readFileSync(join(TEAM, "README.md"), "utf8");
-  assert.match(readme, /\*\*An installed mod\.\*\*/);
+  assert.match(readme, /\*\*An installed mod\.\*\*[^]*built-in mod\s+guard/);
   assert.ok(readme.includes(admin), "the README links the page the rule comes from");
   const loop = readFileSync(join(TEAM, "..", "loop", "protected-paths.sh"), "utf8");
   assert.match(loop, /a Claude Code mod the user installed/);

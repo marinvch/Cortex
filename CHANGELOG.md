@@ -5,6 +5,26 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Changed
+
+- **The Claude Code rules match the docs as of 2026-10-24 (#625).** The Code Review page split into
+  six pages. Its rules now cite `code-review-customize`, `code-review-pull-requests` and
+  `code-review-local`. Three rules changed meaning, not only wording:
+  - A `CLAUDE.md` violation is a finding at whatever severity fits. It is no longer always a nit
+    (`review.claude-md.violation-is-a-finding`).
+  - The managed reviewer no longer promises to flag a `CLAUDE.md` that a change made outdated.
+    That rule is removed. The stamped `REVIEW.md` already asks for it, and `/cortex-review`
+    still checks it.
+  - A `PreToolUse` hook now wins over a user's mod whenever Claude Code's built-in mod guard loads,
+    which happens with managed settings or a Team or Enterprise login. `protected-paths.sh`, the
+    team README and ADR 0021 now name only the case without the guard (`mod.guard.pretooluse-wins`,
+    `mod.guard.loads-when`).
+- New rules: `review.review-md.subdirectory` and `review.local-command.no-review-md`. The local
+  `/code-review` reads `CLAUDE.md` but not `REVIEW.md`. `autoCompactWindow` is now a known
+  subagent frontmatter key.
+- The hook exit-1 rule and two Opus 5.5 rules cite the reworded sentences. Their meaning is
+  unchanged.
+
 ## [2.44.1] — 2026-10-13
 
 Three commands read what they need once, and three decisions moved to where a test can reach them.

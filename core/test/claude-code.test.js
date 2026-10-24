@@ -74,7 +74,8 @@ test("the AGENTS.md and mods rules are present and sourced from their pages", ()
     "mod.not-sandboxed",
     "mod.hooks-json.modules",
     "mod.module.extensions",
-    "mod.approves-past-pretooluse",
+    "mod.guard.pretooluse-wins",
+    "mod.guard.loads-when",
   ]) {
     assert.match(rule(id).source, /^https:\/\/code\.claude\.com\/docs\/en\/plugins\/mods\/(overview|reference|admin)$/, id);
   }
@@ -185,10 +186,12 @@ test("the plugin and marketplace rules are present, and Cortex's own manifests k
 test("the nested-brief, code review, team and worktree rules are present and sourced", () => {
   const pages = {
     memory: ["claude-md.nested.loads-on-touch", "agents-md.nested.loads-on-read"],
-    "code-review": [
-      "review.review-md.location", "review.claude-md.violations-are-nits",
-      "review.claude-md.outdated-is-flagged", "review.check-run.neutral",
+    "code-review-customize": [
+      "review.review-md.location", "review.review-md.subdirectory",
+      "review.claude-md.violation-is-a-finding",
     ],
+    "code-review-pull-requests": ["review.check-run.neutral"],
+    "code-review-local": ["review.local-command.no-review-md"],
     "agent-teams": [
       "team.off-by-default", "team.definition.skills-not-applied", "team.one-per-session",
       "team.no-nested", "team.permissions.from-lead",

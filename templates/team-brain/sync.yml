@@ -1,0 +1,74 @@
+# Cortex — scheduled tracker sync for this team-brain (#624).
+#
+# Moves status between the asks in this repo and the trackers in team.json → integrations, so an
+# ask closed in a tracker is answered here even when nobody has an agent open. Each run that
+# changes anything is ONE commit (`sync: servicenow 1 updated, github 1 created`); a run with
+# nothing new commits nothing.
+#
+# Stamped by `ai-os team init --integrations … --write-sync-workflow` or
+# `ai-os integrations workflow --write`. Credentials come from this repo's secrets and nowhere
+# else — never from team.json:
+#   CORTEX_GITHUB_TOKEN        GitHub issues: a token that can open and close issues in the repos asks go to
+#   SERVICENOW_TOKEN           ServiceNow: an OAuth bearer token — or SERVICENOW_USER + SERVICENOW_PASSWORD
+#   JIRA_EMAIL, JIRA_API_TOKEN Jira Cloud: the account and its API token
+name: cortex-sync
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+# The job commits the sync to this repo, so it needs to write contents and nothing else.
+permissions:
+  contents: write
+
+# One sync at a time: two runs racing would each commit, and the second push would be refused.
+concurrency:
+  group: cortex-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CORTEX_REPO: {{CORTEX_REPO}}
+      CORTEX_REF: {{CORTEX_REF}}
+    steps:
+      # persist-credentials: false, although this job pushes. Left at its default, checkout writes
+      # the job's GITHUB_TOKEN into .git/config, where every later step — Cortex's code, holding the
+      # tracker secrets — could read it and push anything. Instead the sync commits with --no-push,
+      # and the last step, which runs no Cortex code, pushes with the token passed for that one
+      # command only.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Cortex at a pinned ref, outside the workspace, cloned with no credential. ubuntu-latest ships
+      # Node 20 or later, which has the global fetch the trackers are called with.
+      - name: Fetch Cortex
+        run: git clone -q --depth 1 --branch "$CORTEX_REF" "$CORTEX_REPO" "$RUNNER_TEMP/cortex"
+      - name: Sync asks with the trackers
+        env:
+          CORTEX_PROFILE: {{CORTEX_PROFILE}}
+{{TRACKER_ENV}}
+        run: |
+          set -euo pipefail
+          # The brain is this checkout (--clone); the root is an empty scratch directory, because
+          # nothing here is a vault.
+          export CORTEX_ROOT="$RUNNER_TEMP/cortex-root"
+          mkdir -p "$CORTEX_ROOT"
+          git config user.name "cortex-sync"
+          git config user.email "cortex-sync@users.noreply.github.com"
+          node "$RUNNER_TEMP/cortex/mcp/ai-os.js" sync --clone "$GITHUB_WORKSPACE" --no-push
+          node "$RUNNER_TEMP/cortex/mcp/ai-os.js" sync --clone "$GITHUB_WORKSPACE" --status || true
+      # The only step that holds a token able to write this repo. A run with nothing new made no
+      # commit, and there is nothing to push.
+      - name: Push the sync commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git log "origin/${GITHUB_REF_NAME}..HEAD" --oneline)" ]; then echo "Nothing to push."; exit 0; fi
+          auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin HEAD

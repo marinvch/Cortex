@@ -101,7 +101,7 @@ export function ensureTeamClone(brain, tool) {
   return { dir, cloned: true, ignored };
 }
 
-export function seedTeamBrain(cloneDir, { name, projects = [], source = null }) {
+export function seedTeamBrain(cloneDir, { name, projects = [], source = null, integrations = null, workflow = null }) {
   const written = [];
   const projectsDir = join(cloneDir, "projects");
   mkdirSync(projectsDir, { recursive: true });
@@ -126,10 +126,30 @@ export function seedTeamBrain(cloneDir, { name, projects = [], source = null }) 
       "\n## Members\n- (add members)\n",
   );
   written.push(teamMd);
-  if (source) {
+  // team.json holds `source` (#622) and the tracker selection (#624) — each only when the team set
+  // it, so a team with neither gets no file. A re-run keeps what is already there (members, from
+  // #620) and replaces only the keys it was given.
+  const integ = integrations && integrations.integrations?.length ? integrations : null;
+  if (source || integ) {
     const teamJson = join(cloneDir, TEAM_JSON);
-    writeFileSync(teamJson, JSON.stringify({ source }, null, 2) + "\n");
+    let doc = {};
+    if (existsSync(teamJson)) {
+      try { doc = JSON.parse(readFileSync(teamJson, "utf8")) ?? {}; } catch { doc = {}; }
+    }
+    if (source) doc.source = source;
+    if (integ) {
+      doc.integrations = integ.integrations;
+      if (integ.primary) doc.primary = integ.primary; else delete doc.primary;
+      if (integ.routes && Object.keys(integ.routes).length) doc.routes = integ.routes; else delete doc.routes;
+    }
+    writeFileSync(teamJson, JSON.stringify(doc, null, 2) + "\n");
     written.push(teamJson);
+  }
+  if (workflow) {
+    const wf = join(cloneDir, ".github", "workflows", "cortex-sync.yml");
+    mkdirSync(dirname(wf), { recursive: true });
+    writeFileSync(wf, workflow);
+    written.push(wf);
   }
   return written;
 }
@@ -138,11 +158,11 @@ export function seedTeamBrain(cloneDir, { name, projects = [], source = null }) 
  * Seed, commit and push a team-brain. `source` (an owner/repo, git URL or absolute path) is the
  * team's Cortex fork, written to `team.json`; it is validated before anything is cloned or written.
  */
-export function initTeamBrain(root, { name, repo, projects = [], outwardSync = true, source = null }) {
+export function initTeamBrain(root, { name, repo, projects = [], outwardSync = true, source = null, integrations = null, workflow = null }) {
   const src = source === null || source === undefined ? null : String(source).trim();
   if (source !== null && source !== undefined) parseSource(src, "--source");
   const { dir } = cloneTeamBrain(root, name, repo);
-  seedTeamBrain(dir, { name, projects, source: src });
+  seedTeamBrain(dir, { name, projects, source: src, integrations, workflow: typeof workflow === "function" ? workflow(dir) : workflow });
   ensureIdentity(dir);
   git(dir, ["add", "."]);
   const pending = git(dir, ["status", "--porcelain"]).trim();

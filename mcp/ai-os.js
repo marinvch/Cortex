@@ -16,6 +16,21 @@ import { askFrom, inboxFrom, answerFrom, memberFrom } from "./lib/asks.js";
 import { assertPublishable } from "./lib/tools.js";
 import { contractFrom, publishFrom } from "./lib/contract.js";
 import { genNoteId } from "./lib/noteid.js";
+import { syncFrom, integrationsFrom } from "./lib/sync.js";
+import { integrationsFromFlags, checkboxes, defaultPrimary, CREDENTIAL_VARS } from "./lib/integrations.js";
+import { renderSyncWorkflow, WORKFLOW_REL } from "./lib/sync-workflow.js";
+
+// The tracker flags `team init --integrations` and `integrations add` share (#624).
+const INTEGRATION_FLAGS = [
+  "integrations", "github-repo", "github-api", "servicenow-instance", "servicenow-table", "servicenow-group",
+  "servicenow-groups", "jira-site", "jira-project", "jira-issue-type", "route",
+];
+const TEAM_INIT_USAGE =
+  "usage: ai-os team init --name <team> --repo <git-url> [--projects a,b] [--source <owner/repo|git-url>]\n" +
+  "         [--integrations github,servicenow,jira|none] [--primary <kind>] [--route <role>=<kind>[+<kind>],…]\n" +
+  "         [--github-repo <owner/name>] [--servicenow-instance <url>] [--servicenow-table rm_story]\n" +
+  "         [--servicenow-group <group>] [--servicenow-groups <role>=<group>,…]\n" +
+  "         [--jira-site <url>] [--jira-project <KEY>] [--jira-issue-type Task] [--write-sync-workflow]";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
 const WIN = process.platform === "win32";
@@ -83,14 +98,34 @@ function cmdSetupPlugins(args) {
 function cmdTeam(teamSub, args, brain) {
   const root = brain.root;
   if (teamSub === "init") {
-    const usage = "usage: ai-os team init --name <team> --repo <git-url> [--projects a,b] [--source <owner/repo|git-url>]";
-    if (!args.name || !args.repo || args.source === true) throw new Error(usage);
+    if (!args.name || !args.repo || args.source === true) throw new Error(TEAM_INIT_USAGE);
+    for (const f of INTEGRATION_FLAGS) if (args[f] === true) throw new Error(`--${f} needs a value\n${TEAM_INIT_USAGE}`);
     const projects = typeof args.projects === "string" ? args.projects.split(",").map((s) => s.trim()).filter(Boolean) : [];
     const source = typeof args.source === "string" ? args.source : null;
+    // The tracker selection is validated whole before anything is cloned or written (#624).
+    const integrations = args.integrations === undefined ? null : integrationsFromFlags(args);
+    const kinds = integrations ? integrations.integrations.map((i) => i.kind) : [];
+    // Printed first, written only when asked for (docs/adr/0009).
+    const workflow = kinds.length ? renderSyncWorkflow({ kinds, source, profile: brain.profile }) : null;
     const { dir, pushed, error } = initTeamBrain(root, {
       name: args.name, repo: args.repo, projects, outwardSync: brain.policy.outwardSync, source,
+      integrations, workflow: args["write-sync-workflow"] ? workflow : null,
     });
     if (source) console.log(`Cortex source for this team: ${source.trim()} (team.json). Every \`team add\` copies it into the repo's connector.`);
+    if (integrations) {
+      for (const line of checkboxes(kinds)) console.log(line);
+      if (kinds.length) {
+        const primary = integrations.primary ?? defaultPrimary(kinds);
+        console.log(`Primary for status: ${primary}. Credentials come from the environment, never team.json:`);
+        for (const k of kinds) console.log(`  ${k}: ${CREDENTIAL_VARS[k].text}`);
+        if (args["write-sync-workflow"]) {
+          console.log(`Scheduled sync written to ${WORKFLOW_REL}. Add the secrets it names to the team-brain repo.`);
+        } else {
+          console.log(`Scheduled sync — not written. This is what \`--write-sync-workflow\` (or \`ai-os integrations workflow --write\`) puts at ${WORKFLOW_REL}:`);
+          console.log(workflow);
+        }
+      }
+    }
     if (!pushed) {
       console.log(`Team-brain seeded at ${dir}, but NOT pushed: ${error} (profile ${brain.profile}).`);
       return 0;
@@ -155,7 +190,7 @@ const ANSWER_USAGE = "usage: ai-os answer --id <ask-id> --body <text> [--status 
 
 // The CLI half of the ask tools (#620). The gate is the declaration's, the same one the server's
 // dispatch applies: what `ask` and `answer` write is pushed to a remote the team pulls.
-function cmdAsk(args, brain) {
+async function cmdAsk(args, brain) {
   for (const k of ["to", "body"]) if (typeof args[k] !== "string") throw new Error(ASK_USAGE);
   if (args.title === true || args.links === true) throw new Error(ASK_USAGE);
   const a = {
@@ -165,16 +200,25 @@ function cmdAsk(args, brain) {
     links: typeof args.links === "string" ? args.links.split(",").map((s) => s.trim()).filter(Boolean) : [],
   };
   assertPublishable("ask", a);
-  const res = askFrom(brain, a, { env: process.env, cwd: process.cwd(), id: genNoteId(), today: stamp() });
+  const res = await askFrom(brain, a, { env: process.env, cwd: process.cwd(), id: genNoteId(), today: stamp() });
   console.log(`Ask ${res.id} sent to ${res.toKind} '${res.to}' — ${describePublish(res, brain)}.`);
   console.log(res.path);
+  if (res.sync) console.log(describeSync(res.sync, brain));
   return 0;
 }
 
-function cmdInbox(args, brain) {
-  const res = inboxFrom(brain, { env: process.env, cwd: process.cwd() });
+/** One line for the tracker sync an ask, answer or inbox ran. */
+function describeSync(s, brain) {
+  if (s.error) return `Trackers: not synced — ${s.error}. Links stay pending; \`ai-os sync\` retries.`;
+  if (!s.ran) return s.reason === "outward_sync_disabled" ? `Trackers: not synced on profile ${brain.profile}, which publishes nothing.` : `Trackers: not synced (${s.reason}).`;
+  return `Trackers: ${s.message}${s.committed ? ` — ${describePublish(s, brain)}` : ""}.`;
+}
+
+async function cmdInbox(args, brain) {
+  const res = await inboxFrom(brain, { env: process.env, cwd: process.cwd(), today: stamp() });
   if (args.json) { console.log(JSON.stringify(res, null, 2)); return 0; }
   if (!res.pull.ok) console.log(`Pull failed, showing the local clone: ${res.pull.error}`);
+  if (res.sync) console.log(describeSync(res.sync, brain));
   if (res.notice) console.log(res.notice);
   for (const e of res.rosterErrors ?? []) console.log(`team.json: ${e}`);
   console.log(`Waiting for you (${res.waiting.length}):`);
@@ -185,13 +229,114 @@ function cmdInbox(args, brain) {
   return 0;
 }
 
-function cmdAnswer(args, brain) {
+async function cmdAnswer(args, brain) {
   if (typeof args.id !== "string" || typeof args.body !== "string" || args.status === true) throw new Error(ANSWER_USAGE);
   const a = { id: args.id, content: args.body, status: typeof args.status === "string" ? args.status : undefined };
   assertPublishable("answer", a);
-  const res = answerFrom(brain, a, { env: process.env, cwd: process.cwd(), today: stamp() });
+  const res = await answerFrom(brain, a, { env: process.env, cwd: process.cwd(), today: stamp() });
   console.log(`Answered ${res.id} (${res.status}) — ${describePublish(res, brain)}.`);
+  if (res.sync) console.log(describeSync(res.sync, brain));
   return 0;
+}
+
+const SYNC_USAGE = "usage: ai-os sync [--dry-run] [--status] [--json] [--clone <team-brain checkout>] [--team <name>] [--no-push]";
+
+// The CLI half of tracker sync (#624). Which asks, which trackers and what one run commits are
+// `syncFrom`'s (lib/sync.js); this parses and prints.
+async function cmdSync(args, brain) {
+  for (const k of ["clone", "team"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${SYNC_USAGE}`);
+  const res = await syncFrom(
+    brain,
+    { clone: args.clone ?? null, team: args.team ?? null, dryRun: Boolean(args["dry-run"]), status: Boolean(args.status), push: !args["no-push"] },
+    { env: process.env, today: stamp() },
+  );
+  if (args.json) { console.log(JSON.stringify(res, null, 2)); return 0; }
+  if (args.status) {
+    console.log(`Integrations: ${res.integrations.join(", ") || "none"}`);
+    console.log(`Not in sync (${res.stuck.length}):`);
+    for (const s of res.stuck) console.log(`  ${s.id}  ${s.kind}: ${s.state}${s.error ? ` — ${s.error}` : ""}`);
+    if (res.inactive.length) {
+      console.log(`Links to trackers no longer selected (${res.inactive.length}), kept and not synced:`);
+      for (const s of res.inactive) console.log(`  ${s.id}  ${s.kind} ${s.key ?? "(never created)"}${s.url ? `  ${s.url}` : ""}`);
+    }
+    return res.stuck.length ? 1 : 0;
+  }
+  if (args["dry-run"]) {
+    if (res.reason === "no_integrations") { console.log("No integration is selected; sync has nothing to do. `ai-os integrations add <kind>` connects one."); return 0; }
+    if (res.reason === "outward_sync_disabled") console.log(`Profile ${brain.profile} publishes nothing, so a real run would call no tracker. The plan anyway:`);
+    console.log(`Dry run — no tracker is called and nothing is written. Primary for status: ${res.primary}.`);
+    if (!res.plan.length) console.log("No ask has work for a tracker.");
+    for (const p of res.plan) {
+      console.log(`  ${p.id} (${p.status}, to ${p.to})`);
+      for (const s of p.steps) console.log(`    ${s}`);
+    }
+    return 0;
+  }
+  if (!res.ran) {
+    if (res.reason === "no_integrations") { console.log("No integration is selected; nothing to sync."); return 0; }
+    console.log(`Not synced on profile ${brain.profile}: it publishes nothing, and calling a tracker is publishing.`);
+    return 0;
+  }
+  if (res.changed.length && res.error === "push_left_to_caller") console.log(`${res.message} — committed; not pushed (--no-push).`);
+  else console.log(res.changed.length ? `${res.message} — ${describePublish(res, brain)}.` : "Nothing to sync: every linked tracker already matches the brain.");
+  return 0;
+}
+
+const INTEGRATIONS_USAGE =
+  "usage: ai-os integrations list|add|remove|workflow ...\n" +
+  "  ai-os integrations list [--json]                  the selected trackers, the primary, and which credentials are set\n" +
+  "  ai-os integrations add github [--github-repo <owner/name>] [--github-api <url>] [--primary]\n" +
+  "  ai-os integrations add servicenow --servicenow-instance <https://acme.service-now.com> [--servicenow-table rm_story]\n" +
+  "                         [--servicenow-group <group>] [--servicenow-groups backend=<group>,…] [--primary]\n" +
+  "  ai-os integrations add jira --jira-site <https://acme.atlassian.net> --jira-project <KEY> [--jira-issue-type Task] [--primary]\n" +
+  "  ai-os integrations remove <kind>                  stop syncing it; its links stay readable in every ask\n" +
+  "  ai-os integrations workflow [--write]             print the scheduled sync workflow; --write commits it to the brain\n" +
+  "  every form takes [--team <name>] or [--clone <team-brain checkout>]";
+
+// The CLI half of the tracker selection (#624). Config is CLI-only: no MCP tool changes it.
+function cmdIntegrations(sub, args, brain) {
+  for (const k of ["clone", "team", ...INTEGRATION_FLAGS]) if (args[k] === true) throw new Error(`--${k} needs a value\n${INTEGRATIONS_USAGE}`);
+  const where = { clone: args.clone ?? null, team: args.team ?? null };
+  const kind = rest[1];
+  if (sub === "list") {
+    const res = integrationsFrom(brain, "list", where, { env: process.env });
+    if (args.json) { console.log(JSON.stringify(res, null, 2)); return 0; }
+    for (const line of checkboxes(res.integrations.map((i) => i.kind))) console.log(line);
+    for (const i of res.integrations) {
+      console.log(`${i.kind}${i.primary ? " (primary)" : ""}: credentials ${i.credentials.set ? "set" : `NOT set — ${i.credentials.variables}`}`);
+    }
+    for (const [to, ks] of Object.entries(res.routes)) console.log(`route: asks to ${to} → ${ks.join(", ")}`);
+    console.log(res.workflow ? `Scheduled sync: ${res.workflow}` : "Scheduled sync: not written (`ai-os integrations workflow`).");
+    return 0;
+  }
+  if (sub === "workflow") {
+    const res = integrationsFrom(brain, "workflow", { ...where, write: Boolean(args.write) });
+    if (!res.written) {
+      console.log(`# Not written. \`ai-os integrations workflow --write\` commits this to ${res.path} in the team-brain:`);
+      console.log(res.text);
+      return 0;
+    }
+    console.log(`Wrote ${res.path} — ${describePublish(res, brain)}. Add the secrets it names to the team-brain repo.`);
+    return 0;
+  }
+  if (sub === "add") {
+    if (!kind || kind.startsWith("--")) throw new Error(INTEGRATIONS_USAGE);
+    const { integrations: [entry] } = integrationsFromFlags({ ...args, integrations: kind, primary: undefined, route: undefined });
+    const res = integrationsFrom(brain, "add", { ...where, entry, primary: args.primary ? kind : null });
+    console.log(res.action === "unchanged"
+      ? `${kind} is already selected as given. Nothing to commit.`
+      : `${kind} added; selected: ${res.kinds.join(", ")}, primary ${res.primary} — ${describePublish(res, brain)}.`);
+    console.log(`Credentials for ${kind} come from the environment: ${CREDENTIAL_VARS[kind].text}.`);
+    return 0;
+  }
+  if (sub === "remove") {
+    if (!kind || kind.startsWith("--")) throw new Error(INTEGRATIONS_USAGE);
+    const res = integrationsFrom(brain, "remove", { ...where, kind });
+    console.log(`${kind} removed; selected: ${res.kinds.join(", ") || "none"}${res.primary ? `, primary ${res.primary}` : ""} — ${describePublish(res, brain)}.`);
+    console.log(`Links to ${kind} stay in every ask, readable; sync no longer reads or writes them.`);
+    return 0;
+  }
+  throw new Error(INTEGRATIONS_USAGE);
 }
 
 const CONTRACT_USAGE =
@@ -403,6 +548,8 @@ The team-brain (needs a repo joined with \`team add\`, or a vault with a team cl
   inbox                                      the asks waiting for you — run it at the start of a task
   answer --id <ask-id> --body <text>         reply, optionally --status answered|decided|wontfix
   contract publish|show|who-calls|list       a repo's API surface, and who calls an endpoint
+  integrations list|add|remove|workflow      the trackers asks are filed in: github, servicenow, jira
+  sync [--dry-run] [--status]                move asks and tracker items both ways; one commit per run
   catch-up --since <YYYY-MM-DD>              what the team captured, and which contracts changed
   project list|check|remove                  the projects the team-brain knows
 
@@ -433,15 +580,19 @@ try {
     case "catch-up":
       process.exit(cmdCatchUp(args, open("catch-up", { rootOptional: true })));
     case "ask":
-      process.exit(cmdAsk(args, open("ask")));
+      process.exit(await cmdAsk(args, open("ask")));
     case "inbox":
-      process.exit(cmdInbox(args, open("inbox")));
+      process.exit(await cmdInbox(args, open("inbox")));
     case "answer":
-      process.exit(cmdAnswer(args, open("answer")));
+      process.exit(await cmdAnswer(args, open("answer")));
     case "contract":
       process.exit(cmdContract(rest[0], args, open("contract")));
+    case "sync":
+      process.exit(await cmdSync(args, open("sync")));
+    case "integrations":
+      process.exit(cmdIntegrations(rest[0], args, open("integrations")));
     default:
-      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract|help> [--flags]");
+      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract|sync|integrations|help> [--flags]");
       process.exit(sub ? 1 : 2);
   }
 } catch (e) {

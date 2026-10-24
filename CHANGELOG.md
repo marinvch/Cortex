@@ -148,6 +148,13 @@ this project now versions independently of any package manager (see `VERSION`).
   one module, `core/gate.js`, for both of its callers. [`docs/erasure.md`](docs/erasure.md) is the
   procedure for removing personal data from committed memory's history.
   [ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md).
+- **`tools/server/cortex-cron.sh` scrubs what leaves the server.** It used to send up to 60 KB of the
+  brain's raw diff to the Anthropic API and push the result with no gate on either. The diff now
+  passes the new `tools/cortex-scrub.mjs` (the same gate as above) before the API call, and the
+  digest before it is written and pushed; a finding stops the run with exit 3, nothing sent or
+  pushed, and the log names only the kind and line. With no scrubber available the API is not
+  called and the deterministic digest is written as before. `CORTEX_SCRUB` names the scrubber when
+  the cron script lives outside a Cortex checkout.
 
 ## [2.44.1] — 2026-10-13
 

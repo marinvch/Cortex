@@ -26,6 +26,16 @@
 #                       unavailable", this default is the first thing to check.
 #   CORTEX_API_URL      optional; the messages endpoint. Overridable so the failure path is
 #                       testable — a hardcoded URL cannot be exercised without the network.
+#   CORTEX_SCRUB        optional; the scrubber, default tools/cortex-scrub.mjs beside this
+#                       directory. It runs core/gate.js — credentials, the employer denylist on a
+#                       home profile, personal data under CORTEX_PII — over what leaves this machine.
+#
+# Two things leave the server, and both pass the scrubber first. The diff, before it is sent to the
+# API: a finding aborts the run, exit 3, with nothing sent, written or pushed. The digest, before it
+# is pushed: a finding aborts the same way, with nothing committed. The log names the KIND of what
+# was found and its line, never the text. With no scrubber (no node, or this script copied alone),
+# the API is not called at all and the digest is the deterministic one — file paths the brain's
+# remote already holds — so nothing unscanned leaves.
 set -euo pipefail
 
 # A copy of cortex_root from tools/_cortex-lib.sh, which is not on the server to source: this
@@ -53,6 +63,19 @@ BRAIN_DIR="${BRAIN_DIR:-$(cortex_root || true)}"
 : "${BRAIN_DIR:?set BRAIN_DIR (or CORTEX_ROOT; AI_OS_ROOT, the older name, is still read) to your brain clone}"
 MODEL="${CORTEX_MODEL:-claude-sonnet-5}"
 API_URL="${CORTEX_API_URL:-https://api.anthropic.com/v1/messages}"
+# Resolved before the cd, from this script's own location, as server-setup.sh resolves this script.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRUB="${CORTEX_SCRUB:-$HERE/../cortex-scrub.mjs}"
+scrub_ready() { command -v node >/dev/null 2>&1 && [ -f "$SCRUB" ]; }
+# scrub <what> — stdin through the gate. Prints the scrubber's verdict (kinds and lines only) and
+# returns its exit code: 0 clean or warned, 2 refused, 1 could not run. Both non-zero codes stop the
+# run: a scrubber that could not decide has not cleared anything.
+scrub() {
+  local verdict code=0
+  verdict="$(node "$SCRUB" --check 2>&1)" || code=$?
+  [ -n "$verdict" ] && printf '%s\n' "$verdict" | sed "s/^/cortex-cron: $1: /" >&2
+  return "$code"
+}
 cd "$BRAIN_DIR"
 
 # 1. sync
@@ -70,11 +93,27 @@ changed="$(git log --since="$SINCE" --name-only --pretty=format: -- '*.md' \
 material="$(git log --since="$SINCE" -p --pretty='commit %h %ad' --date=short -- '*.md' \
   | head -c 60000 || true)"
 
+# 3a. AI summary if a key is present — and only once the diff has passed the scrubber. The diff is
+# the brain's raw history, so a credential, a denylisted employer name or (under CORTEX_PII=refuse)
+# personal data in it would otherwise go to a third party verbatim.
+summary=""
+send=0
+if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -n "$material" ]; then
+  if ! scrub_ready; then
+    echo "cortex-cron: not sending the changes to the API — the scrubber is not available (node, and $SCRUB)." >&2
+    echo "cortex-cron: set CORTEX_SCRUB to tools/cortex-scrub.mjs in a Cortex checkout to turn the summary back on; writing the deterministic digest" >&2
+  elif ! printf '%s' "$material" | scrub "the changes"; then
+    echo "cortex-cron: refusing to send the changes to the API. Nothing was sent, written or pushed." >&2
+    echo "cortex-cron: the brain's own history holds what was found: remove it (docs/erasure.md), and rotate it if it is a credential" >&2
+    exit 3
+  else
+    send=1
+  fi
+fi
+
 mkdir -p "$(dirname "$OUT")"
 
-# 3a. AI summary if a key is present
-summary=""
-if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -n "$material" ]; then
+if [ "$send" = 1 ]; then
   prompt="You are Cortex, a personal knowledge assistant. Summarize what changed in the brain over the last period as a short, useful ${TITLE,,}: 3-6 bullets of what was captured/decided, and 1-2 follow-ups worth doing. Be concise and concrete. Raw material follows:\n\n${material}"
   # Thinking counts toward max_tokens (core/claude-code.js: model.thinking.counts-toward-max-tokens),
   # so a limit sized for the reply alone can end the turn before any text is written. 16000 leaves
@@ -128,8 +167,8 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -n "$material" ]; then
   fi
 fi
 
-# 3b. write the report (AI summary if we got one, plus the deterministic change list)
-{
+# 3b. build the report (AI summary if we got one, plus the deterministic change list)
+report="$(
   echo "---"
   echo "type: $([ "$MODE" = "--weekly" ] && echo audit || echo digest)"
   echo "date: $today"
@@ -141,7 +180,16 @@ fi
   if [ -n "$summary" ]; then echo "$summary"; echo; fi
   echo "## Files changed (last: ${SINCE})"
   if [ -n "$changed" ]; then printf '%s\n' "$changed" | sed 's/^/- /'; else echo "- (nothing changed)"; fi
-} > "$OUT"
+)"
+
+# 3c. scrub it before it is written, so a refused digest leaves no file to commit. The summary is
+# model output, and a model can repeat what it read. With no scrubber there is no summary (3a), and
+# what is left is file paths the remote already holds.
+if scrub_ready && ! printf '%s\n' "$report" | scrub "the digest"; then
+  echo "cortex-cron: refusing to push the $TITLE. Nothing was written, committed or pushed." >&2
+  exit 3
+fi
+printf '%s\n' "$report" > "$OUT"
 
 # 4. commit + push (skip cleanly if nothing to commit)
 git add "$OUT"

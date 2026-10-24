@@ -712,7 +712,8 @@ none.
 | `cortex-version.mjs` | `--set X.Y.Z` — stamp the version at all seven sites, refuse without a changelog entry |
 | `cortex-release-notes.mjs` | `X.Y.Z` — that version's section of the changelog, for a release's notes; exit 1 if the section cannot be bounded exactly |
 | `cortex-release-plan.mjs` | `--before <sha>` — what one push to master releases: nothing, a tag that already exists, or a new release and whether it takes Latest. The release workflow acts on it; it creates nothing itself |
-| `cortex-preflight.mjs` | Root, profile and index freshness — what every ritual asks before it writes |
+| `cortex-preflight.mjs` | Root, profile, employer denylist and index freshness — what every ritual asks before it writes |
+| `cortex-scrub.mjs` | The publish gate for shell scripts: credentials, the employer denylist on `home`, personal data; `--check` exits 2 on a refusal and names only kinds |
 | `cortex-setup.mjs` | `--agents copilot,gemini,codex` — register the Cortex MCP server in each agent's own config, project scope where it can be committed; a dry run unless `--write` |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |

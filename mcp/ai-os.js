@@ -388,8 +388,38 @@ function open(what, { rootOptional = false } = {}) {
   }
 }
 
+// Every team command is a CLI command too (design R16), so an agent with no Claude skills — Copilot,
+// Gemini CLI, Codex — or a person in a terminal reaches the same behaviour through the same lib/
+// function the MCP tool calls. `help` is how anyone finds them; the usage line below is its short form.
+const HELP = `usage: ai-os <command> [--flags]
+
+The team-brain (needs a repo joined with \`team add\`, or a vault with a team clone):
+  team init --name <team> --repo <git-url>   create and seed a team-brain repo
+  team add --name <team> --repo <git-url> --project <slug>
+                                             join it from this repo: clone it, write .cortex/connector.json
+  team member --roles <role,role>            say which roles and projects you hold, in team.json
+  ask --to <role|project> --title <t> --body <text>
+                                             send a question to a role or a project
+  inbox                                      the asks waiting for you — run it at the start of a task
+  answer --id <ask-id> --body <text>         reply, optionally --status answered|decided|wontfix
+  contract publish|show|who-calls|list       a repo's API surface, and who calls an endpoint
+  catch-up --since <YYYY-MM-DD>              what the team captured, and which contracts changed
+  project list|check|remove                  the projects the team-brain knows
+
+Other:
+  digest --repo <path> --since <date> --out <file>
+  setup-plugins [--tier core] [--scope user|project|local] [--status]
+
+Each command prints its own flags when they are wrong. CORTEX_ROOT names the brain; the MCP tools
+of the same names do the same things (node tools/cortex-setup.mjs registers them in Copilot,
+Gemini CLI and Codex).`;
+
 const [sub, ...rest] = process.argv.slice(2);
 const args = parseArgs(rest);
+if (sub === "help" || sub === "--help" || sub === "-h") {
+  console.log(HELP);
+  process.exit(0);
+}
 try {
   switch (sub) {
     case "setup-plugins":
@@ -411,7 +441,7 @@ try {
     case "contract":
       process.exit(cmdContract(rest[0], args, open("contract")));
     default:
-      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract> [--flags]");
+      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract|help> [--flags]");
       process.exit(sub ? 1 : 2);
   }
 } catch (e) {

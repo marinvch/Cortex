@@ -334,3 +334,18 @@ test("placing a caller: a member gets their roles and projects plus this repo's;
   assert.deepEqual([nobody.placed, nobody.roles, nobody.projects], [false, [], ["svc-c"]]);
   assert.match(nobody.notice, /CORTEX_AUTHOR/);
 });
+
+test("every team command is reachable from the CLI, and `help` lists each one (R16, #623)", () => {
+  const bare = { ...process.env, CORTEX_ROOT: "", AI_OS_ROOT: "" };
+  const r = spawnSync(process.execPath, [CLI, "help"], { encoding: "utf8", env: bare });
+  assert.equal(r.status, 0, r.stderr);
+  for (const cmd of ["team init", "team add", "team member", "ask --to", "inbox", "answer --id", "contract publish|show|who-calls|list", "catch-up"]) {
+    assert.ok(r.stdout.includes(cmd), `help names ${cmd}`);
+  }
+  for (const flag of ["--help", "-h"]) assert.equal(spawnSync(process.execPath, [CLI, flag], { encoding: "utf8", env: bare }).status, 0, flag);
+  // Each command `help` names is one the CLI dispatches: it fails on its root or flags, never as unknown.
+  for (const cmd of ["ask", "inbox", "answer", "contract", "team"]) {
+    const u = spawnSync(process.execPath, [CLI, cmd], { encoding: "utf8", env: bare });
+    assert.doesNotMatch(u.stderr, /usage: ai-os </, cmd);
+  }
+});

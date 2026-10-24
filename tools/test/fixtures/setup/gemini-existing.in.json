@@ -1,0 +1,7 @@
+{
+  "theme": "GitHub",
+  "context": { "fileName": ["AGENTS.md", "GEMINI.md"] },
+  "mcpServers": {
+    "cortex": { "command": "node", "args": ["/somewhere/else/server.js"], "env": { "CORTEX_ROOT": "/a/team/choice" } }
+  }
+}

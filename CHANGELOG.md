@@ -34,6 +34,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **Copilot, Gemini CLI and Codex get the same brain as Claude Code (#623).**
+  `node tools/cortex-setup.mjs --agents copilot,gemini,codex` registers the Cortex MCP server in
+  each agent's own config. Copilot in VS Code gets `.vscode/mcp.json` and Gemini CLI gets
+  `.gemini/settings.json`, both project scope so the team commits them once. Codex gets
+  `~/.codex/config.toml` at user scope, because Codex expands no variables and a committed file
+  would hold one machine's path. Claude Code gets nothing new: the plugin already starts the
+  server. The committed files start `${CORTEX_HOME}/mcp/server.js`, so each developer sets
+  `CORTEX_HOME` once. The command prints its plan and writes only with `--write`. It never replaces
+  an existing `cortex` entry, and it refuses a file it cannot parse. If any file is refused, it
+  writes none. Each agent's path and format was checked against its docs on 2026-10-24, and a
+  test compares every generated file with a fixture.
+  - The same run adds `.github/copilot-instructions.md`, pointing at `AGENTS.md`, for Copilot in
+    JetBrains and Visual Studio, which do not read `AGENTS.md`, and the `GEMINI.md` shim. Each is
+    added only when it is missing. On a team's repo, `AGENTS.md` gains one line telling any agent to call
+    `inbox` at the start of a task.
+  - `ai-os help` lists every team command: `team init|add|member`, `ask`, `inbox`, `answer`,
+    `contract` and `catch-up`.
 - **Cortex can run from an organisation's fork (#622).** One source setting holds a GitHub
   `owner/repo`, a git URL or an absolute local path. It is read from `--source`, then the
   `CORTEX_SOURCE` variable, then the `source` in `.cortex/connector.json`, and defaults to

@@ -441,6 +441,33 @@ Three names were left as they are, because each is typed in a command or stored 
 this change cannot rewrite: the CLI file `mcp/ai-os.js` and its command name `ai-os`, and the
 package name `ai-os-mcp` in `mcp/package.json` (its `bin` now also answers to `cortex-mcp`).
 
+### Using Cortex with Copilot, Gemini CLI or Codex
+
+A team's developers rarely share one agent. The brain is the MCP server plus the `ai-os` CLI, and
+both work the same from any agent. From the repo, with a clone of Cortex:
+
+```bash
+node /path/to/cortex/tools/cortex-setup.mjs --agents copilot,gemini,codex          # the plan; writes nothing
+node /path/to/cortex/tools/cortex-setup.mjs --agents copilot,gemini,codex --write  # write it
+```
+
+| Agent | Where the server goes | Scope |
+|---|---|---|
+| GitHub Copilot in VS Code | `.vscode/mcp.json` | project — commit it |
+| Gemini CLI | `.gemini/settings.json` | project — commit it |
+| OpenAI Codex | `~/.codex/config.toml` (or `$CODEX_HOME`) | user — Codex expands no variables, so a committed file would hold your machine's path |
+| Claude Code | nothing: the Cortex plugin starts the server | plugin |
+
+The committed files start `${CORTEX_HOME}/mcp/server.js`, so each developer sets `CORTEX_HOME` once
+to their Cortex checkout; the plan says whether it is set. An entry named `cortex` already in a
+file is left as it is, and a file that does not parse, such as one with comments, is refused. The
+Copilot cloud coding agent reads MCP servers from the repository's settings on github.com, not
+from a file. The setup also adds `.github/copilot-instructions.md` (Copilot in JetBrains and Visual
+Studio does not read `AGENTS.md`) and `GEMINI.md` when they are missing, and on a team's repo one
+line in `AGENTS.md` telling any agent to call `inbox` at the start of a task. Every team command
+is also a CLI command: `node mcp/ai-os.js help` lists `ask`, `inbox`, `answer`, `contract` and
+the `team` commands.
+
 ---
 
 ## Use it on your other projects ⭐
@@ -638,6 +665,7 @@ none.
 | `cortex-release-notes.mjs` | `X.Y.Z` — that version's section of the changelog, for a release's notes; exit 1 if the section cannot be bounded exactly |
 | `cortex-release-plan.mjs` | `--before <sha>` — what one push to master releases: nothing, a tag that already exists, or a new release and whether it takes Latest. The release workflow acts on it; it creates nothing itself |
 | `cortex-preflight.mjs` | Root, profile and index freshness — what every ritual asks before it writes |
+| `cortex-setup.mjs` | `--agents copilot,gemini,codex` — register the Cortex MCP server in each agent's own config, project scope where it can be committed; a dry run unless `--write` |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |
 | `cortex-skill-links.mjs` | Whether every link from a ritual to a file or a heading resolves; `--check` fails on a dead one |

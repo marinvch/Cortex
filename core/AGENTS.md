@@ -80,6 +80,10 @@ here, which is why the directory is small and stays small.
   entries under a marker line, never rewrites one, and honours a bare `.cortex/` the user wrote.
   Which entries is the caller's: `index/lib/generated.mjs` passes the generated directories, and
   `mcp/lib/team.js` passes `.cortex/team/` before it clones a team-brain into a product repo.
+- **`json-text.js` inserts one entry into a JSON file's text** (#623), for
+  `index/lib/shared-plugin.mjs` and `tools/cortex-setup.mjs`. It only finds and inserts, in the
+  file's own indent and line endings. Parsing first, refusing, keeping an existing entry and
+  re-parsing to compare are each caller's job, and both do all four. Pure.
 - **`route-path.js` is the one normal form for an HTTP path** (#621): `/items/{}`, every variable
   spelling folded to `{}`. `index/lib/routes.mjs` writes the route map and the contract in it, and
   `mcp/lib/contract.js` normalises a "who calls" question with it. `callReaches` is the route

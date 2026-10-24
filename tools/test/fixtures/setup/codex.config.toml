@@ -1,0 +1,4 @@
+[mcp_servers.cortex]
+command = "node"
+args = ["@CORTEX_HOME@/mcp/server.js"]
+env = { CORTEX_ROOT = ".cortex" }

@@ -7,8 +7,10 @@
 // the same tree always produces the same file, so this is safe to run in CI and on every install.
 
 import { writeFileSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
+import { loadParsers } from "./lib/parsers.mjs";
+import { symbolCache, symbolsLine } from "./lib/symbol-cache.mjs";
 import { nextLine } from "./lib/next.mjs";
 import { ensureGeneratedFileDir } from "./lib/generated.mjs";
 import { defaultIndexPath, generatedNotice, openTarget } from "./lib/open.mjs";
@@ -25,13 +27,20 @@ const { root, args } = openTarget(process.argv.slice(2), {
 const out = args.out ? (isAbsolute(args.out) ? args.out : resolve(args.out)) : defaultIndexPath(root);
 
 const started = Date.now();
-const index = buildIndex(root);
+// The parser add-on, when the person installed it (lib/parsers.mjs). Absent is the usual case and
+// says nothing; an install that cannot be used says so once, and the index is built without it.
+const notes = [];
+const parsers = await loadParsers({ onNote: (n) => notes.push(n) });
+const cache = parsers ? symbolCache(join(dirname(out), "symbols")) : null;
+const index = buildIndex(root, { parsers, symbolCache: cache });
 
 const gen = ensureGeneratedFileDir(root, out);
 writeFileSync(out, JSON.stringify(index, null, 2));
+cache?.prune();
 
 if (args.json) {
   process.stdout.write(`${JSON.stringify(index.stats, null, 2)}\n`);
+  for (const n of notes) process.stderr.write(`${n}\n`);
 } else {
   const s = index.stats;
   const top = Object.entries(s.languages)
@@ -68,6 +77,9 @@ if (args.json) {
         ? `Routes: ${index.routes.calls.length} calls, ${index.routes.gateways.length} gateway routes, ` +
           `${index.routes.handlers.length} handlers — resolve them with node index/cortex-routes.mjs\n`
         : "") +
+      // Like routes: a repo in no language the add-on reads gains no line of zeros.
+      (index.symbols?.files ? `${symbolsLine(index.symbols)}\n` : "") +
+      notes.map((n) => `${n}\n`).join("") +
       `Wrote ${out} in ${Date.now() - started}ms\n` +
       generatedNotice(gen) +
       // An index answers nothing a user actually asked. Without this line the sequence is

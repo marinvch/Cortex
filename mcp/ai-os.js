@@ -108,7 +108,7 @@ function cmdTeam(teamSub, args, brain) {
     // Printed first, written only when asked for (docs/adr/0009).
     const workflow = kinds.length ? renderSyncWorkflow({ kinds, source, profile: brain.profile }) : null;
     const { dir, pushed, error } = initTeamBrain(root, {
-      name: args.name, repo: args.repo, projects, outwardSync: brain.policy.outwardSync, source,
+      name: args.name, repo: args.repo, projects, policy: brain.policy, env: brain.env, source,
       integrations, workflow: args["write-sync-workflow"] ? workflow : null,
     });
     if (source) console.log(`Cortex source for this team: ${source.trim()} (team.json). Every \`team add\` copies it into the repo's connector.`);
@@ -147,7 +147,7 @@ function cmdTeam(teamSub, args, brain) {
     }
     // The order (project file, then connector) is `joinProject`'s: a refused join writes no connector.
     const { dir, cloned, file, connector, source } = joinProject(root, {
-      team: args.name, teamRepo: args.repo, project, cwd: process.cwd(), today: stamp(), policy: brain.policy, fields,
+      team: args.name, teamRepo: args.repo, project, cwd: process.cwd(), today: stamp(), policy: brain.policy, env: brain.env, fields,
     });
     console.log(describeProjectFile(file, brain));
     for (const w of file.warnings) console.log(`  warning: ${w.msg}`);
@@ -466,7 +466,7 @@ function cmdProject(projectSub, args, brain) {
 
   const project = args.project;
   if (!project || project === true) throw new Error("usage: ai-os project remove --project <slug> [--team <name>]");
-  const res = removeProject(brain.root, { team, project, policy: brain.policy });
+  const res = removeProject(brain.root, { team, project, policy: brain.policy, env: brain.env });
   const how = res.pushed ? "committed and pushed"
     : res.committed ? `committed, but NOT pushed: ${res.error} (profile ${brain.profile})`
     : `NOT committed: ${res.error ?? "the file was never tracked"}`;

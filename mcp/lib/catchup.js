@@ -31,14 +31,17 @@ const TEAM_COMMITS_MAX = 100;
  * answer must never pass for a quiet week.
  *
  * @param {string} root  the vault
- * @param {{ project: string, since: string, team?: string }} opts
+ * `policy` is required on a team: the pull reaches the team-brain's remote, and core/destinations.js
+ * decides whether it may. A refused pull is reported in `pull` like any failed one.
+ *
+ * @param {{ project: string, since: string, team?: string, policy?: object, env?: object }} opts
  */
-export function catchMeUp(root, { project, since, team }) {
+export function catchMeUp(root, { project, since, team, policy, env = process.env }) {
   const notes = recall(root, { query: project, project, limit: 50 }).map(({ path, snippet }) => ({ path, snippet }));
   if (!team) return { notes, commits: [] };
 
   const clone = teamCloneDir(root, team);
-  const pulled = pull(clone);
+  const pulled = pull(clone, { policy, env });
   const out = {
     notes,
     pull: pulled.ok ? { ok: true } : { ok: false, error: firstLines(pulled.error) },
@@ -195,6 +198,6 @@ export function catchUp({ brain, since, project: asked, team: givenTeam, cwd, to
 
   const project = asked ?? brain.project ?? (repoDir ? basename(repoDir) : null);
   if (!project) throw new CatchUpRefused("no_project", "catch-up needs a project, and none was given or found");
-  const res = catchMeUp(brain.root, { project, since, team: catchUpTeam(givenTeam, brain) });
+  const res = catchMeUp(brain.root, { project, since, team: catchUpTeam(givenTeam, brain), policy: brain.policy, env: brain.env });
   return { ...(repo ? { repo } : {}), ...res };
 }

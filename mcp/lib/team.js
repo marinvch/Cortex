@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { parseSource } from "../../core/source.js";
 import { ensureGitignored } from "../../core/gitignore.js";
-import { ensureIdentity, teamCloneDir } from "./gitsync.js";
+import { ensureIdentity, teamCloneDir, destinationRefusal } from "./gitsync.js";
+import { assertDestination } from "../../core/destinations.js";
 
 function git(cwd, args) {
   return execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] }).toString();
@@ -52,9 +53,17 @@ export function readTeamSource(cloneDir) {
   return v;
 }
 
-export function cloneTeamBrain(root, name, repo) {
+/**
+ * Clone the team-brain at `repo` into the vault's `team/<name>/`, unless a clone is already there.
+ * `opts.policy` is required: the URL is checked against the profile's destinations before anything
+ * is cloned or created, and a refusal throws `DestinationRefusedError` (core/destinations.js).
+ */
+export function cloneTeamBrain(root, name, repo, opts) {
+  if (!opts || !opts.policy) throw new TypeError("cloneTeamBrain: { policy } is required — pass brain.policy");
   const dir = teamCloneDir(root, name);
   if (existsSync(join(dir, ".git"))) return { dir, cloned: false };
+  // Inbound: lab may still clone. Work may clone only from an approved remote.
+  assertDestination(repo, { kind: "git", policy: opts.policy, env: opts.env ?? process.env, inbound: true });
   mkdirSync(dirname(dir), { recursive: true });
   execFileSync("git", ["clone", "-q", repo, dir], { stdio: ["ignore", "pipe", "pipe"] });
   return { dir, cloned: true };
@@ -97,7 +106,7 @@ export function ensureTeamClone(brain, tool) {
       { code: "no_clone" },
     );
   }
-  const { dir } = cloneTeamBrain(brain.root, brain.team, brain.teamBrainRepo);
+  const { dir } = cloneTeamBrain(brain.root, brain.team, brain.teamBrainRepo, { policy: brain.policy, env: brain.env });
   return { dir, cloned: true, ignored };
 }
 
@@ -158,10 +167,11 @@ export function seedTeamBrain(cloneDir, { name, projects = [], source = null, in
  * Seed, commit and push a team-brain. `source` (an owner/repo, git URL or absolute path) is the
  * team's Cortex fork, written to `team.json`; it is validated before anything is cloned or written.
  */
-export function initTeamBrain(root, { name, repo, projects = [], outwardSync = true, source = null, integrations = null, workflow = null }) {
+export function initTeamBrain(root, { name, repo, projects = [], policy, env = process.env, source = null, integrations = null, workflow = null }) {
+  if (!policy) throw new TypeError("initTeamBrain: { policy } is required — pass brain.policy");
   const src = source === null || source === undefined ? null : String(source).trim();
   if (source !== null && source !== undefined) parseSource(src, "--source");
-  const { dir } = cloneTeamBrain(root, name, repo);
+  const { dir } = cloneTeamBrain(root, name, repo, { policy, env });
   seedTeamBrain(dir, { name, projects, source: src, integrations, workflow: typeof workflow === "function" ? workflow(dir) : workflow });
   ensureIdentity(dir);
   git(dir, ["add", "."]);
@@ -174,7 +184,12 @@ export function initTeamBrain(root, { name, repo, projects = [], outwardSync = t
   // of `lab`. The seed is still written and committed locally so nothing is lost; only the publish
   // is declined, and the caller is told which so it can say so rather than reporting a silent
   // success. capture.js made the same choice at the same seam.
-  if (!outwardSync) return { dir, pushed: false, error: "outward_sync_disabled" };
+  if (!policy.outwardSync) return { dir, pushed: false, error: "outward_sync_disabled" };
+
+  // The push is checked as every push is (core/destinations.js): a clone that was already here was
+  // never checked on the way in, and its remote may since have been changed.
+  const refused = destinationRefusal(dir, { policy, env }, { push: true });
+  if (refused) return { dir, pushed: false, error: refused };
 
   git(dir, ["push", "-q", "-u", "origin", "master"]); // retry-safe if a prior commit was unpushed
   return { dir, pushed: true };

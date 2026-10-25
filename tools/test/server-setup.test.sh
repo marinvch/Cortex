@@ -182,3 +182,24 @@ run_cron --install >/dev/null
 installed="$(cat "$FAKE_CRONTAB_STORE")"
 assert_eq "2" "$(printf '%s\n' "$installed" | grep -c 'cortex-cron\.sh')" "a second install leaves exactly one pair of lines"
 assert_contains "$installed" "unrelated-job" "and still leaves the unrelated line"
+
+# --- work profile: the remote must be an approved destination ---
+#
+# A work install with no approved list must not clone or push to a remote host. A disk path never
+# leaves the machine, so it is allowed with no list at all.
+
+WV="$WORK/vault-work"
+mkdir -p "$WV/mcp"
+: > "$WV/mcp/server.js"
+out="$(cd "$WV" && HOME="$FAKE_HOME" CORTEX_PROFILE=work CORTEX_DESTINATIONS="$WORK/no-such-list" bash "$SETUP" client https://github.com/someone/brain.git acme 2>&1)"
+assert_eq "4" "$?" "work: an unapproved remote is refused with exit 4"
+assert_contains "$out" "not an approved destination" "and says why"
+assert_exit 1 "and nothing was cloned" -- test -d "$WV/team/acme"
+
+out="$(HOME="$FAKE_HOME" CORTEX_PROFILE=work CORTEX_DESTINATIONS="$WORK/no-such-list" bash "$SETUP" cron https://github.com/someone/brain.git "$WORK/cron-work" 2>&1)"
+assert_eq "4" "$?" "work: cron mode refuses an unapproved remote too"
+assert_exit 1 "and clones nothing" -- test -d "$WORK/cron-work"
+
+printf 'git: github.com/acme\n' > "$WORK/approved"
+out="$(cd "$WV" && HOME="$FAKE_HOME" CORTEX_PROFILE=work CORTEX_DESTINATIONS="$WORK/approved" bash "$SETUP" client https://github.com/acme-evil/brain.git acme 2>&1)"
+assert_eq "4" "$?" "work: a lookalike owner is not the approved one"

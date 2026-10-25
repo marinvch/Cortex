@@ -6,6 +6,8 @@
 // loads, so a test that replaces `globalThis.fetch` with a function that throws is testing the real
 // path (R19).
 
+import { assertDestination } from "../../../core/destinations.js";
+
 /** A tracker call that failed: unreachable, timed out, or answered with a status that is not 2xx. */
 export class TrackerError extends Error {
   constructor(kind, message, { status = null, retryable = true } = {}) {
@@ -60,13 +62,19 @@ export function baseUrl(kind, value, field) {
  * One request. Resolves to the parsed JSON body (or null for an empty one); rejects with
  * `TrackerError`. The message carries the method, the path and the status — never a header.
  *
+ * Before anything else, the URL is checked against the profile's destinations as `https`
+ * (core/destinations.js, docs/adr/0030): on work, a tracker host that is not approved rejects with
+ * `DestinationRefusedError` and `fetch` is never called. `io.policy` is required, and a missing one
+ * rejects with a TypeError rather than reaching the network unchecked.
+ *
  * @param {string} kind
- * @param {{ fetch?: Function, timeoutMs?: number }} io
+ * @param {{ fetch?: Function, timeoutMs?: number, policy: object, env?: object }} io
  * @param {string} method
  * @param {string} url
  * @param {{ headers?: object, body?: unknown }} [opts]
  */
 export async function request(kind, io, method, url, { headers = {}, body } = {}) {
+  assertDestination(url, { kind: "https", policy: io.policy, env: io.env ?? process.env });
   const f = io.fetch ?? globalThis.fetch;
   if (typeof f !== "function") throw new TrackerError(kind, "no fetch in this Node; Cortex needs Node 20 or later");
   const timeoutMs = io.timeoutMs ?? DEFAULT_TIMEOUT_MS;

@@ -593,7 +593,9 @@ boundary. **Archiving is not sanitizing.** The product's own history is its git 
 `CHANGELOG.md`.
 
 On a team, what is shared is the target repo's context layer — `AGENTS.md`, `.cortex/memory/` —
-committed with that code. `core/scrub.js` refuses any memory write carrying a credential.
+committed with that code. `core/scrub.js` refuses any memory write carrying a credential. On a
+`work` profile it also refuses personal data, and nothing is pushed or posted except to a
+destination on your company's [approved list](#approved-destinations-on-work).
 
 ### What Cortex runs, sends and fetches
 
@@ -633,11 +635,17 @@ committed with that code. `core/scrub.js` refuses any memory write carrying a cr
   GitHub, the team's ServiceNow instance or its Jira site — with the credential from your
   environment, and never on the `lab` profile. The note passes the secret gate before it
   is written, and the `home`/`work` profile decides which captures may leave the machine.
+- **On a `work` profile, every one of those calls goes only to an approved destination.** Each
+  push, pull, clone and tracker request is checked first against `~/.cortex/allowed-destinations`
+  (or the file in `CORTEX_DESTINATIONS`). See [Approved destinations](#approved-destinations-on-work).
 - **On a server you run, `tools/server/cortex-cron.sh`** pulls the team brain, writes a daily
   digest or weekly audit, and pushes it. With `ANTHROPIC_API_KEY` set it also sends the day's
   changes to the Anthropic API for a summary. Both the changes and the digest pass
   `tools/cortex-scrub.mjs` first, and a finding stops the run with nothing sent or pushed. Without
-  a key, or without the scrubber, it calls no API and writes a plain digest from git.
+  a key, or without the scrubber, it calls no API and writes a plain digest from git. On `work` it
+  also checks the API URL and the brain's remote with `tools/cortex-destinations.mjs`: an
+  unapproved API means a plain digest, and an unapproved remote means the digest is committed
+  locally and not pushed (exit 4). Without the checker, a `work` or `lab` server sends nothing.
 - **The rituals** are instructions Claude follows, and say before each step that touches the
   network — `gh` for pull requests, `git clone` of a public repo you name — so it runs only when
   you ask for it.
@@ -678,14 +686,44 @@ forge — passes the code, and only the rituals' judgment stops it.
 [ADR 0026](docs/adr/0026-the-employer-firewall-checks-the-names-you-give-it.md).
 
 **Personal data.** The same gate looks for email addresses, phone numbers, IBANs and card numbers
-in anything it publishes. By default it warns and writes (`CORTEX_PII=warn`); `CORTEX_PII=refuse`
-refuses, `off` stops the scan. Committed memory is append-only, so removing personal data later
+in anything it publishes. On `home` and `lab` it warns and writes; on `work` it refuses. Set
+`CORTEX_PII` to `warn`, `refuse` or `off` to override the profile. Committed memory is append-only, so removing personal data later
 means rewriting git history and replacing every clone: [`docs/erasure.md`](docs/erasure.md) has the
 procedure, and `CORTEX_AUTHOR=<pseudonym>` keeps your real name out of memory paths.
 [ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md).
 
 Full rule: [`templates/vault-AGENTS.md`](templates/vault-AGENTS.md) — the manual a vault carries as
 its own `AGENTS.md`.
+
+### Approved destinations on work
+
+On a `work` profile, company material leaves the machine only for a destination your company
+approved. The list is a file outside every repository, so IT can deploy it:
+`~/.cortex/allowed-destinations`, or the path in `CORTEX_DESTINATIONS`. One line per destination:
+
+```
+# approved by IT. git: a host, optionally with an owner or group; https: a tracker or an API
+git: github.com/your-org
+git: gitlab.your-org.internal
+https: your-org.service-now.com
+# GitHub issues, if the team syncs asks there, and cortex-cron's summary
+https: api.github.com
+https: api.anthropic.com
+npm: registry.npmjs.org
+```
+
+- Every push, pull, clone and tracker request checks it first. A host matches exactly, never by
+  suffix, and an owner matches whole path segments, so `github.com/your-org` does not approve
+  `github.com/your-org-evil`.
+- **No list means nothing is approved.** An existing work install stops pushing until the file
+  exists; captures and asks are still committed locally, and the result says why they were not
+  pushed. `node tools/cortex-destinations.mjs status` and `tools/cortex-preflight.mjs` say how to
+  fix it.
+- Paths on this machine and `localhost` are always allowed. `home` allows any destination, and
+  `lab` sends nothing anywhere.
+- `node tools/cortex-destinations.mjs check git <url>` tells you whether a remote would be allowed.
+
+[ADR 0030](docs/adr/0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md).
 
 ## No noise = no drift
 
@@ -722,6 +760,7 @@ none.
 | `cortex-release-plan.mjs` | `--before <sha>` — what one push to master releases: nothing, a tag that already exists, or a new release and whether it takes Latest. The release workflow acts on it; it creates nothing itself |
 | `cortex-preflight.mjs` | Root, profile, employer denylist and index freshness — what every ritual asks before it writes |
 | `cortex-scrub.mjs` | The publish gate for shell scripts: credentials, the employer denylist on `home`, personal data; `--check` exits 2 on a refusal and names only kinds |
+| `cortex-destinations.mjs` | Where this install may send things: `status` shows the profile and the approved-destinations list, `check <git\|https\|npm> <url>` exits 2 when the destination is refused |
 | `cortex-setup.mjs` | `--agents copilot,gemini,codex` — register the Cortex MCP server in each agent's own config, project scope where it can be committed; a dry run unless `--write` |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |

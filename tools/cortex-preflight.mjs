@@ -25,6 +25,7 @@ import { join, dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveProfile, UnknownProfileError } from "../core/profile.js";
 import { loadDenylist } from "../core/denylist.js";
+import { destinationStatus, destinationNotes } from "../core/destinations.js";
 import { indexFreshness } from "../index/lib/open.mjs";
 
 const args = process.argv.slice(2);
@@ -95,6 +96,13 @@ function denylistState() {
 
 const denylist = denylistState();
 
+// --- approved destinations --------------------------------------------------------------------------
+
+// On work, every push, pull, clone and tracker call is refused unless its host is on the list
+// (core/destinations.js, docs/adr/0030). A work install with no list cannot publish anything, so this
+// is the place that says so before a ritual finds out from a refused push.
+const destinations = destinationStatus({ policy: profile.policy, env: process.env });
+
 // --- index freshness ----------------------------------------------------------------------------
 
 // "Re-run the index first if it is stale" is advice six rituals give and none could act on, because
@@ -150,7 +158,7 @@ const checked = paths.map(ignoreState);
 // --- report ---------------------------------------------------------------------------------------
 
 if (asJson) {
-  console.log(JSON.stringify({ root, inGit, kind, profile, denylist, index, paths: checked }, null, 2));
+  console.log(JSON.stringify({ root, inGit, kind, profile, denylist, destinations, index, paths: checked }, null, 2));
   process.exit(0);
 }
 
@@ -186,6 +194,23 @@ if (!denylist.applies) {
   const by = Object.entries(denylist.kinds).map(([k, n]) => `${k} ${n}`).join(", ");
   console.log(`denylist  ${denylist.entries} entr${denylist.entries === 1 ? "y" : "ies"}${by ? ` (${by})` : ""} from ${denylist.path}`);
   for (const p of denylist.problems) console.log(`          line ${p.line} ${p.why}`);
+}
+
+if (destinations.mode === "any") {
+  console.log("dests     any — the home profile may send to any destination");
+} else if (destinations.mode === "none") {
+  console.log("dests     none — the lab profile sends nothing off this machine; pulls and clones still work");
+} else if (destinations.state === "ok") {
+  const by = Object.entries(destinations.kinds).map(([k, n]) => `${k} ${n}`).join(", ");
+  console.log(`dests     ${destinations.entries} approved${by ? ` (${by})` : ""} from ${destinations.path}`);
+  for (const n of destinationNotes(destinations.problems)) console.log(`          ${n}`);
+} else {
+  const why = destinations.state === "missing"
+    ? `CORTEX_DESTINATIONS names ${destinations.path}, which is not a readable file`
+    : `no approved-destinations list at ${destinations.path}`;
+  console.log(`dests     NONE APPROVED — ${why}, so every push, pull, clone and tracker call is refused`);
+  console.log("          write one line per approved destination (git: github.com/your-org, https: your-tenant.service-now.com),");
+  console.log("          or have IT deploy the file; `node tools/cortex-destinations.mjs status` shows what is read");
 }
 
 if (!index.present) {

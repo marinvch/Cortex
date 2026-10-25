@@ -220,12 +220,12 @@ const contractRel = (slug) => `projects/${slug}/contract.json`;
 const contractMdRel = (slug) => `projects/${slug}/contract.md`;
 const lf = (s) => String(s).replace(/\r\n/g, "\n");
 
-function publish(clone, rels, message, outwardSync) {
+function publish(clone, rels, message, gate) {
   const c = commitPaths(clone, rels, message);
   if (!c.ok) return { committed: false, pushed: false, error: c.error };
   if (!c.committed) return { committed: false, pushed: false };
-  if (!outwardSync) return { committed: true, pushed: false, error: "outward_sync_disabled" };
-  const p = pushHead(clone);
+  if (!gate.policy.outwardSync) return { committed: true, pushed: false, error: "outward_sync_disabled" };
+  const p = pushHead(clone, gate);
   return p.ok ? { committed: true, pushed: true } : { committed: true, pushed: false, error: p.error };
 }
 
@@ -235,22 +235,26 @@ function publish(clone, rels, message, outwardSync) {
  * the secret gate refuses; in both cases nothing is written.
  *
  * @param {string} clone
- * @param {{ slug: string, input: string, outwardSync?: boolean }} opts
+ * @param {{ slug: string, input: string, policy?: object, env?: object }} opts
  */
-export function publishContract(clone, { slug, input, outwardSync = true, policy }) {
+export function publishContract(clone, { slug, input, policy, env = process.env }) {
   const s = slugify(slug ?? "");
   if (!s) throw new ContractRefused("no_project", "a contract needs a project slug: pass --project, or run it in a repo joined with /team-add");
+  // Without a policy the profile is resolved from the environment, never read as "refuses nothing"
+  // or as "any destination".
+  const pol = policy ?? resolveProfile({ env }).policy;
+  const gate = { policy: pol, env };
+  const outwardSync = pol.outwardSync;
   // The gate first, on the text as given: a credential anywhere in it is a reason to stop, even in
-  // a field the parser would have dropped. Then the employer denylist, on a `home` profile only;
-  // without a policy the profile is resolved from the environment, never read as "refuses nothing".
+  // a field the parser would have dropped. Then the employer denylist, on a `home` profile only.
   assertWritable(String(input));
-  assertNotDenied(String(input), { policy: policy ?? resolveProfile({ env: process.env }).policy });
+  assertNotDenied(String(input), { policy: pol, env });
   const contract = { ...parseContract(input), project: s };
   const json = renderContract(contract);
   const md = renderContractMd(s, contract);
   assertWritable(`${json}\n${md}`);
 
-  if (outwardSync) pull(clone);
+  if (outwardSync) pull(clone, gate);
   const vault = openVault(clone);
   const rels = [contractRel(s), contractMdRel(s)];
   const existed = vault.isFile(rels[0]);
@@ -259,7 +263,7 @@ export function publishContract(clone, { slug, input, outwardSync = true, policy
   }
   vault.write(rels[0], json);
   vault.write(rels[1], md);
-  const res = publish(clone, rels, `contract: update ${s}`, outwardSync);
+  const res = publish(clone, rels, `contract: update ${s}`, gate);
   return { project: s, action: existed ? "updated" : "created", path: vault.abs(rels[0]), ...res, ...counts(contract) };
 }
 
@@ -484,7 +488,7 @@ export function contractDrift(clone, since) {
 /** `contract`: one project's surface, who calls an endpoint, or the list. Pulls (ff-only) first. */
 export function contractFrom(brain, args = {}) {
   const { dir } = ensureTeamClone(brain, "contract");
-  const pulled = pull(dir);
+  const pulled = pull(dir, { policy: brain.policy, env: brain.env });
   const pullOut = pulled.ok ? { ok: true } : { ok: false, error: String(pulled.error).trim().split("\n").slice(0, 3).join("\n") };
   if (args.calls) return { pull: pullOut, ...whoCalls(dir, args.calls) };
   if (args.project) return { pull: pullOut, ...showContract(dir, { project: args.project, path: args.path ?? null }) };
@@ -508,5 +512,5 @@ export function publishFrom(brain, { input, project = null, team = null }) {
   // remote for it.
   const target = team && team !== brain.team ? { ...brain, team, teamClone: teamCloneDir(brain.root, team), teamBrainRepo: null } : brain;
   const { dir } = ensureTeamClone(target, "contract publish");
-  return publishContract(dir, { slug, input, outwardSync: brain.policy.outwardSync, policy: brain.policy });
+  return publishContract(dir, { slug, input, policy: brain.policy, env: brain.env });
 }

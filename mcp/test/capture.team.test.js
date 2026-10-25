@@ -5,6 +5,7 @@ import { existsSync, writeFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { capture } from "../lib/capture.js";
 import { tempDir } from "./tmp.js";
+import { policyFor } from "../../core/profile.js";
 
 function git(cwd, ...a) {
   return execFileSync("git", a, { cwd, stdio: ["ignore", "pipe", "pipe"] }).toString();
@@ -30,7 +31,7 @@ function vaultWithTeam() {
 
 test("team capture writes one-file-per-note and pushes", () => {
   const root = vaultWithTeam();
-  const res = capture(root, { content: "SSO cookies", project: "shop", team: "acme", today: "2026-07-01", noteId: "abc" });
+  const res = capture(root, { content: "SSO cookies", project: "shop", team: "acme", today: "2026-07-01", noteId: "abc", policy: policyFor("home") });
   assert.match(res.path, /team[\\/]acme[\\/]projects[\\/]shop[\\/]2026-07-01-abc\.md$/);
   assert.ok(existsSync(res.path));
   assert.match(readFileSync(res.path, "utf8"), /SSO cookies/);
@@ -50,7 +51,7 @@ test("non-slug team name resolves to the slugified clone dir and pushes", () => 
   git(clone, "commit", "-qm", "s");
   git(clone, "branch", "-M", "master");
   git(clone, "push", "-q", "-u", "origin", "master");
-  const res = capture(root, { content: "SSO", project: "shop", team: "Acme Corp", today: "2026-07-01", noteId: "z1" });
+  const res = capture(root, { content: "SSO", project: "shop", team: "Acme Corp", today: "2026-07-01", noteId: "z1", policy: policyFor("home") });
   assert.match(res.path, /team[\\/]acme-corp[\\/]projects[\\/]shop[\\/]2026-07-01-z1\.md$/);
   assert.equal(res.pushed, true);
 });

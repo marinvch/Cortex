@@ -13,8 +13,9 @@
 //   - the secret gate. `ask` and `answer` are `writes: PUBLISHED` in lib/tools.js and the dispatch
 //     scrubs them, in the server and in the CLI alike (ADR 0007 rejected a scrub inside the module);
 //   - the filesystem. Every read and write goes through the Vault opened on the clone;
-//   - the profile. The caller passes `outwardSync`, which is how a `lab` install commits and does not
-//     push, exactly as `capture` does.
+//   - the profile. The caller passes the policy, whose `outwardSync` is how a `lab` install commits
+//     and does not push, exactly as `capture` does, and whose `destinations` the pull and the push
+//     ask first (core/destinations.js).
 
 import { dirname } from "node:path";
 import { resolveAuthor } from "../../core/author.js";
@@ -247,11 +248,11 @@ export function countWaiting(clone, caller) {
 // The three operations
 // ---------------------------------------------------------------------------------------------
 
-function publish(clone, rel, message, outwardSync) {
+function publish(clone, rel, message, gate) {
   const c = commitPath(clone, rel, message);
   if (!c.ok) return { committed: false, pushed: false, error: c.error };
-  if (!outwardSync) return { committed: c.committed, pushed: false, error: "outward_sync_disabled" };
-  const p = pushHead(clone);
+  if (!gate.policy.outwardSync) return { committed: c.committed, pushed: false, error: "outward_sync_disabled" };
+  const p = pushHead(clone, gate);
   return p.ok ? { committed: c.committed, pushed: true } : { committed: c.committed, pushed: false, error: p.error };
 }
 
@@ -259,9 +260,12 @@ function publish(clone, rel, message, outwardSync) {
  * Send an ask. `content` is the question; `title` defaults to its first line.
  *
  * @param {string} clone
- * @param {{ to: string, content: string, title?: string, links?: string[], caller: object, id: string, today: string, outwardSync?: boolean }} opts
+ * @param {{ to: string, content: string, title?: string, links?: string[], caller: object, id: string, today: string, policy: object, env?: object }} opts
  */
-export function sendAsk(clone, { to, content, title, links = [], caller, id, today, outwardSync = true }) {
+export function sendAsk(clone, { to, content, title, links = [], caller, id, today, policy, env = process.env }) {
+  if (!policy) throw new TypeError("sendAsk: { policy } is required — pass brain.policy");
+  const gate = { policy, env };
+  const outwardSync = policy.outwardSync;
   const question = String(content ?? "").trim();
   if (!question) throw new AskRefused("empty", "an ask needs a question in `content`");
   if (!ID.test(id)) throw new AskRefused("bad_id", "the ask id is not a-z, 0-9 and -");
@@ -269,7 +273,7 @@ export function sendAsk(clone, { to, content, title, links = [], caller, id, tod
 
   // Best-effort, as capture does: the roster and the projects are read after it. Pointless when the
   // commit will not be pushed.
-  if (outwardSync) pull(clone);
+  if (outwardSync) pull(clone, gate);
   const { members } = readRoster(clone);
   const addressee = resolveAddressee(clone, to, members);
 
@@ -288,7 +292,7 @@ export function sendAsk(clone, { to, content, title, links = [], caller, id, tod
     links: links.map((l) => l.trim()).filter(Boolean),
   };
   vault.write(rel, renderAsk(meta, question));
-  const res = publish(clone, rel, `ask: ${id} to ${meta.toKind} ${meta.to}`, outwardSync);
+  const res = publish(clone, rel, `ask: ${id} to ${meta.toKind} ${meta.to}`, gate);
   return { id, path: vault.abs(rel), to: meta.to, toKind: meta.toKind, status: meta.status, ...res };
 }
 
@@ -296,7 +300,10 @@ export function sendAsk(clone, { to, content, title, links = [], caller, id, tod
  * Append an answer to an ask and set its status. The question and earlier answers are kept byte
  * for byte; only the `status:` and `updated:` lines of the frontmatter change.
  */
-export function answerAsk(clone, { id, content, status = "answered", caller, today, outwardSync = true }) {
+export function answerAsk(clone, { id, content, status = "answered", caller, today, policy, env = process.env }) {
+  if (!policy) throw new TypeError("answerAsk: { policy } is required — pass brain.policy");
+  const gate = { policy, env };
+  const outwardSync = policy.outwardSync;
   const text = String(content ?? "").trim();
   if (!text) throw new AskRefused("empty", "an answer needs its text in `content`");
   if (typeof id !== "string" || !ID.test(id)) throw new AskRefused("bad_id", "id must be an ask id: a-z, 0-9 and -");
@@ -304,7 +311,7 @@ export function answerAsk(clone, { id, content, status = "answered", caller, tod
     throw new AskRefused("bad_status", `status must be one of ${ANSWER_STATUSES.join(" | ")}`);
   }
 
-  if (outwardSync) pull(clone);
+  if (outwardSync) pull(clone, gate);
   const vault = openVault(clone);
   const rel = `asks/${id}.md`;
   if (!vault.isFile(rel)) throw new AskRefused("not_found", `no ask with the id ${id} in the team-brain`);
@@ -316,7 +323,7 @@ export function answerAsk(clone, { id, content, status = "answered", caller, tod
   const body = before.slice(fm.length).replace(/\n*$/, "\n");
   const who = caller.handle ?? "unknown";
   vault.write(rel, `${head}${body}\n## Answer · ${today} · ${who} · ${status}\n\n${text}\n`);
-  const res = publish(clone, rel, `answer: ${id} ${status}`, outwardSync);
+  const res = publish(clone, rel, `answer: ${id} ${status}`, gate);
   return { id, path: vault.abs(rel), status, ...res };
 }
 
@@ -440,7 +447,7 @@ export async function askFrom(brain, args, ctx) {
   const caller = placeCaller(author, [], brain.project);
   const res = sendAsk(dir, {
     to: args.to, content: args.content, title: args.title, links: args.links ?? [],
-    caller, id: ctx.id, today: ctx.today, outwardSync: brain.policy.outwardSync,
+    caller, id: ctx.id, today: ctx.today, policy: brain.policy, env: brain.env,
   });
   const sync = await syncAfter(brain, dir, [res.id], ctx);
   return sync ? { ...res, sync } : res;
@@ -449,7 +456,7 @@ export async function askFrom(brain, args, ctx) {
 /** `inbox`: pull (ff-only), sync the asks it is about to show, then the asks for the caller and the answers to theirs. */
 export async function inboxFrom(brain, ctx) {
   const { dir, author } = openClone(brain, "inbox", ctx);
-  const pulled = pull(dir);
+  const pulled = pull(dir, { policy: brain.policy, env: brain.env });
   const { members, errors } = readRoster(dir);
   const caller = placeCaller(author, members, brain.project);
   const involved = listAsks(dir).filter((a) => (a.meta.status === "open" && addressedTo(a.meta, caller)) || sentBy(a.meta, caller)).map((a) => a.meta.id);
@@ -466,7 +473,7 @@ export async function answerFrom(brain, args, ctx) {
   const caller = placeCaller(author, [], brain.project);
   const res = answerAsk(dir, {
     id: args.id, content: args.content, status: args.status ?? "answered",
-    caller, today: ctx.today, outwardSync: brain.policy.outwardSync,
+    caller, today: ctx.today, policy: brain.policy, env: brain.env,
   });
   const sync = await syncAfter(brain, dir, [res.id], ctx);
   return sync ? { ...res, sync } : res;
@@ -485,8 +492,9 @@ export function memberFrom(brain, input, ctx, { team = null } = {}) {
     ? { ...brain, team, teamClone: teamCloneDir(brain.root, team), teamBrainRepo: null }
     : brain;
   const { dir } = ensureTeamClone(target, "team member");
-  if (brain.policy.outwardSync) pull(dir);
+  const gate = { policy: brain.policy, env: brain.env };
+  if (brain.policy.outwardSync) pull(dir, gate);
   const res = setMember(dir, { ...input, handle });
   if (res.action === "unchanged") return { ...res, committed: false, pushed: false };
-  return { ...res, ...publish(dir, res.rel, `team: member ${handle}`, brain.policy.outwardSync) };
+  return { ...res, ...publish(dir, res.rel, `team: member ${handle}`, gate) };
 }

@@ -1,7 +1,7 @@
 # 0027. Personal data in committed memory is warned about, and has an erasure procedure
 
 **Date:** 2026-10-24
-**Status:** accepted
+**Status:** accepted · amended 2026-10-25 (the default comes from the profile; see the end)
 
 ## Context
 
@@ -71,3 +71,17 @@ The author slug in `memory/<day>/<author>.md` is personal data as well: it is de
 - Erasure stays expensive, because the store is committed. That cost is the price ADR 0002 accepted
   for sharing context through git, and this record makes it a procedure someone can follow rather
   than a surprise.
+
+## Amended 2026-10-25: the default comes from the profile
+
+`warn` stays the default on `home` and `lab`. On `work` the default is now `refuse`: the profile's
+policy carries `pii` (`core/profile.js`), and `gatePersonal` reads it when `CORTEX_PII` is unset.
+`core/gate.js` passes the policy through, so every published write, and every shell script that
+runs `tools/cortex-scrub.mjs`, gets the same answer. `CORTEX_PII` still overrides it either way.
+
+The case for `warn` above is a personal one: a note naming a shared inbox should not be blocked.
+On a work machine, a colleague's or a customer's details pushed to a company remote are the
+employer's liability as well as theirs, and a team that wants role addresses through sets
+`CORTEX_PII=warn` knowingly. The refusal names the profile as what set the mode.
+[ADR 0030](0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md) made the
+same call for where work material may go.

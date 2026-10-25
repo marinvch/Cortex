@@ -5,6 +5,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CatchUpRefused, catchMeUp, catchUp, catchUpRepo, catchUpTeam } from "../lib/catchup.js";
 import { tempDir } from "./tmp.js";
+import { policyFor } from "../../core/profile.js";
 import { bothLayouts, newLayoutOnly, ENTRIES, ENTRIES_OF_THE_15TH, NEW_ONLY_ENTRY } from "../../core/test/memory-fixture.js";
 
 function repoWithHistory() {
@@ -91,7 +92,7 @@ test("includes team-brain git commits since <since>", () => {
   writeFileSync(join(clone, "note.md"), "x");
   git("add", ".");
   git("commit", "-qm", "capture: shop session cookies");
-  const res = catchMeUp(root, { project: "shop", since: "2000-01-01", team: "acme" });
+  const res = catchMeUp(root, { project: "shop", since: "2000-01-01", team: "acme", policy: policyFor("home") });
   assert.ok(res.commits.some((c) => /session cookies/.test(c)));
 });
 
@@ -107,7 +108,7 @@ function vaultWith(...projects) {
   }
   return root;
 }
-const vaultBrain = (root, extra = {}) => ({ root, isRepo: false, project: null, team: null, ...extra });
+const vaultBrain = (root, extra = {}) => ({ root, isRepo: false, project: null, team: null, policy: policyFor("home"), ...extra });
 const nowhere = () => null;
 
 test("catchUp with no root reads the repo alone and says which half is missing", () => {

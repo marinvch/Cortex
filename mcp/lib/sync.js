@@ -293,7 +293,9 @@ export async function syncAsks(clone, { ids = null, policy, env = {}, fetch, tim
   const vault = openVault(clone);
   let members = [];
   try { members = readRoster(clone).members; } catch { members = []; }
-  const io = { env, fetch, timeoutMs };
+  // `policy` rides on the I/O so `request` (trackers/http.js) can ask core/destinations.js before
+  // every fetch: on work, a tracker host that is not approved is never called.
+  const io = { env, fetch, timeoutMs, policy };
   const made = new Map();
   const adapter = (entry) => {
     if (!made.has(entry.kind)) {
@@ -339,13 +341,14 @@ export function commitMessage(counts) {
  */
 export async function syncClone(clone, opts) {
   const { pullFirst = true, push = true } = opts;
-  if (pullFirst && push && opts.policy?.outwardSync) pull(clone);
+  const gate = { policy: opts.policy, env: opts.env ?? process.env };
+  if (pullFirst && push && opts.policy?.outwardSync) pull(clone, gate);
   const res = await syncAsks(clone, opts);
   if (!res.ran || !res.changed.length) return { ...res, committed: false, pushed: false };
   const c = commitPaths(clone, res.changed, res.message);
   if (!c.ok) return { ...res, committed: false, pushed: false, error: c.error };
   if (!push) return { ...res, committed: c.committed, pushed: false, error: "push_left_to_caller" };
-  const p = pushHead(clone);
+  const p = pushHead(clone, gate);
   return { ...res, committed: c.committed, pushed: p.ok, ...(p.ok ? {} : { error: p.error }) };
 }
 
@@ -413,7 +416,7 @@ export function ioFrom(ctx = {}) {
  */
 export async function syncAfter(brain, clone, ids, ctx) {
   try {
-    const res = await syncClone(clone, { ids, policy: brain.policy, today: ctx.today, pullFirst: false, ...ioFrom(ctx) });
+    const res = await syncClone(clone, { ids, policy: brain.policy, today: ctx.today, pullFirst: false, ...ioFrom({ ...ctx, env: ctx.env ?? brain.env }) });
     if (!res.ran && res.reason === "no_integrations") return null;
     return summarise(res);
   } catch (e) {
@@ -450,17 +453,17 @@ export async function syncFrom(brain, { clone = null, team = null, dryRun = fals
   const dir = cloneFor(brain, "sync", { clone, team });
   if (status) return { clone: dir, ...syncStatus(dir) };
   if (dryRun) return { clone: dir, ...syncPlan(dir, { policy: brain.policy }) };
-  const res = await syncClone(dir, { policy: brain.policy, today: ctx.today, push, ...ioFrom(ctx) });
+  const res = await syncClone(dir, { policy: brain.policy, today: ctx.today, push, ...ioFrom({ ...ctx, env: ctx.env ?? brain.env }) });
   return { clone: dir, ...summarise(res), counts: res.counts ?? null, changed: res.changed ?? [] };
 }
 
 /** Commit the given team files as one commit; push when the profile allows. */
-function publishTeamFiles(dir, files, message, outwardSync) {
+function publishTeamFiles(dir, files, message, brain) {
   const c = commitPaths(dir, files, message);
   if (!c.ok) return { committed: false, pushed: false, error: c.error };
   if (!c.committed) return { committed: false, pushed: false };
-  if (!outwardSync) return { committed: true, pushed: false, error: "outward_sync_disabled" };
-  const p = pushHead(dir);
+  if (!brain.policy.outwardSync) return { committed: true, pushed: false, error: "outward_sync_disabled" };
+  const p = pushHead(dir, { policy: brain.policy, env: brain.env });
   return p.ok ? { committed: true, pushed: true } : { committed: true, pushed: false, error: p.error };
 }
 
@@ -476,7 +479,7 @@ function publishTeamFiles(dir, files, message, outwardSync) {
  */
 export function integrationsFrom(brain, sub, input = {}, ctx = {}) {
   const dir = cloneFor(brain, `integrations ${sub}`, input);
-  if (brain.policy.outwardSync && !input.clone) pull(dir);
+  if (brain.policy.outwardSync && !input.clone) pull(dir, { policy: brain.policy, env: brain.env });
   const vault = openVault(dir);
   const doc = readTeamDoc(dir);
   if (sub === "list") {
@@ -493,7 +496,7 @@ export function integrationsFrom(brain, sub, input = {}, ctx = {}) {
     const text = syncWorkflowFor(dir, { profile: brain.profile });
     if (!input.write) return { clone: dir, written: false, path: WORKFLOW_REL, text };
     const rel = writeSyncWorkflow(dir, text);
-    return { clone: dir, written: true, path: rel, ...publishTeamFiles(dir, [rel], "sync: scheduled tracker sync workflow", brain.policy.outwardSync) };
+    return { clone: dir, written: true, path: rel, ...publishTeamFiles(dir, [rel], "sync: scheduled tracker sync workflow", brain) };
   }
   let next;
   let message;
@@ -511,5 +514,5 @@ export function integrationsFrom(brain, sub, input = {}, ctx = {}) {
   const config = parseIntegrations(next);
   if (text === before) return { clone: dir, action: "unchanged", kinds: config.kinds, primary: config.primary, committed: false, pushed: false };
   vault.write(TEAM_JSON, text);
-  return { clone: dir, action: sub === "add" ? "added" : "removed", kinds: config.kinds, primary: config.primary, ...publishTeamFiles(dir, [TEAM_JSON], message, brain.policy.outwardSync) };
+  return { clone: dir, action: sub === "add" ? "added" : "removed", kinds: config.kinds, primary: config.primary, ...publishTeamFiles(dir, [TEAM_JSON], message, brain) };
 }

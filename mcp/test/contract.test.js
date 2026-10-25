@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { diffServes, parseContract, parseEndpoint, publishContract, renderContract, ContractRefused } from "../lib/contract.js";
 import { tempDir } from "./tmp.js";
+import { policyFor } from "../../core/profile.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, "..", "server.js");
@@ -368,7 +369,7 @@ test("publishContract on lab commits and does not push", () => {
   const clone = tempDir("contract-clone-");
   git(clone, "clone", "-q", remote, ".");
   const input = JSON.stringify({ format: 1, source: "none", serves: [], calls: [], bases: [], events: [], unread: [] });
-  const res = publishContract(clone, { slug: "lib-c", input, outwardSync: false });
+  const res = publishContract(clone, { slug: "lib-c", input, policy: policyFor("lab") });
   assert.equal(res.committed, true);
   assert.equal(res.pushed, false);
   assert.equal(res.error, "outward_sync_disabled");

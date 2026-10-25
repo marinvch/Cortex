@@ -59,7 +59,10 @@ Here it is the requirement, and it holds only because the connector carries no l
      they are a developer.
    - **Then offer what the job is for**, and skip the rest of this list where it does not apply:
      - `pm`: most of their part is outside this repo. Offer `/whats-changed` and
-       `/challenge-plan`; step 5 is a developer's to offer.
+       `/challenge-plan`, and the role pack for Claude Desktop or claude.ai: the
+       `cortex-pack-pm` zip on the Cortex release, or
+       `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-pack.mjs" pm --out <dir>`. Step 5 is a
+       developer's to offer.
      - `architect`: the contract in step 5 matters most to them, together with `/define-terms` and
        `/design-spec`.
      - `qa`: `/change-impact` and `/review-change` on each change.

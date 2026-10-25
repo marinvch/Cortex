@@ -44,6 +44,25 @@ this project now versions independently of any package manager (see `VERSION`).
     and `/whats-changed`, a tester the untested code and `/change-impact`, an architect the
     context layer, a lead the parts the whole team shares.
 
+- **Role packs, for people who do not run Claude Code.** `node tools/cortex-pack.mjs <job>` builds
+  one job's pack from `skills/`. Each release attaches one zip per job.
+  - A pack holds the job's skills that work outside Claude Code, in the Agent Skills format, as
+    folders and as zips to upload to claude.ai or Claude Desktop.
+  - It also holds the MCP entry for Claude Desktop, Copilot, Gemini CLI and Codex, with a
+    placeholder where a path goes.
+  - A skill is packed only when it is portable: no `${CLAUDE_PLUGIN_ROOT}`, no `node tools/`,
+    `index/` or `mcp/` command, no `disable-model-invocation`, and no link that leads nowhere
+    (`tools/AGENTS.md`). The rest are listed in the pack's README with the reason.
+  - Frontmatter keeps only the Agent Skills keys, and a link out of a skill's folder names the
+    file on the release.
+  - Packs are generated and never committed. Two builds are the same bytes, and a pack holds no
+    credential and no path on the machine that built it.
+  - Today the architect pack holds `challenge-plan`, `define-terms` and `design-spec`; the lead
+    pack `set-profile`; the pm pack `challenge-plan`. The developer and qa packs hold only the MCP
+    entry: everything they are offered runs Cortex scripts.
+  - `--list` and `--check` write nothing. The release workflow runs `--check`, then attaches the
+    packs in the command that creates the release.
+
 - **The `graph` MCP tool, and `ai-os graph` for agents without MCP.** Questions about a repo's
   import graph, answered from its index. It writes nothing and runs in repo mode only.
   - `stats`: files, edges, clusters and cycles, and how old the index is.

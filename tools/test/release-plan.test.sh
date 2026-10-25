@@ -480,3 +480,12 @@ assert_contains "$wf" "steps.plan.outputs.action == 'release'" "and is created o
 assert_contains "$wf" "--latest=false" "Latest is always stated, either way (D2)"
 assert_eq "1" "$(grep -c "gh release create" "$WF")" "one command creates a release"
 assert_eq "0" "$(grep -cE "git (push|tag)|gh release (delete|upload)|gh api" "$WF")" "and nothing pushes, tags by hand, deletes or calls the API directly"
+
+# The role packs (docs/specs/2026-10-25-role-packs-design.md, R2): built and checked at the pushed
+# commit, before anything is created, and attached by the one command that creates the release.
+assert_contains "$wf" 'node tools/cortex-pack.mjs --check' "the role packs are checked before the release"
+assert_contains "$wf" 'node tools/cortex-pack.mjs --all --out "$RUNNER_TEMP/packs"' "and built outside the checkout"
+assert_contains "$(grep 'gh release create' "$WF")" '"$RUNNER_TEMP"/packs/cortex-pack-*.zip' "and the create command attaches them"
+pack_line="$(grep -n 'cortex-pack.mjs --all' "$WF" | cut -d: -f1)"
+create_line="$(grep -n 'gh release create' "$WF" | cut -d: -f1)"
+assert_eq "yes" "$([ "${pack_line:-0}" -gt 0 ] && [ "$pack_line" -lt "${create_line:-0}" ] && echo yes || echo no)" "and the packs are built before the release is created"

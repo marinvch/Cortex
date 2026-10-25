@@ -150,6 +150,22 @@ them; a role in the agent team is one of the subagents `/setup-repo` writes.
 
 _Avoid_: "role" for this, "permission", "persona".
 
+## Role pack
+
+One job's share of Cortex for someone who does not run Claude Code: the skills `JOB_SKILLS` offers
+that job and that pass the portable test, in the Agent Skills format, plus the MCP entry for their
+assistant. Built by `tools/cortex-pack.mjs` from `skills/`, **generated and never committed**, and
+attached to each release as `cortex-pack-<job>-<version>.zip`. **Portable** is defined in
+[`tools/AGENTS.md`](tools/AGENTS.md#a-pack-skill-is-portable): nothing Claude Code provides, no
+Cortex script to run. A skill that is not portable is named in the pack's README, never dropped
+without a word.
+
+The name keeps the design's word "role" because people search for it. Inside it, the person's
+job decides the contents.
+
+_Avoid_: "plugin" (that is the Claude Code install, one for every job), "bundle" (the Core plugin
+tier `/connect-mcp` installs), "export".
+
 ## Layer
 
 Two unrelated meanings — keep them apart:

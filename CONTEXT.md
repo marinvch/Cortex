@@ -137,6 +137,35 @@ the code: steps 3.2 and 3.3 build to this entry, and it is the definition they a
 _Avoid_: "workspace" for a JS monorepo's packages (say "workspace package", as
 `index/lib/resolvers.mjs` does) or for Claude Code's folder trust; "portfolio", "registry".
 
+## Job
+
+What a team member does all day: `developer`, `architect`, `lead`, `pm` or `qa`. Recorded once per
+member as `job` in the team-brain's `team.json`; `core/job.js` holds the five words and the rituals
+each is offered first. **It decides what is offered, never what is allowed**, and it is not a
+fourth switch beside mode, audience and profile. No job means `developer`.
+
+The design calls this a person's "role", and the word is taken twice already: a **role** in the
+roster is what an ask is addressed to (`backend`, `gateway`), and a member holds any number of
+them; a role in the agent team is one of the subagents `/setup-repo` writes.
+
+_Avoid_: "role" for this, "permission", "persona".
+
+## Role pack
+
+One job's share of Cortex for someone who does not run Claude Code: the skills `JOB_SKILLS` offers
+that job and that pass the portable test, in the Agent Skills format, plus the MCP entry for their
+assistant. Built by `tools/cortex-pack.mjs` from `skills/`, **generated and never committed**, and
+attached to each release as `cortex-pack-<job>-<version>.zip`. **Portable** is defined in
+[`tools/AGENTS.md`](tools/AGENTS.md#a-pack-skill-is-portable): nothing Claude Code provides, no
+Cortex script to run. A skill that is not portable is named in the pack's README, never dropped
+without a word.
+
+The name keeps the design's word "role" because people search for it. Inside it, the person's
+job decides the contents.
+
+_Avoid_: "plugin" (that is the Claude Code install, one for every job), "bundle" (the Core plugin
+tier `/connect-mcp` installs), "export".
+
 ## Layer
 
 Two unrelated meanings — keep them apart:

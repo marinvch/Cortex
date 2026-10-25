@@ -303,6 +303,37 @@ every other version with a changelog section and no tag. The notes file is writt
 `release`. It creates no tag and no release, and reads tags with `git ls-remote`, so a tag that
 exists only in the checkout decides nothing.
 
+## `cortex-pack.mjs` — the role pack for one job
+
+A person who works in Claude Code installs the plugin. A project manager in Claude Desktop or
+claude.ai, or an architect outside the repo, installs a pack instead: the skills their job is
+offered (`JOB_SKILLS` in `core/job.js`) that work without Claude Code, plus the MCP entry that
+reaches the Cortex server ([the design](../docs/specs/2026-10-25-role-packs-design.md), R2).
+
+```bash
+node tools/cortex-pack.mjs pm --list           # what the pack holds and what needs Claude Code; writes nothing
+node tools/cortex-pack.mjs pm [--out DIR]      # DIR/cortex-pack-pm/ and DIR/cortex-pack-pm-<version>.zip
+node tools/cortex-pack.mjs --all [--out DIR]   # every job; the release workflow runs this
+node tools/cortex-pack.mjs --check             # build all in memory, verify each, exit 1 on a problem
+```
+
+`DIR` defaults to `cortex-packs/`, which `.gitignore` covers: packs are generated from `skills/`
+and never committed. A pack folder holds `README.md`, `pack.json`, `skills/<name>/` (each skill,
+adapted), `zips/<name>.zip` (the same, to upload) and `mcp/` (entries for Claude Desktop, Copilot,
+Gemini CLI and Codex, with placeholders where a path goes). Each release attaches one zip per job.
+
+- **Only portable skills go in.** The definition is in [`AGENTS.md`](AGENTS.md#a-pack-skill-is-portable)
+  and in `_pack.mjs`'s header. A skill that fails it is listed in the pack's README, with why.
+- **Deterministic.** Two builds of one tree are the same bytes: lists sorted, line endings LF,
+  zips stored rather than deflated, every entry dated 1980-01-01.
+- **Nothing private.** No credential (every text passes `core/scrub.js`'s scan, or nothing is
+  written) and no path on the building machine.
+- **It replaces only its own output.** A folder in the way with no `pack.json` for that job is
+  refused, untouched.
+
+`tools/test/cortex-pack.test.sh` pins each pack's contents, builds twice and compares, and fails
+each point of the portable definition on a fixture.
+
 ## `cortex-site-facts.mjs` — the facts a public page states, read from source
 
 The public site restated Cortex's facts by hand and drifted from v0.15 to v2.38 unnoticed (#415).

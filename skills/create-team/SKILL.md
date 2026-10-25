@@ -62,9 +62,14 @@ list or nothing is cloned or pushed; check it first with
    contributor. Say that `/join-team` is also what registers a project: it writes
    `projects/<slug>.md` with the repo's address and links. Until someone runs it in a repo, that
    project is a notes folder the workspace lists as unregistered. `/join-team` also asks each
-   member for their roles and writes them to `team.json`; an ask to a role reaches whoever holds
-   it there, so add yourself the same way:
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --team <team> --roles <role,role>`.
+   member for their roles and their job and writes them to `team.json`; an ask to a role reaches
+   whoever holds it there, so add yourself the same way, with your job:
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --team <team> --roles <role,role> --job lead`.
+   A job is one of `developer`, `architect`, `lead`, `pm` and `qa`. It changes what the rituals
+   offer each person first, never what they may run. A member who works outside the repos, such
+   as a project manager in Claude Desktop, installs their job's role pack rather than the plugin:
+   each Cortex release attaches one zip per job, and
+   `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-pack.mjs" <job> --out <dir>` builds the same.
 
 ## Don't
 

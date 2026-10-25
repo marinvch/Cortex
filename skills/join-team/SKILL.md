@@ -46,12 +46,27 @@ Here it is the requirement, and it holds only because the connector carries no l
    commit that change. A repo-mode server clones the team-brain into `.cortex/team/` on first use
    and adds that directory to the repo's `.gitignore`.
 4. **Ask the member which roles they hold** — `frontend`, `backend`, `architect`, whatever this
-   team uses — and which projects they own. Then run
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --roles <role,role> --projects <slug,slug>`.
+   team uses — which projects they own, and **their job**: one of `developer`, `architect`,
+   `lead`, `pm` or `qa`. Then run
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --roles <role,role> --projects <slug,slug> --job <job>`.
    It adds them to the team-brain's `team.json`, commits and pushes. Their handle is their memory
    author name: `CORTEX_AUTHOR`, else their git `user.name` as a slug; pass `--handle` only to
-   override it. Running it again replaces their roles and projects. Without this step, asks sent
-   to their role never reach them.
+   override it. Running it again replaces their roles and projects and keeps their job unless
+   `--job` is passed. Without this step, asks sent to their role never reach them.
+   - **A role and a job are different questions.** A role is what an ask is addressed to, and a
+     person may hold several. A job is what they do all day; they have one, and it decides only
+     what the rituals offer them first. It never limits what they may run. With no job recorded
+     they are a developer.
+   - **Then offer what the job is for**, and skip the rest of this list where it does not apply:
+     - `pm`: most of their part is outside this repo. Offer `/whats-changed` and
+       `/challenge-plan`, and the role pack for Claude Desktop or claude.ai: the
+       `cortex-pack-pm` zip on the Cortex release, or
+       `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-pack.mjs" pm --out <dir>`. Step 5 is a
+       developer's to offer.
+     - `architect`: the contract in step 5 matters most to them, together with `/define-terms` and
+       `/design-spec`.
+     - `qa`: `/change-impact` and `/review-change` on each change.
+     - `lead`: tell every other member to run this same ritual, and offer `/suggest-skills`.
 5. **Offer to publish this repo's contract**: what it serves, calls and emits, so other repos can
    ask who calls an endpoint without cloning this one. On a yes, run
    `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-contract.mjs" . --out .cortex/index/contract.json`, then

@@ -13,8 +13,9 @@ this project now versions independently of any package manager (see `VERSION`).
   hub, the file with the most import links. It also has a size, a cohesion score and the areas it
   spans. A cluster that holds over a quarter of the repo, or one that is loosely connected, is split
   again. A file with no import edge has `cluster: null`.
-  - `/cortex-view`'s Map colours files by cluster, with a switch back to areas. The Areas tab lists
-    the clusters beside the folders.
+  - `/cortex-view`'s Map groups files by cluster: one box per cluster, packed across the full
+    width. The bar switches to areas or to import depth. The Areas tab lists the clusters beside
+    the folders.
   - The index format moves to version 2. An older index is refused with the command that rebuilds
     it.
 
@@ -74,6 +75,23 @@ this project now versions independently of any package manager (see `VERSION`).
   agents, asks, trackers, contracts and licence sections, ADRs 0026–0028, `docs/erasure.md` and
   `SECURITY.md` to the site pages drafted from them. Before this, the next sync would have missed
   them.
+- **`/cortex-view`'s Map can be read.** It used two-thirds of the screen, and its legend covered
+  the right edge. It drew 630 import lines too faint to follow. Rows by import depth scattered
+  each cluster across every row, so colouring by cluster looked random. Test helpers were named
+  as if they were key files, and labels sat on dots.
+  - Files are grouped into boxes across the whole canvas. Imports between two boxes are one line
+    with its count.
+  - Pointing at a file lights exactly its imports and importers.
+  - Only the most-imported files that are neither tests nor test helpers get a name. A name that
+    would cover a dot or another name is dropped.
+  - The legend is a column beside the Map that folds away. The Map has keyboard pan and zoom, zoom
+    buttons, and a label for screen readers.
+- **One meaning of "area" on the viewer.** The Map keyed an area on the first folder of a path.
+  The Overview, the Areas tab and `index.areas` use `layerKeyFor`. On this repo the Map's legend
+  listed 8 areas beside an Overview that said 16. zustand's `src/react`, `src/vanilla` and
+  `src/middleware` were drawn as one `src`, and their cards on the Areas tab came out grey. The Map
+  now uses the index's areas. Its legend says how many of them hold code and how many hold only
+  docs or config.
 
 ## [2.45.0] — 2026-10-24
 

@@ -12,6 +12,7 @@
 
 import { assertPublished } from "../../core/gate.js";
 import { resolveProfile } from "../../core/profile.js";
+import { OPS as GRAPH_OPS } from "./graph.js";
 
 /** A tool that needs a repo's `.cortex/` — committed, shared, code-adjacent memory. */
 export const REPO = "repo";
@@ -81,6 +82,18 @@ export const TOOL_TABLE = [
   { name: "recall_memory", mode: REPO, returns: FOREIGN, writes: LOCAL,
     description: `Read back recent days of this repo's committed memory, newest first. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: { days: { type: "number" } } } },
+  // The import graph (G3 of docs/specs/2026-10-25-code-graph-design.md). Read-only over the repo's
+  // index; FOREIGN because a file's summary is model-written prose about the repo's own text.
+  { name: "graph", mode: REPO, returns: FOREIGN, writes: LOCAL,
+    description: `This repo's import graph, from its Cortex index. op: stats · node (file) · neighbors (file, depth 1-3) · cluster (cluster or file) · hubs · bridges · path (from, to, directed). Refuses a missing or stale index and names the command that rebuilds it. Lists are capped; every count is a floor. ${UNTRUSTED_NOTE}`,
+    inputSchema: { type: "object", properties: {
+      op: { type: "string", enum: GRAPH_OPS },
+      file: { type: "string", description: "A file path relative to the repo." },
+      depth: { type: "number", description: "neighbors: how many hops, 1 to 3. Default 1." },
+      cluster: { type: "string", description: "A cluster id, such as c1." },
+      from: { type: "string" }, to: { type: "string" },
+      directed: { type: "boolean", description: "path: follow imports only, from `from` toward `to`. Default false." },
+    }, required: ["op"] } },
 
   { name: "get_project_context", mode: VAULT, returns: FOREIGN, writes: LOCAL,
     description: `Return a project's brief/notes. ${UNTRUSTED_NOTE}`,

@@ -75,7 +75,7 @@ test("repo mode advertises the memory tools and hides the vault ones", async () 
   mkdirSync(cortex, { recursive: true });
 
   const names = await toolsFor(cortex);
-  assert.deepEqual(names, ["answer", "ask", "contract", "inbox", "recall", "recall_memory", "remember"]);
+  assert.deepEqual(names, ["answer", "ask", "contract", "graph", "inbox", "recall", "recall_memory", "remember"]);
   // The vault tools assume a personal folder layout that a code repo does not have; offering them
   // here would invite an agent to write inbox/ and daily/ into someone's product repository.
   for (const vaultOnly of ["capture", "catch_me_up", "list_projects", "get_project_context"]) {

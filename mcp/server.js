@@ -99,17 +99,18 @@ async function dispatch(name, args) {
       // stamp(), not toISOString().slice(0,10). The day a note is filed under is the day the
       // person filing it is living in: at 01:00 in UTC+3 those are 2026-08-19 and 2026-08-18, and
       // the UTC answer put the capture into yesterday's daily note. core/date.js is the only clock.
-      // outwardSync is the one half of the profile that code can enforce; the firewall's direction
-      // is prose the rituals read. Passing it here rather than letting capture read the environment
-      // keeps capture a pure function of its arguments, which is what its tests rely on.
-      const cargs = { ...args, team, today: stamp(), outwardSync: brain.policy.outwardSync };
+      // The policy decides whether the note is pushed (outwardSync) and where it may go
+      // (destinations, core/destinations.js); the firewall's direction is prose the rituals read.
+      // Passing it here rather than letting capture read the environment keeps capture a pure
+      // function of its arguments, which is what its tests rely on.
+      const cargs = { ...args, team, today: stamp(), policy: brain.policy, env: brain.env };
       if (team) cargs.noteId = genNoteId();
       // Same reasoning for the project: the connector names it, so a team note with none lands under
       // this repo's project rather than the team-brain's `inbox`.
       if (team && !args.project && brain.project) cargs.project = brain.project;
       return capture(root, cargs);
     }
-    case "catch_me_up": return catchMeUp(root, { ...args, team: catchUpTeam(args.team, brain) });
+    case "catch_me_up": return catchMeUp(root, { ...args, team: catchUpTeam(args.team, brain), policy: brain.policy, env: brain.env });
     // Asks (#620). Which clone, which caller and whether the commit is pushed are lib/asks.js's,
     // from the brain record and the policy; the gate above already scanned what they publish.
     // Each also syncs the asks it touched with the team's trackers (#624) — only when the team

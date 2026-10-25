@@ -5,7 +5,11 @@
 //   1. a credential            core/scrub.js `assertWritable`    always
 //   2. an employer name        core/denylist.js `assertNotDenied` on a profile that refuses employer
 //                                                                 material (home), when a list exists
-//   3. personal data           core/scrub.js `gatePersonal`      CORTEX_PII: warn (default) | refuse | off
+//   3. personal data           core/scrub.js `gatePersonal`      CORTEX_PII: warn | refuse | off; unset,
+//                                                                 the profile's `pii` (refuse on work)
+//
+// Where the write then goes is a different question with its own gate: core/destinations.js
+// `assertDestination`, which every push, pull, clone and tracker request asks before it starts.
 //
 // Two callers, and they are the two halves of "the gate" in CONTEXT.md: `append()` in memory.js,
 // which every memory write goes through, and `assertPublishable` in mcp/lib/tools.js, which every
@@ -27,7 +31,8 @@ import { assertNotDenied, denylistProblemNotes } from "./denylist.js";
 export function assertPublished(text, { policy, env = process.env, list } = {}) {
   assertWritable(text);
   const deny = assertNotDenied(text, { policy, env, list });
-  const pii = gatePersonal(text, { env });
+  // The policy sets the personal-data mode when CORTEX_PII is unset: work refuses, home and lab warn.
+  const pii = gatePersonal(text, { env, policy });
   const warnings = denylistProblemNotes(deny.problems);
   if (pii.warning) warnings.push(pii.warning);
   return { warnings };

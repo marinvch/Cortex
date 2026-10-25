@@ -5,6 +5,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { capture } from "../lib/capture.js";
 import { tempDir } from "./tmp.js";
+import { policyFor } from "../../core/profile.js";
 
 test("captures to projects/<slug>.md when project given", () => {
   const root = tempDir("vault-");
@@ -42,7 +43,7 @@ test("a lab profile writes the team note but does not push it", () => {
   const root = tempDir("vault-");
   const res = capture(root, {
     content: "an experiment", project: "unis", team: "acme",
-    today: "2026-07-01", noteId: "lab1", outwardSync: false,
+    today: "2026-07-01", noteId: "lab1", policy: policyFor("lab"),
   });
   assert.equal(res.pushed, false);
   assert.equal(res.error, "outward_sync_disabled");

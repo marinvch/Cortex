@@ -8,7 +8,23 @@
 #     bash server-setup.sh client ssh://USER@SERVER/~/git/cortex-brain.git [slug]
 #
 # No secrets are read or stored. SSH auth is your existing key — this script never handles it.
+#
+# On a work profile the remote must be an approved destination (ADR 0030) before anything is cloned
+# or pushed. The check is tools/cortex-destinations.mjs; without node only home goes ahead.
 set -euo pipefail
+
+SETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEST="${CORTEX_DEST_CHECK:-$SETUP_DIR/../cortex-destinations.mjs}"
+PROFILE="$(printf '%s' "${CORTEX_PROFILE:-}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+remote_ok() {
+  if command -v node >/dev/null 2>&1 && [ -f "$DEST" ]; then
+    node "$DEST" check git "$1" >/dev/null || { echo "server-setup: $1 is not an approved destination for this profile" >&2; return 1; }
+    return 0
+  fi
+  case "$PROFILE" in ""|home) return 0 ;; esac
+  echo "server-setup: cannot check $1 (node, and $DEST), and the $PROFILE profile sends nothing unchecked" >&2
+  return 1
+}
 
 MODE="${1:-}"
 case "$MODE" in
@@ -34,6 +50,7 @@ case "$MODE" in
     REMOTE="${2:?usage: server-setup.sh client ssh://USER@SERVER/~/git/cortex-brain.git [slug]}"
     SLUG="${3:-cortex}"
     [ -f mcp/server.js ] || { echo "run this from your VAULT ROOT (where mcp/ lives)"; exit 1; }
+    remote_ok "$REMOTE" || exit 4
     mkdir -p team
     if [ -d "team/$SLUG/.git" ]; then
       echo "clone already present: team/$SLUG"
@@ -66,6 +83,7 @@ case "$MODE" in
     # The scheduler half. This used to be a section of references/living-cortex.md that a human
     # copied by hand, which is how its crontab example came to carry a live API key.
     REMOTE="${2:?usage: server-setup.sh cron <clone-url> [work-dir] [--install]}"
+    remote_ok "$REMOTE" || exit 4
     WORKDIR="${3:-$HOME/cortex-work}"
     case "${3:-}" in --install) WORKDIR="$HOME/cortex-work" ;; esac
     INSTALL=0

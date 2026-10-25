@@ -43,6 +43,28 @@ this project now versions independently of any package manager (see `VERSION`).
 
 - **`/wizard`.** `/cortex-scaffold` now lists the manual setup it finds instead of pointing at it.
 
+### Security
+
+- **On a `work` profile, nothing leaves the machine except to an approved destination.** Every
+  push, pull, clone and tracker request is checked first against `~/.cortex/allowed-destinations`,
+  or the file in `CORTEX_DESTINATIONS`. One `git:`, `https:` or `npm:` line per approved host, with
+  an optional owner or path. The host matches exactly and the path by whole segments.
+- **No list on `work` means nothing is approved.** Existing work installs stop pushing until the
+  file exists. Captures, asks and answers are still committed locally, and the result says why
+  they were not pushed. `tools/cortex-preflight.mjs` says how to fix it.
+- **`tools/cortex-destinations.mjs`** shows the list (`status`) and checks one URL (`check`).
+- **`cortex-cron.sh` checks the API URL and the brain's remote.** On `work`, an unapproved API
+  means a plain digest. An unapproved remote means the digest is committed and not pushed, exit 4.
+  Without the checker, a `work` or `lab` server sends nothing. `lab` no longer pushes to a remote
+  host.
+- **`server-setup.sh` checks the remote before it clones or pushes**, with the same rule.
+- **The scheduled tracker sync reads its approved list from an Actions variable,**
+  `CORTEX_APPROVED_DESTINATIONS`, because the runner has no `~/.cortex`. A repository stamped with
+  an older `sync.yml` needs `ai-os integrations workflow --write` again.
+- **Personal data is refused by default on `work`.** `CORTEX_PII` still overrides it.
+  [ADR 0030](docs/adr/0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md),
+  [ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md) amended.
+
 ### Fixed
 
 - **The README's "What Cortex runs, sends and fetches" names `tools/server/cortex-cron.sh`.** That

@@ -5,6 +5,9 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { TEAM_JSON, connectorObject, writeConnector, cloneTeamBrain, seedTeamBrain, initTeamBrain, readTeamSource } from "../lib/team.js";
 import { tempDir } from "./tmp.js";
+import { policyFor } from "../../core/profile.js";
+
+const HOME = policyFor("home");
 
 function bareRemote() {
   const remote = tempDir("remote-");
@@ -30,7 +33,7 @@ test("connectorObject carries a source only when the team set one (#622)", () =>
 test("initTeamBrain --source writes team.json holding the source and nothing else, and pushes it", () => {
   const remote = bareRemote();
   const root = tempDir("vault-");
-  const { dir, pushed } = initTeamBrain(root, { name: "acme", repo: remote, projects: [], source: "acme/cortex" });
+  const { dir, pushed } = initTeamBrain(root, { name: "acme", repo: remote, projects: [], source: "acme/cortex", policy: HOME });
   assert.equal(pushed, true);
   assert.equal(readFileSync(join(dir, TEAM_JSON), "utf8"), '{\n  "source": "acme/cortex"\n}\n');
   assert.equal(readTeamSource(dir), "acme/cortex");
@@ -40,7 +43,7 @@ test("initTeamBrain --source writes team.json holding the source and nothing els
 });
 
 test("initTeamBrain without a source writes no team.json", () => {
-  const { dir } = initTeamBrain(tempDir("vault-"), { name: "acme", repo: bareRemote(), projects: [] });
+  const { dir } = initTeamBrain(tempDir("vault-"), { name: "acme", repo: bareRemote(), projects: [], policy: HOME });
   assert.equal(existsSync(join(dir, TEAM_JSON)), false);
   assert.equal(readTeamSource(dir), null);
 });
@@ -50,7 +53,7 @@ test("initTeamBrain refuses an unusable source before anything is cloned", () =>
   const remote = bareRemote();
   const token = "gh" + "p_" + "B".repeat(36);
   for (const bad of ["../cortex", `https://${token}@github.com/acme/cortex.git`, "not a source"]) {
-    assert.throws(() => initTeamBrain(root, { name: "acme", repo: remote, source: bad }), (e) => e.code === "source_refused" && !e.message.includes(token));
+    assert.throws(() => initTeamBrain(root, { name: "acme", repo: remote, source: bad, policy: HOME }), (e) => e.code === "source_refused" && !e.message.includes(token));
   }
   assert.equal(existsSync(join(root, "team")), false, "nothing was cloned");
 });
@@ -104,18 +107,18 @@ test("team.md points at projects/ and lists no project — the files there are t
 test("cloneTeamBrain clones a local bare repo, and is a no-op if present", () => {
   const remote = bareRemote();
   const root = tempDir("vault-");
-  const first = cloneTeamBrain(root, "acme", remote);
+  const first = cloneTeamBrain(root, "acme", remote, { policy: HOME });
   assert.equal(first.cloned, true);
   assert.match(first.dir, /team[\\/]acme$/);
   assert.ok(existsSync(join(first.dir, ".git")));
-  const second = cloneTeamBrain(root, "acme", remote);
+  const second = cloneTeamBrain(root, "acme", remote, { policy: HOME });
   assert.equal(second.cloned, false);
 });
 
 test("initTeamBrain seeds, commits, and pushes to the remote", () => {
   const remote = bareRemote();
   const root = tempDir("vault-");
-  const { dir } = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
+  const { dir } = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"], policy: HOME });
   assert.ok(existsSync(join(dir, "team.md")));
   // verify the push landed: clone the remote fresh and check team.md arrived
   const verify = tempDir("verify-");
@@ -127,8 +130,8 @@ test("initTeamBrain seeds, commits, and pushes to the remote", () => {
 test("initTeamBrain is idempotent (safe to re-run after a prior init)", () => {
   const remote = bareRemote();
   const root = tempDir("vault-");
-  const { dir } = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] });
-  assert.doesNotThrow(() => initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"] }));
+  const { dir } = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"], policy: HOME });
+  assert.doesNotThrow(() => initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"], policy: HOME }));
   assert.ok(existsSync(join(dir, "team.md")));
 });
 
@@ -141,7 +144,7 @@ test("initTeamBrain refuses to push when outward sync is sealed", () => {
   const remote = bareRemote();
   const root = tempDir("vault-");
 
-  const res = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"], outwardSync: false });
+  const res = initTeamBrain(root, { name: "acme", repo: remote, projects: ["unis"], policy: policyFor("lab") });
 
   assert.equal(res.pushed, false);
   assert.equal(res.error, "outward_sync_disabled");

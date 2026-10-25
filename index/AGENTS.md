@@ -184,6 +184,14 @@ holds the rules for that module alone — read it before editing the module.
   test directory, and anything under `.claude/` that is not named as a test. Compared with the old
   rule over 5,581 files in ten public repos: four files changed, all setup files with no test in
   them (zustand, three-flatland, create-react-app), and none became a test. Six guards mutated, six failures.
+- **A fixture is test data, not code that needs a test** (`isTestData`, `lib/langs.mjs`): code under
+  a `fixture`, `fixtures`, `__fixtures__` or `testdata` directory leaves coverage's denominator.
+  Outside a test directory it is not a test either, so it lends no coverage. `inTestPath` beside
+  it, which ranks a secret as a likely fixture, is built from the same list. `solutions/` stays
+  out: a Next.js app routes it. Run on seven repos: 959 files moved in typescript-eslint, each an
+  AST fixture, its generator or a fixture project's config, none imported from outside a fixture
+  directory; 13 in this repo; none in cli/cli, cobra, got, react-router or jest, whose fixtures
+  sit in test directories already. Eleven guards mutated, eleven failures.
 - **Coverage uses three signals** — name, import, and a quoted string mention — and lives in
   `lib/coverage.mjs`, shared by `findings.mjs` and `impact.mjs`. Each alone misreports: naming
   alone called `mcp/lib` untested when its tests live in `mcp/test`; a CLI spawned as a subprocess

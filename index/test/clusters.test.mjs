@@ -123,6 +123,20 @@ test("on a weak planted partition, refinement, re-queueing and repeated rounds e
   for (const g of groups.values()) assert.ok(isConnected(graph, g));
 });
 
+test("refinement merges only into a piece that is well connected to the rest of its community", () => {
+  // Found by search: the smallest graph where dropping the target's check changes the answer, to
+  // two clusters at modularity 0.2337 from three at 0.2396.
+  const pairs = [[0, 1], [1, 3], [2, 5], [2, 7], [2, 8], [3, 5], [4, 5], [4, 8], [5, 8], [5, 9], [6, 8], [7, 9], [8, 9]];
+  const p = (i) => `f${String(i).padStart(2, "0")}.js`;
+  const { graph } = clusterGraph({
+    files: Array.from({ length: 10 }, (_, i) => code(p(i))),
+    edges: pairs.map(([a, b]) => ({ from: p(a), to: p(b) })),
+  });
+  const m = leiden(graph);
+  assert.deepEqual([...m], [0, 0, 1, 0, 2, 2, 2, 1, 2, 2]);
+  assert.ok(modularityOf(graph, m) > 0.239);
+});
+
 test("the answer does not depend on the order files and edges arrive in, nor on edge direction", () => {
   const base = karate();
   const want = JSON.stringify(clustersOf(base).clusters);

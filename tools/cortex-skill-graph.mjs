@@ -7,10 +7,8 @@
 //   node tools/cortex-skill-graph.mjs cortex-brief   # one ritual's neighbourhood
 //
 // The failure this catches has no error state. A ritual nothing points at still works when you type
-// its name — it is simply never *reached*, so the user has to already know it exists. /wizard and
-// /team-add each sat that way: /team-init created a team-brain and never mentioned the command a
-// member runs to join it, and every ritual that scaffolds a repo needing manual credential setup
-// re-explained the steps instead of handing over to the skill that writes the script.
+// its name — it is simply never *reached*, so the user has to already know it exists. /team-add sat
+// that way: /team-init created a team-brain and never mentioned the command a member runs to join it.
 //
 // The rule is the one AGENTS.md applies to prose: define a thing once, and point at it from
 // everywhere else. An edge here IS that pointer, so the graph is a measurement of whether the rule

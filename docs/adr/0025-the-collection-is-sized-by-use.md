@@ -43,6 +43,7 @@ Reading the descriptions side by side found five rituals whose job another ritua
 **Six rituals carry `disable-model-invocation: true`:** `/capture`, `/daily`, `/weekly-review`,
 `/level-up`, `/scan-projects` and `/wizard`. They run when a person types the name. Their
 descriptions lose their trigger lists, as the frontmatter check requires of a typed ritual.
+(2026-10-25: `/wizard` has since been removed, so five remain.)
 
 The collection is 40 rituals, 28 of them model-invocable, with 6,302 description characters.
 `core/test/plugin.test.js` lowers the total it allows from 8,500 to 6,800 so the room is not

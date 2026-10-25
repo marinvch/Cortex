@@ -180,12 +180,9 @@ export function buildIndex(root, opts = {}) {
   }
 
   // Which files form one feature, by Leiden over the same edges (lib/clusters.mjs). A file with no
-  // in-repo edge gets no `cluster`, the way a file with no depth gets no `depth`.
+  // in-repo edge carries `cluster: null`, so every file states its answer.
   const { clusters, byPath: clusterOf } = clustersOf({ files, edges });
-  for (const f of files) {
-    const c = clusterOf.get(f.path);
-    if (c) f.cluster = c;
-  }
+  for (const f of files) f.cluster = clusterOf.get(f.path) ?? null;
 
   const languages = {};
   const categories = {};

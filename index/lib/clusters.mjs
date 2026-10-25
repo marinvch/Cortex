@@ -48,7 +48,7 @@
 //   is the largest cluster, ties by hub. No two clusters share a hub, so the order is total.
 // - **An `ambiguous` edge weighs `UNSURE_WEIGHT`.** No edge carries a confidence yet. Call edges
 //   will, and a guess must not glue two features together.
-// - **A file with no in-repo edge is not clustered** and carries no `cluster`. Code and script
+// - **A file with no in-repo edge is not clustered** and carries `cluster: null`. Code and script
 //   files without one are counted in `unclustered`. Docs and config never have edges, so counting
 //   them would measure how much prose a repo has. The share above is of the clustered files.
 //

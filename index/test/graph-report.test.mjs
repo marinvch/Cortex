@@ -199,6 +199,7 @@ test("a folded bridge takes the surest weight among the imports it stands for", 
   const [b] = bridgesOf(idx(files, edges));
   assert.equal(b.folded, 1);
   assert.equal(b.score, 3);
+  assert.equal(b.confidence, "extracted", "and reports that import's confidence");
 });
 
 test("the score is weighted by the edge's confidence, and an edge without one is extracted", () => {

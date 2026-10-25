@@ -1,7 +1,9 @@
 # 0004. Cortex ships with no runtime dependencies
 
 **Date:** 2026-08-16
-**Status:** accepted
+**Status:** accepted. Amended by [ADR 0029](0029-code-parsers-are-an-add-on-the-user-installs.md):
+code parsers may run as an add-on the user installs, loaded by one module, never imported by the
+shipped tree.
 
 ## Context
 

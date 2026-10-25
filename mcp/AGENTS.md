@@ -26,6 +26,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `ai-os project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
 | `ai-os digest` | append a git digest to a file | nothing |
 | `ai-os catch-up` | notes and history since a date | a repo or a vault |
+| `ai-os graph <op>` | the `graph` tool's answer: `stats`, `node`, `neighbors`, `cluster`, `hubs`, `bridges`, `path`; `--json`. Exit 2 on a missing or stale index. Read-only | a repo, its index |
 
 ## Invariants
 
@@ -91,7 +92,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   added without saying where it runs. `mode.test.js` asserts the exact list for both modes **and**
   that a vault tool invoked in repo mode comes back refused with nothing written.
 - **A tool that returns someone else's text says so in its description.** `recall`,
-  `recall_memory`, `get_project_context`, `list_projects`, `catch_me_up`, `inbox` and `contract` all hand the model text
+  `recall_memory`, `get_project_context`, `list_projects`, `catch_me_up`, `inbox`, `contract` and `graph` all hand the model text
   written outside the conversation — a teammate's committed `.cortex/memory/`, a note in a shared
   vault — and the result itself carries nothing marking it as data rather than instruction, which is
   the standard prompt-injection path through a retrieval tool. The description is the one place the
@@ -130,8 +131,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
   holds a non-blank value. Guessing a vault path would write someone's
   notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
   falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds
-  ([ADR 0008](../docs/adr/0008-three-audiences-one-seam.md)). **One CLI command degrades instead:
-  `ai-os catch-up`.** It writes nothing, and with no root it reads only the git repository the cwd
+  ([ADR 0008](../docs/adr/0008-three-audiences-one-seam.md)). **Two CLI commands degrade instead,
+  `ai-os catch-up` first.** It writes nothing, and with no root it reads only the git repository the cwd
   sits in — that repo's committed `.cortex/memory/` and its log — never a vault, and says in
   `skipped` which half it did not read. That is what a plugin install has: no vault, only the repo
   it was opened in, and `/whats-changed` failed on its first command there. It does not open a brain
@@ -139,6 +140,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
   downstream can mistake the repo for a place to write. `openBrain` resolves the profile *before*
   the root for this reason — a misspelt `CORTEX_PROFILE` still fails at entry. A second command
   wanting the same exemption must also write nothing; anything that writes stays a hard exit.
+  `ai-os graph` is the second: it reads one index and writes nothing, and with no root it reads
+  the git work tree the cwd sits in (`graphRepo`, `lib/graph.js`).
 - **`capture`'s `team` argument is an override, not the switch.** The team comes from
   `lib/resolve.js` — a repo with a `.cortex/connector.json` writes to the team brain without the
   caller knowing it is on a team. Requiring the agent to pass `team` was the seam leaking. Do not
@@ -336,7 +339,33 @@ the repo by commit count, and — like every other part — **dependency-free**.
   findings offer a tier from the index alone, because the index may not read the machine
   ([`index/AGENTS.md`](../index/AGENTS.md)); this is the machine's half, and
   `/setup-repo` and `/connect-mcp` ask it before they offer one.
-- **`mcp/` never imports from `index/`.**
+- **`mcp/` never imports from `index/`.** When both need the same rule, the rule moves to `core/`
+  and `index/` re-exports it. `core/route-path.js` was the first; the `graph` tool is the second.
+- **The `graph` tool answers from the index `index/` wrote, through `core/`, and never spawns or
+  imports the indexer** (G3 of [the code-graph design](../docs/specs/2026-10-25-code-graph-design.md)).
+  `lib/graph.js` holds the ops; its header holds the rules. The seam was a choice between three:
+  - **Chosen: the computation moved to `core/`.** `core/graph.js` scores hubs and bridges and
+    finds cycles; `core/path-kinds.js` holds the area and fixture rules the score reads;
+    `core/index-file.js` reads `index.json` and `enriched.json` and decides whether the index is
+    stale. Each depends on nothing in a leaf, so the move was a move. `cortex-graph.mjs --json` and
+    the tool return equal hubs and bridges because they run one function, and
+    `test/graph.test.js` checks it on a fixture repo.
+  - **Rejected: a reader in `mcp/` that recomputes.** `node`, `neighbors`, `cluster` and `path` are
+    plain reads and would have been fine, but hubs and bridges are scored, and a second copy of a
+    score drifts the first time the score changes. The freshness rule is the same case: "stale"
+    has one definition (`index/AGENTS.md`), and `mcp/` could not reach it in `index/lib/open.mjs`.
+  - **Rejected: spawning `cortex-graph.mjs --json`.** It welds the server to the indexer at run
+    time, which is the dependency the layering forbids, with a process boundary hiding it. It also
+    pays for coverage, which reads every file's text, on every call.
+  - **The rules it keeps:** repo mode only, read-only, `returns: FOREIGN` (a file's summary is
+    model-written prose). A missing, unreadable, wrong-format or stale index is refused with the
+    command that rebuilds it, never answered from; outside git, freshness is `unknown` and said.
+    The question is checked before the index is read, and every file argument goes through
+    `resolveInRoot`, so a path out of the repo is an `OutsideRootError` whatever the index's state.
+    Lists stop at `LIST_MAX` (50) and carry `total` and `truncated`; `hubs` and `bridges` are the
+    report's top ten with `bridgeCount`. Validated on eight cloned repos: hubs, bridges and every
+    count equal to `cortex-graph.mjs --json`. 20 guards mutated (freshness, the guard, the caps),
+    20 test failures.
 
 ## Gotchas
 

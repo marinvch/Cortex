@@ -7,6 +7,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **The `graph` MCP tool, and `ai-os graph` for agents without MCP.** Questions about a repo's
+  import graph, answered from its index. It writes nothing and runs in repo mode only.
+  - `stats`: files, edges, clusters and cycles, and how old the index is.
+  - `node`: one file's cluster, area, imports and importers, the tests that import it, and its
+    summary when the enrichment is current.
+  - `neighbors`: imports and importers out to three hops.
+  - `cluster`: a cluster's members, hub, cohesion and areas.
+  - `hubs` and `bridges`: the graph report's lists, the same as `cortex-graph.mjs --json` prints.
+  - `path`: the shortest import path between two files. Each step says which way the import goes,
+    and the answer says whether it followed imports only.
+  - A missing, unreadable or stale index is refused with the command that rebuilds it, never
+    answered from.
+  - A file argument that leaves the repo is refused by the root guard.
+  - Lists stop at 50 and give the full count.
+  - The scoring, the area and fixture rules, and the index and enrichment readers moved into
+    `core/` so both packages use one copy. `index/` re-exports each name.
+
 - **The graph report: hubs, bridges, cycles and untested clusters.** `node index/cortex-graph.mjs .`
   prints it, and `--json` gives the same report as data. It writes nothing.
   - **Hubs** are the ten files with the most import links. Tests, fixtures, test helpers and

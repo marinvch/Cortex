@@ -10,9 +10,9 @@ enough to rank findings and to count dependents as a floor. It cannot tell which
 which, so "who calls `chargeCard`?" has no answer, and a symbol defined in one file and used in
 another is invisible.
 
-Graphify (Apache-2.0) answers those questions with tree-sitter, a parser with a grammar per
-language. Porting its approach was agreed on 2026-10-25 (spec:
-[`docs/specs/2026-10-25-graph-port-design.md`](../specs/2026-10-25-graph-port-design.md)).
+Answering them needs a real parser. Tree-sitter is the standard one: one grammar per language,
+fast, and it gives the same tree every time. Adding symbols to Cortex was agreed on 2026-10-25 (spec:
+[`docs/specs/2026-10-25-code-graph-design.md`](../specs/2026-10-25-code-graph-design.md)).
 
 ADR 0004 forbids it as written: *nothing in the shipped tree may import a package that is not a
 Node builtin*. Its reason still holds. A plugin install clones the repository and never runs
@@ -51,7 +51,7 @@ person chooses to install, kept outside the plugin, and Cortex is complete witho
    `"tree-sitter@<lock digest>"`. Determinism is restated: the same tree and the same parser give
    the same bytes. Two machines that differ only in having the add-on give different indexes, and
    each says why.
-5. **Every edge says how sure it is.** Following Graphify, an edge carries `confidence`:
+5. **Every edge says how sure it is.** An edge carries `confidence`:
    `extracted` (stated in the source: an import, or a call resolved to one definition), `inferred`
    (resolved by name to one candidate in another file) or `ambiguous` (several candidates; all are
    kept). Regex import edges are `extracted`. Counts that include `inferred` or `ambiguous` edges
@@ -66,7 +66,7 @@ person chooses to install, kept outside the plugin, and Cortex is complete witho
 | Native `tree-sitter` bindings | Need a C compiler at install time and break on each Node ABI change |
 | Download grammars automatically on first index | A network call nobody asked for, inside a command documented as making none |
 | Stay regex-only and match calls with patterns | Wrong too often: method calls, aliases and shadowed names. Every call edge would need `ambiguous` |
-| Shell out to Graphify itself | A Python toolchain on every machine, and a second index that disagrees with the first. Reading its `graph.json` stays a possible import, not the engine |
+| Shell out to an external graph tool | Another toolchain on every machine, and a second index that disagrees with the first |
 
 ## Consequences
 

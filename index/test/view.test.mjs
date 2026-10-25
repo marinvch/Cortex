@@ -716,3 +716,84 @@ test("no enrichment is still the normal optional case", () => {
   assert.equal(v.stats.enriched, 0);
   assert.equal(v.nodes.find((n) => n.path === "src/a.js").summary ?? "", "");
 });
+
+// ── clusters ────────────────────────────────────────────────────────────────────────────────────
+
+/** An index whose `k` clusters each hold two files of `src/`, so cluster and area disagree. */
+function clustered(k) {
+  const files = [];
+  const edges = [];
+  const items = [];
+  for (let i = 0; i < k; i++) {
+    const a = `src/f${String(i).padStart(2, "0")}a.js`;
+    const b = `src/f${String(i).padStart(2, "0")}b.js`;
+    const id = `c${i + 1}`;
+    files.push(
+      { path: a, lang: "javascript", category: "code", lines: 5, commits: 1, isTest: false, isEntry: false, imports: [b], inbound: 0, cluster: id },
+      { path: b, lang: "javascript", category: "code", lines: 5, commits: 1, isTest: false, isEntry: false, imports: [], inbound: 1, cluster: id },
+    );
+    edges.push({ from: a, to: b, type: "imports" });
+    items.push({ id, hub: a, size: 2, cohesion: 1, areas: { src: 2 }, files: [a, b] });
+  }
+  files.push({ path: "src/alone.js", lang: "javascript", category: "code", lines: 5, commits: 1, isTest: false, isEntry: false, imports: [], inbound: 0, cluster: null });
+  return idx({
+    files,
+    edges,
+    areas: [{ id: "area:src", name: "src", description: "", paths: files.map((f) => f.path) }],
+    layers: [{ depth: 0, paths: files.map((f) => f.path) }],
+    clusters: { algorithm: "leiden", resolution: 1, unclustered: 1, items },
+  });
+}
+
+test("each node carries its cluster and a cluster colour; only the largest clusters get a hue", () => {
+  const v = buildView(clustered(14), "/tmp/x");
+  const byId = new Map(v.nodes.map((n) => [n.id, n]));
+  assert.equal(byId.get("src/f00a.js").cluster, "c1");
+  assert.equal(byId.get("src/alone.js").cluster, null);
+  const hues = v.clusters.items.filter((c) => c.coloured).map((c) => c.color);
+  assert.equal(hues.length, 12, "as many hues as the palette holds");
+  assert.equal(new Set(hues).size, hues.length, "and no two named clusters share one");
+  const grey = v.clusters.items.find((c) => !c.coloured).color;
+  assert.ok(!hues.includes(grey), "the small ones are grey, never a reused hue");
+  assert.deepEqual(v.clusters.items.filter((c) => !c.coloured).map((c) => c.id), ["c13", "c14"]);
+  for (const n of v.nodes.filter((n) => n.cluster)) {
+    assert.equal(n.ccolor, v.clusters.items.find((c) => c.id === n.cluster).color, `${n.id} matches its legend row`);
+  }
+  assert.equal(byId.get("src/alone.js").ccolor, grey);
+  // The area colour is untouched: every other tab still reads `color`.
+  assert.equal(byId.get("src/f00a.js").color, v.areas.find((a) => a.name === "src").color);
+});
+
+test("the view lists clusters without their files, areas most-members first, and null for an index without them", () => {
+  const i = clustered(2);
+  i.clusters.items[0].areas = { "src/b": 1, "src/a": 1, lib: 3 };
+  const v = buildView(i, "/tmp/x");
+  assert.equal(v.clusters.unclustered, 1);
+  assert.ok(!("files" in v.clusters.items[0]), "every node already says its cluster");
+  assert.deepEqual(v.clusters.items[0].areas, [{ name: "lib", files: 3 }, { name: "src/a", files: 1 }, { name: "src/b", files: 1 }]);
+  assert.equal(v.clusters.items[0].hubLabel, "f00a.js");
+  assert.equal(buildView(idx(), "/tmp/x").clusters, null);
+});
+
+test("the Map colours by cluster when there are clusters, and the switch gives the areas back", () => {
+  const page = runPage(buildView(clustered(3), "/tmp/x"));
+  assert.equal(page.BY, "cluster");
+  const a = page.N.find((n) => n.id === "src/f00a.js");
+  const b = page.N.find((n) => n.id === "src/f01a.js");
+  assert.notEqual(a.color, b.color, "two clusters in one folder are told apart");
+  assert.equal(a.color, a.ccolor);
+  assert.equal(page.grp(a), "c1");
+  page.run("BY='area';paint();");
+  assert.equal(a.color, a.acolor);
+  assert.equal(a.color, b.color, "by area they are one folder again");
+  assert.equal(page.grp(a), "src");
+  // No clusters in the index: the Map is what it was.
+  assert.equal(runPage(buildView(idx(), "/tmp/x")).BY, "area");
+});
+
+test("the page carries the cluster switch and the Areas tab's cluster table", () => {
+  const html = renderHtml(buildView(clustered(2), "/tmp/x"));
+  assert.match(html, /data-by=/);
+  assert.match(html, /<h2 class="vh">Clusters/);
+  assert.ok(!html.includes("/tmp/x"), "no machine path reaches the page");
+});

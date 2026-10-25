@@ -5,6 +5,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, dirname, basename, delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
+import { INDEX_VERSION } from "../lib/format.mjs";
 import { bothLayouts, newLayoutOnly, ENTRIES, ENTRIES_OF_THE_15TH, NEW_ONLY_ENTRY } from "../../core/test/memory-fixture.js";
 
 const INDEX_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,7 +40,7 @@ test("cortex-index writes the index and reports what it found", () => {
   assert.ok(existsSync(p), "the index must land at .cortex/index/index.json");
   const idx = JSON.parse(readFileSync(p, "utf8"));
   assert.ok(idx.files.some((f) => f.path === "src/a.js"));
-  assert.equal(idx.version, "1");
+  assert.equal(idx.version, INDEX_VERSION);
 });
 
 test("cortex-index honours --out", () => {

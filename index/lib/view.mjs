@@ -233,6 +233,12 @@ export function buildView(index, root, opts = {}) {
   const mapAreas = [...new Set(files.filter(inMapCategory).map((f) => areaOf(f.path)))].sort();
   const colorOf = new Map(mapAreas.map((a, i) => [a, PALETTE[i % PALETTE.length]]));
 
+  // Clusters take the palette in id order, largest first, and only as far as it goes without a
+  // repeat. A twentieth hue that matches the second says two clusters are one; grey for the small
+  // ones says "smaller", which is true. A file with no cluster is grey as well.
+  const clusterItems = index.clusters?.items ?? [];
+  const clusterColor = new Map(clusterItems.slice(0, PALETTE.length).map((c, i) => [c.id, PALETTE[i]]));
+
   // Depth of a file in the layer stack, so the graph can be read top-down rather than as a hairball.
   const depthOf = new Map();
   for (const layer of index.layers ?? []) {
@@ -283,6 +289,10 @@ export function buildView(index, root, opts = {}) {
         // Anything that reaches the Map is coloured by its area; the legend swatch and the node
         // must agree, or the legend is decoration. Docs and config keep grey — they never draw.
         color: inMapCategory(f) ? colorOf.get(area) : GREY,
+        cluster: f.cluster ?? null,
+        // The Map's other colouring, by cluster. `color` stays the area's, which every other tab
+        // and the area legend read.
+        ccolor: (f.cluster && clusterColor.get(f.cluster)) || GREY,
         lines: f.lines ?? 0,
         commits: f.commits ?? 0,
         heat: Math.round(((f.commits ?? 0) / maxCommits) * 100),
@@ -378,6 +388,29 @@ export function buildView(index, root, opts = {}) {
     nodes,
     links,
     areas: areaCards,
+    // The index's clusters, without their file lists: every node already carries its cluster, so
+    // listing the members again would inline each path twice. `null` when the index has none at
+    // all, which is a different answer from an empty list.
+    clusters: index.clusters
+      ? {
+          unclustered: index.clusters.unclustered ?? 0,
+          items: clusterItems.map((c) => ({
+            id: c.id,
+            hub: c.hub,
+            hubLabel: labels.get(c.hub) ?? labelOf(c.hub),
+            size: c.size,
+            cohesion: c.cohesion,
+            // Most members first, then by name, so the area a cluster mostly lives in reads first.
+            areas: Object.entries(c.areas ?? {})
+              .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+              .map(([name, files]) => ({ name, files })),
+            color: clusterColor.get(c.id) ?? GREY,
+            // Whether it has a hue of its own, so the legend can list it by name or fold it into
+            // "smaller clusters" without comparing colour strings.
+            coloured: clusterColor.has(c.id),
+          })),
+        }
+      : null,
     stack: index.stack ?? {},
     // Every count the page prints, computed once here and read by every tab. Two numbers that differ
     // are two different fields with two different names — `edges` is every resolved import, the

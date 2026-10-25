@@ -20,8 +20,12 @@ import { join } from "node:path";
  * that used to mean something else. Adding a field consumers may ignore is not a bump; removing or
  * repurposing one is. `lib/open.mjs` refuses a mismatch rather than guessing, because the failure it
  * prevents is not a crash but a plausible answer computed from a shape that no longer holds.
+ *
+ * "2" added `clusters` and each file's `cluster`. That alone would be ignorable, but a version-1
+ * index read by the viewer shows a repo with no clusters, which reads as an answer about the code
+ * rather than about the index's age. Refusing it costs one deterministic rebuild.
  */
-export const INDEX_VERSION = "1";
+export const INDEX_VERSION = "2";
 
 /**
  * Where an index lives inside a repository, as path segments.

@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { ARMS, buildFixture, fixtureFiles, hashDir } from "../harness/fixture.mjs";
 import { TASKS } from "../harness/tasks.mjs";
 import { HarnessFault, accept } from "../harness/accept.mjs";
-import { SOLUTIONS, applyPatch } from "../harness/solutions/index.mjs";
+import { SOLUTIONS, applyPatch } from "../harness/fixture/solutions/index.mjs";
 
 const ACCEPT = fileURLToPath(new URL("../harness/accept.mjs", import.meta.url));
 const ACCEPT_DIR = fileURLToPath(new URL("../harness/accept/", import.meta.url));

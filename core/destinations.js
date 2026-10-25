@@ -89,7 +89,7 @@ const cleanHost = (h) => String(h ?? "").trim().toLowerCase().replace(/\.$/, "")
  *
  *   /srv/brain.git  ./brain  file:///srv/brain  a drive path        local
  *   \\server\share\brain  //server/share/brain                       host `server`
- *   https://user:token@github.com/acme/brain.git                     github.com · acme/brain
+ *   https://user:${TOKEN}@github.com/acme/brain.git                  github.com · acme/brain
  *   ssh://git@gitlab.acme.example:2222/team/brain                    gitlab.acme.example · team/brain
  *   git@github.com:acme/brain.git                                    github.com · acme/brain
  */

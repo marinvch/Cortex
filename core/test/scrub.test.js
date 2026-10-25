@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { scan, isClean, redact, assertWritable, RefusedWriteError } from "../scrub.js";
 
 // cortex:allow-secrets — this file is the scanner's own corpus. Every "secret" below is a fake
@@ -128,4 +129,42 @@ test("the placeholder rule does not blind the scanner to real values", () => {
     1,
     "a real connection string still trips",
   );
+});
+
+test("a value that only names environment variables is not a credential", () => {
+  // The tracker modules export the names their credentials are read from. Read from the files, so
+  // the test fails if one of them starts matching again.
+  for (const file of ["github", "jira", "servicenow"]) {
+    const src = readFileSync(new URL(`../../mcp/lib/trackers/${file}.js`, import.meta.url), "utf8");
+    const line = src.split("\n").find((l) => l.startsWith("export const CREDENTIALS"));
+    assert.ok(line, `${file}.js still exports CREDENTIALS`);
+    assert.deepEqual(scan(line), [], `reported a list of names as a secret: ${line}`);
+  }
+  for (const line of [
+    'const CREDENTIALS = "GITHUB_TOKEN (or GH_TOKEN)"',
+    'const CREDENTIALS = "JIRA_EMAIL and JIRA_API_TOKEN"',
+    'const CREDENTIALS = "SERVICENOW_TOKEN, or SERVICENOW_USER and SERVICENOW_PASSWORD"',
+    'tokenVar = "OAUTH2_CLIENT_SECRET"',
+    'secret = "FIRST_KEY, then SECOND_KEY"',
+  ]) {
+    assert.deepEqual(scan(line), [], `reported a list of names as a secret: ${line}`);
+  }
+});
+
+test("the name-list rule does not blind the scanner to real values", () => {
+  const values = [
+    STRIPE_KEY,
+    GH_TOKEN,
+    AWS_KEY,
+    "q8ZfT2mWx9LkP4rVb7NcJ3yH", // long mixed-case random
+    "Q8ZFT2MWX9LKP4RVB7NC", // all caps with digits, no underscore
+    "Q8ZF_T2MW_X9LK", // all caps with underscores, but every part has a digit
+    "GITHUB_TOKEN Q8ZFT2MWX9LKP4RVB7NC", // a name beside a value
+    "GITHUB_TOKEN or hunter2-real-value", // a name and a lower-case value
+    "GITHUB_TOKEN OR GH_TOKEN", // a joining word must be lower case
+    "or and then", // joining words with no name
+  ];
+  for (const v of values) {
+    assert.ok(scan(`token = "${v}"`).length >= 1, `missed an assigned secret: ${redact(v)}`);
+  }
 });

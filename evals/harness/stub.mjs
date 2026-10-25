@@ -21,7 +21,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROBE_PROMPT, TASKS, promptFor } from "./tasks.mjs";
-import { SOLUTIONS, applyPatch } from "./solutions/index.mjs";
+import { SOLUTIONS, applyPatch } from "./fixture/solutions/index.mjs";
 
 const TEMPLATES = { success: "result-success.json", "max-turns": "result-max-turns.json" };
 

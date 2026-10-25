@@ -137,6 +137,19 @@ the code: steps 3.2 and 3.3 build to this entry, and it is the definition they a
 _Avoid_: "workspace" for a JS monorepo's packages (say "workspace package", as
 `index/lib/resolvers.mjs` does) or for Claude Code's folder trust; "portfolio", "registry".
 
+## Job
+
+What a team member does all day: `developer`, `architect`, `lead`, `pm` or `qa`. Recorded once per
+member as `job` in the team-brain's `team.json`; `core/job.js` holds the five words and the rituals
+each is offered first. **It decides what is offered, never what is allowed**, and it is not a
+fourth switch beside mode, audience and profile. No job means `developer`.
+
+The design calls this a person's "role", and the word is taken twice already: a **role** in the
+roster is what an ask is addressed to (`backend`, `gateway`), and a member holds any number of
+them; a role in the agent team is one of the subagents `/setup-repo` writes.
+
+_Avoid_: "role" for this, "permission", "persona".
+
 ## Layer
 
 Two unrelated meanings — keep them apart:

@@ -32,6 +32,18 @@ this project now versions independently of any package manager (see `VERSION`).
   - Without the add-on the index is the same as before, plus `parser: "regex"`. An install that is
     partial or does not match the lock is not loaded, and the index says why in one line.
 
+- **A job for each team member.** `team.json` members take an optional `job`: `developer`,
+  `architect`, `lead`, `pm` or `qa`. It changes what is offered first, never what anyone may run.
+  - `ai-os team member --job <job>` records it. A job that is not one of the five is refused, and
+    updating your roles keeps the job already recorded.
+  - A member with no job is a developer, so older rosters keep working. A wrong job in a
+    hand-edited `team.json` is reported and read as developer; the member keeps their place.
+  - `inbox` returns the job as `me.job`.
+  - `/join-team` asks for it, and `/create-team` records the lead's. `/setup-repo` and
+    `/resume-work` read it and shape what they propose: a project manager is offered the report
+    and `/whats-changed`, a tester the untested code and `/change-impact`, an architect the
+    context layer, a lead the parts the whole team shares.
+
 - **The `graph` MCP tool, and `ai-os graph` for agents without MCP.** Questions about a repo's
   import graph, answered from its index. It writes nothing and runs in repo mode only.
   - `stats`: files, edges, clusters and cycles, and how old the index is.

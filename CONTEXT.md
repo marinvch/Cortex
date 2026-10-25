@@ -178,6 +178,25 @@ re-export, counts less. A bridge is a link worth a look, never a defect.
 
 _Avoid_: "coupling" for one bridge (a bridge is one import; coupling is a judgement about many).
 
+## Symbol
+
+A function, class or method a file defines, read by the optional parser add-on
+(`index/lib/symbols.mjs`, ADR 0029). Its id is `path#name`, or `path#Class.method` for a method. The
+index keeps symbols and the calls between them in `index.symbols`, apart from `files`, and only
+when the add-on is installed: `index.parser` says `regex` without it.
+
+_Avoid_: "node" (the graph tool's word for a file), "entity", "function" for a class or method.
+
+## Confidence
+
+How sure Cortex is of one link. **extracted**: stated in the source, as an import, or a call to a
+definition in the same file or to a name an import binds. **inferred**: matched by name to the one
+candidate found, or reached through a class's stated base. **ambiguous**: several candidates, all
+kept, each weighing half when clusters are built. Import edges are all extracted. A count built on
+inferred or ambiguous links says so, because it is no longer a floor.
+
+_Avoid_: "certainty" or a score; there are three values and nothing between them.
+
 ---
 
 ## Related

@@ -178,6 +178,31 @@ holds the rules for that module alone — read it before editing the module.
   Validated on this repo and eight cloned ones: every hub recounted from `index.edges` and every
   bridge's edge found on disk, 159 of 159; two runs byte-identical on each. 49 guards mutated,
   49 test failures.
+- **Symbols come from an add-on, and the index must not need them** (ADR 0029; G4 of the code-graph
+  spec). `lib/parsers.mjs` is the only file that imports a computed path (`core/test/install.test.js`
+  holds it to that), and it loads only an install whose every file hashes to the lock
+  (`core/parser-lock.js`). `cortex-index.mjs` loads it and hands it to `buildIndex` as
+  `opts.parsers`; every other caller builds without it. Without it the index is byte-for-byte what
+  it was plus `parser: "regex"`: run on seven repos against master, that was the only field that
+  differed. With it, `index.symbols` sits beside `files` and clusters weigh calls between files too,
+  each pair once at its surest confidence (`callEdges`). `lib/symbols.mjs`'s header holds what a
+  definition and a call are, the resolution rules and the unresolved reasons. `INDEX_VERSION` did
+  not move: both fields may be ignored, and none changed meaning.
+  - **Validated** with the add-on installed into a scratch home, on zustand, got, flask and
+    bulletproof-react:
+    - Twenty call edges per repo were opened against the source: 80 of 80 right, plus 12 got
+      source-only edges and all 19 of flask's inferred ones.
+    - Every target is a listed definition, and its line names it.
+    - Cold cache, warm cache and a third run gave the same bytes on those four and on
+      vite-react-ts, fzf and ripgrep.
+  - **On bulletproof-react**, calls moved cluster hubs from barrel `index.ts` files to the
+    components behind them, and the largest cluster's cohesion went from 0.060 to 0.194.
+  - **Mutation-tested**: 54 mutants across the integrity check, the destination check, the tar
+    guards and resolution, and 53 caught. The survivor re-verifies the install after writing it,
+    which no input reaches because every byte was hashed before it was written.
+  - **The cache key carries a digest of `symbols.mjs` itself** (`EXTRACTOR_VERSION`), so an edit
+    there cannot reuse an extraction made by older code. Without it, a fix looked like it had changed
+    nothing, because every file came from the cache.
 - **The route map** (`lib/routes.mjs`; design and limits in
   [`docs/specs/2026-09-27-route-map-design.md`](../docs/specs/2026-09-27-route-map-design.md)) was
   validated on the Harbor workspace (7/7 calls, 3/3 gateway routes, each to one repo), the RealWorld

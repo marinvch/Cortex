@@ -165,6 +165,23 @@ unreadable file). It names kinds and lines and never the text. `server/cortex-cr
 the diff before the API call and over the digest before the push; `CORTEX_SCRUB` points the cron at
 it when the cron script was copied somewhere without it.
 
+## `cortex-parsers.mjs` — the optional parser add-on
+
+```bash
+node tools/cortex-parsers.mjs install [--registry <https origin>]
+node tools/cortex-parsers.mjs status [--json]
+node tools/cortex-parsers.mjs remove
+```
+
+`install` downloads the packages pinned in `index/parsers.lock.json` (the WebAssembly tree-sitter
+runtime and its JavaScript, TypeScript, TSX and Python grammars) and writes only under
+`~/.cortex/parsers/<lock digest>/`. It checks the registry against the approved-destinations list on
+a `work` profile, each tarball's sha512 and each file's sha256 against the lock, and refuses a
+tarball holding a link or a path that leaves it. `--registry` fetches the same paths from a mirror.
+`status` says whether what is installed matches the lock, and lists installs made from another lock.
+`remove` deletes this lock's install. Exit 0 is done, 2 is refused, 1 is could not run. With the
+add-on installed, `cortex-index.mjs` also writes `index.symbols`; without it, nothing changes.
+
 ## `cortex-plugin-check.mjs` — is the Cortex you run the Cortex you edit
 
 A plugin reaches a session through three copies, each able to sit at a different version:

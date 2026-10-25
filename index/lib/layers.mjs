@@ -1,23 +1,19 @@
 // Layer inference from directory structure. No LLM: directory layout is the strongest available
 // signal for how a team already thinks about its own code, and it costs nothing to read.
+//
+// A file's layer key is `layerKeyFor`, the one area definition. It lives in `core/path-kinds.js`
+// because the `graph` MCP tool names the same areas the graph report does; re-exported here.
+
+import { TRANSPARENT, layerKeyFor } from "../../core/path-kinds.js";
+
+export { layerKeyFor };
 
 function kebab(s) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "root";
 }
 
-// A file's layer key is its top-level directory, except that a few conventional wrappers carry no
-// meaning on their own and the level below them is what people actually name.
-const TRANSPARENT = new Set(["src", "lib", "app", "packages", "apps", "internal", "pkg"]);
-
 /** Directories that hold agent tooling rather than product code — never a scoped-brief candidate. */
 export const TOOLING_DIRS = new Set([".claude", ".cortex"]);
-
-export function layerKeyFor(path) {
-  const parts = path.split("/");
-  if (parts.length === 1) return "root";
-  if (TRANSPARENT.has(parts[0]) && parts.length > 2) return `${parts[0]}/${parts[1]}`;
-  return parts[0];
-}
 
 /**
  * Group files into layers. Returns a deterministic, sorted array; every indexed file lands in

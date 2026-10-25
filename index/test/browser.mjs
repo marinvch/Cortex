@@ -74,11 +74,13 @@ export function runPage(view, { width = 1900, height = 1000, reducedMotion = tru
   vm.runInContext(
     script + "\n" + setHover +
       "\nglobalThis.__p={N,E,ROWS,RLBL,BTOP,BH,BW,CX,HUB,HUB_MAX,CHIPS,LOOSE,TRAY_Y,TRAY_COLS," +
-      "scale,tx,ty,bandL:bandL(),bandR:bandR()};",
+      "scale,tx,ty,bandL:bandL(),bandR:bandR(),BY,grp};",
     sandbox,
   );
 
   const p = sandbox.__p;
+  // Run more of the page against the same state: what a click on the legend would do, say.
+  p.run = (code) => vm.runInContext(code, sandbox);
   const chips = p.N.filter((n) => p.CHIPS.has(n.id));
   return {
     ...p,

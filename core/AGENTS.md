@@ -25,7 +25,7 @@ here, which is why the directory is small and stays small.
 - **`gate.js` is the publish gate, and both callers go through it** — `append()` here and
   `assertPublishable` in `mcp/lib/tools.js`. Three checks, in order: a credential (`scrub.js`), the
   employer denylist (`denylist.js`, only where `policy.refuses === "employer"`), personal data
-  (`scanPersonal`, by `CORTEX_PII`). Add a fourth check here, never at one caller. Every refusal is a
+  (`scanPersonal`, by `CORTEX_PII`, else `policy.pii`). Add a fourth check here, never at one caller. Every refusal is a
   `RefusedWriteError` subclass with its own `code` (`employer_denylist`, `personal_data`), so a
   handler written for credentials still stops the write. [ADR 0026](../docs/adr/0026-the-employer-firewall-checks-the-names-you-give-it.md),
   [ADR 0027](../docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md).
@@ -36,6 +36,18 @@ here, which is why the directory is small and stays small.
   check off. A bad line is a `problem` with its line number and the rest still apply. A refusal names
   the entry's kind and line in the denylist — never the matched text, never the entry. It reads
   `policy.refuses` and no profile name; tests hand it a HOME of their own.
+- **`destinations.js` decides where an outward call may go, from `policy.destinations`** — `any`
+  (home), `approved` (work), `none` (lab, which still allows a pull or a clone). The list is
+  `CORTEX_DESTINATIONS`, else `~/.cortex/allowed-destinations`, outside any repo. On `approved` no
+  list refuses everything (`absent` and `missing` both): a list of what to allow fails closed, the
+  opposite of the denylist. The host matches exactly and case-insensitively, never by suffix; a
+  path prefix matches whole segments; a `.` or `..` segment and an address that cannot be parsed
+  never match. Local paths, `file://` and loopback http(s) are always allowed; a UNC path is a
+  remote host. A refusal is `DestinationRefusedError` (`unapproved_destination`) built from the
+  normalised host and path, so no userinfo can reach the message. A missing policy, or one without
+  `destinations`, throws a TypeError. [ADR 0030](../docs/adr/0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md).
+- **`policy.pii` is the personal-data mode when `CORTEX_PII` is unset** (`refuse` on work, `warn`
+  elsewhere), and `gate.js` passes the policy to `gatePersonal` for it. `CORTEX_PII` still wins.
 - **The personal-data scan reports kind and line only** — not even a redacted value, since a
   half-starred email address is most of one. It is conservative on purpose: a phone detector that
   fires on dates and versions is a gate people learn to skip, so add a false-positive case to

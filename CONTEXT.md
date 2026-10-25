@@ -50,7 +50,8 @@ authored, not derived, and is never regenerated).
 leaves this machine. It **refuses** rather than sanitises, because silently rewriting someone's note
 is a worse failure than declining it with a reason. Three checks in one call: a credential
 (`core/scrub.js`, always), a match against the person's **employer denylist** on a `home` profile
-(`core/denylist.js`), and **personal data** — refused or only warned about by `CORTEX_PII`.
+(`core/denylist.js`), and **personal data** — refused or only warned about by `CORTEX_PII`, or by
+the profile when it is unset (refused on `work`).
 
 Two callers apply it, and the pair is the guarantee: `core/memory.js` covers every caller of
 `append()`, and `mcp/server.js` covers every tool whose declaration says it publishes. This entry
@@ -59,6 +60,21 @@ note to a shared remote without ever entering memory, so the sentence stayed tru
 guarantee it implied was not. A definition wider than its callers is a claim, not a gate.
 
 _Avoid_: "filter", "sanitiser" — both imply the content is modified and let through.
+
+## Approved destination
+
+A host, optionally with a path prefix, that a company has approved for its material on a `work`
+profile: a line `git: github.com/your-org` or `https: your-org.service-now.com` in
+`~/.cortex/allowed-destinations` (or `CORTEX_DESTINATIONS`), a file outside every repository.
+`core/destinations.js` `assertDestination` checks every push, pull, clone and tracker request
+against it before the call is made. The host matches exactly and a prefix by whole segments; a
+path on this machine and a loopback host are always allowed. No list on `work` means nothing is
+approved. [ADR 0030](docs/adr/0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md).
+
+The gate asks what a write holds; this asks where it goes. They are separate checks.
+
+_Avoid_: "allowlist" for the employer denylist (that is the opposite list, for `home`), "trusted
+host" (trust is not what was decided; approval is).
 
 ## Brief
 

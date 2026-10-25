@@ -249,7 +249,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   reads only `CORTEX_PROFILE` — nothing here may move it.
 - **Every adapter opens the brain at entry, through `lib/brain.js`.** `server.js` and `ai-os.js` are
   two adapters over the same operations, so the seam between them is real and therefore a module:
-  `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · project · teamBrainRepo ·
+  `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · project · teamBrainRepo · env ·
   profile · policy · sources · notices · describe()`, and throws `NoRootError` /
   `UnknownProfileError` **before** a command picks a branch. Neither adapter may read
   `env.CORTEX_ROOT` or `env.AI_OS_ROOT`, or call `resolve.js`,
@@ -276,6 +276,19 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `lib/brain.js` opens at entry, which is where the profile is resolved once. A new publish
   path that does not is the same bug again — write locally, decline the push, and tell the caller
   which, the way `capture()` does.
+- **Every call that reaches a remote checks the destination first** (`core/destinations.js`,
+  [ADR 0030](../docs/adr/0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md)).
+  `pull`, `commitAndPush` and `pushHead` in `lib/gitsync.js` take `{ policy, env }` as a required
+  option and check every URL git resolves for the clone's remotes (`remote get-url --all`, with
+  `--push` for a push) before git runs; a refusal comes back as `error: "unapproved_destination: …"`
+  in the shape a git failure already had, and `commitAndPush` keeps its commit. `cloneTeamBrain`
+  takes the same option and throws before anything is created; `initTeamBrain` checks its push.
+  `request` in `lib/trackers/http.js` checks the URL as `https` and never calls `fetch` on a
+  refusal; `io.policy` comes from `syncAsks`. The env is `brain.env`, the environment `openBrain`
+  was handed, so a lib function given the brain has both halves. A new outward call is the same
+  bug as a new publish path that skips `outwardSync`: route it through the check, and add it to
+  `test/destinations.test.js`, which runs git with `GIT_ALLOW_PROTOCOL=file` so a call that slips
+  past fails on git's own transport error, not on the network.
 - **A project file is written, listed and removed by `lib/project-files.js`, and judged by
   `core/project-file.js`.** A project file is `projects/<slug>.md` at the top of a team-brain, and
   a workspace is the set of them ([ADR 0024](../docs/adr/0024-a-workspace-is-project-files.md)).

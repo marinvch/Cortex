@@ -130,6 +130,11 @@ export function assertWritable(text) {
 // and on which line. `CORTEX_PII=refuse` makes it a refusal; `off` stops the scan.
 // docs/adr/0027 argues the default.
 //
+// With `CORTEX_PII` unset, the mode is the profile's (`policy.pii`, core/profile.js): `warn` on home
+// and lab, `refuse` on work, where a colleague's or a customer's details pushed to a company remote
+// are the employer's liability too. `CORTEX_PII` still overrides it, either way. The amendment to
+// docs/adr/0027 records this.
+//
 // Every detector is conservative on purpose. A gate that flags version numbers and dates as phone
 // numbers is a gate people learn to ignore. The two with a checksum — IBAN (mod 97) and card numbers
 // (Luhn) — are checked, so a random number of the right shape almost never passes.
@@ -253,27 +258,43 @@ export class UnknownPiiModeError extends Error {
 }
 
 /**
- * The mode, from `CORTEX_PII`. Unset or empty is the default, `warn`. An unknown value throws rather
- * than falling back, for the reason ADR 0015 gives about a profile: `CORTEX_PII=refuse` misspelt
- * must not quietly mean `warn` while the person believes it refuses.
+ * The mode and what set it: `{ mode, from }`, `from` being `CORTEX_PII`, `profile` or `default`.
+ * `CORTEX_PII` wins; unset or empty, the profile's `policy.pii` applies; with no policy, `warn`. An
+ * unknown value throws rather than falling back, for the reason ADR 0015 gives about a profile:
+ * `CORTEX_PII=refuse` misspelt must not quietly mean `warn` while the person believes it refuses.
  */
-export function piiMode({ env = {} } = {}) {
+export function piiSetting({ env = {}, policy } = {}) {
   const raw = String(env.CORTEX_PII ?? "").trim().toLowerCase();
-  if (!raw) return PII_DEFAULT;
-  if (!PII_MODES.includes(raw)) throw new UnknownPiiModeError(env.CORTEX_PII);
-  return raw;
+  if (raw) {
+    if (!PII_MODES.includes(raw)) throw new UnknownPiiModeError(env.CORTEX_PII);
+    return { mode: raw, from: "CORTEX_PII" };
+  }
+  if (policy && policy.pii !== undefined) {
+    if (!PII_MODES.includes(policy.pii)) throw new UnknownPiiModeError(policy.pii);
+    return { mode: policy.pii, from: "profile" };
+  }
+  return { mode: PII_DEFAULT, from: "default" };
 }
+
+/** The mode alone. See `piiSetting`. */
+export function piiMode({ env = {}, policy } = {}) {
+  return piiSetting({ env, policy }).mode;
+}
+
+/** How a message names what set the mode. */
+const setBy = (from, mode, policy) =>
+  from === "profile" ? `the ${policy?.label ?? "current"} profile's mode is ${mode}` : `CORTEX_PII is ${mode}`;
 
 /** A published write refused because it holds personal data and `CORTEX_PII=refuse`. */
 export class PersonalDataError extends RefusedWriteError {
-  constructor(findings) {
+  constructor(findings, { why = "CORTEX_PII is refuse" } = {}) {
     super(findings);
     this.name = "PersonalDataError";
     this.code = "personal_data";
     const kinds = [...new Set(findings.map((f) => f.kind))].join(", ");
     const lines = [...new Set(findings.map((f) => f.line))].join(", ");
     this.message =
-      `refusing to publish: contains personal data (${kinds}, line ${lines}). CORTEX_PII is refuse. ` +
+      `refusing to publish: contains personal data (${kinds}, line ${lines}). ${why[0].toUpperCase()}${why.slice(1)}. ` +
       "Nothing was written. Name the role or the team instead of the person.";
   }
 }
@@ -282,14 +303,16 @@ export class PersonalDataError extends RefusedWriteError {
  * The personal-data gate. `{ mode, findings, warning }`: `warning` is one sentence for the caller to
  * pass on when the mode is `warn` and something was found, otherwise null. Throws
  * `PersonalDataError` when the mode is `refuse` and something was found, and `UnknownPiiModeError`
- * for a bad `CORTEX_PII`.
+ * for a bad `CORTEX_PII`. `policy` is the profile's, and sets the mode when `CORTEX_PII` is unset;
+ * core/gate.js always passes it.
  */
-export function gatePersonal(text, { env = process.env } = {}) {
-  const mode = piiMode({ env });
+export function gatePersonal(text, { env = process.env, policy } = {}) {
+  const { mode, from } = piiSetting({ env, policy });
+  const why = setBy(from, mode, policy);
   if (mode === "off") return { mode, findings: [], warning: null };
   const findings = scanPersonal(text);
   if (!findings.length) return { mode, findings, warning: null };
-  if (mode === "refuse") throw new PersonalDataError(findings);
+  if (mode === "refuse") throw new PersonalDataError(findings, { why });
   const kinds = [...new Set(findings.map((f) => f.kind))].join(", ");
   const lines = [...new Set(findings.map((f) => f.line))].join(", ");
   return {
@@ -297,7 +320,7 @@ export function gatePersonal(text, { env = process.env } = {}) {
     findings,
     warning:
       `personal data: this text holds ${kinds} (line ${lines}), and it was written anyway because ` +
-      "CORTEX_PII is warn. Once committed or pushed it is in every clone, and removing it means " +
+      `${why}. Once committed or pushed it is in every clone, and removing it means ` +
       "rewriting history (Cortex's docs/erasure.md). Tell the user; CORTEX_PII=refuse makes this a refusal.",
   };
 }

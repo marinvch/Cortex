@@ -85,7 +85,7 @@ const isDir = (p) => {
  * @returns {{
  *   root: string, mode: string, isRepo: boolean,
  *   audience: string, team: string|null, teamClone: string|null, project: string|null, teamBrainRepo: string|null,
- *   profile: string, policy: object,
+ *   profile: string, policy: object, env: object,
  *   sources: { audience: string, profile: string, root: string },
  *   notices: string[],
  *   describe: () => string,
@@ -133,6 +133,11 @@ export function openBrain({ cwd, env }) {
     // The policy object, not a copy of its fields: `lab` refusing nothing and publishing nothing is
     // ONE decision, and splitting it across the record is how the two halves drift apart.
     policy: world.policy,
+    // The environment the brain was opened with. Every outward call asks core/destinations.js with
+    // `{ policy, env }`, and the list it reads (`CORTEX_DESTINATIONS`, HOME) comes from here, so a
+    // lib function handed the brain needs nothing else to make the check. It is not a fourth answer:
+    // nothing in this record is derived from it after opening.
+    env,
 
     // A resolver that cannot explain its own answer is one nobody trusts the moment it is wrong.
     // `root` is the variable that named it: CORTEX_ROOT, or AI_OS_ROOT on an older registration.

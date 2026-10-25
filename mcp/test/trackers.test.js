@@ -22,6 +22,7 @@ import { jiraAdapter, toAdf, fromAdf } from "../lib/trackers/jira.js";
 import { VERSION } from "../lib/version.js";
 import { mockGitHub, mockServiceNow, mockJira } from "./tracker-mocks.js";
 import { tempDir } from "./tmp.js";
+import { policyFor } from "../../core/profile.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI = join(HERE, "..", "ai-os.js");
@@ -471,7 +472,7 @@ const ASK = { id: "a1", title: "Order history", question: "Is there an endpoint?
 
 test("the Jira adapter: create with a label and an ADF description, find by label, comment, read, close by transition", async () => {
   const jira = await track(mockJira());
-  const api = jiraAdapter({ kind: "jira", site: jira.url, project: "ACME", issueType: "Story" }, { env: { JIRA_EMAIL: "bot@acme.example", JIRA_API_TOKEN: "jira-not-real" } });
+  const api = jiraAdapter({ kind: "jira", site: jira.url, project: "ACME", issueType: "Story" }, { env: { JIRA_EMAIL: "bot@acme.example", JIRA_API_TOKEN: "jira-not-real" }, policy: policyFor("home") });
   assert.equal(await api.find(ASK), null);
   const made = await api.create(ASK);
   assert.deepEqual(made, { key: "ACME-1", url: `${jira.url}/browse/ACME-1` });
@@ -496,7 +497,7 @@ test("the ServiceNow adapter reads plain and display values, and a custom table,
   const sn = await track(mockServiceNow({ table: "x_acme_story" }));
   const api = servicenowAdapter(
     { kind: "servicenow", instance: sn.url, table: "x_acme_story", states: { 3: "decided" } },
-    { env: { SERVICENOW_TOKEN: SN_TOKEN } },
+    { env: { SERVICENOW_TOKEN: SN_TOKEN }, policy: policyFor("home") },
   );
   const made = await api.create({ ...ASK, target: { group: "Platform" } });
   assert.match(made.url, new RegExp(`/x_acme_story\\.do\\?sys_id=${made.key}$`));
@@ -512,7 +513,7 @@ test("the ServiceNow adapter reads plain and display values, and a custom table,
 
 test("the GitHub adapter maps state_reason, and finds the repo from a project file's link", async () => {
   const gh = await track(mockGitHub());
-  const api = githubAdapter({ kind: "github", api: gh.url }, { env: { GH_TOKEN } });
+  const api = githubAdapter({ kind: "github", api: gh.url }, { env: { GH_TOKEN }, policy: policyFor("home") });
   const made = await api.create({ ...ASK, target: { repo: "acme/svc-b" } });
   await api.close(made.key, "wontfix");
   assert.equal(gh.issues[0].state_reason, "not_planned");
@@ -581,7 +582,7 @@ test("the dry run calls nothing and writes nothing", async () => {
     const sent = await askFrom(brainIn(repoA), { to: "backend", content: "Dry?" }, ctx(repoA, { CORTEX_AUTHOR: "dev-fe" }));
     const ci = ciCheckout(remote);
     const head = remoteHead(remote);
-    const plan = syncPlan(ci, { policy: { outwardSync: true } });
+    const plan = syncPlan(ci, { policy: policyFor("home") });
     assert.equal(plan.plan[0].id, sent.id);
     assert.equal(git(ci, "status", "--porcelain").trim(), "");
     assert.equal(remoteHead(remote), head);

@@ -5,6 +5,9 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { commitAndPush, pull, teamCloneDir } from "../lib/gitsync.js";
 import { tempDir } from "./tmp.js";
+import { policyFor } from "../../core/profile.js";
+
+const HOME = { policy: policyFor("home") };
 
 function git(cwd, ...args) {
   return execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] }).toString();
@@ -38,19 +41,19 @@ test("teamCloneDir slugifies the team name", () => {
 test("commitAndPush pushes a note to the bare remote", () => {
   const { clone } = setup();
   writeFileSync(join(clone, "note.md"), "hello");
-  const res = commitAndPush(clone, ["note.md"], "add note");
+  const res = commitAndPush(clone, ["note.md"], "add note", HOME);
   assert.equal(res.ok, true);
   assert.equal(res.pushed, true);
 });
 
 test("commitAndPush refuses a non-git dir", () => {
   const dir = tempDir("plain-");
-  const res = commitAndPush(dir, ["x.md"], "m");
+  const res = commitAndPush(dir, ["x.md"], "m", HOME);
   assert.equal(res.ok, false);
 });
 
 test("pull --ff-only succeeds on a clean clone", () => {
   const { clone } = setup();
-  const res = pull(clone);
+  const res = pull(clone, HOME);
   assert.equal(res.ok, true);
 });

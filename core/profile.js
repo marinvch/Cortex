@@ -21,13 +21,17 @@ export const LAB = "lab";
 
 /**
  * What each profile means, as data rather than as branches. `refuses` is the firewall's direction —
- * the thing rituals consult; `outwardSync` is the part code enforces.
+ * the thing rituals consult; `outwardSync` is the part code enforces. `destinations` says where an
+ * outward call may go (core/destinations.js) and `pii` is the personal-data mode when CORTEX_PII is
+ * unset (core/scrub.js).
  */
 const POLICY = {
   [HOME]: {
     label: "home",
     refuses: "employer",
     outwardSync: true,
+    destinations: "any",
+    pii: "warn",
     summary:
       "A personal second brain. Day-job material — employer or client names, work tickets, " +
       "colleagues, internal architecture — is refused, and the refusal is the point: it belongs in " +
@@ -37,10 +41,16 @@ const POLICY = {
     label: "work",
     refuses: "personal",
     outwardSync: true,
+    // Company material leaves only for a destination the company approved (core/destinations.js,
+    // docs/adr/0030), and personal data is refused rather than warned about: a colleague's address
+    // pushed from a work brain is the employer's problem as well as theirs.
+    destinations: "approved",
+    pii: "refuse",
     summary:
       "A work machine. Employer material is expected here; personal notes are what gets refused. " +
       "The rule is the same one read from the other side — the two installs never sync, so a " +
-      "private note filed into a work brain is the mirror of the leak home guards against.",
+      "private note filed into a work brain is the mirror of the leak home guards against. Nothing " +
+      "is pushed or posted except to a destination on the company's approved list.",
   },
   [LAB]: {
     label: "lab",
@@ -50,6 +60,11 @@ const POLICY = {
     // decision rather than two that can drift apart. Without this, `lab` would just be a way to
     // switch the firewall off and keep pushing — which is the leak with extra steps.
     outwardSync: false,
+    // The same seal, as a destination rule: no outward call reaches any host. Reading — a pull, a
+    // clone — is still allowed, as it always was. Personal data is warned about, not refused: lab
+    // refuses nothing, and a warning refuses nothing.
+    destinations: "none",
+    pii: "warn",
     summary:
       "Scratch and experiments. Nothing here is real, so nothing is refused — and because nothing " +
       "is refused, nothing leaves: team push is disabled. Permissive locally, sealed outward.",

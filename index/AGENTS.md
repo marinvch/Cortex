@@ -7,14 +7,14 @@ holds the rules for that module alone — read it before editing the module.
 ## Invariants
 
 - **Nothing here may modify a target repository**, except by writing under `.cortex/`. `findings`
-  returns data; `/cortex-scaffold` is the separate skill that applies changes. This separation is
+  returns data; `/write-context-docs` is the separate skill that applies changes. This separation is
   what makes "the user decides" structural rather than a promise a model has to keep — if you add
   a write to a source file here, you have broken the product's central claim. **Five named
   exceptions.** The first is `cortex-stamps.mjs`, in two commands. `stamp` writes one file
-  `/cortex` was told to stamp, renders and records it in the same act (`stampFile`), and refuses
+  `/setup-repo` was told to stamp, renders and records it in the same act (`stampFile`), and refuses
   to write over a file the record does not hold or one edited since, unless `--force` carries the
   developer's yes. `update` rewrites a file Cortex itself stamped, and only in state
-  `update` — untouched since it was recorded, re-renderable, template changed. `/cortex` runs each
+  `update` — untouched since it was recorded, re-renderable, template changed. `/setup-repo` runs each
   only for the paths the user confirmed. The rule lives in the code (`planUpdates`), not in the
   skill, because a guarantee belongs to the act (ADR 0016). Never widen it to `edited`,
   `conflict` or `review`. **And never from an older plugin:** when the record's `cortex` is newer
@@ -224,7 +224,7 @@ holds the rules for that module alone — read it before editing the module.
   Run on this repo and six public ones: nine rows outside this repo, each opened and each a rule.
   A rule may name a type instead of a path (`ShipmentServiceTest.someMethod`), which counts when
   one indexed file is named for it and the name starts with a capital. That came from the first
-  scaffolded repo it met: `/cortex-brief` wrote 16 rules into a Java service, seven ended with a
+  scaffolded repo it met: `/write-area-brief` wrote 16 rules into a Java service, seven ended with a
   real test named that way, and the ledger counted none. After the change all 20 rows there were
   opened and each is in the right state. 42 guards mutated, 41 test failures, the other an
   equivalent program. Add a heading word only with real briefs that use it for rules.
@@ -328,7 +328,7 @@ description) has a test.
   before it; any other new placeholder is refused. `CORTEX_REPO` (`cortex-review.yml`) is the other
   entry: upstream's clone URL, which every file stamped before #622 holds. A first stamp fills
   `CORTEX_REPO` itself from `core/source.js` (`withSource` in `stamps.mjs`) and refuses a directory
-  source; /cortex's table does not mention it, because the instruction there measurably lowered
+  source; /setup-repo's table does not mention it, because the instruction there measurably lowered
   that skill's evals. `CORTEX_SHA256` is filled the same way (`withPin`, [ADR 0028](../docs/adr/0028-stamped-ci-verifies-cortex-by-content-digest.md)):
   the digest of this plugin's `core/` and `index/` (`cortex-digest.mjs`), with `CORTEX_REF` set to
   `v<VERSION>` beside it — a ref for another release is refused. An update of a file stamped before

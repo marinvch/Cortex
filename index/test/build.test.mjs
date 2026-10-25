@@ -520,7 +520,7 @@ function commitAt(root, date) {
 
 test("churn falls back to all history rather than silently scoring every file zero", () => {
   // A real repo with 11 commits, all older than the window, reported commits: 0 for all 120 files.
-  // Nothing said so, and /cortex-brief's "ranked by size, churn and absence of tests" quietly
+  // Nothing said so, and /write-area-brief's "ranked by size, churn and absence of tests" quietly
   // became ranked by size. A silent constant is worse than a wider window that names itself.
   const root = gitRepo((r) => writeFileSync(join(r, "a.js"), "export const a = 1;\n"));
   commitAt(root, "2020-01-01T00:00:00");

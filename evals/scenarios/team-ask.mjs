@@ -131,7 +131,7 @@ export function render(s) {
     "",
     `> ${s.request}`,
     "",
-    `The files it will touch are ${s.files.map((f) => `\`${f}\``).join(", ")}. \`/cortex-impact --size\` on them printed:`,
+    `The files it will touch are ${s.files.map((f) => `\`${f}\``).join(", ")}. \`/change-impact --size\` on them printed:`,
     "",
     "```",
     sizeOutput(s.size),

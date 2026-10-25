@@ -6,7 +6,7 @@
 //
 // Cortex names self-hosted and own-LLM setups as an audience, and until now gave them nothing to
 // consult: a ritual needing multi-round judgment looked exactly like one that appends a line to a
-// file. The failure is not a crash — a weak model runs /cortex-enrich and writes plausible, wrong
+// file. The failure is not a crash — a weak model runs /summarize-files and writes plausible, wrong
 // summaries into recall, and nobody notices. This is the list you read BEFORE running something.
 //
 // The frontmatter is the source of truth — `metadata.capability` — and this reads it rather than

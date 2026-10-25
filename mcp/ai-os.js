@@ -152,7 +152,7 @@ function cmdTeam(teamSub, args, brain) {
     console.log(describeProjectFile(file, brain));
     for (const w of file.warnings) console.log(`  warning: ${w.msg}`);
     console.log(`Team-brain ${cloned ? "cloned to" : "already at"} ${dir}. Wrote ${connector}.`);
-    if (source) console.log(`The team runs Cortex from ${source}: the connector names it, so /cortex stamps that source here.`);
+    if (source) console.log(`The team runs Cortex from ${source}: the connector names it, so /setup-repo stamps that source here.`);
     console.log("Next: commit the connector into THIS repo →  git add .cortex/connector.json");
     return 0;
   }
@@ -378,7 +378,7 @@ function cmdContract(sub, args, brain) {
   if (!res.pull.ok) console.log(`Pull failed, showing the local clone: ${res.pull.error}`);
   const ep = (r) => `${r.method.padEnd(6)} ${r.raw ?? r.path}`;
   if (sub === "list") {
-    if (!res.contracts.length) console.log("No project has published a contract yet. /team-add publishes one.");
+    if (!res.contracts.length) console.log("No project has published a contract yet. /join-team publishes one.");
     for (const c of res.contracts) console.log(c.error ? `  ${c.project}: unreadable — ${c.error}` : `  ${c.project}: ${c.source}, ${c.serves} served, ${c.calls} called, ${c.events} events`);
     return 0;
   }

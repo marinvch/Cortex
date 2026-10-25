@@ -1,0 +1,108 @@
+---
+name: clarify-request
+description: Sharpen a vague or short prompt ("fix it", "make it faster") before work starts, or when the prompt hook scores its vagueness 4 or higher. Triggers — "optimize this prompt", "what should I have asked".
+effort: low
+metadata:
+  capability: mechanical
+  reached-by: the UserPromptSubmit hook, on a vagueness score of 4 or higher
+---
+
+# /clarify-request — sharpen a prompt before acting on it
+
+A vague prompt makes the agent guess, and a guess costs a whole turn. This ritual converts an
+unclear ask into one precise prompt, gets it confirmed, records it, and hands it to the right
+ritual.
+
+## What to do
+
+1. **Score it** (the hook does this in Claude Code; do it yourself everywhere else):
+   under 10 words `+2`; no action verb `+1`; no component reference `+1`; no domain keyword `+1`.
+   This file is where these rules live — `.claude/hooks/optimize-prompt.mjs` implements them, and
+   its test fails if a word below goes missing from this list.
+   - Action verbs, in any inflection (`merged`, `fixing`): add, create, update, delete, fix,
+     remove, migrate, refactor, write, build, review, audit, explain, document, test, rename,
+     move, debug, optimise/optimize, install, scan, implement, generate, wire, split, merge, run,
+     restore, resume, continue, investigate, research, interview, check, verify, compare,
+     analyse/analyze, summarise/summarize, plan, ship, commit, push, deploy, clean, finish, list,
+     find, search, show, open.
+   - Component reference: a path, a `` `backticked` `` token, a `file.ext`, a `#123`, a URL, a
+     `/ritual` anywhere in the prompt, or a hyphenated ritual name written bare (`cortex-review`).
+     Single-word ritual names (ship, daily) don't count bare — they are ordinary English.
+   - Domain keywords: auth, db, database, api, ui, schema, test(s), hook(s), skill(s), vault,
+     graph, mcp, git, ci, cli, doc(s), readme, agent(s), prompt(s), session(s), pr(s),
+     branch(es), commit(s), worktree(s), plugin(s), ritual(s), cortex, memory, index, eval(s),
+     changelog, repo(s), release(s).
+
+   Under 4 — act on the prompt as written, say nothing. **Bypass entirely** (no score, no
+   directive) when the prompt:
+   - is empty, starts with `/`, is over 2000 characters, or is over 60 words;
+   - is a steer of two words or fewer (`yes`, `ok`, `go ahead`, `stop`, …), or the same typed in
+     Cyrillic (`ок`, `да`, `добре`, `давай`, `продължи`);
+   - is a word of approval alone, or in front of a go-ahead phrase: super, great, perfect, nice,
+     cool, awesome, excellent (`super do it`, `great, go ahead`). In front of anything else
+     (`great work on the graph`) the prompt still scores;
+   - is a go-ahead of eight words or fewer — `go ahead`, `carry on`, `sounds good`, `agreed`,
+     `lgtm`, `yes please`, `ok`/`yes`/`sure` + any action verb above (or do/go/proceed), or
+     `do it/all/them/both/the rest` — followed by anything (`go ahead do all of them`,
+     `ok merge it`, `yes write the spec`). It points at a proposal already on the table.
+     `let's` may sit before the verb (`ok lets go by the recommendations`). A bare `continue` +
+     task is a task and still scores;
+   - opens with `yes` and is eight words or fewer, whatever follows (`yes, dream then the hook`).
+     Nobody opens a new task with `yes`. `ok` and `sure` still need the verb: `okay so the graph is
+     broken` reports a problem and scores;
+   - is a status check of eight words or fewer opening with is/are/was/were/did/does/do/has/have
+     + it/this/that/we/they/everything/all (`is it done`, `did it work`);
+   - is a report of four words or fewer that work landed: merged, landed, closed, approved,
+     deployed or done, alone or after `all`, `both` or PR numbers (`16 merged`, `#541 is merged`, `542 its merged`);
+   - asks only what is next, left or remaining (`what is next`, `ok so what is left`). It asks you
+     to choose, so there is nothing to sharpen;
+   - contains `just`, `quickly`, `only`, `typo`, or `rename`;
+   - names an exact file path or `file:line`.
+
+   Set `CORTEX_NO_OPTIMIZE=1` to disable the optimizer entirely.
+2. **Ask at most 2 questions**, highest-value first, skipping any the prompt already answers:
+   WHAT should happen (missing outcome), WHERE it lives (missing component), HOW it lands (new /
+   change / migration). Ground every question in this repo's **real names** — "`skills/` or
+   `tools/`?" beats "which layer?".
+3. **Synthesize one prompt:** `[ACTION] [COMPONENT] [in DOMAIN] [with CONSTRAINTS] -> [RITUAL]`
+4. **Confirm.** Show it, wait for a one-word yes or an adjustment. One adjustment round, then go.
+   Never act on an unconfirmed prompt.
+5. **Save** to `docs/prompts/YYYY-MM-DD-<slug>.md` — slug is kebab-case from 3–5 of the most
+   specific words of the *optimized* prompt. If the file exists, append another block.
+6. **Route** to the ritual named in the synthesis.
+
+## Routing
+
+| Prompt shape | Ritual |
+|---|---|
+| new feature or non-trivial change | `superpowers:brainstorming`, then `/design-spec` if risky |
+| bug, test failure, surprise behavior | `/debug-issue`; `superpowers:systematic-debugging` where Cortex has no index of the repo |
+| stray thought, link, task | `/quick-note`, typed by the user — it is not model-invocable |
+| vault structure or health | `/audit-notes` |
+| "make a ritual for X" | `/write-agent-docs` |
+
+## Record format
+
+```markdown
+---
+type: optimized-prompt
+created: 2026-07-21
+score: 4
+ritual: superpowers:brainstorming
+---
+## Raw
+<the original prompt, verbatim>
+
+## Clarified
+- Q: <question> -> A: <answer>
+
+## Optimized
+<the synthesized prompt>
+```
+
+## Don't
+- Don't ask more than 2 questions. Friction is what gets this ritual disabled.
+- Don't fire on slash commands, confirmations, or mid-flow replies.
+- Don't act on a prompt the user hasn't confirmed.
+- Don't optimize a prompt that is already precise — silence is the correct output.
+- Don't write the record anywhere but `docs/prompts/` (gitignored; keeps the privacy firewall).

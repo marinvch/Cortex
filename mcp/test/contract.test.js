@@ -308,7 +308,7 @@ test("a credential-shaped string is refused by the gate, and nothing is written 
   assert.ok(!existsSync(join(server, ".cortex", "team", "harbor", "projects", "svc-b", "contract.json")));
 });
 
-test("contract refuses on a brain with no team, naming /team-add", async () => {
+test("contract refuses on a brain with no team, naming /join-team", async () => {
   const repo = tempDir("solo-");
   git(repo, "init", "-q");
   mkdirSync(join(repo, ".cortex"));

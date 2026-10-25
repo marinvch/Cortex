@@ -164,7 +164,7 @@ function isExcludedCitation(cited) {
 }
 
 // A slash is not enough. Run against this repo's own documents, "contains a slash" returned 157
-// findings and almost none were drift: forty ritual names (`/cortex-audit`), JSON-RPC methods
+// findings and almost none were drift: forty ritual names (`/audit-notes`), JSON-RPC methods
 // (`tools/call`), repo slugs (`marinvch/Cortex`), and bare directory names. Two rules cut it back,
 // and both are about what a *claim on a file* looks like:
 //

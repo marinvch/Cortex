@@ -1,7 +1,7 @@
 // What this repo is built out of — runtime, frameworks, data layer, test runner, tooling.
 //
 // The index already knew the repo's SHAPE (files, languages, layers, imports) and nothing about its
-// STACK. That gap is why `/cortex-scaffold` shipped the same two skills into every repo: a Next.js
+// STACK. That gap is why `/write-context-docs` shipped the same two skills into every repo: a Next.js
 // app with Prisma and no tests got exactly what a Rust CLI got, because nothing downstream could
 // tell them apart.
 //

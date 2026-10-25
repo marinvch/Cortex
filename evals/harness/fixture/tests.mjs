@@ -138,10 +138,10 @@ test("placing an order prices it and empties the cart", () => {
 test("an order moves from placed to paid to shipped, and not backwards", () => {
   const { app } = makeApp();
   const { id } = place(app, [["notebook", 2]]).body;
-  assert.equal(app.request("POST", "/orders/" + id + "/ship").status, 409);
+  assert.equal(app.request("POST", "/orders/" + id + "/merge-work").status, 409);
   assert.equal(app.request("POST", "/orders/" + id + "/pay").body.status, "paid");
   assert.equal(app.request("POST", "/orders/" + id + "/pay").status, 409);
-  assert.equal(app.request("POST", "/orders/" + id + "/ship").body.status, "shipped");
+  assert.equal(app.request("POST", "/orders/" + id + "/merge-work").body.status, "shipped");
   assert.equal(app.request("GET", "/orders/" + id).body.status, "shipped");
 });
 
@@ -180,7 +180,7 @@ test("the ledger has a line for an order once it has shipped", () => {
   app.request("POST", "/orders/" + first.id + "/pay");
   app.request("POST", "/orders/" + second.id + "/pay");
   assert.deepEqual(app.request("GET", "/ledger").body, []);
-  app.request("POST", "/orders/" + first.id + "/ship");
+  app.request("POST", "/orders/" + first.id + "/merge-work");
   const ledger = app.request("GET", "/ledger");
   assert.equal(ledger.status, 200);
   assert.deepEqual(ledger.body, [{ orderId: first.id, amount: first.total, currency: "EUR" }]);

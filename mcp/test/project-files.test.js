@@ -89,7 +89,7 @@ function productRepo(base, name, origin) {
 /**
  * A vault holding a seeded, pushed team-brain clone, its bare remote, and a product checkout.
  * `storefront` has a notes folder from the seed and no project file yet — the state every repo
- * of a team is in the first time `/team-add` runs there after this release.
+ * of a team is in the first time `/join-team` runs there after this release.
  */
 function fixture({ origin = PUBLIC_ORIGIN } = {}) {
   const f = fromTemplate("bare", () => {

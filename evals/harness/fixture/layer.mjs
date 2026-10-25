@@ -1,5 +1,5 @@
 // The shop's context layer: the nine documents the with-arm holds and the without-arm does not.
-// They are written here, by hand, in the shape /cortex-scaffold and /cortex-brief write: a root brief
+// They are written here, by hand, in the shape /write-context-docs and /write-area-brief write: a root brief
 // after templates/target-AGENTS.md, the one-line shims, a glossary, three ADRs and two scoped
 // briefs. No hook, verifier, REVIEW.md or team file is part of it (the spec's M2).
 //

@@ -47,7 +47,7 @@ test('scoreVagueness narrowing guards hold: e.g. is not a component reference', 
 });
 
 test('shouldBypass skips slash commands, steers and explicit opt-outs', () => {
-  assert.equal(shouldBypass('/capture buy milk', {}), true);
+  assert.equal(shouldBypass('/quick-note buy milk', {}), true);
   assert.equal(shouldBypass('yes', {}), true);
   assert.equal(shouldBypass('go ahead', {}), true);
   assert.equal(shouldBypass('just rename this', {}), true);
@@ -133,7 +133,7 @@ test('evaluate returns the hook payload only for vague, non-bypassed prompts', (
   assert.equal(hit.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
   assert.match(hit.hookSpecificOutput.additionalContext, /Prompt vagueness score/);
 
-  assert.equal(evaluate('/capture buy milk', {}), null);
+  assert.equal(evaluate('/quick-note buy milk', {}), null);
   assert.equal(evaluate('refactor the recall handler in mcp/server.js so queries are cached', {}), null);
   assert.equal(evaluate(undefined, {}), null);
 });
@@ -276,12 +276,12 @@ test('"yes" opens a reply whatever follows it; "ok" and "sure" still need a verb
 
 test('verbs match inflected; a ritual named mid-sentence counts as a component', () => {
   assert.equal(scoreVagueness('merged it'), scoreVagueness('merge it'));
-  assert.ok(scoreVagueness('run /ship on this') < scoreVagueness('run the thing on this'));
+  assert.ok(scoreVagueness('run /merge-work on this') < scoreVagueness('run the thing on this'));
   assert.ok(scoreVagueness('use cortex-review here') < scoreVagueness('use the review here'));
 });
 
-test('skills/optimize-prompt/SKILL.md lists every word the hook scores on', () => {
-  const skill = readFileSync(join(dirname(HOOK_PATH), '..', '..', 'skills', 'optimize-prompt', 'SKILL.md'), 'utf-8');
+test('skills/clarify-request/SKILL.md lists every word the hook scores on', () => {
+  const skill = readFileSync(join(dirname(HOOK_PATH), '..', '..', 'skills', 'clarify-request', 'SKILL.md'), 'utf-8');
   // Compare base words: `tests?`, `branch(es)?` and `optimi[sz]e` are regex, the skill is prose.
   for (const w of [...ACTION_VERB_LIST, ...DOMAIN_WORD_LIST]) {
     const base = w.replace(/\(.*?\)\?|\[.*?\]\w*|\?$/g, '').replace(/s$/, (m) => (w.endsWith('s?') ? '' : m));

@@ -13,7 +13,7 @@ missing. Then it writes the context layer every developer's agent reads.
 ```
 /plugin marketplace add marinvch/Cortex
 /plugin install cortex
-/cortex          # inside the repo you want it to serve
+/setup-repo          # inside the repo you want it to serve
 ```
 
 Then turn on auto-update once — Claude Code leaves it off for third-party marketplaces like this
@@ -51,7 +51,7 @@ Cortex is a **context manager for new and legacy codebases**. Install it once, r
 Then, inside the repo you want it to serve — a working project or an empty one:
 
 ```
-/cortex
+/setup-repo
 ```
 
 It indexes the codebase, writes **one findings report** — issues, gaps, recommendations, ranked —
@@ -80,13 +80,13 @@ claude plugin update cortex@cortex
 A session already running keeps the version it loaded and says *Run /reload-plugins to apply* — run
 `/reload-plugins` or start a new session. `claude plugin list` shows the version you now have.
 
-On a team this is not housekeeping. The loop files `/cortex` stamps are shared through
+On a team this is not housekeeping. The loop files `/setup-repo` stamps are shared through
 `.cortex/stamps.json`, and the plugin is per machine. When that record was written by a newer Cortex
-than yours, `/cortex`, `/cortex-next` and `cortex-stamps.mjs` say so with these two commands, and
+than yours, `/setup-repo`, `/resume-work` and `cortex-stamps.mjs` say so with these two commands, and
 an older plugin refuses to rewrite any file a newer one stamped — it would put its own older
 template back.
 
-On a team's repo — your profile is `work`, or `/team-add` connected it to a team brain — `/cortex`
+On a team's repo — your profile is `work`, or `/join-team` connected it to a team brain — `/setup-repo`
 also offers to add Cortex to the repo's committed `.claude/settings.json`: the `cortex` marketplace
 under `extraKnownMarketplaces` and `cortex@cortex` under `enabledPlugins`. It merges the two entries
 in and changes nothing else. Once a teammate trusts the folder, Claude Code registers the marketplace
@@ -111,17 +111,17 @@ Cortex into your organisation, then tell Cortex where it comes from. The source 
 `owner/repo`, a git URL (`https://`, `ssh://` or `git@host:path`), or an absolute path to a local
 marketplace. Cortex refuses a URL carrying a password or a token.
 
-- **For a team:** `/team-init --source acme/cortex` writes it to `team.json` in the team-brain.
-  Every `/team-add` copies it into that repo's `.cortex/connector.json`, so members pass no flag.
+- **For a team:** `/create-team --source acme/cortex` writes it to `team.json` in the team-brain.
+  Every `/join-team` copies it into that repo's `.cortex/connector.json`, so members pass no flag.
 - **For one machine or one run:** set `CORTEX_SOURCE=acme/cortex`, or pass
   `cortex-shared-plugin.mjs . --write --source acme/cortex`.
 
 The order is `--source`, then `CORTEX_SOURCE`, then the connector, then `marinvch/Cortex`. With
 none set, everything Cortex writes is what it always was. The source decides two things. The
-`cortex` entry `/cortex` adds to `.claude/settings.json` points at your fork. A stamped
+`cortex` entry `/setup-repo` adds to `.claude/settings.json` points at your fork. A stamped
 `cortex-review.yml` clones your fork at the release tag that stamped it, and `.cortex/stamps.json`
 records that URL. A `cortex` entry already in the file is left as it is, whichever source it names.
-A local path cannot be cloned by a CI runner, so on a directory source `/cortex` does not stamp the
+A local path cannot be cloned by a CI runner, so on a directory source `/setup-repo` does not stamp the
 workflow.
 
 To take an upstream release, bring its tag into the fork. The CI clone needs the tag, and the
@@ -141,7 +141,7 @@ is running, which is your fork's.
 ### Asking another role
 
 On a team, an agent can send a question to a role or a project instead of to a person. The
-team-brain's `team.json` lists each member's handle, roles and projects; `/team-add` asks for yours
+team-brain's `team.json` lists each member's handle, roles and projects; `/join-team` asks for yours
 and runs `ai-os team member --roles backend`. Your handle is your memory author name:
 `CORTEX_AUTHOR`, or your git `user.name` as a slug.
 
@@ -190,7 +190,7 @@ and the events it publishes or consumes. `node index/cortex-contract.mjs . --out
 extracts it — from an OpenAPI or Swagger file when the repo has one, else from route handlers
 (Spring, Express-style routers, NestJS, FastAPI, Flask) — and
 `ai-os contract publish --file .cortex/index/contract.json` writes `projects/<slug>/contract.json`
-to the brain and pushes it when it changed. `/team-add` offers both.
+to the brain and pushes it when it changed. `/join-team` offers both.
 
 - `contract` with `project` returns what that project serves, calls and emits; with `calls`
   (`"/items"`, `"GET /items/{id}"`) it returns who calls the endpoint and who serves it. The CLI
@@ -204,12 +204,12 @@ environment values, and the whole text passes the secret gate before it is writt
 
 ### The order, and how to stop guessing at it
 
-A list of commands is a menu, not an answer. **`/cortex-next` reads the repo you are standing in
+A list of commands is a menu, not an answer. **`/resume-work` reads the repo you are standing in
 and tells you the one command to run now** — every ✓ traced to a file on disk, never to something
 a model thinks it did last session:
 
 ```
-/cortex-next
+/resume-work
 ```
 
 ```
@@ -217,9 +217,9 @@ a model thinks it did last session:
   ✓ Read the ranked findings        .cortex/findings/2026-08-23.md
   · See the repo as a graph         (optional)  see below
   → Write the context layer         root AGENTS.md, the shims, CONTEXT.md, docs/adr/
-                                    /cortex-scaffold
-    Give critical areas a brief     /cortex-brief <dir>
-    Add skills that fit this stack  /cortex-skills
+                                    /write-context-docs
+    Give critical areas a brief     /write-area-brief <dir>
+    Add skills that fit this stack  /suggest-skills
 ```
 
 Every CLI prints that same `Next →` line when it finishes, so the sequence is never something you
@@ -227,18 +227,18 @@ have to come back here to look up. The full sequence, in order:
 
 | # | Command | Does | Skip it when |
 |---|---|---|---|
-| 0 | `/migrate-engine` | harvest a retired `.ai-os/` engine's memory first | there is no `.ai-os/` |
-| 1 | `/cortex` | index → findings → the loop → one confirmation → everything below, in one pass | never — this is the entry point |
-| 2 | `/cortex-view` | the repo as one offline HTML page: overview, map, structure, files, areas, gaps | you would rather read the report |
-| 3 | `/optimize-context` | slim the `AGENTS.md`/`CLAUDE.md`/`.cursorrules` that were already here | the repo had none |
-| 4 | `/cortex-scaffold` | write the context layer you picked | — |
-| 5 | `/cortex-brief <dir>` | a scoped `AGENTS.md` leaf per area that earns one | no area holds real invariants |
-| 6 | `/cortex-skills` | skills proposed from what the index detected | — |
-| 7 | `/cortex-enrich` | semantic summaries on top of the index (costs tokens) | you already know the repo |
-| — | `/cortex-install` | the read half of step 1 alone: index, report, offer the context layer | you want the whole pass |
-| 8 | `/dream` | end-of-day digest into the repo's committed `.cortex/memory/` | — |
+| 0 | `/migrate-legacy-engine` | harvest a retired `.ai-os/` engine's memory first | there is no `.ai-os/` |
+| 1 | `/setup-repo` | index → findings → the loop → one confirmation → everything below, in one pass | never — this is the entry point |
+| 2 | `/repo-map` | the repo as one offline HTML page: overview, map, structure, files, areas, gaps | you would rather read the report |
+| 3 | `/trim-agent-docs` | slim the `AGENTS.md`/`CLAUDE.md`/`.cursorrules` that were already here | the repo had none |
+| 4 | `/write-context-docs` | write the context layer you picked | — |
+| 5 | `/write-area-brief <dir>` | a scoped `AGENTS.md` leaf per area that earns one | no area holds real invariants |
+| 6 | `/suggest-skills` | skills proposed from what the index detected | — |
+| 7 | `/summarize-files` | semantic summaries on top of the index (costs tokens) | you already know the repo |
+| — | `/setup-repo` | the read half of step 1 alone: index, report, offer the context layer | you want the whole pass |
+| 8 | `/end-of-day-summary` | end-of-day digest into the repo's committed `.cortex/memory/` | — |
 
-**Step 3 goes before step 4, not after.** `/cortex-scaffold` is brownfield-safe and will not
+**Step 3 goes before step 4, not after.** `/write-context-docs` is brownfield-safe and will not
 clobber a curated `AGENTS.md` — which means you end up with your file *plus* an
 `AGENTS.generated.md` and a merge to do by hand. Slimming first leaves one file.
 
@@ -246,12 +246,12 @@ And per change, which is a lookup rather than a sequence:
 
 | When | Run |
 |---|---|
-| starting a risky feature | `/analyze-spec` |
-| before touching files | `/cortex-impact <files>` |
-| one agent or the team? | `/cortex-impact <files> --size` |
-| before committing | `/cortex-review` |
-| chasing a bug you cannot explain | `/diagnosing-bugs` |
-| back after time away | `/catch-me-up` |
+| starting a risky feature | `/design-spec` |
+| before touching files | `/change-impact <files>` |
+| one agent or the team? | `/change-impact <files> --size` |
+| before committing | `/review-change` |
+| chasing a bug you cannot explain | `/debug-issue` |
+| back after time away | `/whats-changed` |
 
 What lands in the target repo:
 
@@ -280,7 +280,7 @@ intent/            where a change starts: intent → spec → plan
 
 ### The agent team
 
-`/cortex` also offers a small team of agents, written into `.claude/agents/` and committed with the
+`/setup-repo` also offers a small team of agents, written into `.claude/agents/` and committed with the
 code. Each one does one job, carries only the tools that job needs, and is filled in from this
 repo's own commands, briefs and ADRs. Every claim one makes about the repo cites a `path:line`, an
 ADR or a command's output.
@@ -298,7 +298,7 @@ edits, one agent at a time with the diff. A role it covers is never offered agai
 verifier is offered the upgrade to the Reviewer, and keeps the verifier if it says no.
 
 A short section in `CLAUDE.md` puts the team to work. For each new task, your session runs
-`/cortex-impact --size` on the files the task will touch, tells you whether it recommends one agent
+`/change-impact --size` on the files the task will touch, tells you whether it recommends one agent
 or the team and why, and **asks you**. On "team" it loads the `team` skill. The Architect plans, and
 the Tester and Reviewer object. An objection with no citation is dropped. After at most two rounds
 (a setting, from 1 to 5), whatever is still open comes to you side by side, and you decide. Then comes a failing test, the
@@ -315,7 +315,7 @@ To remove the team, delete that section of `CLAUDE.md`, `.claude/skills/team/` a
 ### See the repo, don't read about it
 
 ```
-/cortex-view
+/repo-map
 ```
 
 That is the whole command, in any repo where the plugin is installed. It is a skill rather than a
@@ -356,7 +356,7 @@ Orphans are stated as questions, never as a delete list: import resolution is re
 invisible. Same for coverage — a file exercised only through a subprocess reads as untested, which
 is the safe direction to be wrong in.
 
-Run `/cortex-enrich` first and each file card also carries what that file *does*.
+Run `/summarize-files` first and each file card also carries what that file *does*.
 
 The indexer is deterministic and offline — it asks git what belongs to the repo, resolves imports,
 finds hot spots from history. **From a clone of this repo** you can run the CLIs directly — inside a
@@ -370,7 +370,7 @@ node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 node index/cortex-routes.mjs . --workspace  # which back-end handler serves each front-end call
 node index/cortex-contract.mjs .   # what this repo serves, calls and emits, as JSON; writes nothing without --out
-node index/cortex-stamps.mjs .     # which files /cortex stamped are out of date; writes nothing
+node index/cortex-stamps.mjs .     # which files /setup-repo stamped are out of date; writes nothing
 node index/cortex-section.mjs .    # whether CLAUDE.md's team section is an older release's text; writes nothing
 node index/cortex-loop.mjs . --team architect,tester  # the team files, values and roster for those picks; writes nothing
 node index/cortex-impact.mjs src/a.ts --size  # one agent or the team for a task on these files, and why
@@ -419,7 +419,7 @@ vault folder without copying anything else in.
 
 **2. Teach the brain who you are** — in Claude Code / Cowork, from the vault folder, run:
 ```
-/onboard
+/personal-setup
 ```
 It interviews you and fills `context/` (about you, priorities, how you work), `connections.md` and
 `references/voice.md`. It copies in any part of the skeleton the vault is missing, and the vault's
@@ -427,8 +427,8 @@ It interviews you and fills `context/` (about you, priorities, how you work), `c
 
 **3. Use it daily**
 ```
-/capture        # drop any thought into the inbox (anytime)
-/daily          # start today's note; see priorities + what's due (each morning)
+/quick-note        # drop any thought into the inbox (anytime)
+/daily-plan          # start today's note; see priorities + what's due (each morning)
 /weekly-review  # empty the inbox, update projects, archive stale (Fridays)
 ```
 
@@ -460,7 +460,7 @@ claude mcp add --scope user cortex --env CORTEX_ROOT=/path/to/your-vault -- node
 
 `CORTEX_ROOT` (your vault's path) is the only configuration — nothing else to set. The tools then
 appear as `mcp__cortex__recall`, `mcp__cortex__capture` and so on. Say "connect the brain" (or run
-`/connect-brain`) to have your agent do this for you.
+`/connect-mcp`) to have your agent do this for you.
 
 **Already registered as `ai-os`, with `AI_OS_ROOT`?** That registration keeps working and needs
 no change. `AI_OS_ROOT` is still read, with no warning and no removal date; its tools keep the
@@ -512,10 +512,10 @@ This is the part that makes any AI coding agent faster and safer on a specific c
 
 - **Deep (recommended), AI-driven** — in Claude Code / Cowork, run:
   ```
-  /cortex
+  /setup-repo
   ```
   It indexes the code, asks once, and writes a real `AGENTS.md` (stack, architecture, conventions,
-  gotchas), the agent shims and the rest of the loop. `/cortex-skills` adds skills that fit the stack.
+  gotchas), the agent shims and the rest of the loop. `/suggest-skills` adds skills that fit the stack.
 
 - **Fast, deterministic** — from a terminal inside the repo:
   ```bash
@@ -525,7 +525,7 @@ This is the part that makes any AI coding agent faster and safer on a specific c
   scaffolds `AGENTS.md` + shims + skills, and **suggests relevant skills** for your stack.
 
 **Step 3 — if the repo has an OLD engine** (`.ai-os/`, `.github/ai-os/`): both paths detect it and
-tell you to run **`/migrate-engine`** first — it harvests the old memory into `AGENTS.md`, then
+tell you to run **`/migrate-legacy-engine`** first — it harvests the old memory into `AGENTS.md`, then
 removes the cruft, so no knowledge is lost. An MCP server registered as `ai-os` whose command is
 Cortex's own `mcp/server.js` is not that engine, and neither path treats it as one.
 
@@ -537,9 +537,9 @@ Now the repo shows up in the **Repos** tab of `cortex.html`.
 
 **Step 5 — commit the brain** (`AGENTS.md` + shims) so your whole team's agents share it.
 
-**Working in a critical area?** Run `/cortex-brief <dir>` to give it a deep, scoped `AGENTS.md` leaf
+**Working in a critical area?** Run `/write-area-brief <dir>` to give it a deep, scoped `AGENTS.md` leaf
 (auth, billing, a pipeline) so agents load narrow context — faster and less drift. Starting a risky
-feature? `/analyze-spec` runs a brainstorm → spec → plan grounded by the brain.
+feature? `/design-spec` runs a brainstorm → spec → plan grounded by the brain.
 
 > **Brownfield-safe:** a curated `AGENTS.md`/`CLAUDE.md` is never clobbered (you get
 > `AGENTS.generated.md` to diff), existing files back up to `*.bak`, and it warns if a generated
@@ -556,12 +556,12 @@ or refreshes a skill that changed. `--check` reports the drift without writing.
 
 | Ritual | When | What it does |
 |---|---|---|
-| `/cortex-next` | whenever you are lost | Reads this repo off disk and names the **one** command to run now |
-| `/cortex` | per repo — start here | Index, report, and set up the whole development loop in one pass, after one confirmation |
-| `/cortex-view` | after install | Render the index as one offline HTML page — map, files, areas, gaps |
-| `/onboard` | once | Interview you; fill `context/`, seed `home.md`, `connections.md` |
-| `/capture` | anytime | One-line drop to the inbox |
-| `/daily` | each morning | Today's note + priorities + due items |
+| `/resume-work` | whenever you are lost | Reads this repo off disk and names the **one** command to run now |
+| `/setup-repo` | per repo — start here | Index, report, and set up the whole development loop in one pass, after one confirmation |
+| `/repo-map` | after install | Render the index as one offline HTML page — map, files, areas, gaps |
+| `/personal-setup` | once | Interview you; fill `context/`, seed `home.md`, `connections.md` |
+| `/quick-note` | anytime | One-line drop to the inbox |
+| `/daily-plan` | each morning | Today's note + priorities + due items |
 
 **That is 6 of 39.** The complete table — every ritual, when to run it, and the notes on which
 pairs are *not* interchangeable — lives in [`AGENTS.md`](AGENTS.md#the-rituals) and is the single
@@ -570,7 +570,7 @@ skills were missing from it and nothing caught that, because a partial copy and 
 identical until you count them. A subset that says it is a subset cannot drift that way; one that
 does not, always does.
 
-When you do not know which ritual you want, that is `/cortex-next` — the whole reason it exists.
+When you do not know which ritual you want, that is `/resume-work` — the whole reason it exists.
 
 ---
 
@@ -610,7 +610,7 @@ destination on your company's [approved list](#approved-destinations-on-work).
   Cortex stamped into the repo and from which release; `.cortex/sections.json`, which
   `CLAUDE.md` sections your team edited and kept; and `.cortex/agents.json`, what you answered
   about the agents the repo already had. Three scripts write outside `.cortex/`, and
-  `/cortex` runs each only on what you confirmed:
+  `/setup-repo` runs each only on what you confirmed:
   - `cortex-stamps.mjs stamp` writes one file you confirmed, from a template, and records it. It
     refuses to write over a file it did not record, or one edited since, unless you said to.
   - `cortex-stamps.mjs update` rewrites only a file Cortex stamped that nobody has touched since,
@@ -630,7 +630,7 @@ destination on your company's [approved list](#approved-destinations-on-work).
   `claude plugin` commands under [Keep it current](#keep-it-current).
 - **The MCP server** (`mcp/server.js`, started as `node ${CLAUDE_PLUGIN_ROOT}/mcp/server.js`) runs
   `git` and nothing else that reaches a network, and only against a **team-brain** repository the
-  user set up with `/team-init` or `/team-add`: it clones that repository once, `git pull`s it
+  user set up with `/create-team` or `/join-team`: it clones that repository once, `git pull`s it
   before a catch-up and an `inbox`, and on a team `capture`, `ask` and `answer` commit and
   `git push` there. In a product repo the clone is `.cortex/team/<team>/`, and Cortex adds that
   directory to the repo's `.gitignore` before it clones. With no
@@ -653,7 +653,7 @@ destination on your company's [approved list](#approved-destinations-on-work).
 - **The rituals** are instructions Claude follows, and say before each step that touches the
   network — `gh` for pull requests, `git clone` of a public repo you name — so it runs only when
   you ask for it.
-- **Stamped into your repo, not run by the plugin:** `/cortex` can write GitHub Actions workflows.
+- **Stamped into your repo, not run by the plugin:** `/setup-repo` can write GitHub Actions workflows.
   `cortex-review.yml` clones this repository, or your fork when a source is set, at a pinned
   release tag inside your CI to review each PR, and refuses to run it unless its code matches the
   digest recorded when the file was stamped, so a moved tag cannot change what runs
@@ -675,8 +675,8 @@ tickets, colleagues, or internal architecture. Even role-level detail counts ("f
 telecom provider"): the aggregate is the leak. A `work` vault is the same rule from the other side.
 
 Work knowledge a team shares belongs in the **work repo's own context layer**, which stays inside that
-repo. Every ritual enforces this: `/capture` and `/daily` refuse the write, `/cortex-audit`
-treats a breach as a critical finding, `/scan-projects` skips repos under a work
+repo. Every ritual enforces this: `/quick-note` and `/daily-plan` refuse the write, `/audit-notes`
+treats a breach as a critical finding, `/register-projects` skips repos under a work
 directory.
 
 **What code enforces on `home`, and what is still a floor.** Code refuses a published write —
@@ -733,7 +733,7 @@ npm: registry.npmjs.org
 
 `.cortexignore` is the single source of truth for what *isn't* knowledge (scaffolding, backups,
 generated views, skills). Every generator reads it (via `tools/_cortex-lib.sh`), so the graph stays
-clean and there's no per-script drift. `/cortex-audit score` flags anything noisy that creeps in.
+clean and there's no per-script drift. `/audit-notes score` flags anything noisy that creeps in.
 
 ## Tools (`tools/`)
 
@@ -773,7 +773,7 @@ none.
 | `cortex-placeholders.mjs` | Did a file Cortex stamped keep a placeholder from its template; exit 1 if so |
 | `cortex-claude-docs.mjs` | Are the Claude Code rules Cortex ships still stated on Anthropic's pages, and has Anthropic published a page Cortex has not seen (the Claude Code docs, the blog, and three sections of the platform docs); `--check` exits 1 on a stale rule, 3 on a new page |
 | `cortex-site-facts.mjs` | The facts the public site states, read from source; `--check` names each one that drifted |
-| `cortex-site-demo.mjs` | What a `/cortex` run prints on a new repo, a working project and a team's repo, captured for the site's walkthrough |
+| `cortex-site-demo.mjs` | What a `/setup-repo` run prints on a new repo, a working project and a team's repo, captured for the site's walkthrough |
 | `server/server-setup.sh` | Set up a team brain: the bare repo on a server, a clone on each machine, the cron lines |
 | `server/cortex-cron.sh` | Run by cron on the server: pull the team brain, write a daily digest or weekly audit, push it |
 

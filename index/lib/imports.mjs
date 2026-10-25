@@ -629,7 +629,7 @@ export function resolveImport(spec, fromPath, fileSet, lang) {
  * This is the difference between *I found no importers* and *I cannot read this language's
  * imports*, and it matters because every consumer of the graph phrases its output as the first.
  * Pointed at a real Rust workspace, the orphan finding called 59 of 130 files unreferenced and
- * `/cortex-impact` said nothing imported the crate's central type. Both were technically hedged
+ * `/change-impact` said nothing imported the crate's central type. Both were technically hedged
  * and both were useless — the report has to say it is blind rather than say it looked.
  */
 // JS/TS, Python, Go, Rust, Java, PHP and Ruby all resolve. The next language whose imports are not

@@ -1,6 +1,6 @@
 // Which skills this repo would actually benefit from, chosen from what the index detected.
 //
-// `/cortex-scaffold` shipped the same two skills into every repo — `plan-feature` and
+// `/write-context-docs` shipped the same two skills into every repo — `plan-feature` and
 // `investigate-bug` — because nothing downstream of the index could tell a Next.js app with Prisma
 // and no tests apart from a Rust CLI. The context layer was tailored and the skills were not.
 //

@@ -1,4 +1,4 @@
-// What /cortex stamps into someone else's repo has to pass THAT repo's checks.
+// What /setup-repo stamps into someone else's repo has to pass THAT repo's checks.
 //
 // Found on pmndrs/zustand: after one install its own `pnpm test` failed, because
 // `prettier --list-different` flagged ten files Cortex had written — CRLF templates copied from a
@@ -35,7 +35,7 @@ const read = (p) => readFileSync(join(REPO, p), "utf8");
 const workflows = templateFiles.filter((p) => /\.ya?ml$/.test(p) && /^jobs:/m.test(read(p)));
 
 test("every template is checked out with LF endings, on every platform", () => {
-  // `text=auto` left them CRLF in a Windows working copy, and /cortex copies them byte-for-byte. The
+  // `text=auto` left them CRLF in a Windows working copy, and /setup-repo copies them byte-for-byte. The
   // property is the attribute git applies, not the bytes on this machine: a checkout made before the
   // rule existed keeps its old endings until the file changes, and CI checks out LF regardless.
   assert.ok(templateFiles.length >= 20, `found only ${templateFiles.length} templates`);
@@ -97,44 +97,44 @@ test("every ritual that writes into a target repo formats exactly what it wrote,
   }
 });
 
-test("/cortex says the indexer's first run also edits .gitignore", () => {
+test("/setup-repo says the indexer's first run also edits .gitignore", () => {
   // It said "writes only .cortex/index/index.json" while `ensureGitignored` appended three lines to
   // the target's .gitignore. A consent gate that under-describes the write is not a consent gate.
-  const body = read("skills/cortex/SKILL.md");
+  const body = read("skills/setup-repo/SKILL.md");
   assert.doesNotMatch(body, /Writes only `\.cortex\/index\/index\.json`/);
   assert.match(body, /\.gitignore/);
 });
 
-test("/cortex stamps every whole-file loop file in one command, and updates only through the CLI", () => {
+test("/setup-repo stamps every whole-file loop file in one command, and updates only through the CLI", () => {
   // The stamp record is only as good as the step that writes it, and that step is prose: a model
-  // following skills/cortex/SKILL.md. So the prose is pinned — render, record after formatting,
+  // following skills/setup-repo/SKILL.md. So the prose is pinned — render, record after formatting,
   // update and diff through cortex-stamps, the two shared-file templates left out on purpose, and
   // the .gitignore fix written only when the user picks it.
-  const body = read("skills/cortex/SKILL.md");
+  const body = read("skills/setup-repo/SKILL.md");
   for (const cmd of ["stamp", "record", "update", "diff", "adopt"]) {
-    assert.match(body, new RegExp(`cortex-stamps\\.mjs"? ${cmd}\\b`), `/cortex never runs cortex-stamps ${cmd}`);
+    assert.match(body, new RegExp(`cortex-stamps\\.mjs"? ${cmd}\\b`), `/setup-repo never runs cortex-stamps ${cmd}`);
   }
   // One act: a render redirected into a file is written by the shell and recorded by nobody.
-  assert.doesNotMatch(body, /cortex-stamps\.mjs"? render[^\n]*>/, "/cortex redirects a render into a file");
-  assert.match(body, /Exit 3 means it refused, and nothing was written/, "/cortex is told what a refused stamp is");
+  assert.doesNotMatch(body, /cortex-stamps\.mjs"? render[^\n]*>/, "/setup-repo redirects a render into a file");
+  assert.match(body, /Exit 3 means it refused, and nothing was written/, "/setup-repo is told what a refused stamp is");
   assert.match(body, /On a yes, run it again with `--force`/, "and that --force follows the yes");
-  assert.match(body, /cortex-stamps\.mjs"? \. --json/, "/cortex reads the stamp status on a re-run");
+  assert.match(body, /cortex-stamps\.mjs"? \. --json/, "/setup-repo reads the stamp status on a re-run");
   assert.match(body, /`verification\.md`[^\n]*`settings\.hooks\.json`[^\n]*not recorded|not recorded[^\n]*`verification\.md`/i,
-    "/cortex says the appended and merged templates stay out of the record");
-  assert.match(body, /never re-render[^.\n]*yourself/i, "/cortex never re-renders a file by hand");
+    "/setup-repo says the appended and merged templates stay out of the record");
+  assert.match(body, /never re-render[^.\n]*yourself/i, "/setup-repo never re-renders a file by hand");
   assert.match(body, /\.gitignore[^.\n]*only (?:if|when)[^.\n]*pick/i, "the record's .gitignore fix is written only when picked");
   // An older plugin reads every untouched file as `update`. The CLI refuses the update, but a model
   // that offered the row first has already told the team something false.
-  assert.match(body, /`olderPlugin`[^\n]*\n?[^\n]*`advice`[^.]*no stamp row/i, "/cortex offers no stamp row on an older plugin");
+  assert.match(body, /`olderPlugin`[^\n]*\n?[^\n]*`advice`[^.]*no stamp row/i, "/setup-repo offers no stamp row on an older plugin");
 });
 
-test("/cortex checks the team section on a re-run and replaces it only through the CLI (#505)", () => {
+test("/setup-repo checks the team section on a re-run and replaces it only through the CLI (#505)", () => {
   // The section is prose in a file the team writes. A model rewriting it by hand is how an edited
   // section gets overwritten, or the text around it moves; the CLI replaces only an outdated one and
   // reads the result back.
-  const body = read("skills/cortex/SKILL.md");
-  const team = read("skills/cortex/TEAM.md");
-  assert.match(body, /cortex-section\.mjs"? \. --json/, "/cortex reads the section's state on a re-run");
+  const body = read("skills/setup-repo/SKILL.md");
+  const team = read("skills/setup-repo/TEAM.md");
+  assert.match(body, /cortex-section\.mjs"? \. --json/, "/setup-repo reads the section's state on a re-run");
   assert.match(body, /never edit `CLAUDE\.md` by hand for it/i);
   assert.match(team, /cortex-section\.mjs"? \. --replace team/, "the replace is the CLI's");
   assert.match(team, /\| `outdated` \|[^\n]*\*Update\* row[^\n]*`diff` shown/, "an outdated section is an Update row, with its diff");
@@ -142,21 +142,21 @@ test("/cortex checks the team section on a re-run and replaces it only through t
   assert.match(team, /Never rewrite the section yourself/);
 });
 
-test("/cortex merges the team plugin through the CLI, and says each teammate still installs once", () => {
+test("/setup-repo merges the team plugin through the CLI, and says each teammate still installs once", () => {
   // .claude/settings.json holds hooks and permissions a team depends on. A model hand-editing it is
   // the replace-not-merge failure; the CLI parses, inserts, and refuses what it cannot read.
-  const body = read("skills/cortex/SKILL.md");
-  assert.match(body, /cortex-shared-plugin\.mjs"? \. --write/, "/cortex never runs the merge");
+  const body = read("skills/setup-repo/SKILL.md");
+  assert.match(body, /cortex-shared-plugin\.mjs"? \. --write/, "/setup-repo never runs the merge");
   assert.match(body, /never hand-edit the JSON/i);
   assert.match(body, /claude plugin install cortex@cortex --scope project/, "the offer carries the install-once caveat");
   assert.match(body, /`team-plugin` entries are such a\s+block/, "and says they are not in the stamp record");
 });
 
-test("/cortex asks auto-update as its own choice, unticked, and says what it means", () => {
+test("/setup-repo asks auto-update as its own choice, unticked, and says what it means", () => {
   // `"autoUpdate": true` in the committed file updates every teammate's plugin in the background and
   // comes before each person's own /plugin toggle. Folded into the team-plugin yes, it is a decision
   // for the whole team nobody was asked; named as a choice, it still has to say what it does.
-  const body = read("skills/cortex/SKILL.md");
+  const body = read("skills/setup-repo/SKILL.md");
   assert.match(body, /Auto-update is its own yes\/no[^.]*unticked by default/i, "a separate choice, off by default");
   assert.match(body, /`\[ \] auto-update — every\s+teammate's Claude Code pulls new Cortex releases in the background`/, "the line says what it means");
   assert.match(body, /Only a yes adds `--auto-update`/, "and only a yes passes the flag");
@@ -183,14 +183,14 @@ test("a placeholder in a prose template is a phrase, never a bare identifier", (
 });
 
 test("the scaffold's placeholder check is the tool, not a grep with known false hits", () => {
-  const body = read("skills/cortex-scaffold/SKILL.md");
+  const body = read("skills/write-context-docs/SKILL.md");
   assert.doesNotMatch(body, /Grep for `\{\{`/);
   assert.match(body, /cortex-placeholders\.mjs/);
 });
 
-test("the scaffold and /cortex agree about what CLAUDE.md holds", () => {
-  // Scaffold said "one line — nothing else", /cortex appends the verification block to it.
-  const scaffold = read("skills/cortex-scaffold/SKILL.md");
+test("the scaffold and /setup-repo agree about what CLAUDE.md holds", () => {
+  // Scaffold said "one line — nothing else", /setup-repo appends the verification block to it.
+  const scaffold = read("skills/write-context-docs/SKILL.md");
   assert.doesNotMatch(scaffold, /one line each: `@AGENTS\.md`\. Nothing else/);
   assert.match(scaffold, /Verifying your work/);
 });

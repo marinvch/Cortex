@@ -22,7 +22,7 @@ Nearly every line of both is a bug that already shipped. Point the team at them;
 - **You do not edit `core/` or `mcp/`.** Need a kernel change? Message `core-owner` with the
   signature you want and why both leaves need it.
 - **Nothing here may modify a target repository, except by writing under `.cortex/`.** `findings`
-  returns data; `/cortex-scaffold` applies changes. If you have added a write to a source file, you
+  returns data; `/write-context-docs` applies changes. If you have added a write to a source file, you
   have broken the product's central claim, not just a test.
 
 ## The three tripwires
@@ -41,7 +41,7 @@ Nearly every line of both is a bug that already shipped. Point the team at them;
 Coverage lives in `lib/coverage.mjs` and uses **three** signals — name, import, quoted mention.
 Do not write a second copy for a third caller: two copies agree today and disagree in a month, with
 nothing to say which is right. (The root brief once claimed two signals while the code used three.
-That is the exact drift `/cortex-review` exists to catch.)
+That is the exact drift `/review-change` exists to catch.)
 
 ## The rule that outranks your test suite
 

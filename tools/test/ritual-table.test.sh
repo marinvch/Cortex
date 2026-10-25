@@ -3,7 +3,7 @@
 # README carried a second table that read as *the* list of rituals. Ten skills were missing from it.
 # Nothing caught that for months, because a partial copy and a complete one are indistinguishable
 # until someone counts — there is no error state, just a reader who never learns that
-# /cortex-impact exists.
+# /change-impact exists.
 #
 # The fix was not "sync the two tables". Two maintained copies drift again; that is what they do.
 # README now carries a DECLARED subset with its own size and the total spelled out in numerals, so

@@ -222,7 +222,7 @@ test("a NAMED re-export is followed only when the test names what it exports", (
 // --- a document is never a test, even when an older index says it is ----------------------------
 
 test("a markdown file marked isTest lends no coverage by name, import or mention", () => {
-  // tests/AGENTS.md, written by /cortex-brief, names vitest.config.mts. An index built before the
+  // tests/AGENTS.md, written by /write-area-brief, names vitest.config.mts. An index built before the
   // langs.mjs fix still carries `isTest: true` on it; coverage must not trust that for a file that
   // cannot run.
   const index = {

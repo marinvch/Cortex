@@ -108,7 +108,7 @@ test("the skills page rules about loading, the listing and compaction are presen
   for (const k of limit("skill.frontmatter.portable-keys")) assert.ok(limit("skill.frontmatter.keys").includes(k), k);
 });
 
-// /cortex writes hooks into a committed .claude/settings.json and two fences that exit 2. What that
+// /setup-repo writes hooks into a committed .claude/settings.json and two fences that exit 2. What that
 // file does for a teammate, and where a fence does not reach, is on these two pages. Pinned by id
 // and page so prose can cite them and a later edit cannot quietly drop one.
 test("the settings and permission rules are present and sourced from their pages", () => {
@@ -225,7 +225,7 @@ test("the rules cannot be edited at runtime by a consumer", () => {
   assert.ok(RULES.every((r) => Object.isFrozen(r)));
 });
 
-// An unattended /cortex writes .claude/agents/, .claude/hooks/ and .claude/settings.json, and Claude
+// An unattended /setup-repo writes .claude/agents/, .claude/hooks/ and .claude/settings.json, and Claude
 // Code refuses every one of them in a `claude -p` run unless the mode lets them through. The chain
 // of documented sentences that says so is pinned here, so a consumer that explains the refusal can
 // cite them by id — and the path test is pinned against the one documented exception.

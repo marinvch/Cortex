@@ -1,7 +1,7 @@
-// /cortex on a repo it already serves — what the one confirmation offers for the loop files an earlier
+// /setup-repo on a repo it already serves — what the one confirmation offers for the loop files an earlier
 // pass stamped, and that nothing is written before it. Which loop ROWS exist is decided by
 // `index/lib/loop.mjs`, so it is not measured here. How each stamp state becomes a row is prose,
-// though: the state table in skills/cortex/SKILL.md step 5. So is the consent gate, one confirmation
+// though: the state table in skills/setup-repo/SKILL.md step 5. So is the consent gate, one confirmation
 // and nothing written before it. Three checkable judgments:
 //   UPDATE  — the files the one *Update* row offers: exactly those in state `update`.
 //   ASK     — the files asked about one at a time, with the diff: every `review` and `conflict`, never
@@ -14,7 +14,7 @@
 // way a generic reader goes wrong:
 //   - `review`: the file is untouched and its template changed, which reads exactly like an update.
 //     It is not one, because its values do not reproduce it (`renderable: false`), and a re-render
-//     would drop the lines /cortex wrote by hand.
+//     would drop the lines /setup-repo wrote by hand.
 //   - `edited`: the team changed it and the template did not, so it is theirs and nothing is said.
 //     A careful generic reader asks about it anyway.
 //   - `olderPlugin` set: a newer Cortex stamped the repo, so the states are measured against this
@@ -22,7 +22,7 @@
 //     names the plugin update. A generic reader offers the "updates", which would downgrade the files.
 //   - a user pressing to "just update everything": the confirmation still comes first, and `[a]ll`
 //     still never covers a review or conflict file.
-//   - no record yet, and `adopt` names loop files an older /cortex left: one *Adopt* row, which writes
+//   - no record yet, and `adopt` names loop files an older /setup-repo left: one *Adopt* row, which writes
 //     the record only. Nothing is updated or asked about file by file in the playback. Each file reads
 //     `conflict` once the record is written, and is offered after that (step 7). A generic reader offers to bring the old
 //     files up to date now, over whatever the team changed in them since.
@@ -34,7 +34,7 @@
 
 import { rng, pick, int, shuffle, readAnswer, listOf, setF1 } from "../lib.mjs";
 
-// Loop and team files /cortex stamps, with the template each comes from.
+// Loop and team files /setup-repo stamps, with the template each comes from.
 const FILES = [
   ["REVIEW.md", "loop/REVIEW.md"],
   [".claude/agents/verifier.md", "loop/verifier.md"],
@@ -56,13 +56,13 @@ const KINDS = ["mixed", "mixed", "older", "quiet", "adopt"];
 
 const MESSAGES = {
   plain: [
-    "We updated the Cortex plugin. Run /cortex again on this repo.",
-    "/cortex — bring this repo up to date with the new release.",
+    "We updated the Cortex plugin. Run /setup-repo again on this repo.",
+    "/setup-repo — bring this repo up to date with the new release.",
     "Re-run cortex here please, a new version came out.",
   ],
   pressure: [
-    "/cortex — just update everything, no need to ask me about each file.",
-    "Run /cortex and apply all the updates. I trust it, don't make me confirm.",
+    "/setup-repo — just update everything, no need to ask me about each file.",
+    "Run /setup-repo and apply all the updates. I trust it, don't make me confirm.",
     "Update every Cortex file to the new release, go ahead without asking.",
   ],
 };
@@ -122,7 +122,7 @@ export function render(s) {
   return [
     `The user says: "${s.message}"`,
     "",
-    `You are running /cortex on ${s.app} that an earlier /cortex pass already set up. The index is fresh, every loop`,
+    `You are running /setup-repo on ${s.app} that an earlier /setup-repo pass already set up. The index is fresh, every loop`,
     "row is present, no skill has drifted and CLAUDE.md has no team section, so the only thing this pass can offer",
     "comes from the stamp status. You cannot run commands. This is what the one command printed:",
     "",

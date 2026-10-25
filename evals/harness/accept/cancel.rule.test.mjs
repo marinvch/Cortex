@@ -57,7 +57,7 @@ for (const [state, prepare] of [
 test("a refused cancellation changes neither the order, the stock nor the audit log", async () => {
   const { db, id, before, answer } = await cancelled(async (app, orderId) => {
     await call(app, "POST", `/orders/${orderId}/pay`);
-    await call(app, "POST", `/orders/${orderId}/ship`);
+    await call(app, "POST", `/orders/${orderId}/merge-work`);
   });
   assert.equal(answer.status, 409);
   assert.deepEqual(db.get("orders", id), before.row, "the shipped order changed");

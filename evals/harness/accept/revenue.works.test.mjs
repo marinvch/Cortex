@@ -19,7 +19,7 @@ test("the revenue of a shop whose orders have all shipped is the sum of their to
   for (const lines of [[["notebook", 2]], [["mug-enamel", 1], ["tote", 1]], [["apron", 1]]]) {
     const { body } = await placeOrder(app, lines);
     await call(app, "POST", `/orders/${body.id}/pay`);
-    await call(app, "POST", `/orders/${body.id}/ship`);
+    await call(app, "POST", `/orders/${body.id}/merge-work`);
     sum += body.total;
   }
   const report = await call(app, "GET", "/reports/revenue");

@@ -96,7 +96,7 @@ test("the arm's name is in no path, no file and no commit message", () => {
   }
 });
 
-test("the layer is the documents only, and the shims are the one line /cortex-scaffold writes", () => {
+test("the layer is the documents only, and the shims are the one line /write-context-docs writes", () => {
   assert.deepEqual([...CONTEXT_LAYER].sort(), [
     "AGENTS.md", "CLAUDE.md", "CONTEXT.md", "GEMINI.md",
     "docs/adr/0001-money-is-integer-minor-units.md",

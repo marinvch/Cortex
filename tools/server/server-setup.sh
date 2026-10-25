@@ -109,7 +109,7 @@ case "$MODE" in
     # /var/spool/cron, and it is exposed by the one command people run to check whether cron is set
     # up. core/scrub.js refuses a memory write carrying a credential; the docs should not ask for
     # what the code refuses.
-    CFG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cortex"
+    CFG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/setup-repo"
     ENV_FILE="$CFG_DIR/cron.env"
     mkdir -p "$CFG_DIR"
     if [ -f "$ENV_FILE" ]; then

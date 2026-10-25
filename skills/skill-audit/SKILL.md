@@ -1,11 +1,11 @@
 ---
-name: skill-audit
+name: trim-agent-docs
 description: Judge a skill collection by use — never reached, duplicated, too thin to beat a plain prompt, or never found. Reports only. Triggers — "review my skills", "are any of these redundant", "why does Claude never use this skill", "прегледай ми скиловете".
 metadata:
   capability: judgment
 ---
 
-# /skill-audit — the collection, not the file
+# /trim-agent-docs — the collection, not the file
 
 Every other audit reads the skills. This one reads the **record of them being used**, because a
 skill's real defect is usually invisible in its own file: well written, correct, wired in, and
@@ -27,7 +27,7 @@ for d in skills/*/; do echo "$(git log --format=%ad --date=short -- "$d" | tail 
 ```
 
 **Read the exposure dates first.** A skill added on the last recorded day has had no chance to fire,
-so its zero is arithmetic and not evidence. Cortex's second run reported `/skill-audit` itself as
+so its zero is arithmetic and not evidence. Cortex's second run reported `/trim-agent-docs` itself as
 never reached — four of the 28 were younger than the newest session in the record. Judge only the
 skills that were present for most of the window, and say which ones you set aside.
 
@@ -71,7 +71,7 @@ Three different causes, three different fixes, and reaching for the wrong one ma
   request really arrives — including other languages, and including the vague version. This is where
   a rewrite genuinely helps, and the `skill-creator` plugin has a measured loop for it (a train/test
   split over realistic queries) rather than guessing.
-- **It is a deliberate act.** `/dream`, `/handoff`, `/team-init` are things a person *decides* to do.
+- **It is a deliberate act.** `/end-of-day-summary`, `/handover-notes`, `/create-team` are things a person *decides* to do.
   Zero auto-invocations is correct for these, and making them auto-fire would be a defect, not a
   fix. **Never "optimize" a skill into triggering itself when the user should be choosing.** Say
   which skills you placed in this category and why, so the judgment is visible rather than assumed.
@@ -83,7 +83,7 @@ One table, ranked by what you would act on first:
 ```
 | Skill | Used | Verdict | Why | Proposed |
 |---|---|---|---|---|
-| /catch-me-up | 0 | never reached | no ritual pointed at it | edge from /resume |
+| /whats-changed | 0 | never reached | no ritual pointed at it | edge from /resume-work |
 | /foo | 0 | redundant | /bar fires on the same sentence | merge into /bar |
 | /baz | 3 | keep | — | — |
 ```
@@ -92,7 +92,7 @@ One table, ranked by what you would act on first:
 removal is nearly always weaker than it looks after five minutes of reading. Merging two skills, or
 adding one line of routing, resolves most of what this finds.
 
-Where the fix is a rewrite, `/writing-for-agents` is the authoring discipline, and its `NEW-SKILL.md`
+Where the fix is a rewrite, `/write-agent-docs` is the authoring discipline, and its `NEW-SKILL.md`
 is what wires a changed skill back in.
 
 ## Gotchas
@@ -101,12 +101,12 @@ is what wires a changed skill back in.
   yet". Say the sample size in the report; a confident verdict on eight sessions is noise with a
   table around it.
 - **A hook that injects prose is invisible to the tool**, which sees a typed `<command-name>` and a
-  `Skill` call and nothing else. `/optimize-prompt` is reached by a `UserPromptSubmit` hook emitting
+  `Skill` call and nothing else. `/clarify-request` is reached by a `UserPromptSubmit` hook emitting
   `additionalContext`, so it reads 0/0 however often it fires. Check every ritual declaring
   `reached-by:` against its actual trigger before calling it unreached.
 - **The work has to have occurred.** A ritual scores zero when its job never came up, which looks
   identical to a description that never matched. Separate them from artifacts on disk rather than
-  from the transcripts: an ADR written in the window is `/domain-modeling`'s trigger having fired.
+  from the transcripts: an ADR written in the window is `/define-terms`'s trigger having fired.
 - **Skills from other plugins are counted but not shipped here.** The tool lists them separately.
   A ritual you renamed still being typed under its old name shows up there, and looks identical to a
   skill that vanished.

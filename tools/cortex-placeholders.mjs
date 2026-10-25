@@ -34,8 +34,8 @@ import { placeholdersOf } from "../index/lib/placeholders.mjs";
 
 const TEMPLATES = fileURLToPath(new URL("../templates/", import.meta.url));
 
-// Where each stamped file comes from, by the path it lands at. `/cortex` step 7 and
-// `/cortex-scaffold` step 3 are the tables this mirrors. A file in neither this table nor the stamp
+// Where each stamped file comes from, by the path it lands at. `/setup-repo` step 7 and
+// `/write-context-docs` step 3 are the tables this mirrors. A file in neither this table nor the stamp
 // record was not stamped from a template (a scoped brief, a skill, GEMINI.md) and has no placeholders
 // to leave behind. A row with two templates is a file that takes a block from each.
 const SOURCES = [

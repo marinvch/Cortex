@@ -3,7 +3,7 @@
 # The retired engine registered a server named `ai-os` that ran out of the repo's `.ai-os/`
 # directory. Cortex's own server was documented under that same name, with AI_OS_ROOT, until #552.
 # The installer matched the NAME, so a repo whose `.mcp.json` held a working Cortex registration
-# was told it carried an old engine and sent to /migrate-engine, whose Step 5 removes the entry.
+# was told it carried an old engine and sent to /migrate-legacy-engine, whose Step 5 removes the entry.
 #
 # What marks the engine is where the entry points: `.ai-os/`. The name marks nothing.
 
@@ -31,7 +31,7 @@ JSON
 init_in "$WORK/current-old-name"
 assert_contains "$out" "cortex-init" "the installer ran"
 assert_not_contains "$out" "Old engine" "a Cortex server registered as ai-os with AI_OS_ROOT is not the old engine"
-assert_not_contains "$out" "migrate-engine" "and the repo is not sent to /migrate-engine"
+assert_not_contains "$out" "migrate-engine" "and the repo is not sent to /migrate-legacy-engine"
 
 # --- Cortex's own server, registered under the current name ---
 
@@ -51,7 +51,7 @@ JSON
 init_in "$WORK/engine-entry"
 assert_contains "$out" "Old engine" "an entry that runs out of .ai-os/ is the old engine"
 assert_contains "$out" "MCP entry" "and the list names the MCP entry"
-assert_contains "$out" "/migrate-engine" "and points at the ritual that harvests it"
+assert_contains "$out" "/migrate-legacy-engine" "and points at the ritual that harvests it"
 
 proj engine-vscode
 cat > "$WORK/engine-vscode/.vscode/mcp.json" <<'JSON'

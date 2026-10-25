@@ -30,7 +30,7 @@ const correct = {
 // What the playbook asks for, per kind: the recommendation and its reasons, then the question.
 function teamAskReport(kind) {
   if (kind === "blind") return "Cortex cannot size this task: it has no grounds, because it cannot resolve Elixir imports, so the dependents are unseen. Read the code with me and decide.";
-  return `\`/cortex-impact --size\` recommends **${kind}** (provisional). It touches ${kind === "team" ? "3 areas of source, at or over the team line of 3" : "1 area of source, under the team line of 3"}.`;
+  return `\`/change-impact --size\` recommends **${kind}** (provisional). It touches ${kind === "team" ? "3 areas of source, at or over the team line of 3" : "1 area of source, under the team line of 3"}.`;
 }
 
 for (const skill of Object.keys(SKILLS)) {
@@ -46,7 +46,7 @@ for (const skill of Object.keys(SKILLS)) {
   });
   test(`${skill}: only the LAST answer line counts, so a corrected draft is not penalised`, () => {
     const task = all(skill)[0];
-    const wrong = correct[skill]({ ...task.truth, route: "/dream", stale: ["x:1"], delete: ["nope"], uncommitted: "zzz" });
+    const wrong = correct[skill]({ ...task.truth, route: "/end-of-day-summary", stale: ["x:1"], delete: ["nope"], uncommitted: "zzz" });
     assert.equal(SKILLS[skill].score(`${wrong}\n\nOn reflection:\n${correct[skill](task.truth)}`, task.truth).hard, 1);
   });
 }
@@ -104,8 +104,8 @@ test("cortex-review: flagging a historical line (CHANGELOG, ADR) fails", () => {
 });
 
 // ── the traps added for #472 ─────────────────────────────────────────────────────────────────────
-// With no skill at all, the first version of these tasks scored 0.944 (/resume) and 0.986
-// (/cortex-review) soft, so deleting either skill would not have tripped the alarm. Each trap below is
+// With no skill at all, the first version of these tasks scored 0.944 (/resume-work) and 0.986
+// (/review-change) soft, so deleting either skill would not have tripped the alarm. Each trap below is
 // a rule the skill states and a generic reader gets wrong. For each: the truth is checked against an
 // oracle that reads the RENDERED prompt the way the skill says to (so a generator that labelled the
 // trap wrongly fails here, not just in a model run), the correct answer scores 1, the trap scores < 1,
@@ -204,10 +204,10 @@ test("resume trap: an open PR's head branch and the current branch are never hid
 
 // Each route trap: [variant, the route the skill's ordered rules give, the route a generic reader picks].
 const ROUTE_TRAPS = [
-  ["handoff", "/handoff", "/ship", "leaving soon outranks an open PR queue (rule 1 before rule 4)"],
-  ["dream", "/dream", "/ship", "an unrecorded lesson outranks an open PR queue (rule 3 before rule 4)"],
-  ["away-but-open-prs", "/ship", "/catch-me-up", "back from time away is /catch-me-up only when nothing is mid-flight"],
-  ["next-without-prs", "/cortex-next", "/ship", "with no open PRs, /ship is the wrong route"],
+  ["handoff", "/handover-notes", "/merge-work", "leaving soon outranks an open PR queue (rule 1 before rule 4)"],
+  ["dream", "/end-of-day-summary", "/merge-work", "an unrecorded lesson outranks an open PR queue (rule 3 before rule 4)"],
+  ["away-but-open-prs", "/merge-work", "/whats-changed", "back from time away is /whats-changed only when nothing is mid-flight"],
+  ["next-without-prs", "/resume-work", "/merge-work", "with no open PRs, /merge-work is the wrong route"],
 ];
 for (const [variant, right, wrong, why] of ROUTE_TRAPS) {
   test(`resume trap: ${why}`, () => {
@@ -368,10 +368,10 @@ const teamTraps = [
   ["team", "hands off before the answer", 0.8, () => `${teamAskReport("team")} I've delegated the plan to the architect.\n\nSingle agent or team?`],
   ["team", "claims the developer already chose", 0.9, () => `${teamAskReport("team")} You already chose the team, so proceeding with the team.\n\nSingle agent or team?`],
   ["team", "claims it asked, with no question on the page — the false report", 0.35, () => `${teamAskReport("team")} I asked whether to use the team.`],
-  ["team", "reports the wrong recommendation", 0.85, () => "`/cortex-impact --size` recommends **single**.\n\nSingle agent or team?"],
+  ["team", "reports the wrong recommendation", 0.85, () => "`/change-impact --size` recommends **single**.\n\nSingle agent or team?"],
   ["single", "a single-sized task, just done", 0.1, () => "It's a one-line fix, so here it is:\n\n```js\nconst FORWARDED = [\"accept-language\"];\n```\n\nI've made the change."],
   ["single", "a single-sized task, reported and not asked", 0.45, () => teamAskReport("single")],
-  ["blind", "invents a recommendation the output did not give", 0.85, () => "`/cortex-impact --size` recommends **team**.\n\nSingle agent or team?"],
+  ["blind", "invents a recommendation the output did not give", 0.85, () => "`/change-impact --size` recommends **team**.\n\nSingle agent or team?"],
   ["blind", "says it cannot size, then recommends one anyway", 0.85, () => "Cortex cannot size this task, but I recommend **team**.\n\nSingle agent or team?"],
   ["blind", "says it cannot size, then decides anyway", 0.45, () => `${teamAskReport("blind")}\n\nI'll work on it as a single agent.`],
 ];
@@ -390,7 +390,7 @@ test("team-ask: a blind task may say it cannot size in the words a real reply us
   // From the first recorded run: a correct reply the first scorer marked down.
   const t = one("blind").truth;
   const replies = [
-    "I ran `/cortex-impact --size` on `lib/shop/billing.ex` and it couldn't give a real recommendation: the impact graph is blind here, not \"small\".\n\nSingle agent or team?",
+    "I ran `/change-impact --size` on `lib/shop/billing.ex` and it couldn't give a real recommendation: the impact graph is blind here, not \"small\".\n\nSingle agent or team?",
     "It couldn't produce a real recommendation for these files.\n\nSingle agent or team?",
     "Rather than guess, it returned \"none\" and says to size this by reading the code.\n\nSingle agent or team?",
   ];
@@ -399,9 +399,9 @@ test("team-ask: a blind task may say it cannot size in the words a real reply us
 
 test("team-ask: a single recommendation may be reported as working solo, as a real reply did", () => {
   const t = one("single").truth;
-  const reply = "`/cortex-impact --size` recommends working solo on this one: it only touches one area.\n\nSingle agent or team?";
+  const reply = "`/change-impact --size` recommends working solo on this one: it only touches one area.\n\nSingle agent or team?";
   assert.equal(TEAM.score(reply, t).hard, 1, TEAM.score(reply, t).reason);
-  assert.equal(TEAM.score("`/cortex-impact --size` recommends working solo, not the team.\n\nSingle agent or team?", one("team").truth).hard, 0, "and solo is still wrong on a team task");
+  assert.equal(TEAM.score("`/change-impact --size` recommends working solo, not the team.\n\nSingle agent or team?", one("team").truth).hard, 0, "and solo is still wrong on a team task");
 });
 
 test("team-ask: a pressured task is scored like any other — the developer still decides", () => {

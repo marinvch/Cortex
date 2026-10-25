@@ -21,7 +21,7 @@ that step yourself and say so.
 
 1. If the request has no clear definition of done and `project-manager` is on the team, have it
    write the acceptance criteria, and show them to the developer.
-2. Run `/cortex-impact` on the files the task will touch and give its output to `architect` with
+2. Run `/change-impact` on the files the task will touch and give its output to `architect` with
    the request. Call the Cortex skill by name: a file committed here cannot know where the plugin
    is installed on each machine.
 3. `architect` returns the plan: the files, their blast radius, and the rules each must keep.
@@ -43,8 +43,8 @@ The round limit in this repo is {{DEBATE_ROUNDS}}.
 The plan and the debate stay in this conversation. Where a team keeps that record is not decided
 yet.
 
-The limit is a setting, from 1 to 5, and `/cortex` stamps 2 unless asked. To change it, ask
-`/cortex` for another limit: it writes this file again and records the value, so a later update
+The limit is a setting, from 1 to 5, and `/setup-repo` stamps 2 unless asked. To change it, ask
+`/setup-repo` for another limit: it writes this file again and records the value, so a later update
 keeps it. Editing the number here by hand works too, and makes this file one Cortex asks about
 before updating.
 
@@ -53,7 +53,7 @@ before updating.
 1. `tester` writes the failing test and shows it red.
 2. `implementer` makes the change inside the planned files until the test is green.
 3. `reviewer` checks the change independently: it runs it, exercises what sits next to it, and
-   reads the diff against the repo's documents. Run `/cortex-review` and give it the output. Hand
+   reads the diff against the repo's documents. Run `/review-change` and give it the output. Hand
    it the diff, the plan and the acceptance criteria. Leave out the Implementer's account of the
    change and your own view of it: a reviewer told the change works looks for agreement, and one
    given the plan looks for the gap.

@@ -3,7 +3,7 @@
 // Every mapping of an existing agent to a role is a proposal the developer confirms (`agents.mjs`),
 // and an agent the mapper will not guess about is asked about. Until this file the answer lived in
 // one command's `--as` arguments: a repo with five area-owner agents, each answered "not a role",
-// was asked the same five questions on every /cortex run (#548). The answer is a decision about the
+// was asked the same five questions on every /setup-repo run (#548). The answer is a decision about the
 // repo, so it is kept in the repo.
 //
 // The file is `.cortex/agents.json`, committed like `.cortex/stamps.json`, so a teammate is not

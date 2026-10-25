@@ -13,7 +13,7 @@ AI always knows the latest and records things without you copying files by hand.
 
 > This is the server-side build-out of the **Cadence** layer in [[vault-architecture]] — the
 > autonomy that follows [[operating-principles]] ("lowest autonomy that works," built only once the
-> manual version holds). Register the in-session half with the `/connect-brain` ritual.
+> manual version holds). Register the in-session half with the `/connect-mcp` ritual.
 
 Almost all of this already exists in `mcp/`. This doc is the wiring plan. **Nothing here runs from a
 Cowork/Claude session** — you run it on your machines + server, because it touches SSH, a Claude API

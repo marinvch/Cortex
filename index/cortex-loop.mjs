@@ -3,7 +3,7 @@
 //
 //   node index/cortex-loop.mjs .          # the loop by stage, with ✓ / → / ·
 //   node index/cortex-loop.mjs . --line   # one line, for another tool's footer
-//   node index/cortex-loop.mjs . --json   # the worklist, for /cortex to walk
+//   node index/cortex-loop.mjs . --json   # the worklist, for /setup-repo to walk
 //   node index/cortex-loop.mjs . --team tester,reviewer [--as <agent path>=<role|none> ...] [--rounds N]
 //                                          # after the picks: the team files, values and roster;
 //                                          # --rounds sets the debate's round limit, 1 to 5
@@ -14,7 +14,7 @@
 // the one exception, and it writes one file: the `--as` answers of this call go to
 // `.cortex/agents.json` (lib/agent-answers.mjs). Without the flag an answer lasts for one call.
 //
-// This is `/cortex`'s script the way the findings report is `/cortex-install`'s (ADR 0006). The
+// This is `/setup-repo`'s script the way the findings report is `/setup-repo`'s (ADR 0006). The
 // ritual walks `missing` top-down, so the rank in `lib/loop.mjs` is control flow — it decides which
 // artifact a user is offered first, not merely how a report reads.
 
@@ -27,7 +27,7 @@ import { openTarget } from "./lib/open.mjs";
 // `index: "optional"` — the loop is mostly file facts, and the two rows that read the index
 // (`brief` cites the stack, `hooks` cites generated paths) degrade to an honest "nothing detected"
 // rather than to a wrong answer. Running this before the indexer is the ordinary case on a repo
-// where `/cortex` has only just started.
+// where `/setup-repo` has only just started.
 const { root, args, index } = openTarget(process.argv.slice(2), {
   usage: "usage: node index/cortex-loop.mjs [root] [--line] [--json] [--team ROLES|none] [--as PATH=ROLE|none|ask ...] [--rounds 1-5] [--remember]",
   flags: { "--json": "boolean", "--line": "boolean", "--index": "value", "--team": "list", "--as": "multi", "--rounds": "value", "--remember": "boolean" },
@@ -90,7 +90,7 @@ const team = plan.state.agentTeam;
 const agents = team?.report ?? null;
 
 // After the picks (plan step 14): which files to write, with which values, and the roster the
-// playbook names — so /cortex renders exactly the team that was picked. `none` picks no role, for a
+// playbook names — so /setup-repo renders exactly the team that was picked. `none` picks no role, for a
 // repo whose existing agents are the whole team. Writes nothing.
 if (args.team.length) {
   if (!team) fail("no index, so the agents already here cannot be read — run node index/cortex-index.mjs first");
@@ -169,7 +169,7 @@ for (const stage of STAGES) {
     if (e.mark === "blocked") console.log(`      ${dim("needs: " + (e.needs.join("; ") || "an earlier artifact"))}`);
     if (e.mark !== "present") console.log(`      ${dim(e.paths.join("  "))}`);
     if (e.mark === "missing" && e.effect) console.log(`      ${dim("changes: " + e.effect)}`);
-    // Said on the row, because it is the row a headless /cortex leaves missing while reporting
+    // Said on the row, because it is the row a headless /setup-repo leaves missing while reporting
     // success: Claude Code never auto-approves a write under .claude/, and `claude -p` has nobody
     // to ask. Naming the flag here is the difference between a gap and a gap with a way through.
     if (e.mark === "missing" && e.protectedWrites?.length) {
@@ -222,4 +222,4 @@ if (agents?.agents.length) {
 }
 
 console.log(lastLine());
-console.log(dim("`/cortex` stamps what is missing, in one pass, after one confirmation."));
+console.log(dim("`/setup-repo` stamps what is missing, in one pass, after one confirmation."));

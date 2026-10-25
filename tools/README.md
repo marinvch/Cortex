@@ -59,7 +59,7 @@ bash tools/cortex-init.sh --yes
    manager, `tsconfig` (strict + `@/*` alias), eslint/prettier/CI presence, README first line,
    source dirs. Maps deps → framework (Next.js, Nuxt, Remix, Vue, Svelte, React, Express).
 2. **Detects an old engine** (`.ai-os/`, `.github/ai-os/`, an MCP entry whose command points into
-   `.ai-os/`) and tells you to run `/migrate-engine` first so its memory isn't lost. An entry named
+   `.ai-os/`) and tells you to run `/migrate-legacy-engine` first so its memory isn't lost. An entry named
    `ai-os` that runs Cortex's own `mcp/server.js` is a current registration, not the engine.
 3. **Suggests skills** for the stack (e.g. React → `vercel-react-best-practices`).
 4. **Scaffolds** into the current repo only (existing files → `*.bak`): `AGENTS.md` (source of
@@ -72,7 +72,7 @@ bash tools/cortex-init.sh --yes
 
 ### Register with your personal vault (opt-in)
 `--register-to-vault <path>` writes a **metadata-only** stub to `<vault>/projects/<repo>.md` (name,
-path, stack, date). No code or secrets — the privacy firewall holds. Vault companion: `/scan-projects`.
+path, stack, date). No code or secrets — the privacy firewall holds. Vault companion: `/register-projects`.
 
 ## `cortex.sh` — the one viewer app (graph · notes · repos · gaps)
 
@@ -142,7 +142,7 @@ node tools/cortex-preflight.mjs --json
 
 It writes nothing. The profile half is **not** re-derived here — it comes from `core/profile.js`,
 which reads only `CORTEX_PROFILE` and is the one place that rule lives. Exit 1 means a path you named
-would be committed, which is the answer `/capture` and `/cortex-audit` each need before
+would be committed, which is the answer `/quick-note` and `/audit-notes` each need before
 writing anything sensitive; with no paths it always exits 0.
 
 Staleness is mtime-based, so a fresh clone reads as stale. That error points at re-running a cheap
@@ -190,7 +190,7 @@ read another repository.
 Nothing announces a mismatch: every command is present, every skill loads, and the model follows last
 week's instructions against this week's code — so a fix that was correct looks broken. Updating the
 marketplace alone does **not** move the installed cache, which is why each stage is reported
-separately instead of as one version number. Read-only. `/plugin-sync` is the ritual around it.
+separately instead of as one version number. Read-only. `/update-plugin` is the ritual around it.
 
 ## `cortex-claude-docs.mjs` — are the Claude Code rules still what the docs say
 
@@ -295,7 +295,7 @@ as `site-facts.json`, so a page can render them and `--check` can name what move
 ```bash
 node tools/cortex-site-facts.mjs                    # print the facts
 node tools/cortex-site-facts.mjs --out <file>       # write them
-node tools/cortex-site-facts.mjs --check <file>     # exit 1, one line per changed fact ("ritual /resume added")
+node tools/cortex-site-facts.mjs --check <file>     # exit 1, one line per changed fact ("ritual /resume-work added")
 node tools/cortex-site-facts.mjs --check <file> --json
 ```
 
@@ -304,9 +304,9 @@ table joined with the skill folders, and a row or folder the other lacks **fails
 rather than being skipped. MCP tools come from the checkout's own `mcp/server.js`, spawned in repo
 mode and vault mode and asked for `tools/list` — what users get, not a reading of `mcp/lib/`.
 
-## `cortex-site-demo.mjs` — a `/cortex` run on three small repos, captured for the site
+## `cortex-site-demo.mjs` — a `/setup-repo` run on three small repos, captured for the site
 
-The site's home page plays a `/cortex` run step by step. This records the output it plays, so the
+The site's home page plays a `/setup-repo` run step by step. This records the output it plays, so the
 walkthrough is what Cortex prints and not a copy somebody typed. It builds three repos in the OS
 temp dir, runs the indexer, the findings and the loop on each, and removes them:
 
@@ -322,7 +322,7 @@ node tools/cortex-site-demo.mjs --check <file>   # exit 1 when <file> is not wha
 
 Byte-identical across runs: no timings, no absolute paths, no commit ids. The apply step is not
 run, because a model does that; each loop row names the paths it would write and the site shows
-those. It needs `git` on the path, calls no network, and exits 2 when a CLI fails. `/site-sync`
+those. It needs `git` on the path, calls no network, and exits 2 when a CLI fails. `/sync-website`
 refreshes the file together with `site-facts.json`; nothing checks it on every push, since a
 reworded loop row is not drift until a release ships it.
 
@@ -346,7 +346,7 @@ problem or a missing front door.
 **It reads a directory holding everything the user has ever typed, and extracts skill names and
 timestamps only** — no prompt text, in any output mode. `tools/test/skill-usage.test.sh` asserts that
 first, before it asserts any counting, and points every case at `CORTEX_SESSIONS_DIR` so no test ever
-reads real transcripts. `/skill-audit` is the ritual around it.
+reads real transcripts. `/trim-agent-docs` is the ritual around it.
 
 ## `cortex-skill-graph.mjs` — which rituals reach which
 
@@ -362,7 +362,7 @@ node tools/cortex-skill-graph.mjs cortex-brief  # one ritual's neighbourhood
 
 Isolated in one direction is normal — a router is nearly all outbound, a shared discipline nearly
 all inbound. Isolated in **both** is the defect, and it has no error state: the ritual still works
-when you type its name, it is just never reached. `/team-add` sat that way: `/team-init` created a
+when you type its name, it is just never reached. `/join-team` sat that way: `/create-team` created a
 team-brain and never named the command a member runs to join it.
 
 A ritual genuinely triggered from outside declares `reached-by: <what triggers it>` under its
@@ -401,5 +401,5 @@ Without the variable the same file runs against a Next.js-shaped repo it builds 
 which is what keeps it working on every machine — a test that names a path on somebody's disk runs
 on exactly one.
 
-When you do want the real thing, `/cortex-install` is the ritual, and it asks before the first
+When you do want the real thing, `/setup-repo` is the ritual, and it asks before the first
 write.

@@ -212,7 +212,7 @@ test("a caller who is not in the roster reads the asks for this repo's project, 
   assert.ok(!inbox.waiting.some((a) => a.id === toRole.id));
 });
 
-test("on a solo brain the ask tools refuse in one sentence naming /team-add, and write nothing", async () => {
+test("on a solo brain the ask tools refuse in one sentence naming /join-team, and write nothing", async () => {
   const repo = tempDir("solo-");
   mkdirSync(join(repo, ".cortex"), { recursive: true });
   const { results } = await session(repo, "dev-a", [["inbox", {}], ["ask", { to: "backend", content: "x" }], ["answer", { id: "abc", content: "x" }]]);

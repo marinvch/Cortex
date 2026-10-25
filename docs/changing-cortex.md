@@ -12,9 +12,9 @@ finding.
 Every rule below has an ADR holding the argument and the rejected alternatives. Read the ADR
 before overturning one; the line here is the trigger, not the case.
 
-- **`/cortex` and `/cortex-install` never modify a target repo before the user chooses**, and both
+- **`/setup-repo` and `/setup-repo` never modify a target repo before the user chooses**, and both
   are model-invocable anyway. What protects the repo is the **consent gate**, not an invocation flag:
-  indexing and the findings report are read-only by construction, and `/cortex-scaffold` is the
+  indexing and the findings report are read-only by construction, and `/write-context-docs` is the
   separate skill that applies changes. If you are editing source before the user picked something,
   you have left the skill. Do not add `disable-model-invocation` to it for consistency — that flag
   marks *once-only or destructive*, not *read-only*.
@@ -24,7 +24,7 @@ before overturning one; the line here is the trigger, not the case.
   is the list of record; keep the flag when editing their frontmatter. Anchor the grep — the flag is
   discussed in prose too, and the unanchored version counts a skill that merely mentions it, which is
   how this line carried the wrong number from 2.14.0 until 2.36.0.
-- **The findings report is the install's script, so `analyse()`'s ranking is control flow.** `/cortex`
+- **The findings report is the install's script, so `analyse()`'s ranking is control flow.** `/setup-repo`
   walks it merged with `loop.mjs`'s worklist, whose rank is control flow for the same reason.
   The wizard walks `offers()` top-down, so re-ranking a finding changes the interview, not just a
   document. Offers collapse by action; severity never implies an offer. Read the worklist with
@@ -80,7 +80,7 @@ before overturning one; the line here is the trigger, not the case.
 - **Every ritual declares a `capability:` floor — `mechanical` · `judgment` · `strong` — under
   its frontmatter's `metadata:` map.** `node tools/cortex-capability.mjs` prints the table from the
   frontmatter, so it cannot drift. The failure it prevents is not a crash: a weak model runs
-  `/cortex-enrich`, writes plausible-but-wrong summaries, and those feed `recall` — a bad answer
+  `/summarize-files`, writes plausible-but-wrong summaries, and those feed `recall` — a bad answer
   *every* time anyone searches. A ritual missing the key fails `core/test/plugin.test.js`, and every
   `strong` one must carry a `## When the floor is not met` section — a declared floor with no way
   under it is a wall. `effort:` is read off the floor, not chosen again: `low` for `mechanical`,
@@ -90,7 +90,7 @@ before overturning one; the line here is the trigger, not the case.
   an unrecognised top-level key without a word. `tools/test/cortex-follows-its-own-rules.test.sh`
   runs the `claude-setup/` findings over this repo and fails on any: fix the repo, never the
   checker, since loosening a check loosens it for every user.
-- **The plugin ships no mod and no hooks, and `/cortex-scaffold` keeps the `CLAUDE.md` shim.** A
+- **The plugin ships no mod and no hooks, and `/write-context-docs` keeps the `CLAUDE.md` shim.** A
   mod runs unsandboxed in every user's session and does not load under the policy a work machine is
   likeliest to have. The shim is what sessions that cannot read `AGENTS.md` directly depend on.
   [ADR 0021](adr/0021-cortex-ships-no-mod-and-keeps-the-claude-md-shim.md).
@@ -116,12 +116,12 @@ before overturning one; the line here is the trigger, not the case.
   profile's policy as a required option; the shell half asks `tools/cortex-destinations.mjs`. On
   `work` an unapproved host is refused and the local work is kept.
   [ADR 0030](adr/0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md).
-- **Skills are per-repo; rituals are per-machine — `/cortex-skills` writes the first kind.** What it
+- **Skills are per-repo; rituals are per-machine — `/suggest-skills` writes the first kind.** What it
   writes is `.claude/skills/` in the *target*, committed with that code and chosen from
   `index.stack`. Add a new candidate as a declarative row with its own `when()` in
   `index/lib/skills.mjs`, so the next repo with that stack gets it too. The evidence sentence must
   name what was **detected**; a candidate that cannot cite the index does not belong in the list.
-- **`/cortex-impact` reads the graph backwards** — who imports me, and is any of it tested — and
+- **`/change-impact` reads the graph backwards** — who imports me, and is any of it tested — and
   every number it prints is a floor. Regex import resolution makes dynamic imports invisible, so the
   field is `atLeast`, never `total`. The actionable half is the *unverified* list, not the count.
   Coverage lives in `index/lib/coverage.mjs`, shared with `findings.mjs`; do not write a second copy
@@ -131,7 +131,7 @@ before overturning one; the line here is the trigger, not the case.
   `confidence`, and a floor counts only `extracted` ones. Its
   `--against` mode reads one hop in *both* directions between two change sets (#408), and holds the
   same floor — `index/lib/overlap.mjs`.
-- **`/cortex-review` is the only thing that reads the context layer back.** Everything else in
+- **`/review-change` is the only thing that reads the context layer back.** Everything else in
   Cortex writes documents — `AGENTS.md`, `CONTEXT.md`, ADRs — or audits them for bloat. This one
   judges a *change* against them, on two axes: does it break a documented rule, and did it just
   make one of those documents wrong. The second is the half no other review tool looks for, and
@@ -148,9 +148,9 @@ before overturning one; the line here is the trigger, not the case.
   with `CORTEX_E2E_WORKSPACE=<dir>` and it runs the roadmap's acceptance scenarios S1–S4, and S5 for
   the agent team, on clones of them, one `PASS` / `FAIL` / `XFAIL (<step>)` line each — also
   read-only, checked by fingerprint.
-  Those repos are installed by a headless `claude -p "/cortex"`, which needs `--permission-mode auto`:
+  Those repos are installed by a headless `claude -p "/setup-repo"`, which needs `--permission-mode auto`:
   Claude Code never auto-approves a write under `.claude/`, no allow rule changes that, and S1 fails
-  naming the paths it refused. `skills/cortex/RUNS.md` § Running unattended cites the docs.
+  naming the paths it refused. `skills/setup-repo/RUNS.md` § Running unattended cites the docs.
 - **The shell half has behaviour tests — `bash tools/test/run.sh`.** `bash -n` and shellcheck never
   *run* a script, which is how four real bugs shipped in `tools/server/`. Tests build real git repos
   in temp dirs (a bare repo on disk is a complete remote, so no network), and every test touching
@@ -175,7 +175,7 @@ before overturning one; the line here is the trigger, not the case.
   ([`tools/AGENTS.md`](../tools/AGENTS.md)). Read the inbound edges; do not infer them from green.
   The failure has no error state: a ritual nothing points at
   still runs when you type its name, so only a user who already knows it exists ever gets there.
-  `/team-add` sat that way — `/team-init` created a team-brain and never named the
+  `/join-team` sat that way — `/create-team` created a team-brain and never named the
   command a member runs to join it. A ritual genuinely triggered from outside (a hook, a git state)
   declares `reached-by: <what triggers it>` under its frontmatter's `metadata:`; the hatch has to name the trigger,
   because a bare `true` is the check switched off wearing the check's clothes.

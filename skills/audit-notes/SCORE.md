@@ -1,0 +1,77 @@
+# `/audit-notes score` — four-layer health report
+
+Read-only. Score the vault against [[vault-architecture]]. **Never modify files** except the
+optional saved report at the end. Be honest, not generous — most real setups land 40-70.
+
+## Step 1 — Read the shape
+Glob/Read (frontmatter + counts, don't deep-read everything):
+- `context/*` — which exist, and `current-focus.md`'s date.
+- `notes/*` — count; how many have `[[links]]`; any MOCs (`type: moc`).
+- `inbox/*` — count (a backlog is a capture-processing gap, not a capture failure).
+- `daily/*` — recent entries; gap since last one.
+- `projects/*`, `areas/*`, `resources/*` — counts.
+- `connections.md` — how many domains are actually connected vs `not connected`.
+- `decisions/log.md` — last entry date.
+- `skills/*` (and `.claude/skills/*`) — what rituals exist.
+
+## Step 2 — Score each layer (25 each)
+
+**Capture (25)** — `/quick-note` exists (5); `daily/` used in last 7 days (10); inbox flows, i.e.
+not 50 items deep and untouched (10).
+
+**Knowledge (25)** — ≥5 notes (5); >50% of notes have ≥1 link (10); ≥1 MOC (5); PARA folders
+have real content (5).
+
+**Context (25)** — all `context/*` filled, not placeholders (10); `current-focus.md` < 14 days
+old (5); voice captured in `references/voice.md` (5); ≥1 decision logged (5).
+
+**Cadence (25)** — a recurring ritual runs (`/daily-plan`/`/weekly-review` used recently) (10);
+activity in last 7 days (10); templates populated (5).
+
+## Step 2.4 — Firewall check (critical, runs before scoring is reported)
+Per the firewall in the vault's `AGENTS.md` (Cortex ships it as `templates/vault-AGENTS.md`), a `home` vault must hold **no** employer content.
+Scan `context/`, `notes/`, `daily/`, `projects/`, `areas/`, `inbox/` for employer/client names,
+work tickets or features, colleagues, or internal architecture. Any hit is a **critical finding** —
+report it above the score, name the file and line, and recommend moving it to a gitignored
+`archives/<name>-YYYY-MM-DD/` folder. Also verify archived personal content is actually ignored
+(`git check-ignore`) — archiving into a tracked path is a leak, not a fix.
+
+## Step 2.5 — Noise check (drift control)
+Noise is what drifts the brain over time, so flag it. Compare every `*.md` against `.cortexignore`
+(the single source of truth for "not knowledge"). Report:
+- **Stale cruft** — files that look like old-engine leftovers (`.ai-os/`, `*.chatprompt.md`,
+  `*.generated.*`), superseded generated views committed by accident, or empty/placeholder notes.
+- **Backup accumulation** — anything under `*/.backups/` (e.g. `context/.backups/`); these duplicate
+  live files and should be gitignored/pruned, not edited.
+- **Uncovered noise** — non-knowledge files that aren't matched by `.cortexignore` yet (suggest
+  adding a line).
+For each, suggest the fix: archive it, gitignore it, prune it, or add it to `.cortexignore`. A clean
+vault is a non-drifting vault.
+
+## Step 3 — Top 3 gaps by leverage
+For each lost-points criterion, weight by impact: empty `context/` ×3 (brain is blind to the
+user), no capture habit ×3 (raw material never arrives), 0 links ×2 (pile not graph), no cadence
+×2 (no autonomy). Sort, take top 3, give each one concrete next step (a command or a file to write).
+
+## Step 4 — Print the report
+```
+# Vault Audit — {date}    Score: {total}/100  ({stage})
+  0-39 Foundation · 40-69 Built · 70-89 Compounding · 90-100 Autonomous
+
+Capture      {bar} {n}/25
+Knowledge    {bar} {n}/25
+Context      {bar} {n}/25
+Cadence      {bar} {n}/25
+
+Strengths: …
+Top 3 gaps (ranked):
+ 1. … → next step
+ 2. … → next step
+ 3. … → next step
+Suggested next: {single most leveraged action}
+```
+(`bar` = one `#` per 5 pts.)
+
+## Step 5
+Offer to save to `archives/audits/audit-{date}.md` so the score can be tracked over time. That's
+the only write. To explore what the vault could *do* that it can't yet, point them to `/retrospective` (typed by the user).

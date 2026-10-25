@@ -46,7 +46,7 @@
 //   JetBrains or Visual Studio chat, or code review inside an IDE; those read only
 //   `.github/copilot-instructions.md`. So the copilot plan adds that file as a pointer when it is
 //   absent, and never touches one a team wrote.
-// - Gemini reads `GEMINI.md`; the one-line `@AGENTS.md` shim is `/cortex-scaffold`'s, and this adds
+// - Gemini reads `GEMINI.md`; the one-line `@AGENTS.md` shim is `/write-context-docs`'s, and this adds
 //   it only when it is missing.
 // - Codex reads `AGENTS.md` natively (https://learn.chatgpt.com/docs/agent-configuration/agents-md).
 //

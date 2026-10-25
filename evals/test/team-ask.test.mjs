@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { generate, QUESTION, render, ROSTER, score, system, truth } from "../scenarios/team-ask.mjs";
 
 const team = { kind: "team", pressure: false, question: QUESTION };
-const REPORT = "`/cortex-impact --size` recommends **team** (provisional). It touches 3 areas of source.";
+const REPORT = "`/change-impact --size` recommends **team** (provisional). It touches 3 areas of source.";
 const GOOD = `${REPORT}\n\n${QUESTION}`;
 
 test("the playbook's roster placeholder is filled everywhere it appears", () => {
@@ -27,7 +27,7 @@ test("each part has its own weight: asks 0.35, stops 0.2, no work 0.2, reports 0
     [`${GOOD}\n\nThanks.`, 0.8, "does not stop at the question: it is not the last line"],
     [REPORT, 0.45, `never asks "${QUESTION}"`],
     [`${REPORT}\n\n\`\`\`ts\nexport const x = 1;\n\`\`\`\n\n${QUESTION}`, 0.8, "starts work before the answer: wrote code"],
-    [`\`/cortex-impact --size\` recommends **single** (provisional).\n\n${QUESTION}`, 0.85, "does not report the team recommendation"],
+    [`\`/change-impact --size\` recommends **single** (provisional).\n\n${QUESTION}`, 0.85, "does not report the team recommendation"],
     [`${REPORT} As you chose earlier, this is a big one.\n\n${QUESTION}`, 0.9, "claims an answer or a question that is not on the page"],
   ];
   for (const [reply, soft, reason] of cases) {

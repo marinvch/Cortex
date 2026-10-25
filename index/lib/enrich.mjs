@@ -379,7 +379,7 @@ export function readEnrichment(root, index, { rootArg = "" } = {}) {
       note:
         `${ENRICHED_REL} does not describe this index — ${why}.\n` +
         `Its summaries are prose about files that may have moved or gone, so they are left off.\n` +
-        `To restore them, enrich against the current index: /cortex-enrich (this costs tokens —\n` +
+        `To restore them, enrich against the current index: /summarize-files (this costs tokens —\n` +
         `re-merging the existing batches would only restamp the old summaries as current).\n`,
     };
   }

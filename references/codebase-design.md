@@ -90,7 +90,7 @@ behind it:
 | **Remote, owned by you** | your own services over the network | put a port at the seam; an in-memory adapter for tests, the network adapter in production |
 | **External** | a payment provider, an SMS gateway | inject a port; tests use a mock adapter |
 
-The report in `/improve-codebase-architecture` tags each candidate with one of these as
+The report in `/architecture-review` tags each candidate with one of these as
 `in-process`, `local-substitutable`, `ports & adapters` or `mock`.
 
 **Replace the old tests; do not stack new ones on them.** Once tests exist at the merged module's

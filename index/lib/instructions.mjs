@@ -2,7 +2,7 @@
 //
 // Claude Code reads AGENTS.md directly only when no CLAUDE.md counts at or above the working
 // directory, and only then does a subdirectory's AGENTS.md load as Claude opens a file there. The
-// shim /cortex-scaffold writes (CLAUDE.md holding `@AGENTS.md`) is a CLAUDE.md that counts, so under
+// shim /write-context-docs writes (CLAUDE.md holding `@AGENTS.md`) is a CLAUDE.md that counts, so under
 // it the scoped briefs are reached through the root's routing table and no other way.
 //
 // That is a fact about the repo and not a finding: the setting that loads both files is read from

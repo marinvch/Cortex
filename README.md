@@ -593,7 +593,9 @@ boundary. **Archiving is not sanitizing.** The product's own history is its git 
 `CHANGELOG.md`.
 
 On a team, what is shared is the target repo's context layer — `AGENTS.md`, `.cortex/memory/` —
-committed with that code. `core/scrub.js` refuses any memory write carrying a credential.
+committed with that code. `core/scrub.js` refuses any memory write carrying a credential. On a
+`work` profile it also refuses personal data, and nothing is pushed or posted except to a
+destination on your company's [approved list](#approved-destinations-on-work).
 
 ### What Cortex runs, sends and fetches
 

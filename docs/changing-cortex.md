@@ -111,6 +111,11 @@ before overturning one; the line here is the trigger, not the case.
 - **`lab` refusing nothing and publishing nothing is ONE decision, stored as one policy object.** A
   profile that refused nothing locally and still pushed would be a way to switch the firewall off
   and keep leaking. If you add a fourth profile, decide both halves together.
+- **Every outward call goes through `assertDestination` (`core/destinations.js`) before it starts,
+  and a new outward path must too.** A push, pull, clone, tracker request or API call takes the
+  profile's policy as a required option; the shell half asks `tools/cortex-destinations.mjs`. On
+  `work` an unapproved host is refused and the local work is kept.
+  [ADR 0030](adr/0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md).
 - **Skills are per-repo; rituals are per-machine — `/cortex-skills` writes the first kind.** What it
   writes is `.claude/skills/` in the *target*, committed with that code and chosen from
   `index.stack`. Add a new candidate as a declarative row with its own `when()` in

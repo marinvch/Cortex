@@ -22,7 +22,9 @@ node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-preflight.mjs"
 A team-brain is pushed, so the profile line matters more here than anywhere else: `lab` seals
 outward sync entirely and this ritual has nothing to do on it. On `home` or `work`, the profile also
 tells you which world's material may land in the shared repo — see `/cortex-profile` if the answer
-is not obvious for this machine.
+is not obvious for this machine. On `work`, the team-brain remote must be on the company's approved
+list or nothing is cloned or pushed; check it first with
+`node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-destinations.mjs" check git <git-url>`.
 
 ## What to do
 

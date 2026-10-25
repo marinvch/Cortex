@@ -95,6 +95,9 @@ repo's. Add any of these flags to the command in step 1:
   an employer's repo on a public forge passes it, and the firewall still forbids it. A file that
   was not refused is not cleared, so ask where a link you are unsure of belongs.
 - On `lab` the file is committed in the local clone and not pushed.
+- **On `work` the team-brain remote must be on the company's approved list**, or the clone is
+  refused and nothing is joined: check it with
+  `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-destinations.mjs" check git <team-brain-url>`.
 
 `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" project list` prints every project the brain knows, and
 `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" project check` validates the team's files and exits 1 on

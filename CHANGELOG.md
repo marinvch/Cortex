@@ -5,6 +5,21 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Added
+
+- **A plan for porting Graphify's graph into Cortex.** The design spec,
+  `docs/specs/2026-10-25-graph-port-design.md`, covers:
+  - clusters of files that form one feature;
+  - hubs, unexpected links between distant code, and cycles;
+  - a `graph` MCP tool;
+  - functions and calls through tree-sitter;
+  - a confidence label on every edge.
+
+  [ADR 0029](docs/adr/0029-code-parsers-are-an-add-on-the-user-installs.md) amends ADR 0004. Code
+  parsers may run as an add-on the user installs, checked against pinned hashes. The shipped tree
+  still imports nothing. `THIRD_PARTY_NOTICES.md` carries Graphify's Apache-2.0 notice, and its
+  licence is in `LICENSES/`.
+
 ### Fixed
 
 - **The README's "What Cortex runs, sends and fetches" names `tools/server/cortex-cron.sh`.** That

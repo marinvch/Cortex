@@ -662,7 +662,7 @@ test("the Structure tab names what is missing and the command that writes it", (
   }), "/tmp/x"));
   const s = page.html("spane");
   assert.match(s, /no root AGENTS\.md/);
-  assert.match(s, /\/cortex-brief src\//, "an area the report would propose names the command");
+  assert.match(s, /\/write-area-brief src\//, "an area the report would propose names the command");
   assert.match(s, /no CONTEXT\.md/);
 });
 
@@ -670,7 +670,7 @@ test("a small area is covered by the brief above it, and is not sent to /write-a
   // Three files: under the threshold. A dashed box with a command in it is an instruction, and the
   // tab used to give it for every area with code — one-file directories included.
   const s = runOverview(buildView(idx(), "/tmp/x")).html("spane");
-  assert.doesNotMatch(s, /\/cortex-brief src\//);
+  assert.doesNotMatch(s, /\/write-area-brief src\//);
   assert.match(s, /too small to need its own brief/);
 });
 

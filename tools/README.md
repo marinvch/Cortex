@@ -357,7 +357,7 @@ maintained list would be a second copy, which is the failure it exists to catch.
 ```bash
 node tools/cortex-skill-graph.mjs               # in/out counts, plus anything stranded
 node tools/cortex-skill-graph.mjs --check       # exit 1 if a ritual is isolated both ways
-node tools/cortex-skill-graph.mjs cortex-brief  # one ritual's neighbourhood
+node tools/cortex-skill-graph.mjs write-area-brief  # one ritual's neighbourhood
 ```
 
 Isolated in one direction is normal — a router is nearly all outbound, a shared discipline nearly

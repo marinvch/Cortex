@@ -601,7 +601,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
         stamped += 1;
       }
       const steps = Object.values(parseYaml(readFileSync(wfPath, "utf8")).jobs ?? {}).flatMap((j) => j.steps ?? []);
-      const step = steps.find((s) => /review-change\.mjs/.test(s.run ?? ""));
+      const step = steps.find((s) => /cortex-review\.mjs/.test(s.run ?? ""));
       if (!step) throw new Error(`${basename(wfPath)} names cortex-review but no step runs cortex-review.mjs`);
 
       const base = git(r.clone, ["rev-parse", "HEAD"]).trim();

@@ -455,7 +455,7 @@ test("an oversized root with nowhere left to cut offers nothing, and says what t
 
   assert.ok(f, "the measurement still stands — the root really is too long");
   assert.equal(offerOf(f), null, "but a remedy with no candidate is not offered");
-  assert.match(f.detail, /optimize-context/, "the reader is still told what to run");
+  assert.match(f.detail, /trim-agent-docs/, "the reader is still told what to run");
   assert.match(f.detail, /nothing left to split out/, "and why cutting a leaf is not it");
 
   // The whole point: the wizard's script must not contain a step with nothing to choose between.

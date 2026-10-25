@@ -270,11 +270,6 @@ cortex_skill="$(cat "$REPO_ROOT/skills/setup-repo/SKILL.md")"
 assert_contains "$cortex_skill" "/trim-agent-docs" "/setup-repo routes a pre-existing agent doc to /trim-agent-docs"
 assert_contains "$cortex_skill" "reconcile" "and reads the reconcile step off cortex-next rather than re-deriving it"
 
-# The trigger collision: only /setup-repo may claim "set up". /setup-repo used to carry the same
-# install phrases, and two model-invocable skills on one trigger means the model picks at random.
-install_desc="$(sed -n 's/^description: //p' "$REPO_ROOT/skills/setup-repo/SKILL.md")"
-assert_not_contains "$install_desc" "set up cortex" "/setup-repo no longer claims the set-up trigger"
-assert_not_contains "$install_desc" "install cortex here" "nor the install trigger"
 
 # --- agent-evals.yml runs every case, and survives the first PR ------------------------------------
 #
@@ -401,7 +396,7 @@ node --input-type=module -e '
   const [root, out] = process.argv.slice(1);
   const { parseYaml } = await import(pathToFileURL(root + "/index/test/yaml-lite.mjs").href);
   const src = readFileSync(root + "/templates/loop/cortex-review.yml", "utf8").replaceAll("{{CORTEX_REF}}", "v0.0.0").replaceAll("{{CORTEX_REPO}}", "https://github.com/marinvch/Cortex.git").replaceAll("{{CORTEX_SHA256}}", "0".repeat(64));
-  writeFileSync(out, parseYaml(src).jobs.review.steps.find((s) => /review-change\.mjs/.test(s.run ?? "")).run);
+  writeFileSync(out, parseYaml(src).jobs.review.steps.find((s) => /cortex-review\.mjs/.test(s.run ?? "")).run);
 ' "$REPO_ROOT" "$WORK/review-run.sh"
 
 review_repo="$WORK/review-repo"

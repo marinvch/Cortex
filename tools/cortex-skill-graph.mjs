@@ -4,7 +4,7 @@
 //   node tools/cortex-skill-graph.mjs                # the graph, plus the isolates
 //   node tools/cortex-skill-graph.mjs --check        # exit 1 if a ritual is isolated both ways
 //   node tools/cortex-skill-graph.mjs --json         # for a ritual to walk
-//   node tools/cortex-skill-graph.mjs cortex-brief   # one ritual's neighbourhood
+//   node tools/cortex-skill-graph.mjs write-area-brief   # one ritual's neighbourhood
 //
 // The failure this catches has no error state. A ritual nothing points at still works when you type
 // its name — it is simply never *reached*, so the user has to already know it exists. /join-team sat

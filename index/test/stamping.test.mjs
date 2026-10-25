@@ -86,7 +86,7 @@ test("every checkout in a stamped workflow persists no credentials", () => {
 // repo's formatter" needs the repo's command and the list of files just written, so it is a step each
 // writing ritual must carry — and the first real install showed what happens when none does.
 
-const WRITERS = ["cortex", "cortex-scaffold", "cortex-brief", "cortex-skills"];
+const WRITERS = ["setup-repo", "write-context-docs", "write-area-brief", "suggest-skills"];
 
 test("every ritual that writes into a target repo formats exactly what it wrote, then runs the repo's check", () => {
   for (const name of WRITERS) {
@@ -198,7 +198,7 @@ test("the scaffold and /setup-repo agree about what CLAUDE.md holds", () => {
 test("every ritual that names the ADR directory knows it may be adr/", () => {
   // Hard-coding docs/adr/ publishes ADRs on a repo whose docs/ is a site. Where a writing ritual
   // names the location, it must name the alternative too.
-  for (const name of ["cortex-scaffold", "cortex", "cortex-install"]) {
+  for (const name of ["write-context-docs", "setup-repo"]) {
     const body = read(`skills/${name}/SKILL.md`);
     assert.match(body, /`adr\/`/, `${name} names docs/adr/ and never adr/`);
   }

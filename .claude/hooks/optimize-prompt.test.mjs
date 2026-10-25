@@ -124,7 +124,7 @@ test('shouldBypass: a 200KB whitespace-poor paste bypasses quickly via the lengt
 test('buildDirective names the skill and reports the score', () => {
   const d = buildDirective(4);
   assert.match(d, /4\/5/);
-  assert.match(d, /skills\/optimize-prompt\/SKILL\.md/);
+  assert.match(d, /skills\/clarify-request\/SKILL\.md/);
   assert.match(d, /docs\/prompts\//);
 });
 
@@ -277,7 +277,7 @@ test('"yes" opens a reply whatever follows it; "ok" and "sure" still need a verb
 test('verbs match inflected; a ritual named mid-sentence counts as a component', () => {
   assert.equal(scoreVagueness('merged it'), scoreVagueness('merge it'));
   assert.ok(scoreVagueness('run /merge-work on this') < scoreVagueness('run the thing on this'));
-  assert.ok(scoreVagueness('use cortex-review here') < scoreVagueness('use the review here'));
+  assert.ok(scoreVagueness('use review-change here') < scoreVagueness('use the review here'));
 });
 
 test('skills/clarify-request/SKILL.md lists every word the hook scores on', () => {

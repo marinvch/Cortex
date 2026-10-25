@@ -187,9 +187,9 @@ test("the Structure tab counts, routes and tests areas the way the rest of Corte
 
   const s = runOverview(view).html("spane");
   assert.match(s, /1 has a scoped brief/, "one scoped brief exists, so one is counted");
-  assert.doesNotMatch(s, /\/cortex-brief root\//);
-  assert.doesNotMatch(s, /\/cortex-brief \.claude\//);
-  assert.match(s, /\/cortex-brief src\//);
+  assert.doesNotMatch(s, /\/write-area-brief root\//);
+  assert.doesNotMatch(s, /\/write-area-brief \.claude\//);
+  assert.match(s, /\/write-area-brief src\//);
   assert.doesNotMatch(s, /no docs\/adr\//, "the directory is drawn as present");
   assert.doesNotMatch(s, /no tests found/, "the old directory-listing wording is gone");
   // The Areas tab reads the same brief answer, rather than a path suffix test of its own.

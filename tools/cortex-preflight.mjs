@@ -165,8 +165,8 @@ if (asJson) {
 const KINDS = {
   "cortex-source": "Cortex's own source — /audit-notes and the contributor invariants apply here",
   "cortex-installed": "a repo with Cortex installed — /resume-work names the step it is on",
-  // `/setup-repo`, the front door — not `/setup-repo`, its read half. Preflight is the first thing
-  // `/setup-repo` runs, and it used to tell that very ritual that a different one was the entry point.
+  // `/setup-repo`, the front door. Preflight is the first thing `/setup-repo` runs, and it once told
+  // that very ritual that its read-only half was the entry point.
   uninstalled: "no .cortex/ — /setup-repo is the entry point",
 };
 

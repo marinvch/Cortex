@@ -133,7 +133,7 @@ test("model-invocable descriptions stay short, in total and each, and no two cla
 test("the once-only rituals stay user-invocable only", () => {
   // These are destructive or one-time. The flag is easy to drop in an unrelated frontmatter edit,
   // and nothing else would notice until an agent auto-fired /migrate-legacy-engine on someone's repo.
-  for (const name of ["onboard", "migrate-engine", "team-init", "connect-brain"]) {
+  for (const name of ["personal-setup", "migrate-legacy-engine", "create-team", "connect-mcp"]) {
     const src = readFileSync(join(REPO_ROOT, "skills", name, "SKILL.md"), "utf8");
     assert.match(src, /^disable-model-invocation:\s*true$/m, `${name} must not be model-invocable`);
   }
@@ -148,7 +148,7 @@ test("/setup-repo is model-invocable, and its consent gate is what protects the 
   assert.doesNotMatch(
     src,
     /^disable-model-invocation:\s*true$/m,
-    "cortex-install must stay model-invocable — the consent gate is the control, not the flag",
+    "setup-repo must stay model-invocable — the consent gate is the control, not the flag",
   );
   assert.match(
     src,
@@ -223,7 +223,7 @@ test("/migrate-legacy-engine tells the retired engine's MCP entry from a current
 
 test("no ritual identifies the retired engine by the name `ai-os` alone", () => {
   // /install-project made the same mistake one ritual over, until it was folded into /setup-repo.
-  for (const skill of ["migrate-engine"]) {
+  for (const skill of ["migrate-legacy-engine"]) {
     const src = readFileSync(join(REPO_ROOT, "skills", skill, "SKILL.md"), "utf8");
     assert.doesNotMatch(src, /an `ai-os` entry in `\.mcp\.json`/, `${skill}: say what the entry points at, not what it is called`);
   }
@@ -233,13 +233,19 @@ test("skills referenced by other skills exist", () => {
   // A ritual that hands off to a skill nobody wrote is a broken promise in output users read —
   // exactly how /write-context-docs came to be referenced before it existed.
   const skillsDir = join(REPO_ROOT, "skills");
+  //
+  // 3.0.0 gave every ritual a plain name, so any hyphenated `/command` is checked, not only the
+  // `cortex-*` ones the old names made easy to spot. These are the hyphenated names a skill may
+  // mention that are not Cortex rituals: two skills /suggest-skills writes into a target repo, and
+  // two rituals folded away in 2.42.0 that a skill names so a user typing them lands somewhere.
+  const NOT_RITUALS = new Set(["plan-feature", "investigate-bug", "setup-plugins", "install-project"]);
   const present = new Set(readdirSync(skillsDir).filter((n) => statSync(join(skillsDir, n)).isDirectory()));
   const missing = new Set();
   for (const name of present) {
     const src = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
-    for (const m of src.matchAll(/`\/(cortex-[a-z-]+|dream|scaffold)`/g)) {
+    for (const m of src.matchAll(/`\/([a-z]+(?:-[a-z]+)+)`/g)) {
       const ref = m[1];
-      if (!present.has(ref)) missing.add(`${name} → /${ref}`);
+      if (!present.has(ref) && !NOT_RITUALS.has(ref)) missing.add(`${name} → /${ref}`);
     }
   }
   assert.deepEqual([...missing], []);

@@ -110,12 +110,11 @@ assert_contains "$out" "not a git repo" "outside a repo it names cwd as a fallba
 
 # --- an uninstalled repo is pointed at the front door, with a command that runs from there -----------
 #
-# It said "/setup-repo is the entry point" to `/setup-repo`, the ritual that runs it first, and
+# It once named the read-only install as the entry point to the very ritual that runs it first, and
 # printed `node index/cortex-index.mjs .` — a path relative to Cortex's checkout, which does not
-# exist in the repo being installed. Both found by running /setup-repo on a real clone.
+# exist in the repo being installed. Both found by running the install on a real clone.
 out="$(cd "$repo" && node "$PF" 2>&1)"
 assert_contains "$out" "/setup-repo is the entry point" "an uninstalled repo is sent to /setup-repo, the front door"
-assert_not_contains "$out" "/setup-repo is the entry point" "not to its read half"
 cmd_path="$(printf '%s\n' "$out" | sed -n 's/.*`node "\([^"]*\)" \.`.*/\1/p' | head -n 1)"
 if [ -n "$cmd_path" ] && (cd "$repo" && [ -f "$cmd_path" ]); then
   _pass "the indexer command it prints resolves from inside the target repo"

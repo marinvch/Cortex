@@ -31,7 +31,7 @@ JSON
 init_in "$WORK/current-old-name"
 assert_contains "$out" "cortex-init" "the installer ran"
 assert_not_contains "$out" "Old engine" "a Cortex server registered as ai-os with AI_OS_ROOT is not the old engine"
-assert_not_contains "$out" "migrate-engine" "and the repo is not sent to /migrate-legacy-engine"
+assert_not_contains "$out" "migrate-legacy-engine" "and the repo is not sent to /migrate-legacy-engine"
 
 # --- Cortex's own server, registered under the current name ---
 

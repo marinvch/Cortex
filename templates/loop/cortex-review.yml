@@ -93,7 +93,7 @@ jobs:
           ' "$RUNNER_TEMP/cortex"
       - name: Review the change against this repo's documents
         env:
-          CORTEX: ${{ runner.temp }}/setup-repo
+          CORTEX: ${{ runner.temp }}/cortex
           BASE: ${{ github.event.pull_request.base.sha }}
           BLOCKING: ${{ vars.CORTEX_REVIEW_BLOCKING }}
         run: |

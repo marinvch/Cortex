@@ -1213,7 +1213,7 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   assert.doesNotMatch(verify.run, /BLOCKING/, "a mismatch fails whether or not the review blocks");
   assert.doesNotMatch(stamped, /npm (ci|install)|setup-node/, "nothing is installed: index/ has no dependencies");
 
-  const review = job.steps.find((s) => /review-change\.mjs/.test(s.run ?? ""));
+  const review = job.steps.find((s) => /cortex-review\.mjs/.test(s.run ?? ""));
   assert.equal(review.env?.BASE, "${{ github.event.pull_request.base.sha }}", "the diff is base...head of the PR");
   assert.equal(review.env?.BLOCKING, "${{ vars.CORTEX_REVIEW_BLOCKING }}", "blocking is a repository variable");
   assert.match(review.run, /--since "\$BASE"/);

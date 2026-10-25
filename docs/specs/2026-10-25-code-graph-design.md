@@ -143,6 +143,25 @@ Each piece is one PR. Each merges to `master` unreleased. The release follows th
   - Twenty call edges per repo are opened and checked.
   - Every `extracted` target exists.
   - The installer must refuse a tampered tarball from a fake registry.
+- **As built.** Reading the call edges on four repos changed what counts as a definition, and the
+  rules are in `index/lib/symbols.mjs`'s header.
+  - **Definitions.** A top-level constant holding a function counts whether or not it is exported:
+    without it, the commonest call in a file, to a helper beside it, was unresolved.
+  - **More definitions:**
+    - A constant that renames a function (`export const devtools = devtoolsImpl as Devtools`) is
+      a definition.
+    - So is one built with `Object.assign(fn, …)`. Without the first, zustand's middleware was
+      unreachable; without the second, got's `test` was.
+  - **More calls.** A capitalised JSX element and a `new` count as calls.
+  - **More inferred edges.** A method reached through a class's stated base, one level up, is
+    `inferred`.
+  - **Unresolved calls** are counted by reason: `external`, `local`, `member`, `missing` and
+    `unknown`. A name a barrel re-exports from a package counts as `external`, not `missing`.
+  - **The index** says `parser` at the top level, as ADR 0029 asks, and `symbols.parser` repeats it.
+  - **The cache key** also carries a digest of the extractor's source, so an edit to it cannot
+    reuse an old extraction.
+  - **`INDEX_VERSION` stays 2.** `symbols` and `parser` are fields a reader may ignore, and no
+    existing field changed meaning.
 
 ### G5 — Symbols in use
 

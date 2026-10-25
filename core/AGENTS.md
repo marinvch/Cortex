@@ -139,6 +139,22 @@ here, which is why the directory is small and stays small.
   - Everything here is re-exported by the `index/` module that used to hold it, so `index/` still
     asks its own modules. Do not import these from `index/` callers directly.
 
+- **`parser-lock.js` is what the parser add-on is, for its installer and its loader** (G4,
+  [ADR 0029](../docs/adr/0029-code-parsers-are-an-add-on-the-user-installs.md)).
+  `tools/cortex-parsers.mjs` installs and `index/lib/parsers.mjs` loads, and neither may import the
+  other. The rules it keeps:
+  - **The digest is of the lock's meaning**: sha256 of the parsed lock with sorted keys, so a CRLF
+    checkout names the same `~/.cortex/parsers/<digest>/`. Any edit to the lock moves the directory,
+    so an install from another lock is never loaded.
+  - **`lockProblems` is checked before anything trusts the lock**: exact versions, an https
+    registry origin, a tarball URL that names that package and version on it, sha512 integrity,
+    and file paths with no dot segments, each with a sha256.
+  - **`verifyInstall` hashes every file the lock names** and answers `absent`, `partial`,
+    `mismatch` or `ok`. Only `ok` may be loaded. It checks against the lock, never against a
+    manifest the installer wrote.
+  - It never reads the lock's path itself: the caller passes it, because the lock lives in
+    `index/` and `core/` names no leaf.
+
 - **`claude-code.js` is data, not policy code.** Anthropic's Claude Code rules, each with the
   sentence on its source page that states it. Checkers read values from it and never hard-code a
   limit. It holds no I/O and must stay that way — the fetching lives in

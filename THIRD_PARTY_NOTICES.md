@@ -48,41 +48,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## Graphify — Apache-2.0
-
-Cortex's graph analysis ports methods from [Graphify](https://github.com/Graphify-Labs/graphify),
-read at commit `92741d1`. Graphify is Python and Cortex is Node, so nothing is copied verbatim.
-What is adapted is the method, its constants and its labels, listed in
-[`docs/specs/2026-10-25-graph-port-design.md`](docs/specs/2026-10-25-graph-port-design.md). Each
-file below names the Graphify module it follows in its header, and says what Cortex changed. The
-main change is that every step is deterministic, with no random seed.
-
-| File | Adapted from |
-|---|---|
-| `index/lib/clusters.mjs` | `graphify/cluster.py` |
-| `index/lib/graph-report.mjs` | `graphify/analyze.py` |
-| `mcp/lib/graph.js` | `graphify/serve.py` (the tool set) |
-| `index/lib/symbols.mjs` | `graphify/extract.py` and `graphify/extractors/` |
-
-These files arrive one PR at a time, in the order the spec gives. Graphify's licence is in
-[`LICENSES/graphify-Apache-2.0.txt`](LICENSES/graphify-Apache-2.0.txt). Its NOTICE file reads:
-
-```text
-Graphify
-Copyright 2026 Safi Shamsi and the Graphify contributors.
-
-This product is licensed under the Apache License, Version 2.0 (see LICENSE).
-
-Portions of this software were contributed under the MIT License prior to the
-relicensing and remain available under those terms. The original MIT license
-text is retained in LICENSE-MIT.
-```
-
-The optional code parsers ([ADR 0029](docs/adr/0029-code-parsers-are-an-add-on-the-user-installs.md))
-are not part of Cortex. `tools/cortex-parsers.mjs install` downloads them to your machine on
-request: `web-tree-sitter` and the tree-sitter grammar packages, each MIT-licensed by its
-authors. Their licences ship inside the packages it downloads.
-
 ## Anthropic documentation — quoted, not licensed here
 
 `core/claude-code.js` holds, for each Claude Code rule Cortex checks, an `evidence` string: a short

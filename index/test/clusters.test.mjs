@@ -194,6 +194,17 @@ test("a loose cluster is fifty files or more with cohesion under 0.05", () => {
   const dense = { n: 400, nbr: lists.map((l) => Int32Array.from(l.sort((a, b) => a - b))) };
   assert.ok(cohesionOf(dense, members) >= 0.05);
   assert.equal(splitReason(dense, members), null, "cohesion at or over the line is not loose");
+  // 162 of 81 files' 3,240 pairs is exactly 0.05, and on the line is not under it.
+  const exact = Array.from({ length: 400 }, () => []);
+  made = 0;
+  for (let i = 0; i < 81 && made < 162; i++) for (let j = i + 1; j < 81 && made < 162; j++) {
+    exact[i].push(j);
+    exact[j].push(i);
+    made++;
+  }
+  const onLine = { n: 400, nbr: exact.map((l) => Int32Array.from(l.sort((a, b) => a - b))) };
+  assert.equal(cohesionOf(onLine, range(81)), 0.05);
+  assert.equal(splitReason(onLine, range(81)), null);
   // And 61 pairs is under it: the same fifty files are loose.
   const less = lists.map((l) => [...l]);
   less[0].pop();

@@ -11,7 +11,7 @@
 import { basename, resolve } from "node:path";
 import { homedir } from "node:os";
 import { codeCoverage } from "./findings.mjs";
-import { briefCandidates, TOOLING_DIRS } from "./layers.mjs";
+import { briefCandidates, layerKeyFor, TOOLING_DIRS } from "./layers.mjs";
 import { findOrphans } from "./orphans.mjs";
 import { ADR_DIRS, isAdrRecord } from "./adr.mjs";
 
@@ -31,10 +31,11 @@ const GREY = "#8b97ab";
 
 const CATEGORY_SHAPE = { code: "dot", docs: "square", config: "diamond", script: "triangle", other: "dot" };
 
-function areaOf(path) {
-  const cut = path.indexOf("/");
-  return cut === -1 ? "(root)" : path.slice(0, cut);
-}
+// A file's area is the one `index.areas` puts it in, so the Map, the Overview and the Areas tab
+// count one thing. The Map keyed on the first path segment instead: it listed 8 areas on this repo
+// beside an Overview that said 16, folded zustand's `src/*` areas into one `src`, and drew every
+// nested area's card grey, because no node carried that area's name.
+const areaOf = layerKeyFor;
 
 // A basename is a useless label when the convention is `index.*`: a React app drew a dozen nodes all
 // reading "index.jsx" and the map became unreadable. Barrel and route files get their directory,
@@ -202,6 +203,18 @@ function buildStructure(files, areas, colorOf, { tested, labels }) {
   };
 }
 
+// What the Map never names: a test, and a file that exists to serve tests. `isTestPath` rightly
+// keeps `src/testing/test-utils.tsx` and `tests/helpers.ts` out of the test count, since they hold
+// no test, but on bulletproof-react the first was among the most-imported files and took a label
+// meant for the code a reader came to find. This decides a label, never coverage.
+const TEST_SUPPORT_DIR = /(^|\/)(testing|__mocks__|mocks?|__fixtures__|fixtures?)\//i;
+const TEST_SUPPORT_NAME = /(^|[-_.])(tests?|specs?|fixtures?|mocks?)([-_.]|$)/i;
+function testSupport(f) {
+  if (f.isTest) return true;
+  const base = f.path.slice(f.path.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "");
+  return TEST_SUPPORT_DIR.test(f.path) || TEST_SUPPORT_NAME.test(base);
+}
+
 // Orphans come from lib/orphans.mjs, shared with findings.mjs. There used to be a copy here, and
 // the two would have drifted the moment either learned something — which is exactly what happened
 // when the shared version learned that a file named by an ADR or a shell test is not unreferenced.
@@ -303,6 +316,7 @@ export function buildView(index, root, opts = {}) {
         // not a graph.
         inMap: inMapCategory(f),
         isTest: !!f.isTest,
+        testSupport: testSupport(f),
         isEntry: !!f.isEntry,
         tested: tested.has(f.path),
         out: (f.imports ?? []).length,
@@ -420,6 +434,9 @@ export function buildView(index, root, opts = {}) {
       lines: index.stats?.lines ?? 0,
       edges: index.stats?.edges ?? edges.length,
       mapFiles: mapIds.size,
+      // Of `areas.length` (the Overview's count, every area in the index), how many hold a file the
+      // Map draws. The rest hold only docs or config.
+      mapAreas: mapAreas.length,
       mapEdges: links.filter((l) => mapIds.has(l.source) && mapIds.has(l.target)).length,
       tests: index.stats?.tests ?? 0,
       // Coverage as a share of the code that COULD have a test — tests themselves and docs are not

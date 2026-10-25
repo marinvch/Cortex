@@ -6,8 +6,9 @@
 //   node index/cortex-view.mjs . --json     # the view data, for something else to render
 //
 // Seven tabs: Overview (vitals, the import graph as a particle cloud, next steps, timeline), Map
-// (files laid out by import depth), Structure (the context layer as a tree), Files (every file with
-// who imports it), Areas, Gaps (orphans, cycles, untested hot spots), Next steps (the sequence).
+// (files in one box per cluster, area or import depth), Structure (the context layer as a tree),
+// Files (every file with who imports it), Areas, Gaps (orphans, cycles, untested hot spots), Next
+// steps (the sequence).
 // No server, no CDN, no runtime — the data is inlined, so the file works offline and
 // copies anywhere.
 //

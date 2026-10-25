@@ -113,7 +113,7 @@ detect_engine(){ local m=()
   printf '%s\n' "${m[@]}"; }
 ENGINE_FOUND=0; ENGINE_LIST="$(detect_engine | grep -v '^$' || true)"
 if [ -n "$ENGINE_LIST" ]; then ENGINE_FOUND=1
-  say "  ⚠ Old engine-based AI OS detected in this repo:"
+  say "  Warning: old engine-based AI OS detected in this repo:"
   printf '%s\n' "$ENGINE_LIST" | sed 's/^/     - /'
   say "    To avoid LOSING the engine's accumulated memory, migrate before relying on AGENTS.md:"
   say "      → Open this repo in Claude Code / Cowork and run  /migrate-legacy-engine"
@@ -253,7 +253,7 @@ stamp_plugin_settings(){
          | .enabledPlugins = ((.enabledPlugins // {}) * $pl)' \
         "$abs" 2>/dev/null)"
       if [ -z "$content" ]; then
-        say "  ⚠ .claude/settings.json exists but isn't valid JSON — left untouched (merge skipped)"
+        say "  Warning: .claude/settings.json exists but isn't valid JSON — left untouched (merge skipped)"
         return
       fi
     else
@@ -292,7 +292,7 @@ fi
 if command -v git >/dev/null 2>&1 && git -C "$CWD" rev-parse >/dev/null 2>&1; then
   IGN="$(git -C "$CWD" check-ignore "${WRITTEN[@]}" 2>/dev/null || true)"
   if [ -n "$IGN" ]; then
-    say ""; say "  ⚠ These generated files are gitignored — teammates won't get them on clone:"
+    say ""; say "  Warning: these generated files are gitignored — teammates won't get them on clone:"
     printf '%s\n' "$IGN" | sed 's/^/     - /'
     say "     Remove the ignore rule, or commit with: git add -f"
   fi
@@ -307,7 +307,7 @@ if [ -n "$REGISTER" ]; then
     printf -- "---\ntype: project\ntitle: %s\nstatus: active\nstack: %s, %s, %s\npath: %s\ncreated: %s\ntags: [project, registered]\n---\n\n> Metadata-only stub registered by cortex-init on %s. No code, secrets, or client data.\n" \
       "$NAME" "$FW" "$LANG" "$PM" "$CWD" "$TODAY" "$TODAY" > "$VROOT/projects/$SLUG.md"
     say ""; say "  ✓ registered (metadata only) → $VROOT/projects/$SLUG.md"
-  else say ""; say "  ⚠ --register-to-vault: vault not found at $VROOT (skipped)."; fi
+  else say ""; say "  Warning: --register-to-vault: vault not found at $VROOT (skipped)."; fi
 fi
 
 # ── 8. done ───────────────────────────────────────────────────────────────────
@@ -320,7 +320,7 @@ if [ $PLUGIN_STAMPED -eq 1 ]; then
   say "  claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier, context7)."
 fi
 if [ $ENGINE_FOUND -eq 1 ]; then
-  say ""; say "  ⚠ Reminder: an old engine is still here. Run /migrate-legacy-engine to rescue its"
+  say ""; say "  Reminder: an old engine is still here. Run /migrate-legacy-engine to rescue its"
   say "    memory into AGENTS.md before removing it — otherwise that knowledge is lost."
 fi
 say ""

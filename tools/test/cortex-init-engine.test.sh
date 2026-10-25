@@ -30,7 +30,7 @@ cat > "$WORK/current-old-name/.mcp.json" <<'JSON'
 JSON
 init_in "$WORK/current-old-name"
 assert_contains "$out" "cortex-init" "the installer ran"
-assert_not_contains "$out" "Old engine" "a Cortex server registered as ai-os with AI_OS_ROOT is not the old engine"
+assert_not_contains "$out" "old engine-based" "a Cortex server registered as ai-os with AI_OS_ROOT is not the old engine"
 assert_not_contains "$out" "migrate-legacy-engine" "and the repo is not sent to /migrate-legacy-engine"
 
 # --- Cortex's own server, registered under the current name ---
@@ -40,7 +40,7 @@ cat > "$WORK/current-new-name/.mcp.json" <<'JSON'
 { "mcpServers": { "cortex": { "command": "node", "args": ["/opt/cortex/mcp/server.js"], "env": { "CORTEX_ROOT": "/home/dev/vault" } } } }
 JSON
 init_in "$WORK/current-new-name"
-assert_not_contains "$out" "Old engine" "a server registered as cortex with CORTEX_ROOT is not the old engine"
+assert_not_contains "$out" "old engine-based" "a server registered as cortex with CORTEX_ROOT is not the old engine"
 
 # --- the retired engine's entry ---
 
@@ -49,7 +49,7 @@ cat > "$WORK/engine-entry/.mcp.json" <<'JSON'
 { "mcpServers": { "ai-os": { "command": "node", "args": [".ai-os/mcp-server/dist/index.js"] } } }
 JSON
 init_in "$WORK/engine-entry"
-assert_contains "$out" "Old engine" "an entry that runs out of .ai-os/ is the old engine"
+assert_contains "$out" "old engine-based" "an entry that runs out of .ai-os/ is the old engine"
 assert_contains "$out" "MCP entry" "and the list names the MCP entry"
 assert_contains "$out" "/migrate-legacy-engine" "and points at the ritual that harvests it"
 
@@ -73,4 +73,4 @@ assert_contains "$out" "MCP entry" "what marks the engine is the .ai-os/ path, w
 
 proj plain
 init_in "$WORK/plain"
-assert_not_contains "$out" "Old engine" "a repo with no MCP config reports no engine"
+assert_not_contains "$out" "old engine-based" "a repo with no MCP config reports no engine"

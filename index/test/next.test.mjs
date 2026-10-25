@@ -36,11 +36,11 @@ test("a bare repo starts at step one", () => {
   const plan = nextSteps(root);
   assert.equal(plan.next.id, "index");
   assert.equal(plan.done, 0);
-  // `/cortex`, not `/cortex-install`. The sequence is what a user gets walking it one command at a
+  // `/setup-repo`, not a sub-step. The sequence is what a user gets walking it one command at a
   // time; the front door exists so they do not have to, and one run of it satisfies index through
   // skills. Naming the sub-step here would send someone who asked "what now" back to the menu.
-  assert.match(nextLine(root), /\/cortex\b/);
-  assert.doesNotMatch(nextLine(root), /cortex-install/);
+  assert.match(nextLine(root), /\/setup-repo\b/);
+  assert.doesNotMatch(nextLine(root), /\/write-context-docs/);
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -119,7 +119,7 @@ test("once the context layer exists, an old AGENTS.md is Cortex's own and not a 
   rmSync(root, { recursive: true, force: true });
 });
 
-// --- /migrate-engine step 1 reads this state rather than scanning by hand (#548, item 13) ---------
+// --- /migrate-legacy-engine step 1 reads this state rather than scanning by hand (#548, item 13) ---------
 //
 // The ritual tells its reader to take `state.legacyEngine` as the answer for the engine's two
 // directories and to scan by hand only for the rest. That is a promise about this module made in
@@ -142,8 +142,8 @@ test("the state names each engine directory that exists, and nothing when there 
   rmSync(both, { recursive: true, force: true });
 });
 
-test("/migrate-engine step 1 cites the key this state returns and every directory it looks for", () => {
-  const skill = readFileSync(fileURLToPath(new URL("../../skills/migrate-engine/SKILL.md", import.meta.url)), "utf8");
+test("/migrate-legacy-engine step 1 cites the key this state returns and every directory it looks for", () => {
+  const skill = readFileSync(fileURLToPath(new URL("../../skills/migrate-legacy-engine/SKILL.md", import.meta.url)), "utf8");
   const step1 = skill.slice(skill.indexOf("## Step 1 "), skill.indexOf("## Step 2 "));
   assert.ok(step1.length > 200, "step 1 was found");
   assert.match(step1, /cortex-next\.mjs" \. --json/, "it runs the command that prints the state");
@@ -182,7 +182,7 @@ test("a hand-written copilot-instructions beside the context layer is offered fo
   const plan = nextSteps(root);
   const step = plan.steps.find((s) => s.id === "reconcile");
   assert.ok(step, "the step is there although CONTEXT.md exists");
-  assert.equal(step.cmd, "/optimize-context", "the ritual that never deletes prose without a yes");
+  assert.equal(step.cmd, "/trim-agent-docs", "the ritual that never deletes prose without a yes");
   assert.equal(step.done, false);
   assert.match(step.why, /\.github\/copilot-instructions\.md/, "it names the file");
   assert.match(step.why, /AGENTS\.md/);
@@ -279,7 +279,7 @@ test("a finished repo reports complete and names the per-change rituals", () => 
   const plan = nextSteps(root);
   assert.equal(plan.complete, true);
   assert.equal(plan.next, null);
-  assert.match(nextLine(root), /cortex-review/);
+  assert.match(nextLine(root), /review-change/);
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -409,11 +409,11 @@ test("a memory directory holding only a stray file has not been started", () => 
   rmSync(root, { recursive: true, force: true });
 });
 
-// --- the second round: what one /cortex pass cannot close -----------------------------------------
+// --- the second round: what one /setup-repo pass cannot close -----------------------------------------
 //
-// evals and bands are blocked until /cortex writes CLAUDE.md and REVIEW.md, so they only become
+// evals and bands are blocked until /setup-repo writes CLAUDE.md and REVIEW.md, so they only become
 // `missing` AFTER the pass that could have written them — and then each waits on history a second
-// pass cannot invent. The loop row used to answer that with "Next → /cortex", again and forever, on
+// pass cannot invent. The loop row used to answer that with "Next → /setup-repo", again and forever, on
 // a real install (pmndrs/zustand) whose owner had rightly deferred bands for want of a metric.
 
 function servedFirstPass({ put }) {
@@ -433,18 +433,18 @@ function servedFirstPass({ put }) {
   put(".github/workflows/cortex-review.yml", "name: cortex-review\njobs:\n  review:\n    steps:\n      - run: node \"$CORTEX/index/cortex-review.mjs\" --since \"$BASE\"\n");
 }
 
-test("after the first pass, next names /cortex evals — not /cortex again", () => {
+test("after the first pass, next names /setup-repo evals — not /setup-repo again", () => {
   const root = repo(servedFirstPass);
   const plan = nextSteps(root);
   const loop = plan.steps.find((s) => s.id === "loop");
   assert.equal(loop.done, true, "everything one pass can write is written");
   assert.match(loop.why, /wait on history/);
   assert.equal(plan.next.id, "evals");
-  assert.equal(plan.next.cmd, "/cortex evals");
+  assert.equal(plan.next.cmd, "/setup-repo evals");
   assert.match(plan.next.why, /task history/, "it says what it is waiting for");
-  assert.match(nextLine(root), /^Next → \/cortex evals /);
+  assert.match(nextLine(root), /^Next → \/setup-repo evals /);
   const bands = plan.steps.find((s) => s.id === "bands");
-  assert.equal(bands.cmd, "/cortex bands");
+  assert.equal(bands.cmd, "/setup-repo bands");
   assert.equal(bands.optional, true, "a repo with no production metric is finished without bands");
   rmSync(root, { recursive: true, force: true });
 });
@@ -500,8 +500,8 @@ test("a team section an earlier release wrote is a required row; one the team ed
   const outdated = withSection(renderTemplate(OLD, roster));
   const r = row(outdated);
   assert.ok(r, "an outdated section is a row");
-  assert.equal(r.optional, false, "required: a /cortex pass has a decision to make");
-  assert.equal(r.cmd, "/cortex");
+  assert.equal(r.optional, false, "required: a /setup-repo pass has a decision to make");
+  assert.equal(r.cmd, "/setup-repo");
   assert.match(r.why, /CLAUDE\.md § Working as a team is Cortex 2\.41\.0's text/);
   assert.match(r.why, /cortex-section\.mjs \./);
 
@@ -530,7 +530,7 @@ test("with a real eval case written and bands deferred, the sequence ends", () =
   rmSync(root, { recursive: true, force: true });
 });
 
-test("before the first pass, the second-round rows do not appear — /cortex reaches them itself", () => {
+test("before the first pass, the second-round rows do not appear — /setup-repo reaches them itself", () => {
   const root = repo(({ put }) => {
     put(".cortex/index/index.json", INDEX);
     put(".cortex/findings/2026-01-01.md");
@@ -561,7 +561,7 @@ test("a skill the repo contradicts gets its own row, and a clean one adds nothin
   const row = nextSteps(root, index).steps.find((s) => s.id === "skill-drift");
   assert.ok(row, "the drifted skill surfaces");
   assert.equal(row.done, false);
-  assert.equal(row.cmd, "/cortex-skills");
+  assert.equal(row.cmd, "/suggest-skills");
   assert.match(row.why, /^t \(2\) — 2 lines/);
   assert.deepEqual(row.drift[0].findings.map((f) => [f.line, f.kind]), [[6, "path"], [6, "tests"]]);
   assert.equal(nextSteps(root, index).steps.find((s) => s.id === "skills").done, true, "the skill still exists");
@@ -608,7 +608,7 @@ test("a stamped file behind this release's template is a required row, and it cl
   assert.ok(row, "the out-of-date file surfaces");
   assert.equal(row.done, false);
   assert.ok(!row.optional, "an update is a fix not applied — it holds the sequence open");
-  assert.equal(row.cmd, "/cortex");
+  assert.equal(row.cmd, "/setup-repo");
   assert.match(row.why, /1 to update/);
   assert.match(row.why, /cortex-stamps\.mjs \./);
 

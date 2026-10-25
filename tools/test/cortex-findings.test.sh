@@ -1,4 +1,4 @@
-# The findings report is /cortex-install's script, so its ranking is control flow, not presentation.
+# The findings report is /setup-repo's script, so its ranking is control flow, not presentation.
 #
 # index/test/findings.test.mjs covers analyse() and offers() as functions, and
 # tools/test/install-on-a-project.test.sh already proves the pipeline runs on a repo shaped like

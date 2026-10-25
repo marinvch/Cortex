@@ -132,23 +132,23 @@ test("model-invocable descriptions stay short, in total and each, and no two cla
 
 test("the once-only rituals stay user-invocable only", () => {
   // These are destructive or one-time. The flag is easy to drop in an unrelated frontmatter edit,
-  // and nothing else would notice until an agent auto-fired /migrate-engine on someone's repo.
-  for (const name of ["onboard", "migrate-engine", "team-init", "connect-brain"]) {
+  // and nothing else would notice until an agent auto-fired /migrate-legacy-engine on someone's repo.
+  for (const name of ["personal-setup", "migrate-legacy-engine", "create-team", "connect-mcp"]) {
     const src = readFileSync(join(REPO_ROOT, "skills", name, "SKILL.md"), "utf8");
     assert.match(src, /^disable-model-invocation:\s*true$/m, `${name} must not be model-invocable`);
   }
 });
 
-test("/cortex-install is model-invocable, and its consent gate is what protects the repo", () => {
+test("/setup-repo is model-invocable, and its consent gate is what protects the repo", () => {
   // It carried disable-model-invocation alongside the destructive rituals above, with no stated
   // reason — it only reads. The flag was inherited, and it blocked the sequence from ever starting
   // on its own. What protects a repo is not the flag but the gate: nothing is written until the
   // user says yes. See docs/adr/0005-the-install-sequence-may-start-itself.md.
-  const src = readFileSync(join(REPO_ROOT, "skills", "cortex-install", "SKILL.md"), "utf8");
+  const src = readFileSync(join(REPO_ROOT, "skills", "setup-repo", "SKILL.md"), "utf8");
   assert.doesNotMatch(
     src,
     /^disable-model-invocation:\s*true$/m,
-    "cortex-install must stay model-invocable — the consent gate is the control, not the flag",
+    "setup-repo must stay model-invocable — the consent gate is the control, not the flag",
   );
   assert.match(
     src,
@@ -173,18 +173,18 @@ test("/cortex-install is model-invocable, and its consent gate is what protects 
   );
 });
 
-test("/handoff makes its artifact say it is a record, not instructions", () => {
+test("/handover-notes makes its artifact say it is a record, not instructions", () => {
   // The handoff note is written in one session and read whole by a fresh agent in the next, and
   // its content is inherently command-shaped — the skill requires a "suggested skills" section.
-  // "ran /ship on the release branch" reads to a reader with no memory exactly like an instruction
-  // to run /ship; a peer harness shipped that failure and re-ran a recalled command, duplicating
+  // "ran /merge-work on the release branch" reads to a reader with no memory exactly like an instruction
+  // to run /merge-work; a peer harness shipped that failure and re-ran a recalled command, duplicating
   // branches. The fence therefore has to travel INSIDE the artifact, because the artifact is what
   // gets read — a warning living only here in SKILL.md is one the next agent never sees.
   //
   // This is ADR 0016's second case: the promise needs judgment, so it stays prose and the prose is
   // tested. The assertion is on the two properties the frame must carry, not on the sentence's
   // wording, so rephrasing it stays legal and deleting its meaning does not.
-  const src = readFileSync(join(REPO_ROOT, "skills", "handoff", "SKILL.md"), "utf8");
+  const src = readFileSync(join(REPO_ROOT, "skills", "handover-notes", "SKILL.md"), "utf8");
   assert.match(
     src,
     /already happened/i,
@@ -197,13 +197,13 @@ test("/handoff makes its artifact say it is a record, not instructions", () => {
   );
 });
 
-test("/migrate-engine tells the retired engine's MCP entry from a current Cortex registration", () => {
+test("/migrate-legacy-engine tells the retired engine's MCP entry from a current Cortex registration", () => {
   // Cortex's own server was documented under the name `ai-os`, with AI_OS_ROOT, until #552, and
   // this ritual told its reader to remove "the `ai-os` server entry". By name the two are the same
   // entry, so a working brain registration was on the removal list. What marks the engine is where
   // its entry points — the repo's own `.ai-os/` — and that needs a person to read a config, so it
   // stays prose and the prose is tested (ADR 0016). Properties, not wording.
-  const src = readFileSync(join(REPO_ROOT, "skills", "migrate-engine", "SKILL.md"), "utf8");
+  const src = readFileSync(join(REPO_ROOT, "skills", "migrate-legacy-engine", "SKILL.md"), "utf8");
   const section = (n) => src.slice(src.indexOf(`## Step ${n} `), src.indexOf(`## Step ${n + 1} `));
   const detect = section(1);
   const remove = section(5);
@@ -222,8 +222,8 @@ test("/migrate-engine tells the retired engine's MCP entry from a current Cortex
 });
 
 test("no ritual identifies the retired engine by the name `ai-os` alone", () => {
-  // /install-project made the same mistake one ritual over, until it was folded into /cortex.
-  for (const skill of ["migrate-engine"]) {
+  // /install-project made the same mistake one ritual over, until it was folded into /setup-repo.
+  for (const skill of ["migrate-legacy-engine"]) {
     const src = readFileSync(join(REPO_ROOT, "skills", skill, "SKILL.md"), "utf8");
     assert.doesNotMatch(src, /an `ai-os` entry in `\.mcp\.json`/, `${skill}: say what the entry points at, not what it is called`);
   }
@@ -231,15 +231,21 @@ test("no ritual identifies the retired engine by the name `ai-os` alone", () => 
 
 test("skills referenced by other skills exist", () => {
   // A ritual that hands off to a skill nobody wrote is a broken promise in output users read —
-  // exactly how /cortex-scaffold came to be referenced before it existed.
+  // exactly how /write-context-docs came to be referenced before it existed.
   const skillsDir = join(REPO_ROOT, "skills");
+  //
+  // 3.0.0 gave every ritual a plain name, so any hyphenated `/command` is checked, not only the
+  // `cortex-*` ones the old names made easy to spot. These are the hyphenated names a skill may
+  // mention that are not Cortex rituals: two skills /suggest-skills writes into a target repo, and
+  // two rituals folded away in 2.42.0 that a skill names so a user typing them lands somewhere.
+  const NOT_RITUALS = new Set(["plan-feature", "investigate-bug", "setup-plugins", "install-project"]);
   const present = new Set(readdirSync(skillsDir).filter((n) => statSync(join(skillsDir, n)).isDirectory()));
   const missing = new Set();
   for (const name of present) {
     const src = readFileSync(join(skillsDir, name, "SKILL.md"), "utf8");
-    for (const m of src.matchAll(/`\/(cortex-[a-z-]+|dream|scaffold)`/g)) {
+    for (const m of src.matchAll(/`\/([a-z]+(?:-[a-z]+)+)`/g)) {
       const ref = m[1];
-      if (!present.has(ref)) missing.add(`${name} → /${ref}`);
+      if (!present.has(ref) && !NOT_RITUALS.has(ref)) missing.add(`${name} → /${ref}`);
     }
   }
   assert.deepEqual([...missing], []);
@@ -248,7 +254,7 @@ test("skills referenced by other skills exist", () => {
 test("every ritual declares a capability floor", () => {
   // Self-hosted and small-model setups were a stated audience with nothing to consult: a ritual that
   // needs multi-round judgment looked exactly like one that appends a line to a file. The failure is
-  // not a crash — a weak model runs /cortex-enrich and writes plausible, wrong summaries into recall,
+  // not a crash — a weak model runs /summarize-files and writes plausible, wrong summaries into recall,
   // and nobody notices. Declaring the floor is what lets a setup decide before running, rather than
   // discovering afterwards.
   //
@@ -339,8 +345,8 @@ test("a skill invokes Cortex's own scripts through the plugin root, never a repo
 test("every skill that can create .cortex/ states the consent gate", () => {
   // ADR 0005 moved the protection from an invocation flag to "a consent gate on the first write",
   // and says plainly that the missing flag "is only safe while the gate is present". The gate was
-  // written into /cortex-install and nowhere else, while /cortex-brief, /cortex-skills and
-  // /cortex-enrich can all reach that first write on a repo where nothing has run — and one of them
+  // written into /setup-repo and nowhere else, while /write-area-brief, /suggest-skills and
+  // /summarize-files can all reach that first write on a repo where nothing has run — and one of them
   // did, creating .cortex/ on a user who was never asked.
   //
   // The .gitignore half now happens in code (index/lib/generated.mjs), because a machine can be
@@ -369,11 +375,11 @@ test("every skill that can create .cortex/ states the consent gate", () => {
 
 test("the authoring rituals state the official limits, in the official units", async () => {
   // ADR 0017 recorded two drifts: /skill-creator told authors ~500 WORDS where Anthropic's skills
-  // page says 500 LINES, and /writing-for-agents cited only its upstream, never the pages the rules
+  // page says 500 LINES, and /write-agent-docs cited only its upstream, never the pages the rules
   // come from. Both are prose a model reads, so the guarantee is that the prose is there (ADR 0016),
   // with the number and the pages read from core/claude-code.js rather than typed a second time.
   const { RULES, limit } = await import("../claude-code.js");
-  const creator = readFileSync(join(REPO_ROOT, "skills", "writing-for-agents", "NEW-SKILL.md"), "utf8");
+  const creator = readFileSync(join(REPO_ROOT, "skills", "write-agent-docs", "NEW-SKILL.md"), "utf8");
   assert.ok(creator.includes(`${limit("skill.body.max-lines")} **lines**`), "NEW-SKILL.md states the body limit in lines");
   assert.doesNotMatch(creator, /\d+\s+words/i, "and no longer states it in words");
 
@@ -384,12 +390,12 @@ test("the authoring rituals state the official limits, in the official units", a
   // pages say how Claude Code behaves around a document, not how to write one: what the managed
   // Code Review does with REVIEW.md, agent teams, and worktrees. The hooks guide is the hooks
   // reference's walkthrough, and the reference is the page the skill links.
-  const writing = readFileSync(join(REPO_ROOT, "skills", "writing-for-agents", "SKILL.md"), "utf8");
+  const writing = readFileSync(join(REPO_ROOT, "skills", "write-agent-docs", "SKILL.md"), "utf8");
   const pages = [...new Set(RULES.map((r) => r.source))].filter(
     (url) =>
       !/\/(mcp|permission-modes|headless|plugins-reference|plugin-marketplaces|settings|permissions|code-review(-[a-z-]+)?|agent-teams|worktrees|hooks-guide)$/.test(url) &&
       !url.includes("/plugins/"),
   );
   const uncited = pages.filter((url) => !writing.includes(`(${url})`));
-  assert.deepEqual(uncited, [], "/writing-for-agents links every page an authoring rule is vendored from");
+  assert.deepEqual(uncited, [], "/write-agent-docs links every page an authoring rule is vendored from");
 });

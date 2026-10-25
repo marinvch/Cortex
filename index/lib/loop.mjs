@@ -1,8 +1,8 @@
 // Which parts of the AI-native SDLC loop this repo already has, and which it is missing.
 //
-// The install sequence used to be a menu. `/cortex-install` wrote a context layer, `/cortex-skills`
-// wrote skills, `/cortex-brief` wrote leaves, and each of those was a separate command the user had
-// to know to type — which is why `/cortex-next` exists at all. A menu is not an answer, and the
+// The install sequence used to be a menu. `/setup-repo` wrote a context layer, `/suggest-skills`
+// wrote skills, `/write-area-brief` wrote leaves, and each of those was a separate command the user had
+// to know to type — which is why `/resume-work` exists at all. A menu is not an answer, and the
 // eleven-commands-sorted-by-nothing problem was never in the ordering. It was that nothing owned
 // the *shape* a served repo is supposed to end up in.
 //
@@ -14,7 +14,7 @@
 //
 // Declarative for the same reason `offers()` and `SKILL_CANDIDATES` are: every artifact states its
 // own trigger, so the full set is enumerable without reading any bodies and a new one is a row
-// rather than another branch. Rank is control flow — `/cortex` walks this list top-down, so
+// rather than another branch. Rank is control flow — `/setup-repo` walks this list top-down, so
 // re-ranking an artifact changes what the user is offered first, not just a document.
 //
 // What this module does NOT do is write bodies. It names what is missing and cites what it
@@ -31,7 +31,7 @@ import { list as listMemory } from "../../core/memory.js";
 import { sharedPluginStatus, teamServed } from "./shared-plugin.mjs";
 import { TEAM_STAMPS, teamState } from "./team.mjs";
 
-// Where /cortex stamps its verifier. The verifier row stamps it here, and the team row offers the
+// Where /setup-repo stamps its verifier. The verifier row stamps it here, and the team row offers the
 // agent found here the upgrade to the Reviewer (T9) — one location, read by both.
 const VERIFIER_AT = ".claude/agents/verifier.md";
 
@@ -509,7 +509,7 @@ const GENERATED_HINTS = [
 // Rails `db/migrate/*.rb`, Django and Alembic `.py`, Flyway `db/migration/V1__*.sql`), so a file of
 // any other kind proves nothing, and nothing under a docs tree is a migration whatever it holds.
 // pmndrs/zustand keeps two hand-written upgrade guides in `docs/reference/migrations/`; the bare
-// name made /cortex propose a hook refusing edits to them and list them in REVIEW.md's
+// name made /setup-repo propose a hook refusing edits to them and list them in REVIEW.md's
 // do-not-report section.
 const DOCS_TREE = /(^|\/)(docs?|documentation)\//i;
 
@@ -558,7 +558,7 @@ function lockfiles(root, files) {
 
 // The Maven and Gradle wrappers are generated as well: `mvn wrapper:wrapper` and `gradle wrapper`
 // write them, and the next wrapper upgrade overwrites a hand edit. Missing them left every Maven repo
-// reading "no generated paths", so /cortex offered no hook and REVIEW.md named nothing (#482). Found
+// reading "no generated paths", so /setup-repo offered no hook and REVIEW.md named nothing (#482). Found
 // the way lockfiles are, and for the same reason: on DISK, beside a build file, by exact name and
 // kind — the scripts are files, the wrapper homes are directories. `.mvn/` and the wrapper jar are
 // exactly what a walker drops, and a repo is often looked at before it has an index at all.
@@ -713,7 +713,7 @@ export function readLoopState(root, index = null, overrides = {}) {
 // ---------------------------------------------------------------------------
 
 /**
- * Every artifact `/cortex` can stamp. Each row is:
+ * Every artifact `/setup-repo` can stamp. Each row is:
  *   id        — stable key; also the offer key the ritual records a yes/no against
  *   stage     — which of the six stages it belongs to
  *   title     — one line, shown in the offer
@@ -834,7 +834,7 @@ export const LOOP_ARTIFACTS = [
     // playbook's own (templates/team/playbook.md), and loop.test.mjs fails if they part.
     effect:
       'Every later session in this repo stops before a task that changes code, says what ' +
-      '`/cortex-impact --size` recommends, asks "Single agent or team?", and plans or edits nothing ' +
+      '`/change-impact --size` recommends, asks "Single agent or team?", and plans or edits nothing ' +
       "until you answer. Deleting the CLAUDE.md section undoes it.",
     brief:
       "Ask per role, never as one bundle: every role in state.agentTeam.offer is its own yes/no (T4). " +
@@ -1046,8 +1046,8 @@ export const LOOP_ARTIFACTS = [
 
 /**
  * Every whole file a loop row stamps, as `{ path, template, row }`, in rank order. One list, read by
- * the stamp record's adoption (`stamps.mjs`) and pinned to the /cortex skill's table by a test, so
- * "where does /cortex put verifier.md" has one answer.
+ * the stamp record's adoption (`stamps.mjs`) and pinned to the /setup-repo skill's table by a test, so
+ * "where does /setup-repo put verifier.md" has one answer.
  */
 export const LOOP_STAMPS = [...LOOP_ARTIFACTS]
   .sort((a, b) => a.rank - b.rank || a.id.localeCompare(b.id))
@@ -1058,7 +1058,7 @@ export const LOOP_STAMPS = [...LOOP_ARTIFACTS]
 // ---------------------------------------------------------------------------
 
 /**
- * What `/cortex` would offer this repo, ranked.
+ * What `/setup-repo` would offer this repo, ranked.
  *
  * Three buckets, and the distinction matters to the ritual: `missing` is the worklist, `present` is
  * what to report as already served, and `blocked` is an artifact whose prerequisite is absent. A
@@ -1093,7 +1093,7 @@ export function loopPlan(root, index = null, overrides = {}) {
       needs: unmet(row, s),
       // The paths Claude Code will not let an unattended run write. Under `claude -p` a write to
       // .claude/ is refused and no allow rule changes that (core/claude-code.js,
-      // permission.protected-path.*), so a headless /cortex that stamped everything else still
+      // permission.protected-path.*), so a headless /setup-repo that stamped everything else still
       // leaves these rows missing. Carried here so the ritual can tell that apart from a user who
       // declined the row, and say what to allow, instead of reporting a write that never landed.
       protectedWrites: row.paths.filter(protectedClaudePath),

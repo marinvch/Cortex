@@ -449,7 +449,7 @@ function status(){const bar=$('ovbar');
     ?st(m.lagDays>7?'warn':'ok',m.lagDays===null?'Memory: last written '+m.newest
       :m.lagDays===0?'Memory: current with the code':'Memory: '+plural(m.lagDays,'day')+' behind the code',
       'newest entry '+m.newest+' · '+plural(m.days,'day')+' of entries')
-    :st('','Memory: none written yet','/dream writes the first entry to .cortex/memory/');
+    :st('','Memory: none written yet','/end-of-day-summary writes the first entry to .cortex/memory/');
   h+=st('',O.cortex?'Cortex v'+O.cortex:'Cortex version not available');
   // The commit the index was built from, dated in UTC like every date on this page. It said
   // "indexed", but the index carries no clock — this is when the code was committed, which on a
@@ -491,7 +491,7 @@ function vitals(){let h='<h2 class="sh">Repo vitals</h2>';
   else if(f.unavailable)h+=NA(f.unavailable);
   else if(!f.top.length)h+='<p class="hint2">Nothing ranked — the findings pass found no gaps.</p>';
   else h+='<ul class="chk">'+f.top.map(t=>'<li><span class="box" aria-hidden="true"></span><span><span class="sv '+esc(t.severity)+'">'+esc(t.severity)+' · '+esc(t.kind)+'</span>'+ic(t.title)+'</span></li>').join('')+'</ul>'
-    +'<p class="hint2"><code>/cortex</code> reads the full report and walks you through it.</p>';
+    +'<p class="hint2"><code>/setup-repo</code> reads the full report and walks you through it.</p>';
   $('ovl').innerHTML=h;}
 
 // ---- right: next steps and timeline --------------------------------------------------------
@@ -513,7 +513,7 @@ function rightCol(){const n=D.next;let h='<h2 class="sh">Next steps'+(n?' <small
       +(e.time?'<small>'+esc(e.time)+'</small>':'')+'</span><span><span class="tag">'
       +(e.kind==='memory'?'memory · '+esc(e.tag)+(e.author?' · '+esc(e.author):''):'commit '+esc(e.tag))+'</span><span class="tt">'+esc(e.title)+'</span></span></li>').join('')+'</ol>';
     if(O.timelineNote&&O.timeline.length)h+=NA(O.timelineNote);
-    if(!O.memory||!O.memory.newest)h+='<p class="hint2">No team memory yet. <code>/dream</code> writes the first entry, and it lands here.</p>';}
+    if(!O.memory||!O.memory.newest)h+='<p class="hint2">No team memory yet. <code>/end-of-day-summary</code> writes the first entry, and it lands here.</p>';}
   $('ovr').innerHTML=h;}
 
 // Copy with a visible answer. The async clipboard needs a secure context, which a file:// page may
@@ -659,19 +659,19 @@ function structure(){const s=D.structure,p=$('spane');if(!p)return;
   if(!s){p.innerHTML=h+NA('this page was rendered without structure data')+'</div>';return;}
   h+='<div id="stree"><svg id="swires" aria-hidden="true"></svg><div class="srow">'
     +(s.root?B({k:'k-ctx',cls:'root',id:'s-root',t:'AGENTS.md',s:'root brief — every agent reads it first',go:'AGENTS.md'})
-      :B({k:'k-ctx',cls:'root missing',id:'s-root',t:'no root AGENTS.md',s:'/cortex-scaffold writes it'}))+'</div><div class="scols">';
+      :B({k:'k-ctx',cls:'root missing',id:'s-root',t:'no root AGENTS.md',s:'/write-context-docs writes it'}))+'</div><div class="scols">';
   // Left: what sits beside the root brief.
   h+='<div class="scol">'+B({k:'k-ctx',cls:'head',id:'s-hc',from:'s-root',t:'Context docs',s:'beside the root brief'});
   for(const sh of s.shims)h+=B({k:'k-ctx',cls:'leaf',t:sh,s:'shim — points its tool at AGENTS.md',go:sh});
-  if(!s.shims.length)h+=B({k:'k-ctx',cls:'leaf missing',t:'no agent shims',s:'/cortex-scaffold writes CLAUDE.md and GEMINI.md'});
+  if(!s.shims.length)h+=B({k:'k-ctx',cls:'leaf missing',t:'no agent shims',s:'/write-context-docs writes CLAUDE.md and GEMINI.md'});
   h+=s.glossary?B({k:'k-ctx',cls:'leaf',t:'CONTEXT.md',s:'glossary — what the words mean here',go:'CONTEXT.md'})
-    :B({k:'k-ctx',cls:'leaf missing',t:'no CONTEXT.md',s:'/domain-modeling writes the glossary'});
+    :B({k:'k-ctx',cls:'leaf missing',t:'no CONTEXT.md',s:'/define-terms writes the glossary'});
   const adrLabel=(s.adrDir||'docs/adr')+'/';
   h+=s.adrs?B({k:'k-ctx',cls:'leaf',t:adrLabel,s:plural(s.adrs,'decision')+' recorded',go:s.adrGo})
     :s.adrDir?B({k:'k-ctx',cls:'leaf',t:adrLabel,s:'in place — no decision recorded yet',go:s.adrGo})
-    :B({k:'k-ctx',cls:'leaf missing',t:'no '+adrLabel,s:'/domain-modeling records decisions'});
+    :B({k:'k-ctx',cls:'leaf missing',t:'no '+adrLabel,s:'/define-terms records decisions'});
   h+=s.review?B({k:'k-ctx',cls:'leaf',t:'REVIEW.md',s:'what a review checks',go:'REVIEW.md'})
-    :B({k:'k-ctx',cls:'leaf missing',t:'no REVIEW.md',s:'/cortex writes the review rules'});
+    :B({k:'k-ctx',cls:'leaf missing',t:'no REVIEW.md',s:'/setup-repo writes the review rules'});
   h+='</div>';
   // Centre: the areas the root routes to.
   // Agent tooling (.claude/) is not an area of the product: it is listed, never offered a brief.
@@ -683,7 +683,7 @@ function structure(){const s=D.structure,p=$('spane');if(!p)return;
       return plural(code.length,'area')+(code.length===1?' holds':' hold')+' code · '+fmt(b)+(b===1?' has':' have')+' a scoped brief';})()});
   h+='<div class="sgrid">'+shown.map((a,i)=>{let c='<div class="sarea">'+B({k:'k-code',cls:'area',id:'s-a'+i,from:'s-ha',sw:a.color,t:a.root?'top-level files':a.name+'/',s:plural(a.files,'file')+' · '+fmt(a.code)+' code'});
     if(a.root)c+=a.brief?B({k:'k-ctx',cls:'leaf',t:a.brief,s:'the root brief covers these',go:a.brief})
-      :B({k:'k-ctx',cls:'leaf missing',t:'no root AGENTS.md',s:'/cortex-scaffold writes it'});
+      :B({k:'k-ctx',cls:'leaf missing',t:'no root AGENTS.md',s:'/write-context-docs writes it'});
     else if(a.brief)c+=B({k:'k-ctx',cls:'leaf',t:a.brief,s:'scoped brief',go:a.brief});
     // A dashed box names a command, so it is drawn only where the findings report would offer one.
     // Everything else is covered by the brief above it, and says which.
@@ -803,7 +803,7 @@ function buildList(q){const L=$('flist');L.innerHTML='';const by={};
 
 // ---- areas -------------------------------------------------------------------------------
 function buildAreas(){let h='<div class="wrap"><h2 class="vh">Areas</h2>'
-  +'<div class="hint">The top-level shape of this repo. A scoped <code>AGENTS.md</code> means agents load narrow context for that area instead of the whole root brief — run <code>/cortex-brief &lt;dir&gt;</code> on the ones holding real invariants, not on all of them.</div>';
+  +'<div class="hint">The top-level shape of this repo. A scoped <code>AGENTS.md</code> means agents load narrow context for that area instead of the whole root brief — run <code>/write-area-brief &lt;dir&gt;</code> on the ones holding real invariants, not on all of them.</div>';
   DATA.areas.forEach(a=>{h+='<div class="card"><h3><span class="sw" style="background:'+a.color+'"></span>'+esc(a.name)+'</h3>'
     +'<div class="s">'+a.files+' files · '+a.code+' code · '+a.lines.toLocaleString()+' lines</div>'
     +(a.description?'<div class="p">'+esc(a.description)+'</div>':'')

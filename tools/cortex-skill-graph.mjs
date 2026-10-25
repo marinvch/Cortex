@@ -4,11 +4,11 @@
 //   node tools/cortex-skill-graph.mjs                # the graph, plus the isolates
 //   node tools/cortex-skill-graph.mjs --check        # exit 1 if a ritual is isolated both ways
 //   node tools/cortex-skill-graph.mjs --json         # for a ritual to walk
-//   node tools/cortex-skill-graph.mjs cortex-brief   # one ritual's neighbourhood
+//   node tools/cortex-skill-graph.mjs write-area-brief   # one ritual's neighbourhood
 //
 // The failure this catches has no error state. A ritual nothing points at still works when you type
-// its name — it is simply never *reached*, so the user has to already know it exists. /team-add sat
-// that way: /team-init created a team-brain and never mentioned the command a member runs to join it.
+// its name — it is simply never *reached*, so the user has to already know it exists. /join-team sat
+// that way: /create-team created a team-brain and never mentioned the command a member runs to join it.
 //
 // The rule is the one AGENTS.md applies to prose: define a thing once, and point at it from
 // everywhere else. An edge here IS that pointer, so the graph is a measurement of whether the rule
@@ -51,20 +51,20 @@ function readSkills() {
   return out;
 }
 
-// Two syntaxes mean the same thing here and both must count. `/cortex-brief` is how a ritual names
-// another as a command; `[[domain-modeling]]` is the vault's wikilink. An earlier hand count read
-// only the first and reported /resolving-merge-conflicts as reaching nothing, when it points at
-// [[domain-modeling]] in its second step — the kind of wrong answer that gets a healthy edge
+// Two syntaxes mean the same thing here and both must count. `/write-area-brief` is how a ritual names
+// another as a command; `[[define-terms]]` is the vault's wikilink. An earlier hand count read
+// only the first and reported /resolve-conflicts as reaching nothing, when it points at
+// [[define-terms]] in its second step — the kind of wrong answer that gets a healthy edge
 // "fixed" into a duplicate.
 // The lookbehind is what keeps a PATH from reading as a ritual: `tools/cortex.sh` and
-// `index/cortex-view.mjs` both contain `/cortex…`, and before it they were counted as edges into
-// `/cortex` and `/cortex-view`. A slash preceded by a word character, a dot, a brace, another
+// `index/cortex-view.mjs` both contain `/setup-repo…`, and before it they were counted as edges into
+// `/setup-repo` and `/repo-map`. A slash preceded by a word character, a dot, a brace, another
 // slash or a hyphen is inside a path or a URL; a ritual reference is not.
 const SLASH_RE = /(?<![\w.}/-])\/([a-z][a-z0-9-]+)/g;
 const WIKI_RE = /\[\[([a-z][a-z0-9-]+)\]\]/g;
 
-// A ritual nothing in this repo reaches is not automatically broken. /resolving-merge-conflicts is
-// reached by an interrupted rebase and /optimize-prompt by the UserPromptSubmit hook; no ritual could
+// A ritual nothing in this repo reaches is not automatically broken. /resolve-conflicts is
+// reached by an interrupted rebase and /clarify-request by the UserPromptSubmit hook; no ritual could
 // honestly point at either, and inventing one would make the graph agree with itself while telling
 // the reader something false.
 //
@@ -100,8 +100,8 @@ for (const node of graph.values()) node.in.sort();
 
 // --- the finding -----------------------------------------------------------------------------
 
-// Isolated in ONE direction is normal and often correct: a router like /cortex-next is nearly all
-// outbound, and a shared discipline like /writing-for-agents is nearly all inbound. Isolated in
+// Isolated in ONE direction is normal and often correct: a router like /resume-work is nearly all
+// outbound, and a shared discipline like /write-agent-docs is nearly all inbound. Isolated in
 // BOTH is the defect — a ritual that neither reaches anything nor is reached is not part of the
 // system, it is a file that happens to live in the same folder.
 const orphans = [...graph.entries()]

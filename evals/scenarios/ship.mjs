@@ -1,4 +1,4 @@
-// /ship — merge a queue in an order that strands nothing, and delete only what is really merged.
+// /merge-work — merge a queue in an order that strands nothing, and delete only what is really merged.
 //
 // Two judgments the skill's text governs, both checkable:
 //   ORDER  — a PR another PR is based on goes first; then PRs that share files with another PR;

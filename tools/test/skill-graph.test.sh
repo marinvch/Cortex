@@ -2,7 +2,7 @@
 #
 # The defect this pins has no error state. A ritual nothing points at still runs when you type its
 # name — it is simply never *reached*, so only a user who already knows it exists ever gets to it.
-# /team-add sat that way for months: /team-init created a team-brain and never named the command a
+# /join-team sat that way for months: /create-team created a team-brain and never named the command a
 # member runs to join it. Nothing failed. A member just had to already know the command existed.
 #
 # This is the same rule AGENTS.md applies to prose — define a thing once and point at it from
@@ -72,11 +72,11 @@ trap - EXIT
 # --- the declarations themselves ----------------------------------------------------------------------
 #
 # Asserted on the frontmatter, not on the graph's `external` list. A declared trigger and an inbound
-# edge are not alternatives: /resolving-merge-conflicts is reached by an interrupted rebase AND, since
-# /ship exists, by a ritual — so it correctly left the external list while its declaration stayed
+# edge are not alternatives: /resolve-conflicts is reached by an interrupted rebase AND, since
+# /merge-work exists, by a ritual — so it correctly left the external list while its declaration stayed
 # true. An earlier version of this test asserted the list, and adding the honest edge broke it, which
 # is a test punishing the repo for improving.
-for name in optimize-prompt resolving-merge-conflicts; do
+for name in clarify-request resolve-conflicts; do
   line="$(grep -m1 '^  reached-by:' "$REPO_ROOT/skills/$name/SKILL.md" 2>/dev/null || true)"
   if [ -n "$line" ]; then
     _pass "/$name declares what reaches it from outside a ritual"

@@ -8,7 +8,7 @@
 // `drift` key in --offers, one line per finding otherwise (lib/skill-drift.mjs).
 //
 // Read-only in the strongest sense: it writes nothing at all, not even under .cortex/. The bodies
-// are written by /cortex-skills after the user picks, because a useful body quotes this repo's real
+// are written by /suggest-skills after the user picks, because a useful body quotes this repo's real
 // commands and real paths — and inventing those is precisely the failure a deterministic module
 // cannot detect in itself.
 
@@ -86,7 +86,7 @@ if (!missing.length) {
     if (p.pathsLine) console.log(`      ${p.pathsLine}`);
     console.log("");
   }
-  console.log("These are proposals. Nothing has been written. Run /cortex-skills to pick and write them.");
+  console.log("These are proposals. Nothing has been written. Run /suggest-skills to pick and write them.");
 }
 
 if (present.length) {
@@ -106,6 +106,6 @@ if (drift.length) {
     if (d.retire) console.log("      proposal: retire this skill — it is deleted only on a yes");
     console.log("");
   }
-  console.log("Nothing has been changed. /cortex-skills refreshes the lines above, and asks before touching");
+  console.log("Nothing has been changed. /suggest-skills refreshes the lines above, and asks before touching");
   console.log("a skill that was edited after it was written.");
 }

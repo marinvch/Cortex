@@ -16,7 +16,7 @@
 // Read-only in the strongest sense: it writes nothing, not even under .cortex/.
 //
 // It finds and cites. It never judges — deciding whether a change actually violates a documented
-// rule needs a model, and that is `/cortex-review`'s job rather than this file's.
+// rule needs a model, and that is `/review-change`'s job rather than this file's.
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -77,7 +77,7 @@ if (args.rules) {
   for (const u of l.unread) console.error(`could not read ${u}, so its rules are not listed`);
   if (!l.hasBriefs) {
     console.log(`\nThis repo has no brief: no AGENTS.md, and no CLAUDE.md or GEMINI.md with rules of its own.`);
-    console.log(`There is nothing whose rules could be listed. Run /cortex-install to add one.`);
+    console.log(`There is nothing whose rules could be listed. Run /setup-repo to add one.`);
     process.exit(0);
   }
   const briefs = `${l.briefs} brief${l.briefs === 1 ? "" : "s"}`;
@@ -225,7 +225,7 @@ if (args.citations) {
   }
   if (!c.hasContextLayer) {
     console.log(`\nThis repo has no context layer — no AGENTS.md, CONTEXT.md or ADRs.`);
-    console.log(`There is nothing whose citations could be checked. Run /cortex-install to add one.`);
+    console.log(`There is nothing whose citations could be checked. Run /setup-repo to add one.`);
     process.exit(0);
   }
   if (!c.findings.length) {
@@ -304,7 +304,7 @@ if (args.json) {
 if (!r.hasContextLayer) {
   // The honest answer, and an actionable one: there is nothing to review against yet.
   console.log(`\nThis repo has no context layer — no AGENTS.md, CONTEXT.md or ADRs.`);
-  console.log(`There is nothing to review the change against. Run /cortex-install to add one.`);
+  console.log(`There is nothing to review the change against. Run /setup-repo to add one.`);
   // The lines below are read from the diff and need no context layer.
   printLoweredBar();
   process.exit(0);

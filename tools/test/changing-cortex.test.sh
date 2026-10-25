@@ -53,7 +53,7 @@ install-on-a-project.test.sh|the one test that asserts the product works
 fragment-guard.test.sh|a shell test fragment may only be run by the runner
 coverage.mjs|coverage has a single home
 CORTEX_PROFILE|profile is declared, never detected
-consent gate|cortex-install never writes before the user chooses
+consent gate|setup-repo never writes before the user chooses
 cortex-skill-graph.mjs|a ritual must be reachable, or declare what reaches it
 A pass is weaker|and that a green graph check does not prove it — only one outbound edge is needed
 KEYS

@@ -89,7 +89,7 @@ test("no index is an unanswered question, never an empty roster", () => {
 
 // --- mapping ---------------------------------------------------------------------------------------
 
-test("each team template, stamped where /cortex will put it, maps to its own role", () => {
+test("each team template, stamped where /setup-repo will put it, maps to its own role", () => {
   for (const role of ROLES) {
     const { index, opts } = repo({ [`.claude/agents/${role}.md`]: rendered(`team/${role}.md`) });
     const [a] = repoAgents(null, index, opts);
@@ -105,7 +105,7 @@ test("Cortex's own verifier maps to the Reviewer and is marked for the upgrade (
   assert.equal(m.role, "reviewer");
   assert.equal(m.upgrade?.to, "reviewer");
   assert.equal(m.upgrade?.template, "team/reviewer.md");
-  // Only at the path /cortex stamps it: a verifier elsewhere is a reviewer with no upgrade.
+  // Only at the path /setup-repo stamps it: a verifier elsewhere is a reviewer with no upgrade.
   const { index: i2, opts: o2 } = repo({ ".claude/agents/check.md": rendered("loop/verifier.md") });
   const m2 = mapRole(repoAgents(null, i2, o2)[0], { verifierPath: VERIFIER_AT });
   assert.equal(m2.role, "reviewer");
@@ -243,7 +243,7 @@ test("a devil's advocate asked for 'a second opinion on an approach' is not the 
 test("found on real repos: an engineer of a discipline, a debugger and an audit-trail expert are none of the five", () => {
   // `prompt-engineer` mapped to the Implementer through the generic noun; the qualifier was a discipline.
   assert.equal(roleOf("name: prompt-engineer\ndescription: Use this agent when you need to create or refine prompts.").role, null);
-  // "implementing robust fixes" — a debugger is /diagnosing-bugs' job, not the Implementer's.
+  // "implementing robust fixes" — a debugger is /debug-issue' job, not the Implementer's.
   const dbg = roleOf("name: systematic-debugger\ndescription: Diagnoses bugs, and excels at implementing robust fixes.");
   assert.equal(dbg.role, null);
   assert.equal(dbg.reason, "outside-roster");

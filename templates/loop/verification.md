@@ -1,4 +1,4 @@
-<!-- Appended to the target repo's CLAUDE.md by /cortex.
+<!-- Appended to the target repo's CLAUDE.md by /setup-repo.
      Every {{PLACEHOLDER}} is a command cortex-loop.mjs DETECTED. One it did not detect is a
      question for the user, never a blank to fill with a guess — an instruction that fails on its
      first run is how a context file loses its reader. Delete any line whose command does not exist. -->

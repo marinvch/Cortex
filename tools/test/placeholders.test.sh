@@ -1,6 +1,6 @@
 # The placeholder check has to be right in BOTH directions, and the old one was wrong in one.
 #
-# `/cortex-scaffold` used to say "grep for `{{` and fix what you find". On a real install that grep
+# `/write-context-docs` used to say "grep for `{{` and fix what you find". On a real install that grep
 # had three hits and all three were correct files: `docs/adr/TEMPLATE.md` and `intent/TEMPLATE.md`
 # keep their placeholders on purpose, and `agent-evals.yml` keeps GitHub's `${{ … }}`. A check that
 # cries wolf on every run is skipped on the run that matters. So this pins zero false hits on a

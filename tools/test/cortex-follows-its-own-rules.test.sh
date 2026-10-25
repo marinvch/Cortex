@@ -29,7 +29,7 @@ const read = (p) => {
   let src;
   try { src = readFileSync(join(root, p), "utf8"); } catch { return null; }
   // --plant puts one known breach in memory — never on disk — so the test can see the check fire.
-  if (plant && p === "skills/ship/SKILL.md") src = src.replace(/^---\r?\n/, "---\ncapability: judgment\n");
+  if (plant && p === "skills/merge-work/SKILL.md") src = src.replace(/^---\r?\n/, "---\ncapability: judgment\n");
   return src;
 };
 const skills = index.files.filter((f) => /^skills\/[^/]+\/SKILL\.md$/.test(f.path)).length;
@@ -61,4 +61,4 @@ fi
 # And it can fail: one top-level custom key, planted in memory, must surface as a finding.
 planted="$(node "$WORK/own-rules.mjs" "$REPO_ROOT" plant 2>&1)"
 assert_contains "$planted" "FINDING claude-setup/skill-unknown-key" "a planted top-level capability: key is reported"
-assert_contains "$planted" "skills/ship/SKILL.md — capability" "and names the skill and the key"
+assert_contains "$planted" "skills/merge-work/SKILL.md — capability" "and names the skill and the key"

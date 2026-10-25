@@ -18,7 +18,7 @@ mkdir -p "$P/test/unit" "$P/src/__tests__" "$P/.claude/hooks" "$P/.claude/worktr
   "$P/.claude/worktrees/wt/src" "$F/outside/test" "$F/test/proj2/src"
 printf 'x\n' > "$P/src/app.js"
 
-# Render the way /cortex will: one quoted glob per line in place of the placeholder.
+# Render the way /setup-repo will: one quoted glob per line in place of the placeholder.
 fill() { # globs-with-\n
   sed "s#{{TEST_GLOBS}}#$1#" "$SRC"
 }

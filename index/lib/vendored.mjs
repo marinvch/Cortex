@@ -5,7 +5,7 @@
 // plugin caches, a generated server, another tool's instruction files — was indistinguishable from
 // hand-written source afterwards. On a real repo with ~1,900 lines of application TypeScript, the
 // index reported 13,532 lines and ranked three vendored directories above the actual app as
-// candidates for a scoped brief. `/cortex-enrich` then planned 13 of 21 batches over that material.
+// candidates for a scoped brief. `/summarize-files` then planned 13 of 21 batches over that material.
 //
 // The mechanism is DECLARED, not guessed — the same rule as go.mod, composer.json and tsconfig.
 // `.gitattributes` already has the vocabulary, and it is the one GitHub itself uses:

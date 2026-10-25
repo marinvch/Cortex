@@ -7,7 +7,7 @@ tags: [reference, framework]
 
 # Vault Architecture — the four layers
 
-The Cortex Vault stands on four layers. `/cortex-audit score` scores each out of 25. Build them in order:
+The Cortex Vault stands on four layers. `/audit-notes score` scores each out of 25. Build them in order:
 a later layer is hollow without the ones beneath it.
 
 | # | Layer | One-liner | "This layer is real" test |
@@ -20,7 +20,7 @@ a later layer is hollow without the ones beneath it.
 ---
 
 ## 1. Capture (foundation)
-Lowest friction wins. `inbox/`, `daily/`, and `/capture`. If capture is hard, nothing else
+Lowest friction wins. `inbox/`, `daily/`, and `/quick-note`. If capture is hard, nothing else
 matters because the raw material never arrives. **Build this first and keep it frictionless.**
 
 ## 2. Knowledge
@@ -33,12 +33,12 @@ resource = reference material.
 `context/` + `connections.md` + `references/voice.md`, all in the vault (their empty starting point
 is Cortex's `templates/vault/`). Who you are, your business, your priorities, your voice, and every
 tool/data source the vault can reach. This is what lets the brain answer *as you* and pull *your*
-live data instead of guessing. Filled by `/onboard`, grown by `/level-up`. The same discipline
+live data instead of guessing. Filled by `/personal-setup`, grown by `/retrospective`. The same discipline
 applies to any AI-agent context file — see [[context-engineering]].
 
 ## 4. Cadence
-The rituals and schedules that make the vault work while you don't: `/daily`, `/weekly-review`,
-`/cortex-audit score`, `/level-up`, and any scheduled briefings. Don't automate a cadence until the manual
+The rituals and schedules that make the vault work while you don't: `/daily-plan`, `/weekly-review`,
+`/audit-notes score`, `/retrospective`, and any scheduled briefings. Don't automate a cadence until the manual
 version works — automating a broken process just breaks it faster. The always-on build-out — the
 MCP brain plus server cron that runs these rituals while you're away — is wired in [[living-cortex]].
 

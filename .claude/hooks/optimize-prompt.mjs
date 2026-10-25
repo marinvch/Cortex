@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 export const THRESHOLD = 4;
 
 /**
- * The word lists are exported so the test can hold skills/optimize-prompt/SKILL.md to them — the
+ * The word lists are exported so the test can hold skills/clarify-request/SKILL.md to them — the
  * skill restates them for agents without this hook, and a copy nobody checks drifts.
  *
  * Verbs match with an inflection (`merged`, `fixing`). The second half of the list came from real
@@ -38,7 +38,7 @@ const COMPONENT_REF =
 const SLASH_RITUAL = /(^|\s)\/[a-z][\w-]*[a-z]\b/i;
 
 /**
- * Hyphenated ritual names (`cortex-review`, `weekly-review`), read from the skills/ directory two
+ * Hyphenated ritual names (`review-change`, `weekly-review`), read from the skills/ directory two
  * levels up. Single-word names — ship, daily, capture — are ordinary English and would ground any
  * sentence, so only the hyphenated ones count when written bare. No skills/ directory, no names.
  */
@@ -157,7 +157,7 @@ export function scoreVagueness(prompt) {
 export function buildDirective(score) {
   return [
     `Prompt vagueness score ${score}/5.`,
-    'Before acting, run /optimize-prompt (skills/optimize-prompt/SKILL.md):',
+    'Before acting, run /clarify-request (skills/clarify-request/SKILL.md):',
     "ask at most 2 questions grounded in this repo's real file and folder names,",
     'synthesize one precise prompt as [ACTION] [COMPONENT] [in DOMAIN] [with CONSTRAINTS] -> [RITUAL],',
     'show it and wait for a one-word confirmation,',

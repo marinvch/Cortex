@@ -47,7 +47,7 @@ export const CORTEX_BRIEF_NAMES = ["AGENTS.md", "CLAUDE.md", "GEMINI.md"];
 /**
  * The other tools' docs Cortex has a one-line shim for, so "replace it with the shim" is an offer
  * that exists. `tools/cortex-init.sh` writes it, and `/install-project` did until 2.42.0. `.cursorrules` and
- * `.windsurfrules` have no shim, and `CLAUDE.md` is not here because `/cortex` appends sections to
+ * `.windsurfrules` have no shim, and `CLAUDE.md` is not here because `/setup-repo` appends sections to
  * it on purpose: text of its own there is not a second brief.
  */
 export const SHIMMED_DOC_NAMES = [".github/copilot-instructions.md"];

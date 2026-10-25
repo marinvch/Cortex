@@ -9,7 +9,7 @@
 // A ritual's body is kept short by moving detail into a supporting file beside it (`RUNS.md`,
 // `TEAM.md`) and linking to the section. That link is the only way the detail is reached: a model
 // that follows `RUNS.md#running-unattended` to a heading someone renamed finds nothing, reads on
-// without it, and nothing fails. Splitting `skills/cortex/SKILL.md` made twelve such links in one
+// without it, and nothing fails. Splitting `skills/setup-repo/SKILL.md` made twelve such links in one
 // change. The same failure, for `docs/changing-cortex.md`, already broke eight ADR links once
 // (tools/test/changing-cortex.test.sh).
 //

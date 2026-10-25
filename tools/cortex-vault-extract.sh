@@ -25,7 +25,7 @@ REMOVE=0
 INIT_GIT=1
 
 # Everything gitignored as personal. Keep in step with .gitignore's personal-layer block.
-# connections.md and references/voice.md were tracked at this repo's root until 2.39, and /onboard
+# connections.md and references/voice.md were tracked at this repo's root until 2.39, and /personal-setup
 # filled them in place; an older checkout can still hold a filled copy of either.
 PERSONAL_DIRS=(context inbox daily notes projects areas resources decisions brain)
 PERSONAL_FILES=(home.md connections.md references/voice.md)
@@ -111,7 +111,7 @@ done
 
 # The skeleton, for whatever this run did not bring. connections.md and voice.md used to be tracked
 # here, so a vault extracted after they moved to templates/vault/ would arrive without the files
-# /onboard, /cortex-audit score and /scan-projects write into. Only what is missing: a file the copy above just
+# /personal-setup, /audit-notes score and /register-projects write into. Only what is missing: a file the copy above just
 # delivered, or one the user already has in the destination, is theirs and is never overwritten.
 if [ -d "$SKELETON" ]; then
   seeded=0

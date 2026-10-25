@@ -107,7 +107,7 @@ detect_engine(){ local m=()
   has .github/COPILOT_CONTEXT.md && m+=(".github/COPILOT_CONTEXT.md")
   # The engine's server ran out of the repo's own .ai-os/ directory, so the PATH marks it. The name
   # `ai-os` and the variable AI_OS_ROOT do not: Cortex's own server was documented under both, and
-  # matching them sent a repo with a working Cortex registration to /migrate-engine (#552).
+  # matching them sent a repo with a working Cortex registration to /migrate-legacy-engine (#552).
   { slurp .mcp.json; slurp .vscode/mcp.json; } | grep -qE '\.ai-os[/\\]' && m+=("MCP entry pointing at .ai-os/")
   slurp .github/copilot-instructions.md | grep -qiE 'get_session_context|AI OS' && m+=(".github/copilot-instructions.md (engine-style)")
   printf '%s\n' "${m[@]}"; }
@@ -116,7 +116,7 @@ if [ -n "$ENGINE_LIST" ]; then ENGINE_FOUND=1
   say "  ⚠ Old engine-based AI OS detected in this repo:"
   printf '%s\n' "$ENGINE_LIST" | sed 's/^/     - /'
   say "    To avoid LOSING the engine's accumulated memory, migrate before relying on AGENTS.md:"
-  say "      → Open this repo in Claude Code / Cowork and run  /migrate-engine"
+  say "      → Open this repo in Claude Code / Cowork and run  /migrate-legacy-engine"
   say "    (harvests the memory store into AGENTS.md, then removes the old files)."; say ""
 fi
 
@@ -171,7 +171,7 @@ $RUN_LINES
 ## Architecture (key directories)
 $ARCH_LINES
 ## Area map (scoped briefs - load the brief for the part you touch)
-_None yet. Run /cortex-brief <dir> on a critical area (auth, billing, a pipeline) to add a deep AGENTS.md leaf, then list it here._
+_None yet. Run /write-area-brief <dir> on a critical area (auth, billing, a pipeline) to add a deep AGENTS.md leaf, then list it here._
 
 ## Conventions
 $RULE_LINE- Validate external inputs at the boundary; keep business logic out of UI components.
@@ -313,14 +313,14 @@ fi
 # ── 8. done ───────────────────────────────────────────────────────────────────
 say ""; say "  ✅ Done. This repo now has a brain."
 say "  For a deep, AI-driven pass that fills Architecture/Conventions/Gotchas from the"
-say "  actual code, open this repo in Claude Code and run /cortex."
-  say "  For critical parts (auth, billing, a pipeline), run /cortex-brief to give them a deep brief."
+say "  actual code, open this repo in Claude Code and run /setup-repo."
+  say "  For critical parts (auth, billing, a pipeline), run /write-area-brief to give them a deep brief."
 if [ $PLUGIN_STAMPED -eq 1 ]; then
   say "  Stamped the Core plugin bundle into .claude/settings.json (superpowers, skill-creator,"
   say "  claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier, context7)."
 fi
 if [ $ENGINE_FOUND -eq 1 ]; then
-  say ""; say "  ⚠ Reminder: an old engine is still here. Run /migrate-engine to rescue its"
+  say ""; say "  ⚠ Reminder: an old engine is still here. Run /migrate-legacy-engine to rescue its"
   say "    memory into AGENTS.md before removing it — otherwise that knowledge is lost."
 fi
 say ""

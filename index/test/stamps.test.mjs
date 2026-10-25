@@ -15,7 +15,7 @@ import { tempDir } from "./tmp.mjs";
 
 // A target repo and a templates directory, both on disk, each file stated by the test. Every state
 // below is reached by editing one side after a record was taken, which is how it happens for real:
-// /cortex writes and records, then the team edits the file or a release edits the template.
+// /setup-repo writes and records, then the team edits the file or a release edits the template.
 function world({ files = {}, templates = {} } = {}) {
   const repoRoot = tempDir("cortex-stamps-repo-");
   const templatesDir = tempDir("cortex-stamps-tpl-");
@@ -600,7 +600,7 @@ test("lineDiff is empty for equal text and marks each changed line with context"
 
 const REAL_TEMPLATES = fileURLToPath(new URL("../../templates/", import.meta.url));
 
-test("loop files at /cortex's locations with no record are adoption candidates", () => {
+test("loop files at /setup-repo's locations with no record are adoption candidates", () => {
   const w = world({ files: { "REVIEW.md": "# ours\n", ".claude/hooks/protected-paths.sh": "x\n", "src/app.ts": "x\n" } });
   assert.deepEqual(adoptionCandidates(w.repoRoot, null, LOOP_STAMPS), [
     { path: ".claude/hooks/protected-paths.sh", template: "loop/protected-paths.sh" },
@@ -750,7 +750,7 @@ test("cortex-review.yml stamped before {{CORTEX_REPO}} existed keeps its upstrea
   assert.match(readFileSync(join(fork.repoRoot, ".github", "workflows", "cortex-review.yml"), "utf8"), /CORTEX_REPO: https:\/\/github\.com\/acme\/cortex\.git\n/);
 });
 
-// The act fills {{CORTEX_REPO}} from the resolved source, so /cortex never has to (#622).
+// The act fills {{CORTEX_REPO}} from the resolved source, so /setup-repo never has to (#622).
 test("stampFile fills CORTEX_REPO from the connector's source, upstream by default, and refuses a directory", () => {
   const now = readFileSync(join(TEMPLATES_DIR, "loop", "cortex-review.yml"), "utf8");
   const stampReview = (w) => stampFile({
@@ -946,7 +946,7 @@ test("stampReport on a repo Cortex never touched is empty, and does not ask git"
   assert.equal(first.empty, true);
 });
 
-test("stampReport with no record names what an older /cortex left, and files stay null", () => {
+test("stampReport with no record names what an older /setup-repo left, and files stay null", () => {
   const w = world({ files: { "REVIEW.md": "# old\n" }, templates: { "loop/REVIEW.md": TPL } });
   const git = countingGit();
   const r = report(w, { git });

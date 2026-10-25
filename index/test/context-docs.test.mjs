@@ -69,7 +69,7 @@ test("a doc that names AGENTS.md and goes on for longer than a pointer holds its
 
 test("only a doc Cortex has a shim for is checked", () => {
   // .cursorrules and .windsurfrules have no Cortex shim to offer in their place, and CLAUDE.md and
-  // GEMINI.md are Cortex's own to judge: /cortex appends sections to CLAUDE.md on purpose.
+  // GEMINI.md are Cortex's own to judge: /setup-repo appends sections to CLAUDE.md on purpose.
   assert.deepEqual(SHIMMED_DOC_NAMES, [".github/copilot-instructions.md"]);
   for (const name of SHIMMED_DOC_NAMES) assert.ok(AGENT_DOC_NAMES.includes(name), `${name} is an agent doc`);
 });

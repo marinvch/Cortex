@@ -156,10 +156,10 @@ test("every model-invocable ritual in this repo has prompts, and they pass", () 
 test("a real description stripped of the words a prompt uses stops ranking for it", () => {
   const rituals = readRituals();
   const before = ranker(rituals).rank("this test is flaky and I can't work out why");
-  assert.ok(before.indexOf("diagnosing-bugs") < TOP);
-  const stripped = rituals.map((r) => (r.name === "diagnosing-bugs" ? { ...r, description: r.description.replace(/flaky/g, "").replace(/untested/g, "") } : r));
+  assert.ok(before.indexOf("debug-issue") < TOP);
+  const stripped = rituals.map((r) => (r.name === "debug-issue" ? { ...r, description: r.description.replace(/flaky/g, "").replace(/untested/g, "") } : r));
   const after = ranker(stripped).rank("this test is flaky and I can't work out why");
-  assert.ok(after.indexOf("diagnosing-bugs") > before.indexOf("diagnosing-bugs"));
+  assert.ok(after.indexOf("debug-issue") > before.indexOf("debug-issue"));
 });
 
 test("`run.mjs --check` fails on a trigger problem", async () => {

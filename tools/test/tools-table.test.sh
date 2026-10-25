@@ -1,6 +1,6 @@
 # The README's Tools table lists every script in tools/ and nothing else (#501).
 #
-# The README is the public site's source for /cli (skills/site-sync/PAGES.md). The two tables had
+# The README is the public site's source for /cli (skills/sync-website/PAGES.md). The two tables had
 # drifted apart: the site listed cortex-claude-docs.mjs, the README did not, and the README listed a
 # sourced library the site had dropped. Nothing noticed, because a table that is one row short reads
 # exactly like a complete one. The rule the README states is the rule checked here: every script in

@@ -1,4 +1,4 @@
-// The /ship scenario on a queue written by hand, so every expected number below can be checked by
+// The /merge-work scenario on a queue written by hand, so every expected number below can be checked by
 // reading it. evals.test.mjs runs the generated tasks; this file pins the rules those tasks rest on:
 // how a PR gets its tier, what partial credit each mistake keeps, and what the reason says.
 

@@ -46,7 +46,7 @@ json="$(CORTEX_PROFILE=home node "$LOOP" "$C" --json 2>/dev/null)"
 assert_eq "missing" "$(row_bucket "$json")" "a team-brain connector: offered even on home"
 assert_contains "$json" "the platform team's brain" "and the evidence names the team"
 
-# The connector /team-add wrote before it named the team: { slug, teamBrainRepo }, where slug is the
+# The connector /join-team wrote before it named the team: { slug, teamBrainRepo }, where slug is the
 # PROJECT. Still a team's repo — but the project's name is not the team's.
 L="$WORK/legacy"
 mkrepo "$L"

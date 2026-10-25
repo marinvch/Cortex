@@ -111,7 +111,7 @@ function firstLines(text) {
  * developer on the repo because both halves are committed.
  *
  * Writes nothing. `.cortex/` not existing yet is an empty `memory`, not an error: a repo nobody has
- * run `/dream` in still has a history worth catching up on, and saying the memory is empty is the
+ * run `/end-of-day-summary` in still has a history worth catching up on, and saying the memory is empty is the
  * finding.
  *
  * @param {string} repoDir  top of the git work tree

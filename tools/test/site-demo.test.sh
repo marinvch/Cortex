@@ -1,4 +1,4 @@
-# cortex-site-demo.mjs — what a /cortex run prints on three small repos, captured for the site.
+# cortex-site-demo.mjs — what a /setup-repo run prints on three small repos, captured for the site.
 #
 # The site plays this output on its home page, so it is published. These tests pin what makes that
 # safe: two runs give the same bytes, nothing in the file names this machine, each of the three repos

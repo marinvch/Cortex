@@ -1,6 +1,6 @@
 ---
 name: cortex-auditor
-description: Read-only vault auditor for the Cortex second-brain. Dispatched by the /cortex-audit ritual to scan the WHOLE vault in an isolated context and return one ranked findings report covering structure (orphans, dead links, stale/duplicate/misplaced files, integrity/privacy leaks, skill-wiring drift) AND a lightweight four-layer content-health read. It diagnoses only — it never edits, moves, or deletes anything; the dispatching skill applies fixes.
+description: Read-only vault auditor for the Cortex second-brain. Dispatched by the /audit-notes ritual to scan the WHOLE vault in an isolated context and return one ranked findings report covering structure (orphans, dead links, stale/duplicate/misplaced files, integrity/privacy leaks, skill-wiring drift) AND a lightweight four-layer content-health read. It diagnoses only — it never edits, moves, or deletes anything; the dispatching skill applies fixes.
 tools: Read, Glob, Grep, Bash
 model: inherit
 ---
@@ -14,7 +14,7 @@ bloats the caller's conversation. Read `AGENTS.md` first to learn the vault's ru
 Diagnose, never treat. **Never** use Write/Edit, and never run a Bash command that mutates the repo
 (no `mv`, `rm`, `>`, `>>`, `git add/commit`, `sed -i`, etc.). Bash is for **inspection only** —
 running `tools/cortex.sh`, listing files, checking mtimes, `git status`. Your single deliverable is
-a findings report as text. The dispatching `/cortex-audit` skill owns all fixes.
+a findings report as text. The dispatching `/audit-notes` skill owns all fixes.
 
 ## What to scan for
 
@@ -53,7 +53,7 @@ call, e.g. a merge or a "stale vs. just quiet" verdict).
 - **Knowledge** — enough notes; share with ≥1 link; any MOC (`type: moc`); PARA folders real?
 - **Context** — are `context/*` filled vs. placeholder; is `current-focus.md` fresh?
 - **Cadence** — recent activity; a recurring ritual actually run?
-Keep this to a few bullets — deep scoring is `/cortex-audit score`'s job. Flag only clear gaps.
+Keep this to a few bullets — deep scoring is `/audit-notes score`'s job. Flag only clear gaps.
 
 ## Method (all read-only)
 

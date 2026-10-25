@@ -72,7 +72,7 @@ assert_contains "$out" "npm run build" "and so is a declared build script"
 
 # --- a row under .claude/ says how an unattended run gets through --------------------------------
 #
-# A headless `claude -p "/cortex"` stamped AGENTS.md, CLAUDE.md and REVIEW.md and left the verifier
+# A headless `claude -p "/setup-repo"` stamped AGENTS.md, CLAUDE.md and REVIEW.md and left the verifier
 # and the hooks missing: Claude Code never auto-approves a write under .claude/, and -p has nobody to
 # ask. The row that stays missing is where the reader looks next, so the way through goes there.
 assert_contains "$out" "--permission-mode auto" "a missing .claude/ row names the mode an unattended run needs"
@@ -140,7 +140,7 @@ assert_eq "absent" "$([ -e "$WORK/untouched/.cortex" ] && echo present || echo a
 
 json="$(run withpkg --json)"
 for key in '"missing"' '"present"' '"blocked"' '"needs"' '"brief"' '"stage"' '"why"'; do
-  assert_contains "$json" "$key" "--json carries $key for /cortex to walk"
+  assert_contains "$json" "$key" "--json carries $key for /setup-repo to walk"
 done
 
 # The six stages, in loop order, so a caller can group by them without inventing the order.
@@ -192,7 +192,7 @@ assert_eq "0" "$(hook_exit lock '{"tool_input":{"file_path":"C:\\repo\\docs\\pnp
 
 # A committed Maven wrapper is generated (`mvn wrapper:wrapper` writes it). Every Maven repo read the
 # hooks row as "blocked — no generated paths" beside it (#482), with or without an index. The loop
-# must see it on disk, and the patterns /cortex writes for it must block the script and the directory.
+# must see it on disk, and the patterns /setup-repo writes for it must block the script and the directory.
 rm -rf "${WORK:?}/maven"
 mkdir -p "$WORK/maven/.mvn/wrapper" "$WORK/maven/src/main/java"
 printf '<project/>\n' > "$WORK/maven/pom.xml"
@@ -260,21 +260,16 @@ assert_eq "0" "$(fmt_exit empty "{\"tool_input\":{\"file_path\":\"$WORK/main.go\
   "format hook: with no detected formatter it still exits 0"
 assert_eq "package main" "$(cat "$WORK/main.go")" "format hook: and changes nothing"
 
-# --- /cortex reconciles an existing agent doc before it scaffolds ----------------------------------
+# --- /setup-repo reconciles an existing agent doc before it scaffolds ----------------------------------
 #
-# The first /cortex left this out. On a repo with a hand-written CLAUDE.md the scaffold, which never
+# The first /setup-repo left this out. On a repo with a hand-written CLAUDE.md the scaffold, which never
 # clobbers, wrote AGENTS.generated.md beside it — the double-file a single install exists to avoid.
 # The step lives in prose, so the test is that the prose is there and routes to the right ritual.
 
-cortex_skill="$(cat "$REPO_ROOT/skills/cortex/SKILL.md")"
-assert_contains "$cortex_skill" "/optimize-context" "/cortex routes a pre-existing agent doc to /optimize-context"
+cortex_skill="$(cat "$REPO_ROOT/skills/setup-repo/SKILL.md")"
+assert_contains "$cortex_skill" "/trim-agent-docs" "/setup-repo routes a pre-existing agent doc to /trim-agent-docs"
 assert_contains "$cortex_skill" "reconcile" "and reads the reconcile step off cortex-next rather than re-deriving it"
 
-# The trigger collision: only /cortex may claim "set up". /cortex-install used to carry the same
-# install phrases, and two model-invocable skills on one trigger means the model picks at random.
-install_desc="$(sed -n 's/^description: //p' "$REPO_ROOT/skills/cortex-install/SKILL.md")"
-assert_not_contains "$install_desc" "set up cortex" "/cortex-install no longer claims the set-up trigger"
-assert_not_contains "$install_desc" "install cortex here" "nor the install trigger"
 
 # --- agent-evals.yml runs every case, and survives the first PR ------------------------------------
 #
@@ -459,7 +454,7 @@ assert_eq "" "$(git -C "$review_repo" status --porcelain)" "review workflow: the
 
 # --- the agents a repo already has (spec T6) -------------------------------------------------------
 #
-# /cortex offers the agent team per role, so what the loop says about the agents already here is
+# /setup-repo offers the agent team per role, so what the loop says about the agents already here is
 # control flow: a role it calls covered is never offered, and a guess where the answer is "ask"
 # hides a role the repo does not have. A real git repo, because the list comes from the index and
 # the index asks git.
@@ -490,7 +485,7 @@ assert_not_contains "$out" "null" "agents: no rendered sentence contains a hole"
 assert_not_contains "$out" "undefined" "agents: nor an undefined"
 
 json="$(node "$LOOP" "$agents_repo" --index "$WORK/agents-index.json" --json 2>&1)"
-assert_contains "$json" '"gaps": [' "agents: --json carries the gaps for /cortex to offer"
+assert_contains "$json" '"gaps": [' "agents: --json carries the gaps for /setup-repo to offer"
 assert_contains "$json" '"upgrade": {' "agents: and the verifier's upgrade"
 assert_eq "$agents_before" "$(git -C "$agents_repo" status --porcelain)" "agents: reading them writes nothing into the repo"
 

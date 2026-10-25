@@ -20,13 +20,13 @@ written for this vault. Three moves, in order: **Notice → Decide → Build.**
 The core habit: **knowledge leaves your head and lives in the vault.** Stop trying to remember;
 trust retrieval. Two reflexes:
 
-- **Capture reflex.** A thought worth having twice is worth writing once. Default to `/capture`
+- **Capture reflex.** A thought worth having twice is worth writing once. Default to `/quick-note`
   or a line in today's daily note. Friction kills capture — keep it one step.
 - **Leverage reflex.** Before doing any recurring task the manual way, ask: *"to what extent
   could AI or a saved note do this for me?"* It's never all-or-nothing. Maybe 80%, maybe 10% —
   you don't know until you ask.
 
-If a task itches because you've done it three times, that's the signal. Surface it at `/level-up`.
+If a task itches because you've done it three times, that's the signal. Surface it at `/retrospective`.
 
 ## 2. Decide — turn "I should automate something" into "here's exactly what"
 

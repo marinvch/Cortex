@@ -1,4 +1,4 @@
-# cortex-stamps writes into a target repo, and prints the sentence that decides whether /cortex
+# cortex-stamps writes into a target repo, and prints the sentence that decides whether /setup-repo
 # rewrites a file the team owns. Both halves need a real git fixture.
 #
 #   - `record` writes `.cortex/stamps.json` and nothing else. The whole promise of the record is
@@ -31,7 +31,7 @@ for n in a b c d e f; do
   printf '# %s\n\nrun npm test\n' "$n" > "$PROJ/$n.md"
 done
 printf '# readme\n' > "$PROJ/README.md"
-( cd "$PROJ" || exit 1; git add -A && git commit -qm "stamped by /cortex" )
+( cd "$PROJ" || exit 1; git add -A && git commit -qm "stamped by /setup-repo" )
 
 # --- record -----------------------------------------------------------------------------------------
 
@@ -172,7 +172,7 @@ out="$(node "$STAMPS" "$WORK/ign-dir" --templates "$TPL" 2>&1)"
 assert_contains "$out" "is ignored by .gitignore:1" "status repeats the warning while it holds"
 
 # Before any record exists, --json already says the one it would write is ignored — so a first
-# /cortex can offer the fix inside its single confirmation rather than after the write.
+# /setup-repo can offer the fix inside its single confirmation rather than after the write.
 ign "$WORK/ign-first" ".cortex/"
 json="$(node "$STAMPS" "$WORK/ign-first" --templates "$TPL" --json 2>&1)"
 assert_contains "$json" '"files": null' "no record yet"
@@ -240,7 +240,7 @@ cat > "$VALS/bands.yaml.json" <<'JSON'
 { "METRIC": "p95 checkout latency", "READONLY_CMD": "curl -s https://metrics.example/p95", "RUNBOOK": "docs/runbook.md" }
 JSON
 
-# template → where /cortex puts it
+# template → where /setup-repo puts it
 LANDS="REVIEW.md:REVIEW.md verifier.md:.claude/agents/verifier.md protected-paths.sh:.claude/hooks/protected-paths.sh
 format-changed.sh:.claude/hooks/format-changed.sh intent-README.md:intent/README.md intent.md:intent/TEMPLATE.md
 agent-evals.yml:.github/workflows/agent-evals.yml cortex-review.yml:.github/workflows/cortex-review.yml bands.yaml:bands.yaml"
@@ -270,7 +270,7 @@ assert_eq "0" "$rc" "a file its values do not reproduce is still recorded"
 assert_contains "$out" "not re-renderable" "and record says it cannot be updated automatically"
 assert_contains "$out" "Reviewers also check the changelog." "naming the first line that differs"
 
-( cd "$REAL" || exit 1; git add -A && git commit -qm "stamped by /cortex" )
+( cd "$REAL" || exit 1; git add -A && git commit -qm "stamped by /setup-repo" )
 
 # A release: every one of these templates gains a line; the team edits two of the files.
 for t in verifier.md REVIEW.md agent-evals.yml bands.yaml; do printf '# added in the next release\n' >> "$RT/loop/$t"; done
@@ -339,7 +339,7 @@ cp -r "$REPO_ROOT/templates" "$NT"
 mkdir -p "$NEWER/.claude/agents"
 node "$STAMPS" render loop/verifier.md --templates "$NT" --values-file "$VALS/verifier.md.json" > "$NEWER/.claude/agents/verifier.md"
 node "$STAMPS" record "$NEWER" .claude/agents/verifier.md loop/verifier.md --templates "$NT" --version 9.0.0 --values-file "$VALS/verifier.md.json" >/dev/null 2>&1
-( cd "$NEWER" || exit 1; git add -A && git commit -qm "stamped by a newer /cortex" )
+( cd "$NEWER" || exit 1; git add -A && git commit -qm "stamped by a newer /setup-repo" )
 printf '# what the older release said\n' > "$NT/loop/verifier.md"      # this plugin's template differs
 verifier_before="$(cat "$NEWER/.claude/agents/verifier.md")"
 record_before="$(cat "$NEWER/.cortex/stamps.json")"
@@ -379,7 +379,7 @@ out="$(node "$STAMPS" "$EQ" 2>&1)"
 assert_not_contains "$out" "older plugin" "a record this release wrote raises no warning"
 assert_contains "$(node "$STAMPS" "$EQ" --json 2>&1)" '"olderPlugin": null' "--json says null"
 
-# --- adoption: a repo /cortex stamped before the record existed -----------------------------------------
+# --- adoption: a repo /setup-repo stamped before the record existed -----------------------------------------
 #
 # The same nine files at the same locations, and no .cortex/stamps.json — what every repo installed by
 # 2.39.x looks like. Nothing about them is known: not the release, not the values, not whether the
@@ -394,7 +394,7 @@ for pair in $LANDS; do
   mkdir -p "$OLD/$(dirname "$dest")"
   node "$STAMPS" render "loop/$t" --templates "$REPO_ROOT/templates" --values-file "$VALS/$t.json" > "$OLD/$dest" 2>/dev/null
 done
-( cd "$OLD" || exit 1; git add -A && git commit -qm "stamped by /cortex 2.39.1" )
+( cd "$OLD" || exit 1; git add -A && git commit -qm "stamped by /setup-repo 2.39.1" )
 
 out="$(node "$STAMPS" "$OLD" 2>&1)"; rc=$?
 assert_eq "0" "$rc" "status on an older install exits 0"
@@ -404,7 +404,7 @@ json="$(node "$STAMPS" "$OLD" --json 2>&1)"
 n_adopt="$(node -e 'const j = JSON.parse(require("fs").readFileSync(0, "utf8")); process.stdout.write(`${j.files} ${j.adopt.length}`);' <<< "$json")"
 assert_eq "null 9" "$n_adopt" "--json: no record, nine to adopt"
 
-refusal 1 "not a loop file" "adopting a path /cortex never writes is refused" -- node "$STAMPS" adopt "$OLD" src/app.ts
+refusal 1 "not a loop file" "adopting a path /setup-repo never writes is refused" -- node "$STAMPS" adopt "$OLD" src/app.ts
 assert_eq "" "$(git -C "$OLD" status --porcelain -uall)" "and writes nothing"
 
 out="$(node "$STAMPS" adopt "$OLD" 2>&1)"; rc=$?

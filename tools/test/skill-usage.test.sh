@@ -29,13 +29,13 @@ mkdir -p "$sess/proj-alpha" "$sess/proj-beta"
 SECRET="the-users-private-prompt-text-that-must-never-be-printed"
 
 cat > "$sess/proj-alpha/a.jsonl" <<JSONL
-{"type":"user","timestamp":"2026-08-01T10:00:00Z","message":{"role":"user","content":"<command-name>/cortex-install</command-name><command-args>x</command-args>"}}
+{"type":"user","timestamp":"2026-08-01T10:00:00Z","message":{"role":"user","content":"<command-name>/setup-repo</command-name><command-args>x</command-args>"}}
 {"type":"user","timestamp":"2026-08-01T10:01:00Z","message":{"role":"user","content":"$SECRET"}}
-{"type":"assistant","timestamp":"2026-08-01T10:02:00Z","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"cortex:dream"}}]}}
+{"type":"assistant","timestamp":"2026-08-01T10:02:00Z","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"cortex:end-of-day-summary"}}]}}
 JSONL
 
 cat > "$sess/proj-beta/b.jsonl" <<JSONL
-{"type":"user","timestamp":"2026-08-02T10:00:00Z","message":{"role":"user","content":"<command-name>/cortex:cortex-install</command-name>"}}
+{"type":"user","timestamp":"2026-08-02T10:00:00Z","message":{"role":"user","content":"<command-name>/cortex:setup-repo</command-name>"}}
 {"type":"assistant","timestamp":"2026-08-02T10:01:00Z","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"$SECRET"}}]}}
 JSONL
 
@@ -52,9 +52,9 @@ assert_not_contains "$json" "$SECRET" "nor the json, which is the shape a ritual
 
 assert_contains "$out" "2 sessions across 2 projects" "it says how much history it actually read"
 
-# `/cortex-install` and `/cortex:cortex-install` are ONE ritual used twice. Counting the plugin
+# `/setup-repo` and `/cortex:setup-repo` are ONE ritual used twice. Counting the plugin
 # prefix as a separate skill would report a used ritual as two unused ones.
-line="$(printf '%s' "$out" | grep -E '^\s*/cortex-install\b')"
+line="$(printf '%s' "$out" | grep -E '^\s*/setup-repo\b')"
 case "$line" in
   *" 2 "*) _pass "the plugin-prefixed and bare forms count as one ritual" ;;
   *) _fail "the plugin-prefixed and bare forms count as one ritual" "got: $line" ;;
@@ -64,19 +64,19 @@ esac
 assert_contains "$json" '"typed": 2' "typed invocations are counted separately"
 assert_contains "$json" '"auto": 0' "from model-chosen ones"
 
-# /dream was reached only by the model choosing it — the shape that says a slash command is decoration.
+# /end-of-day-summary was reached only by the model choosing it — the shape that says a slash command is decoration.
 assert_contains "$json" '"verdict": "auto-only"' "a skill reached only automatically is labelled as such"
 
 # --- never reached --------------------------------------------------------------------------------------
 
 unused="$(CORTEX_SESSIONS_DIR="$sess" node "$USAGE" --unused 2>&1)"
-assert_contains "$unused" "/handoff" "a shipped skill absent from the record is reported as never reached"
-assert_not_contains "$unused" "/cortex-install" "and one that was used is not"
+assert_contains "$unused" "/handover-notes" "a shipped skill absent from the record is reported as never reached"
+assert_not_contains "$unused" "/setup-repo" "and one that was used is not"
 
 # The nuance that keeps this from doing damage. Auto-firing a deliberate act is a defect, not a fix,
 # so the tool must say so where someone reading only this output would act.
 assert_contains "$unused" "deliberate" \
-  "and the list warns that some skills SHOULD be zero — /dream and /handoff are decisions"
+  "and the list warns that some skills SHOULD be zero — /end-of-day-summary and /handover-notes are decisions"
 
 # --- a tool_use that is not a Skill call must not count ------------------------------------------------------
 # proj-beta has a Read call. If any tool_use counted, the totals would silently inflate and every

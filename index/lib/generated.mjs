@@ -1,11 +1,11 @@
 // generated.mjs — creating a generated directory, and ignoring it in the same breath.
 //
-// The rule was written down and then attached to the wrong thing. `/cortex-scaffold` was the only
+// The rule was written down and then attached to the wrong thing. `/write-context-docs` was the only
 // place that added `.cortex/` to `.gitignore`, but it is not the only place that CREATES `.cortex/`:
-// `/cortex-brief` re-indexes when the index is stale, `/cortex-enrich plan` writes batches,
-// `/cortex-impact` tells you to build an index, and an install the user stops halfway through has
+// `/write-area-brief` re-indexes when the index is stale, `/summarize-files plan` writes batches,
+// `/change-impact` tells you to build an index, and an install the user stops halfway through has
 // already written one. Every one of those left a directory of generated artifacts showing up in
-// `git status`, and `/cortex-install`'s "gotcha" about gitignoring them is only reached by running
+// `git status`, and `/setup-repo`'s "gotcha" about gitignoring them is only reached by running
 // the skill that already does it.
 //
 // So the write moves next to the act. A directory that is generated is ignored at the moment it

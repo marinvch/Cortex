@@ -2,7 +2,7 @@
 #
 # Cortex names self-hosted and own-LLM setups as an audience (ADR 0008) and gave them nothing to
 # consult: a ritual needing multi-round judgment looked exactly like one that appends a line to a
-# file. The failure this prevents is not a crash. A weak model runs /cortex-enrich, writes
+# file. The failure this prevents is not a crash. A weak model runs /summarize-files, writes
 # plausible-but-wrong summaries for every file, and those summaries feed `recall` — so it is not a
 # bad answer once, it is a bad answer every time anyone searches, and nothing announces it.
 #
@@ -30,12 +30,12 @@ else
 fi
 
 # The rituals a self-hosted setup most needs to know are safe.
-for r in capture daily cortex-install; do
+for r in quick-note daily-plan; do
   assert_contains "$(node "$VER" mechanical 2>&1)" "/$r" "/$r runs anywhere"
 done
 
 # And the ones that do lasting damage on a weak model are NOT in the safe tier.
-for r in cortex-enrich level-up grilling; do
+for r in summarize-files retrospective challenge-plan; do
   assert_not_contains "$(node "$VER" mechanical 2>&1)" "/$r" "/$r is not advertised as safe anywhere"
 done
 

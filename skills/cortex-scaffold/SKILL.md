@@ -163,8 +163,8 @@ and `/cortex-skills` for skills that fit this stack. Say what the second one is 
 layer you just wrote is tailored to this repo, and its skills are not yet.
 
 If reading the repo turned up setup a person has to do by hand — `.env.example` keys with no
-values, a `secrets.*` reference in a workflow, a dashboard the README sends you to — say so and tell
-the user `/wizard` writes a script that walks them through it. It is typed by them, never run from here.
+values, a `secrets.*` reference in a workflow, a dashboard the README sends you to — list each item
+and where its value comes from. That setup is the user's to do; never fill in a value yourself.
 
 ## Gotchas
 

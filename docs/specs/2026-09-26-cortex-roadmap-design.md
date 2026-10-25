@@ -130,7 +130,7 @@ findings. The `format-changed.sh` bug fixed in #428 is the class this catches.
 - The unattended runners — the `agent-evals.yml` template and `evals/skillopt/` — treat a text-only
   end of turn as a report and cap automatic continuations (`model.agentic.*`).
 - Fix the two authoring drifts ADR 0017 recorded: `/skill-creator` says ~500 **words** where the
-  docs say 500 **lines**; `/writing-for-agents` cites only mattpocock/skills and gains the official
+  docs say 500 **lines**; `/writing-for-agents` cites only its outside source and gains the official
   sources.
 
 ## Step 5 — Front door basics

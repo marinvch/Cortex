@@ -23,8 +23,8 @@ system setting. People also run setup scripts speculatively, to see what they wo
 
 That is a live credential in the crontab. `crontab -l` prints it — the one command anyone runs to
 check whether their schedule is set up — and it is carried into any backup of `/var/spool/cron`. It
-also contradicts the rest of this repo: `core/scrub.js` refuses a memory write carrying a credential,
-and `/wizard` output is never committed with values baked in. **The documentation was asking for
+also contradicts the rest of this repo: `core/scrub.js` refuses a memory write carrying a credential.
+**The documentation was asking for
 exactly what the code refuses.**
 
 ## Decision

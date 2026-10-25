@@ -170,7 +170,7 @@ before overturning one; the line here is the trigger, not the case.
   ([`tools/AGENTS.md`](../tools/AGENTS.md)). Read the inbound edges; do not infer them from green.
   The failure has no error state: a ritual nothing points at
   still runs when you type its name, so only a user who already knows it exists ever gets there.
-  `/wizard` and `/team-add` each sat that way — `/team-init` created a team-brain and never named the
+  `/team-add` sat that way — `/team-init` created a team-brain and never named the
   command a member runs to join it. A ritual genuinely triggered from outside (a hook, a git state)
   declares `reached-by: <what triggers it>` under its frontmatter's `metadata:`; the hatch has to name the trigger,
   because a bare `true` is the check switched off wearing the check's clothes.

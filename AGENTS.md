@@ -75,7 +75,6 @@ and needs no mirror at all.
 | `/analyze-spec` | per risky feature | brainstorm → design spec → plan. **No code.** |
 | `/migrate-engine` | per repo, once | move off the retired `.ai-os/` engine |
 | `/resolving-merge-conflicts` | on conflict | resolve a stuck merge/rebase by intent, hunk by hunk. Never `--abort` |
-| `/wizard` | on request | generate a script that walks a *human* through steps only they can do |
 | `/scan-projects` | anytime | register personal repos into `projects/` — metadata only |
 | `/connect-brain` | once per machine | install the Cortex Core plugin bundle, and register `mcp/server.js` at user scope for recall/capture |
 | `/team-init` | leader, once | create + seed the shared team-brain repo |
@@ -107,9 +106,9 @@ by a user who already knows it exists, which is the same failure as it not being
   Reach for install alone to *look* at a repo without being walked to a served one.
 - `/diagnosing-bugs` and `/cortex-review` both read the context layer and are not interchangeable:
   review judges a **change** you already made, diagnosis hunts a **symptom** you cannot explain. The
-  overlap is Phase 0, where diagnosis borrows the review evidence to rank its hypotheses.
-- **Six rituals are typed, never reached from a request**: `/capture`, `/daily`, `/weekly-review`,
-  `/level-up`, `/scan-projects` and `/wizard` carry `disable-model-invocation`, beside the once-only
+  overlap is diagnosis's first step, where it borrows the review evidence to rank its hypotheses.
+- **Five rituals are typed, never reached from a request**: `/capture`, `/daily`, `/weekly-review`,
+  `/level-up` and `/scan-projects` carry `disable-model-invocation`, beside the once-only
   ones. A ritual that hands off to one tells the user to type it.
   [ADR 0025](docs/adr/0025-the-collection-is-sized-by-use.md) has the measurement.
 - `/migrate-engine` **harvests the old memory store into `AGENTS.md` before deleting anything.**
@@ -137,8 +136,6 @@ by a user who already knows it exists, which is the same failure as it not being
 - `/domain-modeling` writes a `CONTEXT.md` **in the target repo** — that repo's glossary of terms.
   It is *not* a vault's `context/` (who you are), and its ADRs are *not* `decisions/log.md`
   (your personal decisions). Same word, two different things; never merge them.
-- `/wizard` output handles credentials, so it lands in the target repo's `scripts/` or the
-  scratchpad — **never in a vault or in this repo**, and never committed with values baked in.
 
 **Changing Cortex itself** — the contributor invariants (version stamping, the capability floor,
 the consent gate, the shell path guard, the two tests that matter) live in

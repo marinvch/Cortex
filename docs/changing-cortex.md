@@ -120,7 +120,10 @@ before overturning one; the line here is the trigger, not the case.
   every number it prints is a floor. Regex import resolution makes dynamic imports invisible, so the
   field is `atLeast`, never `total`. The actionable half is the *unverified* list, not the count.
   Coverage lives in `index/lib/coverage.mjs`, shared with `findings.mjs`; do not write a second copy
-  of that heuristic. [ADR 0004](adr/0004-no-runtime-dependencies.md) rules out a parser. Its
+  of that heuristic. [ADR 0004](adr/0004-no-runtime-dependencies.md) rules out a parser as a
+  dependency. [ADR 0029](adr/0029-code-parsers-are-an-add-on-the-user-installs.md) allows one as an
+  add-on the user installs, loaded only by `index/lib/parsers.mjs`. Every edge carries a
+  `confidence`, and a floor counts only `extracted` ones. Its
   `--against` mode reads one hop in *both* directions between two change sets (#408), and holds the
   same floor — `index/lib/overlap.mjs`.
 - **`/cortex-review` is the only thing that reads the context layer back.** Everything else in

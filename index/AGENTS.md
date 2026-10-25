@@ -169,8 +169,8 @@ holds the rules for that module alone — read it before editing the module.
   with identical importers and imports fold into one row, which is what makes Go readable. It is
   information only: one glance line in the findings report, no offer, no finding moved (ADR 0006).
   Validated on this repo and eight cloned ones: every hub recounted from `index.edges` and every
-  bridge's edge found on disk, 159 of 159; two runs byte-identical on each. 45 guards mutated,
-  45 test failures.
+  bridge's edge found on disk, 159 of 159; two runs byte-identical on each. 49 guards mutated,
+  49 test failures.
 - **The route map** (`lib/routes.mjs`; design and limits in
   [`docs/specs/2026-09-27-route-map-design.md`](../docs/specs/2026-09-27-route-map-design.md)) was
   validated on the Harbor workspace (7/7 calls, 3/3 gateway routes, each to one repo), the RealWorld

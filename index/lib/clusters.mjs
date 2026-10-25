@@ -442,7 +442,6 @@ export function settleGroups(G, groups, resolution = RESOLUTION) {
   return out;
 }
 
-
 // --- the index's view -----------------------------------------------------------------------------
 
 /**

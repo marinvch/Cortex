@@ -5,81 +5,76 @@ metadata:
   capability: judgment
 ---
 
-# /domain-modeling — name things once, argue about them never again
+# /domain-modeling — one word per concept, written down when it settles
 
-Two words for one concept is how a codebase rots. This ritual is the **active** discipline of
-fixing that: challenging terms, inventing edge cases that force precision, and writing the result
-down the moment it settles. Merely *reading* a glossary for vocabulary is not this skill — that's
-a one-line habit any ritual can do. Reach for this when you're **changing** the model.
+A codebase decays when one concept carries two names, or one name covers two concepts. This ritual
+is for the moments the model is being **changed**: a term is disputed, a boundary is unclear, a
+decision is being made. Looking a word up in an existing glossary is not this ritual; any ritual
+does that in passing.
 
-Pairs with [[codebase-design]] (which names the *shape* of code) the way a glossary pairs with a
-blueprint. `/cortex` stamps the brain; this ritual sharpens the language inside it.
+[[codebase-design]] supplies the words for the shape of the code; this ritual supplies the words
+for what the code is about. `/cortex` stamps the context layer, and this ritual keeps the language
+in it precise.
 
-## Two different "context" — don't confuse them
+## Which "context" this is
 
-| | Lives | Holds |
+| | Where | What it holds |
 |---|---|---|
-| the vault's `context/` | this repo, gitignored | **who the user is** — priorities, values, how they work |
-| a repo's `CONTEXT.md` | the *target* repo, committed | **what its words mean** — a glossary, nothing else |
+| a vault's `context/` | the user's vault, private | **the user**: priorities, values, how they work |
+| a repo's `CONTEXT.md` | the *target* repo, committed | **the repo's vocabulary**: a glossary and nothing else |
 
-This ritual only ever writes the second. It never touches `context/` here, and it never carries
-employer or client vocabulary back into this vault — that's the firewall, not a style preference.
+This ritual writes only the second. It never edits a vault's `context/`, and it never carries an
+employer's or client's terms into a personal vault. That is the firewall in
+[`templates/vault-AGENTS.md`](../../templates/vault-AGENTS.md), not a preference.
 
-## Where things go, in the target repo
+## Files in the target repo
 
 ```
-CONTEXT.md            <- the glossary (root; most repos need only this one)
-CONTEXT-MAP.md        <- only if the repo has several bounded contexts
-docs/adr/0001-*.md    <- decisions worth remembering (adr/ when docs/ is a published site)
+CONTEXT.md            the glossary, at the root; most repos need nothing more
+CONTEXT-MAP.md        only when the repo has several bounded contexts
+docs/adr/NNNN-*.md    decisions; adr/ instead when docs/ is the source of a published site
 ```
 
-**Create files lazily** — only when there's something to write. No `CONTEXT.md` until the first
-term is actually resolved; no `docs/adr/` until the first ADR earns its place. An empty glossary
-is worse than none: it looks maintained.
+Create each file when it first has content: `CONTEXT.md` when the first term is settled,
+`docs/adr/` when the first decision qualifies. An empty glossary is worse than none, because it
+looks maintained.
 
-If `CONTEXT-MAP.md` exists, the repo has multiple contexts and each lives beside its own code
-(`src/ordering/CONTEXT.md`). Infer which one the current topic belongs to; ask if it's unclear.
+When `CONTEXT-MAP.md` exists, each context keeps its own `CONTEXT.md` beside its code
+(`src/billing/CONTEXT.md`). Work out which context the current discussion belongs to, and ask when
+it is not clear.
 
-## During the session
+## While the discussion runs
 
-**Challenge against the glossary.** When a term conflicts with what's already written, say so
-immediately — "your glossary defines *cancellation* as X, but you mean Y — which is it?"
+- **Hold the user to the glossary.** When they use a term differently from its written definition,
+  point it out at once and ask which meaning is right: "`CONTEXT.md` says a *refund* returns the
+  whole payment; you are describing a partial one."
+- **Pin down vague words.** When a word could mean two things, name both and ask which: "by
+  *member* do you mean the person or their seat on the plan?" Propose one canonical term.
+- **Test boundaries with cases.** When two concepts are being related, invent a specific case that
+  falls between them and ask where it belongs.
+- **Check claims against the code.** When the user says how something works, read the code. If it
+  disagrees, say so: "you said a booking can move between rooms, but `Booking.room` is set once in
+  the constructor."
+- **Write the term the moment it settles.** Edit `CONTEXT.md` in the same turn. Updates saved for
+  the end of the session do not get written.
 
-**Sharpen fuzzy language.** Propose a precise canonical term for vague or overloaded ones. "You're
-saying *account* — do you mean the Customer or the User? Those are different things."
+[CONTEXT-FORMAT.md](CONTEXT-FORMAT.md) has the entry format and the multi-context layout.
 
-**Stress-test with scenarios.** When relationships are being discussed, invent concrete edge cases
-that force precision about where one concept ends and the next begins.
+`CONTEXT.md` holds definitions only. No implementation notes, no specs, no decisions, and no
+general programming terms, however often the project uses them. A term earns an entry when it means
+something particular in this domain.
 
-**Cross-reference with the code.** When the user states how something works, check whether the
-code agrees. Surface contradictions: "your code cancels whole Orders, but you just said partial
-cancellation is possible — which is right?"
+## When a decision earns an ADR
 
-**Update `CONTEXT.md` inline.** The moment a term resolves, write it. Don't batch — batched
-glossary updates never happen. Format: [CONTEXT-FORMAT.md](CONTEXT-FORMAT.md).
+Offer one only when the decision is all three:
 
-Keep it a glossary. `CONTEXT.md` is **totally devoid of implementation detail** — not a spec, not
-a scratchpad, not a home for decisions. Only terms specific to *this* domain; general programming
-concepts don't belong however heavily the project uses them.
+1. **Costly to undo.** Reversing it later takes real work.
+2. **Puzzling without the story.** Someone reading the code later would ask why it was done this way.
+3. **A choice between real options.** Something else was viable and lost for a stated reason.
 
-## Offer ADRs sparingly
+If any one is missing, do not offer it. A cheap decision gets reversed, an obvious one raises no
+question, and a decision with no alternative has nothing to record.
 
-Only when all three are true:
-
-1. **Hard to reverse** — changing your mind later actually costs something.
-2. **Surprising without context** — a future reader will wonder "why on earth did they do it this
-   way?"
-3. **The result of a real trade-off** — there were genuine alternatives and one was picked for
-   specific reasons.
-
-Miss any one and skip it. Easy to reverse? You'll just reverse it. Not surprising? Nobody will
-wonder. No real alternative? There's nothing to record beyond "we did the obvious thing."
-
-Format and the qualifying categories: [ADR-FORMAT.md](ADR-FORMAT.md). Note that a repo's ADRs are
-**not** the vault's `decisions/log.md` — that one is the user's personal decisions, and it stays
-here.
-
----
-
-Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). `CONTEXT-FORMAT.md`
-and `ADR-FORMAT.md` are vendored; the two-contexts warning and firewall rules are Cortex additions.
+[ADR-FORMAT.md](ADR-FORMAT.md) has the layout, the numbering and the kinds of decision that usually
+qualify. A repo's ADRs are not a vault's `decisions/log.md`: that log holds the user's personal
+decisions and stays in the vault.

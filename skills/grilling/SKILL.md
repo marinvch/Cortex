@@ -6,78 +6,82 @@ metadata:
   capability: strong
 ---
 
-# /grilling — resolve the design tree before you build
+# /grilling — question a plan until nothing in it is assumed
 
-Interview the user relentlessly until you reach a shared understanding. Map this as a **design
-tree**: every decision branches into the decisions that hang off it.
+A plan is a set of decisions, and most of them depend on others: the storage choice waits on the
+consistency requirement, which waits on who reads the data. Treat the plan as a **decision tree**
+and keep asking until every branch has an answer the user gave, not one you supplied.
 
-Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already
-settled — the questions you can ask *now* without guessing at answers you haven't heard yet. Ask
-the whole frontier in one round: number each question and give your recommended answer. Then wait
-for the user's answers before the next round.
+## How a session runs
 
-Format each question like this:
+1. **Lay out the tree.** List the open decisions and, for each, which other decisions it depends
+   on. Keep this in your working notes; the user does not need to see the whole tree.
+2. **Find the frontier.** The frontier is every open decision whose dependencies are all settled:
+   the questions that can be answered now without guessing at an earlier answer.
+3. **Ask the whole frontier as one round.** Number the questions. Give each one your recommended
+   answer and the reason for it. If a question's answer would change because of another question
+   in the same round, it is not on the frontier yet; hold it for a later round.
+4. **Wait for the answers.** Then mark those decisions settled, add any new decisions the answers
+   opened, and recompute the frontier.
+5. **Repeat until the frontier is empty**: every branch visited, nothing taken as given without
+   being asked.
+6. **Confirm before acting.** Summarise what was decided and ask the user to confirm it is the
+   shared understanding. Nothing gets built on the plan until they do.
+
+Write each question like this:
 
 ```
-❓ **Q1** - **<question title>**: <question body, may be several paragraphs, and may offer choices>
+**Q3. <short title>**
+<the question; as long as it needs to be, with options if there are any>
 
-➡️ <your recommended answer>
+Recommended: <your answer, and why>
 ```
 
-Each round of answers reshapes the tree: settled decisions push the frontier outward and unblock
-questions that depended on them. Recompute the frontier and ask the next round. A question whose
-answer depends on another question still open *in this round* belongs to a **later** round, not
-this one.
+## Facts are yours to find; decisions are the user's
 
-**Finding facts is your job, never the user's.** When a frontier question needs a fact from the
-environment — the filesystem, the index, a tool — dispatch a sub-agent to find it. Don't ask the
-user anything you could look up yourself. Don't block on it either: a running exploration is an
-unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report.
-Ask the rest of the frontier now.
+If a question turns on something you can look up (a file, the index, a config value, a tool's
+output), look it up instead of asking. Hand the lookup to a sub-agent and keep going: only the
+questions that depend on that fact wait for it, and the rest of the frontier goes out now.
 
-The **decisions** are the user's. Put each to them and wait.
-
-The session is done when the frontier is empty: every branch visited, nothing left silently
-assumed. **Do not act on it until the user confirms** you have reached a shared understanding.
+What the user chooses (scope, trade-offs, priorities, risk) is never something to infer. Ask, and
+wait for the answer.
 
 ## Where this fits in Cortex
 
-Grilling is the shared interview discipline the other rituals borrow — it is vocabulary and
-method, not a stage in any one workflow:
+Grilling is the interview method other rituals use; it is not a stage of any one of them.
 
-- `/improve-codebase-architecture` runs its grilling loop here, once the user picks a candidate
-  from the report.
-- `/analyze-spec` grills the brainstorm before it hardens into a design spec.
-- `/level-up` and `/onboard` interview the user too, but about themselves: what they did this
-  week, who they are. There is no answer to recommend for that, so the rounds here do not apply
-  and each keeps its own pace. `/onboard` asks one question at a time, and on a re-run what the
-  vault already holds is the default. Use rounds where the answers are decisions.
+- `/improve-codebase-architecture` grills the candidate the user picks from its report.
+- `/analyze-spec` grills a brainstorm before it becomes a design spec.
+- `/cortex-scaffold` grills the user for what the code cannot tell it.
+- `/level-up` and `/onboard` also interview the user, but about the user: their week, their work.
+  Those questions have no answer to recommend, so they do not use rounds. `/onboard` asks one
+  question at a time, and on a re-run takes what the vault already holds as the default. Use rounds
+  when the answers are decisions.
 
-Two Cortex rules apply while grilling, because a grilling session is where they get broken:
+Two Cortex rules come under pressure in a grilling session, so hold them deliberately:
 
-- If a decision crystallises a **term**, add it to the target repo's `CONTEXT.md` as you go.
-  If it settles a **trade-off with a rejected alternative**, offer an ADR in the repo's ADR directory (`docs/adr/`, or `adr/`).
-- The employer firewall holds. Grilling a personal project must not pull day-job systems,
-  colleagues or client names into the conversation record.
+- When an answer fixes the meaning of a **term**, add it to the target repo's `CONTEXT.md` as you
+  go. When it settles a **trade-off and an alternative was rejected**, offer an ADR in the repo's ADR
+  directory (`docs/adr/`, or `adr/`). `/domain-modeling` has the formats.
+- **The employer firewall holds.** Grilling a personal project does not bring day-job systems,
+  colleagues or client names into the record.
 
 ## With nobody to answer
 
-Grilling needs a person. In a headless run (`claude -p`), inside a subagent, or when the user has
-said they are away, nobody will answer the round.
+The method needs a person on the other end. In a headless run (`claude -p`), inside a subagent, or
+when the user has said they are away, no one will answer the round.
 
-Then write the frontier once, each question with its recommended answer, and name it as the
-blocker: which decisions are open, and what work waits on each. A recommended answer is still a
-recommendation, so nothing is built on it. Carry on only with work no open decision touches. When
-the user or the calling ritual answers the round, grilling resumes from there.
-
----
-
-Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The design-tree and
-frontier method is upstream and unmodified; the "Where this fits in Cortex" and "With nobody to
-answer" sections are Cortex additions.
+In that case, write the current frontier once, each question with its recommended answer, and
+report it as the blocker: which decisions are open, and what work waits on each. A recommended
+answer is still only a recommendation, so build nothing on it. Continue only with work that no open
+decision touches. When the user or the calling ritual answers, resume from that round.
 
 ## When the floor is not met
 
-Grilling is rounds of questions that each depend on the last answer. A model that cannot hold the thread asks the same question twice and stops before the tree is resolved, which reads as agreement — the failure looks like success.
+Each round depends on the answers to the last. A model that cannot hold that state repeats
+questions and stops before the tree is resolved, and an early stop reads as agreement, so the
+failure looks like success.
 
-Below the floor: run it as a **written** interview instead. Ask three questions, have the user answer in the file, re-read the file, ask three more. The file carries the state the model cannot. Slower, and it converges.
+Below the floor, run it as a **written** interview: put three questions in a file, have the user
+answer in the file, read the file again, and add the next three. The file holds the state the model
+cannot. It is slower, and it still converges.

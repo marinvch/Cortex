@@ -5,161 +5,226 @@ metadata:
   capability: judgment
 ---
 
-Reference for writing any document an agent consumes — a skill, an `AGENTS.md` / `CLAUDE.md`, a doc reached by a pointer. The packaging differs; the writing does not: the same levers make each one predictable — the agent taking the same _process_ every run, not producing the same output.
+# /writing-for-agents — documents an agent will follow
 
-When the document you're writing is a skill, read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for frontmatter, invocation choice, and router skills.
+This applies to anything an agent reads to decide what to do: a skill, an `AGENTS.md` or
+`CLAUDE.md`, a `CONTEXT.md`, a document reached from a pointer in one of those. They are packaged
+differently and written the same way. The goal is not identical output on every run. It is that the
+agent **takes the same route through the work every run**, so that when the result is wrong, the
+document is what you fix.
 
-When the job is to **create** a new Cortex skill, or to turn a repeated task into a `/slash` command, follow [`NEW-SKILL.md`](NEW-SKILL.md): name it, write it, wire it into the tables, give it an edge, verify. Ask before writing.
+- Writing a skill: also read [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) for the frontmatter, the
+  choice between model-invoked and user-invoked, and router skills.
+- Creating a new Cortex skill, or turning a repeated task into a `/slash` command: follow
+  [`NEW-SKILL.md`](NEW-SKILL.md) to name it, write it, wire it into the tables, give it an inbound
+  edge and verify it. Ask the user before writing.
 
-## Context pointers
+## Two budgets
 
-A **context pointer** is a reference held in the agent's context that names some out-of-context material and encodes the condition for reaching it. A skill's description is one; a line in `AGENTS.md` naming a doc is the same object. The pointer's _wording_, not its target, decides when the agent reaches the material — and how reliably. A must-have target behind a weakly worded pointer is a variance bug: sharpen the wording first, and inline the material only if sharpening fails.
+Every line you add is paid for from one of two budgets.
 
-A pointer does two jobs — state what the material is, and list the **branches** that should trigger reaching it (a branch is a distinct case the document handles, so different runs take different paths through it). Every word of an always-loaded pointer costs on every turn, so it earns even harder pruning than the body:
+- **Context load** is the agent's. Anything always loaded (an `AGENTS.md` line, a skill
+  description) uses tokens and attention on every turn, whether or not the turn needs it.
+- **Cognitive load** is the human's: knowing which documents exist and when to use each. The person
+  is acting as the index. This budget is not something to drive to zero; it is what keeps a person
+  in control. Spend it where their judgment matters and remove it where it does not.
 
-- **Front-load the leading word** — the pointer is where it does its triggering work.
-- **One trigger per branch.** Synonyms that rename a single branch are one branch written twice; collapse them and keep only genuinely distinct branches.
-- **Cut identity the body already carries.**
+Material behind a pointer costs context load only for the pointer's line. Material that nothing
+points at costs no context load, and is found only if a person remembers it.
 
-## The two loads
+## Pointers
 
-Every document and pointer you add spends one of two budgets:
+A **context pointer** is a line in loaded context that names material held elsewhere and says when
+to fetch it. A skill's description is a pointer; so is a row in an `AGENTS.md` routing table. The
+**wording of the pointer, not the content of the target, decides whether the agent fetches it**,
+and how reliably. If something essential sits behind a weakly worded pointer, the agent will
+sometimes miss it. Reword the pointer first; move the material inline only if rewording does not
+work.
 
-- **Context load** — the cost of always-loaded material on the agent's window: an `AGENTS.md` line, a skill description, anything sitting in context every turn, spending tokens and attention whether or not it fires.
-- **Cognitive load** — the cost on the human: which documents exist and when to reach for each. The human is the index. Not a cost to minimise — it is the price of human agency; spend it where human judgement matters, remove it where it does not.
+A pointer says what the material is, and lists the cases that should lead to it. A **branch** is
+one distinct case the document handles, a path some runs take and others do not. Because a pointer
+is always loaded, cut it harder than the body:
 
-Material reached only through a pointer escapes context load at the price of the pointer's own line; material with no pointer at all rides entirely on cognitive load.
+- **Start with the leading word** (below). The opening of the pointer does most of the matching.
+- **One trigger per branch.** Three synonyms for the same case are one branch. Keep one; keep
+  separate triggers only for cases that are actually different.
+- **Do not repeat what the body says about itself.** The pointer's job is to be reached.
 
-## Information hierarchy
+## Where each piece goes
 
-A document is built from two content types — **steps** (the ordered actions the agent performs) and **reference** (definitions, rules, facts consulted on demand) — that mix freely: all steps (a recipe), all reference (a review's rules, this skill), or both. The core decision is where each piece sits on the **information hierarchy**, a ladder ranked by how immediately the agent needs the material:
+A document contains **steps**, the actions the agent carries out in order, and **reference**, the
+rules, definitions and facts it looks up as needed. A document can be all steps (a procedure), all
+reference (the rules for a review, or this page), or a mix.
 
-1. **In-file step** — the primary tier: what the agent does, in order.
-2. **In-file reference** — consulted on demand. Often a legitimately flat peer-set (every rule of a review on one rung) — a fine arrangement, not a smell.
-3. **Disclosed reference** — pushed out into a separate file, reached by a context pointer, loaded only when the pointer fires. Spans a sibling file in the same folder through fully external reference that lives anywhere and any document can point at.
+Place each piece by how soon the agent needs it:
 
-Push too little down and the top bloats; push too much and you hide material the agent actually needs. That tension is the whole decision.
+1. **Steps in the file.** The main content: what to do, in order.
+2. **Reference in the file.** Looked up when needed. A flat list of equal rules is a normal shape
+   for this, not a defect.
+3. **Reference in another file**, behind a pointer, read only when the pointer fires. That can be a
+   sibling file in the skill's folder or a shared file anywhere that several documents point at.
 
-**Progressive disclosure** is the move down the ladder — out of the main file and behind a pointer — so the top stays legible. Not primarily a token optimisation: it is how the hierarchy is protected. Branching is the cleanest disclosure test: inline what every branch needs, and push behind a pointer what only some branches reach. When a document has steps, in-file reference that should be disclosed buries them and turns attending to them into a coin-flip — a variance lever, not just a legibility one.
+Keeping too much in the file buries the steps; moving too much out hides what the agent needs.
 
-**Co-location** is the within-file companion: where the ladder decides _how far down_ a piece sits, co-location decides _what sits beside it_ once there. Keep a concept's definition, rules, and caveats under one heading rather than scattered, so reading one part brings its neighbours with it. The test: the document should read like documentation written for the agent — grouped material reads that way; scattered material does not. (Distinct from duplication: that repeats one meaning in two places; scattering fragments one meaning across many.)
+**Disclosure** is moving material down that list, out of the file and behind a pointer, so the
+main file stays readable. Its purpose is keeping the steps visible, more than saving tokens. The
+test is by branch: keep in the file what every branch needs, and move out what only some branches
+use. When reference that should have moved sits between the steps, whether the agent attends to a
+given step becomes a matter of chance.
 
-**Sprawl** is the failure mode here: a document simply too long, even when every line is live and unique. Attention thins across the excess, and every extra line is one more to keep relevant. The cure is the ladder: disclose reference behind pointers, and split by branch or sequence so each path carries only what it needs.
+**Keep related material together.** A concept's definition, its rules and its exceptions belong
+under one heading, so reading one part brings the rest. A document grouped this way reads like
+documentation for the agent; one where a concept is split across sections does not. This is
+different from duplication: duplication says one thing twice, scattering splits one thing into
+pieces.
 
-## Steps and completion criteria
+**Sprawl** is a document that is too long even though every line is current and unique. Attention
+spreads thinner over each extra line, and each line is one more to keep correct. The cure is the
+same list: move reference behind pointers, and split by branch or by sequence so each path carries
+only its own material.
 
-Every step ends on a **completion criterion** — the condition that tells the agent the work is done. Two properties make it a lever:
+## How a step ends
 
-- **Clarity** — can the agent tell done from not-done? A vague bound ("understanding reached") invites **premature completion**: ending the step before it is genuinely done, attention slipping to _being done_. The visible steps still ahead — the **post-completion steps** — supply the pull; the criterion's clarity is the resistance. Defend in order: **sharpen the bound first** (local and cheap); only if it is irreducibly fuzzy _and_ you observe the rush, hide the later steps by splitting the sequence — and hiding only works across a real context boundary (a hand-off or a subagent dispatch; an inline call leaves the later steps in context and clears nothing).
-- **Demand** — how much it requires. "Every modified model accounted for" forces thorough work where "produce a change list" does not. Demand drives **legwork** — the digging the agent does within the work, latent in the wording rather than written as its own step — and it is not step-bound: "every rule applied" binds a body of flat reference just as "every step done" binds a sequence, which is how an all-reference document still carries an exhaustiveness bar.
+Every step needs a **completion criterion**: the condition under which the step is done. It works
+along two dimensions.
 
-The strongest criteria are both checkable and exhaustive.
+- **Clarity: can the agent tell done from not done?** A soft criterion ("once the problem is
+  understood") leads to **premature completion**, where the agent stops because finishing is
+  attractive, not because the step is finished. The steps still ahead pull it forward; a clear
+  criterion holds it in place. Fix this by making the criterion checkable first, since that is local
+  and cheap. Only if it cannot be made sharp, and you have seen the agent rush it, hide the later
+  steps by splitting the sequence. Hiding works only across a real context boundary, such as a
+  hand-off to a new session or a subagent dispatch. Calling another file inline keeps the later
+  steps in context.
+- **Demand: how much does it ask for?** "Every changed model accounted for" produces thorough work
+  where "list the changes" does not. Demand sets how much digging the agent does without the digging
+  being written as steps. It works on reference too: "every rule applied" sets a bar for a flat list
+  of rules the same way "every step done" does for a procedure.
 
-## When to split
+The best criteria are checkable and exhaustive at once.
 
-Splitting one document into two spends one of the two loads, so split only when the cut earns it:
+## Splitting one document into two
 
-- **By sequence** — split a run of steps where the post-completion steps tempt the agent to rush the one in front of it. Keeping them out of view drives more legwork on the current task. Beware the reverse: merging sequences exposes each step's later steps to what follows, inviting premature completion.
-- **By invocation** — skill-specific: see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md).
+A split spends one of the two budgets, so it needs a reason:
 
-## Leading words
+- **By sequence.** When the steps that come later tempt the agent to rush the current one, put them
+  in a separate document so the current step gets full attention. Merging two sequences has the
+  opposite effect: each step can now see more steps after it.
+- **By invocation.** Only for skills; see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md).
 
-A **leading word** is a compact concept already living in the model's pretraining that the agent thinks with while running the document (_lesson_, _fog of war_, _tracer bullets_). Repeated as a token, never as a sentence, it accumulates a distributed definition and anchors a whole region of behaviour in the fewest tokens, by recruiting priors the model already holds. Coining your own works if you define it clearly, but a made-up word recruits no priors — you pay in definition tokens what a pretrained word gives free; reach for an existing word first.
+## Words that do work
 
-It anchors twice. In the body, _execution_: the agent reaches for the same behaviour every time the word appears, and inside flat reference it focuses attention on a class of thing to look for. In a pointer, _invocation_: when the same word lives in your prompts, your docs, and your codebase, the agent links that shared language to the material and reaches it more reliably.
+A **leading word** is a short term the model already understands from training, used so the agent
+thinks with it while it works. Used repeatedly as the same token, it gathers meaning from every
+place it appears and steers a whole area of behaviour for very few tokens. You can coin a term, but
+a new word brings no prior understanding, so you pay for its definition; look for an existing word
+first.
 
-Hunt for opportunities to refactor with leading words. A triad spelled out at three sites, a pointer spending a sentence to gesture at one idea — each is a passage begging to collapse into a single token:
+It acts in two places. In the body, it shapes **execution**: each time the word appears, the agent
+does the same kind of thing, and inside a list of reference it tells the agent what class of
+problem to look for. In a pointer, it shapes **invocation**: when the same word appears in the
+user's prompts, the repo's documents and the code, the agent connects them and reaches the material
+more reliably.
 
-- "fast, deterministic, low-overhead" → _tight_ (a _tight_ loop).
-- "a loop you believe in" → _red_ — a fuzzy gate becomes a binary observable state (the loop goes _red_ on the bug, or it doesn't).
+Look for places where a phrase can become one word. Two from Cortex's own rituals:
 
-You win twice: fewer tokens, and a sharper hook for the agent to hang its thinking on. Assume every document is carrying restatements that leading words retire — go find them.
+- `/diagnosing-bugs` asks for a command that goes **red** on the bug. "A check you trust" is a
+  judgment; red is a state the agent can observe.
+- `/grilling` asks the **frontier** each round. "The questions that are ready to ask" needs a
+  sentence of explanation every time; the frontier is one word, defined once.
 
-**Negation** is the failure mode beside this lever: steering by prohibition drags the forbidden behaviour into context and makes it _more_ available, not less. _Don't think of an elephant_, and the elephant is all there is; the negation is a weak modifier the strongly-activated concept overruns, so the ban half-reads as an instruction to do the thing. Prompt the **positive** — state the target behaviour ("write one-line comments") so the banned one is never spoken. A prohibition earns its place only as a hard guardrail you cannot phrase positively; even then, pair it with the positive target so attention lands on what to do.
+The result is fewer tokens and a firmer anchor for the agent's reasoning. Most documents contain
+restatements a leading word would replace.
 
-## Pruning
+**Steer toward the behaviour, not away from it.** A prohibition puts the unwanted behaviour into
+context and makes it more likely: the named thing is strongly activated, the "do not" attached to it
+is weak, and the instruction partly reads as a suggestion. Write the target ("keep comments to one
+line") and the unwanted behaviour never needs naming. Use a prohibition only as a hard limit that
+cannot be phrased positively, and even then state the positive target beside it.
 
-- Keep each meaning in a **single source of truth**: one authoritative place, so changing the behaviour is a one-place edit. **Duplication** — the same meaning in more than one place — costs maintenance and tokens, and inflates a meaning's prominence on the ladder past its real rank. (The accidental inverse of a leading word, which repeats a token on purpose, never the meaning.)
-- The **environment** is a source of truth too — `package.json` scripts, config files, the directory layout, `--help` output — and a document that restates it is a **cache**: a copy of a lookup, earning its load only when the lookup is expensive. Cache what the agent cannot find by looking: the unwritten convention, the reason behind a choice, the gotcha no config confesses. Leave the one-file, one-command lookups to the environment, where they cannot go stale.
-- **Cite a name, not a line number** — a `path:line` is a cache whose half-life is one edit *anywhere
-  above* the thing it points at, and the split is by **lifespan** rather than by document type. A
-  **finding** is consumed within hours and never re-read, so `path:line` stays correct and required
-  there: a review comment or a grounded role reviewer must keep giving it, because staleness cannot
-  reach what nobody reads twice. A **durable** document — a brief, a skill, a comment meant to outlive
-  its commit — is re-read for months, so it points at a function, a constant or a heading:
-  `markerLine`, not `findings.mjs:196`. The load-bearing half is that this one is checkable: tooling
-  validates paths because a path **is** a name, so a line number is the citation form that opts out of
-  verification. A rename is loud and shows up in a diff; a line moving from 196 to 218 is silent. Not
-  hypothetical — this repo shipped exactly that inside one PR on one day, when an edit to an unrelated
-  finding above the target shifted the cited line and left no trace. *(Cortex addition to this
-  section.)*
-- Check every line for **relevance**: does it still bear on what the document does? A line loses relevance by never bearing on the task (mere exposition, or a branch that should be disclosed) or by going stale as the behaviour or world it describes changes. Shorter documents are easier to keep relevant. Without a pruning discipline the default fate is **sediment**: stale layers that settle because adding feels safe and removing feels risky, until you must core down through them to find what is still live.
-- Hunt **no-ops** sentence by sentence: an instruction the model already obeys by default pays load to say nothing. The test — does it change behaviour versus the default? — is model-relative, not reader-relative: two people disagreeing about a no-op disagree about the default, and settle it by running the document, not by debate. When a sentence fails, delete the whole sentence rather than trim words from it. The test also grades leading words: a word too weak to beat the default (_be thorough_ when the agent is already thorough-ish) is a no-op, and the fix is a stronger word (_relentless_), not a different technique.
-- **Write the procedure, not the workaround for one model.** A step earns its place when it reads
-  right to any capable reader: what to do, and why. When the only reason for a sentence is that one
-  model skips a step or overdoes another, the sentence is a patch for that model. The next model
-  reads it as a rule with no cause, and nobody can tell when it is safe to delete. Put the
-  observation in an issue, with the transcript that shows it. If the step is under-specified for
-  every reader, fix the step and give its reason. A capability floor is a different thing: it is
-  declared once in frontmatter, and the ritual says what to do below it. *(Cortex addition to this
-  section.)*
+## Keeping a document short and correct
+
+- **One home per meaning.** Each fact or rule lives in one place, so changing the behaviour is one
+  edit. **Duplication** costs upkeep and tokens, and makes the repeated point look more important
+  than it is. A leading word is different: it repeats a token on purpose, never the explanation.
+- **Do not restate the environment.** `package.json` scripts, config files, the directory layout
+  and `--help` already say what they say. A document that repeats them is a **cache** of a lookup,
+  worth keeping only when the lookup is expensive. Write down what looking cannot find: the
+  unwritten convention, the reason for a choice, the trap no config file mentions.
+- **Cite a name, not a line number.** A `path:line` goes stale the moment anything above the line
+  changes, so the rule depends on how long the document lives, not on what kind of document it is.
+  A **finding** is read within hours and never again, so `path:line` is correct there and required:
+  a review comment or a grounded role reviewer keeps giving it. A **durable** document (a brief, a
+  skill, a code comment meant to outlast its commit) is read for months, so it names a function, a
+  constant or a heading: `markerLine`, not `findings.mjs:196`. Paths can be checked by tooling
+  because a path is a name; a line number is the one form of citation that escapes the check. A
+  rename shows up in the diff. A line moving from 196 to 218 does not. This repo shipped exactly
+  that inside one PR on one day, when an edit to an unrelated finding above the cited line moved it.
+- **Check each line still applies.** A line stops applying when it never bore on the task
+  (explanation for its own sake, or a branch that should have moved out) or when what it describes
+  has changed. Short documents are easier to keep current. Without regular pruning, documents
+  collect **sediment**: old layers that stay because adding feels safe and deleting feels risky,
+  until finding the live part means digging.
+- **Remove no-ops.** A **no-op** is an instruction the model would follow anyway; it costs load and
+  changes nothing. Test each sentence by asking whether it changes behaviour compared with no
+  sentence at all. The answer depends on the model, not on the reader, so settle a disagreement by
+  running the document, not by arguing. When a sentence fails, delete all of it rather than trimming
+  it. The same test applies to leading words: a word too weak to move the default (*careful*, for an
+  agent that is already fairly careful) is a no-op, and the fix is a stronger word (*exhaustive*),
+  not a different technique.
+- **Write the procedure, not a patch for one model.** A step belongs when any capable reader would
+  read it correctly: what to do and why. A sentence whose only reason is that one model skips a step
+  or overdoes another is a patch. The next model reads it as a rule without a cause, and no one can
+  tell when it is safe to remove. Record the observation in an issue, with the transcript that shows
+  it. If a step is unclear to every reader, fix the step and give its reason. A capability floor is
+  a different thing: it is declared once in the frontmatter, and the ritual says what to do below it.
 
 ## What this governs in Cortex
 
-Every document Cortex writes into a repo is one of these, so this is the **authoring** discipline
-behind the rituals that produce them:
+Every document Cortex writes into a repo is one of these, so this page is the authoring standard for
+the rituals that write them:
 
-| Cortex writes | Written by | The lever that matters most |
+| Cortex writes | Written by | What matters most |
 |---|---|---|
-| root `AGENTS.md` + the routing table | `/cortex-scaffold` | the table **is** a set of context pointers — their wording decides whether a leaf is ever reached |
-| scoped `AGENTS.md` leaves | `/cortex-brief` | disclosure: a leaf exists so the root stays legible |
-| `CONTEXT.md` | `/domain-modeling` | single source of truth — a term defined twice is defined nowhere |
+| root `AGENTS.md` and its routing table | `/cortex-scaffold` | the table is a set of context pointers; their wording decides whether a leaf is ever read |
+| scoped `AGENTS.md` leaves | `/cortex-brief` | disclosure: a leaf exists so the root stays readable |
+| `CONTEXT.md` | `/domain-modeling` | one home per meaning: a term defined twice is not defined |
 | `skills/<name>/SKILL.md` | this ritual, by [`NEW-SKILL.md`](NEW-SKILL.md) | see [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md) |
-| `.cortex/memory/` digests | `/dream` | relevance — a digest that restates the diff is sediment on arrival |
+| `.cortex/memory/` digests | `/dream` | relevance: a digest that restates the diff is sediment the day it is written |
 
-Two Cortex-specific notes:
-
-- **`/optimize-context` is the audit; this is the discipline it audits against.** When that ritual
-  reports a repo's agent files as bloated, the findings are the levers here — sprawl, duplication,
-  no-ops, a must-have target behind a weakly worded pointer. It never deletes prose on its own
-  authority, so the judgement calls come back to the user.
-- **Cortex sets `disable-model-invocation: true` for a second reason.** Upstream weighs it purely
-  as context load versus cognitive load. Cortex adds safety: a once-only or destructive ritual must
-  never auto-fire, and that outranks the load trade. Keep the flag when editing their frontmatter.
-  `grep -l '^disable-model-invocation: true' skills/*/SKILL.md` is the list of record — anchor it,
-  because this page and `NEW-SKILL.md` discuss the flag in prose and an unanchored grep counts
-  them as carrying it.
+- **`/optimize-context` audits against this page.** When it reports a repo's agent files as
+  bloated, its findings are the problems named here: sprawl, duplication, no-ops, an essential
+  target behind a weak pointer. It never deletes prose on its own authority, so the judgment calls
+  go back to the user.
+- **In Cortex, `disable-model-invocation: true` is also a safety flag.** As a load trade it is
+  covered in [`SKILL-MECHANICS.md`](SKILL-MECHANICS.md). Cortex also uses it so that a once-only or
+  destructive ritual can never fire on its own, and that outranks the load trade. Keep the flag when
+  editing such a ritual's frontmatter. `grep -l '^disable-model-invocation: true' skills/*/SKILL.md`
+  is the list of record. Keep the anchor: this page and `NEW-SKILL.md` mention the flag in prose, and
+  an unanchored grep counts them.
 
 ## The official rules this sits on
 
-The levers above are judgement. The hard limits are Anthropic's, and a document that breaks one is
+Everything above is judgment. The hard limits are Anthropic's, and a document that breaks one is
 wrong however well it reads. The pages that state them:
 
-- [Skills](https://code.claude.com/docs/en/skills) — the frontmatter keys Claude Code recognises
-  (anything else is ignored without an error; custom data goes under `metadata:`), `description`
-  plus `when_to_use` truncated at 1,536 characters, `SKILL.md` kept under 500 lines.
-- [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)
-  — the limits of the Agent Skills format, which the API and a claude.ai upload read: a name of at
+- [Skills](https://code.claude.com/docs/en/skills): the frontmatter keys Claude Code recognises
+  (others are ignored without an error; custom data goes under `metadata:`), `description` plus
+  `when_to_use` truncated at 1,536 characters, and `SKILL.md` kept under 500 lines.
+- [Skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices):
+  the limits of the Agent Skills format, which the API and a claude.ai upload read. A name of at
   most 64 characters in lowercase letters, numbers and hyphens, a description of at most 1,024
   characters, and a table of contents at the top of a reference file over 100 lines. Claude Code
   loads a skill that breaks these, so Cortex reports them as low.
-- [Subagents](https://code.claude.com/docs/en/sub-agents) — their own frontmatter keys, and the tool
-  list a subagent inherits when it names none.
+- [Subagents](https://code.claude.com/docs/en/sub-agents): their own frontmatter keys, and the tools
+  a subagent inherits when it names none.
 - [Memory](https://code.claude.com/docs/en/memory) and
-  [Best practices](https://code.claude.com/docs/en/best-practices) — how long a `CLAUDE.md` may run,
+  [Best practices](https://code.claude.com/docs/en/best-practices): how long a `CLAUDE.md` may run,
   `@path` imports, and emphasis that works on one line and stops working on many.
-- [Hooks](https://code.claude.com/docs/en/hooks) — which exit codes block, and which events can.
-- [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5)
-  — effort, and a text-only end of turn read as a report rather than as proof the work is done.
+- [Hooks](https://code.claude.com/docs/en/hooks): which exit codes block, and which events can.
+- [Prompting Claude Opus 5.5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5):
+  effort, and why a text-only end of turn is read as a report, not as proof the work is done.
 
-Cortex carries each rule as data with the sentence that states it (`core/claude-code.js`), and its
-findings report every breach under `claude-setup/` — on this repo too, where any finding fails the
+Cortex holds each rule as data with the sentence that states it (`core/claude-code.js`), and its
+findings report every breach under `claude-setup/`, on this repo too, where any finding fails the
 build.
-
----
-
-Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). The reference body
-and `SKILL-MECHANICS.md` are upstream and unmodified apart from two bullets under Pruning, the one
-on citations and the one on a workaround for one model. Each is marked in place so a re-sync can
-tell it apart; "What this governs in Cortex" and "The
-official rules this sits on" are Cortex additions.

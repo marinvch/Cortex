@@ -6,57 +6,57 @@ metadata:
   reached-by: git — an interrupted merge or rebase, not another ritual
 ---
 
-# /resolving-merge-conflicts — resolve by intent, never by `--abort`
+# /resolving-merge-conflicts — keep what each side meant, then finish
 
-A conflict is two intentions colliding, not two blobs of text. Resolve the **intentions**. The
-failure mode this ritual exists to prevent is picking a side because it looks tidier, or bailing
-out with `--abort` and losing the work.
+Each side of a conflict was written to achieve something. The resolution has to keep both of those
+aims, or drop one on purpose and say so. The two ways this goes wrong are choosing whichever side
+reads more cleanly, and running `--abort`, which throws away the work in progress.
 
-## Process
+## 1. Establish what is being merged, and why
 
-### 1. See the current state
+```bash
+git status
+git log --oneline --graph -20
+git diff --name-only --diff-filter=U     # the files still in conflict
+```
 
-`git status`, `git log --oneline --graph -20`, and `git diff --name-only --diff-filter=U` for the
-conflicting files. Establish what is being merged into what, and what the merge is *for* — the
-stated goal decides every tie-break below.
+Work out which branch is going into which, and what the merge is meant to achieve. That purpose
+settles every case below where both sides cannot be kept.
 
-### 2. Find the primary sources
+## 2. Find out what each side intended
 
-For each conflicting hunk, understand deeply **why** each side changed. Read the commit messages
-(`git log -p --merge -- <file>`), the PR, the linked issue. Where the repo has a `CONTEXT.md` or
-ADRs (see [[domain-modeling]]), check them — a conflict that contradicts an ADR is a signal that
-one side is wrong, not that you must split the difference.
+For every conflicting hunk, read why each side changed it: `git log -p --merge -- <file>` for the
+commits involved, then their PRs and linked issues. If the repo has a `CONTEXT.md` or ADRs (see
+[[domain-modeling]]), check the hunk against them. When one side breaks a recorded decision, that
+side is wrong; do not meet it halfway.
 
-Don't resolve a hunk you can't explain. If neither side's intent is recoverable, say so and ask.
+If you cannot say what a side was trying to do, do not resolve that hunk. Say which one it is and
+ask.
 
-### 3. Resolve each hunk
+## 3. Resolve, hunk by hunk
 
-**Preserve both intents where possible.** Where they're genuinely incompatible, pick the one
-matching the merge's stated goal and state the trade-off out loud.
+Go file by file and hunk by hunk.
 
-**Do not invent new behaviour.** A resolution that is neither side is how silent bugs get born —
-if the right answer really is a third thing, that's a follow-up commit, not a conflict resolution.
+- **Keep both aims when they can coexist.** This is the usual case.
+- **When they cannot,** keep the one that serves the purpose from step 1, and state what the other
+  side loses.
+- **Write no new behaviour.** The result is one side, the other, or both combined. If the correct
+  code is something neither side wrote, resolve the conflict first and make that change as a
+  separate commit afterwards.
 
-Work file by file, hunk by hunk. Leave no conflict markers behind — grep for `<<<<<<<` before
-moving on.
+Before leaving a file, search it for `<<<<<<<`, `=======` and `>>>>>>>`.
 
-### 4. Run the checks
+## 4. Run the repo's checks
 
-Discover the project's automated checks and run them — typically typecheck, then tests, then
-format. A clean merge that doesn't compile isn't resolved. Fix whatever the merge broke, keeping
-it to what the merge broke and nothing else.
+Find the checks the project runs (the scripts in its manifest, its CI workflow, its `AGENTS.md`) and
+run them: usually the type check, then the tests, then the formatter. A merge that does not build is
+not resolved. Fix what the merge broke and nothing beyond it.
 
-### 5. Finish the operation
+## 5. Complete the operation
 
-Stage everything and commit. If rebasing, `git rebase --continue` and repeat from step 1 for each
-remaining commit until the rebase is done.
+Stage the resolved files and commit, following the repo's own conventions for hooks and for how
+changes reach the default branch. During a rebase, run `git rebase --continue` and go back to step 1
+for each commit that stops, until the rebase finishes.
 
-**Always resolve; never `--abort`.** If you truly cannot, stop and hand back to the user with the
-conflict intact and an explanation — that's their call, not yours.
-
-> In this vault specifically, commits need `SKIP_SIMPLE_GIT_HOOKS=1` and reach `master` by PR
-> only. Check the repo's own conventions before committing anywhere else.
-
----
-
-Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT).
+Do not abort. If a conflict truly cannot be resolved, stop with the conflict still in place and hand
+it back to the user with what you found. Abandoning the merge is their decision.

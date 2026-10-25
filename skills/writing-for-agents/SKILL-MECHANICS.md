@@ -1,43 +1,59 @@
 # Skill mechanics
 
-The skill-specific branch of [`writing-for-agents`](SKILL.md): what changes when the document is a skill — frontmatter, the invocation choice, and router skills. Everything else about writing it is the universal reference in `SKILL.md`.
+What changes when the document is a skill. Everything about writing it well is in
+[`SKILL.md`](SKILL.md); this page covers who can start it, when to split one off, and skills that
+exist to point at other skills.
 
-## Invocation
+## Who can start it
 
-Two choices, trading the two loads:
+A skill is either model-invoked or user-invoked, and the choice moves cost between the two budgets
+in `SKILL.md`.
 
-- A **model-invoked** skill keeps a `description`, so the agent can fire it autonomously — and other skills can reach it. You can still type its name: model-invocation always _includes_ user reach; a description only ever adds agent discovery, never removes the human's. The description is the skill's top-level context pointer, forced to stay loaded at all times — permanent context load in exchange for discoverability. A model-invoked skill whose content is all reference is also one home for shared reference: another skill can invoke it, so reference needed by several skills lives in one place. Mechanics: omit `disable-model-invocation`, and write a model-facing description carrying the trigger branches (the pointer-writing rules in `SKILL.md` apply in full).
-- A **user-invoked** skill strips the description from the agent's reach: only the human typing its name can invoke it, and no other skill can. Zero context load, but it spends cognitive load — you are the index that must remember it exists. Mechanics: set `disable-model-invocation: true`; the `description` becomes human-facing — a one-line summary, trigger lists stripped.
+| | Model-invoked | User-invoked |
+|---|---|---|
+| Frontmatter | no `disable-model-invocation` | `disable-model-invocation: true` |
+| Who can start it | the agent, other skills, and the user by name | only the user, by typing its name |
+| `description` | written for the model: what it is and the trigger for each branch | written for a person reading the `/` menu: one line, no trigger list |
+| Context load | the description is loaded on every turn | none |
+| Cognitive load | low: the agent can find it | the user must remember it exists |
 
-Pick model-invocation only when the agent must reach the skill on its own, or another skill must. If it only ever fires by hand, make it user-invoked and pay no context load.
+Making a skill model-invoked never takes anything from the user; they can still type it. The
+description is the skill's top-level context pointer, and the price of being found is that it is
+always loaded. Write it by the pointer rules in `SKILL.md`.
 
-Shared reference that two user-invoked skills both need can live in neither — with no descriptions, neither can fire the other. Push it to a plain file outside the skill system: external reference any skill can point at.
+Choose model-invoked only when the agent has to reach the skill unprompted, or another skill has to
+reach it. A skill that only ever runs because someone typed it should be user-invoked and cost no
+context.
+
+**Shared reference.** A model-invoked skill that is all reference can serve as the one home for
+material several skills need: they invoke it. Two user-invoked skills cannot share that way,
+because neither can start the other. Put what they share in a plain file outside the skill system
+and point both at it.
 
 ## Splitting by invocation
 
-The invocation cut of splitting (the sequence cut lives in `SKILL.md`): split off a model-invoked skill when you have a distinct leading word that should trigger it on its own — a trigger word you actually use in your prompts — or another skill must reach it. You pay context load for the new always-loaded description, so that independent reach has to be worth it.
+`SKILL.md` covers splitting by sequence. The other reason to split part of a skill into its own
+skill is reach: split off a model-invoked skill when it has its own leading word, one that actually
+appears in your prompts and should trigger it alone, or when another skill needs to reach it. The
+new description is loaded on every turn, so the separate reach has to be worth that.
 
 ## Router skills
 
-When user-invoked skills multiply past what you can remember, that piled-up cognitive load is cured by a **router skill**: one user-invoked skill that names the others and when to reach for each, so the human has one skill to remember instead of many. It can only hint, never fire them: user-invoked skills have no description, so nothing but the human can reach them.
+When there are more user-invoked skills than a person can remember, add a **router skill**: one
+user-invoked skill that lists the others and says when to use each, so there is one name to
+remember instead of many. A router can only suggest. The skills it lists have no description, so
+only the user can start them.
 
 ## In Cortex
 
-Cortex's ritual table in `AGENTS.md` is a router — one document naming 30-plus rituals and when to
-reach for each — but it is a *file*, not a skill, so it costs no invocation of its own. The
-"Gotchas worth knowing before you pick one" list under it exists because naming a ritual is not
-enough when two rituals sound interchangeable and are not (`/handoff` writes for the next agent,
-`/dream` commits for the next reader). When the prose separating two
-rituals grows longer than the difference it describes, that is the signal they are one ritual —
-`/cortex-doctor` and `/scope-area` were deleted for exactly that reason, and `/audit` and
-`/reindex` became modes of `/cortex-audit` for it too. See
+The ritual table in `AGENTS.md` is a router, naming 30-plus rituals and when to use each. It is a
+file, not a skill, so it is read without being invoked. The guidance under the table exists because
+a name is not enough when two rituals sound alike and are not (`/handoff` writes for the next agent,
+`/dream` commits for the next reader). When the text needed to tell two rituals apart grows longer
+than the difference itself, they are one ritual. `/cortex-doctor` and `/scope-area` were deleted for
+that reason, and `/audit` and `/reindex` became modes of `/cortex-audit`. See
 [ADR 0011](../../docs/adr/0011-four-rituals-covered-two-jobs.md).
 
-The same shape appears one level down: the "Where to look" table routes to `core/`, `index/` and
-`mcp/` leaves, and says **read one**. A router that does not say how many targets to open invites
-the agent to open all of them.
-
----
-
-Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). "In Cortex" is a
-Cortex addition.
+The "Where to look" table in `AGENTS.md` routes the same way, to the `core/`, `index/` and `mcp/`
+leaves, and it says **read one**. A router that does not say how many targets to open gets all of
+them opened.

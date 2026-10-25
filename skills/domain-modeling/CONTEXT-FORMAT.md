@@ -1,60 +1,60 @@
-# CONTEXT.md Format
+# CONTEXT.md entries
 
-## Structure
+The layout matches Cortex's `templates/CONTEXT.md`, which `/cortex-scaffold` seeds a repo's
+`CONTEXT.md` from. Keep the two consistent; when they differ, the template is right and this page is
+stale.
 
-```md
-# {Context Name}
-
-{One or two sentence description of what this context is and why it exists.}
-
-## Language
-
-**Order**:
-{A one or two sentence description of the term}
-_Avoid_: Purchase, transaction
-
-**Invoice**:
-A request for payment sent to a customer after delivery.
-_Avoid_: Bill, payment request
-
-**Customer**:
-A person or organization that places orders.
-_Avoid_: Client, buyer, account
-```
-
-## Rules
-
-- **Be opinionated.** When multiple words exist for the same concept, pick the best one and list the others under `_Avoid_`.
-- **Keep definitions tight.** One or two sentences max. Define what it IS, not what it does.
-- **Only include terms specific to this project's context.** General programming concepts (timeouts, error types, utility patterns) don't belong even if the project uses them extensively. Before adding a term, ask: is this a concept unique to this context, or a general programming concept? Only the former belongs.
-- **Group terms under subheadings** when natural clusters emerge. If all terms belong to a single cohesive area, a flat list is fine.
-
-## Single vs multi-context repos
-
-**Single context (most repos):** One `CONTEXT.md` at the repo root.
-
-**Multiple contexts:** A `CONTEXT-MAP.md` at the repo root lists the contexts, where they live, and how they relate to each other:
+## One entry
 
 ```md
-# Context Map
+## Booking
 
-## Contexts
+A patient's reserved Slot with one clinician, from confirmation until the visit ends or is
+cancelled. Modelled by `src/scheduling/booking.ts`.
 
-- [Ordering](./src/ordering/CONTEXT.md) — receives and tracks customer orders
-- [Billing](./src/billing/CONTEXT.md) — generates invoices and processes payments
-- [Fulfillment](./src/fulfillment/CONTEXT.md) — manages warehouse picking and shipping
-
-## Relationships
-
-- **Ordering → Fulfillment**: Ordering emits `OrderPlaced` events; Fulfillment consumes them to start picking
-- **Fulfillment → Billing**: Fulfillment emits `ShipmentDispatched` events; Billing consumes them to generate invoices
-- **Ordering ↔ Billing**: Shared types for `CustomerId` and `Money`
+_Avoid_: "appointment" (the calendar invite sent to the patient, a separate record), "reservation"
+(used by the room system for something else).
 ```
 
-The skill infers which structure applies:
+- **The heading is the canonical term.** One term per `##` heading.
+- **The definition says what the thing is in this system**, in one or two sentences. Not what it
+  does, and not what the word means in ordinary English. Name the type, table or module it maps to
+  when there is one.
+- **`_Avoid_` lists the competing words** and why each is wrong here. This is the line that stops a
+  rejected word from coming back in review, so do not leave it out when a rival word exists.
+- **Domain terms only.** Before adding one, ask whether a developer on an unrelated project would
+  use the word the same way. If they would (cache, retry, handler), it does not belong.
+- **Group related terms** under a short section heading once there are enough to form clusters.
+  A short glossary stays flat.
 
-- If `CONTEXT-MAP.md` exists, read it to find contexts
-- If only a root `CONTEXT.md` exists, single context
-- If neither exists, create a root `CONTEXT.md` lazily when the first term is resolved
+If a definition needs more than a short paragraph, it is probably a decision. Write the ADR and link
+it from the entry.
 
-When multiple contexts exist, infer which one the current topic relates to. If unclear, ask.
+## One context or several
+
+Most repos have one context and one `CONTEXT.md` at the root.
+
+A repo with several bounded contexts has a `CONTEXT-MAP.md` at the root that lists them and says how
+they talk to each other, and a `CONTEXT.md` beside each one's code:
+
+```md
+# Context map
+
+| Context | Glossary | Owns |
+|---|---|---|
+| Scheduling | [src/scheduling/CONTEXT.md](src/scheduling/CONTEXT.md) | slots, bookings, cancellations |
+| Billing | [src/billing/CONTEXT.md](src/billing/CONTEXT.md) | charges, refunds, invoices |
+| Records | [src/records/CONTEXT.md](src/records/CONTEXT.md) | patient history and notes |
+
+## How they connect
+
+- Scheduling publishes `BookingCompleted`; Billing reads it and raises a charge.
+- Records looks up patients by `PatientId` and never stores a copy of Scheduling's data.
+```
+
+To decide which layout a repo has:
+
+- `CONTEXT-MAP.md` present: read it, and work in the context the discussion belongs to. Ask if that
+  is unclear.
+- Only a root `CONTEXT.md`: one context.
+- Neither: create a root `CONTEXT.md` when the first term is settled, not before.

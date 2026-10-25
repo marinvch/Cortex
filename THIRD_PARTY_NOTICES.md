@@ -4,50 +4,6 @@ Cortex is MIT-licensed ([LICENSE](LICENSE)), © 2026 Marin Cholakov. This file l
 it that comes from someone else, under what terms, and the terms that apply to what Cortex writes
 into your repositories.
 
-## mattpocock/skills — MIT
-
-Several rituals are adapted from [mattpocock/skills](https://github.com/mattpocock/skills). Each
-file says what is upstream and what Cortex added, in its closing attribution paragraph.
-
-| File | What is adapted |
-|---|---|
-| `skills/diagnosing-bugs/SKILL.md` | Phases 1–6, lightly reworded |
-| `skills/domain-modeling/SKILL.md` | the ritual body |
-| `skills/domain-modeling/CONTEXT-FORMAT.md`, `skills/domain-modeling/ADR-FORMAT.md` | vendored |
-| `skills/grilling/SKILL.md` | the design-tree and frontier method, unmodified |
-| `skills/handoff/SKILL.md` | the instruction body |
-| `skills/improve-codebase-architecture/SKILL.md` | the ritual body |
-| `skills/resolving-merge-conflicts/SKILL.md` | the ritual body |
-| `skills/wizard/SKILL.md`, `skills/wizard/template.sh` | the ritual body; `template.sh` vendored unmodified |
-| `skills/writing-for-agents/SKILL.md`, `skills/writing-for-agents/SKILL-MECHANICS.md` | the reference body, unmodified apart from bullets marked in place |
-| `references/codebase-design.md` | the vocabulary, which draws on Ousterhout and Feathers |
-
-The licence, as published in that repository:
-
-```text
-MIT License
-
-Copyright (c) 2026 Matt Pocock
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 ## Anthropic documentation — quoted, not licensed here
 
 `core/claude-code.js` holds, for each Claude Code rule Cortex checks, an `evidence` string: a short

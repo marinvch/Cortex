@@ -142,7 +142,7 @@ node tools/cortex-preflight.mjs --json
 
 It writes nothing. The profile half is **not** re-derived here — it comes from `core/profile.js`,
 which reads only `CORTEX_PROFILE` and is the one place that rule lives. Exit 1 means a path you named
-would be committed, which is the answer `/capture`, `/wizard` and `/cortex-audit` each need before
+would be committed, which is the answer `/capture` and `/cortex-audit` each need before
 writing anything sensitive; with no paths it always exits 0.
 
 Staleness is mtime-based, so a fresh clone reads as stale. That error points at re-running a cheap
@@ -362,9 +362,8 @@ node tools/cortex-skill-graph.mjs cortex-brief  # one ritual's neighbourhood
 
 Isolated in one direction is normal — a router is nearly all outbound, a shared discipline nearly
 all inbound. Isolated in **both** is the defect, and it has no error state: the ritual still works
-when you type its name, it is just never reached. `/wizard` and `/team-add` each sat that way, so
-every ritual that scaffolded a repo needing manual credential setup re-explained the steps instead of
-handing off to the skill that writes the script.
+when you type its name, it is just never reached. `/team-add` sat that way: `/team-init` created a
+team-brain and never named the command a member runs to join it.
 
 A ritual genuinely triggered from outside declares `reached-by: <what triggers it>` under its
 frontmatter's `metadata:` map and is reported rather than failed. `tools/test/skill-graph.test.sh` pins all of it,

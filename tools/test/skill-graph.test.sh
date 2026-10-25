@@ -2,10 +2,8 @@
 #
 # The defect this pins has no error state. A ritual nothing points at still runs when you type its
 # name — it is simply never *reached*, so only a user who already knows it exists ever gets to it.
-# /wizard and /team-add each sat that way for months: /team-init created a team-brain and never named
-# the command a member runs to join it, and every ritual that scaffolded a repo needing manual
-# credential setup re-explained the steps in prose instead of handing off to the skill that writes
-# the script. Nothing failed. The work was just done twice, worse, by whoever went second.
+# /team-add sat that way for months: /team-init created a team-brain and never named the command a
+# member runs to join it. Nothing failed. A member just had to already know the command existed.
 #
 # This is the same rule AGENTS.md applies to prose — define a thing once and point at it from
 # everywhere else — measured on the rituals rather than asserted about them.

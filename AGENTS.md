@@ -81,6 +81,7 @@ maps each old name to its new one, for a user or a doc still typing the old comm
 | `/create-team` | leader, once | create + seed the shared team-brain repo |
 | `/join-team` | per product repo | clone the team-brain; drop `.cortex/connector.json` |
 | `/whats-changed` | after time away | brain notes + team-brain git history → what changed & why |
+| `/story-map` | a PM's status, any time | each epic traced to the code its stories touched, what waits on an open ask, where the risk is. Never estimates |
 | `/challenge-plan` | before committing to a plan | interview in rounds until the design tree has no unresolved branch |
 | `/architecture-review` | on request | find deepening opportunities in a repo, report them as HTML, work one |
 | `/clarify-request` | automatic | the prompt gate — scores a vague prompt and sharpens it before work starts |
@@ -133,6 +134,10 @@ by a user who already knows it exists, which is the same failure as it not being
   ephemerally to the OS temp dir for the *next agent right now*, `/end-of-day-summary` commits what a future
   reader of the codebase needs, `/whats-changed` writes nothing and reads. Running `/handover-notes` alone on
   a day that taught you something loses the lesson.
+- `/story-map` and `/whats-changed` both answer a project manager and are not interchangeable:
+  one says where each epic stands against the code, the other what happened since a date. The pm
+  role pack carries `/story-map` only, because `/whats-changed` runs a script; `/story-map` covers
+  the catch-up there through the `catch_me_up` tool.
 - `/define-terms` writes a `CONTEXT.md` **in the target repo** — that repo's glossary of terms.
   It is *not* a vault's `context/` (who you are), and its ADRs are *not* `decisions/log.md`
   (your personal decisions). Same word, two different things; never merge them.

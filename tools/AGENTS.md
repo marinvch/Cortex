@@ -64,6 +64,11 @@ pass is not packed. It is listed under "needs Claude Code", with the reason, and
 the skill. Do not widen the definition to let a skill in: a pack skill that tells an assistant to
 run `node tools/...` fails on the first person who tries it, and nothing reports that.
 
+The Claude Desktop entry carries `CORTEX_TEAM` and `CORTEX_TEAM_REPO` placeholders beside
+`CORTEX_ROOT`. Desktop has no repo, so the team cannot come from a connector; `mcp/lib/resolve.js`
+reads the two where none is found. `whats-changed` stays out of the pm pack because it runs a
+script; `story-map`, which is in it, covers the catch-up through the `catch_me_up` tool.
+
 ## The copies that are deliberate, and the tests that pin them
 
 Five rules exist in more than one place **on purpose**, because the files needing them cannot share

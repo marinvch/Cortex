@@ -213,10 +213,15 @@ export function portableText(text) {
 // credential, would ship to everyone who downloads it. The person fills both in.
 const HOME_PLACEHOLDER = "<path to your Cortex checkout>";
 const ROOT_PLACEHOLDER = "<path to your Cortex brain: a vault, or a repo's .cortex folder>";
+// Claude Desktop runs with no repo, so the team cannot be found from a connector by walking up from
+// the working directory. These two name it (mcp/lib/resolve.js); a connector, where there is one,
+// still wins.
+const TEAM_PLACEHOLDER = "<your team's name, or remove this line if you are not on a team>";
+const TEAM_REPO_PLACEHOLDER = "<the team-brain's git URL, or remove this line>";
 
 /** The MCP config files a pack carries, as `[{ rel, text }]`. Copilot, Gemini and Codex come from `_setup-agents.mjs`. */
 export function mcpFiles() {
-  const desktop = { mcpServers: { cortex: { command: "node", args: [`${HOME_PLACEHOLDER}/mcp/server.js`], env: { CORTEX_ROOT: ROOT_PLACEHOLDER } } } };
+  const desktop = { mcpServers: { cortex: { command: "node", args: [`${HOME_PLACEHOLDER}/mcp/server.js`], env: { CORTEX_ROOT: ROOT_PLACEHOLDER, CORTEX_TEAM: TEAM_PLACEHOLDER, CORTEX_TEAM_REPO: TEAM_REPO_PLACEHOLDER } } } };
   const json = (v) => JSON.stringify(v, null, 2) + "\n";
   return [
     { rel: "mcp/claude-desktop.json", text: json(desktop) },
@@ -271,6 +276,10 @@ function readme(job, version, packed, needs) {
     "for each assistant. Replace each `<...>` with a path on your machine:",
     "",
     "- `claude-desktop.json`: merge `mcpServers` into Claude Desktop's `claude_desktop_config.json`.",
+    "  Desktop has no repo, so it cannot find your team the way a repo joined with `/join-team` does:",
+    "  `CORTEX_TEAM` names the team, and `CORTEX_TEAM_REPO` is where its team-brain is cloned from the",
+    "  first time a team tool runs. Point `CORTEX_ROOT` at a folder of your own, a vault; the clone goes",
+    "  in its `team/` folder. Remove both lines if you are not on a team.",
     "- `vscode-mcp.json`: GitHub Copilot in VS Code, as `.vscode/mcp.json` in a repo. It reads",
     "  `CORTEX_HOME` from your environment.",
     "- `gemini-settings.json`: Gemini CLI, merged into `.gemini/settings.json` in a repo.",

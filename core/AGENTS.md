@@ -114,6 +114,12 @@ here, which is why the directory is small and stays small.
   `JOB_SKILLS`, the design's table of what each job gets, checked against `skills/` by
   `test/job.test.js`. So the roster and the packs cannot disagree. A job decides what is offered,
   never what is allowed: nothing may refuse an action because of it. No job is `developer`. Pure.
+- **`story-key.js` is what a ticket key is, for both leaves** (R3 of the role-packs design).
+  `index/cortex-stories.mjs` finds keys in commit messages and branch names, and `mcp/` mirrors
+  stories by key and answers `graph story <key>`, so the shapes, the stop prefixes and the
+  message-versus-branch split live here once. The split is what confidence is built on: the branch
+  in a merge subject is never read as written in the message, and a PR number is never a key.
+  `repoFromRemote` keeps only owner and name, so a token in a remote URL cannot leave. Pure.
 - **`gitignore.js` is the `.gitignore` writer both leaves share** (#620). It appends missing
   entries under a marker line, never rewrites one, and honours a bare `.cortex/` the user wrote.
   Which entries is the caller's: `index/lib/generated.mjs` passes the generated directories, and

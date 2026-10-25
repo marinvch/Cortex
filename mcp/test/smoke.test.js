@@ -40,10 +40,12 @@ test("server answers tools/list over stdio", async () => {
   rpc(child, { jsonrpc: "2.0", id: 0, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "t", version: "0" } } });
   rpc(child, { jsonrpc: "2.0", method: "notifications/initialized" });
   rpc(child, { jsonrpc: "2.0", id: 1, method: "tools/list" });
-  const res = await got;
+  // Kill before asserting: a failed assertion that leaves the server running holds the test file
+  // open, and the whole suite with it.
+  const res = await got.finally(() => child.kill());
   const names = res.result.tools.map((t) => t.name).sort();
-  assert.deepEqual(names, ["answer", "ask", "capture", "catch_me_up", "contract", "get_project_context", "inbox", "list_projects", "recall"]);
-  child.kill();
+  // `graph` is here because its story ops answer from the team-brain, which a vault reaches.
+  assert.deepEqual(names, ["answer", "ask", "capture", "catch_me_up", "contract", "get_project_context", "graph", "inbox", "list_projects", "recall"]);
 });
 
 test("the startup line reports the audience on stderr, and stdout stays pure protocol", async () => {

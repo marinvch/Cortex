@@ -226,6 +226,28 @@ inferred or ambiguous links says so, because it is no longer a floor.
 
 _Avoid_: "certainty" or a score; there are three values and nothing between them.
 
+A **story link** uses the first two words for its own evidence: a ticket key written in a commit
+message is extracted, and a key found only in a branch name is inferred.
+
+## Story
+
+An epic or a story in the team's tracker, mirrored into the team-brain as `stories/<key>.md` by the
+tracker sync when the team turns it on for that tracker (`mcp/lib/stories.js`). It holds the key,
+title, status (`open`, `active` or `done`, whatever the tracker calls them), epic, assignee and a
+link. Never the description. The key is a Jira-style `ABC-123`, a ServiceNow `STRY0010001`, or a
+GitHub `owner/repo#45` (`core/story-key.js`).
+
+## Story link
+
+What one repo publishes about which code each ticket key touched: key, then commits, then files,
+each file with its cluster, whether it is a hub and whether a test covers it. Extracted by
+`index/cortex-stories.mjs`, published as `projects/<slug>/stories.json` by `ai-os stories publish`,
+and read by the `graph` tool's `story`, `stories-for` and `risk` ops. **A story's code is a floor**:
+a commit that names no key is invisible to it.
+
+_Avoid_: "traceability" (it promises the whole chain), "ticket" for a mirrored story (a ticket is
+anything in a tracker; a story is what the mirror holds).
+
 ---
 
 ## Related

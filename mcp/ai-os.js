@@ -20,7 +20,7 @@ import { genNoteId } from "./lib/noteid.js";
 import { syncFrom, integrationsFrom } from "./lib/sync.js";
 import { integrationsFromFlags, checkboxes, defaultPrimary, CREDENTIAL_VARS } from "./lib/integrations.js";
 import { renderSyncWorkflow, WORKFLOW_REL } from "./lib/sync-workflow.js";
-import { graphAnswer, graphRepo } from "./lib/graph.js";
+import { graphFrom } from "./lib/graph-stories.js";
 import { publishStoryLinksFrom } from "./lib/story-links.js";
 
 // The tracker flags `team init --integrations` and `integrations add` share (#624).
@@ -530,7 +530,12 @@ const GRAPH_USAGE =
   "  ai-os graph cluster <id|file>              members, hub, cohesion and areas\n" +
   "  ai-os graph hubs | bridges                 the graph report's lists, as cortex-graph.mjs --json has them\n" +
   "  ai-os graph path <from> <to> [--directed]  the shortest import path between two files\n" +
-  "Reads the repo CORTEX_ROOT names (a repo's .cortex/), else the git repo you are in. Writes nothing.";
+  "  ai-os graph story <key>                    the code an epic or story touched, across the team's repos\n" +
+  "  ai-os graph stories-for <file|dir> | --cluster <id> [--project <slug>]\n" +
+  "                                             which stories changed this code\n" +
+  "  ai-os graph risk                           open stories touching untested or hub code\n" +
+  "The code ops read the repo CORTEX_ROOT names (a repo's .cortex/), else the git repo you are in; the\n" +
+  "story ops read the team-brain. Writes nothing.";
 
 /** The bare arguments after the op, skipping each flag and the value parseArgs took for it. */
 function positionals(argv) {
@@ -551,7 +556,7 @@ function positionals(argv) {
 // not in a state I can answer about"; a wrong question exits 1 through the handler below.
 function cmdGraph(op, argv, args, brain) {
   if (!op || op.startsWith("--")) throw new Error(GRAPH_USAGE);
-  for (const k of ["file", "from", "to", "cluster", "depth"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${GRAPH_USAGE}`);
+  for (const k of ["file", "from", "to", "cluster", "depth", "key", "project"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${GRAPH_USAGE}`);
   const [a, b] = positionals(argv);
   const q = { op, directed: args.directed !== undefined };
   if (op === "node" || op === "neighbors") q.file = args.file ?? a;
@@ -566,7 +571,13 @@ function cmdGraph(op, argv, args, brain) {
     q.from = args.from ?? a;
     q.to = args.to ?? (args.from ? a : b);
   }
-  const res = graphAnswer(graphRepo(brain, { cwd: process.cwd() }), q);
+  if (op === "story") q.key = args.key ?? a;
+  if (op === "stories-for") {
+    if (args.cluster) q.cluster = args.cluster;
+    else q.file = args.file ?? a;
+    if (args.project) q.project = args.project;
+  }
+  const res = graphFrom(brain, q, { cwd: process.cwd() });
   if (res.refused) {
     if (args.json) console.log(JSON.stringify(res, null, 2));
     else console.error(`${res.message}\nRun: ${res.rebuild}`);
@@ -584,7 +595,9 @@ function graphText(res) {
     lines.push(`${title} (${l.total}${l.truncated ? `, first ${l.items.length}` : ""}):`);
     for (const x of l.items) lines.push(`  ${fmt(x)}`);
   };
-  if (res.index.state === "unknown") lines.push(`Index freshness unknown: ${res.index.reason}`);
+  if (res.index?.state === "unknown") lines.push(`Index freshness unknown: ${res.index.reason}`);
+  if (res.pull && !res.pull.ok) lines.push(`Pull failed, answering from the local clone: ${res.pull.error}`);
+  for (const r of res.links?.refused ?? []) lines.push(`Story links of ${r.project} left out: ${r.why}. Publish them again.`);
   switch (res.op) {
     case "stats":
       lines.push(`${res.files} files, ${res.edges} import edges, ${res.clusters} clusters (${res.unclustered} code files in none).`);
@@ -622,6 +635,33 @@ function graphText(res) {
       lines.push(`${res.length} step${res.length === 1 ? "" : "s"}, ${res.directed ? "following imports only" : "either direction"}:`);
       lines.push(`  ${res.from}`);
       for (const s of res.steps) lines.push(`    ${s.edge === "imports" ? "imports" : "is imported by"} ${s.to}`);
+      break;
+    case "story": {
+      const s = res.story;
+      lines.push(s ? `${s.key} (${s.kind}, ${s.status}${s.state ? `: ${s.state}` : ""}): ${s.title}` : `${res.key}: ${res.mirrorNote}`);
+      if (s?.epic) lines.push(`  epic ${s.epic}`);
+      if (s?.url) lines.push(`  ${s.url}`);
+      if (res.children.total) list("Stories under it", res.children, (c) => `${c.key} ${c.status}  ${c.title}`);
+      lines.push(`${res.commits} commit${res.commits === 1 ? "" : "s"} in ${res.projects.join(", ") || "no repo"}.`);
+      list("Files", res.files, (f) => `${f.project}: ${f.path}  ${f.confidence}${f.cluster ? `, ${f.cluster}` : ""}${f.hub ? ", hub" : ""}${f.tested === false ? ", untested" : ""}`);
+      list("Clusters", res.clusters, (c) => `${c.project} ${c.cluster}: ${c.files} of its ${c.size ?? "?"} files, hub ${c.hub ?? "none"}`);
+      list("Contracts", res.contracts, (c) => `${c.project} ${c.side} ${c.method} ${c.path}`);
+      list("Untested", res.untested, (f) => `${f.project}: ${f.path}`);
+      list("Hubs", res.hubs, (f) => `${f.project}: ${f.path}`);
+      list("Open asks naming it", res.asks, (a) => `${a.id} to ${a.to}: ${a.title}`);
+      lines.push(res.note);
+      break;
+    }
+    case "stories-for":
+      list(`Stories that changed ${res.file !== undefined ? res.file || "the repo" : `${res.project} ${res.cluster}`}`, res.stories,
+        (s) => `${s.key}  ${s.project}, ${s.confidence}${s.title ? `, ${s.status}: ${s.title}` : ", not mirrored"}`);
+      lines.push(res.note);
+      break;
+    case "risk":
+      list("Open stories touching untested or hub code", res.stories, (s) => `${s.key} ${s.status}  ${s.untestedCount} untested, ${s.hubCount} hub${s.hubCount === 1 ? "" : "s"}  ${s.title}`);
+      if (res.epics.total) list("Epics, by open stories at risk", res.epics, (e) => `${e.key}  ${e.storiesAtRisk}  ${e.title ?? ""}`);
+      if (res.unmirroredNote) lines.push(`${res.unmirrored} linked key${res.unmirrored === 1 ? "" : "s"} not ranked. ${res.unmirroredNote}`);
+      lines.push(res.note);
       break;
   }
   return lines;
@@ -696,9 +736,11 @@ The team-brain (needs a repo joined with \`team add\`, or a vault with a team cl
   catch-up --since <YYYY-MM-DD>              what the team captured, and which contracts changed
   project list|check|remove                  the projects the team-brain knows
 
-This repo's import graph (reads its Cortex index; writes nothing):
+The code graph (writes nothing):
   graph stats|node|neighbors|cluster|hubs|bridges|path
-                                             ask the import graph; graph with no op prints each op's arguments
+                                             this repo's import graph, from its Cortex index
+  graph story|stories-for|risk               the team's stories, traced to code through the team-brain
+                                             graph with no op prints each op's arguments
 
 Other:
   digest --repo <path> --since <date> --out <file>

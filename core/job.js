@@ -32,7 +32,8 @@ export function jobOf(member) {
 /**
  * The rituals each job is offered first, in the order of the design's table ("What each role
  * gets"). A ritual named here must exist under `skills/`; `core/test/job.test.js` holds that.
- * The project manager's story-map ritual is R4 of the design and is added when it exists.
+ * A project manager's `whats-changed` runs a script, so the pm pack lists it under "needs Claude
+ * Code"; `story-map` covers the same need there through the `catch_me_up` tool.
  */
 export const JOB_SKILLS = Object.freeze({
   developer: Object.freeze([
@@ -47,6 +48,6 @@ export const JOB_SKILLS = Object.freeze({
     "create-team", "join-team", "whats-changed", "review-change", "suggest-skills", "trim-agent-docs",
     "set-profile",
   ]),
-  pm: Object.freeze(["whats-changed", "challenge-plan"]),
+  pm: Object.freeze(["whats-changed", "challenge-plan", "story-map"]),
   qa: Object.freeze(["change-impact", "review-change", "debug-issue"]),
 });

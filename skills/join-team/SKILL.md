@@ -58,7 +58,7 @@ Here it is the requirement, and it holds only because the connector carries no l
      what the rituals offer them first. It never limits what they may run. With no job recorded
      they are a developer.
    - **Then offer what the job is for**, and skip the rest of this list where it does not apply:
-     - `pm`: most of their part is outside this repo. Offer `/whats-changed` and
+     - `pm`: most of their part is outside this repo. Offer `/story-map`, `/whats-changed` and
        `/challenge-plan`, and the role pack for Claude Desktop or claude.ai: the
        `cortex-pack-pm` zip on the Cortex release, or
        `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-pack.mjs" pm --out <dir>`. Step 5 is a
@@ -75,6 +75,15 @@ Here it is the requirement, and it holds only because the connector carries no l
    second commits `contract: update <slug>` to the team-brain and pushes, only when it changed.
    Pass on what it printed, including an empty contract's reason. Run both again after the API
    changes.
+
+   **Then offer to publish its story links**: which ticket keys this repo's commits and branches
+   name, and the files each changed, so `/story-map` can trace an epic to code. On a yes, run
+   `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stories.mjs" . --out .cortex/index/stories.json`, then
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" stories publish --file .cortex/index/stories.json`.
+   The first refuses a stale index and names the command that rebuilds it; add `--keys ABC,DEF`
+   when the team's tracker project keys are known, so `UTF-8` and the like are never read as one.
+   The second commits `stories: update <slug>` when they changed. Run both again after a sprint's
+   work merges.
 6. Offer to commit the connector so teammates inherit the wiring:
    `git add .cortex/connector.json && git commit -m "chore: add cortex team connector"`.
 7. Tell the user what joining gave them. `/whats-changed` pulls the team-brain and returns what every

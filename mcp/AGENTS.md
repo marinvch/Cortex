@@ -19,6 +19,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `ai-os contract show` | one project's contract (`--project`, `--path`); `--json` | a root, a team |
 | `ai-os contract who-calls` | which projects call `--path "[METHOD] /p"`, and which serve it; `--json` | a root, a team |
 | `ai-os contract list` | the projects that have published a contract | a root, a team |
+| `ai-os stories publish` | write `--file <stories.json>` as `projects/<slug>/stories.json`; commit, push when changed | a root, a team |
 | `ai-os integrations list\|add\|remove\|workflow` | the trackers in `team.json`; `workflow --write` commits the scheduled sync | a root, a team |
 | `ai-os sync` | asks ↔ trackers, one commit per run; `--dry-run`, `--status`, `--clone <checkout>` | a root, a team |
 | `ai-os project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
@@ -27,6 +28,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `ai-os digest` | append a git digest to a file | nothing |
 | `ai-os catch-up` | notes and history since a date | a repo or a vault |
 | `ai-os graph <op>` | the `graph` tool's answer: `stats`, `node`, `neighbors`, `cluster`, `hubs`, `bridges`, `path`; `--json`. Exit 2 on a missing or stale index. Read-only | a repo, its index |
+| `ai-os graph story\|stories-for\|risk` | the story ops, from the team-brain; exit 2 when no links are published or this repo's are behind HEAD | a root, a team |
 
 ## Invariants
 
@@ -231,6 +233,30 @@ the repo by commit count, and — like every other part — **dependency-free**.
   - **Drift reads git, not the files**: `contractDrift` compares HEAD with the last commit before
     the day (`revBefore`, with `sinceArg` turning `YYYY-MM-DD` into midnight, since git reads a
     bare date as that day at the current time). Bounded per project and in projects.
+- **Stories are mirrored by sync, and story links are published like a contract** (R3 of
+  [the role-packs design](../docs/specs/2026-10-25-role-packs-design.md)). `lib/story-file.js` owns
+  `stories/<key>.md`, `lib/stories.js` the mirror, `lib/story-links.js` `projects/<slug>/stories.json`.
+  What a key is lives in `core/story-key.js`, because `index/` extracts the links. The rules:
+  - **The mirror runs on a full sync only**, for a tracker whose entry says `stories: true`, and
+    never on `lab`. Its files go into the run's one commit. An `ask`, `answer` or `inbox` call
+    narrows sync to its asks and does not mirror.
+  - **No description, ever.** A story file holds `FIELDS` and nothing else; `stories.test.js` pins
+    that a tracker's description never reaches the brain's history.
+  - **Every story file passes `core/gate.js` before it is written, the key first and alone**, so a
+    key the employer denylist names is refused on `home` even when the title is clean. A refused
+    story is counted in `withheld` by check and tracker, never by key.
+  - **An assignee is personal data.** With the personal-data mode at `refuse` (work's default) only a
+    roster member is written, as their handle, matched by handle or the roster's `github` login. At
+    `warn` the tracker's name is written and the run carries one warning.
+  - **Destinations are the asks' check, unchanged.** The adapters' `stories` calls go through
+    `request` in `trackers/http.js`, so an unapproved tracker on `work` is refused before `fetch` and
+    reported in `errors` for that tracker; the others still run.
+  - **Story links are parsed and re-serialised**, never copied, as a contract is: no commit text and
+    no author can ride along. `publishStoryLinks` gates the input and the output with `core/gate.js`
+    and refuses the whole file on a denylisted key; it never drops one story to publish the rest.
+  - Mutation-tested across core, index and mcp: 30 guards mutated (confidence, the gate checks,
+    the description at each layer), 29 caught. The survivor is equivalent: a PR suffix left in the
+    text is still dropped by the last rule in `keysInMessage`, that a key that is a PR is the PR.
 - **`catch_me_up` pulls (ff-only) and reads the team's notes, not only its log.** A failed pull is
   returned in `pull`, never swallowed, and the local notes still come back; team notes are bounded
   in `catchup.js` so the result fits under the transport cap rather than being cut by it. Its
@@ -255,7 +281,11 @@ the repo by commit count, and — like every other part — **dependency-free**.
   are orthogonal — a repo-mode brain can run on a server, a vault-mode brain can belong to a team.
   Solo and team are **detected** from a `.cortex/connector.json` found by walking up from the cwd;
   server is **declared** with `CORTEX_AUDIENCE=server`, because it leaves no filesystem trace and
-  declaring beats detecting. `core/profile.js` answers a third question (home · work · lab) and
+  declaring beats detecting. **Where no connector is found, `CORTEX_TEAM` names the team**, and
+  `CORTEX_TEAM_REPO` where its clone comes from on first use: Claude Desktop has no repo to walk up
+  from, and a PM's role pack sets both. A connector still wins when there is one. The clone is
+  `teamCloneDir(root, team)` like any other and is cloned through the same destination check, so
+  neither the Vault door nor the two modes change. `core/profile.js` answers a third question (home · work · lab) and
   reads only `CORTEX_PROFILE` — nothing here may move it.
 - **Every adapter opens the brain at entry, through `lib/brain.js`.** `server.js` and `ai-os.js` are
   two adapters over the same operations, so the seam between them is real and therefore a module:
@@ -362,7 +392,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   - **Rejected: spawning `cortex-graph.mjs --json`.** It welds the server to the indexer at run
     time, which is the dependency the layering forbids, with a process boundary hiding it. It also
     pays for coverage, which reads every file's text, on every call.
-  - **The rules it keeps:** repo mode only, read-only, `returns: FOREIGN` (a file's summary is
+  - **The rules it keeps:** the code ops need a repo, read-only, `returns: FOREIGN` (a file's summary is
     model-written prose). A missing, unreadable, wrong-format or stale index is refused with the
     command that rebuilds it, never answered from; outside git, freshness is `unknown` and said.
     The question is checked before the index is read, and every file argument goes through
@@ -371,6 +401,16 @@ the repo by commit count, and — like every other part — **dependency-free**.
     report's top ten with `bridgeCount`. Validated on eight cloned repos: hubs, bridges and every
     count equal to `cortex-graph.mjs --json`. 20 guards mutated (freshness, the guard, the caps),
     20 test failures.
+  - **The story ops are the same tool, answered from the team-brain** (`lib/graph-stories.js`, R4):
+    `story`, `stories-for` and `risk` read the mirror, every repo's story links and contracts, and
+    the open asks. So `graph` is `mode: ANY`: a project manager's Desktop has a vault root and no
+    repo, and the code ops refuse a vault themselves (`not_a_repo`). `graphFrom` is the one entry
+    both adapters call for any op. The code ops' rules carry over: read-only (a ff-only pull, as
+    `contract` does), every list capped, every answer a floor. **Freshness**: in a repo, its own
+    project's links are refused when HEAD has moved past the commit they were built at; another
+    repo's cannot be checked from here, so `links.projects` carries each one's `asOf` and commit.
+    **The path guard**: in a repo a file goes through `resolveInRoot`; with no repo, an absolute
+    path or a `..` segment is `outside_root` before anything is read.
 
 ## Gotchas
 

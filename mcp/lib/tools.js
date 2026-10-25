@@ -12,7 +12,7 @@
 
 import { assertPublished } from "../../core/gate.js";
 import { resolveProfile } from "../../core/profile.js";
-import { OPS as GRAPH_OPS } from "./graph.js";
+import { ALL_OPS as GRAPH_OPS } from "./graph-stories.js";
 
 /** A tool that needs a repo's `.cortex/` — committed, shared, code-adjacent memory. */
 export const REPO = "repo";
@@ -82,17 +82,21 @@ export const TOOL_TABLE = [
   { name: "recall_memory", mode: REPO, returns: FOREIGN, writes: LOCAL,
     description: `Read back recent days of this repo's committed memory, newest first. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: { days: { type: "number" } } } },
-  // The import graph (G3 of docs/specs/2026-10-25-code-graph-design.md). Read-only over the repo's
-  // index; FOREIGN because a file's summary is model-written prose about the repo's own text.
-  { name: "graph", mode: REPO, returns: FOREIGN, writes: LOCAL,
-    description: `This repo's import graph, from its Cortex index. op: stats · node (file) · neighbors (file, depth 1-3) · cluster (cluster or file) · hubs · bridges · path (from, to, directed). Refuses a missing or stale index and names the command that rebuilds it. Lists are capped; every count is a floor. ${UNTRUSTED_NOTE}`,
+  // The import graph (G3 of docs/specs/2026-10-25-code-graph-design.md), and its story ops (R4 of
+  // the role-packs design). The code ops read this repo's index and refuse in a vault; the story ops
+  // read the team-brain, so the tool runs in either mode — a project manager's Claude Desktop has no
+  // repo. Read-only; FOREIGN because summaries are model-written and story titles come from trackers.
+  { name: "graph", mode: ANY, returns: FOREIGN, writes: LOCAL,
+    description: `The code graph. In a repo, from its Cortex index: stats · node (file) · neighbors (file, depth 1-3) · cluster (cluster or file) · hubs · bridges · path (from, to, directed). On a team, from the team-brain: story (key: the code an epic or story touched, its clusters, contracts, untested files, hubs and open asks) · stories-for (file or cluster, with project) · risk (open stories touching untested or hub code). Refuses a missing or stale index or story links and names the command that rebuilds them. Lists are capped; every count is a floor. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: {
       op: { type: "string", enum: GRAPH_OPS },
-      file: { type: "string", description: "A file path relative to the repo." },
+      file: { type: "string", description: "A file path relative to the repo; for stories-for, a directory too." },
       depth: { type: "number", description: "neighbors: how many hops, 1 to 3. Default 1." },
       cluster: { type: "string", description: "A cluster id, such as c1." },
       from: { type: "string" }, to: { type: "string" },
       directed: { type: "boolean", description: "path: follow imports only, from `from` toward `to`. Default false." },
+      key: { type: "string", description: "story: a ticket key, such as ABC-123, STRY0010001 or owner/repo#45." },
+      project: { type: "string", description: "stories-for: the project a cluster id belongs to. Defaults to this repo's." },
     }, required: ["op"] } },
 
   { name: "get_project_context", mode: VAULT, returns: FOREIGN, writes: LOCAL,

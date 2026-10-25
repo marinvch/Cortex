@@ -1,0 +1,14 @@
+{
+  "reach": [
+    "give me the status of the checkout epic",
+    "which stories are at risk right now",
+    "what is blocked on the payments epic",
+    "map the stories in this sprint to the code they touched"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "stress-test this plan before we commit to it",
+      "owner": "challenge-plan"
+    }
+  ]
+}

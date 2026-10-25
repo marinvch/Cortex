@@ -634,7 +634,7 @@ or refreshes a skill that changed. `--check` reports the drift without writing.
 | `/quick-note` | anytime | One-line drop to the inbox |
 | `/daily-plan` | each morning | Today's note + priorities + due items |
 
-**That is 6 of 36.** The complete table — every ritual, when to run it, and the notes on which
+**That is 6 of 37.** The complete table — every ritual, when to run it, and the notes on which
 pairs are *not* interchangeable — lives in [`AGENTS.md`](AGENTS.md#the-rituals) and is the single
 source of truth. This README used to carry a second table of 20 rows that read as the list. Ten
 skills were missing from it and nothing caught that, because a partial copy and a complete one look

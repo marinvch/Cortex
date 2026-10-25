@@ -21,6 +21,8 @@ import { syncFrom } from "../lib/sync.js";
 import { assigneeFor, mirrorStories } from "../lib/stories.js";
 import { FIELDS, parseStory, renderStory, normaliseStory } from "../lib/story-file.js";
 import { parseStoryLinks, publishStoryLinks, StoryLinksRefused } from "../lib/story-links.js";
+import { graphFrom, STORY_OPS } from "../lib/graph-stories.js";
+import { TOOL_TABLE, ANY } from "../lib/tools.js";
 import { adapterFor, parseIntegrations, integrationsFromFlags } from "../lib/integrations.js";
 import { tempDir } from "./tmp.js";
 
@@ -352,4 +354,194 @@ test("the input is gated too: a credential in a field the parser drops still ref
     (e) => e instanceof RefusedWriteError && !e.message.includes(token),
   );
   assert.ok(!existsSync(join(clone, "projects", "web-a", "stories.json")));
+});
+
+// ---------------------------------------------------------------------------------------------
+// R4: the graph's story ops
+// ---------------------------------------------------------------------------------------------
+
+/** A team-brain holding a mirror, one project's links and contract, and an open ask. */
+function storyBrain({ links = linksDoc(), stories = null } = {}) {
+  const remote = brainRemote({});
+  const seed = checkout(remote);
+  const put = (rel, text) => { mkdirSync(dirname(join(seed, rel)), { recursive: true }); writeFileSync(join(seed, rel), text); };
+  const mirror = stories ?? [
+    { key: "ABC-1", kind: "epic", title: "Checkout", status: "active" },
+    { key: "ABC-2", kind: "story", title: "Pay by card", status: "active", epic: "ABC-1" },
+    { key: "ABC-3", kind: "story", title: "Receipt email", status: "open", epic: "ABC-1" },
+    { key: "ABC-4", kind: "story", title: "Done already", status: "done", epic: "ABC-1" },
+  ];
+  for (const s of mirror) put(`stories/${s.key}.md`, renderStory(normaliseStory(s, "jira")));
+  put("projects/web-a/stories.json", JSON.stringify(links));
+  put("projects/web-a/contract.json", JSON.stringify({
+    format: 1, project: "web-a", source: "routes",
+    serves: [{ method: "POST", path: "/payments", files: ["src/pay.js"] }, { method: "GET", path: "/health", files: ["src/health.js"] }],
+    calls: [], bases: [], events: [], unread: [],
+  }));
+  put("asks/20261020-q1.md", "---\ntype: ask\nid: 20261020-q1\ntitle: Card limits for ABC-2\nfrom: dev-fe\nfromProject: web-a\nto: backend\ntoKind: role\nstatus: open\ncreated: 2026-10-20\nupdated: 2026-10-20\nlinks: []\n---\n\nWhat is the limit?\n");
+  put("asks/20261020-q2.md", "---\ntype: ask\nid: 20261020-q2\ntitle: About ABC-22\nfrom: dev-fe\nfromProject: web-a\nto: backend\ntoKind: role\nstatus: open\ncreated: 2026-10-20\nupdated: 2026-10-20\nlinks: []\n---\n\nUnrelated.\n");
+  git(seed, "add", ".");
+  git(seed, "commit", "-qm", "stories");
+  git(seed, "push", "-q");
+  return remote;
+}
+
+/** A PM's brain: a vault root, no repo, the team named by CORTEX_TEAM. */
+function deskBrain(remote) {
+  const root = tempDir("sto-vault-");
+  const elsewhere = tempDir("sto-cwd-");
+  return openBrain({ cwd: elsewhere, env: { CORTEX_ROOT: root, CORTEX_PROFILE: "work", CORTEX_TEAM: "harbor", CORTEX_TEAM_REPO: remote } });
+}
+
+test("story: an epic's code across its stories, with clusters, contracts, untested files, hubs and open asks", () => {
+  const brain = deskBrain(storyBrain());
+  const res = graphFrom(brain, { op: "story", key: "abc-1" }, { cwd: tempDir("sto-x-") });
+  assert.equal(res.pull.ok, true);
+  assert.equal(res.key, "ABC-1");
+  assert.equal(res.story.kind, "epic");
+  assert.deepEqual(res.children.items.map((c) => c.key), ["ABC-2", "ABC-3", "ABC-4"]);
+  assert.deepEqual(res.files.items.map((f) => `${f.path}:${f.confidence}`), ["src/card.js:extracted", "src/pay.js:extracted", "test/pay.test.js:extracted", "src/mail/receipt.js:inferred"]);
+  assert.deepEqual(res.contracts.items.map((c) => `${c.side} ${c.method} ${c.path}`), ["serves POST /payments"]);
+  assert.deepEqual(res.untested.items.map((f) => f.path), ["src/pay.js", "src/mail/receipt.js"]);
+  assert.deepEqual(res.hubs.items.map((f) => f.path), ["src/pay.js"]);
+  assert.deepEqual(res.asks.items.map((a) => a.id), ["20261020-q1"]);
+  assert.deepEqual(res.clusters.items.map((c) => `${c.cluster}:${c.files}`), ["c1:3", "c2:1"]);
+  assert.match(res.note, /A floor/);
+  assert.deepEqual(res.links.projects.map((p) => p.state), ["unchecked"]);
+});
+
+test("story: a file two stories touched keeps the surer confidence of the two", () => {
+  const links = linksDoc();
+  // ABC-3 is read after ABC-2; its weaker link to src/pay.js must not downgrade ABC-2's.
+  links.stories[1].files.push({ path: "src/pay.js", confidence: "inferred", cluster: "c1", hub: true, tested: false });
+  const brain = deskBrain(storyBrain({ links }));
+  const res = graphFrom(brain, { op: "story", key: "ABC-1" }, {});
+  const pay = res.files.items.find((f) => f.path === "src/pay.js");
+  assert.equal(pay.confidence, "extracted");
+  assert.deepEqual(pay.stories, ["ABC-2", "ABC-3"]);
+});
+
+test("story: a key only commits name is answered without a mirror, and an unknown key is refused with near matches", () => {
+  const brain = deskBrain(storyBrain());
+  const res = graphFrom(brain, { op: "story", key: "ABC-77" }, {});
+  assert.equal(res.mirrored, false);
+  assert.match(res.mirrorNote, /Not mirrored/);
+  assert.throws(() => graphFrom(brain, { op: "story", key: "ABC-7" }, {}), (e) => e.code === "not_found" && /ABC-77/.test(e.message));
+  assert.throws(() => graphFrom(brain, { op: "story", key: "nonsense" }, {}), (e) => e.code === "bad_key");
+});
+
+test("stories-for: a file, a directory and a cluster; a path out of the repo is refused before anything is read", () => {
+  const brain = deskBrain(storyBrain());
+  assert.deepEqual(graphFrom(brain, { op: "stories-for", file: "src/card.js" }, {}).stories.items.map((s) => s.key), ["ABC-2", "ABC-77"]);
+  assert.deepEqual(graphFrom(brain, { op: "stories-for", file: "src/mail" }, {}).stories.items.map((s) => `${s.key}:${s.confidence}`), ["ABC-3:inferred"]);
+  assert.deepEqual(graphFrom(brain, { op: "stories-for", cluster: "c2", project: "web-a" }, {}).stories.items.map((s) => s.key), ["ABC-3"]);
+  for (const f of ["../secret.js", "/etc/passwd", "C:\\x\\y.js", "src/../../x"]) {
+    assert.throws(() => graphFrom(brain, { op: "stories-for", file: f }, {}), (e) => e.code === "outside_root", f);
+  }
+  assert.throws(() => graphFrom(brain, { op: "stories-for", cluster: "c2" }, {}), (e) => e.code === "missing_argument");
+});
+
+test("risk: open stories touching untested or hub code, most first; done stories and epics are not ranked", () => {
+  const brain = deskBrain(storyBrain());
+  const res = graphFrom(brain, { op: "risk" }, {});
+  assert.deepEqual(res.stories.items.map((s) => [s.key, s.untestedCount, s.hubCount]), [["ABC-2", 1, 1], ["ABC-3", 1, 0]]);
+  assert.deepEqual(res.epics.items.map((e) => [e.key, e.storiesAtRisk]), [["ABC-1", 2]]);
+  assert.equal(res.unmirrored, 1);
+});
+
+test("lists are capped at 50 with the full count", () => {
+  const stories = Array.from({ length: 60 }, (_, i) => ({ key: `ABC-${100 + i}`, kind: "story", title: `S${i}`, status: "open" }));
+  const links = linksDoc({ stories: stories.map((s) => ({ key: s.key, confidence: "extracted", commits: [{ sha: SHA, confidence: "extracted" }], files: [{ path: "src/pay.js", confidence: "extracted", cluster: "c1", hub: true, tested: false }] })) });
+  const brain = deskBrain(storyBrain({ links, stories }));
+  const res = graphFrom(brain, { op: "risk" }, {});
+  assert.equal(res.stories.items.length, 50);
+  assert.equal(res.stories.total, 60);
+  assert.equal(res.stories.truncated, true);
+});
+
+test("in a repo, its own links behind HEAD are refused with the commands that publish them again", () => {
+  const remote = storyBrain();
+  const repo = tempDir("sto-repo-");
+  git(repo, "init", "-q", "-b", "main");
+  writeFileSync(join(repo, "a.js"), "1");
+  git(repo, "add", ".");
+  git(repo, "commit", "-qm", "one");
+  const linked = git(repo, "rev-parse", "HEAD").trim();
+  writeFileSync(join(repo, "a.js"), "2");
+  git(repo, "commit", "-qam", "two");
+  mkdirSync(join(repo, ".cortex"), { recursive: true });
+  writeFileSync(join(repo, ".cortex", "connector.json"), JSON.stringify({ team: "harbor", project: "web-a", teamBrainRepo: remote }));
+  // The published links name the first commit; the repo has moved one past it.
+  const seed = checkout(remote);
+  writeFileSync(join(seed, "projects", "web-a", "stories.json"), JSON.stringify(linksDoc({ commit: linked })));
+  git(seed, "commit", "-qam", "links at one");
+  git(seed, "push", "-q");
+  const brain = openBrain({ cwd: repo, env: { CORTEX_ROOT: join(repo, ".cortex"), CORTEX_PROFILE: "work" } });
+  const res = graphFrom(brain, { op: "risk" }, { cwd: repo });
+  assert.equal(res.refused, true);
+  assert.match(res.message, /1 commit behind/);
+  assert.match(res.rebuild, /cortex-stories\.mjs/);
+  assert.throws(() => graphFrom(brain, { op: "stories-for", file: "../x.js" }, { cwd: repo }), OutsideRootError);
+});
+
+test("with no published links the story ops refuse, and without a team they say how to name one", () => {
+  const remote = brainRemote({});
+  const res = graphFrom(deskBrain(remote), { op: "risk" }, {});
+  assert.equal(res.refused, true);
+  assert.match(res.message, /No repo of this team has published story links/);
+  const solo = openBrain({ cwd: tempDir("sto-solo-"), env: { CORTEX_ROOT: tempDir("sto-solo-root-") } });
+  assert.throws(() => graphFrom(solo, { op: "risk" }, {}), (e) => e.code === "no_team" && /join-team/.test(e.message));
+  assert.throws(() => graphFrom(null, { op: "risk" }, {}), (e) => e.code === "no_team" && /CORTEX_TEAM/.test(e.message));
+  // The code ops still refuse in a vault.
+  assert.throws(() => graphFrom(deskBrain(remote), { op: "stats" }, { cwd: tempDir("sto-y-") }), (e) => e.code === "not_a_repo");
+});
+
+test("the graph tool runs in either mode, and its schema offers the story ops", () => {
+  const row = TOOL_TABLE.find((t) => t.name === "graph");
+  assert.equal(row.mode, ANY);
+  for (const op of STORY_OPS) assert.ok(row.inputSchema.properties.op.enum.includes(op));
+  assert.ok(row.inputSchema.properties.key && row.inputSchema.properties.project);
+});
+
+// ---------------------------------------------------------------------------------------------
+// R4: naming the team without a connector
+// ---------------------------------------------------------------------------------------------
+
+test("CORTEX_TEAM names the team where no connector is found; a connector still wins", () => {
+  const root = tempDir("sto-res-");
+  const r = resolveBrain({ cwd: tempDir("sto-res-cwd-"), env: { CORTEX_ROOT: root, CORTEX_TEAM: "Harbor Team", CORTEX_TEAM_REPO: "https://git.example.test/team-brain.git" } });
+  assert.equal(r.audience, "team");
+  assert.equal(r.team, "Harbor Team");
+  assert.equal(r.teamClone, join(root, "team", "harbor-team"));
+  assert.equal(r.teamBrainRepo, "https://git.example.test/team-brain.git");
+  assert.equal(r.source, "env:CORTEX_TEAM");
+
+  const repo = tempDir("sto-res-repo-");
+  mkdirSync(join(repo, ".cortex"), { recursive: true });
+  writeFileSync(join(repo, ".cortex", "connector.json"), JSON.stringify({ team: "other", project: "p", teamBrainRepo: "x" }));
+  const c = resolveBrain({ cwd: repo, env: { CORTEX_ROOT: root, CORTEX_TEAM: "harbor" } });
+  assert.equal(c.team, "other");
+
+  const none = resolveBrain({ cwd: tempDir("sto-res-cwd-"), env: { CORTEX_ROOT: root, CORTEX_TEAM: "  " } });
+  assert.equal(none.audience, "solo");
+});
+
+test("the CLI: stories publish, and graph story through CORTEX_TEAM", () => {
+  const remote = storyBrain();
+  const root = tempDir("sto-cli-vault-");
+  const env = { ...process.env, ...IDENTITY, CORTEX_ROOT: root, AI_OS_ROOT: "", CORTEX_PROFILE: "work", CORTEX_TEAM: "harbor", CORTEX_TEAM_REPO: remote, CLAUDE_CLI_BIN: "/no/such/claude" };
+  const cwd = tempDir("sto-cli-cwd-");
+  const show = spawnSync(process.execPath, [CLI, "graph", "story", "ABC-2", "--json"], { cwd, env, encoding: "utf8" });
+  assert.equal(show.status, 0, show.stderr);
+  assert.deepEqual(JSON.parse(show.stdout).untested.items.map((f) => f.path), ["src/pay.js"]);
+  const text = spawnSync(process.execPath, [CLI, "graph", "risk"], { cwd, env, encoding: "utf8" });
+  assert.equal(text.status, 0, text.stderr);
+  assert.match(text.stdout, /ABC-2 active {2}1 untested, 1 hub/);
+
+  const file = join(tempDir("sto-cli-file-"), "stories.json");
+  writeFileSync(file, JSON.stringify(linksDoc({ project: "svc-b", stories: [linksDoc().stories[1]] })));
+  const pub = spawnSync(process.execPath, [CLI, "stories", "publish", "--file", file], { cwd, env, encoding: "utf8" });
+  assert.equal(pub.status, 0, pub.stderr);
+  assert.match(pub.stdout, /Story links for svc-b created \(1 story\)/);
+  assert.ok(remoteHas(remote, "projects/svc-b/stories.json"));
 });

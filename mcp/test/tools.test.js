@@ -31,7 +31,7 @@ test("the advertised list is exactly the tools that run in that mode", () => {
   assert.deepEqual(toolsFor(true).map((t) => t.name).sort(), ["answer", "ask", "contract", "graph", "inbox", "recall", "recall_memory", "remember"]);
   assert.deepEqual(
     toolsFor(false).map((t) => t.name).sort(),
-    ["answer", "ask", "capture", "catch_me_up", "contract", "get_project_context", "inbox", "list_projects", "recall"],
+    ["answer", "ask", "capture", "catch_me_up", "contract", "get_project_context", "graph", "inbox", "list_projects", "recall"],
   );
 });
 
@@ -48,10 +48,12 @@ test("the guard refuses a tool whose declared mode does not match", () => {
     assert.throws(() => assertAvailable(vaultOnly, true), /only available when Cortex is pointed at a vault/, vaultOnly);
     assert.doesNotThrow(() => assertAvailable(vaultOnly, false), vaultOnly);
   }
-  for (const repoOnly of ["remember", "recall_memory", "graph"]) {
+  for (const repoOnly of ["remember", "recall_memory"]) {
     assert.throws(() => assertAvailable(repoOnly, false), /only available when Cortex is pointed at a repo/, repoOnly);
     assert.doesNotThrow(() => assertAvailable(repoOnly, true), repoOnly);
   }
+  // graph runs in both: its story ops read the team-brain, and its code ops refuse a vault themselves.
+  assert.doesNotThrow(() => assertAvailable("graph", false));
   assert.doesNotThrow(() => assertAvailable("recall", true));
   assert.doesNotThrow(() => assertAvailable("recall", false));
   assert.throws(() => assertAvailable("rm -rf", true), /unknown tool/);

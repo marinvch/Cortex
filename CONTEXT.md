@@ -128,7 +128,22 @@ Two unrelated meanings — keep them apart:
 2. **Code layer** — `core/` ← `index/` + `mcp/`, the dependency rule enforced by
    `core/test/architecture.test.js`.
 
-Say "index layer" or "code layer" when it is not obvious which.
+Say "index layer" or "code layer" when it is not obvious which. In the code and the viewer an index
+layer is called an **area**.
+
+## Cluster
+
+A group of files that import each other more than they import the rest of the repo, found in the
+import graph by the Leiden method (`index/lib/clusters.mjs`). It is stored as `index.clusters`,
+and each file carries its `cluster` id (`c1` is the largest) or `null`. Named by its **hub**, the
+member with the most import links.
+
+Not an **area**. An area is a folder, read off the tree. A cluster is a feature, read off the
+imports, and it can span several areas, or split one area into several clusters. A brief is
+written for an area, because a brief lives in a folder. A cluster shows which files change together.
+
+_Avoid_: "community" (the graph-theory word, fine inside `clusters.mjs` and nowhere a user reads),
+"module" (that word is for code shape, see [[codebase-design]]), "area" for a cluster.
 
 ---
 

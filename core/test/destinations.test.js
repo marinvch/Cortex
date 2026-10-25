@@ -131,11 +131,13 @@ test("a bad line is a problem with its line number; the good lines still apply",
     "git: someone@github.com/acme", // 8 a user
     "git: github.com/acme/../evil", // 9 a dot segment
     "https: not a host",      // 10
+    "git: github.com/acme   # trailing comment", // 11
+    "https: bad_host.example", // 12
   ].join("\n"));
   assert.equal(entries.length, 1);
-  assert.deepEqual(problems.map((p) => p.line), [2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.deepEqual(problems.map((p) => p.line), [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
   const notes = destinationNotes(problems);
-  assert.equal(notes.length, 9);
+  assert.equal(notes.length, 11);
   assert.match(notes[0], /^approved-destinations line 2 /);
   assert.ok(!notes.some((n) => n.includes("evil") || n.includes("someone")), "a note never repeats the line");
 });

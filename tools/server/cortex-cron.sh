@@ -29,6 +29,15 @@
 #   CORTEX_SCRUB        optional; the scrubber, default tools/cortex-scrub.mjs beside this
 #                       directory. It runs core/gate.js — credentials, the employer denylist on a
 #                       home profile, personal data under CORTEX_PII — over what leaves this machine.
+#   CORTEX_DEST_CHECK   optional; the destination checker, default tools/cortex-destinations.mjs
+#                       beside this directory. It runs core/destinations.js for CORTEX_PROFILE.
+#   CORTEX_PROFILE      home (default), work or lab. On work, the API URL and every remote must be
+#                       on the approved list (CORTEX_DESTINATIONS, else ~/.cortex/allowed-destinations).
+#
+# Where things go is checked as well as what they hold (docs/adr/0030). Before the pull, the API
+# call and the push, the destination goes through the checker. An API URL it refuses means no API
+# call and the deterministic digest. A remote it refuses means the digest is committed locally and
+# not pushed, exit 4. With no checker, only a home profile goes on unchecked; any other sends nothing.
 #
 # Two things leave the server, and both pass the scrubber first. The diff, before it is sent to the
 # API: a finding aborts the run, exit 3, with nothing sent, written or pushed. The digest, before it
@@ -76,10 +85,42 @@ scrub() {
   [ -n "$verdict" ] && printf '%s\n' "$verdict" | sed "s/^/cortex-cron: $1: /" >&2
   return "$code"
 }
+DEST="${CORTEX_DEST_CHECK:-$HERE/../cortex-destinations.mjs}"
+PROFILE="$(printf '%s' "${CORTEX_PROFILE:-}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+# dest_check <kind> <url> [--inbound] — 0 when the destination may be reached. The checker's reason
+# (host and path only) goes to stderr. Without a checker only home goes on: it allows any destination,
+# and every other profile must not send what it could not check.
+dest_check() {
+  if command -v node >/dev/null 2>&1 && [ -f "$DEST" ]; then
+    local verdict code=0
+    verdict="$(node "$DEST" check "$@" 2>&1 >/dev/null)" || code=$?
+    [ -n "$verdict" ] && printf '%s\n' "$verdict" | sed 's/^/cortex-cron: /' >&2
+    return "$code"
+  fi
+  case "$PROFILE" in ""|home) return 0 ;; esac
+  echo "cortex-cron: cannot check the $1 destination (node, and $DEST), and the $PROFILE profile sends nothing unchecked" >&2
+  return 1
+}
+# remotes_ok [--inbound] — every URL git would use for the brain's remotes, push URLs unless inbound.
+remotes_ok() {
+  local push="--push" r u
+  [ "${1:-}" = "--inbound" ] && push=""
+  for r in $(git remote); do
+    while IFS= read -r u; do
+      [ -n "$u" ] || continue
+      dest_check git "$u" "$@" || return 1
+    # shellcheck disable=SC2086  # $push is one flag or nothing
+    done < <(git remote get-url --all $push "$r")
+  done
+}
 cd "$BRAIN_DIR"
 
 # 1. sync
-git pull --ff-only -q || { echo "pull failed"; exit 1; }
+if remotes_ok --inbound; then
+  git pull --ff-only -q || { echo "pull failed"; exit 1; }
+else
+  echo "cortex-cron: not pulling — the brain's remote is not an approved destination; working from the local clone" >&2
+fi
 
 today="$(date +%F)"
 if [ "$MODE" = "--weekly" ]; then SINCE="7 days ago"; OUT="audits/${today}.md"; TITLE="Weekly audit";
@@ -102,6 +143,8 @@ if [ -n "${ANTHROPIC_API_KEY:-}" ] && [ -n "$material" ]; then
   if ! scrub_ready; then
     echo "cortex-cron: not sending the changes to the API — the scrubber is not available (node, and $SCRUB)." >&2
     echo "cortex-cron: set CORTEX_SCRUB to tools/cortex-scrub.mjs in a Cortex checkout to turn the summary back on; writing the deterministic digest" >&2
+  elif ! dest_check https "$API_URL"; then
+    echo "cortex-cron: not sending the changes to the API — its URL is not an approved destination; writing the deterministic digest" >&2
   elif ! printf '%s' "$material" | scrub "the changes"; then
     echo "cortex-cron: refusing to send the changes to the API. Nothing was sent, written or pushed." >&2
     echo "cortex-cron: the brain's own history holds what was found: remove it (docs/erasure.md), and rotate it if it is a credential" >&2
@@ -195,4 +238,8 @@ printf '%s\n' "$report" > "$OUT"
 git add "$OUT"
 if git diff --cached --quiet; then echo "no changes to commit"; exit 0; fi
 git commit -q -m "cron: $TITLE $today"
+if ! remotes_ok; then
+  echo "cortex-cron: committed $OUT locally and did NOT push it — the brain's remote is not an approved destination" >&2
+  exit 4
+fi
 git push -q && echo "pushed $OUT"

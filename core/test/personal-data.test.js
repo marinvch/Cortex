@@ -9,6 +9,8 @@ import {
   scanPersonal, gatePersonal, piiMode, ibanValid, luhnValid,
   PersonalDataError, RefusedWriteError, UnknownPiiModeError, PII_DEFAULT,
 } from "../scrub.js";
+import { policyFor } from "../profile.js";
+import { assertPublished } from "../gate.js";
 
 const EMAIL = ["jane.roe", "mailhost.dev"].join("@");
 const IBAN = ["GB82", "WEST", "1234", "5698", "7654", "32"].join(" ");
@@ -94,6 +96,29 @@ test("refuse: a PersonalDataError, which is a RefusedWriteError, naming kinds an
   assert.equal(err.code, "personal_data");
   assert.match(err.message, /IBAN, line 1/);
   assert.ok(!err.message.includes(IBAN.replace(/\s/g, "")) && !err.message.includes(IBAN));
+});
+
+// --- the profile's default (docs/adr/0027, amended) ------------------------------------------------
+
+test("with CORTEX_PII unset, the profile sets the mode: work refuses, home and lab warn", () => {
+  assert.equal(piiMode({ env: {}, policy: policyFor("work") }), "refuse");
+  assert.equal(piiMode({ env: {}, policy: policyFor("home") }), "warn");
+  assert.equal(piiMode({ env: {}, policy: policyFor("lab") }), "warn");
+  let err;
+  try { gatePersonal(`mail ${EMAIL}`, { env: {}, policy: policyFor("work") }); } catch (e) { err = e; }
+  assert.ok(err instanceof PersonalDataError);
+  assert.match(err.message, /work profile's mode is refuse/);
+  assert.ok(!err.message.includes(EMAIL));
+  // The publish gate passes the policy through, so every published write on work refuses too.
+  const home = { HOME: "/nonexistent-cortex-home", USERPROFILE: "/nonexistent-cortex-home" };
+  assert.throws(() => assertPublished(`mail ${EMAIL}`, { policy: policyFor("work"), env: home }), PersonalDataError);
+  assert.equal(assertPublished(`mail ${EMAIL}`, { policy: policyFor("home"), env: home }).warnings.length, 1);
+});
+
+test("CORTEX_PII still overrides the profile, either way", () => {
+  assert.equal(gatePersonal(`mail ${EMAIL}`, { env: { CORTEX_PII: "warn" }, policy: policyFor("work") }).mode, "warn");
+  assert.throws(() => gatePersonal(`mail ${EMAIL}`, { env: { CORTEX_PII: "refuse" }, policy: policyFor("home") }), PersonalDataError);
+  assert.throws(() => piiMode({ env: {}, policy: { pii: "maybe" } }), UnknownPiiModeError);
 });
 
 test("off: nothing is scanned", () => {

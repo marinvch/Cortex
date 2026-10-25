@@ -18,7 +18,11 @@ TODAY="$(date +%F)"
 # under $HOME. This file names its own, empty until a case fills it, so no run reads the machine's.
 export CORTEX_DENYLIST="$WORK/cron-denylist"
 : > "$CORTEX_DENYLIST"
-unset CORTEX_PROFILE CORTEX_PII CORTEX_SCRUB
+unset CORTEX_PROFILE CORTEX_PII CORTEX_SCRUB CORTEX_DEST_CHECK
+# The same for the approved-destinations list a work profile reads (core/destinations.js). It
+# approves the API, so the work case below still reaches the stub; the remotes are paths on disk.
+export CORTEX_DESTINATIONS="$WORK/cron-destinations"
+printf 'https: api.anthropic.com\n' > "$CORTEX_DESTINATIONS"
 
 # A brain clone with a real upstream, plus a note committed far enough back to be "since" anything.
 setup_brain() { # dir
@@ -302,3 +306,60 @@ assert_eq "0" "$code" "without a scrubber the run still succeeds"
 assert_exit 1 "but the changes are not sent to the API unscanned" -- test -f "$WORK/noscrub.body.json"
 assert_contains "$out" "scrubber is not available" "and the log says why there is no summary"
 assert_contains "$(git -C "$WORK/noscrub.git" log --oneline 2>/dev/null || true)" "cron:" "the deterministic digest is pushed"
+
+# --- destinations: on work, nothing leaves except to an approved place (docs/adr/0030) ---
+#
+# The remote is re-pointed at a host nobody approved, and git may use the file transport only, so a
+# push or pull that slipped past the check fails on git's own "transport 'https' not allowed" rather
+# than reaching the network. The stub curl's body file says whether the API was called.
+UNAPPROVED="https://github.com/someone/brain.git"
+export GIT_ALLOW_PROTOCOL=file
+
+setup_brain "$WORK/offlist"
+git -C "$WORK/offlist" remote set-url --push origin "$UNAPPROVED"
+scrubrun offlist "$OK_RESPONSE" CORTEX_PROFILE=work
+assert_eq "4" "$code" "work: an unapproved remote is not pushed to, exit 4"
+assert_exit 0 "the digest is still written" -- test -f "$WORK/offlist/digests/$TODAY.md"
+assert_contains "$(git -C "$WORK/offlist" log -1 --format=%s)" "cron:" "and committed locally"
+assert_not_contains "$(git -C "$WORK/offlist.git" log --oneline 2>/dev/null || true)" "cron:" "and nothing reached a remote"
+assert_contains "$out" "did NOT push" "and the log says so"
+assert_contains "$out" "github.com/someone/brain" "naming the host and path"
+assert_not_contains "$out" "transport" "git never ran the push"
+
+setup_brain "$WORK/offlistpull"
+git -C "$WORK/offlistpull" remote set-url origin "$UNAPPROVED"
+scrubrun offlistpull "$OK_RESPONSE" CORTEX_PROFILE=work
+assert_contains "$out" "not pulling" "work: an unapproved fetch URL is not pulled from either"
+assert_eq "4" "$code" "and not pushed to"
+
+setup_brain "$WORK/onlist"
+git -C "$WORK/onlist" remote set-url --push origin "$UNAPPROVED"
+printf 'https: api.anthropic.com\ngit: github.com/someone\n' > "$WORK/onlist.dest"
+scrubrun onlist "$OK_RESPONSE" CORTEX_PROFILE=work CORTEX_DESTINATIONS="$WORK/onlist.dest"
+assert_contains "$out" "transport 'https' not allowed" "work: an approved remote passes the check and git pushes"
+
+setup_brain "$WORK/badapi"
+scrubrun badapi "$OK_RESPONSE" CORTEX_PROFILE=work CORTEX_API_URL="https://api.example.invalid/v1/messages"
+assert_eq "0" "$code" "work: an unapproved API URL does not fail the run"
+assert_exit 1 "and the API is not called" -- test -f "$WORK/badapi.body.json"
+assert_contains "$out" "not sending the changes to the API" "and the log says why"
+assert_contains "$(git -C "$WORK/badapi.git" log --oneline 2>/dev/null || true)" "cron:" "the deterministic digest is pushed to the approved remote"
+
+setup_brain "$WORK/nocheck"
+scrubrun nocheck "$OK_RESPONSE" CORTEX_PROFILE=work CORTEX_DEST_CHECK="$WORK/no-such-checker.mjs"
+assert_exit 1 "work without a checker: the API is not called" -- test -f "$WORK/nocheck.body.json"
+assert_eq "4" "$code" "and nothing is pushed"
+assert_not_contains "$(git -C "$WORK/nocheck.git" log --oneline 2>/dev/null || true)" "cron:" "not even to a remote on disk"
+assert_contains "$out" "sends nothing unchecked" "and the log says why"
+
+setup_brain "$WORK/homenocheck"
+git -C "$WORK/homenocheck" remote set-url --push origin "$UNAPPROVED"
+scrubrun homenocheck "$OK_RESPONSE" CORTEX_DEST_CHECK="$WORK/no-such-checker.mjs"
+assert_contains "$out" "transport 'https' not allowed" "home without a checker pushes as it always did"
+
+setup_brain "$WORK/labpush"
+git -C "$WORK/labpush" remote set-url --push origin "$UNAPPROVED"
+scrubrun labpush "$OK_RESPONSE" CORTEX_PROFILE=lab
+assert_eq "4" "$code" "lab: nothing is pushed to a remote host"
+assert_exit 1 "and the API is not called" -- test -f "$WORK/labpush.body.json"
+unset GIT_ALLOW_PROTOCOL

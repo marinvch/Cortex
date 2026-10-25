@@ -6,7 +6,7 @@
 
 ## Invoked with a row
 
-`/setup-repo evals` and `/setup-repo bands` are what `cortex-next` names once the first pass is done. Run
+`/setup-repo evals` and `/setup-repo bands` are what `cortex-next.mjs` names once the first pass is done. Run
 steps 1–4 as usual, then take only that row from `missing`. Playback and confirmation are still
 one each, and step 7's rules still apply.
 

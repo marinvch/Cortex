@@ -54,7 +54,7 @@ when one of its sources appears in step 2's log, or when step 1 named a fact it 
   `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-site-facts.mjs" --out "$dir/site-facts.json"`.
 - **Captured pages** play or embed real output, and are refreshed on every sync, whatever changed:
   `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-site-demo.mjs" --out "$dir/site-demo.json"` for the
-  home page's walkthrough, and the view of Cortex that `/repo-map` embeds:
+  home page's walkthrough, and the view of Cortex that the site's `/cortex-view` page embeds:
 
   ```bash
   pub="$(mktemp -d)/Cortex"

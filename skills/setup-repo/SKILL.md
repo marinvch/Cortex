@@ -1,6 +1,6 @@
 ---
 name: setup-repo
-description: The single install — give a repo, new or legacy, the whole Cortex loop in one pass (root brief, verification, verifier, PR review, hooks, evals, an agent team). Asks once, never touches source code. Triggers — "install cortex", "set this repo up", "onboard this project", or an unfamiliar repo with no AGENTS.md.
+description: Set up a new or legacy repo — the whole Cortex loop in one pass (root brief, verification, PR review, hooks, evals, agent team) or a report only. Asks once, edits no source. Triggers — "install cortex", "set this repo up", "onboard this project", "just index this", "show me the findings", or a repo with no AGENTS.md.
 metadata:
   capability: judgment
 ---
@@ -16,7 +16,7 @@ still callable by name; what changed is that nobody has to know their order to g
 One pass writes everything that can be written today. Two rows cannot be: **evals** need real past
 tasks to seed cases from, and **bands** need a production metric with a stable history. Both also
 wait on files this same pass writes (`CLAUDE.md`, `REVIEW.md`), so they come back as `missing`
-afterwards. Say that in the playback. Do not promise them in the first pass. `cortex-next` then
+afterwards. Say that in the playback. Do not promise them in the first pass. `cortex-next.mjs` then
 names `/setup-repo evals` and `/setup-repo bands` ([RUNS.md](RUNS.md#invoked-with-a-row)).
 
 > **The rule that governs this whole skill:** steps 1–5 read, report and *ask*. They do not modify
@@ -48,6 +48,28 @@ Read [RUNS.md](RUNS.md) before step 1 in either of these cases:
 - **Run unattended** — `claude -p`, where nobody answers the consent gate or step 6. Claude Code
   refuses every write under `.claude/` there unless the run is in auto mode, and the install still
   reads as finished.
+
+## Report only
+
+Some users want to look at a repo before anything is set up: "just index this", "report on this
+repo", "show me the findings". Take this path for them. It is the same pass with the writing taken
+out, and it is what the separate install command did before 3.0.0:
+
+1. Steps 1 to 3 as written: orient, the consent gate, index, the findings report. These write only
+   the generated files under `.cortex/` and the `.gitignore` lines, and the gate covers them.
+2. Walk the findings offers from step 5, `cortex-findings.mjs . --offers`, and record yes, no or
+   later for each. Skip the loop worklist from step 4: nobody asked for the loop.
+3. Stop there. Do not play back, do not confirm, do not write.
+
+A yes to any offer is a choice to set up after all. Say that in one line, then go to step 6 with
+only the rows they said yes to, and the loop rows left out unless they ask for them. On a greenfield
+repo the only offer worth making is the context layer: there is no code to brief or summarise.
+
+Close a report-only run with the next command, not a menu:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --line
+```
 
 ## 1. Orient
 
@@ -152,11 +174,31 @@ an observation and let them ask.
 node "${CLAUDE_PLUGIN_ROOT}/index/cortex-findings.mjs" . --offers
 ```
 
-The ranked worklist from the findings, writing nothing. It covers what the loop does not: scoped
-briefs, the plugin bundle, enrichment, the memory store, and secrets triage.
+This prints the **ranked worklist** as JSON and writes nothing at all. It is the same analysis the
+report renders, in the shape you can act on: one entry per action, most severe first, each carrying
+`targets` (what it would touch) and `findings` (the titles that produced it). It covers what the
+loop does not:
+
+| Action | Ask about |
+|---|---|
+| `scaffold` | the context layer: `AGENTS.md` and shims, `CONTEXT.md`, `docs/adr/` |
+| `brief` | scoped `AGENTS.md` leaves for the named areas |
+| `bundle` | the plugin tiers the index gave a reason for, never the whole list |
+| `enrich` | semantic summaries over the index |
+| `memory` | a committed `.cortex/memory/` |
+| `triage-secrets` | **nothing.** See the rules below |
 
 Merge it with the loop worklist into **one** list of questions. The user is being asked once; they
-should not be able to tell which of two modules produced which question.
+should not be able to tell which of two modules produced which question. Say before the first
+question that nothing is written until the end, and record yes, no or **later** for each.
+
+Ask with the *why* attached; that is what `findings` is for. "Three areas may deserve their own
+brief: `src/components`, `src/app`, `src/lib`" is a question a user can answer. "Run brief?" is not.
+The worklist is already collapsed, so **do not re-expand it** by asking per target: one `brief`
+entry is one question naming its candidates, and the user narrows the list in their answer.
+
+An empty worklist is a real outcome and a good one: the repo is already served. A user who declines
+everything has been served completely too.
 
 **Agent docs that were already here go first.** If `CLAUDE.md`, `.cursorrules` or another agent
 doc exists and `CONTEXT.md` does not, a human wrote it before Cortex arrived. Ask `cortex-next.mjs`
@@ -245,7 +287,7 @@ Three rules survive the merge intact:
 
 ## 6. One playback, one confirmation
 
-Play back everything as a list of paths, grouped by stage, and take **one** confirmation:
+Play back everything as a list of paths, grouped by stage. Take **one** confirmation for the whole set:
 
 ```
 Cortex will write, in one pass:
@@ -279,7 +321,7 @@ playbook changes how every later session starts, and a yes to something they wer
 consent.
 
 Name the ADR directory the scaffold will use. It is `docs/adr/`, or `adr/` when `docs/` is a
-published site ([`/write-context-docs`](../cortex-scaffold/SKILL.md) step 3).
+published site ([`/write-context-docs`](../write-context-docs/SKILL.md) step 3).
 
 `[a]ll` is offered first and on purpose: a user who wants the whole loop should not have to answer
 eight questions to get it. `[p]ick` drops back into the worklist one row at a time. `[n]one` is a

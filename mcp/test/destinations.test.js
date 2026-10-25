@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pull, pushHead, commitAndPush, commitPath } from "../lib/gitsync.js";
 import { capture } from "../lib/capture.js";
@@ -203,11 +203,11 @@ test("the same capture with the remote approved passes the check", () => {
 });
 
 /** A product repo on work joined to a team-brain whose clone's origin is the unapproved URL. */
-function workRepo(listText) {
+function workRepo(listText, { integrations } = {}) {
   const seed = cloneAt(tempDir("dest-seed-"));
   mkdirSync(join(seed.dir, "projects", "web-a"), { recursive: true });
   writeFileSync(join(seed.dir, "projects", "web-a", ".gitkeep"), "");
-  writeFileSync(join(seed.dir, "team.json"), JSON.stringify({ members: [{ handle: "dev-fe", roles: ["frontend"], projects: ["web-a"] }, { handle: "dev-be", roles: ["backend"], projects: [] }] }, null, 2) + "\n");
+  writeFileSync(join(seed.dir, "team.json"), JSON.stringify({ ...(integrations ? { integrations } : {}), members: [{ handle: "dev-fe", roles: ["frontend"], projects: ["web-a"] }, { handle: "dev-be", roles: ["backend"], projects: [] }] }, null, 2) + "\n");
   git(seed.dir, "add", ".");
   git(seed.dir, "commit", "-qm", "roster");
   git(seed.dir, "push", "-q", "origin", "master");
@@ -255,6 +255,18 @@ test("on work, a tracker request to an unapproved host never calls fetch", async
   );
   const api = githubAdapter({ kind: "github" }, { env: { ...homeEnv(), GH_TOKEN: "not-a-real-token" }, policy: WORK, fetch: neverFetch });
   await assert.rejects(() => api.find({ id: "a1", target: { repo: "acme/svc" } }), DestinationRefusedError);
+});
+
+test("on work, an ask's tracker sync never calls an unapproved tracker, and leaves the link pending with the reason", async () => {
+  const w = workRepo("git: github.com/someone\n", { integrations: [{ kind: "github", repo: "acme/svc" }] });
+  let calls = 0;
+  const fetch = async () => { calls++; return new Response("{}", { status: 200 }); };
+  const res = await askFrom(w.brain, { to: "backend", content: "Which endpoint?" }, { env: { ...w.brain.env, GH_TOKEN: "not-a-real-token" }, cwd: w.repo, id: "dest-s1", today: "2026-10-25", fetch });
+  assert.equal(calls, 0, "fetch was never called");
+  assert.ok(res.sync, "the sync ran");
+  const ask = readFileSync(join(w.dir, "asks", "dest-s1.md"), "utf8");
+  assert.match(ask, /pending/);
+  assert.match(ask, /refusing to reach api\.github\.com/, "the pending link carries the refusal");
 });
 
 test("a tracker request needs the policy", async () => {

@@ -559,7 +559,7 @@ or refreshes a skill that changed. `--check` reports the drift without writing.
 | `/capture` | anytime | One-line drop to the inbox |
 | `/daily` | each morning | Today's note + priorities + due items |
 
-**That is 6 of 40.** The complete table — every ritual, when to run it, and the notes on which
+**That is 6 of 39.** The complete table — every ritual, when to run it, and the notes on which
 pairs are *not* interchangeable — lives in [`AGENTS.md`](AGENTS.md#the-rituals) and is the single
 source of truth. This README used to carry a second table of 20 rows that read as the list. Ten
 skills were missing from it and nothing caught that, because a partial copy and a complete one look
@@ -742,7 +742,6 @@ prompt-gate hook in `.claude/hooks/`.
 MIT — see [LICENSE](LICENSE). Your notes are yours.
 
 **Files Cortex stamps into your repository are yours too**: they are granted to you under MIT-0, so
-no attribution and no notice is required, and Cortex adds no licence header to them. Rituals adapted
-from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT), and the short quotations of
-Anthropic's documentation in `core/claude-code.js` (© Anthropic, not covered by Cortex's licence),
-are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+no attribution and no notice is required, and Cortex adds no licence header to them. The short
+quotations of Anthropic's documentation in `core/claude-code.js` (© Anthropic, not covered by
+Cortex's licence) are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

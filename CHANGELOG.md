@@ -19,6 +19,19 @@ this project now versions independently of any package manager (see `VERSION`).
   parsers may run as an add-on the user installs, checked against pinned hashes. The shipped tree
   still imports nothing.
 
+### Changed
+
+- **Seven rituals and one reference rewritten in Cortex's own words.** `/diagnosing-bugs`, `/domain-modeling`
+  (with `CONTEXT-FORMAT.md` and `ADR-FORMAT.md`), `/grilling`, `/handoff`,
+  `/improve-codebase-architecture` (with `HTML-REPORT.md`), `/resolving-merge-conflicts`,
+  `/writing-for-agents` (with `SKILL-MECHANICS.md`) and `references/codebase-design.md`. What each
+  ritual does is unchanged. No adapted text remains, so the third-party section for it is gone from
+  `THIRD_PARTY_NOTICES.md`.
+
+### Removed
+
+- **`/wizard`.** `/cortex-scaffold` now lists the manual setup it finds instead of pointing at it.
+
 ### Fixed
 
 - **The README's "What Cortex runs, sends and fetches" names `tools/server/cortex-cron.sh`.** That
@@ -198,8 +211,8 @@ runs.
   `master` into a shell; it clones a release tag.
 - **`SECURITY.md`**: supported versions, private reporting through GitHub security advisories,
   scope, and what to expect.
-- **`THIRD_PARTY_NOTICES.md`** carries the full MIT notice of mattpocock/skills and the files that
-  adapt it, states that the quotations of Anthropic's documentation in `core/claude-code.js` are
+- **`THIRD_PARTY_NOTICES.md`** carries the full MIT notice of the outside skill collection and the
+  files that adapted it, states that the quotations of Anthropic's documentation in `core/claude-code.js` are
   © Anthropic and not under Cortex's licence, and grants the files Cortex stamps into your
   repository under MIT-0 — no attribution required, and no header added to them.
 - **Tracker sync passes the whole publish gate, both ways.** A tracker comment coming into the
@@ -4236,8 +4249,7 @@ Deliberately not for `ts`/`js`: `src/test-utils.ts` is a helper, not a test.
 ## [2.22.0] — 2026-08-19
 
 ### Added — `/diagnosing-bugs`, ported and given the repo's map
-The last unharvested skill from [mattpocock/skills](https://github.com/mattpocock/skills) that fit
-Cortex. Phases 1–6 are upstream and sound: **build a red-capable feedback loop before forming any
+The last unharvested skill from an outside MIT skill collection that fit Cortex. Phases 1–6 are upstream and sound: **build a red-capable feedback loop before forming any
 theory**, reproduce, minimise, generate 3–5 falsifiable hypotheses before testing one, instrument
 one variable at a time, fix with a regression test, clean up.
 
@@ -5304,12 +5316,12 @@ Four rituals covered two jobs. Typing either removed name now resolves to nothin
   carries the fork explicitly — on the index's file count, not on a guess about the repo. Also
   fixes the stray `- ` bullet an empty language map rendered.
 - **MIT attribution on `/improve-codebase-architecture`.** It was ported from
-  [mattpocock/skills](https://github.com/mattpocock/skills) by a parallel session without the
+  an outside MIT skill collection by a parallel session without the
   footer every other ported file carries. A licence obligation, not a style nit.
 
 ### Documented
 
-- `docs/superpowers/specs/2026-08-17-mattpocock-harvest.md` — the full survey of upstream's 18
+- The 2026-08-17 harvest spec (no longer in the repo) — the full survey of upstream's 18
   engineering + 7 productivity skills against what Cortex already ships: 5 already ported, 2 not
   ours to take, 5 already covered by the bundle, 4 worth porting, 9 skipped with reasons. The
   original survey was run by a parallel session on 2026-08-15 that recorded nothing and was closed,
@@ -5445,8 +5457,8 @@ install does, then run the rituals against a real unrelated repository — found
 - **Semantic enrichment** (`/cortex-enrich`) — optional summaries, roles and tags on top of the
   index. Deterministic batching, and validation that assumes the model's output is wrong.
 - New rituals: `/cortex-install`, `/cortex-scaffold`, `/cortex-brief`, `/cortex-enrich`, `/dream`,
-  plus `/wizard`, `/domain-modeling` and `/resolving-merge-conflicts` ported from
-  `mattpocock/skills` (MIT).
+  plus `/wizard`, `/domain-modeling` and `/resolving-merge-conflicts` ported from an outside
+  MIT skill collection.
 - `references/codebase-design.md` — vocabulary for how code is shaped.
 - `tools/cortex-vault-extract.sh` — moves the personal vault to its own repo. Dry run by default.
 

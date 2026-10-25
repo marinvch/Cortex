@@ -371,11 +371,11 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     detail: sample(javaMissing, (e) => `${e.repo}: ${e.from} → ${e.to}`),
   });
 
-  // What /cortex wrote under .claude/ actually landed. The workspace repos are installed by a
-  // headless `claude -p "/cortex"`, and Claude Code never auto-approves a write under .claude/:
+  // What /setup-repo wrote under .claude/ actually landed. The workspace repos are installed by a
+  // headless `claude -p "/setup-repo"`, and Claude Code never auto-approves a write under .claude/:
   // allow rules do not change that, and -p has nobody to ask, so the verifier and the hooks are
   // refused while AGENTS.md, CLAUDE.md and REVIEW.md land — an install that reads as done. Only
-  // repos where /cortex evidently ran (the root brief is present) are judged; the rest are not
+  // repos where /setup-repo evidently ran (the root brief is present) are judged; the rest are not
   // installed, which is a different failure with its own row above.
   const refused = [];
   const served = [];
@@ -393,18 +393,18 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
   if (installed) {
     checks.push({
       ok: refused.length === 0,
-      label: `/cortex's .claude/ artifacts are on disk: ${installed - refused.length}/${installed} installed repos`,
+      label: `/setup-repo's .claude/ artifacts are on disk: ${installed - refused.length}/${installed} installed repos`,
       detail: refused.length
         ? `${sample(refused, (e) => `${e.repo} lacks ${e.paths.join(", ")}`)} — Claude Code refuses .claude/ writes under claude -p; ` +
-          "rerun /cortex with --permission-mode auto (skills/cortex/RUNS.md, Running unattended)"
+          "rerun /setup-repo with --permission-mode auto (skills/setup-repo/RUNS.md, Running unattended)"
         : undefined,
     });
   }
 
-  // And what /cortex wrote passes Cortex's own claude-setup checker (spec S1, roadmap step 3) — the
+  // And what /setup-repo wrote passes Cortex's own claude-setup checker (spec S1, roadmap step 3) — the
   // same repos as the line above, so the two counts share one denominator. Run through
   // cortex-findings --json, the CLI a user has, rather than by importing index/lib: tools/ does not
-  // reach into a leaf. A repo /cortex never served is not judged here, for the reason given above.
+  // reach into a leaf. A repo /setup-repo never served is not judged here, for the reason given above.
   if (installed) {
     const flagged = [];
     for (const r of served) {
@@ -424,19 +424,19 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     }
     checks.push({
       ok: flagged.length === 0,
-      label: `claude-setup checker finds nothing in what /cortex wrote: ${installed - flagged.length}/${installed} installed repos`,
+      label: `claude-setup checker finds nothing in what /setup-repo wrote: ${installed - flagged.length}/${installed} installed repos`,
       detail: flagged.length
         ? `${flagged[0].repo}: ${flagged[0].first}${flagged[0].count > 1 ? ` (+${flagged[0].count - 1} more)` : ""}` +
           (flagged.length > 1 ? `; also ${flagged.slice(1).map((e) => e.repo).join(", ")}` : "")
         : undefined,
     });
   } else {
-    // Nothing was served, so nothing /cortex wrote can be checked — a zero here would pass by
+    // Nothing was served, so nothing /setup-repo wrote can be checked — a zero here would pass by
     // checking nothing. Said, not skipped.
     checks.push({
       ok: false,
-      label: `claude-setup checker: no code repo has been served by /cortex (root AGENTS.md + CLAUDE.md): 0/${code.length}`,
-      detail: "run /cortex in each code repo first (skills/cortex/RUNS.md, Running unattended)",
+      label: `claude-setup checker: no code repo has been served by /setup-repo (root AGENTS.md + CLAUDE.md): 0/${code.length}`,
+      detail: "run /setup-repo in each code repo first (skills/setup-repo/RUNS.md, Running unattended)",
     });
   }
   failures += scenario("S1", "install + correct map", checks);
@@ -455,7 +455,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     const remote = join(WORK, `${brain.name}.git`);
     execFileSync("git", ["clone", "-q", "--bare", brain.src, remote], { env: BASE_ENV, stdio: "pipe" });
 
-    // Everyone joins first, exactly as documented (/team-add), each with a vault of their own —
+    // Everyone joins first, exactly as documented (/join-team), each with a vault of their own —
     // then the writes happen. Joining after the write would clone a fresh copy that already holds
     // the note, and pass a check the daily case fails.
     let joined = 0;
@@ -564,7 +564,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
 {
   const checks = [];
   checks.push(overlapCheck());
-  // /cortex-review in CI, run the way a PR runs it. Each clone gets the workflow /cortex stamps
+  // /review-change in CI, run the way a PR runs it. Each clone gets the workflow /setup-repo stamps
   // (unless it already carries one that runs cortex-review), committed as the base; then a PR-shaped
   // branch changes one indexed file, and the workflow's own review step runs on base...head with
   // $CORTEX pointed at this checkout — the release the workflow would have cloned.
@@ -601,7 +601,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
         stamped += 1;
       }
       const steps = Object.values(parseYaml(readFileSync(wfPath, "utf8")).jobs ?? {}).flatMap((j) => j.steps ?? []);
-      const step = steps.find((s) => /cortex-review\.mjs/.test(s.run ?? ""));
+      const step = steps.find((s) => /review-change\.mjs/.test(s.run ?? ""));
       if (!step) throw new Error(`${basename(wfPath)} names cortex-review but no step runs cortex-review.mjs`);
 
       const base = git(r.clone, ["rev-parse", "HEAD"]).trim();
@@ -631,7 +631,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
   }
   checks.push({
     ok: candidates.length > 0 && ran === candidates.length,
-    label: `/cortex-review runs in CI on a PR: the review step ran on ${ran}/${candidates.length} code repos (${stamped} stamped from templates/loop/cortex-review.yml)`,
+    label: `/review-change runs in CI on a PR: the review step ran on ${ran}/${candidates.length} code repos (${stamped} stamped from templates/loop/cortex-review.yml)`,
     detail: reviewErrors[0],
   });
   checks.push({
@@ -639,14 +639,14 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     label: `and read the PR against the repo's own documents in ${againstDocs}/${candidates.length}`,
     detail: againstDocs || ran < candidates.length
       ? undefined
-      : "no code repo has a context layer (AGENTS.md, CONTEXT.md or ADRs) for the review to read back — run /cortex on one",
+      : "no code repo has a context layer (AGENTS.md, CONTEXT.md or ADRs) for the review to read back — run /setup-repo on one",
   });
   failures += scenario("S4", "daily team rituals", checks);
 }
 
 // S5 — the agent team ------------------------------------------------------------------------------
 {
-  // The deterministic half of plan step 15: what /cortex stamps of the agent team is sound on disk.
+  // The deterministic half of plan step 15: what /setup-repo stamps of the agent team is sound on disk.
   // Whether a model then follows the playbook is the live half, which is not a test that belongs in
   // a suite. Everything here goes through the CLIs a user has; tools/ does not reach into a leaf.
   const checks = [];
@@ -672,7 +672,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
   checks.push({
     ok: teams.length > 0 && loopErrors.length === 0,
     label: `the team is stamped in ${teams.length}/${indexed.length} code repos${offeredOnly.length ? ` (offered, not taken: ${offeredOnly.join(", ")})` : ""}`,
-    detail: loopErrors[0] ?? (teams.length ? undefined : "no code repo carries the playbook in CLAUDE.md — run /cortex and pick the team"),
+    detail: loopErrors[0] ?? (teams.length ? undefined : "no code repo carries the playbook in CLAUDE.md — run /setup-repo and pick the team"),
   });
 
   if (teams.length) {
@@ -705,7 +705,7 @@ console.log(`  workspace: ${code.length} code repo(s) [${code.map((r) => r.name)
     });
 
     // The playbook is a section of CLAUDE.md, outside the record, so its currency is its own check
-    // (#505): a workspace stamped by an earlier release reads `outdated` here until /cortex replaces it.
+    // (#505): a workspace stamped by an earlier release reads `outdated` here until /setup-repo replaces it.
     // A section the team edited is theirs — named, never a failure.
     const behind = [];
     const edited = [];

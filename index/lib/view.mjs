@@ -122,7 +122,7 @@ const SHIMS = ["CLAUDE.md", "GEMINI.md", ".github/copilot-instructions.md", ".cu
 const isCodeish = (f) => f.category === "code" || f.category === "script";
 
 // The root area is the files at the top of the tree. `inferAreas` names it "root", which is a label,
-// not a directory: the tab offered `/cortex-brief root/` for a folder that does not exist. It is
+// not a directory: the tab offered `/write-area-brief root/` for a folder that does not exist. It is
 // recognised by its paths, so a real directory that happens to be called `root/` is still one.
 const isRootArea = (a) => (a.paths ?? []).length > 0 && (a.paths ?? []).every((p) => !p.includes("/"));
 
@@ -182,7 +182,7 @@ function buildStructure(files, areas, colorOf, { tested, labels }) {
       brief: brief.own,
       inherits: brief.inherits,
       tooling: TOOLING_DIRS.has(a.name.split("/")[0]),
-      suggest: !brief.root && !brief.own && candidates.has(a.name) ? `/cortex-brief ${a.name}/` : null,
+      suggest: !brief.root && !brief.own && candidates.has(a.name) ? `/write-area-brief ${a.name}/` : null,
       key,
     };
   };

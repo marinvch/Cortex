@@ -666,7 +666,7 @@ test("the Structure tab names what is missing and the command that writes it", (
   assert.match(s, /no CONTEXT\.md/);
 });
 
-test("a small area is covered by the brief above it, and is not sent to /cortex-brief", () => {
+test("a small area is covered by the brief above it, and is not sent to /write-area-brief", () => {
   // Three files: under the threshold. A dashed box with a command in it is an instruction, and the
   // tab used to give it for every area with code — one-file directories included.
   const s = runOverview(buildView(idx(), "/tmp/x")).html("spane");
@@ -677,7 +677,7 @@ test("a small area is covered by the brief above it, and is not sent to /cortex-
 test("backticks in the sequence's prose render as code, not as backticks", () => {
   const next = {
     done: 5, total: 6, complete: false, perChange: [],
-    steps: [{ id: "loop", title: "Close the artifact chain", cmd: "/cortex", done: false, next: true,
+    steps: [{ id: "loop", title: "Close the artifact chain", cmd: "/setup-repo", done: false, next: true,
       why: "6 of 8 in place — run `cortex-loop.mjs .` for which and why" }],
   };
   const page = runOverview(buildView(idx(), "/tmp/x", { next }));

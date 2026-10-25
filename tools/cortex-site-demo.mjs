@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// cortex-site-demo.mjs — what a `/cortex` run prints on three small repos, captured for the site.
+// cortex-site-demo.mjs — what a `/setup-repo` run prints on three small repos, captured for the site.
 //
 //   node tools/cortex-site-demo.mjs                  # print site-demo.json to stdout
 //   node tools/cortex-site-demo.mjs --out <file>     # write it
 //   node tools/cortex-site-demo.mjs --check <file>   # exit 1 when <file> is not what a run gives now
 //
-// The site's home page plays a `/cortex` run step by step. A hand-written copy of that output would
+// The site's home page plays a `/setup-repo` run step by step. A hand-written copy of that output would
 // be wrong the first time a row of the loop is reworded, which is the drift `cortex-site-facts.mjs`
-// exists to stop (#415). So this builds three repos in a temp dir, runs the read half of `/cortex`
+// exists to stop (#415). So this builds three repos in a temp dir, runs the read half of `/setup-repo`
 // on each — the indexer, the findings and the loop — and records what they said:
 //
 //   new      an empty git repo
 //   legacy   a small Express service with tests and CI, and no agent files
 //   team     the same service with a team-brain connector, so the shared-plugin row is offered
 //
-// The apply step is not run: a model does that, following skills/cortex/SKILL.md. Each loop row
+// The apply step is not run: a model does that, following skills/setup-repo/SKILL.md. Each loop row
 // names the paths it would write, and the site shows those.
 //
 // It spawns the CLIs in index/ and imports nothing from there, because tools/ does not reach into a

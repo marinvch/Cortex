@@ -43,7 +43,7 @@ const indexPath = defaultIndexPath(root);
 const batchesPath = join(dir, "batches.json");
 const enrichedPath = join(root, ...ENRICHED_REL.split("/"));
 
-// ADR 0016: a guarantee attaches to the ACT, not to the skill that performs it. `/cortex-enrich
+// ADR 0016: a guarantee attaches to the ACT, not to the skill that performs it. `/summarize-files
 // plan` is listed there among the entry points that create `.cortex/`, and it was the only one of
 // the four that never ignored or announced what it wrote — `cortex-index`, `cortex-findings` and
 // `cortex-view` all route through `generated.mjs`. So every directory this file creates goes

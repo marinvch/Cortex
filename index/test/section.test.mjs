@@ -256,7 +256,7 @@ function templatesWith(playbook) {
 
 test("an edited section the team kept is not asked about again until a release changes the template", () => {
   // A stamped file the team edited reads `edited` and nothing is said until its template changes. A
-  // section had no record, so /cortex showed the same diff on every re-run; the keep is that record.
+  // section had no record, so /setup-repo showed the same diff on every re-run; the keep is that record.
   const root = repo(EDITED);
   assert.equal(sectionReport(root)[0].state, "edited");
 

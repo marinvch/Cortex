@@ -11,7 +11,7 @@
 //     out (`..`) is refused. A contract never carries a code body or an environment value because
 //     the extractor writes none; this is what makes that true of a hand-edited file too.
 //   - The secret gate (`core/scrub.js`) reads the whole input text AND the text about to be written.
-//     There is no tool row for publishing — it is a CLI step of /team-add — so the gate sits in the
+//     There is no tool row for publishing — it is a CLI step of /join-team — so the gate sits in the
 //     one function that writes, which is the act (ADR 0016), and the test drives that function.
 //   - It commits only when the content changed, as `contract: update <slug>`, so the brain's git
 //     history of `contract.json` is the contract's changelog. On `lab` it commits and does not push.
@@ -239,7 +239,7 @@ function publish(clone, rels, message, gate) {
  */
 export function publishContract(clone, { slug, input, policy, env = process.env }) {
   const s = slugify(slug ?? "");
-  if (!s) throw new ContractRefused("no_project", "a contract needs a project slug: pass --project, or run it in a repo joined with /team-add");
+  if (!s) throw new ContractRefused("no_project", "a contract needs a project slug: pass --project, or run it in a repo joined with /join-team");
   // Without a policy the profile is resolved from the environment, never read as "refuses nothing"
   // or as "any destination".
   const pol = policy ?? resolveProfile({ env }).policy;
@@ -324,7 +324,7 @@ export function showContract(clone, { project, path = null }) {
     throw new ContractRefused(
       "not_found",
       `no contract is published for '${project}'. Projects with one: ${have.length ? have.join(", ") : "none"}. ` +
-        "A repo publishes its contract with `/team-add` (or `ai-os contract publish`).",
+        "A repo publishes its contract with `/join-team` (or `ai-os contract publish`).",
     );
   }
   if (hit.error) throw new ContractRefused("unreadable", `projects/${slug}/contract.json is unreadable: ${hit.error}`);

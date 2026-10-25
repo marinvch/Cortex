@@ -74,7 +74,7 @@ export const CLONE_MARKER = "# Cortex — a team-brain clone, re-cloned on first
 
 export class NoTeamError extends Error {
   constructor(tool) {
-    super(`${tool} needs a team-brain, and this brain is not joined to one. Run /team-add in this repo to join.`);
+    super(`${tool} needs a team-brain, and this brain is not joined to one. Run /join-team in this repo to join.`);
     this.name = "NoTeamError";
     this.code = "no_team";
   }
@@ -102,7 +102,7 @@ export function ensureTeamClone(brain, tool) {
   if (existsSync(join(brain.teamClone, ".git"))) return { dir: brain.teamClone, cloned: false, ignored };
   if (!brain.teamBrainRepo) {
     throw Object.assign(
-      new Error(`${tool}: there is no team-brain clone at ${brain.teamClone}, and the connector names no teamBrainRepo to clone. Run /team-add in this repo again.`),
+      new Error(`${tool}: there is no team-brain clone at ${brain.teamClone}, and the connector names no teamBrainRepo to clone. Run /join-team in this repo again.`),
       { code: "no_clone" },
     );
   }
@@ -131,7 +131,7 @@ export function seedTeamBrain(cloneDir, { name, projects = [], source = null, in
     teamMd,
     `# Team: ${name}\n\n## Projects\n` +
       "See `projects/`. Each project is one file there, `projects/<slug>.md`, written when its repo\n" +
-      "joins with `/team-add`. A folder `projects/<slug>/` holds that project's notes.\n" +
+      "joins with `/join-team`. A folder `projects/<slug>/` holds that project's notes.\n" +
       "\n## Members\n- (add members)\n",
   );
   written.push(teamMd);

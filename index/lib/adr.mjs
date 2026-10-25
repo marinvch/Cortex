@@ -12,7 +12,7 @@
 //   adr/        where they go when docs/ is a published site
 //
 // Not `.cortex/adr/`: the walker skips `.cortex/` (walk.mjs), so records there would never reach
-// the index, and `/cortex-review` — the one thing that reads ADRs back — would never see them.
+// the index, and `/review-change` — the one thing that reads ADRs back — would never see them.
 //
 // A repo that already keeps ADRs in either place keeps them there. Moving someone's records to
 // satisfy a heuristic is the clobber the scaffold refuses everywhere else.

@@ -71,7 +71,7 @@ test("cortex-findings --stdout writes no file", () => {
 });
 
 test("cortex-findings --offers prints the wizard's script as JSON and writes nothing", () => {
-  // The report is prose for a human; --offers is the machine surface /cortex-install walks. It is
+  // The report is prose for a human; --offers is the machine surface /setup-repo walks. It is
   // read-only on purpose: a wizard that has already written something is not asking a question.
   const root = fixture();
   const out = run("cortex-findings.mjs", [".", "--offers"], root);
@@ -262,7 +262,7 @@ test("with no usable author the entry goes to <day>.md, exit 0, and stderr says 
     const env = envFor(root);
     for (const text of ["first", "second"]) {
       const r = memory(["append", text], root, env);
-      assert.equal(r.code, 0, "a /dream at the end of a day does not fail over a setting");
+      assert.equal(r.code, 0, "a /end-of-day-summary at the end of a day does not fail over a setting");
       assert.match(r.stdout, /^wrote .*[\\/]memory[\\/]\d{4}-\d{2}-\d{2}\.md\n$/, "stdout is still the one line");
       assert.match(r.stderr, /shared day file \d{4}-\d{2}-\d{2}\.md/, `said on the ${text} write`);
       assert.match(r.stderr, /Set CORTEX_AUTHOR to /, "the line names the fix, as something to do");

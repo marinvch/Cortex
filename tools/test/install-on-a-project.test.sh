@@ -73,7 +73,7 @@ assert_contains "$out" "Indexed" "and reports what it indexed"
 [ -f "$WORK/index.json" ] && _pass "an index is written where --out asked" || _fail "an index is written where --out asked"
 
 # --out must mean it: an index that also scribbles into the target is not read-only, and
-# /cortex-install promises to change nothing before the user picks something.
+# /setup-repo promises to change nothing before the user picks something.
 [ -d "$PROJ/.cortex" ] && _fail "indexing with --out leaves the target repo untouched" "created $PROJ/.cortex" \
                        || _pass "indexing with --out leaves the target repo untouched"
 assert_eq "$BEFORE" "$(tree_state "$PROJ")" "and no file in the target changed at all, .gitignore included"

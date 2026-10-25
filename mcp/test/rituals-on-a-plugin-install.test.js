@@ -2,7 +2,7 @@
 //
 // A plugin install is a clone under `~/.claude/plugins/cache/cortex/cortex/<version>/` and nothing
 // else: no vault checkout, no AI_OS_ROOT, and a cwd that is somebody's plain git repository.
-// `/setup-plugins` and `/catch-me-up` both told the agent to run `node <vault>/mcp/ai-os.js`, a
+// `/setup-plugins` and `/whats-changed` both told the agent to run `node <vault>/mcp/ai-os.js`, a
 // path that does not exist there — and even pointed at the plugin, `catch-up` demanded
 // AI_OS_ROOT and exited 1 before reading anything.
 //
@@ -98,8 +98,8 @@ for (const skill of ["connect-brain", "cortex-install", "catch-me-up", "team-add
   });
 }
 
-// The rule, not the list above: /team-add, /team-init and /connect-brain carried the same
-// `<vault>/mcp/` path a release after /catch-me-up was fixed, because the fix named two skills.
+// The rule, not the list above: /join-team, /create-team and /connect-mcp carried the same
+// `<vault>/mcp/` path a release after /whats-changed was fixed, because the fix named two skills.
 // The code lives in the plugin (mcp/, tools/); a vault holds notes. No ritual may look for code there.
 test("no ritual looks for Cortex's code inside a vault", () => {
   const offenders = [];
@@ -113,8 +113,8 @@ test("no ritual looks for Cortex's code inside a vault", () => {
   assert.deepEqual(offenders, [], "use ${CLAUDE_PLUGIN_ROOT}/…, and CORTEX_ROOT for the vault itself");
 });
 
-test("/connect-brain registers the plugin's server, not a vault path", () => {
-  const text = readFileSync(join(REPO, "skills", "connect-brain", "SKILL.md"), "utf8");
+test("/connect-mcp registers the plugin's server, not a vault path", () => {
+  const text = readFileSync(join(REPO, "skills", "connect-mcp", "SKILL.md"), "utf8");
   assert.match(text, /node "\$\{CLAUDE_PLUGIN_ROOT\}\/mcp\/server\.js"/);
   assert.match(text, /CORTEX_ROOT=<vault>/, "the vault is still named, as CORTEX_ROOT");
   // #552: the registration is `cortex`, so the tools read `mcp__cortex__…`, and the skill tells a
@@ -144,7 +144,7 @@ test("the README registers the server as cortex, by CORTEX_ROOT, and says an ai-
 // The commands, as printed, on a plugin install
 // ---------------------------------------------------------------------------------------------
 
-test("/catch-me-up's command reads a plain repo with no vault and no root set", () => {
+test("/whats-changed's command reads a plain repo with no vault and no root set", () => {
   const f = fixture();
   const [line] = commandsIn("catch-me-up").found;
   const r = run(f, argvOf(line, f.pluginRoot, { "<date>": "2026-01-01" }));
@@ -158,7 +158,7 @@ test("/catch-me-up's command reads a plain repo with no vault and no root set", 
   assert.deepEqual(out.notes, []);
 });
 
-test("/catch-me-up's command with a vault adds its notes to the repo's own history", () => {
+test("/whats-changed's command with a vault adds its notes to the repo's own history", () => {
   const f = fixture();
   const vault = join(f.base, "vault");
   mkdirSync(join(vault, "projects", "product"), { recursive: true });
@@ -217,7 +217,7 @@ test("catch-up writes nothing to the repo it reads", () => {
   assert.equal(status(), before);
 });
 
-test("/connect-brain's bundle command runs on a plugin install with no root set", () => {
+test("/connect-mcp's bundle command runs on a plugin install with no root set", () => {
   // A `claude` stub that fails `--version` sits first on PATH, so the command takes its degrade
   // path and prints the install commands — a test must never actually install plugins.
   const f = fixture();
@@ -237,7 +237,7 @@ test("/connect-brain's bundle command runs on a plugin install with no root set"
 
 // --- the tier status, as the two rituals print it (#548, item 11) ---------------------------------
 //
-// `/cortex-install` and `/setup-plugins` ask it before they offer a tier. The home directory is the
+// `/setup-repo` and `/setup-plugins` ask it before they offer a tier. The home directory is the
 // fixture's, so the registry read is the one written here and never this machine's.
 
 /** The status command a skill prints: the one line among its `ai-os.js` commands carrying `--status`. */
@@ -359,7 +359,7 @@ test("an unreadable registry is unknown, and the printed status says where it lo
   assert.doesNotMatch(r.stdout, /not installed|missing/);
 });
 
-test("/team-add's command joins a team-brain from a plugin install, cloning into the vault", () => {
+test("/join-team's command joins a team-brain from a plugin install, cloning into the vault", () => {
   // A bare repo on disk is a complete remote, so no network. The script comes from the plugin; the
   // vault is only where the clone lands — which is what the skill now says, and what it runs.
   const f = fixture();
@@ -380,7 +380,7 @@ test("/team-add's command joins a team-brain from a plugin install, cloning into
   assert.equal(existsSync(join(vault, "team", "core", "projects", "product.md")), false);
 });
 
-test("/team-add's command registers the project when the checkout has an origin", () => {
+test("/join-team's command registers the project when the checkout has an origin", () => {
   // The same printed command, on a machine with no git identity and against a team-brain remote
   // that is still empty — the first repo of a team to join. The file must reach the remote.
   const f = fixture();
@@ -401,7 +401,7 @@ test("/team-add's command registers the project when the checkout has an origin"
   assert.ok(existsSync(join(f.proj, ".cortex", "connector.json")));
 });
 
-test("/team-add's member command writes the joining member's roles into team.json from a plugin install", () => {
+test("/join-team's member command writes the joining member's roles into team.json from a plugin install", () => {
   const f = fixture();
   const vault = join(f.base, "vault");
   mkdirSync(vault, { recursive: true });
@@ -420,7 +420,7 @@ test("/team-add's member command writes the joining member's roles into team.jso
   assert.deepEqual(doc.members, [{ handle: "dev-a", roles: ["backend"], projects: ["product"] }]);
 });
 
-test("/team-add names the removal command, and it runs from the plugin root", () => {
+test("/join-team names the removal command, and it runs from the plugin root", () => {
   const { text, found } = commandsIn("team-add");
   const remove = found.find((c) => / project remove /.test(c));
   assert.ok(remove, "the skill must name `ai-os project remove`");
@@ -434,7 +434,7 @@ test("/team-add names the removal command, and it runs from the plugin root", ()
   assert.match(r.stderr, /no team/);
 });
 
-test("/team-add's contract step extracts and publishes from a plugin install (#621)", () => {
+test("/join-team's contract step extracts and publishes from a plugin install (#621)", () => {
   const f = fixture();
   // The contract step also runs the indexer, which a plugin install carries beside mcp/.
   cpSync(join(REPO, "index"), join(f.pluginRoot, "index"), { recursive: true, filter: (src) => !src.split(sep).includes("test") });

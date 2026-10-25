@@ -7,7 +7,7 @@
 //
 // That divergence is a live bug rather than an untidiness. `execFileSync` throws when git's output
 // exceeds the 1 MB default, both copies turn a throw into `null`, and `null` becomes an empty change
-// set — so a wide `--since` on a long-lived repo made `/cortex-impact` print "nothing to analyse",
+// set — so a wide `--since` on a long-lived repo made `/change-impact` print "nothing to analyse",
 // in the one command whose stated contract is that a confident total tells someone to stop looking.
 //
 // So the module owns three things, and the third is the point:

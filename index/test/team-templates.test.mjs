@@ -1,12 +1,12 @@
 // team-templates.test.mjs — the agent-team role templates are fit to stamp before anything stamps them.
 //
 // templates/team/ holds one Claude Code subagent per role (docs/specs/2026-09-28-agent-team-design.md).
-// /cortex writes them through its `team` loop row (lib/team.mjs, team.test.mjs), and this pins what that
+// /setup-repo writes them through its `team` loop row (lib/team.mjs, team.test.mjs), and this pins what that
 // row relies on:
 //
 //   - rendered with realistic values and committed at `.claude/agents/<role>.md`, every file passes
 //     every claude-setup check (roadmap Q9), with a positive control proving the checker saw them;
-//   - rendering is reproducible, and through the CLI /cortex will use, because stamps.json records
+//   - rendering is reproducible, and through the CLI /setup-repo will use, because stamps.json records
 //     the values and re-renders from them;
 //   - each role carries the tools the spec's roster table gives it and no more, and the two
 //     read-only roles cannot edit;
@@ -47,7 +47,7 @@ const ROSTER = {
 const ROLES = Object.keys(ROSTER);
 const EDIT_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"];
 
-/** Values of the shape /cortex will fill from a real repo — a TypeScript service with two briefs. */
+/** Values of the shape /setup-repo will fill from a real repo — a TypeScript service with two briefs. */
 const VALUES = {
   TEST_CMD: "npm test",
   RUN: "npm run dev",
@@ -98,7 +98,7 @@ function used() {
 }
 
 /**
- * A repo shaped like one /cortex serves, with each role stamped where step 14 will put it: the agents
+ * A repo shaped like one /setup-repo serves, with each role stamped where step 14 will put it: the agents
  * in .claude/agents/, the fence in .claude/hooks/, the skill in .claude/skills/team/, and the playbook
  * appended to a CLAUDE.md that already carries the verification block.
  */
@@ -213,7 +213,7 @@ test("rendering with every value leaves no placeholder, and is the same every ti
   }
 });
 
-test("the stamps CLI renders each template to the same bytes — the path /cortex and stamps.json use", () => {
+test("the stamps CLI renders each template to the same bytes — the path /setup-repo and stamps.json use", () => {
   const dir = tempDir("cortex-team-values-");
   const file = join(dir, "values.json");
   writeFileSync(file, JSON.stringify(VALUES));
@@ -357,7 +357,7 @@ test("the playbook names only the roles that were stamped", () => {
   assert.ok(source("playbook").includes("{{ROSTER}}"), "the roster must come from what was stamped");
 });
 
-test("the playbook has the session recommend from /cortex-impact --size and ask — it never decides", () => {
+test("the playbook has the session recommend from /change-impact --size and ask — it never decides", () => {
   const text = source("playbook").replace(/\s*\n\s*/g, " ");
   assert.match(text, /\/cortex-impact --size/, "the recommendation comes from the sizing evidence");
   assert.match(text, /the developer decides/i);

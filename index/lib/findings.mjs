@@ -249,7 +249,7 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
           `AGENTS.md is ${size}`,
           canCut
             ? "A single large context file is loaded in full on every turn, whether or not it is relevant. Splitting the area-specific parts into scoped leaves with a routing table keeps the root small and loads detail only where work happens."
-            : "A single large context file is loaded in full on every turn, whether or not it is relevant. This root already routes to a leaf for every area that wants one, so there is nothing left to split out — what has grown is the root's own prose. That is a reading job rather than a structural one: run `/optimize-context` on this file. Cortex does not offer to do it here, because measuring the size of a document is not the same as knowing which of its sentences is redundant.",
+            : "A single large context file is loaded in full on every turn, whether or not it is relevant. This root already routes to a leaf for every area that wants one, so there is nothing left to split out — what has grown is the root's own prose. That is a reading job rather than a structural one: run `/trim-agent-docs` on this file. Cortex does not offer to do it here, because measuring the size of a document is not the same as knowing which of its sentences is redundant.",
           [],
           // Split into leaves — never re-scaffold. The root file here is curated, and the
           // never-clobber rule is the whole reason it survives a second install.
@@ -312,7 +312,7 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
   const MARKER = "cortex:allow-secrets";
   const MARKER_HEADER_LINES = 10;
   // Kept in step with tools/test/dormant-exemptions.test.sh, which enforces the same rule on this
-  // repo. Two different answers to "is this file exempt" is the drift /cortex-review exists to find.
+  // repo. Two different answers to "is this file exempt" is the drift /review-change exists to find.
   const markerLine = (text) => {
     const head = text.split("\n", MARKER_HEADER_LINES);
     const i = head.findIndex((l) => l.includes(MARKER));
@@ -454,7 +454,7 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
         "low",
         "structure",
         `Import graph does not cover ${blind.join(", ")}`,
-        "Cortex reads imports by convention rather than with a compiler, and it cannot resolve this language's module system. Files in it are left out of the unreferenced list, and `/cortex-impact` will report no dependents for them — that is Cortex being blind, not the files being unused. Treat any structural claim about them as absent rather than negative.",
+        "Cortex reads imports by convention rather than with a compiler, and it cannot resolve this language's module system. Files in it are left out of the unreferenced list, and `/change-impact` will report no dependents for them — that is Cortex being blind, not the files being unused. Treat any structural claim about them as absent rather than negative.",
         [],
       ),
     );
@@ -677,7 +677,7 @@ export function render(index, findings, { day }) {
       "## What happens next",
       "",
       "Nothing, until you say so. This is a **greenfield** repo, so scaffolding is the whole job —",
-      "run `/cortex-scaffold` to write the context layer (`AGENTS.md`, `CONTEXT.md`, `docs/adr/`).",
+      "run `/write-context-docs` to write the context layer (`AGENTS.md`, `CONTEXT.md`, `docs/adr/`).",
       "Scoped briefs and enrichment wait until there is code to describe.",
       "",
     );
@@ -687,8 +687,8 @@ export function render(index, findings, { day }) {
   lines.push(
     "## What happens next",
     "",
-    "Nothing, until you say so. Tell Cortex which findings to act on, or run `/cortex-scaffold`",
-    "to add the context layer (`AGENTS.md`, `CONTEXT.md`, `docs/adr/`) and `/cortex-brief` to",
+    "Nothing, until you say so. Tell Cortex which findings to act on, or run `/write-context-docs`",
+    "to add the context layer (`AGENTS.md`, `CONTEXT.md`, `docs/adr/`) and `/write-area-brief` to",
     "create scoped briefs for the areas listed above.",
     "",
   );

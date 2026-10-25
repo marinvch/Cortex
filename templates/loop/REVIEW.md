@@ -1,6 +1,6 @@
 # How changes here are reviewed
 
-<!-- Written by /cortex. The three lenses are durable. The severity line, the cap and the exclusions
+<!-- Written by /setup-repo. The three lenses are durable. The severity line, the cap and the exclusions
      are this repo's own — tune them from real reviews, roughly monthly. -->
 
 ## Three lenses

@@ -1,6 +1,6 @@
 # The agent team, stamped end to end on a real git fixture (plan step 14).
 #
-# This is the path /cortex follows: `cortex-loop.mjs --json` offers the team, `--team <roles>` gives
+# This is the path /setup-repo follows: `cortex-loop.mjs --json` offers the team, `--team <roles>` gives
 # the files, values and roster, `cortex-stamps.mjs stamp` writes and records each whole file. The
 # promises it checks are the ones a user acts on:
 #
@@ -39,7 +39,7 @@ printf '@AGENTS.md\n' > "$P/CLAUDE.md"
 cp -r "$REPO_ROOT/templates" "$TPL"
 node "$STAMPS" render loop/verifier.md --value "RUN=npm run dev" --templates "$TPL" > "$P/.claude/agents/verifier.md"
 node "$STAMPS" record "$P" .claude/agents/verifier.md loop/verifier.md --value "RUN=npm run dev" --templates "$TPL" >/dev/null 2>&1
-git -C "$P" add -A && git -C "$P" commit -q -m "an earlier /cortex pass"
+git -C "$P" add -A && git -C "$P" commit -q -m "an earlier /setup-repo pass"
 node "$INDEXER" "$P" --out "$IDX" >/dev/null 2>&1
 test_count() { node -e 'const i = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")); process.stdout.write(i.stats.tests + " " + i.files.filter((f) => f.isTest).map((f) => f.path).join(","));' "$IDX"; }
 tests_before="$(test_count)"
@@ -64,7 +64,7 @@ assert_eq "[]" "$(field "$picks" 'j.needs')" "team: every value was detected, so
 assert_eq '`architect`, `tester`, `reviewer`, `project-manager`' "$(field "$picks" 'j.values.ROSTER')" "team: the roster is the team as picked"
 field "$picks" 'j.values' > "$WORK/values.json"
 
-# Walk the files the way /cortex does: stamp each whole file, append the playbook, retire the verifier.
+# Walk the files the way /setup-repo does: stamp each whole file, append the playbook, retire the verifier.
 while IFS='|' read -r template path mode; do
   case "$mode" in
     write)
@@ -104,7 +104,7 @@ findings="$(node --input-type=module -e '
   const found = claudeSetupFindings(JSON.parse(readFileSync(idx, "utf8")), repo);
   console.log(found.map((f) => f.kind + ": " + f.evidence.join(" | ")).join("\n") || "none");
 ' "$REPO_ROOT" "$P" "$IDX" 2>&1)"
-assert_eq "none" "$findings" "team: every file /cortex stamped passes the claude-setup checker"
+assert_eq "none" "$findings" "team: every file /setup-repo stamped passes the claude-setup checker"
 
 fence() { printf '{"tool_input":{"file_path":"%s"}}' "$P/$1" | CLAUDE_PROJECT_DIR="$P" bash "$P/.claude/hooks/test-paths.sh" >/dev/null 2>&1; echo "$?"; }
 assert_eq "0" "$(fence test/new.test.js)" "team: the stamped fence lets the Tester edit a test"

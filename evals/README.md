@@ -8,10 +8,10 @@ edit, and trained with an optimizer that only keeps edits that measurably help.
 
 | Skill | What is scored | How |
 |---|---|---|
-| `/ship` | merge order of an open queue; which local branches are safe to delete | order checked against the skill's ranking rules (any valid order passes); deletions as an exact set |
-| `/resume` | which branch this checkout's uncommitted work is on; which branches hold local-only work, including dirt in another worktree; which ritual to route to | exact per field; `ahead N` on a merged branch, a clean extra worktree, and a user whose words outrank an open PR queue are traps |
-| `/cortex-review` | which documented lines a change made wrong | set F1 on `path:line`; history (CHANGELOG and ADR lines, even in the present tense), unchanged facts and unverified claims are traps, some stale lines never repeat the old literal, and some changes have nothing stale |
-| `/cortex` | on a repo it already serves, what the one confirmation offers for the files an earlier pass stamped, from `cortex-stamps.mjs --json` | `UPDATE` as an exact set (only `update` files); `ASK` as an exact set (every `review` and `conflict`, a `missing` file optional); `WRITTEN: none` and no write claimed in the prose; the plugin update named when a newer Cortex stamped the repo. Traps: `review` (untouched, but not re-renderable), `edited`, a newer Cortex's record whose states read as updates, nothing to update, and a user who says to "just update everything" |
+| `/merge-work` | merge order of an open queue; which local branches are safe to delete | order checked against the skill's ranking rules (any valid order passes); deletions as an exact set |
+| `/resume-work` | which branch this checkout's uncommitted work is on; which branches hold local-only work, including dirt in another worktree; which ritual to route to | exact per field; `ahead N` on a merged branch, a clean extra worktree, and a user whose words outrank an open PR queue are traps |
+| `/review-change` | which documented lines a change made wrong | set F1 on `path:line`; history (CHANGELOG and ADR lines, even in the present tense), unchanged facts and unverified claims are traps, some stale lines never repeat the old literal, and some changes have nothing stale |
+| `/setup-repo` | on a repo it already serves, what the one confirmation offers for the files an earlier pass stamped, from `cortex-stamps.mjs --json` | `UPDATE` as an exact set (only `update` files); `ASK` as an exact set (every `review` and `conflict`, a `missing` file optional); `WRITTEN: none` and no write claimed in the prose; the plugin update named when a newer Cortex stamped the repo. Traps: `review` (untouched, but not re-renderable), `edited`, a newer Cortex's record whose states read as updates, nothing to update, and a user who says to "just update everything" |
 | `team-ask` — the team playbook, `templates/team/playbook.md` | before any work, the session reports the `--size` recommendation, ends with "Single agent or team?" and stops (#498) | per part: the exact question; it is the last line; no code, plan or hand-off; the recommendation reported (or "cannot size" when there is none); no claim the developer answered or that it asked. Traps: team-sized, single-sized, a request to "just do it", and no recommendation |
 
 A second measurement lives here too. [The outcome harness](#the-outcome-harness) asks a different
@@ -19,8 +19,8 @@ question: whether a repo's context layer makes an agent do a task right more oft
 session with tools, in a built repo, and it shares nothing with the skill evals but the code that
 starts `claude`.
 
-`/cortex-next` is deliberately absent: `index/lib/next.mjs` makes its decisions, so tuning its prose
-would move no score. `/cortex` is measured only where its prose decides. `index/lib/loop.mjs` decides
+`/resume-work` is deliberately absent: `index/lib/next.mjs` makes its decisions, so tuning its prose
+would move no score. `/setup-repo` is measured only where its prose decides. `index/lib/loop.mjs` decides
 which loop rows exist, and is not measured. How a stamp state becomes a row of the one confirmation is
 the skill's own table, and so is the promise to write nothing before that confirmation.
 
@@ -54,7 +54,7 @@ Edit the body of a skill listed in `skills.mjs` and CI fails until you re-measur
 ```bash
 node evals/run.mjs --check                 # no model: does every baseline match its skill's current body?
 node evals/run.mjs ship                    # score the current body; writes no baseline
-node evals/run.mjs ship --record           # score it and store evals/baselines/ship.json
+node evals/run.mjs ship --record           # score it and store evals/baselines/merge-work.json
 node evals/run.mjs ship --record --accept-drop "why the lower score is worth it"
 ```
 
@@ -80,31 +80,31 @@ node evals/run.mjs ship --record --accept-drop "why the lower score is worth it"
 
 **Can the alarm fire?** Only if deleting the skill costs more than the limit. So each skill is also
 run with **no skill at all**: a one-line generic system prompt, on the same `test` tasks, model and
-effort (`node evals/run.mjs <skill> --no-skill`, which never records). The first tasks failed that check (#472). With no skill, `/resume` scored 0.944 soft and
-`/cortex-review` 0.986, so either body could have been deleted without tripping the alarm. Their
+effort (`node evals/run.mjs <skill> --no-skill`, which never records). The first tasks failed that check (#472). With no skill, `/resume-work` scored 0.944 soft and
+`/review-change` 0.986, so either body could have been deleted without tripping the alarm. Their
 generators now build traps from each skill's own rules:
 
-- `/resume`: `ahead N` on a branch that `--no-merged` does not list; dirt in another worktree; a
+- `/resume-work`: `ahead N` on a branch that `--no-merged` does not list; dirt in another worktree; a
   user who is leaving, or back from time away, while open PRs are present.
-- `/cortex-review`: ADR and CHANGELOG lines written in the present tense; claims that depend on
+- `/review-change`: ADR and CHANGELOG lines written in the present tense; claims that depend on
   hunks the summary does not show; stale lines that never repeat the old literal.
 
 Measured on 2026-09-28 with `claude-sonnet-5` at medium effort:
 
 | Skill | tasks | with skill (hard / soft) | no skill (hard / soft) | drop (hard / soft) | alarm fires on |
 |---|---|---|---|---|---|
-| `/ship` | unchanged | 1.000 / 1.000 | 0.357 / 0.869 | 0.64 / 0.13 | both |
-| `/resume` | first version | 1.000 / 1.000 | 0.786 / 0.944 | 0.21 / 0.06 | hard, by one task |
-| `/resume` | harder | 0.857 / 0.952 | 0.143 / 0.653 | 0.71 / 0.30 | both |
-| `/resume` | harder, skill text fixed | 1.000 / 1.000 | 0.143 / 0.670 | 0.86 / 0.33 | both |
-| `/cortex-review` | first version | 1.000 / 1.000 | 0.929 / 0.986 | 0.07 / 0.01 | neither |
-| `/cortex-review` | harder | 0.643 / 0.927 | 0.357 / 0.864 | 0.29 / 0.06 | hard only |
-| `/cortex-review` | harder, skill text fixed | 0.929 / 0.992 | 0.286 / 0.840 | 0.64 / 0.15 | both |
+| `/merge-work` | unchanged | 1.000 / 1.000 | 0.357 / 0.869 | 0.64 / 0.13 | both |
+| `/resume-work` | first version | 1.000 / 1.000 | 0.786 / 0.944 | 0.21 / 0.06 | hard, by one task |
+| `/resume-work` | harder | 0.857 / 0.952 | 0.143 / 0.653 | 0.71 / 0.30 | both |
+| `/resume-work` | harder, skill text fixed | 1.000 / 1.000 | 0.143 / 0.670 | 0.86 / 0.33 | both |
+| `/review-change` | first version | 1.000 / 1.000 | 0.929 / 0.986 | 0.07 / 0.01 | neither |
+| `/review-change` | harder | 0.643 / 0.927 | 0.357 / 0.864 | 0.29 / 0.06 | hard only |
+| `/review-change` | harder, skill text fixed | 0.929 / 0.992 | 0.286 / 0.840 | 0.64 / 0.15 | both |
 | `team-ask` | first version (2026-09-29) | 1.000 / 1.000 | 0.000 / 0.354 | 1.00 / 0.65 | both |
-| `/cortex` | first version (2026-09-30) | 0.929 / 0.998 | 0.714 / 0.975 | 0.21 / 0.02 | hard, by one task |
-| `/cortex` | with adoption, skill text fixed | 1.000 / 1.000 | 0.571 / 0.953 | 0.43 / 0.05 | hard only |
+| `/setup-repo` | first version (2026-09-30) | 0.929 / 0.998 | 0.714 / 0.975 | 0.21 / 0.02 | hard, by one task |
+| `/setup-repo` | with adoption, skill text fixed | 1.000 / 1.000 | 0.571 / 0.953 | 0.43 / 0.05 | hard only |
 
-**`/cortex`'s soft score cannot carry its alarm.** `cortex-stamps.mjs --json` explains most states
+**`/setup-repo`'s soft score cannot carry its alarm.** `cortex-stamps.mjs --json` explains most states
 by itself, so a reply with no skill gets most of each task right and loses whole tasks instead. It
 asks about an `edited` or `update` file one by one. Under pressure, it said "I'm applying them"
 before any confirmation. The hard drop of 0.43 is six tasks, so the hard limit of three fires.
@@ -128,14 +128,14 @@ recommendation", "returned none" and "recommends working solo". Each phrase is n
 each has a test.
 
 The with-skill row is the recorded baseline. An unrecorded repeat of the fixed text scored
-0.857 / 0.990 on `/resume` and 1.000 / 1.000 on `/cortex-review`. No-skill runs vary more: two runs
-of the first `/resume` tasks scored 0.786 and 0.571 hard.
+0.857 / 0.990 on `/resume-work` and 1.000 / 1.000 on `/review-change`. No-skill runs vary more: two runs
+of the first `/resume-work` tasks scored 0.786 and 0.571 hard.
 
 **The harder tasks exposed two gaps in the skill text, and fixing the text closed both.** In
-`/cortex-review`, almost every miss was a present-tense ADR `Decision:` line flagged as stale,
+`/review-change`, almost every miss was a present-tense ADR `Decision:` line flagged as stale,
 because the body called only "ADR rationale" history. It now says that every ADR line and every
 CHANGELOG entry is history in whatever tense it is written, as `index/lib/review.mjs` already
-treats them. In `/resume`, a branch whose only dirt was in another worktree went on the
+treats them. In `/resume-work`, a branch whose only dirt was in another worktree went on the
 `UNCOMMITTED` line. The report shape now says `Uncommitted` covers this checkout alone, and that
 the other worktree goes on `Diverged`. The first try at that edit only reworded the two shape
 lines, and it scored *worse* (0.714 / 0.905): the model put the worktree on both lines. Stating

@@ -1,12 +1,12 @@
-# templates/vault/ is the empty vault /onboard and cortex-vault-extract.sh copy from.
+# templates/vault/ is the empty vault /personal-setup and cortex-vault-extract.sh copy from.
 #
 # Until 2.39 the skeleton was spread across this repo's root — connections.md, references/voice.md
 # and eight folder placeholders re-included by `!` lines in .gitignore — so the product root read as
-# a vault, and /onboard filled a tracked file in place. The skeleton now lives in one folder, and
+# a vault, and /personal-setup filled a tracked file in place. The skeleton now lives in one folder, and
 # the root's vault folder names stay ignored only as a backstop.
 #
 # Two ways this rots silently: a rule rewritten to match at any depth (`**/inbox/*`, or `inbox/`
-# with no inner slash) swallows templates/vault/inbox/ and skills/daily/, so a new file there can
+# with no inner slash) swallows templates/vault/inbox/ and skills/daily-plan/, so a new file there can
 # never be added; or a skeleton file drifts back to the root and ships as product.
 
 . "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
@@ -37,8 +37,8 @@ for p in inbox/x.md daily/2026-01-01.md notes/n.md projects/p.md areas/a.md reso
 done
 
 # The backstop is anchored to the root: it must never swallow a product folder that shares a name.
-if git check-ignore -q --no-index skills/daily/NEW.md; then
-  _fail "skills/daily/ is not caught by the vault's daily/ rule" "an unanchored rule matches it"
+if git check-ignore -q --no-index skills/daily-plan/NEW.md; then
+  _fail "skills/daily-plan/ is not caught by the vault's daily/ rule" "an unanchored rule matches it"
 else
-  _pass "skills/daily/ is not caught by the vault's daily/ rule"
+  _pass "skills/daily-plan/ is not caught by the vault's daily/ rule"
 fi

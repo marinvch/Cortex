@@ -360,7 +360,7 @@ test("a truncated enrichment is unreadable, not absent, and says so", () => {
   assert.equal(r.state, "unreadable");
   assert.equal(r.enrichment, null, "an unparseable document is never handed to a consumer");
   assert.match(r.note, /not readable JSON/);
-  assert.match(r.note, /cortex-enrich\.mjs merge/, "the note names the command that rewrites it");
+  assert.match(r.note, /summarize-files\.mjs merge/, "the note names the command that rewrites it");
 });
 
 test("JSON that is not an enrichment document is invalid, not silently empty", () => {
@@ -405,13 +405,13 @@ test("a stale note never sends the user to `merge`, which would restamp the old 
   for (const index of [{ ...INDEX, commit: "deadbee1" }, { ...INDEX, files: [...FILES, { path: "src/c.js", lines: 5 }] }]) {
     const r = readEnrichment(enrichedRepo(GOOD), index);
     assert.equal(r.state, "stale");
-    assert.doesNotMatch(r.note, /cortex-enrich\.mjs merge/, "merge would mark the stale summaries fresh");
+    assert.doesNotMatch(r.note, /summarize-files\.mjs merge/, "merge would mark the stale summaries fresh");
     assert.match(r.note, /costs tokens/, "the honest recovery is a model pass, and the note says so");
   }
   // The damaged states keep it: there the batches still describe this index and only the merged
   // artifact is broken, so re-merging is both correct and free.
   for (const bad of [GOOD.slice(0, GOOD.length / 2), "{}"]) {
-    assert.match(readEnrichment(enrichedRepo(bad), INDEX).note, /cortex-enrich\.mjs merge/);
+    assert.match(readEnrichment(enrichedRepo(bad), INDEX).note, /summarize-files\.mjs merge/);
   }
 });
 

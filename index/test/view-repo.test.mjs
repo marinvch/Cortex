@@ -139,7 +139,7 @@ test("the page's headline numbers are the index's, the findings report's and cor
 });
 
 test("the page's Next steps carry the stamp row cortex-next shows — adoption for an older install", () => {
-  // The fixture has .claude/hooks/format-changed.sh at the location /cortex writes it, and no
+  // The fixture has .claude/hooks/format-changed.sh at the location /setup-repo writes it, and no
   // .cortex/stamps.json: exactly a repo stamped before the record existed.
   const root = zustandShaped();
   const { index, view, html } = render(root);
@@ -175,7 +175,7 @@ test("the Structure tab counts, routes and tests areas the way the rest of Corte
 
   assert.equal(area("src").brief, null, "a child's brief is not its parent's");
   assert.equal(area("src/middleware").brief, "src/middleware/AGENTS.md");
-  assert.equal(area("src").suggest, "/cortex-brief src/", "src/ is a findings brief candidate");
+  assert.equal(area("src").suggest, "/write-area-brief src/", "src/ is a findings brief candidate");
   assert.equal(area("root").suggest, null, "there is no directory called root/");
   assert.equal(area("root").brief, "AGENTS.md", "the top-level files are the root brief's");
   assert.equal(area(".claude").suggest, null, "Cortex's own tooling is never offered a brief");

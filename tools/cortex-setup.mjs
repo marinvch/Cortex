@@ -182,7 +182,7 @@ const hasBrief = existsSync(brief);
 const shim = (agent, rel, text) => {
   const abs = join(repo, ...rel.split("/"));
   if (existsSync(abs)) rows.push({ agent, label: rel, abs, scope: "instructions", action: "keep", note: "already there; left as it is" });
-  else if (!hasBrief) rows.push({ agent, label: rel, abs, scope: "instructions", action: "none", note: "no root AGENTS.md to point at — /cortex-scaffold writes it, then run this again" });
+  else if (!hasBrief) rows.push({ agent, label: rel, abs, scope: "instructions", action: "none", note: "no root AGENTS.md to point at — /write-context-docs writes it, then run this again" });
   else rows.push({ agent, label: rel, abs, scope: "instructions", action: "add", text, created: true });
 };
 if (agents.includes("copilot")) shim("copilot", ".github/copilot-instructions.md", COPILOT_POINTER);

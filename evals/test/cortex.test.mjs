@@ -1,4 +1,4 @@
-// The /cortex re-run scenario on a record written by hand. evals.test.mjs runs the generated tasks
+// The /setup-repo re-run scenario on a record written by hand. evals.test.mjs runs the generated tasks
 // and their traps; this file pins which file state lands in which answer line, and what each of the
 // five scored parts is worth.
 

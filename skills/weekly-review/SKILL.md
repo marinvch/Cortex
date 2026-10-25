@@ -34,4 +34,4 @@ Append any decisions made during review to `decisions/log.md`.
 
 ## Close
 One-line summary: items processed, notes created, projects closed, focus updated. Suggest running
-`/cortex-audit score` if it's been a week, or `/level-up` if it's been two.
+`/audit-notes score` if it's been a week, or `/retrospective` if it's been two.

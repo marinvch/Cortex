@@ -318,7 +318,7 @@ export function integrationsFromFlags(flags) {
   return { integrations, primary, routes };
 }
 
-/** The checkbox list `/team-init` shows, with this selection ticked. */
+/** The checkbox list `/create-team` shows, with this selection ticked. */
 export function checkboxes(kinds) {
   const box = (on) => (on ? "[x]" : "[ ]");
   return [

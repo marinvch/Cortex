@@ -215,7 +215,7 @@ assert_eq "1" "$rc" "a file passed as a root is refused too"
 
 # --- ADR 0016: the guarantee attaches to the act ------------------------------------------------------
 
-# `/cortex-enrich plan` is named in ADR 0016 among the entry points that create `.cortex/`, and it
+# `/summarize-files plan` is named in ADR 0016 among the entry points that create `.cortex/`, and it
 # was the only one of the four that never ignored or announced what it wrote — so it left a
 # directory of generated artifacts in someone's `git status` with nothing to say where it came from.
 fixture

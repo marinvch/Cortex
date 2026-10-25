@@ -134,7 +134,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `ai-os catch-up`.** It writes nothing, and with no root it reads only the git repository the cwd
   sits in — that repo's committed `.cortex/memory/` and its log — never a vault, and says in
   `skipped` which half it did not read. That is what a plugin install has: no vault, only the repo
-  it was opened in, and `/catch-me-up` failed on its first command there. It does not open a brain
+  it was opened in, and `/whats-changed` failed on its first command there. It does not open a brain
   with an inferred root; it opens none (`open(…, { rootOptional })` in `ai-os.js`), so nothing
   downstream can mistake the repo for a place to write. `openBrain` resolves the profile *before*
   the root for this reason — a misspelt `CORTEX_PROFILE` still fails at entry. A second command
@@ -162,7 +162,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
     repo mode). A caller not in `members` still reads the asks for the connector's project, and
     `inbox` returns a `notice` naming `CORTEX_AUTHOR`. Do not refuse them.
   - **`ask`, `inbox` and `answer` are `mode: ANY` and need a team**: on a solo brain they throw
-    `no_team`, naming `/team-add`. The clone is the brain's `teamClone`, cloned on first use from
+    `no_team`, naming `/join-team`. The clone is the brain's `teamClone`, cloned on first use from
     the connector's `teamBrainRepo` (`ensureTeamClone`, `lib/team.js`). In repo mode that is inside
     the product repo, so `.cortex/team/` is added to its `.gitignore` first, on every call, through
     `core/gitignore.js` — `index/lib/generated.mjs` uses the same writer.
@@ -212,7 +212,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
     string, sorts every list and refuses a file path that is absolute or climbs out. The bytes are
     a function of the contract, so an unchanged republish is no commit.
   - **The gate is in `publishContract`, on the input text and on the text written.** No tool row
-    publishes a contract — it is a CLI step of `/team-add` — so the one function that writes is
+    publishes a contract — it is a CLI step of `/join-team` — so the one function that writes is
     the act the guarantee attaches to (ADR 0016). Do not add a second write path around it.
   - **`contract` is one tool for two questions** (R6): `project` (narrowed by `path`) or `calls`.
     There is no `who_calls`. It is `mode: ANY`, team only, `FOREIGN`, `LOCAL`, and pulls ff-only
@@ -335,7 +335,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   plugin's `installed` `null`: do not turn that into `false`, which reads as "offer it". The
   findings offer a tier from the index alone, because the index may not read the machine
   ([`index/AGENTS.md`](../index/AGENTS.md)); this is the machine's half, and
-  `/cortex-install` and `/connect-brain` ask it before they offer one.
+  `/setup-repo` and `/connect-mcp` ask it before they offer one.
 - **`mcp/` never imports from `index/`.**
 
 ## Gotchas

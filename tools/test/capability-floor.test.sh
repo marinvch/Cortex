@@ -2,7 +2,7 @@
 #
 # Cortex names self-hosted and own-LLM setups as an audience (ADR 0008) and gave them nothing to
 # consult: a ritual needing multi-round judgment looked exactly like one that appends a line to a
-# file. The failure this prevents is not a crash. A weak model runs /cortex-enrich, writes
+# file. The failure this prevents is not a crash. A weak model runs /summarize-files, writes
 # plausible-but-wrong summaries for every file, and those summaries feed `recall` — so it is not a
 # bad answer once, it is a bad answer every time anyone searches, and nothing announces it.
 #

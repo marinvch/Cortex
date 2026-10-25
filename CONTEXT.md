@@ -27,7 +27,7 @@ The single ranked markdown report at `.cortex/findings/<date>.md`. **Proposals o
 that produces findings has no authority to modify a repository.
 
 _Avoid_: "issues" (implies a tracker), "problems" (some findings are opportunities), "audit"
-(that is `/cortex-audit`, a different vault ritual).
+(that is `/audit-notes`, a different vault ritual).
 
 ## Memory
 
@@ -107,11 +107,11 @@ means **repo mode** (`recall`, `remember`, `recall_memory`); anything else means
 
 `projects/<slug>.md` at the top of a team-brain: flat frontmatter naming one project's repo, its
 outside links and the projects it relates to, then free prose. **Its links are shown and never
-fetched.** Written by `/team-add`, parsed and validated by `core/project-file.js`, and refused on a
+fetched.** Written by `/join-team`, parsed and validated by `core/project-file.js`, and refused on a
 `home` profile when a link is employer-shaped.
 
 The same filename exists in a personal vault and is a different thing: a **project stub**, written
-by `/scan-projects`, which carries a path on one machine. A stub is never part of a workspace. The
+by `/register-projects`, which carries a path on one machine. A stub is never part of a workspace. The
 folder `projects/<slug>/` beside a project file is that project's captured notes, not the file.
 
 _Avoid_: "project stub" for this (that is the vault's), "manifest" or "registry entry" (there is no

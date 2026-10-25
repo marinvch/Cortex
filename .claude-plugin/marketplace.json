@@ -10,7 +10,7 @@
     {
       "name": "cortex",
       "source": "./",
-      "description": "Index a codebase, report its issues and gaps, and set it up — context layer, review policy, verification, hooks — in one pass. Ships the rituals, the indexer and the recall MCP brain. Run /cortex in a repo to begin.",
+      "description": "Index a codebase, report its issues and gaps, and set it up — context layer, review policy, verification, hooks — in one pass. Ships the rituals, the indexer and the recall MCP brain. Run /setup-repo in a repo to begin.",
       "repository": "https://github.com/marinvch/Cortex"
     }
   ]

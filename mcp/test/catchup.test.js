@@ -29,7 +29,7 @@ test("catchUpRepo reads memory days on or after since, and the repo's own log", 
   const res = catchUpRepo(repo, { since: "2026-06-01" });
   assert.deepEqual(res.memory.map((m) => m.day), ["2026-06-02"]);
   assert.equal(res.memory[0].content, "new day");
-  assert.ok(res.commits.some((c) => /ship the thing/.test(c)));
+  assert.ok(res.commits.some((c) => /merge-work the thing/.test(c)));
   assert.equal(res.truncated, false);
 });
 
@@ -114,7 +114,7 @@ const nowhere = () => null;
 test("catchUp with no root reads the repo alone and says which half is missing", () => {
   const repo = repoWithHistory();
   const res = catchUp({ brain: null, since: "2000-01-01", cwd: repo, top: () => repo });
-  assert.ok(res.repo.commits.some((c) => /ship the thing/.test(c)));
+  assert.ok(res.repo.commits.some((c) => /merge-work the thing/.test(c)));
   assert.deepEqual(res.notes, []);
   assert.deepEqual(res.commits, []);
   assert.match(res.skipped, /CORTEX_ROOT is not set, so only this repo was read/);
@@ -134,7 +134,7 @@ test("catchUp in repo mode reads the repo above the root, whatever the cwd", () 
   const brain = { root: join(repo, ".cortex"), isRepo: true, project: null, team: null };
   const res = catchUp({ brain, since: "2026-06-01", cwd: tempDir("elsewhere-"), top: () => { throw new Error("the cwd must not be asked"); } });
   assert.deepEqual(res.repo.memory.map((m) => m.day), ["2026-06-02"]);
-  assert.ok(res.repo.commits.some((c) => /ship the thing/.test(c)));
+  assert.ok(res.repo.commits.some((c) => /merge-work the thing/.test(c)));
 });
 
 test("catchUp inside the vault's own checkout reads no repo half: its log is the notes arriving", () => {
@@ -151,7 +151,7 @@ test("catchUp in a product repo with a vault returns both halves", () => {
   const root = vaultWith("shop");
   const repo = repoWithHistory();
   const res = catchUp({ brain: vaultBrain(root, { project: "shop" }), since: "2000-01-01", cwd: repo, top: () => repo });
-  assert.ok(res.repo.commits.some((c) => /ship the thing/.test(c)));
+  assert.ok(res.repo.commits.some((c) => /merge-work the thing/.test(c)));
   assert.ok(res.notes.some((n) => /a note about shop/.test(n.snippet)));
   assert.deepEqual(Object.keys(res)[0], "repo", "the repo half is printed first");
 });

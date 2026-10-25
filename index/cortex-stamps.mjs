@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// cortex-stamps.mjs — render and record what /cortex stamps into a repo, and bring it up to date.
+// cortex-stamps.mjs — render and record what /setup-repo stamps into a repo, and bring it up to date.
 //
 //   node index/cortex-stamps.mjs stamp <repo> <path> <template> [--value K=V ...] [--values-file F]
 //                                      [--force] [--version X.Y.Z] [--templates DIR]
@@ -12,13 +12,13 @@
 //   node index/cortex-stamps.mjs adopt <repo> [<path> ...]
 //   node index/cortex-stamps.mjs forget <repo> <path> ...
 //
-// `adopt` is for a repo an older /cortex stamped before the record existed: loop files at the
+// `adopt` is for a repo an older /setup-repo stamped before the record existed: loop files at the
 // locations `loop.mjs` lists and no `.cortex/stamps.json`. It records them with nothing known, so
 // each reads as `conflict` and is compared with this release's template before anything changes. It
 // writes the record and not one byte of any loop file, and refuses once a record exists. `forget`
 // drops an entry — a file removed on purpose, a retired template — and leaves the file alone.
 //
-// `stamp` is how /cortex writes a whole file: it renders the template from the values, writes the
+// `stamp` is how /setup-repo writes a whole file: it renders the template from the values, writes the
 // file as LF and records it, as one act (`stampFile` in lib/stamps.mjs). It refuses to write over a
 // file Cortex did not record, or one the team edited since, unless `--force` says the developer
 // agreed. Exit 3 is that refusal.
@@ -222,7 +222,7 @@ Nothing was written.`, 3);
   if (done.unfilled.length) process.stderr.write(`kept as written, no value given: ${done.unfilled.map((n) => `{{${n}}}`).join(", ")}
 `);
   const rule = warnIfIgnored(root);
-  if (first && !rule) console.log(`Commit ${STAMPS_REL}: it is how the next /cortex run tells your edits from its own.`);
+  if (first && !rule) console.log(`Commit ${STAMPS_REL}: it is how the next /setup-repo run tells your edits from its own.`);
 }
 
 // --- record ------------------------------------------------------------------------------------------
@@ -266,7 +266,7 @@ function record(argv) {
   }
   // "Commit it" is advice only when git would let you; otherwise the warning says why it cannot.
   const rule = warnIfIgnored(root);
-  if (!before && !rule) console.log(`Commit ${STAMPS_REL}: it is how the next /cortex run tells your edits from its own.`);
+  if (!before && !rule) console.log(`Commit ${STAMPS_REL}: it is how the next /setup-repo run tells your edits from its own.`);
 }
 
 // --- status ------------------------------------------------------------------------------------------
@@ -314,7 +314,7 @@ function status(argv) {
       olderPlugin: behind,
       counts: report.counts,
       files,
-      // Loop files an older /cortex left, with no record to say so. Always an array; empty once a
+      // Loop files an older /setup-repo left, with no record to say so. Always an array; empty once a
       // record exists, because adoption is offered only at first contact with one.
       adopt,
       ignored: rule ? { ...rule, advice: ignoreAdvice(rule) } : null,
@@ -325,12 +325,12 @@ function status(argv) {
   if (!report.recorded) {
     console.log(`No stamp record at ${STAMPS_REL}, so nothing Cortex wrote here can be compared.`);
     if (adopt.length) {
-      console.log(`\n${adopt.length} loop file${adopt.length === 1 ? "" : "s"} sit where /cortex writes them — an earlier Cortex stamped them before the record existed:`);
+      console.log(`\n${adopt.length} loop file${adopt.length === 1 ? "" : "s"} sit where /setup-repo writes them — an earlier Cortex stamped them before the record existed:`);
       for (const a of adopt) console.log(`  ${a.path}  ← ${a.template}`);
       console.log("\n`cortex-stamps.mjs adopt .` records them with nothing known, so each reads as conflict and is");
-      console.log("compared with this release's template before anything changes. /cortex offers it in its confirmation.");
+      console.log("compared with this release's template before anything changes. /setup-repo offers it in its confirmation.");
     } else {
-      console.log("/cortex records each file as it writes it; until then there is nothing to report.");
+      console.log("/setup-repo records each file as it writes it; until then there is nothing to report.");
     }
     return;
   }
@@ -441,12 +441,12 @@ function adopt(argv) {
     const named = paths.map((p) => normalizeChangedPath(p, root));
     const unknown = named.filter((p) => !byPath.has(p));
     if (unknown.length) {
-      refuse(unknown.map((p) => `${p} is not a loop file /cortex writes, or is not here`).join("\n") + "\nNothing was written.", 1);
+      refuse(unknown.map((p) => `${p} is not a loop file /setup-repo writes, or is not here`).join("\n") + "\nNothing was written.", 1);
     }
     chosen = named.map((p) => byPath.get(p));
   }
   if (!chosen.length) {
-    console.log("Nothing to adopt: no loop file sits where /cortex writes one.");
+    console.log("Nothing to adopt: no loop file sits where /setup-repo writes one.");
     return;
   }
   const next = chosen.reduce((r, c) => adoptStamp(r, c), null);

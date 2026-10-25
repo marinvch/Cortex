@@ -1,16 +1,16 @@
 ---
-name: cortex-install
-description: The read-only half of /cortex — index a codebase, report its findings, and offer the context layer alone. Triggers — "just index this", "report on this repo", "show me the findings". Setting a repo up is /cortex.
+name: setup-repo
+description: The read-only half of /setup-repo — index a codebase, report its findings, and offer the context layer alone. Triggers — "just index this", "report on this repo", "show me the findings". Setting a repo up is /setup-repo.
 effort: low
 metadata:
   capability: mechanical
 ---
 
-# /cortex-install — give a codebase a context layer
+# /setup-repo — give a codebase a context layer
 
-The read half of `/cortex`. Runs in a **target repo**, never in the Cortex repo itself.
+The read half of `/setup-repo`. Runs in a **target repo**, never in the Cortex repo itself.
 
-**If the user wants the repo set up, not just looked at, run `/cortex` instead.** It does everything
+**If the user wants the repo set up, not just looked at, run `/setup-repo` instead.** It does everything
 below and then keeps going: it stamps the SDLC loop — `REVIEW.md`, the PR review workflow, the
 verification block, the verifier subagent, `intent/`, hooks, evals, control bands — behind the same
 single confirmation.
@@ -71,7 +71,7 @@ sequence — not a degenerate case of the one below:
   (it states plainly that the repo is greenfield and costs nothing), then go straight to offering
   the context layer. **Do not** offer scoped briefs or enrichment: both describe code, and there is
   none. Say the honest version — scaffolding now means the context layer grows *with* the code
-  instead of being reverse-engineered from it later. `/cortex-scaffold` interviews them for the
+  instead of being reverse-engineered from it later. `/write-context-docs` interviews them for the
   stack and commands, because there is no code to read them from.
 - **Existing code** — continue with step 3 below.
 
@@ -176,12 +176,12 @@ order** — severity order, the same sequence they answered in.
 Never clobber a curated file. If `AGENTS.md` exists and has real content, write
 `AGENTS.generated.md` beside it and tell the user to diff.
 
-**Context layer, the writing itself** — hand off to `/cortex-scaffold`. It owns the templates, the
+**Context layer, the writing itself** — hand off to `/write-context-docs`. It owns the templates, the
 never-clobber rules and the post-write verification; do not duplicate that logic here.
 
-**Scoped briefs** — hand off to `/cortex-brief` for each area they picked.
+**Scoped briefs** — hand off to `/write-area-brief` for each area they picked.
 
-**Bundle** — run `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --tier <tier> --scope user` for each tier they picked. It reads `plugins/cortex-core-plugins.json`, and `/connect-brain` is the same step typed by a person:
+**Bundle** — run `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --tier <tier> --scope user` for each tier they picked. It reads `plugins/cortex-core-plugins.json`, and `/connect-mcp` is the same step typed by a person:
 
 | Tier | Holds | When |
 |---|---|---|
@@ -210,18 +210,18 @@ the promise and the result side by side.
 
 Then state what was marked **later**, by name. "Later" is a real answer and the close is where it
 survives; a deferred offer that goes unmentioned is a decision the user made and Cortex quietly
-dropped. Say that re-running `/cortex-install` picks those up, and that satisfied offers will not be
+dropped. Say that re-running `/setup-repo` picks those up, and that satisfied offers will not be
 asked again.
 
 Suggest committing what was written so the team shares the context. Mention that re-running
-`index/cortex-index.mjs` refreshes the index after significant changes, and `/dream` at the end of a
+`index/cortex-index.mjs` refreshes the index after significant changes, and `/end-of-day-summary` at the end of a
 working day.
 
 **End with one next command, not a menu.** Run `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --line` and print what
 it says. This is the last thing the user reads, and a list of eleven commands sorted by nothing is
 where an install stops being useful — they leave holding options instead of a step. If they want the
-whole sequence, that is `/cortex-next`; if they would rather see the repo than read about it,
-`/cortex-view` renders the index as one offline page.
+whole sequence, that is `/resume-work`; if they would rather see the repo than read about it,
+`/repo-map` renders the index as one offline page.
 
 ## Gotchas
 

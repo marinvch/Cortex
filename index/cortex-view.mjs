@@ -43,7 +43,7 @@ const wantOpen = !args.noOpen && !args.json;
 // it must never do is put prose on a card about a file that has moved.
 //
 // THE POLICY: stale enrichment is DECLINED, not marked. The page is the one Cortex artifact whose
-// whole argument is that a picture beats prose, and /cortex-view's own skill says a stale picture is
+// whole argument is that a picture beats prose, and /repo-map's own skill says a stale picture is
 // worse than no picture *because the reader trusts it*. Three things make a marker the weaker
 // answer here. The page is self-contained and copies anywhere, so the reader who acts on a summary
 // is often not the person who saw the warning in the terminal. And staleness is a property of the
@@ -111,7 +111,7 @@ console.log(
 // exists and was not used, and the user is told which and why — the silent `null` this replaced
 // made "never enriched" and "enriched, then damaged" the same page.
 if (enrich.state === "absent") {
-  console.log("  (no enrichment — run /cortex-enrich to put summaries on the file cards)");
+  console.log("  (no enrichment — run /summarize-files to put summaries on the file cards)");
 } else if (enrich.note) {
   process.stderr.write(enrich.note);
 }

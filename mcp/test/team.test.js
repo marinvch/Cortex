@@ -137,7 +137,7 @@ test("initTeamBrain is idempotent (safe to re-run after a prior init)", () => {
 
 // core/profile.js:48-51 argues that sealing outward sync is the load-bearing half of `lab`:
 // "Without this, `lab` would just be a way to switch the firewall off and keep pushing — which is
-// the leak with extra steps." The push here was unconditional, so that is exactly what /team-init
+// the leak with extra steps." The push here was unconditional, so that is exactly what /create-team
 // did on a lab install. capture.js already had the shape: write locally, decline the push, and
 // tell the caller which, rather than reporting a silent success.
 test("initTeamBrain refuses to push when outward sync is sealed", () => {

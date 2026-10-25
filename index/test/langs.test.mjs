@@ -63,7 +63,7 @@ test("does not mistake production code for a test", () => {
 });
 
 test("a document or config file under tests/ is never a test", () => {
-  // `/cortex-brief tests` writes tests/AGENTS.md. On pmndrs/zustand that made the index report 16
+  // `/write-area-brief tests` writes tests/AGENTS.md. On pmndrs/zustand that made the index report 16
   // tests instead of 15, and — because the brief names vitest.config.mts — coverage's mention signal
   // called the config tested. Cortex's own output changed Cortex's findings.
   for (const p of [
@@ -165,7 +165,7 @@ test("a setup file named as a test is one, and neighbours of a setup file keep t
 });
 
 test("under .claude/ only a file named as a test is one — a hook called test-paths.sh guards tests", () => {
-  // /cortex stamps .claude/hooks/test-paths.sh for the Tester. Named like a shell test, it took a
+  // /setup-repo stamps .claude/hooks/test-paths.sh for the Tester. Named like a shell test, it took a
   // repo from 38 tests to 39 the moment the team was installed: Cortex's output changed its count.
   for (const p of [".claude/hooks/test-paths.sh", ".claude/hooks/test-guard.py", ".claude/skills/add-test/scripts/test-run.sh", ".claude/tests/notes.sh", "packages/web/.claude/hooks/test-paths.sh"]) {
     assert.equal(isTestPath(p), false, `${p} should not be a test`);

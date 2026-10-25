@@ -1,4 +1,4 @@
-// team.mjs — what /cortex offers of the agent team, and the values each file is rendered with.
+// team.mjs — what /setup-repo offers of the agent team, and the values each file is rendered with.
 //
 // Plan step 14 (docs/specs/2026-09-28-agent-team-design.md, T4, T6, T9). `agents.mjs` answers which
 // roles the repo's own agents already play; this module turns that into the offer:
@@ -8,7 +8,7 @@
 //     reason, never dropped silently.
 //   - **A role an existing agent covers is never offered again** (T6). That agent's proposed edits are
 //     carried per agent instead, for a per-agent question with its diff.
-//   - **The verifier /cortex stamped is offered the upgrade to the Reviewer** (T9). Declining keeps it,
+//   - **The verifier /setup-repo stamped is offered the upgrade to the Reviewer** (T9). Declining keeps it,
 //     and it keeps the Reviewer covered, so the role is still not offered twice.
 //   - **The debate's round limit is a setting** (ADR 0019, amended): 2 unless the developer asks for
 //     another from 1 to 5, kept in the team skill's stamp record so a later run does not put it back.
@@ -232,7 +232,7 @@ function stampedRoles(root, values) {
 
 /**
  * What the team row offers this repo, or `null` without an index. Options: `testCmd` (the loop's
- * detected test command), `verifierPath` (where /cortex stamps its verifier) and `as` (the developer's
+ * detected test command), `verifierPath` (where /setup-repo stamps its verifier) and `as` (the developer's
  * own mapping of existing agents, `{ path: role | null }`). The answers an earlier run recorded
  * (`.cortex/agents.json`) are read here, so every caller gets them; `as` outranks them.
  *

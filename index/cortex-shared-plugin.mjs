@@ -6,7 +6,7 @@
 //   node index/cortex-shared-plugin.mjs <repo> --write --auto-update
 //                                                          # ...with "autoUpdate": true on a new cortex entry
 //
-// `/cortex` offers this on a team's repo (the `team-plugin` row in lib/loop.mjs: the `work` profile or
+// `/setup-repo` offers this on a team's repo (the `team-plugin` row in lib/loop.mjs: the `work` profile or
 // a team-brain connector) and runs `--write` only when the user picked it. The entries are the
 // documented ones — `extraKnownMarketplaces.cortex` (GitHub marinvch/Cortex, or the source set below) and
 // `enabledPlugins["cortex@cortex"]` — and lib/shared-plugin.mjs merges them: every other key stays
@@ -105,7 +105,7 @@ if (!args.write) {
     process.exit(0);
   }
   if (status.settings === "unreadable") refuse(status.problem, 2);
-  console.log(team.team ? `A team's repo: ${team.why}.` : "Not a team's repo (no work profile, no team-brain connector); /cortex does not offer this here.");
+  console.log(team.team ? `A team's repo: ${team.why}.` : "Not a team's repo (no work profile, no team-brain connector); /setup-repo does not offer this here.");
   if (sourceLine()) console.log(sourceLine());
   if (status.served) {
     console.log(`${SETTINGS_REL} already registers the cortex marketplace and names cortex@cortex.`);

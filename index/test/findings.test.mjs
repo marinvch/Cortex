@@ -321,7 +321,7 @@ test("render always states that nothing was changed", () => {
 
 // A greenfield repo is the OTHER install flow the design specifies, and the report had no idea it
 // existed: an empty repo produced three ranked findings — one of them "high" — about missing
-// documentation for code that does not exist, then pointed at /cortex-brief for "the areas listed
+// documentation for code that does not exist, then pointed at /write-area-brief for "the areas listed
 // above" when there were none. Absurd output on the first run teaches people the report is noise.
 
 function emptyIndex() {
@@ -698,7 +698,7 @@ test("one reader: a repo whose only agent doc is another tool's is not told it h
   // The contradiction, reproduced. cortex-findings prints nextLine() as its footer, so BOTH of
   // these reached the user from one command:
   //   #### No agent context file
-  //   Next → /optimize-context (reconcile the agent docs that were already here)
+  //   Next → /trim-agent-docs (reconcile the agent docs that were already here)
   // findings.mjs knew two agent-doc names; readState knew six. The narrow answer was not merely
   // strict, it was false — an agent does load .cursorrules.
   const root = repo({ ".cursorrules": "# Rules\nAlways use tabs.\n", "a.js": "" });

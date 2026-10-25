@@ -1,4 +1,4 @@
-// /cortex-review — the drift axis: which lines did this change make WRONG?
+// /review-change — the drift axis: which lines did this change make WRONG?
 //
 // Every scenario is one or two real kinds of drift (a moved file, a changed count, a renamed flag, a
 // changed default, a renamed function) plus the evidence `cortex-review.mjs` prints: the governing

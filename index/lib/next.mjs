@@ -1,7 +1,7 @@
 // next.mjs — where a repo is in the Cortex sequence, and what to run next.
 //
 // The problem this solves is not technical. Every Cortex CLI and skill knows its own job; none of
-// them knew the ORDER, so a user who ran /cortex-install got a table of eleven commands and no
+// them knew the ORDER, so a user who ran /setup-repo got a table of eleven commands and no
 // answer to "which one now". A table is a menu. This is a position.
 //
 // Every `done` here is a filesystem fact, never an inference. A step whose completion cannot be
@@ -45,9 +45,9 @@ function loopFacts(root, index) {
   }
 }
 
-// The two loop rows one pass of `/cortex` cannot close, because each waits on something only time
+// The two loop rows one pass of `/setup-repo` cannot close, because each waits on something only time
 // produces. Both are blocked until that pass writes their prerequisite (CLAUDE.md, REVIEW.md), so
-// they surface as missing only AFTER it — and the loop row used to answer that with "Next → /cortex"
+// they surface as missing only AFTER it — and the loop row used to answer that with "Next → /setup-repo"
 // again, forever, on a repo whose owner had rightly deferred bands for want of a metric. Each gets
 // its own row naming its own command, and says what it is waiting for.
 //
@@ -57,13 +57,13 @@ function loopFacts(root, index) {
 const SECOND_ROUND = {
   evals: {
     title: "Seed the agent evals from real past tasks",
-    cmd: "/cortex evals",
+    cmd: "/setup-repo evals",
     optional: false,
     why: "evals/ has no cases yet — each is a real task the team already did, so this waits for task history; invented cases prove nothing",
   },
   bands: {
     title: "Put a control band on one production metric",
-    cmd: "/cortex bands",
+    cmd: "/setup-repo bands",
     optional: true,
     why: "needs one metric with a stable history to band — a repo with no production metric has nothing to put here, and that is a finished state",
   },
@@ -73,7 +73,7 @@ const SECOND_ROUND = {
 // answers reached one user from one command — `cortex-findings` prints `nextLine()` as its footer.
 const AGENT_DOCS = AGENT_DOC_NAMES;
 
-// `/migrate-engine` step 1 reads `state.legacyEngine` and names these directories as everything the
+// `/migrate-legacy-engine` step 1 reads `state.legacyEngine` and names these directories as everything the
 // field looks for. Add one here and that step is wrong until it names it too; next.test.mjs holds it.
 export const LEGACY_ENGINES = [".ai-os", ".github/ai-os"];
 
@@ -140,7 +140,7 @@ function driftedSkills(root, index) {
 }
 
 // The stamp record, from the one report `cortex-stamps.mjs . --json` prints (`stampReport`, spec S4). `stamps` is the
-// per-file status, or null with no record; `stampsAdopt` is what an older /cortex left and nothing
+// per-file status, or null with no record; `stampsAdopt` is what an older /setup-repo left and nothing
 // recorded; `stampsIgnored` is the rule that keeps the record out of git; `stampsOlderPlugin` is set
 // when the record was written by a newer Cortex than this one (spec S5). Only asked when there is
 // something to ask about, so a repo with neither a record nor a loop file pays one stat per location
@@ -187,7 +187,7 @@ function priorAgentDocs(root) {
 //
 // A file fact, like every other field: the bytes on disk are a pointer or they are not
 // (`pointsAtRootBrief`). It does not say the text is stale, and it never will. That takes reading
-// both files, which is `/optimize-context`'s job. A file that cannot be read is left out: nothing is
+// both files, which is `/trim-agent-docs`'s job. A file that cannot be read is left out: nothing is
 // claimed about what was not seen.
 function standaloneAgentDocs(root) {
   return SHIMMED_DOC_NAMES.filter((d) => {
@@ -242,7 +242,7 @@ export function readState(root, index = null, overrides = {}) {
 }
 
 function stampsStep(s, plural) {
-  const base = { id: "stamps", cmd: "/cortex", done: false };
+  const base = { id: "stamps", cmd: "/setup-repo", done: false };
   const ignored = s.stampsIgnored
     ? `; ${STAMPS_REL} is ignored by ${s.stampsIgnored.source}:${s.stampsIgnored.line}, so the team does not share it`
     : "";
@@ -268,7 +268,7 @@ function stampsStep(s, plural) {
       title: "Adopt the loop files an earlier Cortex stamped",
       optional: true,
       why:
-        `${plural(list.length, "loop file")} where /cortex writes them and no ${STAMPS_REL} ` +
+        `${plural(list.length, "loop file")} where /setup-repo writes them and no ${STAMPS_REL} ` +
         `(${list.slice(0, 4).join(", ")}${list.length > 4 ? ", …" : ""}) — adopting records each as a conflict, ` +
         `compared with this release's template before anything changes${ignored}`,
     };
@@ -292,7 +292,7 @@ function stampsStep(s, plural) {
 }
 
 // A section Cortex appended to a shared file, against this release (#505). Required only when one is
-// an earlier release's text, untouched — a decision /cortex can make, inside its one confirmation. An
+// an earlier release's text, untouched — a decision /setup-repo can make, inside its one confirmation. An
 // edited or duplicated section is listed and optional: it is the team's, never overwritten, and a
 // required row over the team's own text would never clear.
 function sectionsStep(s) {
@@ -301,7 +301,7 @@ function sectionsStep(s) {
   return {
     id: "sections",
     title: "Bring the sections Cortex wrote into CLAUDE.md up to date",
-    cmd: "/cortex",
+    cmd: "/setup-repo",
     done: false,
     optional: !list.some((x) => x.state === "outdated"),
     why: list.map((x) => x.why).join("; ") + " — `cortex-section.mjs .` shows the diff",
@@ -318,23 +318,23 @@ function steps(s) {
     rows.push({
       id: "migrate",
       title: "Move off the retired engine",
-      cmd: "/migrate-engine",
+      cmd: "/migrate-legacy-engine",
       done: false,
       blocking: true,
       why: "found " + s.legacyEngine.join(", ") + " — harvest its memory into AGENTS.md before anything else writes there",
     });
   }
 
-  // Both name `/cortex`, not `/cortex-install`. The sequence below is what a user gets when they
+  // Both name `/setup-repo`, not `/setup-repo`. The sequence below is what a user gets when they
   // walk it a command at a time, and the whole point of the front door is that they do not have
-  // to: one run of `/cortex` satisfies index, findings, scaffold, brief and skills in one pass.
+  // to: one run of `/setup-repo` satisfies index, findings, scaffold, brief and skills in one pass.
   // Naming the sub-step here would send a user who asked "what now" back to the menu this file
-  // exists to replace. `/cortex-install` is still callable and still correct; it is just no longer
+  // exists to replace. `/setup-repo` is still callable and still correct; it is just no longer
   // the answer to "where do I start".
   rows.push({
     id: "index",
     title: "Index the codebase",
-    cmd: "/cortex",
+    cmd: "/setup-repo",
     done: s.indexed,
     why: s.indexed
       ? ".cortex/index/index.json is present"
@@ -344,7 +344,7 @@ function steps(s) {
   rows.push({
     id: "findings",
     title: "Read the ranked findings report",
-    cmd: "/cortex",
+    cmd: "/setup-repo",
     done: s.findings.length > 0,
     why: s.findings.length
       ? ".cortex/findings/" + s.findings[s.findings.length - 1]
@@ -357,7 +357,7 @@ function steps(s) {
     // The slash command, not the node line. `${CLAUDE_PLUGIN_ROOT}` is set inside a skill and
     // nowhere else, so a plugin user who types the raw command in their own terminal gets nothing —
     // and the path into the plugin cache is version-pinned, so it breaks on the next update.
-    cmd: "/cortex-view",
+    cmd: "/repo-map",
     done: s.view,
     optional: true,
     why: s.view
@@ -372,30 +372,30 @@ function steps(s) {
     rows.push({
       id: "reconcile",
       title: "Reconcile the agent docs that were already here",
-      cmd: "/optimize-context",
+      cmd: "/trim-agent-docs",
       done: false,
       why: s.priorDocs.join(", ") + " was not written by Cortex — slim it BEFORE scaffold, or you get two files to merge by hand",
     });
   } else if (layerWritten && s.standaloneDocs?.length) {
     // The same row, for what is left once the layer is written: another tool's doc that is still a
-    // brief of its own. The id stays `reconcile` because `/cortex` already reads that step as "ask
-    // about `/optimize-context` first", so the offer reaches the user with no ritual changed.
+    // brief of its own. The id stays `reconcile` because `/setup-repo` already reads that step as "ask
+    // about `/trim-agent-docs` first", so the offer reaches the user with no ritual changed.
     //
     // Optional, unlike the row above. A team may keep rules for one tool on purpose, and nothing on
     // disk records that they decided to. A required step over a choice never clears. And it names
-    // `/optimize-context`, which repoints a doc only when the brief already holds every line and
+    // `/trim-agent-docs`, which repoints a doc only when the brief already holds every line and
     // otherwise quotes the difference and waits. Nothing here writes: the row is the offer, and
     // running that ritual is the person's yes.
     rows.push({
       id: "reconcile",
       title: "Point another tool's agent doc at AGENTS.md",
-      cmd: "/optimize-context",
+      cmd: "/trim-agent-docs",
       done: false,
       optional: true,
       why:
         s.standaloneDocs.join(", ") +
         " holds rules of its own beside AGENTS.md, so that tool reads a second copy nobody keeps true — " +
-        "/optimize-context compares the two and points it at AGENTS.md only where AGENTS.md already says every line; what differs it quotes, and waits for a yes",
+        "/trim-agent-docs compares the two and points it at AGENTS.md only where AGENTS.md already says every line; what differs it quotes, and waits for a yes",
       docs: s.standaloneDocs,
     });
   }
@@ -403,7 +403,7 @@ function steps(s) {
   rows.push({
     id: "scaffold",
     title: "Write the context layer",
-    cmd: "/cortex-scaffold",
+    cmd: "/write-context-docs",
     done: s.rootBrief && s.glossary,
     why:
       s.rootBrief && s.glossary
@@ -414,7 +414,7 @@ function steps(s) {
   rows.push({
     id: "brief",
     title: "Give critical areas their own scoped brief",
-    cmd: "/cortex-brief <dir>",
+    cmd: "/write-area-brief <dir>",
     done: s.briefs.length > 0,
     // The note is a fact about how they load, not a step: nothing in the repo changes it.
     why: s.briefs.length
@@ -425,7 +425,7 @@ function steps(s) {
   rows.push({
     id: "skills",
     title: "Add skills that fit this stack",
-    cmd: "/cortex-skills",
+    cmd: "/suggest-skills",
     done: s.skills.length > 0,
     why: s.skills.length
       ? plural(s.skills.length, "skill") + " in .claude/skills/: " + s.skills.join(", ")
@@ -433,15 +433,15 @@ function steps(s) {
   });
 
   // Only when a skill provably contradicts the repo. `done` on the skills row above stays a file fact
-  // — the skill exists — and this row asks the second question, the one a re-run of /cortex used to
+  // — the skill exists — and this row asks the second question, the one a re-run of /setup-repo used to
   // skip: is what it says still true. Required, because a skill is read as an instruction every time
-  // it fires. It clears the moment the lines are fixed, by /cortex-skills or by hand.
+  // it fires. It clears the moment the lines are fixed, by /suggest-skills or by hand.
   if (s.skillDrift?.length) {
     const lines = s.skillDrift.reduce((n, d) => n + d.findings.length, 0);
     rows.push({
       id: "skill-drift",
       title: "Refresh the skills the repo has moved away from",
-      cmd: "/cortex-skills",
+      cmd: "/suggest-skills",
       done: false,
       why:
         s.skillDrift.map((d) => `${d.skill} (${d.findings.length}${d.editedNote ? `; ${d.editedNote}` : ""})`).join(", ") +
@@ -450,9 +450,9 @@ function steps(s) {
     });
   }
 
-  // The files /cortex stamped, against this release's templates (spec S4). The row exists only while
+  // The files /setup-repo stamped, against this release's templates (spec S4). The row exists only while
   // something needs attention, so a repo with no record and no loop file reads exactly as before.
-  // Required only where a /cortex pass has a decision to make — an update to apply, a file to compare
+  // Required only where a /setup-repo pass has a decision to make — an update to apply, a file to compare
   // (`review`, `conflict`), or a record it cannot read. A file someone deleted, a retired template
   // and an ignored record are listed but optional: each can be a deliberate choice, and a step that
   // stays open over a choice trains the reader to ignore the sequence. Adoption is optional for the
@@ -467,16 +467,16 @@ function steps(s) {
   // why; duplicating those rows here would give the user two lists that disagree the first time one
   // of them changed. This row says only whether the chain is closed, and hands off for the detail.
   //
-  // The first pass is what one `/cortex` run can close. The rows in SECOND_ROUND are carved out of it
-  // and follow as rows of their own, so "Next → /cortex" is never the answer to a gap that another
-  // `/cortex` run cannot close.
+  // The first pass is what one `/setup-repo` run can close. The rows in SECOND_ROUND are carved out of it
+  // and follow as rows of their own, so "Next → /setup-repo" is never the answer to a gap that another
+  // `/setup-repo` run cannot close.
   const missing = s.loopMissing ?? null;
   const firstPass = missing ? missing.filter((id) => !SECOND_ROUND[id]) : null;
   const firstPassDone = s.loopComplete || (firstPass !== null && firstPass.length === 0);
   rows.push({
     id: "loop",
     title: "Close the artifact chain — intent → spec → plan → diff → PR → breach",
-    cmd: "/cortex",
+    cmd: "/setup-repo",
     done: firstPassDone,
     why:
       s.loopServed === null
@@ -487,7 +487,7 @@ function steps(s) {
             ? `${s.loopServed} of ${s.loopTotal} in place — the rest wait on history, below`
             : `${s.loopServed} of ${s.loopTotal} in place — run \`cortex-loop.mjs .\` for which and why`,
   });
-  // Only once the first pass is done: before that, `/cortex` above is the honest next command and
+  // Only once the first pass is done: before that, `/setup-repo` above is the honest next command and
   // will reach these itself.
   if (firstPassDone && missing) {
     for (const id of missing.filter((m) => SECOND_ROUND[m])) {
@@ -498,7 +498,7 @@ function steps(s) {
   rows.push({
     id: "enrich",
     title: "Add semantic summaries on top of the index",
-    cmd: "/cortex-enrich",
+    cmd: "/summarize-files",
     done: s.enriched,
     optional: true,
     why: s.enriched
@@ -509,7 +509,7 @@ function steps(s) {
   rows.push({
     id: "memory",
     title: "Start the shared memory",
-    cmd: "/dream",
+    cmd: "/end-of-day-summary",
     done: s.memory.length > 0,
     optional: true,
     // `done` stays a file fact — "was this ever started" is settled by a file existing, which is
@@ -527,11 +527,11 @@ function steps(s) {
 // Per-change rituals — not a sequence, a lookup. They never appear as "next" because they are
 // triggered by what you are doing, not by how far along the install is.
 export const PER_CHANGE = [
-  { when: "starting a risky feature", cmd: "/analyze-spec" },
-  { when: "before touching files", cmd: "/cortex-impact <files>" },
-  { when: "before committing", cmd: "/cortex-review" },
-  { when: "chasing a bug you cannot explain", cmd: "/diagnosing-bugs" },
-  { when: "back after time away", cmd: "/catch-me-up" },
+  { when: "starting a risky feature", cmd: "/design-spec" },
+  { when: "before touching files", cmd: "/change-impact <files>" },
+  { when: "before committing", cmd: "/review-change" },
+  { when: "chasing a bug you cannot explain", cmd: "/debug-issue" },
+  { when: "back after time away", cmd: "/whats-changed" },
 ];
 
 /**
@@ -584,7 +584,7 @@ export function nextSteps(root, index = null, overrides = {}) {
  * command that printed the sequence does not read the repo a second time to print its last line.
  */
 export function nextLineOf({ next }) {
-  if (!next) return "Next → sequence complete. Per change: /cortex-impact before, /cortex-review before committing.";
+  if (!next) return "Next → sequence complete. Per change: /change-impact before, /review-change before committing.";
   return "Next → " + next.cmd + "   (" + next.title.toLowerCase() + ")";
 }
 

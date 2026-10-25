@@ -40,7 +40,7 @@ In scope — the code in this repository and what it writes into other repositor
   personal data be published while the gate says it refused, or that makes a refusal echo the value;
 - path safety: a write or delete that escapes its root (`core/paths.js`, `tools/_cortex-lib.sh`);
 - the MCP server (`mcp/`): a tool that writes, pushes or reads outside what its declaration says;
-- the files `/cortex` stamps (`templates/loop/`): a workflow or hook that runs code a team did not
+- the files `/setup-repo` stamps (`templates/loop/`): a workflow or hook that runs code a team did not
   review, leaks a secret, or can be steered by a pull request from a fork;
 - `tools/server/cortex-cron.sh`: anything it sends or pushes past the scrubber.
 
@@ -57,6 +57,6 @@ Out of scope:
 
 Install Cortex as a Claude Code plugin, or from a clone of a **tagged release**. Do not pipe a
 script from `master` into a shell: it runs whatever the branch holds at that minute. The workflows
-`/cortex` stamps pin Cortex to a release and verify its code against a digest taken at stamp time
+`/setup-repo` stamps pin Cortex to a release and verify its code against a digest taken at stamp time
 ([ADR 0028](docs/adr/0028-stamped-ci-verifies-cortex-by-content-digest.md)), and install Claude Code
 by a pinned npm version.

@@ -14,7 +14,7 @@
 // (plugins/install, "Choose an install scope"). Every sentence that offers this says so.
 //
 // Which repos are a team's is `teamServed`: the `work` profile (core/profile.js, ADR 0015), or a
-// team-brain connector at `.cortex/connector.json` (`/team-add`). A `home` or `lab` repo with no
+// team-brain connector at `.cortex/connector.json` (`/join-team`). A `home` or `lab` repo with no
 // connector is one person's, and is never offered this.
 //
 // `mergeSharedPlugin` is the only writer, and it merges — it never replaces. `.claude/settings.json`
@@ -89,12 +89,12 @@ const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 /**
  * `{ team, why }`: whether this repo is served for a team, and the evidence. The `work` profile or a
  * team-brain connector; anything else is `{ team: false, why: null }`. A profile value that is not
- * one of the three is not read as `work` — `/cortex-profile` reports that error, this does not throw.
+ * one of the three is not read as `work` — `/set-profile` reports that error, this does not throw.
  */
 export function teamServed(root, env = process.env) {
   if (existsSync(join(root, ...CONNECTOR_REL.split("/")))) {
     // Only the two-field shape names its team. The old `{ slug, teamBrainRepo }` connector holds the
-    // PROJECT's slug (`/team-add` wrote it from --slug), and only the MCP resolver, with the vault's
+    // PROJECT's slug (`/join-team` wrote it from --slug), and only the MCP resolver, with the vault's
     // clones in hand, can tell what it meant — so here it is a team brain, unnamed. Reading the slug
     // as the team said every repo of a real workspace belonged to a team named after itself.
     let team = null;

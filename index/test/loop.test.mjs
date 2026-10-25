@@ -487,7 +487,7 @@ test("an index with files is not greenfield", () => {
 
 // A directory NAME is a hint; the files in it are the evidence. pmndrs/zustand keeps two
 // hand-written upgrade guides in `docs/reference/migrations/`, and the bare `migrations?/` pattern
-// reported that as a generated path — so /cortex proposed a hook refusing edits to the repo's own
+// reported that as a generated path — so /setup-repo proposed a hook refusing edits to the repo's own
 // documentation and listed it in REVIEW.md's do-not-report section.
 
 const protectedOf = (paths) => {
@@ -807,7 +807,7 @@ test("blocked artifacts do not hold complete open", () => {
 });
 
 test("rows that write under .claude/ say so, and only those", () => {
-  // The shape a headless /cortex leaves behind: everything outside .claude/ stamped, everything
+  // The shape a headless /setup-repo leaves behind: everything outside .claude/ stamped, everything
   // inside refused by Claude Code's protected-path check. The ritual reads protectedWrites to tell
   // that apart from a row the user declined, so it must be on exactly the .claude/ rows.
   const root = repo(({ put }) => {
@@ -838,7 +838,7 @@ test("rows that write under .claude/ say so, and only those", () => {
 // ---------------------------------------------------------------------------
 
 // The hooks row said "the hook that matters here is the test-file lock during a fix" on every repo
-// with a test script and nothing to protect. No template implements a test-file lock, so /cortex
+// with a test script and nothing to protect. No template implements a test-file lock, so /setup-repo
 // stamped protected-paths.sh with an empty list and format-changed.sh with no case lines — two hooks
 // that do nothing — and reported the row done.
 
@@ -887,7 +887,7 @@ test("with work to do and a hooks block on disk, the row is served", () => {
 });
 
 test("no row names an artifact that no template provides", () => {
-  // The property, not the one sentence: every file a row's text names must be a template /cortex
+  // The property, not the one sentence: every file a row's text names must be a template /setup-repo
   // stamps, a path the row itself writes, or one of the documents the artifact chain is made of.
   // And no row may promise a "lock" — the word the missing hook was sold under; a lockfile is fine.
   const here = new URL("../../templates/loop/", import.meta.url);
@@ -927,22 +927,22 @@ test("reading the plan writes nothing", () => {
 
 test("every hook script settings.hooks.json runs has a template, and the skill says where it lands", () => {
   // settings.hooks.json shipped a PostToolUse entry for format-changed.sh with no template behind
-  // it, so every repo /cortex stamped ran a hook that did not exist on each edit. The property, not
-  // the one file: any .claude/hooks/<script> a command names must be a template /cortex can write.
+  // it, so every repo /setup-repo stamped ran a hook that did not exist on each edit. The property, not
+  // the one file: any .claude/hooks/<script> a command names must be a template /setup-repo can write.
   const here = new URL("../../templates/loop/", import.meta.url);
   const settings = JSON.parse(fsRead(new URL("settings.hooks.json", here), "utf8"));
   const commands = Object.values(settings.hooks).flat().flatMap((m) => m.hooks.map((h) => h.command));
   const scripts = commands.map((c) => /\.claude\/hooks\/([^\s"']+)/.exec(c)?.[1]).filter(Boolean);
   assert.ok(scripts.length >= 2, `parsed only ${scripts.length} hook scripts from settings.hooks.json`);
-  const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
+  const skill = fsRead(new URL("../../skills/setup-repo/SKILL.md", import.meta.url), "utf8");
   for (const name of scripts) {
     assert.ok(fsExists(new URL(name, here)), `settings.hooks.json runs .claude/hooks/${name}, but templates/loop/${name} does not exist`);
-    assert.ok(skill.includes(`| \`${name}\` |`), `the /cortex skill never says where ${name} lands`);
+    assert.ok(skill.includes(`| \`${name}\` |`), `the /setup-repo skill never says where ${name} lands`);
   }
 });
 
 test("every hook command runs its script through bash, quoted — never relying on the executable bit", () => {
-  // /cortex writes these scripts with a file-write tool, which sets no mode bits, and a file created
+  // /setup-repo writes these scripts with a file-write tool, which sets no mode bits, and a file created
   // on Windows is committed as 100644 — so a teammate cloning on macOS or Linux gets a script the
   // kernel refuses to exec, and the hook fails with "permission denied" on every edit. A chmod at
   // stamp time would not survive that commit. Invoking through `bash` makes the bit irrelevant on
@@ -970,15 +970,15 @@ test("the verifier template cannot reach the editing tools", () => {
   assert.match(src, /Change nothing/);
 });
 
-test("every template a row or the /cortex skill names exists on disk", () => {
-  // `/cortex` applies from templates/loop/ in step 7, after the user has already said yes. A
+test("every template a row or the /setup-repo skill names exists on disk", () => {
+  // `/setup-repo` applies from templates/loop/ in step 7, after the user has already said yes. A
   // renamed template would surface there — mid-apply, with half the chain written — rather than here.
   const here = new URL("../../templates/loop/", import.meta.url);
   for (const row of LOOP_ARTIFACTS) {
     if (!row.template) continue;
     assert.ok(fsExists(new URL(row.template, here)), `${row.id}: templates/loop/${row.template} is missing`);
   }
-  const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
+  const skill = fsRead(new URL("../../skills/setup-repo/SKILL.md", import.meta.url), "utf8");
   const table = skill.slice(skill.indexOf("| Template | Lands at |"), skill.indexOf("**Never invent a command.**"));
   // Every code span in each row's first cell: one template, two, or the five team roles.
   const named = [...table.matchAll(/^\| (`[^|]+`) \|/gm)].flatMap((m) => [...m[1].matchAll(/`([^`]+)`/g)].map((x) => x[1]));
@@ -986,7 +986,7 @@ test("every template a row or the /cortex skill names exists on disk", () => {
   for (const name of named) {
     // A name with its own directory (`team/tester.md`) is under templates/, the rest under loop/.
     const at = name.includes("/") ? new URL(`../${name}`, here) : new URL(name, here);
-    assert.ok(fsExists(at), `the /cortex skill names ${name}, which is not a template on disk`);
+    assert.ok(fsExists(at), `the /setup-repo skill names ${name}, which is not a template on disk`);
   }
 });
 
@@ -996,7 +996,7 @@ test("every template a row or the /cortex skill names exists on disk", () => {
 
 const EVALS_TEMPLATE = new URL("../../templates/loop/agent-evals.yml", import.meta.url);
 
-// What `/cortex` does to the template: each bare `{{NAME}}` filled, and the setup placeholder's line
+// What `/setup-repo` does to the template: each bare `{{NAME}}` filled, and the setup placeholder's line
 // replaced by steps copied from the repo's own CI, at that line's indentation.
 function stampEvals(src, { test, setup }) {
   return src
@@ -1065,20 +1065,20 @@ test("an unfilled setup placeholder is a parse error, not a workflow that runs w
   assert.throws(() => parseYaml(src), /SETUP_STEPS/);
 });
 
-test("agent-evals.yml carries only the placeholders the /cortex skill tells it how to fill", () => {
+test("agent-evals.yml carries only the placeholders the /setup-repo skill tells it how to fill", () => {
   const src = fsRead(EVALS_TEMPLATE, "utf8").replace(/\$\{\{[^}]*\}\}/g, "");
   const found = [...new Set([...src.matchAll(/\{\{([A-Z_]+)\}\}/g)].map((m) => m[1]))].sort();
   assert.deepEqual(found, ["SETUP_STEPS", "TEST_CMD"]);
   // Each appears once, where it is filled. A placeholder quoted in a comment would be "filled" too,
   // and the comment would then say the command is the placeholder.
   for (const name of found) assert.equal(src.split(`{{${name}}}`).length - 1, 1, `{{${name}}} appears more than once`);
-  const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
+  const skill = fsRead(new URL("../../skills/setup-repo/SKILL.md", import.meta.url), "utf8");
   const row = skill.split("\n").find((l) => l.startsWith("| `agent-evals.yml`"));
   for (const name of found) assert.ok(row?.includes(name), `the skill's agent-evals.yml row does not say how to fill {{${name}}}`);
 });
 
 // ---------------------------------------------------------------------------
-// cortex-review.yml — /cortex-review on every PR, with no key and nothing installed
+// cortex-review.yml — /review-change on every PR, with no key and nothing installed
 // ---------------------------------------------------------------------------
 
 const REVIEW_TEMPLATE = new URL("../../templates/loop/cortex-review.yml", import.meta.url);
@@ -1213,7 +1213,7 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   assert.doesNotMatch(verify.run, /BLOCKING/, "a mismatch fails whether or not the review blocks");
   assert.doesNotMatch(stamped, /npm (ci|install)|setup-node/, "nothing is installed: index/ has no dependencies");
 
-  const review = job.steps.find((s) => /cortex-review\.mjs/.test(s.run ?? ""));
+  const review = job.steps.find((s) => /review-change\.mjs/.test(s.run ?? ""));
   assert.equal(review.env?.BASE, "${{ github.event.pull_request.base.sha }}", "the diff is base...head of the PR");
   assert.equal(review.env?.BLOCKING, "${{ vars.CORTEX_REVIEW_BLOCKING }}", "blocking is a repository variable");
   assert.match(review.run, /--since "\$BASE"/);
@@ -1222,18 +1222,18 @@ test("cortex-review.yml, stamped, is a PR workflow that needs no secret and bloc
   assert.doesNotMatch(review.run, /set -e/, "one failing command must not skip the report");
 });
 
-test("cortex-review.yml carries only the placeholders /cortex or the stamp act fills", () => {
+test("cortex-review.yml carries only the placeholders /setup-repo or the stamp act fills", () => {
   const src = fsRead(REVIEW_TEMPLATE, "utf8").replace(/\$\{\{[^}]*\}\}/g, "");
   const found = [...new Set([...src.matchAll(/\{\{([A-Z0-9_]+)\}\}/g)].map((m) => m[1]))].sort();
   // CORTEX_REPO is where Cortex is cloned from (#622): upstream unless an organisation runs a fork.
   // CORTEX_SHA256 is the digest of the code it clones (docs/adr/0028), filled by the stamp act.
   assert.deepEqual(found, ["CORTEX_REF", "CORTEX_REPO", "CORTEX_SHA256"]);
   for (const name of found) assert.equal(src.split(`{{${name}}}`).length - 1, 1, `{{${name}}} appears once, where it is filled`);
-  const skill = fsRead(new URL("../../skills/cortex/SKILL.md", import.meta.url), "utf8");
+  const skill = fsRead(new URL("../../skills/setup-repo/SKILL.md", import.meta.url), "utf8");
   const row = skill.split("\n").find((l) => l.startsWith("| `cortex-review.yml`"));
   assert.ok(row?.includes("CORTEX_REF"), "the skill's cortex-review.yml row does not say how to fill {{CORTEX_REF}}");
   // {{CORTEX_REPO}} is filled by stampFile from the resolved source (stamps.test.mjs), not by the
-  // skill: the instruction in this row pulled /cortex's evals down from 0.93 to 0.71–0.79.
+  // skill: the instruction in this row pulled /setup-repo's evals down from 0.93 to 0.71–0.79.
   assert.ok(!row.includes("CORTEX_REPO"), "the stamp act fills {{CORTEX_REPO}}; the skill must not have to");
   assert.ok(!row.includes("CORTEX_SHA256"), "and {{CORTEX_SHA256}}, which only the act can compute");
   assert.ok(row.includes("CORTEX_REVIEW_BLOCKING"), "and it names the switch that makes the check blocking");
@@ -1439,7 +1439,7 @@ test("the team row says what it changes for every later session, not only which 
   assert.match(team.effect, /until you answer/);
   // The sentence describes the playbook, so both must name the same question and the same command.
   const playbook = fsRead(new URL("../../templates/team/playbook.md", import.meta.url), "utf8");
-  for (const said of ['"Single agent or team?"', "`/cortex-impact --size`"]) {
+  for (const said of ['"Single agent or team?"', "`/change-impact --size`"]) {
     assert.ok(team.effect.includes(said), `the row names ${said}`);
     assert.ok(playbook.includes(said), `and the playbook still says ${said}`);
   }

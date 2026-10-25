@@ -15,7 +15,7 @@
 // team's), `kept` (edited, and the team kept it against this release's template), `duplicate` or
 // `absent`.
 //
-// `/cortex` reads `--json` on a re-run and offers an outdated section as a replace in its one
+// `/setup-repo` reads `--json` on a re-run and offers an outdated section as a replace in its one
 // confirmation, with the diff; an edited one is shown with the diff and asked about, never replaced,
 // and the answer is recorded with `--keep`, so a `kept` section is not asked about again until a
 // release changes its template. `cortex-next` names outdated and edited sections, never kept ones. `--replace` writes only an outdated section: every byte outside it stays
@@ -24,7 +24,7 @@
 // `cortex-stamps.mjs update` and `cortex-shared-plugin.mjs --write`. `--keep` writes only
 // `.cortex/sections.json`, committed, and only for an edited section.
 //
-// `--append` is how /cortex adds a block to a file the team also writes: the verification block and
+// `--append` is how /setup-repo adds a block to a file the team also writes: the verification block and
 // the playbook, into `CLAUDE.md`. The block takes the line endings most of the file's lines have, so a
 // CRLF checkout is left with no LF line (#548). It only adds to the end of a markdown file inside the
 // repo, creates it when it is not there, and refuses a block whose heading is already a section.
@@ -103,7 +103,7 @@ if (args.replace != null) {
 const report = sectionReport(root);
 
 if (args.json) {
-  // The machine form /cortex reads. Paths are repo-relative, and no absolute path is printed.
+  // The machine form /setup-repo reads. Paths are repo-relative, and no absolute path is printed.
   console.log(JSON.stringify({ sections: report }, null, 2));
   process.exit(0);
 }
@@ -115,7 +115,7 @@ for (const s of report) {
     console.log(`+++ ${s.template} (this release's text${s.values && Object.keys(s.values).length ? ", with the section's own values" : ""})`);
     process.stdout.write(s.diff);
   }
-  if (s.state === "outdated" && !s.unfilled.length) console.log(`\n\`cortex-section.mjs . --replace ${s.id}\` replaces it; /cortex offers that in its confirmation.`);
+  if (s.state === "outdated" && !s.unfilled.length) console.log(`\n\`cortex-section.mjs . --replace ${s.id}\` replaces it; /setup-repo offers that in its confirmation.`);
   if (s.state === "edited") {
     console.log("\nIt is the team's text: take any line of the new one by hand, or leave it as it is.");
     console.log(`\`cortex-section.mjs . --keep ${s.id}\` records that answer, so it is not asked about again until a release changes the template.`);

@@ -15,7 +15,7 @@ in a few rituals and ADRs, cited to their page, on the same terms.
 
 ## Files Cortex writes into your repository — MIT-0
 
-`/cortex`, `/cortex-scaffold`, `/cortex-brief`, `/cortex-skills` and the other rituals write files
+`/setup-repo`, `/write-context-docs`, `/write-area-brief`, `/suggest-skills` and the other rituals write files
 into **your** repository from `templates/` and from the rituals' own text: `AGENTS.md`, `REVIEW.md`,
 hooks, workflows, agent files, ADR and `CONTEXT.md` skeletons, skills. Those files are yours.
 

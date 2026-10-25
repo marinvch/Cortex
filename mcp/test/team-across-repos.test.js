@@ -26,7 +26,7 @@ function git(cwd, ...a) {
   return execFileSync("git", a, { cwd, env: { ...process.env, ...IDENTITY }, stdio: ["ignore", "pipe", "pipe"] }).toString();
 }
 
-/** A team-brain as /team-init leaves it: team.md, projects/, pushed to a bare remote on master. */
+/** A team-brain as /create-team leaves it: team.md, projects/, pushed to a bare remote on master. */
 function teamBrainRemote(name = "harbor") {
   const remote = tempDir("brain-remote-");
   git(remote, "init", "--bare", "-q", "-b", "master");

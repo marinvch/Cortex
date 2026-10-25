@@ -97,6 +97,32 @@ test("Leiden finds the best known partition of the karate club, and every cluste
   for (const g of groups.values()) assert.ok(isConnected(graph, g), "Leiden's guarantee: no cluster in pieces");
 });
 
+/** `groups` × `size` files, each pair joined with chance `pin` inside a group and `pout` across. */
+function planted(groups, size, pin, pout, seed) {
+  let s = seed;
+  const roll = () => ((s = (s * 1103515245 + 12345) % 2147483648), s % 1000);
+  const p = (i) => `g${String(Math.floor(i / size)).padStart(3, "0")}/f${String(i % size).padStart(3, "0")}.js`;
+  const n = groups * size;
+  const files = Array.from({ length: n }, (_, i) => code(p(i)));
+  const edges = [];
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    if (roll() < (Math.floor(i / size) === Math.floor(j / size) ? pin : pout) * 1000) edges.push({ from: p(i), to: p(j) });
+  }
+  return { files, edges };
+}
+
+test("on a weak planted partition, refinement, re-queueing and repeated rounds each earn their keep", () => {
+  // Karate is easy enough that a plain greedy pass finds the optimum. This graph is not: dropping
+  // the refinement, the re-queue of a moved node's neighbours, or the repeat rounds each scored
+  // between 0.363 and 0.391 on it, and letting a tie move scored 0.393.
+  const { graph } = clusterGraph(planted(8, 25, 0.15, 0.02, 4));
+  const m = leiden(graph);
+  assert.ok(modularityOf(graph, m) >= 0.3953, `modularity ${modularityOf(graph, m).toFixed(4)}`);
+  const groups = new Map();
+  for (let v = 0; v < m.length; v++) groups.set(m[v], [...(groups.get(m[v]) ?? []), v]);
+  for (const g of groups.values()) assert.ok(isConnected(graph, g));
+});
+
 test("the answer does not depend on the order files and edges arrive in, nor on edge direction", () => {
   const base = karate();
   const want = JSON.stringify(clustersOf(base).clusters);
@@ -137,6 +163,9 @@ test("an import each way weighs 2, an ambiguous one 0.5, and a self-import or an
   assert.deepEqual([...graph.wt[1]], [2, 0.5]);
   assert.equal(graph.self[2], 0, "a self-import adds no weight");
   assert.equal(graph.m2, 5);
+  // A file whose only import is itself has no edge, so it is not a node and counts as unclustered.
+  const selfOnly = clustersOf({ files: [code("x.js")], edges: [{ from: "x.js", to: "x.js" }] }).clusters;
+  assert.deepEqual([selfOnly.items.length, selfOnly.unclustered], [0, 1]);
 });
 
 test("cohesion counts pairs, not edges, and rounds to three places", () => {

@@ -1,9 +1,13 @@
 // The roster: who in a team holds which role and owns which project (#620, design R1–R3).
 //
 // `team.json` at the top of a team-brain is the one machine-read config. #622 put `source` there;
-// this adds `members: [{ handle, roles: [], projects: [], github? }]`. `team.md` stays prose for
+// this adds `members: [{ handle, roles: [], projects: [], github?, job? }]`. `team.md` stays prose for
 // people. A `## Members` list parsed out of prose was the alternative, and two people editing prose
 // on one day is a merge conflict with no schema to resolve it by.
+//
+// `job` is what the person does — developer, architect, lead, pm, qa — and `core/job.js` owns the
+// words. It changes what is offered, never what is allowed, so a bad job never costs a member their
+// place in the roster: it is reported and read as `developer`, the same as no job at all.
 //
 // A handle is the author slug from `core/author.js` — the name memory files are written under — so
 // whoever is named in `.cortex/memory/<day>/<handle>.md` is named the same way in an ask. No email
@@ -13,10 +17,11 @@
 // root, and `team.json` is a path under it (docs/adr/0007).
 
 import { authorSlug } from "../../core/author.js";
+import { JOBS, isJob, jobOf } from "../../core/job.js";
 import { openVault } from "./vault.js";
 import { TEAM_JSON } from "./team.js";
 
-export { TEAM_JSON };
+export { TEAM_JSON, JOBS, jobOf };
 
 /** A role or project name: the author-slug alphabet, so it is safe in a path and a header. */
 const NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
@@ -34,6 +39,10 @@ export class RosterError extends Error {
 /**
  * One member, normalised, or a list of what is wrong with it. Never throws and never repeats a
  * value in a message: a file someone hand-edited may hold anything.
+ *
+ * A job that is not one of the five words is the one error that keeps the member: `member` comes
+ * back without a job (read as `developer`) and `errors` says why. A reader keeps such a member, so
+ * a typo in a job never takes a person out of the asks; a writer refuses any error.
  *
  * @param {unknown} raw
  * @returns {{ member: object|null, errors: string[] }}
@@ -60,8 +69,17 @@ export function checkMember(raw) {
     if (typeof raw.github !== "string" || !GITHUB.test(raw.github)) errors.push("github must be a GitHub login");
     else github = raw.github;
   }
-  if (errors.length) return { member: null, errors };
-  return { member: github ? { handle, roles, projects, github } : { handle, roles, projects }, errors };
+  const jobErrors = [];
+  let job;
+  if (raw.job !== undefined && raw.job !== null && raw.job !== "") {
+    if (!isJob(raw.job)) jobErrors.push(`job must be one of ${JOBS.join(", ")}`);
+    else job = raw.job;
+  }
+  if (errors.length) return { member: null, errors: [...errors, ...jobErrors] };
+  const member = { handle, roles, projects };
+  if (github) member.github = github;
+  if (job) member.job = job;
+  return { member, errors: jobErrors };
 }
 
 /**
@@ -89,7 +107,9 @@ export function parseRoster(text) {
     const seen = new Set();
     (doc.members ?? []).forEach((raw, i) => {
       const { member, errors: e } = checkMember(raw);
-      if (!member) { for (const msg of e) errors.push(`members[${i}]: ${msg}`); return; }
+      // Only a bad job comes back with a member: kept, and read as a developer.
+      for (const msg of e) errors.push(`members[${i}]: ${msg}${member ? "; read as developer" : ""}`);
+      if (!member) return;
       if (seen.has(member.handle)) { errors.push(`members[${i}]: the handle is listed twice; the first entry is used`); return; }
       seen.add(member.handle);
       members.push(member);
@@ -115,17 +135,23 @@ export function rolesOf(members) {
  * other key of `team.json` — `source` from #622 included — is kept as it was, and so is every other
  * member. Returns what happened and the path written; committing is the caller's.
  *
+ * The job is the exception to "replace": a call that passes none keeps the job already recorded.
+ * Roles change with the work and a job rarely does, so updating your roles must not quietly turn
+ * an architect back into a developer.
+ *
  * @param {string} clone
- * @param {{ handle: string, roles?: string[], projects?: string[], github?: string }} input
+ * @param {{ handle: string, roles?: string[], projects?: string[], github?: string, job?: string }} input
  * @returns {{ action: "added"|"updated"|"unchanged", member: object, rel: string }}
  */
 export function setMember(clone, input) {
-  const { member, errors } = checkMember(input);
-  if (!member) throw new RosterError(`not written: ${errors.join("; ")}`);
+  const { member: given, errors } = checkMember(input);
+  if (!given || errors.length) throw new RosterError(`not written: ${errors.join("; ")}`);
   const vault = openVault(clone);
   const { doc } = vault.isFile(TEAM_JSON) ? parseRoster(vault.read(TEAM_JSON)) : { doc: {} };
   const list = Array.isArray(doc.members) ? doc.members : [];
-  const at = list.findIndex((m) => m?.handle === member.handle);
+  const at = list.findIndex((m) => m?.handle === given.handle);
+  const kept = at !== -1 && given.job === undefined && isJob(list[at]?.job) ? list[at].job : undefined;
+  const member = kept ? { ...given, job: kept } : given;
   let action = "added";
   if (at === -1) list.push(member);
   else {

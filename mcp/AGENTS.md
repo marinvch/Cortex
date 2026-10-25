@@ -11,7 +11,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `ai-os setup-plugins --status` | per tier, which plugins are installed; `--json`, `--tier`, `--plugins-dir`. Read-only | nothing |
 | `ai-os team init` | seed and push a team-brain | a vault |
 | `ai-os team add` | write this repo's project file into the team-brain, then the connector | a vault |
-| `ai-os team member` | add or update one member (`--handle`, `--roles`, `--projects`) in the brain's `team.json`; commit, push | a root, a team |
+| `ai-os team member` | add or update one member (`--handle`, `--roles`, `--projects`, `--job`) in the brain's `team.json`; commit, push | a root, a team |
 | `ai-os ask` | send `--to <role\|project> --title --body` as `asks/<id>.md`; commit, push | a root, a team |
 | `ai-os inbox` | pull, then the open asks for you and the answers to yours; `--json` | a root, a team |
 | `ai-os answer` | append `--body` to ask `--id`, set `--status`; commit, push | a root, a team |
@@ -173,6 +173,11 @@ the repo by commit count, and — like every other part — **dependency-free**.
     arguments besides `content` that `assertPublishable` scans — an ask's `title` and `links`.
     `assertWellFormed` refuses a name the schema does not take. The CLI calls `assertPublishable`
     with the tool's name before it calls `lib/`, so both adapters pass the same gate.
+  - **A member's `job` is one of `core/job.js`'s five words and never refuses anything.** It
+    decides what the rituals offer first. A reader keeps a member whose job is wrong, reports it in
+    `rosterErrors` and reads it as `developer`, as it reads no job; `setMember` refuses it, and
+    keeps the recorded job when none is passed. `inbox` returns it as `me.job`, which is where
+    `/setup-repo` and `/resume-work` read it.
   - **`inbox` pulls ff-only first, and a failed pull is returned in `pull`**, with the local asks.
   - **The start-up count is `instructions` on the `initialize` result** (`asksInstructions`), not a
     hook (ADR 0021). It reads the local clone, never pulls, never throws: a failure drops the count.

@@ -21,7 +21,7 @@ import { dirname } from "node:path";
 import { resolveAuthor } from "../../core/author.js";
 import { pull, commitPath, pushHead, teamCloneDir } from "./gitsync.js";
 import { openVault } from "./vault.js";
-import { readRoster, rolesOf, setMember, RosterError } from "./roster.js";
+import { readRoster, rolesOf, setMember, jobOf, RosterError } from "./roster.js";
 import { ensureTeamClone } from "./team.js";
 import { syncAfter } from "./sync.js";
 import { AskRefused, oneLine, renderAsk, parseAsk, listAsks } from "./ask-file.js";
@@ -95,7 +95,8 @@ export function placeCaller(author, members, project) {
   const handle = author?.slug ?? null;
   const me = handle ? members.find((m) => m.handle === handle) : null;
   const projects = [...new Set([...(me?.projects ?? []), ...(project ? [project] : [])])];
-  const caller = { handle, placed: Boolean(me), roles: me?.roles ?? [], projects, project: project ?? null };
+  // `job` decides what the rituals offer this person first; an unplaced caller is a developer.
+  const caller = { handle, placed: Boolean(me), roles: me?.roles ?? [], projects, project: project ?? null, job: jobOf(me) };
   if (!me) {
     const who = handle
       ? `the handle '${handle}' is not a member in the team-brain's team.json`
@@ -248,7 +249,7 @@ export function readInbox(clone, { caller, pulled = { ok: true } }) {
   const waiting = waitingAll.slice(0, WAITING_MAX).map(shape);
   const sent = sentAll.slice(0, SENT_MAX).map(shape);
 
-  const me = { handle: caller.handle, placed: caller.placed, roles: caller.roles, projects: caller.projects };
+  const me = { handle: caller.handle, placed: caller.placed, roles: caller.roles, projects: caller.projects, job: caller.job ?? jobOf(null) };
   const out = {
     pull: pulled.ok ? { ok: true } : { ok: false, error: String(pulled.error).split("\n").slice(0, 3).join("\n").trim() },
     me,

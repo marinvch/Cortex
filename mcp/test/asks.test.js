@@ -13,7 +13,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseAsk, renderAsk, placeCaller, resolveAddressee, AskRefused } from "../lib/asks.js";
-import { checkMember, parseRoster, setMember, RosterError } from "../lib/roster.js";
+import { checkMember, parseRoster, setMember, jobOf, JOBS, RosterError } from "../lib/roster.js";
 import { tempDir } from "./tmp.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -236,9 +236,12 @@ test("on lab an ask is committed in the clone and not pushed", async () => {
 test("the CLI sends, lists and answers the same asks, and `team member` writes team.json keeping the source", () => {
   const { remote, repoA, repoB } = setup();
 
-  const add = cli(repoB, "dev-db", "team", "member", "--roles", "dba,backend", "--projects", "svc-b");
+  const add = cli(repoB, "dev-db", "team", "member", "--roles", "dba,backend", "--projects", "svc-b", "--job", "qa");
   assert.equal(add.status, 0, add.stderr);
-  assert.match(add.stdout, /Member added in team\.json — dev-db: roles dba, backend; projects svc-b, committed and pushed\./);
+  assert.match(add.stdout, /Member added in team\.json — dev-db: roles dba, backend; projects svc-b; job qa, committed and pushed\./);
+  const badJob = cli(repoB, "dev-db", "team", "member", "--roles", "dba", "--job", "boss");
+  assert.notEqual(badJob.status, 0, "a job that is not one of the five is refused");
+  assert.match(badJob.stderr, /job must be one of developer, architect, lead, pm, qa/);
   const seed = tempDir("asks-check-");
   git(seed, "clone", "-q", remote, ".");
   const doc = JSON.parse(readFileSync(join(seed, "team.json"), "utf8"));
@@ -254,6 +257,7 @@ test("the CLI sends, lists and answers the same asks, and `team member` writes t
   assert.equal(inbox.status, 0, inbox.stderr);
   const got = JSON.parse(inbox.stdout);
   assert.deepEqual(got.waiting.map((a) => [a.id, a.title]), [[id, "Schema owner"]]);
+  assert.equal(got.me.job, "qa", "the inbox says which job the roster records");
 
   const answer = cli(repoB, "dev-db", "answer", "--id", id, "--body", "We do.", "--status", "decided");
   assert.equal(answer.status, 0, answer.stderr);
@@ -313,6 +317,45 @@ test("setMember adds, updates and leaves alone, keeping every other key", () => 
   const doc = JSON.parse(readFileSync(join(clone, "team.json"), "utf8"));
   assert.deepEqual(doc, { source: "example-org/cortex", members: [{ handle: "dev-a", roles: ["backend", "architect"], projects: [] }] });
   assert.throws(() => setMember(clone, { handle: "Not A Slug" }), RosterError);
+});
+
+test("a job is one of five words; none, or a bad one, reads as developer and keeps the member", () => {
+  assert.deepEqual(JOBS, ["developer", "architect", "lead", "pm", "qa"]);
+  assert.deepEqual(checkMember({ handle: "dev-a", job: "pm" }), { member: { handle: "dev-a", roles: [], projects: [], job: "pm" }, errors: [] });
+  assert.deepEqual(checkMember({ handle: "dev-a", job: "" }).member, { handle: "dev-a", roles: [], projects: [] }, "an empty job is no job");
+  const bad = checkMember({ handle: "dev-a", roles: ["backend"], job: "Product Owner" });
+  assert.deepEqual(bad.member, { handle: "dev-a", roles: ["backend"], projects: [] }, "a bad job never costs the member");
+  assert.equal(bad.errors.length, 1);
+  assert.ok(!bad.errors[0].includes("Product Owner"), "and the message does not repeat the value");
+  assert.equal(checkMember({ handle: "Dev A", job: "pm" }).member, null, "a bad handle still refuses the member");
+
+  // An old roster, written before `job`, means what it meant.
+  const old = parseRoster(JSON.stringify({ members: [{ handle: "dev-a", roles: ["backend"] }] }));
+  assert.deepEqual(old.errors, []);
+  assert.equal(jobOf(old.members[0]), "developer");
+
+  const typo = parseRoster(JSON.stringify({ members: [{ handle: "dev-a", roles: ["backend"], job: "arhitect" }, { handle: "dev-b", job: "qa" }] }));
+  assert.deepEqual(typo.members.map((m) => [m.handle, jobOf(m)]), [["dev-a", "developer"], ["dev-b", "qa"]]);
+  assert.equal(typo.errors.length, 1);
+  assert.match(typo.errors[0], /^members\[0\]: job must be one of .*; read as developer$/);
+
+  const placed = placeCaller({ slug: "dev-b" }, typo.members, null);
+  assert.equal(placed.job, "qa");
+  assert.equal(placeCaller({ slug: "someone-else" }, typo.members, null).job, "developer", "an unplaced caller is a developer");
+});
+
+test("setMember writes a job, refuses a bad one, and keeps the recorded job when none is passed", () => {
+  const clone = tempDir("roster-job-");
+  assert.throws(() => setMember(clone, { handle: "dev-a", job: "boss" }), RosterError, "a writer refuses what a reader forgives");
+  assert.equal(existsSync(join(clone, "team.json")), false, "and writes nothing");
+  assert.equal(setMember(clone, { handle: "dev-a", roles: ["backend"], job: "architect" }).action, "added");
+  assert.equal(setMember(clone, { handle: "dev-a", roles: ["backend", "gateway"] }).action, "updated");
+  let doc = JSON.parse(readFileSync(join(clone, "team.json"), "utf8"));
+  assert.deepEqual(doc.members, [{ handle: "dev-a", roles: ["backend", "gateway"], projects: [], job: "architect" }], "roles changed, the job did not");
+  assert.equal(setMember(clone, { handle: "dev-a", roles: ["backend", "gateway"] }).action, "unchanged");
+  assert.equal(setMember(clone, { handle: "dev-a", roles: ["backend", "gateway"], job: "lead" }).action, "updated");
+  doc = JSON.parse(readFileSync(join(clone, "team.json"), "utf8"));
+  assert.equal(doc.members[0].job, "lead");
 });
 
 test("an addressee resolves to a role first, then a project, and is refused otherwise", () => {

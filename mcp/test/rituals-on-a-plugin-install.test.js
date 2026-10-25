@@ -401,7 +401,7 @@ test("/join-team's command registers the project when the checkout has an origin
   assert.ok(existsSync(join(f.proj, ".cortex", "connector.json")));
 });
 
-test("/join-team's member command writes the joining member's roles into team.json from a plugin install", () => {
+test("/join-team's member command writes the joining member's roles and job into team.json from a plugin install", () => {
   const f = fixture();
   const vault = join(f.base, "vault");
   mkdirSync(vault, { recursive: true });
@@ -413,11 +413,11 @@ test("/join-team's member command writes the joining member's roles into team.js
 
   const member = found.find((c) => / team member /.test(c));
   assert.ok(member, "the skill must name `ai-os team member`");
-  const argv = argvOf(member, f.pluginRoot, { "<role,role>": "backend", "<slug,slug>": "product" });
+  const argv = argvOf(member, f.pluginRoot, { "<role,role>": "backend", "<slug,slug>": "product", "<job>": "architect" });
   const r = run(f, argv, { cwd: f.proj, env: { CORTEX_ROOT: vault, CORTEX_AUTHOR: "dev-a" } });
   assert.equal(r.status, 0, r.stderr);
   const doc = JSON.parse(readFileSync(join(vault, "team", "core", "team.json"), "utf8"));
-  assert.deepEqual(doc.members, [{ handle: "dev-a", roles: ["backend"], projects: ["product"] }]);
+  assert.deepEqual(doc.members, [{ handle: "dev-a", roles: ["backend"], projects: ["product"], job: "architect" }]);
 });
 
 test("/join-team names the removal command, and it runs from the plugin root", () => {

@@ -13,6 +13,7 @@ import { digest } from "./lib/digest.js";
 import { CatchUpRefused, catchUp } from "./lib/catchup.js";
 import { openBrain, NoRootError } from "./lib/brain.js";
 import { askFrom, inboxFrom, answerFrom, memberFrom } from "./lib/asks.js";
+import { JOBS, jobOf } from "./lib/roster.js";
 import { assertPublishable } from "./lib/tools.js";
 import { contractFrom, publishFrom } from "./lib/contract.js";
 import { genNoteId } from "./lib/noteid.js";
@@ -163,13 +164,14 @@ function cmdTeam(teamSub, args, brain) {
       if (args[flag] === true) throw new Error(`--${flag} needs a value\n${TEAM_MEMBER_USAGE}`);
       return args[flag].split(",").map((s) => s.trim()).filter(Boolean);
     };
-    for (const flag of ["handle", "github", "team"]) if (args[flag] === true) throw new Error(`--${flag} needs a value\n${TEAM_MEMBER_USAGE}`);
+    for (const flag of ["handle", "github", "team", "job"]) if (args[flag] === true) throw new Error(`--${flag} needs a value\n${TEAM_MEMBER_USAGE}`);
     const input = { roles: list("roles") ?? [], projects: list("projects") ?? [] };
     if (typeof args.handle === "string") input.handle = args.handle;
     if (typeof args.github === "string") input.github = args.github;
+    if (typeof args.job === "string") input.job = args.job;
     const res = memberFrom(brain, input, { env: process.env, cwd: process.cwd() }, { team: typeof args.team === "string" ? args.team : null });
     const m = res.member;
-    const what = `${m.handle}: roles ${m.roles.join(", ") || "(none)"}; projects ${m.projects.join(", ") || "(none)"}`;
+    const what = `${m.handle}: roles ${m.roles.join(", ") || "(none)"}; projects ${m.projects.join(", ") || "(none)"}; job ${jobOf(m)}`;
     if (res.action === "unchanged") { console.log(`Member already in team.json as given — ${what}. Nothing to commit.`); return 0; }
     console.log(`Member ${res.action} in team.json — ${what}, ${describePublish(res, brain)}.`);
     return 0;
@@ -177,7 +179,9 @@ function cmdTeam(teamSub, args, brain) {
   throw new Error("usage: ai-os team init|add|member ...");
 }
 
-const TEAM_MEMBER_USAGE = "usage: ai-os team member [--handle <handle>] --roles <role,role> [--projects <slug,slug>] [--github <login>] [--team <name>]";
+const TEAM_MEMBER_USAGE =
+  "usage: ai-os team member [--handle <handle>] --roles <role,role> [--projects <slug,slug>] [--github <login>]\n" +
+  `         [--job ${JOBS.join("|")}] [--team <name>]`;
 
 /** How far a write to the team-brain got: committed and pushed, or which step it stopped at. */
 function describePublish(res, brain) {
@@ -648,7 +652,9 @@ The team-brain (needs a repo joined with \`team add\`, or a vault with a team cl
   team init --name <team> --repo <git-url>   create and seed a team-brain repo
   team add --name <team> --repo <git-url> --project <slug>
                                              join it from this repo: clone it, write .cortex/connector.json
-  team member --roles <role,role>            say which roles and projects you hold, in team.json
+  team member --roles <role,role> [--job <job>]
+                                             say which roles and projects you hold, and your job
+                                             (developer, architect, lead, pm, qa), in team.json
   ask --to <role|project> --title <t> --body <text>
                                              send a question to a role or a project
   inbox                                      the asks waiting for you — run it at the start of a task

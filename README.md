@@ -146,8 +146,12 @@ is running, which is your fork's.
 
 On a team, an agent can send a question to a role or a project instead of to a person. The
 team-brain's `team.json` lists each member's handle, roles and projects; `/join-team` asks for yours
-and runs `ai-os team member --roles backend`. Your handle is your memory author name:
-`CORTEX_AUTHOR`, or your git `user.name` as a slug.
+and runs `ai-os team member --roles backend --job developer`. Your handle is your memory author
+name: `CORTEX_AUTHOR`, or your git `user.name` as a slug.
+
+Your **job** is one of `developer`, `architect`, `lead`, `pm` or `qa`. It changes what
+`/setup-repo`, `/resume-work` and `/join-team` offer you first, never what you may run. A member
+with no job is a developer, so a roster written before the field existed keeps working.
 
 - `ask` (or `ai-os ask --to backend --title … --body …`) writes `asks/<id>.md` to the team-brain,
   commits and pushes it. A `to` that no member holds and no project matches is refused, with the

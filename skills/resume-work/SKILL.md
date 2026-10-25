@@ -126,6 +126,22 @@ comes before anything the repo state suggests:
 
 Then do the remaining work. Resuming is not a deliverable.
 
+### By job
+
+On a team's repo (it has `.cortex/connector.json`), the person's job is `me.job` in the `inbox`
+tool's result, or in `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" inbox --json`. With no team, no
+connector or no job recorded, they are a `developer` and nothing below changes. A job changes what
+you offer first. It never removes a route above and never refuses one the person asks for.
+
+- `developer`, or no job: the routes above as written.
+- `pm`: with nothing mid-flight, route 2, `/whats-changed`, comes first even without time away.
+  Show the setup runbook in section 5 only when they ask for it.
+- `qa`: name `/change-impact` and `/review-change` for the remaining work before starting it.
+- `architect`: show the runbook in section 5 as it printed. When it names `/suggest-skills` or the
+  loop row as next, say so, then offer the context-layer steps (`/write-context-docs`,
+  `/write-area-brief`) and `/define-terms` beside it.
+- `lead`: section 5 in full, and `/whats-changed` across the team when they were away.
+
 ## 5. Where the setup stands
 
 When the question is about the Cortex setup rather than the work ("I installed Cortex, now what",

@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { slugify } from "./slug.js";
+import { assertDestination, DestinationRefusedError, DESTINATION_MODES } from "../../core/destinations.js";
 
 export function teamCloneDir(root, team) { return join(root, "team", slugify(team)); }
 
@@ -11,18 +12,77 @@ function git(cwd, args) {
   return execFileSync("git", args, { cwd, stdio: ["ignore", "pipe", "pipe"] }).toString();
 }
 
-export function pull(cloneDir) {
+// --- the destination check ------------------------------------------------------------------------
+//
+// Every function here that reaches a remote — `pull`, the push in `commitAndPush`, `pushHead` —
+// asks `assertDestination` (core/destinations.js, docs/adr/0030) first, and takes the profile's
+// policy as a REQUIRED option, so a caller that forgets it fails in its tests rather than pushing
+// unchecked. A refusal is returned in the shape the function already returns for a git failure,
+// `error: "unapproved_destination: …"`, and git is never run.
+//
+// The URLs checked are every remote's, as git itself resolves them (`remote get-url --all`, with
+// `--push` for a push), not `origin`'s fetch URL alone: a `pushurl`, an `insteadOf` rewrite or an
+// upstream on another remote is where a push actually goes, and the check must look there.
+
+/** The `{ policy, env }` option, checked. A missing policy is a programming error, never "any". */
+function gateOf(fn, opts) {
+  if (!opts || !opts.policy || !DESTINATION_MODES.includes(opts.policy.destinations)) {
+    throw new TypeError(`${fn}: { policy } is required — pass brain.policy`);
+  }
+  return { policy: opts.policy, env: opts.env ?? process.env };
+}
+
+/** Every URL git would use for this clone's remotes, push or fetch. */
+export function remoteUrls(dir, { push = false } = {}) {
+  let names;
+  try { names = git(dir, ["remote"]).split("\n").map((s) => s.trim()).filter(Boolean); } catch { return []; }
+  const urls = [];
+  for (const name of names) {
+    try {
+      for (const u of git(dir, ["remote", "get-url", "--all", ...(push ? ["--push"] : []), name]).split("\n")) if (u.trim()) urls.push(u.trim());
+    } catch { /* a remote with no URL is not a destination */ }
+  }
+  return urls;
+}
+
+/** null when every remote may be reached; otherwise the `unapproved_destination: …` error string. */
+export function destinationRefusal(dir, { policy, env }, { push }) {
+  // Nothing to ask on a profile that allows any destination, so git is not asked for the URLs.
+  if (policy.destinations === "any") return null;
+  for (const url of remoteUrls(dir, { push })) {
+    try {
+      assertDestination(url, { kind: "git", policy, env, inbound: !push });
+    } catch (e) {
+      if (e instanceof DestinationRefusedError) return `unapproved_destination: ${e.message}`;
+      throw e;
+    }
+  }
+  return null;
+}
+
+/** Fast-forward pull. `opts.policy` is required: a pull reaches the remote, so it is checked. */
+export function pull(cloneDir, opts) {
+  const gate = gateOf("pull", opts);
   if (!isGitRepo(cloneDir)) return { ok: false, error: "not_a_git_repo" };
+  const refused = destinationRefusal(cloneDir, gate, { push: false });
+  if (refused) return { ok: false, error: refused };
   try { git(cloneDir, ["pull", "--ff-only", "-q"]); return { ok: true }; }
   catch (e) { return { ok: false, error: String(e.stderr || e.message) }; }
 }
 
-export function commitAndPush(cloneDir, files, message) {
+/**
+ * Commit, then push. The commit is local and always made; the push is checked first, so a refused
+ * destination leaves the commit in the clone and returns `ok: true, pushed: false` with the reason.
+ */
+export function commitAndPush(cloneDir, files, message, opts) {
+  const gate = gateOf("commitAndPush", opts);
   if (!isGitRepo(cloneDir)) return { ok: false, pushed: false, error: "not_a_git_repo" };
   try {
     git(cloneDir, ["add", ...files]);
     git(cloneDir, ["commit", "-q", "-m", message]);
   } catch (e) { return { ok: false, pushed: false, error: String(e.stderr || e.message) }; }
+  const refused = destinationRefusal(cloneDir, gate, { push: true });
+  if (refused) return { ok: true, pushed: false, error: refused };
   try { git(cloneDir, ["push", "-q"]); return { ok: true, pushed: true }; }
   catch (e) { return { ok: true, pushed: false, error: "push_failed: " + String(e.stderr || e.message) }; }
 }
@@ -56,8 +116,14 @@ export function commitPath(cloneDir, file, message, { remove = false } = {}) {
   } catch (e) { return { ok: false, committed: false, error: String(e.stderr || e.message).trim() }; }
 }
 
-/** Push the current branch to `origin`. Named explicitly, so a clone of an empty remote works too. */
-export function pushHead(cloneDir) {
+/**
+ * Push the current branch to `origin`. Named explicitly, so a clone of an empty remote works too.
+ * `opts.policy` is required, and the destination is checked before git runs.
+ */
+export function pushHead(cloneDir, opts) {
+  const gate = gateOf("pushHead", opts);
+  const refused = destinationRefusal(cloneDir, gate, { push: true });
+  if (refused) return { ok: false, error: refused };
   try { git(cloneDir, ["push", "-q", "origin", "HEAD"]); return { ok: true }; }
   catch (e) { return { ok: false, error: "push_failed: " + String(e.stderr || e.message).trim() }; }
 }

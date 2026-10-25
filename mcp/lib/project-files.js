@@ -138,7 +138,7 @@ export function listTeamProjects(root, { team, policy }) {
  * @param {{ team: string, teamRepo: string, project: string, cwd: string, today: string,
  *           policy: object, fields?: Record<string, string|string[]> }} opts
  */
-export function addProject(root, { team, teamRepo, project, cwd, today, policy, fields = {} }) {
+export function addProject(root, { team, teamRepo, project, cwd, today, policy, env = process.env, fields = {} }) {
   if (!isSlug(project)) {
     throw new ProjectFileRefused("invalid_slug", `--project ${JSON.stringify(String(project).slice(0, 80))} is not a slug: lower-case letters and digits in words joined by single dashes, at most 64 characters`);
   }
@@ -169,10 +169,12 @@ export function addProject(root, { team, teamRepo, project, cwd, today, policy, 
   const early = profileRefusal({ ...given, repo: given.repo ?? origin ?? undefined }, policy);
   if (early) throw new ProjectFileRefused(early.code, `projects/${project}.md: ${early.message}`, { links: early.links });
 
-  const { dir, cloned } = cloneTeamBrain(root, team, teamRepo);
+  // The team-brain's URL is checked against the profile's destinations before it is cloned
+  // (core/destinations.js): on work, a remote that is not approved stops the join here.
+  const { dir, cloned } = cloneTeamBrain(root, team, teamRepo, { policy, env });
   // Best effort and fast-forward only, as `capture` does it. Pulling BEFORE looking for the file is
   // what makes "an existing file is left alone" true for a file a teammate pushed an hour ago.
-  if (policy.outwardSync) pull(dir);
+  if (policy.outwardSync) pull(dir, { policy, env });
 
   const vault = openVault(root);
   const rel = `${projectsDir(team)}/${project}.md`;
@@ -214,7 +216,7 @@ export function addProject(root, { team, teamRepo, project, cwd, today, policy, 
   const others = readTeam(vault, team).others;
   const judged = judge(text, project, policy, others);
   vault.write(rel, text);
-  const file = { path, action, warnings: judged.warnings, ...publish(dir, inClone, `project: add ${project}`, policy) };
+  const file = { path, action, warnings: judged.warnings, ...publish(dir, inClone, `project: add ${project}`, policy, { env }) };
   return { dir, cloned, file };
 }
 
@@ -226,11 +228,11 @@ function existingStatus(text, slug, policy) {
 }
 
 /** Commit one path, then push it unless the profile seals outward sync. */
-function publish(cloneDir, file, message, policy, { remove = false } = {}) {
+function publish(cloneDir, file, message, policy, { remove = false, env = process.env } = {}) {
   const c = commitPath(cloneDir, file, message, { remove });
   if (!c.ok) return { committed: false, pushed: false, error: c.error };
   if (!policy.outwardSync) return { committed: c.committed, pushed: false, error: "outward_sync_disabled" };
-  const p = pushHead(cloneDir);
+  const p = pushHead(cloneDir, { policy, env });
   return p.ok ? { committed: c.committed, pushed: true } : { committed: c.committed, pushed: false, error: p.error };
 }
 
@@ -250,7 +252,7 @@ function publish(cloneDir, file, message, policy, { remove = false } = {}) {
  * @param {string} root  the vault
  * @param {{ team: string, project: string, policy: object }} opts
  */
-export function removeProject(root, { team, project, policy }) {
+export function removeProject(root, { team, project, policy, env = process.env }) {
   const vault = openVault(root);
   const base = projectsDir(team);
   if (!vault.isDirectory(base)) {
@@ -269,12 +271,12 @@ export function removeProject(root, { team, project, policy }) {
 
   const clone = teamCloneDir(root, team);
   if (policy.outwardSync) {
-    pull(clone);
+    pull(clone, { policy, env });
     if (!dir.isFile(rel)) throw new ProjectFileRefused("not_found", `${base}/${rel} was already removed upstream; the pull brought that in`);
   }
 
   const path = dir.remove(rel);
-  const result = publish(clone, `projects/${project}.md`, `project: remove ${project}`, policy, { remove: true });
+  const result = publish(clone, `projects/${project}.md`, `project: remove ${project}`, policy, { remove: true, env });
 
   const relatedIn = readTeam(vault, team).files
     .filter((f) => validateProjectFile(f.text, { slug: f.slug }).data.related?.includes(project))
@@ -328,8 +330,8 @@ export function checkProjects(root, { team, policy }) {
  * connector, or null when the team runs upstream (#622). A `team.json` source that is unusable
  * throws before the connector is written.
  */
-export function joinProject(root, { team, teamRepo, project, cwd, today, policy, fields = {} }) {
-  const added = addProject(root, { team, teamRepo, project, cwd, today, policy, fields });
+export function joinProject(root, { team, teamRepo, project, cwd, today, policy, env = process.env, fields = {} }) {
+  const added = addProject(root, { team, teamRepo, project, cwd, today, policy, env, fields });
   const source = readTeamSource(teamCloneDir(root, team));
   const connector = writeConnector(cwd, { team, project, teamBrainRepo: teamRepo, source });
   return { ...added, connector, source };

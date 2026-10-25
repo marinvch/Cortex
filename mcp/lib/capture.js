@@ -10,7 +10,12 @@ import { commitAndPush, teamCloneDir, pull } from "./gitsync.js";
 import { slugify } from "./slug.js";
 import { openVault } from "./vault.js";
 
-export function capture(root, { content, project, tags, today, team, noteId, outwardSync = true }) {
+/**
+ * `policy` is the profile's and is required on a team: it decides whether the note is pushed
+ * (`outwardSync`) and where a pull or a push may go (`destinations`, core/destinations.js). A push
+ * to a destination the profile does not allow keeps the commit and reports the refusal.
+ */
+export function capture(root, { content, project, tags, today, team, noteId, policy, env = process.env }) {
   const vault = openVault(root);
   const tagLine = tags && tags.length ? " " + tags.map((t) => `#${slugify(t)}`).join(" ") : "";
 
@@ -20,6 +25,9 @@ export function capture(root, { content, project, tags, today, team, noteId, out
   // the two team paths — where the note goes and what it says are identical, so they are written
   // once. Splitting them into two branches meant a change to the frontmatter had to be made twice.
   if (team) {
+    if (!policy) throw new TypeError("capture: { policy } is required on a team — pass brain.policy");
+    const outwardSync = policy.outwardSync;
+    const gate = { policy, env };
     const teamSlug = slugify(team);
     const clone = teamCloneDir(root, teamSlug);
     const slug = project ? slugify(project) : "inbox";
@@ -27,7 +35,7 @@ export function capture(root, { content, project, tags, today, team, noteId, out
 
     // best-effort ff-only sync before committing/pushing (ignores failure); pointless if we will
     // not push.
-    if (outwardSync) pull(clone);
+    if (outwardSync) pull(clone, gate);
     vault.write(rel, `---\ntype: brain-note\ncreated: ${today}\n---\n\n${content}${tagLine}\n`);
     const abs = vault.abs(rel);
 
@@ -37,7 +45,7 @@ export function capture(root, { content, project, tags, today, team, noteId, out
     if (!outwardSync) return { path: abs, pushed: false, error: "outward_sync_disabled" };
 
     const fileInClone = relative(clone, abs).split(sep).join("/"); // git wants forward slashes
-    const res = commitAndPush(clone, [fileInClone], `capture: ${slug}`);
+    const res = commitAndPush(clone, [fileInClone], `capture: ${slug}`, gate);
     return res.pushed ? { path: abs, pushed: true } : { path: abs, pushed: false, error: res.error };
   }
 

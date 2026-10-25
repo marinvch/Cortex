@@ -17,6 +17,7 @@ import { resolveBrain } from "../lib/resolve.js";
 import { capture } from "../lib/capture.js";
 import { catchMeUp } from "../lib/catchup.js";
 import { tempDir } from "./tmp.js";
+import { policyFor } from "../../core/profile.js";
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), "..", "ai-os.js");
 const IDENTITY = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
@@ -73,7 +74,7 @@ function team() {
 
 function captureAs(vault, repo, content, noteId, today = "2026-09-25") {
   const brain = resolveBrain({ cwd: repo, env: { AI_OS_ROOT: vault } });
-  return capture(vault, { content, project: brain.project, team: brain.team, today, noteId });
+  return capture(vault, { content, project: brain.project, team: brain.team, today, noteId, policy: policyFor("home") });
 }
 
 test("team add writes a connector that names the team and the project separately", () => {
@@ -108,7 +109,7 @@ test("catch-up reads every project of the team, newest first, and honours since"
   captureAs(be1, repoA, "backend change", "a1", "2026-09-20");
   captureAs(fe1, repoB, "frontend change", "b1", "2026-09-22");
   const brain = resolveBrain({ cwd: repoB, env: { AI_OS_ROOT: fe1 } });
-  const res = catchMeUp(fe1, { project: brain.project, since: "2026-09-01", team: brain.team });
+  const res = catchMeUp(fe1, { project: brain.project, since: "2026-09-01", team: brain.team, policy: policyFor("home") });
   assert.deepEqual(res.teamNotes.map((n) => [n.project, n.created]), [["web-b", "2026-09-22"], ["svc-a", "2026-09-20"]]);
   assert.equal(res.truncated, false);
 });
@@ -124,7 +125,7 @@ test("a failed pull is reported, never hidden, and local work is not rewritten",
   git(clone, "commit", "-qm", "local");
   const head = git(clone, "rev-parse", "HEAD").trim();
 
-  const res = catchMeUp(fe1, { project: "web-b", since: "2026-09-24", team: "harbor" });
+  const res = catchMeUp(fe1, { project: "web-b", since: "2026-09-24", team: "harbor", policy: policyFor("home") });
   assert.equal(res.pull.ok, false);
   assert.ok(res.pull.error.length > 0, "the failure must say why");
   assert.equal(git(clone, "rev-parse", "HEAD").trim(), head, "ff-only: a diverged clone is left as it was");
@@ -141,7 +142,7 @@ test("an unreachable remote is a reported pull failure, not an empty week", () =
 });
 
 test("a team with no local clone says so instead of returning nothing", () => {
-  const res = catchMeUp(tempDir("v-"), { project: "web-b", since: "2026-09-24", team: "harbor" });
+  const res = catchMeUp(tempDir("v-"), { project: "web-b", since: "2026-09-24", team: "harbor", policy: policyFor("home") });
   assert.deepEqual(res.pull, { ok: false, error: "not_a_git_repo" });
   assert.deepEqual(res.teamNotes, []);
 });
@@ -155,7 +156,7 @@ test("team notes are bounded so the result stays under the transport cap", () =>
     const id = String(i).padStart(2, "0");
     writeFileSync(join(clone, "projects", "svc-a", `2026-09-25-${id}.md`), `---\ncreated: 2026-09-25\n---\n\n${"x".repeat(5000)}\n`);
   }
-  const res = catchMeUp(be1, { project: "svc-a", since: "2026-09-01", team: "harbor" });
+  const res = catchMeUp(be1, { project: "svc-a", since: "2026-09-01", team: "harbor", policy: policyFor("home") });
   assert.equal(res.truncated, true);
   const chars = res.teamNotes.reduce((s, n) => s + n.content.length, 0);
   assert.ok(chars <= 12_000, `team note content is ${chars} chars`);

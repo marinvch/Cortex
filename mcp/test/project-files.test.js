@@ -99,7 +99,7 @@ function fixture({ origin = PUBLIC_ORIGIN } = {}) {
     git(remote, "init", "--bare", "-q", "-b", "master");
     const vault = join(base, "vault");
     mkdirSync(vault);
-    initTeamBrain(vault, { name: TEAM, repo: remote, projects: ["storefront"] });
+    initTeamBrain(vault, { name: TEAM, repo: remote, projects: ["storefront"], policy: HOME });
     productRepo(base, "storefront", null);
     return { base };
   });
@@ -281,8 +281,8 @@ test("the same input is written and committed on lab, and never pushed", () => {
 
 test("the refusal follows policy.refuses, not a profile's name", () => {
   const f = fixture({ origin: INTERNAL_ORIGIN });
-  assert.throws(() => add(f, { label: "contractor", refuses: "employer", outwardSync: true }), (e) => e.code === "employer_shaped_link");
-  const res = add(f, { label: "home", refuses: "nothing", outwardSync: true });
+  assert.throws(() => add(f, { label: "contractor", refuses: "employer", outwardSync: true, destinations: "any" }), (e) => e.code === "employer_shaped_link");
+  const res = add(f, { label: "home", refuses: "nothing", outwardSync: true, destinations: "any" });
   assert.equal(res.file.pushed, true);
 });
 

@@ -79,7 +79,7 @@ export function isProductFile(f) {
 
 /**
  * The product graph: each file's distinct neighbours and importers, the edges between product
- * files in path order, and `rep(p)`, the first path among the files with exactly p's neighbours.
+ * files in path order, and the twin groups hubs and bridges fold by.
  */
 export function productGraph(index) {
   const files = new Map((index.files ?? []).filter(isProductFile).map((f) => [f.path, f]));
@@ -102,15 +102,15 @@ export function productGraph(index) {
   edges.sort((a, b) => byCodeUnit(a.from, b.from) || byCodeUnit(a.to, b.to));
 
   const linked = [...nbrs.keys()].sort(byCodeUnit);
-  const list = (m, p) => [...(m.get(p) ?? [])].sort(byCodeUnit).join(" ");
+  const list = (m, p) => [...(m.get(p) ?? [])].sort(byCodeUnit).join("\n");
   // Twins import the same files and are imported by the same files. Direction counts: on got,
   // `benchmark/index.ts` imports `source/index.ts` and `source/core/calculate-retry-delay.ts` is
   // imported by it, with the same three neighbours. Folded, the pair read "imports both ways".
-  const nbrKey = (p) => `${list(imported, p)}\n${list(importers, p)}`;
+  const nbrKey = (p) => `${list(imported, p)}\0${list(importers, p)}`;
   // A hub's twins may sit in any cluster. A bridge's must share its cluster too, so folding one
   // into another never moves a bridge between clusters: fzf's `util` files sit in five.
   const hubTwins = twinGroups(linked, nbrKey);
-  const bridgeTwins = twinGroups(linked, (p) => `${files.get(p).cluster ?? ""}\n${nbrKey(p)}`);
+  const bridgeTwins = twinGroups(linked, (p) => `${files.get(p).cluster ?? ""}\0${nbrKey(p)}`);
   return {
     files,
     edges,
@@ -183,7 +183,11 @@ export function bridgesOf(index, graph = productGraph(index)) {
       continue;
     }
     if (from !== seen.from) seen.mutual = true;
-    seen.weight = Math.max(seen.weight, edgeWeight(e));
+    // The surest import it stands for sets the weight, and the confidence reported with it.
+    if (edgeWeight(e) > seen.weight) {
+      seen.weight = edgeWeight(e);
+      seen.edge = e;
+    }
     seen.reexport = seen.reexport && !!e.reexport;
     seen.pairs.add(pairKey(e.from, e.to));
   }

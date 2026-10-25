@@ -10,7 +10,11 @@
 
 NEXT="$REPO_ROOT/index/cortex-next.mjs"
 
-INDEX_JSON='{"version":"1","files":[],"edges":[],"areas":[],"layers":[],"cycles":[],"stats":{}}'
+# The version is read from the format module, so a bump cannot leave this fixture a format behind
+# and turn every assertion below into a test of the refusal message.
+INDEX_VERSION=$(cd "$REPO_ROOT" && node --input-type=module -e "import('./index/lib/format.mjs').then((m) => process.stdout.write(m.INDEX_VERSION))")
+[ -n "$INDEX_VERSION" ] || { echo "could not read INDEX_VERSION from index/lib/format.mjs" >&2; exit 1; }
+INDEX_JSON='{"version":"'"$INDEX_VERSION"'","files":[],"edges":[],"areas":[],"layers":[],"cycles":[],"stats":{}}'
 
 # --- fixtures, built the way a user's repo actually arrives ---------------------------------------
 

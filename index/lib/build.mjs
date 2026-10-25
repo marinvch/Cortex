@@ -10,6 +10,7 @@ import { inferAreas } from "./layers.mjs";
 import { detectStack } from "./stack.mjs";
 import { extractRoutes } from "./routes.mjs";
 import { depthOf } from "./depth.mjs";
+import { clustersOf } from "./clusters.mjs";
 import { vendoredPaths, vendoredStats } from "./vendored.mjs";
 import { INDEX_VERSION } from "./format.mjs";
 
@@ -178,6 +179,11 @@ export function buildIndex(root, opts = {}) {
     if (typeof d === "number") f.depth = d;
   }
 
+  // Which files form one feature, by Leiden over the same edges (lib/clusters.mjs). A file with no
+  // in-repo edge carries `cluster: null`, so every file states its answer.
+  const { clusters, byPath: clusterOf } = clustersOf({ files, edges });
+  for (const f of files) f.cluster = clusterOf.get(f.path) ?? null;
+
   const languages = {};
   const categories = {};
   for (const f of files) {
@@ -219,6 +225,10 @@ export function buildIndex(root, opts = {}) {
     // entry point. A floor, like every other number derived from regex-resolved imports.
     layers: depth.layers,
     cycles: depth.cyclic,
+    // Files that import each other more than they import the rest: features, not folders. Beside
+    // `areas` rather than instead of it, because an area routes a brief and a cluster shows what
+    // changes together. See lib/clusters.mjs.
+    clusters,
     // What the repo is built out of, so downstream can pick skills that fit it. Reading is
     // injected rather than done inside detectStack, which keeps that function a pure
     // transform of its inputs and testable from literals — the convention lib/repo-text.mjs

@@ -7,6 +7,17 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **Clusters: which files form one feature.** The index groups files that import each other more
+  than they import the rest of the repo. It uses the Leiden method on the import graph, with a fixed
+  visiting order, so the same tree gives the same clusters every time. Each cluster is named by its
+  hub, the file with the most import links. It also has a size, a cohesion score and the areas it
+  spans. A cluster that holds over a quarter of the repo, or one that is loosely connected, is split
+  again. A file with no import edge has `cluster: null`.
+  - `/cortex-view`'s Map colours files by cluster, with a switch back to areas. The Areas tab lists
+    the clusters beside the folders.
+  - The index format moves to version 2. An older index is refused with the command that rebuilds
+    it.
+
 - **A plan for the code graph.** The design spec, `docs/specs/2026-10-25-code-graph-design.md`,
   covers:
   - clusters of files that form one feature;

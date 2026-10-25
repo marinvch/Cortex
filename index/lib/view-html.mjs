@@ -258,6 +258,12 @@ button.sb{cursor:pointer}button.sb:hover{box-shadow:0 0 0 3px var(--acc-soft)}
 #legend .lg.off{text-decoration:line-through;color:var(--ink-2)}
 #legend .lg.off .sw{background:transparent!important;outline:2px solid var(--ink-2);outline-offset:-2px}
 #legend .lg .sw{width:11px;height:11px;border-radius:3px;flex:0 0 11px}
+#legend .lgby{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:13.5px;color:var(--ink-2)}
+#legend .lgby button{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:3px 9px;
+  font-size:13.5px;cursor:pointer;color:var(--ink)}
+#legend .lgby button.on{border-color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc);font-weight:600}
+#legend.min .lgby{display:none}
+.cl-areas{display:flex;flex-wrap:wrap;gap:0}
 #legend .lg .ct{margin-left:auto;color:var(--ink-2);font-variant-numeric:tabular-nums;font-size:13px}
 #legend .note{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-2);color:var(--ink-2);
   font-size:13px;line-height:1.5;max-width:250px}
@@ -753,7 +759,7 @@ function showTab(v){TAB=v;document.querySelectorAll('.tab').forEach(t=>{const on
 function openFile(id){const n=NODE.get(id);if(!n)return;showTab('files');
   const outs=(OUT.get(id)||[]).slice().sort(),ins=(IN.get(id)||[]).slice().sort();
   const link=p=>'<span class="chip" tabindex="0" role="button" data-go="'+esc(p)+'"><span class="mono">'+esc(p)+'</span></span>';
-  const facts=['area: '+n.area,n.lang,n.category,n.depth!==null?'layer '+n.depth:'',n.isEntry?'entry point':'',n.isTest?'test':'']
+  const facts=['area: '+n.area,n.cluster?'cluster: '+n.cluster:'',n.lang,n.category,n.depth!==null?'layer '+n.depth:'',n.isEntry?'entry point':'',n.isTest?'test':'']
     .filter(Boolean).map(t=>'<span class="chip flat">'+esc(t)+'</span>').join('');
   let h='<div class="inner"><h1>'+esc(n.label)+'</h1><div class="path mono">'+esc(n.path)+'</div>';
   h+='<div class="kpi"><div class="k"><b>'+n.lines.toLocaleString()+'</b><span>lines</span></div>'
@@ -790,7 +796,21 @@ function buildAreas(){let h='<div class="wrap"><h2 class="vh">Areas</h2>'
     +'<div class="s">'+a.files+' files · '+a.code+' code · '+a.lines.toLocaleString()+' lines</div>'
     +(a.description?'<div class="p">'+esc(a.description)+'</div>':'')
     +'<div class="foot"><span class="chip flat '+(a.hasBrief?'ok':'')+'">'+(a.hasBrief?'✓ '+esc(a.brief||'scoped brief'):'no scoped brief')+'</span></div></div>';});
-  $('apane').innerHTML=h+'</div>';}
+  // Clusters beside the folders: the same repo cut by what imports what. A cluster spanning
+  // several areas is a feature the folder layout splits up; an area split across clusters holds
+  // more than one.
+  const C=DATA.clusters;
+  if(C){h+='<h2 class="vh">Clusters <small class="mono">'+C.items.length+'</small></h2>'
+    +'<div class="hint">Files that import each other more than they import the rest of the repo, found by the Leiden method over the import graph. Each is named by its hub, the member with the most import links. Cohesion is the share of member pairs joined by an import: 1 means every file touches every other. '
+    +(C.unclustered?Number(C.unclustered).toLocaleString('en-US')+' code files have no import edge Cortex could resolve, so they belong to no cluster.':'')+'</div>';
+    h+=C.items.length?'<div class="tw"><table><tr><th>cluster</th><th>hub</th><th>files</th><th>cohesion</th><th>areas</th></tr>'
+      +C.items.map(c=>'<tr><td class="num"><span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:'+c.color+'"></span>'+esc(c.id)+'</td>'
+        +'<td><span class="chip" tabindex="0" role="button" data-go="'+esc(c.hub)+'" title="'+esc(c.hub)+'"><span class="mono">'+esc(c.hubLabel)+'</span></span></td>'
+        +'<td class="num">'+c.size+'</td><td class="num">'+c.cohesion+'</td>'
+        +'<td><div class="cl-areas">'+c.areas.map(a=>'<span class="chip flat">'+esc(a.name)+' · '+a.files+'</span>').join('')+'</div></td></tr>').join('')
+      +'</table></div>':'<div class="hint">None: no two files here import each other.</div>';}
+  const p=$('apane');p.innerHTML=h+'</div>';
+  p.querySelectorAll('.chip[data-go]').forEach(el=>el.onclick=()=>openFile(el.dataset.go));}
 
 // ---- gaps --------------------------------------------------------------------------------
 function buildGaps(){const g=DATA.gaps;
@@ -874,7 +894,16 @@ addEventListener('resize',resize);
 const N=DATA.nodes.filter(n=>n.inMap).map(n=>({...n,x:0,y:0,u:0,a:0}));
 const M=new Map(N.map(n=>[n.id,n]));
 const RGB=h=>{const v=parseInt(String(h).slice(1),16);return (v>>16&255)+','+(v>>8&255)+','+(v&255);};
-for(const n of N)n.rgb=RGB(n.color);
+// Two colourings and one switch. By cluster shows which files import each other: a feature, wherever
+// its files sit. By area shows the folders. Cluster comes first when the index has clusters, because
+// the folders are already what a reader sees in their editor. Only the largest clusters get a hue
+// (see view.mjs); the rest share one row, "smaller clusters", and a file with no edge has no cluster.
+const CL=(DATA.clusters&&DATA.clusters.items)||[],CLC=new Set(CL.filter(c=>c.coloured).map(c=>c.id));
+let BY=CL.length?'cluster':'area';
+const grp=n=>BY==='area'?n.area:(n.cluster?(CLC.has(n.cluster)?n.cluster:'+'):'-');
+for(const n of N)n.acolor=n.color;
+function paint(){for(const n of N){n.color=BY==='cluster'?n.ccolor:n.acolor;n.rgb=RGB(n.color);}}
+paint();
 // A node is a filename, and a filename is code — so it is set in the mono face the rest of the
 // page uses for paths, not in the UI sans. The dot-with-a-floating-label had the labels colliding
 // with each other and belonging to nothing; a chip is one object you can read without hovering.
@@ -887,7 +916,7 @@ function measure(){ctx.font='500 13px '+MONO;
     n.h=CHIP_H;}}
 const E=DATA.links.map(l=>({s:M.get(l.source),t:M.get(l.target)})).filter(e=>e.s&&e.t);
 const hidden=new Set();
-const vis=n=>!hidden.has(n.area);
+const vis=n=>!hidden.has(grp(n));
 
 // Prominence follows inbound count. Drawing every node as a chip put 162 labels on screen at equal
 // weight, which says nothing about structure: the file a third of the repo imports looked exactly
@@ -971,16 +1000,16 @@ function pack(){let y=TOP;
     // gap where the area changes is what repulsion used to buy — a visible seam between clusters —
     // except this one cannot push anything off screen.
     const lanes=[];let cur=[],w=0;
-    for(const n of R){const g=cur.length&&cur[cur.length-1].area!==n.area?AREA_GAP:0,s=slot(n);
+    for(const n of R){const g=cur.length&&grp(cur[cur.length-1])!==grp(n)?AREA_GAP:0,s=slot(n);
       if(cur.length&&w+g+s>BW){lanes.push(cur);cur=[n];w=s;}
       else{cur.push(n);w+=g+s;}}
     if(cur.length)lanes.push(cur);
     if(!lanes.length)lanes.push([]);
     for(let li=0;li<lanes.length;li++){const L=lanes[li];
-      let tw=0;for(let k=0;k<L.length;k++)tw+=slot(L[k])+(k&&L[k-1].area!==L[k].area?AREA_GAP:0);
+      let tw=0;for(let k=0;k<L.length;k++)tw+=slot(L[k])+(k&&grp(L[k-1])!==grp(L[k])?AREA_GAP:0);
       let x=CX-tw/2;const ly=y+LABEL_H+li*LANE_H+LANE_H/2;
       for(let k=0;k<L.length;k++){const n=L[k];
-        if(k&&L[k-1].area!==n.area)x+=AREA_GAP;
+        if(k&&grp(L[k-1])!==grp(n))x+=AREA_GAP;
         n.x=x+slot(n)/2;n.y=ly;x+=slot(n);}}
     // Re-rank, so u stays monotone in reading order and comparable across bands of different size.
     R.forEach((n,k)=>{n.u=(k+.5)/R.length;});
@@ -998,7 +1027,7 @@ function layout(){
   // Seed sorted by area then path, so files that belong together begin together and the barycentre
   // only has to refine an ordering rather than discover one. Deterministic, like everything else
   // here: there is no Math.random in this file.
-  ROWS.forEach(r=>{r.sort((a,b)=>a.area<b.area?-1:a.area>b.area?1:a.path<b.path?-1:1);
+  ROWS.forEach(r=>{r.sort((a,b)=>grp(a)<grp(b)?-1:grp(a)>grp(b)?1:a.path<b.path?-1:1);
     r.forEach((n,i)=>{n.u=(i+.5)/r.length;});});
   BW=bandWidth();
   pack();}
@@ -1198,7 +1227,7 @@ addEventListener('mousemove',e=>{if(TAB!=='map'&&!drag&&!pan)return;const r=cv.g
       const flip=e.clientX>innerWidth-360;
       tip.style.left=(flip?e.clientX-350:e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px';
       tip.innerHTML='<div class="t">'+esc(n.path)+'</div><div class="m">'
-        +esc(n.area)+' · '+esc(n.lang)+' · <b>'+n.lines+'</b> lines'+(CHURN.known?' · <b>'+commitsOf(n.commits).replace(' ','</b> '):'')+'<br>'
+        +esc(n.area)+(n.cluster?' · cluster <b>'+esc(n.cluster)+'</b>':'')+' · '+esc(n.lang)+' · <b>'+n.lines+'</b> lines'+(CHURN.known?' · <b>'+commitsOf(n.commits).replace(' ','</b> '):'')+'<br>'
         +(n.depth!==null?'layer <b>'+n.depth+'</b> · ':'')
         +'<b>'+n.in+'</b> imported by · <b>'+n.out+'</b> imports'
         +(n.category==='code'&&!n.isTest?(n.tested?'<br>✓ test found':'<br>✗ no test found'):'')
@@ -1213,12 +1242,24 @@ cv.addEventListener('wheel',e=>{e.preventDefault();touched=true;const f=e.deltaY
 function buildHud(){const S=DATA.stats||{};$('hud').innerHTML='<span><b>'+(S.mapFiles!==undefined?S.mapFiles:N.length)+'</b> code files</span><span class="sep"></span>'
   +'<span><b>'+(S.mapEdges!==undefined?S.mapEdges:E.length)+'</b> imports between them</span><span class="sep"></span>'
   +'<span><b>'+ROWS.length+'</b> layers</span><span class="sep"></span><span>scroll to zoom · drag to pan</span>';}
-function buildLegend(){const L=$('legend');const shown=new Set(N.map(n=>n.area));
+// The rows the legend lists for the current colouring: [key, swatch, label, title].
+function legendRows(){const count=k=>N.filter(n=>grp(n)===k).length;
+  if(BY==='area'){const shown=new Set(N.map(n=>n.area));
+    return DATA.areas.filter(a=>shown.has(a.name)).map(a=>[a.name,a.color,a.name,a.name]);}
+  const rows=CL.filter(c=>c.coloured&&count(c.id)).map(c=>[c.id,c.color,c.id+' · '+c.hubLabel,'hub '+c.hub+' · '+c.size+' files']);
+  const grey=(N.find(n=>n.cluster&&!CLC.has(n.cluster))||N.find(n=>!n.cluster)||{}).ccolor||'#8b97ab';
+  if(count('+'))rows.push(['+',grey,'smaller clusters','the clusters past the first '+CLC.size+' share one colour']);
+  if(count('-'))rows.push(['-',grey,'no cluster','files with no import edge Cortex could resolve']);
+  return rows;}
+function buildLegend(){const L=$('legend');
+  const sw=CL.length?'<div class="lgby" role="group" aria-label="Colour the Map by">Colour by '
+    +['cluster','area'].map(b=>'<button type="button" data-by="'+b+'" aria-pressed="'+(BY===b)+'"'+(BY===b?' class="on"':'')+'>'+b+'</button>').join('')+'</div>':'';
   L.innerHTML='<button type="button" class="lgt" id="lgt" aria-expanded="'+LEG_OPEN+'">'+(LEG_OPEN?'Hide legend':'Legend')+'</button>'
-   +DATA.areas.filter(a=>shown.has(a.name)).map(a=>'<div class="lg" tabindex="0" role="button" aria-pressed="true" data-a="'+esc(a.name)+'">'
-    +'<span class="sw" style="background:'+a.color+'"></span>'+esc(a.name)
-    +'<span class="ct">'+N.filter(n=>n.area===a.name).length+'</span></div>').join('')
-   +'<div class="note">Click an area to hide it. Each band is one import depth — band 0 is what the '
+   +sw+legendRows().map(([k,c,label,title])=>'<div class="lg'+(hidden.has(k)?' off':'')+'" tabindex="0" role="button" aria-pressed="'+(!hidden.has(k))+'" data-a="'+esc(k)+'" title="'+esc(title)+'">'
+    +'<span class="sw" style="background:'+c+'"></span>'+esc(label)
+    +'<span class="ct">'+N.filter(n=>grp(n)===k).length+'</span></div>').join('')
+   +'<div class="note">'+(BY==='cluster'?'Colour is the cluster: files that import each other more than they import the rest, wherever they sit. Areas are the folders; switch above. ':'')
+   +'Click a row to hide it. Each band is one import depth — band 0 is what the '
    +'rest is built on, and a band wraps onto as many sub-rows as it needs. A dot grows with how many '
    +'files import it; the '+HUB.size+' most-imported are named, and hover or search reaches the rest. '
    +'A red outline means no test was found. '
@@ -1228,6 +1269,11 @@ function buildLegend(){const L=$('legend');const shown=new Set(N.map(n=>n.area))
     if(hidden.has(a)){hidden.delete(a);el.classList.remove('off');}else{hidden.add(a);el.classList.add('off');}
     el.setAttribute('aria-pressed',hidden.has(a)?'false':'true');
     pack();chipSet();});
+  // Switching the colouring regroups each band by the new key and lets the order settle again, so
+  // a cluster's files sit together the way an area's did. What was hidden was a row of the other
+  // legend, so it is shown again.
+  L.querySelectorAll('[data-by]').forEach(b=>b.onclick=()=>{if(BY===b.dataset.by)return;
+    BY=b.dataset.by;hidden.clear();paint();frames=0;layout();if(REDUCED)settle();buildLegend();});
   L.classList.toggle('min',!LEG_OPEN);
   const t=$('lgt');if(t)t.onclick=()=>{LEG_OPEN=!LEG_OPEN;L.classList.toggle('min',!LEG_OPEN);
     t.textContent=LEG_OPEN?'Hide legend':'Legend';t.setAttribute('aria-expanded',String(LEG_OPEN));

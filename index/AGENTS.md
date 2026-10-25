@@ -146,6 +146,20 @@ holds the rules for that module alone — read it before editing the module.
   unreferenced files. Validate resolver changes against cloned repos,
   and check that every resolved target actually exists on disk; more edges is not the same as
   correct edges.
+- **Clusters are not areas, and neither replaces the other** (`lib/clusters.mjs`, whose header
+  holds the method, the rules and what makes it deterministic). Order is code-unit path order,
+  never `localeCompare`: a test pins it. Validated on seven cloned repos, each indexed twice to the
+  same bytes. Modularity, clusters against folder areas: zustand 0.445 / 0.045, flask 0.295 /
+  0.047, fzf 0.196 / −0.262, ripgrep 0.865 / 0.289, a stock Vite React-TS app 0.220 / −0.080,
+  bulletproof-react 0.699 / 0.667. got is the exception, at 0.250 / 0.251. Leiden alone scores
+  0.341 there, and the large-cluster rule costs the difference: it splits got's 41 tests into
+  groups by the helper they share, which reads better than one cluster called `test/`. Most
+  clusters name one concern: ripgrep's crates, flask's app core, CLI and sessions, zustand's
+  `shallow` across `react/` and `vanilla/`. fzf's largest (`main.go` and 18 platform files,
+  cohesion 0.105) does not, because a Go import names a whole package. Clustering took 7.6 ms on
+  bulletproof-react (410 files, 993 edges) and 505 ms on a synthetic 20,000. 37 guards mutated, 36
+  test failures. The other is the fallback that aggregates by the moved partition when refinement
+  merged nothing. Without it the same answer comes back after up to 64 idle levels.
 - **The route map** (`lib/routes.mjs`; design and limits in
   [`docs/specs/2026-09-27-route-map-design.md`](../docs/specs/2026-09-27-route-map-design.md)) was
   validated on the Harbor workspace (7/7 calls, 3/3 gateway routes, each to one repo), the RealWorld

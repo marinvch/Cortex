@@ -11,6 +11,7 @@ import { ENRICHED_REL } from "./enrich.mjs";
 import { contextLayer } from "./next.mjs";
 import { claudeSetupFindings } from "./claude-setup.mjs";
 import { leavesNotLoaded, leavesNote } from "./instructions.mjs";
+import { glanceLine, graphReport } from "./graph-report.mjs";
 
 // Findings are PROPOSALS. Nothing here edits a repository — this module returns data and the
 // caller writes exactly one report file. The skill that finds things and the skill that changes
@@ -627,6 +628,8 @@ export function render(index, findings, { day }) {
     briefs: [...paths].filter((p) => p.endsWith("/AGENTS.md")),
     exists: (p) => paths.has(p),
   });
+  // Information, never a finding: it carries no offer and moves nothing in the ranking (ADR 0006).
+  const graph = glanceLine(graphReport(index));
 
   const lines = [
     `# Cortex findings — ${day}`,
@@ -641,6 +644,7 @@ export function render(index, findings, { day }) {
     // An empty language map rendered as a bare "- " bullet.
     ...(langs ? [`- ${langs}`] : []),
     `- ${index.areas.length} structural areas`,
+    ...(graph ? [graph] : []),
     index.commit ? `- indexed at \`${index.commit.slice(0, 7)}\`` : "- not a git repository",
     // A fact, not a finding: nothing in the repo can change it. See instructions.mjs.
     ...(leaves ? [`- ${leavesNote(leaves)}`] : []),

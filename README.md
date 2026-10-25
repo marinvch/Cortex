@@ -348,7 +348,9 @@ and copies anywhere. Seven tabs:
   with its scoped brief, busiest files and tests, and what Cortex generates. Missing pieces are
   drawn dashed, with the command that writes them.
 - **Files** — every file with who imports it and what it imports, both clickable.
-- **Areas** — the top-level shape, and which areas already have a scoped brief.
+- **Areas** — the top-level shape, which areas already have a scoped brief, the clusters, and the
+  graph report: the most-linked files, the imports between clusters that look least expected, one
+  shortest loop per import cycle, and the clusters with no test found.
 - **Gaps** — orphans, import cycles, and the busiest code with no test found, ranked by commits.
 - **Next steps** — the sequence above, with your repo's position marked.
 
@@ -371,6 +373,7 @@ node index/cortex-next.mjs .       # where this repo is; writes nothing at all
 node index/cortex-index.mjs .      # writes .cortex/index/index.json
 node index/cortex-findings.mjs .   # writes .cortex/findings/<date>.md
 node index/cortex-view.mjs .       # writes .cortex/view/repo.html and opens it
+node index/cortex-graph.mjs .      # hubs, bridges between clusters, cycles, untested clusters; writes nothing
 node index/cortex-enrich.mjs plan . # optional: plan the semantic enrichment pass
 node index/cortex-routes.mjs . --workspace  # which back-end handler serves each front-end call
 node index/cortex-contract.mjs .   # what this repo serves, calls and emits, as JSON; writes nothing without --out

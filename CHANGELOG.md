@@ -7,6 +7,21 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **The graph report: hubs, bridges, cycles and untested clusters.** `node index/cortex-graph.mjs .`
+  prints it, and `--json` gives the same report as data. It writes nothing.
+  - **Hubs** are the ten files with the most import links. Tests, fixtures, test helpers and
+    vendored files are left out. Files that import the same files and are imported by the same
+    files share one row, so a Go package is one hub, not eight.
+  - **Bridges** are imports from one cluster into another, least expected first, each with its
+    reasons. Crossing areas scores 2 and crossing clusters 1. An import of a file three or more
+    clusters share, or a re-export, scores 2 less. One row per importing file.
+  - **Cycles** show one shortest loop per group of files that import each other. A group made only
+    of tests and fixtures is counted, not listed.
+  - **Untested clusters** are the clusters where coverage found no test for any member.
+  - `/repo-map` shows the report on the Areas tab, under the clusters. The findings report's
+    glance gains one line: the cluster count, the most-linked files and the cycle count. It adds
+    no finding and no offer.
+
 - **Clusters: which files form one feature.** The index groups files that import each other more
   than they import the rest of the repo. It uses the Leiden method on the import graph, with a fixed
   visiting order, so the same tree gives the same clusters every time. Each cluster is named by its

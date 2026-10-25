@@ -109,6 +109,16 @@ export function isTestData(path) {
   return TEST_DATA_DIR.test(path);
 }
 
+// Directories of code that serves tests: render helpers, mock servers, fixture builders. Not tests,
+// so `isTestPath` rightly leaves them out of the test count. The viewer keeps them from taking a
+// label on the Map, and the graph report keeps them out of hubs and bridges.
+const TEST_SUPPORT_DIR = /(^|\/)(testing|__mocks__|mocks?|__fixtures__|fixtures?)\//i;
+
+/** Under a directory of code that serves tests. Never decides what is a test or what is covered. */
+export function inTestSupportDir(path) {
+  return TEST_SUPPORT_DIR.test(path);
+}
+
 /**
  * Under any directory a test, a fixture, an example or a mock lives in. Wider than `isTestPath` on
  * purpose: it ranks a secret-shaped string as a likely fixture, and it never decides what is a test.

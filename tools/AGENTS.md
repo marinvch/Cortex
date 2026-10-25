@@ -87,6 +87,25 @@ reader of the script would ever find it. A marker on a file that has stopped del
 failure too — a blanket permission nobody re-reads, the same rule `dormant-exemptions.test.sh`
 applies to the secrets marker.
 
+## `cortex-parsers.mjs` is the one tool that downloads code
+
+It installs the parser add-on ([ADR 0029](../docs/adr/0029-code-parsers-are-an-add-on-the-user-installs.md)),
+and its header holds the rules. The ones a change must keep:
+
+- **Nothing is requested before `checkUrl`** has run the address through `assertDestination` with
+  kind `npm`, and every redirect is checked again before it is followed. Plain http is allowed only
+  to a loopback host, which is what the tests' fake registry is.
+- **Nothing is unpacked before the sha512 matches the lock, and nothing is written before every
+  package has been fetched and checked.** The install lands in a temporary directory, is verified
+  against the lock, and is renamed into place, so a failure leaves the previous install or none.
+- **The tar reader refuses, it never skips.** An unsafe name or a link anywhere in the archive
+  refuses the whole package, wanted entry or not, and files are written to paths computed from the
+  lock, never from the archive.
+- **A delete goes through `resolveInRoot` (`core/paths.js`)** with `~/.cortex/parsers` as the root.
+  `destructive-guard.test.sh` scans shell tools only, so this file's guard is pinned by
+  `index/test/parsers-install.test.mjs`, which also runs the command against a loopback registry.
+  No test reaches the network.
+
 ## Tests: behaviour, not syntax
 
 `bash tools/test/run.sh` (add `<filter>` for one file). **Add a case when you touch anything here.**

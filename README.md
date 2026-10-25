@@ -358,8 +358,8 @@ It follows your OS theme, with a button to override it, and every word on it cle
 at 13px or larger — computed in the tests, not tuned by eye.
 
 Orphans are stated as questions, never as a delete list: import resolution is regex-based
-(ADR 0004 — a plugin install runs no build, so there is no parser), which makes dynamic imports
-invisible. Same for coverage — a file exercised only through a subprocess reads as untested, which
+(ADR 0004 — a plugin install runs no build, so the import graph needs no parser), which makes
+dynamic imports invisible. Same for coverage — a file exercised only through a subprocess reads as untested, which
 is the safe direction to be wrong in.
 
 Run `/summarize-files` first and each file card also carries what that file *does*.
@@ -389,6 +389,35 @@ repo mode, and `node mcp/ai-os.js graph <op>` answer `stats`, `node`, `neighbors
 `hubs`, `bridges` and `path` from the stored index. The hubs and bridges are the ones
 `cortex-graph.mjs --json` prints. Both refuse a missing or stale index and name the command that
 rebuilds it.
+
+### Which function calls which (optional add-on)
+
+The import graph says which files depend on each other. To see which functions call which, install
+the parser add-on once per machine:
+
+```bash
+node tools/cortex-parsers.mjs install   # downloads about 5.7 MB from registry.npmjs.org
+node tools/cortex-parsers.mjs status    # what is installed, against index/parsers.lock.json
+node tools/cortex-parsers.mjs remove    # deletes it again
+```
+
+It is optional, and nothing installs it for you. It fetches four MIT-licensed npm packages pinned
+in [`index/parsers.lock.json`](index/parsers.lock.json): the WebAssembly build of the tree-sitter
+parser and its grammars for JavaScript, TypeScript and TSX, and Python. Each tarball's sha512 is
+checked against the lock before anything is unpacked, then each file's sha256, and the files go to
+`~/.cortex/parsers/<lock digest>/`. Nothing lands in the plugin or in any repo, and no install
+script runs. On a `work` profile, `npm: registry.npmjs.org` must be on the
+[approved list](#approved-destinations-on-work); `--registry <url>` fetches the same paths from your
+company's mirror instead.
+
+With the add-on, `cortex-index.mjs` also writes `index.symbols`: the functions, classes and methods
+each file defines (`src/cart.ts#total`, `src/cart.ts#Cart.add`), and the calls between them. Each
+call carries a confidence. **extracted** means it is stated in the code: the same file, or a name an
+import binds. **inferred** means one candidate was found by name. **ambiguous** means several were,
+and all are kept. Calls that resolve to nothing are counted by reason, not listed. Clusters then
+weigh calls between files too, and `index.parser` names the parser that built the index. Without
+the add-on the index is exactly what it was, with `parser: "regex"`. Parsed files are cached in
+`.cortex/index/symbols/` by content, so an unchanged file is not parsed twice.
 
 ---
 
@@ -639,6 +668,12 @@ destination on your company's [approved list](#approved-destinations-on-work).
   - `cortex-section.mjs --replace team` rewrites the `## Working as a team` section of `CLAUDE.md`,
     and only when it is an earlier release's text that nobody has changed. Every other line of the
     file stays as it was, and a section the team edited is never replaced.
+- **`node tools/cortex-parsers.mjs install` is the one Cortex command that downloads code**, and
+  only when you run it. It fetches the parser packages pinned in `index/parsers.lock.json` from
+  registry.npmjs.org (or the mirror you name), refuses any tarball whose sha512 differs from the
+  lock, and writes only under `~/.cortex/parsers/`. On `work` the registry must be an approved
+  destination. Indexing never fetches anything, with the add-on or without it.
+  [ADR 0029](docs/adr/0029-code-parsers-are-an-add-on-the-user-installs.md).
 - **Updates are Claude Code's, not Cortex's.** Cortex never checks for a newer release. With
   auto-update turned on, Claude Code fetches the marketplace itself; the manual update is the two
   `claude plugin` commands under [Keep it current](#keep-it-current).
@@ -779,6 +814,7 @@ none.
 | `cortex-preflight.mjs` | Root, profile, employer denylist and index freshness — what every ritual asks before it writes |
 | `cortex-scrub.mjs` | The publish gate for shell scripts: credentials, the employer denylist on `home`, personal data; `--check` exits 2 on a refusal and names only kinds |
 | `cortex-destinations.mjs` | Where this install may send things: `status` shows the profile and the approved-destinations list, `check <git\|https\|npm> <url>` exits 2 when the destination is refused |
+| `cortex-parsers.mjs` | The optional parser add-on: `install` fetches the packages pinned in `index/parsers.lock.json` and checks their integrity, `status` compares what is installed with the lock, `remove` deletes it; exit 2 on a refused download |
 | `cortex-setup.mjs` | `--agents copilot,gemini,codex` — register the Cortex MCP server in each agent's own config, project scope where it can be committed; a dry run unless `--write` |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |

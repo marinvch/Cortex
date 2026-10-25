@@ -11,6 +11,7 @@ import { detectStack } from "./stack.mjs";
 import { extractRoutes } from "./routes.mjs";
 import { depthOf } from "./depth.mjs";
 import { clustersOf } from "./clusters.mjs";
+import { buildSymbols, callEdges } from "./symbols.mjs";
 import { vendoredPaths, vendoredStats } from "./vendored.mjs";
 import { INDEX_VERSION } from "./format.mjs";
 
@@ -179,9 +180,17 @@ export function buildIndex(root, opts = {}) {
     if (typeof d === "number") f.depth = d;
   }
 
-  // Which files form one feature, by Leiden over the same edges (lib/clusters.mjs). A file with no
-  // in-repo edge carries `cluster: null`, so every file states its answer.
-  const { clusters, byPath: clusterOf } = clustersOf({ files, edges });
+  // Definitions and calls, only when the parser add-on was loaded and handed in (lib/parsers.mjs,
+  // docs/adr/0029). Loading is asynchronous and this function is not, so the caller loads it;
+  // without it nothing below changes and the index says `parser: "regex"`.
+  const symbols = opts.parsers
+    ? buildSymbols({ files, read: (rel) => text.read(rel), resolve: (spec, f) => resolver.resolve(spec, f), parsers: opts.parsers, cache: opts.symbolCache ?? null })
+    : null;
+
+  // Which files form one feature, by Leiden over the same edges (lib/clusters.mjs), and over the
+  // calls between files when symbols were built. A file with no in-repo edge carries
+  // `cluster: null`, so every file states its answer.
+  const { clusters, byPath: clusterOf } = clustersOf({ files, edges: symbols ? [...edges, ...callEdges(symbols.calls)] : edges });
   for (const f of files) f.cluster = clusterOf.get(f.path) ?? null;
 
   const languages = {};
@@ -238,5 +247,11 @@ export function buildIndex(root, opts = {}) {
     // `cortex-routes.mjs` to join across a workspace. Always present, so "found none" and "an index
     // older than the route map" stay different answers. See lib/routes.mjs.
     routes: extractRoutes(files, (rel) => text.read(rel)),
+    // Which parser read the code: `regex` for imports alone, `tree-sitter@<lock digest>` when the
+    // add-on also built `symbols`. Two machines that differ only in the add-on write different
+    // indexes, and this is the field that says why (ADR 0029).
+    parser: symbols ? symbols.parser : "regex",
+    // Kept apart from `files`, so no reader of `files` changes. Present only when built.
+    ...(symbols ? { symbols } : {}),
   };
 }

@@ -7,6 +7,31 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **Symbols: which function calls which, from an optional parser add-on.** `node
+  tools/cortex-parsers.mjs install` downloads the parser packages pinned in
+  `index/parsers.lock.json` and installs them under `~/.cortex/parsers/`. Without it, nothing
+  changes.
+  - **The add-on.** The WebAssembly build of the tree-sitter parser, and grammars for JavaScript,
+    TypeScript, TSX and Python: four MIT packages, about 5.7 MB, from registry.npmjs.org or a
+    mirror named with `--registry`.
+    - Each tarball's sha512 must match the lock, then each file's sha256. One mismatch refuses
+      the whole install and writes nothing.
+    - The tar reader is Cortex's own. It refuses a tarball with a `..` path, an absolute path, a
+      link or a device in it.
+    - On a `work` profile the registry must be an approved destination.
+    - `status` compares what is installed with the lock, and `remove` deletes it.
+  - **The index.** With the add-on, `cortex-index.mjs` writes `index.symbols`:
+    - every function, class and method a file defines, as `path#name` or `path#Class.method`;
+    - each call between them, with its line and a confidence: `extracted`, `inferred` or
+      `ambiguous`;
+    - the calls that resolve to nothing, counted by reason.
+  - Clusters weigh calls between files as well as imports. `index.parser` says which parser built
+    the index: `regex`, or `tree-sitter@<lock digest>`.
+  - Parsed files are cached in `.cortex/index/symbols/`, keyed by content, so a warm run writes
+    the same bytes as a cold one.
+  - Without the add-on the index is the same as before, plus `parser: "regex"`. An install that is
+    partial or does not match the lock is not loaded, and the index says why in one line.
+
 - **The `graph` MCP tool, and `ai-os graph` for agents without MCP.** Questions about a repo's
   import graph, answered from its index. It writes nothing and runs in repo mode only.
   - `stats`: files, edges, clusters and cycles, and how old the index is.

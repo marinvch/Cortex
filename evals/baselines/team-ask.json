@@ -1,11 +1,12 @@
 {
   "skill": "team-ask",
-  "bodySha256": "174ecdd4097253a6701f1754c408e02cfcad82ed35726e71fe8b7e8e3835798b",
+  "bodySha256": "86b0c3f0f24208a4cb5a1f55686dd9a051eede5df804a02beb3d2aefd273ec15",
   "split": "test",
   "n": 14,
   "hard": 1,
   "soft": 1,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-10-12T05:10:59.080Z"
+  "recordedAt": "2026-10-12T05:10:59.080Z",
+  "rekeyed": "3.0.0 rename: the score was measured on the body with sha256 174ecdd4097253a6701f1754c408e02cfcad82ed35726e71fe8b7e8e3835798b, before the rename, and has not been measured on this one"
 }

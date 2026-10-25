@@ -10,11 +10,11 @@ import { scoreTask } from "../score.mjs";
 
 const SCORER = fileURLToPath(new URL("../score.mjs", import.meta.url));
 const truth = { uncommitted: "none", hidden: [], route: "/merge-work" };
-const task = { id: "resume-test-001", skill: "resume", truth };
+const task = { id: "resume-work-test-001", skill: "resume-work", truth };
 const RIGHT = "UNCOMMITTED: none\nHIDDEN: none\nROUTE: /merge-work";
 
 test("scoreTask sends the reply to the task's own scenario and keeps the task's id", () => {
-  assert.deepEqual(scoreTask(task, RIGHT), { id: "resume-test-001", hard: 1, soft: 1, reason: "correct" });
+  assert.deepEqual(scoreTask(task, RIGHT), { id: "resume-work-test-001", hard: 1, soft: 1, reason: "correct" });
   assert.equal(scoreTask(task, "ROUTE: /end-of-day-summary").hard, 0);
 });
 
@@ -26,12 +26,12 @@ test("as a command it reads one JSON per line and writes one result per line, sk
   const input = [
     JSON.stringify({ task, prediction: RIGHT }),
     "",
-    JSON.stringify({ task: { ...task, id: "resume-test-002" }, prediction: "ROUTE: /end-of-day-summary" }),
+    JSON.stringify({ task: { ...task, id: "resume-work-test-002" }, prediction: "ROUTE: /end-of-day-summary" }),
   ].join("\n");
   const run = spawnSync(process.execPath, [SCORER], { input, encoding: "utf8" });
   assert.equal(run.status, 0, run.stderr);
   const rows = run.stdout.trim().split("\n").map((l) => JSON.parse(l));
-  assert.deepEqual(rows.map((r) => [r.id, r.hard]), [["resume-test-001", 1], ["resume-test-002", 0]]);
+  assert.deepEqual(rows.map((r) => [r.id, r.hard]), [["resume-work-test-001", 1], ["resume-work-test-002", 0]]);
   assert.equal(rows[0].reason, "correct");
 });
 

@@ -312,6 +312,22 @@ test("the hub is the member with the most neighbours, ties by path, and ids run 
   assert.deepEqual(bigger.map((c) => [c.id, c.hub, c.size]), [["c1", "z/x.js", 4], ["c2", "m/one.js", 3]]);
 });
 
+test("a test helper never names a cluster that has code in it", () => {
+  // helper.js is imported by every test and is the best-connected file; lib.js is the code.
+  const t = (path) => ({ path, category: "code", isTest: true });
+  const files = [t("test/helper.js"), t("test/a.test.js"), t("test/b.test.js"), code("src/lib.js")];
+  const edges = [
+    { from: "test/a.test.js", to: "test/helper.js" },
+    { from: "test/b.test.js", to: "test/helper.js" },
+    { from: "test/a.test.js", to: "src/lib.js" },
+    { from: "test/helper.js", to: "src/lib.js" },
+  ];
+  const [only] = clustersOf({ files, edges }).clusters.items;
+  assert.equal(only.hub, "src/lib.js");
+  const allTests = clustersOf({ files: files.slice(0, 3), edges: edges.slice(0, 2) }).clusters.items;
+  assert.equal(allTests[0].hub, "test/helper.js");
+});
+
 test("areas count members per top-level area, keys in order", () => {
   const files = [code("src/billing/a.js"), code("src/billing/b.js"), code("src/ui/c.js"), code("lib.js")];
   // Every pair imports one way, so the four are one cluster across three areas.

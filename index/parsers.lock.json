@@ -1,0 +1,64 @@
+{
+  "format": 1,
+  "registry": "https://registry.npmjs.org/",
+  "runtime": {
+    "package": "web-tree-sitter",
+    "module": "package/web-tree-sitter.js",
+    "wasm": "package/web-tree-sitter.wasm"
+  },
+  "grammars": {
+    "javascript": { "package": "tree-sitter-javascript", "wasm": "package/tree-sitter-javascript.wasm" },
+    "typescript": { "package": "tree-sitter-typescript", "wasm": "package/tree-sitter-typescript.wasm" },
+    "tsx": { "package": "tree-sitter-typescript", "wasm": "package/tree-sitter-tsx.wasm" },
+    "python": { "package": "tree-sitter-python", "wasm": "package/tree-sitter-python.wasm" }
+  },
+  "packages": [
+    {
+      "name": "web-tree-sitter",
+      "version": "0.27.1",
+      "license": "MIT",
+      "tarball": "https://registry.npmjs.org/web-tree-sitter/-/web-tree-sitter-0.27.1.tgz",
+      "integrity": "sha512-qtx0VyUyNRHtL3ze7+v0hCKB/sLcAmY7ZAVp/ZK/bCj0yED8ptvNrr7Vd7DwDyKDWN9baqcUx4uaD2r2ql+6IA==",
+      "files": [
+        { "path": "package/LICENSE", "sha256": "c5cfb43042b6b72045f4ba997834d0a7786d2793d91680868b5815b39f14fc78" },
+        { "path": "package/package.json", "sha256": "f725ee1afe1842402bb87267e695a5ba2f199da9f17fdf3751d37494ee0fd05e" },
+        { "path": "package/web-tree-sitter.js", "sha256": "7c49e3c1d87e24e0bb4c2def909d17154dfde281f5f8280225450090bb4b8110" },
+        { "path": "package/web-tree-sitter.wasm", "sha256": "beca80e44cccbf2299ed4d1e3fa6462a9a6fe818aeebf847547a392227ce4acc" }
+      ]
+    },
+    {
+      "name": "tree-sitter-javascript",
+      "version": "0.25.0",
+      "license": "MIT",
+      "tarball": "https://registry.npmjs.org/tree-sitter-javascript/-/tree-sitter-javascript-0.25.0.tgz",
+      "integrity": "sha512-1fCbmzAskZkxcZzN41sFZ2br2iqTYP3tKls1b/HKGNPQUVOpsUxpmGxdN/wMqAk3jYZnYBR1dd/y/0avMeU7dw==",
+      "files": [
+        { "path": "package/LICENSE", "sha256": "2e0110e07abef7c2548b26ec9d6969775617ca539a0dc8dbeeb14d6452c711d1" },
+        { "path": "package/tree-sitter-javascript.wasm", "sha256": "5fb488d0cabb4775a594bab85682de5ad6ce83c0d6ac997a9f82dd084d571240" }
+      ]
+    },
+    {
+      "name": "tree-sitter-typescript",
+      "version": "0.23.2",
+      "license": "MIT",
+      "tarball": "https://registry.npmjs.org/tree-sitter-typescript/-/tree-sitter-typescript-0.23.2.tgz",
+      "integrity": "sha512-e04JUUKxTT53/x3Uq1zIL45DoYKVfHH4CZqwgZhPg5qYROl5nQjV+85ruFzFGZxu+QeFVbRTPDRnqL9UbU4VeA==",
+      "files": [
+        { "path": "package/LICENSE", "sha256": "49bf33cf78ef5897e4e161ce1517df7de1ae5042a65b6bcfd44401e0fc606559" },
+        { "path": "package/tree-sitter-typescript.wasm", "sha256": "778025db5a8be0e70f8ccc3671e486dfeddd048c25d9e8a70c26de2e1bf6f97d" },
+        { "path": "package/tree-sitter-tsx.wasm", "sha256": "79e5da75ea62855a0cd67177685f0164eac87d5f630b3cbe1e0a099751ad30f8" }
+      ]
+    },
+    {
+      "name": "tree-sitter-python",
+      "version": "0.25.0",
+      "license": "MIT",
+      "tarball": "https://registry.npmjs.org/tree-sitter-python/-/tree-sitter-python-0.25.0.tgz",
+      "integrity": "sha512-eCmJx6zQa35GxaCtQD+wXHOhYqBxEL+bp71W/s3fcDMu06MrtzkVXR437dRrCrbrDbyLuUDJpAgycs7ncngLXw==",
+      "files": [
+        { "path": "package/LICENSE", "sha256": "d724405ce238a22c0d35769c5a36b386ad5958192efe8bbb304fb2896254575f" },
+        { "path": "package/tree-sitter-python.wasm", "sha256": "16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47" }
+      ]
+    }
+  ]
+}

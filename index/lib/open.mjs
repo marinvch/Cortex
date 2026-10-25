@@ -24,20 +24,19 @@
 // (is this path inside the root we may touch). This is the opening of a Cortex command, and it is
 // the only place in `index/` that is allowed to call `process.exit`.
 
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { rootProblem } from "./root.mjs";
-import { INDEX_VERSION, defaultIndexPath } from "./format.mjs";
+import { defaultIndexPath } from "./format.mjs";
+import { indexFreshness, readIndex, rebuildHint } from "../../core/index-file.js";
 
 // Where an index lives is a fact about the format, so it is declared there — but a CLI asks the
 // front door for everything, and re-exporting is what keeps that true without a second definition.
 export { INDEX_REL, defaultIndexPath } from "./format.mjs";
 
-/** The command that produces one, quoted back to the user with the root they actually typed. */
-function rebuildHint(rootArg) {
-  return `node index/cortex-index.mjs ${rootArg || "."}`;
-}
+// Reading an index and deciding whether it is stale are `core/index-file.js`'s, because the `graph`
+// MCP tool asks both questions of the same file and may not import this package. One definition
+// of stale, re-exported here so every CLI and `tools/cortex-preflight.mjs` still ask the front door.
+export { indexFreshness, readIndex };
 
 // --- what landed in someone's repository ----------------------------------------------------------
 
@@ -56,114 +55,7 @@ export function generatedNotice(gen) {
   return out.length ? out.join("\n") + "\n" : "";
 }
 
-// --- reading an index, with one error mode ---------------------------------------------------------
-
-/**
- * Read an index file, or say exactly what is wrong with it.
- *
- * Returns `{ index }` on success and `{ problem }` on failure — text, not an exception, so the
- * caller keeps ownership of its exit code and the tests can drive this from literals.
- *
- * Three failures, one shape:
- * - **absent** — there is no file there.
- * - **unreadable** — it is not JSON. Four CLIs used to hand the user a raw `SyntaxError` stack for
- *   this, which names the parser and not the file.
- * - **wrong format** — `version` is not the one this build reads. Nothing checked that at all, so a
- *   v1 index read by a v2 consumer produced a plausible answer from a shape that no longer held.
- *   A missing `version` counts as a mismatch: it means an index older than the field itself.
- */
-export function readIndex(indexPath, { rootArg = "" } = {}) {
-  if (!existsSync(indexPath)) {
-    return { problem: `no index at ${indexPath}\nRun: ${rebuildHint(rootArg)}\n`, kind: "absent" };
-  }
-  let index;
-  try {
-    index = JSON.parse(readFileSync(indexPath, "utf8"));
-  } catch (e) {
-    return {
-      problem:
-        `index at ${indexPath} is not readable JSON — ${e.message}\n` +
-        `It is generated, so the fix is to write it again: ${rebuildHint(rootArg)}\n`,
-      kind: "unreadable",
-    };
-  }
-  const found = index?.version ?? null;
-  if (found !== INDEX_VERSION) {
-    return {
-      problem:
-        `index at ${indexPath} is format ${found ?? "(none)"}; this Cortex reads ${INDEX_VERSION}.\n` +
-        `Reading it would produce a confident answer from a shape that no longer holds. ` +
-        `Re-run: ${rebuildHint(rootArg)}\n`,
-      kind: "version",
-    };
-  }
-  return { index };
-}
-
 // --- freshness -------------------------------------------------------------------------------------
-
-/**
- * Is this index older than the code it describes?
- *
- * "Re-run the index first if it is stale" is advice six rituals give and none could act on, because
- * none of them defined stale. This is the one definition, in `index/lib/` where the CLIs can call
- * it. It accepts a directory as well as a file, and `tools/cortex-preflight.mjs` imports it rather
- * than keeping a copy of its own.
- *
- * mtime, not git history, because an uncommitted edit is exactly the case a pre-read check must
- * catch. The known cost: a `git checkout` or a fresh clone rewrites mtimes and reads as stale when
- * nothing changed. That error points at re-running a deterministic index — cheap and correct — while
- * the opposite error hands someone a confident map of code that moved. Prefer the cheap one.
- *
- * Only tracked files count. A `node_modules` refresh is not a reason to re-index, and treating it as
- * one trains the reader to ignore the warning.
- */
-export function indexFreshness(root, target) {
-  let newest = 0;
-  let stat = null;
-  try {
-    stat = statSync(target);
-  } catch {
-    stat = null;
-  }
-  if (stat?.isDirectory()) {
-    for (const name of readdirSync(target)) {
-      try {
-        newest = Math.max(newest, statSync(join(target, name)).mtimeMs);
-      } catch { /* a file that vanished mid-walk is not a freshness signal */ }
-    }
-  } else if (stat) {
-    newest = stat.mtimeMs;
-  }
-  if (!newest) return { present: false, stale: null, changedSince: [] };
-
-  const ageDays = Math.floor((Date.now() - newest) / 86_400_000);
-
-  let tracked = null;
-  try {
-    tracked = execFileSync("git", ["ls-files"], {
-      cwd: root,
-      encoding: "utf8",
-      maxBuffer: 64 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-  } catch {
-    tracked = null;
-  }
-  if (tracked === null) {
-    return { present: true, ageDays, stale: null, changedSince: [], reason: "not a git repo — cannot tell" };
-  }
-
-  const changed = [];
-  for (const rel of tracked.split("\n")) {
-    if (!rel || rel.startsWith(".cortex/")) continue;
-    try {
-      if (statSync(join(root, rel)).mtimeMs > newest) changed.push(rel);
-    } catch { /* deleted-but-tracked; a file that is gone cannot make the index stale */ }
-    if (changed.length >= 5) break;
-  }
-  return { present: true, ageDays, stale: changed.length > 0, changedSince: changed };
-}
 
 /**
  * The one line a command prints when the index it just read is older than the repo, or `null`.

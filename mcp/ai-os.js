@@ -19,6 +19,7 @@ import { genNoteId } from "./lib/noteid.js";
 import { syncFrom, integrationsFrom } from "./lib/sync.js";
 import { integrationsFromFlags, checkboxes, defaultPrimary, CREDENTIAL_VARS } from "./lib/integrations.js";
 import { renderSyncWorkflow, WORKFLOW_REL } from "./lib/sync-workflow.js";
+import { graphAnswer, graphRepo } from "./lib/graph.js";
 
 // The tracker flags `team init --integrations` and `integrations add` share (#624).
 const INTEGRATION_FLAGS = [
@@ -487,7 +488,112 @@ function cmdDigest(args) {
   return 0;
 }
 
-const CATCH_UP_USAGE = "usage: ai-os catch-up --since <YYYY-MM-DD> [--project <slug>] [--team <name>]";
+const GRAPH_USAGE =
+  "usage: ai-os graph <op> [args] [--json]\n" +
+  "  ai-os graph stats                          files, edges, clusters, cycles, and how old the index is\n" +
+  "  ai-os graph node <file>                    its cluster, area, imports, importers, the tests that import it\n" +
+  "  ai-os graph neighbors <file> [--depth 1-3] imports and importers, out to that many hops\n" +
+  "  ai-os graph cluster <id|file>              members, hub, cohesion and areas\n" +
+  "  ai-os graph hubs | bridges                 the graph report's lists, as cortex-graph.mjs --json has them\n" +
+  "  ai-os graph path <from> <to> [--directed]  the shortest import path between two files\n" +
+  "Reads the repo CORTEX_ROOT names (a repo's .cortex/), else the git repo you are in. Writes nothing.";
+
+/** The bare arguments after the op, skipping each flag and the value parseArgs took for it. */
+function positionals(argv) {
+  const out = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i].startsWith("--")) {
+      const next = argv[i + 1];
+      if (next !== undefined && !next.startsWith("--") && argv[i] !== "--directed" && argv[i] !== "--json") i++;
+      continue;
+    }
+    out.push(argv[i]);
+  }
+  return out;
+}
+
+// The `graph` tool's CLI half. The answer is `graphAnswer`'s, the same call the server makes; this
+// maps arguments onto it and prints. A refused index exits 2, the index CLIs' code for "this repo is
+// not in a state I can answer about"; a wrong question exits 1 through the handler below.
+function cmdGraph(op, argv, args, brain) {
+  if (!op || op.startsWith("--")) throw new Error(GRAPH_USAGE);
+  for (const k of ["file", "from", "to", "cluster", "depth"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${GRAPH_USAGE}`);
+  const [a, b] = positionals(argv);
+  const q = { op, directed: args.directed !== undefined };
+  if (op === "node" || op === "neighbors") q.file = args.file ?? a;
+  if (op === "neighbors" && args.depth !== undefined) q.depth = Number(args.depth);
+  if (op === "cluster") {
+    if (args.cluster) q.cluster = args.cluster;
+    else if (args.file) q.file = args.file;
+    else if (a && /^c\d+$/.test(a)) q.cluster = a;
+    else if (a) q.file = a;
+  }
+  if (op === "path") {
+    q.from = args.from ?? a;
+    q.to = args.to ?? (args.from ? a : b);
+  }
+  const res = graphAnswer(graphRepo(brain, { cwd: process.cwd() }), q);
+  if (res.refused) {
+    if (args.json) console.log(JSON.stringify(res, null, 2));
+    else console.error(`${res.message}\nRun: ${res.rebuild}`);
+    return 2;
+  }
+  if (args.json) { console.log(JSON.stringify(res, null, 2)); return 0; }
+  for (const line of graphText(res)) console.log(line);
+  return 0;
+}
+
+/** A graph answer as lines for a person. `--json` is the whole answer. */
+function graphText(res) {
+  const lines = [];
+  const list = (title, l, fmt = (x) => x) => {
+    lines.push(`${title} (${l.total}${l.truncated ? `, first ${l.items.length}` : ""}):`);
+    for (const x of l.items) lines.push(`  ${fmt(x)}`);
+  };
+  if (res.index.state === "unknown") lines.push(`Index freshness unknown: ${res.index.reason}`);
+  switch (res.op) {
+    case "stats":
+      lines.push(`${res.files} files, ${res.edges} import edges, ${res.clusters} clusters (${res.unclustered} code files in none).`);
+      lines.push(`${res.cycles} import cycles over ${res.cycleFiles} files, and ${res.testCycles} among tests only. ${res.bridgeCount} bridges between clusters.`);
+      lines.push(`Index ${res.index.ageDays}d old${res.index.commit ? ` at ${String(res.index.commit).slice(0, 8)}` : ""}. Every count is a floor.`);
+      break;
+    case "node":
+      lines.push(`${res.path}: ${res.kind}, area ${res.area}, ${res.cluster ?? "no cluster"}${res.lines ? `, ${res.lines} lines` : ""}`);
+      if (res.summary) lines.push(`  ${res.summary.summary}`);
+      if (res.summaryNote) lines.push(`  ${res.summaryNote.split("\n")[0]}`);
+      list("Imports", res.imports);
+      list("Imported by", res.importers);
+      list("Tests that import it", res.testsImporting);
+      break;
+    case "neighbors":
+      list(`Imports, ${res.depth} deep`, res.imports, (x) => `${x.depth}  ${x.path}`);
+      list(`Imported by, ${res.depth} deep`, res.importers, (x) => `${x.depth}  ${x.path}`);
+      break;
+    case "cluster":
+      if (!res.cluster) { lines.push(res.note); break; }
+      lines.push(`${res.cluster}: ${res.size} files, hub ${res.hub}, cohesion ${res.cohesion}`);
+      lines.push(`Areas: ${Object.entries(res.areas ?? {}).map(([k, v]) => `${k} ${v}`).join(", ")}`);
+      list("Members", res.members);
+      break;
+    case "hubs":
+      for (const h of res.hubs) lines.push(`${h.path}  ${h.links} links, imported by ${h.inbound}, ${h.cluster ?? "no cluster"}${h.twins.length ? `, and ${h.twins.length} with the same links` : ""}`);
+      if (!res.hubs.length) lines.push("No hubs.");
+      break;
+    case "bridges":
+      lines.push(`${res.bridges.length} of ${res.bridgeCount} bridges, most unexpected first:`);
+      for (const br of res.bridges) lines.push(`  ${br.from} -> ${br.to}  score ${br.score}, ${br.fromCluster} to ${br.toCluster}`);
+      break;
+    case "path":
+      if (!res.found) { lines.push(res.note); break; }
+      lines.push(`${res.length} step${res.length === 1 ? "" : "s"}, ${res.directed ? "following imports only" : "either direction"}:`);
+      lines.push(`  ${res.from}`);
+      for (const s of res.steps) lines.push(`    ${s.edge === "imports" ? "imports" : "is imported by"} ${s.to}`);
+      break;
+  }
+  return lines;
+}
+
+const CATCH_UP_USAGE ="usage: ai-os catch-up --since <YYYY-MM-DD> [--project <slug>] [--team <name>]";
 
 // Which sources are read, which repo and which project is `catchUp`'s (lib/catchup.js). This parses
 // the flags, prints the document, and turns a refusal into this command's own words.
@@ -525,7 +631,7 @@ function open(what, { rootOptional = false } = {}) {
     return brain;
   } catch (e) {
     // Only a command that writes nothing and reads no vault it was not given may go on without a
-    // root — today that is `catch-up` alone. The profile was settled before this error was thrown
+    // root — today that is `catch-up` and `graph`. The profile was settled before this error was thrown
     // (lib/brain.js), so a misspelt CORTEX_PROFILE still fails here rather than riding along.
     if (e instanceof NoRootError && rootOptional) return null;
     if (e instanceof NoRootError) throw new Error(`${e.message} (required for ${what})`);
@@ -552,6 +658,10 @@ The team-brain (needs a repo joined with \`team add\`, or a vault with a team cl
   sync [--dry-run] [--status]                move asks and tracker items both ways; one commit per run
   catch-up --since <YYYY-MM-DD>              what the team captured, and which contracts changed
   project list|check|remove                  the projects the team-brain knows
+
+This repo's import graph (reads its Cortex index; writes nothing):
+  graph stats|node|neighbors|cluster|hubs|bridges|path
+                                             ask the import graph; graph with no op prints each op's arguments
 
 Other:
   digest --repo <path> --since <date> --out <file>
@@ -591,8 +701,11 @@ try {
       process.exit(await cmdSync(args, open("sync")));
     case "integrations":
       process.exit(cmdIntegrations(rest[0], args, open("integrations")));
+    case "graph":
+      // Writes nothing, so like catch-up it reads the repo the cwd is in when no root is set.
+      process.exit(cmdGraph(rest[0], rest.slice(1), args, open("graph", { rootOptional: true })));
     default:
-      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract|sync|integrations|help> [--flags]");
+      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract|sync|integrations|graph|help> [--flags]");
       process.exit(sub ? 1 : 2);
   }
 } catch (e) {

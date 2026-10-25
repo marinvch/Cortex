@@ -1,4 +1,9 @@
 import { javaCode } from "./imports.mjs";
+import { TEST_DATA_DIRS, inTestSupportDir, isTestData } from "../../core/path-kinds.js";
+
+// The fixture and test-support rules live in `core/path-kinds.js`, because the `graph` MCP tool
+// leaves out the same files the graph report does. Re-exported so this stays the module to ask.
+export { inTestSupportDir, isTestData };
 
 // Extension → language. Deliberately small: a context manager needs to know what KIND of file
 // something is, not to be a linguist. Unknown extensions fall through to "other" and still get
@@ -97,27 +102,8 @@ export function canBeTest(path) {
   return cat === "code" || cat === "script";
 }
 
-// What tests run against, not code a test should cover: inputs, expected outputs, sample trees.
-// Go's toolchain skips `testdata/` for the same reason. `solutions/` is not here: a Next.js app
-// routes `/solutions` from `app/solutions/`, and that is product code.
-const TEST_DATA_DIRS = "fixtures?|__fixtures__|testdata";
-const TEST_DATA_DIR = new RegExp(`(^|/)(?:${TEST_DATA_DIRS})/`, "i");
+// Built from the fixture list in `core/path-kinds.js`, so a fixture directory added there is test-like here.
 const TEST_LIKE_DIR = new RegExp(`(^|/)(?:tests?|__tests__|spec|examples?|mocks?|${TEST_DATA_DIRS})(/|$)`, "i");
-
-/** Under a fixture directory. Coverage never asks for a test of it. */
-export function isTestData(path) {
-  return TEST_DATA_DIR.test(path);
-}
-
-// Directories of code that serves tests: render helpers, mock servers, fixture builders. Not tests,
-// so `isTestPath` rightly leaves them out of the test count. The viewer keeps them from taking a
-// label on the Map, and the graph report keeps them out of hubs and bridges.
-const TEST_SUPPORT_DIR = /(^|\/)(testing|__mocks__|mocks?|__fixtures__|fixtures?)\//i;
-
-/** Under a directory of code that serves tests. Never decides what is a test or what is covered. */
-export function inTestSupportDir(path) {
-  return TEST_SUPPORT_DIR.test(path);
-}
 
 /**
  * Under any directory a test, a fixture, an example or a mock lives in. Wider than `isTestPath` on

@@ -59,6 +59,10 @@
 // unclustered may be loaded at runtime. A cluster is a floor, in the sense depth is.
 
 import { layerKeyFor } from "./layers.mjs";
+import { UNSURE_WEIGHT, edgeWeight } from "../../core/graph.js";
+
+// The edge weight is shared with the bridge score, which `core/graph.js` computes for both leaves.
+export { UNSURE_WEIGHT, edgeWeight };
 
 export const RESOLUTION = 1;
 /** A cluster holding more than this share of the clustered files is clustered again… */
@@ -69,8 +73,6 @@ export const LARGE_MIN_FILES = 10;
 export const LOOSE_COHESION = 0.05;
 /** …when it holds at least this many files. */
 export const LOOSE_MIN_FILES = 50;
-/** The weight of an edge whose `confidence` is `ambiguous`. */
-export const UNSURE_WEIGHT = 0.5;
 /** Cohesion is written with this many decimals, so the bytes carry no float noise. */
 export const COHESION_DECIMALS = 3;
 
@@ -81,11 +83,6 @@ const MAX_ROUNDS = 10;
 const MAX_LEVELS = 64;
 
 const byCodeUnit = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
-
-/** The weight one import edge adds to its pair. */
-export function edgeWeight(edge) {
-  return edge?.confidence === "ambiguous" ? UNSURE_WEIGHT : 1;
-}
 
 // --- the graph ------------------------------------------------------------------------------------
 

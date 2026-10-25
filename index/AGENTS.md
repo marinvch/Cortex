@@ -74,7 +74,8 @@ holds the rules for that module alone — read it before editing the module.
   rather than refused.
 - **Enrichment is additive.** It attaches summaries to files and never edits `index.json`, adds
   files, or removes them.
-- **`enriched.json` has one reader — `readEnrichment` in `lib/enrich.mjs` — and it returns a state,
+- **`enriched.json` has one reader — `readEnrichment`, defined in `core/index-file.js` and
+  re-exported by `lib/enrich.mjs` — and it returns a state,
   not a document.** **`ok` is the only one a caller may trust**; the states, their notes and why
   staleness never points at `merge` are in its JSDoc. The viewer declines stale enrichment — the
   policy and its argument are in `cortex-view.mjs`.
@@ -117,7 +118,9 @@ holds the rules for that module alone — read it before editing the module.
   [ADR 0003](../docs/adr/0003-git-decides-what-belongs-to-a-repo.md) holds the argument and what it
   rules out — read it before proposing a second ignore source. Which directories are skipped by
   name, and which losses are counted, is `lib/walk.mjs`'s (`AMBIGUOUS_SKIP_DIRS`, `listFiles`).
-- **"Stale" has exactly one definition, and it is `indexFreshness` in `lib/open.mjs`.** It briefly
+- **"Stale" has exactly one definition, and it is `indexFreshness`**, in `core/index-file.js` since
+  the `graph` MCP tool needed it, and re-exported by `lib/open.mjs`, which every CLI and
+  `tools/cortex-preflight.mjs` still ask. `readIndex` and `INDEX_VERSION` moved with it. It briefly
   meant two things, which is worth remembering because neither copy was wrong: preflight's was
   written when it was the only reachable definition, and the CLIs grew one because they could not
   reach `tools/`. Two right answers to one question still disagree the moment one of them changes.
@@ -160,8 +163,12 @@ holds the rules for that module alone — read it before editing the module.
   bulletproof-react (410 files, 993 edges) and 505 ms on a synthetic 20,000. 37 guards mutated, 36
   test failures. The other is the fallback that aggregates by the moved partition when refinement
   merged nothing. Without it the same answer comes back after up to 64 idle levels.
-- **The graph report** (`lib/graph-report.mjs`, `cortex-graph.mjs`) reads clusters and cycles off
-  the index and never recomputes either. Its header holds the rules. Two departures from the spec
+- **The graph report** (`core/graph.js`, re-exported by `lib/graph-report.mjs`; printed by
+  `cortex-graph.mjs`) reads clusters and cycles off the index and never recomputes either. Its
+  header holds the rules. It is in `core/` because the `graph` MCP tool returns the same hubs and
+  bridges, and so are `layerKeyFor`, `isTestData` and `inTestSupportDir` (`core/path-kinds.js`),
+  `edgeWeight` and Tarjan's `components`; `layers.mjs`, `langs.mjs`, `clusters.mjs` and `depth.mjs`
+  re-export them, so no caller here changed. Two departures from the spec
   were measured, not chosen: the spec's +1 for a low-degree file reaching a hub fired on 27
   bridges across nine repos and 26 were the most expected import in the repo, so it is not
   scored; and a shared dependency or a re-export scores 2 less. Hubs and bridges leave out tests,

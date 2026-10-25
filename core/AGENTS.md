@@ -87,8 +87,9 @@ here, which is why the directory is small and stays small.
   - **The order is: empty, the publish gate (`gate.js`), the root check, the author, then the disk.** A refused
     write leaves no file and no day directory, and `append()` never creates `.cortex/`.
     `test/memory.test.js` compares the whole tree after each refusal.
-  - **`author.js` is the one module in `core/` that starts a process**: `git config user.name`, as
-    an argument array. `test/author.test.js` injects git in every case.
+  - **`author.js` and `index-file.js` are the two modules in `core/` that start a process**, each
+    one git command as an argument array: `git config user.name`, and `git ls-files` for
+    freshness. `test/author.test.js` injects git in every case; `indexFreshness` takes `tracked`.
   - `test/memory-fixture.js` builds every reader's fixture with this writer.
   [The design](../docs/specs/2026-10-09-team-memory-design.md), "What names an author".
 - **`root` means the `.cortex` directory, and `append()` enforces it.** The contract used to live
@@ -120,6 +121,23 @@ here, which is why the directory is small and stays small.
   `mcp/lib/contract.js` normalises a "who calls" question with it. `callReaches` is the route
   map's rule — a call's `{}` meets only an endpoint's `{}` — so both leaves match the same way.
   Pure; it reads nothing.
+
+- **`graph.js`, `path-kinds.js` and `index-file.js` are the import graph's shared half** (G3 of
+  [the code-graph design](../docs/specs/2026-10-25-code-graph-design.md)). `index/cortex-graph.mjs`
+  prints the graph report and the `graph` MCP tool returns it, and the two must agree exactly, so
+  the computation lives here rather than in either leaf. The rules a change must keep:
+  - **`graph.js` is pure**: an index in, plain data out. Hubs, bridges, cycles, the bridge score,
+    `edgeWeight` and Tarjan's `components`. Its header holds the scoring rules and why each was
+    measured.
+  - **`path-kinds.js` is what a path says alone**: the area (`layerKeyFor`), a fixture
+    (`isTestData`), code that serves tests (`inTestSupportDir`). `index/lib/langs.mjs` builds its
+    wider test-like rule from `TEST_DATA_DIRS` here, so a fixture directory is added once.
+  - **`index-file.js` reads `index.json` and `enriched.json` and decides staleness.** One
+    definition of stale, one reader of each file; `index/lib/open.mjs`, `format.mjs` and
+    `enrich.mjs` re-export them. A refusal names the kind (`absent`, `unreadable`, `version`) and
+    the command that rebuilds.
+  - Everything here is re-exported by the `index/` module that used to hold it, so `index/` still
+    asks its own modules. Do not import these from `index/` callers directly.
 
 - **`claude-code.js` is data, not policy code.** Anthropic's Claude Code rules, each with the
   sentence on its source page that states it. Checkers read values from it and never hard-code a

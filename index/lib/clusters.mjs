@@ -44,7 +44,8 @@
 //   one group keeps it whole.
 // - **Cohesion** is the node pairs joined by an edge ÷ n·(n−1)/2. A pair that imports both ways is
 //   one pair, so cohesion cannot pass 1. A one-file cluster scores 1.
-// - **The hub** names a cluster: the member with the most distinct neighbours, ties by path. `c1`
+// - **The hub** names a cluster: the non-test member with the most distinct neighbours, ties by
+//   path; a cluster of tests only takes its best-connected test. `c1`
 //   is the largest cluster, ties by hub. No two clusters share a hub, so the order is total.
 // - **An `ambiguous` edge weighs `UNSURE_WEIGHT`.** No edge carries a confidence yet. Call edges
 //   will, and a guess must not glue two features together.
@@ -485,7 +486,15 @@ export function clustersOf(index) {
   ).length;
   const groups = paths.length ? settleGroups(graph, groupsOf(leiden(graph))) : [];
   const degree = (v) => graph.nbr[v].length;
-  const hubOf = (g) => g.reduce((h, v) => (degree(v) > degree(h) || (degree(v) === degree(h) && byCodeUnit(paths[v], paths[h]) < 0) ? v : h), g[0]);
+  // A shared test helper is often the best-connected file in a cluster, and naming the cluster
+  // after it says nothing about the code. The hub comes from the non-test members when there are any.
+  const testPaths = new Set(files.filter((f) => f.isTest).map((f) => f.path));
+  const better = (v, h) => degree(v) > degree(h) || (degree(v) === degree(h) && byCodeUnit(paths[v], paths[h]) < 0);
+  const hubOf = (g) => {
+    const code = g.filter((v) => !testPaths.has(paths[v]));
+    const pool = code.length ? code : g;
+    return pool.reduce((h, v) => (better(v, h) ? v : h), pool[0]);
+  };
   const rows = groups.map((g) => ({ g, hub: paths[hubOf(g)] }));
   rows.sort((a, b) => b.g.length - a.g.length || byCodeUnit(a.hub, b.hub));
   const byPath = new Map();

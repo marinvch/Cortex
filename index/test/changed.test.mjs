@@ -5,7 +5,7 @@ import { branchChanges, changedFiles, failureLines, gitReader, normalizeChangedP
 
 // cortex-impact.mjs and cortex-review.mjs each carried this, line for line, differing in one thing:
 // review passed maxBuffer and impact did not. So a wide --since on a long-lived repo overflowed the
-// 1 MB default, threw, became null, became an empty change set, and /cortex-impact printed
+// 1 MB default, threw, became null, became an empty change set, and /change-impact printed
 // "nothing to analyse" — a confident zero in the command whose contract is that a confident total
 // tells someone to stop looking.
 

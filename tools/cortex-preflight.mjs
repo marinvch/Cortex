@@ -52,7 +52,7 @@ const root = toplevel ? resolve(toplevel) : cwd;
 const inGit = Boolean(toplevel);
 
 // Is this Cortex's own source, a Cortex-managed target repo, or neither? The rituals split on this:
-// /optimize-context targets other repos, /cortex-audit targets this vault, and running either in the
+// /trim-agent-docs targets other repos, /audit-notes targets this vault, and running either in the
 // wrong one produces confident nonsense.
 const kind = existsSync(join(root, "skills")) && existsSync(join(root, "references"))
   ? "cortex-source"
@@ -135,7 +135,7 @@ const index = indexState();
 // --- the privacy check --------------------------------------------------------------------------
 
 // `git check-ignore -v` is what AGENTS.md demands before archiving personal content — "archiving is
-// not sanitizing" — and what /capture and /cortex-audit each spell out separately. One call, one
+// not sanitizing" — and what /quick-note and /audit-notes each spell out separately. One call, one
 // answer, and the reason is carried with it so a caller can quote which rule matched.
 function ignoreState(p) {
   const abs = resolve(cwd, p);
@@ -163,11 +163,11 @@ if (asJson) {
 }
 
 const KINDS = {
-  "cortex-source": "Cortex's own source — /cortex-audit and the contributor invariants apply here",
-  "cortex-installed": "a repo with Cortex installed — /cortex-next names the step it is on",
-  // `/cortex`, the front door — not `/cortex-install`, its read half. Preflight is the first thing
-  // `/cortex` runs, and it used to tell that very ritual that a different one was the entry point.
-  uninstalled: "no .cortex/ — /cortex is the entry point",
+  "cortex-source": "Cortex's own source — /audit-notes and the contributor invariants apply here",
+  "cortex-installed": "a repo with Cortex installed — /resume-work names the step it is on",
+  // `/setup-repo`, the front door. Preflight is the first thing `/setup-repo` runs, and it once told
+  // that very ritual that its read-only half was the entry point.
+  uninstalled: "no .cortex/ — /setup-repo is the entry point",
 };
 
 // The indexer, as a path that resolves from the TARGET repo. This file used to print

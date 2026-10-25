@@ -31,8 +31,8 @@ function git(root, args) {
  * Commit counts per file, and the window they were counted over.
  *
  * The window is recent by design — churn matters because it is *current*. But a repo whose whole
- * history predates it scored 0 everywhere, and nothing said so: `/cortex-brief`'s "ranked by size,
- * churn and absence of tests" quietly degraded to ranking by size, `/cortex-impact` lost its
+ * history predates it scored 0 everywhere, and nothing said so: `/write-area-brief`'s "ranked by size,
+ * churn and absence of tests" quietly degraded to ranking by size, `/change-impact` lost its
  * tiebreak, and the viewer's hot spots emptied. A real repo with 11 commits hit this — no error, no
  * warning, just a signal that had silently become a constant.
  *

@@ -285,10 +285,10 @@ test("history is never promoted, even when git can prove the move", () => {
 // almost all false. Literal fixtures did not surface any of it — real prose is the only source.
 
 test("a slash-command name is not a path", () => {
-  // `/cortex-audit` and `/dream` contain a slash and nothing else path-like. AGENTS.md names 40 of
+  // `/audit-notes` and `/end-of-day-summary` contain a slash and nothing else path-like. AGENTS.md names 40 of
   // them, which alone produced most of the flood. A repo-relative citation never starts with "/".
   const r = citationDrift(ix(["AGENTS.md"]), {
-    readText: reader({ "AGENTS.md": "run `/cortex-audit` weekly, then `/dream` at night\n" }),
+    readText: reader({ "AGENTS.md": "run `/audit-notes` weekly, then `/end-of-day-summary` at night\n" }),
   });
   assert.deepEqual(r.findings, []);
 });

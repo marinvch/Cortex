@@ -5,7 +5,7 @@
 # repos, which CI does not have — so a check inside it could rot unseen. This builds the smallest
 # workspace those checks can act on and pins their lines:
 #
-#   S1 — every repo /cortex served (root AGENTS.md + CLAUDE.md) has zero claude-setup/* findings. A
+#   S1 — every repo /setup-repo served (root AGENTS.md + CLAUDE.md) has zero claude-setup/* findings. A
 #        clean served repo must pass; a served repo with one planted breach — a skill carrying a
 #        top-level key Claude Code ignores — must fail, naming that repo and the finding. The
 #        placeholder this replaced failed on every run, so neither answer was reachable before.
@@ -16,7 +16,7 @@
 
 . "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"   # $WORK or refuse — see the gate there
 
-# A repo /cortex has served, as far as the loop reader can tell: the root brief and its shim.
+# A repo /setup-repo has served, as far as the loop reader can tell: the root brief and its shim.
 serve() {
   printf '# %s\n\nWhat a new joiner needs on day one.\n' "$1" > AGENTS.md
   printf '@AGENTS.md\n' > CLAUDE.md
@@ -45,7 +45,7 @@ out="$(node "$REPO_ROOT/tools/test/e2e-workspace.mjs" "$WORK/ws" --work "$WORK/e
 
 # S1: one served repo, clean. `notes` was never served, so it is outside the denominator — the same
 # one the .claude/-artifacts line counts, which is why both lines say "installed repos".
-assert_contains "$out" "ok    claude-setup checker finds nothing in what /cortex wrote: 1/1 installed repos" \
+assert_contains "$out" "ok    claude-setup checker finds nothing in what /setup-repo wrote: 1/1 installed repos" \
   "S1: a served repo whose Claude setup is clean passes the claude-setup check"
 if grep -qE "\.claude/ artifacts are on disk: [01]/1 installed repos" <<<"$out"; then
   _pass "and the .claude/-artifacts line counts the same installed repos"
@@ -77,7 +77,7 @@ git add -A && git commit -qm init
 cd "$WORK" || exit 1
 
 out="$(node "$REPO_ROOT/tools/test/e2e-workspace.mjs" "$WORK/ws" --work "$WORK/e2e-breach" 2>&1)"
-assert_contains "$out" "FAIL  claude-setup checker finds nothing in what /cortex wrote: 1/2 installed repos" \
+assert_contains "$out" "FAIL  claude-setup checker finds nothing in what /setup-repo wrote: 1/2 installed repos" \
   "S1: a served repo with a planted claude-setup breach fails the check"
 assert_contains "$out" "svc: claude-setup/skill-unknown-key" "and the detail names the repo and the first finding"
 assert_contains "$out" ".claude/skills/deploy/SKILL.md — capability" "down to the file and the key"

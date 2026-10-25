@@ -308,13 +308,13 @@ test("a credential-shaped string is refused by the gate, and nothing is written 
   assert.ok(!existsSync(join(server, ".cortex", "team", "harbor", "projects", "svc-b", "contract.json")));
 });
 
-test("contract refuses on a brain with no team, naming /team-add", async () => {
+test("contract refuses on a brain with no team, naming /join-team", async () => {
   const repo = tempDir("solo-");
   git(repo, "init", "-q");
   mkdirSync(join(repo, ".cortex"));
   const [r] = await session(repo, [["contract", { calls: "/items" }]]);
   assert.equal(r.isError, true);
-  assert.match(r.content[0].text, /\/team-add/);
+  assert.match(r.content[0].text, /\/join-team/);
 });
 
 // --- the module ----------------------------------------------------------------------------------

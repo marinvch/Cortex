@@ -96,7 +96,7 @@ export const TOOL_TABLE = [
     inputSchema: { type: "object", properties: { project: { type: "string" }, since: { type: "string" }, team: { type: "string", description: "Override the team-brain to read. Defaults to the connected team." } }, required: ["project", "since"] } },
 
   // Asks between roles across repos (#620). They run in either mode because the plugin install is a
-  // repo-mode server, and they need a team: on a solo brain they refuse naming /team-add.
+  // repo-mode server, and they need a team: on a solo brain they refuse naming /join-team.
   { name: "ask", mode: ANY, returns: OWN, writes: PUBLISHED, alsoPublishes: ["title", "links"],
     description: "Send a question to a role (backend, architect…) or a project in the team-brain; the member who holds it sees it in their `inbox`. Commits and pushes `asks/<id>.md`. A `to` nobody holds is refused with the roles and projects that exist.",
     inputSchema: { type: "object", properties: { to: { type: "string", description: "A role some member holds, or a project slug." }, content: { type: "string", description: "The question." }, title: { type: "string" }, links: { type: "array", items: { type: "string" }, description: "A spec, a PR or a page the question is about." } }, required: ["to", "content"] } },
@@ -107,7 +107,7 @@ export const TOOL_TABLE = [
     description: "Reply to an ask by id and set its status (answered by default; decided or wontfix). The asker's next `inbox` shows it. Commits and pushes.",
     inputSchema: { type: "object", properties: { id: { type: "string" }, content: { type: "string", description: "The answer. Link the PR or ADR that settles it." }, status: { type: "string", enum: ["answered", "decided", "wontfix"] } }, required: ["id", "content"] } },
   // Contracts (#621). One tool for both questions (R6): a project's surface, or who calls an endpoint.
-  // It reads; publishing is `ai-os contract publish`, a step of /team-add.
+  // It reads; publishing is `ai-os contract publish`, a step of /join-team.
   { name: "contract", mode: ANY, returns: FOREIGN, writes: LOCAL,
     description: `The API contracts the team's repos publish to the team-brain. With \`project\`: what it serves (method, path, operation id, response schema), calls and emits — narrow with \`path\`. With \`calls\`: which projects call an endpoint ("/items", "GET /items/{id}") and which serve it. With neither: the projects that have published one. Pulls first; every list is a floor. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: { project: { type: "string", description: "A project slug in the team-brain." }, path: { type: "string", description: "With project: only endpoints under this path." }, calls: { type: "string", description: "An endpoint, optionally led by a method: who calls it, and who serves it." } } } },

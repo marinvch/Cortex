@@ -1,0 +1,12 @@
+{
+  "skill": "merge-work",
+  "bodySha256": "bfd009441587df3c47faddb3486427cfb19c0dda531580026f6a1ebfbcdc0029",
+  "split": "test",
+  "n": 14,
+  "hard": 1,
+  "soft": 1,
+  "model": "claude-sonnet-5",
+  "effort": "medium",
+  "recordedAt": "2026-09-28T03:41:10.133Z",
+  "rekeyed": "3.0.0 rename: the score was measured on the body with sha256 19ae62531c308a64c7807a9c0af49f2bf25e53861d3d2dd4b303e80f558cb932, before the rename, and has not been measured on this one"
+}

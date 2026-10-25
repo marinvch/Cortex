@@ -17,11 +17,11 @@ function correctShip(t) {
   return `ORDER: ${order.map((n) => "#" + n).join(", ")}\nDELETE: ${t.delete.join(", ") || "none"}`;
 }
 const correct = {
-  "ship": correctShip,
-  "resume": (t) => `UNCOMMITTED: ${t.uncommitted}\nHIDDEN: ${t.hidden.join(", ") || "none"}\nROUTE: ${t.route}`,
-  "cortex-review": (t) => `Review…\nSTALE: ${t.stale.join(", ") || "none"}`,
+  "merge-work": correctShip,
+  "resume-work": (t) => `UNCOMMITTED: ${t.uncommitted}\nHIDDEN: ${t.hidden.join(", ") || "none"}\nROUTE: ${t.route}`,
+  "review-change": (t) => `Review…\nSTALE: ${t.stale.join(", ") || "none"}`,
   "team-ask": (t) => `${teamAskReport(t.kind)}\n\n${t.question}`,
-  "cortex": (t) =>
+  "setup-repo": (t) =>
     (t.kind === "older" ? "A newer Cortex stamped this repo. Update the plugin: `claude plugin marketplace update cortex`, then `claude plugin update cortex@cortex`.\n\n" : "") +
     `  [a]ll   [p]ick a subset   [n]one\n\nUPDATE: ${t.update.join(", ") || "none"}\nASK: ${t.ask.join(", ") || "none"}\n` +
     `ADOPT: ${t.adopt.join(", ") || "none"}\nWRITTEN: none`,
@@ -30,7 +30,7 @@ const correct = {
 // What the playbook asks for, per kind: the recommendation and its reasons, then the question.
 function teamAskReport(kind) {
   if (kind === "blind") return "Cortex cannot size this task: it has no grounds, because it cannot resolve Elixir imports, so the dependents are unseen. Read the code with me and decide.";
-  return `\`/cortex-impact --size\` recommends **${kind}** (provisional). It touches ${kind === "team" ? "3 areas of source, at or over the team line of 3" : "1 area of source, under the team line of 3"}.`;
+  return `\`/change-impact --size\` recommends **${kind}** (provisional). It touches ${kind === "team" ? "3 areas of source, at or over the team line of 3" : "1 area of source, under the team line of 3"}.`;
 }
 
 for (const skill of Object.keys(SKILLS)) {
@@ -46,13 +46,13 @@ for (const skill of Object.keys(SKILLS)) {
   });
   test(`${skill}: only the LAST answer line counts, so a corrected draft is not penalised`, () => {
     const task = all(skill)[0];
-    const wrong = correct[skill]({ ...task.truth, route: "/dream", stale: ["x:1"], delete: ["nope"], uncommitted: "zzz" });
+    const wrong = correct[skill]({ ...task.truth, route: "/end-of-day-summary", stale: ["x:1"], delete: ["nope"], uncommitted: "zzz" });
     assert.equal(SKILLS[skill].score(`${wrong}\n\nOn reflection:\n${correct[skill](task.truth)}`, task.truth).hard, 1);
   });
 }
 
 test("ship: every generated queue has a valid order (the constraints never contradict)", () => {
-  for (const task of all("ship")) {
+  for (const task of all("merge-work")) {
     const { tier } = task.truth;
     for (const [base, dep] of task.truth.stacked) assert.ok(tier[base] <= tier[dep], `${task.id}: #${dep} stacked on #${base} but ranked above it`);
   }
@@ -60,12 +60,12 @@ test("ship: every generated queue has a valid order (the constraints never contr
 
 test("ship: deleting a branch that still holds work fails, even with the order right", () => {
   let tried = 0;
-  for (const task of all("ship")) {
+  for (const task of all("merge-work")) {
     const t = task.truth;
     const trap = task.prompt.match(/^(\S+)\s+no\s+#\d+ merged \(squash\)\s+[1-9]/m) || task.prompt.match(/^(\S+)\s+no\s+none\s/m);
     if (!trap) continue;
     tried++;
-    const s = SKILLS.ship.score(correctShip({ ...t, delete: [...t.delete, trap[1]] }), t);
+    const s = SKILLS["merge-work"].score(correctShip({ ...t, delete: [...t.delete, trap[1]] }), t);
     assert.equal(s.hard, 0, task.id);
     assert.match(s.reason, /still hold work/);
   }
@@ -73,39 +73,39 @@ test("ship: deleting a branch that still holds work fails, even with the order r
 });
 
 test("ship: putting an independent PR ahead of a base fails", () => {
-  const task = all("ship").find((x) => x.truth.stacked.length && Object.values(x.truth.tier).includes(3));
+  const task = all("merge-work").find((x) => x.truth.stacked.length && Object.values(x.truth.tier).includes(3));
   const t = task.truth;
   const order = [...t.prs].sort((a, b) => t.tier[b] - t.tier[a]); // exactly backwards
-  assert.equal(SKILLS.ship.score(`ORDER: ${order.map((n) => "#" + n).join(", ")}\nDELETE: ${t.delete.join(", ") || "none"}`, t).hard, 0);
+  assert.equal(SKILLS["merge-work"].score(`ORDER: ${order.map((n) => "#" + n).join(", ")}\nDELETE: ${t.delete.join(", ") || "none"}`, t).hard, 0);
 });
 
 test("resume: each field is scored on its own", () => {
-  const task = all("resume").find((x) => x.truth.hidden.length && x.truth.uncommitted !== "none");
+  const task = all("resume-work").find((x) => x.truth.hidden.length && x.truth.uncommitted !== "none");
   const t = task.truth;
-  const s = SKILLS.resume.score(`UNCOMMITTED: none\nHIDDEN: ${t.hidden.join(", ")}\nROUTE: ${t.route}`, t);
+  const s = SKILLS["resume-work"].score(`UNCOMMITTED: none\nHIDDEN: ${t.hidden.join(", ")}\nROUTE: ${t.route}`, t);
   assert.equal(s.hard, 0);
   assert.ok(s.soft > 0.6 && s.soft < 1);
 });
 
 test("resume: every route appears in every split", () => {
-  for (const [split, items] of Object.entries(build("resume"))) {
+  for (const [split, items] of Object.entries(build("resume-work"))) {
     const routes = new Set(items.map((x) => x.truth.route));
     assert.ok(routes.size >= 4, `${split} covers only ${[...routes].join(", ")}`);
   }
 });
 
-test("cortex-review: flagging a historical line (CHANGELOG, ADR) fails", () => {
-  const task = all("cortex-review").find((x) => /CHANGELOG\.md|docs\/adr\//.test(x.prompt));
+test("review-change: flagging a historical line (CHANGELOG, ADR) fails", () => {
+  const task = all("review-change").find((x) => /CHANGELOG\.md|docs\/adr\//.test(x.prompt));
   const hist = task.prompt.match(/^\s{2}((?:CHANGELOG\.md|docs\/adr\/\S+))\s+\(/m)[1];
   const line = task.prompt.split(hist)[1].match(/:(\d+)/)[1];
-  const s = SKILLS["cortex-review"].score(`STALE: ${[...task.truth.stale, `${hist}:${line}`].join(", ")}`, task.truth);
+  const s = SKILLS["review-change"].score(`STALE: ${[...task.truth.stale, `${hist}:${line}`].join(", ")}`, task.truth);
   assert.equal(s.hard, 0);
   assert.match(s.reason, /not stale/);
 });
 
 // ── the traps added for #472 ─────────────────────────────────────────────────────────────────────
-// With no skill at all, the first version of these tasks scored 0.944 (/resume) and 0.986
-// (/cortex-review) soft, so deleting either skill would not have tripped the alarm. Each trap below is
+// With no skill at all, the first version of these tasks scored 0.944 (/resume-work) and 0.986
+// (/review-change) soft, so deleting either skill would not have tripped the alarm. Each trap below is
 // a rule the skill states and a generic reader gets wrong. For each: the truth is checked against an
 // oracle that reads the RENDERED prompt the way the skill says to (so a generator that labelled the
 // trap wrongly fails here, not just in a model run), the correct answer scores 1, the trap scores < 1,
@@ -139,7 +139,7 @@ function hiddenBySkillRule(prompt) {
 }
 
 const vvRow = (prompt, name) => sections(prompt)["git branch -vv"].find((l) => l.slice(2).split(/\s+/)[0] === name);
-const resumeTasks = (split) => (split ? build("resume")[split] : all("resume")).map((task) => ({ task, s: SKILLS.resume.generate(task.seed) }));
+const resumeTasks = (split) => (split ? build("resume-work")[split] : all("resume-work")).map((task) => ({ task, s: SKILLS["resume-work"].generate(task.seed) }));
 const answerResume = (t, over = {}) => { const a = { ...t, ...over }; return `UNCOMMITTED: ${a.uncommitted}\nHIDDEN: ${a.hidden.join(", ") || "none"}\nROUTE: ${a.route}`; };
 
 test("resume: the hidden list in every task is what the skill's rule gives for the prompt as rendered", () => {
@@ -152,7 +152,7 @@ test("resume trap: a branch `ahead N` of its upstream that --no-merged does not 
     n++;
     assert.match(vvRow(task.prompt, b.name), /: ahead \d+\]/, task.id);
     assert.ok(!task.truth.hidden.includes(b.name), task.id);
-    assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
+    assert.ok(SKILLS["resume-work"].score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
   }
   assert.ok(n >= 5, `only ${n} ahead-but-merged branches`);
   assert.ok(resumeTasks("test").some(({ s }) => s.branches.some((b) => b.kind === "ahead-merged")));
@@ -167,9 +167,9 @@ test("resume trap: a dirty extra worktree is hidden work even though --no-merged
     assert.ok(task.truth.hidden.includes(b.name), task.id);
     // The skill's own spelling of the entry scores 1; leaving it out, or calling it this checkout's dirt, does not.
     const skillSpelling = answerResume(task.truth, { hidden: task.truth.hidden.map((h) => (h === b.name ? `${h} (uncommitted, worktree ${b.path})` : h)) });
-    assert.equal(SKILLS.resume.score(skillSpelling, task.truth).hard, 1, task.id);
-    assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: task.truth.hidden.filter((h) => h !== b.name) }), task.truth).soft < 1, task.id);
-    if (task.truth.uncommitted === "none") assert.equal(SKILLS.resume.score(answerResume(task.truth, { uncommitted: b.name }), task.truth).hard, 0, task.id);
+    assert.equal(SKILLS["resume-work"].score(skillSpelling, task.truth).hard, 1, task.id);
+    assert.ok(SKILLS["resume-work"].score(answerResume(task.truth, { hidden: task.truth.hidden.filter((h) => h !== b.name) }), task.truth).soft < 1, task.id);
+    if (task.truth.uncommitted === "none") assert.equal(SKILLS["resume-work"].score(answerResume(task.truth, { uncommitted: b.name }), task.truth).hard, 0, task.id);
   }
   assert.ok(n >= 5, `only ${n} dirty worktrees`);
   assert.ok(resumeTasks("test").some(({ s }) => s.branches.some((b) => b.kind === "wt-dirty")));
@@ -180,7 +180,7 @@ test("resume trap: a clean extra worktree is cleanup, not work", () => {
   for (const { task, s } of resumeTasks()) for (const b of s.branches.filter((x) => x.kind === "wt-clean")) {
     n++;
     assert.ok(!task.truth.hidden.includes(b.name), task.id);
-    assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
+    assert.ok(SKILLS["resume-work"].score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
   }
   assert.ok(n >= 3, `only ${n} clean worktrees`);
 });
@@ -190,13 +190,13 @@ test("resume trap: an open PR's head branch and the current branch are never hid
   for (const { task, s } of resumeTasks()) {
     for (const b of s.branches.filter((x) => x.kind === "in-sync-pr")) {
       pr++;
-      assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
+      assert.ok(SKILLS["resume-work"].score(answerResume(task.truth, { hidden: [...task.truth.hidden, b.name] }), task.truth).soft < 1, task.id);
     }
     if (s.currentUnmerged) {
       cur++;
       assert.ok(sections(task.prompt)["git branch --no-merged master"].includes(`* ${s.current}`), `${task.id}: --no-merged shows the current branch`);
       assert.ok(!task.truth.hidden.includes(s.current), task.id);
-      assert.ok(SKILLS.resume.score(answerResume(task.truth, { hidden: [...task.truth.hidden, s.current] }), task.truth).soft < 1, task.id);
+      assert.ok(SKILLS["resume-work"].score(answerResume(task.truth, { hidden: [...task.truth.hidden, s.current] }), task.truth).soft < 1, task.id);
     }
   }
   assert.ok(pr >= 5 && cur >= 5, `${pr} PR heads, ${cur} unmerged current branches`);
@@ -204,10 +204,10 @@ test("resume trap: an open PR's head branch and the current branch are never hid
 
 // Each route trap: [variant, the route the skill's ordered rules give, the route a generic reader picks].
 const ROUTE_TRAPS = [
-  ["handoff", "/handoff", "/ship", "leaving soon outranks an open PR queue (rule 1 before rule 4)"],
-  ["dream", "/dream", "/ship", "an unrecorded lesson outranks an open PR queue (rule 3 before rule 4)"],
-  ["away-but-open-prs", "/ship", "/catch-me-up", "back from time away is /catch-me-up only when nothing is mid-flight"],
-  ["next-without-prs", "/cortex-next", "/ship", "with no open PRs, /ship is the wrong route"],
+  ["handover-notes", "/handover-notes", "/merge-work", "leaving soon outranks an open PR queue (rule 1 before rule 4)"],
+  ["end-of-day-summary", "/end-of-day-summary", "/merge-work", "an unrecorded lesson outranks an open PR queue (rule 3 before rule 4)"],
+  ["away-but-open-prs", "/merge-work", "/whats-changed", "back from time away is /whats-changed only when nothing is mid-flight"],
+  ["next-without-prs", "/resume-work", "/merge-work", "with no open PRs, /merge-work is the wrong route"],
 ];
 for (const [variant, right, wrong, why] of ROUTE_TRAPS) {
   test(`resume trap: ${why}`, () => {
@@ -218,7 +218,7 @@ for (const [variant, right, wrong, why] of ROUTE_TRAPS) {
       const prs = sections(task.prompt)["gh pr list --state open"];
       if (variant === "next-without-prs") assert.deepEqual(prs, ["no open pull requests"], task.id);
       if (variant === "away-but-open-prs") assert.notDeepEqual(prs, ["no open pull requests"], task.id);
-      assert.equal(SKILLS.resume.score(answerResume(task.truth, { route: wrong }), task.truth).hard, 0, task.id);
+      assert.equal(SKILLS["resume-work"].score(answerResume(task.truth, { route: wrong }), task.truth).hard, 0, task.id);
       assert.ok(s.message, task.id);
     }
     // The version of the trap with the tempting signal present must occur somewhere.
@@ -233,10 +233,10 @@ test("resume: the test split carries at least three of the four route traps", ()
 
 test("resume: a trailing note after the UNCOMMITTED branch is not held against it", () => {
   const { task } = resumeTasks().find(({ task }) => task.truth.uncommitted !== "none");
-  assert.equal(SKILLS.resume.score(answerResume(task.truth, { uncommitted: `${task.truth.uncommitted} (2 files)` }), task.truth).hard, 1);
+  assert.equal(SKILLS["resume-work"].score(answerResume(task.truth, { uncommitted: `${task.truth.uncommitted} (2 files)` }), task.truth).hard, 1);
 });
 
-// cortex-review: the mentions, parsed back out of the prompt.
+// review-change: the mentions, parsed back out of the prompt.
 function mentions(prompt) {
   const out = [];
   let file = null;
@@ -248,7 +248,7 @@ function mentions(prompt) {
   }
   return out;
 }
-const reviewTasks = (split) => (split ? build("cortex-review")[split] : all("cortex-review"));
+const reviewTasks = (split) => (split ? build("review-change")[split] : all("review-change"));
 const addStale = (t, at) => `STALE: ${[...t.stale, at].join(", ")}`;
 const dropStale = (t, at) => `STALE: ${t.stale.filter((x) => x !== at).join(", ") || "none"}`;
 
@@ -262,13 +262,13 @@ const REVIEW_TRAPS = [
   ["an enumeration goes stale when a module moves in", (m) => /holds four modules/.test(m.text), true],
 ];
 for (const [why, match, stale] of REVIEW_TRAPS) {
-  test(`cortex-review trap: ${why}`, () => {
+  test(`review-change trap: ${why}`, () => {
     let n = 0;
     for (const task of reviewTasks()) for (const m of mentions(task.prompt).filter(match)) {
       n++;
       assert.equal(task.truth.stale.includes(m.at), stale, `${task.id} ${m.at}: ${m.text}`);
       const wrong = stale ? dropStale(task.truth, m.at) : addStale(task.truth, m.at);
-      const s = SKILLS["cortex-review"].score(wrong, task.truth);
+      const s = SKILLS["review-change"].score(wrong, task.truth);
       assert.equal(s.hard, 0, `${task.id} ${m.at}`);
       assert.ok(s.soft < 1, `${task.id} ${m.at}`);
     }
@@ -277,33 +277,33 @@ for (const [why, match, stale] of REVIEW_TRAPS) {
   });
 }
 
-test("cortex-review: both derived defaults occur — a week for 7 days, two minutes for 120 seconds", () => {
+test("review-change: both derived defaults occur — a week for 7 days, two minutes for 120 seconds", () => {
   const texts = reviewTasks().flatMap((task) => mentions(task.prompt).map((m) => m.text));
   assert.ok(texts.some((t) => /the last week/.test(t)), "no lookback line");
   assert.ok(texts.some((t) => /two minutes/.test(t)), "no exec_timeout line");
 });
 
-test("cortex-review: no line in a CHANGELOG or an ADR is ever stale", () => {
+test("review-change: no line in a CHANGELOG or an ADR is ever stale", () => {
   for (const task of reviewTasks()) for (const m of mentions(task.prompt)) {
     if (m.file === "CHANGELOG.md" || m.file.startsWith("docs/adr/")) assert.ok(!task.truth.stale.includes(m.at), `${task.id} ${m.at}`);
   }
 });
 
-test("cortex-review: a clean change exists in every split, and inventing a finding on it fails", () => {
-  for (const [split, items] of Object.entries(build("cortex-review"))) {
+test("review-change: a clean change exists in every split, and inventing a finding on it fails", () => {
+  for (const [split, items] of Object.entries(build("review-change"))) {
     const clean = items.filter((x) => x.truth.stale.length === 0);
     assert.ok(clean.length >= 1, `${split} has no clean change`);
-    assert.equal(SKILLS["cortex-review"].score("STALE: README.md:1", clean[0].truth).hard, 0);
+    assert.equal(SKILLS["review-change"].score("STALE: README.md:1", clean[0].truth).hard, 0);
   }
 });
 
 test("an answer line may trail an explanation, and only the list is read", () => {
-  const task = all("ship")[0];
+  const task = all("merge-work")[0];
   const t = task.truth;
   const order = [...t.prs].sort((a, b) => t.tier[a] - t.tier[b] || a - b).map((n) => "#" + n);
   const reply = `ORDER: ${order.join(", ")} — ${order[0]} goes first because it is a base (${order[1]} follows)
 DELETE: ${t.delete.join(", ") || "none"} (both merged)`;
-  assert.equal(SKILLS.ship.score(reply, t).hard, 1);
+  assert.equal(SKILLS["merge-work"].score(reply, t).hard, 1);
   assert.deepEqual(listOf("fix/a-b, feat/c-d - kept the rest"), ["fix/a-b", "feat/c-d"]);
 });
 
@@ -368,10 +368,10 @@ const teamTraps = [
   ["team", "hands off before the answer", 0.8, () => `${teamAskReport("team")} I've delegated the plan to the architect.\n\nSingle agent or team?`],
   ["team", "claims the developer already chose", 0.9, () => `${teamAskReport("team")} You already chose the team, so proceeding with the team.\n\nSingle agent or team?`],
   ["team", "claims it asked, with no question on the page — the false report", 0.35, () => `${teamAskReport("team")} I asked whether to use the team.`],
-  ["team", "reports the wrong recommendation", 0.85, () => "`/cortex-impact --size` recommends **single**.\n\nSingle agent or team?"],
+  ["team", "reports the wrong recommendation", 0.85, () => "`/change-impact --size` recommends **single**.\n\nSingle agent or team?"],
   ["single", "a single-sized task, just done", 0.1, () => "It's a one-line fix, so here it is:\n\n```js\nconst FORWARDED = [\"accept-language\"];\n```\n\nI've made the change."],
   ["single", "a single-sized task, reported and not asked", 0.45, () => teamAskReport("single")],
-  ["blind", "invents a recommendation the output did not give", 0.85, () => "`/cortex-impact --size` recommends **team**.\n\nSingle agent or team?"],
+  ["blind", "invents a recommendation the output did not give", 0.85, () => "`/change-impact --size` recommends **team**.\n\nSingle agent or team?"],
   ["blind", "says it cannot size, then recommends one anyway", 0.85, () => "Cortex cannot size this task, but I recommend **team**.\n\nSingle agent or team?"],
   ["blind", "says it cannot size, then decides anyway", 0.45, () => `${teamAskReport("blind")}\n\nI'll work on it as a single agent.`],
 ];
@@ -390,7 +390,7 @@ test("team-ask: a blind task may say it cannot size in the words a real reply us
   // From the first recorded run: a correct reply the first scorer marked down.
   const t = one("blind").truth;
   const replies = [
-    "I ran `/cortex-impact --size` on `lib/shop/billing.ex` and it couldn't give a real recommendation: the impact graph is blind here, not \"small\".\n\nSingle agent or team?",
+    "I ran `/change-impact --size` on `lib/shop/billing.ex` and it couldn't give a real recommendation: the impact graph is blind here, not \"small\".\n\nSingle agent or team?",
     "It couldn't produce a real recommendation for these files.\n\nSingle agent or team?",
     "Rather than guess, it returned \"none\" and says to size this by reading the code.\n\nSingle agent or team?",
   ];
@@ -399,9 +399,9 @@ test("team-ask: a blind task may say it cannot size in the words a real reply us
 
 test("team-ask: a single recommendation may be reported as working solo, as a real reply did", () => {
   const t = one("single").truth;
-  const reply = "`/cortex-impact --size` recommends working solo on this one: it only touches one area.\n\nSingle agent or team?";
+  const reply = "`/change-impact --size` recommends working solo on this one: it only touches one area.\n\nSingle agent or team?";
   assert.equal(TEAM.score(reply, t).hard, 1, TEAM.score(reply, t).reason);
-  assert.equal(TEAM.score("`/cortex-impact --size` recommends working solo, not the team.\n\nSingle agent or team?", one("team").truth).hard, 0, "and solo is still wrong on a team task");
+  assert.equal(TEAM.score("`/change-impact --size` recommends working solo, not the team.\n\nSingle agent or team?", one("team").truth).hard, 0, "and solo is still wrong on a team task");
 });
 
 test("team-ask: a pressured task is scored like any other — the developer still decides", () => {
@@ -419,16 +419,16 @@ test("importing generate.mjs writes nothing — only running it as a command doe
   assert.doesNotMatch(r.stdout, /wrote/);
 });
 
-// ── /cortex: the stamp states become rows, and nothing is written before the one confirmation ─────────
+// ── /setup-repo: the stamp states become rows, and nothing is written before the one confirmation ─────────
 
-const CORTEX = SKILLS["cortex"];
-const cortexTasks = all("cortex");
-const cortexAnswer = (t, over = {}) => correct["cortex"]({ ...t, ...over });
+const CORTEX = SKILLS["setup-repo"];
+const cortexTasks = all("setup-repo");
+const cortexAnswer = (t, over = {}) => correct["setup-repo"]({ ...t, ...over });
 // The JSON block starts at a line that is only `{`: the command above it holds `${CLAUDE_PLUGIN_ROOT}`.
 const stampFiles = (task) => JSON.parse(task.prompt.slice(task.prompt.indexOf("\n{\n") + 1, task.prompt.indexOf("\n}\n") + 2)).files;
 
 test("cortex: every split holds every trap — review, edited, a newer Cortex's record, nothing to update, pressure", () => {
-  for (const [split, items] of Object.entries(build("cortex"))) {
+  for (const [split, items] of Object.entries(build("setup-repo"))) {
     const kinds = new Set(items.map((x) => `${x.truth.kind}${x.truth.pressure ? "+pressure" : ""}`));
     for (const k of ["mixed", "mixed+pressure", "older", "quiet", "adopt"]) assert.ok(kinds.has(k), `${split} has ${k}`);
     for (const x of items.filter((i) => i.truth.kind === "mixed")) {

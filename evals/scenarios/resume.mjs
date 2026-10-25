@@ -1,4 +1,4 @@
-// /resume — read the state off disk, report it, route. Three checkable judgments:
+// /resume-work — read the state off disk, report it, route. Three checkable judgments:
 //   UNCOMMITTED — the branch this checkout's dirt is on, named in the same breath (or none).
 //   HIDDEN      — branches other than the current one holding work that exists nowhere else: commits
 //                 not on master AND not on a remote (no upstream, or ahead of it), plus a branch whose
@@ -19,9 +19,9 @@
 //     A clean extra worktree is cleanup.
 //   - the current branch appearing in `--no-merged`: it is removed, it is not "other".
 //   - route ORDER: what the user says about themselves outranks the repo state. Leaving soon is
-//     /handoff and a lesson nobody wrote down is /dream, even with open PRs sitting there; being back
-//     from time away is /catch-me-up only when nothing is mid-flight — with open PRs it is /ship.
-//   - "what's next" with no open PRs is /cortex-next, not /ship: stale or local-only branches are
+//     /handover-notes and a lesson nobody wrote down is /end-of-day-summary, even with open PRs sitting there; being back
+//     from time away is /whats-changed only when nothing is mid-flight — with open PRs it is /merge-work.
+//   - "what's next" with no open PRs is /resume-work, not /merge-work: stale or local-only branches are
 //     not a PR queue.
 
 import { rng, pick, int, shuffle, branchName, sha, readAnswer, listOf, setF1, sameSet } from "../lib.mjs";
@@ -56,13 +56,13 @@ const MESSAGES = {
 // skill's ordered rules give for that combination. `prs`: "yes" forces an open PR, "no" forbids one,
 // "maybe" lets the draw decide — a PR there is the trap, because the earlier rule still wins.
 const VARIANTS = [
-  { name: "ship", message: "next", prs: "yes", dirty: false, route: "/ship" },
-  { name: "away-but-open-prs", message: "away", prs: "yes", dirty: false, route: "/ship" },
-  { name: "handoff", message: "leaving", prs: "maybe", dirty: "maybe", route: "/handoff" },
-  { name: "catch-me-up", message: "away", prs: "no", dirty: false, quiet: true, route: "/catch-me-up" },
-  { name: "dream", message: "lesson", prs: "maybe", dirty: "maybe", route: "/dream" },
-  { name: "setup", message: "setup", prs: "no", dirty: "maybe", noMemory: true, route: "/cortex-next" },
-  { name: "next-without-prs", message: "next", prs: "no", dirty: "maybe", route: "/cortex-next" },
+  { name: "merge-work", message: "next", prs: "yes", dirty: false, route: "/merge-work" },
+  { name: "away-but-open-prs", message: "away", prs: "yes", dirty: false, route: "/merge-work" },
+  { name: "handover-notes", message: "leaving", prs: "maybe", dirty: "maybe", route: "/handover-notes" },
+  { name: "whats-changed", message: "away", prs: "no", dirty: false, quiet: true, route: "/whats-changed" },
+  { name: "end-of-day-summary", message: "lesson", prs: "maybe", dirty: "maybe", route: "/end-of-day-summary" },
+  { name: "setup", message: "setup", prs: "no", dirty: "maybe", noMemory: true, route: "/resume-work" },
+  { name: "next-without-prs", message: "next", prs: "no", dirty: "maybe", route: "/resume-work" },
 ];
 
 const UPSTREAM = {
@@ -78,7 +78,7 @@ const UPSTREAM = {
 const UNMERGED = new Set(["ahead", "no-upstream", "in-sync-pr"]);
 const HIDDEN = new Set(["ahead", "no-upstream", "wt-dirty"]);
 const WORKTREE = new Set(["wt-dirty", "wt-clean"]);
-// Nothing mid-flight: what /catch-me-up needs, and all it may show.
+// Nothing mid-flight: what /whats-changed needs, and all it may show.
 const QUIET = ["merged-local", "gone-merged", "ahead-merged", "wt-clean"];
 
 export function generate(seed) {
@@ -166,7 +166,7 @@ export function render(s) {
     "Report the state, then end your reply with exactly these three lines:",
     "UNCOMMITTED: <branch this checkout's uncommitted changes are on>   (or: UNCOMMITTED: none)",
     "HIDDEN: <branch>, <branch>   — other branches holding work, committed or not, that exists only on this machine (or: HIDDEN: none)",
-    "ROUTE: <the one ritual to route to: /ship, /handoff, /catch-me-up, /dream or /cortex-next>",
+    "ROUTE: <the one ritual to route to: /merge-work, /handover-notes, /whats-changed, /end-of-day-summary or /resume-work>",
   ].join("\n");
 }
 

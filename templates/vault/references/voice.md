@@ -7,7 +7,7 @@ tags: [reference, voice]
 
 # Voice
 
-How you sound, so the brain can draft *as you* — not in generic AI-speak. Filled by `/onboard`.
+How you sound, so the brain can draft *as you* — not in generic AI-speak. Filled by `/personal-setup`.
 
 > Sibling references frameworks: [[operating-principles]] · [[vault-architecture]].
 

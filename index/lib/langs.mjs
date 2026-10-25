@@ -76,7 +76,7 @@ const TEST_PREFIX_PATTERN = /(^|\/)test-[^/]+\.(sh|bash|zsh|py)$/;
 const SETUP_FILE = /(^|\/)(?:setup|setup-?tests|test-?setup|(?:vitest|jest|playwright)\.setup|global-?setup|global-?teardown|teardown)\.[a-z]+$/i;
 
 // Agent configuration. A hook or a skill's script under `.claude/` is named for what it guards —
-// /cortex's own `.claude/hooks/test-paths.sh` fences the Tester — so there only a file NAMED as a
+// /setup-repo's own `.claude/hooks/test-paths.sh` fences the Tester — so there only a file NAMED as a
 // test is one. Without this, installing the agent team raised the repo's test count by one.
 const AGENT_CONFIG = /(^|\/)\.claude\//;
 
@@ -84,7 +84,7 @@ const AGENT_CONFIG = /(^|\/)\.claude\//;
  * Whether a file is the kind of thing that can BE a test: code, a script, or a `.bats` suite.
  *
  * The directory patterns above say where tests live, and a test directory also holds READMEs,
- * fixtures, snapshots and — once `/cortex-brief tests` has run — an `AGENTS.md`. On pmndrs/zustand
+ * fixtures, snapshots and — once `/write-area-brief tests` has run — an `AGENTS.md`. On pmndrs/zustand
  * that brief made the index report 16 tests instead of 15, and because it names
  * `vitest.config.mts`, the coverage mention signal marked the config tested and the untested
  * finding shrank. Cortex's own output changed Cortex's findings. A document cannot run, so it

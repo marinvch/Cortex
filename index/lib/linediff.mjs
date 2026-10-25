@@ -1,6 +1,6 @@
 // linediff.mjs — the unified line diff a per-file question shows.
 //
-// When `/cortex` asks "the team edited this file and the template moved too — what now?", the
+// When `/setup-repo` asks "the team edited this file and the template moved too — what now?", the
 // answer depends on what is actually different, and a model paraphrasing two files is the one step
 // that must not be approximate. So the diff is computed: a longest-common-subsequence over lines,
 // printed as unified hunks with three lines of context. No dependency (ADR 0004), and no `git diff

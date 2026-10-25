@@ -1,6 +1,6 @@
 // agents.mjs — the agents a repo already has: which role each one plays, and what would sharpen it.
 //
-// Spec T6 (docs/specs/2026-09-28-agent-team-design.md): before /cortex offers the agent team, the
+// Spec T6 (docs/specs/2026-09-28-agent-team-design.md): before /setup-repo offers the agent team, the
 // repo's own `.claude/agents/*.md` are graded with the claude-setup checks, mapped to one of the
 // five roles in templates/team/, and given concrete edits the developer confirms one agent at a
 // time. A role an agent already covers is never offered again — a second reviewer beside the team's
@@ -94,7 +94,7 @@ const str = (v) => (typeof v === "string" ? v : "");
 
 /**
  * The repo's own agents — every `.md` under `.claude/agents/` at its root, subfolders included, the directory Claude Code loads project
- * subagents from and the one /cortex writes the team into (T8). A nested package's agents and the
+ * subagents from and the one /setup-repo writes the team into (T8). A nested package's agents and the
  * agents a plugin in this repo ships are not this repo's team. Each carries the claude-setup
  * findings for it, from `subagentGrades` — the same checks, one file at a time.
  *
@@ -169,7 +169,7 @@ const LENS = [
   "compliance", "license", "licensing", "ux", "ui", "wireframe", "mockup", "visual", "brand", "i18n", "l10n",
   "localization", "docs", "documentation",
 ];
-// Jobs the roster does not have. Diagnosis is `/diagnosing-bugs`' work and orchestration is the main
+// Jobs the roster does not have. Diagnosis is `/debug-issue`' work and orchestration is the main
 // session's (T1): a debugger that "implements robust fixes" is not the Implementer of a plan.
 const OUTSIDE = ["debug", "debugger", "debugging", "doctor", "diagnose", "diagnostics", "researcher", "research", "orchestrator", "coordinator", "recruiter"];
 
@@ -289,7 +289,7 @@ function nameHits(name) {
  * `reason` is `mapped`, `ambiguous` (two roles survived — ask which), `no-role-words`, `dropped`
  * (every candidate was ruled out), `lens` (a specialist on one angle), `outside-roster` (a job the
  * five do not have: a debugger, a researcher, an orchestrator), or `not-loaded`; `note` says why for
- * the two name-based ones. `upgrade` is set on the verifier /cortex stamps, which T9 offers the
+ * the two name-based ones. `upgrade` is set on the verifier /setup-repo stamps, which T9 offers the
  * Reviewer's upgrade. `verifierPath` is where that verifier lands; `loop.mjs` owns it and passes it.
  */
 export function mapRole(agent, { verifierPath = null } = {}) {
@@ -367,7 +367,7 @@ export function mapRole(agent, { verifierPath = null } = {}) {
     upgrade = {
       to: "reviewer",
       template: teamRoster().reviewer.template,
-      why: `${agent.path} is where /cortex stamps its verifier; T9 offers it the Reviewer's upgrade, and it keeps working until the developer accepts`,
+      why: `${agent.path} is where /setup-repo stamps its verifier; T9 offers it the Reviewer's upgrade, and it keeps working until the developer accepts`,
     };
   }
   if (live.length === 1) return result(live[0], "mapped", { candidates, evidence, dropped, upgrade });
@@ -556,7 +556,7 @@ function answered(mapping, agent, as, verifierPath) {
  * Every agent graded, mapped and proposed; the roles covered and by whom; the gaps; what to ask
  * about. `null` without an index — an unanswered question, never an empty roster.
  *
- * `opts.verifierPath` is where /cortex stamps its verifier (T9); `opts.as` is the developer's own
+ * `opts.verifierPath` is where /setup-repo stamps its verifier (T9); `opts.as` is the developer's own
  * mapping, `{ path: role | null }`, which outranks the mapper's. `opts.remembered` is the same
  * shape, read from an earlier run (`agent-answers.mjs`): `as` outranks it, and an entry naming no
  * agent here or no role is skipped rather than refused, because the agent may have been deleted

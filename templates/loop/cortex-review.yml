@@ -2,7 +2,7 @@
 #
 # AGENTS.md, CONTEXT.md and the ADRs describe the code. A diff changes the code and nobody re-reads
 # the prose describing it, so the documents go wrong silently — no test fails when a brief names a
-# file that has moved. This runs the deterministic half of /cortex-review on the PR's diff
+# file that has moved. This runs the deterministic half of /review-change on the PR's diff
 # (base...head) and reports two things:
 #
 #   - the documents governing the change, nearest scope first, and every line in them that names a
@@ -11,7 +11,7 @@
 #
 # It cites and never judges. No model, no API key, and no network beyond fetching the repo and one
 # pinned Cortex release, which is plain Node with no dependencies to install. Deciding whether a
-# change breaks a documented rule needs a model; that is /cortex-review run by a person.
+# change breaks a documented rule needs a model; that is /review-change run by a person.
 #
 # Advisory by default: the findings land in the job log, the run's summary and as annotations, and
 # the check passes. To make a broken citation fail the PR, set the repository variable

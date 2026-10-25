@@ -16,7 +16,7 @@
 //
 // `sectionKeep` records the team's answer to an `edited` section, so it is asked once and not on
 // every run. A stamped file the team edited reads `edited` and nothing is said until its template
-// changes; a section had no record to say that with, so `/cortex` showed the same diff on every
+// changes; a section had no record to say that with, so `/setup-repo` showed the same diff on every
 // re-run. The answer goes in `.cortex/sections.json`, committed, holding the hash of the template the
 // section was kept against. While this release's template has that hash the section is `kept` and
 // nothing asks; once a release changes it, the section reads `edited` again and the new diff is shown
@@ -164,7 +164,7 @@ export function sectionReplace(root, id, { templatesDir = TEMPLATES_DIR } = {}) 
  * Append `block` to the markdown file at `rel`, in that file's own line endings (`appendBlock`), and
  * create the file when it is not there. `{ written, path, eol }`, `eol` being `"CRLF"` or `"LF"`.
  *
- * This is how /cortex adds the verification block and the team playbook to `CLAUDE.md`. It only ever
+ * This is how /setup-repo adds the verification block and the team playbook to `CLAUDE.md`. It only ever
  * adds to the end: every byte already in the file stays. Throws `SectionRefused` and writes nothing —
  * code 1 for a path that is not a markdown file inside the repo or an empty block, code 2 when the
  * block opens with a heading the file already has as a section, which would be the same block twice.

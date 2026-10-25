@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { bodySha256, skillBody, check, runTasks, judgeRecord, main, NO_SKILL_SYSTEM } from "../run.mjs";
 
 const EVALS = join(dirname(fileURLToPath(import.meta.url)), "..");
-const TASKS = JSON.parse(readFileSync(join(EVALS, "data", "resume", "test", "tasks.json"), "utf8")).slice(0, 4);
+const TASKS = JSON.parse(readFileSync(join(EVALS, "data", "resume-work", "test", "tasks.json"), "utf8")).slice(0, 4);
 const right = (t) => `UNCOMMITTED: ${t.uncommitted}\nHIDDEN: ${t.hidden.join(", ") || "none"}\nROUTE: ${t.route}`;
 const truthOf = (user) => TASKS.find((t) => t.prompt === user).truth;
 

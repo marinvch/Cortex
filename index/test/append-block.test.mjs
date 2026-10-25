@@ -1,7 +1,7 @@
 // append-block.test.mjs — a block Cortex appends to a file the team also writes takes that file's
 // line endings (#548, item 9).
 //
-// /cortex appends the verification block and the team playbook to `CLAUDE.md`. Its templates are LF,
+// /setup-repo appends the verification block and the team playbook to `CLAUDE.md`. Its templates are LF,
 // and on a `core.autocrlf` checkout the target is CRLF on disk, so an append as-is left one file with
 // two kinds of line ending and the developer converted the block by hand. The property pinned here is
 // the whole file's, not the block's: after an append no line ends differently from the rest, and

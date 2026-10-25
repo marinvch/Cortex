@@ -4,7 +4,7 @@ Old or superseded material from **your vault**. Move here; never delete — thin
 
 Everything in this folder is gitignored except this file. That is deliberate and it is the whole
 point of the folder: whatever gets archived out of the personal layer keeps the privacy it had
-there. `/cortex-audit` writes dated `archives/<name>-YYYY-MM-DD/` folders; `tools/cortex-rm.sh`
+there. `/audit-notes` writes dated `archives/<name>-YYYY-MM-DD/` folders; `tools/cortex-rm.sh`
 writes `archives/removed/`. Both create what they need, so an empty folder here is the normal
 state.
 

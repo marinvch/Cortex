@@ -2,7 +2,7 @@
 # A vault lives in its own private repo; its skeleton ships as templates/vault/. These rules are
 # the backstop for a checkout that still holds vault folders at its root. A pattern with a slash
 # in it is anchored to this directory, so `inbox/*` never reaches templates/vault/inbox/ or
-# skills/daily/ — tools/test/vault-skeleton.test.sh pins both.
+# skills/daily-plan/ — tools/test/vault-skeleton.test.sh pins both.
 context/*
 inbox/*
 daily/*
@@ -17,7 +17,7 @@ brain/
 /home.md
 
 # Archived personal content — anything moved out of the personal layer keeps its privacy.
-# cortex-rm.sh writes archives/removed/; /cortex-audit writes dated archives/<name>-YYYY-MM-DD/.
+# cortex-rm.sh writes archives/removed/; /audit-notes writes dated archives/<name>-YYYY-MM-DD/.
 # One folder, one lifecycle: everything in here is personal, so everything in here is ignored.
 # The product's own history used to live here too, which is why this block needed six lines and
 # two negations to say which half was shareable. That history is the git log and CHANGELOG.md now.

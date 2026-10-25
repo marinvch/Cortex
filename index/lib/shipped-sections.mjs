@@ -19,7 +19,7 @@ const lines = (...l) => l.join("\n");
 
 export const SHIPPED_SECTIONS = {
   "team/playbook.md": {
-    current: "7683f4f5c08d9beb112c5e34b51645a458fd8eaa2e9c0ae86551afef2dd39e04",
+    current: "7369e6fe1614eff889899e7f0d77b0455708379566d4e6bcefb0db22798f5e50",
     earlier: [
       {
         // The playbook that asked in its own words, and gave way to "just do it" (#498).
@@ -63,6 +63,27 @@ export const SHIPPED_SECTIONS = {
           "To stop using the team, delete this section, `.claude/skills/team/` and the agents.",
         ),
       },
+      {
+        // The playbook with the debate limit as a setting, before 3.0.0 renamed /cortex-impact.
+        version: "2.43.0",
+        sha256: "7683f4f5c08d9beb112c5e34b51645a458fd8eaa2e9c0ae86551afef2dd39e04",
+        text: lines(
+          "## Working as a team",
+          "",
+          "This repo has single-job agents in `.claude/agents/`: {{ROSTER}}. This session runs them.",
+          "Before any work on a new task that changes code:",
+          "",
+          "1. Run `/cortex-impact --size` on the files the task will touch, and tell the developer what it",
+          "   recommends, in words (single, team, or that it cannot size the task), and why.",
+          "2. Then end your reply with the exact question \"Single agent or team?\" and stop: plan, edit and",
+          "   delegate nothing until they answer. The developer decides, even on a single recommendation or",
+          "   a request to just do it. Never say you asked unless that question is in your reply.",
+          "3. On \"single\", work as usual. On \"team\", load the `team` skill and follow it: a plan, a bounded",
+          "   debate of cited objections, then a failing test, the change and an independent review.",
+          "",
+          "To stop using the team, delete this section, `.claude/skills/team/` and the agents.",
+        ),
+      },
     ],
   },
 };
@@ -75,6 +96,6 @@ export const SHIPPED_SECTIONS = {
 export const UNTRACKED_SECTIONS = {
   "loop/verification.md": {
     heading: "Verifying your work",
-    sha256: "321577db007e1bc20b38a8e494398f7259a18395b1a11aeab50a372742bb1698",
+    sha256: "6b367356024bd6de29b9967833edaafead14345ad179919f8d9764c9a8dcef87",
   },
 };

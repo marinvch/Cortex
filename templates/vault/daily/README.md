@@ -1,6 +1,6 @@
 # daily/ — one note per day
 
-`YYYY-MM-DD.md`, created by `/daily` from `templates/daily.md`. Part log, part journal: what's on
+`YYYY-MM-DD.md`, created by `/daily-plan` from `templates/daily.md`. Part log, part journal: what's on
 today, what happened, what's still open. The cheapest place to put a thought when you don't yet
 know where it belongs.
 

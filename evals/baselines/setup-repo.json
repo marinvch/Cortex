@@ -1,0 +1,12 @@
+{
+  "skill": "setup-repo",
+  "bodySha256": "087b64aa02e26b754c05e34562d4261150b5f3ef33c7937af21a34da1e96cb4e",
+  "split": "test",
+  "n": 14,
+  "hard": 1,
+  "soft": 1,
+  "model": "claude-sonnet-5",
+  "effort": "medium",
+  "recordedAt": "2026-10-12T07:02:48.980Z",
+  "rekeyed": "3.0.0 rename: the score was measured on the body with sha256 168d4699a55e1016cbc5843f6bd46458b07f4be999ca2362fddb06b096b8ec7f, before the rename, and has not been measured on this one"
+}

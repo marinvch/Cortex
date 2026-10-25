@@ -11,12 +11,12 @@ got. An entry is never edited to look better later; a later measurement gets its
 
 | Date | Ritual | Outcome |
 |---|---|---|
-| 2026-10-08 | `/cortex` | [kept, with no measured gain: the playback says what a row changes](#2026-10-08--cortex--the-playback-says-what-a-row-changes) |
-| 2026-10-08 | `/cortex` | [rejected: "its `counts` and `files` are not quoted"](#2026-10-08--cortex--its-counts-and-files-are-not-quoted) |
+| 2026-10-08 | `/setup-repo` | [kept, with no measured gain: the playback says what a row changes](#2026-10-08--cortex--the-playback-says-what-a-row-changes) |
+| 2026-10-08 | `/setup-repo` | [rejected: "its `counts` and `files` are not quoted"](#2026-10-08--cortex--its-counts-and-files-are-not-quoted) |
 
 ## 2026-10-08 · cortex · the playback says what a row changes
 
-**The change.** 2.41.22 added to `skills/cortex/SKILL.md` that each row of the one confirmation
+**The change.** 2.41.22 added to `skills/setup-repo/SKILL.md` that each row of the one confirmation
 states its `effect`, and that a drifted skill is shown with when it was edited.
 
 **The runs.** `node evals/run.mjs cortex --split test`, 14 tasks a run.

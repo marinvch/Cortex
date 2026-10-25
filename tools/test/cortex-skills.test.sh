@@ -112,7 +112,7 @@ assert_eq "verify-webhook" "$already" "--offers is JSON and keeps the two lists 
 
 # --- a skill the repo has moved away from (#462) -------------------------------------------------------
 
-# A re-run of /cortex kept two skills that said the repo had no tests beside 83 of them, and cited
+# A re-run of /setup-repo kept two skills that said the repo had no tests beside 83 of them, and cited
 # paths that had moved. Present is not the same as true. Every line printed must be provable from
 # disk — and what the repo's own .gitignore declares generated is absent by design, which only a
 # real git checkout can say.
@@ -150,7 +150,7 @@ drift="$(run --offers | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("e
 assert_eq "type-check:6/7/11" "$drift" "--offers carries the same findings for a ritual to walk"
 
 # Edited since it was written (#548): git is the witness, so this has to be a real checkout. The fact
-# rides on the row /cortex plays back, so its one confirmation covers a skill the user was told about.
+# rides on the row /setup-repo plays back, so its one confirmation covers a skill the user was told about.
 edited() { run --offers | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const d=JSON.parse(s).drift[0];console.log(d.edited+"|"+d.editedNote)})'; }
 assert_eq "false|null" "$(edited)" "edited: one commit is the one that wrote it"
 assert_not_contains "$(run)" "edited since it was written" "and the report says nothing about it"

@@ -12,7 +12,7 @@ root `AGENTS.md` and its shims — and `tools/`, the maintenance shelf around th
 
 Read [`docs/changing-cortex.md`](../../docs/changing-cortex.md) first; you are its principal reader
 and the most likely person to make it stale. Then [`tools/AGENTS.md`](../../tools/AGENTS.md).
-Before authoring or editing any agent-facing document, invoke `/writing-for-agents` — that is the
+Before authoring or editing any agent-facing document, invoke `/write-agent-docs` — that is the
 discipline for the work you do, and it is reached *before* writing, not after an audit calls the
 result bloated.
 
@@ -46,10 +46,10 @@ result bloated.
 - **The `disable-model-invocation: true` rituals are once-only, destructive, or reached by name.**
   `grep -l '^disable-model-invocation: true' skills/*/SKILL.md` is the list of record — anchored,
   because the flag is discussed in prose and the loose grep counts those too. Do not add it to
-  `/cortex-install` "for consistency": that flag marks once-only or destructive, not read-only, and
+  `/setup-repo` "for consistency": that flag marks once-only or destructive, not read-only, and
   what protects a target repo is the consent gate, not an invocation flag.
   [ADR 0005](../../docs/adr/0005-the-install-sequence-may-start-itself.md).
-- **The findings report is `/cortex-install`'s script**, so re-ranking a finding changes the
+- **The findings report is `/setup-repo`'s script**, so re-ranking a finding changes the
   interview, not just a document. [ADR 0006](../../docs/adr/0006-the-report-is-the-wizards-script.md).
 - **A guarantee attaches to the act, not to the skill.** If a promise can be kept by code, put it in
   code; if it genuinely needs judgment, leave it in prose and **test that the prose is there**.

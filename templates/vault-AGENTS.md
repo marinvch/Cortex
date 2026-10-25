@@ -2,7 +2,7 @@
 
 The operating manual for a **Cortex vault**: a plain-markdown second brain that the Cortex rituals
 read and write. Copy this file to the vault root as `AGENTS.md`, beside a `CLAUDE.md` containing
-`@AGENTS.md`. `/onboard` and `tools/cortex-vault-extract.sh` both do that when it is missing.
+`@AGENTS.md`. `/personal-setup` and `tools/cortex-vault-extract.sh` both do that when it is missing.
 
 A vault is **not** the Cortex repository. Cortex is the product — cloned, installed as a plugin and
 pointed at codebases. A vault is one person's data, in its own private repo, and the Cortex MCP
@@ -28,7 +28,7 @@ file is moved anywhere a shared repo can see, confirm with `git check-ignore -v 
 
 **One vault holds exactly one world**, and the **profile** says which — `home`, `work` or `lab`,
 declared with `CORTEX_PROFILE` and defaulting to `home`. `core/profile.js` owns the policy,
-`/cortex-profile` reports and sets it, and
+`/set-profile` reports and sets it, and
 [ADR 0015](https://github.com/marinvch/Cortex/blob/master/docs/adr/0015-a-profile-is-the-world-an-install-serves.md)
 records why it is declared rather than detected. The MCP server's startup line prints it.
 
@@ -62,13 +62,13 @@ employer you never listed, a work repo on a public forge. Those pass the code an
 by the rituals below. A write the code let through is not cleared.
 
 **Enforcement — every ritual obeys this:**
-- `/onboard` — asks which world first, and on `home` never asks for employer, client or day-job
+- `/personal-setup` — asks which world first, and on `home` never asks for employer, client or day-job
   detail.
-- `/capture`, `/daily` — material from the other world: **refuse the write** and say where it
+- `/quick-note`, `/daily-plan` — material from the other world: **refuse the write** and say where it
   belongs. Never "sanitize and file anyway."
-- `/cortex-audit`, in every mode — content from the other world is a **critical finding**, not a style
+- `/audit-notes`, in every mode — content from the other world is a **critical finding**, not a style
   nit. Move it out of the vault and report it.
-- `/scan-projects` — on `home`, personal repos only; never a repo under a work directory.
+- `/register-projects` — on `home`, personal repos only; never a repo under a work directory.
 
 ## How the vault is organized
 
@@ -85,11 +85,11 @@ by the rituals below. A write the code let through is not cleared.
 | `context/` | who the user is | about-me, priorities, how-i-work, values, current-focus |
 | `connections.md` | every tool/data source the vault can reach | |
 | `decisions/log.md` | append-only "what I decided and why" | |
-| `references/voice.md` | how you sound, so drafts read as you | filled by `/onboard` |
+| `references/voice.md` | how you sound, so drafts read as you | filled by `/personal-setup` |
 | `archives/` | old material | **move, never delete** |
 
 The folders, `connections.md` and `references/voice.md` start from the skeleton in Cortex's
-`templates/vault/`; `/onboard` and `tools/cortex-vault-extract.sh` copy in whatever is missing and
+`templates/vault/`; `/personal-setup` and `tools/cortex-vault-extract.sh` copy in whatever is missing and
 never overwrite. The frameworks — operating-principles, vault-architecture, codebase-design — ship
 with Cortex in its `references/`, and the note starters in its `templates/`.
 

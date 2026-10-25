@@ -1,0 +1,125 @@
+---
+name: summarize-files
+description: Add summaries, roles and tags on top of the deterministic index, so recall says what code means. Costs tokens, so say so before starting. Triggers — "enrich the index", "what does each file do".
+effort: high
+metadata:
+  capability: strong
+---
+
+# /summarize-files — put meaning on top of structure
+
+The deterministic index knows how a repo is *wired*. This pass adds what each file is *for*.
+
+It is the one part of Cortex that costs real tokens, and it is **optional by design**: everything
+else works without it, and a missing or stale enrichment degrades Cortex to deterministic
+behaviour rather than breaking it. Say the cost out loud before starting, with a number.
+
+## 1. Plan
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-enrich.mjs" plan .
+```
+
+Prints how many batches and files, and writes `.cortex/index/batches.json`. Batching is
+deterministic — same index, same batches — which is what makes an interrupted run resumable.
+
+**If `.cortex/` does not exist, ask before that write.** This skill is separately invocable, so it
+can be the first thing to create the directory — the write
+[ADR 0005](../../docs/adr/0005-the-install-sequence-may-start-itself.md) gates. Generated and
+gitignored is not the same as invisible; the `.gitignore` entry is written for you at creation time,
+the asking is not.
+
+**Tell the user the size before doing anything.** Roughly one model call per batch. Forty batches
+is a real cost; offer to enrich only the areas that matter if the repo is large. Wait for a yes.
+
+**Scope the plan itself — never skip batches by hand.** `--include` and `--exclude` take
+comma-separated path prefixes:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-enrich.mjs" plan . --include src/
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-enrich.mjs" plan . --exclude .github/,.vscode/
+```
+
+The scope is recorded in `batches.json` and replayed by `status`, which is the point: eyeballing
+`batches.json` and skipping `batchIndex` values leaves a large pending set with nothing to say the
+skipping was deliberate, so the next agent cannot tell a partial run from an interrupted one.
+
+Material declared `linguist-vendored` or `linguist-generated` in `.gitattributes` is already out of
+the plan, and `plan` prints how much it skipped. If a repo has vendored trees that are *not*
+declared, say so — one line in `.gitattributes` is cheaper than enriching another tool's code, and
+it fixes the scoped-brief ranking at the same time.
+
+## 2. Work the batches
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-enrich.mjs" status .
+```
+
+For each **pending** batch, read `batches.json` for that `batchIndex`, read the actual files, and
+write `.cortex/index/enrich/batch-<n>.json`:
+
+```json
+[
+  {
+    "path": "src/billing/charge.js",
+    "summary": "Applies the rate multiplier to an amount and returns the charge. The multiplier lives only in rates.js.",
+    "role": "core-logic",
+    "tags": ["billing", "pricing"]
+  }
+]
+```
+
+Rules that the merge step enforces, so following them saves a round trip:
+
+- **One entry per file in the batch — no more, no fewer.** A path that was not in the batch is
+  dropped and reported; a path you skip is reported as uncovered.
+- `role` is one of: `entrypoint`, `core-logic`, `adapter`, `config`, `test`, `docs`,
+  `infrastructure`, `types`, `utility`, `generated`. Anything else is cleared.
+- `summary` is required and capped at 400 characters.
+- At most 8 tags; they are lowercased and deduped.
+
+Write summaries from **reading the file**, not from its name. A summary derived from the path
+teaches nothing that the path did not already say, and it reads as authoritative — which makes it
+worse than no summary at all.
+
+Say what the file is *for* and what a reader would get wrong. Name the constraint that is not
+visible from the signature. `neighbours` in each batch tells you what the batch touches without
+paying to summarise it.
+
+Batches are independent. Several can be done in parallel, and a run can stop and resume — `status`
+always reports what is left.
+
+## 3. Merge
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-enrich.mjs" merge .
+```
+
+Validates every batch against what was requested, then writes `.cortex/index/enriched.json`.
+
+**Read the issues it prints and relay them.** Dropped hallucinated paths and uncovered files are
+reported rather than swallowed, because a silently incomplete enrichment is indistinguishable
+from a complete one. If a batch was rejected, redo that batch and merge again — merging is
+idempotent.
+
+## 4. Report
+
+Give the coverage figure (`N/M indexed files`) and where the file is. Mention that `recall` and
+the findings report use enrichment when it is present.
+
+## Gotchas
+
+- **Enrichment is additive.** The deterministic index stays the source of truth for structure;
+  this only attaches prose. Never let an enrichment pass edit `index.json`.
+- **Re-plan after significant changes.** `merge` warns when the enrichment no longer covers the
+  current index. A summary describing a file that has since been rewritten is actively misleading.
+- Files under three lines and files of unknown type are skipped on purpose — there is no meaning
+  to extract and paying for it is waste.
+- If the user only wants one area, enrich its batches and leave the rest pending. Partial coverage
+  is a supported state, not a failure.
+
+## When the floor is not met
+
+This is the one where a weak model does lasting damage. Enrichment writes a summary for every file, and those summaries feed `recall` — so a plausible-but-wrong summary is not a bad answer once, it is a bad answer every time anyone searches. It also costs tokens to produce.
+
+Below the floor: **skip it.** Enrichment is additive and optional by design (see `index/AGENTS.md`); a missing enrichment degrades Cortex to deterministic behaviour, which is the intended fallback. A wrong one does not degrade it — it poisons it.

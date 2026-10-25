@@ -1,0 +1,20 @@
+{
+  "reach": [
+    "our AGENTS.md is bloated, slim it",
+    "my global CLAUDE.md has grown too long, tidy it",
+    "the agents keep drifting off our conventions, audit the context files",
+    "are any of my skills redundant",
+    "Claude never picks this skill, why",
+    "review my skill collection, which ones are never reached"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "this area needs its own brief",
+      "owner": "write-area-brief"
+    },
+    {
+      "prompt": "make a new skill for deployments",
+      "owner": "write-agent-docs"
+    }
+  ]
+}

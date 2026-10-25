@@ -1,6 +1,6 @@
 // stamps.mjs — which files Cortex wrote into a repo, and whether each is still what it wrote.
 //
-// `/cortex` stamps files from `templates/loop/` into a target repo — the hooks, `REVIEW.md`, the
+// `/setup-repo` stamps files from `templates/loop/` into a target repo — the hooks, `REVIEW.md`, the
 // verifier, the workflows — and until this record nothing said which release wrote them. A repo
 // stamped by 2.36.0 kept 2.36.0's hook after 2.39.0 fixed it for bash 3.2, and 2.39.1's Windows-path
 // fix reached only repos stamped after it. `skill-drift.mjs` answers a different question (does a
@@ -32,7 +32,7 @@
 //
 // `renderable` is the reproducibility guard, and `recordStamp` sets it, so no caller can skip it:
 // rendering the template with the recorded values (`placeholders.mjs`) must give back the file as
-// written, under the hash's rule. /cortex fills some templates partly by hand — a CI setup block,
+// written, under the hash's rule. /setup-repo fills some templates partly by hand — a CI setup block,
 // a formatter line per detected formatter — and a file whose values do not account for every line
 // it holds would lose those lines on a re-render. Such a file is still recorded (its edits are
 // still worth tracking), but a template change under it is `review`, never `update`: a caller that
@@ -65,7 +65,7 @@
 // (`stampsIgnoreRule`), as in `skill-drift.mjs`: the record only works if it is committed, and the
 // repo's own ignore rules are the witness for that.
 //
-// Adoption is for a repo /cortex stamped before this record existed (every 2.39.x install): loop
+// Adoption is for a repo /setup-repo stamped before this record existed (every 2.39.x install): loop
 // files at the locations `loop.mjs` lists (`LOOP_STAMPS`, passed in by the caller), and no record. A
 // location marked `adopt: false` is never adopted: the agent team shipped after the record, so a
 // `.claude/agents/architect.md` in a repo with no record was written by the team. Nothing about them is
@@ -115,7 +115,7 @@ export const VALUE_DEFAULTS = { DEBATE_ROUNDS: "2", CORTEX_REPO: cloneUrl(DEFAUL
 /**
  * A first stamp fills `{{CORTEX_REPO}}` from the source this repo resolves to (`core/source.js`:
  * `CORTEX_SOURCE`, then the connector's `source`, then upstream), unless the caller gave one. The
- * act fills it, so no ritual has to: the instruction once lived in /cortex's table and measurably
+ * act fills it, so no ritual has to: the instruction once lived in /setup-repo's table and measurably
  * pulled its evals down. A directory source is refused — a CI runner cannot clone a local path.
  */
 function withSource(repoRoot, templateText, values, env = process.env) {
@@ -319,7 +319,7 @@ function stampsError(file, why) {
  *
  * Absent is `null` — never an empty record, because "Cortex recorded nothing here" and "Cortex
  * recorded these files" are different answers. Present but unreadable, unparseable or the wrong
- * shape is an error naming the file: a damaged record read as absent would let the next `/cortex`
+ * shape is an error naming the file: a damaged record read as absent would let the next `/setup-repo`
  * run treat every stamped file as unknown and re-stamp over the team's edits.
  */
 export function readStamps(repoRoot) {
@@ -394,7 +394,7 @@ export function forgetStamp(record, path) {
 // --- adoption ------------------------------------------------------------------------------------
 
 /**
- * The loop files an older /cortex left here, as `{ path, template }` sorted by path: every file at a
+ * The loop files an older /setup-repo left here, as `{ path, template }` sorted by path: every file at a
  * location in `sites` (`LOOP_STAMPS`) that exists — but only when there is no record. With one, `[]`:
  * a file outside an existing record was not stamped by a Cortex that records, and it is the team's.
  *
@@ -755,7 +755,7 @@ export function applyUpdates({ repoRoot, record, plan, version }) {
  *   olderPlugin  set when a newer Cortex wrote the record (`olderPlugin`)
  *   files        the per-file status, or null with no record: never `[]`, which reads as all current
  *   counts       files per state, or null with no record
- *   adopt        loop files an older /cortex left and nothing recorded; `[]` once a record exists
+ *   adopt        loop files an older /setup-repo left and nothing recorded; `[]` once a record exists
  *   ignored      the rule that keeps the record out of git, or null
  *   empty        no record and nothing to adopt
  *

@@ -133,7 +133,7 @@ test("unknown languages yield no imports rather than throwing", () => {
 
 test("a Go import resolves to the package directory, not a file", () => {
   // Go is the one language here where one specifier means many files: it imports a PACKAGE, which is
-  // a directory. Before this, gin indexed with 0 edges across 130 files — /cortex-impact said nothing
+  // a directory. Before this, gin indexed with 0 edges across 130 files — /change-impact said nothing
   // imported the framework's central type, and the orphan finding called 59 files unreferenced.
   const byDir = new Map([
     ["binding", ["binding/json.go", "binding/form.go"]],
@@ -322,7 +322,7 @@ test("pub mod and pub(crate) mod are extracted, not just bare mod", () => {
 });
 
 test("java: a package is a directory, under a source root", () => {
-  // gson indexed with 0 edges across 264 java files. /cortex-impact on Gson.java — the library's
+  // gson indexed with 0 edges across 264 java files. /change-impact on Gson.java — the library's
   // central class — reported that nothing imported it; it now reports 124 affected files.
   const files = new Set([
     "gson/src/main/java/com/google/gson/Gson.java",

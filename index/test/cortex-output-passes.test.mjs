@@ -1,13 +1,13 @@
-// cortex-output-passes.test.mjs — everything /cortex writes into a repo passes Cortex's own checker.
+// cortex-output-passes.test.mjs — everything /setup-repo writes into a repo passes Cortex's own checker.
 //
-// Stamping is done by the model following skills/cortex/SKILL.md, not by code, so this test does
+// Stamping is done by the model following skills/setup-repo/SKILL.md, not by code, so this test does
 // what the skill says: it reads the skill's "Template | Lands at" table, copies each template in
 // templates/loop/ to where the table says it lands, adds the root brief and its CLAUDE.md shim, and
 // commits the lot into a fresh git repo. Then it indexes that repo and runs claudeSetupFindings over
 // it with the real readers — disk, git's recorded mode — and expects nothing.
 //
 // The class of bug this catches shipped once already: settings.hooks.json ran a format-changed.sh
-// that templates/loop/ did not have, so every repo /cortex stamped carried a hook that failed on each
+// that templates/loop/ did not have, so every repo /setup-repo stamped carried a hook that failed on each
 // edit and blocked nothing. The second test pins that the check would have seen it.
 
 import { tempDir } from "./tmp.mjs";
@@ -29,9 +29,9 @@ const TEMPLATES = join(REPO, "templates");
 // agent team's do (`team/tester.md`). One rule, used by the stamp below and by the pin to LOOP_STAMPS.
 const templateId = (t) => (t.includes("/") ? t : `loop/${t}`);
 
-/** [{ template, dest, mode: "write" | "append" | "merge" }] from the /cortex skill's table. */
+/** [{ template, dest, mode: "write" | "append" | "merge" }] from the /setup-repo skill's table. */
 function destinations() {
-  const skill = readFileSync(join(REPO, "skills", "cortex", "SKILL.md"), "utf8").replace(/\r\n/g, "\n");
+  const skill = readFileSync(join(REPO, "skills", "setup-repo", "SKILL.md"), "utf8").replace(/\r\n/g, "\n");
   const table = skill.slice(skill.indexOf("| Template | Lands at |"), skill.indexOf("**Never invent a command.**"));
   const out = [];
   for (const line of table.split("\n").slice(2)) {
@@ -66,14 +66,14 @@ function stamp({ skip = [] } = {}) {
     mkdirSync(join(root, rel, ".."), { recursive: true });
     writeFileSync(join(root, rel), body);
   };
-  // A repo worth stamping: some code, and the root brief /cortex-scaffold writes with its shim.
+  // A repo worth stamping: some code, and the root brief /write-context-docs writes with its shim.
   put("package.json", JSON.stringify({ name: "demo", scripts: { test: "node --test" } }, null, 2));
   put("src/app.js", "export const app = () => 1;\n");
   put("AGENTS.md", fill(readFileSync(join(REPO, "templates", "target-AGENTS.md"), "utf8"), "target-AGENTS.md"));
   put("CLAUDE.md", "@AGENTS.md\n");
 
   const rows = destinations();
-  assert.ok(rows.length >= 10, `parsed only ${rows.length} rows from the /cortex skill's table`);
+  assert.ok(rows.length >= 10, `parsed only ${rows.length} rows from the /setup-repo skill's table`);
   const executables = [];
   for (const { template, dest, mode } of rows) {
     if (skip.includes(template)) continue;
@@ -89,7 +89,7 @@ function stamp({ skip = [] } = {}) {
   return { root, rows };
 }
 
-test("the /cortex skill's table covers every loop template", () => {
+test("the /setup-repo skill's table covers every loop template", () => {
   const named = new Set(destinations().map((r) => r.template));
   for (const t of ["settings.hooks.json", "protected-paths.sh", "format-changed.sh", "verifier.md", "verification.md", "cortex-review.yml"]) {
     assert.ok(named.has(t), `the table no longer places ${t}`);
@@ -97,7 +97,7 @@ test("the /cortex skill's table covers every loop template", () => {
 });
 
 test("the whole files the skill's table writes are exactly the locations loop.mjs records and adopts", () => {
-  // Two answers to "where does /cortex put verifier.md": the skill's table, which the model follows,
+  // Two answers to "where does /setup-repo put verifier.md": the skill's table, which the model follows,
   // and LOOP_STAMPS, which adoption and the stamp record read. If they drifted, a repo stamped by an
   // older Cortex would be offered files the skill never writes, or never offered the ones it does.
   // Appended and merged rows are a block inside a shared file and are neither recorded nor adopted.
@@ -109,14 +109,14 @@ test("the whole files the skill's table writes are exactly the locations loop.mj
   assert.deepEqual(fromLoop, fromSkill);
 });
 
-test("everything /cortex writes passes the claude-setup checker", () => {
+test("everything /setup-repo writes passes the claude-setup checker", () => {
   const { root } = stamp();
   const index = buildIndex(root);
   const found = claudeSetupFindings(index, root);
   assert.deepEqual(
     found.map((f) => `${f.kind}: ${f.evidence.join(" | ")}`),
     [],
-    "a template /cortex stamps breaks a rule it is checked against",
+    "a template /setup-repo stamps breaks a rule it is checked against",
   );
 });
 
@@ -128,8 +128,8 @@ test("a stamped hook whose script is missing is caught — the bug this test exi
   assert.match(missing.evidence.join("\n"), /format-changed\.sh not found/);
 });
 
-test("the review workflow /cortex stamps is the one the loop then reports as present", () => {
-  // Detection and template are two files. If they drift, /cortex offers the workflow again on every
+test("the review workflow /setup-repo stamps is the one the loop then reports as present", () => {
+  // Detection and template are two files. If they drift, /setup-repo offers the workflow again on every
   // re-run and stamps a second copy beside the first — two review jobs on every PR.
   const { root } = stamp();
   const plan = loopPlan(root, buildIndex(root));

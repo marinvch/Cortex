@@ -2,7 +2,7 @@ name: site drift
 # The public site renders its facts pages from a committed site-facts.json. This recomputes the facts
 # from master on every push and compares them with the site's copy, so drift is visible the day it
 # happens rather than four product versions later (#415, #416). It only READS the site repo; the fix
-# is /site-sync, which opens a PR there that a person merges.
+# is /sync-website, which opens a PR there that a person merges.
 on:
   push:
     branches: [master]
@@ -73,7 +73,7 @@ jobs:
           fi
           if [ "$CODE" = "1" ]; then
             what="The public site ($SITE_REPO) states facts that master has changed:"
-            fix='Fix: run `/site-sync` — it refreshes `site-facts.json`, drafts the affected pages, and opens a PR on the site repo.'
+            fix='Fix: run `/sync-website` — it refreshes `site-facts.json`, drafts the affected pages, and opens a PR on the site repo.'
           else
             what="The site facts could not be computed from master, so drift went unchecked:"
             fix='Fix: this is a Cortex bug in `tools/cortex-site-facts.mjs` or what it reads, not site drift.'

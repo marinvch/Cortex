@@ -74,7 +74,7 @@ export function resolveAddressee(clone, to, members) {
   throw new AskRefused(
     "unknown_addressee",
     `no role or project in this team is named '${want}'. Roles: ${list(roles)}. Projects: ${list(projects)}. ` +
-      "A role exists once a member holds it in team.json (`ai-os team member`); a project once its repo joins (`/team-add`).",
+      "A role exists once a member holds it in team.json (`ai-os team member`); a project once its repo joins (`/join-team`).",
   );
 }
 

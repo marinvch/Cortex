@@ -1,7 +1,7 @@
 // skill-drift.mjs — which lines of a repo's own skills the repo on disk now contradicts.
 //
-// `/cortex-skills` writes `.claude/skills/<id>/SKILL.md` into a target repo, quoting that repo's
-// real paths, commands and state. Then the repo moves on. `/cortex` keeps existing files by design,
+// `/suggest-skills` writes `.claude/skills/<id>/SKILL.md` into a target repo, quoting that repo's
+// real paths, commands and state. Then the repo moves on. `/setup-repo` keeps existing files by design,
 // so a re-run upgraded the loop and left the skills alone — and on the first repo upgraded from an
 // August install, two of them told every agent the repo had no tests (it had 83), sent it to
 // `src/components/` paths that had moved, and named files that were deleted (#462). A skill is the
@@ -36,7 +36,7 @@
 //
 // That history is `edited`: whether a person worked on the skill since it was written. More than
 // the commit that added it, or an uncommitted change, means someone did, and their edit may be the
-// only correct part. /cortex puts the fact on the playback row (`editedNote`), so its one
+// only correct part. /setup-repo puts the fact on the playback row (`editedNote`), so its one
 // confirmation covers a skill the user was told about; before, the question came after the
 // confirmation, on nearly every skill in an active repo (#548). `null` when git cannot say — a
 // directory that is no checkout — which is unanswered, never "not edited".

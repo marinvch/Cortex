@@ -244,7 +244,7 @@ test("a pointer written in prose is a shim too", () => {
 });
 
 test("a shim that Cortex appended sections to is still the root brief, not a second one", () => {
-  // `/cortex` appends the verification block to `CLAUDE.md` under its `@AGENTS.md` line. Counting
+  // `/setup-repo` appends the verification block to `CLAUDE.md` under its `@AGENTS.md` line. Counting
   // that file told every installed repo that one of its briefs had no rules section.
   const appended = "@AGENTS.md\n\n## Verifying your work\n\n| Check | Command |\n|---|---|\n| Test | `npm test` |\n\nDone means these ran.\n";
   const r = ledger(["AGENTS.md", "CLAUDE.md"], [], { "AGENTS.md": inv("- Root rule.\n"), "CLAUDE.md": appended });

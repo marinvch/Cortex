@@ -76,7 +76,7 @@ node "$REPO_ROOT/index/cortex-index.mjs" . >/dev/null 2>&1
 cd "$REPO_ROOT" || exit 1
 out3="$(node "$REVIEW" --root "$WORK/bare" src/a.js 2>&1)"
 assert_contains "$out3" "no context layer" "a repo with no documents says so"
-assert_contains "$out3" "cortex-install" "and names what would create one"
+assert_contains "$out3" "/setup-repo" "and names what would create one"
 
 # --- flags and refusals ---------------------------------------------------------------------------
 

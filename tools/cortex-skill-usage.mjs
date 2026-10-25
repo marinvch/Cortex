@@ -8,7 +8,7 @@
 //
 // Every other audit reads the skills. This reads the *sessions*, because a skill's real defect is
 // usually invisible in its own file: it is well written, correct, wired in — and nobody has ever
-// reached it. Cortex found ten rituals in that state, including /handoff and /catch-me-up, across 51
+// reached it. Cortex found ten rituals in that state, including /handover-notes and /whats-changed, across 51
 // sessions. Nothing in the skills themselves said so.
 //
 // Two counts, deliberately separate. A `<command-name>` block is a human TYPING the slash command; a
@@ -61,7 +61,7 @@ function shippedSkills() {
 // --- what was reached ----------------------------------------------------------------------------
 
 // Both syntaxes name the same skill and both are stripped to the bare name, because
-// `/cortex:cortex-install`, `/cortex-install` and a `Skill` call for `cortex:cortex-install` are one
+// `/cortex:setup-repo`, `/setup-repo` and a `Skill` call for `cortex:setup-repo` are one
 // ritual being used three ways. Counting them apart would report a heavily-used skill as three
 // lightly-used ones.
 const bare = (s) => String(s).replace(/^\//, "").replace(/^[a-z0-9-]+:/, "").trim();
@@ -194,7 +194,7 @@ if (asJson) {
   console.log(
     "\nNever reached is not the same as unwanted. Check cortex-skill-graph.mjs first: a ritual\n" +
       "nothing points at needs a front door, not a pushier description. And some are deliberate\n" +
-      "acts — /dream and /handoff are things a person decides to do, so auto-firing them is wrong.",
+      "acts — /end-of-day-summary and /handover-notes are things a person decides to do, so auto-firing them is wrong.",
   );
 } else {
   const w = Math.max(...rows.map((r) => r.name.length)) + 1;

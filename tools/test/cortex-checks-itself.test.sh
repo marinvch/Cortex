@@ -4,7 +4,7 @@
 # critical secrets heading that counted 4 files above a list of 11, three tracker modules flagged
 # for a constant holding environment-variable names, fixtures ranked as the busiest untested code,
 # and `mcp/lib/asks.js` and `mcp/lib/sync.js` importing each other. A critical finding is the first
-# thing /cortex asks a user about (ADR 0006), and a cycle inside a package is the coupling the
+# thing /setup-repo asks a user about (ADR 0006), and a cycle inside a package is the coupling the
 # layering test exists to stop, so either one here fails the build.
 #
 # The index is built from a clean clone in $WORK, so the checkout gets no `.cortex/`. The clone is of

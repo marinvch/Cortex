@@ -143,15 +143,15 @@ about itself, so nothing surfaces until a reader is misled.
 
 **The graph check cannot see a front door.** It fails only on `out.length === 0 && in.length === 0`
 (`cortex-skill-graph.mjs:110`), so a ritual keeps passing however thoroughly its *inbound* edges are
-stripped — one outbound edge is enough. Keep that `&&`: a router like `/cortex-next` is nearly all
-outbound and a shared discipline like `/writing-for-agents` nearly all inbound, so failing on a low
+stripped — one outbound edge is enough. Keep that `&&`: a router like `/resume-work` is nearly all
+outbound and a shared discipline like `/write-agent-docs` nearly all inbound, so failing on a low
 inbound count would force exactly the decorative "see also" edges that make a graph look healthier
 than it is. The consequence is worth stating plainly, because the surrounding prose implies more:
 the check proves a ritual is **wired to something**, not that anything leads **to** it. It catches
 total disconnection, which is real and worth catching, and nothing short of it.
 
-Inbound edges are also not equal, and counting them hides that. `/connect-brain` and
-`/migrate-engine` had one each until 2.42.0 — from `/setup-plugins` and `/install-project`, both causally
+Inbound edges are also not equal, and counting them hides that. `/connect-mcp` and
+`/migrate-legacy-engine` had one each until 2.42.0 — from `/setup-plugins` and `/install-project`, both causally
 correct, and both from rituals the session record showed at 0/0. A door behind a door nobody opens;
 both of those rituals were folded away for it.
 `cortex-skill-usage.mjs` is the instrument for that half; no static graph can answer it.

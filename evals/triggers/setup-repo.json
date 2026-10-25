@@ -1,0 +1,16 @@
+{
+  "reach": [
+    "set this repo up with cortex",
+    "this is a legacy codebase with no AGENTS.md, onboard it",
+    "install cortex here, the whole loop",
+    "index this codebase and report what you find, nothing else",
+    "show me the findings for this repo without setting anything up",
+    "I only want the read-only report on this project"
+  ],
+  "elsewhere": [
+    {
+      "prompt": "show me this repo's import graph as a page",
+      "owner": "repo-map"
+    }
+  ]
+}

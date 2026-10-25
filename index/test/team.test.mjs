@@ -1,4 +1,4 @@
-// team.test.mjs — what /cortex offers of the agent team, and with which values (plan step 14).
+// team.test.mjs — what /setup-repo offers of the agent team, and with which values (plan step 14).
 //
 // Spec T4, T6 and T9 (docs/specs/2026-09-28-agent-team-design.md): every role is offered and the
 // developer picks each one; the Project manager only where there is something to manage; a role an
@@ -85,7 +85,7 @@ test("a role an existing agent covers is never offered again (T6), and says whic
   assert.ok(s.unmapped.some((a) => a.path === ".claude/agents/review/security.md"), "the nested lens agent is listed, as unmapped");
 });
 
-test("the verifier /cortex stamped is offered the upgrade to the Reviewer, and keeps the role covered (T9)", () => {
+test("the verifier /setup-repo stamped is offered the upgrade to the Reviewer, and keeps the role covered (T9)", () => {
   const { s } = state({ "src/a.js": "x\n", [VERIFIER]: verifierText });
   assert.ok(!offered(s).includes("reviewer"), "no second reviewer beside it");
   assert.equal(s.upgrade?.path, VERIFIER);
@@ -319,7 +319,7 @@ test("SCOPED_BRIEFS lists the repo's scoped briefs, never the root one or a file
 // list: the list came from the index, and the index was built before the briefs were written.
 test("SCOPED_BRIEFS is read off disk, so a brief written after the index was built is on the list", () => {
   const w = world({ "src/a.js": "x\n", "src/billing/pay.js": "x\n", "src/billing/AGENTS.md": "x\n", "src/old/AGENTS.md": "x\n", "src/old/b.js": "x\n" });
-  // Written by /cortex-brief in this pass; the index has never seen it.
+  // Written by /write-area-brief in this pass; the index has never seen it.
   writeFileSync(join(w.root, "src", "AGENTS.md"), "# src\n");
   // Deleted since the index was built; the index still lists it.
   rmSync(join(w.root, "src", "old", "AGENTS.md"));
@@ -355,7 +355,7 @@ test("a role Cortex stamped can be picked again, for values that changed since; 
   const quiet = teamState(w.root, w.index, w.options).stamped;
   assert.deepEqual(quiet.map((x) => [x.role, x.path, x.edited, x.changed]), [["architect", ARCHITECT, false, []]], "nothing changed, nothing to refresh");
 
-  writeFileSync(join(w.root, "src", "AGENTS.md"), "# src\n"); // /cortex-brief, later in the same pass
+  writeFileSync(join(w.root, "src", "AGENTS.md"), "# src\n"); // /write-area-brief, later in the same pass
   const s = teamState(w.root, w.index, w.options);
   assert.ok(!offered(s).includes("architect"), "it is still not offered as a new role");
   assert.deepEqual(s.stamped[0].changed, ["SCOPED_BRIEFS"], "the state names what went stale");

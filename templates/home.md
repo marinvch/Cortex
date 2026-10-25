@@ -7,7 +7,7 @@ tags: [moc, home]
 
 <!--
   This is the data-free STARTER for your vault's home dashboard.
-  Copy it to `home.md` (which is gitignored) and let `/onboard` personalize it:
+  Copy it to `home.md` (which is gitignored) and let `/personal-setup` personalize it:
       cp templates/home.md home.md
   Keep this example file data-free so the vault stays shareable/forkable.
 -->
@@ -23,13 +23,13 @@ links out to everything that matters. It is the one note you open every day.
 
 ## ▶ Daily flow
 
-- **Capture** anything → `inbox/` (or run `/capture`)
-- **Today's log** → `daily/` (run `/daily`)
+- **Capture** anything → `inbox/` (or run `/quick-note`)
+- **Today's log** → `daily/` (run `/daily-plan`)
 - **This week** → see [[current-focus]]
 
 ## 🔥 Active now
 
-<!-- /onboard fills this with your live projects + areas -->
+<!-- /personal-setup fills this with your live projects + areas -->
 
 ## 🗂 The vault
 
@@ -64,13 +64,13 @@ Build a MOC note in `notes/` whenever a topic grows past ~7 related notes. Link 
 
 | When | Run | Does |
 |---|---|---|
-| Each morning | `/daily` | Opens today's note, surfaces priorities + due items |
-| Anytime | `/capture` | One-line drop to inbox |
+| Each morning | `/daily-plan` | Opens today's note, surfaces priorities + due items |
+| Anytime | `/quick-note` | One-line drop to inbox |
 | Weekly | `/weekly-review` | Empties inbox, updates projects, archives stale |
-| Weekly | `/cortex-audit score` | Health score of the four vault layers |
-| Biweekly | `/level-up` | Find one piece of leverage, ship one artifact |
-| Per repo | `/cortex` | Give a specific codebase its own context layer and skills |
-| Once | `/onboard` | Teaches the brain who you are |
+| Weekly | `/audit-notes score` | Health score of the four vault layers |
+| Biweekly | `/retrospective` | Find one piece of leverage, ship one artifact |
+| Per repo | `/setup-repo` | Give a specific codebase its own context layer and skills |
+| Once | `/personal-setup` | Teaches the brain who you are |
 
 ## 📚 How this brain thinks
 

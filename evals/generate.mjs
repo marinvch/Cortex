@@ -2,7 +2,7 @@
 // Write the skill evals: evals/data/<skill>/{train,val,test}/tasks.json, deterministically.
 //
 //   node evals/generate.mjs            # all skills
-//   node evals/generate.mjs ship       # one
+//   node evals/generate.mjs merge-work # one
 //   node evals/generate.mjs --check    # exit 1 if the committed data differs from what the seeds write
 //
 // Seeds are fixed per split, so the files are reproducible and a diff in them means a generator
@@ -11,7 +11,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { SKILLS } from "./skills.mjs";
+import { SEED_NAMES, SKILLS } from "./skills.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SPLITS = { train: [1000, 16], val: [2000, 10], test: [3000, 14] };
@@ -22,7 +22,7 @@ export function build(skill) {
   for (const [split, [base, n]] of Object.entries(SPLITS)) {
     out[split] = [];
     for (let i = 0; i < n; i++) {
-      const seed = base + i + skill.length * 7919;
+      const seed = base + i + (SEED_NAMES[skill] ?? skill).length * 7919;
       const s = mod.generate(seed);
       out[split].push({ id: `${skill}-${split}-${i}`, skill, seed, task_type: skill, prompt: mod.render(s), truth: mod.truth(s) });
     }

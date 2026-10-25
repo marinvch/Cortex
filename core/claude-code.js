@@ -15,7 +15,7 @@
 // it fails when a rule's evidence has left its page. ADR 0017 holds the reasoning.
 //
 // Pure data, two lookups, one heuristic two readers share (`triggerPhrasing`), and one path test
-// the loop reader applies to what /cortex would write (`protectedClaudePath`). It lives in
+// the loop reader applies to what /setup-repo would write (`protectedClaudePath`). It lives in
 // core/ because both index/'s findings and the tools/ that check Cortex's own files consume it,
 // and core/ is the one place both may import.
 //
@@ -330,7 +330,7 @@ export const RULES = Object.freeze([
 
   // --- nested instruction files: when a scoped brief is actually read ----------------------------
   //
-  // /cortex-brief writes `<dir>/AGENTS.md` leaves. These say when Claude Code loads one.
+  // /write-area-brief writes `<dir>/AGENTS.md` leaves. These say when Claude Code loads one.
   {
     id: "claude-md.nested.loads-on-touch",
     value: "on demand",
@@ -348,10 +348,10 @@ export const RULES = Object.freeze([
 
   // --- code review: what REVIEW.md is to Claude Code's own reviewer -------------------------------
   //
-  // /cortex writes a REVIEW.md. These are what the managed Code Review does with it and with
+  // /setup-repo writes a REVIEW.md. These are what the managed Code Review does with it and with
   // CLAUDE.md. The managed reviewer no longer promises to flag a CLAUDE.md the change made wrong
   // (the docs dropped that sentence in October 2026), so the stamped REVIEW.md asks for it in its
-  // own words and /cortex-review keeps it as its second axis. The local /code-review command does
+  // own words and /review-change keeps it as its second axis. The local /code-review command does
   // not read REVIEW.md at all, so a rule both reviewers must apply belongs in CLAUDE.md.
   {
     id: "review.review-md.location",
@@ -440,7 +440,7 @@ export const RULES = Object.freeze([
   // --- settings files ----------------------------------------------------------------------------
   //
   // What a committed `.claude/settings.json` does for the people who clone it, which is the file
-  // /cortex writes hooks into. The trust rules are the ones a team trips over: an allow rule waits
+  // /setup-repo writes hooks into. The trust rules are the ones a team trips over: an allow rule waits
   // for each teammate, a deny rule does not.
   {
     id: "settings.strict-json",
@@ -592,7 +592,7 @@ export const RULES = Object.freeze([
 
   // --- AGENTS.md: when Claude Code reads it without a CLAUDE.md, and what the shim costs -----------
   //
-  // /cortex-scaffold writes CLAUDE.md as one line, `@AGENTS.md`. These are the sentences that say the
+  // /write-context-docs writes CLAUDE.md as one line, `@AGENTS.md`. These are the sentences that say the
   // shim is still valid, and that a CLAUDE.md at the root stops a subdirectory's AGENTS.md loading
   // on its own. docs/adr/0021 holds the decision to keep it.
   {
@@ -827,9 +827,9 @@ export const RULES = Object.freeze([
       "A user who authenticates with an API key, or through Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry, gets the guard only on a machine that has managed settings.",
   },
 
-  // --- permissions: why an unattended /cortex cannot write under .claude/ ------------------------
+  // --- permissions: why an unattended /setup-repo cannot write under .claude/ ------------------------
   //
-  // /cortex stamps .claude/agents/, .claude/hooks/ and .claude/settings.json. Headless (`claude -p`)
+  // /setup-repo stamps .claude/agents/, .claude/hooks/ and .claude/settings.json. Headless (`claude -p`)
   // those writes are refused, and no allow rule changes that — the five rules below are the chain
   // of sentences that says so, and `protectedClaudePath()` is the one place the directory test lives.
   {

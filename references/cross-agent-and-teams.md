@@ -24,21 +24,21 @@ for each tool that just says "read AGENTS.md":
 | Cursor | `.cursor/rules/*.mdc` | shim → "read AGENTS.md" |
 | Codex / Amp / Aider / Jules | `AGENTS.md` (native) | nothing — they read it directly |
 
-One source of truth, no copies to drift. `/cortex` generates all of these in one shot.
+One source of truth, no copies to drift. `/setup-repo` generates all of these in one shot.
 
 ## New user — making it work on a project (zero prior knowledge)
 
 1. **Get Cortex** — clone the vault; run `bash tools/cortex-sync-skills.sh` to expose the rituals.
-2. **Open the project repo** and run **`/cortex`**. This is the "discover the architecture"
+2. **Open the project repo** and run **`/setup-repo`**. This is the "discover the architecture"
    step — it indexes the repo, asks once, and writes the context layer
-   (`AGENTS.md` and the agent shims). `/cortex-skills` then offers `/plan-feature` and `/investigate-bug`.
+   (`AGENTS.md` and the agent shims). `/suggest-skills` then offers `/plan-feature` and `/investigate-bug`.
 3. **Work the cycle:** `/plan-feature` (plan first) → approve → implement → log decisions.
-4. That's it. You didn't need to know the architecture up front — `/cortex` discovered it
+4. That's it. You didn't need to know the architecture up front — `/setup-repo` discovered it
    and wrote it down for you (and for every other agent).
 
 ### Which skills you actually need
-- **Per repo:** `/cortex` (once), then `plan-feature` + `investigate-bug` where `/cortex-skills` wrote them.
-- **Personal vault:** `onboard` (once), `daily`, `capture`, `weekly-review`, `cortex-audit`, `level-up`.
+- **Per repo:** `/setup-repo` (once), then `plan-feature` + `investigate-bug` where `/suggest-skills` wrote them.
+- **Personal vault:** `personal-setup` (once), `daily-plan`, `quick-note`, `weekly-review`, `audit-notes`, `retrospective`.
 - Everything else is optional. Don't add skills you won't run — see [[operating-principles]].
 
 ## Team — different people, different agents
@@ -47,7 +47,7 @@ This is the important part. Split it into two layers:
 
 **Shared layer = the repo (committed to git).**
 `AGENTS.md` + the shims live in the repo and get committed. So:
-- You (Claude) run `/cortex` once and commit the result.
+- You (Claude) run `/setup-repo` once and commit the result.
 - Your colleague on **Copilot** pulls the repo → Copilot reads `.github/copilot-instructions.md` →
   same project knowledge.
 - The third dev on **Gemini** pulls → Gemini reads `GEMINI.md` → same knowledge.

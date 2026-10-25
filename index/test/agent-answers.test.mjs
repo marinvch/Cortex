@@ -1,6 +1,6 @@
 // agent-answers.test.mjs — what a developer answered about an agent already here, kept across runs.
 //
-// The failure this pins is #548's third: five agents answered "not a role" in one /cortex pass were
+// The failure this pins is #548's third: five agents answered "not a role" in one /setup-repo pass were
 // all asked about again on the next, because the answer lived in one command's arguments. The other
 // half is the direction of error: a damaged or stale file may only ever ASK again — it never maps an
 // agent, and a write never drops answers it could not read.

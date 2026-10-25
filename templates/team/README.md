@@ -3,8 +3,8 @@
 One Claude Code subagent per role, the Tester's fence, the playbook every session loads, and the
 `team` skill that holds the debate protocol.
 [The design](../../docs/specs/2026-09-28-agent-team-design.md) holds each role's job and tools.
-`/cortex` offers them through its `team` loop row, one role at a time, and stamps what the developer
-picks ([`skills/cortex/TEAM.md`](../../skills/cortex/TEAM.md)). `index/lib/team.mjs` decides what is
+`/setup-repo` offers them through its `team` loop row, one role at a time, and stamps what the developer
+picks ([`skills/setup-repo/TEAM.md`](../../skills/setup-repo/TEAM.md)). `index/lib/team.mjs` decides what is
 offered and fills every value below it can detect; `cortex-loop.mjs . --team <roles>` prints them.
 
 | Template | Lands at |
@@ -16,7 +16,7 @@ offered and fills every value below it can detect; `cortex-loop.mjs . --team <ro
 
 Stamp a whole file with `node index/cortex-stamps.mjs stamp <repo> <lands at> team/<file> --values-file <json>`;
 `render team/playbook.md --values-file <json>` prints the block that is appended. A value
-`/cortex` did not detect is a question for the user, never a guess.
+`/setup-repo` did not detect is a question for the user, never a guess.
 `index/test/team-templates.test.mjs` fails when a template uses a placeholder this table does
 not list, or the table lists one that no template uses.
 

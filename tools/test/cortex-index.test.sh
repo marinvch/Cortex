@@ -147,7 +147,7 @@ mkdir -p "$WORK/elsewhere"
 # --- the sequence, which is the only thing here a user can act on ----------------------------------
 
 # An index answers nothing anybody asked. Without this line the reader is left holding a menu of
-# eleven commands sorted by nothing, which is the state /cortex-next exists to end.
+# eleven commands sorted by nothing, which is the state /resume-work exists to end.
 assert_contains "$(run)" "Next →" "the run ends by naming the single next command"
 
 # --- a root that is not a directory ------------------------------------------------------------

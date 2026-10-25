@@ -359,7 +359,7 @@ test("the playbook names only the roles that were stamped", () => {
 
 test("the playbook has the session recommend from /change-impact --size and ask — it never decides", () => {
   const text = source("playbook").replace(/\s*\n\s*/g, " ");
-  assert.match(text, /\/cortex-impact --size/, "the recommendation comes from the sizing evidence");
+  assert.match(text, /\/change-impact --size/, "the recommendation comes from the sizing evidence");
   assert.match(text, /the developer decides/i);
   assert.match(text, /On "team", load the `team` skill/);
   assert.doesNotMatch(text, /\bautomatically\b|\bwithout asking\b|\bdecide for\b/i);
@@ -429,8 +429,8 @@ test("the session never edits itself: a change after review goes back through th
 test("the team skill reaches Cortex by skill name, never by the plugin's install path", () => {
   // A committed file cannot know where the plugin lives on each machine; the skill name is portable.
   const text = source("team-skill");
-  assert.match(text, /\/cortex-impact\b/);
-  assert.match(text, /\/cortex-review\b/);
+  assert.match(text, /\/change-impact\b/);
+  assert.match(text, /\/review-change\b/);
   assert.doesNotMatch(text, /CLAUDE_PLUGIN_ROOT|index\/cortex-[a-z]+\.mjs/);
 });
 

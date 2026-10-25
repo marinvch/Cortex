@@ -314,7 +314,7 @@ test("contract refuses on a brain with no team, naming /join-team", async () => 
   mkdirSync(join(repo, ".cortex"));
   const [r] = await session(repo, [["contract", { calls: "/items" }]]);
   assert.equal(r.isError, true);
-  assert.match(r.content[0].text, /\/team-add/);
+  assert.match(r.content[0].text, /\/join-team/);
 });
 
 // --- the module ----------------------------------------------------------------------------------

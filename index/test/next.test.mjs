@@ -36,11 +36,11 @@ test("a bare repo starts at step one", () => {
   const plan = nextSteps(root);
   assert.equal(plan.next.id, "index");
   assert.equal(plan.done, 0);
-  // `/setup-repo`, not `/setup-repo`. The sequence is what a user gets walking it one command at a
+  // `/setup-repo`, not a sub-step. The sequence is what a user gets walking it one command at a
   // time; the front door exists so they do not have to, and one run of it satisfies index through
   // skills. Naming the sub-step here would send someone who asked "what now" back to the menu.
-  assert.match(nextLine(root), /\/cortex\b/);
-  assert.doesNotMatch(nextLine(root), /cortex-install/);
+  assert.match(nextLine(root), /\/setup-repo\b/);
+  assert.doesNotMatch(nextLine(root), /\/write-context-docs/);
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -146,7 +146,7 @@ test("/migrate-legacy-engine step 1 cites the key this state returns and every d
   const skill = readFileSync(fileURLToPath(new URL("../../skills/migrate-legacy-engine/SKILL.md", import.meta.url)), "utf8");
   const step1 = skill.slice(skill.indexOf("## Step 1 "), skill.indexOf("## Step 2 "));
   assert.ok(step1.length > 200, "step 1 was found");
-  assert.match(step1, /resume-work\.mjs" \. --json/, "it runs the command that prints the state");
+  assert.match(step1, /cortex-next\.mjs" \. --json/, "it runs the command that prints the state");
   assert.match(step1, /`state\.legacyEngine`/, "and reads the key by its real path");
   assert.ok("legacyEngine" in nextSteps(repo(() => {})).state, "which is where --json carries it");
   for (const dir of LEGACY_ENGINES) assert.ok(step1.includes(`\`${dir}\``), `step 1 names ${dir} as covered by the command`);
@@ -279,7 +279,7 @@ test("a finished repo reports complete and names the per-change rituals", () => 
   const plan = nextSteps(root);
   assert.equal(plan.complete, true);
   assert.equal(plan.next, null);
-  assert.match(nextLine(root), /cortex-review/);
+  assert.match(nextLine(root), /review-change/);
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -442,7 +442,7 @@ test("after the first pass, next names /setup-repo evals — not /setup-repo aga
   assert.equal(plan.next.id, "evals");
   assert.equal(plan.next.cmd, "/setup-repo evals");
   assert.match(plan.next.why, /task history/, "it says what it is waiting for");
-  assert.match(nextLine(root), /^Next → \/cortex evals /);
+  assert.match(nextLine(root), /^Next → \/setup-repo evals /);
   const bands = plan.steps.find((s) => s.id === "bands");
   assert.equal(bands.cmd, "/setup-repo bands");
   assert.equal(bands.optional, true, "a repo with no production metric is finished without bands");

@@ -76,7 +76,7 @@ trap - EXIT
 # /merge-work exists, by a ritual — so it correctly left the external list while its declaration stayed
 # true. An earlier version of this test asserted the list, and adding the honest edge broke it, which
 # is a test punishing the repo for improving.
-for name in optimize-prompt resolving-merge-conflicts; do
+for name in clarify-request resolve-conflicts; do
   line="$(grep -m1 '^  reached-by:' "$REPO_ROOT/skills/$name/SKILL.md" 2>/dev/null || true)"
   if [ -n "$line" ]; then
     _pass "/$name declares what reaches it from outside a ritual"

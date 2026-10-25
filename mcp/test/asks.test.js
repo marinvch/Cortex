@@ -218,7 +218,7 @@ test("on a solo brain the ask tools refuse in one sentence naming /join-team, an
   const { results } = await session(repo, "dev-a", [["inbox", {}], ["ask", { to: "backend", content: "x" }], ["answer", { id: "abc", content: "x" }]]);
   for (const r of results) {
     assert.equal(r.isError, true);
-    assert.match(r.content[0].text, /^no_team: .*\/team-add/);
+    assert.match(r.content[0].text, /^no_team: .*\/join-team/);
   }
   assert.deepEqual(readdirSync(join(repo, ".cortex")), []);
   assert.equal(existsSync(join(repo, ".gitignore")), false);

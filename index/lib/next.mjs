@@ -325,12 +325,11 @@ function steps(s) {
     });
   }
 
-  // Both name `/setup-repo`, not `/setup-repo`. The sequence below is what a user gets when they
+  // Both name `/setup-repo`, not a sub-step. The sequence below is what a user gets when they
   // walk it a command at a time, and the whole point of the front door is that they do not have
   // to: one run of `/setup-repo` satisfies index, findings, scaffold, brief and skills in one pass.
   // Naming the sub-step here would send a user who asked "what now" back to the menu this file
-  // exists to replace. `/setup-repo` is still callable and still correct; it is just no longer
-  // the answer to "where do I start".
+  // exists to replace.
   rows.push({
     id: "index",
     title: "Index the codebase",

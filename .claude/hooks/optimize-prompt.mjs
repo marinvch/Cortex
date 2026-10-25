@@ -38,7 +38,7 @@ const COMPONENT_REF =
 const SLASH_RITUAL = /(^|\s)\/[a-z][\w-]*[a-z]\b/i;
 
 /**
- * Hyphenated ritual names (`cortex-review`, `weekly-review`), read from the skills/ directory two
+ * Hyphenated ritual names (`review-change`, `weekly-review`), read from the skills/ directory two
  * levels up. Single-word names — ship, daily, capture — are ordinary English and would ground any
  * sentence, so only the hyphenated ones count when written bare. No skills/ directory, no names.
  */

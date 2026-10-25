@@ -14,8 +14,8 @@
 // the one exception, and it writes one file: the `--as` answers of this call go to
 // `.cortex/agents.json` (lib/agent-answers.mjs). Without the flag an answer lasts for one call.
 //
-// This is `/setup-repo`'s script the way the findings report is `/setup-repo`'s (ADR 0006). The
-// ritual walks `missing` top-down, so the rank in `lib/loop.mjs` is control flow — it decides which
+// This is `/setup-repo`'s script for the loop, the way the findings report is its script for the
+// offers (ADR 0006). The ritual walks `missing` top-down, so the rank in `lib/loop.mjs` is control flow — it decides which
 // artifact a user is offered first, not merely how a report reads.
 
 import { ANSWERS_REL, rememberAgentAnswers } from "./lib/agent-answers.mjs";

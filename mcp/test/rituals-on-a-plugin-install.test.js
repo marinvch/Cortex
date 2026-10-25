@@ -89,7 +89,7 @@ function run(f, argv, { cwd = f.cwd, env = {} } = {}) {
 // The prose
 // ---------------------------------------------------------------------------------------------
 
-for (const skill of ["connect-brain", "cortex-install", "catch-me-up", "team-add", "team-init"]) {
+for (const skill of ["connect-mcp", "setup-repo", "whats-changed", "join-team", "create-team"]) {
   test(`/${skill} reaches ai-os.js through the plugin root, never a vault path`, () => {
     const { text, found } = commandsIn(skill);
     assert.ok(found.length > 0, `${skill} names no ai-os.js command`);
@@ -146,7 +146,7 @@ test("the README registers the server as cortex, by CORTEX_ROOT, and says an ai-
 
 test("/whats-changed's command reads a plain repo with no vault and no root set", () => {
   const f = fixture();
-  const [line] = commandsIn("catch-me-up").found;
+  const [line] = commandsIn("whats-changed").found;
   const r = run(f, argvOf(line, f.pluginRoot, { "<date>": "2026-01-01" }));
   assert.equal(r.status, 0, `catch-up failed on a plugin install:\n${r.stderr}`);
   const out = JSON.parse(r.stdout);
@@ -163,7 +163,7 @@ test("/whats-changed's command with a vault adds its notes to the repo's own his
   const vault = join(f.base, "vault");
   mkdirSync(join(vault, "projects", "product"), { recursive: true });
   writeFileSync(join(vault, "projects", "product", "n1.md"), "product: decided to drop the legacy API");
-  const [line] = commandsIn("catch-me-up").found;
+  const [line] = commandsIn("whats-changed").found;
   const argv = [...argvOf(line, f.pluginRoot, { "<date>": "1990-01-01" }), "--project", "product"];
   const r = run(f, argv, { env: { CORTEX_ROOT:vault } });
   assert.equal(r.status, 0, r.stderr);
@@ -228,7 +228,7 @@ test("/connect-mcp's bundle command runs on a plugin install with no root set", 
   const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
   const env = { [pathKey]: [bin, dirname(process.execPath)].join(WIN ? ";" : ":") };
 
-  const [line] = commandsIn("connect-brain").found;
+  const [line] = commandsIn("connect-mcp").found;
   const r = run(f, argvOf(line, f.pluginRoot), { env });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /claude plugin install superpowers@/);
@@ -280,7 +280,7 @@ function claudeThatTells(f) {
   return { told, env: { [pathKey]: [bin, dirname(process.execPath)].join(WIN ? ";" : ":") } };
 }
 
-for (const skill of ["cortex-install", "connect-brain"]) {
+for (const skill of ["setup-repo", "connect-mcp"]) {
   test(`/${skill}'s status command says which tiers are installed, starts no claude and writes nothing`, () => {
     const f = fixture();
     registryIn(f, {
@@ -367,7 +367,7 @@ test("/join-team's command joins a team-brain from a plugin install, cloning int
   mkdirSync(vault, { recursive: true });
   const remote = join(f.base, "team-brain.git");
   execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
-  const [line] = commandsIn("team-add").found;
+  const [line] = commandsIn("join-team").found;
   const argv = argvOf(line, f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
   const r = run(f, argv, { cwd: f.proj, env: { CORTEX_ROOT:vault } });
   assert.equal(r.status, 0, `team add failed on a plugin install:\n${r.stderr}`);
@@ -389,7 +389,7 @@ test("/join-team's command registers the project when the checkout has an origin
   const remote = join(f.base, "team-brain.git");
   execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
   execFileSync("git", ["remote", "add", "origin", "https://github.com/example-org/product.git"], { cwd: f.proj, env: isolatedEnv(f.home) });
-  const [line] = commandsIn("team-add").found;
+  const [line] = commandsIn("join-team").found;
   const argv = argvOf(line, f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
   const r = run(f, [...argv, "--title", "Product"], { cwd: f.proj, env: { CORTEX_ROOT: vault } });
   assert.equal(r.status, 0, `team add failed on a plugin install:\n${r.stderr}`);
@@ -407,7 +407,7 @@ test("/join-team's member command writes the joining member's roles into team.js
   mkdirSync(vault, { recursive: true });
   const remote = join(f.base, "team-brain.git");
   execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
-  const { found } = commandsIn("team-add");
+  const { found } = commandsIn("join-team");
   const join_ = argvOf(found[0], f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
   assert.equal(run(f, join_, { cwd: f.proj, env: { CORTEX_ROOT: vault } }).status, 0);
 
@@ -421,7 +421,7 @@ test("/join-team's member command writes the joining member's roles into team.js
 });
 
 test("/join-team names the removal command, and it runs from the plugin root", () => {
-  const { text, found } = commandsIn("team-add");
+  const { text, found } = commandsIn("join-team");
   const remove = found.find((c) => / project remove /.test(c));
   assert.ok(remove, "the skill must name `ai-os project remove`");
   assert.match(text, /Ask before running/i, "removal pushes a deletion the whole team pulls");
@@ -442,7 +442,7 @@ test("/join-team's contract step extracts and publishes from a plugin install (#
   mkdirSync(vault, { recursive: true });
   const remote = join(f.base, "team-brain.git");
   execFileSync("git", ["init", "-q", "--bare", remote], { env: isolatedEnv(f.home) });
-  const { text, found } = commandsIn("team-add");
+  const { text, found } = commandsIn("join-team");
   const join_ = argvOf(found[0], f.pluginRoot, { "<team>": "core", "<team-brain-git-url>": remote, "<this-project-slug>": "product" });
   assert.equal(run(f, join_, { cwd: f.proj, env: { CORTEX_ROOT: vault } }).status, 0);
 

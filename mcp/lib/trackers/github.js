@@ -102,6 +102,41 @@ export function githubAdapter(entry, io = {}) {
       const c = await call("POST", `/repos/${owner}/${repo}/issues/${number}/comments`, { body: text });
       return { id: c?.id === undefined ? null : String(c.id) };
     },
+    /**
+     * The story mirror's read (lib/stories.js): every open issue in `repos`, and those closed since
+     * `closedSince` (YYYY-MM-DD). An issue labelled `epic` is an epic; GitHub gives an issue no
+     * parent epic in this list, so `epic` is null. Pull requests and Cortex's own ask issues are
+     * left out. At most five pages of 100 per repo and state.
+     */
+    async stories({ repos = [], closedSince = null } = {}) {
+      const out = [];
+      for (const repo of repos) {
+        if (!REPO_RE.test(repo)) throw new TrackerError(KIND, `not a GitHub repo: ${repo}`, { retryable: false });
+        for (const state of ["open", "closed"]) {
+          const since = state === "closed" && closedSince ? `&since=${closedSince}T00:00:00Z` : "";
+          for (let page = 1; page <= 5; page++) {
+            const list = await call("GET", `/repos/${repo}/issues?state=${state}&per_page=100&page=${page}${since}`);
+            if (!Array.isArray(list)) break;
+            for (const i of list) {
+              if (i.pull_request || /\[ask:[0-9a-z-]+\]/.test(String(i.title ?? ""))) continue;
+              const epic = (i.labels ?? []).some((l) => String(typeof l === "string" ? l : l?.name ?? "").toLowerCase() === "epic");
+              out.push({
+                key: `${repo}#${i.number}`,
+                kind: epic ? "epic" : "story",
+                title: String(i.title ?? ""),
+                status: i.state === "closed" ? "done" : "open",
+                state: i.state_reason ? `${i.state}/${i.state_reason}` : String(i.state ?? ""),
+                assignee: i.assignees?.[0]?.login ?? i.assignee?.login ?? null,
+                epic: null,
+                url: i.html_url ?? null,
+              });
+            }
+            if (list.length < 100) break;
+          }
+        }
+      }
+      return out;
+    },
     async close(key, resolution) {
       const { owner, repo, number } = parseKey(key);
       await call("PATCH", `/repos/${owner}/${repo}/issues/${number}`, {

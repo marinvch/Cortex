@@ -46,7 +46,7 @@ import { stamp, clock } from "../../core/date.js";
 import { parseProjectFile } from "../../core/project-file.js";
 import { openVault } from "./vault.js";
 import { pull, commitPaths, pushHead, teamCloneDir } from "./gitsync.js";
-import { listAsks, parseAsk, setAskMeta, appendSection, headerName } from "./asks.js";
+import { listAsks, parseAsk, setAskMeta, appendSection, headerName } from "./ask-file.js";
 import { readRoster } from "./roster.js";
 import { ensureTeamClone, TEAM_JSON } from "./team.js";
 import {

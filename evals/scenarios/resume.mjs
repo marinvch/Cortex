@@ -21,7 +21,7 @@
 //   - route ORDER: what the user says about themselves outranks the repo state. Leaving soon is
 //     /handover-notes and a lesson nobody wrote down is /end-of-day-summary, even with open PRs sitting there; being back
 //     from time away is /whats-changed only when nothing is mid-flight — with open PRs it is /merge-work.
-//   - "what's next" with no open PRs is /resume-work, not /ship: stale or local-only branches are
+//   - "what's next" with no open PRs is /resume-work, not /merge-work: stale or local-only branches are
 //     not a PR queue.
 
 import { rng, pick, int, shuffle, branchName, sha, readAnswer, listOf, setF1, sameSet } from "../lib.mjs";
@@ -56,11 +56,11 @@ const MESSAGES = {
 // skill's ordered rules give for that combination. `prs`: "yes" forces an open PR, "no" forbids one,
 // "maybe" lets the draw decide — a PR there is the trap, because the earlier rule still wins.
 const VARIANTS = [
-  { name: "ship", message: "next", prs: "yes", dirty: false, route: "/merge-work" },
+  { name: "merge-work", message: "next", prs: "yes", dirty: false, route: "/merge-work" },
   { name: "away-but-open-prs", message: "away", prs: "yes", dirty: false, route: "/merge-work" },
-  { name: "handoff", message: "leaving", prs: "maybe", dirty: "maybe", route: "/handover-notes" },
-  { name: "catch-me-up", message: "away", prs: "no", dirty: false, quiet: true, route: "/whats-changed" },
-  { name: "dream", message: "lesson", prs: "maybe", dirty: "maybe", route: "/end-of-day-summary" },
+  { name: "handover-notes", message: "leaving", prs: "maybe", dirty: "maybe", route: "/handover-notes" },
+  { name: "whats-changed", message: "away", prs: "no", dirty: false, quiet: true, route: "/whats-changed" },
+  { name: "end-of-day-summary", message: "lesson", prs: "maybe", dirty: "maybe", route: "/end-of-day-summary" },
   { name: "setup", message: "setup", prs: "no", dirty: "maybe", noMemory: true, route: "/resume-work" },
   { name: "next-without-prs", message: "next", prs: "no", dirty: "maybe", route: "/resume-work" },
 ];

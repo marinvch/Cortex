@@ -1,11 +1,12 @@
 {
-  "skill": "cortex-review",
-  "bodySha256": "45189cc6630551a00312004951aee8f397d830bae4182eac415e46a3574fa1a1",
+  "skill": "review-change",
+  "bodySha256": "40515ac9a80ff562eb132b824ccb987b9eb91d211ca95d12ce2b118d80605e39",
   "split": "test",
   "n": 14,
   "hard": 1,
   "soft": 1,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-10-08T18:05:36.797Z"
+  "recordedAt": "2026-10-08T18:05:36.797Z",
+  "rekeyed": "3.0.0 rename: the score was measured on the body with sha256 45189cc6630551a00312004951aee8f397d830bae4182eac415e46a3574fa1a1, before the rename, and has not been measured on this one"
 }

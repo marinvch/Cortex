@@ -21,7 +21,7 @@ test("DELETE /orders/:id answers 409 for a shipped order", async () => {
   const { app } = await newApp();
   const { body } = await placeOrder(app);
   await call(app, "POST", `/orders/${body.id}/pay`);
-  await call(app, "POST", `/orders/${body.id}/merge-work`);
+  await call(app, "POST", `/orders/${body.id}/ship`);
   assert.equal((await call(app, "DELETE", `/orders/${body.id}`)).status, 409);
 });
 

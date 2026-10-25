@@ -19,7 +19,7 @@ async function shop() {
   const paid = (await placeOrder(app, [["apron", 1]])).body;
   const placed = (await placeOrder(app, [["mug-travel", 1], ["tote", 1]])).body;
   await call(app, "POST", `/orders/${shipped.id}/pay`);
-  await call(app, "POST", `/orders/${shipped.id}/merge-work`);
+  await call(app, "POST", `/orders/${shipped.id}/ship`);
   await call(app, "POST", `/orders/${paid.id}/pay`);
   return { app, shipped, paid, placed };
 }
@@ -45,7 +45,7 @@ test("with a shipped, a paid and a placed order, the revenue is the shipped orde
 test("revenue grows by an order's total when that order ships, and not before", async () => {
   const { app, shipped, paid } = await shop();
   assert.equal(await revenue(app), shipped.total);
-  await call(app, "POST", `/orders/${paid.id}/merge-work`);
+  await call(app, "POST", `/orders/${paid.id}/ship`);
   assert.equal(await revenue(app), shipped.total + paid.total);
 });
 
@@ -53,7 +53,7 @@ test("revenue is the sum of the ledger's amounts", async () => {
   const { app, paid } = await shop();
   const sum = async () => listOf((await call(app, "GET", "/ledger")).body).reduce((n, line) => n + line.amount, 0);
   assert.equal(await revenue(app), await sum());
-  await call(app, "POST", `/orders/${paid.id}/merge-work`);
+  await call(app, "POST", `/orders/${paid.id}/ship`);
   const after = await revenue(app);
   assert.equal(after, await sum());
   assert.ok(Number.isInteger(after), `the revenue is ${after}`);

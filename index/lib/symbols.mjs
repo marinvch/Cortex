@@ -142,6 +142,7 @@ function patternNames(n, out = []) {
  *   defs         [{ name, kind, line, exported, default?, bases? }]   name is `f` or `Class.m`
  *   exports      [[local, exported]]                 an `export { a as b }` with no `from`
  *   imports      [{ spec, line, names: [[local, imported]], star? }]   imported is a name, `default` or `*`
+ *   reexports    [{ spec, names: [[exported, imported]] | null }]     `export … from`; null is `export *`
  *   bound        names bound at module level that are not definitions or imports
  *   calls        [{ in, line, kind, name } | { in, line, kind, object, property }], `local` when shadowed
  *

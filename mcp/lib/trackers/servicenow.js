@@ -114,6 +114,39 @@ export function servicenowAdapter(entry, io = {}) {
       await call("PATCH", `/api/now/table/${table}/${checkKey(key)}?sysparm_fields=sys_id`, { [f.comments]: text });
       return { id: null };
     },
+    /**
+     * The story mirror's read (lib/stories.js): the most recently updated epics (`epicTable`,
+     * `rm_epic` by default) and stories (the entry's `table`), 500 of each. A story's epic is the
+     * dot-walked `epic.number`. A state the entry maps to answered or wontfix is done, state 2 (work
+     * in progress on a task table) is active, anything else open. Cortex's own ask records
+     * (`correlation_id` starting `cortex-ask-`) are left out. Verified against the mock only: the
+     * Agile tables' columns are the platform's, and an instance may rename them through `fields`.
+     */
+    async stories() {
+      const epicTable = entry.epicTable ?? "rm_epic";
+      if (!NAME_RE.test(epicTable)) throw new TrackerError(KIND, `'${epicTable}' is not a table name`, { retryable: false });
+      const out = [];
+      for (const [kind, tbl] of [["epic", epicTable], ["story", table]]) {
+        const fields = ["sys_id", "number", f.title, f.state, f.assignee, f.marker, ...(kind === "story" ? ["epic.number"] : [])].join(",");
+        const res = await call("GET", `/api/now/table/${tbl}?sysparm_query=${q("ORDERBYDESCsys_updated_on")}&sysparm_fields=${fields}&sysparm_display_value=all&sysparm_limit=500`);
+        for (const r of Array.isArray(res?.result) ? res.result : []) {
+          if (String(val(r[f.marker])).startsWith("cortex-ask-")) continue;
+          const state = String(val(r[f.state]));
+          const mapped = states[state];
+          out.push({
+            key: String(val(r.number)),
+            kind,
+            title: String(disp(r[f.title]) || ""),
+            status: mapped === "answered" || mapped === "wontfix" ? "done" : state === "2" ? "active" : "open",
+            state: String(disp(r[f.state]) || state),
+            assignee: String(disp(r[f.assignee])) || null,
+            epic: kind === "story" ? String(disp(r["epic.number"]) || "") || null : null,
+            url: val(r.sys_id) ? `${instance}/${tbl}.do?sys_id=${val(r.sys_id)}` : null,
+          });
+        }
+      }
+      return out;
+    },
     async close(key, resolution) {
       await call("PATCH", `/api/now/table/${table}/${checkKey(key)}?sysparm_fields=sys_id`, {
         [f.state]: resolution === "wontfix" ? wontfixState : closeState,

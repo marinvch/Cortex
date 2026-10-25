@@ -56,6 +56,7 @@ import {
 import { syncWorkflowFor, writeSyncWorkflow, WORKFLOW_REL } from "./sync-workflow.js";
 import { githubRepoOf } from "./trackers/github.js";
 import { entryTag, ENTRY_TAG_RE } from "./trackers/http.js";
+import { mirrorStories, storyKinds } from "./stories.js";
 
 const isLink = (l) => l && typeof l === "object" && !Array.isArray(l) && typeof l.kind === "string";
 const errText = (e) => String(e?.message ?? e).split("\n")[0].slice(0, 300);
@@ -324,13 +325,33 @@ export async function syncAsks(clone, { ids = null, policy, env = {}, fetch, tim
   return { ran: true, changed, counts, message: commitMessage(counts) };
 }
 
-/** `sync: servicenow 1 updated, github 1 created` — the counts that are not zero. */
-export function commitMessage(counts) {
+/** `sync: servicenow 1 updated, github 1 created, stories 3 written` — the counts that are not zero. */
+export function commitMessage(counts, storiesWritten = 0) {
   const parts = [];
   for (const [k, c] of Object.entries(counts)) {
     for (const what of ["created", "updated", "pending"]) if (c[what]) parts.push(`${k} ${c[what]} ${what}`);
   }
+  if (storiesWritten) parts.push(`stories ${storiesWritten} written`);
   return `sync: ${parts.length ? parts.join(", ") : "links updated"}`;
+}
+
+/** The story mirror's run for one clone (lib/stories.js), with the I/O the asks use. */
+async function mirrorFor(clone, opts) {
+  const config = readIntegrations(clone);
+  let members = [];
+  try { members = readRoster(clone).members; } catch { members = []; }
+  const env = opts.env ?? {};
+  return mirrorStories(clone, { config, members, policy: opts.policy, env, today: opts.today, io: { env, fetch: opts.fetch, timeoutMs: opts.timeoutMs, policy: opts.policy } });
+}
+
+/** A story run without its file list, for a result. */
+function storiesSummary(st) {
+  const out = { ran: st.ran };
+  if (st.reason) out.reason = st.reason;
+  if (st.ran) Object.assign(out, { written: st.written, unchanged: st.unchanged, skipped: st.skipped, withheld: st.withheld, assigneesWithheld: st.assigneesWithheld });
+  if (Object.keys(st.errors ?? {}).length) out.errors = st.errors;
+  if (st.warnings?.length) out.warnings = st.warnings;
+  return out;
 }
 
 /**
@@ -343,7 +364,12 @@ export async function syncClone(clone, opts) {
   const { pullFirst = true, push = true } = opts;
   const gate = { policy: opts.policy, env: opts.env ?? process.env };
   if (pullFirst && push && opts.policy?.outwardSync) pull(clone, gate);
-  const res = await syncAsks(clone, opts);
+  const asks = await syncAsks(clone, opts);
+  // The story mirror runs on a full sync only: an ask, answer or inbox call narrows the run to the
+  // asks it touched (`ids`), and reading every story there would make each of them slow.
+  const st = asks.ran && !opts.ids && opts.stories !== false ? await mirrorFor(clone, opts) : null;
+  const res = st ? { ...asks, changed: [...asks.changed, ...st.changed], stories: storiesSummary(st) } : asks;
+  if (st?.written) res.message = commitMessage(asks.counts, st.written);
   if (!res.ran || !res.changed.length) return { ...res, committed: false, pushed: false };
   const c = commitPaths(clone, res.changed, res.message);
   if (!c.ok) return { ...res, committed: false, pushed: false, error: c.error };
@@ -376,7 +402,9 @@ export function syncPlan(clone, { ids = null, policy } = {}) {
     }
     plan.push({ id: a.meta.id, status: a.meta.status, to: a.meta.to, steps });
   }
-  return { ran: false, reason: policy && !policy.outwardSync ? "outward_sync_disabled" : "dry_run", primary: config.primary, plan };
+  // The story mirror's half: which trackers it would read, never what they hold.
+  const stories = ids ? [] : storyKinds(config).map((k) => `${k}: read its epics and stories, write each to stories/<key>.md when it changed`);
+  return { ran: false, reason: policy && !policy.outwardSync ? "outward_sync_disabled" : "dry_run", primary: config.primary, plan, stories };
 }
 
 /**
@@ -429,6 +457,7 @@ export function summarise(res) {
   const out = { ran: res.ran };
   if (res.reason) out.reason = res.reason;
   if (res.ran) Object.assign(out, { message: res.changed.length ? res.message : "nothing to sync", committed: res.committed, pushed: res.pushed });
+  if (res.stories) out.stories = res.stories;
   if (res.error) out.error = res.error;
   return out;
 }

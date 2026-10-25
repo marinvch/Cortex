@@ -43,13 +43,17 @@ export const CREDENTIAL_VARS = Object.freeze({
 
 // What each kind's entry may hold. Anything else is refused: an unknown key is either a typo that
 // would be silently ignored or somewhere a credential was about to be put.
+//
+// `stories: true` turns on the story mirror for that tracker (R3 of the role-packs design,
+// lib/stories.js): its epics and stories are written to `stories/<key>.md` on each full sync. Off
+// unless set, because a tracker that only receives asks is not where the team plans.
 const SHAPE = {
-  github: { api: "url", host: "host", repo: "repo" },
+  github: { api: "url", host: "host", repo: "repo", stories: "bool" },
   servicenow: {
     instance: "url!", table: "name", journalTable: "name", group: "text", groups: "map",
-    fields: "map", states: "map", closeState: "text", wontfixState: "text",
+    fields: "map", states: "map", closeState: "text", wontfixState: "text", stories: "bool", epicTable: "name",
   },
-  jira: { site: "url!", project: "jirakey!", issueType: "text", closeTransition: "text", wontfixResolutions: "list" },
+  jira: { site: "url!", project: "jirakey!", issueType: "text", closeTransition: "text", wontfixResolutions: "list", stories: "bool", storyTypes: "names" },
 };
 
 /** A key whose NAME says it holds a secret. Refused anywhere in the integrations, at any depth. */
@@ -100,6 +104,15 @@ function checkValue(kind, key, type, v) {
     case "list":
       if (!Array.isArray(v) || v.some((x) => !isText(x))) throw new IntegrationError(`${where} must be a list of short lines`);
       return [...v];
+    case "names":
+      // Quoted into a JQL query, so a quote or a backslash would end the string early.
+      if (!Array.isArray(v) || !v.length || v.some((x) => !isText(x) || /["\\]/.test(x))) {
+        throw new IntegrationError(`${where} must be a list of names, with no quote or backslash`);
+      }
+      return [...v];
+    case "bool":
+      if (typeof v !== "boolean") throw new IntegrationError(`${where} must be true or false`);
+      return v;
     default:
       throw new IntegrationError(`${where}: unknown field type`);
   }
@@ -296,15 +309,19 @@ export function integrationsFromFlags(flags) {
     }
     return out;
   };
+  // `--stories` alone mirrors every selected tracker's stories; `--stories jira,github` names them.
+  const storyKinds = flags.stories === true ? kinds : flags.stories ? String(flags.stories).split(",").map((s) => s.trim()).filter(Boolean) : [];
+  for (const k of storyKinds) if (!kinds.includes(k)) throw new IntegrationError(`--stories names ${k.slice(0, 20)}, which is not a selected integration`);
+  const stories = (kind) => (storyKinds.includes(kind) ? true : undefined);
   const integrations = kinds.map((kind) => {
-    if (kind === "github") return checkIntegration({ kind, api: flags["github-api"], repo: flags["github-repo"] });
+    if (kind === "github") return checkIntegration({ kind, api: flags["github-api"], repo: flags["github-repo"], stories: stories(kind) });
     if (kind === "servicenow") {
       return checkIntegration({
         kind, instance: flags["servicenow-instance"], table: flags["servicenow-table"],
-        group: flags["servicenow-group"], groups: pairs(flags["servicenow-groups"], "servicenow-groups"),
+        group: flags["servicenow-group"], groups: pairs(flags["servicenow-groups"], "servicenow-groups"), stories: stories(kind),
       });
     }
-    return checkIntegration({ kind, site: flags["jira-site"], project: flags["jira-project"], issueType: flags["jira-issue-type"] });
+    return checkIntegration({ kind, site: flags["jira-site"], project: flags["jira-project"], issueType: flags["jira-issue-type"], stories: stories(kind) });
   });
   const routes = {};
   for (const [to, k] of Object.entries(pairs(flags.route, "route") ?? {})) {

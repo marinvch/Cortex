@@ -39,60 +39,11 @@
 // file look shallower than it is. Depth is a FLOOR, like the impact radius, and no caller may
 // present it as a verdict on architecture.
 
-/**
- * Tarjan's strongly-connected components, iterative so a deep graph cannot blow the stack.
- * `lib/graph-report.mjs` reads the cycles back as groups through this, not a second copy.
- */
-export function components(nodes, edgesFrom) {
-  const index = new Map();
-  const low = new Map();
-  const onStack = new Set();
-  const stack = [];
-  const comp = new Map(); // node → component id
-  const groups = [];
-  let counter = 0;
+// Tarjan's strongly-connected components are `components` in `core/graph.js`, which the graph
+// report reads cycles back through as well: one copy, so the two cannot disagree about a cycle.
+import { components } from "../../core/graph.js";
 
-  for (const root of nodes) {
-    if (index.has(root)) continue;
-    const work = [[root, 0]];
-    while (work.length) {
-      const frame = work[work.length - 1];
-      const [v, i] = frame;
-      if (i === 0) {
-        index.set(v, counter);
-        low.set(v, counter);
-        counter++;
-        stack.push(v);
-        onStack.add(v);
-      }
-      const deps = edgesFrom.get(v) || [];
-      if (i < deps.length) {
-        frame[1]++;
-        const w = deps[i];
-        if (!index.has(w)) work.push([w, 0]);
-        else if (onStack.has(w)) low.set(v, Math.min(low.get(v), index.get(w)));
-        continue;
-      }
-      if (low.get(v) === index.get(v)) {
-        const group = [];
-        for (;;) {
-          const w = stack.pop();
-          onStack.delete(w);
-          comp.set(w, groups.length);
-          group.push(w);
-          if (w === v) break;
-        }
-        groups.push(group.sort());
-      }
-      work.pop();
-      if (work.length) {
-        const parent = work[work.length - 1][0];
-        low.set(parent, Math.min(low.get(parent), low.get(v)));
-      }
-    }
-  }
-  return { comp, groups };
-}
+export { components };
 
 /**
  * depthOf(index) → { byPath: Map<path, depth>, layers: [{ depth, paths }], cyclic: [paths] }

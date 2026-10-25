@@ -165,7 +165,8 @@ _Avoid_: "community" (the graph-theory word, fine inside `clusters.mjs` and nowh
 
 A file with many import links, counting each neighbour once. Two uses of the word, both about
 links: a **cluster's hub** names the cluster (its best-connected member), and the **hubs** of the
-graph report (`index/lib/graph-report.mjs`) are the ten best-connected files in the repo, with
+graph report (`core/graph.js`, printed by `index/cortex-graph.mjs` and returned by the `graph`
+MCP tool) are the ten best-connected files in the repo, with
 tests, fixtures, test helpers and vendored files left out. A link count is a floor, because a
 dynamic import is invisible to the index.
 

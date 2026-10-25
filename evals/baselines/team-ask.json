@@ -7,6 +7,5 @@
   "soft": 1,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-10-12T05:10:59.080Z",
-  "rekeyed": "3.0.0 rename: the score was measured on the body with sha256 174ecdd4097253a6701f1754c408e02cfcad82ed35726e71fe8b7e8e3835798b, before the rename, and has not been measured on this one"
+  "recordedAt": "2026-10-25T17:58:13.199Z"
 }

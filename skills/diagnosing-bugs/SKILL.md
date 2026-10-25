@@ -5,192 +5,175 @@ metadata:
   capability: judgment
 ---
 
-# /diagnosing-bugs — build the loop first
+# /diagnosing-bugs — a red command before a theory
 
-A discipline for bugs that did not fall to the first reading. Skip a phase only when you can say why.
+For a bug that survived the first read of the code. The work runs in seven steps, and each one ends
+on a condition you can check. Skipping a step is allowed when you can state the reason.
 
-Cortex's version differs from a generic debugging loop in one way: **this repo has a map, so use it
-before guessing.** Phase 0 exists for that. Everything after it is the upstream discipline, which is
-sound and has not been improved by rewording.
+The order matters more than any single step. Theories formed before there is a command that fails
+on the bug are cheap to produce and expensive to be wrong about, so the theories come fourth.
 
-## Redact
+## Keep secrets out of what you show
 
-This skill has you show commands, outputs and captured artifacts. **Redact every secret first** —
-write `<REDACTED>` in its place. Build loops against environment variables so the credential stays in
-the environment rather than in what you print. Captured traces carry auth headers; quote only the
-lines that carry signal.
+You will paste commands, output and captured requests. Replace every credential with `<REDACTED>`
+before it appears. Drive the loop from environment variables so the value never has to be typed
+into a command. A captured trace usually carries auth headers; quote the lines that matter and
+leave the rest out.
 
-If the redacted output is not enough to diagnose the bug, say so and ask.
+If the redacted material no longer shows the bug, say that and ask for another way in.
 
-## Phase 0: Orient with what the repo already knows
+## 1. Orient on what the repo already records
 
-Cheap, deterministic, and it routinely re-ranks the hypotheses before any exist. Skip it only when
-the repo has no `.cortex/` index.
+The repo has an index and a context layer; read them before forming any view. Skip this step only
+when there is no `.cortex/` index.
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" <suspect files>   # who depends on this, and what no test covers
-node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" <suspect files>   # which documents govern it, and which name it
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" <suspect files>   # dependents, and which of them no test covers
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-review.mjs" <suspect files>   # the documents that govern or name these files
 ```
 
-Read four things off that:
+Take four things from the output:
 
-- **The unverified list.** A bug lives disproportionately in code nothing exercises. If the suspect's
-  dependents are uncovered, that is where to look and the regression test in Phase 5 already has its
-  home.
-- **The documented invariants.** `AGENTS.md`, `CONTEXT.md` and the ADRs that govern these files
-  often *state the bug*: "the raw body is required for signature verification", "this must never
-  reach memory". A violated invariant is a hypothesis with evidence behind it.
-- **Drift.** If the code and the document describing it disagree, one of them is the bug. Do not
-  assume it is the document.
-- **Depth.** `index.layers` places the file: a depth-0 foundation file failing means everything above
-  it is suspect, and an entry-point file failing usually does not implicate the kernel.
+- **Untested dependents.** Bugs collect where nothing runs the code. An uncovered dependent is a
+  place to look first, and it is also where the regression test in step 6 will live.
+- **Stated invariants.** The governing `AGENTS.md`, `CONTEXT.md` and ADRs often describe the bug
+  directly: "the raw body is required for signature verification", "this must never reach memory".
+  A broken invariant is a suspect with written evidence.
+- **Document and code that disagree.** One of them is wrong. Do not assume it is the document.
+- **Where the file sits.** `index.layers` gives its depth. A failing depth-0 file puts everything
+  above it in question; a failing entry point rarely implicates the kernel.
 
-Bring what you find into Phase 3 as ranked hypotheses. Do **not** let it substitute for Phase 1 — a
-plausible cause read off a document is still a guess until a loop goes red on it.
+Carry these into step 4 as candidates. They are not a diagnosis. A cause read off a document stays a
+guess until a command fails on it.
 
-## Phase 1: Build a feedback loop
+## 2. Get one command that fails on the bug
 
-**This is the skill.** Everything else is mechanical. With a **tight** pass/fail signal — one that
-goes red on *this* bug — you will find the cause; bisection, hypothesis-testing and instrumentation
-all just consume it. Without one, no amount of staring at code will save you.
+Most of the effort belongs here. Once a command goes red on this bug and green when it is fixed,
+bisection, probing and fixing all become mechanical. Without it, reading more code does not
+converge.
 
-Spend disproportionate effort here. Be aggressive, be creative, refuse to give up.
+### What the command must be
 
-Ways to construct one, roughly in order of preference:
+You are done with this step when you have run the command at least once and can show it with its
+output, redacted, and it is:
 
-1. **A failing test** at whatever seam reaches the bug — unit, integration, e2e.
-2. **A curl or HTTP script** against a running dev server.
-3. **A CLI invocation** with a fixture input, diffing stdout against a known-good snapshot.
-4. **A headless browser script** driving the UI and asserting on DOM, console or network.
-5. **Replay a captured trace** — save a real request, payload or event log and replay it in isolation.
-6. **A throwaway harness** — the smallest subset of the system that reaches the code path.
-7. **A property or fuzz loop**, when the symptom is "sometimes wrong output".
-8. **A bisection harness**, when the bug appeared between two known states, so `git bisect run` can
-   consume it.
-9. **A differential loop** — the same input through two versions or configs, diffed.
-10. **A human-in-the-loop script**, last resort. If a person must click, drive *them* from a script so
-    the loop still has structure and its output still feeds back to you.
+- **Red on the user's symptom.** It exercises the real failing path and checks for the exact
+  behaviour the user reported. "Exits without error" is not a check.
+- **Repeatable.** The same verdict every run, or a known, high failure rate.
+- **Quick.** Seconds.
+- **Unattended.** You can run it yourself, without a person.
 
-### Tighten it
+If you notice you are building a theory from the source and this command does not exist yet, stop
+and return here. Step 3 does not start without it.
 
-Treat the loop as the product. Once you have *a* loop: make it faster (cache setup, narrow scope),
-make the signal sharper (assert the exact symptom, not "did not crash"), make it deterministic (pin
-the clock, seed the RNG, isolate the filesystem, freeze the network).
+### Where to get one
 
-A 30-second flaky loop is barely better than none. A 2-second deterministic one is a superpower.
+Prefer the earlier options; use a later one when the earlier ones cannot reach the bug.
 
-### Non-deterministic bugs
+1. A test that fails, at whichever level reaches the path: unit, integration or end to end.
+2. An HTTP request, `curl` or a short script, against a running dev server.
+3. The CLI run on a fixture, with its output diffed against a known-good copy.
+4. A headless browser script that drives the page and checks the DOM, console or network.
+5. A captured request, payload or event log replayed on its own.
+6. A small harness that boots only the part of the system that reaches the code.
+7. A property or fuzz run, when the output is only sometimes wrong.
+8. A script `git bisect run` can drive, when the bug arrived between two known commits.
+9. The same input through two versions or two configurations, with the outputs diffed.
+10. A script that tells a person what to click and records what they see. Last, because it needs a
+    person, but it still gives the loop a fixed shape and returns its result to you.
 
-The goal is not a clean repro but a **higher reproduction rate**. Loop the trigger 100×, parallelise,
-add stress, narrow timing windows, inject sleeps. A 50% flake is debuggable; 1% is not. Keep raising
-the rate until it is.
+### Make it worth running a hundred times
 
-### When you genuinely cannot build one
+Once one exists, improve it before using it. Cut setup time and narrow the scope. Check the exact
+symptom rather than the absence of a crash. Remove the sources of variation: fix the clock, seed the
+random number generator, give it its own temporary directory, stub the network. A slow command that
+fails one run in three will mislead you; a fast one that always agrees with itself will not.
 
-Stop and say so. List what you tried, and ask for one of: access to an environment that reproduces
-it, a redacted captured artifact, or permission to add temporary instrumentation. Do **not**
-hypothesise without a loop.
+### When the bug is intermittent
 
-### Done when
+Aim for a higher failure rate, not a perfect reproduction. Run the trigger in a loop, in parallel,
+under load, with sleeps added to widen the race window. Fifty percent is workable and one percent is
+not, so keep pushing the rate up.
 
-You can name **one command** you have **already run at least once** — show the invocation and its
-output, redacted — that is:
+### When no command is possible
 
-- **Red-capable.** It drives the actual bug path and asserts the *user's exact symptom*, so it goes
-  red now and green once fixed. Not "runs without erroring".
-- **Deterministic.** Same verdict every run, or a pinned high reproduction rate.
-- **Fast.** Seconds, not minutes.
-- **Agent-runnable.** You can run it unattended.
+Say so and stop. List what you tried, and ask for one of: an environment where the bug reproduces, a
+redacted capture of the failure, or permission to add temporary instrumentation. Do not move to
+theories without the command.
 
-If you catch yourself reading code to build a theory before that command exists, **stop.** Jumping to
-a hypothesis is the exact failure this skill prevents. No red-capable command, no Phase 2.
+## 3. Confirm it, then shrink it
 
-## Phase 2: Reproduce and minimise
+Run the command and watch it fail. Check that the failure is the one the user described and not a
+neighbouring one, since fixing the wrong failure is a common way to close a bug that is still open.
+Record the exact symptom; step 6 has to show it is gone.
 
-Run the loop. Watch it go red. Confirm it produces the failure the **user** described rather than a
-different one nearby — wrong bug, wrong fix — and that it reproduces across runs. Capture the exact
-symptom so later phases can prove the fix addressed it.
+Then remove things one at a time: inputs, callers, configuration, data, steps. Re-run after each
+removal. Stop when every remaining piece is needed, meaning removing any one of them makes the
+command pass. The smaller case narrows step 4 and becomes the regression test in step 6.
 
-Then shrink to the smallest scenario that still goes red. Cut inputs, callers, config, data and steps
-**one at a time**, re-running after each cut. Done when every remaining element is load-bearing:
-removing any one turns it green.
+## 4. Write down candidate causes, ranked
 
-A minimal repro shrinks the hypothesis space in Phase 3 and becomes the regression test in Phase 5.
+List three to five causes before testing any of them. Testing the first idea that fits tends to
+confirm it.
 
-## Phase 3: Hypothesise
+Give each a prediction that could prove it wrong: "if X causes this, changing Y makes the failure go
+away." A cause with no such prediction cannot be tested; sharpen it or drop it.
 
-Generate **3–5 ranked hypotheses before testing any of them**. Single-hypothesis generation anchors
-on the first plausible idea.
+A broken invariant found in step 1 goes near the top. It is the only kind of candidate that comes
+with evidence already written down.
 
-Each must be falsifiable — state the prediction: *"If X is the cause, then changing Y makes the bug
-disappear."* If you cannot state the prediction, it is a vibe: sharpen it or discard it.
+Show the ranked list to the user before you test it. They often know something that reorders it at
+once, such as a change deployed to the third candidate yesterday, or a cause already ruled out. If
+they are away, carry on with your own order.
 
-Rank anything Phase 0 turned up as a violated invariant near the top. It is the only class of
-hypothesis that arrives with written evidence.
+## 5. Probe one prediction at a time
 
-**Show the ranked list to the user before testing.** They re-rank it instantly ("we deployed a change
-to #3 yesterday") or know what is already ruled out. Cheap checkpoint, big saving. Do not block on
-it — proceed with your ranking if they are away.
+Each probe tests one prediction from step 4, and changes one thing.
 
-## Phase 4: Instrument
+A debugger or REPL is better than logging when the environment has one. Otherwise, log at the
+boundaries where the candidates would behave differently. Logging everything and searching the
+output is not a probe.
 
-Every probe maps to a specific prediction from Phase 3. **Change one variable at a time.**
+Put a unique tag on every temporary log line, for example `[DEBUG-a4f2]`, so one search finds them
+all at cleanup.
 
-Prefer a debugger or REPL if the environment supports it — one breakpoint beats ten logs. Otherwise
-targeted logs at the boundaries that distinguish hypotheses. Never "log everything and grep".
+For a performance regression, measure instead of logging: take a baseline, then bisect against it.
 
-**Tag every debug log** with a unique prefix like `[DEBUG-a4f2]`, so cleanup is one grep. Untagged
-logs survive; tagged ones die.
+## 6. Fix behind a test that fails for the right reason
 
-For performance regressions, logs are usually the wrong tool: establish a baseline measurement, then
-bisect. Measure first, fix second.
+Write the regression test first, at a **seam that reproduces the real failure**: one where the
+calls run the way they do in production. A test that cannot reproduce the chain of calls that
+caused the bug will pass whether or not the bug is fixed.
 
-## Phase 5: Fix, and prove the test would have caught it
+**If there is no such seam, report that as a finding.** The code's shape is stopping this bug from
+being pinned down, and that problem will outlast this bug.
 
-Write the regression test **before** the fix, but only where a **correct seam** exists — one that
-exercises the real bug pattern as it occurs at the call site. A unit test that cannot replicate the
-chain which triggered the bug gives false confidence.
+Where the seam exists:
 
-**If no correct seam exists, that is itself the finding.** Say so. The architecture is preventing the
-bug from being locked down, and that outlives this bug.
+1. Turn the reduced case from step 3 into a test there.
+2. Run it and confirm it fails, **for the reason you expect.** A test that passes before the fix
+   proves nothing. One that fails for some other reason is worse: it will pass after the fix and
+   look like proof. This repo has shipped four assertions that passed for the wrong reason, and each
+   was found only by breaking the code on purpose and watching the test.
+3. Make the fix.
+4. Run the test and confirm it passes.
+5. Run the step 2 command on the original, unreduced case.
 
-Where a seam exists:
+## 7. Close out
 
-1. Turn the minimised repro into a failing test there.
-2. **Watch it fail, and check it fails for the right reason.** A test that passes before the fix is
-   not a regression test, and one that fails for an unrelated reason is worse — it will go green on
-   the fix and prove nothing. This repo has shipped four assertions that passed for the wrong reason;
-   they are only ever found by making the code wrong on purpose and watching.
-3. Apply the fix.
-4. Watch it pass.
-5. Re-run the Phase 1 loop against the original, un-minimised scenario.
+Check each before saying the bug is fixed:
 
-## Phase 6: Cleanup
+- [ ] The step 2 command passes on the original case. Run it; do not infer it.
+- [ ] The regression test passes now and failed before the fix, for the expected reason.
+- [ ] No `[DEBUG-...]` lines remain. Search for the tag.
+- [ ] Temporary harnesses are deleted or clearly labelled as such.
+- [ ] **The commit or PR message states the cause that turned out to be true**, so the next person
+      to touch the code has it. If that contradicts a sentence in `AGENTS.md`, `CONTEXT.md` or an
+      ADR, correct the sentence in the same change. A bug caused by a wrong document comes back.
 
-Before declaring done:
+Then return to the list from step 4 and mark each candidate **confirmed**, **ruled out** (naming the
+probe that ruled it out) or **not tested**, and report the list with the fix.
 
-- [ ] The original repro no longer reproduces — re-run the Phase 1 loop, do not reason about it.
-- [ ] The regression test passes, and failed before the fix for the right reason.
-- [ ] All `[DEBUG-...]` instrumentation is gone. Grep the prefix.
-- [ ] Throwaway harnesses are deleted or clearly marked.
-- [ ] **The hypothesis that turned out correct is written in the commit or PR message**, so the next
-      person to touch this learns what you learned. If it contradicts something in `AGENTS.md`,
-      `CONTEXT.md` or an ADR, fix that sentence too — a bug caused by a stale document recurs.
-
-### Close the list from Phase 3
-
-Go back to the ranked hypotheses and mark each one **confirmed**, **ruled out** (name the probe
-that ruled it out) or **not tested**. Report the list with the fix.
-
-A hypothesis left not tested is fine when the confirmed one explains every symptom. It is not fine
-when it would change the fix: two causes can produce one symptom, and a fix for the first leaves
-the second in place. Test that one before calling the diagnosis complete, or say plainly that it
-is open.
-
----
-
-Adapted from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT). Phases 1–6 are
-upstream, lightly reworded. Phase 0, the invariant-ranking note in Phase 3, and the
-fails-for-the-right-reason step in Phase 5 are Cortex additions — they are what the index and the
-context layer make possible. Closing the Phase 3 list is adapted from the finishing checklist in
-[morluto/rea](https://github.com/morluto/rea)'s investigation skill (MIT).
+An untested candidate is acceptable when the confirmed cause accounts for every symptom. It is not
+acceptable when it could change the fix: two causes can produce the same symptom, and fixing one
+leaves the other. Test it before calling the diagnosis finished, or report it as still open.

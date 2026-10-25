@@ -193,6 +193,10 @@ export function parseDestinations(text) {
       problems.push({ line, why: "carries a scheme — write the host and path alone, as in `github.com/your-org`" });
       return;
     }
+    if (/\s/.test(value)) {
+      problems.push({ line, why: "has a space in it — one destination per line, and a comment is a line of its own starting with #" });
+      return;
+    }
     if (value.includes("*")) {
       problems.push({ line, why: "has a wildcard — there is no wildcard or suffix match; list each host" });
       return;

@@ -821,8 +821,41 @@ function buildAreas(){let h='<div class="wrap"><h2 class="vh">Areas</h2>'
         +'<td class="num">'+c.size+'</td><td class="num">'+c.cohesion+'</td>'
         +'<td><div class="cl-areas">'+c.areas.map(a=>'<span class="chip flat">'+esc(a.name)+' · '+a.files+'</span>').join('')+'</div></td></tr>').join('')
       +'</table></div>':'<div class="hint">None: no two files here import each other.</div>';}
+  h+=graphSection(DATA.graph);
   const p=$('apane');p.innerHTML=h+'</div>';
   p.querySelectorAll('.chip[data-go]').forEach(el=>el.onclick=()=>openFile(el.dataset.go));}
+
+// The graph report, under the clusters it is read off: bridges and untested clusters are named by
+// cluster id, and the table that defines those ids sits right above.
+function graphSection(G){if(!G)return '';
+  const go=p=>'<span class="chip" tabindex="0" role="button" data-go="'+esc(p)+'" title="'+esc(p)+'"><span class="mono">'+esc(p)+'</span></span>';
+  let h='<h2 class="vh">Hubs <small class="mono">'+G.hubs.length+'</small></h2>'
+    +'<div class="hint">The files with the most import links, counting each neighbour once. Tests, fixtures, test helpers and vendored files are left out here and in the bridges below, because a test importing the code it covers says nothing about the code. Files with exactly the same links are one row. Every count is a floor: a dynamic import is invisible to the index.</div>';
+  h+=G.hubs.length?'<div class="tw"><table><tr><th>file</th><th>links</th><th>imported by</th><th>cluster</th></tr>'
+    +G.hubs.map(x=>'<tr><td>'+go(x.path)+(x.twins.length?'<span class="chip flat" title="'+esc(x.twins.join(', '))+'">+'+x.twins.length+' with the same links</span>':'')+'</td>'
+      +'<td class="num">'+x.links+'</td><td class="num">'+x.inbound+'</td><td class="num">'+esc(x.cluster||'—')+'</td></tr>').join('')
+    +'</table></div>':'<div class="hint">None: no file has three or more import links.</div>';
+  h+='<h2 class="vh">Bridges <small class="mono">'+G.bridgeCount+'</small></h2>'
+    +'<div class="hint">Imports from one cluster into another, least expected first: crossing areas scores 2 and crossing clusters 1; an import of a file other clusters share, or a re-export, scores 2 less. Ties go to the pair of clusters with the fewest imports between them. One row per importing file'
+    +(G.bridgeCount>G.bridges.length?', '+G.bridges.length+' shown':'')+'.</div>';
+  h+=G.bridges.length?'<div class="tw"><table><tr><th>import</th><th>clusters</th><th>score</th><th>why</th></tr>'
+    +G.bridges.map(b=>'<tr><td>'+go(b.from)+' → '+go(b.to)+(b.alsoFrom?'<span class="chip flat">+'+b.alsoFrom+' more from this file</span>':'')+'</td>'
+      +'<td class="num">'+esc(b.fromCluster)+' → '+esc(b.toCluster)+'</td><td class="num">'+b.score+'</td>'
+      +'<td>'+b.reasons.map(esc).join('; ')+'</td></tr>').join('')
+    +'</table></div>':'<div class="hint">None: no import crosses from one cluster into another.</div>';
+  h+='<h2 class="vh">Import cycles <small class="mono">'+G.cycleCount+'</small></h2>'
+    +'<div class="hint">One shortest loop through each group of files that import each other, shortest first. Breaking an edge on the loop is where to start'
+    +(G.cycleCount>G.cycles.length?'; the first '+G.cycles.length+' are listed, and the Gaps tab names every file':'')+'.'
+    +(G.testCycles?' Not listed: '+G.testCycles+' cycle'+(G.testCycles===1?'':'s')+' among tests, fixtures and test helpers only.':'')+'</div>';
+  h+=G.cycles.length?G.cycles.map(c=>'<div class="cl-areas">'+c.loop.map(go).join(' → ')+' → '+go(c.loop[0])
+      +(c.size>c.loop.length?'<span class="chip flat">'+c.size+' files in this group</span>':'')+'</div>').join('')
+    :'<div class="hint">None.</div>';
+  if(G.untestedClusters){h+='<h2 class="vh">Clusters with no test found <small class="mono">'+G.untestedClusters.length+'</small></h2>'
+    +'<div class="hint">No name, import or quoted mention ties a test to any member that needs one. A floor, like every coverage figure here.</div>';
+    h+=G.untestedClusters.length?'<div class="tw"><table><tr><th>cluster</th><th>hub</th><th>files that need a test</th></tr>'
+      +G.untestedClusters.map(c=>'<tr><td class="num">'+esc(c.id)+'</td><td>'+go(c.hub)+'</td><td class="num">'+c.testable+'</td></tr>').join('')
+      +'</table></div>':'<div class="hint">None.</div>';}
+  return h;}
 
 // ---- gaps --------------------------------------------------------------------------------
 function buildGaps(){const g=DATA.gaps;

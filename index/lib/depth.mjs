@@ -39,8 +39,11 @@
 // file look shallower than it is. Depth is a FLOOR, like the impact radius, and no caller may
 // present it as a verdict on architecture.
 
-/** Tarjan's strongly-connected components, iterative so a deep graph cannot blow the stack. */
-function components(nodes, edgesFrom) {
+/**
+ * Tarjan's strongly-connected components, iterative so a deep graph cannot blow the stack.
+ * `lib/graph-report.mjs` reads the cycles back as groups through this, not a second copy.
+ */
+export function components(nodes, edgesFrom) {
   const index = new Map();
   const low = new Map();
   const onStack = new Set();

@@ -103,6 +103,11 @@ Each piece is one PR. Each merges to `master` unreleased. The release follows th
   - The findings glance gets one line (cluster count, hubs, cycles) and no offer.
 - **Validation:** on the G1 repos, every hub and bridge reported is opened and judged. The scoring
   is mutation-tested.
+- **As built.** Reading every bridge on nine repos changed the score. The +1 for a file with few
+  links reaching a hub is not scored: it fired on 27 bridges and 26 were the most expected import
+  in their repo. An import of a file that three or more other clusters import, or a re-export,
+  scores 2 less. Ties go to the pair of clusters with the fewest bridges between them.
+  `index/lib/graph-report.mjs` holds the reasons.
 
 ### G3 — The `graph` MCP tool
 

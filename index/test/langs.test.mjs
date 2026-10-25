@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { detectLanguage, categoryOf, isTestPath, isEntryPath, isEntrySource } from "../lib/langs.mjs";
+import { detectLanguage, categoryOf, isTestPath, isTestData, inTestPath, isEntryPath, isEntrySource } from "../lib/langs.mjs";
 
 test("detects language by extension and by filename", () => {
   assert.equal(detectLanguage("src/a.ts"), "typescript");
@@ -172,5 +172,35 @@ test("under .claude/ only a file named as a test is one — a hook called test-p
   }
   for (const p of [".claude/hooks/optimize-prompt.test.mjs", ".claude/hooks/guard_test.py", "tools/test-homelab-drift.sh"]) {
     assert.ok(isTestPath(p), `${p} should be a test`);
+  }
+});
+
+// --- test data is not code that needs a test -------------------------------------------------------
+
+test("a file under a fixture directory is test data", () => {
+  for (const p of ["evals/harness/fixture/source.mjs", "evals/harness/fixture/solutions/cancel/good.mjs", "test/fixtures/app.js", "src/__fixtures__/user.ts", "pkg/parse/testdata/input.go", "Tests/Fixtures/Sample.cs"]) {
+    assert.ok(isTestData(p), `${p} should be test data`);
+  }
+});
+
+test("a fixture-like name that is not a directory segment is not test data", () => {
+  // `solutions/` stays out: a Next.js app routes /solutions from app/solutions/.
+  for (const p of ["src/fixture.mjs", "evals/harness/fixture.mjs", "src/fixtures.ts", "lib/fixtures-loader.js", "src/prefixtures/a.js", "app/solutions/page.tsx", "src/mocks/handlers.ts", "examples/basic/index.js"]) {
+    assert.equal(isTestData(p), false, `${p} should not be test data`);
+  }
+});
+
+test("a fixture directory does not make its files tests", () => {
+  for (const p of ["evals/harness/fixture/tests.mjs", "src/__fixtures__/user.ts", "pkg/testdata/main.go"]) {
+    assert.equal(isTestPath(p), false, `${p} should not be a test`);
+  }
+});
+
+test("inTestPath covers test, fixture, example and mock directories, and nothing else", () => {
+  for (const p of ["test/a.js", "tests/a.js", "src/__tests__/a.js", "spec/a.rb", "test/fixtures/key.pem", "src/__fixtures__/a.ts", "pkg/testdata/a.go", "examples/a.js", "src/mocks/a.ts", "Test/A.cs"]) {
+    assert.ok(inTestPath(p), `${p} should be under a test path`);
+  }
+  for (const p of ["src/config.js", "mcp/lib/trackers/github.js", "src/testing.js", "src/fixture.mjs", "contest/a.js", "app/solutions/page.tsx"]) {
+    assert.equal(inTestPath(p), false, `${p} should not be under a test path`);
   }
 });

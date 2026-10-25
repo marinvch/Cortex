@@ -5,6 +5,7 @@ import { scan } from "../../core/scrub.js";
 import { MAX_TEXT_BYTES, scannedForSecrets, textSource } from "./repo-text.mjs";
 import { buildCoverage, testStem } from "./coverage.mjs";
 import { UNRESOLVED_LANGUAGES } from "./imports.mjs";
+import { inTestPath, isTestData } from "./langs.mjs";
 import { findOrphans } from "./orphans.mjs";
 import { ENRICHED_REL } from "./enrich.mjs";
 import { contextLayer } from "./next.mjs";
@@ -92,7 +93,8 @@ export { testStem };
  * was the subset in directories dense enough to list, the 26 was everything, and neither surface
  * said which it was. The predicate lives here once; the grouping below is a view of it.
  *
- * `testable` is non-test `code` files — the denominator every coverage figure divides by.
+ * `testable` is non-test `code` files outside a fixture directory — the denominator every coverage
+ * figure divides by.
  */
 export function codeCoverage(index, text) {
   // Three signals, because each alone misreports. Naming catches `paths.js` ← `paths.test.js` even
@@ -104,11 +106,16 @@ export function codeCoverage(index, text) {
   const testable = [];
   const untested = [];
   for (const f of index.files) {
-    if (f.category !== "code" || f.isTest) continue;
+    if (!needsTest(f)) continue;
     testable.push(f.path);
     if (!coverage.isCovered(f.path)) untested.push(f.path);
   }
   return { coverage, testable, untested };
+}
+
+/** Code a test should cover. A fixture is what a test reads, so it never needs a test of its own. */
+function needsTest(f) {
+  return f.category === "code" && !f.isTest && !isTestData(f.path);
 }
 
 /** Production modules that no test covers: the total, and the directories dense enough to list. */
@@ -117,7 +124,7 @@ function untestedAreas(index, { untested }) {
 
   const byDir = new Map();
   for (const f of index.files) {
-    if (f.category !== "code" || f.isTest) continue;
+    if (!needsTest(f)) continue;
     const covered = !missing.has(f.path);
     const dir = f.path.includes("/") ? f.path.split("/").slice(0, -1).join("/") : ".";
     if (!byDir.has(dir)) byDir.set(dir, { dir, code: 0, untested: 0, commits: 0, examples: [] });
@@ -375,20 +382,25 @@ export function analyse(index, root, { text = textSource(root, { index }) } = {}
     // single match was a test fixture, a placeholder or a comment. A tool that cries wolf on four
     // of six respected repos teaches people to skip the section, and then it fails on the one that
     // matters. So: critical only when something outside a test path matched.
-    const inTestPath = (p) => /(^|\/)(tests?|testdata|__tests__|spec|fixtures?|examples?|mocks?)(\/|$)/i.test(p);
     const production = leaky.filter((l) => !inTestPath(l.path));
+    const fixtures = leaky.filter((l) => inTestPath(l.path));
     const allFixtures = production.length === 0;
+    const files = (n, what = "file") => `${n} ${what}${n === 1 ? "" : "s"}`;
+    // The title counts what the list shows, production first. It once counted production alone
+    // over a list of every match, so the critical heading said 4 above 11 rows.
     out.push(
       finding(
         allFixtures ? "medium" : "critical",
         "security",
         allFixtures
-          ? `Secret-shaped strings in ${leaky.length} test file${leaky.length === 1 ? "" : "s"}`
-          : `Possible secrets in ${production.length} file${production.length === 1 ? "" : "s"}`,
+          ? `Secret-shaped strings in ${files(leaky.length, "test file")}`
+          : `Possible secrets in ${files(production.length)}` +
+              (fixtures.length ? `, and ${files(fixtures.length, "test file")}` : ""),
         allFixtures
           ? "Every match sits under a test or fixture path, so this is very likely intentional — test certificates and dummy credentials are normal. Reported rather than hidden because Cortex cannot tell a fixture from a real key that was filed in the wrong place. Add a `cortex:allow-secrets` marker in the file's first 10 lines to settle it — a marker further down is read as prose about the mechanism, not as a claim about the file."
-          : "Cortex refuses to write memory containing these patterns, and they should not be in the repo either. Verify each one — some will be test fixtures or examples, which is exactly why this is reported rather than acted on.",
-        leaky.slice(0, 20).map((l) => `${l.path}: ${l.hits.map((h) => h.kind).join(", ")}`),
+          : "Cortex refuses to write memory containing these patterns, and they should not be in the repo either. Verify each one — some will be test fixtures or examples, which is exactly why this is reported rather than acted on." +
+              (fixtures.length ? " The files outside a test path are listed first; the test files after them are very likely fixtures." : ""),
+        [...production, ...fixtures].slice(0, 20).map((l) => `${l.path}: ${l.hits.map((h) => h.kind).join(", ")}`),
         // Show and stop. There is deliberately no action here that edits a file: some hits are
         // fixtures, and one false positive acted on destroys trust in every other finding.
         offer(

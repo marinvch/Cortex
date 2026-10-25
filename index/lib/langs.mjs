@@ -97,6 +97,26 @@ export function canBeTest(path) {
   return cat === "code" || cat === "script";
 }
 
+// What tests run against, not code a test should cover: inputs, expected outputs, sample trees.
+// Go's toolchain skips `testdata/` for the same reason. `solutions/` is not here: a Next.js app
+// routes `/solutions` from `app/solutions/`, and that is product code.
+const TEST_DATA_DIRS = "fixtures?|__fixtures__|testdata";
+const TEST_DATA_DIR = new RegExp(`(^|/)(?:${TEST_DATA_DIRS})/`, "i");
+const TEST_LIKE_DIR = new RegExp(`(^|/)(?:tests?|__tests__|spec|examples?|mocks?|${TEST_DATA_DIRS})(/|$)`, "i");
+
+/** Under a fixture directory. Coverage never asks for a test of it. */
+export function isTestData(path) {
+  return TEST_DATA_DIR.test(path);
+}
+
+/**
+ * Under any directory a test, a fixture, an example or a mock lives in. Wider than `isTestPath` on
+ * purpose: it ranks a secret-shaped string as a likely fixture, and it never decides what is a test.
+ */
+export function inTestPath(path) {
+  return TEST_LIKE_DIR.test(path);
+}
+
 export function isTestPath(path) {
   if (!canBeTest(path)) return false;
   if (TEST_NAME_PATTERNS.some((re) => re.test(path))) return true;

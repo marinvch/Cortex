@@ -907,3 +907,14 @@ test("the page carries the cluster switch and the Areas tab's cluster table", ()
   assert.match(html, /<h2 class="vh">Clusters/);
   assert.ok(!html.includes("/tmp/x"), "no machine path reaches the page");
 });
+
+test("fixture code does not count as testable in an area", () => {
+  const base = idx();
+  const fixture = { path: "src/fixtures/sample.js", lang: "javascript", category: "code", lines: 5, commits: 1, isTest: false, isEntry: false, imports: [], inbound: 0 };
+  const v = buildView(idx({
+    files: [...base.files, fixture],
+    areas: [{ ...base.areas[0], paths: [...base.areas[0].paths, fixture.path] }],
+  }), "/tmp/x");
+  const src = v.structure.areas.find((a) => a.name === "src");
+  assert.equal(src.testable, 3, "the three source files, not the fixture");
+});

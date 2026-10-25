@@ -31,6 +31,10 @@ this project now versions independently of any package manager (see `VERSION`).
   parsers may run as an add-on the user installs, checked against pinned hashes. The shipped tree
   still imports nothing.
 
+- **Cortex checks itself in CI.** `tools/test/cortex-checks-itself.test.sh` indexes a clean clone
+  of this repository and runs the findings. It fails on any critical finding and on any import
+  cycle inside `core/`, `index/` or `mcp/`.
+
 ### Changed
 
 - **Seven rituals and one reference rewritten in Cortex's own words.** `/diagnosing-bugs`, `/domain-modeling`
@@ -92,6 +96,17 @@ this project now versions independently of any package manager (see `VERSION`).
   `src/middleware` were drawn as one `src`, and their cards on the Areas tab came out grey. The Map
   now uses the index's areas. Its legend says how many of them hold code and how many hold only
   docs or config.
+- **The critical secrets heading counts what its list shows.** It counted only files outside a test
+  path while listing every file. It now lists those files first and counts the test files after
+  them: "Possible secrets in 4 files, and 7 test files".
+- **A quoted value that only names environment variables is not a secret.** The tracker modules'
+  `CREDENTIALS` constants were reported as critical. Every word must be an upper-case name with an
+  underscore, or `or`, `and` or `then`.
+- **Fixtures are test data, not untested code.** Code under a `fixture`, `fixtures`,
+  `__fixtures__` or `testdata` directory no longer appears in the untested finding or on the
+  viewer's Gaps tab. The eval harness's reference patches moved to `evals/harness/fixture/solutions/`.
+- **`mcp/lib/asks.js` and `mcp/lib/sync.js` no longer import each other.** The ask file's format
+  moved to `mcp/lib/ask-file.js`, which both read.
 
 ## [2.45.0] — 2026-10-24
 

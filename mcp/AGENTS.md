@@ -152,8 +152,10 @@ the repo by commit count, and — like every other part — **dependency-free**.
   brain's `team.json`, `team add` copies it here (`readTeamSource`, `lib/team.js`), and
   `core/source.js` reads it. The resolver here ignores it.
 - **Asks are one file per thread, `asks/<id>.md`, in the team-brain** (#620,
-  [the design](../docs/specs/2026-10-24-team-brain-rollout-design.md) R1–R11). `lib/asks.js` owns
-  the file, the addressing and the inbox; `lib/roster.js` owns `team.json`'s `members`. The rules:
+  [the design](../docs/specs/2026-10-24-team-brain-rollout-design.md) R1–R11). `lib/ask-file.js` owns
+  the file's format, `lib/asks.js` the addressing and the inbox, `lib/roster.js` `team.json`'s
+  `members`. `lib/sync.js` reads asks through `ask-file.js` and never imports `asks.js`, which calls
+  it: the two imported each other until the format moved out. The rules:
   - **`to` is a role some member holds or a project in `projects/`, else refused** with both lists.
     A name that is both is the role. Never accept an addressee nobody is placed to see.
   - **The caller's handle is the memory author** (`core/author.js`, asked in the product repo in

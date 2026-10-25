@@ -129,12 +129,56 @@ test("genuinely untested modules are still reported", () => {
   assert.equal(f.severity, "high", "recent commits on untested code raises severity");
 });
 
+test("code under a fixture directory is test data, not an untested module", () => {
+  // The viewer's Gaps tab and this report listed the eval harness's fixture and its reference
+  // patches as the busiest code with no test.
+  const idx = index([
+    { path: "evals/harness/fixture/source.mjs", commits: 9 },
+    { path: "evals/harness/fixture/solutions/cancel/good.mjs", commits: 9 },
+    { path: "evals/harness/fixture/solutions/cancel/naive.mjs", commits: 9 },
+    { path: "src/__fixtures__/user.ts", commits: 9 },
+    { path: "lib/a.js" },
+    { path: "lib/b.js" },
+    { path: "lib/c.js" },
+    { path: "test/other.test.js", isTest: true },
+  ]);
+  const [f] = findingsOfKind(analyse(idx, NO_LAYER), "tests");
+  assert.match(f.title, /^3 modules appear untested/);
+  assert.ok(!f.evidence.some((e) => /fixture/.test(e)), "no fixture directory is listed");
+  const view = buildView(idx, NO_LAYER);
+  assert.deepEqual(view.gaps?.untested?.map((u) => u.path).sort() ?? null, ["lib/a.js", "lib/b.js", "lib/c.js"]);
+});
+
 test("a secret in a source file is critical", () => {
   const text = withText({ "src/config.js": `const key = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
   const sec = findingsOfKind(analyse(index([{ path: "src/config.js" }]), NO_LAYER, text), "security");
   assert.equal(sec.length, 1);
   assert.equal(sec[0].severity, "critical");
   assert.match(sec[0].title, /Possible secrets/);
+});
+
+test("the critical secrets title counts what its list shows, production files first", () => {
+  // Cortex over itself said "Possible secrets in 4 files" above eleven rows: the title counted the
+  // files outside a test path, the list every file.
+  const key = ["AKIA", "IOSFODNN7", "EXAMPLE"].join("");
+  const files = ["test/a.test.js", "src/config.js", "test/fixtures/b.js", "lib/c.js", "spec/d.js"];
+  const text = withText(Object.fromEntries(files.map((p) => [p, `const key = "${key}";`])));
+  const idx = index(files.map((path) => ({ path, isTest: /^(test|spec)\//.test(path) })));
+  const [sec] = findingsOfKind(analyse(idx, NO_LAYER, text), "security");
+  assert.equal(sec.severity, "critical");
+  assert.equal(sec.title, "Possible secrets in 2 files, and 3 test files");
+  assert.deepEqual(
+    sec.evidence.map((e) => e.split(":")[0]),
+    ["src/config.js", "lib/c.js", "test/a.test.js", "test/fixtures/b.js", "spec/d.js"],
+  );
+  assert.equal(offerOf(sec).targets.length, 5, "the triage offer still names every file");
+});
+
+test("a critical secrets finding with no test file says nothing about test files", () => {
+  const text = withText({ "src/a.js": `const k = "${["AKIA", "IOSFODNN7", "EXAMPLE"].join("")}";` });
+  const [sec] = findingsOfKind(analyse(index([{ path: "src/a.js" }]), NO_LAYER, text), "security");
+  assert.equal(sec.title, "Possible secrets in 1 file");
+  assert.doesNotMatch(sec.detail, /listed first/);
 });
 
 test("cortex:allow-secrets exempts a fixture file, and says so", () => {

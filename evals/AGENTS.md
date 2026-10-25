@@ -56,7 +56,7 @@ prints rests on the rules below. [`README.md`](README.md#the-outcome-harness) sa
 - **`accept.mjs` is the harness's one scorer, and a command decides every result.** `run.mjs` calls
   `accept()` and nothing else decides a pass. No model judges a session. A test holds the function
   and the command to one result.
-- **The acceptance files never enter a working copy.** `accept/` and `solutions/` stay in Cortex.
+- **The acceptance files never enter a working copy.** `accept/` and `fixture/solutions/` stay in Cortex.
   The scorer judges a copy of the tree and writes the shop's own tests back first, so a session
   cannot pass by editing a test or read what it is judged by.
 - **A rule check tests a property, never a spelling.** It must not depend on a function name, a file

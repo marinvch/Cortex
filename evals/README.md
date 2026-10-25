@@ -263,7 +263,7 @@ session left, it runs three things under `node --test`:
 `works` is 1 and 2 together, `rule` is 3, and a session **passes** when both hold. The control has
 no rule check. The acceptance files stay in Cortex and are never copied into a working copy.
 
-`harness/solutions/` holds two reference patches for each rule task. `good` is written from the
+`harness/fixture/solutions/` holds two reference patches for each rule task. `good` is written from the
 base tree alone and passes in both arms, so every task can be done without the layer. `naive` does
 what was asked and breaks the rule, so every rule check can fire. The tests hold both.
 

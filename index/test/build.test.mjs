@@ -123,6 +123,9 @@ test("is deterministic — two runs over one tree agree exactly", () => {
   assert.deepEqual(a.files, b.files);
   assert.deepEqual(a.edges, b.edges);
   assert.deepEqual(a.areas, b.areas);
+  assert.deepEqual(a.clusters, b.clusters);
+  // The whole document, as bytes: a section added later falls under this without anyone listing it.
+  assert.equal(JSON.stringify(a), JSON.stringify(b));
 });
 
 test("every indexed file lands in exactly one layer", () => {

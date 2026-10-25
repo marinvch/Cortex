@@ -45,7 +45,7 @@ time; the asking is not.
 | Tab | Holds |
 |---|---|
 | **Overview** | opens first: index freshness, profile, memory age and version; vitals (files, edges, test coverage, 30-day churn, findings by severity) and the top 3 findings; the import graph as a turning particle cloud; next-step commands to copy; a timeline of memory entries and commits |
-| **Map** | every code file as a node, coloured by area, laid out by import depth so it reads top-down rather than as a hairball |
+| **Map** | every code file as a dot in one box per cluster, on the full width. Imports between two boxes are one line carrying their count. The bar regroups by area or by import depth |
 | **Structure** | the context layer as a tree — root `AGENTS.md`, the docs beside it, each code area with its scoped brief, busiest files and tests, and what Cortex generates. A dashed box is missing and names the command that writes it |
 | **Files** | each file with who imports it and what it imports, both clickable |
 | **Areas** | the top-level shape, and which areas already have a scoped brief |
@@ -56,8 +56,9 @@ Any Overview fact that could not be read — no git, no memory yet, no findings 
 available** and why. Report it that way; never read a missing value as zero. Churn and the timeline
 end at the indexed commit, not at today, so the page is the same on every machine.
 
-A red outline on a node means no test was found. Click an area in the legend to hide it; `/` focuses
-search; scroll zooms and drag pans. On the Overview, drag turns the cloud and a click opens the file.
+A red outline on a node means no test was found. Pointing at a file lights its imports and
+importers, and a click keeps them lit. Click a row in the legend to hide that box; `/` focuses
+search; scroll zooms and drag pans. On the Map, arrow keys pan, plus and minus zoom, and zero resets. On the Overview, drag turns the cloud and a click opens the file.
 The theme follows the OS; the button in the top bar overrides it and is remembered.
 
 ## What you must not claim about the picture

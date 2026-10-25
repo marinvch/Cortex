@@ -332,10 +332,14 @@ and copies anywhere. Seven tabs:
   findings by severity; the import graph as a slowly turning cloud (click a point to open the file);
   the next commands to run, one click to copy; and a timeline of memory entries and commits. A fact
   that could not be read says *not available* and why — never a zero.
-- **Map** — a force graph of every code file, coloured by area, laid out by import depth so it
-  reads top-down instead of as a hairball. Click an area in the legend to hide it; a red ring means
-  no test was found. Markdown and config stay out of the Map on purpose: they have no imports to
-  draw, and on this repo 171 of them buried the 98 files that do.
+- **Map** — every code file as a dot, grouped into one box per cluster across the full width, so a
+  feature's files sit together. Box titles name each cluster's hub, the most-imported files are
+  named, and tests never are. Imports inside a box are drawn lightly. Imports between two boxes
+  are one line, thicker for more, with their count on it. Point at a file to light exactly its
+  imports and importers, and click to keep them lit. The bar switches the grouping to areas or to
+  import depth. The legend sits beside the Map and folds away; click a row to hide that box. A
+  red ring means no test was found. Markdown and config stay out of the Map on purpose: they have
+  no imports to draw, and on this repo 171 of them buried the 98 files that do.
 - **Structure** — what an agent is handed: root `AGENTS.md`, the docs beside it, every code area
   with its scoped brief, busiest files and tests, and what Cortex generates. Missing pieces are
   drawn dashed, with the command that writes them.

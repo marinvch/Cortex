@@ -1,12 +1,11 @@
 {
   "skill": "resume-work",
-  "bodySha256": "6445c045799a21be79130ea989c3893b30c206baaee508ab1d938a2346009425",
+  "bodySha256": "9c581fe389daeac776ee97fed2b75abd9f8903d101c99a92339f6c68b303999b",
   "split": "test",
   "n": 14,
-  "hard": 1,
-  "soft": 1,
+  "hard": 0.9286,
+  "soft": 0.9762,
   "model": "claude-sonnet-5",
   "effort": "medium",
-  "recordedAt": "2026-10-10T00:02:49.339Z",
-  "rekeyed": "3.0.0 rename: the score was measured on the body with sha256 6ecf8a4e0583e0770820b3dd2a7fccb7366d5621433c218da9ce30cb69235215, before the rename, and has not been measured on this one"
+  "recordedAt": "2026-10-25T17:44:08.317Z"
 }

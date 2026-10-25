@@ -57,6 +57,10 @@ this project now versions independently of any package manager (see `VERSION`).
   means a plain digest. An unapproved remote means the digest is committed and not pushed, exit 4.
   Without the checker, a `work` or `lab` server sends nothing. `lab` no longer pushes to a remote
   host.
+- **`server-setup.sh` checks the remote before it clones or pushes**, with the same rule.
+- **The scheduled tracker sync reads its approved list from an Actions variable,**
+  `CORTEX_APPROVED_DESTINATIONS`, because the runner has no `~/.cortex`. A repository stamped with
+  an older `sync.yml` needs `ai-os integrations workflow --write` again.
 - **Personal data is refused by default on `work`.** `CORTEX_PII` still overrides it.
   [ADR 0030](docs/adr/0030-on-a-work-profile-nothing-leaves-except-to-an-approved-destination.md),
   [ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md) amended.

@@ -51,7 +51,7 @@ assert_eq "$skills" "$listed" "every skill folder is a ritual in the facts, and 
 order="$(cd "$FIX" && node -e 'const f=require("./first.json");const n=f.rituals.map(r=>r.name);console.log(JSON.stringify(n)===JSON.stringify([...n].sort())&&JSON.stringify(Object.keys(f))===JSON.stringify(Object.keys(f).sort()))')"
 assert_eq "true" "$order" "keys are sorted and rituals are sorted by name"
 
-user_invoked="$(cd "$FIX" && node -e 'console.log(require("./first.json").rituals.find(r=>r.name==="handoff").invocation)')"
+user_invoked="$(cd "$FIX" && node -e 'console.log(require("./first.json").rituals.find(r=>r.name==="handover-notes").invocation)')"
 assert_eq "user" "$user_invoked" "a disable-model-invocation skill is recorded as user-invoked"
 
 # --- MCP tools come from the running server ---------------------------------------------------------

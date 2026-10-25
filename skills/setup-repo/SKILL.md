@@ -39,37 +39,18 @@ intent.md → spec.md  →  plan.md  →  the diff →  the PR   →  the breach
 Each stage ends by committing a file the next stage reads, which is why "is this repo served" is a
 question about files on disk and not a judgment call. `index/lib/loop.mjs` answers it.
 
-## Invoked with a row, or run unattended
+## Report only, invoked with a row, or run unattended
 
-Read [RUNS.md](RUNS.md) before step 1 in either of these cases:
+Read [RUNS.md](RUNS.md) before step 1 in any of these cases:
 
+- **Report only** — "just index this", "report on this repo", "show me the findings". Index, report
+  and walk the offers, then stop; nothing is written beyond `.cortex/`. This is what the separate
+  install command did before 3.0.0.
 - **Invoked with a row** — `/setup-repo evals`, `/setup-repo bands` or `/setup-repo team`. Only that row is
   taken, and evals and bands stop when there is no real history to build them from.
 - **Run unattended** — `claude -p`, where nobody answers the consent gate or step 6. Claude Code
   refuses every write under `.claude/` there unless the run is in auto mode, and the install still
   reads as finished.
-
-## Report only
-
-Some users want to look at a repo before anything is set up: "just index this", "report on this
-repo", "show me the findings". Take this path for them. It is the same pass with the writing taken
-out, and it is what the separate install command did before 3.0.0:
-
-1. Steps 1 to 3 as written: orient, the consent gate, index, the findings report. These write only
-   the generated files under `.cortex/` and the `.gitignore` lines, and the gate covers them.
-2. Walk the findings offers from step 5, `cortex-findings.mjs . --offers`, and record yes, no or
-   later for each. Skip the loop worklist from step 4: nobody asked for the loop.
-3. Stop there. Do not play back, do not confirm, do not write.
-
-A yes to any offer is a choice to set up after all. Say that in one line, then go to step 6 with
-only the rows they said yes to, and the loop rows left out unless they ask for them. On a greenfield
-repo the only offer worth making is the context layer: there is no code to brief or summarise.
-
-Close a report-only run with the next command, not a menu:
-
-```bash
-node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --line
-```
 
 ## 1. Orient
 
@@ -188,17 +169,11 @@ loop does not:
 | `memory` | a committed `.cortex/memory/` |
 | `triage-secrets` | **nothing.** See the rules below |
 
-Merge it with the loop worklist into **one** list of questions. The user is being asked once; they
-should not be able to tell which of two modules produced which question. Say before the first
-question that nothing is written until the end, and record yes, no or **later** for each.
-
-Ask with the *why* attached; that is what `findings` is for. "Three areas may deserve their own
-brief: `src/components`, `src/app`, `src/lib`" is a question a user can answer. "Run brief?" is not.
-The worklist is already collapsed, so **do not re-expand it** by asking per target: one `brief`
-entry is one question naming its candidates, and the user narrows the list in their answer.
-
-An empty worklist is a real outcome and a good one: the repo is already served. A user who declines
-everything has been served completely too.
+Merge it with the loop worklist into **one** list of questions; the user should not be able to tell
+which module produced which. Say first that nothing is written until the end, and record yes, no
+or **later** for each. Ask with the *why* from `findings` attached, and **do not re-expand** the
+collapsed worklist per target: one `brief` entry is one question naming its candidates. An empty
+worklist, or a user who declines everything, is a complete run.
 
 **Agent docs that were already here go first.** If `CLAUDE.md`, `.cursorrules` or another agent
 doc exists and `CONTEXT.md` does not, a human wrote it before Cortex arrived. Ask `cortex-next.mjs`

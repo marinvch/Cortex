@@ -1,8 +1,31 @@
-# /setup-repo — invoked with a row, or run unattended
+# /setup-repo — report only, invoked with a row, or run unattended
 
-`/setup-repo` reads this in two cases only: it was invoked with a row (`/setup-repo evals`, `/setup-repo bands`,
-`/setup-repo team`), or it runs where nobody can answer (`claude -p`). Everything else is in
+`/setup-repo` reads this in three cases only: the user wants a report only, it was invoked with a
+row (`/setup-repo evals`, `/setup-repo bands`, `/setup-repo team`), or it runs where nobody can answer (`claude -p`). Everything else is in
 [SKILL.md](SKILL.md), and its steps still apply here.
+
+## Report only
+
+Some users want to look at a repo before anything is set up: "just index this", "report on this
+repo", "show me the findings". Take this path for them. It is the same pass with the writing taken
+out, and it is what the separate install command did before 3.0.0:
+
+1. Steps 1 to 3 of [SKILL.md](SKILL.md) as written: orient, the consent gate, index, the findings
+   report. These write only the generated files under `.cortex/` and the `.gitignore` lines, and
+   the gate covers them.
+2. Walk the findings offers from step 5 of SKILL.md, `cortex-findings.mjs . --offers`, and record
+   yes, no or later for each. Skip the loop worklist from step 4: nobody asked for the loop.
+3. Stop there. Do not play back, do not confirm, do not write.
+
+A yes to any offer is a choice to set up after all. Say that in one line, then go to step 6 with
+only the rows they said yes to, and the loop rows left out unless they ask for them. On a greenfield
+repo the only offer worth making is the context layer: there is no code to brief or summarise.
+
+Close a report-only run with the next command, not a menu:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --line
+```
 
 ## Invoked with a row
 

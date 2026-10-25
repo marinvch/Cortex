@@ -384,6 +384,12 @@ node index/cortex-impact.mjs src/a.ts --size  # one agent or the team for a task
 node index/cortex-shared-plugin.mjs .  # on a team repo: what --write would add to .claude/settings.json
 ```
 
+An agent can ask the import graph the same questions without a script. The `graph` MCP tool, in
+repo mode, and `node mcp/ai-os.js graph <op>` answer `stats`, `node`, `neighbors`, `cluster`,
+`hubs`, `bridges` and `path` from the stored index. The hubs and bridges are the ones
+`cortex-graph.mjs --json` prints. Both refuse a missing or stale index and name the command that
+rebuilds it.
+
 ---
 
 ---

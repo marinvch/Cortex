@@ -13,7 +13,7 @@ this project now versions independently of any package manager (see `VERSION`).
   hub, the file with the most import links. It also has a size, a cohesion score and the areas it
   spans. A cluster that holds over a quarter of the repo, or one that is loosely connected, is split
   again. A file with no import edge has `cluster: null`.
-  - `/cortex-view`'s Map groups files by cluster: one box per cluster, packed across the full
+  - `/repo-map`'s Map groups files by cluster: one box per cluster, packed across the full
     width. The bar switches to areas or to import depth. The Areas tab lists the clusters beside
     the folders.
   - The index format moves to version 2. An older index is refused with the command that rebuilds
@@ -37,16 +37,32 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Changed
 
-- **Seven rituals and one reference rewritten in Cortex's own words.** `/diagnosing-bugs`, `/domain-modeling`
-  (with `CONTEXT-FORMAT.md` and `ADR-FORMAT.md`), `/grilling`, `/handoff`,
-  `/improve-codebase-architecture` (with `HTML-REPORT.md`), `/resolving-merge-conflicts`,
-  `/writing-for-agents` (with `SKILL-MECHANICS.md`) and `references/codebase-design.md`. What each
+- **Breaking: every ritual has a plain name.** Each one is now named for the job it does, in words
+  an engineer, a project manager or a team lead reads without a glossary: `/cortex` is
+  `/setup-repo`, `/cortex-review` is `/review-change`, `/ship` is `/merge-work`,
+  `/grilling` is `/challenge-plan`, and so on for all 36. The old commands no longer exist.
+  Each description keeps the common phrasings, so asking in the old words still reaches the
+  ritual. [docs/renamed-rituals.md](docs/renamed-rituals.md) maps every old name to its new one.
+  - Three rituals were folded into others. `/cortex-install` is the report-only path of
+    `/setup-repo`: index, findings and the offers, with nothing written. `/cortex-next` is part of
+    `/resume-work`, which now also says where a repo is in the setup and the one command to run.
+    `/skill-audit` is the skill-collection mode of `/trim-agent-docs`.
+  - Script names do not change: `index/cortex-*.mjs` and `tools/cortex-*` are the CLI, not
+    rituals.
+  - Files Cortex stamped into a repo name the old commands. A re-run of `/setup-repo` offers them
+    as updates. The team section in `CLAUDE.md` is recognised under its old text and offered the
+    same way. The verification block changed only in its opening comment, which is never written
+    into a repo, so a repo that holds it has nothing to update.
+- **Seven rituals and one reference rewritten in Cortex's own words.** `/debug-issue`, `/define-terms`
+  (with `CONTEXT-FORMAT.md` and `ADR-FORMAT.md`), `/challenge-plan`, `/handover-notes`,
+  `/architecture-review` (with `HTML-REPORT.md`), `/resolve-conflicts`,
+  `/write-agent-docs` (with `SKILL-MECHANICS.md`) and `references/codebase-design.md`. What each
   ritual does is unchanged. No adapted text remains, so the third-party section for it is gone from
   `THIRD_PARTY_NOTICES.md`.
 
 ### Removed
 
-- **`/wizard`.** `/cortex-scaffold` now lists the manual setup it finds instead of pointing at it.
+- **`/wizard`.** `/write-context-docs` now lists the manual setup it finds instead of pointing at it.
 
 ### Security
 
@@ -75,11 +91,11 @@ this project now versions independently of any package manager (see `VERSION`).
 - **The README's "What Cortex runs, sends and fetches" names `tools/server/cortex-cron.sh`.** That
   script sends the scrubbed changes to the Anthropic API when a key is set, and the list never said
   so.
-- **The site's page map covers the 2.45.0 sections.** `/site-sync` routes the README's fork, mixed
+- **The site's page map covers the 2.45.0 sections.** `/sync-website` routes the README's fork, mixed
   agents, asks, trackers, contracts and licence sections, ADRs 0026–0028, `docs/erasure.md` and
   `SECURITY.md` to the site pages drafted from them. Before this, the next sync would have missed
   them.
-- **`/cortex-view`'s Map can be read.** It used two-thirds of the screen, and its legend covered
+- **`/repo-map`'s Map can be read.** It used two-thirds of the screen, and its legend covered
   the right edge. It drew 630 import lines too faint to follow. Rows by import depth scattered
   each cluster across every row, so colouring by cluster looked random. Test helpers were named
   as if they were key files, and labels sat on dots.

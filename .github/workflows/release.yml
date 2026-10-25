@@ -61,8 +61,17 @@ jobs:
           if ! gh release view "$TAG" --json tagName,publishedAt,url; then
             echo "::warning::$TAG has a tag and no release. Nothing was created; cut it by hand if it is wanted."
           fi
-      # --target is the commit, not the branch: master may have moved since the push. gh creates the
-      # tag and the release in one request, so a refusal leaves neither behind.
+      # One zip per job, built from skills/ at the pushed commit (docs/specs/2026-10-25-role-packs-design.md,
+      # R2). Packs are generated and never committed. A pack that fails its own check stops the job
+      # here, before a tag or a release exists.
+      - name: Build the role packs
+        if: steps.plan.outputs.action == 'release'
+        run: |
+          node tools/cortex-pack.mjs --check
+          node tools/cortex-pack.mjs --all --out "$RUNNER_TEMP/packs"
+      # --target is the commit, not the branch: master may have moved since the push. With files to
+      # attach, gh creates the release as a draft, uploads the packs, then publishes it, so the
+      # release is never public without them. A failed upload can leave the draft; delete it by hand.
       - name: Create the tag and the release
         if: steps.plan.outputs.action == 'release'
         env:
@@ -71,7 +80,7 @@ jobs:
           LATEST: ${{ steps.plan.outputs.latest }}
         run: |
           if [ "$LATEST" = "true" ]; then latest="--latest"; else latest="--latest=false"; fi
-          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" "$latest"
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" "$latest" "$RUNNER_TEMP"/packs/cortex-pack-*.zip
       # Two merges minutes apart run two jobs. If a higher version was released while this one ran,
       # Latest goes back to it.
       - name: Latest stays on the highest version

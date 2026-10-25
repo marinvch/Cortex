@@ -66,7 +66,10 @@ list or nothing is cloned or pushed; check it first with
    whoever holds it there, so add yourself the same way, with your job:
    `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --team <team> --roles <role,role> --job lead`.
    A job is one of `developer`, `architect`, `lead`, `pm` and `qa`. It changes what the rituals
-   offer each person first, never what they may run.
+   offer each person first, never what they may run. A member who works outside the repos, such
+   as a project manager in Claude Desktop, installs their job's role pack rather than the plugin:
+   each Cortex release attaches one zip per job, and
+   `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-pack.mjs" <job> --out <dir>` builds the same.
 
 ## Don't
 

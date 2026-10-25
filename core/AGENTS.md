@@ -110,8 +110,9 @@ here, which is why the directory is small and stays small.
 
 - **`job.js` holds the five jobs and what each is offered first** (R1 of
   [the role-packs design](../docs/specs/2026-10-25-role-packs-design.md)). `mcp/lib/roster.js`
-  validates `members[].job` with it, and `JOB_SKILLS` is the design's table of what each job gets,
-  checked against `skills/` by `test/job.test.js`. A job decides what is offered,
+  validates `members[].job` with it, and `tools/cortex-pack.mjs` builds each role pack from
+  `JOB_SKILLS`, the design's table of what each job gets, checked against `skills/` by
+  `test/job.test.js`. So the roster and the packs cannot disagree. A job decides what is offered,
   never what is allowed: nothing may refuse an action because of it. No job is `developer`. Pure.
 - **`gitignore.js` is the `.gitignore` writer both leaves share** (#620). It appends missing
   entries under a marker line, never rewrites one, and honours a bare `.cortex/` the user wrote.

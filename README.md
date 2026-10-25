@@ -546,6 +546,31 @@ line in `AGENTS.md` telling any agent to call `inbox` at the start of a task. Ev
 is also a CLI command: `node mcp/ai-os.js help` lists `ask`, `inbox`, `answer`, `contract` and
 the `team` commands.
 
+### Who installs what
+
+Each person installs the part their job needs. The team shares one team-brain either way.
+
+| Job | Works in | Installs |
+|---|---|---|
+| Developer, team lead, tester | Claude Code, in the repo | the plugin (`/plugin install cortex`) |
+| Architect | Claude Code, or Claude Desktop | the plugin in Claude Code; elsewhere the `architect` pack |
+| Project manager | Claude Desktop, claude.ai, another assistant | the `pm` pack |
+
+A **role pack** is one job's skills that work without Claude Code, in the Agent Skills format, as
+folders and as zips to upload to claude.ai or Claude Desktop, plus the MCP entry for Claude
+Desktop, Copilot, Gemini CLI and Codex. Each release has one zip per job attached. To build one
+from a checkout:
+
+```bash
+node tools/cortex-pack.mjs pm --list        # what the pm pack holds, and what needs Claude Code
+node tools/cortex-pack.mjs pm               # writes cortex-packs/cortex-pack-pm/ and its zip
+```
+
+A skill goes in a pack only when it needs nothing Claude Code provides: no `${CLAUDE_PLUGIN_ROOT}`,
+no Cortex script to run. The rest are listed in the pack's README with the reason, so a project
+manager knows what to ask a developer for. A pack holds no credential and no path on the machine
+that built it.
+
 ---
 
 ## Use it on your other projects ⭐
@@ -820,6 +845,7 @@ none.
 | `cortex-destinations.mjs` | Where this install may send things: `status` shows the profile and the approved-destinations list, `check <git\|https\|npm> <url>` exits 2 when the destination is refused |
 | `cortex-parsers.mjs` | The optional parser add-on: `install` fetches the packages pinned in `index/parsers.lock.json` and checks their integrity, `status` compares what is installed with the lock, `remove` deletes it; exit 2 on a refused download |
 | `cortex-setup.mjs` | `--agents copilot,gemini,codex` — register the Cortex MCP server in each agent's own config, project scope where it can be committed; a dry run unless `--write` |
+| `cortex-pack.mjs` | `<job>` or `--all` — build the role pack for a job: its skills that work outside Claude Code, as folders and zips, plus the MCP config. Generated, never committed; each release attaches them. `--list` and `--check` write nothing |
 | `cortex-plugin-check.mjs` | Which Cortex this session is actually running, and whether it is the one you edited |
 | `cortex-skill-graph.mjs` | Which ritual reaches which; `--check` fails on one stranded in both directions |
 | `cortex-skill-links.mjs` | Whether every link from a ritual to a file or a heading resolves; `--check` fails on a dead one |

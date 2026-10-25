@@ -13,7 +13,8 @@ import { homedir } from "node:os";
 import { codeCoverage } from "./findings.mjs";
 import { briefCandidates, layerKeyFor, TOOLING_DIRS } from "./layers.mjs";
 import { findOrphans } from "./orphans.mjs";
-import { isTestData } from "./langs.mjs";
+import { inTestSupportDir, isTestData } from "./langs.mjs";
+import { graphReport } from "./graph-report.mjs";
 import { ADR_DIRS, isAdrRecord } from "./adr.mjs";
 
 // Enough hues to separate the areas a reader can hold at once; past that they repeat, which is
@@ -208,12 +209,34 @@ function buildStructure(files, areas, colorOf, { tested, labels }) {
 // keeps `src/testing/test-utils.tsx` and `tests/helpers.ts` out of the test count, since they hold
 // no test, but on bulletproof-react the first was among the most-imported files and took a label
 // meant for the code a reader came to find. This decides a label, never coverage.
-const TEST_SUPPORT_DIR = /(^|\/)(testing|__mocks__|mocks?|__fixtures__|fixtures?)\//i;
 const TEST_SUPPORT_NAME = /(^|[-_.])(tests?|specs?|fixtures?|mocks?)([-_.]|$)/i;
 function testSupport(f) {
   if (f.isTest) return true;
   const base = f.path.slice(f.path.lastIndexOf("/") + 1).replace(/\.[^.]+$/, "");
-  return TEST_SUPPORT_DIR.test(f.path) || TEST_SUPPORT_NAME.test(base);
+  return inTestSupportDir(f.path) || TEST_SUPPORT_NAME.test(base);
+}
+
+// The graph report (`lib/graph-report.mjs`), the same answer `cortex-graph.mjs` prints. Cycles keep
+// their loop and size and drop their member lists: a strongly connected group on a large repo holds
+// hundreds of paths, and the page already lists every cyclic file on the Gaps tab. `null` when the
+// index has no clusters, since hubs and bridges are read off them.
+const GRAPH_CYCLES = 20;
+function graphView(index, coverage, labels) {
+  if (!index.clusters) return null;
+  const r = graphReport(index, { coverage });
+  const label = (p) => labels.get(p) ?? labelOf(p);
+  return {
+    hubs: r.hubs.map((h) => ({ path: h.path, label: label(h.path), cluster: h.cluster, links: h.links, inbound: h.inbound, twins: h.twins })),
+    bridges: r.bridges.map((b) => ({
+      from: b.from, to: b.to, fromCluster: b.fromCluster, toCluster: b.toCluster,
+      score: b.score, between: b.between, alsoFrom: b.alsoFrom, reasons: b.reasons,
+    })),
+    bridgeCount: r.bridgeCount,
+    cycles: r.cycles.slice(0, GRAPH_CYCLES).map((c) => ({ loop: c.loop, size: c.files.length })),
+    cycleCount: r.cycles.length,
+    testCycles: r.testCycles,
+    untestedClusters: r.untestedClusters,
+  };
 }
 
 // Orphans come from lib/orphans.mjs, shared with findings.mjs. There used to be a copy here, and
@@ -426,6 +449,7 @@ export function buildView(index, root, opts = {}) {
           })),
         }
       : null,
+    graph: graphView({ ...index, files, edges }, coverage, labels),
     stack: index.stack ?? {},
     // Every count the page prints, computed once here and read by every tab. Two numbers that differ
     // are two different fields with two different names — `edges` is every resolved import, the

@@ -71,7 +71,7 @@ key="$(printf '%s%s%s' "AKIA" "IOSFODNN7" "EXAMPLE")"
 printf 'export const KEY = "%s";\n' "$key" >"$WORK/planted/core/planted-key.js"
 printf 'import "./planted-b.js";\n' >"$WORK/planted/mcp/lib/planted-a.js"
 printf 'import "./planted-a.js";\n' >"$WORK/planted/mcp/lib/planted-b.js"
-git -C "$WORK/planted" add -A
+git -C "$WORK/planted" -c core.autocrlf=false add -A
 git -C "$WORK/planted" -c user.email=test@cortex.local -c user.name="Cortex Test" commit -q -m planted
 planted="$(check "$WORK/planted" 2>&1)"
 assert_contains "$planted" "core/planted-key.js" "a planted secret in product code is a critical finding"

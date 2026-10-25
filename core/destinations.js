@@ -87,7 +87,7 @@ const cleanHost = (h) => String(h ?? "").trim().toLowerCase().replace(/\.$/, "")
  * Read an address as `{ local: true }`, or `{ scheme, host, segments }`, or null when it cannot be
  * read. Never returns the userinfo; never throws.
  *
- *   /srv/brain.git  C:\brains\team  ./brain  file:///srv/brain      local
+ *   /srv/brain.git  ./brain  file:///srv/brain  a drive path        local
  *   \\server\share\brain  //server/share/brain                       host `server`
  *   https://user:token@github.com/acme/brain.git                     github.com · acme/brain
  *   ssh://git@gitlab.acme.example:2222/team/brain                    gitlab.acme.example · team/brain

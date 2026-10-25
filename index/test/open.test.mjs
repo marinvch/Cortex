@@ -286,7 +286,7 @@ test("an index in a format this build does not read is refused, not guessed at",
   writeIndex(root, { ...validIndex, version: "0" });
   const r = open([root], { ...SPEC, index: "require" });
   assert.equal(r.code, 2);
-  assert.match(r.err, /is format 0; this Cortex reads 1/);
+  assert.match(r.err, new RegExp(`is format 0; this Cortex reads ${INDEX_VERSION}`));
 });
 
 test("an index with no version field at all counts as a mismatch", () => {

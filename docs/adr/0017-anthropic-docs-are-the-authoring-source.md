@@ -7,7 +7,7 @@
 Cortex is a Claude Code plugin that also writes Claude Code configuration into other people's
 repositories — `CLAUDE.md`, subagents, hooks, skills. Whether that output is right is decided by
 Anthropic's documentation, and nothing in Cortex cited it. The authoring guidance it did have came
-from elsewhere (`/writing-for-agents` is adapted from mattpocock/skills), and the numbers it carried
+from elsewhere (`/writing-for-agents` was adapted from an outside skill collection), and the numbers it carried
 were written from memory:
 
 - `/skill-creator` tells an author to aim under **~500 words**. The docs say `SKILL.md` should stay
@@ -69,5 +69,5 @@ opinion about good practice.
   once. A new page creates no rule: a maintainer reads it, and a rule still enters
   `core/claude-code.js` only with a sentence that states it. The seen-list lives in `tools/`
   because it records what the maintainer has read, which is not something Cortex ships to users.
-- `/writing-for-agents` still cites mattpocock/skills as its source. It should cite these rules and
+- `/writing-for-agents` still cites only its outside source. It should cite these rules and
   the Anthropic pages behind them as well — a follow-up, not part of this change.

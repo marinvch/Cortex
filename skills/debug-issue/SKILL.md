@@ -1,6 +1,6 @@
 ---
 name: debug-issue
-description: Diagnose a hard bug or performance regression with a loop that can go red, ranked against the repo's invariants and untested dependents. Triggers — "diagnose", "debug this", or something broken, failing, flaky or slow.
+description: Diagnose a hard bug or performance regression with a loop that can go red, ranked against the repo's invariants and untested dependents. Triggers — "diagnose", "debug this", or a test or feature that is broken, failing, flaky or slow.
 metadata:
   capability: judgment
 ---

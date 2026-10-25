@@ -13,8 +13,8 @@ description stays loaded every turn, and other skills can reach it) versus user-
 
 1. **Capture intent.** In one line, state what the skill should let the user do and *when* they'd
    reach for it. If that's genuinely unclear, ask **one or two** questions — no more. Speed matters.
-2. **Name it.** Verb-first kebab-case describing the action: `weekly-review`, `cortex-brief`,
-   `catch-me-up` — not `review_helper`. Letters, numbers, hyphens only.
+2. **Name it.** Verb-first kebab-case describing the action: `weekly-review`, `write-area-brief`,
+   `review-change` — not `review_helper`. Letters, numbers, hyphens only.
 3. **Write `skills/<name>/SKILL.md`** with frontmatter + a concise body:
    - `name:` the kebab name.
    - `description:` **triggering conditions only** — start with "Use when…" and list the phrases /

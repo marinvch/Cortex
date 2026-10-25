@@ -26,7 +26,7 @@ ritual.
      analyse/analyze, summarise/summarize, plan, ship, commit, push, deploy, clean, finish, list,
      find, search, show, open.
    - Component reference: a path, a `` `backticked` `` token, a `file.ext`, a `#123`, a URL, a
-     `/ritual` anywhere in the prompt, or a hyphenated ritual name written bare (`cortex-review`).
+     `/ritual` anywhere in the prompt, or a hyphenated ritual name written bare (`review-change`).
      Single-word ritual names (ship, daily) don't count bare — they are ordinary English.
    - Domain keywords: auth, db, database, api, ui, schema, test(s), hook(s), skill(s), vault,
      graph, mcp, git, ci, cli, doc(s), readme, agent(s), prompt(s), session(s), pr(s),

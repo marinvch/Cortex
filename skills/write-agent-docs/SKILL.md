@@ -1,6 +1,6 @@
 ---
 name: write-agent-docs
-description: The discipline for writing documents an agent reads — skills, AGENTS.md, CONTEXT.md, any doc behind a pointer — and the steps that create and wire a new Cortex skill. Triggers — "this brief is bloated", "why doesn't the agent pick this up", "make a skill for X", "add a ritual".
+description: The discipline for writing documents an agent reads — skills, AGENTS.md, CONTEXT.md, any doc behind a pointer — whether a rule belongs in a skill or a section, and wiring a new Cortex skill. Triggers — "this brief is bloated", "why doesn't the agent pick this up", "make a skill for X", "add a ritual".
 metadata:
   capability: judgment
 ---

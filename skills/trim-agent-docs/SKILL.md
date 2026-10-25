@@ -1,6 +1,6 @@
 ---
 name: trim-agent-docs
-description: Audit and slim agent context files — AGENTS.md, CLAUDE.md, shims, rules, skill bodies — in a repo, or the machine-wide ones under ~/.claude. Triggers — "optimize the context", "our AGENTS.md is bloated", "clean up my global CLAUDE.md", agents drifting off-convention.
+description: Audit and slim agent context files (AGENTS.md, CLAUDE.md, rules, skill bodies) in a repo or ~/.claude, and judge a skill collection by use — never reached, redundant. Triggers — "optimize the context", "our AGENTS.md is bloated", "clean up my global CLAUDE.md", "review my skills", "are any of these redundant".
 metadata:
   capability: judgment
 ---
@@ -56,8 +56,8 @@ description match, which is exactly the thing you cannot guarantee. So in machin
 The honest result of a machine-scope pass is often a file that is *shorter in method and no shorter
 overall*. Report it that way rather than reporting a line count as if it were the goal.
 
-A machine-scope run pairs with `/trim-agent-docs`: this one judges the always-loaded prose, that one
-judges whether the skills it points at are ever reached.
+A machine-scope run pairs with the [skill collection](#the-skill-collection) mode below: the passes
+judge the always-loaded prose, and that mode judges whether the skills it points at are ever reached.
 
 ## Pass 1 — Measure
 Per file: bytes, estimated tokens (bytes ÷ 4 — do not add a tokenizer), and whether it loads
@@ -145,6 +145,98 @@ Rank findings by always-loaded bytes recovered. Tag each:
   duplicating is Rule 4.
 
 Close with: measured always-loaded bytes before → projected after.
+
+## The skill collection
+
+Take this mode when the question is about the skills as a set: "review my skills", "are any of these
+redundant", "why does Claude never use this skill". The passes above read the files. This mode reads
+the **record of them being used**, because a skill's real defect is usually invisible in its own
+file: well written, correct, wired in, and nobody ever reaches it. On one vault the first run found
+28 of 42 skills never reached in 51 sessions, and no amount of re-reading the bodies would have
+shown that. It reports only.
+
+A skill nothing reaches is more often a **routing** failure than a quality one, and the fix is
+usually one line in a neighbouring skill. Deleting is the least interesting outcome.
+
+### Measure before reading anything
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-skill-usage.mjs"            # typed vs auto, per skill
+node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-skill-usage.mjs" --unused   # the never-reached list
+node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-skill-graph.mjs"            # who reaches whom
+
+# exposure: when each skill first existed, against the window the sessions cover
+for d in skills/*/; do echo "$(git log --format=%ad --date=short -- "$d" | tail -1)  $(basename "$d")"; done | sort
+```
+
+**Read the exposure dates first.** A skill added on the last recorded day has had no chance to fire,
+so its zero is arithmetic, not evidence. Judge only the skills present for most of the window, and
+say which ones you set aside.
+
+The two counts are separate on purpose, and the gap between them is the diagnosis:
+
+| typed | auto | What it means |
+|---|---|---|
+| > 0 | 0 | the description does not match how the work actually arrives |
+| 0 | > 0 | it triggers on its own; the slash command is decoration |
+| 0 | 0 | nothing reaches it; the graph says whether that is wiring or a missing front door |
+
+**The usage tool reads a transcript directory holding everything the user has ever typed.** It
+extracts skill names and timestamps only. Do not read those transcripts yourself for more context:
+that is a different act with a different consent question, and this mode does not include it.
+
+### Rank each skill, strongest signal first
+
+1. **Was it ever reached?** Measured, not an opinion.
+2. **Does another skill cover the same job?** Two skills whose descriptions both fire on the same
+   sentence are worse than either alone: the model picks one, inconsistently. Read the
+   `description:` lines side by side; that is what the model sees.
+3. **Would a plain prompt do better?** A skill earns its place by holding what a prompt cannot: a
+   sequence that must not be reordered, a constraint that gets forgotten, a hard-won gotcha, a
+   script. A skill that only says "be careful and thorough" is a prompt in a costume.
+4. **Is it stale?** Weakest, and often backwards: a correct skill does not get edited, so age
+   measures stability as often as rot. Check the claims, not the date. A skill naming a file, flag
+   or command that no longer exists is stale in the way that matters.
+
+### Diagnose a never-reached skill before rewriting it
+
+- **Nothing points at it.** `cortex-skill-graph.mjs` says so. The fix is an edge from the ritual
+  that should hand off to it, not a pushier description.
+- **The description does not match the words people use.** Compare it with how the request really
+  arrives, including other languages and the vague version. This is where a rewrite helps, and the
+  `skill-creator` plugin has a measured loop for it.
+- **It is a deliberate act.** `/end-of-day-summary`, `/handover-notes`, `/create-team` are things a
+  person decides to do. Zero auto-invocations is correct for these. **Never tune a skill into
+  triggering itself when the user should be choosing.** Say which skills you put in this category.
+
+### Report, then ask
+
+One table, ranked by what you would act on first:
+
+```
+| Skill | Used | Verdict | Why | Proposed |
+|---|---|---|---|---|
+| /whats-changed | 0 | never reached | no ritual pointed at it | edge from /resume-work |
+| /foo | 0 | redundant | /bar fires on the same sentence | merge into /bar |
+| /baz | 3 | keep | | |
+```
+
+**Propose; do not delete.** Merging two skills, or adding one line of routing, resolves most of what
+this finds. Where the fix is a rewrite, `/write-agent-docs` is the authoring discipline.
+
+- **A short history proves nothing.** Under about 20 sessions, "never reached" mostly means "not
+  yet". Give the sample size in the report.
+- **A hook that injects prose is invisible to the usage tool**, which sees a typed `<command-name>`
+  and a `Skill` call and nothing else. `/clarify-request` is reached by a `UserPromptSubmit` hook, so
+  it reads 0/0 however often it fires. Check every ritual declaring `reached-by:` against its
+  trigger before calling it unreached.
+- **The work has to have occurred.** A ritual scores zero when its job never came up. Separate that
+  from a description that never matched by looking at artifacts on disk: an ADR written in the
+  window is `/define-terms`'s trigger having fired.
+- **A renamed skill still typed under its old name** shows up among other plugins' skills and looks
+  like one that vanished. Cortex renamed every ritual in 3.0.0, so expect this in older sessions.
+- **Do not audit and rewrite in the same pass.** Measure the whole collection, report, get a
+  decision, then change things.
 
 ## Don't
 - Don't delete prose on your own authority. Ever.

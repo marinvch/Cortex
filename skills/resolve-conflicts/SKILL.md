@@ -1,6 +1,6 @@
 ---
 name: resolve-conflicts
-description: Resolve a stopped merge or rebase hunk by hunk, by each side's intent, and finish it. Never aborts. Triggers — "resolve these conflicts", "the rebase is stuck", "CONFLICT (content)".
+description: Resolve a merge conflict or a stuck rebase hunk by hunk, by each side's intent, and finish the merge. Never aborts. Triggers — "resolve these conflicts", "the rebase is stuck", "CONFLICT (content)".
 metadata:
   capability: judgment
   reached-by: git — an interrupted merge or rebase, not another ritual

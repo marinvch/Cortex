@@ -1,6 +1,6 @@
 ---
 name: resume-work
-description: Pick up work in flight — what is committed, uncommitted and diverged, then the remaining work, before touching anything. Triggers — "continue where we left off", "what's left", "what's next", "продължи работата", "възтанови последната сесия".
+description: Pick up work in flight — what is committed, uncommitted and diverged, the remaining work, and where the repo is in the Cortex setup sequence, before touching anything. Triggers — "continue where we left off", "what's left", "what's next", "what do I run next", "I installed Cortex, now what", "продължи работата".
 metadata:
   capability: judgment
 ---
@@ -121,10 +121,67 @@ comes before anything the repo state suggests:
 4. **`gh pr list` shows open PRs** → `/merge-work`. It works through the queue in an order that will not
    strand anything. With no open PRs, `/merge-work` is the wrong route. Stale or merged local branches are
    not a PR queue.
-5. **None of these apply, and the repo state is unclear** → `/resume-work`, which names the single
-   next command.
+5. **None of these apply, the repo state is unclear, or the user asks where they are in the Cortex
+   setup** → stay in `/resume-work` and go to section 5, which names the single next command.
 
 Then do the remaining work. Resuming is not a deliverable.
+
+## 5. Where the setup stands
+
+When the question is about the Cortex setup rather than the work ("I installed Cortex, now what",
+"where am I in the sequence", "what do I run next"), the answer is a position, not a menu. Every
+ritual knows its own job and none knows what comes after, so the script holds the order:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" .          # the ordered runbook, ✓ / → / ·
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-next.mjs" . --json   # for a ritual to walk
+node "${CLAUDE_PLUGIN_ROOT}/index/cortex-loop.mjs" .          # which loop artifacts exist and which are missing
+```
+
+Both write nothing, not even under `.cortex/`. Run them from the repo the user is asking about, not
+from the Cortex checkout unless that is the repo.
+
+**Never mark a step done that no file on disk supports.** Every `✓` traces to something that
+exists: `.cortex/index/index.json`, a report in `.cortex/findings/`, `CONTEXT.md`, a
+`<dir>/AGENTS.md`, a `SKILL.md` under `.claude/skills/`. A model that remembers running
+`/write-context-docs` last session, and ticks the box on that memory, sends the user past the step
+that actually writes their context layer. If the filesystem cannot say, the step is not done. That
+is why this is a script and not a judgment call: asked to re-derive the sequence each session, a
+model gives a different answer each time.
+
+1. **Show the runbook as it printed.** Do not re-sort it, do not collapse the done steps into a
+   sentence, and do not append the commands it deliberately left out. Its order is the answer.
+2. **Say the next command last**, on its own line, so it is the thing the user's eye lands on.
+3. **If a step is blocking** (a retired `.ai-os/` engine), say why it jumps the queue: the old
+   memory store gets harvested into `AGENTS.md` before anything is deleted, and running the
+   sequence around it loses that knowledge for good.
+
+| Step | Done when | Run |
+|---|---|---|
+| Index the codebase | `.cortex/index/index.json` exists | `/setup-repo` |
+| Read the findings | a report in `.cortex/findings/` | `/setup-repo` |
+| See it as a graph | `.cortex/view/repo.html` exists | `/repo-map` |
+| Reconcile prior agent docs | *not checkable: required while `CONTEXT.md` is missing; afterwards optional, and only while `.github/copilot-instructions.md` holds rules of its own* | `/trim-agent-docs` |
+| Write the context layer | `AGENTS.md` **and** `CONTEXT.md` | `/write-context-docs` |
+| Scoped briefs | any `<dir>/AGENTS.md` | `/write-area-brief <dir>` |
+| Skills for this stack | any `.claude/skills/*/SKILL.md` | `/suggest-skills` |
+| Refresh drifted skills | *appears only while a skill names a path that is gone, says "no tests" beside a test suite, or runs a script nobody declares; needs an index* | `/suggest-skills` |
+| Close the artifact chain | every loop artifact that applies here exists, as `cortex-loop.mjs` reports | `/setup-repo` |
+| Semantic summaries | `.cortex/index/enrichment.json` | `/summarize-files` |
+| Shared memory | anything in `.cortex/memory/` | `/end-of-day-summary` |
+
+Optional steps never become "next" and never hold the sequence up. The per-change rituals
+(`/change-impact`, `/review-change`, `/design-spec`, `/debug-issue`, `/whats-changed`) are a lookup,
+not a sequence: what the user is doing triggers them, never how far along the install is.
+
+**Reconcile comes before the context layer.** An `AGENTS.md` a human wrote before Cortex arrived
+must be slimmed before `/write-context-docs` runs. Scaffold will not clobber it, so skipping this
+leaves the user with their file *plus* an `AGENTS.generated.md` to merge by hand. Once `CONTEXT.md`
+exists the step drops out, except as an optional row for a `.github/copilot-instructions.md` that
+still holds rules of its own. Present that one as an offer: a team may keep rules for one tool on
+purpose.
+
+`/repo-map` renders the same sequence as a **Next steps** tab, for a user who would rather see it.
 
 ## Gotchas
 

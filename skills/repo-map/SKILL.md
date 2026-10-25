@@ -48,7 +48,7 @@ time; the asking is not.
 | **Map** | every code file as a dot in one box per cluster, on the full width. Imports between two boxes are one line carrying their count. The bar regroups by area or by import depth |
 | **Structure** | the context layer as a tree — root `AGENTS.md`, the docs beside it, each code area with its scoped brief, busiest files and tests, and what Cortex generates. A dashed box is missing and names the command that writes it |
 | **Files** | each file with who imports it and what it imports, both clickable |
-| **Areas** | the top-level shape, and which areas already have a scoped brief |
+| **Areas** | the top-level shape, which areas already have a scoped brief, the clusters, and the graph report under them: hubs, bridges, import cycles, clusters with no test found |
 | **Gaps** | orphans, files in import cycles, and the busiest code with no test found |
 | **Next steps** | where this repo is in the Cortex sequence, each ✓ traced to a file on disk |
 
@@ -73,6 +73,9 @@ The theme follows the OS; the button in the top bar overrides it and is remember
   untested. Wrong in the safe direction, and say so.
 - **Markdown and config are not drawn.** They have no imports; on one repo 171 isolated nodes buried
   the 98 connected ones. They are still in the Files tab, and the legend says how many.
+- **A bridge is a link worth a look, not a defect.** The score ranks imports between clusters by how
+  unexpected they look, and its reasons say why. Every hub's link count is a floor. The same report
+  prints as text with `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-graph.mjs" .`.
 - **Depth is a floor too.** An unresolved import makes a file look shallower than it is, so the layer
   count is the smallest honest answer rather than a verdict on the architecture.
 

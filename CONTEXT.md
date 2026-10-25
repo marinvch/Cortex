@@ -161,6 +161,22 @@ written for an area, because a brief lives in a folder. A cluster shows which fi
 _Avoid_: "community" (the graph-theory word, fine inside `clusters.mjs` and nowhere a user reads),
 "module" (that word is for code shape, see [[codebase-design]]), "area" for a cluster.
 
+## Hub
+
+A file with many import links, counting each neighbour once. Two uses of the word, both about
+links: a **cluster's hub** names the cluster (its best-connected member), and the **hubs** of the
+graph report (`index/lib/graph-report.mjs`) are the ten best-connected files in the repo, with
+tests, fixtures, test helpers and vendored files left out. A link count is a floor, because a
+dynamic import is invisible to the index.
+
+## Bridge
+
+An import from one cluster into another, in the graph report. Bridges are scored so the least
+expected come first: crossing areas counts most, and an import of a file many clusters share, or a
+re-export, counts less. A bridge is a link worth a look, never a defect.
+
+_Avoid_: "coupling" for one bridge (a bridge is one import; coupling is a judgement about many).
+
 ---
 
 ## Related

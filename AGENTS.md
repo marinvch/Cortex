@@ -43,21 +43,22 @@ mirror is gitignored, so nothing keeps it current — `--check` reports drift, a
 never removes anything or refreshes a changed skill. An installed plugin loads `skills/` directly
 and needs no mirror at all.
 
+Every ritual took a plain job name in 3.0.0. [`docs/renamed-rituals.md`](docs/renamed-rituals.md)
+maps each old name to its new one, for a user or a doc still typing the old command.
+
 | Ritual | When | Does |
 |---|---|---|
-| `/setup-repo` | **per repo — start here** | the single install: index, report, and stamp the whole SDLC loop in one pass, after one confirmation |
+| `/setup-repo` | **per repo — start here** | the single install: index, report, and stamp the whole SDLC loop in one pass, after one confirmation. A report-only path indexes and reports and writes nothing else |
 | `/personal-setup` | once | interview the user; fill `context/`, `home.md`, `connections.md` |
 | `/quick-note` | anytime | one-line drop to `inbox/` or today's daily note |
 | `/daily-plan` | each day | open today's note; surface priorities + due items |
 | `/weekly-review` | weekly | empty `inbox/`, update `projects/`, restamp `current-focus` |
 | `/retrospective` | biweekly | Notice→Decide→Build interview; ship one artifact |
 | `/audit-notes` | periodic | vault health: find + fix orphans, dead links, misplaced files, privacy leaks; `score` for the read-only four-layer score, `graph` to rebuild the navigator |
-| `/resume-work` | any time you are lost | where this repo is in the sequence, and the one command to run now |
-| `/resume-work` | starting on work already in flight | committed · uncommitted · diverged, then what is left — before touching anything |
+| `/resume-work` | starting on work already in flight, or lost in the setup | committed · uncommitted · diverged, then what is left — before touching anything; where the repo is in the setup sequence, and the one command to run now |
 | `/merge-work` | work is finished | judge it against the repo's docs, one PR at a time, merge in an order that strands nothing |
 | `/sync-website` | after a Cortex release | bring Cortex's public site back in line with the source — refresh its facts, redraft changed pages, PR after approval |
 | `/update-plugin` | a skill edit had no effect | make the Cortex this session runs the one you edited |
-| `/setup-repo` | when you want the read half alone | index a codebase and report findings, scaffolding only what the user picks. `/setup-repo` runs this and keeps going |
 | `/repo-map` | after install | render the index as one offline HTML page — overview, map, structure, files, areas, gaps |
 | `/write-context-docs` | on request | write the context layer — root `AGENTS.md`, shims, `CONTEXT.md`, `docs/adr/` |
 | `/summarize-files` | on request | add summaries/roles/tags on top of the index. Costs tokens; optional |
@@ -69,7 +70,7 @@ and needs no mirror at all.
 | `/set-profile` | per machine | show or set which world this install serves — home · work · lab |
 | `/end-of-day-summary` | end of day | consolidate the day into the repo's committed `.cortex/memory/` |
 | `/handover-notes` | leaving work mid-flight | compact this conversation to the OS temp dir for the next agent |
-| `/trim-agent-docs` | per repo | audit + slim that repo's agent context files |
+| `/trim-agent-docs` | per repo, or when the skill collection has grown | audit + slim that repo's agent context files; judge which skills are never reached, redundant, or weaker than a plain prompt |
 | `/write-agent-docs` | writing any agent-facing doc, or a new skill | the authoring discipline behind every file Cortex writes, and the steps that create and wire a new `skills/<name>/SKILL.md` |
 | `/define-terms` | per repo, ongoing | sharpen that repo's glossary — write its `CONTEXT.md` + ADRs |
 | `/design-spec` | per risky feature | brainstorm → design spec → plan. **No code.** |
@@ -82,7 +83,6 @@ and needs no mirror at all.
 | `/whats-changed` | after time away | brain notes + team-brain git history → what changed & why |
 | `/challenge-plan` | before committing to a plan | interview in rounds until the design tree has no unresolved branch |
 | `/architecture-review` | on request | find deepening opportunities in a repo, report them as HTML, work one |
-| `/trim-agent-docs` | when the collection has grown | which skills are never reached, redundant, or a prompt would do better |
 | `/clarify-request` | automatic | the prompt gate — scores a vague prompt and sharpens it before work starts |
 
 Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it, and
@@ -96,14 +96,14 @@ by a user who already knows it exists, which is the same failure as it not being
   confirmation, handing off to `/write-context-docs`, `/write-area-brief` and `/suggest-skills` where those
   already own the writing. The table above is a menu and a menu is not an answer; the front door
   is. `index/lib/loop.mjs` decides what a repo is missing and `index/cortex-loop.mjs` prints it.
-- **When you are mid-sequence and lost, that is `/resume-work`.** It reads state off disk and names
+- **When you are mid-sequence and lost, that is `/resume-work` too.** It reads state off disk and names
   the single next command, which is the right question once `/setup-repo` has run and something was
   deferred. `node index/cortex-view.mjs .` shows the same sequence as a **Next steps** tab beside
   the repo's import graph.
-- **`/setup-repo` and `/setup-repo` are the whole pass and its read half.** Install indexes,
-  reports and offers; `/setup-repo` does that and then closes the artifact chain — `REVIEW.md`, the PR
-  review workflow, the verification block, the verifier, the agent team, `intent/`, the hooks, the evals, the bands.
-  Reach for install alone to *look* at a repo without being walked to a served one.
+- **`/setup-repo` has a report-only path.** The full pass indexes, reports, offers, and then closes
+  the artifact chain — `REVIEW.md`, the PR review workflow, the verification block, the verifier,
+  the agent team, `intent/`, the hooks, the evals, the bands. Ask for a report only to *look* at a
+  repo without being walked to a served one.
 - `/debug-issue` and `/review-change` both read the context layer and are not interchangeable:
   review judges a **change** you already made, diagnosis hunts a **symptom** you cannot explain. The
   overlap is diagnosis's first step, where it borrows the review evidence to rank its hypotheses.

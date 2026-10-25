@@ -12,8 +12,8 @@ finding.
 Every rule below has an ADR holding the argument and the rejected alternatives. Read the ADR
 before overturning one; the line here is the trigger, not the case.
 
-- **`/setup-repo` and `/setup-repo` never modify a target repo before the user chooses**, and both
-  are model-invocable anyway. What protects the repo is the **consent gate**, not an invocation flag:
+- **`/setup-repo` never modifies a target repo before the user chooses**, in the full pass or the
+  report-only one, and it is model-invocable anyway. What protects the repo is the **consent gate**, not an invocation flag:
   indexing and the findings report are read-only by construction, and `/write-context-docs` is the
   separate skill that applies changes. If you are editing source before the user picked something,
   you have left the skill. Do not add `disable-model-invocation` to it for consistency — that flag

@@ -38,7 +38,7 @@ One source of truth, no copies to drift. `/setup-repo` generates all of these in
 
 ### Which skills you actually need
 - **Per repo:** `/setup-repo` (once), then `plan-feature` + `investigate-bug` where `/suggest-skills` wrote them.
-- **Personal vault:** `onboard` (once), `daily`, `capture`, `weekly-review`, `cortex-audit`, `level-up`.
+- **Personal vault:** `personal-setup` (once), `daily-plan`, `quick-note`, `weekly-review`, `audit-notes`, `retrospective`.
 - Everything else is optional. Don't add skills you won't run — see [[operating-principles]].
 
 ## Team — different people, different agents

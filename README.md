@@ -19,6 +19,10 @@ missing. Then it writes the context layer every developer's agent reads.
 Then turn on auto-update once — Claude Code leaves it off for third-party marketplaces like this
 one, so without it no release reaches you. [Keep it current](#keep-it-current) has the two clicks.
 
+**Used Cortex before 3.0.0?** Every ritual now has a plain name: `/cortex` is `/setup-repo`,
+`/cortex-review` is `/review-change`, `/ship` is `/merge-work`.
+[docs/renamed-rituals.md](docs/renamed-rituals.md) lists every old name and its new one.
+
 **What lands in your repo:**
 
 - **A findings report** — issues, gaps and recommendations, ranked. Nothing changes until you pick.
@@ -235,7 +239,7 @@ have to come back here to look up. The full sequence, in order:
 | 5 | `/write-area-brief <dir>` | a scoped `AGENTS.md` leaf per area that earns one | no area holds real invariants |
 | 6 | `/suggest-skills` | skills proposed from what the index detected | — |
 | 7 | `/summarize-files` | semantic summaries on top of the index (costs tokens) | you already know the repo |
-| — | `/setup-repo` | the read half of step 1 alone: index, report, offer the context layer | you want the whole pass |
+| — | `/setup-repo`, report only | step 1 without the writing: index, report, offer the context layer | you want the whole pass |
 | 8 | `/end-of-day-summary` | end-of-day digest into the repo's committed `.cortex/memory/` | — |
 
 **Step 3 goes before step 4, not after.** `/write-context-docs` is brownfield-safe and will not
@@ -549,7 +553,7 @@ feature? `/design-spec` runs a brainstorm → spec → plan grounded by the brai
 
 ## The rituals (skills)
 
-Plain `SKILL.md` files in `skills/`. Say "run my onboard skill" in Cowork/Claude Code, or run
+Plain `SKILL.md` files in `skills/`. Say "run my personal-setup skill" in Cowork/Claude Code, or run
 `bash tools/cortex-sync-skills.sh` to expose them as `/slash` commands. Use the script rather than
 `cp -r`: the mirror is gitignored, so nothing keeps it current, and a copy never removes anything
 or refreshes a skill that changed. `--check` reports the drift without writing.
@@ -563,14 +567,15 @@ or refreshes a skill that changed. `--check` reports the drift without writing.
 | `/quick-note` | anytime | One-line drop to the inbox |
 | `/daily-plan` | each morning | Today's note + priorities + due items |
 
-**That is 6 of 39.** The complete table — every ritual, when to run it, and the notes on which
+**That is 6 of 36.** The complete table — every ritual, when to run it, and the notes on which
 pairs are *not* interchangeable — lives in [`AGENTS.md`](AGENTS.md#the-rituals) and is the single
 source of truth. This README used to carry a second table of 20 rows that read as the list. Ten
 skills were missing from it and nothing caught that, because a partial copy and a complete one look
 identical until you count them. A subset that says it is a subset cannot drift that way; one that
 does not, always does.
 
-When you do not know which ritual you want, that is `/resume-work` — the whole reason it exists.
+When you do not know which ritual you want, that is `/resume-work`. Each ritual's old name, from
+before 3.0.0, is in [docs/renamed-rituals.md](docs/renamed-rituals.md).
 
 ---
 

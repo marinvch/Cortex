@@ -103,14 +103,14 @@ dest_check() {
 }
 # remotes_ok [--inbound] — every URL git would use for the brain's remotes, push URLs unless inbound.
 remotes_ok() {
-  local push="--push" r u
-  [ "${1:-}" = "--inbound" ] && push=""
+  local r u
+  local args=(--all --push)
+  [ "${1:-}" = "--inbound" ] && args=(--all)
   for r in $(git remote); do
     while IFS= read -r u; do
       [ -n "$u" ] || continue
       dest_check git "$u" "$@" || return 1
-    # shellcheck disable=SC2086  # $push is one flag or nothing
-    done < <(git remote get-url --all $push "$r")
+    done < <(git remote get-url "${args[@]}" "$r")
   done
 }
 cd "$BRAIN_DIR"

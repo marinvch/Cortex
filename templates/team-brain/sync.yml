@@ -11,6 +11,13 @@
 #   CORTEX_GITHUB_TOKEN        GitHub issues: a token that can open and close issues in the repos asks go to
 #   SERVICENOW_TOKEN           ServiceNow: an OAuth bearer token — or SERVICENOW_USER + SERVICENOW_PASSWORD
 #   JIRA_EMAIL, JIRA_API_TOKEN Jira Cloud: the account and its API token
+#
+# On a `work` profile a tracker is only called when its host is an approved destination (ADR 0030).
+# The runner has no ~/.cortex, so the list comes from the Actions variable
+# CORTEX_APPROVED_DESTINATIONS (repository or organisation), one `kind: value` per line, e.g.
+#   https: api.github.com
+#   https: acme.service-now.com
+# Without it, a work sync leaves every tracker link pending and says why.
 name: cortex-sync
 
 on:
@@ -50,6 +57,7 @@ jobs:
       - name: Sync asks with the trackers
         env:
           CORTEX_PROFILE: {{CORTEX_PROFILE}}
+          CORTEX_APPROVED_DESTINATIONS: ${{ vars.CORTEX_APPROVED_DESTINATIONS }}
 {{TRACKER_ENV}}
         run: |
           set -euo pipefail
@@ -57,6 +65,10 @@ jobs:
           # nothing here is a vault.
           export CORTEX_ROOT="$RUNNER_TEMP/cortex-root"
           mkdir -p "$CORTEX_ROOT"
+          if [ -n "$CORTEX_APPROVED_DESTINATIONS" ]; then
+            printf '%s\n' "$CORTEX_APPROVED_DESTINATIONS" > "$RUNNER_TEMP/allowed-destinations"
+            export CORTEX_DESTINATIONS="$RUNNER_TEMP/allowed-destinations"
+          fi
           git config user.name "cortex-sync"
           git config user.email "cortex-sync@users.noreply.github.com"
           node "$RUNNER_TEMP/cortex/mcp/ai-os.js" sync --clone "$GITHUB_WORKSPACE" --no-push

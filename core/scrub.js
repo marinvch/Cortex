@@ -66,12 +66,29 @@ const PLACEHOLDER = [
   /^(?:changeme|change[-_]?me|xxx+|y{3,}|placeholder|example|dummy|redacted|todo|none|null|undefined|test|fake|sample|your[-_].*|my[-_]secret|\*+|\.{3,})/i,
 ];
 
+/**
+ * A value that only names environment variables, such as a constant telling the user which ones to
+ * set, is a list of names and not a credential. It was the one false alarm in Cortex's own product
+ * code: the tracker modules each export the names their credentials are read from. Every word must
+ * be an upper-case identifier with an underscore and one all-letter part, or a joining word, and at
+ * least one must be an identifier. That is narrow on purpose: a random upper-case value has no
+ * underscore, or no part without a digit, and any lower-case letter outside a joining word, which
+ * every mixed-case key has, fails the rule.
+ */
+const ENV_NAME = /^(?=[A-Z0-9_]*(?:^|_)[A-Z]{2,}(?:_|$))[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+$/;
+const JOINING_WORDS = new Set(["or", "and", "then"]);
+
+function namesVariables(value) {
+  const words = value.split(/[\s(),]+/).filter(Boolean);
+  return words.some((w) => ENV_NAME.test(w)) && words.every((w) => ENV_NAME.test(w) || JOINING_WORDS.has(w));
+}
+
 /** Does this match consist only of a placeholder standing in for a credential? */
 function isPlaceholder(match) {
   // The value is what sits inside the quotes; for a connection string it is the whole match.
   const quoted = match.match(/['"]([^'"\n]*)['"]/);
   const value = quoted ? quoted[1] : match;
-  return PLACEHOLDER.some((re) => re.test(value));
+  return PLACEHOLDER.some((re) => re.test(value)) || (quoted !== null && namesVariables(value));
 }
 
 /**

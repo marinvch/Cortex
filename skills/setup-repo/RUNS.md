@@ -78,3 +78,19 @@ reads as finished, which is why step 8 reads the result off disk. Every row stil
 non-empty `protectedWrites` is named, with the sentence *Claude Code's protected-path check refused
 these* and the command above; check `.claude/skills/` for the skills you wrote the same way. Reporting
 it as written is the failure; so is reporting it as declined.
+
+## By job
+
+On a team's repo (`.cortex/connector.json`), the person's job is `me.job` in the `inbox` tool's
+result, or in `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" inbox --json`. With no team or no job
+recorded, it is `developer` and nothing here changes. The job shapes the answers you propose, never
+the order or the list: every row is still asked, in its rank.
+
+- `pm`: propose the report-only path (above) and say so before step 2. Offer `/whats-changed` at
+  the end.
+- `qa`: lead the step 3 summary with the code no test covers, and end with `/change-impact`.
+- `architect`: `scaffold` and `brief` are theirs. Propose **later** for `bundle`, `enrich`, the
+  hooks, evals and bands, and say they can take them now.
+- `lead`: the agent team, `REVIEW.md` with the PR review workflow, and `team-plugin` are what the
+  team shares. Say what a **later** on one of them costs everyone else.
+- `developer`: as written.

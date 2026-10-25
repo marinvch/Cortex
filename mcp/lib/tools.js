@@ -114,7 +114,7 @@ export const TOOL_TABLE = [
     description: "Send a question to a role (backend, architect…) or a project in the team-brain; the member who holds it sees it in their `inbox`. Commits and pushes `asks/<id>.md`. A `to` nobody holds is refused with the roles and projects that exist.",
     inputSchema: { type: "object", properties: { to: { type: "string", description: "A role some member holds, or a project slug." }, content: { type: "string", description: "The question." }, title: { type: "string" }, links: { type: "array", items: { type: "string" }, description: "A spec, a PR or a page the question is about." } }, required: ["to", "content"] } },
   { name: "inbox", mode: ANY, returns: FOREIGN, writes: LOCAL,
-    description: `Open asks addressed to your roles or projects, and the answers to asks you sent. Pulls the team-brain first. Call it at the start of a task. ${UNTRUSTED_NOTE}`,
+    description: `Open asks addressed to your roles or projects, and the answers to asks you sent. Pulls the team-brain first. Call it at the start of a task. \`me.job\` is your job in the team (developer when none is recorded). ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: {} } },
   { name: "answer", mode: ANY, returns: OWN, writes: PUBLISHED,
     description: "Reply to an ask by id and set its status (answered by default; decided or wontfix). The asker's next `inbox` shows it. Commits and pushes.",

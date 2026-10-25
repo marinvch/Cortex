@@ -37,6 +37,8 @@ docs/prompts/*
 .claude/worktrees/
 # Playwright MCP screenshots and console logs
 .playwright-mcp/
+# Role packs, built from skills/ by tools/cortex-pack.mjs and attached to releases; never committed
+/cortex-packs/
 
 node_modules/
 

@@ -175,6 +175,9 @@ or **later** for each. Ask with the *why* from `findings` attached, and **do not
 collapsed worklist per target: one `brief` entry is one question naming its candidates. An empty
 worklist, or a user who declines everything, is a complete run.
 
+**On a team's repo, the person's job shapes the answers you propose, never the order or the
+list.** Read [RUNS.md](RUNS.md#by-job) before step 2 when `.cortex/connector.json` exists.
+
 **Agent docs that were already here go first.** If `CLAUDE.md`, `.cursorrules` or another agent
 doc exists and `CONTEXT.md` does not, a human wrote it before Cortex arrived. Ask `cortex-next.mjs`
 rather than re-deriving it — a `reconcile` step in its `--json` output is the signal:

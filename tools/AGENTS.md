@@ -38,6 +38,32 @@ refuses what it cannot read and only ever appends. A committed config never hold
 machine: it starts `${CORTEX_HOME}/mcp/server.js`, and an agent that expands no variables (Codex)
 gets user scope instead.
 
+## A pack skill is portable
+
+`cortex-pack.mjs` builds a role pack from `skills/` for people who do not run Claude Code, and the
+design leaves "portable" to be defined. It is defined narrowly here, checked by `judgeSkill` in
+`_pack.mjs`, and each point is failed on a fixture in `test/cortex-pack.test.sh`. A skill is
+portable when, after the adaptation, every file it ships:
+
+1. names no variable only Claude Code sets: `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR`;
+2. runs no Cortex script: no `node`, `bash` or `sh` command naming a path under `tools/`, `index/`
+   or `mcp/`, in prose or in a code fence. Outside Claude Code there is no checkout to run them
+   from, and the design sends a pack skill to the team-brain through the MCP tools;
+3. and the skill does not carry `disable-model-invocation: true`. Other assistants have no such
+   switch, and the flag marks a ritual that must not start by itself;
+4. has frontmatter that parses, a name equal to its folder (at most 64 of a-z, 0-9, -) and a
+   description of at most 1,024 characters;
+5. links only to files that exist: inside its folder as written, outside it to a file in this
+   repository, which the link is rewritten to name on the release tag;
+6. is a text file the check can read (`.md`, `.yaml`, `.yml`, `.json`, `.txt`).
+
+The adaptation is mechanical and never touches prose: frontmatter keeps only the Agent Skills keys
+(`name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`), out-of-folder
+links become release URLs, line endings become LF. A skill that would need its prose rewritten to
+pass is not packed. It is listed under "needs Claude Code", with the reason, and the fix belongs in
+the skill. Do not widen the definition to let a skill in: a pack skill that tells an assistant to
+run `node tools/...` fails on the first person who tries it, and nothing reports that.
+
 ## The copies that are deliberate, and the tests that pin them
 
 Five rules exist in more than one place **on purpose**, because the files needing them cannot share
@@ -158,6 +184,7 @@ about itself, so nothing surfaces until a reader is misled.
 | `test/cortex-follows-its-own-rules.test.sh` | the `claude-setup/` findings Cortex reports on other repos find anything in this one. Fix the repo, not the checker |
 | `cortex-skill-usage.mjs --unused` | (reports, does not fail) which skills the session record shows nobody ever reached |
 | `cortex-plugin-check.mjs --check` | the running plugin is behind the repo, so a correct fix looks broken |
+| `cortex-pack.mjs --check` | a role pack holds a skill that is not portable, or a zip it built does not read back. A skill that drops out of a pack is not a failure here; `test/cortex-pack.test.sh` pins each pack's contents for that |
 | `cortex-sync-skills.sh --check` | the gitignored `.claude/skills/` mirror has drifted from `skills/` |
 
 **The graph check cannot see a front door.** It fails only on `out.length === 0 && in.length === 0`

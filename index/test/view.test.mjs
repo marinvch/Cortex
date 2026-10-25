@@ -7,6 +7,7 @@ import { join } from "node:path";
 
 import { buildView } from "../lib/view.mjs";
 import { buildOverview } from "../lib/overview.mjs";
+import { inferAreas, layerKeyFor } from "../lib/layers.mjs";
 import { renderHtml, THEMES, CONTRAST } from "../lib/view-html.mjs";
 import { runPage, runOverview } from "./browser.mjs";
 import { bothLayouts, ENTRIES } from "../../core/test/memory-fixture.js";
@@ -169,184 +170,6 @@ test("enrichment is additive — its absence changes only the detail on a card",
   assert.equal(rich.stats.enriched, 1);
 });
 
-// ── the band of unconnected files ──────────────────────────────────────────────────────────────
-// Simulated alongside everything else, a node with no edges has only repulsion acting on it, so it
-// drifts outward — 34 loose labels orbiting this repo's graph, reading as "half of it is
-// disconnected". They are parked in a captioned band instead. These are lint-style assertions on
-// the browser script, which has no DOM to run in here; the behaviour itself is a design decision
-// and this is the guard that it was not quietly reverted.
-
-test("the layout parks unconnected files instead of simulating them", () => {
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  assert.ok(html.includes("n.pin=1"), "loose nodes are pinned");
-  assert.ok(
-    html.includes("vis(n)&&!n.pin"),
-    "the force step excludes them — otherwise pinning them is undone every frame",
-  );
-});
-
-test("the band says what it is, and hedges what it means", () => {
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  assert.ok(html.includes("files with no import edge found"), "the band is captioned");
-  // The hedge is the point: regex resolution cannot see a dynamically loaded or variable-sourced
-  // file, so an empty edge list is a question. A silent band would read as a verdict.
-  assert.ok(html.includes("a question, not a verdict"));
-});
-
-test("a node is a labelled chip, not an anonymous dot", () => {
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  assert.ok(html.includes("function chip("), "chips are drawn");
-  assert.ok(html.includes("scale>=CHIP_LOD"), "and fall back to dots when too small to read");
-  // Hit-testing has to follow what is drawn. A radius test against a 200px-wide chip leaves most of
-  // the card unclickable, which is the kind of bug a screenshot never shows.
-  assert.ok(html.includes("Math.abs(dx)<=n.w/2"), "picking uses the chip rectangle");
-});
-
-test("the layout cools, and the fit never zooms past legibility", () => {
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  // A graph that never settles cannot be fitted — every fit is undone by the next frame.
-  assert.ok(html.includes("1-frames/760"), "the simulation cools to a stop");
-  assert.ok(
-    html.includes("Math.max(CHIP_LOD+.08"),
-    "fitting stops at the point the chips stop being readable",
-  );
-  assert.ok(html.includes("!touched"), "and never moves a camera the user has already touched");
-});
-
-// ── the graph is layered, because the docs say it is ───────────────────────────────────────────
-// `skills/cortex-view/SKILL.md` told readers the nodes were "laid out by import depth so it reads
-// top-down". They were not: depth was read once to size the loose-file tray and never positioned
-// anything, so the page was a plain force hairball making a claim only prose could keep. These
-// assert the claim is in the code. They are lint-style, like the tray ones above — the script has
-// no DOM to run in here — and the geometry itself is checked by running the emitted script against
-// cloned repositories, which is where every layout defect in this file has actually been found.
-
-test("depth places a node; nothing else is allowed to", () => {
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  assert.ok(html.includes("n.x=x+slot(n)/2;n.y=ly;"), "pack() is the only thing that writes x or y");
-  // A velocity on either axis and a node drifts off the layer it is supposed to name. The fields
-  // are gone rather than merely unused, so neither can come back by accident.
-  const graph = html.slice(html.indexOf("---- graph"));
-  assert.ok(!/\bvy\b/.test(graph), "there is no y velocity");
-  assert.ok(!/\bvx\b/.test(graph), "and no x velocity — pack() assigns, it does not integrate");
-  assert.ok(html.includes("0 · foundation"), "band 0 is named for what it means");
-  assert.ok(html.includes("--band:"), "and the bands have a token in both themes");
-});
-
-test("nothing in the page rolls a die", () => {
-  // Determinism is the index's central promise and the viewer is a consumer of it: the same index
-  // must open the same way, on every machine, every time. Seeding is index-derived.
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  assert.ok(!/Math\.random\s*\(/.test(html), "no randomness — the word survives only in comments");
-  assert.ok(!/Date\.now\s*\(|new Date\b/.test(html), "and no clock");
-});
-
-test("prominence follows inbound count, so the map is not a wall of labels", () => {
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  // Every node drawing a full chip put 162 labels on screen at equal weight, which says nothing
-  // about structure: the file a third of the repo imports looked exactly like a leaf test.
-  assert.ok(html.includes("HUB_MIN"), "there is an inbound threshold");
-  assert.ok(html.includes("Math.sqrt(n.ind)"), "and the radius scale is compressed, not linear");
-  const rule = html.slice(html.indexOf("const wantChip="), html.indexOf("function bands("));
-  for (const clause of ["HUB.has(n.id)", "n.pin", "NB.has(n.id)", "MT.has(n.id)"]) {
-    assert.ok(rule.includes(clause), `a chip is wanted for ${clause}`);
-  }
-  assert.ok(rule.includes("scale>=CHIP_LOD"), "and nothing is labelled below the legibility floor");
-  // Picking reads the same predicate rather than a copy of it. Two copies is how you get a chip
-  // that is visible and not clickable, which no screenshot shows.
-  assert.ok(html.includes("if(showChip(n)){if(Math.abs(dx)<=n.w/2"), "picking asks showChip too");
-});
-
-test("reduced motion settles rather than animating", () => {
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  assert.ok(html.includes("prefers-reduced-motion"), "the preference is read");
-  assert.ok(html.includes("if(REDUCED)settle()"), "and the same steps run before the first frame");
-});
-
-test("an edge carries its source area's colour", () => {
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  assert.ok(html.includes("'rgba('+e.s.rgb+'"), "so a bundle can be traced across rows");
-  assert.ok(html.includes("rgba('+EC+',.13)"), "and everything else dims out of the way on hover");
-});
-
-// ── the settled layout, measured ───────────────────────────────────────────────────────────────
-// Everything above asserts that a decision is still written in the source. None of it can see what
-// a reader sees, and the first layered version shipped with `cort|di|m|setup|s|s|version.js` across
-// its top band — 43 chips on one line at 1900px is 44px each, against the 86-210px a filename
-// needs, so every chip clipped its neighbour into a sliver. Every test in this file passed. These
-// run the page's own script (see `browser.mjs`) and measure what the draw loop actually paints.
-
-function bigView(n = 60) {
-  // One crowded band is the shape that broke: many files at the same depth, all competing for one
-  // line. Fixtures with four files cannot express it, which is why the defect reached a screenshot.
-  const files = Array.from({ length: n }, (_, i) => ({
-    path: `pkg/mod${i}-with-a-longish-name.js`, lang: "javascript", category: "code",
-    lines: 10 + i, commits: n - i, isTest: false, isEntry: false,
-    imports: i < n - 1 ? ["pkg/core.js"] : [], inbound: 0,
-  }));
-  files.push({ path: "pkg/core.js", lang: "javascript", category: "code", lines: 5, commits: 99,
-    isTest: false, isEntry: false, imports: [], inbound: n - 1 });
-  return buildView(idx({
-    files,
-    edges: files.filter((f) => f.imports.length).map((f) => ({ from: f.path, to: "pkg/core.js", type: "imports" })),
-    layers: [{ depth: 0, paths: ["pkg/core.js"] }, { depth: 1, paths: files.slice(0, n - 1).map((f) => f.path) }],
-    areas: [],
-  }), "/tmp/x");
-}
-
-test("no two drawn chips overlap, however crowded the band", () => {
-  const page = runPage(bigView(60), { width: 1900, height: 1000 });
-  assert.deepEqual(page.overlaps(), [], "chip rectangles must not intersect");
-  assert.ok(page.chips.length > 0, "and some chips are actually drawn, or this proves nothing");
-});
-
-test("a crowded band wraps onto sub-rows instead of crushing one line", () => {
-  const page = runPage(bigView(60), { width: 1900, height: 1000 });
-  const lanes = new Set(page.ROWS[1].map((n) => n.y));
-  assert.ok(lanes.size > 1, `59 files on one depth need more than one sub-row, got ${lanes.size}`);
-  // Wrapping is worth nothing if a node escapes the band its depth names.
-  page.ROWS.forEach((r, i) => {
-    for (const n of r) {
-      assert.ok(n.y >= page.BTOP[i] && n.y <= page.BTOP[i] + page.BH[i], `${n.label} is inside band ${i}`);
-    }
-  });
-});
-
-test("the chip budget is a cap, not a target", () => {
-  const page = runPage(bigView(60), { width: 1900, height: 1000 });
-  const graphChips = page.chips.filter((n) => !n.pin);
-  assert.ok(graphChips.length <= page.HUB_MAX,
-    `${graphChips.length} labels drawn against a budget of ${page.HUB_MAX}`);
-});
-
-test("nothing is drawn outside the band box, so no label is clipped", () => {
-  // The band's own label lives inside that box at its left edge. Fitting the nodes instead of the
-  // box put the left edge off screen and band 0's label rendered as "ounda…".
-  const page = runPage(bigView(60), { width: 1900, height: 1000 });
-  for (const n of page.chips) {
-    assert.ok(n.x - n.w / 2 >= page.bandL, `${n.label} starts inside the band box`);
-    assert.ok(n.x + n.w / 2 <= page.bandR, `${n.label} ends inside the band box`);
-  }
-  assert.ok(page.bandL * page.scale + page.tx >= 0, "and the box itself is on screen");
-});
-
-test("hovering names the neighbourhood without stacking labels", () => {
-  // The hub budget reserves chip-width room for its own; a hovered node's neighbours are promoted
-  // onto positions that only ever reserved a dot. This is the case the demotion rule exists for —
-  // and the one place a screenshot will not help, because it needs a cursor.
-  const page = runPage(bigView(60), { width: 1900, height: 1000, hover: "pkg/core.js" });
-  assert.deepEqual(page.overlaps(), [], "promoted neighbours must not collide with anything");
-  assert.ok(page.CHIPS.has("pkg/core.js"), "what the cursor is on always keeps its label");
-  assert.ok(page.chips.length > page.HUB.size, "and the neighbourhood adds some");
-});
-
-test("the same index settles to the same layout", () => {
-  // Determinism is only observable from outside, and a layout is the part of this page that could
-  // most easily stop being deterministic without anything else noticing.
-  const a = runPage(bigView(30)), b = runPage(bigView(30));
-  assert.deepEqual(a.N.map((n) => [n.id, n.x, n.y]), b.N.map((n) => [n.id, n.x, n.y]));
-});
-
 test("the light theme cannot rot while the dark one is tuned", () => {
   // The page declares color-scheme:light dark and is opened next to an editor that already made
   // that choice. A token added to one block and not the other renders as an empty string on canvas
@@ -365,6 +188,318 @@ test("the light theme cannot rot while the dark one is tuned", () => {
   assert.ok(forced.length > 20, "there is a block for a dark theme chosen by hand");
   assert.deepEqual([...names(forced)].sort(), [...d].sort(), "and it defines the same tokens");
   assert.ok(html.includes(":root:not([data-theme=light])"), "a light theme chosen by hand beats a dark OS");
+});
+
+test("nothing in the page rolls a die", () => {
+  // Determinism is the index's central promise and the viewer is a consumer of it: the same index
+  // must open the same way, on every machine, every time.
+  const html = renderHtml(buildView(idx(), "/tmp/x"));
+  assert.ok(!/Math\.random\s*\(/.test(html), "no randomness — the word survives only in comments");
+  assert.ok(!/Date\.now\s*\(|new Date\b/.test(html), "and no clock");
+});
+
+// ── the Map ────────────────────────────────────────────────────────────────────────────────────
+// On this repo the Map drew 365 files in rows by import depth on two-thirds of the screen, with 630
+// import lines too faint to follow, a cluster's files in every row, labels on test helpers and on
+// top of dots, and a legend of 8 areas beside an Overview that said 16. These run the page's own
+// script (`browser.mjs`) and measure what it placed.
+
+/** Builds an index from paths and import pairs: `imports`, `inbound` and the areas follow from them. */
+function graphIndex(files, pairs, clusters = null) {
+  const byPath = new Map(files.map((f) => [f.path, {
+    lang: "javascript", category: "code", lines: 10, commits: 1, isTest: false, isEntry: false,
+    imports: [], inbound: 0, cluster: null, ...f,
+  }]));
+  for (const [from, to] of pairs) {
+    byPath.get(from).imports.push(to);
+    byPath.get(to).inbound += 1;
+  }
+  const all = [...byPath.values()];
+  return idx({
+    files: all,
+    edges: pairs.map(([from, to]) => ({ from, to, type: "imports" })),
+    areas: inferAreas(all),
+    layers: [],
+    stats: { files: all.length, lines: all.length * 10, edges: pairs.length, tests: all.filter((f) => f.isTest).length },
+    clusters,
+  });
+}
+
+/**
+ * Three clusters of code, a fourth of tests and the helpers they share, and one file with no edge.
+ * The two helpers are imported more than any code file but the first hub, which is what makes them
+ * candidates for a name.
+ */
+function mapIndex() {
+  const code = (path, cluster, extra = {}) => ({ path, cluster, ...extra });
+  const files = [
+    code("src/a/hub.js", "c1"), code("src/a/one.js", "c1"), code("src/a/two.js", "c1"), code("src/a/three.js", "c1"),
+    code("src/b/hub.js", "c2"), code("src/b/one.js", "c2"), code("src/b/two.js", "c2"),
+    code("src/c/hub.js", "c3"), code("src/c/one.js", "c3"),
+    code("test/helpers.js", "c4", { isTest: true }), code("src/testing/test-utils.js", "c4"),
+    code("test/a.test.js", "c4", { isTest: true }), code("test/b.test.js", "c4", { isTest: true }),
+    code("test/c.test.js", "c4", { isTest: true }),
+    code("src/loose.js", null),
+  ];
+  const pairs = [
+    ["src/a/one.js", "src/a/hub.js"], ["src/a/two.js", "src/a/hub.js"], ["src/a/three.js", "src/a/hub.js"],
+    ["src/a/three.js", "src/a/one.js"],
+    ["src/b/one.js", "src/b/hub.js"], ["src/b/two.js", "src/b/hub.js"],
+    ["src/c/one.js", "src/c/hub.js"],
+    // c2 imports c1 three times and c1 imports c2 once; c3 imports c1 twice.
+    ["src/b/one.js", "src/a/hub.js"], ["src/b/two.js", "src/a/hub.js"], ["src/b/hub.js", "src/a/one.js"],
+    ["src/a/two.js", "src/b/hub.js"],
+    ["src/c/one.js", "src/a/hub.js"], ["src/c/hub.js", "src/a/hub.js"],
+    ...["test/a.test.js", "test/b.test.js", "test/c.test.js"].flatMap((t) => [[t, "test/helpers.js"], [t, "src/testing/test-utils.js"]]),
+    ["test/a.test.js", "src/a/hub.js"], ["test/b.test.js", "src/b/hub.js"], ["test/c.test.js", "src/c/hub.js"],
+  ];
+  const item = (id, hub, members) => ({ id, hub, size: members.length, cohesion: 0.5, areas: { src: members.length }, files: members });
+  const of = (c) => files.filter((f) => f.cluster === c).map((f) => f.path);
+  return graphIndex(files, pairs, {
+    algorithm: "leiden", resolution: 1, unclustered: 1,
+    items: [item("c1", "src/a/hub.js", of("c1")), item("c4", "test/a.test.js", of("c4")), item("c2", "src/b/hub.js", of("c2")), item("c3", "src/c/hub.js", of("c3"))],
+  });
+}
+
+/** n files in clusters of about `size`, each importing a neighbour, and every tenth one a hub. */
+function bigClustered(n, size = 20) {
+  const files = [], pairs = [], items = [];
+  for (let i = 0; i < n; i++) {
+    const c = `c${Math.floor(i / size) + 1}`;
+    files.push({ path: `pkg${Math.floor(i / 300)}/mod${String(i).padStart(4, "0")}-with-a-longer-name.js`, cluster: c, commits: i % 7 });
+  }
+  for (let i = 1; i < n; i++) {
+    pairs.push([files[i].path, files[i - 1].path]);
+    if (i % 3 === 0) pairs.push([files[i].path, files[Math.floor(i / 10) * 10].path]);
+  }
+  const seen = new Set();
+  const uniq = pairs.filter(([a, b]) => a !== b && !seen.has(a + ">" + b) && seen.add(a + ">" + b));
+  for (let k = 0; k * size < n; k++) {
+    const members = files.slice(k * size, (k + 1) * size).map((f) => f.path);
+    items.push({ id: `c${k + 1}`, hub: members[0], size: members.length, cohesion: 0.2, areas: {}, files: members });
+  }
+  return graphIndex(files, uniq, { algorithm: "leiden", resolution: 1, unclustered: 0, items });
+}
+
+// The page runs in its own realm; its arrays are compared by value, not by prototype.
+const plain = (v) => JSON.parse(JSON.stringify(v));
+const inside = (n, c) => n.x >= c.x && n.x <= c.x + c.w && n.y >= c.y && n.y <= c.y + c.h;
+const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+test("the Map puts each cluster's files in one box, and the boxes span the canvas", () => {
+  for (const [name, view] of [["fixture", buildView(mapIndex(), "/tmp/x")], ["600 files", buildView(bigClustered(600), "/tmp/x")]]) {
+    const page = runPage(view, { width: 1400, height: 900 });
+    assert.equal(page.BY, "cluster", `${name}: clusters are the default when the index has them`);
+    for (const n of page.N) {
+      assert.equal(n.g.key, n.cluster || "-", `${name}: ${n.id} is in its own cluster's box`);
+      assert.ok(inside(n, n.g.cell), `${name}: ${n.id} is drawn inside that box`);
+    }
+    const cells = page.CELLS;
+    for (let i = 0; i < cells.length; i++) {
+      for (let j = i + 1; j < cells.length; j++) assert.ok(!overlap(cells[i], cells[j]), `${name}: boxes ${i} and ${j} do not overlap`);
+    }
+    const b = page.bounds();
+    assert.ok((b.x1 - b.x0) / page.W >= 0.9, `${name}: the graph is ${(b.x1 - b.x0).toFixed(0)}px of a ${page.W}px canvas`);
+    assert.ok(b.x0 >= 0 && b.x1 <= page.W, `${name}: and none of it is off the canvas`);
+  }
+});
+
+test("the file with no import edge sits in a quiet box of its own, last", () => {
+  const page = runPage(buildView(mapIndex(), "/tmp/x"), { width: 1400, height: 900 });
+  const last = page.CELLS[page.CELLS.length - 1];
+  assert.equal(last.g.key, "-");
+  assert.ok(last.g.quiet);
+  assert.deepEqual(plain(last.g.members.map((n) => n.id)), ["src/loose.js"]);
+  assert.ok(page.CELLS.every((c) => c === last || c.y + c.h < last.y), "on a shelf below every cluster");
+});
+
+test("the same index on the same canvas gives the same Map", () => {
+  const view = buildView(bigClustered(400), "/tmp/x");
+  const shape = (p) => plain({
+    nodes: p.N.map((n) => [n.id, n.x, n.y, n.r]),
+    words: p.LABELS.map((l) => [l.kind, l.text, l.x, l.y]),
+    cells: p.CELLS.map((c) => [c.g.key, c.x, c.y, c.w, c.h]),
+  });
+  const a = runPage(view, { width: 1400, height: 900 }), b = runPage(view, { width: 1400, height: 900 });
+  assert.deepEqual(shape(a), shape(b));
+  // A round trip through another grouping lands where it started.
+  const before = shape(a);
+  a.run("regroup('area');regroup('depth');regroup('cluster')");
+  assert.deepEqual(shape(a), before);
+});
+
+test("imports between two clusters are one line per pair, and it carries their count", () => {
+  const page = runPage(buildView(mapIndex(), "/tmp/x"), { width: 1400, height: 900 });
+  const rows = page.BUNDLES.map((B) => [B.a.key, B.b.key, B.n, B.ab, B.ba]);
+  // Box order is the index's cluster order (c1, c4, c2, c3), and a pair is keyed by it.
+  assert.deepEqual(plain(rows), [
+    ["c1", "c2", 4, 1, 3],
+    ["c1", "c3", 2, 0, 2],
+    ["c1", "c4", 1, 0, 1],
+    ["c4", "c2", 1, 1, 0],
+    ["c4", "c3", 1, 1, 0],
+  ]);
+  const intra = page.CELLS.reduce((n, c) => n + c.g.intra.length, 0);
+  assert.equal(intra + page.BUNDLES.reduce((n, B) => n + B.n, 0), page.E.length, "every import is drawn exactly once");
+  assert.ok(page.BUNDLES[0].w > page.BUNDLES[1].w && page.BUNDLES[1].w > page.BUNDLES[2].w, "and a line is thicker for more");
+  const pills = page.LABELS.filter((l) => l.kind === "count");
+  assert.ok(pills.length > 0, "the counts are written on the lines where they fit");
+  for (const p of pills) assert.equal(p.text, String(p.B.n));
+});
+
+test("a test, or a file that only serves tests, is never named on the Map", () => {
+  const view = buildView(mapIndex(), "/tmp/x");
+  const node = (p) => view.nodes.find((n) => n.id === p);
+  assert.equal(node("src/testing/test-utils.js").isTest, false, "the index does not count it as a test");
+  assert.equal(node("src/testing/test-utils.js").testSupport, true, "and the Map still knows what it is for");
+  assert.equal(node("src/a/one.js").testSupport, false);
+  const page = runPage(view, { width: 1400, height: 900 });
+  const named = page.LABELS.filter((l) => l.n).map((l) => l.n);
+  assert.ok(named.some((n) => n.id === "src/a/one.js"), "a code file is named");
+  assert.ok(named.every((n) => !n.isTest && !n.testSupport), `named: ${named.map((n) => n.id).join(", ")}`);
+  // The helpers outrank the code file that was named, so the rule, not their rank, kept them out.
+  const ind = (p) => page.N.find((n) => n.id === p).ind;
+  assert.ok(ind("test/helpers.js") > ind("src/a/one.js") && ind("src/testing/test-utils.js") > ind("src/a/one.js"));
+  // Lighting a helper names its neighbours that are code, and neither it nor the tests.
+  page.run("setHover(M.get('test/helpers.js'))");
+  assert.ok(page.run("FW").every((l) => !l.n.isTest && !l.n.testSupport));
+  // And a box is labelled with its hub, the `cN · hub` name the legend uses.
+  const titles = page.LABELS.filter((l) => l.kind === "cell").map((l) => l.text);
+  assert.ok(titles.includes("c1 · a/hub.js · 4 files"), titles.join(" | "));
+});
+
+test("no word on the Map covers a dot or another word, at rest or with a file lit", () => {
+  for (const [name, view, hover] of [
+    ["fixture", buildView(mapIndex(), "/tmp/x"), "src/a/hub.js"],
+    ["600 files", buildView(bigClustered(600), "/tmp/x"), "pkg0/mod0010-with-a-longer-name.js"],
+  ]) {
+    const page = runPage(view, { width: 1400, height: 900 });
+    assert.deepEqual(page.collisions(), [], `${name}, at rest`);
+    assert.ok(page.LABELS.length > 0, `${name}: words are placed, or this proves nothing`);
+    page.run(`setHover(M.get(${JSON.stringify(hover)}))`);
+    const focus = page.run("FW");
+    const all = [...page.LABELS, ...focus];
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) assert.ok(!overlap(all[i], all[j]), `${name}: ${all[i].text} / ${all[j].text}`);
+      for (const n of page.N) {
+        assert.ok(!overlap(all[i], { x: n.x - n.r, y: n.y - n.r, w: 2 * n.r, h: 2 * n.r }), `${name}: ${all[i].text} on ${n.id}`);
+      }
+    }
+  }
+});
+
+test("lighting a file lights exactly its imports and importers", () => {
+  const page = runPage(buildView(mapIndex(), "/tmp/x"), { width: 1400, height: 900, hover: "src/a/hub.js" });
+  const lit = [...page.NB].map((n) => n.id).sort();
+  const expected = mapIndex().edges.filter((e) => e.from === "src/a/hub.js" || e.to === "src/a/hub.js")
+    .map((e) => (e.from === "src/a/hub.js" ? e.to : e.from)).sort();
+  assert.deepEqual(lit, [...new Set(expected)]);
+  // A click keeps it lit after the pointer leaves, and the bar names it.
+  page.run("hover=null;sel=M.get('src/a/hub.js');focusSet()");
+  assert.equal(page.NB.size, expected.length);
+  assert.match(page.html("msel"), /src\/a\/hub\.js<\/b> · imports 0 · imported by 8/);
+});
+
+test("the Map's areas are the index's areas, so it counts what the Overview counts", () => {
+  const files = [
+    { path: "src/react/use-store.ts", cluster: null }, { path: "src/vanilla/store.ts", cluster: null },
+    { path: "src/index.ts", cluster: null }, { path: "tools/build.sh", category: "script", lang: "shell", cluster: null },
+    { path: "docs/guide.md", category: "docs", lang: "markdown" }, { path: "README.md", category: "docs", lang: "markdown" },
+  ];
+  const index = graphIndex(files, [["src/index.ts", "src/vanilla/store.ts"], ["src/react/use-store.ts", "src/vanilla/store.ts"]]);
+  const view = buildView(index, "/tmp/x");
+  const names = new Set(view.areas.map((a) => a.name));
+  for (const n of view.nodes) {
+    assert.equal(n.area, layerKeyFor(n.path), `${n.id} carries the area index.areas put it in`);
+    assert.ok(names.has(n.area), `${n.area} is an area the Overview counts`);
+  }
+  // Keyed on the first segment, all three src files were one area "src", and the cards of
+  // src/react and src/vanilla came out grey because no node named them.
+  assert.equal(view.nodes.find((n) => n.id === "src/react/use-store.ts").area, "src/react");
+  const card = (a) => view.areas.find((x) => x.name === a);
+  assert.equal(card("src/react").color, view.nodes.find((n) => n.id === "src/react/use-store.ts").color);
+  assert.notEqual(card("src/react").color, card("src/vanilla").color);
+  assert.equal(view.stats.mapAreas, 4, "src/react, src/vanilla, src and tools hold code");
+  assert.equal(view.areas.length, 6, "docs and root hold none");
+  const page = runPage(view, { width: 1400, height: 900 });
+  page.run("regroup('area')");
+  assert.deepEqual(plain(page.CELLS.map((c) => c.g.key).sort()), ["src", "src/react", "src/vanilla", "tools"]);
+  assert.match(page.html("legend"), /This repo has 6 areas, the count on the Overview; 4 hold code and are drawn here, the other 2 hold only docs or config\./);
+});
+
+test("the legend sits beside the Map, never over it, and folds", () => {
+  const html = renderHtml(buildView(mapIndex(), "/tmp/x"));
+  assert.match(html, /<div class="view" id="v-map"><div id="mapmain"><div id="hud"><\/div><div id="cvwrap"><canvas id="cv"[^>]*><\/canvas><\/div><\/div><aside id="legend"/);
+  const css = html.slice(html.indexOf("#legend{"), html.indexOf("}", html.indexOf("#legend{")));
+  assert.ok(!/position\s*:\s*(absolute|fixed)/.test(css), "a column of its own, not an overlay");
+  assert.ok(html.includes("#legend.min{"), "it folds");
+  const page = runPage(buildView(mapIndex(), "/tmp/x"), { width: 1400, height: 900 });
+  assert.match(page.html("legend"), /aria-expanded="true"/);
+  assert.match(page.html("legend"), /c1 · a\/hub\.js/, "a row per cluster, by the name its box carries");
+  assert.match(page.html("legend"), /a question, not a verdict/, "and the files with no edge are hedged");
+});
+
+test("keys, buttons and the canvas label still work on the Map", () => {
+  const page = runPage(buildView(mapIndex(), "/tmp/x"), { width: 1400, height: 900 });
+  assert.match(renderHtml(buildView(mapIndex(), "/tmp/x")), /<canvas id="cv" tabindex="0" role="img"/);
+  assert.match(page.attr("cv", "aria-label"), /15 code files in 5 clusters.*Arrow keys pan, plus and minus zoom, zero resets/);
+  const tx = page.tx;
+  page.fire("cv", "keydown", { key: "ArrowRight" });
+  assert.equal(page.tx, tx - 60, "an arrow key pans");
+  page.fire("cv", "keydown", { key: "+" });
+  assert.equal(page.scale, 1.25, "plus zooms in");
+  page.fire("cv", "keydown", { key: "-" });
+  page.fire("cv", "keydown", { key: "-" });
+  assert.ok(Math.abs(page.scale - 0.8) < 1e-9, "minus zooms out");
+  page.fire("cv", "keydown", { key: "0" });
+  assert.deepEqual([page.scale, page.tx, page.ty], [1, page.MARGIN, page.MARGIN], "zero resets");
+  assert.match(page.html("hud"), /aria-label="Zoom out"/);
+  assert.match(page.html("hud"), /aria-label="Reset zoom"/);
+  assert.match(page.html("hud"), /aria-label="Zoom in"/);
+  assert.match(page.html("hud"), /data-by="cluster" aria-pressed="true"/);
+});
+
+test("every grouping goes through the one packer, and hiding a box re-packs the rest on the full width", () => {
+  const page = runPage(buildView(bigClustered(300), "/tmp/x"), { width: 1400, height: 900 });
+  page.run("regroup('depth')");
+  assert.ok(page.CELLS.every((c) => Math.abs(c.w - page.BOX.x1) < 1), "by depth, every layer is a full-width box");
+  assert.equal(page.BUNDLES.length, 0, "and its imports are drawn one by one");
+  page.run("regroup('cluster');hidden.add('c1');layout()");
+  assert.ok(page.N.filter((n) => n.cluster === "c1").every((n) => !n.g), "a hidden cluster is not drawn");
+  assert.ok(page.CELLS.every((c) => c.g.key !== "c1"));
+  const b = page.bounds();
+  assert.ok((b.x1 - b.x0) / page.W >= 0.9, "and what is left still spans the canvas");
+  // An index without clusters opens by area and offers no cluster switch.
+  const plain = runPage(buildView(idx(), "/tmp/x"), { width: 1400, height: 900 });
+  assert.equal(plain.BY, "area");
+  assert.doesNotMatch(plain.html("hud"), /data-by="cluster"/);
+});
+
+test("the Map lays out and draws 2,000 files without stalling", () => {
+  const view = buildView(bigClustered(2000), "/tmp/x");
+  const page = runPage(view, { width: 1400, height: 900 });
+  assert.equal(page.N.length, 2000);
+  let best = Infinity;
+  for (let i = 0; i < 3; i++) { const t0 = performance.now(); page.run("layout()"); best = Math.min(best, performance.now() - t0); }
+  assert.ok(best < 250, `a layout of 2,000 files took ${best.toFixed(1)}ms`);
+  page.run("TAB='map'");
+  const before = { ...page.calls };
+  let draw = Infinity;
+  for (let i = 0; i < 3; i++) { const t0 = performance.now(); page.run("draw()"); draw = Math.min(draw, performance.now() - t0); }
+  assert.ok(draw < 60, `a draw of 2,000 files took ${draw.toFixed(1)}ms of script time`);
+  // A stroke per file is what makes a canvas stutter. The strokes are per box, per pair and per colour.
+  const strokes = (page.calls.stroke - before.stroke) / 3;
+  assert.ok(strokes <= 2 * page.CELLS.length + page.BUNDLES.length + 60, `${strokes} strokes for ${page.CELLS.length} boxes`);
+  page.run("setHover(N[500])");
+  const t0 = performance.now();
+  page.run("draw()");
+  assert.ok(performance.now() - t0 < 60, "and lighting a file costs no more");
+});
+
+test("the Map's in-box edges stay light on a light ground, and a line between boxes reads over them", () => {
+  assert.equal(THEMES.light["edge-rest"], ".12", "the light theme is not darkened");
+  assert.ok(+THEMES.dark["edge-rest"] >= 0.2, "a dark ground needs them raised to be seen at all");
+  for (const t of ["light", "dark"]) assert.ok(+THEMES[t].bundle > +THEMES[t]["edge-rest"], `${t}: a pair line is darker than an edge`);
 });
 
 // ── legibility, computed ───────────────────────────────────────────────────────────────────────
@@ -555,15 +690,6 @@ test("backticks in the sequence's prose render as code, not as backticks", () =>
 test("the page has an inline favicon, so a served copy does not 404 on /favicon.ico", () => {
   const html = renderHtml(buildView(idx(), "/tmp/x"));
   assert.match(html, /<link rel="icon" href="data:image\/svg\+xml,/);
-});
-
-test("dark Map edges are raised; the light theme's are left exactly where they were", () => {
-  assert.equal(THEMES.light["edge-rest"], ".12", "the light theme is not darkened");
-  assert.equal(THEMES.light["edge-w"], ".7");
-  assert.ok(+THEMES.dark["edge-rest"] >= 0.3, "an edge at rest is visible on the dark ground");
-  assert.ok(+THEMES.dark["edge-w"] >= 1);
-  const html = renderHtml(buildView(idx(), "/tmp/x"));
-  assert.ok(html.includes("'rgba('+e.s.rgb+','+ER+')'"), "the draw loop reads the token");
 });
 
 test("a phone gets a bar that wraps and views that stack, never a page wider than the screen", () => {
@@ -773,22 +899,6 @@ test("the view lists clusters without their files, areas most-members first, and
   assert.deepEqual(v.clusters.items[0].areas, [{ name: "lib", files: 3 }, { name: "src/a", files: 1 }, { name: "src/b", files: 1 }]);
   assert.equal(v.clusters.items[0].hubLabel, "f00a.js");
   assert.equal(buildView(idx(), "/tmp/x").clusters, null);
-});
-
-test("the Map colours by cluster when there are clusters, and the switch gives the areas back", () => {
-  const page = runPage(buildView(clustered(3), "/tmp/x"));
-  assert.equal(page.BY, "cluster");
-  const a = page.N.find((n) => n.id === "src/f00a.js");
-  const b = page.N.find((n) => n.id === "src/f01a.js");
-  assert.notEqual(a.color, b.color, "two clusters in one folder are told apart");
-  assert.equal(a.color, a.ccolor);
-  assert.equal(page.grp(a), "c1");
-  page.run("BY='area';paint();");
-  assert.equal(a.color, a.acolor);
-  assert.equal(a.color, b.color, "by area they are one folder again");
-  assert.equal(page.grp(a), "src");
-  // No clusters in the index: the Map is what it was.
-  assert.equal(runPage(buildView(idx(), "/tmp/x")).BY, "area");
 });
 
 test("the page carries the cluster switch and the Areas tab's cluster table", () => {

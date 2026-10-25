@@ -25,9 +25,12 @@ export const THEMES = {
     line: "rgba(60,40,20,.26)", "line-2": "rgba(60,40,20,.13)",
     shadow: "0 1px 2px rgba(60,40,20,.08),0 10px 28px -14px rgba(60,40,20,.25)",
     edge: "120,90,60", band: "rgba(60,40,20,.045)", cvshadow: "rgba(60,40,20,.16)",
-    // A Map edge at rest: its opacity and width. Two tokens so the dark theme can be raised
-    // without touching this one — see the dark block.
+    // An import inside one Map box: its opacity and width. Two tokens so the dark theme can be
+    // raised without touching this one — see the dark block.
     "edge-rest": ".12", "edge-w": ".7",
+    // A line that stands for every import between two boxes on the Map. It has to read through the
+    // light per-file edges under it, so it is darker than they are.
+    bundle: ".3",
     // The cloud. On a light ground additive light washes out to nothing, so it is drawn as ink:
     // deep amber particles, normal blending, a dark core where the dark theme has a hot one.
     glow: "184,92,0", "glow-hot": "110,46,0", link: "rgba(140,80,20,.16)", blend: "source-over",
@@ -45,9 +48,11 @@ export const THEMES = {
     line: "rgba(255,196,130,.26)", "line-2": "rgba(255,196,130,.13)",
     shadow: "0 1px 2px rgba(0,0,0,.5),0 14px 36px -18px rgba(0,0,0,.8)",
     edge: "255,190,120", band: "rgba(255,196,130,.05)", cvshadow: "rgba(0,0,0,.5)",
-    // On a dark ground a mid-luminance area colour at 12% opacity and 0.7px is close to invisible,
-    // so the Map read as unconnected chips. Raised here only: the light theme's edges already read.
-    "edge-rest": ".34", "edge-w": "1.1",
+    // On a dark ground a mid-luminance colour at 12% opacity and 0.7px is close to invisible, so the
+    // edges inside a Map box are raised here. Not as far as the .34 they had when they were the only
+    // lines on the Map: at that weight the boxes with the most imports filled in solid.
+    "edge-rest": ".24", "edge-w": "1",
+    bundle: ".42",
     glow: "255,150,50", "glow-hot": "255,232,196", link: "rgba(255,160,80,.085)", blend: "lighter",
     "c-ctx": "#ffb05a", "c-code": "#7fb2ff", "c-test": "#7ee2a8", "c-gen": "#c7a6ff",
     "t-ctx": "#3a2710", "t-code": "#1b2a3f", "t-test": "#15311f", "t-gen": "#2d2140",
@@ -125,7 +130,7 @@ button{font:inherit;color:inherit}
 /* The canvas takes its layout size from CSS, never from its width/height attributes — sizing the
    attribute off getBoundingClientRect while the attribute also drives layout is a feedback loop,
    and the page grows a horizontal scrollbar a pixel at a time. */
-#cv{flex:1;display:block;cursor:grab;width:100%;height:100%;min-width:0}
+#cv{position:absolute;inset:0;display:block;cursor:grab;width:100%;height:100%}
 #cv:active{cursor:grabbing}
 
 /* ── overview ────────────────────────────────────────────────────────── */
@@ -239,37 +244,43 @@ button.sb{cursor:pointer}button.sb:hover{box-shadow:0 0 0 3px var(--acc-soft)}
 .sother{margin-top:36px;font-size:14px;color:var(--ink-2)}
 .sother .chip{cursor:default}
 
-/* ── floating panels over the graph ──────────────────────────────────── */
-.float{position:absolute;background:var(--surface);border:1px solid var(--line);
-  border-radius:13px;box-shadow:var(--shadow)}
-/* A fixed width, because the Map reserves exactly this much room for it on a wide screen: an open
-   legend used to sit over the right end of the deeper bands. On a narrow one it starts folded. */
-#legend{right:18px;bottom:18px;padding:12px 13px;font-size:13.5px;max-height:52vh;overflow:auto;z-index:6;width:260px;
-  max-width:calc(100% - 36px)}
-#legend.min{width:auto;padding:6px}
-#legend.min .lg,#legend.min .note{display:none}
+/* ── the Map: a bar, the canvas, and the legend beside it ────────────── */
+/* The legend is a column of its own, never an overlay: floating over the canvas it covered the
+   right end of the graph, and reserving a gutter for it left the graph on two-thirds of the screen. */
+#mapmain{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+#cvwrap{position:relative;flex:1 1 auto;min-height:0}
+#hud{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:8px 16px;font-size:13.5px;color:var(--ink-2);
+  border-bottom:1px solid var(--line-2);background:var(--bg)}
+#hud b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
+#hud .grp,#hud .zm{display:inline-flex;align-items:center;gap:6px}
+#hud .zm{margin-left:auto}
+#hud .msel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#hud .msel b{font-family:${MONO};font-weight:500;font-size:13.5px}
+#hud button{appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:3px 10px;
+  font-size:13.5px;cursor:pointer;color:var(--ink);min-width:34px;font-variant-numeric:tabular-nums}
+#hud button:hover{border-color:var(--acc)}
+#hud button.on{border-color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc);font-weight:600}
+#legend{flex:0 0 300px;width:300px;overflow-y:auto;padding:12px 14px 24px;font-size:13.5px;
+  border-left:1px solid var(--line-2);background:var(--surface);scrollbar-width:thin}
+#legend.min{flex:0 0 auto;width:auto;padding:12px 10px}
+#legend.min .lgb{display:none}
 .lgt{appearance:none;display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface-2);
-  border-radius:8px;padding:5px 10px;margin:0 0 8px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--ink)}
+  border-radius:8px;padding:5px 10px;margin:0 0 10px;font-size:13.5px;font-weight:600;cursor:pointer;color:var(--ink)}
 #legend.min .lgt{margin:0}
+.lgh{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--label);font-weight:600;margin:0 0 6px}
+.lgh small{letter-spacing:0;text-transform:none;font-weight:500;color:var(--ink-2);margin-left:4px}
 #legend .lg{display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 6px;margin:0 -6px;border-radius:6px;
   color:var(--ink);transition:background .1s,color .1s;user-select:none}
 #legend .lg:hover{background:var(--surface-2)}
-/* A hidden area is struck through, not faded: fading text is how a label drops under 7:1. */
+#legend .lg .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+/* A hidden row is struck through, not faded: fading text is how a label drops under 7:1. */
 #legend .lg.off{text-decoration:line-through;color:var(--ink-2)}
 #legend .lg.off .sw{background:transparent!important;outline:2px solid var(--ink-2);outline-offset:-2px}
 #legend .lg .sw{width:11px;height:11px;border-radius:3px;flex:0 0 11px}
-#legend .lgby{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:13.5px;color:var(--ink-2)}
-#legend .lgby button{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:3px 9px;
-  font-size:13.5px;cursor:pointer;color:var(--ink)}
-#legend .lgby button.on{border-color:var(--acc);box-shadow:inset 0 -2px 0 var(--acc);font-weight:600}
-#legend.min .lgby{display:none}
-.cl-areas{display:flex;flex-wrap:wrap;gap:0}
 #legend .lg .ct{margin-left:auto;color:var(--ink-2);font-variant-numeric:tabular-nums;font-size:13px}
-#legend .note{margin-top:9px;padding-top:9px;border-top:1px solid var(--line-2);color:var(--ink-2);
-  font-size:13px;line-height:1.5;max-width:250px}
-#hud{left:18px;top:18px;padding:9px 13px;font-size:13.5px;z-index:6;color:var(--ink-2);display:flex;gap:14px;align-items:center}
-#hud b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
-#hud .sep{width:1px;height:14px;background:var(--line)}
+#legend .note{margin-top:10px;padding-top:4px;border-top:1px solid var(--line-2);color:var(--ink-2);font-size:13px;line-height:1.5}
+#legend .note p{margin:8px 0 0}
+.cl-areas{display:flex;flex-wrap:wrap;gap:0}
 #tip{position:fixed;pointer-events:none;background:var(--raised);border:1px solid var(--line);
   border-radius:11px;box-shadow:var(--shadow);padding:10px 12px;font-size:13.5px;max-width:min(340px,calc(100vw - 24px));display:none;z-index:40}
 #tip .t{font-weight:600;margin-bottom:3px;word-break:break-all;color:var(--ink)}
@@ -387,9 +398,10 @@ td.num{font-variant-numeric:tabular-nums;color:var(--ink-2);width:1%;white-space
   #v-files.on{flex-direction:column}
   .list{width:auto;flex:0 0 40%;border-right:0;border-bottom:1px solid var(--line-2)}
   #reader{padding:20px 14px 44px}
-  #hud{left:12px;right:12px;top:12px;flex-wrap:wrap;gap:4px 12px}
-  #hud .sep{display:none}
-  #legend{right:12px;bottom:12px}
+  #v-map.on{flex-direction:column}
+  #hud{padding:8px 12px;gap:6px 12px}
+  #hud .zm{margin-left:0}
+  #legend{flex:0 0 auto;width:auto;max-height:40%;border-left:0;border-top:1px solid var(--line-2)}
 }
 `;
 
@@ -863,422 +875,345 @@ function buildNext(){const n=DATA.next;const p=$('npane');
   h+='<div class="tw"><table><tr><th>when</th><th>run</th></tr>'+n.perChange.map(r=>'<tr><td>'+esc(r.when)+'</td><td><code>'+esc(r.cmd)+'</code></td></tr>').join('')+'</table></div>';
   p.innerHTML=h+'</div>';}
 
-// ---- graph -------------------------------------------------------------------------------
-// Layered, and wrapped. The index knows each file's import depth and the page used to throw that
-// away: depth sized the loose-file tray and positioned nothing, so the map was a force hairball
-// while the docs claimed it read top-down. A band is now a horizontal *region* owned by one depth,
-// and its files fill it in wrapped sub-rows the way words fill a paragraph. One line per depth was
-// the first attempt and it does not survive real data — 43 files on one line at 1900px is 44px
-// each, against the 86-210px a filename needs, so every chip clipped its neighbour into an
-// unreadable sliver while the two sparse bands below sat empty. Wrapping spends that dead height
-// on the crowded layers, which is also the honest shape: most files live at depth 0-2.
+// ---- map ---------------------------------------------------------------------------------
+// Files are grouped, and each group is one box on the full width of the canvas. By cluster when the
+// index has clusters: a box is a set of files that import each other, so its colour names a feature
+// and its files sit together. Rows by import depth scattered every cluster across every row, and
+// colouring by cluster then looked random. Area and depth are the other two groupings, through the
+// same packer. The layout is a projection, not a simulation: the same index on the same canvas gives
+// the same positions, and nothing moves once placed.
 const cv=$('cv'),ctx=cv.getContext('2d'),tip=$('tip');
-let W,H,tx=0,ty=0,scale=1,query='',hover=null,drag=null,pan=false,px=0,py=0,dpr=1;
-// Settle instead of animate when the reader has asked for that. Same steps, same cooling, same
-// final layout — the only difference is that none of it happens on screen.
-const REDUCED=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion:reduce)').matches;
-function resize(){const r=cv.getBoundingClientRect();if(!r.width)return;
-  // Back the canvas with device pixels and draw in CSS pixels. Without this the whole graph is
-  // soft on every HiDPI screen, which is most of them.
-  dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;
-  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
-  // Re-fit a window that changed shape, but only once there is a layout to fit — the first call
-  // runs before pack() has placed anything, and fitting an empty box sets a camera the opening
-  // frames then have to undo.
-  // Re-wrap as well as re-fit. A band is as wide as the window, so a window that changed shape
-  // needs a new BW and a new pack(); fitting alone would just scale yesterday's wrap.
-  if(frames){BW=bandWidth();pack();chipSet();if(!touched)fit();}}
-addEventListener('resize',resize);
-// Deterministic seeding: index-derived, never Math.random, so the same index opens the same way.
-// There is no y to seed — pack() derives it from depth, and nothing else ever writes it.
-const N=DATA.nodes.filter(n=>n.inMap).map(n=>({...n,x:0,y:0,u:0,a:0}));
-const M=new Map(N.map(n=>[n.id,n]));
-const RGB=h=>{const v=parseInt(String(h).slice(1),16);return (v>>16&255)+','+(v>>8&255)+','+(v&255);};
-// Two colourings and one switch. By cluster shows which files import each other: a feature, wherever
-// its files sit. By area shows the folders. Cluster comes first when the index has clusters, because
-// the folders are already what a reader sees in their editor. Only the largest clusters get a hue
-// (see view.mjs); the rest share one row, "smaller clusters", and a file with no edge has no cluster.
-const CL=(DATA.clusters&&DATA.clusters.items)||[],CLC=new Set(CL.filter(c=>c.coloured).map(c=>c.id));
-let BY=CL.length?'cluster':'area';
-const grp=n=>BY==='area'?n.area:(n.cluster?(CLC.has(n.cluster)?n.cluster:'+'):'-');
-for(const n of N)n.acolor=n.color;
-function paint(){for(const n of N){n.color=BY==='cluster'?n.ccolor:n.acolor;n.rgb=RGB(n.color);}}
-paint();
-// A node is a filename, and a filename is code — so it is set in the mono face the rest of the
-// page uses for paths, not in the UI sans. The dot-with-a-floating-label had the labels colliding
-// with each other and belonging to nothing; a chip is one object you can read without hovering.
+const UIF='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 const MONO='"Cascadia Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace';
-// 13px is the floor for every word on this page, the canvas included — a chip is read, not glanced at.
-const CHIP_H=26,CHIP_PAD=9,BAR=4,GLY=7;
-function measure(){ctx.font='500 13px '+MONO;
-  for(const n of N){n.text=n.label.length>24?n.label.slice(0,23)+'…':n.label;
-    n.w=Math.min(236,Math.max(90,Math.round(ctx.measureText(n.text).width)+BAR+CHIP_PAD*2+GLY+6));
-    n.h=CHIP_H;}}
-const E=DATA.links.map(l=>({s:M.get(l.source),t:M.get(l.target)})).filter(e=>e.s&&e.t);
-const hidden=new Set();
-const vis=n=>!hidden.has(grp(n));
-
-// Prominence follows inbound count. Drawing every node as a chip put 162 labels on screen at equal
-// weight, which says nothing about structure: the file a third of the repo imports looked exactly
-// like a leaf test. The budget is a hard cap and it does NOT grow with zoom — a chip overlaps in
-// graph coordinates or it does not, and zooming changes neither, so "zoom in to read the rest" was
-// a promise the geometry could not keep. Hover and search reach the other names instead.
-const IND=new Map();for(const e of E)IND.set(e.t.id,(IND.get(e.t.id)||0)+1);
-const HUB_MIN=2,HUB_MAX=20;
-for(const n of N){n.ind=IND.get(n.id)||0;n.r=3.2+3.1*Math.sqrt(n.ind);}
+const TITLE='600 13px '+UIF,NAME='500 13px '+MONO,PILL='600 13px '+UIF;
+const GREY='#8b97ab';
+const N=DATA.nodes.filter(n=>n.inMap).map(n=>({...n,acolor:n.color,x:0,y:0,r:3,g:null,ins:[],outs:[]}));
+const M=new Map(N.map(n=>[n.id,n]));
+const E=DATA.links.map(l=>({s:M.get(l.source),t:M.get(l.target)})).filter(e=>e.s&&e.t&&e.s!==e.t);
+for(const e of E){e.s.outs.push(e.t);e.t.ins.push(e.s);}
+for(const n of N)n.ind=n.ins.length;
 const byRank=(a,b)=>b.ind-a.ind||b.commits-a.commits||(a.path<b.path?-1:1);
+const CL=(DATA.clusters&&DATA.clusters.items)||[],CLI=new Map(CL.map((c,i)=>[c.id,i]));
+const RGB=h=>{const v=parseInt(String(h).slice(1),16);return (v>>16&255)+','+(v>>8&255)+','+(v&255);};
+let BY=CL.length?'cluster':'area';
+const hidden=new Set();
+// A cluster colours the file in every grouping but area, so the depth view still shows which
+// feature each file in a layer belongs to.
+function paint(){for(const n of N){n.color=BY==='area'||!CL.length?n.acolor:n.ccolor;n.rgb=RGB(n.color);}}
 
-// Files with no import edge Cortex could resolve. Simulated alongside everything else they had
-// nothing but repulsion acting on them, so they were flung outward into a halo of loose labels
-// orbiting the structure — the picture said "half this repo is disconnected" when the truth was
-// narrower: shell tests sourced through a loop variable, and tests that read files instead of
-// importing them. Parked in a labelled band below the graph instead. Still drawn, still clickable,
-// still searchable; they have simply stopped pretending to be part of the layout.
-const WIRED=new Set();for(const e of E){WIRED.add(e.s.id);WIRED.add(e.t.id);}
-const LOOSE=N.filter(n=>!WIRED.has(n.id))
-  .sort((a,b)=>a.area<b.area?-1:a.area>b.area?1:a.path<b.path?-1:1);
-const GRAPH=N.filter(n=>WIRED.has(n.id));
-const MAXD=GRAPH.reduce((m,n)=>n.depth===null?m:Math.max(m,n.depth),0);
-// A wired file the layer pass could not place gets a band of its own under the deepest one. Folding
-// it into band 0 would claim it is foundation, which is a different statement from "not known".
-const rowOf=n=>n.depth===null?MAXD+1:n.depth;
-const ROWS=[];for(let i=0;i<=MAXD+1;i++)ROWS.push([]);
-for(const n of GRAPH)ROWS[rowOf(n)].push(n);
-while(ROWS.length&&!ROWS[ROWS.length-1].length)ROWS.pop();
-const RLBL=ROWS.map((r,i)=>r.some(n=>n.depth===null)?'· no layer found':(i===0?'0 · foundation':String(i)));
-// The budget is spent per band, not globally. Ranked across the whole graph it all went to bands 0
-// and 1 — every hub is foundation, by definition — and the deeper layers rendered as rows of
-// anonymous dots, which is where a reader most wants a name: those are the files that DO the work.
-// A band small enough to name outright gets named outright; otherwise a file has to be imported by
-// something to be worth a label, and every declared entry point gets one wherever it sits.
-const RANKED=ROWS.map(r=>[...r].sort(byRank));
-const PER_BAND=Math.max(1,Math.min(3,Math.floor(HUB_MAX/Math.max(1,ROWS.length))));
-const HUB=new Set(),addHub=n=>{if(n&&HUB.size<HUB_MAX)HUB.add(n.id);};
-for(const n of [...GRAPH].sort(byRank))if(n.isEntry)addHub(n);
-// Round-robin by rank position, so a tight budget gives every band its most-imported file before
-// any band gets its second. HUB_MAX is a hard cap — addHub is the only way in, and it stops.
-for(let k=0;k<PER_BAND;k++)for(const R of RANKED){const n=R[k];if(n&&(n.ind>=1||R.length<=6))addHub(n);}
-for(const n of [...GRAPH].sort(byRank))if(n.ind>=HUB_MIN)addHub(n);
-// Which nodes sit above and below this one. The ordering inside a band is a barycentre pass.
-const UPN=new Map(),DNN=new Map();
-for(const e of E){if(!UPN.has(e.s.id))UPN.set(e.s.id,[]);UPN.get(e.s.id).push(e.t);
-  if(!DNN.has(e.t.id))DNN.set(e.t.id,[]);DNN.get(e.t.id).push(e.s);}
+const MARGIN=16,GAP=12,PAD=10,HEAD=30,NROW=24,MINW=172,LABEL_MAX=16,PER_CELL=3,HUB_MIN=2,LOD=.8,PILLS=40;
+// The pitch between dots is the one thing chosen to fit the height: the width is always the canvas's.
+const PITCH=[34,30,28,26,24,22,20,18,16,14,12];
+let W=0,H=0,dpr=1,tx=MARGIN,ty=MARGIN,scale=1,touched=false,P=PITCH[0];
+let GROUPS=[],CELLS=[],LABELS=[],BUNDLES=[],BOX={x0:0,y0:0,x1:0,y1:0};
+let hover=null,hoverG=null,hoverB=null,sel=null,NB=new Set(),MT=new Set(),qOn=false,query='';
 
-// The room a node takes along its sub-row: a hub takes its whole chip, everything else takes its
-// dot. Reserving a chip for all 162 was what made the slivers — the drawn width has to be the
-// reserved width or the packing below is solving the wrong problem.
-const slot=n=>HUB.has(n.id)?n.w+14:Math.max(30,n.r*2+16);
-const CX=520;
-const LANE_H=36,LABEL_H=30,PAD_B=12,AREA_GAP=16,BPAD=24,TOP=40,LEGEND_GUTTER=300;
-let BW=1200,TRAY_Y=0,TRAY_COLS=6;const TRAY_W=224;
-const BTOP=ROWS.map(()=>0),BH=ROWS.map(()=>LABEL_H+LANE_H+PAD_B);
-const bandL=()=>CX-BW/2-BPAD,bandR=()=>CX+BW/2+BPAD;
-// A band is as wide as the window, so fit() below lands near 1:1 and a chip is drawn at the size
-// it was measured at. Wrapping means width is never what overflows — height is, and height is the
-// axis this graph is read along anyway.
-// The legend is an overlay at the bottom right, and an open one covered the right end of every band
-// that reached it. On a screen wide enough to spare the room the layout reserves a gutter for it —
-// the bands are that much narrower and the fit centres them in what is left. On a narrow screen it
-// opens folded, and an overlay you asked for is allowed to cover something.
-let LEG_OPEN=(typeof innerWidth==='number'?innerWidth:1400)>=900;
-const LEG_W=260+18+14;
-const gutter=()=>LEG_OPEN&&(W||0)>=900?LEG_W:0;
-const bandWidth=()=>Math.max(520,(W||1400)-150-gutter());
-
-// pack() is the whole layout, and it is a projection rather than a force: given an order, it
-// assigns every position. Nothing downstream can move a node, so two nodes cannot overlap —
-// non-overlap is a post-condition here, not something the simulation is asked to achieve.
-function pack(){let y=TOP;
-  for(let i=0;i<ROWS.length;i++){
-    // Ordered by n.u, a rank in [0,1], never by x. Sorting by pixel x looks equivalent and is not:
-    // every lane is packed from the centre outwards, so the first node of lane 2 has a smaller x
-    // than the middle of lane 1, and re-sorting by x next frame interleaves the two. The order
-    // never settled and the barycentre below had nothing stable to converge on.
-    const R=ROWS[i].filter(vis).sort((a,b)=>a.u-b.u||(a.path<b.path?-1:1));
-    BTOP[i]=y;
-    // Wrap like a paragraph: fill a sub-row up to the band's width, then start another. An extra
-    // gap where the area changes is what repulsion used to buy — a visible seam between clusters —
-    // except this one cannot push anything off screen.
-    const lanes=[];let cur=[],w=0;
-    for(const n of R){const g=cur.length&&grp(cur[cur.length-1])!==grp(n)?AREA_GAP:0,s=slot(n);
-      if(cur.length&&w+g+s>BW){lanes.push(cur);cur=[n];w=s;}
-      else{cur.push(n);w+=g+s;}}
-    if(cur.length)lanes.push(cur);
-    if(!lanes.length)lanes.push([]);
-    for(let li=0;li<lanes.length;li++){const L=lanes[li];
-      let tw=0;for(let k=0;k<L.length;k++)tw+=slot(L[k])+(k&&grp(L[k-1])!==grp(L[k])?AREA_GAP:0);
-      let x=CX-tw/2;const ly=y+LABEL_H+li*LANE_H+LANE_H/2;
-      for(let k=0;k<L.length;k++){const n=L[k];
-        if(k&&grp(L[k-1])!==grp(n))x+=AREA_GAP;
-        n.x=x+slot(n)/2;n.y=ly;x+=slot(n);}}
-    // Re-rank, so u stays monotone in reading order and comparable across bands of different size.
-    R.forEach((n,k)=>{n.u=(k+.5)/R.length;});
-    BH[i]=LABEL_H+lanes.length*LANE_H+PAD_B;
-    y+=BH[i];}
-  // The tray is a list, so it is set left-aligned rather than centred, and it stops short of the
-  // right edge: the legend is an overlay pinned to the bottom right, which is exactly where a long
-  // tray ends up. Centred and full width, its last column rendered under the legend and four
-  // filenames were cut off — invisible in every measurement, obvious in a screenshot.
-  TRAY_Y=y+110;TRAY_COLS=Math.max(3,Math.floor((BW-(gutter()?0:LEGEND_GUTTER))/TRAY_W));
-  LOOSE.forEach((n,i)=>{n.pin=1;
-    n.x=bandL()+BPAD+(i%TRAY_COLS)*TRAY_W+TRAY_W/2;n.y=TRAY_Y+Math.floor(i/TRAY_COLS)*34;});}
+// The groups of the current grouping in packing order, and the key that puts a file in one.
+function spec(){
+  if(BY==='cluster')return{keyOf:n=>n.cluster||'-',groups:[
+    ...CL.map(c=>({key:c.id,title:c.id+' · '+c.hubLabel,color:c.color,lead:c.hub,c})),
+    {key:'-',title:'no cluster',color:GREY,quiet:true}]};
+  if(BY==='area'){const k=new Map(),col=new Map();
+    for(const n of N){k.set(n.area,(k.get(n.area)||0)+1);if(!col.has(n.area))col.set(n.area,n.acolor);}
+    return{keyOf:n=>n.area,groups:[...k.keys()].sort((a,b)=>k.get(b)-k.get(a)||(a<b?-1:1))
+      .map(a=>({key:a,title:a,color:col.get(a)||GREY}))};}
+  const d=[...new Set(N.map(n=>n.depth===null?-1:n.depth))].sort((a,b)=>(a<0)-(b<0)||a-b);
+  return{keyOf:n=>String(n.depth===null?-1:n.depth),stack:true,groups:d.map(x=>({key:String(x),
+    title:x<0?'no layer found':x===0?'layer 0 · foundation':'layer '+x,color:GREY,neutral:true}))};}
 
 function layout(){
-  // Seed sorted by area then path, so files that belong together begin together and the barycentre
-  // only has to refine an ordering rather than discover one. Deterministic, like everything else
-  // here: there is no Math.random in this file.
-  ROWS.forEach(r=>{r.sort((a,b)=>grp(a)<grp(b)?-1:grp(a)>grp(b)?1:a.path<b.path?-1:1);
-    r.forEach((n,i)=>{n.u=(i+.5)/r.length;});});
-  BW=bandWidth();
-  pack();}
+  const S=spec(),G=new Map(S.groups.map(g=>[g.key,{...g,members:[],intra:[]}]));
+  for(const n of N){n.g=null;const g=G.get(S.keyOf(n));if(g)g.members.push(n);}
+  const order=BY==='depth'
+    ?(a,b)=>(CLI.has(a.cluster)?CLI.get(a.cluster):1e9)-(CLI.has(b.cluster)?CLI.get(b.cluster):1e9)||byRank(a,b)
+    :(a,b)=>(a.depth===null)-(b.depth===null)||(a.depth||0)-(b.depth||0)||byRank(a,b);
+  GROUPS=[...G.values()].filter(g=>g.members.length&&!hidden.has(g.key));
+  GROUPS.forEach((g,i)=>{g.i=i;g.members.sort(order);for(const n of g.members)n.g=g;
+    const l=g.lead&&M.get(g.lead);g.leadNode=l&&l.g===g&&!l.isTest&&!l.testSupport?l:null;});
+  // Names go to the most-imported files that are neither tests nor there to serve them, a few per
+  // box. A helper every test imports ranks high on inbound count and is still not a key file.
+  const named=new Set(),per=new Map();
+  for(const n of N.filter(n=>n.g&&!n.isTest&&!n.testSupport&&n.ind>=HUB_MIN&&n!==n.g.leadNode).sort(byRank)){
+    if(named.size>=LABEL_MAX)break;const k=per.get(n.g)||0;if(k>=PER_CELL)continue;named.add(n);per.set(n.g,k+1);}
+  ctx.font=NAME;
+  for(const g of GROUPS){g.named=g.members.filter(n=>named.has(n)).sort(byRank);
+    g.rest=g.members.filter(n=>n!==g.leadNode&&!named.has(n));
+    for(const n of g.named)n.tw=ctx.measureText(n.label).width;}
+  const Wav=Math.max(320,W-2*MARGIN),Hav=Math.max(160,H-2*MARGIN);
+  let h=0;for(const p of PITCH){P=p;h=pack(Wav,S.stack);if(h<=Hav)break;}
+  BOX={x0:0,y0:0,x1:Wav,y1:h};
+  bundle();words();describe();if(sel&&!sel.g)sel=null;if(hover&&!hover.g)hover=null;focusSet();}
 
-function step(){const A=N.filter(n=>vis(n)&&!n.pin);
-  // The layout cools to a stop instead of drifting forever. A graph that never settles cannot be
-  // fitted to the window — every fit is undone by the next frame — and a picture that keeps moving
-  // under the cursor is harder to read than one that is merely imperfect.
-  const cool=Math.max(0,1-frames/760);
-  if(cool){const move=[];
-    // The only force left, and it settles an ORDER rather than a position: a node drifts toward
-    // the mean rank of what it imports, and what imports it pulls back at about half that, so
-    // related files end up at the same place along their bands and the edges between them stay
-    // short. Repulsion and centring went when pack() took over placement — a force that can only
-    // reshuffle the order can only move it away from the barycentre, which is the one thing the
-    // order is there to say. Ranks, not pixels, so a 43-file band and a 3-file band are on the
-    // same scale; targets are read for the whole graph before any of them is written, or a band
-    // would be chasing the half of its neighbour that already moved this frame.
-    for(const a of A){const up=UPN.get(a.id),dn=DNN.get(a.id);let su=0,sw=0;
-      if(up)for(const m of up){if(vis(m)){su+=m.u;sw+=1;}}
-      if(dn)for(const m of dn){if(vis(m)){su+=m.u*.55;sw+=.55;}}
-      if(sw)move.push([a,su/sw]);}
-    for(const [a,t] of move)a.u+=(t-a.u)*.6*cool;}
-  pack();chipSet();}
+// Named files flow left to right on their own rows under the box's title, so a name never sits
+// on a dot: the dots start below them.
+function flow(g,w){const inner=w-2*PAD;let x=0,row=0;const at=[];
+  for(const n of g.named){const iw=Math.min(inner,18+n.tw);if(x>0&&x+iw>inner){row++;x=0;}at.push([x,row]);x+=iw+16;}
+  return{rows:g.named.length?row+1:0,at};}
+function cellH(g,w){const cols=Math.max(1,Math.floor((w-2*PAD)/P));
+  return HEAD+flow(g,w).rows*NROW+Math.ceil(g.rest.length/cols)*P+PAD;}
+function pack(Wav,stack){const shelves=[];let cur=null;
+  for(const g of GROUPS){const cols=Math.max(1,Math.ceil(Math.sqrt(g.rest.length*1.8)));
+    const nw=g.named.length?Math.min(360,Math.max(...g.named.map(n=>n.tw))+18+2*PAD):0;
+    g.nat=Math.min(Wav,Math.max(MINW,cols*P+2*PAD,nw));
+    const alone=!!(stack||g.quiet);
+    if(!cur||cur.alone||alone||cur.w+GAP+g.nat>Wav){cur={cells:[],w:-GAP,alone};shelves.push(cur);}
+    cur.cells.push(g);cur.w+=GAP+g.nat;}
+  CELLS=[];let y=0;
+  for(const s of shelves){const w=widths(s.cells,Wav-GAP*(s.cells.length-1));
+    const sh=Math.max(...s.cells.map((g,i)=>cellH(g,w[i])));
+    let x=0;s.cells.forEach((g,i)=>{place(g,x,y,w[i],sh);x+=w[i]+GAP;});
+    y+=sh+GAP;}
+  return Math.max(0,y-GAP);}
+// Every shelf spans the whole width. What a shelf has beyond its boxes' natural widths goes to the
+// boxes with the most files, so one shelf's boxes end at about the same height.
+function widths(cells,avail){const need=cells.map(g=>g.rest.length+1),fixed=new Set();let w=null;
+  for(let it=0;it<=cells.length&&!w;it++){let fw=0,fn=0;
+    cells.forEach((g,i)=>{if(fixed.has(i))fw+=g.nat;else fn+=need[i];});
+    const lam=fn?(avail-fw)/fn:0;let grew=false;
+    cells.forEach((g,i)=>{if(!fixed.has(i)&&lam*need[i]<g.nat){fixed.add(i);grew=true;}});
+    if(!grew)w=cells.map((g,i)=>fixed.has(i)?g.nat:lam*need[i]);}
+  if(!w)w=cells.map(g=>g.nat);
+  const sum=w.reduce((a,b)=>a+b,0);return sum>0?w.map(x=>x*avail/sum):w;}
+function place(g,x,y,w,h){const cell={g,x,y,w,h};CELLS.push(cell);g.cell=cell;
+  const big=n=>Math.max(2.6,Math.min(7,2.4+Math.sqrt(n.ind)));
+  if(g.leadNode){const n=g.leadNode;n.r=big(n);n.x=x+PAD+7;n.y=y+HEAD/2+1;}
+  const f=flow(g,w);
+  g.named.forEach((n,i)=>{n.r=big(n);n.x=x+PAD+f.at[i][0]+7;n.y=y+HEAD+f.at[i][1]*NROW+NROW/2;});
+  const top=y+HEAD+f.rows*NROW,inner=w-2*PAD,cols=Math.max(1,Math.floor(inner/P));
+  // One row that does not fill its box spreads out, up to twice the pitch, rather than huddling left.
+  const xp=g.rest.length&&g.rest.length<cols?Math.min(2*P,inner/g.rest.length):P,c=g.rest.length<cols?g.rest.length:cols,off=(inner-c*xp)/2;
+  g.rest.forEach((n,i)=>{n.r=Math.max(2,Math.min(P/2-2,2.2+Math.sqrt(n.ind)));
+    n.x=x+PAD+off+xp/2+(i%cols)*xp;n.y=top+P/2+Math.floor(i/cols)*P;});}
 
-// A graph laid out in its own coordinates has no reason to match the window, and this one opened
-// with a third of itself past the edge. Fit once, after the simulation has settled — and never
-// after the user has touched the view, because moving someone's camera out from under them is worse
-// than a bad first frame.
-let frames=0,touched=false;
-function fit(){if(!ROWS.length||!W)return;
-  // The bands ARE the bounding box, and the band label lives inside one. Fitting the nodes instead
-  // put the left edge of the box off screen and the row-0 label rendered as "ounda…".
-  const x0=bandL(),x1=bandR(),y0=BTOP[0],y1=BTOP[ROWS.length-1]+BH[ROWS.length-1];
-  const pad=Math.max(22,Math.min(W,H)*.035);
-  // The HUD is an overlay pinned to the top left of the canvas, which is also where band 0 puts its
-  // label. Reserve the room rather than letting the two share it — a band label under a floating
-  // panel is a band label nobody can read.
-  const G=gutter(),padT=Math.max(pad,74),availW=W-G-pad*2,availH=H-padT-pad;
-  // Never fit below the point where the chips stop being readable: a page that fits
-  // perfectly and cannot be read has optimised the wrong thing. Past that, panning is the answer.
-  const s=Math.max(CHIP_LOD+.08,Math.min(availW/(x1-x0||1),availH/(y1-y0||1),1.15));
-  // The scale comes from the bands alone — a long tray must never shrink the graph — but the
-  // tray counts for where the picture sits, because it is part of the answer and on a short graph
-  // it is a section of the page nobody knows is there. Taking it into the scale only when it
-  // happened to fit produced a cliff: one extra row of loose files and the tray dropped out of the
-  // extent, the bands re-centred, and the page opened with 270px of nothing above them.
-  const bottom=LOOSE.length?TRAY_Y+Math.ceil(LOOSE.length/TRAY_COLS)*34+24:y1;
-  const gw=(x1-x0)*s,gh=(bottom-y0)*s;
-  scale=s;
-  // Centre what fits; anchor what does not to the top left. When the floor above wins, something
-  // has to go off screen, and centring it cropped both ends — including band 0's label, which is
-  // where the reading starts. Overflow belongs at the end you pan towards, not at the start.
-  tx=(gw<=availW?(W-G-gw)/2:pad)-x0*s;
-  ty=(gh<=availH?padT+(availH-gh)/2:padT)-y0*s;}
+// Imports between two boxes are drawn as one line per pair, its width and its number the count.
+// Drawn one by one, 630 imports across a full-width page were a texture: no line could be followed.
+// By depth every box spans the width and shares one centre line, so pair lines would pile into one
+// column; there the imports are drawn one by one, as light as the ones inside a box.
+let CROSS=[];
+function bundle(){const by=new Map(),stack=BY==='depth';CROSS=[];
+  for(const e of E){const a=e.s.g,b=e.t.g;if(!a||!b)continue;
+    if(a===b){a.intra.push(e);continue;}
+    if(stack){CROSS.push(e);continue;}
+    const p=a.i<b.i?a:b,q=p===a?b:a,k=p.i+'|'+q.i;let B=by.get(k);
+    if(!B){B={a:p,b:q,ab:0,ba:0,n:0};by.set(k,B);}
+    if(a===p)B.ab++;else B.ba++;B.n++;}
+  CROSS.sort((x,y)=>x.s.rgb<y.s.rgb?-1:x.s.rgb>y.s.rgb?1:0);
+  BUNDLES=[...by.values()].sort((x,y)=>y.n-x.n||x.a.i-y.a.i||x.b.i-y.b.i);
+  for(const B of BUNDLES){const A=B.a.cell,C=B.b.cell,x1=A.x+A.w/2,y1=A.y+A.h/2,x2=C.x+C.w/2,y2=C.y+C.h/2;
+    const len=Math.hypot(x2-x1,y2-y1)||1,bend=Math.min(120,len*.18);
+    // Bent, so a line between two boxes of one shelf passes beside the boxes between them, not through.
+    Object.assign(B,{x1,y1,x2,y2,qx:(x1+x2)/2+(y2-y1)/len*bend,qy:(y1+y2)/2-(x2-x1)/len*bend,
+      w:Math.min(9,1.2+1.4*Math.sqrt(B.n))});}}
+
+const hit=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+const dotBox=n=>({x:n.x-n.r-2,y:n.y-n.r-2,w:2*n.r+4,h:2*n.r+4});
+// A word is placed only where it covers no dot and no other word, and dropped otherwise.
+function free(b,lists){if(b.x<BOX.x0||b.y<BOX.y0||b.x+b.w>BOX.x1||b.y+b.h>BOX.y1)return false;
+  for(const L of lists)for(const l of L)if(hit(b,l))return false;
+  for(const c of CELLS){if(!hit(b,c))continue;for(const n of c.g.members)if(hit(b,dotBox(n)))return false;}
+  return true;}
+function fitText(s,max,font){ctx.font=font;if(ctx.measureText(s).width<=max)return s;let lo=0,hi=s.length;
+  while(lo<hi){const m=(lo+hi+1)>>1;if(ctx.measureText(s.slice(0,m)+'…').width<=max)lo=m;else hi=m-1;}
+  return lo?s.slice(0,lo)+'…':'';}
+function word(kind,text,x,y,font,ref){ctx.font=font;return{kind,text,x,y,w:ctx.measureText(text).width,h:18,font,...ref};}
+function pills(list,taken){const out=[];
+  for(const B of list){ctx.font=PILL;const t=String(B.n),w=ctx.measureText(t).width+14,h=20;
+    for(const s of [.5,.42,.58,.34,.66]){const u=1-s,px=u*u*B.x1+2*u*s*B.qx+s*s*B.x2,py=u*u*B.y1+2*u*s*B.qy+s*s*B.y2;
+      const b={kind:'count',text:t,x:px-w/2,y:py-h/2,w,h,font:PILL,B};
+      if(free(b,[taken,out])){out.push(b);break;}}}
+  return out;}
+function words(){LABELS=[];
+  for(const c of CELLS){const g=c.g,x0=c.x+PAD+(g.leadNode?18:0),max=c.x+c.w-PAD-x0;
+    const full=g.title+' · '+g.members.length+' files',t=fitText(full,max,TITLE)===full?full:fitText(g.title,max,TITLE);
+    if(t)LABELS.push(word('cell',t,x0,c.y+HEAD/2-8,TITLE,{g}));
+    for(const n of g.named){const x=n.x+11,s=fitText(n.label,c.x+c.w-PAD-x,NAME);
+      if(s)LABELS.push(word('file',s,x,n.y-9,NAME,{n}));}}
+  LABELS.push(...pills(BUNDLES.slice(0,PILLS),LABELS));}
+
+function describe(){cv.setAttribute('aria-label','Import map: '+N.length+' code files in '+CELLS.length+' '
+  +({cluster:'clusters',area:'areas',depth:'layers'})[BY]+', and '+E.length+' imports between them. '
+  +'Arrow keys pan, plus and minus zoom, zero resets, Enter opens the selected file. The Files tab lists every file.');}
+
+// Drawing happens on demand, never in a loop: nothing on the Map moves unless the reader moves it.
+let pending=false;
+function redraw(){if(pending)return;pending=true;requestAnimationFrame(draw);}
 function shapePath(shape,x,y,r){ctx.beginPath();
-  if(shape==='square')ctx.roundRect(x-r,y-r,r*2,r*2,r*.42);
+  if(shape==='square')ctx.rect(x-r,y-r,r*2,r*2);
   else if(shape==='diamond'){ctx.moveTo(x,y-r);ctx.lineTo(x+r,y);ctx.lineTo(x,y+r);ctx.lineTo(x-r,y);ctx.closePath();}
   else if(shape==='triangle'){ctx.moveTo(x,y-r);ctx.lineTo(x+r*.92,y+r*.72);ctx.lineTo(x-r*.92,y+r*.72);ctx.closePath();}
   else ctx.arc(x,y,r,0,7);}
-function path(n,r){shapePath(n.shape,n.x,n.y,r);}
+function arrow(a,b,col){const ang=Math.atan2(b.y-a.y,b.x-a.x),r=b.r+3,ax=b.x-Math.cos(ang)*r,ay=b.y-Math.sin(ang)*r;
+  ctx.strokeStyle=col;ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(ax,ay);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ax-Math.cos(ang-.42)*7,ay-Math.sin(ang-.42)*7);
+  ctx.lineTo(ax-Math.cos(ang+.42)*7,ay-Math.sin(ang+.42)*7);ctx.closePath();ctx.fill();}
+function draw(){pending=false;if(!W||TAB!=='map')return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,W,H);ctx.translate(tx,ty);ctx.scale(scale,scale);
+  const ink=css('--ink'),ink2=css('--ink-2'),line=css('--line'),line2=css('--line-2'),bad=css('--bad'),raised=css('--raised'),
+    band=css('--band'),EC=css('--edge'),ER=+css('--edge-rest')||.12,EW=+css('--edge-w')||.7,BA=+css('--bundle')||.3;
+  const F=hover||sel,lit=n=>F?n===F||NB.has(n):qOn?MT.has(n.id):true;
+  for(const c of CELLS){const g=c.g;ctx.beginPath();ctx.roundRect(c.x,c.y,c.w,c.h,10);
+    if(g.neutral){ctx.fillStyle=band;ctx.fill();}else if(!g.quiet){ctx.fillStyle='rgba('+RGB(g.color)+',.07)';ctx.fill();}
+    ctx.setLineDash(g.quiet?[4,4]:[]);ctx.strokeStyle=g===hoverG?ink2:line2;ctx.lineWidth=g===hoverG?1.5:1;ctx.stroke();}
+  ctx.setLineDash([]);ctx.lineCap='round';
+  // Inside a box, lightly: they are short, and the box already says these files belong together.
+  ctx.lineWidth=EW;
+  for(const c of CELLS){const g=c.g;if(!g.intra.length)continue;ctx.beginPath();
+    for(const e of g.intra){ctx.moveTo(e.s.x,e.s.y);ctx.lineTo(e.t.x,e.t.y);}
+    ctx.strokeStyle='rgba('+(g.neutral?EC:RGB(g.color))+','+(F?ER*.35:ER)+')';ctx.stroke();}
+  for(let i=0;i<CROSS.length;){const c=CROSS[i].s.rgb;ctx.beginPath();
+    for(;i<CROSS.length&&CROSS[i].s.rgb===c;i++){ctx.moveTo(CROSS[i].s.x,CROSS[i].s.y);ctx.lineTo(CROSS[i].t.x,CROSS[i].t.y);}
+    ctx.strokeStyle='rgba('+c+','+(F?ER*.35:ER)+')';ctx.stroke();}
+  const focusB=B=>hoverB===B||(hoverG&&(B.a===hoverG||B.b===hoverG));
+  for(const B of BUNDLES){const on=focusB(B);
+    ctx.strokeStyle='rgba('+EC+','+(on?Math.min(.9,BA*2.2):F||hoverG||hoverB?BA*.3:BA)+')';ctx.lineWidth=B.w;
+    ctx.beginPath();ctx.moveTo(B.x1,B.y1);ctx.quadraticCurveTo(B.qx,B.qy,B.x2,B.y2);ctx.stroke();}
+  if(F){ctx.lineWidth=1.6;
+    for(const t of F.outs)if(t.g)arrow(F,t,'rgba('+F.rgb+',.9)');
+    for(const s of F.ins)if(s.g)arrow(s,F,'rgba('+s.rgb+',.9)');}
+  const ring=[[],[]];
+  for(const n of N){if(!n.g)continue;const on=lit(n);ctx.globalAlpha=on?1:.16;shapePath(n.shape,n.x,n.y,n.r);ctx.fillStyle=n.color;ctx.fill();
+    if(n.category==='code'&&!n.isTest&&!n.tested)ring[on?0:1].push(n);}
+  // The no-test rings in two strokes, not one per file.
+  ctx.lineWidth=1.3;ctx.strokeStyle=bad;
+  ring.forEach((R,k)=>{if(!R.length)return;ctx.globalAlpha=k?.16:1;ctx.beginPath();
+    for(const n of R){ctx.moveTo(n.x+n.r,n.y);ctx.arc(n.x,n.y,n.r,0,7);}ctx.stroke();});
+  ctx.globalAlpha=1;
+  if(F){ctx.beginPath();ctx.arc(F.x,F.y,F.r+4,0,7);ctx.strokeStyle=ink;ctx.lineWidth=2;ctx.stroke();}
+  // Under the zoom where 13px stops being 13px on screen, no word is drawn at all.
+  if(scale>=LOD){ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle=ink;
+    // A halo in the ground colour, so a line passing under a word does not cut through it.
+    ctx.strokeStyle=css('--bg');ctx.lineWidth=4;ctx.lineJoin='round';
+    for(const l of [...LABELS,...FW]){if(l.kind==='count')continue;ctx.font=l.font;
+      ctx.strokeText(l.text,l.x,l.y+l.h/2+.5);ctx.fillText(l.text,l.x,l.y+l.h/2+.5);}
+    const fixed=LABELS.filter(l=>l.kind!=='count');
+    const shown=hoverG||hoverB?pills(BUNDLES.filter(focusB),fixed):F?[]:LABELS.filter(l=>l.kind==='count');
+    ctx.textAlign='center';
+    for(const p of shown){ctx.beginPath();ctx.roundRect(p.x,p.y,p.w,p.h,9);ctx.fillStyle=raised;ctx.fill();
+      ctx.strokeStyle=line;ctx.lineWidth=1;ctx.stroke();ctx.font=p.font;ctx.fillStyle=ink;ctx.fillText(p.text,p.x+p.w/2,p.y+p.h/2+.5);}
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';}
+  ctx.setTransform(dpr,0,0,dpr,0,0);}
 
-// One chip = one file, readable without hovering. The accent bar carries the area colour and
-// thickens with inbound count, the glyph keeps the category encoding the dots used to carry alone,
-// and the name is set in the mono face because a filename is code. Below CHIP_LOD nothing is
-// labelled at all, because nothing would be legible.
-const CHIP_LOD=.55;
-function chip(n,focus){
-  const w=n.w,h=n.h,x=n.x-w/2,y=n.y-h/2,rad=8;
-  // Glow is focus only. Everything else gets a shadow, which is depth rather than light: ambient
-  // glow on 160 nodes is the cheap-futuristic look, and it flattens the one thing being pointed at.
-  if(focus){ctx.shadowColor='rgba('+n.rgb+',.55)';ctx.shadowBlur=20;ctx.shadowOffsetY=0;}
-  else{ctx.shadowColor=css('--cvshadow');ctx.shadowBlur=8;ctx.shadowOffsetY=2;}
-  ctx.beginPath();ctx.roundRect(x,y,w,h,rad);
-  ctx.fillStyle=css('--raised');ctx.fill();
-  ctx.shadowBlur=0;ctx.shadowOffsetY=0;
-  // The accent bar, clipped to the chip's own rounding so it reads as part of the card.
-  ctx.save();ctx.clip();ctx.globalAlpha=n.a*.10;ctx.fillStyle=n.color;ctx.fillRect(x,y,w,h);
-  ctx.globalAlpha=n.a;ctx.fillRect(x,y,BAR+(n.ind>=5?3:n.ind>=2?1.5:0),h);ctx.restore();
-  const untested=n.category==='code'&&!n.isTest&&!n.tested;
-  ctx.lineWidth=focus?1.6:1;
-  ctx.strokeStyle=focus?css('--ink'):(untested?css('--bad'):css('--line'));
-  ctx.beginPath();ctx.roundRect(x,y,w,h,rad);ctx.stroke();
-  ctx.fillStyle=n.color;shapePath(n.shape,x+BAR+9,n.y,GLY/2);ctx.fill();
-  ctx.fillStyle=css('--ink');ctx.font=(n.ind>=5?'600 ':'500 ')+'13px '+MONO;
-  ctx.textAlign='left';ctx.textBaseline='middle';
-  ctx.fillText(n.text,x+BAR+CHIP_PAD+GLY+2,n.y+.5);
-  ctx.textBaseline='alphabetic';}
-
-// Hover and search state are kept as sets rather than recomputed in two places, because picking has
-// to agree with drawing about which nodes are chips — a chip you can see and cannot click is worse
-// than no chip at all.
-let NB=new Set(),MT=new Set(),CHIPS=new Set(),qOn=false;
-function setHover(n){if(hover===n)return;hover=n;NB=new Set();
-  if(n){NB.add(n.id);for(const e of E){if(e.s===n)NB.add(e.t.id);if(e.t===n)NB.add(e.s.id);}}
-  chipSet();}
+// The focused file and its neighbours are named where a name fits: right of the dot, or in the gap
+// above or below its row. One that fits nowhere keeps its dot, and the tooltip names it.
+let FW=[];
+function focusSet(){const F=hover||sel;NB=new Set(F?[...F.outs,...F.ins]:[]);FW=[];
+  const s=$('msel');if(s&&s.dataset.id!==(sel?sel.id:'')){s.dataset.id=sel?sel.id:'';
+    s.innerHTML=sel?'<b>'+esc(sel.path)+'</b> · imports '+sel.outs.length+' · imported by '+sel.ins.length+' · Enter opens it':'';}
+  if(!F)return;
+  const fixed=LABELS.filter(l=>l.kind!=='count'),named=new Set(fixed.filter(l=>l.n).map(l=>l.n));
+  for(const n of [F,...[...NB].sort(byRank)].slice(0,13)){if(!n.g||n.isTest||n.testSupport||named.has(n)||n===n.g.leadNode)continue;
+    ctx.font=NAME;const w=ctx.measureText(n.label).width;
+    for(const [x,y] of [[n.x+n.r+4,n.y-9],[n.x-w/2,n.y-P/2-9],[n.x-w/2,n.y+P/2-9]]){
+      const b={kind:'focus',text:n.label,x,y,w,h:18,font:NAME,n};if(free(b,[fixed,FW])){FW.push(b);break;}}}}
+function setHover(n){if(hover===n)return;hover=n;focusSet();redraw();}
 function setQuery(v){query=v;const q=v.trim().toLowerCase();qOn=!!q;MT=new Set();
   if(q)for(const n of N)if(n.path.toLowerCase().includes(q))MT.add(n.id);
-  chipSet();}
-// A parked node keeps its chip. The tray is a list, not a picture: naming the files with no
-// resolvable edge is its whole purpose, and 48 anonymous dots on a 224px grid name none of them.
-const wantChip=n=>HUB.has(n.id)||n.pin||NB.has(n.id)||MT.has(n.id);
-// The overlap rule, enforced rather than hoped for. Candidates are taken in priority order — what
-// the cursor is on first, then by inbound count — and one that would intersect a chip already
-// placed is demoted to its dot. A legible dot beats a chip clipped to an 8px sliver, which is what
-// shipped when the reserved width and the drawn width disagreed. Cheap: the budget is ~20, plus a
-// hovered neighbourhood.
-function chipSet(){CHIPS=new Set();if(scale<CHIP_LOD)return;
-  const cand=N.filter(n=>vis(n)&&wantChip(n))
-    .sort((a,b)=>(a===hover?-1:b===hover?1:0)||byRank(a,b));
-  const ok=[];
-  for(const n of cand){let clash=false;
-    for(const m of ok){if(Math.abs(n.x-m.x)<(n.w+m.w)/2+2&&Math.abs(n.y-m.y)<(n.h+m.h)/2+2){clash=true;break;}}
-    if(!clash){ok.push(n);CHIPS.add(n.id);}}}
-const showChip=n=>scale>=CHIP_LOD&&CHIPS.has(n.id);
-
-function bands(){if(!ROWS.length)return;
-  const x0=bandL(),x1=bandR(),tint=css('--band'),lab=css('--ink-2');
-  // The bands are what make the layering legible. Without them a reader sees sub-rows and has no
-  // way to know which layer they belong to — and "laid out by import depth" is a claim the picture
-  // has to keep, not one the docs can keep for it.
-  for(let i=0;i<ROWS.length;i++){
-    if(i%2===0){ctx.fillStyle=tint;ctx.beginPath();ctx.roundRect(x0,BTOP[i],x1-x0,BH[i],18);ctx.fill();}
-    ctx.fillStyle=lab;ctx.font='600 13px system-ui,sans-serif';ctx.textAlign='left';
-    ctx.fillText(RLBL[i],x0+18,BTOP[i]+23);}}
-
-function draw(){if(!W||TAB!=='map')return;ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(tx,ty);ctx.scale(scale,scale);
-  const EC=css('--edge'),ER=css('--edge-rest')||'.12',EW=+css('--edge-w')||.7;
-  bands();
-  ctx.lineCap='round';
-  for(const e of E){if(!vis(e.s)||!vis(e.t))continue;const on=hover?(e.s===hover||e.t===hover):true;
-    // A slight curve keeps parallel edges from stacking into one thick line, and reads as a
-    // relationship rather than a wire.
-    const mx=(e.s.x+e.t.x)/2,my=(e.s.y+e.t.y)/2,dx=e.t.x-e.s.x,dy=e.t.y-e.s.y;
-    const qx=mx-dy*.09,qy=my+dx*.09;
-    // Each edge carries its source area's colour, so a bundle can be traced across bands. One flat
-    // grey for 154 edges says only "there are edges here". They dim to a neutral when something
-    // else has focus, so the hovered pair is the only colour left on screen.
-    // Quiet at rest. Wrapping puts related files on different sub-rows, so 154 edges drawn at any
-    // real weight read as a thicket laid over the thing you came to look at. At rest they are a
-    // texture that says where the traffic is; hover is what traces one.
-    ctx.strokeStyle=hover?(on?'rgba('+e.s.rgb+',.7)':'rgba('+EC+',.13)'):'rgba('+e.s.rgb+','+ER+')';
-    ctx.lineWidth=on&&hover?1.7:EW;
-    ctx.beginPath();ctx.moveTo(e.s.x,e.s.y);ctx.quadraticCurveTo(qx,qy,e.t.x,e.t.y);ctx.stroke();
-    if(on&&hover){ // direction only where the eye is, so the picture stays calm
-      const ang=Math.atan2(e.t.y-qy,e.t.x-qx),r=e.t.r+3.5;
-      const ax=e.t.x-Math.cos(ang)*r,ay=e.t.y-Math.sin(ang)*r;
-      ctx.fillStyle='rgba('+e.s.rgb+',.8)';ctx.beginPath();
-      ctx.moveTo(ax,ay);ctx.lineTo(ax-Math.cos(ang-.42)*7,ay-Math.sin(ang-.42)*7);
-      ctx.lineTo(ax-Math.cos(ang+.42)*7,ay-Math.sin(ang+.42)*7);ctx.closePath();ctx.fill();}}
-  if(LOOSE.length){ // the band's own caption, so a parked node is never mistaken for a stray one
-    const l=bandL()+BPAD,r=l+TRAY_COLS*TRAY_W;ctx.globalAlpha=.42;
-    ctx.strokeStyle=css('--ink-2');ctx.lineWidth=1;
-    ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(l,TRAY_Y-40);ctx.lineTo(r,TRAY_Y-40);
-    ctx.stroke();ctx.setLineDash([]);
-    // The rule is faint; the words are not. A caption at .42 alpha is a label nobody can read.
-    ctx.globalAlpha=1;ctx.fillStyle=css('--ink-2');ctx.font='600 13px system-ui,sans-serif';
-    ctx.textAlign='left';ctx.fillText(LOOSE.length+' files with no import edge found',l,TRAY_Y-50);
-    ctx.globalAlpha=1;}
-  // The hovered node goes last, so its glow and its border are not painted over by a neighbouring
-  // chip that happens to come later in the file order.
-  for(const n of (hover?[...N.filter(n=>n!==hover),hover]:N)){if(!vis(n))continue;
-    const mt=MT.has(n.id);
-    const want=((hover&&!NB.has(n.id))||(qOn&&!mt))?.13:1;
-    n.a=REDUCED?want:n.a+(want-n.a)*.22;       // eased focus, so hovering does not strobe
-    ctx.globalAlpha=n.a;
-    if(showChip(n)){chip(n,hover===n||mt);continue;}
-    const lift=(hover===n)?1.35:1,r=n.r*lift;
-    if(hover===n||mt){ctx.shadowColor='rgba('+n.rgb+',.7)';ctx.shadowBlur=14;}
-    path(n,r);ctx.fillStyle=n.color;ctx.fill();ctx.shadowBlur=0;
-    if(n.category==='code'&&!n.isTest&&!n.tested){ctx.lineWidth=1.3;ctx.strokeStyle=css('--bad');ctx.stroke();}}
-  ctx.globalAlpha=1;ctx.restore();}
-function settle(){for(let i=0;i<800;i++){step();frames++;}fit();chipSet();}
-function loop(){if(!REDUCED){step();frames++;
-    if(!touched&&(frames===200||frames===480||frames===800))fit();}
-  draw();requestAnimationFrame(loop);}
+  redraw();}
 function tw(mx,my){return{x:(mx-tx)/scale,y:(my-ty)/scale};}
-// Hit-testing follows what is actually drawn: the chip's rectangle when this node has one, the dot
-// otherwise. A radius test against a 200px-wide chip means most of the card is not clickable.
-function pick(mx,my){const p=tw(mx,my);let b=null,bd=1e9;
-  for(const n of N){if(!vis(n))continue;
-    const dx=n.x-p.x,dy=n.y-p.y;
-    if(showChip(n)){if(Math.abs(dx)<=n.w/2&&Math.abs(dy)<=n.h/2){const d=dx*dx+dy*dy;if(d<bd){bd=d;b=n;}}}
-    else{const d=dx*dx+dy*dy;if(d<bd&&d<(n.r+9)*(n.r+9)){bd=d;b=n;}}}
-  return b;}
-cv.addEventListener('mousedown',e=>{const n=pick(e.offsetX,e.offsetY);
-  touched=true;if(n){drag=n;drag._dn=0;}else{pan=true;px=e.offsetX;py=e.offsetY;}});
-// The listener is on the window, so it hears the mouse over every tab. Only the Map answers it —
-// picking against a hidden canvas put a Map tooltip on top of the Overview's cloud.
-addEventListener('mousemove',e=>{if(TAB!=='map'&&!drag&&!pan)return;const r=cv.getBoundingClientRect();const mx=e.clientX-r.left,my=e.clientY-r.top;
-  // Only a parked node drags freely. A wired one is placed by pack(), and a node you could drag out
-  // of its band would be a node claiming a layer it is not on.
-  if(drag){const p=tw(mx,my);if(drag.pin){drag.x=p.x;drag.y=p.y;}drag._dn=1;}
-  else if(pan){tx+=mx-px;ty+=my-py;px=mx;py=my;}
-  else{const n=pick(mx,my);setHover(n);
-    if(n){tip.style.display='block';
-      const flip=e.clientX>innerWidth-360;
-      tip.style.left=(flip?e.clientX-350:e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px';
-      tip.innerHTML='<div class="t">'+esc(n.path)+'</div><div class="m">'
-        +esc(n.area)+(n.cluster?' · cluster <b>'+esc(n.cluster)+'</b>':'')+' · '+esc(n.lang)+' · <b>'+n.lines+'</b> lines'+(CHURN.known?' · <b>'+commitsOf(n.commits).replace(' ','</b> '):'')+'<br>'
-        +(n.depth!==null?'layer <b>'+n.depth+'</b> · ':'')
-        +'<b>'+n.in+'</b> imported by · <b>'+n.out+'</b> imports'
-        +(n.category==='code'&&!n.isTest?(n.tested?'<br>✓ test found':'<br>✗ no test found'):'')
-        +(n.summary?'<br>'+esc(n.summary.slice(0,150)):'')+'<br>click to open</div>';}
-    else tip.style.display='none';}});
-addEventListener('mouseup',()=>{if(drag&&!drag._dn)openFile(drag.id);drag=null;pan=false;});
-cv.addEventListener('wheel',e=>{e.preventDefault();touched=true;const f=e.deltaY<0?1.1:.9;const mx=e.offsetX,my=e.offsetY;
-  tx=mx-(mx-tx)*f;ty=my-(my-ty)*f;scale*=f;chipSet();},{passive:false});
-// The Map's own numbers are a subset of the headline ones — code files and the imports between
-// them — and said "52 files · 66 imports" on a page whose Overview said 147 files and 70 imports.
-// They are the same fields the Overview's cloud reads, and they say which subset they are.
-function buildHud(){const S=DATA.stats||{};$('hud').innerHTML='<span><b>'+(S.mapFiles!==undefined?S.mapFiles:N.length)+'</b> code files</span><span class="sep"></span>'
-  +'<span><b>'+(S.mapEdges!==undefined?S.mapEdges:E.length)+'</b> imports between them</span><span class="sep"></span>'
-  +'<span><b>'+ROWS.length+'</b> layers</span><span class="sep"></span><span>scroll to zoom · drag to pan</span>';}
-// The rows the legend lists for the current colouring: [key, swatch, label, title].
-function legendRows(){const count=k=>N.filter(n=>grp(n)===k).length;
-  if(BY==='area'){const shown=new Set(N.map(n=>n.area));
-    return DATA.areas.filter(a=>shown.has(a.name)).map(a=>[a.name,a.color,a.name,a.name]);}
-  const rows=CL.filter(c=>c.coloured&&count(c.id)).map(c=>[c.id,c.color,c.id+' · '+c.hubLabel,'hub '+c.hub+' · '+c.size+' files']);
-  const grey=(N.find(n=>n.cluster&&!CLC.has(n.cluster))||N.find(n=>!n.cluster)||{}).ccolor||'#8b97ab';
-  if(count('+'))rows.push(['+',grey,'smaller clusters','the clusters past the first '+CLC.size+' share one colour']);
-  if(count('-'))rows.push(['-',grey,'no cluster','files with no import edge Cortex could resolve']);
-  return rows;}
-function buildLegend(){const L=$('legend');
-  const sw=CL.length?'<div class="lgby" role="group" aria-label="Colour the Map by">Colour by '
-    +['cluster','area'].map(b=>'<button type="button" data-by="'+b+'" aria-pressed="'+(BY===b)+'"'+(BY===b?' class="on"':'')+'>'+b+'</button>').join('')+'</div>':'';
+// What is under the cursor, in the order it is drawn on top: a dot, a file's name, a count, a title.
+function pick(mx,my){const p=tw(mx,my),inside=l=>p.x>=l.x&&p.x<=l.x+l.w&&p.y>=l.y&&p.y<=l.y+l.h;let b=null,bd=1e9;
+  for(const n of N){if(!n.g)continue;const dx=n.x-p.x,dy=n.y-p.y,d=dx*dx+dy*dy,r=Math.max(n.r+3,6);if(d<r*r&&d<bd){bd=d;b=n;}}
+  if(b)return{n:b};
+  for(const l of LABELS){if(!inside(l))continue;if(l.n)return{n:l.n};if(l.B&&!hover&&!sel)return{B:l.B};}
+  for(const c of CELLS)if(p.x>=c.x&&p.x<=c.x+c.w&&p.y>=c.y&&p.y<=c.y+HEAD)return{g:c.g};
+  return null;}
+const names=L=>{const s=L.map(m=>m.label).sort();return s.slice(0,6).map(esc).join(', ')+(s.length>6?' and '+(s.length-6)+' more':'');};
+function fileTip(n){return '<div class="t">'+esc(n.path)+'</div><div class="m">'
+  +esc(n.area)+(n.cluster?' · cluster <b>'+esc(n.cluster)+'</b>':'')+' · '+esc(n.lang)+' · <b>'+n.lines+'</b> lines'+(CHURN.known?' · <b>'+commitsOf(n.commits).replace(' ','</b> '):'')+'<br>'
+  +(n.depth!==null?'layer <b>'+n.depth+'</b> · ':'')+'<b>'+n.in+'</b> imported by · <b>'+n.out+'</b> imports'
+  +(n.ins.length?'<br>imported by: '+names(n.ins):'')+(n.outs.length?'<br>imports: '+names(n.outs):'')
+  +(n.category==='code'&&!n.isTest?(n.tested?'<br>✓ test found':'<br>✗ no test found'):'')
+  +(n.summary?'<br>'+esc(n.summary.slice(0,150)):'')
+  +'<br>'+(sel===n?'click again to open it':'click to keep it lit, again to open it')+'</div>';}
+function groupTip(g){const B=BUNDLES.filter(b=>b.a===g||b.b===g);
+  return '<div class="t">'+esc(g.title)+'</div><div class="m"><b>'+g.members.length+'</b> files'
+    +(g.c?' · cohesion <b>'+g.c.cohesion+'</b><br>hub '+esc(g.c.hub)+(g.c.areas.length?'<br>areas: '+g.c.areas.slice(0,4).map(a=>esc(a.name)+' '+a.files).join(', '):''):'')
+    +(B.length?B.slice(0,8).map(b=>{const o=b.a===g?b.b:b.a,out=b.a===g?b.ab:b.ba,inn=b.a===g?b.ba:b.ab;
+      return '<br>'+esc(o.title)+': imports <b>'+out+'</b> · imported by <b>'+inn+'</b>';}).join('')+(B.length>8?'<br>and '+(B.length-8)+' more boxes':'')
+      :'<br>no import to or from another box')+'</div>';}
+function bundleTip(B){return '<div class="t">'+esc(B.a.title)+' and '+esc(B.b.title)+'</div><div class="m"><b>'+B.n+'</b> imports between them'
+  +'<br>'+esc(B.a.title)+' imports '+esc(B.b.title)+': <b>'+B.ab+'</b><br>'+esc(B.b.title)+' imports '+esc(B.a.title)+': <b>'+B.ba+'</b></div>';}
+function tipAt(e,html){tip.style.display='block';const flip=e.clientX>innerWidth-360;
+  tip.style.left=(flip?e.clientX-350:e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px';tip.innerHTML=html;}
+
+let drag=null;
+cv.addEventListener('mousedown',e=>{drag={x:e.offsetX,y:e.offsetY,tx,ty,moved:false};});
+// The listener is on the window, so it hears the mouse over every tab. Only the Map answers it.
+addEventListener('mousemove',e=>{if(TAB!=='map'&&!drag)return;const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  if(drag){if(Math.abs(mx-drag.x)+Math.abs(my-drag.y)>4)drag.moved=true;
+    if(drag.moved){touched=true;tx=drag.tx+mx-drag.x;ty=drag.ty+my-drag.y;tip.style.display='none';redraw();}return;}
+  const h=e.target===cv?pick(mx,my):null,n=h&&h.n||null,g=h&&h.g||null,B=h&&h.B||null;
+  if(n!==hover||g!==hoverG||B!==hoverB){hover=n;hoverG=g;hoverB=B;focusSet();redraw();}
+  if(n)tipAt(e,fileTip(n));else if(g)tipAt(e,groupTip(g));else if(B)tipAt(e,bundleTip(B));else tip.style.display='none';});
+addEventListener('mouseup',()=>{if(!drag)return;const d=drag;drag=null;if(d.moved)return;
+  const h=pick(d.x,d.y),n=h&&h.n;
+  if(n){if(sel===n)openFile(n.id);else{sel=n;focusSet();redraw();}}
+  else if(sel&&!(h&&h.g)){sel=null;focusSet();redraw();}});
+function zoomLabel(){const r=$('mzr');if(r)r.textContent=Math.round(scale*100)+'%';}
+function zoomAt(mx,my,f){const s=Math.max(.4,Math.min(6,scale*f));f=s/scale;tx=mx-(mx-tx)*f;ty=my-(my-ty)*f;scale=s;touched=true;zoomLabel();redraw();}
+function home(){scale=1;tx=MARGIN;ty=MARGIN;touched=false;zoomLabel();redraw();}
+cv.addEventListener('wheel',e=>{e.preventDefault();zoomAt(e.offsetX,e.offsetY,e.deltaY<0?1.15:1/1.15);},{passive:false});
+cv.addEventListener('keydown',e=>{const k=e.key,s=60;
+  if(k==='ArrowLeft')tx+=s;else if(k==='ArrowRight')tx-=s;else if(k==='ArrowUp')ty+=s;else if(k==='ArrowDown')ty-=s;
+  else if(k==='+'||k==='='){e.preventDefault();zoomAt(W/2,H/2,1.25);return;}
+  else if(k==='-'||k==='_'){e.preventDefault();zoomAt(W/2,H/2,1/1.25);return;}
+  else if(k==='0'){e.preventDefault();home();return;}
+  else if(k==='Enter'&&sel){e.preventDefault();openFile(sel.id);return;}
+  else if(k==='Escape'&&sel){sel=null;focusSet();redraw();return;}
+  else return;
+  e.preventDefault();touched=true;redraw();});
+function resize(){const r=cv.getBoundingClientRect();if(!r.width||!r.height)return;
+  // Back the canvas with device pixels and draw in CSS pixels, or the Map is soft on every HiDPI screen.
+  dpr=Math.min(window.devicePixelRatio||1,2);W=r.width;H=r.height;cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  layout();if(!touched){scale=1;tx=MARGIN;ty=MARGIN;}zoomLabel();redraw();}
+addEventListener('resize',()=>{if(TAB==='map')resize();});
+$('theme').addEventListener('click',redraw);
+if(typeof matchMedia==='function'){const mq=matchMedia('(prefers-color-scheme:dark)');if(mq&&mq.addEventListener)mq.addEventListener('change',redraw);}
+
+const GROUP_BY=CL.length?['cluster','area','depth']:['area','depth'];
+function buildHud(){const S=DATA.stats||{};
+  $('hud').innerHTML='<span><b>'+(S.mapFiles!==undefined?S.mapFiles:N.length)+'</b> code files</span>'
+    +'<span><b>'+(S.mapEdges!==undefined?S.mapEdges:E.length)+'</b> imports between them</span>'
+    +'<span class="grp" role="group" aria-label="Group the Map by">Group by '
+    +GROUP_BY.map(b=>'<button type="button" data-by="'+b+'" aria-pressed="'+(BY===b)+'"'+(BY===b?' class="on"':'')+'>'+b+'</button>').join('')+'</span>'
+    +'<span id="msel" class="msel" aria-live="polite"></span>'
+    +'<span class="zm" role="group" aria-label="Zoom the Map"><button type="button" id="mzo" aria-label="Zoom out">−</button>'
+    +'<button type="button" id="mzr" aria-label="Reset zoom">100%</button><button type="button" id="mzi" aria-label="Zoom in">+</button></span>';
+  $('hud').querySelectorAll('[data-by]').forEach(b=>b.onclick=()=>regroup(b.dataset.by));
+  const z=(id,f)=>{const b=$(id);if(b)b.onclick=f;};
+  z('mzo',()=>zoomAt(W/2,H/2,1/1.25));z('mzi',()=>zoomAt(W/2,H/2,1.25));z('mzr',home);zoomLabel();}
+function regroup(by){if(BY===by)return;BY=by;hidden.clear();sel=null;hover=null;hoverG=null;hoverB=null;focusSet();
+  paint();layout();home();buildHud();buildLegend();}
+
+let LEG_OPEN=(typeof innerWidth==='number'?innerWidth:1400)>=900;
+function legendRows(){const S=spec(),cnt=new Map();for(const n of N){const k=S.keyOf(n);cnt.set(k,(cnt.get(k)||0)+1);}
+  return S.groups.filter(g=>cnt.get(g.key)).map(g=>[g.key,g.color,g.title,cnt.get(g.key)]);}
+function buildLegend(){const L=$('legend'),S=DATA.stats||{},A=(DATA.areas||[]).length;
+  const drawn=S.mapAreas!==undefined?S.mapAreas:new Set(N.map(n=>n.area)).size,loose=N.filter(n=>!n.cluster).length;
   L.innerHTML='<button type="button" class="lgt" id="lgt" aria-expanded="'+LEG_OPEN+'">'+(LEG_OPEN?'Hide legend':'Legend')+'</button>'
-   +sw+legendRows().map(([k,c,label,title])=>'<div class="lg'+(hidden.has(k)?' off':'')+'" tabindex="0" role="button" aria-pressed="'+(!hidden.has(k))+'" data-a="'+esc(k)+'" title="'+esc(title)+'">'
-    +'<span class="sw" style="background:'+c+'"></span>'+esc(label)
-    +'<span class="ct">'+N.filter(n=>grp(n)===k).length+'</span></div>').join('')
-   +'<div class="note">'+(BY==='cluster'?'Colour is the cluster: files that import each other more than they import the rest, wherever they sit. Areas are the folders; switch above. ':'')
-   +'Click a row to hide it. Each band is one import depth — band 0 is what the '
-   +'rest is built on, and a band wraps onto as many sub-rows as it needs. A dot grows with how many '
-   +'files import it; the '+HUB.size+' most-imported are named, and hover or search reaches the rest. '
-   +'A red outline means no test was found. '
-   +(DATA.nodes.length-N.length)+' docs and config files live in <b>Files</b>, not here — they have no imports to draw.'
-   +(LOOSE.length?' The '+LOOSE.length+' files in the band below the graph have no import edge Cortex could resolve — which is a question, not a verdict: a file loaded dynamically, or sourced through a variable, looks exactly like an unused one.':'')+'</div>';
+   +'<div class="lgb"><div class="lgh">'+({cluster:'Clusters',area:'Areas',depth:'Import depth'})[BY]+' <small>click a row to hide it</small></div>'
+   +legendRows().map(([k,c,label,n])=>'<div class="lg'+(hidden.has(k)?' off':'')+'" tabindex="0" role="button" aria-pressed="'+(!hidden.has(k))+'" data-a="'+esc(k)+'">'
+     +'<span class="sw" style="background:'+c+'"></span><span class="nm">'+esc(label)+'</span><span class="ct">'+n+'</span></div>').join('')
+   +'<div class="note"><p>'+({cluster:'Each box is a cluster: files that import each other more than they import the rest of the repo, named by its hub, the file with the most import links.',
+       area:'Each box is an area, the same areas the Overview and the Areas tab count.',
+       depth:'Each box is one import depth. Layer 0 is what the rest is built on.'})[BY]+'</p>'
+   +'<p>A dot is a code file, larger the more files import it. The most-imported files that are not tests are named; a test is never named. A red ring means no test was found.</p>'
+   +(BY==='depth'?'<p>Each line is one import, drawn lightly.</p>'
+     :'<p>Thin lines are imports inside a box. A thick grey line is every import between two boxes, both directions, and its number is how many.</p>')
+   +'<p>Point at a file to light its imports and importers; click to keep them lit, and again to open it. Point at a box’s title for what it imports from the others.</p>'
+   +'<p>This repo has '+A+' areas, the count on the Overview; '+Math.min(drawn,A||drawn)+' hold code and are drawn here'+(A>drawn?', the other '+(A-drawn)+' hold only docs or config':'')+'. '
+   +(DATA.nodes.length-N.length)+' docs and config files are in Files, not here: they have no imports to draw.</p>'
+   +(BY==='cluster'&&loose?'<p>The '+loose+' files with no import edge found sit under “no cluster”. That is a question, not a verdict: a file loaded dynamically, or sourced through a variable, looks exactly like an unused one.</p>':'')
+   +'</div></div>';
   L.querySelectorAll('.lg[data-a]').forEach(el=>el.onclick=()=>{const a=el.dataset.a;
-    if(hidden.has(a)){hidden.delete(a);el.classList.remove('off');}else{hidden.add(a);el.classList.add('off');}
-    el.setAttribute('aria-pressed',hidden.has(a)?'false':'true');
-    pack();chipSet();});
-  // Switching the colouring regroups each band by the new key and lets the order settle again, so
-  // a cluster's files sit together the way an area's did. What was hidden was a row of the other
-  // legend, so it is shown again.
-  L.querySelectorAll('[data-by]').forEach(b=>b.onclick=()=>{if(BY===b.dataset.by)return;
-    BY=b.dataset.by;hidden.clear();paint();frames=0;layout();if(REDUCED)settle();buildLegend();});
+    if(hidden.has(a))hidden.delete(a);else hidden.add(a);
+    el.classList.toggle('off',hidden.has(a));el.setAttribute('aria-pressed',hidden.has(a)?'false':'true');
+    layout();redraw();});
   L.classList.toggle('min',!LEG_OPEN);
   const t=$('lgt');if(t)t.onclick=()=>{LEG_OPEN=!LEG_OPEN;L.classList.toggle('min',!LEG_OPEN);
     t.textContent=LEG_OPEN?'Hide legend':'Legend';t.setAttribute('aria-expanded',String(LEG_OPEN));
-    // Folding the legend gives its gutter back to the bands, and opening it takes it again.
-    BW=bandWidth();pack();chipSet();if(!touched)fit();};}
+    // The legend is beside the Map, not over it, so folding it gives the Map its width back.
+    resize();};}
 // Search answers where it can be seen: on the Map it highlights, anywhere else it opens the list.
 $('q').addEventListener('input',e=>{setQuery(e.target.value);buildList(query.trim().toLowerCase());
   if(TAB!=='map'&&TAB!=='files')showTab('files');});
@@ -1287,8 +1222,8 @@ addEventListener('keydown',e=>{const t=e.target;
   if(e.key==='Escape'){$('q').blur();}
   // Rows, chips and legend entries are clickable spans, so they answer the keys a button would.
   if((e.key==='Enter'||e.key===' ')&&t&&t.getAttribute&&t.getAttribute('role')==='button'&&t.tagName!=='BUTTON'){e.preventDefault();t.click();}});
-buildList('');buildAreas();buildGaps();buildNext();buildLegend();buildHud();
-resize();measure();layout();if(REDUCED)settle();loop();
+buildList('');buildAreas();buildGaps();buildNext();
+paint();buildHud();buildLegend();resize();describe();
 `;
 
 // Inlined JSON sits inside a <script> element, where the parser looks for "</script" before it
@@ -1346,7 +1281,7 @@ ${tabs}
 <button type="button" id="theme">Theme</button></div>
 <div id="main">
 <div class="view on" id="v-ov"><div id="ovbar" role="status"></div><aside class="col" id="ovl" aria-label="Repo vitals"></aside><section id="ovc" aria-label="Import graph"><canvas id="ov" tabindex="0" role="img" aria-label="Import graph"></canvas><div id="ovcap"></div><div id="ovz" role="group" aria-label="Zoom the import graph"><button type="button" id="ovzo" aria-label="Zoom out">−</button><button type="button" id="ovzr" aria-label="Reset zoom">100%</button><button type="button" id="ovzi" aria-label="Zoom in">+</button></div><div id="hero"></div></section><aside class="col" id="ovr" aria-label="Next steps and timeline"></aside></div>
-<div class="view" id="v-map"><canvas id="cv"></canvas><div class="float" id="hud"></div><div class="float" id="legend"></div></div>
+<div class="view" id="v-map"><div id="mapmain"><div id="hud"></div><div id="cvwrap"><canvas id="cv" tabindex="0" role="img" aria-label="Import map"></canvas></div></div><aside id="legend" aria-label="Map legend"></aside></div>
 <div class="view" id="v-structure"><div class="pane" id="spane"></div></div>
 <div class="view" id="v-files"><div class="list" id="flist"></div><div id="reader"><div id="empty">Pick a file on the left, or click a point on the Overview or the Map.</div></div></div>
 <div class="view" id="v-areas"><div class="pane" id="apane"></div></div>

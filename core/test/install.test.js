@@ -75,6 +75,31 @@ test("no shipped module imports a package that an install would not provide", ()
   );
 });
 
+test("only the parser loader may import a computed path, and it does so once", () => {
+  // docs/adr/0029: the parser add-on lives outside the plugin and is loaded by path, after its files
+  // are checked against index/parsers.lock.json. That is one allowance with one owner. A computed
+  // `import()` anywhere else would load code nothing checked, which the static rule above cannot see.
+  const OWNER = join("index", "lib", "parsers.mjs");
+  const found = [];
+  for (const area of SHIPPED) {
+    const dir = join(REPO_ROOT, area);
+    if (!existsSync(dir)) continue;
+    for (const file of sourceFiles(dir)) {
+      const rel = relative(REPO_ROOT, file);
+      if (isTestFile(rel)) continue;
+      const code = readFileSync(file, "utf8")
+        .split("\n")
+        .filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l))
+        .join("\n");
+      for (const m of code.matchAll(/\bimport\s*\(\s*([^)]*)/g)) {
+        if (/^['"][^'"]*['"]\s*$/.test(m[1].trim())) continue;
+        found.push(rel);
+      }
+    }
+  }
+  assert.deepEqual(found, [OWNER], "a computed import() outside the parser loader");
+});
+
 test("no shipped package.json declares runtime dependencies", () => {
   // The declaration is the thing that makes a missing package look intentional and supported.
   // Removing the import but leaving the dependency invites the next edit to import it again.

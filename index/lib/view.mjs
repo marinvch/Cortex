@@ -13,6 +13,7 @@ import { homedir } from "node:os";
 import { codeCoverage } from "./findings.mjs";
 import { briefCandidates, layerKeyFor, TOOLING_DIRS } from "./layers.mjs";
 import { findOrphans } from "./orphans.mjs";
+import { isTestData } from "./langs.mjs";
 import { ADR_DIRS, isAdrRecord } from "./adr.mjs";
 
 // Enough hues to separate the areas a reader can hold at once; past that they repeat, which is
@@ -168,7 +169,7 @@ function buildStructure(files, areas, colorOf, { tested, labels }) {
     // Tests are the coverage signal, not a directory listing. zustand keeps every test in a
     // top-level `tests/`, and the tab said "no tests found" under each `src/` area those tests
     // import — the opposite of what the findings report said about the same files.
-    const testable = own.filter((f) => f.category === "code" && !f.isTest);
+    const testable = own.filter((f) => f.category === "code" && !f.isTest && !isTestData(f.path));
     return {
       name: a.name,
       root: brief.root,
@@ -375,7 +376,7 @@ export function buildView(index, root, opts = {}) {
     };
   });
 
-  const testable = coverage ? coverage.testable.length : files.filter((f) => f.category === "code" && !f.isTest).length;
+  const testable = coverage ? coverage.testable.length : files.filter((f) => f.category === "code" && !f.isTest && !isTestData(f.path)).length;
   const mapIds = new Set(nodes.filter((n) => n.inMap).map((n) => n.id));
 
   // The sequence, minus the machine. `nextSteps` carries the absolute root and the whole disk state

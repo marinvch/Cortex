@@ -16,15 +16,25 @@ There's an emerging convention that every coding AI reads a project-instructions
 different filenames, so Cortex keeps the **real content in `AGENTS.md`** and drops a tiny **shim**
 for each tool that just says "read AGENTS.md":
 
-| AI agent | File it reads | Cortex writes |
+| AI agent | Reads `AGENTS.md` | Cortex writes |
 |---|---|---|
-| Claude Code | `CLAUDE.md` | shim → `@AGENTS.md` |
-| Gemini CLI | `GEMINI.md` | shim → "see AGENTS.md" |
-| GitHub Copilot | `.github/copilot-instructions.md` | shim → "see AGENTS.md" |
-| Cursor | `.cursor/rules/*.mdc` | shim → "read AGENTS.md" |
-| Codex / Amp / Aider / Jules | `AGENTS.md` (native) | nothing — they read it directly |
+| Claude Code | only with no `CLAUDE.md` present; some sessions cannot | `CLAUDE.md` → `@AGENTS.md` |
+| Gemini CLI | only if configured; default is `GEMINI.md` | `GEMINI.md` → "see AGENTS.md" |
+| GitHub Copilot | yes, nested too | nothing from `/setup-repo` |
+| Cursor | yes, nested too | nothing from `/setup-repo` |
+| Codex / Zed / Windsurf / Amp / Aider / Jules | yes | nothing |
 
-One source of truth, no copies to drift. `/setup-repo` generates all of these in one shot.
+One source of truth, no copies to drift. `/setup-repo` writes the two shims. `bash
+tools/cortex-init.sh` also writes `.github/copilot-instructions.md` and `.cursor/rules/project.mdc`
+for older versions of those tools.
+
+Path-scoped rules are nested `<dir>/AGENTS.md` files (`/write-area-brief`), which every agent above
+reads, not `.claude/rules/`, which only Claude Code reads.
+
+**Skills** live in `.claude/skills/`, read by Claude Code, Copilot in VS Code and Cursor. Codex and
+Gemini CLI read only `.agents/skills/`, so for a team that uses them `/suggest-skills` writes an
+identical copy there, and a drifted copy is reported. ADR 0031 has the support table and the
+reasons.
 
 ## New user — making it work on a project (zero prior knowledge)
 
@@ -48,8 +58,8 @@ This is the important part. Split it into two layers:
 **Shared layer = the repo (committed to git).**
 `AGENTS.md` + the shims live in the repo and get committed. So:
 - You (Claude) run `/setup-repo` once and commit the result.
-- Your colleague on **Copilot** pulls the repo → Copilot reads `.github/copilot-instructions.md` →
-  same project knowledge.
+- Your colleague on **Copilot** pulls the repo → Copilot reads `AGENTS.md` directly → same
+  project knowledge.
 - The third dev on **Gemini** pulls → Gemini reads `GEMINI.md` → same knowledge.
 - Nobody re-discovers the architecture. One person writes the brain; everyone's agent reads it.
 
@@ -63,7 +73,7 @@ one. So personal knowledge never crosses people — only the project brain is sh
    ┌─────────────────────────────────────┐     ┌──────────────┐ ┌──────────────┐
    │ AGENTS.md  (the project brain)       │     │ your vault   │ │ colleague's  │
    │ ├─ CLAUDE.md      → Claude  (you)    │     │ context/     │ │ (optional)   │
-   │ ├─ copilot-instr. → Copilot (dev B)  │     │ notes/       │ │              │
+   │ ├─ (read directly) → Copilot (dev B) │     │ notes/       │ │              │
    │ └─ GEMINI.md      → Gemini  (dev C)  │     └──────────────┘ └──────────────┘
    └─────────────────────────────────────┘        never shared unless copied by hand
 ```

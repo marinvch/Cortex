@@ -263,7 +263,9 @@ holds the rules for that module alone — read it before editing the module.
   Validated on the first upgraded repo (#462): 12 findings, all real. The `no-script`, description
   and `premise` checks were run on 13 public repos holding 116 skills: one description finding,
   real (emanote), after a first pass called "canvas/WebGL/Three.js" a path (three-flatland).
-  Mutation-checked: 15 guards, each breaking a test.
+  Mutation-checked: 15 guards, each breaking a test. It also reports a `mirror` finding when the
+  `.agents/skills/` copy of a skill differs from its `.claude/skills/` source
+  ([ADR 0031](../docs/adr/0031-one-instruction-file-and-a-skills-copy-for-agents-that-need-it.md)).
 - **`cortex-impact.mjs` reads the graph backwards** — who imports me, not what do I import — and
   every count it returns is a floor, named `atLeast` so a caller cannot print it as a total.
 - **`--size` recommends and never decides** (`lib/sizing.mjs`). A finer sizing-local area key was

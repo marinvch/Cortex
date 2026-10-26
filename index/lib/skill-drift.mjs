@@ -21,6 +21,10 @@
 //   - premise   — a setup skill Cortex proposes (`gone` in skills.mjs) whose premise the index
 //                 refutes; the entry carries `retire`, a proposal the ritual asks about
 //
+// And one about the copy, not the repo:
+//
+//   - mirror    — `.agents/skills/<id>/SKILL.md` exists and differs from the `.claude/skills/` file
+//
 // The description is read for paths only, and such a finding is marked `frontmatter: true`: a
 // refresh never edits frontmatter, so it is reported and asked about, not fixed in passing.
 //
@@ -48,6 +52,29 @@ import { premiseGone } from "./skills.mjs";
 import { labelsFor } from "./stack.mjs";
 
 export const SKILLS_REL = ".claude/skills";
+
+// Codex and Gemini CLI read skills from `.agents/skills/`, not `.claude/skills/`, so a repo whose team
+// uses them carries a copy there (ADR 0031). The copy must stay byte-identical, line endings aside:
+// a copy that differs is two sources of truth, and the older one is what those agents follow.
+export const MIRROR_REL = ".agents/skills";
+
+const lf = (s) => s.replace(/\r\n/g, "\n");
+
+/** The mirror finding for one skill, or `null` when there is no copy or the copy matches. */
+function mirrorFinding(root, name, text) {
+  const rel = `${MIRROR_REL}/${name}/SKILL.md`;
+  let copy;
+  try {
+    copy = readFileSync(join(root, ...rel.split("/")), "utf8");
+  } catch {
+    return null; // no copy is a choice, not drift
+  }
+  if (lf(copy) === lf(text)) return null;
+  return {
+    line: 1, kind: "mirror", cited: rel, text: rel,
+    why: `the copy at ${rel} differs from this file, so Codex and Gemini CLI read a different version — copy this file over it`,
+  };
+}
 
 // --- paths -----------------------------------------------------------------------------------------
 
@@ -410,6 +437,9 @@ export function skillDrift(root, index, { isIgnored = defaultIsIgnored(root), hi
         add({ line: n, kind: "script", cited: m[0], text: line, why: `names the ${wrapper} wrapper, and the repo has none` });
       }
     }
+
+    const mirror = mirrorFinding(root, skill.name, text);
+    if (mirror) findings.push(mirror);
 
     // A setup skill whose premise the index refutes has nothing left to say (skills.mjs, `gone`).
     const premise = premiseGone(skill.name, index);

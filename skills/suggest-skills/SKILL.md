@@ -96,6 +96,14 @@ disguise. If it grows past about 60 lines, the depth belongs in a scoped `AGENTS
 Do not restate what the root `AGENTS.md` already says. Duplication is how these rot: two copies
 drift and neither is trusted.
 
+**Other agents.** Claude Code, Copilot in VS Code and Cursor all read `.claude/skills/`. Codex and
+Gemini CLI read only `.agents/skills/`. Before writing, ask once whether anyone on the team uses
+Codex or Gemini CLI, unless `.agents/skills/` already exists, which answers it. On a yes, write a
+byte-identical copy of each skill to `.agents/skills/<id>/SKILL.md`. The `.claude/skills/` file is
+the source and the copy is never edited on its own. A copy that differs shows up as `mirror` drift.
+Do not symlink it: a Windows checkout without `core.symlinks` turns the link into a one-line text
+file. [ADR 0031](../../docs/adr/0031-one-instruction-file-and-a-skills-copy-for-agents-that-need-it.md).
+
 ## 4. Verify what you wrote
 
 Do not report success without checking:
@@ -105,6 +113,9 @@ for d in <the ids you accepted>; do
   [ -f ".claude/skills/$d/SKILL.md" ] && echo "  ok      $d" || echo "  MISSING $d"
 done
 ```
+
+If you wrote copies to `.agents/skills/`, check each one is byte-identical to its source (`cmp`
+both files). `cortex-skills.mjs` reports a copy that is not as `mirror` drift.
 
 Then re-run `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-skills.mjs" .` — everything you wrote should
 now appear under **Already present**. If a skill you just wrote is still proposed, it landed in the
@@ -152,6 +163,8 @@ carries the same list as `drift`. Each finding is provable from disk; prose the 
    as it is; so does every line nobody flagged and you did not verify wrong. The one exception is
    a finding marked `frontmatter: true`, a path in the `description` that is gone: show the line
    and the path, and change it only on a yes, because the description decides when the skill fires.
+   A `mirror` finding is fixed after the rest: copy the refreshed `.claude/skills/` file over the
+   `.agents/skills/` copy. Never edit the copy by hand.
 3. **Retire a skill whose premise is gone.** A setup skill for a harness that now exists has
    nothing left to say. A `drift` entry with `retire` set is that proposal, and its `successor`,
    when there is one, is the skill to offer in its place. Propose deleting it and delete only on a

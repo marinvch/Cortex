@@ -86,7 +86,8 @@ test("repo mode advertises the memory tools and hides the vault ones", async () 
 test("vault mode is unchanged", async () => {
   const vault = tempDir("vault-");
   const names = await toolsFor(vault);
-  assert.deepEqual(names, ["answer", "ask", "capture", "catch_me_up", "contract", "get_project_context", "inbox", "list_projects", "recall"]);
+  // graph is here for its story ops, which read the team-brain; its code ops still refuse a vault.
+  assert.deepEqual(names, ["answer", "ask", "capture", "catch_me_up", "contract", "get_project_context", "graph", "inbox", "list_projects", "recall"]);
   assert.ok(!names.includes("remember"), "repo memory tools must not leak into a vault");
 });
 

@@ -129,6 +129,40 @@ export function jiraAdapter(entry, io = {}) {
       const c = await call("POST", `/rest/api/3/issue/${checkKey(key)}/comment`, { body: toAdf(text) });
       return { id: c?.id === undefined ? null : String(c.id) };
     },
+    /**
+     * The story mirror's read (lib/stories.js): the project's issues of `storyTypes` (Epic and Story
+     * by default) that are not done, or were updated in the last `days` days. `parent` is the epic;
+     * Jira Cloud gives every issue its epic there since the Epic Link field was retired. Cortex's
+     * own ask issues (label `cortex-ask-…`) are left out. At most ten pages of 100.
+     */
+    async stories({ days = 90 } = {}) {
+      const types = (entry.storyTypes ?? ["Epic", "Story"]).map((t) => `"${t}"`).join(", ");
+      const jql = `project = "${project}" AND issuetype in (${types}) AND (statusCategory != Done OR updated >= -${Number(days) || 90}d) ORDER BY key ASC`;
+      const out = [];
+      let token = null;
+      for (let page = 0; page < 10; page++) {
+        const next = token ? `&nextPageToken=${encodeURIComponent(token)}` : "";
+        const res = await call("GET", `/rest/api/3/search/jql?jql=${encodeURIComponent(jql)}&fields=summary,status,assignee,parent,issuetype,labels&maxResults=100${next}`);
+        for (const i of Array.isArray(res?.issues) ? res.issues : []) {
+          const f = i.fields ?? {};
+          if ((f.labels ?? []).some((l) => String(l).startsWith("cortex-ask-"))) continue;
+          const cat = f.status?.statusCategory?.key;
+          out.push({
+            key: String(i.key ?? ""),
+            kind: String(f.issuetype?.name ?? "").toLowerCase() === "epic" ? "epic" : "story",
+            title: String(f.summary ?? ""),
+            status: cat === "done" ? "done" : cat === "indeterminate" ? "active" : "open",
+            state: String(f.status?.name ?? ""),
+            assignee: f.assignee?.displayName ?? null,
+            epic: f.parent?.key ?? null,
+            url: i.key ? browse(i.key) : null,
+          });
+        }
+        token = res?.nextPageToken ?? null;
+        if (!token) break;
+      }
+      return out;
+    },
     async close(key) {
       const { transitions = [] } = (await call("GET", `/rest/api/3/issue/${checkKey(key)}/transitions`)) ?? {};
       const want = entry.closeTransition ? String(entry.closeTransition).toLowerCase() : null;

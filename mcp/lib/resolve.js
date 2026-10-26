@@ -93,6 +93,23 @@ export function resolveBrain({ cwd, env }) {
     }
   }
 
+  // No connector found: a team may be NAMED instead, for an assistant with no repo to walk up from —
+  // Claude Desktop, claude.ai, a PM's role pack (R4 of the role-packs design). `CORTEX_TEAM` names
+  // the team; its clone is where every team clone lives under this root, and `CORTEX_TEAM_REPO`
+  // says where to clone it from on first use (checked against the profile's destinations like any
+  // clone). A connector, when there is one, still wins: it is specific to the repo the agent is in,
+  // and a variable in a desktop config is not. Nothing else about the brain changes.
+  if (!team && !connectorPath) {
+    const named = String(env.CORTEX_TEAM ?? "").trim();
+    if (named && slugify(named)) {
+      team = named;
+      teamClone = teamCloneDir(root, named);
+      const repo = String(env.CORTEX_TEAM_REPO ?? "").trim();
+      if (repo) teamBrainRepo = repo;
+      detected = "env:CORTEX_TEAM";
+    }
+  }
+
   // Declaring beats detecting. A scheduled run on a host that happens to sit inside a connected repo
   // is still a server run, and server cannot be detected at all: it is solo minus interactive
   // prompts, plus a scheduler, plus a model that is not Claude Code — none of which leaves a trace.

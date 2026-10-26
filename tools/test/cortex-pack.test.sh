@@ -29,7 +29,7 @@ assert_eq "2" "$rc" "no job and no --all is a bad argument"
 
 # What each pack holds today, pinned. A skill that gains a `node tools/` line drops out of its pack
 # without an error, so the drop has to show up somewhere: here.
-for pair in "developer:" "architect:challenge-plan,define-terms,design-spec" "lead:set-profile" "pm:challenge-plan" "qa:"; do
+for pair in "developer:" "architect:challenge-plan,define-terms,design-spec" "lead:set-profile" "pm:challenge-plan,story-map" "qa:"; do
   job="${pair%%:*}"; want="${pair#*:}"
   got="$(node "$TOOL" "$job" --list --json | node -e 'console.log(JSON.parse(require("fs").readFileSync(0,"utf8")).skills.join(","))')"
   assert_eq "$want" "$got" "the $job pack holds: ${want:-nothing portable yet}"
@@ -85,6 +85,8 @@ scan="$(node --input-type=module -e '
 ' "$REPO_ROOT" "$WORK/a")"
 assert_eq "" "$scan" "and no file in any pack holds what the credential scan reads as a secret"
 assert_contains "$(cat "$WORK/a/cortex-pack-pm/mcp/claude-desktop.json")" "<path to your Cortex checkout>/mcp/server.js" "the MCP entries carry placeholders, not values"
+assert_contains "$(cat "$WORK/a/cortex-pack-pm/mcp/claude-desktop.json")" '"CORTEX_TEAM": "<your team' "the Desktop entry names the team, since Desktop has no repo to find a connector in"
+assert_contains "$(cat "$WORK/a/cortex-pack-pm/README.md")" "CORTEX_TEAM_REPO" "and the README says what the two team variables are for"
 
 # The zips open with a tool that is not ours, when there is one.
 if command -v unzip > /dev/null 2>&1; then

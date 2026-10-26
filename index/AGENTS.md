@@ -223,6 +223,24 @@ holds the rules for that module alone — read it before editing the module.
   edit is not a contract change. It never writes into a team-brain: `mcp/` publishes. Validated on
   swagger-petstore (19/19 operations, ids and response schemas, `servers` prefix applied), and two
   extracts of each of five repos were byte-identical.
+- **Story links** (`lib/stories.mjs`, `cortex-stories.mjs`, R3 of the role-packs design) are the
+  contract's sibling: which ticket keys this repo's history names, the commits and files each
+  touched, and each file's cluster, hub flag and coverage. What a key is, and whether a message or a
+  branch carries it, is `core/story-key.js`, because `mcp/` reads the same keys; `mcp/` publishes.
+  - **Confidence is the evidence**: a key in a commit message is `extracted`, a key only in a branch
+    name is `inferred`. The branch in a merge subject is the branch's evidence, never the message's.
+  - **A PR number is not a story**: GitHub's merge and squash subjects, a body line ending `(#N)` and
+    a quoted revert suffix are `prs` on the commit.
+  - **It refuses a stale index (exit 2)**, unlike the contract, because every link carries the
+    index's clusters and coverage. It reads git, so outside git it refuses too.
+  - **No commit text and no author is written**: a commit is its short sha and its PR numbers.
+  - **Validated** on zustand and got, 400 commits each. Ten links were opened against `git show`:
+    8 right, each file list equal to what git says the commit changed. The two wrong are PR
+    numbers named in prose (`types dropped in #2462`), which no rule can tell from an issue; a
+    mirrored story never holds a PR, so `risk` does not rank them. The first run read zustand's v5
+    squash body, which lists 20 merged PRs as `* title (#N)`, as 20 stories: the body-line and
+    revert rules came from that, and took zustand from 25 keys to 5. On this repo's 1,203 commits
+    the only Jira-shaped false key was `PSR-4`, now a stop prefix.
 - **A file about tests is not a test** (`isTestPath`, `lib/langs.mjs`): a runner's setup file in a
   test directory, and anything under `.claude/` that is not named as a test. Compared with the old
   rule over 5,581 files in ten public repos: four files changed, all setup files with no test in

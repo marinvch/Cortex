@@ -7,6 +7,23 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **Stories, traced to code** (R3 and R4 of the role-packs design).
+  - **The story mirror.** `ai-os integrations add <kind> --stories` turns it on per tracker. Each
+    full `ai-os sync` writes the team's epics and stories to `stories/<key>.md` in the team-brain:
+    key, title, status, epic, assignee and link, never a description. Every file passes the publish
+    gate, the key on its own first. On `work`, an assignee is written only when they are a roster
+    member, and the tracker host must be an approved destination.
+  - **Story links.** `node index/cortex-stories.mjs . --out .cortex/index/stories.json` finds the
+    ticket keys in a repo's commit messages (`extracted`) and branch names (`inferred`), and the
+    files and clusters each touched. `ai-os stories publish --file …` publishes them as
+    `projects/<slug>/stories.json`. `/join-team` offers both.
+  - **`graph story <key>`, `graph stories-for <path|cluster>` and `graph risk`**, in the MCP tool
+    and the CLI. They answer from the team-brain, so `graph` now runs in a vault too.
+  - **`/story-map`**: a plain status per epic for a project manager, with what it touches, what is
+    blocked on an open ask and where the risk is. It never estimates. The pm role pack carries it.
+  - **`CORTEX_TEAM` and `CORTEX_TEAM_REPO`** name the team where no connector is found, as in
+    Claude Desktop. The role pack's Desktop entry sets both.
+
 - **Symbols: which function calls which, from an optional parser add-on.** `node
   tools/cortex-parsers.mjs install` downloads the parser packages pinned in
   `index/parsers.lock.json` and installs them under `~/.cortex/parsers/`. Without it, nothing

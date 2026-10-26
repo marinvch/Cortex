@@ -20,7 +20,8 @@ import { genNoteId } from "./lib/noteid.js";
 import { syncFrom, integrationsFrom } from "./lib/sync.js";
 import { integrationsFromFlags, checkboxes, defaultPrimary, CREDENTIAL_VARS } from "./lib/integrations.js";
 import { renderSyncWorkflow, WORKFLOW_REL } from "./lib/sync-workflow.js";
-import { graphAnswer, graphRepo } from "./lib/graph.js";
+import { graphFrom } from "./lib/graph-stories.js";
+import { publishStoryLinksFrom } from "./lib/story-links.js";
 
 // The tracker flags `team init --integrations` and `integrations add` share (#624).
 const INTEGRATION_FLAGS = [
@@ -32,7 +33,7 @@ const TEAM_INIT_USAGE =
   "         [--integrations github,servicenow,jira|none] [--primary <kind>] [--route <role>=<kind>[+<kind>],…]\n" +
   "         [--github-repo <owner/name>] [--servicenow-instance <url>] [--servicenow-table rm_story]\n" +
   "         [--servicenow-group <group>] [--servicenow-groups <role>=<group>,…]\n" +
-  "         [--jira-site <url>] [--jira-project <KEY>] [--jira-issue-type Task] [--write-sync-workflow]";
+  "         [--jira-site <url>] [--jira-project <KEY>] [--jira-issue-type Task] [--stories [<kind>,…]] [--write-sync-workflow]";
 
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url))); // mcp/ai-os.js -> repo root
 const WIN = process.platform === "win32";
@@ -275,6 +276,7 @@ async function cmdSync(args, brain) {
       console.log(`  ${p.id} (${p.status}, to ${p.to})`);
       for (const s of p.steps) console.log(`    ${s}`);
     }
+    for (const s of res.stories ?? []) console.log(`  stories: ${s}`);
     return 0;
   }
   if (!res.ran) {
@@ -284,6 +286,13 @@ async function cmdSync(args, brain) {
   }
   if (res.changed.length && res.error === "push_left_to_caller") console.log(`${res.message} — committed; not pushed (--no-push).`);
   else console.log(res.changed.length ? `${res.message} — ${describePublish(res, brain)}.` : "Nothing to sync: every linked tracker already matches the brain.");
+  const st = res.stories;
+  if (st?.ran) {
+    console.log(`Stories: ${st.written} written, ${st.unchanged} unchanged${st.withheld.length ? `, ${st.withheld.length} withheld by the publish gate (${[...new Set(st.withheld.map((w) => w.code))].join(", ")})` : ""}` +
+      `${st.assigneesWithheld ? `, ${st.assigneesWithheld} assignee${st.assigneesWithheld === 1 ? "" : "s"} left out (not a roster handle)` : ""}.`);
+  }
+  for (const [k, e] of Object.entries(st?.errors ?? {})) console.log(`Stories from ${k} not read: ${e}`);
+  for (const w of st?.warnings ?? []) console.error(`cortex: ${w}`);
   return 0;
 }
 
@@ -294,6 +303,7 @@ const INTEGRATIONS_USAGE =
   "  ai-os integrations add servicenow --servicenow-instance <https://acme.service-now.com> [--servicenow-table rm_story]\n" +
   "                         [--servicenow-group <group>] [--servicenow-groups backend=<group>,…] [--primary]\n" +
   "  ai-os integrations add jira --jira-site <https://acme.atlassian.net> --jira-project <KEY> [--jira-issue-type Task] [--primary]\n" +
+  "  add --stories to any of them to mirror that tracker's epics and stories into stories/ on each sync\n" +
   "  ai-os integrations remove <kind>                  stop syncing it; its links stay readable in every ask\n" +
   "  ai-os integrations workflow [--write]             print the scheduled sync workflow; --write commits it to the brain\n" +
   "  every form takes [--team <name>] or [--clone <team-brain checkout>]";
@@ -407,6 +417,26 @@ function cmdContract(sub, args, brain) {
   return 0;
 }
 
+const STORIES_USAGE =
+  "usage: ai-os stories publish --file <stories.json> [--project <slug>] [--team <name>]\n" +
+  "  write projects/<slug>/stories.json, the story links index/cortex-stories.mjs extracted; commit, push when changed";
+
+// The CLI half of story links (R3 of the role-packs design). The gate is inside
+// `publishStoryLinks`, the one function that writes, as it is for a contract. Reading them is the
+// `graph` tool's story ops.
+function cmdStories(sub, args, brain) {
+  for (const k of ["file", "project", "team"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${STORIES_USAGE}`);
+  if (sub !== "publish" || typeof args.file !== "string") throw new Error(STORIES_USAGE);
+  const input = readFileSync(args.file, "utf8");
+  const res = publishStoryLinksFrom(brain, { input, project: args.project ?? null, team: args.team ?? null });
+  for (const w of res.warnings ?? []) console.error(`cortex: ${w}`);
+  const what = `${res.stories} stor${res.stories === 1 ? "y" : "ies"}`;
+  if (res.action === "unchanged") { console.log(`Story links for ${res.project} unchanged (${what}). Nothing to commit.`); return 0; }
+  console.log(`Story links for ${res.project} ${res.action} (${what}) — ${describePublish(res, brain)}.`);
+  console.log(res.path);
+  return 0;
+}
+
 const TEAM_ADD_USAGE =
   "usage: ai-os team add --name <team> --repo <git-url> --project <project-slug>\n" +
   "         [--title <text>] [--project-repo <url>] [--tracker <url>] [--design <url>] [--docs <url>] [--related <slug,slug>]";
@@ -500,7 +530,12 @@ const GRAPH_USAGE =
   "  ai-os graph cluster <id|file>              members, hub, cohesion and areas\n" +
   "  ai-os graph hubs | bridges                 the graph report's lists, as cortex-graph.mjs --json has them\n" +
   "  ai-os graph path <from> <to> [--directed]  the shortest import path between two files\n" +
-  "Reads the repo CORTEX_ROOT names (a repo's .cortex/), else the git repo you are in. Writes nothing.";
+  "  ai-os graph story <key>                    the code an epic or story touched, across the team's repos\n" +
+  "  ai-os graph stories-for <file|dir> | --cluster <id> [--project <slug>]\n" +
+  "                                             which stories changed this code\n" +
+  "  ai-os graph risk                           open stories touching untested or hub code\n" +
+  "The code ops read the repo CORTEX_ROOT names (a repo's .cortex/), else the git repo you are in; the\n" +
+  "story ops read the team-brain. Writes nothing.";
 
 /** The bare arguments after the op, skipping each flag and the value parseArgs took for it. */
 function positionals(argv) {
@@ -521,7 +556,7 @@ function positionals(argv) {
 // not in a state I can answer about"; a wrong question exits 1 through the handler below.
 function cmdGraph(op, argv, args, brain) {
   if (!op || op.startsWith("--")) throw new Error(GRAPH_USAGE);
-  for (const k of ["file", "from", "to", "cluster", "depth"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${GRAPH_USAGE}`);
+  for (const k of ["file", "from", "to", "cluster", "depth", "key", "project"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${GRAPH_USAGE}`);
   const [a, b] = positionals(argv);
   const q = { op, directed: args.directed !== undefined };
   if (op === "node" || op === "neighbors") q.file = args.file ?? a;
@@ -536,7 +571,13 @@ function cmdGraph(op, argv, args, brain) {
     q.from = args.from ?? a;
     q.to = args.to ?? (args.from ? a : b);
   }
-  const res = graphAnswer(graphRepo(brain, { cwd: process.cwd() }), q);
+  if (op === "story") q.key = args.key ?? a;
+  if (op === "stories-for") {
+    if (args.cluster) q.cluster = args.cluster;
+    else q.file = args.file ?? a;
+    if (args.project) q.project = args.project;
+  }
+  const res = graphFrom(brain, q, { cwd: process.cwd() });
   if (res.refused) {
     if (args.json) console.log(JSON.stringify(res, null, 2));
     else console.error(`${res.message}\nRun: ${res.rebuild}`);
@@ -554,7 +595,9 @@ function graphText(res) {
     lines.push(`${title} (${l.total}${l.truncated ? `, first ${l.items.length}` : ""}):`);
     for (const x of l.items) lines.push(`  ${fmt(x)}`);
   };
-  if (res.index.state === "unknown") lines.push(`Index freshness unknown: ${res.index.reason}`);
+  if (res.index?.state === "unknown") lines.push(`Index freshness unknown: ${res.index.reason}`);
+  if (res.pull && !res.pull.ok) lines.push(`Pull failed, answering from the local clone: ${res.pull.error}`);
+  for (const r of res.links?.refused ?? []) lines.push(`Story links of ${r.project} left out: ${r.why}. Publish them again.`);
   switch (res.op) {
     case "stats":
       lines.push(`${res.files} files, ${res.edges} import edges, ${res.clusters} clusters (${res.unclustered} code files in none).`);
@@ -592,6 +635,33 @@ function graphText(res) {
       lines.push(`${res.length} step${res.length === 1 ? "" : "s"}, ${res.directed ? "following imports only" : "either direction"}:`);
       lines.push(`  ${res.from}`);
       for (const s of res.steps) lines.push(`    ${s.edge === "imports" ? "imports" : "is imported by"} ${s.to}`);
+      break;
+    case "story": {
+      const s = res.story;
+      lines.push(s ? `${s.key} (${s.kind}, ${s.status}${s.state ? `: ${s.state}` : ""}): ${s.title}` : `${res.key}: ${res.mirrorNote}`);
+      if (s?.epic) lines.push(`  epic ${s.epic}`);
+      if (s?.url) lines.push(`  ${s.url}`);
+      if (res.children.total) list("Stories under it", res.children, (c) => `${c.key} ${c.status}  ${c.title}`);
+      lines.push(`${res.commits} commit${res.commits === 1 ? "" : "s"} in ${res.projects.join(", ") || "no repo"}.`);
+      list("Files", res.files, (f) => `${f.project}: ${f.path}  ${f.confidence}${f.cluster ? `, ${f.cluster}` : ""}${f.hub ? ", hub" : ""}${f.tested === false ? ", untested" : ""}`);
+      list("Clusters", res.clusters, (c) => `${c.project} ${c.cluster}: ${c.files} of its ${c.size ?? "?"} files, hub ${c.hub ?? "none"}`);
+      list("Contracts", res.contracts, (c) => `${c.project} ${c.side} ${c.method} ${c.path}`);
+      list("Untested", res.untested, (f) => `${f.project}: ${f.path}`);
+      list("Hubs", res.hubs, (f) => `${f.project}: ${f.path}`);
+      list("Open asks naming it", res.asks, (a) => `${a.id} to ${a.to}: ${a.title}`);
+      lines.push(res.note);
+      break;
+    }
+    case "stories-for":
+      list(`Stories that changed ${res.file !== undefined ? res.file || "the repo" : `${res.project} ${res.cluster}`}`, res.stories,
+        (s) => `${s.key}  ${s.project}, ${s.confidence}${s.title ? `, ${s.status}: ${s.title}` : ", not mirrored"}`);
+      lines.push(res.note);
+      break;
+    case "risk":
+      list("Open stories touching untested or hub code", res.stories, (s) => `${s.key} ${s.status}  ${s.untestedCount} untested, ${s.hubCount} hub${s.hubCount === 1 ? "" : "s"}  ${s.title}`);
+      if (res.epics.total) list("Epics, by open stories at risk", res.epics, (e) => `${e.key}  ${e.storiesAtRisk}  ${e.title ?? ""}`);
+      if (res.unmirroredNote) lines.push(`${res.unmirrored} linked key${res.unmirrored === 1 ? "" : "s"} not ranked. ${res.unmirroredNote}`);
+      lines.push(res.note);
       break;
   }
   return lines;
@@ -660,14 +730,17 @@ The team-brain (needs a repo joined with \`team add\`, or a vault with a team cl
   inbox                                      the asks waiting for you — run it at the start of a task
   answer --id <ask-id> --body <text>         reply, optionally --status answered|decided|wontfix
   contract publish|show|who-calls|list       a repo's API surface, and who calls an endpoint
+  stories publish --file <stories.json>      this repo's story links: which code each ticket key touched
   integrations list|add|remove|workflow      the trackers asks are filed in: github, servicenow, jira
   sync [--dry-run] [--status]                move asks and tracker items both ways; one commit per run
   catch-up --since <YYYY-MM-DD>              what the team captured, and which contracts changed
   project list|check|remove                  the projects the team-brain knows
 
-This repo's import graph (reads its Cortex index; writes nothing):
+The code graph (writes nothing):
   graph stats|node|neighbors|cluster|hubs|bridges|path
-                                             ask the import graph; graph with no op prints each op's arguments
+                                             this repo's import graph, from its Cortex index
+  graph story|stories-for|risk               the team's stories, traced to code through the team-brain
+                                             graph with no op prints each op's arguments
 
 Other:
   digest --repo <path> --since <date> --out <file>
@@ -703,6 +776,8 @@ try {
       process.exit(await cmdAnswer(args, open("answer")));
     case "contract":
       process.exit(cmdContract(rest[0], args, open("contract")));
+    case "stories":
+      process.exit(cmdStories(rest[0], args, open("stories")));
     case "sync":
       process.exit(await cmdSync(args, open("sync")));
     case "integrations":
@@ -711,7 +786,7 @@ try {
       // Writes nothing, so like catch-up it reads the repo the cwd is in when no root is set.
       process.exit(cmdGraph(rest[0], rest.slice(1), args, open("graph", { rootOptional: true })));
     default:
-      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract|sync|integrations|graph|help> [--flags]");
+      console.error("usage: ai-os <setup-plugins|team|project|digest|catch-up|ask|inbox|answer|contract|stories|sync|integrations|graph|help> [--flags]");
       process.exit(sub ? 1 : 2);
   }
 } catch (e) {

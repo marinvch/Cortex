@@ -7,7 +7,7 @@ import { catchMeUp, catchUpTeam } from "./lib/catchup.js";
 import { genNoteId } from "./lib/noteid.js";
 import { askFrom, inboxFrom, answerFrom, asksInstructions, authorFor } from "./lib/asks.js";
 import { contractFrom } from "./lib/contract.js";
-import { graphAnswer, graphRepo } from "./lib/graph.js";
+import { graphFrom } from "./lib/graph-stories.js";
 import { VERSION } from "./lib/version.js";
 import { append as rememberNote, recent as recentMemory } from "../core/memory.js";
 import { stamp } from "../core/date.js";
@@ -88,8 +88,9 @@ async function dispatch(name, args) {
       return out;
     }
     case "recall_memory": return recentMemory(root, { days: args.days || 7 });
-    // Read-only over the repo's index; a missing or stale one comes back refused, with the rebuild.
-    case "graph": return graphAnswer(graphRepo(brain, { cwd: process.cwd() }), args);
+    // Read-only: the code ops over the repo's index, the story ops over the team-brain. A missing or
+    // stale index or story links come back refused, with the rebuild.
+    case "graph": return graphFrom(brain, args, { cwd: process.cwd() });
     // The team and the policy come off the record, as they do for capture: a brain on a team lists
     // that team's project files beside the vault's own, and the profile decides which it may show.
     case "list_projects": return listProjects(root, { team: brain.team, policy: brain.policy });

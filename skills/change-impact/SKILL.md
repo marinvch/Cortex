@@ -37,6 +37,11 @@ node "${CLAUDE_PLUGIN_ROOT}/index/cortex-impact.mjs" --staged --json      # mach
 
 `--size` answers "one agent or a team?" for the files a task will touch: `single`, `team` or no recommendation, with one numbered reason per signal. The lines are provisional and the developer chooses, so relay it as a recommendation, never a decision.
 
+`--symbol path#name` asks about one function instead of a file: the calls that reach it, which
+calling files no test covers, and the tests worth running. It needs the parser add-on; without it,
+exit 2 names the install command, so fall back to the file. Its count is a floor of `extracted`
+calls; relay the `inferred` and `ambiguous` ones as possible callers, never as confirmed ones.
+
 `--depth N` bounds the walk when the radius is enormous; the output says it stopped.
 `--staged` falls back to unstaged files when nothing is staged, because someone mid-edit asking
 "what does this touch" means their working tree.

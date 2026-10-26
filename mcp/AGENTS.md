@@ -27,7 +27,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `ai-os project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
 | `ai-os digest` | append a git digest to a file | nothing |
 | `ai-os catch-up` | notes and history since a date | a repo or a vault |
-| `ai-os graph <op>` | the `graph` tool's answer: `stats`, `node`, `neighbors`, `cluster`, `hubs`, `bridges`, `path`; `--json`. Exit 2 on a missing or stale index. Read-only | a repo, its index |
+| `ai-os graph <op>` | the `graph` tool's answer: `stats`, `node`, `neighbors`, `cluster`, `hubs`, `bridges`, `path`, and `callers`, `callees`, `defines` from `index.symbols` (`core/symbol-calls.js`); `--json`. Exit 2 on a missing or stale index, or no symbols for those three. Read-only | a repo, its index |
 | `ai-os graph story\|stories-for\|risk` | the story ops, from the team-brain; exit 2 when no links are published or this repo's are behind HEAD | a root, a team |
 
 ## Invariants

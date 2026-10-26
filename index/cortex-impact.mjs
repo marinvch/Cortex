@@ -44,7 +44,9 @@ import { overlapOf, parseChangeList } from "./lib/overlap.mjs";
 import { sizeTask } from "./lib/sizing.mjs";
 import { UNRESOLVED_LANGUAGES } from "./lib/imports.mjs";
 import { openTarget } from "./lib/open.mjs";
-import { branchChanges, changedFiles, failureLines } from "./lib/changed.mjs";
+import { branchChanges, changedFiles, failureLines, normalizeChangedPath } from "./lib/changed.mjs";
+import { buildCoverage } from "./lib/coverage.mjs";
+import { callerFiles, callersOf, findDefinition, hasSymbols, nearSymbols, splitSymbolId } from "../core/symbol-calls.js";
 
 // Bare arguments here are FILE PATHS, so the root comes from `--root` — a command that took both
 // positionally could not tell one from the other, and the one it guessed wrong is the one that
@@ -52,7 +54,7 @@ import { branchChanges, changedFiles, failureLines } from "./lib/changed.mjs";
 const { root, args, paths, index } = openTarget(process.argv.slice(2), {
   usage:
     "usage: node index/cortex-impact.mjs [paths...] [--staged] [--since REF] " +
-    "[--depth N] [--against FILE|-] [--against-ref REF] [--size] [--root DIR] [--index FILE] [--json]",
+    "[--depth N] [--against FILE|-] [--against-ref REF] [--size] [--symbol PATH#NAME] [--root DIR] [--index FILE] [--json]",
   flags: {
     "--staged": "boolean",
     "--json": "boolean",
@@ -61,6 +63,7 @@ const { root, args, paths, index } = openTarget(process.argv.slice(2), {
     "--depth": "value",
     "--against": "value",
     "--against-ref": "value",
+    "--symbol": "value",
     "--index": "value",
     "--root": "value",
   },
@@ -73,6 +76,15 @@ const { root, args, paths, index } = openTarget(process.argv.slice(2), {
 
 const depth = args.depth === null ? Infinity : Number(args.depth);
 const comparing = args.against !== null || args.againstRef !== null;
+
+if (args.symbol !== null) {
+  if (paths.length || args.staged || args.since !== null || comparing || args.size || args.depth !== null) {
+    // One question at a time: the callers of one function, not of a change set.
+    console.error("--symbol asks who calls one function, so it takes no paths and does not combine with --staged, --since, --depth, --against, --against-ref or --size.");
+    process.exit(1);
+  }
+  process.exit(reportSymbol(args.symbol.trim()));
+}
 
 if (args.size && (comparing || args.depth !== null)) {
   // Refused rather than ignored, as --depth is below: sizing reads the full radius of one change
@@ -336,4 +348,90 @@ function reportSize(z) {
   if (failures.length) {
     console.log(`\nAnd this was computed from an incomplete change set — see the git error above.`);
   }
+}
+
+// --- --symbol: who calls one function (G5) ------------------------------------------------------------
+
+// Reads `index.symbols`, which only the parser add-on builds. The callers come from
+// core/symbol-calls.js, the same definition the `graph` tool's `callers` op uses. Returns the exit code.
+function reportSymbol(given) {
+  if (!hasSymbols(index)) {
+    console.error(
+      "This index has no symbols, so it cannot say who calls a function.\n" +
+        "Symbols come from the parser add-on: node tools/cortex-parsers.mjs install, then rebuild the index.\n" +
+        "Without it, ask about the file instead: node index/cortex-impact.mjs <file>.",
+    );
+    return 2;
+  }
+  const [rawPath, name] = splitSymbolId(given);
+  const id = `${normalizeChangedPath(rawPath, root)}#${name}`;
+  if (!name || !findDefinition(index.symbols, id)) {
+    const near = nearSymbols(index.symbols, id);
+    console.error(
+      `${id} is not a definition in the index. A symbol is path#name, or path#Class.method for a method.` +
+        (near.length ? `\nDid you mean: ${near.join(", ")}` : ""),
+    );
+    return 1;
+  }
+
+  const callers = callersOf(index.symbols, id);
+  const coverage = buildCoverage(index, root);
+  const byPath = new Map(index.files.map((f) => [f.path, f]));
+  const files = callerFiles(callers.extracted).map((p) => {
+    const f = byPath.get(p);
+    const tests = f?.isTest ? [] : coverage.testsFor(p);
+    return { path: p, isTest: Boolean(f?.isTest), covered: tests.length > 0, tests };
+  });
+  const r = {
+    symbol: id,
+    parser: index.symbols.parser ?? null,
+    atLeast: callers.extracted.length,
+    callers,
+    callerFiles: files,
+    unverified: files.filter((f) => !f.isTest && !f.covered).map((f) => f.path),
+    suggestedTests: [...new Set([...files.filter((f) => f.isTest).map((f) => f.path), ...files.flatMap((f) => f.tests)])].sort(),
+  };
+  if (args.json) {
+    console.log(JSON.stringify(r, null, 2));
+    return 0;
+  }
+
+  const at = (c) => `${c.from}:${c.line}${c.kind ? ` (${c.kind})` : ""}`;
+  if (!callers.extracted.length && !callers.inferred.length && !callers.ambiguous.length) {
+    console.log(`\nNo call in the index reaches ${id}.`);
+    console.log(`That is a floor, not a proof: a dynamic call, a call through a value whose type Cortex`);
+    console.log(`cannot know, or a caller in a language the parser does not read would not appear here.`);
+    return 0;
+  }
+  console.log(`\nAt least ${r.atLeast} call${r.atLeast === 1 ? "" : "s"} reach ${id}:\n`);
+  // Product callers one per line, tests one line per file: on a library, a hundred test calls
+  // would otherwise bury the two product callers that decide whether the change is safe.
+  const fileOf = (c) => files.find((x) => x.path === splitSymbolId(c.from)[0]);
+  for (const c of callers.extracted) {
+    const f = fileOf(c);
+    if (!f.isTest) console.log(`  ${f.covered ? "  ok" : "  ??"}  ${at(c)}`);
+  }
+  for (const f of files.filter((x) => x.isTest)) {
+    const n = callers.extracted.filter((c) => fileOf(c) === f).length;
+    console.log(`  test  ${f.path}  (${n} call${n === 1 ? "" : "s"})`);
+  }
+  if (callers.inferred.length) {
+    console.log(`\nInferred, not counted above (${callers.inferred.length}) — one candidate, found without an import that names it:`);
+    for (const c of callers.inferred) console.log(`  ${at(c)}`);
+  }
+  if (callers.ambiguous.length) {
+    console.log(`\nAmbiguous, not counted above (${callers.ambiguous.length}) — the call may reach another definition of the same name:`);
+    for (const c of callers.ambiguous) console.log(`  ${at(c)}  (${c.candidates} candidates)`);
+  }
+  if (r.unverified.length) {
+    console.log(`\n${r.unverified.length} calling file${r.unverified.length === 1 ? " is" : "s are"} exercised by no test Cortex can see:`);
+    for (const p of r.unverified) console.log(`  ${p}`);
+  }
+  if (r.suggestedTests.length) {
+    console.log(`\nTests worth running (${r.suggestedTests.length}):`);
+    for (const t of r.suggestedTests) console.log(`  ${t}`);
+  }
+  console.log(`\nA floor, not a total — only calls the parser resolved are here. For everything that`);
+  console.log(`imports the file, run: node index/cortex-impact.mjs ${splitSymbolId(id)[0]}`);
+  return 0;
 }

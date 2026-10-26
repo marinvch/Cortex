@@ -268,6 +268,8 @@ holds the rules for that module alone — read it before editing the module.
   ([ADR 0031](../docs/adr/0031-one-instruction-file-and-a-skills-copy-for-agents-that-need-it.md)).
 - **`cortex-impact.mjs` reads the graph backwards** — who imports me, not what do I import — and
   every count it returns is a floor, named `atLeast` so a caller cannot print it as a total.
+  `--symbol path#name` asks the same of one function, from `index.symbols` through
+  `core/symbol-calls.js`. Without symbols it exits 2 and names the parser add-on, never "no callers".
 - **`--size` recommends and never decides** (`lib/sizing.mjs`). A finer sizing-local area key was
   tried and rejected: zustand's `vanilla.ts`, `react.ts` and `traditional.ts` share one directory,
   so no directory key sees that refactor as spread.

@@ -7,6 +7,13 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **Skills for Codex and Gemini CLI.** Those two agents read skills only from `.agents/skills/`.
+  `/suggest-skills` now asks once whether the team uses either. On a yes it writes an identical copy
+  of each skill there, and `.claude/skills/` stays the source. `cortex-skills.mjs` reports a copy
+  that has drifted as `mirror` drift. Rules stay in `AGENTS.md` and nested `<dir>/AGENTS.md`, which
+  every major agent reads, so Cortex writes no `.claude/rules/`. [ADR 0031](docs/adr/0031-one-instruction-file-and-a-skills-copy-for-agents-that-need-it.md)
+  holds the support table this rests on.
+
 - **Stories, traced to code** (R3 and R4 of the role-packs design).
   - **The story mirror.** `ai-os integrations add <kind> --stories` turns it on per tracker. Each
     full `ai-os sync` writes the team's epics and stories to `stories/<key>.md` in the team-brain:

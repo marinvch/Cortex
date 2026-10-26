@@ -336,3 +336,23 @@ test("a setup skill whose premise is gone is proposed for retirement, with its s
   const stale = repo({ files: { "src/a.ts": "x" }, skills: { stale: skill("Read `src/gone.ts`.") } });
   assert.equal(skillDrift(stale.root, stale.index, { isIgnored: none }).drifted[0].retire, null);
 });
+
+// ADR 0031: Codex and Gemini CLI read `.agents/skills/`, so a team that uses them carries a copy.
+test("a copy in .agents/skills that matches, line endings aside, reports nothing", () => {
+  const body = skill("Start at `src/app.ts`.");
+  const { root, index } = repo({ files: { "src/app.ts": "x", ".agents/skills/s/SKILL.md": body.replace(/\n/g, "\r\n") }, skills: { s: body } });
+  assert.deepEqual(skillDrift(root, index, { isIgnored: none }).drifted, []);
+});
+
+test("a copy in .agents/skills that differs is reported as mirror drift", () => {
+  const body = skill("Start at `src/app.ts`.");
+  const { root, index } = repo({ files: { "src/app.ts": "x", ".agents/skills/s/SKILL.md": skill("Start at `src/old.ts`.") }, skills: { s: body } });
+  const [d] = skillDrift(root, index, { isIgnored: none }).drifted;
+  assert.deepEqual(d.findings.map((f) => [f.kind, f.cited]), [["mirror", ".agents/skills/s/SKILL.md"]]);
+  assert.match(d.findings[0].why, /Codex and Gemini CLI/);
+});
+
+test("no copy in .agents/skills is a choice, not drift", () => {
+  const { root, index } = repo({ files: { "src/app.ts": "x" }, skills: { s: skill("Start at `src/app.ts`.") } });
+  assert.deepEqual(skillDrift(root, index, { isIgnored: none }).drifted, []);
+});

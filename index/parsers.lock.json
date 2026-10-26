@@ -10,7 +10,10 @@
     "javascript": { "package": "tree-sitter-javascript", "wasm": "package/tree-sitter-javascript.wasm" },
     "typescript": { "package": "tree-sitter-typescript", "wasm": "package/tree-sitter-typescript.wasm" },
     "tsx": { "package": "tree-sitter-typescript", "wasm": "package/tree-sitter-tsx.wasm" },
-    "python": { "package": "tree-sitter-python", "wasm": "package/tree-sitter-python.wasm" }
+    "python": { "package": "tree-sitter-python", "wasm": "package/tree-sitter-python.wasm" },
+    "go": { "package": "tree-sitter-go", "wasm": "package/tree-sitter-go.wasm" },
+    "java": { "package": "tree-sitter-java", "wasm": "package/tree-sitter-java.wasm" },
+    "rust": { "package": "tree-sitter-rust", "wasm": "package/tree-sitter-rust.wasm" }
   },
   "packages": [
     {
@@ -58,6 +61,39 @@
       "files": [
         { "path": "package/LICENSE", "sha256": "d724405ce238a22c0d35769c5a36b386ad5958192efe8bbb304fb2896254575f" },
         { "path": "package/tree-sitter-python.wasm", "sha256": "16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47" }
+      ]
+    },
+    {
+      "name": "tree-sitter-go",
+      "version": "0.25.0",
+      "license": "MIT",
+      "tarball": "https://registry.npmjs.org/tree-sitter-go/-/tree-sitter-go-0.25.0.tgz",
+      "integrity": "sha512-APBc/Dq3xz/e35Xpkhb1blu5UgW+2E3RyGWawZSCNcbGwa7jhSQPS8KsUupuzBla8PCo8+lz9W/JDJjmfRa2tw==",
+      "files": [
+        { "path": "package/LICENSE", "sha256": "2e0110e07abef7c2548b26ec9d6969775617ca539a0dc8dbeeb14d6452c711d1" },
+        { "path": "package/tree-sitter-go.wasm", "sha256": "9504573f352b20be7f2f1911754d710622aedc15afff16d5ed8fb5645681aee7" }
+      ]
+    },
+    {
+      "name": "tree-sitter-java",
+      "version": "0.23.5",
+      "license": "MIT",
+      "tarball": "https://registry.npmjs.org/tree-sitter-java/-/tree-sitter-java-0.23.5.tgz",
+      "integrity": "sha512-Yju7oQ0Xx7GcUT01mUglPP+bYfvqjNCGdxqigTnew9nLGoII42PNVP3bHrYeMxswiCRM0yubWmN5qk+zsg0zMA==",
+      "files": [
+        { "path": "package/LICENSE", "sha256": "52ed137b039cd9c46409bc22e89938af911c95b157feae2d040b51e6084369a7" },
+        { "path": "package/tree-sitter-java.wasm", "sha256": "4fdeac4ca6ca089f06c6f7e562abcac1733cd465728cc7031ebb73c2019122c4" }
+      ]
+    },
+    {
+      "name": "tree-sitter-rust",
+      "version": "0.24.0",
+      "license": "MIT",
+      "tarball": "https://registry.npmjs.org/tree-sitter-rust/-/tree-sitter-rust-0.24.0.tgz",
+      "integrity": "sha512-NWemUDf629Tfc90Y0Z55zuwPCAHkLxWnMf2RznYu4iBkkrQl2o/CHGB7Cr52TyN5F1DAx8FmUnDtCy9iUkXZEQ==",
+      "files": [
+        { "path": "package/LICENSE", "sha256": "31d5b6f4243d5c7c6e1c4ebbbb9f6407bd1457a08bcc4f706521710341acba36" },
+        { "path": "package/tree-sitter-rust.wasm", "sha256": "f65f354215611fd94ad34134b3427eb3d58cbb745df7b6509ba722184db73d57" }
       ]
     }
   ]

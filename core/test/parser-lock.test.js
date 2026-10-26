@@ -43,7 +43,7 @@ test("the shipped lock is valid, and pins exact versions on the npm registry", (
     assert.match(p.version, /^\d+\.\d+\.\d+$/);
     assert.ok(p.tarball.startsWith("https://registry.npmjs.org/"));
   }
-  assert.deepEqual(Object.keys(r.lock.grammars).sort(), ["javascript", "python", "tsx", "typescript"]);
+  assert.deepEqual(Object.keys(r.lock.grammars).sort(), ["go", "java", "javascript", "python", "rust", "tsx", "typescript"]);
 });
 
 test("the digest is of the lock's meaning: key order and line endings do not move it", () => {

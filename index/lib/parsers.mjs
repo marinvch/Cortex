@@ -42,6 +42,9 @@ const GRAMMAR_BY_EXT = {
   cts: "typescript",
   tsx: "tsx",
   py: "python",
+  go: "go",
+  java: "java",
+  rs: "rust",
 };
 
 /** Which grammar reads `path`, or null. */

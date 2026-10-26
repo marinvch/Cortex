@@ -200,6 +200,10 @@ holds the rules for that module alone — read it before editing the module.
   - **Mutation-tested**: 54 mutants across the integrity check, the destination check, the tar
     guards and resolution, and 53 caught. The survivor re-verifies the install after writing it,
     which no input reaches because every byte was hashed before it was written.
+  - **Go, Java and Rust (G5)** were validated on fzf, spring-petclinic and ripgrep: sixty sampled
+    edges read against the source, one wrong (a Go type conversion, now dropped), and cold, warm and
+    third runs byte-identical. Nine mutants of the new resolution rules, nine caught
+    (`test/symbols-langs.test.mjs`). The package and declared-type rules are in `symbols.mjs`'s header.
   - **The cache key carries a digest of `symbols.mjs` itself** (`EXTRACTOR_VERSION`), so an edit
     there cannot reuse an extraction made by older code. Without it, a fix looked like it had changed
     nothing, because every file came from the cache.

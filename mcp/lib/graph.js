@@ -1,6 +1,6 @@
 // graph.js — the `graph` tool: questions about a repo's import graph, answered from its index.
 //
-// Seven ops over `.cortex/index/index.json`, the file `index/cortex-index.mjs` writes:
+// Ten ops over `.cortex/index/index.json`, the file `index/cortex-index.mjs` writes:
 //
 //   stats      counts, and how old the index is
 //   node       one file: its cluster, area, imports, importers, the tests that import it, its summary
@@ -9,6 +9,13 @@
 //   hubs       the graph report's hubs, the same list `cortex-graph.mjs --json` prints
 //   bridges    the graph report's bridges, likewise
 //   path       the shortest import path between two files, directed or not
+//   callers    the calls that reach one function, by confidence (G5)
+//   callees    the calls one function makes (G5)
+//   defines    the functions, classes and methods one file defines (G5)
+//
+// The last three read `index.symbols`, which only the parser add-on builds. An index without it is
+// refused with the install command, never answered as "no callers". Who counts as a caller is
+// `core/symbol-calls.js`, the module `cortex-impact.mjs --symbol` reads too.
 //
 // ## The seam
 //
@@ -40,8 +47,14 @@ import { repoTop } from "./gitsync.js";
 import { defaultIndexPath, indexFreshness, readEnrichment, readIndex } from "../../core/index-file.js";
 import { graphReport, isProductFile, TOP } from "../../core/graph.js";
 import { inTestSupportDir, isTestData, layerKeyFor } from "../../core/path-kinds.js";
+import { calleesOf, callersOf, definitionsIn, findDefinition, hasSymbols, nearSymbols, splitSymbolId } from "../../core/symbol-calls.js";
 
-export const OPS = ["stats", "node", "neighbors", "cluster", "hubs", "bridges", "path"];
+// The parser add-on's installer, named when an index has no symbols to answer from.
+const PARSERS = fileURLToPath(new URL("../../tools/cortex-parsers.mjs", import.meta.url));
+
+export const OPS = ["stats", "node", "neighbors", "cluster", "hubs", "bridges", "path", "callers", "callees", "defines"];
+/** The ops that read `index.symbols`, which only the parser add-on builds. */
+export const SYMBOL_OPS = ["callers", "callees", "defines"];
 /** The longest list one answer carries. */
 export const LIST_MAX = 50;
 /** How far `neighbors` walks. */
@@ -125,6 +138,16 @@ export function graphAnswer(repo, args = {}, { tracked } = {}) {
     ...(fresh.reason ? { reason: fresh.reason } : {}),
   };
 
+  if (SYMBOL_OPS.includes(op) && !hasSymbols(index)) {
+    return {
+      op,
+      refused: true,
+      index: { ...state, symbols: false },
+      message: `${op} reads functions and calls, and this index has none: they come from the parser add-on. Install it, rebuild the index, then ask again.`,
+      rebuild: `node "${PARSERS}" install && ${rebuild}`,
+    };
+  }
+
   const g = new IndexGraph(repo, index);
   const answer = OP_HANDLERS[op](g, q);
   return { op, index: state, ...answer };
@@ -143,7 +166,10 @@ function question(repo, args) {
   const need = (k) => {
     if (!given(k)) throw new GraphRefused("missing_argument", `${op} needs \`${k}\`, a file path relative to the repo`);
   };
-  if (op === "node" || op === "neighbors") need("file");
+  if (op === "node" || op === "neighbors" || op === "defines") need("file");
+  if (op === "callers" || op === "callees") {
+    if (!given("symbol")) throw new GraphRefused("missing_argument", `${op} needs \`symbol\`, a definition as path#name or path#Class.method`);
+  }
   if (op === "path") { need("from"); need("to"); }
   if (op === "cluster" && !given("cluster") && !given("file")) {
     throw new GraphRefused("missing_argument", "cluster needs `cluster` (an id such as c1) or `file`");
@@ -156,6 +182,12 @@ function question(repo, args) {
     if (given(k)) q[k] = relative(base, resolveInRoot(repo, args[k].trim())).split(sep).join("/");
   }
   if (given("cluster")) q.cluster = args.cluster.trim();
+  if (given("symbol")) {
+    // The path half goes through the root guard like any file argument; the name is kept as given.
+    const [p, name] = splitSymbolId(args.symbol.trim());
+    if (!p || !name) throw new GraphRefused("bad_symbol", "a symbol is path#name, or path#Class.method for a method");
+    q.symbol = `${relative(base, resolveInRoot(repo, p)).split(sep).join("/")}#${name}`;
+  }
   if (op === "neighbors") {
     const depth = args.depth === undefined || args.depth === null ? 1 : Number(args.depth);
     if (!Number.isInteger(depth) || depth < 1 || depth > DEPTH_MAX) {
@@ -393,4 +425,45 @@ function confidenceOf(g, step) {
   return g.confidence.get(key) ?? "extracted";
 }
 
-const OP_HANDLERS = { stats, node, neighbors, cluster, hubs, bridges, path };
+/** A symbol argument → its definition, or a refusal naming what was probably meant. */
+function definition(g, id) {
+  const d = findDefinition(g.index.symbols, id);
+  if (d) return d;
+  const near = nearSymbols(g.index.symbols, id);
+  throw new GraphRefused("not_found", `${id} is not a definition in the index` + (near.length ? `. Did you mean: ${near.join(", ")}` : ""));
+}
+
+const CALLS_NOTE = "A floor: only calls the parser resolved are here. A dynamic call, or one through a value whose type Cortex cannot know, is missing.";
+
+function callers(g, args) {
+  const d = definition(g, args.symbol);
+  const c = callersOf(g.index.symbols, d.id);
+  return {
+    symbol: d.id,
+    kind: d.kind,
+    line: d.line,
+    atLeast: c.extracted.length,
+    extracted: capped(c.extracted),
+    inferred: capped(c.inferred),
+    ambiguous: capped(c.ambiguous),
+    note: `${CALLS_NOTE} Inferred and ambiguous calls are not in atLeast.`,
+  };
+}
+
+function callees(g, args) {
+  const d = definition(g, args.symbol);
+  return { symbol: d.id, kind: d.kind, line: d.line, calls: capped(calleesOf(g.index.symbols, d.id)), note: CALLS_NOTE };
+}
+
+function defines(g, args) {
+  const path = g.file(args.file);
+  const defs = definitionsIn(g.index.symbols, path).map((d) => ({ ...d, name: splitSymbolId(d.id)[1] }));
+  const out = { path, definitions: capped(defs) };
+  if (!defs.length) {
+    const langs = Object.keys(g.index.symbols.grammars ?? {}).sort(byCodeUnit);
+    out.note = `No definitions found in ${path}. The parser reads ${langs.join(", ") || "no language"}; a file in another language has none here.`;
+  }
+  return out;
+}
+
+const OP_HANDLERS = { stats, node, neighbors, cluster, hubs, bridges, path, callers, callees, defines };

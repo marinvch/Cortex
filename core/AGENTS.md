@@ -148,6 +148,10 @@ here, which is why the directory is small and stays small.
     definition of stale, one reader of each file; `index/lib/open.mjs`, `format.mjs` and
     `enrich.mjs` re-export them. A refusal names the kind (`absent`, `unreadable`, `version`) and
     the command that rebuilds.
+  - **`symbol-calls.js` is what a caller is** (G5): the calls in `index.symbols` that reach a
+    definition, split `extracted` / `inferred` / `ambiguous`. `cortex-impact.mjs --symbol` and the
+    `graph` tool's `callers`, `callees` and `defines` both read it. Pure, like `graph.js`: only an
+    `extracted` call counts toward a floor.
   - Everything here is re-exported by the `index/` module that used to hold it, so `index/` still
     asks its own modules. Do not import these from `index/` callers directly.
 

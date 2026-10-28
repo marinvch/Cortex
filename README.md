@@ -390,7 +390,8 @@ node index/cortex-shared-plugin.mjs .  # on a team repo: what --write would add 
 
 An agent can ask the import graph the same questions without a script. The `graph` MCP tool, in
 repo mode, and `node mcp/ai-os.js graph <op>` answer `stats`, `node`, `neighbors`, `cluster`,
-`hubs`, `bridges` and `path` from the stored index. The hubs and bridges are the ones
+`hubs`, `bridges` and `path` from the stored index, and `callers`, `callees` and `defines` with
+the parser add-on below. The hubs and bridges are the ones
 `cortex-graph.mjs --json` prints. Both refuse a missing or stale index and name the command that
 rebuilds it.
 
@@ -422,6 +423,19 @@ and all are kept. Calls that resolve to nothing are counted by reason, not liste
 weigh calls between files too, and `index.parser` names the parser that built the index. Without
 the add-on the index is exactly what it was, with `parser: "regex"`. Parsed files are cached in
 `.cortex/index/symbols/` by content, so an unchanged file is not parsed twice.
+
+Three ways to ask about them:
+
+```bash
+node index/cortex-impact.mjs --symbol src/cart.ts#total   # who calls it, and which callers no test covers
+node mcp/ai-os.js graph callers src/cart.ts#total         # the same callers, through the graph tool
+node mcp/ai-os.js graph callees src/cart.ts#Cart.add      # what it calls
+node mcp/ai-os.js graph defines src/cart.ts               # what a file defines
+```
+
+The `graph` MCP tool has the same `callers`, `callees` and `defines` ops. The count of callers is
+a floor of **extracted** calls; inferred and ambiguous ones are listed apart and not counted.
+Without the add-on these refuse and print the install command, rather than answering "no callers".
 
 ---
 

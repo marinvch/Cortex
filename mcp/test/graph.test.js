@@ -233,7 +233,7 @@ test("a stale index is refused for every op, never answered from", () => {
   utimesSync(join(fx.repo, "src/b.js"), new Date(), new Date());
   utimesSync(join(fx.repo, ".cortex/index/index.json"), LONG_AGO, LONG_AGO);
   for (const op of OPS) {
-    const r = ask(fx, { op, file: "src/a.js", from: "src/a.js", to: "src/c.js", cluster: "c1" });
+    const r = ask(fx, { op, file: "src/a.js", from: "src/a.js", to: "src/c.js", cluster: "c1", symbol: "src/a.js#a" });
     assert.equal(r.refused, true, op);
     assert.equal(r.index.state, "stale", op);
     assert.deepEqual(r.index.changedSince, ["src/b.js"], op);
@@ -405,4 +405,73 @@ test("the graph tool answers over the wire in repo mode", async () => {
   const body = JSON.parse(res.result.content[0].text);
   assert.equal(body.cluster, "c1");
   assert.deepEqual(body.imports.items, ["src/b.js", "src/c.js"]);
+});
+
+// --- G5: callers, callees, defines ------------------------------------------------------------------
+
+// The shape index/lib/symbols.mjs writes. b.js#run calls a.js#start (extracted) and c.js#util
+// (inferred); lib/d.js calls a `util` two files define (ambiguous).
+const SYMBOLS = {
+  parser: "tree-sitter@test", grammars: { javascript: "tree-sitter-javascript@test" }, files: 4,
+  definitions: [
+    { id: "src/a.js#start", kind: "function", line: 1, exported: true },
+    { id: "src/b.js#run", kind: "function", line: 2 },
+    { id: "src/c.js#util", kind: "function", line: 3, exported: true },
+    { id: "lib/e.js#util", kind: "function", line: 1 },
+  ],
+  calls: [
+    { from: "src/b.js#run", line: 4, name: "start", to: ["src/a.js#start"], confidence: "extracted" },
+    { from: "src/b.js#run", line: 5, name: "util", to: ["src/c.js#util"], confidence: "inferred" },
+    { from: "lib/d.js", line: 9, name: "util", to: ["lib/e.js#util", "src/c.js#util"], confidence: "ambiguous" },
+    { from: "test/a.test.js", line: 3, name: "start", to: ["src/a.js#start"], confidence: "extracted" },
+  ],
+  unresolved: { total: 0 },
+};
+
+test("callers counts only extracted calls in atLeast, and lists inferred and ambiguous apart", () => {
+  const fx = fixture({ extra: { symbols: SYMBOLS } });
+  const r = ask(fx, { op: "callers", symbol: "src/a.js#start" });
+  assert.equal(r.atLeast, 2);
+  assert.deepEqual(r.extracted.items.map((c) => c.from), ["src/b.js#run", "test/a.test.js"]);
+  const u = ask(fx, { op: "callers", symbol: "src/c.js#util" });
+  assert.equal(u.atLeast, 0, "an inferred call is not in the floor");
+  assert.deepEqual(u.inferred.items.map((c) => c.from), ["src/b.js#run"]);
+  assert.deepEqual(u.ambiguous.items, [{ from: "lib/d.js", line: 9, name: "util", candidates: 2 }]);
+});
+
+test("callees lists the calls a function makes, in line order", () => {
+  const fx = fixture({ extra: { symbols: SYMBOLS } });
+  const r = ask(fx, { op: "callees", symbol: "src/b.js#run" });
+  assert.deepEqual(r.calls.items.map((c) => [c.line, c.name, c.confidence]), [[4, "start", "extracted"], [5, "util", "inferred"]]);
+});
+
+test("defines lists a file's definitions, and says why a file has none", () => {
+  const fx = fixture({ extra: { symbols: SYMBOLS } });
+  assert.deepEqual(ask(fx, { op: "defines", file: "src/c.js" }).definitions.items.map((d) => d.name), ["util"]);
+  const none = ask(fx, { op: "defines", file: "docs/readme.md" });
+  assert.equal(none.definitions.total, 0);
+  assert.match(none.note, /reads javascript/);
+});
+
+test("an index without symbols is refused for the symbol ops, with the add-on's install command", () => {
+  const fx = fixture();
+  for (const [op, arg] of [["callers", { symbol: "src/a.js#start" }], ["callees", { symbol: "src/a.js#start" }], ["defines", { file: "src/a.js" }]]) {
+    const r = ask(fx, { op, ...arg });
+    assert.equal(r.refused, true, op);
+    assert.equal(r.index.symbols, false, op);
+    assert.match(r.rebuild, /cortex-parsers\.mjs" install && node .*cortex-index\.mjs/, op);
+    assert.equal(r.atLeast, undefined, `${op} never answers "no callers" without symbols`);
+  }
+});
+
+test("a symbol that is not a definition is refused with what was probably meant", () => {
+  const fx = fixture({ extra: { symbols: SYMBOLS } });
+  assert.throws(() => ask(fx, { op: "callers", symbol: "src/a.js#Start" }), (e) => e.code === "not_found" && /src\/a\.js#start/.test(e.message));
+  assert.throws(() => ask(fx, { op: "callers" }), (e) => e.code === "missing_argument");
+  assert.throws(() => ask(fx, { op: "callees", symbol: "src/a.js" }), (e) => e.code === "bad_symbol");
+});
+
+test("a symbol whose path leaves the repo is refused by the root guard", () => {
+  const fx = fixture({ extra: { symbols: SYMBOLS } });
+  assert.throws(() => ask(fx, { op: "callers", symbol: "../secret.js#x" }), OutsideRootError);
 });

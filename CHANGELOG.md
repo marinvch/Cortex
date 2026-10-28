@@ -7,6 +7,15 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Added
 
+- **Who calls a function.** With the parser add-on installed:
+  - `cortex-impact.mjs --symbol path#name` lists the calls that reach a function, the calling files
+    no test covers, and the tests worth running.
+  - The `graph` tool and `ai-os graph` gain `callers`, `callees` and `defines`.
+  - The count is a floor of `extracted` calls; `inferred` and `ambiguous` ones are listed apart.
+    A name that is not defined gets the likely one back, case ignored.
+  - Without the add-on, these refuse and print the install command. They never answer "no callers".
+  - `core/symbol-calls.js` decides what a caller is, for both.
+
 - **Symbols for Go, Java and Rust.** The parser add-on now pins grammars for all three, so a repo
   in them gets functions, methods and calls like a JS or Python one.
   - Run `node tools/cortex-parsers.mjs install` again: the lock changed, and the download is now
@@ -211,6 +220,11 @@ this project now versions independently of any package manager (see `VERSION`).
   [ADR 0027](docs/adr/0027-personal-data-in-committed-memory-is-warned-about-and-erasable.md) amended.
 
 ### Fixed
+
+- **With the parser add-on installed, a first index run said nothing about creating `.cortex/`.**
+  The symbol cache wrote under `.cortex/` during the build, so the check after it found the
+  directory already there. The `.gitignore` entries were still added. `cortex-index.mjs` now checks
+  before the build. CI does not install the add-on, so only a run on a machine with it showed this.
 
 - **The README's "What Cortex runs, sends and fetches" names `tools/server/cortex-cron.sh`.** That
   script sends the scrubbed changes to the Anthropic API when a key is set, and the list never said

@@ -6,7 +6,7 @@
 // Writes <repoRoot>/.cortex/index/index.json unless --out says otherwise. No LLM, no network:
 // the same tree always produces the same file, so this is safe to run in CI and on every install.
 
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { buildIndex } from "./lib/build.mjs";
 import { loadParsers } from "./lib/parsers.mjs";
@@ -32,9 +32,13 @@ const started = Date.now();
 const notes = [];
 const parsers = await loadParsers({ onNote: (n) => notes.push(n) });
 const cache = parsers ? symbolCache(join(dirname(out), "symbols")) : null;
+// Asked before the build: the symbol cache writes under .cortex/ while it builds, so asking after
+// would find .cortex/ already there and say nothing about creating it.
+const hadCortex = existsSync(join(root, ".cortex"));
 const index = buildIndex(root, { parsers, symbolCache: cache });
 
 const gen = ensureGeneratedFileDir(root, out);
+if (!hadCortex) gen.created = true;
 writeFileSync(out, JSON.stringify(index, null, 2));
 cache?.prune();
 

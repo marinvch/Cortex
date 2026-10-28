@@ -87,12 +87,13 @@ export const TOOL_TABLE = [
   // read the team-brain, so the tool runs in either mode — a project manager's Claude Desktop has no
   // repo. Read-only; FOREIGN because summaries are model-written and story titles come from trackers.
   { name: "graph", mode: ANY, returns: FOREIGN, writes: LOCAL,
-    description: `The code graph. In a repo, from its Cortex index: stats · node (file) · neighbors (file, depth 1-3) · cluster (cluster or file) · hubs · bridges · path (from, to, directed). On a team, from the team-brain: story (key: the code an epic or story touched, its clusters, contracts, untested files, hubs and open asks) · stories-for (file or cluster, with project) · risk (open stories touching untested or hub code). Refuses a missing or stale index or story links and names the command that rebuilds them. Lists are capped; every count is a floor. ${UNTRUSTED_NOTE}`,
+    description: `The code graph. In a repo, from its Cortex index: stats · node (file) · neighbors (file, depth 1-3) · cluster (cluster or file) · hubs · bridges · path (from, to, directed) · callers / callees (symbol) · defines (file), the last three when the parser add-on built symbols. On a team, from the team-brain: story (key: the code an epic or story touched, its clusters, contracts, untested files, hubs and open asks) · stories-for (file or cluster, with project) · risk (open stories touching untested or hub code). Refuses a missing or stale index or story links and names the command that rebuilds them. Lists are capped; every count is a floor. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: {
       op: { type: "string", enum: GRAPH_OPS },
       file: { type: "string", description: "A file path relative to the repo; for stories-for, a directory too." },
       depth: { type: "number", description: "neighbors: how many hops, 1 to 3. Default 1." },
       cluster: { type: "string", description: "A cluster id, such as c1." },
+      symbol: { type: "string", description: "callers, callees: a definition as path#name, or path#Class.method for a method." },
       from: { type: "string" }, to: { type: "string" },
       directed: { type: "boolean", description: "path: follow imports only, from `from` toward `to`. Default false." },
       key: { type: "string", description: "story: a ticket key, such as ABC-123, STRY0010001 or owner/repo#45." },

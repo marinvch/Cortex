@@ -58,10 +58,13 @@ const seenAt = args.includes("--seen")
 /**
  * Markdown → the words a reader sees, so a sentence matches whatever the page wraps it in: link
  * targets dropped, code and emphasis marks dropped, table pipes and every run of whitespace
- * collapsed to one space. Applied to both the page and the evidence, so either may carry the marks.
+ * collapsed to one space, curly quotes read as straight ones. Applied to both the page and the
+ * evidence, so either may carry the marks.
  */
 function normalise(md) {
   return md
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
     .replace(/\\([\\`*_{}[\]()#+\-.!|])/g, "$1")
     .replace(/<[^>\n]+>/g, " ")
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")

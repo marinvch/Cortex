@@ -376,10 +376,10 @@ const CHECKS = [
   },
   {
     kind: "claude-md-emphasis",
-    rule: "claude-md.emphasis-one-line",
+    rule: "claude-md.emphasis-not-the-fix",
     severity: "low",
     title: (n) => `${n} memory file${n === 1 ? "" : "s"} shouting on many lines`,
-    what: `Emphasis works on one line and stops working when many lines carry it. Flagged above ${EMPHASIS_LINES} lines with an uppercase IMPORTANT / CRITICAL / MUST / NEVER / ALWAYS — Cortex's threshold, not a documented number.`,
+    what: `Emphasis does not make a line stick. A rule that cannot bend belongs in a hook or a deny rule, and a line that keeps getting lost means the file is too long. Current models follow a plain line, and piled-on emphasis makes them over-apply it. Flagged above ${EMPHASIS_LINES} lines with an uppercase IMPORTANT / CRITICAL / MUST / NEVER / ALWAYS — Cortex's threshold, not a documented number.`,
     run: (r, mem) =>
       mem.files.flatMap((p) => {
         const src = r.read(p);

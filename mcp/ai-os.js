@@ -530,6 +530,10 @@ const GRAPH_USAGE =
   "  ai-os graph cluster <id|file>              members, hub, cohesion and areas\n" +
   "  ai-os graph hubs | bridges                 the graph report's lists, as cortex-graph.mjs --json has them\n" +
   "  ai-os graph path <from> <to> [--directed]  the shortest import path between two files\n" +
+  "  ai-os graph callers <path#name>            the calls that reach a function, by confidence\n" +
+  "  ai-os graph callees <path#name>            the calls a function makes\n" +
+  "  ai-os graph defines <file>                 the functions, classes and methods a file defines\n" +
+  "                                             (these three need the parser add-on: tools/cortex-parsers.mjs)\n" +
   "  ai-os graph story <key>                    the code an epic or story touched, across the team's repos\n" +
   "  ai-os graph stories-for <file|dir> | --cluster <id> [--project <slug>]\n" +
   "                                             which stories changed this code\n" +
@@ -556,10 +560,11 @@ function positionals(argv) {
 // not in a state I can answer about"; a wrong question exits 1 through the handler below.
 function cmdGraph(op, argv, args, brain) {
   if (!op || op.startsWith("--")) throw new Error(GRAPH_USAGE);
-  for (const k of ["file", "from", "to", "cluster", "depth", "key", "project"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${GRAPH_USAGE}`);
+  for (const k of ["file", "from", "to", "cluster", "depth", "key", "project", "symbol"]) if (args[k] === true) throw new Error(`--${k} needs a value\n${GRAPH_USAGE}`);
   const [a, b] = positionals(argv);
   const q = { op, directed: args.directed !== undefined };
-  if (op === "node" || op === "neighbors") q.file = args.file ?? a;
+  if (op === "node" || op === "neighbors" || op === "defines") q.file = args.file ?? a;
+  if (op === "callers" || op === "callees") q.symbol = args.symbol ?? a;
   if (op === "neighbors" && args.depth !== undefined) q.depth = Number(args.depth);
   if (op === "cluster") {
     if (args.cluster) q.cluster = args.cluster;
@@ -635,6 +640,24 @@ function graphText(res) {
       lines.push(`${res.length} step${res.length === 1 ? "" : "s"}, ${res.directed ? "following imports only" : "either direction"}:`);
       lines.push(`  ${res.from}`);
       for (const s of res.steps) lines.push(`    ${s.edge === "imports" ? "imports" : "is imported by"} ${s.to}`);
+      break;
+    case "callers": {
+      const at = (c) => `${c.from}:${c.line}${c.kind ? ` (${c.kind})` : ""}`;
+      lines.push(`${res.symbol} (${res.kind}, line ${res.line}): at least ${res.atLeast} call${res.atLeast === 1 ? "" : "s"} reach it.`);
+      list("Extracted", res.extracted, at);
+      if (res.inferred.total) list("Inferred, not counted", res.inferred, at);
+      if (res.ambiguous.total) list("Ambiguous, not counted", res.ambiguous, (c) => `${at(c)}  (${c.candidates} candidates)`);
+      lines.push(res.note);
+      break;
+    }
+    case "callees":
+      lines.push(`${res.symbol} (${res.kind}, line ${res.line}):`);
+      list("Calls", res.calls, (c) => `${c.line}  ${c.name}${c.kind ? ` (${c.kind})` : ""} -> ${c.to.join(", ")}  ${c.confidence}`);
+      lines.push(res.note);
+      break;
+    case "defines":
+      list(`Defined in ${res.path}`, res.definitions, (d) => `${d.line}  ${d.kind} ${d.name}${d.exported ? ", exported" : ""}`);
+      if (res.note) lines.push(res.note);
       break;
     case "story": {
       const s = res.story;
@@ -739,6 +762,7 @@ The team-brain (needs a repo joined with \`team add\`, or a vault with a team cl
 The code graph (writes nothing):
   graph stats|node|neighbors|cluster|hubs|bridges|path
                                              this repo's import graph, from its Cortex index
+  graph callers|callees|defines              its functions and calls, with the parser add-on
   graph story|stories-for|risk               the team's stories, traced to code through the team-brain
                                              graph with no op prints each op's arguments
 

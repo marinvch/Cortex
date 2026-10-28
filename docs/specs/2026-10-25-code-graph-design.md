@@ -169,6 +169,16 @@ Each piece is one PR. Each merges to `master` unreleased. The release follows th
   ones listed apart.
 - The `graph` tool gains `callers`, `callees` and `defines`.
 - Grammars for Go, Java and Rust, each validated on its own repos (fzf, spring-petclinic, ripgrep).
+- **As built.** The first pass resolved 6% of spring-petclinic's calls, because Java code calls
+  methods on fields and parameters, and the JS model treats those as values of unknown type.
+  - **Declared types.** Go, Java and Rust state a parameter's, a local's or a field's type, so
+    `x.m()` now resolves to the declared type's `m`: extracted on the type itself, inferred through
+    its base. Petclinic went to 20%, and fzf and ripgrep gained about a hundred edges each.
+  - **The package.** Go and Java files see their package's names without an import.
+  - **Conversions.** A Go call to a type is a conversion, not a call.
+  - **Overloads.** Java overloads share one id.
+  - **Validation.** Sixty edges were read against the source, and cold and warm runs are
+    byte-identical.
 
 ## Release
 

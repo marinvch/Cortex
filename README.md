@@ -401,14 +401,14 @@ The import graph says which files depend on each other. To see which functions c
 the parser add-on once per machine:
 
 ```bash
-node tools/cortex-parsers.mjs install   # downloads about 5.7 MB from registry.npmjs.org
+node tools/cortex-parsers.mjs install   # downloads about 8.3 MB from registry.npmjs.org
 node tools/cortex-parsers.mjs status    # what is installed, against index/parsers.lock.json
 node tools/cortex-parsers.mjs remove    # deletes it again
 ```
 
-It is optional, and nothing installs it for you. It fetches four MIT-licensed npm packages pinned
+It is optional, and nothing installs it for you. It fetches seven MIT-licensed npm packages pinned
 in [`index/parsers.lock.json`](index/parsers.lock.json): the WebAssembly build of the tree-sitter
-parser and its grammars for JavaScript, TypeScript and TSX, and Python. Each tarball's sha512 is
+parser and its grammars for JavaScript, TypeScript and TSX, Python, Go, Java and Rust. Each tarball's sha512 is
 checked against the lock before anything is unpacked, then each file's sha256, and the files go to
 `~/.cortex/parsers/<lock digest>/`. Nothing lands in the plugin or in any repo, and no install
 script runs. On a `work` profile, `npm: registry.npmjs.org` must be on the

@@ -16,6 +16,18 @@ this project now versions independently of any package manager (see `VERSION`).
   - Without the add-on, these refuse and print the install command. They never answer "no callers".
   - `core/symbol-calls.js` decides what a caller is, for both.
 
+- **Symbols for Go, Java and Rust.** The parser add-on now pins grammars for all three, so a repo
+  in them gets functions, methods and calls like a JS or Python one.
+  - Run `node tools/cortex-parsers.mjs install` again: the lock changed, and the download is now
+    about 8.3 MB.
+  - **The package.** Go and Java files see names from the rest of their package without an
+    import.
+  - **Declared types.** A call on a parameter, local or (Java) field resolves through its declared
+    type.
+  - **Rust paths.** `crate::a::f()` and `use crate::util;` resolve like any other import.
+  - **Validation.** Checked on fzf, spring-petclinic and ripgrep: sixty sampled edges read against
+    the source, and cold and warm runs byte-identical.
+
 - **Skills for Codex and Gemini CLI.** Those two agents read skills only from `.agents/skills/`.
   `/suggest-skills` now asks once whether the team uses either. On a yes it writes an identical copy
   of each skill there, and `.claude/skills/` stays the source. `cortex-skills.mjs` reports a copy

@@ -174,7 +174,7 @@ node tools/cortex-parsers.mjs remove
 ```
 
 `install` downloads the packages pinned in `index/parsers.lock.json` (the WebAssembly tree-sitter
-runtime and its JavaScript, TypeScript, TSX and Python grammars) and writes only under
+runtime and its JavaScript, TypeScript, TSX, Python, Go, Java and Rust grammars) and writes only under
 `~/.cortex/parsers/<lock digest>/`. It checks the registry against the approved-destinations list on
 a `work` profile, each tarball's sha512 and each file's sha256 against the lock, and refuses a
 tarball holding a link or a path that leaves it. `--registry` fetches the same paths from a mirror.

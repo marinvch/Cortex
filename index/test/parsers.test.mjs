@@ -120,7 +120,8 @@ test("a grammar is chosen by extension alone", () => {
   const cases = {
     "a.js": "javascript", "a.mjs": "javascript", "a.cjs": "javascript", "A.JSX": "javascript",
     "a.ts": "typescript", "a.mts": "typescript", "a.cts": "typescript", "a.tsx": "tsx",
-    "pkg/a.py": "python", "a.go": null, "Makefile": null, "a.vue": null,
+    "pkg/a.py": "python", "cmd/a.go": "go", "A.java": "java", "src/a.rs": "rust",
+    "a.kt": null, "Makefile": null, "a.vue": null,
   };
   for (const [path, want] of Object.entries(cases)) assert.equal(grammarFor(path), want, path);
 });

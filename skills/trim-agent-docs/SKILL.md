@@ -104,14 +104,15 @@ Anthropic's best-practices page gives a test for `CLAUDE.md` that applies to any
 session. Cortex vendors it as rules in `${CLAUDE_PLUGIN_ROOT}/core/claude-code.js`, each with its
 source sentence; cite the rule id in the finding, not a number from memory.
 
-- **`claude-md.prune-test`** — for each always-loaded line: *would removing this cause Claude to
-  make mistakes?* A line that fails is a `[propose]` finding, quoted with that reason. This does
+- **`claude-md.prune-test`** — for each always-loaded line: *could Claude work this out from the
+  code itself?* A line it could is a `[propose]` finding, quoted with that reason. This does
   **not** loosen the hard rule: the test says what to propose, the human still says yes.
 - **`claude-md.broad-only`** — a line that applies only to one area or one workflow belongs in a
   scoped leaf (`/write-area-brief`) or a skill, which load on demand. Moving it is `[propose]` unless
   the destination already states it word for word.
-- **`claude-md.emphasis-one-line`** — `IMPORTANT`, `MUST`, `NEVER` on many lines means none stands
-  out. Report the count; propose keeping emphasis on the one rule that is actually being skipped.
+- **`claude-md.emphasis-not-the-fix`** — `IMPORTANT`, `MUST`, `NEVER` do not make a line stick.
+  Report the count. For a line Claude keeps skipping, propose a hook or deny rule if it cannot bend,
+  or a shorter file if it is getting lost. Never propose adding emphasis.
 - **`claude-md.max-lines`** — a file over this limit is a finding on its own; say by how much.
 
 What the page says belongs in the file, and what does not
@@ -119,13 +120,10 @@ What the page says belongs in the file, and what does not
 
 | Keep | Cut or move |
 |---|---|
-| commands Claude can't guess | anything Claude can learn by reading the code |
-| style rules that differ from defaults | standard language conventions |
-| testing instructions and preferred runners | detailed API documentation — link instead |
-| repo etiquette (branch naming, PR conventions) | information that changes frequently |
-| architectural decisions specific to the project | long explanations or tutorials |
-| environment quirks (required env vars) | file-by-file descriptions of the codebase |
-| gotchas and non-obvious behaviour | self-evident practice like "write clean code" |
+| how to confirm work: the exact test, typecheck and lint commands, and how to run one test file | anything Claude can work out from the code itself |
+| places where the code misleads: a pattern new code must not copy, a directory that looks unused but isn't | a rule that can't have exceptions — make it a hook or a deny rule |
+| decisions that aren't in the repo: the error helper the team settled on, how deploys work | personal preferences — those go in `CLAUDE.local.md`, gitignored |
+| anything you've had to correct twice already | a procedure only some tasks need — make it a skill |
 
 If the repo's `/setup-repo` report already carries `claude-setup/claude-md-*` findings, start
 from those — they are the mechanical half of this lens, and this pass is the judgment half.

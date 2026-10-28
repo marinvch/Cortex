@@ -25,7 +25,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-10-24";
+export const CHECKED = "2026-10-28";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -192,7 +192,7 @@ export const RULES = Object.freeze([
     id: "skill.name.reserved-words",
     value: ["anthropic", "claude"],
     source: AUTHORING,
-    evidence: 'Cannot contain reserved words: "anthropic", "claude"',
+    evidence: "Cannot contain reserved words: `anthropic`, `claude`",
   },
   {
     id: "skill.description.portable-max-chars",
@@ -538,7 +538,8 @@ export const RULES = Object.freeze([
     id: "permission.bash.compound-matches-each",
     value: "each subcommand",
     source: PERMISSIONS,
-    evidence: "A rule must match each subcommand independently.",
+    evidence:
+      "Every subcommand must be allowed for a compound command to run without a prompt, for example because the subcommand matches an allow rule or is a read-only command.",
   },
   {
     id: "permission.trust.headless-no-dialog",
@@ -573,21 +574,21 @@ export const RULES = Object.freeze([
     id: "claude-md.broad-only",
     value: true,
     source: BEST,
-    evidence: "CLAUDE.md is loaded every session, so only include things that apply broadly.",
+    evidence:
+      "Claude Code loads `CLAUDE.md` into every session, which means every line in it takes a little of Claude's attention on *every* task, whether it's relevant or not.",
   },
   {
     id: "claude-md.prune-test",
-    value: "Would removing this cause Claude to make mistakes?",
+    value: "Could Claude work this out from the code itself?",
     source: BEST,
-    evidence:
-      "Keep it concise. For each line, ask: *\"Would removing this cause Claude to make mistakes?\"* If not, cut it.",
+    evidence: "That's why the file works best when it only holds what Claude couldn't work out from the code itself",
   },
   {
-    id: "claude-md.emphasis-one-line",
-    value: "IMPORTANT",
+    id: "claude-md.emphasis-not-the-fix",
+    value: "a hook, or a shorter file",
     source: BEST,
     evidence:
-      "If Claude keeps skipping one instruction, add emphasis such as \"IMPORTANT\" to that line alone. If you emphasize many lines, none of them stands out.",
+      "If Claude keeps ignoring a line that *is* in `CLAUDE.md`, adding IMPORTANT probably won't fix it. Either the file has grown long enough that the line gets lost, or the line is a rule that can't have exceptions, in which case it belongs in a hook.",
   },
 
   // --- AGENTS.md: when Claude Code reads it without a CLAUDE.md, and what the shim costs -----------

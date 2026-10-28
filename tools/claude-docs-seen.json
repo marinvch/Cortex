@@ -1,5 +1,5 @@
 {
-  "checked": "2026-10-24",
+  "checked": "2026-10-28",
   "docs": [
     "accessibility",
     "admin-setup",
@@ -238,6 +238,7 @@
     "claude-code-mods",
     "claude-duet",
     "claude-duet-safety-privacy-and-security",
+    "claude-for-financial-advisors",
     "claude-for-foundation-models",
     "claude-for-government-is-now-generally-available",
     "claude-for-small-business-launches-new-workflows-integrations-and-training-programs",
@@ -255,6 +256,7 @@
     "cowork-built-in-browser",
     "cowork-is-now-claude",
     "dashboards-and-motion",
+    "expanding-claude-for-nonprofits",
     "giving-companies-more-control-over-their-ai-agents-with-nvidia",
     "hcltech-joins-claude-partner-network",
     "how-an-anthropic-japan-business-development-representative-runs-his-day",
@@ -263,6 +265,7 @@
     "how-coderabbit-power-digital-and-thoughtspot-scale-with-snowflake-and-vercel-on-claude-marketplace",
     "how-comcast-booz-allen-use-claude-mythos-to-secure-their-codebases",
     "how-cresta-turned-cx-expertise-into-an-agent-builder-on-the-claude-agent-sdk",
+    "how-to-manage-costs-and-demonstrate-roi-for-claude-code-on-google-cloud",
     "how-to-prepare-for-ai-driven-code-modernization-projects",
     "new-in-claude-managed-agents",
     "projects-redesigned",

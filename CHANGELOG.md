@@ -170,6 +170,14 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Changed
 
+- **Emphasis is no longer advice for a line Claude skips** (#656). Claude Code's best-practices
+  page reversed itself: adding IMPORTANT to a skipped line "probably won't fix it". The rule is now
+  `claude-md.emphasis-not-the-fix`. The `claude-md-emphasis` finding and `/trim-agent-docs` propose
+  a hook or deny rule for a rule that cannot bend, and a shorter file for a line that gets lost.
+  `claude-md.prune-test` takes the page's new test, "could Claude work this out from the code
+  itself?", and the trim skill's keep/cut table follows the page's new list. The docs checker reads
+  curly quotes as straight ones, so a page restyling its apostrophes no longer reads as a rule gone.
+
 - **Breaking: every ritual has a plain name.** Each one is now named for the job it does, in words
   an engineer, a project manager or a team lead reads without a glossary: `/cortex` is
   `/setup-repo`, `/cortex-review` is `/review-change`, `/ship` is `/merge-work`,

@@ -25,7 +25,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-10-28";
+export const CHECKED = "2026-11-08";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -359,12 +359,15 @@ export const RULES = Object.freeze([
     source: REVIEW_CUSTOMIZE,
     evidence: "`REVIEW.md` is a file at your repository root that tailors Code Review to your repository.",
   },
+  // A subdirectory REVIEW.md is read only when the default branch is protected (November 2026),
+  // and never under a test, example, generated or vendored directory. /setup-repo stamps only the
+  // root file, so nothing here depends on the subdirectory one.
   {
     id: "review.review-md.subdirectory",
     value: true,
     source: REVIEW_CUSTOMIZE,
     evidence:
-      "You can also add a `REVIEW.md` in a subdirectory to add checks for changes under that path, on top of the root file.",
+      "On a protected branch, you can also add a `REVIEW.md` in most subdirectories to add checks for changes under that subdirectory, on top of the root file.",
   },
   {
     id: "review.claude-md.violation-is-a-finding",
@@ -420,7 +423,7 @@ export const RULES = Object.freeze([
     id: "team.permissions.from-lead",
     value: "dontAsk",
     source: TEAMS,
-    evidence: "Teammates start with the lead's permission mode, except `dontAsk` mode, which they don't inherit.",
+    evidence: "If the lead is in `dontAsk` mode, the teammate starts in Manual mode instead.",
   },
   {
     id: "worktree.gitignore",
@@ -519,7 +522,7 @@ export const RULES = Object.freeze([
     id: "permission.file-rules.tools",
     value: ["Edit", "Read"],
     source: PERMISSIONS,
-    evidence: "Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules only.",
+    evidence: "Claude Code checks file permissions against `Edit(path)` and `Read(path)` rules.",
   },
   {
     id: "permission.claudeignore.no-effect",
@@ -906,7 +909,7 @@ export const RULES = Object.freeze([
     value: "thinking: {\"type\": \"disabled\"}",
     source: OPUS_5_5,
     evidence:
-      "Claude Opus 5 accepts `thinking: {\"type\": \"disabled\"}` at `high` effort or below; Claude Opus 5.5 doesn't, and the migration guide covers the request change.",
+      "Claude Opus 5 accepts `thinking: {\"type\": \"disabled\"}` at `high` effort or below. Claude Opus 5.5 returns a 400 error for it",
   },
   {
     id: "model.prompt.no-reasoning-in-response",

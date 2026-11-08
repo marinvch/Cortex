@@ -229,6 +229,13 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **Four Claude Code rules quote their pages again** (#658). The docs reworded them, and the rules
+  still hold, so only the quoted sentences changed, with one narrower case. A subdirectory
+  `REVIEW.md` is now read only when the default branch is protected, and never under a test,
+  example, generated or vendored directory. `/setup-repo` stamps only the root file, so nothing it
+  writes changes. All 119 rules re-confirmed on 2026-11-08, and seven new blog posts read: none
+  asks anything of Cortex.
+
 - **With the parser add-on installed, a first index run said nothing about creating `.cortex/`.**
   The symbol cache wrote under `.cortex/` during the build, so the check after it found the
   directory already there. The `.gitignore` entries were still added. `cortex-index.mjs` now checks

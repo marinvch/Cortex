@@ -313,7 +313,7 @@ test("a route table, an http-proxy-middleware mount and a Next rewrite are gatew
 test("a repo with no routes at all yields empty lists, zero findings, and no throw", () => {
   const r = repo({ "README.md": "# nothing\n", "src/util.ts": "export const x = 1;\n", "lib/Main.java": "class Main {}\n" });
   assert.deepEqual(r, {
-    calls: [], bases: [], gateways: [], handlers: [], services: [], unread: { calls: 0, handlers: 0 },
+    calls: [], bases: [], gateways: [], handlers: [], services: [], mounts: [], unread: { calls: 0, handlers: 0, mounts: 0 },
   });
   const map = resolveRoutes([{ name: "plain", routes: r }]);
   assert.deepEqual(map.findings, []);
@@ -479,7 +479,7 @@ test("the index always carries routes — empty for a repo with none — and two
   const root = tempDir("cortex-routes-");
   gitRepo(join(root, "plain"), { "src/a.js": "export const a = 1;\n" });
   const a = buildIndex(join(root, "plain"));
-  assert.deepEqual(a.routes, { calls: [], bases: [], gateways: [], handlers: [], services: [], unread: { calls: 0, handlers: 0 } });
+  assert.deepEqual(a.routes, { calls: [], bases: [], gateways: [], handlers: [], services: [], mounts: [], unread: { calls: 0, handlers: 0, mounts: 0 } });
 
   gitRepo(join(root, "orders"), { "src/main/java/com/depot/orders/OrderController.java": ORDER_CONTROLLER.replace(/\n/g, "\r\n") });
   const b1 = buildIndex(join(root, "orders"));

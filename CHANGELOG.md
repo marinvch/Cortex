@@ -5,6 +5,27 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Added
+
+- **A router mounted in another file gets its prefix** (#630). `app.use("/api", router)`,
+  `include_router(items.router, prefix="/items")` and `register_blueprint(bp, url_prefix="/admin")`
+  are followed through the imports the index resolves, and mounts compose, so the route map and the
+  contract carry the path a client calls. Each mount is in `index.routes.mounts`.
+  - A literal prefix is `extracted`. `settings.API_V1_STR`, a setting with exactly one string
+    default in the repo, is `inferred` and names the file and line it came from, because the
+    environment can override it.
+  - Any other prefix is unread, with its reason, and the contract's `unread` counts it.
+  - On full-stack-fastapi-template, 23 of 23 generated-client calls now reach a handler. Before,
+    none did.
+
+### Fixed
+
+- **Python packages in a subdirectory get their imports.** `from app.api.routes import items` in
+  `backend/app/` resolved to nothing, because only the repo root and `src/` were tried. An absolute
+  import is now also tried from the nearest directory above the file that is not a package. Inside
+  a package, `import logging` is still the standard library. On full-stack-fastapi-template, 22 of
+  43 Python files now have their imports, against none before.
+
 ## [3.0.0] — 2026-11-08
 
 Every ritual now has a plain name for the job it does, which breaks the old commands:

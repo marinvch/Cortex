@@ -5,6 +5,16 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-11-08
+
+Every ritual now has a plain name for the job it does, which breaks the old commands:
+[docs/renamed-rituals.md](docs/renamed-rituals.md) maps each one. Cortex also reads code, not
+just imports: an optional parser add-on gives functions and calls for JavaScript, TypeScript,
+Python, Go, Java and Rust, and the graph answers who calls a function, which files form a feature
+and which clusters no test covers. Team members get a job, people outside Claude Code get role
+packs, and stories from the tracker are traced to the code they touched. On a `work` profile,
+nothing leaves the machine except to a destination you approved.
+
 ### Added
 
 - **Who calls a function.** With the parser add-on installed:
@@ -5846,6 +5856,8 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[3.0.0]: https://github.com/marinvch/Cortex/releases/tag/v3.0.0
+[3.0.0]: https://github.com/marinvch/Cortex/releases/tag/v3.0.0
 [2.45.0]: https://github.com/marinvch/Cortex/releases/tag/v2.45.0
 [2.44.1]: https://github.com/marinvch/Cortex/releases/tag/v2.44.1
 [2.44.0]: https://github.com/marinvch/Cortex/releases/tag/v2.44.0

@@ -246,7 +246,8 @@ export function buildIndex(root, opts = {}) {
     // The route facts of this repo — calls, gateway routes, route handlers — for
     // `cortex-routes.mjs` to join across a workspace. Always present, so "found none" and "an index
     // older than the route map" stay different answers. See lib/routes.mjs.
-    routes: extractRoutes(files, (rel) => text.read(rel)),
+    // The import resolver goes in too, so a router mounted in another file lends its prefix (#630).
+    routes: extractRoutes(files, (rel) => text.read(rel), (spec, from) => resolver.resolve(spec, from)),
     // Which parser read the code: `regex` for imports alone, `tree-sitter@<lock digest>` when the
     // add-on also built `symbols`. Two machines that differ only in the add-on write different
     // indexes, and this is the field that says why (ADR 0029).

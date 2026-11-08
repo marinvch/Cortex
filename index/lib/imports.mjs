@@ -594,6 +594,20 @@ export function resolveImport(spec, fromPath, fileSet, lang) {
     for (const cand of [`${asPath}.py`, `${asPath}/__init__.py`, `src/${asPath}.py`]) {
       if (fileSet.has(cand)) return cand;
     }
+    // A project whose packages sit in a subdirectory — `backend/app/…`, imported as `app.…` — runs
+    // with that subdirectory on sys.path. The nearest ancestor that is not itself a package (no
+    // `__init__.py`) is that source root. Only such a directory is tried: inside a package, Python 3
+    // has no implicit relative import, so `import logging` there is the standard library, never a
+    // `logging.py` beside it (#630).
+    const dirs = fromPath.split("/").slice(0, -1);
+    for (let i = dirs.length; i > 0; i--) {
+      const root = dirs.slice(0, i).join("/");
+      if (fileSet.has(`${root}/__init__.py`)) continue;
+      for (const cand of [`${root}/${asPath}.py`, `${root}/${asPath}/__init__.py`]) {
+        if (fileSet.has(cand)) return cand;
+      }
+      break;
+    }
     return null;
   }
 

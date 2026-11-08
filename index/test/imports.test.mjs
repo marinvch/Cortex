@@ -105,6 +105,21 @@ test("python: relative and absolute module resolution", () => {
   assert.equal(resolveImport("os", "app.py", files, "python"), null);
 });
 
+test("python: packages in a subdirectory resolve from the nearest directory that is not a package", () => {
+  const files = new Set([
+    "backend/app/__init__.py", "backend/app/main.py", "backend/app/api/__init__.py", "backend/app/api/main.py",
+    "backend/app/api/routes/__init__.py", "backend/app/api/routes/items.py", "backend/app/core/__init__.py",
+    "backend/app/core/logging.py", "backend/tests_pre_start.py", "backend/config.py",
+  ]);
+  assert.equal(resolveImport("app.api.routes.items", "backend/app/api/main.py", files, "python"), "backend/app/api/routes/items.py");
+  assert.equal(resolveImport("app.api.routes", "backend/app/api/main.py", files, "python"), "backend/app/api/routes/__init__.py");
+  assert.equal(resolveImport("app.main", "backend/tests_pre_start.py", files, "python"), "backend/app/main.py");
+  assert.equal(resolveImport("config", "backend/tests_pre_start.py", files, "python"), "backend/config.py");
+  // Inside a package there is no implicit relative import: `logging` is the standard library.
+  assert.equal(resolveImport("logging", "backend/app/core/other.py", files, "python"), null);
+  assert.equal(resolveImport("config", "backend/app/main.py", files, "python"), "backend/config.py");
+});
+
 test("go: extracts both block and single import forms", () => {
   const src = `
 import (

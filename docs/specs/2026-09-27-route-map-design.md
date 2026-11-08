@@ -72,3 +72,7 @@ is phrased as a floor; proxy `rewrite` *functions*; query-string and header rout
 calls are now read (`lib/routes.mjs`), and OpenAPI/Swagger is read by the contract
 (`lib/contract.mjs`), which publishes one repo's half to a team-brain. A mount prefix declared in
 another file is still not followed.
+
+**Amended by #630.** It is now: `index.routes.mounts` records each mount followed through the index's
+import resolver, and its prefix is applied to the mounted file's handlers. See `lib/routes.mjs`,
+"mounts".

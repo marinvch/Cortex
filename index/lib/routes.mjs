@@ -765,7 +765,7 @@ function jsProxyMounts(file, scan, at, rows) {
 // client does in `jsCalls`: its last word is one of SERVER_WORDS (`app`, `userRouter`, `server`).
 // A route needs a second argument — `app.get("env")` reads a setting. A path built at runtime is
 // counted in `unread.handlers`, never guessed. A mount prefix in another file
-// (`app.use("/api", router)`) is not followed: the path is the one this file declares.
+// (`app.use("/api", router)`) is applied afterwards, by `applyMounts` below (#630).
 
 const SERVER_WORDS = new Set(["app", "router", "server", "fastify", "hono", "routes"]);
 const serverish = memo((name) => {
@@ -896,7 +896,7 @@ function nestHandlers(file, scan, at, rows, unread) {
 //
 // `@app.get("/items")`, `@router.post(...)`, `@bp.route("/items", methods=["GET", "POST"])`. A router
 // declared in the same file with `APIRouter(prefix="/x")` or `Blueprint(..., url_prefix="/x")` lends
-// its prefix; one mounted elsewhere (`include_router(r, prefix=…)`) is not followed. Flask's
+// its prefix; one mounted elsewhere (`include_router(r, prefix=…)`) gets it from `applyMounts`. Flask's
 // `<int:id>` is a variable like `{id}`. A first argument that is not a plain literal is counted in
 // `unread.handlers`. Calls through `requests`, `httpx` or a client/session object are read too.
 
@@ -1225,6 +1225,252 @@ const moduleRoot = (file) => {
 
 // --- extraction -----------------------------------------------------------------------------------
 
+// --- mounts: a router whose prefix is declared in another file (#630) ------------------------------
+//
+// `app.use("/api", apiRouter)` in app.js, `app.include_router(items.router, prefix="/items")` in
+// main.py, `app.register_blueprint(bp, url_prefix="/admin")`: the prefix lives where the router is
+// mounted, not where its handlers are. A mount is followed only through an import the index already
+// resolves — the `resolve(spec, fromRow)` the builder hands in — to a file that declares handlers or
+// mounts of its own. Without a resolver nothing is followed, which is what every caller saw before.
+//
+// The prefix is applied per FILE: every handler in a mounted file gets it, and mounts compose up the
+// chain. A file mounted twice serves under both prefixes. A router mounted in its own file is not
+// followed, because the prefix belongs to one receiver there and the rows do not record which.
+//
+// A literal prefix is `extracted`. A Python prefix spelled `settings.NAME` or `NAME`, where exactly one
+// non-test file of the repo gives `NAME` a string default, is `inferred`, and the mount says which
+// file and line: the environment can override a settings default at runtime, so it is the likely
+// prefix, not a certain one. Any other prefix is unread, with its reason, and the routes keep the
+// path they declare: a floor, as before.
+
+const MOUNT_JS = /\.\s*use\s*\(/g;
+
+/** JS/TS: the local names an import or require binds, each to the specifier it came from. */
+function jsBindings(code) {
+  const out = new Map();
+  const names = (list, spec) => {
+    for (const part of list.split(",")) {
+      const m = part.trim().match(/^(?:type\s+)?([\w$]+)(?:\s*(?:as|:)\s*([\w$]+))?$/);
+      if (m) out.set(m[2] ?? m[1], spec);
+    }
+  };
+  for (const m of code.matchAll(/\bimport\s+(?:type\s+)?([\w$]+)?\s*,?\s*(?:\{([^}]*)\}|\*\s*as\s+([\w$]+))?\s*from\s*["']([^"']+)["']/g)) {
+    if (m[1]) out.set(m[1], m[4]);
+    if (m[2]) names(m[2], m[4]);
+    if (m[3]) out.set(m[3], m[4]);
+  }
+  for (const m of code.matchAll(/\b(?:const|let|var)\s+(?:([\w$]+)|\{([^}]*)\})\s*=\s*require\s*\(\s*["']([^"']+)["']\s*\)/g)) {
+    if (m[1]) out.set(m[1], m[3]);
+    else names(m[2], m[3]);
+  }
+  return out;
+}
+
+/** The top-level arguments of the call whose `(` is at `open`, as `{ start, end }` offsets. */
+function jsArgSpans(scan, open, close) {
+  const { code, literals, mask } = scan;
+  const spans = [];
+  let depth = 0;
+  let start = open + 1;
+  for (let i = open + 1; i < close; i++) {
+    const lit = literals.get(i);
+    if (lit) {
+      i = lit.end - 1;
+      continue;
+    }
+    if (mask[i]) continue;
+    const c = code[i];
+    if (c === "(" || c === "[" || c === "{") depth++;
+    else if (c === ")" || c === "]" || c === "}") depth--;
+    else if (c === "," && depth === 0) {
+      spans.push({ start, end: i });
+      start = i + 1;
+    }
+  }
+  if (code.slice(start, close).trim()) spans.push({ start, end: close });
+  return spans;
+}
+
+function jsMounts(file, scan, at, rows) {
+  const { code, mask } = scan;
+  if (!MOUNT_JS.test(code)) return;
+  MOUNT_JS.lastIndex = 0;
+  const bound = jsBindings(code);
+  for (const m of code.matchAll(MOUNT_JS)) {
+    if (mask[m.index]) continue;
+    const recv = identBefore(code, m.index).word;
+    if (!recv || !serverish(recv)) continue;
+    const open = m.index + m[0].length - 1;
+    const close = closeParen(code, open, mask);
+    if (close < 0) continue;
+    const spans = jsArgSpans(scan, open, close);
+    if (!spans.length) continue;
+    const specsOf = (s) => {
+      const text = code.slice(s.start, s.end).trim();
+      const req = text.match(/^require\s*\(\s*["']([^"']+)["']\s*\)$/);
+      if (req) return [req[1]];
+      const id = text.match(/^([\w$]+)(?:\s*(?:\.[\w$]+|\([^()]*\)))*$/);
+      return id && bound.has(id[1]) ? [bound.get(id[1])] : [];
+    };
+    const head = spans[0];
+    const lit = literalAfter(scan, head.start);
+    const headIsLiteral = lit !== null && code.slice(lit.end, head.end).trim() === "";
+    let prefix = "";
+    let reason = null;
+    let routers = spans;
+    if (headIsLiteral) {
+      const v = staticValue(lit);
+      routers = spans.slice(1);
+      if (v === null) reason = "the prefix is built at runtime";
+      else if (!v.startsWith("/")) continue; // `app.use("trust proxy")`-style: not a path
+      else prefix = v;
+    } else if (spans.length > 1 && !specsOf(head).length) {
+      routers = spans.slice(1);
+      reason = "the prefix is not a literal";
+    }
+    for (const s of routers) {
+      const specs = specsOf(s);
+      if (specs.length) rows.push({ file, line: at(m.index), prefix: reason ? null : prefix, reason, specs });
+    }
+  }
+}
+
+const MOUNT_PY = /\b([\w.]+)\.(include_router|register_blueprint)[ \t]*\(/g;
+
+/** Python: the local names a `from … import` or `import … as` binds, each to the specifiers to try. */
+function pyBindings(text) {
+  const out = new Map();
+  for (const m of text.matchAll(/^[ \t]*from[ \t]+([.\w]+)[ \t]+import[ \t]+(\([^)]*\)|[^\n]+)/gm)) {
+    for (const part of m[2].replace(/[()]/g, "").split(",")) {
+      const p = part.trim().match(/^([\w]+)(?:\s+as\s+([\w]+))?$/);
+      if (p) out.set(p[2] ?? p[1], [`${m[1]}.${p[1]}`, m[1]]);
+    }
+  }
+  for (const m of text.matchAll(/^[ \t]*import[ \t]+([\w.]+)(?:[ \t]+as[ \t]+([\w]+))?/gm)) {
+    out.set(m[2] ?? m[1].split(".")[0], [m[2] ? m[1] : m[1].split(".")[0]]);
+  }
+  return out;
+}
+
+function pyMounts(file, raw, at, rows) {
+  if (!/\.(?:include_router|register_blueprint)\s*\(/.test(raw)) return;
+  const text = pyMask(raw);
+  const bound = pyBindings(text);
+  for (const m of text.matchAll(MOUNT_PY)) {
+    const a = pyArgText(text, m.index + m[0].length - 1);
+    if (!a) continue;
+    const first = a.args.trimStart().match(/^([\w.]+)/);
+    if (!first) continue;
+    const name = first[1].split(".")[0];
+    const specs = bound.get(name) ?? [];
+    if (!specs.length) continue;
+    const key = m[2] === "register_blueprint" ? "url_prefix" : "prefix";
+    const kw = a.args.match(new RegExp(`\\b${key}\\s*=\\s*`));
+    let prefix = "";
+    let reason = null;
+    let expr = null;
+    if (kw) {
+      const after = a.args.slice(kw.index + kw[0].length);
+      const lit = pyLiteral(after);
+      if (lit && !lit.f) prefix = lit.value;
+      else if (lit) reason = "the prefix is built at runtime";
+      else {
+        const e = after.match(/^([\w.]+)\s*(?:[,)]|$)/);
+        if (e) expr = e[1];
+        else reason = "the prefix is built at runtime";
+      }
+    }
+    rows.push({ file, line: at(m.index), prefix: reason || expr ? null : prefix, reason, expr, specs });
+  }
+}
+
+/** `NAME = "…"` or `NAME: str = "…"` at the start of a line, in Python. */
+const pyDefaultsOf = (name) => new RegExp(`^[ \\t]*${name}[ \\t]*(?::[^=\\n]*)?=[ \\t]*`, "gm");
+
+/**
+ * Follow each raw mount to the file it reaches, settle its prefix, and apply the prefixes to the
+ * handlers of every mounted file. Returns the mount rows `index.routes.mounts` keeps.
+ */
+function applyMounts(raw, routes, rowOf, resolve, pyTexts) {
+  const routed = new Set([...routes.handlers.map((h) => h.file), ...raw.map((m) => m.file)]);
+  const reach = (m) => {
+    const from = rowOf.get(m.file);
+    if (!from) return null;
+    for (const spec of m.specs) {
+      const hit = (resolve(spec, from) ?? []).map((t) => String(t).replace(/\\/g, "/")).filter((t) => t !== m.file && routed.has(t));
+      if (hit.length) return hit.sort()[0];
+    }
+    return null;
+  };
+  const defaults = new Map();
+  const defaultOf = (expr) => {
+    const name = expr.split(".").pop();
+    if (!defaults.has(name)) {
+      const found = [];
+      for (const [file, text] of pyTexts) {
+        const masked = pyMask(text);
+        const at = lineIndex(text);
+        for (const d of masked.matchAll(pyDefaultsOf(name))) {
+          const lit = pyLiteral(text.slice(d.index + d[0].length));
+          if (lit && !lit.f) found.push({ value: lit.value, from: `${file}:${at(d.index + d[0].search(/\S/))}` });
+        }
+      }
+      const values = new Set(found.map((f) => f.value));
+      defaults.set(name, values.size === 1 ? found[0] : { many: values.size > 1 });
+    }
+    return defaults.get(name);
+  };
+  const mounts = [];
+  for (const m of raw) {
+    const target = reach(m);
+    if (!target) continue;
+    const row = { file: m.file, line: m.line, prefix: m.prefix, target, confidence: "extracted" };
+    if (m.expr) {
+      const d = defaultOf(m.expr);
+      if (d.value !== undefined && d.value.startsWith("/")) {
+        row.prefix = d.value;
+        row.confidence = "inferred";
+        row.from = d.from;
+      } else {
+        row.reason = d.many ? `${m.expr} has more than one default in the repo` : `${m.expr} has no string default in the repo`;
+      }
+    } else if (m.reason) {
+      row.reason = m.reason;
+    }
+    if (row.prefix !== null) row.prefix = row.prefix === "" || row.prefix === "/" ? "" : normalizeRoutePath(row.prefix);
+    mounts.push(row);
+  }
+  mounts.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line || a.target.localeCompare(b.target));
+  routes.unread.mounts = mounts.filter((m) => m.prefix === null).length;
+
+  const into = new Map();
+  for (const m of mounts) into.set(m.target, [...(into.get(m.target) ?? []), m]);
+  const prefixesOf = (file, seen) => {
+    const ms = into.get(file);
+    if (!ms) return [""];
+    const out = new Set();
+    for (const m of ms) {
+      if (seen.has(m.file)) continue;
+      for (const p of prefixesOf(m.file, new Set([...seen, file]))) out.add(joinPaths(p, m.prefix ?? ""));
+    }
+    return out.size ? [...out].sort() : [""];
+  };
+  const handlers = [];
+  for (const h of routes.handlers) {
+    const ps = prefixesOf(h.file, new Set([h.file]));
+    if (ps.length === 1 && (ps[0] === "" || ps[0] === "/")) {
+      handlers.push(h);
+      continue;
+    }
+    for (const p of ps) {
+      const rawPath = h.raw == null ? h.path : h.raw;
+      handlers.push({ ...h, path: normalizeRoutePath(joinPaths(p, h.path)), raw: joinPaths(p, rawPath) });
+    }
+  }
+  routes.handlers = handlers;
+  return mounts;
+}
+
 const JS = /\.(?:[cm]?[jt]sx?)$/;
 
 const byRow = (a, b) =>
@@ -1236,9 +1482,13 @@ const byRow = (a, b) =>
  *
  * `files` are index rows (`path`, `isTest`); `read(path)` returns text or null. Test files are not
  * read: a mocked `fetch("/api/x")` is a fixture, not the product calling its back end.
+ *
+ * `resolve(spec, fileRow)`, when given, is the index's import resolver: it returns the repo files an
+ * import specifier reaches. It is what lets a router mounted in another file lend its prefix
+ * (`mounts`, #630). Without it no mount is followed and `mounts` is empty.
  */
-export function extractRoutes(files, read) {
-  const routes = { calls: [], bases: [], gateways: [], handlers: [], services: [], unread: { calls: 0, handlers: 0 } };
+export function extractRoutes(files, read, resolve = null) {
+  const routes = { calls: [], bases: [], gateways: [], handlers: [], services: [], mounts: [], unread: { calls: 0, handlers: 0, mounts: 0 } };
   const list = [...(files ?? [])]
     .map((f) => ({ ...f, path: String(f.path).replace(/\\/g, "/") }))
     .sort((a, b) => a.path.localeCompare(b.path));
@@ -1249,6 +1499,9 @@ export function extractRoutes(files, read) {
   };
   const nest = [];
   const globalPrefixes = new Set();
+  const rawMounts = [];
+  const pyTexts = new Map();
+  const rowOf = new Map((files ?? []).map((f) => [String(f.path).replace(/\\/g, "/"), f]));
 
   for (const f of list) {
     if (SERVICE_FILE.test(f.path) && !f.isTest) {
@@ -1272,6 +1525,7 @@ export function extractRoutes(files, read) {
       jsProxyMounts(f.path, scan, at, routes.gateways);
       jsHandlers(f.path, scan, at, routes.handlers, routes.unread);
       nestHandlers(f.path, scan, at, nest, routes.unread);
+      if (resolve) jsMounts(f.path, scan, at, rawMounts);
       for (const g of scan.code.matchAll(/\.\s*setGlobalPrefix\s*\(/g)) {
         if (scan.mask[g.index]) continue;
         globalPrefixes.add(staticValue(literalAfter(scan, g.index + g[0].length)));
@@ -1286,6 +1540,10 @@ export function extractRoutes(files, read) {
       const at = lineIndex(text);
       pyHandlers(f.path, text, at, routes.handlers, routes.unread);
       pyCalls(f.path, text, at, routes.calls, routes.unread);
+      if (resolve) {
+        pyTexts.set(f.path, text);
+        pyMounts(f.path, text, at, rawMounts);
+      }
     }
   }
 
@@ -1299,6 +1557,9 @@ export function extractRoutes(files, read) {
     }
     routes.handlers.push(h);
   }
+
+  // A router mounted in another file lends that file's prefix to its handlers (#630).
+  if (resolve && rawMounts.length) routes.mounts = applyMounts(rawMounts, routes, rowOf, resolve, pyTexts);
 
   // A context path is part of every handler in its module. The deepest module claiming a file wins.
   const roots = routes.services.filter((s) => s.contextPath).map((s) => ({ root: moduleRoot(s.file), ctx: s.contextPath }));

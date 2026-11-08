@@ -206,8 +206,14 @@ to the brain and pushes it when it changed. `/join-team` offers both.
 - `catch_me_up` reports each project's contract drift since the date: endpoints added, removed or
   changed.
 
-Every list is a floor: a URL built at runtime, or a router mounted under a prefix in another file,
-is not read, and the contract's `unread` says so. It carries no code, no line numbers and no
+A router mounted under a prefix in another file gets that prefix: `app.use("/api", router)`,
+`include_router(items.router, prefix="/items")` and `register_blueprint(bp, url_prefix="/admin")`
+are followed through the imports the index resolves, and mounts compose. A FastAPI prefix written
+as `settings.API_V1_STR` takes that setting's one string default in the repo, marked `inferred`
+with the file and line it came from, because the environment can override it.
+
+Every list is a floor: a URL built at runtime, or a mount prefix that is neither a literal nor a
+setting with one default, is not read, and the contract's `unread` says so. It carries no code, no line numbers and no
 environment values, and the whole text passes the secret gate before it is written.
 
 ### The order, and how to stop guessing at it

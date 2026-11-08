@@ -136,6 +136,201 @@ test("a generated client's verb is the method of the config object it is handed"
   assert.deepEqual(r.calls.map((c) => `${c.method} ${c.path}`), ["POST /api/v1/login/access-token"]);
 });
 
+// --- mounts: a router whose prefix is declared in another file (#630) -------------------------------
+
+/**
+ * `{ path: text }` and `{ "<from> <spec>": [targets] }` → routes, extracted with a resolver the way
+ * buildIndex hands one in. The resolver is a lookup table, so each test says exactly which import
+ * reaches which file.
+ */
+function mounted(src, links) {
+  const files = Object.keys(src).sort().map((path) => {
+    const lang = detectLanguage(path);
+    return { path, lang, category: categoryOf(lang), isTest: false, vendored: false };
+  });
+  const resolve = (spec, from) => links[`${from.path} ${spec}`] ?? [];
+  return extractRoutes(files, (p) => src[p] ?? null, resolve);
+}
+
+const handlerLines = (r) => r.handlers.map((h) => `${h.method} ${h.path} ${h.file}`);
+
+test("an Express router mounted under a prefix in another file gets the prefix, through each import form", () => {
+  const r = mounted(
+    {
+      "src/app.js": [
+        'const express = require("express");',
+        'const items = require("./routes/items");',
+        'import { usersRouter } from "./routes/users";',
+        "const app = express();",
+        'app.use("/api/items", authenticate, items);',
+        'app.use("/api", usersRouter);',
+        'app.use("/admin", require("./routes/admin"));',
+        "app.use(express.json());",
+      ].join("\n"),
+      "src/routes/items.js": 'const router = express.Router();\nrouter.get("/", list);\nrouter.get("/:id", one);',
+      "src/routes/users.js": 'export const usersRouter = Router();\nusersRouter.post("/users", create);',
+      "src/routes/admin.js": 'const router = Router();\nrouter.delete("/cache", flush);',
+      "src/auth.js": "export function authenticate(req, res, next) { next(); }",
+    },
+    {
+      "src/app.js ./routes/items": ["src/routes/items.js"],
+      "src/app.js ./routes/users": ["src/routes/users.js"],
+      "src/app.js ./routes/admin": ["src/routes/admin.js"],
+      "src/app.js express": [],
+    },
+  );
+  assert.deepEqual(handlerLines(r), [
+    "DELETE /admin/cache src/routes/admin.js",
+    "GET /api/items src/routes/items.js",
+    "GET /api/items/{} src/routes/items.js",
+    "POST /api/users src/routes/users.js",
+  ]);
+  assert.deepEqual(
+    r.mounts.map((m) => `${m.file}:${m.line} ${m.prefix} -> ${m.target} ${m.confidence}`),
+    [
+      "src/app.js:5 /api/items -> src/routes/items.js extracted",
+      "src/app.js:6 /api -> src/routes/users.js extracted",
+      "src/app.js:7 /admin -> src/routes/admin.js extracted",
+    ],
+  );
+  assert.equal(r.unread.mounts, 0);
+});
+
+test("mounts compose: a router mounted inside a router mounted under a prefix gets both", () => {
+  const r = mounted(
+    {
+      "src/server.ts": 'import v1 from "./v1";\napp.use("/v1", v1);',
+      "src/v1/index.ts": 'import items from "./items";\nconst router = Router();\nrouter.use("/items", items);\nrouter.get("/health", ok);\nexport default router;',
+      "src/v1/items.ts": 'const router = Router();\nrouter.get("/:id", one);\nexport default router;',
+    },
+    {
+      "src/server.ts ./v1": ["src/v1/index.ts"],
+      "src/v1/index.ts ./items": ["src/v1/items.ts"],
+    },
+  );
+  assert.deepEqual(handlerLines(r), ["GET /v1/health src/v1/index.ts", "GET /v1/items/{} src/v1/items.ts"]);
+});
+
+test("one router mounted under two prefixes serves both", () => {
+  const r = mounted(
+    {
+      "src/app.js": 'const legacy = require("./legacy");\napp.use("/v1", legacy);\napp.use("/v2", legacy);',
+      "src/legacy.js": 'const router = Router();\nrouter.get("/ping", ping);',
+    },
+    { "src/app.js ./legacy": ["src/legacy.js"] },
+  );
+  assert.deepEqual(handlerLines(r), ["GET /v1/ping src/legacy.js", "GET /v2/ping src/legacy.js"]);
+});
+
+test("FastAPI include_router chains resolve, and a settings default is applied as inferred, with where it came from", () => {
+  const r = mounted(
+    {
+      "backend/app/main.py": [
+        "from fastapi import FastAPI",
+        "from app.api.main import api_router",
+        "from app.core.config import settings",
+        "app = FastAPI()",
+        "app.include_router(api_router, prefix=settings.API_V1_STR)",
+      ].join("\n"),
+      "backend/app/api/main.py": [
+        "from fastapi import APIRouter",
+        "from app.api.routes import items, login",
+        "api_router = APIRouter()",
+        "api_router.include_router(login.router)",
+        "api_router.include_router(items.router)",
+      ].join("\n"),
+      "backend/app/api/routes/items.py": 'router = APIRouter(prefix="/items")\n@router.get("/")\ndef read_items(): pass',
+      "backend/app/api/routes/login.py": 'router = APIRouter()\n@router.post("/login/access-token")\ndef login(): pass',
+      "backend/app/core/config.py": 'class Settings(BaseSettings):\n    API_V1_STR: str = "/api/v1"\n    PROJECT_NAME: str = "x"',
+    },
+    {
+      "backend/app/main.py app.api.main.api_router": [],
+      "backend/app/main.py app.api.main": ["backend/app/api/main.py"],
+      "backend/app/api/main.py app.api.routes.items": ["backend/app/api/routes/items.py"],
+      "backend/app/api/main.py app.api.routes.login": ["backend/app/api/routes/login.py"],
+    },
+  );
+  assert.deepEqual(handlerLines(r), [
+    "GET /api/v1/items backend/app/api/routes/items.py",
+    "POST /api/v1/login/access-token backend/app/api/routes/login.py",
+  ]);
+  const top = r.mounts.find((m) => m.file === "backend/app/main.py");
+  assert.deepEqual(top, {
+    file: "backend/app/main.py",
+    line: 5,
+    prefix: "/api/v1",
+    target: "backend/app/api/main.py",
+    confidence: "inferred",
+    from: "backend/app/core/config.py:2",
+  });
+  assert.ok(r.mounts.filter((m) => m.file === "backend/app/api/main.py").every((m) => m.prefix === "" && m.confidence === "extracted"));
+});
+
+test("a prefix that is not a literal and has no single default is unread: the routes keep the path they declare", () => {
+  const r = mounted(
+    {
+      "app/main.py": [
+        "from app.routes import items, users",
+        'app.include_router(items.router, prefix=f"{BASE}/items")',
+        "app.include_router(users.router, prefix=settings.PREFIX)",
+      ].join("\n"),
+      "app/routes/items.py": '@router.get("/all")\ndef all_items(): pass',
+      "app/routes/users.py": '@router.get("/me")\ndef me(): pass',
+      "app/config_a.py": 'PREFIX = "/a"',
+      "app/config_b.py": 'PREFIX = "/b"',
+    },
+    {
+      "app/main.py app.routes.items": ["app/routes/items.py"],
+      "app/main.py app.routes.users": ["app/routes/users.py"],
+    },
+  );
+  assert.deepEqual(handlerLines(r), ["GET /all app/routes/items.py", "GET /me app/routes/users.py"]);
+  assert.equal(r.unread.mounts, 2);
+  assert.deepEqual(r.mounts.map((m) => [m.prefix, m.reason]), [
+    [null, "the prefix is built at runtime"],
+    [null, "settings.PREFIX has more than one default in the repo"],
+  ]);
+});
+
+test("Flask register_blueprint lends its url_prefix; without a resolver no mount is followed", () => {
+  const src = {
+    "app/__init__.py": "from app.admin import bp as admin_bp\napp.register_blueprint(admin_bp, url_prefix='/admin')",
+    "app/admin.py": '@bp.route("/users")\ndef users(): pass',
+  };
+  const r = mounted(src, { "app/__init__.py app.admin.bp": [], "app/__init__.py app.admin": ["app/admin.py"] });
+  assert.deepEqual(handlerLines(r), ["GET /admin/users app/admin.py"]);
+  const plain = extractRoutes(Object.keys(src).map((path) => ({ path })), (p) => src[p]);
+  assert.deepEqual(plain.handlers.map((h) => h.path), ["/users"]);
+  assert.deepEqual(plain.mounts, []);
+});
+
+test("an Express prefix held in a variable is unread, not guessed", () => {
+  const r = mounted(
+    {
+      "src/app.js": 'const items = require("./items");\napp.use(API_PREFIX, items);\napp.use(`${BASE}/v2`, items);',
+      "src/items.js": 'router.get("/items", list);',
+    },
+    { "src/app.js ./items": ["src/items.js"] },
+  );
+  assert.deepEqual(handlerLines(r), ["GET /items src/items.js"]);
+  assert.deepEqual(r.mounts.map((m) => [m.prefix, m.reason]), [
+    [null, "the prefix is not a literal"],
+    [null, "the prefix is built at runtime"],
+  ]);
+  assert.equal(r.unread.mounts, 2);
+});
+
+test("an unread mount prefix is listed in the contract's unread", () => {
+  const src = {
+    "src/app.js": 'const items = require("./items");\napp.use(API_PREFIX, items);',
+    "src/items.js": 'router.get("/items", list);',
+  };
+  const files = Object.keys(src).map((path) => ({ path, lang: "javascript", category: "code", isTest: false, vendored: false }));
+  const routes = extractRoutes(files, (p) => src[p], (spec) => (spec === "./items" ? ["src/items.js"] : []));
+  const c = extractContract({ files, routes }, (p) => src[p] ?? null);
+  assert.ok(c.unread.some((u) => u.what === "1 router mount" && /prefix/.test(u.why)), JSON.stringify(c.unread));
+});
+
 // --- YAML -------------------------------------------------------------------------------------------
 
 test("parseYaml reads the subset an OpenAPI file uses", () => {

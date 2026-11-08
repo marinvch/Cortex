@@ -531,6 +531,7 @@ export function extractContract(index, read, { project = null } = {}) {
   const ru = routes.unread ?? { calls: 0, handlers: 0 };
   if (ru.calls) unread.push({ what: plural(ru.calls, "call"), why: "the URL is built at runtime, so its path was not read" });
   if (ru.handlers) unread.push({ what: plural(ru.handlers, "route handler"), why: "the path is built at runtime or is not a literal, so it was not read" });
+  if (ru.mounts) unread.push({ what: plural(ru.mounts, "router mount"), why: "the prefix it mounts under is not a literal, so the routes it serves lack it" });
   const other = new Map();
   for (const f of files) {
     if (f.category !== "code" || READ_LANGS.has(f.lang)) continue;

@@ -216,8 +216,23 @@ holds the rules for that module alone — read it before editing the module.
   Validated on node-express-realworld (20/20 handlers), nestjs-realworld (21/21, global prefix
   applied), full-stack-fastapi-template (23/23 handlers, and 23 generated-client calls with the
   right verbs) and pallets/flask (every example route, none of the five docstring examples in its
-  library source). A mount prefix in another file (`app.use("/api", router)`,
-  `include_router(r, prefix=…)`) is not followed, so those paths lack it: a floor, stated.
+  library source).
+  - **Mounts (#630).** A router mounted in another file (`app.use("/api", router)`,
+    `include_router(r, prefix=…)`, `register_blueprint(bp, url_prefix=…)`) lends its prefix through
+    the import resolver `buildIndex` hands to `extractRoutes`, per file, composed up the chain, and
+    is kept in `index.routes.mounts`. A literal prefix is `extracted`; `settings.NAME` with exactly
+    one string default in the repo is `inferred` and names its `from` line; anything else is
+    unread with a `reason`, and the paths keep what their file declares. A router mounted in its
+    own file is not followed: the rows do not record which receiver a handler is on.
+    Validated on full-stack-fastapi-template: 0 → 23 of 23 generated-client calls matching a
+    handler, `/api/v1` inferred from `core/config.py:22`. Unchanged on node-express-realworld,
+    microblog and httpx. Ten mutants, eight caught; one is equivalent (no resolver, no mounts) and
+    the last was caught once a test for a template-literal prefix went in.
+  - **Python packages in a subdirectory resolve** (`resolveImport`, `lib/imports.mjs`): an absolute
+    import is tried from the nearest ancestor that has no `__init__.py`, and only that one. Inside a
+    package Python 3 has no implicit relative import, so `import logging` there is never a sibling
+    `logging.py`. The template went from 0 to 22 of 43 Python files with resolved imports; flask
+    gained 4 edges, each checked against the source.
 - **The contract** (`lib/contract.mjs`, `cortex-contract.mjs`, #621) is what a repo publishes to a
   team-brain: `serves` from an OpenAPI/Swagger file, else from `index.routes.handlers`; `calls`
   from `index.routes.calls`; `events`; `unread`. **It reads the route map and never detects routes

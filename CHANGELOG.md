@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **The docs now say which Copilot surfaces read `AGENTS.md`.** The README has GitHub's table, and
+  ADR 0031 no longer says code review on github.com skips it. Chat outside VS Code and code review
+  inside an IDE do skip it, and whether a pointer reaches them is not measured.
 - **`cortex-next` no longer calls Cortex's own Copilot pointer a second brief.** `cortex-setup` wrote
   a pointer one line over the limit, so `cortex-next` offered to reconcile a file with no rules in it.
   `cortex-setup` and `cortex-init.sh` now write one text, and the older pointer is recognised.

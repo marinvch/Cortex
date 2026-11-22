@@ -563,11 +563,27 @@ The committed files start `${CORTEX_HOME}/mcp/server.js`, so each developer sets
 to their Cortex checkout; the plan says whether it is set. An entry named `cortex` already in a
 file is left as it is, and a file that does not parse, such as one with comments, is refused. The
 Copilot cloud coding agent reads MCP servers from the repository's settings on github.com, not
-from a file. The setup also adds `.github/copilot-instructions.md` (Copilot in JetBrains and Visual
-Studio does not read `AGENTS.md`) and `GEMINI.md` when they are missing, and on a team's repo one
-line in `AGENTS.md` telling any agent to call `inbox` at the start of a task. Every team command
-is also a CLI command: `node mcp/cortex.js help` lists `ask`, `inbox`, `answer`, `contract` and
-the `team` commands.
+from a file. The setup also adds `.github/copilot-instructions.md` and `GEMINI.md` when they are
+missing, and on a team's repo one line in `AGENTS.md` telling any agent to call `inbox` at the
+start of a task. Every team command is also a CLI command: `node mcp/cortex.js help` lists `ask`,
+`inbox`, `answer`, `contract` and the `team` commands.
+
+Copilot is several products, and they do not all read the same file. This is
+[GitHub's support table](https://docs.github.com/en/copilot/reference/custom-instructions-support)
+as of 2026-11-22:
+
+| Copilot surface | Reads `AGENTS.md` |
+|---|---|
+| Cloud agent, Copilot CLI | yes |
+| Code review on github.com | yes, and `REVIEW.md` |
+| Chat in VS Code | yes |
+| Chat on github.com, in Visual Studio, JetBrains, Eclipse and Xcode | no |
+| Code review inside an IDE | no |
+
+The last two rows read `.github/copilot-instructions.md`, and Cortex puts only a pointer there. No
+GitHub page says those surfaces open the file it points at, and nobody has measured it, so do not
+assume your rules reach them. Copilot code review also cannot call Cortex's MCP tools, because it
+accepts only tools that declare `readOnlyHint` and Cortex's do not.
 
 ### Who installs what
 

@@ -43,8 +43,8 @@
 //
 // - Copilot — https://docs.github.com/en/copilot/reference/custom-instructions-support. AGENTS.md
 //   is read by the cloud agent, Copilot CLI, code review on github.com and VS Code chat, and NOT by
-//   JetBrains or Visual Studio chat, or code review inside an IDE; those read only
-//   `.github/copilot-instructions.md`. So the copilot plan adds that file as a pointer when it is
+//   chat on github.com, Visual Studio, JetBrains, Eclipse or Xcode, or code review inside an IDE;
+//   those read only `.github/copilot-instructions.md`. So the copilot plan adds that file as a pointer when it is
 //   absent, and never touches one a team wrote.
 // - Gemini reads `GEMINI.md`; the one-line `@AGENTS.md` shim is `/write-context-docs`'s, and this adds
 //   it only when it is missing.

@@ -25,7 +25,7 @@ import { tempDir } from "./tmp.js";
 import { policyFor } from "../../core/profile.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CLI = join(HERE, "..", "ai-os.js");
+const CLI = join(HERE, "..", "cortex.js");
 const IDENTITY = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
 // Credential-shaped on purpose: the history grep below must be looking for something scrub knows.
 const GH_TOKEN = ["ghp_", "T3stTok3nNotReal0000aaaa"].join("");

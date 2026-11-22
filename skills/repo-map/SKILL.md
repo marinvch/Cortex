@@ -77,7 +77,7 @@ The theme follows the OS; the button in the top bar overrides it and is remember
   unexpected they look, and its reasons say why. Every hub's link count is a floor. The same report
   prints as text with `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-graph.mjs" .`. For one file's
   neighbours, its cluster, or the import path between two files, ask the `graph` MCP tool (or
-  `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" graph <op>`) instead of opening the page.
+  `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" graph <op>`) instead of opening the page.
 - **Depth is a floor too.** An unresolved import makes a file look shallower than it is, so the layer
   count is the smallest honest answer rather than a verdict on the architecture.
 

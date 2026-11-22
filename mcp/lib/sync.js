@@ -24,7 +24,7 @@
 // - **One commit per run**, `sync: servicenow 1 updated, github 1 created`, then a push. The git
 //   history of the brain is the audit trail.
 // - **Offline-safe.** An unreachable tracker or a missing credential leaves the link `pending`
-//   with the reason, and the next run retries. `ai-os sync --status` lists what is stuck.
+//   with the reason, and the next run retries. `cortex sync --status` lists what is stuck.
 // - **The secret gate, both ways.** Every text posted to a tracker is scanned first, and every
 //   comment pulled in is scanned before it is written: one carrying a credential is withheld, and
 //   the brain records that it was, and why — never the text.
@@ -477,7 +477,7 @@ export function cloneFor(brain, tool, { clone = null, team = null } = {}) {
   return ensureTeamClone(target, tool).dir;
 }
 
-/** `ai-os sync`: pull, sync every ask that has work for a tracker, one commit, push. */
+/** `cortex sync`: pull, sync every ask that has work for a tracker, one commit, push. */
 export async function syncFrom(brain, { clone = null, team = null, dryRun = false, status = false, push = true } = {}, ctx = {}) {
   const dir = cloneFor(brain, "sync", { clone, team });
   if (status) return { clone: dir, ...syncStatus(dir) };
@@ -497,7 +497,7 @@ function publishTeamFiles(dir, files, message, brain) {
 }
 
 /**
- * `ai-os integrations list|add|remove|workflow`. Changes team.json through the integration
+ * `cortex integrations list|add|remove|workflow`. Changes team.json through the integration
  * functions, which validate the whole selection before anything is written, and commits it.
  * Removing a tracker leaves every link to it in the ask files, readable; sync stops using them.
  *

@@ -130,8 +130,8 @@ directory is **the checkouts**: how one machine reaches the workspace's projects
 every developer. Where there is no team-brain, the checkouts stand in for the workspace. A single
 repo with no team-brain is a workspace of one and is rendered as a repo.
 
-The project file is built: `ai-os team add` writes it, `list_projects` lists it and
-`ai-os project remove` deletes it (roadmap step 3.1). The page that shows a workspace is ahead of
+The project file is built: `cortex team add` writes it, `list_projects` lists it and
+`cortex project remove` deletes it (roadmap step 3.1). The page that shows a workspace is ahead of
 the code: steps 3.2 and 3.3 build to this entry, and it is the definition they are held to.
 
 _Avoid_: "workspace" for a JS monorepo's packages (say "workspace package", as
@@ -241,7 +241,7 @@ GitHub `owner/repo#45` (`core/story-key.js`).
 
 What one repo publishes about which code each ticket key touched: key, then commits, then files,
 each file with its cluster, whether it is a hub and whether a test covers it. Extracted by
-`index/cortex-stories.mjs`, published as `projects/<slug>/stories.json` by `ai-os stories publish`,
+`index/cortex-stories.mjs`, published as `projects/<slug>/stories.json` by `cortex stories publish`,
 and read by the `graph` tool's `story`, `stories-for` and `risk` ops. **A story's code is a floor**:
 a commit that names no key is invisible to it.
 

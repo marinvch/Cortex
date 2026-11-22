@@ -1,34 +1,34 @@
 # mcp/ — the live brain
 
-An optional Node MCP server exposing Cortex over stdio, plus the `ai-os` CLI. The busiest part of
+An optional Node MCP server exposing Cortex over stdio, plus the `cortex` CLI. The busiest part of
 the repo by commit count, and — like every other part — **dependency-free**.
 
-## The `ai-os` CLI
+## The `cortex` CLI
 
 | Command | Does | Needs |
 |---|---|---|
-| `ai-os setup-plugins` | install the Cortex Core plugin bundle | nothing |
-| `ai-os setup-plugins --status` | per tier, which plugins are installed; `--json`, `--tier`, `--plugins-dir`. Read-only | nothing |
-| `ai-os team init` | seed and push a team-brain | a vault |
-| `ai-os team add` | write this repo's project file into the team-brain, then the connector | a vault |
-| `ai-os team member` | add or update one member (`--handle`, `--roles`, `--projects`, `--job`) in the brain's `team.json`; commit, push | a root, a team |
-| `ai-os ask` | send `--to <role\|project> --title --body` as `asks/<id>.md`; commit, push | a root, a team |
-| `ai-os inbox` | pull, then the open asks for you and the answers to yours; `--json` | a root, a team |
-| `ai-os answer` | append `--body` to ask `--id`, set `--status`; commit, push | a root, a team |
-| `ai-os contract publish` | write `--file <contract.json>` as `projects/<slug>/contract.json` + `.md`; commit, push when changed | a root, a team |
-| `ai-os contract show` | one project's contract (`--project`, `--path`); `--json` | a root, a team |
-| `ai-os contract who-calls` | which projects call `--path "[METHOD] /p"`, and which serve it; `--json` | a root, a team |
-| `ai-os contract list` | the projects that have published a contract | a root, a team |
-| `ai-os stories publish` | write `--file <stories.json>` as `projects/<slug>/stories.json`; commit, push when changed | a root, a team |
-| `ai-os integrations list\|add\|remove\|workflow` | the trackers in `team.json`; `workflow --write` commits the scheduled sync | a root, a team |
-| `ai-os sync` | asks ↔ trackers, one commit per run; `--dry-run`, `--status`, `--clone <checkout>` | a root, a team |
-| `ai-os project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
-| `ai-os project check` | validate the team's project files; exit 1 on an error or a withheld file | a vault, a team |
-| `ai-os project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
-| `ai-os digest` | append a git digest to a file | nothing |
-| `ai-os catch-up` | notes and history since a date | a repo or a vault |
-| `ai-os graph <op>` | the `graph` tool's answer: `stats`, `node`, `neighbors`, `cluster`, `hubs`, `bridges`, `path`, and `callers`, `callees`, `defines` from `index.symbols` (`core/symbol-calls.js`); `--json`. Exit 2 on a missing or stale index, or no symbols for those three. Read-only | a repo, its index |
-| `ai-os graph story\|stories-for\|risk` | the story ops, from the team-brain; exit 2 when no links are published or this repo's are behind HEAD | a root, a team |
+| `cortex setup-plugins` | install the Cortex Core plugin bundle | nothing |
+| `cortex setup-plugins --status` | per tier, which plugins are installed; `--json`, `--tier`, `--plugins-dir`. Read-only | nothing |
+| `cortex team init` | seed and push a team-brain | a vault |
+| `cortex team add` | write this repo's project file into the team-brain, then the connector | a vault |
+| `cortex team member` | add or update one member (`--handle`, `--roles`, `--projects`, `--job`) in the brain's `team.json`; commit, push | a root, a team |
+| `cortex ask` | send `--to <role\|project> --title --body` as `asks/<id>.md`; commit, push | a root, a team |
+| `cortex inbox` | pull, then the open asks for you and the answers to yours; `--json` | a root, a team |
+| `cortex answer` | append `--body` to ask `--id`, set `--status`; commit, push | a root, a team |
+| `cortex contract publish` | write `--file <contract.json>` as `projects/<slug>/contract.json` + `.md`; commit, push when changed | a root, a team |
+| `cortex contract show` | one project's contract (`--project`, `--path`); `--json` | a root, a team |
+| `cortex contract who-calls` | which projects call `--path "[METHOD] /p"`, and which serve it; `--json` | a root, a team |
+| `cortex contract list` | the projects that have published a contract | a root, a team |
+| `cortex stories publish` | write `--file <stories.json>` as `projects/<slug>/stories.json`; commit, push when changed | a root, a team |
+| `cortex integrations list\|add\|remove\|workflow` | the trackers in `team.json`; `workflow --write` commits the scheduled sync | a root, a team |
+| `cortex sync` | asks ↔ trackers, one commit per run; `--dry-run`, `--status`, `--clone <checkout>` | a root, a team |
+| `cortex project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
+| `cortex project check` | validate the team's project files; exit 1 on an error or a withheld file | a vault, a team |
+| `cortex project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
+| `cortex digest` | append a git digest to a file | nothing |
+| `cortex catch-up` | notes and history since a date | a repo or a vault |
+| `cortex graph <op>` | the `graph` tool's answer: `stats`, `node`, `neighbors`, `cluster`, `hubs`, `bridges`, `path`, and `callers`, `callees`, `defines` from `index.symbols` (`core/symbol-calls.js`); `--json`. Exit 2 on a missing or stale index, or no symbols for those three. Read-only | a repo, its index |
+| `cortex graph story\|stories-for\|risk` | the story ops, from the team-brain; exit 2 when no links are published or this repo's are behind HEAD | a root, a team |
 
 ## Invariants
 
@@ -63,7 +63,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   never reads the machine's git name.
 - **`server.js` stays a thin switch.** All logic lives in `lib/`; the transport layer is a
   dispatch over tool names and nothing more.
-- **`ai-os.js` parses flags and prints; it decides nothing.** It exports nothing and exits at
+- **`cortex.js` parses flags and prints; it decides nothing.** It exports nothing and exits at
   module level, so a decision made in it can only be tested by starting a process. Three used to
   live there and are in `lib/` now: which sources, repo and project a catch-up reads (`catchUp` in
   `lib/catchup.js`), what `project check` counts as a problem (`checkProjects`), and the order of a
@@ -83,9 +83,9 @@ the repo by commit count, and — like every other part — **dependency-free**.
   variable answered, and `MissingRootError` names that one. A set `CORTEX_ROOT` that does not exist
   is refused and never swapped for a good `AI_OS_ROOT`. The plugin manifest sets `CORTEX_ROOT`
   alone, so a vault path in the user's own environment cannot take over the repo's server
-  (`core/test/plugin.test.js`). **Not renamed, each because a command or a config a user already
-  has would break:** the file `ai-os.js`, the CLI command name `ai-os`, the package name
-  `ai-os-mcp`. Its `bin` map also answers to `cortex-mcp`.
+  (`core/test/plugin.test.js`). **The CLI is `cortex.js`.** `ai-os.js` is a one-line alias that
+  imports it, and it and the `ai-os` and `ai-os-mcp` bins go in 4.0.0. Put nothing else in it: a
+  test that scans the CLI's source must scan `cortex.js`, or it passes on the alias.
 - **Vault tools are hidden *and* refused in repo mode.** Offering `capture` or `catch_me_up` there
   invites an agent to write `inbox/` and `daily/` into someone's product repository — and a client
   that already knows the name never reads `tools/list`, so hiding is not refusing. Which mode a tool
@@ -127,22 +127,22 @@ the repo by commit count, and — like every other part — **dependency-free**.
 - **A root that does not exist is a hard exit too** (`MissingRootError`, `lib/brain.js`, #550). The
   server used to start on it and fail in the first tool an agent called, with a raw `ENOENT`. In repo
   mode the directory that must exist is the repo, not `.cortex/`: the first write creates that. This
-  holds for `ai-os catch-up` as well. A root that is set and wrong is not the unset root it may
+  holds for `cortex catch-up` as well. A root that is set and wrong is not the unset root it may
   degrade on.
 - **A root that is not set is a hard exit**, not a default: neither `CORTEX_ROOT` nor `AI_OS_ROOT`
   holds a non-blank value. Guessing a vault path would write someone's
   notes into the wrong place. `lib/resolve.js` upholds this — it throws `NoRootError` rather than
   falling back, and the three-mode spec's fallback chain was rejected on exactly these grounds
   ([ADR 0008](../docs/adr/0008-three-audiences-one-seam.md)). **Two CLI commands degrade instead,
-  `ai-os catch-up` first.** It writes nothing, and with no root it reads only the git repository the cwd
+  `cortex catch-up` first.** It writes nothing, and with no root it reads only the git repository the cwd
   sits in — that repo's committed `.cortex/memory/` and its log — never a vault, and says in
   `skipped` which half it did not read. That is what a plugin install has: no vault, only the repo
   it was opened in, and `/whats-changed` failed on its first command there. It does not open a brain
-  with an inferred root; it opens none (`open(…, { rootOptional })` in `ai-os.js`), so nothing
+  with an inferred root; it opens none (`open(…, { rootOptional })` in `cortex.js`), so nothing
   downstream can mistake the repo for a place to write. `openBrain` resolves the profile *before*
   the root for this reason — a misspelt `CORTEX_PROFILE` still fails at entry. A second command
   wanting the same exemption must also write nothing; anything that writes stays a hard exit.
-  `ai-os graph` is the second: it reads one index and writes nothing, and with no root it reads
+  `cortex graph` is the second: it reads one index and writes nothing, and with no root it reads
   the git work tree the cwd sits in (`graphRepo`, `lib/graph.js`).
 - **`capture`'s `team` argument is an override, not the switch.** The team comes from
   `lib/resolve.js` — a repo with a `.cortex/connector.json` writes to the team brain without the
@@ -287,31 +287,31 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `teamCloneDir(root, team)` like any other and is cloned through the same destination check, so
   neither the Vault door nor the two modes change. `core/profile.js` answers a third question (home · work · lab) and
   reads only `CORTEX_PROFILE` — nothing here may move it.
-- **Every adapter opens the brain at entry, through `lib/brain.js`.** `server.js` and `ai-os.js` are
+- **Every adapter opens the brain at entry, through `lib/brain.js`.** `server.js` and `cortex.js` are
   two adapters over the same operations, so the seam between them is real and therefore a module:
   `openBrain({ cwd, env })` returns `root · mode · isRepo · audience · team · teamClone · project · teamBrainRepo · env ·
   profile · policy · sources · notices · describe()`, and throws `NoRootError` /
   `UnknownProfileError` **before** a command picks a branch. Neither adapter may read
   `env.CORTEX_ROOT` or `env.AI_OS_ROOT`, or call `resolve.js`,
   `mode.js` or `core/profile.js` itself — `brain.test.js` scans both for that, because the way this
-  rule broke was a second adapter re-deriving the answer by hand: `ai-os catch-up` read the root raw
+  rule broke was a second adapter re-deriving the answer by hand: `cortex catch-up` read the root raw
   and passed `args.team` alone, so inside a repo with a `.cortex/connector.json` it consulted no
   connector, reached no team clone, and printed `commits: []` as a success. That is the `capture`
-  invariant below, arriving through the other door. `ai-os.js` resolving the profile inside `team
+  invariant below, arriving through the other door. `cortex.js` resolving the profile inside `team
   init` only is the same shape: `team add` took a typo as `home` while the server exited on it.
   The record **composes three answers and never merges the three questions** — mode from the root
   string, audience from the connector or `CORTEX_AUDIENCE`, profile from `CORTEX_PROFILE` alone.
   Three fields, never one enum; ADR 0008 and ADR 0015 stand unchanged. A command that reads no
   brain (`digest`, `setup-plugins`) does not open one — demanding a root there would be a new
   requirement wearing a fix's clothes. Skills reach the CLI as
-  `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js"`, never `<vault>/mcp/…`: a plugin install has no vault
+  `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js"`, never `<vault>/mcp/…`: a plugin install has no vault
   checkout, and `test/rituals-on-a-plugin-install.test.js` runs each command as its SKILL.md prints
   it, from a copy laid out like the plugin cache.
 - **Every path that publishes must consult `policy.outwardSync` — including the CLI.** `lab` exists
   to be permissive locally *because* it is sealed outward, so the seal is the load-bearing half;
   `core/profile.js` calls a `lab` that still pushes "the leak with extra steps". For a while that is
   what `initTeamBrain` was: `capture()` honoured the policy and the team-brain push did not, and
-  `ai-os.js` imported `core/profile.js` nowhere, so a misspelt `CORTEX_PROFILE` was a hard exit in
+  `cortex.js` imported `core/profile.js` nowhere, so a misspelt `CORTEX_PROFILE` was a hard exit in
   the server and a silent default in the CLI. Both adapters now take the policy off the record
   `lib/brain.js` opens at entry, which is where the profile is resolved once. A new publish
   path that does not is the same bug again — write locally, decline the push, and tell the caller
@@ -335,7 +335,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   The rules that hold for every caller:
   - **The gates run before the write, in one order: valid, allowed by the profile, free of
     secrets.** `judge()` is the only way to a write. The first refusal throws `ProjectFileRefused`
-    and leaves both repositories as they were. `ai-os team add` writes the connector last, so a repo
+    and leaves both repositories as they were. `cortex team add` writes the connector last, so a repo
     whose project is refused has not joined.
   - **The profile check takes the policy object, never a profile name.** `profileRefusal(data,
     policy)` reads `policy.refuses`, and both adapters pass `brain.policy`. Do not write
@@ -363,7 +363,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
   - **`list_projects` grew fields, not a tool.** Each entry has `source: "vault" | "team"`. A vault
     entry is a project stub or a notes folder; a team entry is a project file. The two share a
     filename and are never merged. A `.md` under the team's `projects/` with no `type: project` is
-    skipped and counted. `ai-os project list|check|remove` are the CLI's half and are refused in
+    skipped and counted. `cortex project list|check|remove` are the CLI's half and are refused in
     repo mode, because the clone lives under the vault.
   - **A link is never fetched**, here or in `core/`. No title lookup and no reachability check.
 - **`setup-plugins --status` reads and never installs** (#548). It starts no `claude` and writes

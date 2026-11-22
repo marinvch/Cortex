@@ -64,7 +64,9 @@ export const AGENTS = ["claude", "copilot", "gemini", "codex"];
 export const SERVER = "cortex";
 
 /** The sentence the root brief carries on a team (#623, item 3). */
-export const INBOX_LINE = "On a team, call the Cortex `inbox` tool (or run `ai-os inbox`) at the start of a task.";
+export const INBOX_LINE = "On a team, call the Cortex `inbox` tool at the start of a task.";
+/** The same line as setup wrote it before the rename. A brief holding it needs no second one. */
+export const OLD_INBOX_LINE = "On a team, call the Cortex `inbox` tool (or run `ai-os inbox`) at the start of a task.";
 export const INBOX_HEADING = "## Team-brain";
 
 /** The pointer `.github/copilot-instructions.md` holds, for the Copilot surfaces that skip AGENTS.md. */
@@ -316,7 +318,7 @@ export function mergeTomlServer(text, { label, entry }) {
 
 /** Append the inbox line to a root brief's text, under its own heading unless one is there. */
 export function withInboxLine(text) {
-  if (text.includes(INBOX_LINE)) return null;
+  if (text.includes(INBOX_LINE) || text.includes(OLD_INBOX_LINE)) return null;
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const lead = text.endsWith(eol + eol) ? "" : text.endsWith("\n") ? eol : eol + eol;
   const hasHeading = text.split(/\r?\n/).some((l) => l.trim() === INBOX_HEADING);

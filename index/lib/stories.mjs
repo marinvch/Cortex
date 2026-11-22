@@ -3,7 +3,7 @@
 // R3 of docs/specs/2026-10-25-role-packs-design.md. The chain is key → commits → files → clusters.
 // `cortex-stories.mjs` reads git and the index and hands the result here; this module is a pure
 // function of that input, so the same history and index give the same bytes. Publishing is mcp/'s
-// (`ai-os stories publish`), as it is for the contract: this package reads a repo and never writes
+// (`cortex stories publish`), as it is for the contract: this package reads a repo and never writes
 // into a team-brain.
 //
 // The rules:

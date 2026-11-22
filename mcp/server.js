@@ -119,7 +119,7 @@ async function dispatch(name, args) {
     // from the brain record and the policy; the gate above already scanned what they publish.
     // Each also syncs the asks it touched with the team's trackers (#624) — only when the team
     // selected one, and never on a profile that publishes nothing. No tool configures trackers:
-    // that is `ai-os integrations`, a lead's command, not an agent's.
+    // that is `cortex integrations`, a lead's command, not an agent's.
     case "ask": return askFrom(brain, args, { env: process.env, cwd: process.cwd(), id: genNoteId(), today: stamp() });
     case "inbox": return inboxFrom(brain, { env: process.env, cwd: process.cwd(), today: stamp() });
     case "answer": return answerFrom(brain, args, { env: process.env, cwd: process.cwd(), today: stamp() });

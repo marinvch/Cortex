@@ -116,7 +116,7 @@ skill plugin-root "" 'Run `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-index.mjs" .
 skill runs-tools "" '```bash
 node tools/cortex-preflight.mjs
 ```'
-skill runs-mcp "" 'Then `node mcp/ai-os.js inbox`.'
+skill runs-mcp "" 'Then `node mcp/cortex.js inbox`.'
 skill runs-bash "" 'Then bash tools/cortex-init.sh.'
 skill typed-only "disable-model-invocation: true
 " 'Once only.'
@@ -147,7 +147,7 @@ assert_contains "$judged" "  capability: judgment" "and its metadata kept"
 assert_contains "$(line plugin-root)" "a variable only Claude Code sets (CLAUDE_PLUGIN_ROOT)" "\${CLAUDE_PLUGIN_ROOT} is not portable"
 assert_contains "$(line plugin-root)" "runs a Cortex script" "nor is running index/ through it"
 assert_contains "$(line runs-tools)" "runs a Cortex script (node tools/cortex-preflight.mjs)" "nor is node tools/, inside a code fence too"
-assert_contains "$(line runs-mcp)" "runs a Cortex script (node mcp/ai-os.js)" "nor is node mcp/"
+assert_contains "$(line runs-mcp)" "runs a Cortex script (node mcp/cortex.js)" "nor is node mcp/"
 assert_contains "$(line runs-bash)" "runs a Cortex script (bash tools/cortex-init.sh)" "nor is bash tools/"
 assert_contains "$(line typed-only)" "disable-model-invocation" "nor a skill that relies on Claude Code to keep it from starting itself"
 assert_contains "$(line dead-link)" "links to MISSING.md, which is not there" "nor a dead link"

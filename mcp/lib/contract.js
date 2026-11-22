@@ -324,7 +324,7 @@ export function showContract(clone, { project, path = null }) {
     throw new ContractRefused(
       "not_found",
       `no contract is published for '${project}'. Projects with one: ${have.length ? have.join(", ") : "none"}. ` +
-        "A repo publishes its contract with `/join-team` (or `ai-os contract publish`).",
+        "A repo publishes its contract with `/join-team` (or `cortex contract publish`).",
     );
   }
   if (hit.error) throw new ContractRefused("unreadable", `projects/${slug}/contract.json is unreadable: ${hit.error}`);
@@ -497,7 +497,7 @@ export function contractFrom(brain, args = {}) {
 }
 
 /**
- * `ai-os contract publish`: the project is the one asked for, else the contract's own, else the
+ * `cortex contract publish`: the project is the one asked for, else the contract's own, else the
  * connector's. `team` overrides the connector's team, for a lead standing in the vault.
  */
 export function publishFrom(brain, { input, project = null, team = null }) {

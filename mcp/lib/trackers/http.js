@@ -119,6 +119,6 @@ export function itemBody(ask) {
   return (
     `${ask.question}\n\n---\n` +
     `Ask ${ask.id} to ${ask.toKind} ${ask.to}${from ? `, ${from}` : ""}, via the Cortex team-brain. ` +
-    `Answer here or with \`ai-os answer --id ${ask.id}\`; sync carries it both ways.`
+    `Answer here or with \`cortex answer --id ${ask.id}\`; sync carries it both ways.`
   );
 }

@@ -168,7 +168,7 @@ through, what a ritual must declare. Read it once before your first change here.
 |---|---|
 | `core/` — paths, scrub, memory, date | [`core/AGENTS.md`](core/AGENTS.md) |
 | `index/` — indexer, findings, enrichment | [`index/AGENTS.md`](index/AGENTS.md) |
-| `mcp/` — the live brain, the `ai-os` CLI | [`mcp/AGENTS.md`](mcp/AGENTS.md) |
+| `mcp/` — the live brain, the `cortex` CLI | [`mcp/AGENTS.md`](mcp/AGENTS.md) |
 | `tools/` — the scripts a person runs, and the repo's self-checks | [`tools/AGENTS.md`](tools/AGENTS.md) |
 | `evals/` — scored tasks for skills, training them with SkillOpt, and the outcome harness | [`evals/AGENTS.md`](evals/AGENTS.md), then [`evals/README.md`](evals/README.md) for how to run them |
 | `skills/`, `templates/`, `references/` | this file is enough |

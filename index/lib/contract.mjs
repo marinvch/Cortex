@@ -5,7 +5,7 @@
 // a republished contract an empty diff when nothing changed, and the brain's git history of
 // `projects/<slug>/contract.json` a changelog of the API.
 //
-// It reads; it never writes into a team-brain. Publishing is mcp/'s job (`ai-os contract publish`),
+// It reads; it never writes into a team-brain. Publishing is mcp/'s job (`cortex contract publish`),
 // because the leaves never import each other and the index CLI has no business pushing to git.
 //
 // Where each half comes from:

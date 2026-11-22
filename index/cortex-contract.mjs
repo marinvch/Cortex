@@ -6,7 +6,7 @@
 //   node index/cortex-contract.mjs [root] --project <slug>         # name it; else the connector's
 //
 // Deterministic: the same tree gives the same bytes, so republishing an unchanged contract is an
-// empty diff. Publishing is `node mcp/ai-os.js contract publish --file <it>`, never this command:
+// empty diff. Publishing is `node mcp/cortex.js contract publish --file <it>`, never this command:
 // the index reads, and mcp/ owns the team-brain. Design: lib/contract.mjs's header, and R12 of
 // docs/specs/2026-10-24-team-brain-rollout-design.md.
 //

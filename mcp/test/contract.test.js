@@ -2,7 +2,7 @@
 //
 // One team-brain (a bare remote on disk, so no network) and product repos in repo mode, as a plugin
 // install runs them. Each repo extracts its contract with `index/cortex-contract.mjs` — spawned, not
-// imported: the leaves never import each other — and publishes it with `ai-os contract publish`.
+// imported: the leaves never import each other — and publishes it with `cortex contract publish`.
 // Then: who calls /items, what the server serves, and the server dropping /items reaching the
 // caller's next catch-up.
 
@@ -18,7 +18,7 @@ import { policyFor } from "../../core/profile.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, "..", "server.js");
-const CLI = join(HERE, "..", "ai-os.js");
+const CLI = join(HERE, "..", "cortex.js");
 const EXTRACT = join(HERE, "..", "..", "index", "cortex-contract.mjs");
 const IDENTITY = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
 const FAKE_AWS_KEY = ["AKIA", "Q7X2M4N8P1R5T9V3"].join("");

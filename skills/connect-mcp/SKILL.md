@@ -17,12 +17,12 @@ the **brain** needs one. Do the half that was asked for, and offer the other in 
 
 1. Run this — it installs the Core tier (superpowers, skill-creator, claude-md-management, claude-code-setup, feature-dev, code-review, code-simplifier, context7):
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --tier core --scope user
+   node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" setup-plugins --tier core --scope user
    ```
    `${CLAUDE_PLUGIN_ROOT}` is the installed plugin; from a clone of the Cortex repo, use that
    clone's path instead. No vault and no `CORTEX_ROOT` are needed — this reads only the bundle
    manifest shipped with Cortex.
-2. Read what this machine already has: `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" setup-plugins --status --json`.
+2. Read what this machine already has: `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" setup-plugins --status --json`.
    It reads Claude Code's plugin registry and installs nothing. Each tier's `state` is `installed`,
    `partial`, `missing` or `unknown`, and each plugin carries `installed`.
 3. Then ask the user their role / stack and OFFER the optional tiers whose `state` is not

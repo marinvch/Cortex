@@ -15,7 +15,7 @@ import { tempDir } from "./tmp.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
-const AI_OS = join(HERE, "..", "ai-os.js");
+const AI_OS = join(HERE, "..", "cortex.js");
 const SERVER = join(HERE, "..", "server.js");
 
 const LONG_AGO = new Date("2026-01-01T00:00:00Z");
@@ -350,7 +350,7 @@ function cli(args, { cwd, root = "" } = {}) {
   });
 }
 
-test("ai-os graph answers from the repo CORTEX_ROOT names, and from the cwd's repo with no root", () => {
+test("cortex graph answers from the repo CORTEX_ROOT names, and from the cwd's repo with no root", () => {
   const repo = realRepo();
   spawnSync(process.execPath, [join(REPO_ROOT, "index", "cortex-index.mjs"), repo], { encoding: "utf8" });
   const named = cli(["node", "src/util/fmt.js", "--json"], { cwd: tempDir("cortex-graph-cwd-"), root: join(repo, ".cortex") });
@@ -365,7 +365,7 @@ test("ai-os graph answers from the repo CORTEX_ROOT names, and from the cwd's re
   assert.match(text.stdout, /import edges/);
 });
 
-test("ai-os graph exits 2 on a missing index, 1 on a bad question, and names the rebuild", () => {
+test("cortex graph exits 2 on a missing index, 1 on a bad question, and names the rebuild", () => {
   const repo = tempDir("cortex-graph-cli-");
   git(repo, ["init", "-q"]);
   const missing = cli(["stats"], { cwd: repo });

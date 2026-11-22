@@ -121,7 +121,7 @@ export function listTeamProjects(root, { team, policy }) {
 }
 
 /**
- * Write a project's file into the team-brain when its repo joins. Called by `ai-os team add`
+ * Write a project's file into the team-brain when its repo joins. Called by `cortex team add`
  * before it writes the connector, so a refusal here means the repo did not join at all.
  *
  * - The file does not exist: it is written from `fields`, with `repo` falling back to the
@@ -256,7 +256,7 @@ export function removeProject(root, { team, project, policy, env = process.env }
   const vault = openVault(root);
   const base = projectsDir(team);
   if (!vault.isDirectory(base)) {
-    throw new ProjectFileRefused("no_team_clone", `no team-brain for '${team}' under this vault (looked for ${base}/). Join it with \`ai-os team add\` first.`);
+    throw new ProjectFileRefused("no_team_clone", `no team-brain for '${team}' under this vault (looked for ${base}/). Join it with \`cortex team add\` first.`);
   }
   const dir = openVault(vault.abs(base));
   const rel = `${project}.md`;
@@ -303,7 +303,7 @@ export function removeProject(root, { team, project, policy, env = process.env }
  *   state `invalid`       one problem per error; warnings are listed and never counted
  *   state `ok`
  *
- * `problems` is what makes `ai-os project check` exit 1. The CLI prints the rows; the count is
+ * `problems` is what makes `cortex project check` exit 1. The CLI prints the rows; the count is
  * decided here so it can be tested without starting a process.
  */
 export function checkProjects(root, { team, policy }) {

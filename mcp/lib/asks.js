@@ -74,7 +74,7 @@ export function resolveAddressee(clone, to, members) {
   throw new AskRefused(
     "unknown_addressee",
     `no role or project in this team is named '${want}'. Roles: ${list(roles)}. Projects: ${list(projects)}. ` +
-      "A role exists once a member holds it in team.json (`ai-os team member`); a project once its repo joins (`/join-team`).",
+      "A role exists once a member holds it in team.json (`cortex team member`); a project once its repo joins (`/join-team`).",
   );
 }
 
@@ -104,7 +104,7 @@ export function placeCaller(author, members, project) {
     const scope = project ? `asks addressed to this repo's project '${project}'` : "no asks addressed to you";
     caller.notice =
       `Could not place you in the team: ${who}. Set CORTEX_AUTHOR to your handle there, or add yourself with ` +
-      "`ai-os team member --handle <handle> --roles <role,...>`. " +
+      "`cortex team member --handle <handle> --roles <role,...>`. " +
       `Until then the inbox shows ${scope}, and answers to asks you sent.`;
   }
   return caller;
@@ -294,7 +294,7 @@ export function asksInstructions(brain, author) {
 // From a brain: what both adapters call
 // ---------------------------------------------------------------------------------------------
 //
-// `server.js` and `ai-os.js` are two adapters over these, so neither decides which clone, which
+// `server.js` and `cortex.js` are two adapters over these, so neither decides which clone, which
 // caller or which push: the brain record says which team and clone, `core/author.js` says who, and
 // the policy says whether the commit leaves the machine.
 
@@ -358,7 +358,7 @@ export async function answerFrom(brain, args, ctx) {
 }
 
 /**
- * `ai-os team member`: add or update one member of `team.json`, then commit and push it. `team`
+ * `cortex team member`: add or update one member of `team.json`, then commit and push it. `team`
  * overrides the connector's, for a lead standing in the vault rather than in a joined repo; its
  * clone must already be there (`team init` made it), since no connector names a remote for it.
  */

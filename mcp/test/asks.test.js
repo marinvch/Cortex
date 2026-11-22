@@ -18,7 +18,7 @@ import { tempDir } from "./tmp.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, "..", "server.js");
-const CLI = join(HERE, "..", "ai-os.js");
+const CLI = join(HERE, "..", "cortex.js");
 const IDENTITY = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
 const FAKE_AWS_KEY = ["AKIA", "Q7X2M4N8P1R5T9V3"].join("");
 
@@ -389,6 +389,6 @@ test("every team command is reachable from the CLI, and `help` lists each one (R
   // Each command `help` names is one the CLI dispatches: it fails on its root or flags, never as unknown.
   for (const cmd of ["ask", "inbox", "answer", "contract", "team"]) {
     const u = spawnSync(process.execPath, [CLI, cmd], { encoding: "utf8", env: bare });
-    assert.doesNotMatch(u.stderr, /usage: ai-os </, cmd);
+    assert.doesNotMatch(u.stderr, /usage: cortex </, cmd);
   }
 });

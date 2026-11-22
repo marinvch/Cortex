@@ -31,7 +31,7 @@ list or nothing is cloned or pushed; check it first with
 1. Ensure a private team-brain git repo exists (create it via `gh repo create <org>/<team>-brain --private`
    if the user hasn't) and get its URL.
 2. With `CORTEX_ROOT` set to your vault — the seeded clone lives under it — run
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team init --name <team> --repo <git-url> --projects <slug1,slug2>`.
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" team init --name <team> --repo <git-url> --projects <slug1,slug2>`.
    From a clone of the Cortex repo rather than the plugin, use that clone's path.
    If the organisation runs Cortex from its own fork, add `--source <owner/repo|git-url>`. It is
    written to `team.json` in the brain, and every `/join-team` copies it into that repo's connector,
@@ -64,7 +64,7 @@ list or nothing is cloned or pushed; check it first with
    project is a notes folder the workspace lists as unregistered. `/join-team` also asks each
    member for their roles and their job and writes them to `team.json`; an ask to a role reaches
    whoever holds it there, so add yourself the same way, with your job:
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --team <team> --roles <role,role> --job lead`.
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" team member --team <team> --roles <role,role> --job lead`.
    A job is one of `developer`, `architect`, `lead`, `pm` and `qa`. It changes what the rituals
    offer each person first, never what they may run. A member who works outside the repos, such
    as a project manager in Claude Desktop, installs their job's role pack rather than the plugin:

@@ -19,7 +19,7 @@ import { catchMeUp } from "../lib/catchup.js";
 import { tempDir } from "./tmp.js";
 import { policyFor } from "../../core/profile.js";
 
-const CLI = join(dirname(fileURLToPath(import.meta.url)), "..", "ai-os.js");
+const CLI = join(dirname(fileURLToPath(import.meta.url)), "..", "cortex.js");
 const IDENTITY = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
 
 function git(cwd, ...a) {

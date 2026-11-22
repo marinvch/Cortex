@@ -7,7 +7,7 @@
 //                                                    # ...and do it
 //
 // A team rarely uses one agent, and an ask sent to a role reaches nobody if that role's developer
-// runs an agent with no Cortex in it. MCP plus the `ai-os` CLI is the contract every agent shares
+// runs an agent with no Cortex in it. MCP plus the `cortex` CLI is the contract every agent shares
 // (design R15–R16, docs/specs/2026-10-24-team-brain-rollout-design.md); this puts the server in
 // each agent's own config:
 //

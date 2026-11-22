@@ -7,7 +7,7 @@
 //   node index/cortex-stories.mjs [root] --max-commits 2000 --since 2026-01-01
 //   node index/cortex-stories.mjs [root] --project <slug> --repo <owner/name>
 //
-// Publishing is `node mcp/ai-os.js stories publish --file <it>`, never this command: the index
+// Publishing is `node mcp/cortex.js stories publish --file <it>`, never this command: the index
 // reads, and mcp/ owns the team-brain, as it does for the contract. The rules are in
 // lib/stories.mjs's header and core/story-key.js's.
 //

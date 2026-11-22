@@ -517,6 +517,7 @@ function cmdDigest(args) {
   if (!args.repo || !args.since || !args.out) {
     throw new Error("usage: cortex digest --repo <path> --since <YYYY-MM-DD> --out <file>");
   }
+  console.error("`cortex digest` is deprecated and will be removed in 4.0.0.");
   const out = digest(args.repo, args.since, args.out);
   console.log(`Digest appended to ${out}.`);
   return 0;

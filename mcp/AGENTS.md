@@ -25,7 +25,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
 | `cortex project list` | every project the brain knows, as JSON; the same as `list_projects` | a vault |
 | `cortex project check` | validate the team's project files; exit 1 on an error or a withheld file | a vault, a team |
 | `cortex project remove` | delete one project file with `git rm`, commit, push | a vault, a team |
-| `cortex digest` | append a git digest to a file | nothing |
+| `cortex digest` | append a git digest to a file. Deprecated, removed in 4.0.0 | nothing |
 | `cortex catch-up` | notes and history since a date | a repo or a vault |
 | `cortex graph <op>` | the `graph` tool's answer: `stats`, `node`, `neighbors`, `cluster`, `hubs`, `bridges`, `path`, and `callers`, `callees`, `defines` from `index.symbols` (`core/symbol-calls.js`); `--json`. Exit 2 on a missing or stale index, or no symbols for those three. Read-only | a repo, its index |
 | `cortex graph story\|stories-for\|risk` | the story ops, from the team-brain; exit 2 when no links are published or this repo's are behind HEAD | a root, a team |

@@ -5,6 +5,11 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Deprecated
+
+- **`cortex digest`** prints a warning and still works. It is removed in 4.0.0. Nothing in Cortex
+  calls it.
+
 ### Changed
 
 - **The CLI is `cortex` now.** `mcp/ai-os.js` moved to `mcp/cortex.js` and the package is

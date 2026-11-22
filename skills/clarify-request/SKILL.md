@@ -4,7 +4,7 @@ description: Sharpen a vague or short prompt ("fix it", "make it faster") before
 effort: low
 metadata:
   capability: mechanical
-  reached-by: the UserPromptSubmit hook, on a vagueness score of 4 or higher
+  reached-by: its description, and in Cortex's own checkout the UserPromptSubmit hook on a score of 4 or higher
 ---
 
 # /clarify-request — sharpen a prompt before acting on it
@@ -15,7 +15,7 @@ ritual.
 
 ## What to do
 
-1. **Score it** (the hook does this in Claude Code; do it yourself everywhere else):
+1. **Score it** (Cortex's own checkout has a hook for this; do it yourself everywhere else):
    under 10 words `+2`; no action verb `+1`; no component reference `+1`; no domain keyword `+1`.
    This file is where these rules live — `.claude/hooks/optimize-prompt.mjs` implements them, and
    its test fails if a word below goes missing from this list.

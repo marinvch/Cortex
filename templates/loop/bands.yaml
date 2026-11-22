@@ -1,8 +1,10 @@
-# Control bands: when production drifts, this is what turns the drift into the next intent.md.
+# Control bands: a plan for turning production drift into the next intent.md.
 #
-# Deciding THAT a band was breached is arithmetic — a rolling mean and deviation, checked by a
-# script that is committed and unit tested. No model is involved in that decision. A model is only
-# asked afterwards, to explain the breach, and each tier caps what it may do about it.
+# Cortex does not run this file. It ships no detector and nothing reads these values, so no band is
+# checked until your team writes a script that does. Make that script plain arithmetic, a rolling
+# mean and deviation with unit tests, so no model decides that a band was breached. A model is asked
+# only afterwards, to explain the breach, and each tier caps what it may do about it.
+# Cortex stops stamping this template in 4.0.0. A copy already in your repo stays yours.
 #
 # Fill in one metric that has a stable history. Add more only once this one is quiet.
 watch:

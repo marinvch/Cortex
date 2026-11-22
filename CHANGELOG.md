@@ -39,6 +39,8 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **`bands.yaml` no longer promises a script Cortex does not ship.** Its header now says that nothing
+  runs the file until a team writes the detector.
 - **The docs now say which Copilot surfaces read `AGENTS.md`.** The README has GitHub's table, and
   ADR 0031 no longer says code review on github.com skips it. Chat outside VS Code and code review
   inside an IDE do skip it, and whether a pointer reaches them is not measured.

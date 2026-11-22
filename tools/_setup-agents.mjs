@@ -73,8 +73,7 @@ export const INBOX_HEADING = "## Team-brain";
 export const COPILOT_POINTER =
   "# Copilot instructions\n\n" +
   "This repository's instructions for AI agents are in [`AGENTS.md`](../AGENTS.md) at the root, with\n" +
-  "scoped `AGENTS.md` files in some directories. Read the root one first and follow it; this file only\n" +
-  "points there, so the two cannot disagree.\n";
+  "scoped `AGENTS.md` files in some directories. Read the root one first and follow it.\n";
 
 export const GEMINI_SHIM = "@AGENTS.md\n";
 

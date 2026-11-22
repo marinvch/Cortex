@@ -82,6 +82,10 @@ test("readState says which other-tool doc holds its own text", () => {
   const shim = repo({ "AGENTS.md": "x", "CONTEXT.md": "x", ".github/copilot-instructions.md": "All project context and conventions live in AGENTS.md at the repo root. Follow it.\n" });
   assert.deepEqual(readState(shim, { files: [] }).standaloneDocs, [], "the shim is not a doc to reconcile");
 
+  const older = "# Copilot instructions\r\n\r\nThis repository's instructions for AI agents are in [`AGENTS.md`](../AGENTS.md) at the root, with\r\nscoped `AGENTS.md` files in some directories. Read the root one first and follow it; this file only\r\npoints there, so the two cannot disagree.\r\n";
+  const oldShim = repo({ "AGENTS.md": "x", "CONTEXT.md": "x", ".github/copilot-instructions.md": older });
+  assert.deepEqual(readState(oldShim, { files: [] }).standaloneDocs, [], "nor is the pointer setup wrote through 3.0.0");
+
   assert.deepEqual(readState(repo({ "AGENTS.md": "x" }), { files: [] }).standaloneDocs, [], "and a repo without the file has none");
 });
 

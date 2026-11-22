@@ -39,6 +39,8 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **Four rituals show their 3.0.0 names in Codex.** Their `agents/openai.yaml` still carried the old
+  display names, and `/challenge-plan` carries its name into the role packs.
 - **`bands.yaml` no longer promises a script Cortex does not ship.** Its header now says that nothing
   runs the file until a team writes the detector.
 - **The docs now say which Copilot surfaces read `AGENTS.md`.** The README has GitHub's table, and

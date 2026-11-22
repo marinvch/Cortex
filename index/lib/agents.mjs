@@ -34,7 +34,6 @@ import { textSource } from "./repo-text.mjs";
 /** The roster, in the order the spec's table gives it — also the order gaps are reported in. */
 export const ROLES = ["architect", "implementer", "tester", "reviewer", "project-manager"];
 
-export const AGENTS_REL = ".claude/agents";
 // Recursive: "Claude Code scans `.claude/agents/` and `~/.claude/agents/` recursively, so you can
 // organize definitions into subfolders" (code.claude.com/docs/en/sub-agents). Identity is `name`.
 const OWN_AGENT = /^\.claude\/agents\/.+\.md$/;

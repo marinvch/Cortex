@@ -282,5 +282,3 @@ export function labelsFor(ids) {
   const byId = new Map(SIGNALS.map((s) => [s.id, s.label]));
   return ids.map((i) => byId.get(i) || i);
 }
-
-export { SIGNALS as STACK_SIGNALS };

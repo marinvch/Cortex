@@ -41,21 +41,9 @@ gets user scope instead.
 ## A pack skill is portable
 
 `cortex-pack.mjs` builds a role pack from `skills/` for people who do not run Claude Code, and the
-design leaves "portable" to be defined. It is defined narrowly here, checked by `judgeSkill` in
-`_pack.mjs`, and each point is failed on a fixture in `test/cortex-pack.test.sh`. A skill is
-portable when, after the adaptation, every file it ships:
-
-1. names no variable only Claude Code sets: `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR`;
-2. runs no Cortex script: no `node`, `bash` or `sh` command naming a path under `tools/`, `index/`
-   or `mcp/`, in prose or in a code fence. Outside Claude Code there is no checkout to run them
-   from, and the design sends a pack skill to the team-brain through the MCP tools;
-3. and the skill does not carry `disable-model-invocation: true`. Other assistants have no such
-   switch, and the flag marks a ritual that must not start by itself;
-4. has frontmatter that parses, a name equal to its folder (at most 64 of a-z, 0-9, -) and a
-   description of at most 1,024 characters;
-5. links only to files that exist: inside its folder as written, outside it to a file in this
-   repository, which the link is rewritten to name on the release tag;
-6. is a text file the check can read (`.md`, `.yaml`, `.yml`, `.json`, `.txt`).
+design leaves "portable" to be defined. It is defined narrowly, checked by `judgeSkill` in
+`_pack.mjs`, and each point is failed on a fixture in `test/cortex-pack.test.sh`. The six
+points are in the header of `_pack.mjs`, the one copy.
 
 The adaptation is mechanical and never touches prose: frontmatter keeps only the Agent Skills keys
 (`name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools`), out-of-folder

@@ -201,6 +201,15 @@ here; `--citations` already reports it.
 - **The reverse direction.** A test whose text names a brief or quotes a rule is evidence the item
   does not carry. Whether that is worth a pass over the test files is not known.
 
+## An idea dropped beside this one
+
+Counting unread files in the unreferenced finding was proposed with this work and dropped on
+2026-10-12, because the report already says it. `analyse()` ends with a finding, "N files were too
+large to read", that lists them and says they were "not searched for the paths they might name"
+(`text.oversized`, `index/lib/findings.mjs`). The other reason a read fails, an indexed path that is
+gone, is left unreported on purpose: that is a stale index, and `indexFreshness` owns it
+(`index/lib/repo-text.mjs`, decision 3).
+
 ## Out of scope
 
 - Deciding that a rule is enforced, or that a test covers a sentence. That needs a model.

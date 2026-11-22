@@ -11,6 +11,11 @@ this project now versions independently of any package manager (see `VERSION`).
   move a vault that is still inside a Cortex clone before then.
 - **`cortex digest`** prints a warning and still works. It is removed in 4.0.0. Nothing in Cortex
   calls it.
+- **`/sync-website`** leaves the rituals the plugin ships in 4.0.0. It only works on Cortex's own
+  site, so it does nothing for anyone else's repo. It still works through 3.x.
+- **The `bands` row of the `/setup-repo` loop and `templates/loop/bands.yaml`** are removed in
+  4.0.0. Cortex only checks that the file exists and ships no script that acts on its contents,
+  so a stamped `bands.yaml` does nothing today.
 
 ### Changed
 

@@ -156,7 +156,7 @@ export function assertWritable(text) {
 // numbers is a gate people learn to ignore. The two with a checksum — IBAN (mod 97) and card numbers
 // (Luhn) — are checked, so a random number of the right shape almost never passes.
 
-export const PII_MODES = Object.freeze(["warn", "refuse", "off"]);
+const PII_MODES = Object.freeze(["warn", "refuse", "off"]);
 export const PII_DEFAULT = "warn";
 
 // Addresses that name nobody: RFC 2606 / 6761 reserved names, mDNS `.local` (RFC 6762), GitHub's noreply domain, and a git

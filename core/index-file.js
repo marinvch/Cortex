@@ -89,7 +89,7 @@ export function readIndex(indexPath, { rootArg = "" } = {}) {
 }
 
 /** The repo's tracked files as git lists them, or null when `root` is not a git work tree. */
-export function trackedFiles(root) {
+function trackedFiles(root) {
   try {
     const out = execFileSync("git", ["ls-files"], {
       cwd: root,

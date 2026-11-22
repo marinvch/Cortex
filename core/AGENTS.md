@@ -218,8 +218,8 @@ here, which is why the directory is small and stays small.
 
 ## Gotchas
 
-- `stamp()` is re-exported from `memory.js` for convenience, but `date.js` **owns** it. There was
-  briefly a second copy after the kernel extraction; do not add a third.
+- `date.js` **owns** `stamp()`. There was briefly a second copy after the kernel extraction; do not
+  add a third.
 - `paths.test.js` skips its symlink case on Windows — creating a symlink there needs admin. The
   skip is expected in local runs and in the Windows CI leg.
 - `scrub.test.js` carries a `cortex:allow-secrets` marker. Without it, Cortex reports its own test

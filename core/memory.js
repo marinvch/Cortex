@@ -20,11 +20,7 @@ import { authorSlug, resolveAuthor, InvalidAuthorError } from "./author.js";
 // a content conflict when it already existed. This comment said the opposite until it was tried:
 // docs/specs/2026-10-09-team-memory-design.md, "Reproduction".
 
-export const MEMORY_DIR = "memory";
-
-// Re-exported so existing callers keep working, but core/date.js owns the definition — one
-// spelling of a date format across memory files, findings reports and digests.
-export { stamp } from "./date.js";
+const MEMORY_DIR = "memory";
 
 // The layout is this module's to own, and it used to be owned by a doc comment. `root` means the
 // .cortex directory; pass a repo root — the reading the word invites — and the write landed in

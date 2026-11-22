@@ -58,14 +58,23 @@ const POINTER_LINES = 3;
 /** Above this many bytes a file is not a pointer whatever it says, and is not read to find out. */
 export const POINTER_BYTES = 2048;
 
+/** The four-line pointer cortex-setup wrote through 3.0.0. Repos still hold it, and it has no rules. */
+const OLD_SETUP_POINTER =
+  "# Copilot instructions\n\n" +
+  "This repository's instructions for AI agents are in [`AGENTS.md`](../AGENTS.md) at the root, with\n" +
+  "scoped `AGENTS.md` files in some directories. Read the root one first and follow it; this file only\n" +
+  "points there, so the two cannot disagree.";
+
 /**
  * Does this text only point at the root brief — a shim — or does it hold rules of its own?
  *
  * A pointer names `AGENTS.md` and is at most three non-blank lines. The rule is about shape, not
- * about one wording, because two shim texts are already in circulation and a person may write a
- * third. It cannot say a doc is stale: only that it is a second copy somebody has to keep true.
+ * about one wording, because shim texts are already in circulation and a person may write another.
+ * The one exception is Cortex's own older pointer, which is a line over. It cannot say a doc is
+ * stale: only that it is a second copy somebody has to keep true.
  */
 export function pointsAtRootBrief(text) {
+  if (text.replace(/\r\n/g, "\n").trim() === OLD_SETUP_POINTER) return true;
   const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
   return lines.length > 0 && lines.length <= POINTER_LINES && /(^|[^\w.-])AGENTS\.md(?![\w-]|\.\w)/.test(text);
 }

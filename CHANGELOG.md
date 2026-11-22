@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **`cortex-next` no longer calls Cortex's own Copilot pointer a second brief.** `cortex-setup` wrote
+  a pointer one line over the limit, so `cortex-next` offered to reconcile a file with no rules in it.
+  `cortex-setup` and `cortex-init.sh` now write one text, and the older pointer is recognised.
 - **The Claude Code rules match the docs again** (#663). Six pinned sentences had moved. Two change
   what Cortex tells you: a mod's own `$.fs` and `$.process` calls can skip a `PreToolUse` hook even
   with the built-in guard loaded, and protected-path writes now have one rule per permission mode.

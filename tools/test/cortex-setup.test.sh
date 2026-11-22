@@ -72,6 +72,11 @@ assert_eq "same" "$(same_as "$HOME_DIR/.codex/config.toml" "$FIX/codex.config.to
 assert_eq "no" "$( [ -e "$P/.mcp.json" ] && echo yes || echo no)" "claude: no .mcp.json beside the plugin's server"
 assert_eq "@AGENTS.md" "$(tr -d '\r' < "$P/GEMINI.md")" "gemini: the GEMINI.md shim, pointing at AGENTS.md"
 assert_contains "$(cat "$P/.github/copilot-instructions.md")" "AGENTS.md" "copilot: copilot-instructions.md points at AGENTS.md"
+assert_eq "true" "$(node -e 'import(require("url").pathToFileURL(process.argv[1]).href).then((m) => console.log(m.pointsAtRootBrief(require("fs").readFileSync(process.argv[2], "utf8"))))' "$REPO_ROOT/index/lib/context-docs.mjs" "$P/.github/copilot-instructions.md")" "and cortex-next reads it as a pointer, not as a second brief"
+INIT_P="$WORK/init-pointer"
+mkdir -p "$INIT_P"
+(cd "$INIT_P" && HOME="$HOME_DIR" USERPROFILE="$HOME_DIR" bash "$REPO_ROOT/tools/cortex-init.sh" --yes --agents copilot --no-plugins >/dev/null 2>&1)
+assert_eq "$(tr -d '\r' < "$P/.github/copilot-instructions.md")" "$(tr -d '\r' < "$INIT_P/.github/copilot-instructions.md")" "cortex-init and cortex-setup write the same pointer"
 assert_not_contains "$(cat "$P/.vscode/mcp.json" "$P/.gemini/settings.json")" "$CH" "the committed files carry no path on this machine"
 assert_contains "$out" "git add .vscode/mcp.json .gemini/settings.json" "it names what to commit"
 assert_not_contains "$out" "git add .vscode/mcp.json .gemini/settings.json ~/.codex" "and not the user-scope file"

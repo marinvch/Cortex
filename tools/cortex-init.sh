@@ -200,7 +200,11 @@ if [ $ADDITIVE -eq 0 ]; then
   else write_file AGENTS.md "$AGENTS_MD"; fi
   want claude  && write_shim CLAUDE.md "@AGENTS.md"$'\n'
   want gemini  && write_shim GEMINI.md "See AGENTS.md at the repo root for all project context, architecture, and conventions."$'\n'
-  want copilot && write_shim .github/copilot-instructions.md "All project context and conventions live in \`AGENTS.md\` at the repo root. Read and follow it."$'\n'
+  want copilot && write_shim .github/copilot-instructions.md "# Copilot instructions
+
+This repository's instructions for AI agents are in [\`AGENTS.md\`](../AGENTS.md) at the root, with
+scoped \`AGENTS.md\` files in some directories. Read the root one first and follow it.
+"
   want cursor  && write_shim .cursor/rules/project.mdc "---"$'\n'"alwaysApply: true"$'\n'"---"$'\n'"Read AGENTS.md at the repo root for architecture, conventions, and the development cycle."$'\n'
 else say "  (--additive: leaving AGENTS.md + shims untouched; refreshing skills only)"; fi
 

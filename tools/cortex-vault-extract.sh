@@ -56,6 +56,8 @@ cd "$ROOT"
 
 [ -f "AGENTS.md" ] || { echo "error: run this from the Cortex repo" >&2; exit 1; }
 
+echo "warning: cortex-vault-extract.sh is deprecated and will be removed in 4.0.0." >&2
+
 if [ "$APPLY" -eq 0 ]; then
   echo "DRY RUN — nothing will be written. Add --apply to perform the move."
   echo

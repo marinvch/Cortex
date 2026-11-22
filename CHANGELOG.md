@@ -7,6 +7,8 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Deprecated
 
+- **`tools/cortex-vault-extract.sh`** prints a warning and still works. It is removed in 4.0.0, so
+  move a vault that is still inside a Cortex clone before then.
 - **`cortex digest`** prints a warning and still works. It is removed in 4.0.0. Nothing in Cortex
   calls it.
 

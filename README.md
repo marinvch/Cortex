@@ -460,6 +460,9 @@ bash tools/cortex-vault-extract.sh --to ~/cortex-brain          # preview, chang
 bash tools/cortex-vault-extract.sh --to ~/cortex-brain --apply  # copy it out
 ```
 
+This script is deprecated and is removed in 4.0.0. If your vault is still inside a Cortex clone,
+move it before then.
+
 An optional **personal vault** — notes, decisions, a daily log — is served by the same
 rituals, and lives in its own private repo, never in this one. Those rituals ship in the same plugin
 as the codebase ones. Their descriptions cost a codebase-only user about 720 tokens a session, and
@@ -854,7 +857,7 @@ none.
 | `cortex-rm.sh` | Remove a note safely (archive + de-link + refresh) |
 | `cortex-scan-projects.sh` | Register your local git repos into the vault's `projects/`, metadata only |
 | `cortex-sync-skills.sh` | Mirror `skills/` into `.claude/skills/`; `--check` reports drift |
-| `cortex-vault-extract.sh` | Lift the personal-vault half out into its own repo; a dry run unless `--apply` |
+| `cortex-vault-extract.sh` | Lift the personal-vault half out into its own repo; a dry run unless `--apply`. Deprecated, removed in 4.0.0 |
 | `cortex-capability.mjs` | What each ritual needs from the setup running it |
 | `cortex-frontmatter.mjs` | Is every ritual's frontmatter readable by a router; `--check` fails on the first bad line, strictly |
 | `cortex-version.mjs` | `--set X.Y.Z` — stamp the version at all seven sites, refuse without a changelog entry |

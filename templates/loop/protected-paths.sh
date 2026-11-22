@@ -7,9 +7,9 @@
 # and the route to approval have to be IN the message; a bare refusal teaches the user only that
 # Claude stopped.
 #
-# One thing this may not stop: a Claude Code mod the user installed. The docs say a PreToolUse hook
-# wins over a mod only when the built-in mod guard loads, which needs managed settings or a Team or
-# Enterprise login. On a personal API-key login a mod that approves tool calls may approve past it.
+# One thing this may not stop: a Claude Code mod the user installed. A PreToolUse hook wins over a
+# mod's approval only when the built-in guard loads (managed settings, managed-mcp.json, or a Team or
+# Enterprise /login), and even then a mod's own $.fs and $.process calls can skip this hook.
 # https://code.claude.com/docs/en/plugins/mods/admin#know-what-happens-by-default
 set -uo pipefail
 

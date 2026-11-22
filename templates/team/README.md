@@ -47,11 +47,13 @@ What it does not cover:
 - **Bash.** The Tester has it to run tests, and a shell command can write any file. The body tells
   the Tester to write through Edit and Write only; that is an instruction, not a fence.
 - **An installed mod.** A `PreToolUse` hook wins over a Claude Code mod only when the built-in mod
-  guard loads, which needs managed settings or a Team or Enterprise login
-  ([mods](https://code.claude.com/docs/en/plugins/mods/admin#know-what-happens-by-default)). On a
-  personal API-key login nothing says it does, so a mod that approves tool calls may approve an edit
-  this hook blocked. The same holds for the loop's `protected-paths.sh`. An organisation stops it
-  with `allowManagedModsOnly`; a repo cannot.
+  guard loads, which needs managed settings, a `managed-mcp.json`, or a `/login` on a Team or
+  Enterprise plan
+  ([mods](https://code.claude.com/docs/en/plugins/mods/admin#know-what-happens-by-default)). On an
+  API key or a long-lived `CLAUDE_CODE_OAUTH_TOKEN` without those, a mod that approves tool calls may
+  approve an edit this hook blocked. Even with the guard, a mod's own `$.fs` and `$.process` calls
+  can skip the hook. The same holds for the loop's `protected-paths.sh`. An organisation stops
+  user-installed mods with `allowManagedModsOnly`; a repo cannot.
 - **Windows without Git Bash.** The command runs `bash`, and without Git Bash Claude Code runs
   hooks in PowerShell. Whether a PowerShell failure there still exits 2 depends on its version, so
   treat Git Bash as required, as it already is for `protected-paths.sh`.

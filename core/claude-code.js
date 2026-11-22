@@ -25,7 +25,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-11-08";
+export const CHECKED = "2026-11-22";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -266,7 +266,7 @@ export const RULES = Object.freeze([
     id: "mcp.output.warn-tokens",
     value: 10000,
     source: MCP,
-    evidence: "Claude Code displays a warning when any MCP tool output exceeds 10,000 tokens",
+    evidence: "displays a warning when any MCP tool output exceeds a fixed 10,000 tokens",
   },
   {
     id: "mcp.output.max-tokens",
@@ -457,7 +457,7 @@ export const RULES = Object.freeze([
     value: ".claude/settings.json",
     source: SETTINGS,
     evidence:
-      "Commit `.claude/settings.json` so everyone who clones the repository gets the same permissions, hooks, and plugins.",
+      "Commit `.claude/settings.json` so everyone who clones the repository gets the same permissions, hooks, and plugin settings.",
   },
   {
     id: "settings.trust.grants-wait",
@@ -549,7 +549,7 @@ export const RULES = Object.freeze([
     value: "claude -p",
     source: PERMISSIONS,
     evidence:
-      "A `claude -p` run or an SDK session never shows it, and trusting a parent folder doesn't count for these rules",
+      "Claude Code shows the trust dialog in interactive terminal sessions, but not in `claude -p` or SDK sessions. Trusting a parent folder doesn't count for these rules.",
   },
   {
     id: "permission.trust.subagent-hooks-need-trust",
@@ -820,15 +820,22 @@ export const RULES = Object.freeze([
     id: "mod.guard.pretooluse-wins",
     value: "PreToolUse",
     source: MODS_ADMIN,
-    evidence: "The mod can't approve a call that any `PreToolUse` hook blocked, either.",
+    evidence: "A call that a `PreToolUse` hook blocked stays blocked",
   },
   {
     // Only with the guard loaded. Without it nothing says a hook wins, so the fences name the gap.
     id: "mod.guard.loads-when",
-    value: ["managed settings", "Team or Enterprise login"],
+    value: ["managed settings", "managed-mcp.json", "Team or Enterprise login"],
     source: MODS_ADMIN,
     evidence:
-      "A user who authenticates with an API key, or through Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry, gets the guard only on a machine that has managed settings.",
+      "A user with an API key, or on Amazon Bedrock, Google Cloud's Agent Platform, or Microsoft Foundry, gets the guard only on a machine with managed settings or `managed-mcp.json`.",
+  },
+  {
+    // The guard covers Claude's calls. A mod's own calls are outside it, so no fence can promise them.
+    id: "mod.own-calls.skip-hooks",
+    value: ["$.fs", "$.process"],
+    source: MODS_ADMIN,
+    evidence: "calls can skip permission rules and `PreToolUse` hooks",
   },
 
   // --- permissions: why an unattended /setup-repo cannot write under .claude/ ------------------------
@@ -849,11 +856,11 @@ export const RULES = Object.freeze([
     evidence: "Claude's own git worktrees under `.claude/worktrees/`",
   },
   {
-    id: "permission.protected-path.never-auto-approved",
+    id: "permission.protected-path.bypass-allows",
     value: "bypassPermissions",
     source: MODES,
     evidence:
-      "Writes to a small set of paths are never auto-approved, except in `bypassPermissions` mode and in interactive terminal sessions in plan mode with bypass permissions available.",
+      "`bypassPermissions` mode disables permission prompts and safety checks so tool calls execute immediately, including writes to protected paths",
   },
   {
     id: "permission.protected-path.allow-rules-do-not-apply",
@@ -947,9 +954,9 @@ export function limit(id) {
 
 /**
  * Is a write to this repo-relative path one Claude Code treats as a protected-path write under
- * `.claude/`? Those are never auto-approved outside `bypassPermissions`, an allow rule does not
- * change that, and in a `claude -p` run nobody is there to answer the prompt — so the write is
- * refused. `.claude/worktrees` is the one exception applied here. The page lists others (the
+ * `.claude/`? Each permission mode has its own rule for those, an allow rule does not change it,
+ * and in a `claude -p` run nobody is there to answer a prompt — so outside `bypassPermissions` the
+ * write is refused. `.claude/worktrees` is the one exception applied here. The page lists others (the
  * session's plan files and a background session's scratch directory, both under `~/.claude`, and
  * markdown in an auto-memory or `.claude/agent-memory/` directory when the session was not started
  * with `--restricted`). Cortex stamps into none of them and cannot see that flag, so they stay

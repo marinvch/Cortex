@@ -88,9 +88,10 @@ export class UnknownProfileError extends Error {
  * a work laptop and a home laptop have the same shape — so there is nothing honest to detect, and
  * the same reasoning that made `server` a declared audience applies here (docs/adr/0008).
  *
- * Defaults to `home`, and the default is chosen to fail SAFE rather than convenient: an undeclared
- * work machine gets the strict-about-employer-content firewall, which at worst refuses a write
- * someone wanted. The opposite default would let a work machine quietly behave like a lab.
+ * Defaults to `home`. For content that fails safe: an undeclared work machine gets the
+ * strict-about-employer-content firewall, which at worst refuses a write someone wanted. For
+ * destinations it does not: `home` allows any (ADR 0030), so a work machine that never declared
+ * `work` has no approved list. A team's machines have to set the profile.
  *
  * An unrecognised value THROWS rather than falling back. A typo — `CORTEX_PROFILE=works` — silently
  * resolving to `home` would look identical to a correct home install while the user believed the

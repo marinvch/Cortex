@@ -818,6 +818,9 @@ its own `AGENTS.md`.
 
 ### Approved destinations on work
 
+A machine that never set a profile runs as `home`, and `home` may send to any destination. The list
+below applies only once `CORTEX_PROFILE=work` is set, so every work machine has to set it.
+
 On a `work` profile, company material leaves the machine only for a destination your company
 approved. The list is a file outside every repository, so IT can deploy it:
 `~/.cortex/allowed-destinations`, or the path in `CORTEX_DESTINATIONS`. One line per destination:

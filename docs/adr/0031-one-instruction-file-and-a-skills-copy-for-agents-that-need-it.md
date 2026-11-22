@@ -53,8 +53,10 @@ quietly become a second source.
 - A repo that serves Codex or Gemini CLI carries two copies of each skill. The drift check keeps
   them equal, but it only runs when someone runs `/suggest-skills` or `/setup-repo`. A copy edited
   by hand stays wrong until then.
-- Copilot code review and repo-wide chat still read only `.github/copilot-instructions.md`.
-  Whether a one-line pointer there is enough for them is not measured, so Cortex does not write it
-  from `/write-context-docs`.
+- Some Copilot surfaces read only `.github/copilot-instructions.md`: chat on github.com, in Visual
+  Studio, JetBrains, Eclipse and Xcode, and code review inside an IDE. Code review on github.com and
+  chat in VS Code do read `AGENTS.md` (corrected 2026-11-22; the README has the table). Whether a
+  pointer is enough for the surfaces that do not is not measured, so Cortex does not write it from
+  `/write-context-docs`.
 - The table above is a snapshot. Agent support changes fast; re-check the vendors' docs before
   relying on a row.

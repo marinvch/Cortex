@@ -20,13 +20,13 @@ for each tool that just says "read AGENTS.md":
 |---|---|---|
 | Claude Code | only with no `CLAUDE.md` present; some sessions cannot | `CLAUDE.md` → `@AGENTS.md` |
 | Gemini CLI | only if configured; default is `GEMINI.md` | `GEMINI.md` → "see AGENTS.md" |
-| GitHub Copilot | yes, nested too | nothing from `/setup-repo` |
+| GitHub Copilot | on some surfaces: the README's Copilot table lists them | nothing from `/setup-repo` |
 | Cursor | yes, nested too | nothing from `/setup-repo` |
 | Codex / Zed / Windsurf / Amp / Aider / Jules | yes | nothing |
 
 One source of truth, no copies to drift. `/setup-repo` writes the two shims. `bash
-tools/cortex-init.sh` also writes `.github/copilot-instructions.md` and `.cursor/rules/project.mdc`
-for older versions of those tools.
+tools/cortex-init.sh` also writes `.github/copilot-instructions.md`, for the Copilot surfaces that
+skip `AGENTS.md`, and `.cursor/rules/project.mdc` for older versions of Cursor.
 
 Path-scoped rules are nested `<dir>/AGENTS.md` files (`/write-area-brief`), which every agent above
 reads, not `.claude/rules/`, which only Claude Code reads.
@@ -58,8 +58,9 @@ This is the important part. Split it into two layers:
 **Shared layer = the repo (committed to git).**
 `AGENTS.md` + the shims live in the repo and get committed. So:
 - You (Claude) run `/setup-repo` once and commit the result.
-- Your colleague on **Copilot** pulls the repo → Copilot reads `AGENTS.md` directly → same
-  project knowledge.
+- Your colleague on **Copilot** pulls the repo → Copilot in VS Code, the CLI, the cloud agent and
+  github.com review read `AGENTS.md` directly → same project knowledge. Other Copilot chat and IDE
+  review do not read it, and whether a pointer reaches them is not measured.
 - The third dev on **Gemini** pulls → Gemini reads `GEMINI.md` → same knowledge.
 - Nobody re-discovers the architecture. One person writes the brain; everyone's agent reads it.
 

@@ -85,8 +85,9 @@ From `${CLAUDE_PLUGIN_ROOT}/templates/`:
   out. Keep it under ~120 lines — it loads on every turn. Include the routing table heading even
   if it has no rows yet, so `/write-area-brief` has somewhere to add them.
 - **`CLAUDE.md` and `GEMINI.md`**: each is written as one line, `@AGENTS.md`. Never restate the
-  brief in them, because a copy drifts. `/setup-repo` later appends one thing to `CLAUDE.md`: the
-  `## Verifying your work` block. It is the one Claude-specific section, and it belongs there.
+  brief in them, because a copy drifts. `/setup-repo` later appends up to two blocks to `CLAUDE.md`:
+  `## Verifying your work` and, on a team, `## Working as a team`. They are Claude-specific, and
+  they belong there.
   `GEMINI.md` stays one line. Claude Code v2.1.277 and later can read `AGENTS.md` with no
   `CLAUDE.md` at all, and the shim is still written: older versions and some sessions cannot, and
   the import is never read twice

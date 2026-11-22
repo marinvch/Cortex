@@ -32,8 +32,9 @@ firewall that keeps a `home` vault and a `work` vault apart, is
 The product's history is its git log and `CHANGELOG.md`; `archives/` is kept only for a vault and
 is ignored in full here.
 
-**Vague prompts go through `/clarify-request` first.** A `UserPromptSubmit` hook scores them in
-Claude Code; other agents apply the rules in `skills/clarify-request/SKILL.md` by judgment.
+**Vague prompts go through `/clarify-request` first.** In this checkout a `UserPromptSubmit` hook
+scores them. The plugin ships no hook, so anywhere else the ritual is reached by its description,
+and an agent applies the rules in `skills/clarify-request/SKILL.md` by judgment.
 
 ## The rituals
 
@@ -84,7 +85,7 @@ maps each old name to its new one, for a user or a doc still typing the old comm
 | `/story-map` | a PM's status, any time | each epic traced to the code its stories touched, what waits on an open ask, where the risk is. Never estimates |
 | `/challenge-plan` | before committing to a plan | interview in rounds until the design tree has no unresolved branch |
 | `/architecture-review` | on request | find deepening opportunities in a repo, report them as HTML, work one |
-| `/clarify-request` | automatic | the prompt gate — scores a vague prompt and sharpens it before work starts |
+| `/clarify-request` | on a vague prompt | the prompt gate — scores a vague prompt and sharpens it before work starts |
 
 Run `node tools/cortex-capability.mjs` for what each ritual needs from the setup running it, and
 `node tools/cortex-skill-graph.mjs` for how they reach each other — which ritual hands off to which,

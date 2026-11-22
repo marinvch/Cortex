@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **The Claude Code rules match the docs again** (#663). Six pinned sentences had moved. Two change
+  what Cortex tells you: a mod's own `$.fs` and `$.process` calls can skip a `PreToolUse` hook even
+  with the built-in guard loaded, and protected-path writes now have one rule per permission mode.
 - **Python packages in a subdirectory get their imports.** `from app.api.routes import items` in
   `backend/app/` resolved to nothing, because only the repo root and `src/` were tried. An absolute
   import is now also tried from the nearest directory above the file that is not a package. Inside

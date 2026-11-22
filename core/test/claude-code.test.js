@@ -232,7 +232,7 @@ test("the rules cannot be edited at runtime by a consumer", () => {
 test("the protected-path rules an unattended install depends on are present and sourced", () => {
   for (const id of [
     "permission.protected-path.claude-dir",
-    "permission.protected-path.never-auto-approved",
+    "permission.protected-path.bypass-allows",
     "permission.protected-path.allow-rules-do-not-apply",
     "permission.protected-path.auto-mode-classifier",
     "headless.permission.no-host-denied",

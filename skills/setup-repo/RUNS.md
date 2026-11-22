@@ -50,11 +50,11 @@ carries the answer (`[a]ll`, or the rows to write). It also meets a limit no pro
 Code protects `.claude/`**, and the verifier, the hooks, `settings.json` and whatever
 `/suggest-skills` writes under `.claude/skills/` all land there. The
 [permission-modes](https://code.claude.com/docs/en/permission-modes#protected-paths) page says why,
-in three sentences `core/claude-code.js` pins (`permission.protected-path.*`):
+in rules `core/claude-code.js` pins (`permission.protected-path.*`):
 
-- "Writes to a small set of paths are never auto-approved, except in `bypassPermissions` mode and in
-  interactive terminal sessions in plan mode with bypass permissions available." `.claude` is on the
-  list, `.claude/worktrees` excepted.
+- Each mode has its own rule for a protected path: `default` and `acceptEdits` prompt, `auto` asks
+  the classifier, `dontAsk` denies, `bypassPermissions` allows. `.claude` is on the list,
+  `.claude/worktrees` excepted.
 - "The safety check runs before Claude Code evaluates allow rules from settings" — so neither
   `--allowedTools` nor an `Edit(.claude/**)` rule gets the write through.
 - "In a `-p` run with no host, these requests are denied either way" ([headless](https://code.claude.com/docs/en/headless)).

@@ -1,0 +1,41 @@
+name: plugin validate
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".claude-plugin/**"
+      - "agents/**"
+      - "skills/**"
+      - ".mcp.json"
+      - ".github/workflows/plugin-validate.yml"
+  pull_request:
+    paths:
+      - ".claude-plugin/**"
+      - "agents/**"
+      - "skills/**"
+      - ".mcp.json"
+      - ".github/workflows/plugin-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Pinned so a new CLI cannot turn an unrelated PR red. Raise it on purpose.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.330
+      # Not --strict: it fails on warnings, and the root CLAUDE.md shim is one by design (ADR 0021).
+      # No login and no model call. The command reads the manifests and exits.
+      - name: Validate the plugin
+        env:
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude-config
+        run: claude plugin validate .

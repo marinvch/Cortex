@@ -28,10 +28,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 /** The lock format this code reads. */
-export const LOCK_FORMAT = 1;
+const LOCK_FORMAT = 1;
 
 /** How many hex characters of the digest name the install directory and the parser string. */
-export const DIGEST_CHARS = 16;
+const DIGEST_CHARS = 16;
 
 const SAFE_SEGMENT = /^[A-Za-z0-9._@+-]+$/;
 

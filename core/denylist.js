@@ -31,7 +31,7 @@ import { join } from "node:path";
 import { RefusedWriteError } from "./scrub.js";
 
 /** What a line may name. `ticket` and `pattern` are regular expressions; the rest are literal. */
-export const DENYLIST_KINDS = Object.freeze(["org", "domain", "owner", "ticket", "pattern"]);
+const DENYLIST_KINDS = Object.freeze(["org", "domain", "owner", "ticket", "pattern"]);
 
 const DESCRIBE = {
   org: "an organisation name",

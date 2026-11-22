@@ -83,7 +83,7 @@ export function textStyle(t, root) {
 }
 
 /** Insert `"name": value` as the last member of the object at `open`, in the file's own style. */
-export function insertMember(t, open, name, value, style) {
+function insertMember(t, open, name, value, style) {
   const { members, close } = objectAt(t, open);
   const key = JSON.stringify(name);
   if (!members.length) {

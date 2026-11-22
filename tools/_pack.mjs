@@ -17,8 +17,8 @@
 //
 //   1. It names no variable only Claude Code sets: `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PROJECT_DIR`.
 //   2. It runs no Cortex script: no `node` (or `bash`, `sh`) command naming a path under `tools/`,
-//      `index/` or `mcp/`. Outside Claude Code there is no checkout to run them from; a pack skill
-//      reaches the team-brain through the MCP tools instead.
+//      `index/` or `mcp/`, in prose or in a code fence. Outside Claude Code there is no checkout to
+//      run them from; a pack skill reaches the team-brain through the MCP tools instead.
 //   3. It does not rely on Claude Code to keep it from starting by itself
 //      (`disable-model-invocation: true`). Other assistants have no such switch, and that flag
 //      marks a ritual that is once-only or destructive.

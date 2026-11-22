@@ -50,22 +50,11 @@ before overturning one; the line here is the trigger, not the case.
   instead, CI stayed green while the promise was broken. It fingerprints the whole tree now. A test
   naming one symptom passes for every other way of failing.
 - **A destructive shell tool must route its target through `resolve_in_root` (`tools/_cortex-lib.sh`).**
-  The shell counterpart of `core/paths.js`, in the shared lib so the next tool inherits it. Not a
-  string-prefix check — a symlink out of the root passes any prefix comparison.
-  [ADR 0010](adr/0010-the-shell-half-gets-the-guard-too.md). `tools/test/destructive-guard.test.sh`
-  scans every shipped shell tool for a delete or a move and fails on one that neither calls the
-  guard nor declares a `cortex:no-root-guard` exemption **with its reason** in the file header. It
-  exists because for a year the only test of this rule tested `cortex-rm.sh` — so
-  `cortex-sync-skills.sh` ran `rm -rf` on a path it never resolved, and nothing noticed.
-- **A `tools/test/*.test.sh` file is a fragment, and only `tools/test/run.sh` may run it.** The
-  runner exports `$WORK` and `$REPO_ROOT` and cds into a fresh temp dir; the fixtures build there.
-  Run a fragment on its own and both are empty, `cd "$WORK/proj"` becomes `cd ""` — which fails
-  without stopping the script — and the `git init`, the `> README.md` and the `git add -A && git
-  commit` after it hit the repository you are standing in. On 2026-09-05 that happened here: two
-  fixture commits on `master`, `README.md` replaced by `# readme`, the git identity rewritten, and
-  nothing reported an error. Every fragment therefore sources `_helpers.sh` as its first line of
-  code and every `cd` carries `|| exit 1`; `fragment-guard.test.sh` runs all of them the wrong way
-  on purpose and pins both.
+  [ADR 0010](adr/0010-the-shell-half-gets-the-guard-too.md); `destructive-guard.test.sh` enforces it, and
+  [`tools/AGENTS.md`](../tools/AGENTS.md) has the detail.
+- **A `tools/test/*.test.sh` file is a fragment, and only `tools/test/run.sh` may run it.** Run alone it
+  writes into the repository you stand in. `fragment-guard.test.sh` pins it;
+  [`tools/AGENTS.md`](../tools/AGENTS.md) has the incident.
 - **Never hand-edit a version. Run `node tools/cortex-version.mjs --set <x.y.z>`.** `VERSION` is the
   interface; the seven sites holding a copy are implementation, and the writer and the drift check
   read one `SITES` list. The `## [x.y.z]` changelog entry is the one thing the tool will not write.

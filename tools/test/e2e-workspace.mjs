@@ -33,7 +33,7 @@ const LOOP = join(REPO_ROOT, "index", "cortex-loop.mjs");
 const ROUTES = join(REPO_ROOT, "index", "cortex-routes.mjs");
 const STAMPS = join(REPO_ROOT, "index", "cortex-stamps.mjs");
 const SECTION = join(REPO_ROOT, "index", "cortex-section.mjs");
-const CLI = join(REPO_ROOT, "mcp", "ai-os.js");
+const CLI = join(REPO_ROOT, "mcp", "cortex.js");
 const SERVER = join(REPO_ROOT, "mcp", "server.js");
 
 const [wsArg, ...rest] = process.argv.slice(2);

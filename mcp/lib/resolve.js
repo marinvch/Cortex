@@ -82,7 +82,7 @@ export function resolveBrain({ cwd, env }) {
         detected = `connector:${connectorPath}`;
       } else if (parsed?.slug) {
         ({ team, project } = legacyTeam(root, parsed));
-        detected = `connector:${connectorPath} (old {slug} shape — re-run \`ai-os team add\` to rewrite it)`;
+        detected = `connector:${connectorPath} (old {slug} shape — re-run \`cortex team add\` to rewrite it)`;
       }
       if (team) teamClone = teamCloneDir(root, team);
       if (team && typeof parsed.teamBrainRepo === "string" && parsed.teamBrainRepo.trim()) teamBrainRepo = parsed.teamBrainRepo.trim();

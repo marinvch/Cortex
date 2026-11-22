@@ -1,9 +1,9 @@
 // Opening the brain: the one entry every adapter goes through.
 //
-// Cortex has two adapters over the same operations — `server.js` (MCP over stdio) and `ai-os.js`
+// Cortex has two adapters over the same operations — `server.js` (MCP over stdio) and `cortex.js`
 // (the CLI). Both need the same four facts before they can do anything, and for a while only one of
 // them assembled them. The CLI read `process.env.AI_OS_ROOT` raw and passed `args.team` straight
-// through, so `ai-os catch-up --project x --since y` inside a repo with a `.cortex/connector.json`
+// through, so `cortex catch-up --project x --since y` inside a repo with a `.cortex/connector.json`
 // consulted no connector, found no team clone, and reported `commits: []` as a success. That is the
 // same failure `mcp/AGENTS.md` already declares an invariant against for `capture` — "requiring the
 // agent to pass `team` was the seam leaking" — arriving through the other adapter, because the seam
@@ -32,7 +32,7 @@
 // Opening also means FAILING at entry. A root that does not exist is the third such error
 // (`MissingRootError`, below). Both of the first two are thrown here, before a command picks a
 // branch, so a missing root or a misspelt `CORTEX_PROFILE` fails the same way in both adapters
-// rather than at whichever branch happens to look first. `ai-os.js` resolved the profile inside
+// rather than at whichever branch happens to look first. `cortex.js` resolved the profile inside
 // `team init` only, which is why `team add` never noticed a typo.
 
 import { statSync } from "node:fs";
@@ -97,7 +97,7 @@ const isDir = (p) => {
 export function openBrain({ cwd, env }) {
   // The profile first. It needs no root, so settling it before the root means a misspelt
   // CORTEX_PROFILE is reported even by a caller that goes on to treat a missing root as a
-  // degradation rather than a fatal — `ai-os catch-up`, which reads a plain repo without a vault.
+  // degradation rather than a fatal — `cortex catch-up`, which reads a plain repo without a vault.
   // Otherwise NoRootError would short-circuit it and the typo would ride along unnoticed.
   const world = resolveProfile({ env });
   const located = resolveBrain({ cwd, env });

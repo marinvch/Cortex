@@ -92,9 +92,12 @@ printf '{ "team": "platform", "project": "api", "teamBrainRepo": "https://exampl
 setup --agents codex --repo "$T" --write > /dev/null
 brief="$(tr -d '\r' < "$T/AGENTS.md")"
 assert_contains "$brief" '## Team-brain' "with a connector, the brief gains a Team-brain section"
-assert_contains "$brief" 'call the Cortex `inbox` tool (or run `ai-os inbox`) at the start of a task' "holding the inbox line"
+assert_contains "$brief" 'call the Cortex `inbox` tool at the start of a task' "holding the inbox line"
 setup --agents codex --repo "$T" --write > /dev/null
-assert_eq "1" "$(grep -c 'ai-os inbox' "$T/AGENTS.md")" "and a second run does not add it twice"
+assert_eq "1" "$(grep -c 'inbox. tool' "$T/AGENTS.md")" "and a second run does not add it twice"
+sed -i 's/`inbox` tool at the start/`inbox` tool (or run `ai-os inbox`) at the start/' "$T/AGENTS.md"
+setup --agents codex --repo "$T" --write > /dev/null
+assert_eq "1" "$(grep -c 'inbox. tool' "$T/AGENTS.md")" "a brief holding the line from before the rename does not gain a second"
 
 # --- merges: unrelated entries byte-for-byte, an existing cortex kept ------------------------------------
 

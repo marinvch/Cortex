@@ -146,14 +146,14 @@ is running, which is your fork's.
 
 On a team, an agent can send a question to a role or a project instead of to a person. The
 team-brain's `team.json` lists each member's handle, roles and projects; `/join-team` asks for yours
-and runs `ai-os team member --roles backend --job developer`. Your handle is your memory author
+and runs `cortex team member --roles backend --job developer`. Your handle is your memory author
 name: `CORTEX_AUTHOR`, or your git `user.name` as a slug.
 
 Your **job** is one of `developer`, `architect`, `lead`, `pm` or `qa`. It changes what
 `/setup-repo`, `/resume-work` and `/join-team` offer you first, never what you may run. A member
 with no job is a developer, so a roster written before the field existed keeps working.
 
-- `ask` (or `ai-os ask --to backend --title … --body …`) writes `asks/<id>.md` to the team-brain,
+- `ask` (or `cortex ask --to backend --title … --body …`) writes `asks/<id>.md` to the team-brain,
   commits and pushes it. A `to` that no member holds and no project matches is refused, with the
   list of roles and projects that exist.
 - `inbox` pulls the brain, then returns the open asks for your roles and projects and the answers
@@ -169,11 +169,11 @@ A team that plans in a tracker can have each ask filed there too. Pick none, one
 you create the brain, or later:
 
 ```bash
-ai-os team init --name acme --repo <git-url> --integrations github,servicenow \
+cortex team init --name acme --repo <git-url> --integrations github,servicenow \
   --servicenow-instance https://acme.service-now.com --servicenow-groups backend="Backend Team"
-ai-os integrations add jira --jira-site https://acme.atlassian.net --jira-project ACME
-ai-os integrations list        # what is selected, the primary, and whether each credential is set
-ai-os integrations remove jira # stops syncing it; its links stay in every ask
+cortex integrations add jira --jira-site https://acme.atlassian.net --jira-project ACME
+cortex integrations list        # what is selected, the primary, and whether each credential is set
+cortex integrations remove jira # stops syncing it; its links stay in every ask
 ```
 
 - A new ask becomes one item per tracker: a GitHub issue in the repo of the ask's project, a
@@ -183,9 +183,9 @@ ai-os integrations remove jira # stops syncing it; its links stay in every ask
 - Credentials come from the environment and never from `team.json`, which refuses one:
   `GITHUB_TOKEN` or `GH_TOKEN`; `SERVICENOW_TOKEN`, or `SERVICENOW_USER` and `SERVICENOW_PASSWORD`;
   `JIRA_EMAIL` and `JIRA_API_TOKEN`. A missing one leaves the link `pending` and names the variable.
-- Sync runs on every `ask`, `answer` and `inbox`, and on demand with `ai-os sync` (`--dry-run`
+- Sync runs on every `ask`, `answer` and `inbox`, and on demand with `cortex sync` (`--dry-run`
   prints the plan, `--status` lists what is stuck). Each run that changes anything is one commit.
-  `ai-os integrations workflow --write` commits a scheduled GitHub Actions sync to the brain, so
+  `cortex integrations workflow --write` commits a scheduled GitHub Actions sync to the brain, so
   status moves when nobody has an agent open; it reads the credentials from the repo's secrets.
 
 With no tracker selected, nothing but `git` touches the network. On the `lab` profile no tracker is
@@ -197,12 +197,12 @@ Each repo can publish a **contract** to the team-brain: the endpoints it serves,
 and the events it publishes or consumes. `node index/cortex-contract.mjs . --out .cortex/index/contract.json`
 extracts it — from an OpenAPI or Swagger file when the repo has one, else from route handlers
 (Spring, Express-style routers, NestJS, FastAPI, Flask) — and
-`ai-os contract publish --file .cortex/index/contract.json` writes `projects/<slug>/contract.json`
+`cortex contract publish --file .cortex/index/contract.json` writes `projects/<slug>/contract.json`
 to the brain and pushes it when it changed. `/join-team` offers both.
 
 - `contract` with `project` returns what that project serves, calls and emits; with `calls`
   (`"/items"`, `"GET /items/{id}"`) it returns who calls the endpoint and who serves it. The CLI
-  has `ai-os contract show`, `who-calls` and `list`.
+  has `cortex contract show`, `who-calls` and `list`.
 - `catch_me_up` reports each project's contract drift since the date: endpoints added, removed or
   changed.
 
@@ -395,7 +395,7 @@ node index/cortex-shared-plugin.mjs .  # on a team repo: what --write would add 
 ```
 
 An agent can ask the import graph the same questions without a script. The `graph` MCP tool, in
-repo mode, and `node mcp/ai-os.js graph <op>` answer `stats`, `node`, `neighbors`, `cluster`,
+repo mode, and `node mcp/cortex.js graph <op>` answer `stats`, `node`, `neighbors`, `cluster`,
 `hubs`, `bridges` and `path` from the stored index, and `callers`, `callees` and `defines` with
 the parser add-on below. The hubs and bridges are the ones
 `cortex-graph.mjs --json` prints. Both refuse a missing or stale index and name the command that
@@ -434,9 +434,9 @@ Three ways to ask about them:
 
 ```bash
 node index/cortex-impact.mjs --symbol src/cart.ts#total   # who calls it, and which callers no test covers
-node mcp/ai-os.js graph callers src/cart.ts#total         # the same callers, through the graph tool
-node mcp/ai-os.js graph callees src/cart.ts#Cart.add      # what it calls
-node mcp/ai-os.js graph defines src/cart.ts               # what a file defines
+node mcp/cortex.js graph callers src/cart.ts#total         # the same callers, through the graph tool
+node mcp/cortex.js graph callees src/cart.ts#Cart.add      # what it calls
+node mcp/cortex.js graph defines src/cart.ts               # what a file defines
 ```
 
 The `graph` MCP tool has the same `callers`, `callees` and `defines` ops. The count of callers is
@@ -535,13 +535,13 @@ different paths the server says so in one line on stderr. To move to the new nam
 `claude mcp remove ai-os` and then the command above. Do not keep both registrations: they are two
 servers over one vault, and every tool appears twice.
 
-Three names were left as they are, because each is typed in a command or stored in a config that
-this change cannot rewrite: the CLI file `mcp/ai-os.js` and its command name `ai-os`, and the
-package name `ai-os-mcp` in `mcp/package.json` (its `bin` now also answers to `cortex-mcp`).
+The CLI is now `mcp/cortex.js`, its command is `cortex`, and the package is `cortex-mcp`. The file
+`mcp/ai-os.js` and the `ai-os` and `ai-os-mcp` commands stay as aliases through 3.x and are removed
+in 4.0.0, so a stamped workflow or a saved command keeps working until then.
 
 ### Using Cortex with Copilot, Gemini CLI or Codex
 
-A team's developers rarely share one agent. The brain is the MCP server plus the `ai-os` CLI, and
+A team's developers rarely share one agent. The brain is the MCP server plus the `cortex` CLI, and
 both work the same from any agent. From the repo, with a clone of Cortex:
 
 ```bash
@@ -563,7 +563,7 @@ Copilot cloud coding agent reads MCP servers from the repository's settings on g
 from a file. The setup also adds `.github/copilot-instructions.md` (Copilot in JetBrains and Visual
 Studio does not read `AGENTS.md`) and `GEMINI.md` when they are missing, and on a team's repo one
 line in `AGENTS.md` telling any agent to call `inbox` at the start of a task. Every team command
-is also a CLI command: `node mcp/ai-os.js help` lists `ask`, `inbox`, `answer`, `contract` and
+is also a CLI command: `node mcp/cortex.js help` lists `ask`, `inbox`, `answer`, `contract` and
 the `team` commands.
 
 ### Who installs what

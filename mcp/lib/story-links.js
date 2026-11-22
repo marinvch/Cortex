@@ -221,7 +221,7 @@ export function readStoryLinks(clone) {
 }
 
 /**
- * `ai-os stories publish`: the project is the one asked for, else the file's own, else the
+ * `cortex stories publish`: the project is the one asked for, else the file's own, else the
  * connector's. `team` overrides the connector's team, for a lead standing in the vault.
  */
 export function publishStoryLinksFrom(brain, { input, project = null, team = null }) {

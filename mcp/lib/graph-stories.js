@@ -50,7 +50,7 @@ export const NOTE =
   "repos that have not published story links, and a contract file past the fifth on its row are not here.";
 
 const EXTRACTOR = fileURLToPath(new URL("../../index/cortex-stories.mjs", import.meta.url));
-const CLI = fileURLToPath(new URL("../ai-os.js", import.meta.url));
+const CLI = fileURLToPath(new URL("../cortex.js", import.meta.url));
 const REBUILD = `node "${EXTRACTOR}" . --out .cortex/index/stories.json, then node "${CLI}" stories publish --file .cortex/index/stories.json, in the repo`;
 
 const RANK = { extracted: 2, inferred: 1 };
@@ -343,7 +343,7 @@ function risk(q, { stories, links }) {
     stories: capped(rows),
     epics: capped(epicRows),
     unmirrored,
-    ...(unmirrored ? { unmirroredNote: "Keys named in commits with no mirrored story have no status here, so they are not ranked. Turn on the story mirror for the tracker (`ai-os integrations add <kind> --stories`)." } : {}),
+    ...(unmirrored ? { unmirroredNote: "Keys named in commits with no mirrored story have no status here, so they are not ranked. Turn on the story mirror for the tracker (`cortex integrations add <kind> --stories`)." } : {}),
   };
 }
 

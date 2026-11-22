@@ -49,6 +49,16 @@ The resolver *detects* the audience and *locates* the team clone. It never conju
 > the work, and the maintainer confirmed all three on 2026-10-12: `CORTEX_ROOT` wins; no
 > deprecation of `AI_OS_ROOT`; the file `mcp/ai-os.js`, the `ai-os` command and the `ai-os-mcp`
 > package name stay, since renaming any of them breaks a command or a config a user already has.
+>
+> **Amended 2026-11-22.** The maintainer reversed the last of those three choices. The CLI is
+> `mcp/cortex.js`, its command `cortex`, its package `cortex-mcp`. `mcp/ai-os.js` stays as a
+> one-line alias, with the `ai-os` and `ai-os-mcp` bins, through 3.x, and all three are removed in
+> 4.0.0. `AI_OS_ROOT` and the path `mcp/server.js` do not change, because registrations hold them.
+> No edit here can reach what is already out: stamped sync workflows, the inbox line in users'
+> `AGENTS.md`, and text in existing tracker items. So `templates/team-brain/sync.yml` calls the
+> alias until 4.0.0, since it clones a pinned `CORTEX_REF` that may predate `cortex.js`, and the
+> footers of a published contract and a mirrored story keep their wording, since changing them
+> would make a commit on every team's next run.
 
 ### `audience` is a third axis, not a rename of `mode`
 

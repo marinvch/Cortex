@@ -82,7 +82,7 @@ it as written is the failure; so is reporting it as declined.
 ## By job
 
 On a team's repo (`.cortex/connector.json`), the person's job is `me.job` in the `inbox` tool's
-result, or in `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" inbox --json`. With no team or no job
+result, or in `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" inbox --json`. With no team or no job
 recorded, it is `developer` and nothing here changes. The job shapes the answers you propose, never
 the order or the list: every row is still asked, in its rank.
 

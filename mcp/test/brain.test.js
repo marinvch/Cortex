@@ -1,8 +1,8 @@
 // Every adapter opens the brain at entry, and both open the same one.
 //
-// The bug this pins was live: `mcp/server.js` resolved the brain and `mcp/ai-os.js` did not. The
+// The bug this pins was live: `mcp/server.js` resolved the brain and `mcp/cortex.js` did not. The
 // CLI read `process.env.AI_OS_ROOT` raw and passed `args.team` straight to `catchMeUp`, so
-// `ai-os catch-up --project x --since y` run inside a repo with a `.cortex/connector.json` never
+// `cortex catch-up --project x --since y` run inside a repo with a `.cortex/connector.json` never
 // consulted the connector, never found the team clone, and printed `commits: []` — a wrong answer
 // reported as a success, which is the failure mode this whole area exists to avoid.
 //
@@ -24,7 +24,7 @@ import { openBrain, MissingRootError, NoRootError, UnknownProfileError } from ".
 import { tempDir } from "./tmp.js";
 
 const MCP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CLI = join(MCP_DIR, "ai-os.js");
+const CLI = join(MCP_DIR, "cortex.js");
 const SERVER = join(MCP_DIR, "server.js");
 
 /**
@@ -133,7 +133,7 @@ function server(f, tool, args, extra = {}) {
 test("catch-up through the CLI reaches the team clone without being told the team", () => {
   const f = fixture();
   const r = cli(f, ["catch-up", "--project", "shop", "--since", "2000-01-01"]);
-  assert.equal(r.status, 0, `ai-os catch-up failed:\n${r.stderr}`);
+  assert.equal(r.status, 0, `cortex catch-up failed:\n${r.stderr}`);
   const out = JSON.parse(r.stdout);
   // The whole defect: this came back `[]` and exit 0. An empty list that looks like a success is
   // worse than an error, because nothing anywhere says the connector was never read.
@@ -188,7 +188,7 @@ test("every adapter opens the brain at entry — neither re-derives the seam", (
       .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"))
       .join("\n");
 
-  for (const adapter of ["server.js", "ai-os.js"]) {
+  for (const adapter of ["server.js", "cortex.js"]) {
     const src = code(adapter);
     assert.match(src, /from\s+["']\.\/lib\/brain\.js["']/, `${adapter} must open the brain`);
     assert.doesNotMatch(src, /env\??\.(CORTEX_ROOT|AI_OS_ROOT)/, `${adapter} must take the root from the brain, not the environment`);
@@ -247,14 +247,14 @@ test("both failures are thrown at entry, not at whichever branch looks first", (
 });
 
 test("the CLI fails on a misspelt CORTEX_PROFILE before it validates its own arguments", () => {
-  // `ai-os.js` resolved the profile inside `team init` only, so `team add` took a typo as `home`
+  // `cortex.js` resolved the profile inside `team init` only, so `team add` took a typo as `home`
   // while the server treated it as a hard exit. Reaching the usage error first would mean the
   // profile is still being checked by a branch rather than at entry.
   const f = fixture();
   const r = cli(f, ["team", "add"], { CORTEX_PROFILE: "works" });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /unknown CORTEX_PROFILE/);
-  assert.doesNotMatch(r.stderr, /usage: ai-os team add/, "the profile must be settled before the arguments are");
+  assert.doesNotMatch(r.stderr, /usage: cortex team add/, "the profile must be settled before the arguments are");
 });
 
 test("a command that does not talk to the brain still runs without a root", () => {
@@ -267,7 +267,7 @@ test("a command that does not talk to the brain still runs without a root", () =
   delete e.CORTEX_ROOT;
   const r = spawnSync(process.execPath, [CLI, "digest"], { cwd: f.cwd, env: e, encoding: "utf8" });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /usage: ai-os digest/);
+  assert.match(r.stderr, /usage: cortex digest/);
   assert.doesNotMatch(r.stderr, /CORTEX_ROOT|AI_OS_ROOT/, "digest reads no brain, so it must not demand a root");
 });
 

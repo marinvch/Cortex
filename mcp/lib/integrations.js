@@ -290,7 +290,7 @@ export function removeIntegration(doc, kind) {
 }
 
 /**
- * The integrations `ai-os team init --integrations …` or `integrations add` asks for, built from
+ * The integrations `cortex team init --integrations …` or `integrations add` asks for, built from
  * flags. `flags` holds the raw CLI values; nothing here reads the environment.
  *
  * @returns {{ integrations: object[], primary: string|null, routes: Record<string,string|string[]> }}

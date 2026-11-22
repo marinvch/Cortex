@@ -77,7 +77,7 @@ export class GraphRefused extends Error {
 /**
  * The repo a brain's graph questions are about. A repo-mode root is a repo's `.cortex/`, so the
  * repo is the directory above it. With no brain (the CLI with no root set) it is the git work tree
- * `cwd` sits in, the same degradation `ai-os catch-up` makes: this writes nothing. A vault is not a
+ * `cwd` sits in, the same degradation `cortex catch-up` makes: this writes nothing. A vault is not a
  * repo and is refused.
  *
  * @param {object|null} brain   from `openBrain`, or null

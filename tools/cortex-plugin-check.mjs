@@ -34,7 +34,7 @@ import { fileURLToPath } from "node:url";
 import { pluginsDir, readRegistry } from "../core/plugin-registry.js";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-// Where the registry lives, and its shape, are core's: `ai-os setup-plugins --status` reads it too.
+// Where the registry lives, and its shape, are core's: `cortex setup-plugins --status` reads it too.
 const PLUGINS = pluginsDir();
 
 const args = process.argv.slice(2);

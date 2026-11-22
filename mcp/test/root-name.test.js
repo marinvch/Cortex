@@ -20,7 +20,7 @@ import { resolveBrain } from "../lib/resolve.js";
 import { tempDir } from "./tmp.js";
 
 const MCP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CLI = join(MCP_DIR, "ai-os.js");
+const CLI = join(MCP_DIR, "cortex.js");
 const SERVER = join(MCP_DIR, "server.js");
 
 /** The caller's environment with every variable that picks a brain removed, then `extra` on top. */
@@ -337,7 +337,7 @@ test("the CLI names CORTEX_ROOT when a command needs a root and has none", () =>
   assert.match(r.stderr, /CORTEX_ROOT is not set \(required for team operations\)/);
 });
 
-test("`ai-os project` in repo mode names the variable that holds the repo's root", () => {
+test("`cortex project` in repo mode names the variable that holds the repo's root", () => {
   // The fix is a line in the user's config, so the message has to name the one they set.
   const base = tempDir("root-cli-project-");
   mkdirSync(join(base, "repo"));
@@ -362,7 +362,7 @@ test("in mcp/, only lib/resolve.js asks the environment for the root — through
       .split(/\r?\n/)
       .filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*") && !l.trim().startsWith("/*"))
       .join("\n");
-  const files = ["server.js", "ai-os.js", ...readdirSync(join(MCP_DIR, "lib")).filter((f) => f.endsWith(".js")).map((f) => join("lib", f))];
+  const files = ["server.js", "cortex.js", ...readdirSync(join(MCP_DIR, "lib")).filter((f) => f.endsWith(".js")).map((f) => join("lib", f))];
   const readers = files.filter((f) => /env\??\.\s*(CORTEX_ROOT|AI_OS_ROOT)|env\[/.test(code(f)));
   assert.deepEqual(readers, []);
   assert.match(code(join("lib", "resolve.js")), /rootFromEnv\(env\)/);

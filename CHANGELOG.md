@@ -5,6 +5,13 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Changed
+
+- **The CLI is `cortex` now.** `mcp/ai-os.js` moved to `mcp/cortex.js` and the package is
+  `cortex-mcp`. `mcp/ai-os.js` and the `ai-os` and `ai-os-mcp` commands stay as aliases through
+  3.x and are removed in 4.0.0. `AI_OS_ROOT`, `.ai-os/` detection and the path `mcp/server.js` do
+  not change. A brief holding the old inbox line is left as it is and gains no second one.
+
 ### Added
 
 - **A router mounted in another file gets its prefix** (#630). `app.use("/api", router)`,

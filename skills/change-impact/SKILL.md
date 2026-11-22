@@ -50,7 +50,7 @@ Needs `.cortex/index/index.json`. If it is missing, exit 2 says so and names the
 builds it — **do not** guess a radius without an index.
 
 To see how two files are connected before you change one, the `graph` MCP tool's `path` op (or
-`node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" graph path <from> <to>`) gives the shortest import route.
+`node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" graph path <from> <to>`) gives the shortest import route.
 
 ## Read the output
 

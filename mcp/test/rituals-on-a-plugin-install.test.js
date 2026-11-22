@@ -1,13 +1,13 @@
-// The rituals that shell out to `ai-os.js` must work where Cortex is actually installed.
+// The rituals that shell out to `cortex.js` must work where Cortex is actually installed.
 //
 // A plugin install is a clone under `~/.claude/plugins/cache/cortex/cortex/<version>/` and nothing
 // else: no vault checkout, no AI_OS_ROOT, and a cwd that is somebody's plain git repository.
-// `/setup-plugins` and `/whats-changed` both told the agent to run `node <vault>/mcp/ai-os.js`, a
+// `/setup-plugins` and `/whats-changed` both told the agent to run `node <vault>/mcp/cortex.js`, a
 // path that does not exist there — and even pointed at the plugin, `catch-up` demanded
 // AI_OS_ROOT and exited 1 before reading anything.
 //
 // So these tests run the command EACH SKILL PRINTS, lifted out of its SKILL.md, from a copy of the
-// plugin laid out the way the plugin cache lays it out. Testing `ai-os.js` directly would pass
+// plugin laid out the way the plugin cache lays it out. Testing `cortex.js` directly would pass
 // happily while the prose kept pointing somewhere else — the same failure through the other door.
 
 import { test } from "node:test";
@@ -21,14 +21,14 @@ import { tempDir } from "./tmp.js";
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const WIN = process.platform === "win32";
 
-/** The `ai-os.js` command lines a skill tells the agent to run, from its fenced blocks and inline code. */
+/** The `cortex.js` command lines a skill tells the agent to run, from its fenced blocks and inline code. */
 function commandsIn(skill) {
   const text = readFileSync(join(REPO, "skills", skill, "SKILL.md"), "utf8");
   const found = [];
   for (const m of text.matchAll(/```bash\r?\n([\s\S]*?)```/g)) {
-    for (const line of m[1].split(/\r?\n/)) if (/ai-os\.js/.test(line)) found.push(line.trim());
+    for (const line of m[1].split(/\r?\n/)) if (/(cortex|ai-os)\.js/.test(line)) found.push(line.trim());
   }
-  for (const m of text.matchAll(/`(node [^`]*ai-os\.js[^`]*)`/g)) found.push(m[1].trim());
+  for (const m of text.matchAll(/`(node [^`]*(?:cortex|ai-os)\.js[^`]*)`/g)) found.push(m[1].trim());
   return { text, found };
 }
 
@@ -90,11 +90,11 @@ function run(f, argv, { cwd = f.cwd, env = {} } = {}) {
 // ---------------------------------------------------------------------------------------------
 
 for (const skill of ["connect-mcp", "setup-repo", "whats-changed", "join-team", "create-team"]) {
-  test(`/${skill} reaches ai-os.js through the plugin root, never a vault path`, () => {
+  test(`/${skill} reaches cortex.js through the plugin root, never a vault path`, () => {
     const { text, found } = commandsIn(skill);
-    assert.ok(found.length > 0, `${skill} names no ai-os.js command`);
+    assert.ok(found.length > 0, `${skill} names no cortex.js command`);
     assert.doesNotMatch(text, /<vault>\/mcp\//, "a plugin install has no vault checkout to find mcp/ in");
-    for (const c of found) assert.match(c, /"\$\{CLAUDE_PLUGIN_ROOT\}\/mcp\/ai-os\.js"/, c);
+    for (const c of found) assert.match(c, /"\$\{CLAUDE_PLUGIN_ROOT\}\/mcp\/(cortex|ai-os)\.js"/, c);
   });
 }
 
@@ -178,7 +178,7 @@ test("catch-up with CORTEX_ROOT at a repo's .cortex reads that repo, from any cw
   // parent; the cwd need not be inside it, and a project slug is not needed to name it.
   const f = fixture();
   const elsewhere = tempDir("elsewhere-");
-  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const cli = join(f.pluginRoot, "mcp", "cortex.js");
   const r = run(f, [cli, "catch-up", "--since", "2026-01-01"], { cwd: elsewhere, env: { CORTEX_ROOT:join(f.proj, ".cortex") } });
   assert.equal(r.status, 0, r.stderr);
   const out = JSON.parse(r.stdout);
@@ -189,7 +189,7 @@ test("catch-up with CORTEX_ROOT at a repo's .cortex reads that repo, from any cw
 test("catch-up with neither a repo nor a vault says so and exits 1", () => {
   const f = fixture();
   const nowhere = tempDir("no-repo-");
-  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const cli = join(f.pluginRoot, "mcp", "cortex.js");
   const r = run(f, [cli, "catch-up", "--since", "2026-01-01"], { cwd: nowhere });
   // If the OS temp dir happens to sit inside a git work tree, this case cannot be built here.
   if (r.status === 0) return;
@@ -201,7 +201,7 @@ test("catch-up without a root still refuses a misspelt CORTEX_PROFILE", () => {
   // A missing root is a degradation for catch-up; an unknown profile is not, and it must not ride
   // along because the root error used to be thrown first.
   const f = fixture();
-  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const cli = join(f.pluginRoot, "mcp", "cortex.js");
   const r = run(f, [cli, "catch-up", "--since", "2026-01-01"], { env: { CORTEX_PROFILE: "works" } });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /unknown CORTEX_PROFILE/);
@@ -209,7 +209,7 @@ test("catch-up without a root still refuses a misspelt CORTEX_PROFILE", () => {
 
 test("catch-up writes nothing to the repo it reads", () => {
   const f = fixture();
-  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const cli = join(f.pluginRoot, "mcp", "cortex.js");
   const status = () => execFileSync("git", ["status", "--porcelain", "--ignored"], { cwd: f.proj, env: isolatedEnv(f.home) }).toString();
   const before = status();
   const r = run(f, [cli, "catch-up", "--since", "2000-01-01"]);
@@ -240,7 +240,7 @@ test("/connect-mcp's bundle command runs on a plugin install with no root set", 
 // `/setup-repo` and `/setup-plugins` ask it before they offer a tier. The home directory is the
 // fixture's, so the registry read is the one written here and never this machine's.
 
-/** The status command a skill prints: the one line among its `ai-os.js` commands carrying `--status`. */
+/** The status command a skill prints: the one line among its `cortex.js` commands carrying `--status`. */
 function statusCommand(skill) {
   const lines = commandsIn(skill).found.filter((c) => /--status/.test(c));
   assert.equal(lines.length, 1, `${skill} prints exactly one status command`);
@@ -324,7 +324,7 @@ test("setup-plugins --status reads the directory --plugins-dir names, and prints
   const other = join(f.base, "other-plugins");
   mkdirSync(other, { recursive: true });
   writeFileSync(join(other, "installed_plugins.json"), JSON.stringify({ version: 2, plugins: { "postman@claude-plugins-official": [{ scope: "user" }] } }));
-  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const cli = join(f.pluginRoot, "mcp", "cortex.js");
   const r = run(f, [cli, "setup-plugins", "--status", "--plugins-dir", other]);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^api\s+installed$/m);
@@ -338,7 +338,7 @@ test("setup-plugins --status reads the directory --plugins-dir names, and prints
 test("setup-plugins --status refuses a --plugins-dir with no value, and an unknown tier", () => {
   // Falling back to the real registry would answer about this machine a caller that meant another.
   const f = fixture();
-  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const cli = join(f.pluginRoot, "mcp", "cortex.js");
   const r = run(f, [cli, "setup-plugins", "--status", "--plugins-dir"]);
   assert.equal(r.status, 1);
   assert.match(r.stderr, /--plugins-dir needs a directory/);
@@ -351,7 +351,7 @@ test("an unreadable registry is unknown, and the printed status says where it lo
   const f = fixture();
   const dir = registryIn(f, null);
   writeFileSync(join(dir, "installed_plugins.json"), "{ not json");
-  const cli = join(f.pluginRoot, "mcp", "ai-os.js");
+  const cli = join(f.pluginRoot, "mcp", "cortex.js");
   const r = run(f, [cli, "setup-plugins", "--status"]);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout.split(/\r?\n/)[0], /could not be read/);
@@ -412,7 +412,7 @@ test("/join-team's member command writes the joining member's roles and job into
   assert.equal(run(f, join_, { cwd: f.proj, env: { CORTEX_ROOT: vault } }).status, 0);
 
   const member = found.find((c) => / team member /.test(c));
-  assert.ok(member, "the skill must name `ai-os team member`");
+  assert.ok(member, "the skill must name `cortex team member`");
   const argv = argvOf(member, f.pluginRoot, { "<role,role>": "backend", "<slug,slug>": "product", "<job>": "architect" });
   const r = run(f, argv, { cwd: f.proj, env: { CORTEX_ROOT: vault, CORTEX_AUTHOR: "dev-a" } });
   assert.equal(r.status, 0, r.stderr);
@@ -423,7 +423,7 @@ test("/join-team's member command writes the joining member's roles and job into
 test("/join-team names the removal command, and it runs from the plugin root", () => {
   const { text, found } = commandsIn("join-team");
   const remove = found.find((c) => / project remove /.test(c));
-  assert.ok(remove, "the skill must name `ai-os project remove`");
+  assert.ok(remove, "the skill must name `cortex project remove`");
   assert.match(text, /Ask before running/i, "removal pushes a deletion the whole team pulls");
   const f = fixture();
   const vault = join(f.base, "vault");
@@ -449,7 +449,7 @@ test("/join-team's contract step extracts and publishes from a plugin install (#
   const extract = text.match(/`(node "\$\{CLAUDE_PLUGIN_ROOT\}\/index\/cortex-contract\.mjs"[^`]*)`/);
   assert.ok(extract, "the skill must name the contract extractor through the plugin root");
   const publish = found.find((c) => / contract publish /.test(c));
-  assert.ok(publish, "the skill must name `ai-os contract publish`");
+  assert.ok(publish, "the skill must name `cortex contract publish`");
 
   const e = run(f, argvOf(extract[1], f.pluginRoot), { cwd: f.proj });
   assert.equal(e.status, 0, e.stderr);

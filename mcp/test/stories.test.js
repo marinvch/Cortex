@@ -27,7 +27,7 @@ import { adapterFor, parseIntegrations, integrationsFromFlags } from "../lib/int
 import { tempDir } from "./tmp.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const CLI = join(HERE, "..", "ai-os.js");
+const CLI = join(HERE, "..", "cortex.js");
 const IDENTITY = { GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" };
 const TODAY = stamp();
 const DESCRIPTION = "DESCRIPTION-MUST-NOT-LEAVE-THE-TRACKER";

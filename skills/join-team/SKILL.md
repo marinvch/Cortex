@@ -30,7 +30,7 @@ Here it is the requirement, and it holds only because the connector carries no l
 ## What to do
 
 1. From the product repo root, with `CORTEX_ROOT` set to your vault, run
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team add --name <team> --repo <team-brain-git-url> --project <this-project-slug>`.
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" team add --name <team> --repo <team-brain-git-url> --project <this-project-slug>`.
    The script ships with the plugin; the vault is only where the clone goes. From a clone of the
    Cortex repo rather than the plugin, use that clone's path. `--name` is the team — the name in
    the team-brain's `team.md`, the same for every repo — and `--project` is this repo.
@@ -48,7 +48,7 @@ Here it is the requirement, and it holds only because the connector carries no l
 4. **Ask the member which roles they hold** — `frontend`, `backend`, `architect`, whatever this
    team uses — which projects they own, and **their job**: one of `developer`, `architect`,
    `lead`, `pm` or `qa`. Then run
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" team member --roles <role,role> --projects <slug,slug> --job <job>`.
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" team member --roles <role,role> --projects <slug,slug> --job <job>`.
    It adds them to the team-brain's `team.json`, commits and pushes. Their handle is their memory
    author name: `CORTEX_AUTHOR`, else their git `user.name` as a slug; pass `--handle` only to
    override it. Running it again replaces their roles and projects and keeps their job unless
@@ -70,7 +70,7 @@ Here it is the requirement, and it holds only because the connector carries no l
 5. **Offer to publish this repo's contract**: what it serves, calls and emits, so other repos can
    ask who calls an endpoint without cloning this one. On a yes, run
    `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-contract.mjs" . --out .cortex/index/contract.json`, then
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" contract publish --file .cortex/index/contract.json`.
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" contract publish --file .cortex/index/contract.json`.
    The first writes only under `.cortex/index/`, which it adds to `.gitignore` as indexing does. The
    second commits `contract: update <slug>` to the team-brain and pushes, only when it changed.
    Pass on what it printed, including an empty contract's reason. Run both again after the API
@@ -79,7 +79,7 @@ Here it is the requirement, and it holds only because the connector carries no l
    **Then offer to publish its story links**: which ticket keys this repo's commits and branches
    name, and the files each changed, so `/story-map` can trace an epic to code. On a yes, run
    `node "${CLAUDE_PLUGIN_ROOT}/index/cortex-stories.mjs" . --out .cortex/index/stories.json`, then
-   `node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" stories publish --file .cortex/index/stories.json`.
+   `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" stories publish --file .cortex/index/stories.json`.
    The first refuses a stale index and names the command that rebuilds it; add `--keys ABC,DEF`
    when the team's tracker project keys are known, so `UTF-8` and the like are never read as one.
    The second commits `stories: update <slug>` when they changed. Run both again after a sprint's
@@ -123,8 +123,8 @@ repo's. Add any of these flags to the command in step 1:
   refused and nothing is joined: check it with
   `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-destinations.mjs" check git <team-brain-url>`.
 
-`node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" project list` prints every project the brain knows, and
-`node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" project check` validates the team's files and exits 1 on
+`node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" project list` prints every project the brain knows, and
+`node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" project check` validates the team's files and exits 1 on
 an error.
 
 ## Removing a project
@@ -132,7 +132,7 @@ an error.
 A project leaves the workspace when its file is deleted. **Ask before running this**: it commits
 and pushes a deletion to a repo the whole team pulls.
 
-`node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" project remove --project <slug>`
+`node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" project remove --project <slug>`
 
 It deletes `projects/<slug>.md` with `git rm`, commits `project: remove <slug>` and pushes. It
 refuses anything that is not a project file. Tell the user what it prints as left behind:

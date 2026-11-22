@@ -23,7 +23,7 @@ import { OutsideRootError } from "../../core/paths.js";
 import { tempDir } from "./tmp.js";
 
 const MCP_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
-const CLI = join(MCP_DIR, "ai-os.js");
+const CLI = join(MCP_DIR, "cortex.js");
 const SERVER = join(MCP_DIR, "server.js");
 
 const TEAM = "example-team";
@@ -683,7 +683,7 @@ function envFor(f, extra = {}) {
 const cli = (f, argv, extra = {}, cwd = f.repo) =>
   spawnSync(process.execPath, [CLI, ...argv], { cwd, env: envFor(f, extra), encoding: "utf8" });
 
-test("ai-os team add writes the project file and then the connector", () => {
+test("cortex team add writes the project file and then the connector", () => {
   const f = fixture();
   const r = cli(f, ["team", "add", "--name", TEAM, "--repo", f.remote, "--project", "storefront",
     "--title", "Storefront", "--tracker", "https://github.com/example-org/storefront/issues", "--related", "billing-api"]);
@@ -699,7 +699,7 @@ test("ai-os team add writes the project file and then the connector", () => {
   assert.equal(git(f.repo, "log", "--oneline").trim().split("\n").length, 1, "the product repo is never committed for the user");
 });
 
-test("ai-os team add on home refuses an employer-shaped origin and writes no connector", () => {
+test("cortex team add on home refuses an employer-shaped origin and writes no connector", () => {
   const f = fixture({ origin: INTERNAL_ORIGIN });
   const before = { remote: fingerprint(f.remote), repo: fingerprint(f.repo) };
   const r = cli(f, ["team", "add", "--name", TEAM, "--repo", f.remote, "--project", "storefront"]);
@@ -721,7 +721,7 @@ test("ai-os team add on home refuses an employer-shaped origin and writes no con
   assert.equal(remoteHead(g), head);
 });
 
-test("ai-os project list prints what list_projects returns", async () => {
+test("cortex project list prints what list_projects returns", async () => {
   const f = workspace();
   cli(f, ["team", "add", "--name", TEAM, "--repo", f.remote, "--project", "storefront"], { CORTEX_PROFILE: "work" });
 
@@ -775,7 +775,7 @@ function callTool(f, tool, args, extra = {}) {
   });
 }
 
-test("ai-os project check exits non-zero on an error, and on a withheld file", () => {
+test("cortex project check exits non-zero on an error, and on a withheld file", () => {
   const f = workspace();
   const clean = cli(f, ["project", "check", "--team", TEAM], { CORTEX_PROFILE: "work" });
   assert.equal(clean.status, 0, clean.stderr + clean.stdout);
@@ -795,7 +795,7 @@ test("ai-os project check exits non-zero on an error, and on a withheld file", (
   assert.doesNotMatch(onHome.stdout, /atlassian|Quarterly/);
 });
 
-test("ai-os project remove removes, and prints what it left", () => {
+test("cortex project remove removes, and prints what it left", () => {
   const f = workspace();
   cli(f, ["team", "add", "--name", TEAM, "--repo", f.remote, "--project", "storefront"], { CORTEX_PROFILE: "work" });
   // From inside the joined repo, the team comes from the connector.
@@ -813,7 +813,7 @@ test("ai-os project remove removes, and prints what it left", () => {
   assert.match(escape.stderr, /escapes/);
   const usage = cli(f, ["project", "remove"], { CORTEX_PROFILE: "work" });
   assert.equal(usage.status, 1);
-  assert.match(usage.stderr, /usage: ai-os project remove --project <slug>/);
+  assert.match(usage.stderr, /usage: cortex project remove --project <slug>/);
 });
 
 test("the project commands do not exist in repo mode", () => {
@@ -830,8 +830,8 @@ test("the usage line names the project command", () => {
   const f = fixture();
   const r = cli(f, ["nope"]);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /usage: ai-os <[^>]*\bproject\b[^>]*>/);
-  assert.match(cli(f, ["project"]).stderr, /usage: ai-os project list\|check\|remove/);
+  assert.match(r.stderr, /usage: cortex <[^>]*\bproject\b[^>]*>/);
+  assert.match(cli(f, ["project"]).stderr, /usage: cortex project list\|check\|remove/);
 });
 
 // ---------------------------------------------------------------------------------------------

@@ -97,7 +97,7 @@ test("includes team-brain git commits since <since>", () => {
 });
 
 // --- catchUp: which sources, which repo, which project ------------------------------------------------
-// These decisions lived in mcp/ai-os.js, where only a subprocess could reach them.
+// These decisions lived in mcp/cortex.js, where only a subprocess could reach them.
 
 /** A vault with one note per named project. */
 function vaultWith(...projects) {
@@ -182,7 +182,7 @@ test("catchUpTeam takes the team asked for, else the connector's, and is what bo
   for (const file of ["server.js", "lib/catchup.js"]) {
     assert.match(readFileSync(new URL(file, here), "utf8"), /catchUpTeam\(/, `${file} resolves the team its own way`);
   }
-  assert.doesNotMatch(readFileSync(new URL("ai-os.js", here), "utf8"), /brain\.team \?\? undefined/);
+  assert.doesNotMatch(readFileSync(new URL("cortex.js", here), "utf8"), /brain\.team \?\? undefined/);
 });
 
 test("catchUp reaches the team clone through the connector's team, with no --team", () => {
@@ -203,7 +203,7 @@ test("catchUp reaches the team clone through the connector's team, with no --tea
 });
 
 test("the CLI holds no catch-up decision: it parses, calls catchUp once and prints", () => {
-  const cli = readFileSync(new URL("../ai-os.js", import.meta.url), "utf8");
+  const cli = readFileSync(new URL("../cortex.js", import.meta.url), "utf8");
   assert.doesNotMatch(cli, /catchUpRepo|catchMeUp|repoTop|samePath/);
   assert.equal((cli.match(/\bcatchUp\(/g) ?? []).length, 1);
   assert.ok(readdirSync(new URL("../lib/", import.meta.url)).includes("catchup.js"));

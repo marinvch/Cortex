@@ -19,7 +19,7 @@ In a repo wired with `/join-team`, the team-brain's history is part of the mater
 1. Determine a `since` date (last sync / when the user was last active), as `YYYY-MM-DD`.
 2. Get the raw material. From inside the repo to catch up on, run:
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/mcp/ai-os.js" catch-up --since <date>
+   node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" catch-up --since <date>
    ```
    No vault is needed. `repo` in the output holds the days of the repo's committed
    `.cortex/memory/` since that date and its git log over the same window; `skipped` says what was

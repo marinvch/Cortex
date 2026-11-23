@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **`capture` as a new member's first action no longer breaks the team tools.** It now clones the
+  team-brain before writing. A folder left by the old behaviour is reported with the fix, and its
+  notes are not touched.
 - **The Claude Desktop entry in a role pack now asks for a profile and an author.** Without them a work
   machine ran as `home`, with no approved destinations, and notes had no author. A value left as
   `<...>` stops Cortex instead of being used.

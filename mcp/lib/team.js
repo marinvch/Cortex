@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { parseSource } from "../../core/source.js";
 import { ensureGitignored } from "../../core/gitignore.js";
@@ -62,6 +62,14 @@ export function cloneTeamBrain(root, name, repo, opts) {
   if (!opts || !opts.policy) throw new TypeError("cloneTeamBrain: { policy } is required — pass brain.policy");
   const dir = teamCloneDir(root, name);
   if (existsSync(join(dir, ".git"))) return { dir, cloned: false };
+  // Git refuses this with a message that names neither the cause nor the fix. The files may be the
+  // only copy of someone's notes, so they are never moved or deleted here.
+  if (existsSync(dir) && readdirSync(dir).length) {
+    throw Object.assign(
+      new Error(`${dir} has files in it and is not a git clone, so the team-brain cannot be cloned there. Move the folder aside, run this again, then copy its notes back into the clone.`),
+      { code: "clone_blocked" },
+    );
+  }
   // Inbound: lab may still clone. Work may clone only from an approved remote.
   assertDestination(repo, { kind: "git", policy: opts.policy, env: opts.env ?? process.env, inbound: true });
   mkdirSync(dirname(dir), { recursive: true });

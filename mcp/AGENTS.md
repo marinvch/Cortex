@@ -147,7 +147,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
 - **`capture`'s `team` argument is an override, not the switch.** The team comes from
   `lib/resolve.js` — a repo with a `.cortex/connector.json` writes to the team brain without the
   caller knowing it is on a team. Requiring the agent to pass `team` was the seam leaking. Do not
-  reintroduce it as a required argument.
+  reintroduce it as a required argument. `server.js` calls `ensureTeamClone` before `capture`: a
+  note written first leaves a folder git will not clone into.
 - **The connector names the team and the project in two fields: `{ team, project, teamBrainRepo }`.**
   It used to be `{ slug, teamBrainRepo }`, with `team add` writing the project into `slug` and the
   resolver reading it as the team, so every connected repo captured into `team/<project>/`, a

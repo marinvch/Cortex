@@ -119,12 +119,25 @@ function readRules(text) {
 }
 
 /**
- * ruleLedger(index, { readText }) → { hasBriefs, briefs, withSections, unread, rows, counts }
+ * Where a rule sits decides which AI tools are given it (ADR 0031). `root` is the root AGENTS.md,
+ * which every tool reaches directly or through a shim. `nested` is a scoped AGENTS.md: Claude Code
+ * skips it when a CLAUDE.md is above it, and some Copilot surfaces read only the root. `one-tool`
+ * is a CLAUDE.md or GEMINI.md with rules of its own, which the other tools never open.
+ */
+function reachOf(doc) {
+  if (!/(^|\/)AGENTS\.md$/i.test(doc)) return "one-tool";
+  return doc.includes("/") ? "nested" : "root";
+}
+
+/**
+ * ruleLedger(index, { readText }) → { hasBriefs, briefs, withSections, unread, rows, counts, reach }
  *
  * `readText(path)` returns a document's contents or null. A row is
  * `{ doc, line, section, text, state, tests, others }`, with `state` one of `test` (the item names
  * at least one file the index marks as a test), `other` (it names files, none of them a test) and
- * `none`. `withSections` is how many of the briefs read hold a rules section at all.
+ * `none`. `withSections` is how many of the briefs read hold a rules section at all. `reach` counts
+ * the rows by `reachOf`, and `unlinked` lists the nested briefs with rules that the root brief never
+ * names, so a tool that follows its links has no way to arrive at them.
  */
 export function ruleLedger(index, { readText = () => null } = {}) {
   const known = new Map(index.files.map((f) => [f.path, f]));
@@ -201,6 +214,7 @@ export function ruleLedger(index, { readText = () => null } = {}) {
         doc,
         line: item.line,
         section: item.section,
+        reach: reachOf(doc),
         text: item.lines[0].replace(/^- /, "").trim().slice(0, TEXT_SHOWN),
         state: tests.size ? "test" : others.size ? "other" : "none",
         tests: [...tests].sort(),
@@ -211,5 +225,11 @@ export function ruleLedger(index, { readText = () => null } = {}) {
 
   const counts = { test: 0, other: 0, none: 0 };
   for (const r of rows) counts[r.state]++;
-  return { hasBriefs: briefs > 0, briefs, withSections, unread, rows, counts };
+  const reach = { root: 0, nested: 0, "one-tool": 0 };
+  for (const r of rows) reach[r.reach]++;
+  const rootDoc = docs.find((d) => reachOf(d) === "root");
+  const rootText = rootDoc ? readText(rootDoc) ?? "" : "";
+  const nested = [...new Set(rows.filter((r) => r.reach === "nested").map((r) => r.doc))];
+  reach.unlinked = nested.filter((d) => !rootText.includes(d));
+  return { hasBriefs: briefs > 0, briefs, withSections, unread, rows, counts, reach };
 }

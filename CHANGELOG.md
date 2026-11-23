@@ -17,6 +17,8 @@ this project now versions independently of any package manager (see `VERSION`).
   first rituals and its own role pack for Claude Desktop or claude.ai.
 - **`/challenge-plan` can turn a confirmed idea into an intent.** It drafts `intent/<name>.md` from the
   person's answers, keeps what is still open under "Not yet decided", and writes only after they say yes.
+- **`cortex-review --rules` says which AI tools are not given a rule.** A rule only in `CLAUDE.md` or `GEMINI.md`,
+  a rule in a nested brief, and a nested brief the root never links are now reported.
 
 ## [3.1.0] — 2026-11-23
 

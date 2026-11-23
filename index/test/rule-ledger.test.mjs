@@ -317,3 +317,33 @@ test("no row and no field says a rule is enforced or not", () => {
   const r = root("- One. `test/paths.test.js`\n- Two.\n");
   assert.doesNotMatch(JSON.stringify(r), /enforc/i);
 });
+
+// --- which tools are given a rule (ADR 0031) ----------------------------------------------------------
+
+test("a rule's place says which tools reach it", () => {
+  const l = ledger(["AGENTS.md", "pay/AGENTS.md", "CLAUDE.md", "GEMINI.md"], [], {
+    "AGENTS.md": inv("- Root rule.\n- Second root rule.\n") + "\nSee `pay/AGENTS.md`.\n",
+    "pay/AGENTS.md": inv("- Nested rule.\n"),
+    "CLAUDE.md": "@AGENTS.md\n\n" + inv("- Claude only.\n- Claude only too.\n"),
+    "GEMINI.md": "@AGENTS.md\n",
+  });
+  assert.deepEqual(Object.fromEntries(l.rows.map((r) => [r.doc, r.reach])), { "AGENTS.md": "root", "pay/AGENTS.md": "nested", "CLAUDE.md": "one-tool" });
+  assert.equal(l.reach.root, 2);
+  assert.equal(l.reach.nested, 1);
+  assert.equal(l.reach["one-tool"], 2);
+  assert.deepEqual(l.reach.unlinked, []);
+});
+
+test("a nested brief the root never names is reported, and a linked one is not", () => {
+  const l = ledger(["AGENTS.md", "a/AGENTS.md", "b/AGENTS.md"], [], {
+    "AGENTS.md": inv("- Root rule.\n- Second root rule.\n") + "\n[a](a/AGENTS.md)\n",
+    "a/AGENTS.md": inv("- A rule.\n"),
+    "b/AGENTS.md": inv("- B rule.\n"),
+  });
+  assert.deepEqual(l.reach.unlinked, ["b/AGENTS.md"]);
+});
+
+test("a nested brief with no rules is not reported as unlinked", () => {
+  const l = ledger(["AGENTS.md", "a/AGENTS.md"], [], { "AGENTS.md": inv("- Root rule.\n"), "a/AGENTS.md": "# Notes\n\nNothing here.\n" });
+  assert.deepEqual(l.reach.unlinked, []);
+});

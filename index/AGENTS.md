@@ -311,7 +311,9 @@ holds the rules for that module alone — read it before editing the module.
   scaffolded repo it met: `/write-area-brief` wrote 16 rules into a Java service, seven ended with a
   real test named that way, and the ledger counted none. After the change all 20 rows there were
   opened and each is in the right state. 42 guards mutated, 41 test failures, the other an
-  equivalent program. Add a heading word only with real briefs that use it for rules.
+  equivalent program. Add a heading word only with real briefs that use it for rules. Each row also
+  says which tools are given it (`reach`: root, nested, one-tool), read from where it sits and
+  from [ADR 0031](../docs/adr/0031-one-instruction-file-and-a-skills-copy-for-agents-that-need-it.md)'s table of vendors.
 - **Every path two change sets compare goes through `normalizeChangedPath`** (`lib/changed.mjs`).
   `--against` itself is `lib/overlap.mjs`'s header.
 - **Where ADRs live is `lib/adr.mjs`'s one answer** (`isAdrPath`, `adrLocation`); no reader keeps

@@ -131,3 +131,52 @@ export function listAsks(clone) {
   out.sort((a, b) => String(b.meta.updated).localeCompare(String(a.meta.updated)) || b.meta.id.localeCompare(a.meta.id));
   return out;
 }
+
+// What one read may return of the team's decisions. The transport caps a whole result at 40,000
+// characters, and these ride beside notes and commits, so they are bounded on their own.
+const DECISIONS_MAX = 20;
+const DECISION_CHARS = 500;
+const DECISIONS_BUDGET = 6_000;
+
+/**
+ * An ask whose thread ended in a decision, as a reader needs it: what was decided, by whom, when, and
+ * for which project. null for any other ask. The last `decided` answer is the one that stands.
+ */
+export function decisionOf(ask) {
+  if (ask.meta.status !== "decided") return null;
+  const last = [...ask.answers].reverse().find((a) => a.status === "decided");
+  if (!last) return null;
+  return {
+    id: ask.meta.id,
+    title: ask.meta.title,
+    project: ask.meta.fromProject || null,
+    askedBy: ask.meta.from || null,
+    to: ask.meta.to,
+    decidedBy: last.handle,
+    decidedOn: last.date,
+    decision: last.text,
+  };
+}
+
+/** Decisions newest first, cut to what fits in a result. `truncated` says a cap was hit. */
+export function boundDecisions(list) {
+  const sorted = [...list].sort((a, b) => b.decidedOn.localeCompare(a.decidedOn) || b.id.localeCompare(a.id));
+  const items = [];
+  let budget = DECISIONS_BUDGET;
+  let truncated = sorted.length > DECISIONS_MAX;
+  for (const d of sorted.slice(0, DECISIONS_MAX)) {
+    const room = Math.min(DECISION_CHARS, budget);
+    if (room <= 0) { truncated = true; break; }
+    const decision = d.decision.length > room ? d.decision.slice(0, room) : d.decision;
+    if (decision.length < d.decision.length) truncated = true;
+    items.push({ ...d, decision });
+    budget -= decision.length;
+  }
+  return { items, total: sorted.length, truncated };
+}
+
+/** The team's decisions on or after `since`, across every project. A `since` that is no date reads all. */
+export function teamDecisions(clone, { since } = {}) {
+  const day = /^\d{4}-\d{2}-\d{2}/.test(String(since)) ? String(since).slice(0, 10) : null;
+  return boundDecisions(listAsks(clone).map(decisionOf).filter((d) => d && (!day || d.decidedOn >= day)));
+}

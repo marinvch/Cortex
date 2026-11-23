@@ -30,15 +30,16 @@ In a repo wired with `/join-team`, the team-brain's history is part of the mater
    - **With a vault** (`CORTEX_ROOT` set to it), the output also carries the vault's `notes` for
      the project (`--project <slug>`, defaulting to the connector's project, else the repo's name).
      In a repo connected to a team it updates the team-brain clone first and adds
-     `teamNotes` — what every repo of the team captured since the date, newest first, bounded,
-     with `truncated` saying a cap was hit — and the team-brain `commits`. **`pull.ok: false` means
+     `decisions` — what the team settled in any repo, by whom and when — then `teamNotes` — what
+     every repo of the team captured since the date, newest first, bounded, with `truncated` saying
+     a cap was hit — and the team-brain `commits`. **`pull.ok: false` means
      the clone could not be updated**: say so, and say the notes may be stale, rather than
      reporting a quiet stretch. `--team <name>` overrides the connected team; you rarely need it.
      In vault mode the MCP
      `catch_me_up(project, since[, team])` tool returns the same notes and commits; it does not
      exist in repo mode, which is how the plugin's server runs, so use the command there.
-3. From the returned memory, notes and commits, write a concise "what changed & why", grouped by
-   theme. Say which sources were read; an empty `memory` with a busy `commits` list means nobody
+3. From the returned decisions, memory, notes and commits, write a concise "what changed & why",
+   grouped by theme, with the decisions first. Say which sources were read; an empty `memory` with a busy `commits` list means nobody
    ran `/end-of-day-summary` over that stretch. Attribute a memory entry to its `author` when the row has one,
    and to nobody when it is `null`: the text and `git blame` are not evidence of who wrote it.
 4. Only summarize the returned material — do not invent changes.

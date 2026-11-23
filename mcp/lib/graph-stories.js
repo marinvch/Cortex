@@ -40,6 +40,7 @@ import { pull } from "./gitsync.js";
 import { GraphRefused, graphAnswer, graphRepo, LIST_MAX, OPS as CODE_OPS } from "./graph.js";
 import { readStories } from "./story-file.js";
 import { readStoryLinks } from "./story-links.js";
+import { boundDecisions, decisionOf } from "./ask-file.js";
 import { ensureTeamClone } from "./team.js";
 
 export const STORY_OPS = ["story", "stories-for", "risk"];
@@ -115,8 +116,10 @@ function load(dir) {
   const { stories } = readStories(dir);
   const links = readStoryLinks(dir);
   const contracts = new Map(readContracts(dir).filter((c) => c.contract).map((c) => [c.slug, c.contract]));
-  const asks = listAsks(dir).filter((a) => a.meta.status === "open");
-  return { stories, links, contracts, asks };
+  const all = listAsks(dir);
+  const asks = all.filter((a) => a.meta.status === "open");
+  const decided = all.filter((a) => a.meta.status === "decided");
+  return { stories, links, contracts, asks, decided };
 }
 
 /**
@@ -195,7 +198,7 @@ function rowsFor(key, links) {
   return out;
 }
 
-function story(q, { stories, links, contracts, asks }) {
+function story(q, { stories, links, contracts, asks, decided }) {
   const s = stories.get(q.key) ?? null;
   const children = [...stories.values()].filter((c) => c.epic === q.key).sort((a, b) => byCodeUnit(a.key, b.key));
   const keys = [q.key, ...children.map((c) => c.key)];
@@ -267,6 +270,7 @@ function story(q, { stories, links, contracts, asks }) {
     untested: capped(product.filter((f) => f.tested === false).map((f) => ({ project: f.project, path: f.path }))),
     hubs: capped(product.filter((f) => f.hub).map((f) => ({ project: f.project, path: f.path }))),
     asks: capped(asksNaming(keys, asks)),
+    decisions: boundDecisions(decided.filter((a) => keysNamedIn(keys, a).length).map(decisionOf).filter(Boolean)),
   };
   if (!s) out.mirrorNote = "Not mirrored from a tracker: its title and status are unknown here. The links come from commits and branches only.";
   if (gone) out.gone = gone;
@@ -274,12 +278,17 @@ function story(q, { stories, links, contracts, asks }) {
   return out;
 }
 
-/** Open asks whose title, question or links name one of `keys`. */
+/** Which of `keys` an ask's title, question, answers or links name. */
+function keysNamedIn(keys, a) {
+  const hay = [a.meta.title, a.question, ...a.answers.map((x) => x.text), ...(a.meta.links ?? []).map((l) => (typeof l === "string" ? l : `${l.key ?? ""} ${l.url ?? ""}`))].join("\n");
+  return keys.filter((k) => new RegExp(`(?<![A-Za-z0-9_/#-])${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_])`).test(hay));
+}
+
+/** Open asks that name one of `keys`. */
 function asksNaming(keys, asks) {
   const out = [];
   for (const a of asks) {
-    const hay = [a.meta.title, a.question, ...(a.meta.links ?? []).map((l) => (typeof l === "string" ? l : `${l.key ?? ""} ${l.url ?? ""}`))].join("\n");
-    const named = keys.filter((k) => new RegExp(`(?<![A-Za-z0-9_/#-])${k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_])`).test(hay));
+    const named = keysNamedIn(keys, a);
     if (named.length) out.push({ id: a.meta.id, title: a.meta.title, to: a.meta.to, from: a.meta.from || null, created: a.meta.created, keys: named });
   }
   return out.sort((a, b) => byCodeUnit(String(a.created), String(b.created)) || byCodeUnit(a.id, b.id));

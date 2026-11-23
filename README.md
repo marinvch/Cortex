@@ -159,7 +159,8 @@ with no job is a developer, so a roster written before the field existed keeps w
 - `inbox` pulls the brain, then returns the open asks for your roles and projects and the answers
   to the asks you sent. The MCP server's start-up instructions say how many asks are open for you,
   so an agent sees them at the start of a session.
-- `answer` appends a reply and sets the status: `answered`, `decided` or `wontfix`.
+- `answer` appends a reply and sets the status: `answered`, `decided` or `wontfix`. A `decided` thread
+  reaches the whole team: `/whats-changed`, `catch_me_up` and `/story-map` list it across every repo.
 
 The asks travel by `git` alone. A credential in an ask is refused before anything is written.
 

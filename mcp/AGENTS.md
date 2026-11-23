@@ -262,6 +262,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
   ([ADR 0032](../docs/adr/0032-a-team-clone-replays-its-local-commits-and-never-discards-them.md)).
   `pull` in `lib/gitsync.js` owns it, so no caller handles it. A conflict is aborted back to where it
   started and reported with the files. Do not add `--autostash`, `reset` or `clean` to make it run.
+- **A decision reaches the whole team, not only the thread.** `catch_me_up` and `graph story` return
+  `decisions`, built once by `decisionOf` in `lib/ask-file.js` and bounded by `boundDecisions`.
 - **`catch_me_up` pulls and reads the team's notes, not only its log.** A failed pull is
   returned in `pull`, never swallowed, and the local notes still come back; team notes are bounded
   in `catchup.js` so the result fits under the transport cap rather than being cut by it. Its

@@ -912,3 +912,29 @@ test("the CLI holds neither decision: it prints checkProjects' rows and calls jo
   assert.match(src, /return problems \? 1 : 0;/);
   assert.match(src, /joinProject\(root,/);
 });
+
+const PERSON = ["jane.roe", "mailhost.dev"].join("@");
+
+test("a project file holding personal data is refused before the write when the mode is refuse", () => {
+  const f = fixture(PUBLIC_ORIGIN);
+  const before = remoteHead(f);
+  assert.throws(
+    () => add(f, HOME, { env: { ...process.env, CORTEX_PII: "refuse" }, fields: { title: `ask ${PERSON}` } }),
+    (e) => e instanceof ProjectFileRefused && e.code === "personal_data" && !e.message.includes(PERSON),
+  );
+  assert.equal(remoteHead(f), before);
+  assert.ok(!existsSync(join(f.clone, "projects", "storefront.md")));
+});
+
+test("a project file holding personal data carries the warning when the mode is warn", () => {
+  const f = fixture(PUBLIC_ORIGIN);
+  const res = add(f, HOME, { env: { ...process.env, CORTEX_PII: "warn" }, fields: { title: `ask ${PERSON}` } });
+  assert.equal(res.file.action, "written");
+  assert.ok(res.file.warnings.some((w) => /personal data/.test(w.msg)));
+});
+
+test("a git SSH remote is not read as an email address", () => {
+  const f = fixture("git@github.com:example-org/storefront.git");
+  const res = add(f, HOME, { env: { ...process.env, CORTEX_PII: "refuse" } });
+  assert.equal(res.file.action, "written");
+});

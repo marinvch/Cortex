@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **Contracts and project files now pass the personal-data check.** They went to the team-brain with
+  only the credential and denylist checks, so an email address in one was published even on `work`.
+  `work` now refuses it, and `home` and `lab` write it with a warning.
 - **Four rituals show their 3.0.0 names in Codex.** Their `agents/openai.yaml` still carried the old
   display names, and `/challenge-plan` carries its name into the role packs.
 - **`bands.yaml` no longer promises a script Cortex does not ship.** Its header now says that nothing

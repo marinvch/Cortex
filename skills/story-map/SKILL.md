@@ -39,18 +39,20 @@ Three things in the team-brain feed it:
    - the clusters those files sit in;
    - the API endpoints in those files (`contracts`);
    - the files no test covers, and the hubs;
-   - the open asks that name the epic or one of its stories.
+   - the open asks that name the epic or one of its stories;
+   - `decisions`: what the team already settled about it, by whom and when.
 4. **Answer "which work touched this?"** when the person points at a part of the code. Call `graph`
    with `op: "stories-for"` and a `file`, a directory, or a `cluster` with its `project`.
 5. **Add what changed**, when the person asks since a date. In Claude Desktop or claude.ai, with
    the brain on a vault, call `catch_me_up` with the project and the date: it returns the team's
-   notes, the team-brain's commits and each contract's changes. In Claude Code, `/whats-changed`
+   notes, its decisions, the team-brain's commits and each contract's changes. In Claude Code, `/whats-changed`
    does the same from the repo.
 6. **Write the status**, one section per epic:
    - **Where it stands**: how many of its stories are open, active and done, by name. Counts, not
      progress.
    - **What it touches**: the repos, the parts of the code (name a cluster by its hub file) and the
      endpoints.
+   - **Decided**: each decision about it, in one line, with who made it and when.
    - **Blocked**: each open ask naming one of its stories, with who it is waiting on and since when.
    - **Risk**: the untested files and hubs its open stories changed, and why each matters. A hub
      change reaches many files; an untested one has nothing to catch a break.

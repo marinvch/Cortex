@@ -6,6 +6,7 @@ import { slugify } from "./slug.js";
 import { openVault } from "./vault.js";
 import { recent as recentMemory } from "../../core/memory.js";
 import { contractDrift } from "./contract.js";
+import { teamDecisions } from "./ask-file.js";
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/;
 
@@ -57,12 +58,16 @@ export function catchMeUp(root, { project, since, team, policy, env = process.en
   // the clone's history of `projects/*/contract.json`. A consumer learns a backend dropped an
   // endpoint without reading the backend's repo.
   const drift = contractDrift(clone, since);
+  // What the team settled, across every project, so a person who was not on the thread still learns
+  // it. Before this a decision reached only the people who asked and answered.
+  const decisions = teamDecisions(clone, { since });
   return {
     ...out,
+    decisions,
     teamNotes: read.notes,
     commits: log.commits,
     contracts: drift.projects,
-    truncated: read.truncated || log.truncated || drift.truncated,
+    truncated: read.truncated || log.truncated || drift.truncated || decisions.truncated,
   };
 }
 

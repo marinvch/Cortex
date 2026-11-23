@@ -5,6 +5,12 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Added
+
+- **A team's decisions now reach the whole team.** A `decided` ask used to be visible only to the people
+  on its thread. `catch_me_up`, `/whats-changed` and `/story-map` now list what was decided, by whom and
+  when, across every repo of the team.
+
 ## [3.1.0] — 2026-11-23
 
 ### Deprecated

@@ -208,3 +208,49 @@ test("the CLI holds no catch-up decision: it parses, calls catchUp once and prin
   assert.equal((cli.match(/\bcatchUp\(/g) ?? []).length, 1);
   assert.ok(readdirSync(new URL("../lib/", import.meta.url)).includes("catchup.js"));
 });
+
+// --- what the team decided ---------------------------------------------------------------------------
+
+function brainWithDecisions() {
+  const remote = tempDir("dec-remote-");
+  const git = (cwd, ...a) => execFileSync("git", a, { cwd, stdio: ["ignore", "pipe", "pipe"] });
+  git(remote, "init", "-q", "--bare", "-b", "master");
+  const root = tempDir("dec-vault-");
+  const clone = join(root, "team", "acme");
+  mkdirSync(join(root, "team"));
+  execFileSync("git", ["clone", "-q", remote, clone], { stdio: ["ignore", "pipe", "pipe"] });
+  git(clone, "config", "user.email", "t@t");
+  git(clone, "config", "user.name", "t");
+  git(clone, "checkout", "-q", "-B", "master");
+  mkdirSync(join(clone, "asks"));
+  const ask = (id, project, status, day, answer) => writeFileSync(join(clone, "asks", `${id}.md`),
+    `---\ntype: ask\nid: ${id}\ntitle: About ${id}\nfrom: ba1\nfromProject: ${project}\nto: product\ntoKind: role\nstatus: ${status}\ncreated: 2026-01-01\nupdated: ${day}\nlinks: []\n---\n\nA question.\n${answer ? `\n## Answer · ${day} · po1 · ${status}\n\n${answer}\n` : ""}`);
+  ask("d-new", "shipments", "decided", "2026-06-10", "The limit is 30 kg.");
+  ask("d-other-repo", "billing", "decided", "2026-06-05", "Invoices stay monthly.");
+  ask("d-old", "shipments", "decided", "2026-01-05", "An old decision.");
+  ask("q-open", "shipments", "open", "2026-06-11", null);
+  ask("a-answered", "shipments", "answered", "2026-06-12", "Just an answer.");
+  git(clone, "add", ".");
+  git(clone, "commit", "-qm", "asks");
+  git(clone, "push", "-q", "-u", "origin", "master");
+  return { root };
+}
+
+test("catch_me_up lists what the team decided since the date, in every repo, newest first", () => {
+  const { root } = brainWithDecisions();
+  const res = catchMeUp(root, { project: "web", since: "2026-06-01", team: "acme", policy: policyFor("home") });
+  assert.deepEqual(res.decisions.items.map((d) => d.id), ["d-new", "d-other-repo"]);
+  assert.deepEqual(res.decisions.items.map((d) => d.project), ["shipments", "billing"]);
+  assert.equal(res.decisions.items[0].decidedBy, "po1");
+  assert.equal(res.decisions.items[0].decision, "The limit is 30 kg.");
+  assert.equal(res.decisions.truncated, false);
+});
+
+test("a long list of decisions is cut and says so", async () => {
+  const { boundDecisions } = await import("../lib/ask-file.js");
+  const many = Array.from({ length: 40 }, (_, i) => ({ id: `d${i}`, decidedOn: "2026-06-01", decision: "x".repeat(900) }));
+  const res = boundDecisions(many);
+  assert.equal(res.total, 40);
+  assert.equal(res.truncated, true);
+  assert.ok(res.items.reduce((n, d) => n + d.decision.length, 0) <= 6000);
+});

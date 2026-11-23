@@ -110,7 +110,7 @@ export const TOOL_TABLE = [
     description: "Append an explicit note to the vault; returns the path. In a repo connected to a team-brain this writes there automatically (one-file-per-note, auto commit+push).",
     inputSchema: { type: "object", properties: { content: { type: "string" }, project: { type: "string" }, tags: { type: "array", items: { type: "string" } }, team: { type: "string", description: "Override the team-brain this writes to. Defaults to the connected team, so you rarely need it." } }, required: ["content"] } },
   { name: "catch_me_up", mode: VAULT, returns: FOREIGN, writes: LOCAL,
-    description: `Assemble notes + team-brain git history since <since> as raw material for the agent to summarize. ${UNTRUSTED_NOTE}`,
+    description: `Assemble notes, the team's decisions + team-brain git history since <since> as raw material for the agent to summarize. ${UNTRUSTED_NOTE}`,
     inputSchema: { type: "object", properties: { project: { type: "string" }, since: { type: "string" }, team: { type: "string", description: "Override the team-brain to read. Defaults to the connected team." } }, required: ["project", "since"] } },
 
   // Asks between roles across repos (#620). They run in either mode because the plugin install is a

@@ -380,6 +380,7 @@ function storyBrain({ links = linksDoc(), stories = null } = {}) {
   }));
   put("asks/20261020-q1.md", "---\ntype: ask\nid: 20261020-q1\ntitle: Card limits for ABC-2\nfrom: dev-fe\nfromProject: web-a\nto: backend\ntoKind: role\nstatus: open\ncreated: 2026-10-20\nupdated: 2026-10-20\nlinks: []\n---\n\nWhat is the limit?\n");
   put("asks/20261020-q2.md", "---\ntype: ask\nid: 20261020-q2\ntitle: About ABC-22\nfrom: dev-fe\nfromProject: web-a\nto: backend\ntoKind: role\nstatus: open\ncreated: 2026-10-20\nupdated: 2026-10-20\nlinks: []\n---\n\nUnrelated.\n");
+  put("asks/20261021-d1.md", "---\ntype: ask\nid: 20261021-d1\ntitle: Which card network\nfrom: dev-fe\nfromProject: web-a\nto: product\ntoKind: role\nstatus: decided\ncreated: 2026-10-20\nupdated: 2026-10-21\nlinks: []\n---\n\nWhich network first?\n\n## Answer · 2026-10-21 · po1 · decided\n\nVisa first, for ABC-2.\n");
   git(seed, "add", ".");
   git(seed, "commit", "-qm", "stories");
   git(seed, "push", "-q");
@@ -405,6 +406,8 @@ test("story: an epic's code across its stories, with clusters, contracts, untest
   assert.deepEqual(res.untested.items.map((f) => f.path), ["src/pay.js", "src/mail/receipt.js"]);
   assert.deepEqual(res.hubs.items.map((f) => f.path), ["src/pay.js"]);
   assert.deepEqual(res.asks.items.map((a) => a.id), ["20261020-q1"]);
+  assert.deepEqual(res.decisions.items.map((d) => `${d.id} ${d.decidedBy} ${d.decidedOn}`), ["20261021-d1 po1 2026-10-21"]);
+  assert.match(res.decisions.items[0].decision, /Visa first/);
   assert.deepEqual(res.clusters.items.map((c) => `${c.cluster}:${c.files}`), ["c1:3", "c2:1"]);
   assert.match(res.note, /A floor/);
   assert.deepEqual(res.links.projects.map((p) => p.state), ["unchecked"]);

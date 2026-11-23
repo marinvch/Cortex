@@ -19,6 +19,8 @@ this project now versions independently of any package manager (see `VERSION`).
   person's answers, keeps what is still open under "Not yet decided", and writes only after they say yes.
 - **`cortex-review --rules` says which AI tools are not given a rule.** A rule only in `CLAUDE.md` or `GEMINI.md`,
   a rule in a nested brief, and a nested brief the root never links are now reported.
+- **`cortex-next` says when this machine is behind the team.** It names the rule and decision files origin
+  changed that you do not have, and how far each team-brain clone is from its remote, as of your last fetch.
 
 ## [3.1.0] — 2026-11-23
 

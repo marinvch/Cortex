@@ -314,6 +314,10 @@ holds the rules for that module alone — read it before editing the module.
   equivalent program. Add a heading word only with real briefs that use it for rules. Each row also
   says which tools are given it (`reach`: root, nested, one-tool), read from where it sits and
   from [ADR 0031](../docs/adr/0031-one-instruction-file-and-a-skills-copy-for-agents-that-need-it.md)'s table of vendors.
+- **`cortex-next` says what the team has that this machine lacks, and never fetches**
+  (`lib/facts-drift.mjs`). It compares against the refs git already holds, so every answer means "as
+  of your last fetch". Only context files count, and only what the other side changed. `--line`
+  skips it, because a footer must not run git.
 - **Every path two change sets compare goes through `normalizeChangedPath`** (`lib/changed.mjs`).
   `--against` itself is `lib/overlap.mjs`'s header.
 - **Where ADRs live is `lib/adr.mjs`'s one answer** (`isAdrPath`, `adrLocation`); no reader keeps

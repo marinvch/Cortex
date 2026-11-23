@@ -14,6 +14,7 @@
 // a user gets a different answer each time.
 
 import { nextSteps, nextLineOf } from "./lib/next.mjs";
+import { factsDrift, factsDriftLines } from "./lib/facts-drift.mjs";
 import { openTarget } from "./lib/open.mjs";
 
 // `index: "optional"` — this command's whole job is answering on a repo where nothing has been run
@@ -31,12 +32,14 @@ const { root, args, index } = openTarget(process.argv.slice(2), {
 
 const plan = nextSteps(root, index);
 
-if (args.json) {
-  console.log(JSON.stringify(plan, null, 2));
-  process.exit(0);
-}
 if (args.line) {
   console.log(nextLineOf(plan));
+  process.exit(0);
+}
+// After --line, which is another tool's footer and asks git nothing.
+const facts = factsDrift(root);
+if (args.json) {
+  console.log(JSON.stringify({ ...plan, facts }, null, 2));
   process.exit(0);
 }
 
@@ -59,6 +62,13 @@ for (const s of plan.steps) {
   console.log(`  ${mark} ${title} ${tags}`.trimEnd());
   console.log(`      ${dim(s.why)}`);
   if (!s.done) console.log(`      ${cyan(s.cmd)}`);
+  console.log("");
+}
+
+const behind = factsDriftLines(facts);
+if (behind.length) {
+  console.log(b("Behind the team, as of your last fetch"));
+  for (const l of behind) console.log(`  ${l}`);
   console.log("");
 }
 

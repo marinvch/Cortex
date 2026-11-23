@@ -5,6 +5,11 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The README's install table names product owners and business analysts**, and the site sync knows their
+  two pages.
+
 ## [3.2.0] — 2026-11-23
 
 ### Added

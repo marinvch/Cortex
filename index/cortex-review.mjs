@@ -103,6 +103,16 @@ if (args.rules) {
     console.log(`  ${silent === 1 ? "is" : "are"} not counted below.\n`);
   }
   for (const [state, title] of STATES) console.log(`  ${String(l.counts[state]).padStart(4)}  ${title}`);
+  if (l.reach.nested || l.reach["one-tool"]) {
+    console.log(`\nNot every AI tool is given all of them:\n`);
+    console.log(`  ${String(l.reach.root).padStart(4)}  in the root AGENTS.md, which every tool reaches`);
+    if (l.reach.nested) console.log(`  ${String(l.reach.nested).padStart(4)}  in a nested AGENTS.md. Claude Code gets there through a link in the root brief, and some Copilot surfaces read only the root`);
+    if (l.reach["one-tool"]) {
+      const only = [...new Set(l.rows.filter((r) => r.reach === "one-tool").map((r) => r.doc))];
+      console.log(`  ${String(l.reach["one-tool"]).padStart(4)}  only in ${only.join(", ")}, which other tools never open. Move them to AGENTS.md`);
+    }
+    if (l.reach.unlinked.length) console.log(`\n  The root AGENTS.md does not name ${l.reach.unlinked.join(", ")}. Add a row with /write-area-brief.`);
+  }
   // The rows that name a test are counted and not listed: the question is which rules do not.
   for (const [state, title] of STATES.slice(1)) {
     const group = l.rows.filter((r) => r.state === state);

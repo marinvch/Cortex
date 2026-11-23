@@ -57,7 +57,7 @@ in rules `core/claude-code.js` pins (`permission.protected-path.*`):
   `.claude/worktrees` excepted.
 - "The safety check runs before Claude Code evaluates allow rules from settings" — so neither
   `--allowedTools` nor an `Edit(.claude/**)` rule gets the write through.
-- "In a `-p` run with no host, these requests are denied either way" ([headless](https://code.claude.com/docs/en/headless)).
+- In a Manual mode `-p` run, "a call that needs approval is denied unless something approves it" ([headless](https://code.claude.com/docs/en/headless)).
   Manual and `acceptEdits` prompt, so they are denied; `dontAsk` denies outright.
 
 The supported way through is auto mode, where "Writes to protected paths route to the classifier even

@@ -25,7 +25,7 @@
 // opinion, and the point of this file is that none of it is.
 
 /** The date every rule below was last confirmed against its page. */
-export const CHECKED = "2026-11-22";
+export const CHECKED = "2026-11-23";
 
 const SKILLS = "https://code.claude.com/docs/en/skills";
 const SUBAGENTS = "https://code.claude.com/docs/en/sub-agents";
@@ -879,7 +879,7 @@ export const RULES = Object.freeze([
     id: "headless.permission.no-host-denied",
     value: "denied",
     source: HEADLESS,
-    evidence: "In a `-p` run with no host, these requests are denied either way, and the flag also tells Claude not to retry them.",
+    evidence: "a call that needs approval is denied unless something approves it",
   },
 
   // --- the model: what a direct Messages API caller and an unattended runner must assume ----------

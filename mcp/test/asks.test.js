@@ -242,7 +242,7 @@ test("the CLI sends, lists and answers the same asks, and `team member` writes t
   assert.match(add.stdout, /Member added in team\.json — dev-db: roles dba, backend; projects svc-b; job qa, committed and pushed\./);
   const badJob = cli(repoB, "dev-db", "team", "member", "--roles", "dba", "--job", "boss");
   assert.notEqual(badJob.status, 0, "a job that is not one of the five is refused");
-  assert.match(badJob.stderr, /job must be one of developer, architect, lead, pm, qa/);
+  assert.match(badJob.stderr, /job must be one of developer, architect, lead, pm, qa, po, ba/);
   const seed = tempDir("asks-check-");
   git(seed, "clone", "-q", remote, ".");
   const doc = JSON.parse(readFileSync(join(seed, "team.json"), "utf8"));
@@ -320,8 +320,8 @@ test("setMember adds, updates and leaves alone, keeping every other key", () => 
   assert.throws(() => setMember(clone, { handle: "Not A Slug" }), RosterError);
 });
 
-test("a job is one of five words; none, or a bad one, reads as developer and keeps the member", () => {
-  assert.deepEqual(JOBS, ["developer", "architect", "lead", "pm", "qa"]);
+test("a job is one of seven words; none, or a bad one, reads as developer and keeps the member", () => {
+  assert.deepEqual(JOBS, ["developer", "architect", "lead", "pm", "qa", "po", "ba"]);
   assert.deepEqual(checkMember({ handle: "dev-a", job: "pm" }), { member: { handle: "dev-a", roles: [], projects: [], job: "pm" }, errors: [] });
   assert.deepEqual(checkMember({ handle: "dev-a", job: "" }).member, { handle: "dev-a", roles: [], projects: [] }, "an empty job is no job");
   const bad = checkMember({ handle: "dev-a", roles: ["backend"], job: "Product Owner" });

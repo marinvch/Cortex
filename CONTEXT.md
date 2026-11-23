@@ -139,8 +139,9 @@ _Avoid_: "workspace" for a JS monorepo's packages (say "workspace package", as
 
 ## Job
 
-What a team member does all day: `developer`, `architect`, `lead`, `pm` or `qa`. Recorded once per
-member as `job` in the team-brain's `team.json`; `core/job.js` holds the five words and the rituals
+What a team member does all day: `developer`, `architect`, `lead`, `pm`, `qa`, `po` (product owner)
+or `ba` (business analyst). Recorded once per
+member as `job` in the team-brain's `team.json`; `core/job.js` holds the seven words and the rituals
 each is offered first. **It decides what is offered, never what is allowed**, and it is not a
 fourth switch beside mode, audience and profile. No job means `developer`.
 

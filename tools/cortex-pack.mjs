@@ -7,7 +7,7 @@
 //   node tools/cortex-pack.mjs --check             # build every pack in memory and verify it; writes nothing
 //   add --json to --list or --check for a tool to read
 //
-// A job is developer, architect, lead, pm or qa (core/job.js). DIR defaults to `cortex-packs/` in
+// A job is developer, architect, lead, pm, qa, po or ba (core/job.js). DIR defaults to `cortex-packs/` in
 // the current directory, which this repo's .gitignore covers: a pack is generated, never committed.
 //
 // Why this exists: people on a team need different parts of Cortex, and some of them never open a

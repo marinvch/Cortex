@@ -749,7 +749,7 @@ The team-brain (needs a repo joined with \`team add\`, or a vault with a team cl
                                              join it from this repo: clone it, write .cortex/connector.json
   team member --roles <role,role> [--job <job>]
                                              say which roles and projects you hold, and your job
-                                             (developer, architect, lead, pm, qa), in team.json
+                                             (developer, architect, lead, pm, qa, po, ba), in team.json
   ask --to <role|project> --title <t> --body <text>
                                              send a question to a role or a project
   inbox                                      the asks waiting for you — run it at the start of a task

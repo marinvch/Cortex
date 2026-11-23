@@ -47,7 +47,7 @@ Here it is the requirement, and it holds only because the connector carries no l
    and adds that directory to the repo's `.gitignore`.
 4. **Ask the member which roles they hold** — `frontend`, `backend`, `architect`, whatever this
    team uses — which projects they own, and **their job**: one of `developer`, `architect`,
-   `lead`, `pm` or `qa`. Then run
+   `lead`, `pm`, `qa`, `po` (product owner) or `ba` (business analyst). Then run
    `node "${CLAUDE_PLUGIN_ROOT}/mcp/cortex.js" team member --roles <role,role> --projects <slug,slug> --job <job>`.
    It adds them to the team-brain's `team.json`, commits and pushes. Their handle is their memory
    author name: `CORTEX_AUTHOR`, else their git `user.name` as a slug; pass `--handle` only to
@@ -63,6 +63,10 @@ Here it is the requirement, and it holds only because the connector carries no l
        `cortex-pack-pm` zip on the Cortex release, or
        `node "${CLAUDE_PLUGIN_ROOT}/tools/cortex-pack.mjs" pm --out <dir>`. Step 5 is a
        developer's to offer.
+     - `po`: as for `pm`, with the `cortex-pack-po` zip. Offer `/story-map` and `/challenge-plan`, and
+       say that a `decided` answer from them reaches the whole team.
+     - `ba`: as for `pm`, with the `cortex-pack-ba` zip. Offer `/define-terms` for the team's words,
+       `/challenge-plan` and `/story-map`.
      - `architect`: the contract in step 5 matters most to them, together with `/define-terms` and
        `/design-spec`.
      - `qa`: `/change-impact` and `/review-change` on each change.

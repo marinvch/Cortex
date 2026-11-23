@@ -13,6 +13,8 @@ this project now versions independently of any package manager (see `VERSION`).
 - **Only a handle on the team's roster can record a decision** (ADR 0033). A mistyped name used to put a
   decision in front of the team signed by nobody it knows. This catches mistakes and is not authentication:
   anyone can set `CORTEX_AUTHOR` to a handle on the roster.
+- **Product owners and business analysts are jobs now.** `po` and `ba` join the roster, each with its own
+  first rituals and its own role pack for Claude Desktop or claude.ai.
 
 ## [3.1.0] — 2026-11-23
 

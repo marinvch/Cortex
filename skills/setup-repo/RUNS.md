@@ -88,6 +88,7 @@ the order or the list: every row is still asked, in its rank.
 
 - `pm`: propose the report-only path (above) and say so before step 2. Offer `/whats-changed` at
   the end.
+- `po`, `ba`: as for `pm`, and offer `/story-map` and `/define-terms` at the end.
 - `qa`: lead the step 3 summary with the code no test covers, and end with `/change-impact`.
 - `architect`: `scaffold` and `brief` are theirs. Propose **later** for `bundle`, `enrich`, the
   hooks, evals and bands, and say they can take them now.

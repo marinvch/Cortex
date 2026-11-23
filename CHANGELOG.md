@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **The stamped `protected-paths` guard now blocks when it cannot run.** A missing or crashing script let
+  every edit through. A repo stamped earlier keeps its old entry in `.claude/settings.json` until someone
+  adds `|| exit 2` to that command.
 - **A team clone that loses a push race now recovers by itself.** Two people writing at once left one
   clone stuck: its ask never arrived and it stopped receiving new ones. Its local commits are now replayed
   onto the remote and pushed. If both changed the same file, nothing is lost, the clone stays as it was,

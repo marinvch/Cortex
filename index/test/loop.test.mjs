@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync as fsExists, readFileSync as fsRead } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -1477,4 +1478,22 @@ test("has and filesIn answer for a missing directory, and filesIn sorts and filt
   assert.deepEqual(filesIn(root, "docs/none"), []);
   assert.deepEqual(filesIn(root, "docs/adr/0001-a.md"), [], "a file is not a directory of files");
   rmSync(root, { recursive: true, force: true });
+});
+
+test("the protected-paths guard blocks when its script is missing or crashes", () => {
+  // Claude Code lets an edit through on any failure but exit 2, so a guard that cannot run is off.
+  const settings = JSON.parse(fsRead(new URL("../../templates/loop/settings.hooks.json", import.meta.url), "utf8"));
+  const command = settings.hooks.PreToolUse[0].hooks[0].command;
+  const dir = mkdtempSync(join(tmpdir(), "guard-"));
+  try {
+    const run = () => spawnSync("bash", ["-c", command], { env: { ...process.env, CLAUDE_PROJECT_DIR: dir.replace(/\\/g, "/") }, input: "{}" }).status;
+    assert.equal(run(), 2, "a missing script blocks");
+    mkdirSync(join(dir, ".claude", "hooks"), { recursive: true });
+    writeFileSync(join(dir, ".claude", "hooks", "protected-paths.sh"), "exit 1\n");
+    assert.equal(run(), 2, "a crashing script blocks");
+    writeFileSync(join(dir, ".claude", "hooks", "protected-paths.sh"), "exit 0\n");
+    assert.equal(run(), 0, "a script that allows the edit still allows it");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

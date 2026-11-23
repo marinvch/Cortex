@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **The docs and setup now say how to get the `cortex` command.** The README used it throughout and
+  nothing installed it. Setup reports when it is missing, and `npm link` in `mcp/` no longer leaves the
+  checkout looking modified on Linux or macOS.
 - **Setup now says when git would keep a shared config from the team.** In a repo that ignores
   `.vscode/`, the printed `git add` failed and Copilot's MCP entry never reached anyone. It now warns and
   gives the `git add -f` command.

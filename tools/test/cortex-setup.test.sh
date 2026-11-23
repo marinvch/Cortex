@@ -199,3 +199,17 @@ assert_contains "$json" '"ignored": true' "--json reports it"
 git -C "$IG" add -f .vscode/mcp.json
 out="$(setup --agents copilot --repo "$IG")"
 assert_not_contains "$out" "git ignores this file" "once it is tracked there is nothing to warn about"
+
+# --- the cortex command --------------------------------------------------------------------------------
+
+CL="$WORK/cli"
+mkrepo "$CL"
+printf '# Proj\n' > "$CL/AGENTS.md"
+TOOLS_PATH="$(dirname "$(command -v node)"):$(dirname "$(command -v git)")"
+out="$(PATH="$TOOLS_PATH" setup --agents gemini --repo "$CL")"
+assert_contains "$out" "is not on your PATH" "setup says when the cortex command is missing"
+assert_contains "$out" "cortex.js" "and how to run it anyway"
+mkdir -p "$WORK/fakebin"
+: > "$WORK/fakebin/cortex"
+out="$(PATH="$WORK/fakebin:$TOOLS_PATH" setup --agents gemini --repo "$CL")"
+assert_not_contains "$out" "is not on your PATH" "and says nothing when it is there"

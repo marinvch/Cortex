@@ -46,6 +46,25 @@ questions that depend on that fact wait for it, and the rest of the frontier goe
 What the user chooses (scope, trade-offs, priorities, risk) is never something to infer. Ask, and
 wait for the answer.
 
+## When the plan is a new idea
+
+A product owner or an analyst often brings an idea, not a design. Once step 6 is confirmed, offer to
+record it as an intent. Write nothing until the user says yes.
+
+If the repo has `intent/TEMPLATE.md`, draft `intent/<short-name>.md` from it, using only what the user
+said in this session:
+
+- **What is wrong today**, **What good looks like**, **Who and what it touches** and **Hard limits**
+  come from their answers, in their words.
+- **Not yet decided** holds every branch they left open or deferred. A recommendation they did not
+  accept goes here too. Leave a section empty rather than fill it with a guess.
+- Keep `Status: draft`. Accepting an intent belongs to the owner named in `intent/README.md`, and
+  this ritual does not do it.
+
+Show the draft and let them correct it before it is written. With no `intent/` folder, or no repo at
+all, as in Claude Desktop, give them the same sections as text to pass on. A repo that wants the
+folder gets it from `/setup-repo`.
+
 ## Where this fits in Cortex
 
 Grilling is the interview method other rituals use; it is not a stage of any one of them.

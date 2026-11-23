@@ -84,6 +84,14 @@ test("capture as the first action clones the team-brain, and the next team tool 
   assert.match(git(remote, "log", "-1", "--format=%s", "master"), /capture: shop/);
 });
 
+test("the team named in another case is the same team, so its clone is still made", async () => {
+  const remote = teamRemote();
+  const vault = tempDir("first-vault-");
+  const [note] = await session(vault, remote, [["capture", { content: "a note", project: "shop", team: "Acme" }]]);
+  assert.notEqual(note.isError, true, note.content[0].text);
+  assert.ok(existsSync(join(vault, "team", "acme", ".git")));
+});
+
 test("a folder left by the old capture is reported with what to do, and is not touched", async () => {
   const remote = teamRemote();
   const vault = tempDir("first-vault-");

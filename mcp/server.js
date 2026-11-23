@@ -118,7 +118,9 @@ async function dispatch(name, args) {
       // into, and every team tool after it fails. Another team's clone must already be there, since
       // nothing names a remote for it.
       if (team) {
-        const target = team === brain.team ? brain : { ...brain, team, teamClone: teamCloneDir(root, team), teamBrainRepo: null };
+        // Compared as paths: `capture` slugs the name, so "Acme" and "acme" are one clone.
+        const teamClone = teamCloneDir(root, team);
+        const target = teamClone === brain.teamClone ? brain : { ...brain, team, teamClone, teamBrainRepo: null };
         ensureTeamClone(target, "capture");
       }
       return capture(root, cargs);

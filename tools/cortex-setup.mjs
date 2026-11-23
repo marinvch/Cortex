@@ -41,7 +41,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { installedHere, readRegistry } from "../core/plugin-registry.js";
 import {
@@ -253,9 +253,21 @@ const homeLine = () => {
   return `CORTEX_HOME is not set. The committed configs start \${CORTEX_HOME}/mcp/server.js, so each teammate sets it once: ${fix}.`;
 };
 
+// The docs and the rituals' hand-offs say `cortex <command>`, and nothing puts it on PATH by itself.
+const cliOnPath = String(env.PATH ?? env.Path ?? "").split(delimiter).filter(Boolean)
+  .some((d) => ["cortex", "cortex.cmd"].some((n) => existsSync(join(d, n))));
+const cliLine = () => {
+  if (cliOnPath) return null;
+  const direct = `node "${join(CORTEX_DIR, "mcp", "cortex.js")}"`;
+  // A plugin's copy moves on every update, and a link into it would go stale.
+  if (!existsSync(join(CORTEX_DIR, ".git"))) return `The \`cortex\` command is not on your PATH. Run it as: ${direct}`;
+  return `The \`cortex\` command is not on your PATH. Add it once with: cd "${join(CORTEX_DIR, "mcp")}" && npm link. Until then: ${direct}`;
+};
+
 if (args.json) {
   console.log(JSON.stringify({
     repo,
+    cliOnPath,
     write: args.write && !refused.length,
     cortexHome: { ...cortexHome, cortex: CORTEX_DIR },
     files: rows.map(({ agent, label, scope, action, note, created, ignored }) => ({ agent, path: label, scope, action, ...(created !== undefined && action === "add" ? { created } : {}), ...(ignored ? { ignored } : {}), ...(note ? { note } : {}) })),
@@ -275,6 +287,8 @@ for (const r of rows) {
 }
 const h = homeLine();
 if (h) console.log(`\n${h}`);
+const cl = cliLine();
+if (cl) console.log(`\n${cl}`);
 console.log("");
 if (refused.length) {
   console.log(`Nothing was written: ${refused.length === 1 ? "a file was" : `${refused.length} files were`} refused above. Fix ${refused.length === 1 ? "it" : "them"} or leave that agent out, and run again.`);

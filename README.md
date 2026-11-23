@@ -538,6 +538,10 @@ different paths the server says so in one line on stderr. To move to the new nam
 `claude mcp remove ai-os` and then the command above. Do not keep both registrations: they are two
 servers over one vault, and every tool appears twice.
 
+The commands in this README that start with `cortex` need it on your PATH, and nothing puts it there
+by itself. From a clone, run `npm link` once in `mcp/`. Without that, or from an installed plugin,
+use `node <cortex>/mcp/cortex.js`. `tools/cortex-setup.mjs` tells you which applies on your machine.
+
 The CLI is now `mcp/cortex.js`, its command is `cortex`, and the package is `cortex-mcp`. The file
 `mcp/ai-os.js` and the `ai-os` and `ai-os-mcp` commands stay as aliases through 3.x and are removed
 in 4.0.0, so a stamped workflow or a saved command keeps working until then.

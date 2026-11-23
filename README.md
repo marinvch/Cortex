@@ -161,6 +161,9 @@ with no job is a developer, so a roster written before the field existed keeps w
   so an agent sees them at the start of a session.
 - `answer` appends a reply and sets the status: `answered`, `decided` or `wontfix`. A `decided` thread
   reaches the whole team: `/whats-changed`, `catch_me_up` and `/story-map` list it across every repo.
+  Only a handle on the team's roster can record one. That catches a wrong name and is not
+  authentication: a handle is whatever `CORTEX_AUTHOR` says, and access to the team-brain is decided by
+  the repository that hosts it.
 
 The asks travel by `git` alone. A credential in an ask is refused before anything is written.
 

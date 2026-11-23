@@ -10,6 +10,9 @@ this project now versions independently of any package manager (see `VERSION`).
 - **A team's decisions now reach the whole team.** A `decided` ask used to be visible only to the people
   on its thread. `catch_me_up`, `/whats-changed` and `/story-map` now list what was decided, by whom and
   when, across every repo of the team.
+- **Only a handle on the team's roster can record a decision** (ADR 0033). A mistyped name used to put a
+  decision in front of the team signed by nobody it knows. This catches mistakes and is not authentication:
+  anyone can set `CORTEX_AUTHOR` to a handle on the roster.
 
 ## [3.1.0] — 2026-11-23
 

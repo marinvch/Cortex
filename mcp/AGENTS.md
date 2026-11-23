@@ -264,6 +264,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
   started and reported with the files. Do not add `--autostash`, `reset` or `clean` to make it run.
 - **A decision reaches the whole team, not only the thread.** `catch_me_up` and `graph story` return
   `decisions`, built once by `decisionOf` in `lib/ask-file.js` and bounded by `boundDecisions`.
+  `answerAsk` refuses `decided` from a handle not on a non-empty roster. That is an error guard and
+  not authentication ([ADR 0033](../docs/adr/0033-a-decision-needs-a-name-on-the-roster-and-that-is-not-authentication.md)).
 - **`catch_me_up` pulls and reads the team's notes, not only its log.** A failed pull is
   returned in `pull`, never swallowed, and the local notes still come back; team notes are bounded
   in `catchup.js` so the result fits under the transport cap rather than being cut by it. Its

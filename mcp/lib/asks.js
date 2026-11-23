@@ -190,6 +190,19 @@ export function answerAsk(clone, { id, content, status = "answered", caller, tod
   }
 
   if (outwardSync) pull(clone, gate);
+  // After the pull, so a member added an hour ago counts. A guard against a wrong name and not
+  // authentication: anyone can set CORTEX_AUTHOR to a handle on the roster (ADR 0033).
+  if (status === "decided") {
+    const { members } = readRoster(clone);
+    if (members.length && !members.some((m) => m.handle === caller.handle)) {
+      const who = caller.handle ? `'${caller.handle}' is` : "no handle was found, so you are";
+      throw new AskRefused(
+        "not_on_roster",
+        `only someone on the team's roster can record a decision, and ${who} not on it. Nothing was written. ` +
+          "Set CORTEX_AUTHOR to your handle, or add yourself with `cortex team member --handle <handle> --roles <role,...>`.",
+      );
+    }
+  }
   const vault = openVault(clone);
   const rel = `asks/${id}.md`;
   if (!vault.isFile(rel)) throw new AskRefused("not_found", `no ask with the id ${id} in the team-brain`);

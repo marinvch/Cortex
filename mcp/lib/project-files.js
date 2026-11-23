@@ -8,7 +8,7 @@
 //   - every path goes through the Vault (docs/adr/0007), so this file imports no filesystem module
 //     and `test/vault-is-the-only-door.test.js` holds it to that;
 //   - a refusal happens before the write, never after: validation, then the profile, then the
-//     secret gate, and the first one that says no leaves both repositories as they were;
+//     publish gate, and the first one that says no leaves both repositories as they were;
 //   - a publish consults `policy.outwardSync`. On a sealed profile the commit is kept locally, the
 //     push is declined, and the caller is told `outward_sync_disabled` — the same answer `capture`
 //     and `team init` give.
@@ -24,8 +24,8 @@ import {
   setFrontmatter,
   validateProjectFile,
 } from "../../core/project-file.js";
-import { RefusedWriteError, assertWritable } from "../../core/scrub.js";
-import { assertNotDenied } from "../../core/denylist.js";
+import { RefusedWriteError } from "../../core/scrub.js";
+import { assertPublished } from "../../core/gate.js";
 import { commitPath, originUrl, pull, pushHead, teamCloneDir } from "./gitsync.js";
 import { slugify } from "./slug.js";
 import { cloneTeamBrain, readTeamSource, writeConnector } from "./team.js";
@@ -49,27 +49,28 @@ const describe = (errors) => errors.map((e) => (e.line ? `line ${e.line}: ${e.ms
 
 /**
  * The three gates a project file passes before it is written, in the order the design fixes:
- * is it valid, may this install hold it, does it carry a secret. Throws on the first no.
+ * is it valid, may this install hold it, does the publish gate pass it. Throws on the first no.
+ * A gate warning joins the validator's, as `{ msg }`, because that is what `team add` prints.
  */
-function judge(text, slug, policy, others) {
+function judge(text, slug, policy, others, env) {
   const v = validateProjectFile(text, { slug, others });
   if (!v.ok) throw new ProjectFileRefused("invalid", `projects/${slug}.md is not a valid project file — ${describe(v.errors)}`, { errors: v.errors });
   const refusal = profileRefusal(v.data, policy);
   if (refusal) throw new ProjectFileRefused(refusal.code, `projects/${slug}.md: ${refusal.message}`, { links: refusal.links });
+  let gate;
   try {
-    assertWritable(text);
-    // The employer denylist (home only), the check the link shapes above cannot make. Its message
-    // names the entry's kind and line in the person's own denylist, never the text.
-    assertNotDenied(text, { policy });
+    // Credentials, the employer denylist (home only) and personal data. The denylist and personal
+    // data messages name a kind and a line, never the text.
+    gate = assertPublished(text, { policy, env });
   } catch (e) {
     if (!(e instanceof RefusedWriteError)) throw e;
-    if (e.code === "employer_denylist") throw new ProjectFileRefused(e.code, `projects/${slug}.md: ${e.message}`);
+    if (e.code === "employer_denylist" || e.code === "personal_data") throw new ProjectFileRefused(e.code, `projects/${slug}.md: ${e.message}`);
     // The gate's own message says "memory"; this is the same refusal for a different file. Only
     // the KIND of secret is named, as there.
     const kinds = [...new Set(e.findings.map((f) => f.kind))].join(", ");
     throw new ProjectFileRefused(e.code, `refusing to write projects/${slug}.md: it contains ${kinds}. It is not stripped and written; remove it and run this again.`);
   }
-  return v;
+  return { ...v, warnings: [...v.warnings, ...gate.warnings.map((msg) => ({ msg }))] };
 }
 
 /** Every `.md` directly under a team's `projects/`, read once, plus the folders beside them. */
@@ -214,7 +215,7 @@ export function addProject(root, { team, teamRepo, project, cwd, today, policy, 
   }
 
   const others = readTeam(vault, team).others;
-  const judged = judge(text, project, policy, others);
+  const judged = judge(text, project, policy, others, env);
   vault.write(rel, text);
   const file = { path, action, warnings: judged.warnings, ...publish(dir, inClone, `project: add ${project}`, policy, { env }) };
   return { dir, cloned, file };

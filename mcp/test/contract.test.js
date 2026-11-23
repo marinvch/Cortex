@@ -375,3 +375,35 @@ test("publishContract on lab commits and does not push", () => {
   assert.equal(res.error, "outward_sync_disabled");
   assert.ok(!git(remote, "ls-tree", "-r", "--name-only", "master").includes("contract.json"));
 });
+
+const PERSON = ["jane.roe", "mailhost.dev"].join("@");
+const withPerson = (field) => JSON.stringify({ format: 1, source: "none", [field]: `ask ${PERSON}`, serves: [], calls: [], bases: [], events: [], unread: [] });
+const cleanClone = () => {
+  const remote = teamBrainRemote();
+  const clone = tempDir("contract-clone-");
+  git(clone, "clone", "-q", remote, ".");
+  return clone;
+};
+
+test("work refuses personal data in a contract, even in a field the parser would drop", () => {
+  for (const field of ["reason", "notes"]) {
+    const clone = cleanClone();
+    assert.throws(
+      () => publishContract(clone, { slug: "lib-c", input: withPerson(field), policy: policyFor("work"), env: {} }),
+      (e) => e.code === "personal_data" && !e.message.includes(PERSON),
+    );
+    assert.ok(!existsSync(join(clone, "projects", "lib-c", "contract.json")));
+  }
+});
+
+test("lab writes personal data in a contract and passes the warning back", () => {
+  const res = publishContract(cleanClone(), { slug: "lib-c", input: withPerson("reason"), policy: policyFor("lab"), env: {} });
+  assert.equal(res.committed, true);
+  assert.equal(res.warnings.length, 1);
+  assert.match(res.warnings[0], /personal data/);
+});
+
+test("a value the parser dropped is not warned about, because it was not written", () => {
+  const res = publishContract(cleanClone(), { slug: "lib-c", input: withPerson("notes"), policy: policyFor("lab"), env: {} });
+  assert.deepEqual(res.warnings, []);
+});

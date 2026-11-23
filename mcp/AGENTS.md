@@ -122,8 +122,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `CORTEX_PII` — and `server.js` passes `brain.policy`, so the profile comes off the brain opened
   once. What it returns without refusing (`warnings`) rides back on the tool result; a caller that
   drops it hides a personal-data warning from the model that should tell the person.
-  `contract.js` and `project-files.js` write published files outside the table and apply the
-  credential scan and the denylist themselves.
+  `contract.js` and `project-files.js` write published files outside the table and call the same
+  gate themselves, passing its warnings back on their results.
 - **A root that does not exist is a hard exit too** (`MissingRootError`, `lib/brain.js`, #550). The
   server used to start on it and fail in the first tool an agent called, with a raw `ENOENT`. In repo
   mode the directory that must exist is the repo, not `.cortex/`: the first write creates that. This
@@ -333,8 +333,8 @@ the repo by commit count, and — like every other part — **dependency-free**.
   `core/project-file.js`.** A project file is `projects/<slug>.md` at the top of a team-brain, and
   a workspace is the set of them ([ADR 0024](../docs/adr/0024-a-workspace-is-project-files.md)).
   The rules that hold for every caller:
-  - **The gates run before the write, in one order: valid, allowed by the profile, free of
-    secrets.** `judge()` is the only way to a write. The first refusal throws `ProjectFileRefused`
+  - **The gates run before the write, in one order: valid, allowed by the profile, passed by the
+    publish gate (`core/gate.js`).** `judge()` is the only way to a write. The first refusal throws `ProjectFileRefused`
     and leaves both repositories as they were. `cortex team add` writes the connector last, so a repo
     whose project is refused has not joined.
   - **The profile check takes the policy object, never a profile name.** `profileRefusal(data,

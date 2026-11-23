@@ -10,7 +10,7 @@
 //     keys are dropped, every string is length-capped, and a file path that is absolute or climbs
 //     out (`..`) is refused. A contract never carries a code body or an environment value because
 //     the extractor writes none; this is what makes that true of a hand-edited file too.
-//   - The secret gate (`core/scrub.js`) reads the whole input text AND the text about to be written.
+//   - The publish gate (`core/gate.js`) reads the whole input text AND the text about to be written.
 //     There is no tool row for publishing — it is a CLI step of /join-team — so the gate sits in the
 //     one function that writes, which is the act (ADR 0016), and the test drives that function.
 //   - It commits only when the content changed, as `contract: update <slug>`, so the brain's git
@@ -25,8 +25,7 @@
 //
 // Every read and write in the clone goes through the Vault; git goes through gitsync.js.
 
-import { assertWritable } from "../../core/scrub.js";
-import { assertNotDenied } from "../../core/denylist.js";
+import { assertPublished } from "../../core/gate.js";
 import { resolveProfile } from "../../core/profile.js";
 import { callReaches, normalizeRoutePath, routeSegments } from "../../core/route-path.js";
 import { commitPaths, pull, pushHead, revBefore, showAt, teamCloneDir, touchedSince } from "./gitsync.js";
@@ -232,7 +231,8 @@ function publish(clone, rels, message, gate) {
 /**
  * Write a project's contract into the team-brain clone, then commit and push it — only when the
  * content changed. Throws `ContractRefused` for a malformed contract and `RefusedWriteError` for one
- * the secret gate refuses; in both cases nothing is written.
+ * the publish gate refuses; in both cases nothing is written. What the gate let through with a
+ * warning comes back in `warnings`, for the caller to pass on.
  *
  * @param {string} clone
  * @param {{ slug: string, input: string, policy?: object, env?: object }} opts
@@ -245,26 +245,26 @@ export function publishContract(clone, { slug, input, policy, env = process.env 
   const pol = policy ?? resolveProfile({ env }).policy;
   const gate = { policy: pol, env };
   const outwardSync = pol.outwardSync;
-  // The gate first, on the text as given: a credential anywhere in it is a reason to stop, even in
-  // a field the parser would have dropped. Then the employer denylist, on a `home` profile only.
-  assertWritable(String(input));
-  assertNotDenied(String(input), { policy: pol, env });
+  // The gate first, on the text as given: something it refuses is a reason to stop, even in a field
+  // the parser would have dropped. The warnings come from the second pass, on what is written, so a
+  // person is not told about a value that never left the machine.
+  assertPublished(String(input), gate);
   const contract = { ...parseContract(input), project: s };
   const json = renderContract(contract);
   const md = renderContractMd(s, contract);
-  assertWritable(`${json}\n${md}`);
+  const { warnings } = assertPublished(`${json}\n${md}`, gate);
 
   if (outwardSync) pull(clone, gate);
   const vault = openVault(clone);
   const rels = [contractRel(s), contractMdRel(s)];
   const existed = vault.isFile(rels[0]);
   if (existed && lf(vault.read(rels[0])) === json && vault.isFile(rels[1]) && lf(vault.read(rels[1])) === md) {
-    return { project: s, action: "unchanged", path: vault.abs(rels[0]), committed: false, pushed: false, ...counts(contract) };
+    return { project: s, action: "unchanged", path: vault.abs(rels[0]), committed: false, pushed: false, warnings, ...counts(contract) };
   }
   vault.write(rels[0], json);
   vault.write(rels[1], md);
   const res = publish(clone, rels, `contract: update ${s}`, gate);
-  return { project: s, action: existed ? "updated" : "created", path: vault.abs(rels[0]), ...res, ...counts(contract) };
+  return { project: s, action: existed ? "updated" : "created", path: vault.abs(rels[0]), warnings, ...res, ...counts(contract) };
 }
 
 const counts = (c) => ({ source: c.source, serves: c.serves.length, calls: c.calls.length, events: c.events.length });

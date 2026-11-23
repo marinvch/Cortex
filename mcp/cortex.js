@@ -371,6 +371,7 @@ function cmdContract(sub, args, brain) {
     if (typeof args.file !== "string") throw new Error(CONTRACT_USAGE);
     const input = readFileSync(args.file, "utf8");
     const res = publishFrom(brain, { input, project: args.project ?? null, team: args.team ?? null });
+    for (const w of res.warnings) console.error(`cortex: ${w}`);
     const what = `${res.source}: ${res.serves} served, ${res.calls} called, ${res.events} events`;
     if (res.action === "unchanged") { console.log(`Contract for ${res.project} unchanged (${what}). Nothing to commit.`); return 0; }
     console.log(`Contract for ${res.project} ${res.action} (${what}) — ${describePublish(res, brain)}.`);

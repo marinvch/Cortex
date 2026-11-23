@@ -603,6 +603,8 @@ Each person installs the part their job needs. The team shares one team-brain ei
 | Developer, team lead, tester | Claude Code, in the repo | the plugin (`/plugin install cortex`) |
 | Architect | Claude Code, or Claude Desktop | the plugin in Claude Code; elsewhere the `architect` pack |
 | Project manager | Claude Desktop, claude.ai, another assistant | the `pm` pack |
+| Product owner | Claude Desktop, claude.ai, another assistant | the `po` pack |
+| Business analyst | Claude Desktop, claude.ai, another assistant | the `ba` pack |
 
 A **role pack** is one job's skills that work without Claude Code, in the Agent Skills format, as
 folders and as zips to upload to claude.ai or Claude Desktop, plus the MCP entry for Claude
@@ -615,8 +617,8 @@ node tools/cortex-pack.mjs pm               # writes cortex-packs/cortex-pack-pm
 ```
 
 A skill goes in a pack only when it needs nothing Claude Code provides: no `${CLAUDE_PLUGIN_ROOT}`,
-no Cortex script to run. The rest are listed in the pack's README with the reason, so a project
-manager knows what to ask a developer for. A pack holds no credential and no path on the machine
+no Cortex script to run. The rest are listed in the pack's README with the reason, so someone
+outside the repo knows what to ask a developer for. A pack holds no credential and no path on the machine
 that built it.
 
 ---

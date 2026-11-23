@@ -938,3 +938,22 @@ test("a git SSH remote is not read as an email address", () => {
   const res = add(f, HOME, { env: { ...process.env, CORTEX_PII: "refuse" } });
   assert.equal(res.file.action, "written");
 });
+
+test("a join in repo mode ignores the clone before anyone commits", () => {
+  const f = fixture(PUBLIC_ORIGIN);
+  const brain = join(f.repo, ".cortex");
+  mkdirSync(brain, { recursive: true });
+  const res = joinProject(brain, { team: TEAM, teamRepo: f.remote, project: "storefront", cwd: f.repo, today: "2026-10-09", policy: HOME, env: process.env });
+  assert.deepEqual(res.ignored, [".cortex/team/"]);
+  assert.match(readFileSync(join(f.repo, ".gitignore"), "utf8"), /^\.cortex\/team\/$/m);
+  git(f.repo, "add", "-A");
+  assert.ok(!git(f.repo, "ls-files").includes(".cortex/team"), "the clone is not staged");
+  assert.ok(git(f.repo, "ls-files").includes(".cortex/connector.json"), "the connector is");
+});
+
+test("a join from a vault leaves the product repo's .gitignore alone", () => {
+  const f = fixture(PUBLIC_ORIGIN);
+  const res = joinProject(f.vault, { team: TEAM, teamRepo: f.remote, project: "storefront", cwd: f.repo, today: "2026-10-09", policy: HOME, env: process.env });
+  assert.deepEqual(res.ignored, []);
+  assert.equal(existsSync(join(f.repo, ".gitignore")), false);
+});

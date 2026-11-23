@@ -5,6 +5,8 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-11-23
+
 ### Deprecated
 
 - **`tools/cortex-vault-extract.sh`** prints a warning and still works. It is removed in 4.0.0, so
@@ -5936,6 +5938,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[3.1.0]: https://github.com/marinvch/Cortex/releases/tag/v3.1.0
 [3.0.0]: https://github.com/marinvch/Cortex/releases/tag/v3.0.0
 [3.0.0]: https://github.com/marinvch/Cortex/releases/tag/v3.0.0
 [2.45.0]: https://github.com/marinvch/Cortex/releases/tag/v2.45.0

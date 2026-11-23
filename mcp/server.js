@@ -3,6 +3,8 @@ import { serve } from "./lib/stdio.js";
 import { recall } from "./lib/recall.js";
 import { listProjects, getProjectContext } from "./lib/projects.js";
 import { capture } from "./lib/capture.js";
+import { teamCloneDir } from "./lib/gitsync.js";
+import { ensureTeamClone } from "./lib/team.js";
 import { catchMeUp, catchUpTeam } from "./lib/catchup.js";
 import { genNoteId } from "./lib/noteid.js";
 import { askFrom, inboxFrom, answerFrom, asksInstructions, authorFor } from "./lib/asks.js";
@@ -112,6 +114,13 @@ async function dispatch(name, args) {
       // Same reasoning for the project: the connector names it, so a team note with none lands under
       // this repo's project rather than the team-brain's `inbox`.
       if (team && !args.project && brain.project) cargs.project = brain.project;
+      // The clone comes before the note. Written first, the note makes a folder git will not clone
+      // into, and every team tool after it fails. Another team's clone must already be there, since
+      // nothing names a remote for it.
+      if (team) {
+        const target = team === brain.team ? brain : { ...brain, team, teamClone: teamCloneDir(root, team), teamBrainRepo: null };
+        ensureTeamClone(target, "capture");
+      }
       return capture(root, cargs);
     }
     case "catch_me_up": return catchMeUp(root, { ...args, team: catchUpTeam(args.team, brain), policy: brain.policy, env: brain.env });

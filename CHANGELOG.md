@@ -39,6 +39,10 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **A team clone that loses a push race now recovers by itself.** Two people writing at once left one
+  clone stuck: its ask never arrived and it stopped receiving new ones. Its local commits are now replayed
+  onto the remote and pushed. If both changed the same file, nothing is lost, the clone stays as it was,
+  and the error names the file for a person to settle (ADR 0032).
 - **The docs and setup now say how to get the `cortex` command.** The README used it throughout and
   nothing installed it. Setup reports when it is missing, and `npm link` in `mcp/` no longer leaves the
   checkout looking modified on Linux or macOS.

@@ -114,7 +114,7 @@ test("catch-up reads every project of the team, newest first, and honours since"
   assert.equal(res.truncated, false);
 });
 
-test("a failed pull is reported, never hidden, and local work is not rewritten", () => {
+test("a diverged clone with no conflict takes in the remote and keeps its own work (ADR 0032)", () => {
   const { repoA, repoB, be1, fe1 } = team();
   // fe1 commits locally and cannot push (the remote moves on first) — the clone has diverged.
   const clone = join(fe1, "team", "harbor");
@@ -123,12 +123,36 @@ test("a failed pull is reported, never hidden, and local work is not rewritten",
   writeFileSync(join(clone, "projects", "web-b", "2026-09-25-local.md"), "---\ncreated: 2026-09-25\n---\n\nlocal only\n");
   git(clone, "add", ".");
   git(clone, "commit", "-qm", "local");
+
+  const res = catchMeUp(fe1, { project: "web-b", since: "2026-09-01", team: "harbor", policy: policyFor("home") });
+  assert.equal(res.pull.ok, true);
+  assert.ok(res.teamNotes.some((n) => /local only/.test(n.content)), "the local note is kept");
+  assert.ok(res.teamNotes.some((n) => /remote side/.test(n.content)), "and the teammate's arrived");
+  assert.match(git(clone, "log", "-1", "--format=%s"), /^local\s*$/, "the local commit sits on top");
+});
+
+test("a conflict is reported, never hidden, and local work is not rewritten", () => {
+  const { repoA, be1, fe1 } = team();
+  const clone = join(fe1, "team", "harbor");
+  const other = join(be1, "team", "harbor");
+  captureAs(be1, repoA, "a first note", "r1");
+  git(clone, "pull", "-q", "--ff-only");
+  const shared = join("projects", "web-b", "2026-09-25-shared.md");
+  mkdirSync(join(other, "projects", "web-b"), { recursive: true });
+  writeFileSync(join(other, shared), "---\ncreated: 2026-09-25\n---\n\ntheir version\n");
+  git(other, "add", ".");
+  git(other, "commit", "-qm", "theirs");
+  git(other, "push", "-q");
+  mkdirSync(join(clone, "projects", "web-b"), { recursive: true });
+  writeFileSync(join(clone, shared), "---\ncreated: 2026-09-25\n---\n\nlocal only\n");
+  git(clone, "add", ".");
+  git(clone, "commit", "-qm", "local");
   const head = git(clone, "rev-parse", "HEAD").trim();
 
   const res = catchMeUp(fe1, { project: "web-b", since: "2026-09-24", team: "harbor", policy: policyFor("home") });
   assert.equal(res.pull.ok, false);
-  assert.ok(res.pull.error.length > 0, "the failure must say why");
-  assert.equal(git(clone, "rev-parse", "HEAD").trim(), head, "ff-only: a diverged clone is left as it was");
+  assert.match(res.pull.error, /diverged_conflict/, "the failure must say why");
+  assert.equal(git(clone, "rev-parse", "HEAD").trim(), head, "a conflict leaves the clone as it was");
   assert.ok(res.teamNotes.some((n) => /local only/.test(n.content)), "what IS local is still returned");
 });
 

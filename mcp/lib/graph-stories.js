@@ -13,7 +13,7 @@
 //
 // The rules, the code ops' rules carried over:
 //
-// - **Read-only.** It pulls the clone fast-forward first, as `contract` and `inbox` do, and returns a
+// - **Read-only.** It pulls the clone first, as `contract` and `inbox` do, and returns a
 //   failed pull in `pull`; it writes nothing.
 // - **The freshness refusal.** A repo's links were built from its index at one commit. In a repo,
 //   the brain's own project is checked against HEAD: when the code has moved since the links were

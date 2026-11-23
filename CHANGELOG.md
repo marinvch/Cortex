@@ -5,6 +5,8 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-11-23
+
 ### Added
 
 - **A team's decisions now reach the whole team.** A `decided` ask used to be visible only to the people
@@ -5955,6 +5957,7 @@ bash — no Node, no Python, no engine. **Breaking:** the Node installer is reti
 - Demonstrated end-to-end on a real repo: brain installed, old engine migrated (10 verified
   memory facts harvested), nested briefs created for auth / webhooks / RAG.
 
+[3.2.0]: https://github.com/marinvch/Cortex/releases/tag/v3.2.0
 [3.1.0]: https://github.com/marinvch/Cortex/releases/tag/v3.1.0
 [3.0.0]: https://github.com/marinvch/Cortex/releases/tag/v3.0.0
 [3.0.0]: https://github.com/marinvch/Cortex/releases/tag/v3.0.0

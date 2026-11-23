@@ -1,6 +1,6 @@
 {
   "name": "cortex",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "A context manager for new and legacy codebases. Indexes a repo, reports issues and gaps, and scaffolds a layered AGENTS.md context tree — proposing, never deciding.",
   "author": {
     "name": "Marin Cholakov",

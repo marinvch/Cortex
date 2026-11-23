@@ -181,7 +181,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
     `rosterErrors` and reads it as `developer`, as it reads no job; `setMember` refuses it, and
     keeps the recorded job when none is passed. `inbox` returns it as `me.job`, which is where
     `/setup-repo` and `/resume-work` read it.
-  - **`inbox` pulls ff-only first, and a failed pull is returned in `pull`**, with the local asks.
+  - **`inbox` pulls first, and a failed pull is returned in `pull`**, with the local asks.
   - **The start-up count is `instructions` on the `initialize` result** (`asksInstructions`), not a
     hook (ADR 0021). It reads the local clone, never pulls, never throws: a failure drops the count.
   - Asks and answers commit one path with `commitPath` and push only when `policy.outwardSync`
@@ -226,7 +226,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
     publishes a contract — it is a CLI step of `/join-team` — so the one function that writes is
     the act the guarantee attaches to (ADR 0016). Do not add a second write path around it.
   - **`contract` is one tool for two questions** (R6): `project` (narrowed by `path`) or `calls`.
-    There is no `who_calls`. It is `mode: ANY`, team only, `FOREIGN`, `LOCAL`, and pulls ff-only
+    There is no `who_calls`. It is `mode: ANY`, team only, `FOREIGN`, `LOCAL`, and pulls
     first, returning a failed pull in `pull`.
   - **Matching is the route map's**, through `core/route-path.js`: one normal form (`/items/{}`), and
     a call's `{}` meets only an endpoint's `{}`. A question may carry a method and a trailing slash.
@@ -258,7 +258,11 @@ the repo by commit count, and — like every other part — **dependency-free**.
   - Mutation-tested across core, index and mcp: 30 guards mutated (confidence, the gate checks,
     the description at each layer), 29 caught. The survivor is equivalent: a PR suffix left in the
     text is still dropped by the last rule in `keysInMessage`, that a key that is a PR is the PR.
-- **`catch_me_up` pulls (ff-only) and reads the team's notes, not only its log.** A failed pull is
+- **A team clone that lost a push race replays its local commits and never discards them**
+  ([ADR 0032](../docs/adr/0032-a-team-clone-replays-its-local-commits-and-never-discards-them.md)).
+  `pull` in `lib/gitsync.js` owns it, so no caller handles it. A conflict is aborted back to where it
+  started and reported with the files. Do not add `--autostash`, `reset` or `clean` to make it run.
+- **`catch_me_up` pulls and reads the team's notes, not only its log.** A failed pull is
   returned in `pull`, never swallowed, and the local notes still come back; team notes are bounded
   in `catchup.js` so the result fits under the transport cap rather than being cut by it. Its
   `contracts` field is each project's contract drift since the date.
@@ -406,7 +410,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
     `story`, `stories-for` and `risk` read the mirror, every repo's story links and contracts, and
     the open asks. So `graph` is `mode: ANY`: a project manager's Desktop has a vault root and no
     repo, and the code ops refuse a vault themselves (`not_a_repo`). `graphFrom` is the one entry
-    both adapters call for any op. The code ops' rules carry over: read-only (a ff-only pull, as
+    both adapters call for any op. The code ops' rules carry over: read-only (a pull, as
     `contract` does), every list capped, every answer a floor. **Freshness**: in a repo, its own
     project's links are refused when HEAD has moved past the commit they were built at; another
     repo's cannot be checked from here, so `links.projects` carries each one's `asOf` and commit.

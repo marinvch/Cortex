@@ -33,7 +33,7 @@ export function capture(root, { content, project, tags, today, team, noteId, pol
     const slug = project ? slugify(project) : "inbox";
     const rel = `team/${teamSlug}/projects/${slug}/${today}-${noteId}.md`;
 
-    // best-effort ff-only sync before committing/pushing (ignores failure); pointless if we will
+    // best-effort sync before committing/pushing (ignores failure); pointless if we will
     // not push.
     if (outwardSync) pull(clone, gate);
     vault.write(rel, `---\ntype: brain-note\ncreated: ${today}\n---\n\n${content}${tagLine}\n`);

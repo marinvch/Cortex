@@ -60,14 +60,79 @@ export function destinationRefusal(dir, { policy, env }, { push }) {
   return null;
 }
 
-/** Fast-forward pull. `opts.policy` is required: a pull reaches the remote, so it is checked. */
+/**
+ * Replay this clone's local commits onto its upstream (ADR 0032). null when there is nothing to
+ * replay: no upstream, or the clone is not both ahead and behind. Never discards anything: changed
+ * tracked files stop it, and a conflict is aborted back to the commit it started from.
+ */
+function replayLocalCommits(cloneDir) {
+  let ahead;
+  let behind;
+  try {
+    [ahead, behind] = git(cloneDir, ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"]).trim().split(/\s+/).map(Number);
+  } catch {
+    return null;
+  }
+  if (!ahead || !behind) return null;
+  if (git(cloneDir, ["status", "--porcelain", "--untracked-files=no"]).trim()) {
+    return { ok: false, error: `diverged_dirty: ${cloneDir} has changed files and has also diverged from the remote, so it was left as it is. Commit or restore them, and the next pull catches up.` };
+  }
+  ensureIdentity(cloneDir);
+  try {
+    // The dates are kept because catch_me_up and the drift report filter on them.
+    git(cloneDir, ["rebase", "-q", "--committer-date-is-author-date", "@{upstream}"]);
+    return { ok: true, replayed: ahead };
+  } catch (e) {
+    let paths = "";
+    try { paths = git(cloneDir, ["diff", "--name-only", "--diff-filter=U"]).trim().split("\n").filter(Boolean).join(", "); } catch { /* reported without them */ }
+    try { git(cloneDir, ["rebase", "--abort"]); } catch { /* it stopped before it started */ }
+    if (!paths) return { ok: false, error: `diverged: could not replay the local commits in ${cloneDir}: ${String(e.stderr || e.message).trim()}` };
+    return { ok: false, error: `diverged_conflict: a local commit and a teammate's both changed ${paths}. Yours is kept in ${cloneDir} and was not pushed. Run \`git pull --rebase\` there and settle it with /resolve-conflicts.` };
+  }
+}
+
+/**
+ * Bring the clone up to date. `opts.policy` is required: a pull reaches the remote, so it is checked.
+ * Fast-forward first. If that fails and a fetch works, a diverged clone replays its local commits
+ * (ADR 0032). The fetch is what tells a diverged clone from an unreachable remote, because git's
+ * error text is translated and cannot be matched.
+ */
 export function pull(cloneDir, opts) {
   const gate = gateOf("pull", opts);
   if (!isGitRepo(cloneDir)) return { ok: false, error: "not_a_git_repo" };
   const refused = destinationRefusal(cloneDir, gate, { push: false });
   if (refused) return { ok: false, error: refused };
-  try { git(cloneDir, ["pull", "--ff-only", "-q"]); return { ok: true }; }
-  catch (e) { return { ok: false, error: String(e.stderr || e.message) }; }
+  try {
+    git(cloneDir, ["pull", "--ff-only", "-q"]);
+    return { ok: true };
+  } catch (e) {
+    const failed = { ok: false, error: String(e.stderr || e.message) };
+    try { git(cloneDir, ["fetch", "-q"]); } catch { return failed; }
+    return replayLocalCommits(cloneDir) ?? failed;
+  }
+}
+
+/**
+ * Push, and when the remote moved first, replay and push once more. Returns null on success or the
+ * `push_failed: …` error. The destination was checked by the caller, and `pull` checks the inbound
+ * side itself. A failure with nothing to replay (no access, no network) is reported as it was.
+ */
+function pushOrRecover(cloneDir, args, gate) {
+  const failure = (e) => "push_failed: " + String(e.stderr || e.message).trim();
+  try {
+    git(cloneDir, args);
+    return null;
+  } catch (first) {
+    const caught = pull(cloneDir, gate);
+    if (!caught.ok && String(caught.error).startsWith("diverged")) return `push_failed: ${caught.error}`;
+    if (!caught.replayed) return failure(first);
+    try {
+      git(cloneDir, args);
+      return null;
+    } catch (second) {
+      return failure(second);
+    }
+  }
 }
 
 /**
@@ -83,8 +148,8 @@ export function commitAndPush(cloneDir, files, message, opts) {
   } catch (e) { return { ok: false, pushed: false, error: String(e.stderr || e.message) }; }
   const refused = destinationRefusal(cloneDir, gate, { push: true });
   if (refused) return { ok: true, pushed: false, error: refused };
-  try { git(cloneDir, ["push", "-q"]); return { ok: true, pushed: true }; }
-  catch (e) { return { ok: true, pushed: false, error: "push_failed: " + String(e.stderr || e.message) }; }
+  const failed = pushOrRecover(cloneDir, ["push", "-q"], gate);
+  return failed ? { ok: true, pushed: false, error: failed } : { ok: true, pushed: true };
 }
 
 /**
@@ -124,8 +189,8 @@ export function pushHead(cloneDir, opts) {
   const gate = gateOf("pushHead", opts);
   const refused = destinationRefusal(cloneDir, gate, { push: true });
   if (refused) return { ok: false, error: refused };
-  try { git(cloneDir, ["push", "-q", "origin", "HEAD"]); return { ok: true }; }
-  catch (e) { return { ok: false, error: "push_failed: " + String(e.stderr || e.message).trim() }; }
+  const failed = pushOrRecover(cloneDir, ["push", "-q", "origin", "HEAD"], gate);
+  return failed ? { ok: false, error: failed } : { ok: true };
 }
 
 /** The URL `origin` points at in `dir`, or null when there is no repo or no such remote. */

@@ -173,7 +173,7 @@ export function addProject(root, { team, teamRepo, project, cwd, today, policy, 
   // The team-brain's URL is checked against the profile's destinations before it is cloned
   // (core/destinations.js): on work, a remote that is not approved stops the join here.
   const { dir, cloned } = cloneTeamBrain(root, team, teamRepo, { policy, env });
-  // Best effort and fast-forward only, as `capture` does it. Pulling BEFORE looking for the file is
+  // Best effort, as `capture` does it. Pulling BEFORE looking for the file is
   // what makes "an existing file is left alone" true for a file a teammate pushed an hour ago.
   if (policy.outwardSync) pull(dir, { policy, env });
 

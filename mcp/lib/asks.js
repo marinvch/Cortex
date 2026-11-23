@@ -212,7 +212,7 @@ function clip(text, room) {
 
 /**
  * The caller's inbox: open asks addressed to their roles or projects, and the asks they sent with
- * every answer so far. `pulled` is the result of the ff-only pull the caller made first; a failed
+ * every answer so far. `pulled` is the result of the pull the caller made first; a failed
  * pull is returned, never swallowed — the local asks still come back, because an empty answer must
  * never pass for a quiet week (R11).
  */
@@ -331,7 +331,7 @@ export async function askFrom(brain, args, ctx) {
   return sync ? { ...res, sync } : res;
 }
 
-/** `inbox`: pull (ff-only), sync the asks it is about to show, then the asks for the caller and the answers to theirs. */
+/** `inbox`: pull, sync the asks it is about to show, then the asks for the caller and the answers to theirs. */
 export async function inboxFrom(brain, ctx) {
   const { dir, author } = openClone(brain, "inbox", ctx);
   const pulled = pull(dir, { policy: brain.policy, env: brain.env });

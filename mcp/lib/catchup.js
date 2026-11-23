@@ -20,14 +20,14 @@ const TEAM_COMMITS_MAX = 100;
 
 /**
  * The vault half of a catch-up: personal notes for `project`, and — on a team — what every project
- * of the team captured since `since`, read from the team-brain clone after a fast-forward pull.
+ * of the team captured since `since`, read from the team-brain clone after a pull.
  *
  * It reads the notes, not only the log. It used to return the clone's commit subjects and nothing
  * else, from a clone it never pulled, so a teammate's capture in another repo was invisible twice:
  * not fetched, and not read if it had been.
  *
- * The pull is ff-only: a clone with local commits the remote does not have is left exactly as it
- * is. A failed pull is REPORTED in `pull` and the local notes are still returned — an empty or stale
+ * A clone with local commits the remote lacks has them replayed, never discarded (ADR 0032), and on
+ * a conflict is left as it was. A failed pull is REPORTED in `pull` and the local notes are still returned — an empty or stale
  * answer must never pass for a quiet week.
  *
  * @param {string} root  the vault

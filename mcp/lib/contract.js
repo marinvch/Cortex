@@ -485,7 +485,7 @@ export function contractDrift(clone, since) {
 // From a brain: what both adapters call
 // ---------------------------------------------------------------------------------------------
 
-/** `contract`: one project's surface, who calls an endpoint, or the list. Pulls (ff-only) first. */
+/** `contract`: one project's surface, who calls an endpoint, or the list. Pulls first. */
 export function contractFrom(brain, args = {}) {
   const { dir } = ensureTeamClone(brain, "contract");
   const pulled = pull(dir, { policy: brain.policy, env: brain.env });

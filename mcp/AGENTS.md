@@ -176,7 +176,7 @@ the repo by commit count, and — like every other part — **dependency-free**.
     arguments besides `content` that `assertPublishable` scans — an ask's `title` and `links`.
     `assertWellFormed` refuses a name the schema does not take. The CLI calls `assertPublishable`
     with the tool's name before it calls `lib/`, so both adapters pass the same gate.
-  - **A member's `job` is one of `core/job.js`'s five words and never refuses anything.** It
+  - **A member's `job` is one of `core/job.js`'s seven words and never refuses anything.** It
     decides what the rituals offer first. A reader keeps a member whose job is wrong, reports it in
     `rosterErrors` and reads it as `developer`, as it reads no job; `setMember` refuses it, and
     keeps the recorded job when none is passed. `inbox` returns it as `me.job`, which is where

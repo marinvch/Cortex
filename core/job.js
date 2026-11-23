@@ -1,6 +1,6 @@
 // The job a person does on a team, and the rituals each job is offered first.
 //
-// A job is one of five words, recorded once per member in the team-brain's `team.json`
+// A job is one of seven words, recorded once per member in the team-brain's `team.json`
 // (`members[].job`, read by `mcp/lib/roster.js`). It is not a role: a role (`frontend`, `backend`)
 // is what an ask is addressed to, and a member holds any number of them. A job is what the person
 // does all day, and a member has exactly one.
@@ -14,12 +14,12 @@
 // A member with no job is a developer, so every roster written before the field existed means what
 // it meant. Pure: no file, no environment, no clock.
 
-export const JOBS = Object.freeze(["developer", "architect", "lead", "pm", "qa"]);
+export const JOBS = Object.freeze(["developer", "architect", "lead", "pm", "qa", "po", "ba"]);
 
 /** What a missing or unreadable job is read as. */
 export const DEFAULT_JOB = "developer";
 
-/** True for one of the five job words, exactly as written. */
+/** True for one of the seven job words, exactly as written. */
 export function isJob(value) {
   return typeof value === "string" && JOBS.includes(value);
 }
@@ -50,4 +50,8 @@ export const JOB_SKILLS = Object.freeze({
   ]),
   pm: Object.freeze(["whats-changed", "challenge-plan", "story-map"]),
   qa: Object.freeze(["change-impact", "review-change", "debug-issue"]),
+  // A product owner decides what gets built and why; a business analyst pins down what it means.
+  // Both mostly work outside the repos, so each list starts with what a role pack can carry.
+  po: Object.freeze(["story-map", "challenge-plan", "define-terms", "whats-changed"]),
+  ba: Object.freeze(["define-terms", "challenge-plan", "story-map", "design-spec"]),
 });

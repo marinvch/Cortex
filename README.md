@@ -149,7 +149,8 @@ team-brain's `team.json` lists each member's handle, roles and projects; `/join-
 and runs `cortex team member --roles backend --job developer`. Your handle is your memory author
 name: `CORTEX_AUTHOR`, or your git `user.name` as a slug.
 
-Your **job** is one of `developer`, `architect`, `lead`, `pm` or `qa`. It changes what
+Your **job** is one of `developer`, `architect`, `lead`, `pm`, `qa`, `po` (product owner) or `ba`
+(business analyst). It changes what
 `/setup-repo`, `/resume-work` and `/join-team` offer you first, never what you may run. A member
 with no job is a developer, so a roster written before the field existed keeps working.
 

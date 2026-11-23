@@ -20,7 +20,7 @@ assert_contains "$out" "every pack builds, every skill in one is portable, every
 
 out="$(node "$TOOL" --help 2>&1)"; rc=$?
 assert_eq "0" "$rc" "--help exits 0"
-assert_contains "$out" "one of developer, architect, lead, pm, qa" "and names the five jobs"
+assert_contains "$out" "one of developer, architect, lead, pm, qa, po, ba" "and names the seven jobs"
 out="$(node "$TOOL" manager 2>&1)"; rc=$?
 assert_eq "2" "$rc" "an unknown job is a bad argument"
 assert_contains "$out" "unknown job 'manager'" "and is named"
@@ -41,7 +41,7 @@ node "$TOOL" --all --out "$WORK/a" > "$WORK/a.log" 2>&1; rc=$?
 assert_eq "0" "$rc" "--all writes every pack"
 node "$TOOL" --all --out "$WORK/b" > /dev/null 2>&1
 version="$(tr -d '\r\n' < "$REPO_ROOT/VERSION")"
-for job in developer architect lead pm qa; do
+for job in developer architect lead pm qa po ba; do
   [ -f "$WORK/a/cortex-pack-$job-$version.zip" ] && _pass "the $job pack zip is written" || _fail "the $job pack zip is written" "no $WORK/a/cortex-pack-$job-$version.zip"
   [ -f "$WORK/a/cortex-pack-$job/pack.json" ] && _pass "beside its folder" || _fail "beside its folder" "no pack.json"
 done

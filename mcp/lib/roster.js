@@ -5,7 +5,7 @@
 // people. A `## Members` list parsed out of prose was the alternative, and two people editing prose
 // on one day is a merge conflict with no schema to resolve it by.
 //
-// `job` is what the person does — developer, architect, lead, pm, qa — and `core/job.js` owns the
+// `job` is what the person does — developer, architect, lead, pm, qa, po, ba — and `core/job.js` owns the
 // words. It changes what is offered, never what is allowed, so a bad job never costs a member their
 // place in the roster: it is reported and read as `developer`, the same as no job at all.
 //
@@ -40,7 +40,7 @@ export class RosterError extends Error {
  * One member, normalised, or a list of what is wrong with it. Never throws and never repeats a
  * value in a message: a file someone hand-edited may hold anything.
  *
- * A job that is not one of the five words is the one error that keeps the member: `member` comes
+ * A job that is not one of the seven words is the one error that keeps the member: `member` comes
  * back without a job (read as `developer`) and `errors` says why. A reader keeps such a member, so
  * a typo in a job never takes a person out of the asks; a writer refuses any error.
  *

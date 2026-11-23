@@ -7,8 +7,8 @@ import { DEFAULT_JOB, JOBS, JOB_SKILLS, isJob, jobOf } from "../job.js";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-test("the five jobs, and a missing or unknown job reads as developer", () => {
-  assert.deepEqual([...JOBS], ["developer", "architect", "lead", "pm", "qa"]);
+test("the seven jobs, and a missing or unknown job reads as developer", () => {
+  assert.deepEqual([...JOBS], ["developer", "architect", "lead", "pm", "qa", "po", "ba"]);
   assert.equal(DEFAULT_JOB, "developer");
   for (const j of JOBS) assert.equal(isJob(j), true, j);
   for (const v of ["", "PM", " pm", "manager", null, undefined, 3, ["pm"]]) assert.equal(isJob(v), false, String(v));

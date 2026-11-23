@@ -34,9 +34,10 @@ jobs:
       - name: Test mcp
         working-directory: mcp
         # A test waiting on a server that never answers was seen to hang for over 30 minutes under
-        # load. The timeout fails that test by name. Force-exit is what ends the run: without it the
-        # process waits for the stuck child after the test is already reported as cancelled.
-        run: npm test -- --test-timeout=300000 --test-force-exit
+        # load. The timeout names that test in the log, and the job's limit above ends the run, since
+        # the process still waits for a stuck child. Not --test-force-exit: with it, test/tmp.js, a
+        # helper with an `after` hook and no tests, runs out of memory.
+        run: npm test -- --test-timeout=300000
       # No install step anywhere: nothing in the repo has a runtime dependency, because a plugin
       # install clones and never runs one. If a step ever needs `npm ci` again, the plugin is
       # already broken on users' machines — see core/test/install.test.js.

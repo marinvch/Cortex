@@ -189,3 +189,9 @@ test("the module never asks git for an email, and never through a shell", () => 
   assert.match(code, /execFileSync\(\s*"git",\s*\["config",\s*"user\.name"\]/, "an argument array, never a string");
   assert.doesNotMatch(code, /\bexecSync\b|\bexec\(|shell:\s*true/, "no shell");
 });
+
+test("a pack's placeholder left unfilled is refused, not turned into a name", () => {
+  for (const value of ["<your short handle, such as dev-a>", " <handle> "]) {
+    assert.throws(() => resolveAuthor({ env: { CORTEX_AUTHOR: value }, git: () => "someone" }), InvalidAuthorError);
+  }
+});

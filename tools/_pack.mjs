@@ -218,10 +218,14 @@ const ROOT_PLACEHOLDER = "<path to your Cortex brain: a vault, or a repo's .cort
 // still wins.
 const TEAM_PLACEHOLDER = "<your team's name, or remove this line if you are not on a team>";
 const TEAM_REPO_PLACEHOLDER = "<the team-brain's git URL, or remove this line>";
+// Left unfilled, both stop rather than guess. A pack with no profile would run as `home`, which has
+// no approved destinations, and a pack with no author has no name to sign a decision with.
+const PROFILE_PLACEHOLDER = "<work, home or lab>";
+const AUTHOR_PLACEHOLDER = "<your short handle, such as dev-a>";
 
 /** The MCP config files a pack carries, as `[{ rel, text }]`. Copilot, Gemini and Codex come from `_setup-agents.mjs`. */
 export function mcpFiles() {
-  const desktop = { mcpServers: { cortex: { command: "node", args: [`${HOME_PLACEHOLDER}/mcp/server.js`], env: { CORTEX_ROOT: ROOT_PLACEHOLDER, CORTEX_TEAM: TEAM_PLACEHOLDER, CORTEX_TEAM_REPO: TEAM_REPO_PLACEHOLDER } } } };
+  const desktop = { mcpServers: { cortex: { command: "node", args: [`${HOME_PLACEHOLDER}/mcp/server.js`], env: { CORTEX_ROOT: ROOT_PLACEHOLDER, CORTEX_PROFILE: PROFILE_PLACEHOLDER, CORTEX_AUTHOR: AUTHOR_PLACEHOLDER, CORTEX_TEAM: TEAM_PLACEHOLDER, CORTEX_TEAM_REPO: TEAM_REPO_PLACEHOLDER } } } };
   const json = (v) => JSON.stringify(v, null, 2) + "\n";
   return [
     { rel: "mcp/claude-desktop.json", text: json(desktop) },
@@ -280,6 +284,10 @@ function readme(job, version, packed, needs) {
     "  `CORTEX_TEAM` names the team, and `CORTEX_TEAM_REPO` is where its team-brain is cloned from the",
     "  first time a team tool runs. Point `CORTEX_ROOT` at a folder of your own, a vault; the clone goes",
     "  in its `team/` folder. Remove both lines if you are not on a team.",
+    "  `CORTEX_PROFILE` is `work` on a work machine, because only `work` keeps to the approved",
+    "  destinations and refuses personal data. `CORTEX_AUTHOR` is the handle your team knows you by, and",
+    "  your notes and decisions are signed with it. Cortex will not start on a profile left as `<...>`,",
+    "  and will not write under an author left as `<...>`.",
     "- `vscode-mcp.json`: GitHub Copilot in VS Code, as `.vscode/mcp.json` in a repo. It reads",
     "  `CORTEX_HOME` from your environment.",
     "- `gemini-settings.json`: Gemini CLI, merged into `.gemini/settings.json` in a repo.",

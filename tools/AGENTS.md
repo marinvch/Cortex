@@ -54,7 +54,8 @@ run `node tools/...` fails on the first person who tries it, and nothing reports
 
 The Claude Desktop entry carries `CORTEX_TEAM` and `CORTEX_TEAM_REPO` placeholders beside
 `CORTEX_ROOT`. Desktop has no repo, so the team cannot come from a connector; `mcp/lib/resolve.js`
-reads the two where none is found. `whats-changed` stays out of the pm pack because it runs a
+reads the two where none is found. It also carries `CORTEX_PROFILE` and `CORTEX_AUTHOR`, and both
+refuse a value left as `<...>`, so an unfilled entry cannot run as `home` or sign as a placeholder. `whats-changed` stays out of the pm pack because it runs a
 script; `story-map`, which is in it, covers the catch-up through the `catch_me_up` tool.
 
 ## The copies that are deliberate, and the tests that pin them

@@ -83,7 +83,9 @@ function gitUserName(cwd) {
 export function resolveAuthor({ env = {}, cwd, git = gitUserName } = {}) {
   const declared = env.CORTEX_AUTHOR;
   if (declared !== undefined && declared !== null && String(declared).trim() !== "") {
-    const slug = authorSlug(String(declared));
+    // A role pack ships `<...>` for the person to replace. Left as it is, it would slug into a
+    // plausible name and sign their entries with it.
+    const slug = /^\s*<.*>\s*$/.test(String(declared)) ? null : authorSlug(String(declared));
     if (slug === null) throw new InvalidAuthorError("CORTEX_AUTHOR");
     return { slug, source: "CORTEX_AUTHOR" };
   }

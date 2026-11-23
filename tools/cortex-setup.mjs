@@ -38,6 +38,7 @@
 //
 // Exit codes: 1 for a bad argument, 2 for a file Cortex will not write into.
 
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -201,6 +202,24 @@ if (connected && hasBrief) {
   }
 }
 
+// A config the team is meant to share does not reach them if git ignores it, and plain `git add`
+// then fails. Many repos ignore `.vscode/`. A tracked file is not reported: git answers no for it.
+const ignoredByGit = (label) => {
+  try {
+    execFileSync("git", ["check-ignore", "-q", "--", label], { cwd: repo, stdio: "ignore" });
+    return true;
+  } catch {
+    return false; // not ignored, or not a git repo
+  }
+};
+for (const r of rows) {
+  if (r.scope !== COMMIT && r.scope !== "instructions") continue;
+  if ((r.action !== "add" && r.action !== "keep") || !ignoredByGit(r.label)) continue;
+  r.ignored = true;
+  const warning = `git ignores this file, so your team will not get it. Commit it anyway with: git add -f ${r.label}`;
+  r.note = r.note ? `${r.note}. ${warning}` : warning;
+}
+
 const refused = rows.filter((r) => r.action === "refused");
 const writes = rows.filter((r) => r.action === "add");
 const projectScope = rows.some((r) => r.scope === COMMIT && r.action !== "refused");
@@ -239,7 +258,7 @@ if (args.json) {
     repo,
     write: args.write && !refused.length,
     cortexHome: { ...cortexHome, cortex: CORTEX_DIR },
-    files: rows.map(({ agent, label, scope, action, note, created }) => ({ agent, path: label, scope, action, ...(created !== undefined && action === "add" ? { created } : {}), ...(note ? { note } : {}) })),
+    files: rows.map(({ agent, label, scope, action, note, created, ignored }) => ({ agent, path: label, scope, action, ...(created !== undefined && action === "add" ? { created } : {}), ...(ignored ? { ignored } : {}), ...(note ? { note } : {}) })),
     wrote,
   }, null, 2));
   process.exit(refused.length ? 2 : 0);
@@ -270,5 +289,8 @@ if (!wrote.length) {
   process.exit(0);
 }
 console.log(`Wrote ${wrote.join(", ")}.`);
-const commit = rows.filter((r) => wrote.includes(r.label) && r.scope !== "user scope" && !r.scope.startsWith("user scope")).map((r) => r.label);
+const shared = rows.filter((r) => wrote.includes(r.label) && r.scope !== "user scope" && !r.scope.startsWith("user scope"));
+const commit = shared.filter((r) => !r.ignored).map((r) => r.label);
+const forced = shared.filter((r) => r.ignored).map((r) => r.label);
 if (commit.length) console.log(`Commit them so the whole team gets them: git add ${commit.join(" ")}`);
+if (forced.length) console.log(`Git ignores these, so they need -f: git add -f ${forced.join(" ")}`);

@@ -87,6 +87,9 @@ assert_eq "" "$scan" "and no file in any pack holds what the credential scan rea
 assert_contains "$(cat "$WORK/a/cortex-pack-pm/mcp/claude-desktop.json")" "<path to your Cortex checkout>/mcp/server.js" "the MCP entries carry placeholders, not values"
 assert_contains "$(cat "$WORK/a/cortex-pack-pm/mcp/claude-desktop.json")" '"CORTEX_TEAM": "<your team' "the Desktop entry names the team, since Desktop has no repo to find a connector in"
 assert_contains "$(cat "$WORK/a/cortex-pack-pm/README.md")" "CORTEX_TEAM_REPO" "and the README says what the two team variables are for"
+assert_contains "$(cat "$WORK/a/cortex-pack-pm/mcp/claude-desktop.json")" '"CORTEX_PROFILE": "<work' "the Desktop entry asks for a profile, so a work machine does not run as home"
+assert_contains "$(cat "$WORK/a/cortex-pack-pm/mcp/claude-desktop.json")" '"CORTEX_AUTHOR": "<your' "and for the handle its notes and decisions are signed with"
+assert_contains "$(cat "$WORK/a/cortex-pack-pm/README.md")" "CORTEX_AUTHOR" "and the README says what the two are for"
 
 # The zips open with a tool that is not ours, when there is one.
 if command -v unzip > /dev/null 2>&1; then

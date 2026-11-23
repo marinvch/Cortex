@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **The Claude Desktop entry in a role pack now asks for a profile and an author.** Without them a work
+  machine ran as `home`, with no approved destinations, and notes had no author. A value left as
+  `<...>` stops Cortex instead of being used.
 - **Contracts and project files now pass the personal-data check.** They went to the team-brain with
   only the credential and denylist checks, so an email address in one was published even on `work`.
   `work` now refuses it, and `home` and `lab` write it with a warning.

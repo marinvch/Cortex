@@ -129,7 +129,8 @@ test("a conflict aborts: no rebase in progress, HEAD as it was, the commit intac
   assert.match(res.error, /resolve-conflicts/);
   assert.equal(midRebase(clone), false);
   assert.equal(git(clone, "rev-parse", "HEAD").trim(), head);
-  assert.equal(readFileSync(join(clone, "ask.md"), "utf8"), "my answer\n");
+  // Line endings are git's to choose on checkout: with core.autocrlf the abort writes CRLF.
+  assert.equal(readFileSync(join(clone, "ask.md"), "utf8").replace(/\r\n/g, "\n"), "my answer\n");
   assert.equal(git(clone, "status", "--porcelain").trim(), "");
 });
 

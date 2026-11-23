@@ -24,11 +24,14 @@ import {
   setFrontmatter,
   validateProjectFile,
 } from "../../core/project-file.js";
+import { dirname } from "node:path";
+import { ensureGitignored } from "../../core/gitignore.js";
 import { RefusedWriteError } from "../../core/scrub.js";
 import { assertPublished } from "../../core/gate.js";
 import { commitPath, originUrl, pull, pushHead, teamCloneDir } from "./gitsync.js";
+import { isRepoMode } from "./mode.js";
 import { slugify } from "./slug.js";
-import { cloneTeamBrain, readTeamSource, writeConnector } from "./team.js";
+import { CLONE_MARKER, cloneTeamBrain, readTeamSource, writeConnector } from "./team.js";
 import { openVault } from "./vault.js";
 
 /** A project-file operation that was declined, with a `code` a caller can branch on. */
@@ -333,7 +336,10 @@ export function checkProjects(root, { team, policy }) {
  */
 export function joinProject(root, { team, teamRepo, project, cwd, today, policy, env = process.env, fields = {} }) {
   const added = addProject(root, { team, teamRepo, project, cwd, today, policy, env, fields });
+  // In repo mode the clone sits inside the product repo, and the commit this join asks for must not
+  // pick it up as an embedded repository. After the add, because a refused join changes nothing here.
+  const ignored = isRepoMode(root) ? ensureGitignored(dirname(root), [".cortex/team/"], CLONE_MARKER) : [];
   const source = readTeamSource(teamCloneDir(root, team));
   const connector = writeConnector(cwd, { team, project, teamBrainRepo: teamRepo, source });
-  return { ...added, connector, source };
+  return { ...added, connector, source, ignored };
 }

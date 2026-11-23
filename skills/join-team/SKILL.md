@@ -85,7 +85,8 @@ Here it is the requirement, and it holds only because the connector carries no l
    The second commits `stories: update <slug>` when they changed. Run both again after a sprint's
    work merges.
 6. Offer to commit the connector so teammates inherit the wiring:
-   `git add .cortex/connector.json && git commit -m "chore: add cortex team connector"`.
+   `git add .cortex/connector.json && git commit -m "chore: add cortex team connector"`. If the join
+   printed `.gitignore` in its next step, add that file too: it keeps the clone out of the repo.
 7. Tell the user what joining gave them. `/whats-changed` pulls the team-brain and returns what every
    repo of the team captured, and which contracts changed. The `ask`, `inbox` and `answer` tools
    carry a question to a role in another repo and the answer back; an agent calls `inbox` at the

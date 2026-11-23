@@ -149,14 +149,14 @@ function cmdTeam(teamSub, args, brain) {
       fields[key] = args[flag];
     }
     // The order (project file, then connector) is `joinProject`'s: a refused join writes no connector.
-    const { dir, cloned, file, connector, source } = joinProject(root, {
+    const { dir, cloned, file, connector, source, ignored } = joinProject(root, {
       team: args.name, teamRepo: args.repo, project, cwd: process.cwd(), today: stamp(), policy: brain.policy, env: brain.env, fields,
     });
     console.log(describeProjectFile(file, brain));
     for (const w of file.warnings) console.log(`  warning: ${w.msg}`);
     console.log(`Team-brain ${cloned ? "cloned to" : "already at"} ${dir}. Wrote ${connector}.`);
     if (source) console.log(`The team runs Cortex from ${source}: the connector names it, so /setup-repo stamps that source here.`);
-    console.log("Next: commit the connector into THIS repo →  git add .cortex/connector.json");
+    console.log(`Next: commit the connector into THIS repo →  git add .cortex/connector.json${ignored.length ? " .gitignore" : ""}`);
     return 0;
   }
   if (teamSub === "member") {

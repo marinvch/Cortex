@@ -39,6 +39,8 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **Joining a team now ignores the team-brain clone in the same step.** The ignore line used to arrive
+  with the first ask, so a `git add -A` right after joining could commit the clone as an embedded repo.
 - **The stamped `protected-paths` guard now blocks when it cannot run.** A missing or crashing script let
   every edit through. A repo stamped earlier keeps its old entry in `.claude/settings.json` until someone
   adds `|| exit 2` to that command.

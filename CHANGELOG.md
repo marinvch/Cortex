@@ -15,6 +15,8 @@ this project now versions independently of any package manager (see `VERSION`).
   anyone can set `CORTEX_AUTHOR` to a handle on the roster.
 - **Product owners and business analysts are jobs now.** `po` and `ba` join the roster, each with its own
   first rituals and its own role pack for Claude Desktop or claude.ai.
+- **`/challenge-plan` can turn a confirmed idea into an intent.** It drafts `intent/<name>.md` from the
+  person's answers, keeps what is still open under "Not yet decided", and writes only after they say yes.
 
 ## [3.1.0] — 2026-11-23
 

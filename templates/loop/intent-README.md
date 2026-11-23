@@ -16,7 +16,8 @@ who asked for what, what the agent produced, and who approved it.
 
 ## How to add one
 
-Copy `TEMPLATE.md` to `<short-name>.md` and write it in your own words. Brainstorm with Claude
+Copy `TEMPLATE.md` to `<short-name>.md` and write it in your own words, or run `/challenge-plan`
+on the idea and let it draft the file from your answers. Brainstorm with Claude
 first if it helps — describe what you cannot do today, who is affected, what better looks like, and
 what is out of scope. Then correct whatever Claude misunderstood, and commit.
 

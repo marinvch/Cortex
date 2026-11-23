@@ -954,7 +954,7 @@ test("every hook command runs its script through bash, quoted — never relying 
   const scriptCommands = commands.filter((c) => /\.sh\b/.test(c));
   assert.ok(scriptCommands.length >= 2, "both hook scripts are found");
   for (const c of scriptCommands) {
-    assert.match(c, /^bash "\$\{CLAUDE_PROJECT_DIR\}\/\.claude\/hooks\/[\w.-]+\.sh"$/, `hook command must be bash "<path>", got: ${c}`);
+    assert.match(c, /^bash "\$\{CLAUDE_PROJECT_DIR\}\/\.claude\/hooks\/[\w.-]+\.sh"(?: \|\| exit 2)?$/, `hook command must be bash "<path>", got: ${c}`);
   }
 });
 

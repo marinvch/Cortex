@@ -296,3 +296,21 @@ test('main via spawnSync: a precise prompt payload emits nothing', () => {
   assert.equal(r.status, 0);
   assert.equal(r.stdout, '');
 });
+
+test('shouldBypass: the mid-flow replies that misfired in Bulgarian bypass', () => {
+  for (const p of [
+    'супер всичко готово ли е или има още',
+    'ок какво следва',
+    'да всичко да се оправи',
+    'това е и за няколко репота не само едно',
+    'ок оправи го',
+  ]) {
+    assert.equal(shouldBypass(p, {}), true, `expected "${p}" to bypass`);
+  }
+});
+
+test('shouldBypass: a Bulgarian report of a problem still scores', () => {
+  for (const p of ['ок графата е счупена', 'какво е това нещо', 'окото на графа е счупено']) {
+    assert.equal(shouldBypass(p, {}), false, `expected "${p}" to reach scoring`);
+  }
+});

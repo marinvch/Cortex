@@ -12,8 +12,9 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseAsk, renderAsk, placeCaller, resolveAddressee, AskRefused } from "../lib/asks.js";
+import { answerAsk, parseAsk, renderAsk, placeCaller, resolveAddressee, AskRefused } from "../lib/asks.js";
 import { checkMember, parseRoster, setMember, jobOf, JOBS, RosterError } from "../lib/roster.js";
+import { policyFor } from "../../core/profile.js";
 import { tempDir } from "./tmp.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -391,4 +392,56 @@ test("every team command is reachable from the CLI, and `help` lists each one (R
     const u = spawnSync(process.execPath, [CLI, cmd], { encoding: "utf8", env: bare });
     assert.doesNotMatch(u.stderr, /usage: cortex </, cmd);
   }
+});
+
+// --- who can record a decision (ADR 0033) -------------------------------------------------------------
+
+function decisionTeam(members) {
+  const remote = tempDir("dec-remote-");
+  execFileSync("git", ["init", "-q", "--bare", "-b", "master"], { cwd: remote, stdio: "ignore" });
+  const clone = tempDir("dec-clone-");
+  const g = (...a) => execFileSync("git", a, { cwd: clone, stdio: ["ignore", "pipe", "pipe"] }).toString();
+  g("clone", "-q", remote, ".");
+  g("config", "user.email", "t@t");
+  g("config", "user.name", "t");
+  g("checkout", "-q", "-B", "master");
+  mkdirSync(join(clone, "asks"));
+  writeFileSync(join(clone, "asks", "q1.md"), "---\ntype: ask\nid: q1\ntitle: A question\nfrom: ba1\nfromProject: web\nto: product\ntoKind: role\nstatus: open\ncreated: 2026-11-01\nupdated: 2026-11-01\nlinks: []\n---\n\nWhich one?\n");
+  writeFileSync(join(clone, "team.json"), `${JSON.stringify({ members })}\n`);
+  g("add", ".");
+  g("commit", "-qm", "seed");
+  g("push", "-q", "-u", "origin", "master");
+  return { clone, head: () => g("rev-parse", "HEAD").trim(), file: () => readFileSync(join(clone, "asks", "q1.md"), "utf8") };
+}
+const PO = { handle: "po1", roles: ["product"], projects: ["web"] };
+const decide = (t, handle, status = "decided") =>
+  answerAsk(t.clone, { id: "q1", content: "This one.", status, caller: { handle }, today: "2026-11-23", policy: policyFor("home"), env: {} });
+
+test("a handle on the roster can record a decision", () => {
+  const t = decisionTeam([PO]);
+  assert.equal(decide(t, "po1").status, "decided");
+});
+
+test("a handle not on the roster cannot, and nothing is written", () => {
+  const t = decisionTeam([PO]);
+  const head = t.head();
+  const before = t.file();
+  assert.throws(() => decide(t, "not-on-team"), (e) => e.code === "not_on_roster" && /CORTEX_AUTHOR/.test(e.message));
+  assert.equal(t.head(), head);
+  assert.equal(t.file(), before);
+});
+
+test("no handle at all cannot decide on a team with a roster", () => {
+  const t = decisionTeam([PO]);
+  assert.throws(() => decide(t, null), (e) => e.code === "not_on_roster");
+});
+
+test("a team with an empty roster is not checked", () => {
+  const t = decisionTeam([]);
+  assert.equal(decide(t, "anyone").status, "decided");
+});
+
+test("only a decision is checked: an ordinary answer needs no roster entry", () => {
+  const t = decisionTeam([PO]);
+  assert.equal(decide(t, "not-on-team", "answered").status, "answered");
 });

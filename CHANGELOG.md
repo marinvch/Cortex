@@ -39,6 +39,9 @@ this project now versions independently of any package manager (see `VERSION`).
 
 ### Fixed
 
+- **The prompt gate no longer stops on Bulgarian mid-flow replies.** A go-ahead, a status question or
+  "какво следва" scored 5 of 5 as vague, because its word lists are English. A vague task in Cyrillic
+  still scores.
 - **Joining a team now ignores the team-brain clone in the same step.** The ignore line used to arrive
   with the first ask, so a `git add -A` right after joining could commit the clone as an embedded repo.
 - **The stamped `protected-paths` guard now blocks when it cannot run.** A missing or crashing script let

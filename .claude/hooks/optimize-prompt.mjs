@@ -118,6 +118,17 @@ const LANDED_REPORT =
 const WHAT_NEXT =
   /^((ok(ay)?|so|and|now|then)[,\s]+)*what('?s|\s+is|\s+are)?\s+(next|left|remaining|remains|now)(\s+(to do|then|here))?[?.!\s]*$/i;
 
+/**
+ * The mid-flow replies above, typed in Bulgarian. Each comes from a real misfire. A task in Cyrillic
+ * ("оправи го") is none of these and still scores. `\b` does not see Cyrillic, so word ends are
+ * spelled out.
+ */
+const BG_END = '(?=$|[\\s,.!?])';
+const BG_GO_AHEAD = new RegExp(`^(ок|окей|добре|супер|да)[,\\s]+(продължи|продължавай|давай|оправи|направи|слей|пусни|почвай|всичко)${BG_END}`, 'iu');
+const BG_STATUS = new RegExp(`(^|\\s)ли${BG_END}`, 'iu');
+const BG_WHAT_NEXT = new RegExp(`^((ок|окей|добре|и|сега)[,\\s]+)*какво\\s+(следва|остава|още)${BG_END}`, 'iu');
+const BG_BYPASS = new RegExp(`(^|\\s)(само|просто|бързо)${BG_END}`, 'iu');
+
 export function wordCount(s) {
   return String(s ?? '').trim().split(/\s+/).filter(Boolean).length;
 }
@@ -141,6 +152,10 @@ export function shouldBypass(prompt, env = process.env) {
   if (WHAT_NEXT.test(p)) return true;                       // "ok so what is next" — asks the agent to choose
   if (BYPASS_WORDS.test(p)) return true;                    // user signalled "small, don't ceremony this"
   if (FILE_LOCATOR.test(p)) return true;                    // exact target named
+  if (BG_GO_AHEAD.test(p) && wordCount(p) <= 8) return true; // "ок продължи", "да всичко да се оправи"
+  if (BG_STATUS.test(p) && wordCount(p) <= 8) return true;  // "всичко готово ли е"
+  if (BG_WHAT_NEXT.test(p) && wordCount(p) <= 6) return true; // "ок какво следва"
+  if (BG_BYPASS.test(p)) return true;                       // "не само едно", the same signal as `only`
   return false;
 }
 

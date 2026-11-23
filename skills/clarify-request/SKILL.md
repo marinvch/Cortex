@@ -57,7 +57,10 @@ ritual.
    - asks only what is next, left or remaining (`what is next`, `ok so what is left`). It asks you
      to choose, so there is nothing to sharpen;
    - contains `just`, `quickly`, `only`, `typo`, or `rename`;
-   - names an exact file path or `file:line`.
+   - names an exact file path or `file:line`;
+   - is one of the replies above in Bulgarian: a go-ahead with a tail (`ок оправи го`, `да всичко`), a
+     status question with `ли` in eight words or fewer, `какво следва`, or a prompt with `само`,
+     `просто` or `бързо`. A task in Cyrillic (`оправи го`) still scores.
 
    Set `CORTEX_NO_OPTIMIZE=1` to disable the optimizer entirely.
 2. **Ask at most 2 questions**, highest-value first, skipping any the prompt already answers:

@@ -181,3 +181,21 @@ assert_exit 1 "a --repo that does not exist is a usage error" -- setup --agents 
 json="$(setup --agents copilot,codex --repo "$P" --json)"
 assert_contains "$json" '"action": "keep"' "--json reports each file's action"
 assert_contains "$json" '"cortexHome"' "and the CORTEX_HOME it found"
+
+# --- a config the repo's .gitignore would keep from the team -------------------------------------------
+
+IG="$WORK/ignored"
+mkrepo "$IG"
+printf '# Proj\n' > "$IG/AGENTS.md"
+printf '.vscode/\n' > "$IG/.gitignore"
+out="$(setup --agents copilot --repo "$IG")"
+assert_contains "$out" "git ignores this file" "a dry run warns that an ignored config will not reach the team"
+out="$(setup --agents copilot --repo "$IG" --write)"
+assert_contains "$out" "git add -f .vscode/mcp.json" "and names the command that does commit it"
+assert_not_contains "$out" "whole team gets them: git add .vscode/mcp.json" "and not the plain git add, which would fail"
+assert_contains "$out" "git add .github/copilot-instructions.md" "a file that is not ignored keeps the plain command"
+json="$(setup --agents copilot --repo "$IG" --json)"
+assert_contains "$json" '"ignored": true' "--json reports it"
+git -C "$IG" add -f .vscode/mcp.json
+out="$(setup --agents copilot --repo "$IG")"
+assert_not_contains "$out" "git ignores this file" "once it is tracked there is nothing to warn about"
